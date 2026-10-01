@@ -219,7 +219,7 @@ function validCommissioning(value: unknown, outer: Record<string, unknown>): val
     || !nonempty(value.modelRevision) || !finite(value.target) || typeof value.recoveryConfirmed !== "boolean"
     || !Array.isArray(value.channels) || value.channels.length < 3 || value.channels.length > 32
     || !value.channels.every(channel => record(channel) && nonempty(channel.id) && typeof channel.unit === "string")
-    || new Set(value.channels.map(channel => (channel as Record<string, unknown>).id)).size !== 3
+    || new Set(value.channels.map(channel => (channel as Record<string, unknown>).id)).size !== value.channels.length
     || !Array.isArray(value.transfers) || value.transfers.length > 16
     || JSON.stringify(value).length > 16 * 1024 * 1024 || !record(value.criteria)) return false;
   const gainRecovery = value.gainRecovery === undefined ? undefined : decodeGainRecoveryContext(value.gainRecovery);

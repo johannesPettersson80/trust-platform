@@ -191,7 +191,7 @@
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 35.1,
+    "durationSeconds": 45.1,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
@@ -199,7 +199,8 @@
       "iecType": "BOOL",
       "direction": "write"
     },
-    "baselineSeconds": 5
+    "baselineSeconds": 5,
+    "holdParameter": "P1.HoldSeconds"
   },
   "parameterBinding": {
     "loop_id": "control-lesson-21",
@@ -227,6 +228,6 @@
       "manual_value": false
     }
   },
-  "revision": "sha256:5f87233d4665ded74e700362b08a56fbff95f8d74fde0d3881242916c21d4d01",
-  "parameterPurpose": "experiment"
+  "parameterPurpose": "experiment",
+  "revision": "sha256:683f2dd3218200671085f29c9f76b977456807fea81368bc78c43c48e8b6e307"
 }

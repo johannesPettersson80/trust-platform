@@ -23,6 +23,27 @@ suite("Control Studio bounded experiment", () => {
       assert.strictEqual(api.buildControlExperimentPlan({ loop: { ...configured, experiment: { ...configured.experiment, baselineSeconds } }, sample: sample(), kind: "observation", amplitude: 0, durationSeconds: 35.1 }).kind, "rejected");
     }
   });
+  test("records a project step test for its applied hold: baseline, hold and one restoration sample", () => {
+    const api = experimentApi();
+    const configured = holdLoop();
+    const review = (holdSeconds?: number) => api.buildControlExperimentPlan({ loop: configured, sample: sample(), kind: "observation",
+      amplitude: 0, durationSeconds: 45.1, ...(holdSeconds === undefined ? {} : { holdSeconds }) });
+    for (const [hold, durationMs] of [[30, 35_100], [40, 45_100], [20, 25_100], [25.05, 30_200]]) {
+      const result = review(hold);
+      assert.strictEqual(result.kind, "accepted", `hold ${hold} s: ${result.reason}`);
+      assert.strictEqual(result.plan.durationMs, durationMs, `a ${hold} s hold records the 5 s baseline, the whole hold and one 0.1 s restoration sample`);
+    }
+    assert.strictEqual(review().kind, "rejected", "the applied hold must be read before the test is reviewed");
+    assert.strictEqual(review(41).kind, "rejected", "a hold outside its declared bounds is refused");
+  });
+  test("reads the applied hold of a project step test from the runtime parameters", async () => {
+    const { appliedProjectHoldSeconds } = require("../../controlStudio/projectExperimentHold");
+    const connect = (values: Record<string, number>) => async () => ({ source: "simulation", client: { status: async () => ({ values }) } });
+    assert.strictEqual(await appliedProjectHoldSeconds(holdLoop(), connect({ "P1.HoldSeconds": 30, "P1.SelectedStepPoints": 10 })), 30);
+    assert.strictEqual(await appliedProjectHoldSeconds({ ...holdLoop(), experiment: { ...holdLoop().experiment, holdParameter: undefined } },
+      async () => { throw new Error("a loop without a hold parameter must not connect"); }), undefined);
+    await assert.rejects(appliedProjectHoldSeconds(holdLoop(), connect({ "P1.SelectedStepPoints": 10 })), /P1\.HoldSeconds/);
+  });
   test("project-owned excitation rejects forced or bad primary signals while retaining auxiliary diagnostics", () => {
     const api = experimentApi();
     const configured = { ...loop(), experiment: { execution: "project-scripted", kind: "observation", amplitude: 0,
@@ -321,6 +342,18 @@ suite("Control Studio bounded experiment", () => {
       center: 48, hysteresis: 0.5, lowerThreshold: 47.5, upperThreshold: 48.5,
       lowOutput: 27, highOutput: 37,
     });
+  });
+
+  test("centres the relay on the measured baseline and switches just above its noise", () => {
+    const relay = (baseline?: { processCenter: number; processNoise: number }) => experimentApi().buildControlExperimentPlan({ loop: loop(),
+      sample: { ...sample(), controller: { ...sample().controller, mode: "Manual" } }, kind: "relay", amplitude: 5, durationSeconds: 30,
+      ...baseline }).plan.relayFeedback;
+    const measured = relay({ processCenter: 48.01, processNoise: 0.02 });
+    assert.ok(Math.abs(measured.center - 48.01) < 1e-12 && Math.abs(measured.hysteresis - 0.04) < 1e-12
+      && Math.abs(measured.lowerThreshold - 47.97) < 1e-9 && Math.abs(measured.upperThreshold - 48.05) < 1e-9,
+      `A ±0.02 % noise around a 48.01 % baseline gives switching at 48.01 ± 0.04 %: ${JSON.stringify(measured)}`);
+    assert.ok(Math.abs(relay({ processCenter: 48, processNoise: 0 }).hysteresis - 0.01) < 1e-12, "A noise-free baseline keeps a band of 0.01 % of the range");
+    assert.strictEqual(relay().hysteresis, 0.5, "Without a measured baseline the band stays 0.5 % of the range");
   });
 
   test("allows a reviewed open-loop output step without inventing a controller mode", () => {
@@ -712,6 +745,16 @@ function loop() {
     },
     limits: { outputMinimum: 0, outputMaximum: 100 }, observedSampleTiming: { nominalPeriodMs: 10 },
   };
+}
+
+/** The Lesson 14 step test: 5 s baseline, then a 20–40 s hold chosen through a declared experiment parameter. */
+function holdLoop() {
+  return { ...loop(), schemaVersion: 2, observedSampleTiming: { nominalPeriodMs: 100 },
+    experiment: { execution: "project-scripted", kind: "observation", amplitude: 0, durationSeconds: 45.1, seed: 1, baselineSeconds: 5,
+      holdParameter: "P1.HoldSeconds" as string | undefined, activation: { symbol: "P1.Run", address: "%MX64.0", iecType: "BOOL", direction: "write" } },
+    parameterPurpose: "experiment",
+    parameterBinding: { loop_id: "loop:tank", task_name: "MainTask", mode: { symbol: "P1.Run", manual_value: false },
+      parameters: [{ symbol: "P1.HoldSeconds", iec_type: "REAL", unit: "s", convention: "held step duration", minimum: 20, maximum: 40 }] } };
 }
 
 function loopWithDisturbance() {

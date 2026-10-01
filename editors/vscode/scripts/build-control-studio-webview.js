@@ -9,6 +9,7 @@ esbuild.build({
   entryPoints: {
     controlStudioChart: path.join(root, "src", "controlStudio", "webview", "threePageChart.ts"),
     controlStudioWorkflow: path.join(root, "src", "controlStudio", "webview", "threePageWorkflow.ts"),
+    controlStudioSetup: path.join(root, "src", "controlStudio", "webview", "loopSetupMain.ts"),
   },
   bundle: true,
   outdir: path.join(root, "media"),

@@ -341,6 +341,14 @@ END_VAR
 | 2 | Incomplete formal | `MyCounter(CountUp := Trigger);` |
 | 3 | Output access | `Value := MyCounter.Count;` |
 | 4 | With EN/ENO | `MyFB(EN := Cond, ENO => Success);` |
+| 5 | Separate input assignment | `MyCounter.CountUp := Trigger; MyCounter();` |
+| 6 | Call on an instance array element | `Timers[i](IN := Start, PT := T#5s);` |
+
+An element of an instance array is called and read through its subscript and
+runs its own instance (IEC 61131-3 Ed.3 §6.6.3.4.1, example e). Outside an
+instance, an input may be assigned through the instance and takes effect with
+the next call; inside the function block, the block does not assign its own
+inputs (IEC 61131-3 Ed.3 §6.6.3.4.2, Figure 13 row 2).
 
 ## 4. PROGRAM Declaration (Table 47, Section 6.6.4)
 

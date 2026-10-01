@@ -7,6 +7,13 @@ use std::io::Write;
 use std::sync::Mutex;
 use std::sync::OnceLock;
 
+/// Writes a trace record built only when tracing is enabled, so disabled tracing costs no formatting.
+pub(crate) fn trace_debug_with(message: impl FnOnce() -> String) {
+    if trace_enabled() {
+        trace_debug(&message());
+    }
+}
+
 pub(crate) fn trace_enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();
     *ENABLED.get_or_init(|| std::env::var_os("ST_DEBUG_TRACE").is_some())

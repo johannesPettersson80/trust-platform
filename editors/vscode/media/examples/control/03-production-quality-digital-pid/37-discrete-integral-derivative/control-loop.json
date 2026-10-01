@@ -1,104 +1,478 @@
 {
-  "schemaVersion": 1,
-  "id": "control-discrete-integral-derivative",
-  "name": "Discrete integral and derivative updates",
-  "revision": "sha256:028722a4ea5c99f12bdcc302696b6da08801f55f987c7025d57ad7c24307e1df",
-  "projectId": "project:control-discrete-integral-derivative",
-  "runtimeId": "simulator",
-  "controller": {
-    "instance": "P1.Controller",
-    "type": "LessonDiscretePID",
-    "design": "project",
-    "revision": "sha256:f931fe065573cf1d48d3b4a84e4a27feea82904cd5ef520158d7ad1f4405ab0c",
-    "action": "direct",
-    "taskPeriodMs": 10,
-    "modeSignal": "%MX16.0",
-    "modeWhenTrue": "Auto"
-  },
-  "signals": {
-    "setpoint": {
-      "symbol": "P1.Setpoint",
-      "address": "%ML40",
-      "iecType": "LREAL",
-      "direction": "read",
-      "unit": "rad",
-      "range": {
-        "minimum": -2,
-        "maximum": 2
-      }
-    },
-    "processVariable": {
-      "symbol": "P1.MeasuredPosition",
-      "address": "%IL0",
-      "iecType": "LREAL",
-      "direction": "read",
-      "unit": "rad",
-      "range": {
-        "minimum": -4,
-        "maximum": 4
-      }
-    },
-    "manipulatedVariable": {
-      "symbol": "P1.RequestedTorque",
-      "address": "%QL0",
-      "iecType": "LREAL",
-      "direction": "read",
-      "unit": "N m",
-      "range": {
-        "minimum": -10,
-        "maximum": 10
-      }
-    },
-    "additional": [
-      {
-        "id": "experiment-authority",
-        "channel": "experiment-authority",
-        "role": "state",
-        "symbol": "P1.ExperimentEnabled",
-        "address": "%MX16.1",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
+    "schemaVersion": 2,
+    "id": "control-discrete-integral-derivative",
+    "name": "Discrete PID",
+    "projectId": "project:control-discrete-integral-derivative",
+    "runtimeId": "simulator",
+    "controller": {
+        "instance": "P1.Controller",
+        "type": "Control.PID",
+        "design": "pid",
+        "revision": "sha256:bf0be62f137e16e000a4f9680c8466c32464b414fc647daaa7aaf1b6656948e2",
+        "action": "direct",
+        "taskPeriodMs": 20,
+        "modeSignal": "P1.AutoMode",
+        "modeWhenTrue": "Auto",
+        "manualOutputSignal": "P1.ManualTorqueNm",
+        "manualOutputAddress": "%ML8",
+        "manualOutputType": "LREAL",
+        "law": {
+            "kind": "pid",
+            "parameterRecordSymbol": "P1.Parameters",
+            "parameterRevisionSymbol": "P1.ParameterRevision",
+            "proportionalGainSymbol": "P1.Parameters.ProportionalGain",
+            "integralGainSymbol": "P1.Parameters.IntegralGain",
+            "derivativeGainSymbol": "P1.Parameters.DerivativeGain",
+            "derivativeSetpointWeightSymbol": "P1.Parameters.DerivativeSetpointWeight",
+            "proportionalSetpointWeightSymbol": "P1.Parameters.ProportionalSetpointWeight",
+            "measurementFilterTimeSymbol": "P1.FilterTimeS"
+        },
+        "pidInitialization": {
+            "kind": "control-pid-v1",
+            "maximumSnapshotAgeMs": 500,
+            "states": [
+                {
+                    "symbol": "P1.Controller.StateValue.Setpoint",
+                    "iec_type": "LREAL",
+                    "unit": "rad",
+                    "minimum": -2,
+                    "maximum": 2,
+                    "initial": {
+                        "source": "model-output",
+                        "index": 0
+                    },
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.SetpointRate",
+                    "iec_type": "LREAL",
+                    "unit": "rad/s",
+                    "minimum": -1000,
+                    "maximum": 1000,
+                    "initial": 0,
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.ProcessValue",
+                    "iec_type": "LREAL",
+                    "unit": "rad",
+                    "minimum": -2,
+                    "maximum": 2,
+                    "initial": {
+                        "source": "model-output",
+                        "index": 0
+                    },
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.ProcessValueRate",
+                    "iec_type": "LREAL",
+                    "unit": "rad/s",
+                    "minimum": -1000,
+                    "maximum": 1000,
+                    "initial": 0,
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.FeedForward",
+                    "iec_type": "LREAL",
+                    "unit": "N·m",
+                    "minimum": -20,
+                    "maximum": 20,
+                    "initial": 0,
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.NominalOutput",
+                    "iec_type": "LREAL",
+                    "unit": "N·m",
+                    "minimum": -1000,
+                    "maximum": 1000,
+                    "initial": {
+                        "source": "model-input",
+                        "index": 0
+                    },
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.SaturatedOutput",
+                    "iec_type": "LREAL",
+                    "unit": "N·m",
+                    "minimum": -20,
+                    "maximum": 20,
+                    "initial": {
+                        "source": "model-input",
+                        "index": 0
+                    },
+                    "postScan": "bounded"
+                }
+            ],
+            "applicationStates": [
+                {
+                    "symbol": "P1.Initialized",
+                    "iec_type": "BOOL",
+                    "unit": "1",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "initial": 1,
+                    "postScan": "unchanged"
+                }
+            ]
         }
-      },
-      {
-        "id": "motor-velocity",
-        "channel": "motor-velocity",
-        "role": "state",
-        "symbol": "P1.MotorVelocity",
-        "address": "%IL8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "rad/s",
-        "range": {
-          "minimum": -20,
-          "maximum": 20
-        }
-      }
-    ]
-  },
-  "limits": {
-    "outputMinimum": -10,
-    "outputMaximum": 10
-  },
-  "observedSampleTiming": {
-    "nominalPeriodMs": 10
-  },
-  "plantId": "digital-positioning-table",
-  "experiment": {
-    "execution": "project-scripted",
-    "kind": "observation",
-    "amplitude": 0,
-    "durationSeconds": 20.01,
-    "activation": {
-      "symbol": "P1.ExperimentEnabled",
-      "address": "%MX16.1",
-      "iecType": "BOOL",
-      "direction": "write"
     },
-    "seed": 20260828
-  }
+    "signals": {
+        "setpoint": {
+            "symbol": "P1.SetpointRad",
+            "address": "%ML0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "rad",
+            "range": {
+                "minimum": -2,
+                "maximum": 2
+            }
+        },
+        "processVariable": {
+            "symbol": "P1.AngleRad",
+            "address": "%IL0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "rad",
+            "range": {
+                "minimum": -2,
+                "maximum": 2
+            }
+        },
+        "manipulatedVariable": {
+            "symbol": "P1.TorqueNm",
+            "address": "%QL0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "N·m",
+            "range": {
+                "minimum": -20,
+                "maximum": 20
+            }
+        },
+        "additional": [
+            {
+                "id": "request",
+                "channel": "request",
+                "role": "state",
+                "symbol": "P1.RequestNm",
+                "address": "%ML72",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "N·m",
+                "range": {
+                    "minimum": -100,
+                    "maximum": 100
+                }
+            },
+            {
+                "id": "proportional",
+                "channel": "proportional",
+                "role": "state",
+                "symbol": "P1.ProportionalNm",
+                "address": "%ML48",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "N·m",
+                "range": {
+                    "minimum": -100,
+                    "maximum": 100
+                }
+            },
+            {
+                "id": "derivative",
+                "channel": "derivative",
+                "role": "state",
+                "symbol": "P1.DerivativeNm",
+                "address": "%ML64",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "N·m",
+                "range": {
+                    "minimum": -100,
+                    "maximum": 100
+                }
+            },
+            {
+                "id": "trial-integral",
+                "channel": "trial-integral",
+                "role": "state",
+                "symbol": "P1.TrialIntegralNm",
+                "address": "%ML56",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "N·m",
+                "range": {
+                    "minimum": -100,
+                    "maximum": 100
+                }
+            },
+            {
+                "id": "integral",
+                "channel": "integral",
+                "role": "state",
+                "symbol": "P1.IntegralNm",
+                "address": "%ML80",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "N·m",
+                "range": {
+                    "minimum": -100,
+                    "maximum": 100
+                }
+            },
+            {
+                "id": "error",
+                "channel": "error",
+                "role": "state",
+                "symbol": "P1.ErrorRad",
+                "address": "%ML40",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "rad",
+                "range": {
+                    "minimum": -4,
+                    "maximum": 4
+                }
+            },
+            {
+                "id": "filtered-angle",
+                "channel": "filtered-angle",
+                "role": "state",
+                "symbol": "P1.FilteredAngleRad",
+                "address": "%ML32",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "rad",
+                "range": {
+                    "minimum": -2,
+                    "maximum": 2
+                }
+            },
+            {
+                "id": "load",
+                "channel": "load",
+                "role": "disturbance",
+                "symbol": "P1.LoadTorqueNm",
+                "address": "%QL8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "N·m",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 5
+                }
+            },
+            {
+                "id": "velocity",
+                "channel": "velocity",
+                "role": "state",
+                "symbol": "P1.VelocityRadS",
+                "address": "%IL8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "rad/s",
+                "range": {
+                    "minimum": -10,
+                    "maximum": 10
+                }
+            },
+            {
+                "id": "experiment-authority",
+                "channel": "experiment-authority",
+                "role": "state",
+                "symbol": "P1.ExperimentEnabled",
+                "address": "%MX88.0",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "1",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            },
+            {
+                "id": "active",
+                "channel": "active",
+                "role": "state",
+                "symbol": "P1.Active",
+                "address": "%MX88.1",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "1",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            },
+            {
+                "id": "arrival-velocity",
+                "channel": "arrival-velocity",
+                "role": "state",
+                "symbol": "P1.ArrivalVelocityRadS",
+                "address": "%ML16",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "rad/s",
+                "range": {
+                    "minimum": -10,
+                    "maximum": 10
+                }
+            },
+            {
+                "id": "safety-abort",
+                "channel": "safety-abort",
+                "role": "state",
+                "symbol": "P1.SafetyAbort",
+                "address": "%MX24.0",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "1",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            }
+        ]
+    },
+    "limits": {
+        "outputMinimum": -20,
+        "outputMaximum": 20
+    },
+    "observedSampleTiming": {
+        "nominalPeriodMs": 20
+    },
+    "plantId": "rotary-axis",
+    "experiment": {
+        "execution": "project-scripted",
+        "kind": "observation",
+        "amplitude": 0,
+        "durationSeconds": 7.02,
+        "baselineSeconds": 1,
+        "seed": 20260829,
+        "activation": {
+            "symbol": "P1.ExperimentEnabled",
+            "address": "%MX88.0",
+            "iecType": "BOOL",
+            "direction": "write"
+        }
+    },
+    "identificationPolicy": {
+        "openLoopPermitted": true,
+        "sustainedHoldPermitted": true,
+        "information": "basic",
+        "maximumNormalizedError": 0.05
+    },
+    "parameterBinding": {
+        "loop_id": "control-discrete-integral-derivative",
+        "task_name": "MainTask",
+        "parameters": [
+            {
+                "symbol": "P1.Parameters.ProportionalGain",
+                "iec_type": "LREAL",
+                "unit": "N·m/rad",
+                "convention": "Control.PID ProportionalGain",
+                "minimum": 0,
+                "maximum": 100
+            },
+            {
+                "symbol": "P1.Parameters.IntegralGain",
+                "iec_type": "LREAL",
+                "unit": "N·m/(rad·s)",
+                "convention": "Control.PID IntegralGain",
+                "minimum": 0,
+                "maximum": 100
+            },
+            {
+                "symbol": "P1.Parameters.DerivativeGain",
+                "iec_type": "LREAL",
+                "unit": "N·m·s/rad",
+                "convention": "Control.PID DerivativeGain",
+                "minimum": 0,
+                "maximum": 100
+            },
+            {
+                "symbol": "P1.Parameters.ProportionalSetpointWeight",
+                "iec_type": "LREAL",
+                "unit": "1",
+                "convention": "Control.PID ProportionalSetpointWeight",
+                "minimum": 0,
+                "maximum": 1
+            },
+            {
+                "symbol": "P1.Parameters.DerivativeSetpointWeight",
+                "iec_type": "LREAL",
+                "unit": "1",
+                "convention": "Control.PID DerivativeSetpointWeight",
+                "minimum": 0,
+                "maximum": 1
+            },
+            {
+                "symbol": "P1.Parameters.Bias",
+                "iec_type": "LREAL",
+                "unit": "N·m",
+                "convention": "Control.PID Bias",
+                "minimum": -20,
+                "maximum": 20
+            },
+            {
+                "symbol": "P1.Parameters.OutputMinimum",
+                "iec_type": "LREAL",
+                "unit": "N·m",
+                "convention": "Control.PID OutputMinimum",
+                "minimum": -20,
+                "maximum": 20
+            },
+            {
+                "symbol": "P1.Parameters.OutputMaximum",
+                "iec_type": "LREAL",
+                "unit": "N·m",
+                "convention": "Control.PID OutputMaximum",
+                "minimum": -20,
+                "maximum": 20
+            },
+            {
+                "symbol": "P1.Parameters.RateMinimum",
+                "iec_type": "LREAL",
+                "unit": "N·m/s",
+                "convention": "Control.PID RateMinimum",
+                "minimum": -10000,
+                "maximum": 0
+            },
+            {
+                "symbol": "P1.Parameters.RateMaximum",
+                "iec_type": "LREAL",
+                "unit": "N·m/s",
+                "convention": "Control.PID RateMaximum",
+                "minimum": 0,
+                "maximum": 10000
+            },
+            {
+                "symbol": "P1.Parameters.TrackingTime",
+                "iec_type": "LREAL",
+                "unit": "s",
+                "convention": "Control.PID TrackingTime",
+                "minimum": 0.001,
+                "maximum": 1000
+            },
+            {
+                "symbol": "P1.FilterTimeS",
+                "iec_type": "LREAL",
+                "unit": "s",
+                "convention": "measurement filter time Tf on the angle; 0 bypasses the filter",
+                "minimum": 0,
+                "maximum": 1
+            }
+        ],
+        "mode": {
+            "symbol": "P1.AutoMode",
+            "manual_value": false
+        }
+    },
+    "operatingPoint": "Axis at rest at 0 rad with zero torque",
+    "revision": "sha256:60024ac013ac279cbac242184f135da0114f8afa0c6a9c8342a89c2d00e0fcde"
 }

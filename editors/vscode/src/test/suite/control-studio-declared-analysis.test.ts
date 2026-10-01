@@ -36,6 +36,30 @@ suite("Declared Control Studio analysis", () => {
     assert.strictEqual(JSON.stringify(input), before, "calculation must not change the configured controller");
   });
 
+  test("traces the pole paths across the parameter's declared range", () => {
+    const connected: DeclaredControlAnalysis = {
+      plant: { kind: "transfer-function", numerator: [1], denominator: [1, 8, 0], delaySeconds: 0,
+        inputUnit: "N·m", outputUnit: "rad", revision: "shaft-kd7", source: "provided", validation: "unvalidated" },
+      controller: { numerator: [{ parameter: "Kp" }], denominator: [1],
+        parameters: { Kp: { value: 16, minimum: 0, maximum: 20, unit: "N·m/rad" },
+          Kd: { value: 7, minimum: 7, maximum: 7, unit: "N·m·s/rad" } } },
+      rootLocus: { parameter: "Kp", values: [12, 16, 20], selectedValue: 16 },
+    };
+    const path = calculateDeclaredRootLocus(connected).path ?? [];
+    assert.strictEqual(path.length, 201, "evenly spaced gains from the minimum to the maximum");
+    assert.deepStrictEqual([path[0].gain, path[160].gain, path[200].gain], [0, 16, 20]);
+    const near = (actual: readonly { real: number; imaginary: number }[], expected: number[][]) =>
+      expected.forEach(([real, imaginary], index) => assert.ok(Math.abs(actual[index].real - real) < 1e-6
+        && Math.abs(actual[index].imaginary - imaginary) < 1e-6, JSON.stringify(actual)));
+    near(path[0].poles, [[-8, 0], [0, 0]]);
+    near(path[160].poles, [[-4, 0], [-4, 0]]);
+    near(path[200].poles, [[-4, -2], [-4, 2]]);
+    const legacy = calculateDeclaredRootLocus({ ...declaredShaftAnalysis(), controller: { ...declaredShaftAnalysis().controller,
+      parameters: { Kp: { value: 16, minimum: 0, maximum: 20, unit: "N·m/rad" }, Kd: { value: 7, minimum: 7, maximum: 7, unit: "N·m·s/rad" } } } });
+    (legacy.path ?? []).forEach((point, index) => near(point.poles, path[index].poles.map(pole => [pole.real, pole.imaginary])));
+    assert.strictEqual(legacy.path?.length, 201, "Kd·s + Kp on the bare shaft has the same characteristic equation");
+  });
+
   test("rejects undeclared coefficient operations and singular sweep denominators", () => {
     const input = declaredShaftAnalysis();
     assert.strictEqual(decodeDeclaredAnalysis({ ...input,

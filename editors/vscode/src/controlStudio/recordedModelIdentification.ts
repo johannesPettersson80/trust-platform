@@ -15,17 +15,24 @@ export async function fitRecordedModel(loop: ControlLoopDefinition, runs: readon
     const fit = await fitMultichannelRecordings(loop, runs, fitting, cancelled);
     return { model: fit.model, runs, fit };
   }
-  if (runs.length === 1 && !loop.physicalIdentification && ["mv_step", "mv_pulse"].includes(loop.experiment?.kind ?? "")) {
+  // One recording: fit the simple models first, from a step or from any other recorded excitation. The executed
+  // experiment decides: Automatic may run a setpoint step, whose closed-loop input is an arbitrary excitation.
+  const executed = (runs[0].request as { experiment?: { kind?: unknown } } | undefined)?.experiment?.kind;
+  const kind = typeof executed === "string" ? executed : loop.experiment?.kind ?? "";
+  const provisional = ["mv_step", "mv_pulse", "output_step"].includes(kind) ? "provisionalStepIdentificationWorker.js"
+    : ["relay", "prbs", "multisine", "setpoint_step", "load_step"].includes(kind) ? "provisionalExcitationIdentificationWorker.js" : undefined;
+  if (runs.length === 1 && provisional) {
     try {
-      const result = await fitting.run<AutomaticIdentificationResult>(path.join(__dirname, "provisionalStepIdentificationWorker.js"), {
+      const result = await fitting.run<AutomaticIdentificationResult>(path.join(__dirname, provisional), {
         run: runs[0], input: loop.signals.manipulatedVariable, output: loop.signals.processVariable,
         inputId: loop.channels?.inputs[0].modelChannelId, outputId: loop.channels?.outputs[0].modelChannelId,
+        maximumNormalizedError: loop.identificationPolicy?.maximumNormalizedError ?? 0.15,
       });
       if (!result || cancelled()) throw new Error("Identification cancelled.");
       return result;
     } catch (error) { if (cancelled()) throw error; }
   }
-  if (runs.length === 2 && !loop.physicalIdentification) {
+  if (runs.length === 2) {
     const mv = loop.signals.manipulatedVariable, pv = loop.signals.processVariable;
     const samples = (result: RuntimeVerificationResult): IdentificationSample[] => result.run.samples.map(sample => ({
       timeSeconds: sample.timeSeconds, input: sample.values[mv.symbol]?.value ?? NaN, output: sample.values[pv.symbol]?.value ?? NaN,

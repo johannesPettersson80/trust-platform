@@ -7,11 +7,13 @@
 const TOKEN_DISPLAY_UNITS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\bdegC\b/gu, "°C"],
   [/\bpp\b/gu, "percentage points"],
+  [/\*/gu, "·"],
 ];
 
 /** Converts configuration-safe unit spellings to the compact or plain-language notation
- * a student reads (degC -> °C, pp -> percentage points), including inside a composite
- * unit such as "%/degC" or "pp/s". Unrecognized units pass through unchanged. */
+ * a student reads (degC -> °C, pp -> percentage points, * -> ·), including inside a
+ * composite unit such as "%/degC", "pp/s" or "%/(degC*s)". Unrecognized units pass
+ * through unchanged. */
 export function displayEngineeringUnit(unit: string): string {
   const normalized = unit.trim();
   if (!normalized) return normalized;

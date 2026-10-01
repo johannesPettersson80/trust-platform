@@ -1,195 +1,269 @@
 USING Control;
 
-FUNCTION Lesson38PositionalPOutput : LREAL
+(* Fraction of the raw-minus-filtered difference applied per update: alpha = dt/(Tf + dt). *)
+FUNCTION FilterFraction : LREAL
 VAR_INPUT
-    Bias : LREAL;
-    ProportionalGain : LREAL;
-    CurrentError : LREAL;
+    CycleTime : LREAL;
+    FilterTime : LREAL;
 END_VAR
-Lesson38PositionalPOutput := Bias + ProportionalGain * CurrentError;
+FilterFraction := CycleTime / (FilterTime + CycleTime);
 END_FUNCTION
 
-FUNCTION Lesson38RejectedIncrementalPOutput : LREAL
+(* One first-order filter update: the filtered value moves alpha of the way toward the raw value. *)
+FUNCTION FilterUpdate : LREAL
 VAR_INPUT
-    PreviousOutput : LREAL;
-    ProportionalGain : LREAL;
-    CurrentError : LREAL;
-    PreviousError : LREAL;
+    PreviousFilteredValue : LREAL;
+    RawValue : LREAL;
+    FilterFraction : LREAL;
 END_VAR
-Lesson38RejectedIncrementalPOutput := PreviousOutput
-    + ProportionalGain * (CurrentError - PreviousError);
+FilterUpdate := PreviousFilteredValue + FilterFraction * (RawValue - PreviousFilteredValue);
 END_FUNCTION
 
-FUNCTION Lesson38BackwardIntegralIncrement : LREAL
+FUNCTION SamePidParameters : BOOL
 VAR_INPUT
-    IntegralGain : LREAL;
-    SampleInterval : LREAL;
-    CurrentError : LREAL;
+    Left : Control.PIDParameters;
+    Right : Control.PIDParameters;
 END_VAR
-Lesson38BackwardIntegralIncrement := IntegralGain * SampleInterval * CurrentError;
+SamePidParameters :=
+    Left.ProportionalGain = Right.ProportionalGain
+    AND Left.IntegralGain = Right.IntegralGain
+    AND Left.DerivativeGain = Right.DerivativeGain
+    AND Left.ProportionalSetpointWeight = Right.ProportionalSetpointWeight
+    AND Left.DerivativeSetpointWeight = Right.DerivativeSetpointWeight
+    AND Left.Bias = Right.Bias
+    AND Left.OutputMinimum = Right.OutputMinimum
+    AND Left.OutputMaximum = Right.OutputMaximum
+    AND Left.RateMinimum = Right.RateMinimum
+    AND Left.RateMaximum = Right.RateMaximum
+    AND Left.TrackingTime = Right.TrackingTime
+    AND Left.AntiWindup = Right.AntiWindup;
 END_FUNCTION
+
+(* The positional form of this lesson's PID (β = 1, γ = 0): the complete request every update, from its own
+   retained integral. Three rules make it the same controller as the incremental form of Control.PID:
+   tracking corrects the integral after the clamp, in Manual the integral follows the manual torque, and a
+   gain revision moves the change of the previous P and D into the integral. *)
+FUNCTION_BLOCK PositionalPid
+VAR_INPUT
+    Parameters : Control.PIDParameters;
+    Input : Control.PIDInput;
+    PreloadOnGainRevision : BOOL := TRUE;
+END_VAR
+VAR_OUTPUT
+    ErrorRad : LREAL;
+    ProportionalNm : LREAL;
+    TrialIntegralNm : LREAL;
+    DerivativeNm : LREAL;
+    RequestNm : LREAL;
+    TorqueNm : LREAL;
+    IntegralNm : LREAL;
+END_VAR
+VAR
+    ProportionalGain : LREAL;
+    DerivativeGain : LREAL;
+    VelocityRadS : LREAL;
+    PreviousAngleRad : LREAL;
+    PreviousErrorRad : LREAL;
+    PreviousVelocityRadS : LREAL;
+END_VAR
+(* Gain revision: P and D of the previous update change by (Kp,old − Kp,new)·e and (Kd,new − Kd,old)·ω_f;
+   the integral takes that over, so the retained request stays the same. *)
+IF PreloadOnGainRevision THEN
+    IntegralNm := IntegralNm
+        + (ProportionalGain - Parameters.ProportionalGain) * PreviousErrorRad
+        - (DerivativeGain - Parameters.DerivativeGain) * PreviousVelocityRadS;
+END_IF;
+ProportionalGain := Parameters.ProportionalGain;
+DerivativeGain := Parameters.DerivativeGain;
+
+ErrorRad := Input.Setpoint - Input.ProcessValue;
+VelocityRadS := (Input.ProcessValue - PreviousAngleRad) / Input.CycleTime;
+ProportionalNm := ProportionalGain * ErrorRad;
+DerivativeNm := -DerivativeGain * VelocityRadS;
+IF Input.Mode = PIDMode#Auto THEN
+    TrialIntegralNm := IntegralNm + Parameters.IntegralGain * ErrorRad * Input.CycleTime;
+    RequestNm := ProportionalNm + TrialIntegralNm + DerivativeNm;
+    TorqueNm := LIMIT(Parameters.OutputMinimum, RequestNm, Parameters.OutputMaximum);
+    IntegralNm := TrialIntegralNm + Input.CycleTime / Parameters.TrackingTime * (TorqueNm - RequestNm);
+ELSE
+    (* Manual: the integral follows the manual torque, so the first Auto update continues from it. *)
+    RequestNm := Input.ManualOutput;
+    TorqueNm := LIMIT(Parameters.OutputMinimum, Input.ManualOutput, Parameters.OutputMaximum);
+    IntegralNm := Input.ManualOutput - ProportionalNm - DerivativeNm;
+    TrialIntegralNm := IntegralNm;
+END_IF;
+PreviousAngleRad := Input.ProcessValue;
+PreviousErrorRad := ErrorRad;
+PreviousVelocityRadS := VelocityRadS;
+END_FUNCTION_BLOCK
 
 PROGRAM Main
 VAR
-    PositionController : Control.PID;
-    PositionParameters : Control.PIDParameters;
-    PositionInitialState : Control.PIDInitialState;
-    PositionInput : Control.PIDInput;
-    HeaterController : Control.PID;
-    HeaterParameters : Control.PIDParameters;
-    HeaterInitialState : Control.PIDInitialState;
-    HeaterInput : Control.PIDInput;
+    Controller : Control.PID;
+    (* The discrete PID of Lesson 38: Kp = 16 N·m/rad, Ki = 4 N·m/(rad·s), Kd = 7 N·m·s/rad on the
+       filtered angle, the full target change in P, ±20 N·m with back-calculation (Tt = 1 s). *)
+    Parameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#16.0,
+        IntegralGain := LREAL#4.0,
+        DerivativeGain := LREAL#7.0,
+        ProportionalSetpointWeight := LREAL#1.0,
+        DerivativeSetpointWeight := LREAL#0.0,
+        Bias := LREAL#0.0,
+        OutputMinimum := LREAL#-20.0,
+        OutputMaximum := LREAL#20.0,
+        RateMinimum := LREAL#-10000.0,
+        RateMaximum := LREAL#10000.0,
+        TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation
+    );
+    ConfiguredParameters : Control.PIDParameters;
+    ParameterRevision : DINT := 0;
+    InitialState : Control.PIDInitialState;
+    Input : Control.PIDInput;
     Initialized : BOOL := FALSE;
+    AutoMode : BOOL := FALSE;
+    ManualTorqueNm : LREAL := 0.0;
+    SafetyAbort : BOOL := FALSE;
+    SetpointRad : LREAL := 0.0;
+    AngleRad : LREAL := 0.0;
+    VelocityRadS : LREAL := 0.0;
+    TorqueNm : LREAL := 0.0;
+    (* Drum load of the simulated test rig, in N·m: the experiment couples a 2 kg weight at the 0.1 m drum
+       radius, 1.962 N·m. The controller does not use it. *)
+    LoadTorqueNm : LREAL := 0.0;
+    (* Measurement filter on the angle: Control.PID differentiates the filtered angle, so D uses the
+       filtered velocity. Tf = 0 bypasses the filter. *)
+    FilterTimeS : LREAL := 0.1;
+    FilterAlpha : LREAL := 1.0;
+    FilteredAngleRad : LREAL := 0.0;
+    FilterActive : BOOL := FALSE;
+    FilterWasActive : BOOL := FALSE;
+    (* Three other forms, each updated from the same Input as Controller. None of them drives the axis. *)
+    Positional : PositionalPid;
+    Unpreloaded : PositionalPid;
+    RetainedApplied : Control.PID;
+    RetainedAppliedParameters : Control.PIDParameters;
+    PositionalTorqueNm : LREAL := 0.0;
+    UnpreloadedTorqueNm : LREAL := 0.0;
+    RetainedAppliedTorqueNm : LREAL := 0.0;
+    ErrorRad : LREAL := 0.0;
+    ProportionalNm : LREAL := 0.0;
+    DerivativeNm : LREAL := 0.0;
+    RequestNm : LREAL := 0.0;
+    IntegralNm : LREAL := 0.0;
+    (* Project experiment. *)
     ExperimentEnabled : BOOL := FALSE;
     ExperimentWasEnabled : BOOL := FALSE;
-    ExperimentCycle : ULINT := ULINT#0;
-    AutoMode : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    ManualMode : BOOL := TRUE;
-    PositionSetpoint : LREAL := 0.0;
-    PositionProportionalGain : LREAL := 4.0;
-    HeaterSetpoint : LREAL := 20.0;
-    HeaterProportionalGain : LREAL := 4.0;
-    HeaterIntegralGain : LREAL := 0.8;
-    DiagnosticError : LREAL := 0.5;
-    RejectedIncrementalPGain : LREAL := 4.0;
-    PreviousDiagnosticError : LREAL := 0.5;
-    DiagnosticErrorChange : LREAL := 0.0;
-    RejectedIncrementalPOutput : LREAL := 1.0;
-    PositionalPOutput : LREAL := 0.0;
-    Position : LREAL := 0.0;
-    Velocity : LREAL := 0.0;
-    HeaterTemperature : LREAL := 20.0;
-    PositionTorque : LREAL := 0.0;
-    HeaterPower : LREAL := 0.0;
-    PositionUsesPositionalForm : BOOL := TRUE;
-    HeaterUsesIncrementalForm : BOOL := TRUE;
+    Active : BOOL := FALSE;
+    ExperimentUpdates : DINT := 0;
+    GainBeforeRevision : LREAL := 16.0;
+    (* Software travel and speed limits of the axis. *)
+    AngleLimitRad : LREAL := 2.0;
+    VelocityLimitRadS : LREAL := 10.0;
 END_VAR
 
+(* Leaving the travel or speed range removes the torque until a full restart. *)
+IF ABS(AngleRad) > AngleLimitRad OR ABS(VelocityRadS) > VelocityLimitRadS THEN
+    SafetyAbort := TRUE;
+END_IF;
+
+(* Control Studio's project experiment couples the drum load and steps the target to 1.5 rad in Auto; 1 s
+   later it applies Kp = 24 N·m/rad, as a gain revision would. Its end uncouples the load, restores the gain
+   and returns to Manual with zero torque. *)
+IF ExperimentEnabled AND NOT ExperimentWasEnabled THEN
+    Active := TRUE;
+    ExperimentUpdates := 0;
+    LoadTorqueNm := LREAL#1.962;
+    SetpointRad := LREAL#1.5;
+    AutoMode := TRUE;
+ELSIF NOT ExperimentEnabled AND ExperimentWasEnabled THEN
+    Active := FALSE;
+    LoadTorqueNm := LREAL#0.0;
+    AutoMode := FALSE;
+    SetpointRad := AngleRad;
+    IF ExperimentUpdates > 50 THEN
+        Parameters.ProportionalGain := GainBeforeRevision;
+    END_IF;
+END_IF;
+ExperimentWasEnabled := ExperimentEnabled;
+IF Active THEN
+    IF ExperimentUpdates = 50 THEN
+        GainBeforeRevision := Parameters.ProportionalGain;
+        Parameters.ProportionalGain := LREAL#24.0;
+    END_IF;
+    ExperimentUpdates := ExperimentUpdates + 1;
+END_IF;
+
+(* Control Studio's Apply replaces this complete record at the task boundary. *)
+IF NOT Initialized OR NOT SamePidParameters(Left := Parameters, Right := ConfiguredParameters) THEN
+    ConfiguredParameters := Parameters;
+    ParameterRevision := ParameterRevision + 1;
+END_IF;
+Controller.Configure(Parameters := Parameters);
+(* Tracking with Tt = Δt removes the whole excess: this controller retains the applied torque. *)
+RetainedAppliedParameters := Parameters;
+RetainedAppliedParameters.TrackingTime := LREAL#0.02;
+RetainedApplied.Configure(Parameters := RetainedAppliedParameters);
+
 IF NOT Initialized THEN
-    PositionParameters.IntegralGain := LREAL#0.0;
-    PositionParameters.DerivativeGain := LREAL#0.0;
-    PositionParameters.ProportionalSetpointWeight := LREAL#1.0;
-    PositionParameters.DerivativeSetpointWeight := LREAL#0.0;
-    PositionParameters.Bias := LREAL#0.0;
-    PositionParameters.OutputMinimum := LREAL#-10.0;
-    PositionParameters.OutputMaximum := LREAL#10.0;
-    PositionParameters.RateMinimum := LREAL#-500.0;
-    PositionParameters.RateMaximum := LREAL#500.0;
-    PositionParameters.TrackingTime := LREAL#0.2;
-    PositionParameters.AntiWindup := PIDAntiWindup#Combined;
-    PositionParameters.ProportionalGain := PositionProportionalGain;
-    PositionController.Configure(Parameters := PositionParameters);
-    PositionInitialState.Setpoint := PositionSetpoint;
-    PositionInitialState.ProcessValue := Position;
-    PositionController.Initialize(State := PositionInitialState);
-
-    HeaterParameters.IntegralGain := HeaterIntegralGain;
-    HeaterParameters.DerivativeGain := LREAL#0.0;
-    HeaterParameters.ProportionalSetpointWeight := LREAL#1.0;
-    HeaterParameters.DerivativeSetpointWeight := LREAL#0.0;
-    HeaterParameters.Bias := LREAL#0.0;
-    HeaterParameters.OutputMinimum := LREAL#0.0;
-    HeaterParameters.OutputMaximum := LREAL#100.0;
-    HeaterParameters.RateMinimum := LREAL#-500.0;
-    HeaterParameters.RateMaximum := LREAL#500.0;
-    HeaterParameters.TrackingTime := LREAL#1.0;
-    HeaterParameters.AntiWindup := PIDAntiWindup#Combined;
-    HeaterParameters.ProportionalGain := HeaterProportionalGain;
-    HeaterController.Configure(Parameters := HeaterParameters);
-    HeaterInitialState.Setpoint := HeaterSetpoint;
-    HeaterInitialState.ProcessValue := HeaterTemperature;
-    HeaterInitialState.NominalOutput := HeaterPower;
-    HeaterInitialState.SaturatedOutput := HeaterPower;
-    HeaterController.Initialize(State := HeaterInitialState);
-
-    (* The retained 1 N m value makes the rejected recurrence's arbitrary
-       starting state visible. This diagnostic never drives either plant. *)
-    RejectedIncrementalPOutput := LREAL#1.0;
-    PreviousDiagnosticError := DiagnosticError;
+    (* Hot reset: the axis rests without torque and the setpoint follows the measured angle. *)
+    ManualTorqueNm := LREAL#0.0;
+    IF NOT AutoMode THEN
+        SetpointRad := AngleRad;
+    END_IF;
+    InitialState.Setpoint := SetpointRad;
+    InitialState.ProcessValue := AngleRad;
+    InitialState.NominalOutput := ManualTorqueNm;
+    InitialState.SaturatedOutput := ManualTorqueNm;
+    InitialState.SetpointRate := LREAL#0.0;
+    InitialState.ProcessValueRate := LREAL#0.0;
+    InitialState.FeedForward := LREAL#0.0;
+    Controller.Initialize(State := InitialState);
+    RetainedApplied.Initialize(State := InitialState);
     Initialized := TRUE;
 END_IF;
 
-(* Control Studio writes one reviewed authority. The project owns the two
-   setpoints, simultaneous gain edit, and safe restoration. The exact
-   unchanged-input proof remains in the fresh-state native comparison. *)
-IF ExperimentEnabled THEN
-    IF NOT ExperimentWasEnabled THEN
-        ExperimentCycle := ULINT#0;
-        PositionProportionalGain := LREAL#4.0;
-        HeaterProportionalGain := LREAL#4.0;
-        RejectedIncrementalPGain := LREAL#4.0;
-    END_IF;
-    ExperimentCycle := ExperimentCycle + ULINT#1;
-    PositionSetpoint := LREAL#0.5;
-    HeaterSetpoint := LREAL#35.0;
-    AutoMode := TRUE;
-    IF ExperimentCycle > ULINT#250 THEN
-        PositionProportionalGain := LREAL#8.0;
-        HeaterProportionalGain := LREAL#8.0;
-        RejectedIncrementalPGain := LREAL#8.0;
-    END_IF;
-ELSIF ExperimentWasEnabled THEN
-    ExperimentCycle := ULINT#0;
-    PositionSetpoint := LREAL#0.0;
-    HeaterSetpoint := LREAL#20.0;
-    PositionProportionalGain := LREAL#4.0;
-    HeaterProportionalGain := LREAL#4.0;
-    RejectedIncrementalPGain := LREAL#4.0;
-    AutoMode := FALSE;
-END_IF;
-
-(* Reconfigure the shipped controllers so a gain change is observed on the
-   same scan instead of being hidden behind lesson-specific controller code. *)
-PositionParameters.ProportionalGain := PositionProportionalGain;
-PositionController.Configure(Parameters := PositionParameters);
-HeaterParameters.ProportionalGain := HeaterProportionalGain;
-HeaterParameters.IntegralGain := HeaterIntegralGain;
-HeaterController.Configure(Parameters := HeaterParameters);
-
-PositionInput.Setpoint := PositionSetpoint;
-PositionInput.ProcessValue := Position;
-PositionInput.CycleTime := LREAL#0.02;
-HeaterInput.Setpoint := HeaterSetpoint;
-HeaterInput.ProcessValue := HeaterTemperature;
-HeaterInput.CycleTime := LREAL#0.02;
-InputsValid := Position >= LREAL#-4.0 AND Position <= LREAL#4.0
-    AND Velocity >= LREAL#-20.0 AND Velocity <= LREAL#20.0
-    AND HeaterTemperature >= LREAL#0.0 AND HeaterTemperature <= LREAL#80.0;
-IF AutoMode AND InputsValid AND NOT SafetyAbort THEN
-    PositionInput.Mode := PIDMode#Auto;
-    HeaterInput.Mode := PIDMode#Auto;
-    ManualMode := FALSE;
+(* The filter runs while the controller is in Auto. In Manual and in the Auto-entry scan it restarts
+   from the measurement, so entering Auto is exactly bumpless; filtering starts with the next scan. *)
+FilterAlpha := FilterFraction(CycleTime := LREAL#0.02, FilterTime := MAX(FilterTimeS, LREAL#0.0));
+FilterActive := AutoMode AND NOT SafetyAbort AND Parameters.ProportionalGain > LREAL#0.0;
+IF FilterActive AND FilterWasActive THEN
+    FilteredAngleRad := FilterUpdate(PreviousFilteredValue := FilteredAngleRad, RawValue := AngleRad, FilterFraction := FilterAlpha);
 ELSE
-    PositionInput.Mode := PIDMode#Manual;
-    PositionInput.ManualOutput := LREAL#0.0;
-    HeaterInput.Mode := PIDMode#Manual;
-    HeaterInput.ManualOutput := LREAL#0.0;
-    ManualMode := TRUE;
+    FilteredAngleRad := AngleRad;
 END_IF;
+FilterWasActive := FilterActive;
 
-PositionTorque := PositionController.Update(Input := PositionInput);
-HeaterPower := HeaterController.Update(Input := HeaterInput);
-PositionUsesPositionalForm := PositionParameters.IntegralGain = LREAL#0.0;
-HeaterUsesIncrementalForm := HeaterParameters.IntegralGain <> LREAL#0.0;
+Input.Setpoint := SetpointRad;
+Input.ProcessValue := FilteredAngleRad;
+Input.CycleTime := LREAL#0.02;
+Input.FeedForward := LREAL#0.0;
+Input.TrackingOutput := ManualTorqueNm;
+IF SafetyAbort THEN
+    Input.Mode := PIDMode#Manual;
+    Input.ManualOutput := LREAL#0.0;
+ELSIF AutoMode AND Parameters.ProportionalGain > LREAL#0.0 THEN
+    Input.Mode := PIDMode#Auto;
+    Input.ManualOutput := ManualTorqueNm;
+ELSE
+    Input.Mode := PIDMode#Manual;
+    Input.ManualOutput := ManualTorqueNm;
+END_IF;
+TorqueNm := Controller.Update(Input := Input);
 
-(* This deliberately rejected P recurrence changes output only when error
-   changes. It demonstrates why it may not be used as the plant controller. *)
-DiagnosticErrorChange := DiagnosticError - PreviousDiagnosticError;
-RejectedIncrementalPOutput := Lesson38RejectedIncrementalPOutput(
-    PreviousOutput := RejectedIncrementalPOutput,
-    ProportionalGain := RejectedIncrementalPGain,
-    CurrentError := DiagnosticError,
-    PreviousError := PreviousDiagnosticError
-);
-PositionalPOutput := Lesson38PositionalPOutput(
-    Bias := LREAL#0.0,
-    ProportionalGain := RejectedIncrementalPGain,
-    CurrentError := DiagnosticError
-);
-PreviousDiagnosticError := DiagnosticError;
-ExperimentWasEnabled := ExperimentEnabled;
+(* The positional form with its three rules, the same form without the gain-revision rule, and Control.PID
+   retaining the applied torque. *)
+Positional(Parameters := Parameters, Input := Input);
+Unpreloaded(Parameters := Parameters, Input := Input, PreloadOnGainRevision := FALSE);
+RetainedAppliedTorqueNm := RetainedApplied.Update(Input := Input);
+PositionalTorqueNm := Positional.TorqueNm;
+UnpreloadedTorqueNm := Unpreloaded.TorqueNm;
+ErrorRad := Positional.ErrorRad;
+ProportionalNm := Positional.ProportionalNm;
+DerivativeNm := Positional.DerivativeNm;
+RequestNm := Positional.RequestNm;
+IntegralNm := Positional.IntegralNm;
+
 END_PROGRAM
 
 CONFIGURATION Config
@@ -198,26 +272,23 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.AutoMode AT %MX120.0 : BOOL;
-    P1.ExperimentEnabled AT %MX120.1 : BOOL;
-    P1.SafetyAbort AT %MX120.2 : BOOL;
-    P1.InputsValid AT %MX120.3 : BOOL;
-    P1.ManualMode AT %MX120.4 : BOOL;
-    P1.PositionSetpoint AT %ML0 : LREAL;
-    P1.PositionProportionalGain AT %ML8 : LREAL;
-    P1.HeaterSetpoint AT %ML16 : LREAL;
-    P1.HeaterProportionalGain AT %ML24 : LREAL;
-    P1.HeaterIntegralGain AT %ML32 : LREAL;
-    P1.DiagnosticError AT %ML40 : LREAL;
-    P1.RejectedIncrementalPGain AT %ML48 : LREAL;
-    P1.RejectedIncrementalPOutput AT %ML56 : LREAL;
-    P1.PositionalPOutput AT %ML64 : LREAL;
-    P1.PositionUsesPositionalForm AT %MX72.0 : BOOL;
-    P1.HeaterUsesIncrementalForm AT %MX72.1 : BOOL;
-    P1.PositionTorque AT %QL0 : LREAL;
-    P1.HeaterPower AT %QL8 : LREAL;
-    P1.Position AT %IL0 : LREAL;
-    P1.Velocity AT %IL8 : LREAL;
-    P1.HeaterTemperature AT %IL16 : LREAL;
+    P1.SafetyAbort AT %MX24.0 : BOOL;
+    P1.TorqueNm AT %QL0 : LREAL;
+    P1.LoadTorqueNm AT %QL8 : LREAL;
+    P1.AngleRad AT %IL0 : LREAL;
+    P1.VelocityRadS AT %IL8 : LREAL;
+    P1.SetpointRad AT %ML0 : LREAL;
+    P1.ManualTorqueNm AT %ML8 : LREAL;
+    P1.FilteredAngleRad AT %ML32 : LREAL;
+    P1.ErrorRad AT %ML40 : LREAL;
+    P1.ProportionalNm AT %ML48 : LREAL;
+    P1.DerivativeNm AT %ML64 : LREAL;
+    P1.RequestNm AT %ML72 : LREAL;
+    P1.IntegralNm AT %ML80 : LREAL;
+    P1.ExperimentEnabled AT %MX88.0 : BOOL;
+    P1.Active AT %MX88.1 : BOOL;
+    P1.PositionalTorqueNm AT %ML96 : LREAL;
+    P1.RetainedAppliedTorqueNm AT %ML104 : LREAL;
+    P1.UnpreloadedTorqueNm AT %ML112 : LREAL;
 END_VAR
 END_CONFIGURATION

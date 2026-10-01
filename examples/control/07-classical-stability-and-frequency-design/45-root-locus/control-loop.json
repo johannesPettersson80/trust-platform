@@ -2,14 +2,14 @@
   "schemaVersion": 2,
   "id": "control-root-locus",
   "name": "Root locus",
-  "revision": "sha256:d22efe19d14e75c16f2744ca791a91be95d706f13fb8b662bc7e57674139400f",
+  "revision": "sha256:40889325f0dff9b181c9d02a1a1c397dbd83ff32ce6970ba85d672889f5c087c",
   "projectId": "project:control-root-locus",
   "runtimeId": "simulator",
   "controller": {
     "instance": "P1",
     "type": "Main",
     "design": "project",
-    "revision": "sha256:efc35a5075d3d15f9b3fe6b1dd1bb55424229303f58ea21adda482b70431b9e3",
+    "revision": "sha256:2843b84ee356d98ac62cea9e73d75ffe1ea07bda4b27dda76a308ec452f27e42",
     "action": "direct",
     "taskPeriodMs": 20,
     "modeSignal": "P1.ManualMode",
@@ -62,6 +62,20 @@
     },
     "additional": [
       {
+        "id": "alternative-angle",
+        "channel": "alternative-angle",
+        "role": "state",
+        "symbol": "P1.AlternativeAngle",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad",
+        "range": {
+          "minimum": -2,
+          "maximum": 2
+        }
+      },
+      {
         "id": "velocity",
         "channel": "velocity",
         "role": "state",
@@ -90,6 +104,20 @@
         }
       },
       {
+        "id": "alternative-torque",
+        "channel": "alternative-torque",
+        "role": "state",
+        "symbol": "P1.AlternativeTorque",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N·m",
+        "range": {
+          "minimum": -20,
+          "maximum": 20
+        }
+      },
+      {
         "id": "experiment-authority",
         "channel": "experiment-authority",
         "role": "state",
@@ -101,6 +129,34 @@
         "range": {
           "minimum": 0,
           "maximum": 1
+        }
+      },
+      {
+        "id": "safety-abort",
+        "channel": "safety-abort",
+        "role": "state",
+        "symbol": "P1.SafetyAbort",
+        "address": "%MX96.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "alternative-velocity",
+        "channel": "alternative-velocity",
+        "role": "state",
+        "symbol": "P1.AlternativeVelocity",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad/s",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
         }
       }
     ]
@@ -124,7 +180,8 @@
       "address": "%MX96.0",
       "iecType": "BOOL",
       "direction": "write"
-    }
+    },
+    "baselineSeconds": 2
   },
   "analysis": {
     "plant": {
@@ -134,21 +191,18 @@
       ],
       "denominator": [
         1,
-        1,
+        8,
         0
       ],
       "delaySeconds": 0,
       "inputUnit": "N·m",
       "outputUnit": "rad",
-      "revision": "shaft-j1-b1-v1",
+      "revision": "shaft-j1-b1-kd7-v1",
       "source": "provided",
       "validation": "unvalidated"
     },
     "controller": {
       "numerator": [
-        {
-          "parameter": "Kd"
-        },
         {
           "parameter": "Kp"
         }

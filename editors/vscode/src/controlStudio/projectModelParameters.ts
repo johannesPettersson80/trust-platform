@@ -1,12 +1,10 @@
 import { linearTransferModel } from "./linearTransferModel";
 import type { ControlLoopDefinition } from "./loopDefinition";
 import type { GeneralModel, GeneralStateSpaceModel } from "./generalModel";
-import type { PhysicalBalance } from "./physicalModel";
 import { sampleModel } from "./stateControllerDesign";
 
 export type ProjectModelParameter =
   | { kind: "sample-time" | "plant-delay" | "plant-gain" | "inverse-plant-gain" | "plant-time-constant" }
-  | { kind: "physical"; parameter: "areaM2" | "outflowCoefficient" | "heatCapacityJPerK" | "lossWattsPerK" | "ambientTemperature" }
   | { kind: "sampled-matrix"; matrix: "a" | "b" | "c" | "d"; row: number; column: number };
 export function projectModelParameters(loop: ControlLoopDefinition, model: GeneralModel,
   mapping: Readonly<Record<string, ProjectModelParameter>> = {}): Record<string, number> {
@@ -19,10 +17,6 @@ export function projectModelParameters(loop: ControlLoopDefinition, model: Gener
     if (source.kind === "sample-time" || source.kind === "plant-delay") {
       if (parameter.unit !== "s") throw new Error("Model timing fields require seconds.");
       value = source.kind === "sample-time" ? loop.controller.taskPeriodMs / 1000 : model.delaySeconds;
-    } else if (source.kind === "physical") {
-      if (!model.physical || !(source.parameter in model.physical)) throw new Error("The selected physical model does not supply this parameter.");
-      assertPhysicalUnit(parameter.unit, source.parameter, model.physical.kind, model);
-      value = Number((model.physical as unknown as Record<string, unknown>)[source.parameter]);
     } else if (source.kind === "sampled-matrix") {
       if (model.kind === "transfer-function" || model.delaySeconds !== 0 || !["a", "b", "c", "d"].includes(source.matrix)
         || !Number.isSafeInteger(source.row) || !Number.isSafeInteger(source.column) || source.row < 0 || source.column < 0) throw new Error("Declare compatible sampled model matrix coordinates.");
@@ -50,21 +44,6 @@ export function projectModelParameters(loop: ControlLoopDefinition, model: Gener
     result[symbol] = rounded;
   }
   return result;
-}
-
-function assertPhysicalUnit(unit: string, parameter: Extract<ProjectModelParameter, { kind: "physical" }>['parameter'],
-  kind: PhysicalBalance["kind"], model: GeneralModel): void {
-  const outputUnit = model.outputs[0]?.unit;
-  const accepted = parameter === "areaM2" ? ["m2", "m^2", "m²"]
-    : parameter === "outflowCoefficient" ? ["m3/s/sqrt(m)", "m^3/s/sqrt(m)", "m³/s/√m"]
-    : parameter === "heatCapacityJPerK" ? ["J/K", "J/degC", "J/°C"]
-    : parameter === "lossWattsPerK" ? ["W/K", "W/degC", "W/°C"]
-    : outputUnit ? [outputUnit] : [];
-  if (kind === "thermal-balance" && ["areaM2", "outflowCoefficient"].includes(parameter)
-    || kind !== "thermal-balance" && ["heatCapacityJPerK", "lossWattsPerK", "ambientTemperature"].includes(parameter)) {
-    throw new Error(`The ${parameter} model field is incompatible with the selected physical balance.`);
-  }
-  if (!accepted.includes(unit)) throw new Error(`Physical model field ${parameter} requires a compatible engineering unit.`);
 }
 
 function assertMatrixUnit(unit: string, matrix: "a" | "b" | "c" | "d", row: number, column: number,

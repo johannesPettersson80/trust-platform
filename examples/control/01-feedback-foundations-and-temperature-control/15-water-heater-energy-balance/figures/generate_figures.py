@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate Lesson 15 teaching figures from retained executable evidence."""
+"""Generate the Lesson 13 annotated plot from its Control Studio recording."""
 
 from __future__ import annotations
 
@@ -8,161 +8,239 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent
-SEED = 20260824
+FONT = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+ACCENT = "#b45309"
+STYLE = f"""
+  svg {{ forced-color-adjust: none; color-scheme: light; }}
+  .surface {{ fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; }}
+  text {{ font-family: {FONT}; fill: #172033; }}
+  .title {{ font-size: 20px; font-weight: 650; }}
+  .subtitle {{ font-size: 12px; fill: #4b5568; }}
+  .box {{ fill: #ffffff; stroke: #526076; stroke-width: 1.5; }}
+  .axis {{ stroke: #526076; stroke-width: 1.2; }}
+  .grid {{ stroke: #cbd3df; stroke-width: 0.8; stroke-dasharray: 3 5; }}
+  .signal {{ stroke: #1769aa; stroke-width: 2.2; fill: none; }}
+  .signal-b {{ stroke: #c64b16; stroke-width: 2.2; fill: none; stroke-dasharray: 8 4; }}
+  .signal-c {{ stroke: #7a3eb1; stroke-width: 2.0; fill: none; stroke-dasharray: 2 3; }}
+  .signal-d {{ stroke: #26734d; stroke-width: 2.0; fill: none; stroke-dasharray: 7 4; }}
+  .signal-thin {{ stroke: #1769aa; stroke-width: 1.0; fill: none; }}
+  .command {{ stroke: #334155; stroke-width: 1.6; fill: none; }}
+  .surroundings {{ stroke: #26734d; stroke-width: 2; fill: none; stroke-dasharray: 7 4; }}
+  .request {{ stroke: #7a3eb1; stroke-width: 2.2; fill: none; stroke-dasharray: 2 3; }}
+  .applied {{ stroke: #c64b16; stroke-width: 2.2; fill: none; stroke-dasharray: 8 4; }}
+  .disturbance {{ stroke: #9b3152; stroke-width: 1.8; fill: none; stroke-dasharray: 5 4; }}
+  .reference {{ stroke: #475569; stroke-width: 1.4; fill: none; stroke-dasharray: 2 4; }}
+  .limit {{ stroke: #9b3152; stroke-width: 1.4; fill: none; stroke-dasharray: 6 3; }}
+  .door-band {{ fill: #f4d9e2; opacity: 0.42; }}
+  .band {{ fill: #cfe8d8; opacity: 0.55; }}
+  .tick {{ font-size: 11px; fill: #465268; }}
+  .label {{ font-size: 12px; font-weight: 600; }}
+  .note {{ font-size: 11px; fill: #374258; }}
+  .halo {{ paint-order: stroke; stroke: #f8fafc; stroke-width: 4px; stroke-linejoin: round; }}
+  .mark {{ fill: {ACCENT}; stroke: #ffffff; stroke-width: 1.4; }}
+  .leader {{ stroke: {ACCENT}; stroke-width: 1.2; fill: none; }}
+  .badge {{ fill: {ACCENT}; }}
+  .badge-text {{ font-size: 11px; font-weight: 700; fill: #ffffff; }}
+  .callout {{ font-size: 12px; fill: #172033; }}
+"""
 
 
-def esc(text: object) -> str:
-    return (str(text).replace("&", "&amp;").replace("<", "&lt;")
-            .replace(">", "&gt;").replace('"', "&quot;"))
-
-
-def svg_document(width: int, height: int, body: str, title: str, description: str) -> str:
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-labelledby="title desc">
-<title id="title">{esc(title)}</title>
-<desc id="desc">{esc(description)}</desc>
-<style>
-  svg {{ color: #1f2937; background: #ffffff; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; forced-color-adjust: none; }}
-  .panel {{ fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.5; }}
-  .grid {{ stroke: #d7dee8; stroke-width: 1; }}
-  .axis {{ stroke: #64748b; stroke-width: 1.3; }}
-  .actual {{ fill: none; stroke: #1473e6; stroke-width: 3; }}
-  .model {{ fill: none; stroke: #d97706; stroke-width: 2.4; stroke-dasharray: 9 5; }}
-  .request {{ fill: none; stroke: #7c3aed; stroke-width: 3; }}
-  .applied {{ fill: none; stroke: #059669; stroke-width: 2.2; stroke-dasharray: 7 4; }}
-  .reference {{ stroke: #475569; stroke-width: 1.4; stroke-dasharray: 5 5; }}
-  .event {{ stroke: #b91c1c; stroke-width: 1.4; stroke-dasharray: 4 4; }}
-  .label {{ fill: currentColor; font-size: 15px; }}
-  .small {{ fill: currentColor; font-size: 13px; }}
-  .muted {{ fill: #52606d; font-size: 13px; }}
-  .title {{ fill: currentColor; font-size: 23px; font-weight: 650; }}
-  .subtitle {{ fill: #52606d; font-size: 14px; }}
-  .heading {{ fill: currentColor; font-size: 17px; font-weight: 650; }}
-  .water {{ fill: #dbeafe; stroke: #1473e6; stroke-width: 2; }}
-  .heat {{ stroke: #dc2626; stroke-width: 4; fill: none; marker-end: url(#arrow-red); }}
-  .loss {{ stroke: #64748b; stroke-width: 3; fill: none; marker-end: url(#arrow-grey); }}
-  .point {{ fill: #ffffff; stroke: #1473e6; stroke-width: 3; }}
-  @media (prefers-color-scheme: dark) {{
-    svg {{ color: #e5e7eb; background: #1e1e1e; }}
-    .panel {{ fill: #252526; stroke: #6b7280; }}
-    .grid {{ stroke: #3f4650; }} .axis {{ stroke: #9ca3af; }}
-    .muted, .subtitle {{ fill: #b8c0cc; }} .water {{ fill: #173a5e; }}
-    .point {{ fill: #1e1e1e; }}
-  }}
-  @media (forced-colors: active) {{
-    svg {{ color: CanvasText; background: Canvas; }}
-    .panel, .water {{ fill: Canvas; stroke: CanvasText; }}
-    .grid, .axis, .reference, .event, .actual, .model, .request, .applied, .heat, .loss {{ stroke: CanvasText; }}
-    .label, .small, .muted, .title, .subtitle, .heading {{ fill: CanvasText; }}
-    .point {{ fill: Canvas; stroke: CanvasText; }}
-  }}
-</style>
+def svg_document(title: str, description: str, body: str, height: int) -> str:
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="900" height="{height}" viewBox="0 0 900 {height}" role="img" aria-labelledby="title desc">
+  <title id="title">{title}</title>
+  <desc id="desc">{description}</desc>
+  <style>{STYLE}</style>
+  <rect x="1" y="1" width="898" height="{height - 2}" rx="8" class="surface" />
 {body}
 </svg>
-'''
+"""
 
 
-def energy_boundary() -> str:
-    body = '''
-<defs>
-  <marker id="arrow-red" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#dc2626"/></marker>
-  <marker id="arrow-grey" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"/></marker>
-</defs>
-<text x="40" y="42" class="title">Water-heater energy boundary</text>
-<text x="40" y="68" class="subtitle">Explain the physical flows before writing the conservation equation</text>
-<rect x="330" y="105" width="250" height="180" rx="18" class="panel"/>
-<rect x="350" y="155" width="210" height="110" rx="10" class="water"/>
-<text x="455" y="190" text-anchor="middle" class="heading">Well-mixed water</text>
-<text x="455" y="218" text-anchor="middle" class="label">water temperature (T)</text>
-<text x="455" y="235" text-anchor="middle" class="small">stored energy</text>
-<text x="455" y="253" text-anchor="middle" class="small">thermal capacitance (C)</text>
-<path d="M120 195 H330" class="heat"/>
-<text x="120" y="150" class="heading">Electric heater</text>
-<text x="120" y="174" class="small">applied command (MV_applied)</text>
-<text x="150" y="218" class="small">heater heat input (Qin)</text>
-<path d="M580 195 H790" class="loss"/>
-<text x="630" y="150" class="heading">Surroundings + flow</text>
-<text x="630" y="174" class="small">ambient temperature (Tambient)</text>
-<text x="625" y="218" class="small">heat loss: H × (T - Tambient)</text>
-<text x="40" y="326" class="label">Stored-energy rate = heater power entering - heat leaving</text>
-<text x="860" y="326" text-anchor="end" class="muted">Explanatory diagram · not measured evidence</text>
-'''
-    return svg_document(
-        900, 360, body, "Water-heater energy boundary",
-        "A well-mixed water vessel stores thermal energy. Heater power enters from the left and ambient and recirculation heat loss leaves to the right.",
+def text(x: float, y: float, value: str, css: str, anchor: str = "start") -> str:
+    return f'  <text x="{x:.1f}" y="{y:.1f}" class="{css}" text-anchor="{anchor}">{value}</text>'
+
+
+def line(x1: float, y1: float, x2: float, y2: float, css: str, marker: bool = False) -> str:
+    suffix = ' marker-end="url(#arrow)"' if marker else ""
+    return f'  <line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" class="{css}"{suffix} />'
+
+
+def path(points: list[tuple[float, float]], css: str) -> str:
+    commands = " ".join(("M" if index == 0 else "L") + f"{x:.2f},{y:.2f}" for index, (x, y) in enumerate(points))
+    return f'  <path d="{commands}" class="{css}" />'
+
+
+def read_rows(name: str) -> list[dict[str, str]]:
+    with (ROOT / name).open(newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))
+
+
+def column(rows: list[dict[str, str]], key: str) -> list[float]:
+    return [float(row[key]) for row in rows]
+
+
+class Plot:
+    """Stacked time plots with numbered marks that answer the lesson's predictions.
+
+    Panels share the time window 0..t_max unless a panel sets its own "t0", "t1" and "t_ticks" (a zoom)."""
+
+    LEFT, RIGHT = 82.0, 850.0
+
+    def __init__(self, title: str, subtitle: str, t_max: float, t_ticks: list[float], panels: list[dict]) -> None:
+        self.title, self.subtitle = title, subtitle
+        self.body: list[str] = []
+        self.over: list[str] = []
+        self.legend: list[tuple[str, str]] = []
+        top = 104.0
+        for index, panel in enumerate(panels):
+            panel.setdefault("t0", 0.0)
+            panel.setdefault("t1", t_max)
+            panel.setdefault("t_ticks", t_ticks)
+            panel["top"] = top
+            panel["bottom"] = top + panel.get("height", 170.0)
+            following = panels[index + 1] if index + 1 < len(panels) else None
+            panel["time_labels"] = following is None or (following.get("t0", 0.0), following.get("t1", t_max)) != (panel["t0"], panel["t1"])
+            top = panel["bottom"] + panel.get("gap", 58.0 if panel["time_labels"] else 34.0)
+        self.panels = panels
+        self.height = int(panels[-1]["bottom"] + 64)
+
+    def sx(self, t: float, index: int = 0) -> float:
+        panel = self.panels[index]
+        return self.LEFT + (t - panel["t0"]) / (panel["t1"] - panel["t0"]) * (self.RIGHT - self.LEFT)
+
+    def sy(self, index: int, value: float) -> float:
+        panel = self.panels[index]
+        return panel["bottom"] - (value - panel["lo"]) / (panel["hi"] - panel["lo"]) * (panel["bottom"] - panel["top"])
+
+    def series(self, index: int, ts: list[float], values: list[float], css: str, legend: str | None = None, step: bool = False) -> None:
+        """A step series holds each sample until the next one, as a PLC output does between updates."""
+        panel = self.panels[index]
+        points = [(self.sx(t, index), self.sy(index, v)) for t, v in zip(ts, values) if panel["t0"] <= t <= panel["t1"]]
+        if step:
+            held: list[tuple[float, float]] = []
+            for (x, y), (next_x, _) in zip(points, points[1:] + [(points[-1][0], 0.0)]):
+                held.extend([(x, y), (next_x, y)])
+            points = held
+        self.body.append(path(points, css))
+        if legend:
+            self.legend.append((css, legend))
+
+    def hline(self, index: int, value: float, css: str, label: str | None = None, at: float | None = None, below: bool = False) -> None:
+        y = self.sy(index, value)
+        self.body.append(line(self.LEFT, y, self.RIGHT, y, css))
+        if label:
+            x = self.sx(at, index) if at is not None else self.RIGHT - 4
+            self.over.append(text(x, y + (14 if below else -5), label, "note halo", "start" if at is not None else "end"))
+
+    def band(self, index: int, lo: float, hi: float, t0: float, t1: float, label: str | None = None) -> None:
+        x0, x1 = self.sx(t0, index), self.sx(t1, index)
+        y0, y1 = self.sy(index, hi), self.sy(index, lo)
+        self.body.append(f'  <rect x="{x0:.1f}" y="{y0:.1f}" width="{x1 - x0:.1f}" height="{y1 - y0:.1f}" class="band" />')
+        if label:
+            self.over.append(text(x0 + 4, y0 - 4, label, "note halo"))
+
+    def span(self, t0: float, t1: float, label: str | None = None, panels: list[int] | None = None) -> None:
+        chosen = panels if panels is not None else list(range(len(self.panels)))
+        for index in chosen:
+            panel = self.panels[index]
+            x0, x1 = max(self.sx(t0, index), self.LEFT), min(self.sx(t1, index), self.RIGHT)
+            if x1 > x0:
+                self.body.append(f'  <rect x="{x0:.1f}" y="{panel["top"]:.1f}" width="{x1 - x0:.1f}" height="{panel["bottom"] - panel["top"]:.1f}" class="door-band" />')
+        if label:
+            self.over.append(text(self.sx(t0, chosen[0]) + 5, self.panels[chosen[0]]["top"] + 14, label, "note halo"))
+
+    def vline(self, t: float, label: str | None = None, panels: list[int] | None = None, label_y: float | None = None) -> None:
+        chosen = panels if panels is not None else list(range(len(self.panels)))
+        x = self.sx(t, chosen[0])
+        self.body.append(line(x, self.panels[chosen[0]]["top"], x, self.panels[chosen[-1]]["bottom"], "disturbance"))
+        if label:
+            self.over.append(text(x + 5, label_y if label_y is not None else self.panels[chosen[0]]["top"] + 14, label, "note halo"))
+
+    def mark(self, index: int, t: float, value: float, number: int, label: str, dx: float, dy: float) -> None:
+        px, py = self.sx(t, index), self.sy(index, value)
+        bx, by = px + dx, py + dy
+        distance = max((dx * dx + dy * dy) ** 0.5, 1.0)
+        ex, ey = bx - dx / distance * 9.0, by - dy / distance * 9.0
+        self.over.append(line(px, py, ex, ey, "leader"))
+        self.over.append(f'  <circle cx="{px:.1f}" cy="{py:.1f}" r="4" class="mark" />')
+        self.over.append(f'  <circle cx="{bx:.1f}" cy="{by:.1f}" r="9" class="badge" />')
+        self.over.append(text(bx, by + 4, str(number), "badge-text", "middle"))
+        lines = label.split("\n")
+        anchor = "start" if dx >= 0 else "end"
+        lx = bx + 14 if dx >= 0 else bx - 14
+        first = by + 4 - (len(lines) - 1) * 7
+        for offset, value_text in enumerate(lines):
+            self.over.append(text(lx, first + offset * 14, value_text, "callout halo", anchor))
+
+    def render(self, name: str, accessible_title: str, description: str) -> None:
+        frame = [
+            text(48, 31, self.title, "title"),
+            text(48, 52, self.subtitle, "subtitle"),
+        ]
+        for index, panel in enumerate(self.panels):
+            for value in panel["ticks"]:
+                y = self.sy(index, value)
+                frame.extend([line(self.LEFT, y, self.RIGHT, y, "grid"), text(self.LEFT - 10, y + 4, panel.get("format", "{:g}").format(value), "tick", "end")])
+            for t in panel["t_ticks"]:
+                x = self.sx(t, index)
+                frame.append(line(x, panel["top"], x, panel["bottom"], "grid"))
+                if panel["time_labels"]:
+                    frame.append(text(x, panel["bottom"] + 20, f"{t:g}", "tick", "middle"))
+            middle = (panel["top"] + panel["bottom"]) / 2
+            frame.extend([
+                f'  <text x="20" y="{middle:.1f}" class="label" text-anchor="middle" transform="rotate(-90 20 {middle:.1f})">{panel["label"]}</text>',
+                line(self.LEFT, panel["top"], self.LEFT, panel["bottom"], "axis"),
+                line(self.LEFT, panel["bottom"], self.RIGHT, panel["bottom"], "axis"),
+            ])
+            if panel["time_labels"]:
+                frame.append(text((self.LEFT + self.RIGHT) / 2, panel["bottom"] + 42, panel.get("time_label", "Time (s)"), "label", "middle"))
+        x = 48.0
+        for css, label in self.legend:
+            frame.extend([line(x, 76, x + 30, 76, css), text(x + 37, 80, label, "note")])
+            x += 37 + len(label) * 6.2 + 26
+        (ROOT / name).write_text(
+            svg_document(accessible_title, description, "\n".join(frame + self.body + self.over), self.height),
+            encoding="utf-8",
+        )
+
+
+import math
+
+
+def response_plot() -> None:
+    rows = read_rows("energy-balance-step.csv")
+    t = column(rows, "time_s")
+    at = {round(time, 1): index for index, time in enumerate(t)}
+    pv, model = column(rows, "pv"), column(rows, "model")
+    heat, loss = column(rows, "heat"), column(rows, "loss")
+    calculated = [35.0 if time < 1.0 else 35.0 + 2.0 * (1.0 - math.exp(-(time - 1.0) / 5.0)) for time in t]
+    plot = Plot(
+        "The energy balance predicts the heater's step response",
+        "Control Studio recording of this project · command 75 → 85 % at 0 s · numbers answer the predictions",
+        30.0,
+        [0, 5, 10, 15, 20, 25, 30],
+        [
+            {"label": "Temperature (°C)", "lo": 34.8, "hi": 37.4, "ticks": [35, 35.5, 36, 36.5, 37], "format": "{:g}", "height": 200.0},
+            {"label": "Power (kW)", "lo": 140.0, "hi": 180.0, "ticks": [140, 150, 160, 170, 180], "height": 130.0},
+        ],
     )
-
-
-def polyline(rows: list[dict[str, str]], x, y, key: str) -> str:
-    return " ".join(f"{x(float(row['time_s'])):.2f},{y(float(row[key])):.2f}" for row in rows)
-
-
-def response_figure(rows: list[dict[str, str]], summary: dict[str, str]) -> str:
-    left, right = 78.0, 858.0
-    top_a, bottom_a = 130.0, 410.0
-    top_b, bottom_b = 500.0, 675.0
-    x = lambda value: left + value / 30.1 * (right - left)
-    y_temp = lambda value: bottom_a - (value - 19.5) / 5.0 * (bottom_a - top_a)
-    y_power = lambda value: bottom_b - value / 25.0 * (bottom_b - top_b)
-    grid = []
-    for tick in (0, 5, 10, 15, 20, 25, 30):
-        px = x(tick)
-        grid.append(f'<line x1="{px:.2f}" y1="{top_a}" x2="{px:.2f}" y2="{bottom_a}" class="grid"/>')
-        grid.append(f'<line x1="{px:.2f}" y1="{top_b}" x2="{px:.2f}" y2="{bottom_b}" class="grid"/>')
-        grid.append(f'<text x="{px:.2f}" y="700" text-anchor="middle" class="small">{tick}</text>')
-    for tick in (20, 21, 22, 23, 24):
-        py = y_temp(tick)
-        grid.append(f'<line x1="{left}" y1="{py:.2f}" x2="{right}" y2="{py:.2f}" class="grid"/>')
-        grid.append(f'<text x="66" y="{py + 5:.2f}" text-anchor="end" class="small">{tick}</text>')
-    for tick in (0, 10, 20):
-        py = y_power(tick)
-        grid.append(f'<line x1="{left}" y1="{py:.2f}" x2="{right}" y2="{py:.2f}" class="grid"/>')
-        grid.append(f'<text x="66" y="{py + 5:.2f}" text-anchor="end" class="small">{tick}</text>')
-
-    six = next(row for row in rows if abs(float(row["time_s"]) - 6.0) < 1e-9)
-    restoration_time = float(summary["restoration_time_s"])
-    body = f'''
-<text x="40" y="40" class="title">Derived prediction versus configured simulation truth</text>
-<text x="40" y="66" class="subtitle">Lesson 15 · 0 to 20% heater step · 100 ms samples · seed {SEED}</text>
-<rect x="{left}" y="{top_a}" width="{right-left}" height="{bottom_a-top_a}" class="panel"/>
-<rect x="{left}" y="{top_b}" width="{right-left}" height="{bottom_b-top_b}" class="panel"/>
-{''.join(grid)}
-<text x="78" y="118" class="heading">Outlet-water temperature (degC)</text>
-<text x="78" y="485" class="heading">Heater command (%)</text>
-<line x1="{left}" y1="{y_temp(24):.2f}" x2="{right}" y2="{y_temp(24):.2f}" class="reference"/>
-<text x="850" y="{y_temp(24)-8:.2f}" text-anchor="end" class="small">predicted equilibrium 24.00 degC</text>
-<line x1="{x(1):.2f}" y1="{top_a}" x2="{x(1):.2f}" y2="{bottom_b}" class="event"/>
-<text x="{x(1)+6:.2f}" y="151" class="small">response begins after L = 1.00 s</text>
-<line x1="{x(restoration_time):.2f}" y1="{top_b}" x2="{x(restoration_time):.2f}" y2="{bottom_b}" class="event"/>
-<text x="{x(restoration_time)-6:.2f}" y="488" text-anchor="end" class="small">safe restoration at {restoration_time:.2f} s</text>
-<polyline points="{polyline(rows, x, y_temp, 'pv_degc')}" class="actual"/>
-<polyline points="{polyline(rows, x, y_temp, 'model_prediction_degc')}" class="model"/>
-<polyline points="{polyline(rows, x, y_power, 'requested_power_percent')}" class="request"/>
-<polyline points="{polyline(rows, x, y_power, 'applied_power_percent')}" class="applied"/>
-<circle cx="{x(6):.2f}" cy="{y_temp(float(six['pv_degc'])):.2f}" r="5" class="point"/>
-<text x="{x(6)+12:.2f}" y="{y_temp(float(six['pv_degc']))-10:.2f}" class="small">6.00 s: 22.53 degC</text>
-<line x1="100" y1="84" x2="132" y2="84" class="actual"/><text x="140" y="89" class="small">configured simulation truth</text>
-<line x1="370" y1="84" x2="402" y2="84" class="model"/><text x="410" y="89" class="small">derived model prediction</text>
-<line x1="100" y1="724" x2="132" y2="724" class="request"/><text x="140" y="729" class="small">requested power</text>
-<line x1="340" y1="724" x2="372" y2="724" class="applied"/><text x="380" y="729" class="small">applied power</text>
-<text x="858" y="729" text-anchor="end" class="small">time (s)</text>
-<text x="78" y="752" class="muted">6 s error {float(summary['six_second_absolute_error_degc']):.3f} degC · final-window mean error {float(summary['final_window_mean_absolute_equilibrium_error_degc']):.3f} degC · final-window range {float(summary['final_window_pv_range_degc']):.3f} degC</text>
-'''
-    return svg_document(
-        900, 760, body, "Water-heater model prediction and simulation response",
-        "Two plots compare derived and simulated outlet temperature, then requested and applied heater power. The curves agree under configured simulation truth and finish with safe zero-power restoration.",
-    )
-
-
-def main() -> None:
-    with (ROOT / "heater-model-trace.csv").open(newline="", encoding="utf-8") as handle:
-        rows = list(csv.DictReader(handle))
-    with (ROOT / "heater-model-summary.csv").open(newline="", encoding="utf-8") as handle:
-        summary = next(csv.DictReader(handle))
-    (ROOT / "heater-energy-boundary.svg").write_text(energy_boundary(), encoding="utf-8")
-    (ROOT / "heater-model-response.svg").write_text(
-        response_figure(rows, summary), encoding="utf-8"
+    plot.hline(0, 37.0, "reference", "Equilibrium at 85 %: 37 °C", at=12.0)
+    plot.series(0, t, calculated, "signal-c", "Calculated T(t)")
+    plot.series(0, t, pv, "signal", "Measured temperature")
+    plot.series(0, t, model, "signal-b", "ST model (Euler)")
+    plot.series(1, t, heat, "command", "Heater power", step=True)
+    plot.series(1, t, loss, "signal-d", "Heat loss")
+    plot.mark(0, 29.9, pv[at[29.9]], 1, "Settles towards 37 °C: 36.99 °C at 29.9 s", -40, 34)
+    plot.mark(0, 1.1, pv[at[1.1]], 2, "After the 1 s delay: 0.4 °C/s", 40, 30)
+    plot.mark(0, 6.0, pv[at[6.0]], 3, "6 s: 36.264 °C measured and calculated;\nthe ST model 0.022 °C ahead", 30, 44)
+    plot.mark(1, 1.0, heat[at[1.0]], 4, "At 1 s the heater gives 170 kW, the loss is still 150 kW", 30, -22)
+    plot.mark(1, 26.0, loss[at[26.0]], 4, "At 26 s the loss has grown to 169.87 kW", -30, 40)
+    plot.render(
+        "energy-balance-step.svg",
+        "The energy balance and the heater's step response",
+        "After the command steps from 75 to 85 percent, the measured temperature follows the calculated curve 35 + 2(1 − e^(−(t−1)/5)): no change for 1 second, then 0.4 degrees Celsius per second, 36.264 degrees at 6 seconds and nearly 37 degrees at 30 seconds. The heater power jumps to 170 kilowatts at 1 second while the heat loss grows from 150 to 169.87 kilowatts.",
     )
 
 
 if __name__ == "__main__":
-    main()
+    response_plot()

@@ -101,17 +101,6 @@ export async function configureLoopChannels(loop: ControlLoopDefinition, catalog
   loop.channels = { inputs, outputs };
   loop.limits.rateUpPerS = actuator.rateUpPerS;
   loop.limits.rateDownPerS = actuator.rateDownPerS;
-  const physicalChoices: Array<{ label: string; physicalKind?: "thermal-balance" | "gravity-tank" | "gravity-tank-cascade" }> = [{ label: "Automatic dynamic model" }];
-  if (loop.signals.manipulatedVariable.unit === "W" && ["K", "degC", "°C"].includes(loop.signals.processVariable.unit)) physicalChoices.push({ label: "Thermal energy balance", physicalKind: "thermal-balance" });
-  if (["m3/s", "m^3/s", "m³/s"].includes(loop.signals.manipulatedVariable.unit) && loop.signals.processVariable.unit === "m") {
-    physicalChoices.push({ label: "Gravity-tank volume balance", physicalKind: "gravity-tank" });
-    if (outputs.length === 2) physicalChoices.push({ label: "Equal-area gravity-tank cascade", physicalKind: "gravity-tank-cascade" });
-  }
-  if (physicalChoices.length > 1) {
-    const physical = await ui.showQuickPick(physicalChoices, { title: "Identification model structure", placeHolder: "Choose a physical balance only when its equation describes the plant" });
-    if (!physical) return false;
-    loop.physicalIdentification = physical.physicalKind ? { kind: physical.physicalKind } : undefined;
-  }
   validateLoopChannelBindings(loop);
   return true;
 }

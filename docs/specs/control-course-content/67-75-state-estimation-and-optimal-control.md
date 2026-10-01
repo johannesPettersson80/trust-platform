@@ -3,7 +3,7 @@
 Part of [the course specification](../control-course-teaching-specification.md).
 These are the explanations to use in the mapped lessons.
 
-## 67. State-space models
+## 74. State-space models
 
 A **state-space model** describes how internal quantities change with inputs
 and how measurements depend on those quantities.
@@ -45,7 +45,7 @@ $[-.0008,.0008]^T$ m/s.
 In Control Studio we compare predicted and physical levels after a pump change.
 Next we ask what one pump can control and what one sensor can reveal.
 
-## 68. Controllability
+## 75. Controllability
 
 **Controllability** is the property that inputs can move a model's state
 between arbitrary states over time.
@@ -80,7 +80,7 @@ In Control Studio we use bounded pump pulses and observe direct upstream
 and delayed downstream changes. Next we ask whether downstream measurement
 history can distinguish the hidden upstream state.
 
-## 69. Observability
+## 76. Observability
 
 **Observability** is the ability to determine a model's state from its
 measured output over time when the input is known.
@@ -118,7 +118,7 @@ upstream truth only to assess error.
 We next design the controller with full-state information as a reference,
 then introduce an observer to estimate the missing state more practically.
 
-## 70. State feedback
+## 77. State feedback
 
 **State feedback** calculates control action from the system's state variables,
 rather than from just one output error.
@@ -155,7 +155,7 @@ recovery. We check both levels and pump limits.
 The installation may measure only downstream level. The next lesson estimates
 the missing upstream state.
 
-## 71. State observers
+## 78. State observers
 
 A **state observer** estimates internal states using a dynamic model and
 corrections from available measurements.
@@ -192,7 +192,7 @@ In Control Studio we start with an incorrect estimate and observe convergence,
 then repeat with noise. The next lesson calculates correction strength
 from uncertainty instead of choosing it only through desired observer rates.
 
-## 72. Kalman filtering
+## 79. Kalman filtering
 
 A **Kalman filter is a recursive state-estimation algorithm**. It predicts
 a system's state and the uncertainty of that prediction, then corrects both
@@ -253,7 +253,7 @@ simulation truth, then change the assumed sensor uncertainty.
 The truth evaluates the filter; it is not an input to it.
 A smoother estimate is not automatically a more accurate one.
 
-## 73. LQR control
+## 80. LQR control
 
 A **linear-quadratic regulator**, or LQR, calculates feedback that minimizes
 a specified cost for a linear model.
@@ -296,7 +296,7 @@ In Control Studio we compare the taught 20-step designs with different effort
 weights, inspecting level recovery and actual pump corrections separately.
 Next we supply the states through a Kalman estimate.
 
-## 74. LQG control
+## 81. LQG control
 
 **Linear-quadratic-Gaussian control**, or LQG, combines LQR state feedback
 with a Kalman state estimator.
@@ -331,7 +331,7 @@ ideal optimality result.
 
 Next we explicitly plan around future resource constraints.
 
-## 75. Model predictive control
+## 82. Model predictive control
 
 **Model predictive control**, or MPC, predicts future behavior for possible
 input plans, chooses the best feasible plan, applies its first command,

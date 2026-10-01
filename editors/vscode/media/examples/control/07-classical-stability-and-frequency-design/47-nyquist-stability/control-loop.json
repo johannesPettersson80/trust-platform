@@ -1,43 +1,42 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "control-nyquist-stability",
   "name": "Nyquist stability",
-  "revision": "sha256:2f95dc67e1bc76e3b89dcddaa95d46a82e971ba331e6e207c97c4e038806dc1f",
   "projectId": "project:control-nyquist-stability",
   "runtimeId": "simulator",
   "controller": {
-    "instance": "P1",
-    "type": "DelayedThermalComparison",
+    "instance": "P1.ShortDelayController",
+    "type": "Control.PID",
     "design": "project",
-    "revision": "sha256:curriculum-controller-48",
+    "revision": "sha256:297322d048d0c60b2edda7139f25b7e3e38c39b6ac7dfcd77e0f041d5cadf304",
     "action": "direct",
     "taskPeriodMs": 100
   },
   "signals": {
     "setpoint": {
-      "symbol": "P1.Setpoint",
-      "address": "%ML24",
+      "symbol": "P1.SetpointC",
+      "address": "%ML0",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "degC",
       "range": {
-        "minimum": 80,
-        "maximum": 120
+        "minimum": 0,
+        "maximum": 80
       }
     },
     "processVariable": {
-      "symbol": "P1.ShortDelayTemperature",
+      "symbol": "P1.ShortDelayC",
       "address": "%IL0",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "degC",
       "range": {
-        "minimum": 80,
-        "maximum": 120
+        "minimum": 0,
+        "maximum": 80
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.ShortDelayApplied",
+      "symbol": "P1.ShortDelayPct",
       "address": "%QL0",
       "iecType": "LREAL",
       "direction": "read",
@@ -49,24 +48,52 @@
     },
     "additional": [
       {
-        "id": "medium-pv",
-        "channel": "medium-delay",
-        "role": "PV",
-        "symbol": "P1.MediumDelayTemperature",
+        "id": "long-delay",
+        "channel": "long-delay",
+        "role": "state",
+        "symbol": "P1.LongDelayC",
         "address": "%IL8",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "degC",
         "range": {
-          "minimum": 80,
-          "maximum": 120
+          "minimum": 0,
+          "maximum": 80
         }
       },
       {
-        "id": "medium-mv",
-        "channel": "medium-delay",
-        "role": "MV",
-        "symbol": "P1.MediumDelayApplied",
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX16.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "short-delay-abort",
+        "channel": "short-delay-abort",
+        "role": "state",
+        "symbol": "P1.ShortDelayAbort",
+        "address": "%MX16.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "long-delay-command",
+        "channel": "long-delay-command",
+        "role": "state",
+        "symbol": "P1.LongDelayPct",
         "address": "%QL8",
         "iecType": "LREAL",
         "direction": "read",
@@ -77,84 +104,14 @@
         }
       },
       {
-        "id": "long-pv",
-        "channel": "long-delay",
-        "role": "PV",
-        "symbol": "P1.LongDelayTemperature",
-        "address": "%IL16",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 80,
-          "maximum": 120
-        }
-      },
-      {
-        "id": "long-mv",
-        "channel": "long-delay",
-        "role": "MV",
-        "symbol": "P1.LongDelayApplied",
-        "address": "%QL16",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": 0,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "short-abort",
-        "channel": "short-delay",
-        "role": "quality",
-        "symbol": "P1.ShortDelayAborted",
-        "address": "%MX97.0",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "medium-abort",
-        "channel": "medium-delay",
-        "role": "quality",
-        "symbol": "P1.MediumDelayAborted",
-        "address": "%MX97.1",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "long-abort",
-        "channel": "long-delay",
-        "role": "quality",
-        "symbol": "P1.LongDelayAborted",
-        "address": "%MX97.2",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "experiment-authority",
-        "channel": "experiment-authority",
+        "id": "long-delay-abort",
+        "channel": "long-delay-abort",
         "role": "state",
-        "symbol": "P1.ExperimentEnabled",
-        "address": "%MX96.0",
+        "symbol": "P1.LongDelayAbort",
+        "address": "%MX16.2",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "",
+        "unit": "1",
         "range": {
           "minimum": 0,
           "maximum": 1
@@ -169,18 +126,64 @@
   "observedSampleTiming": {
     "nominalPeriodMs": 100
   },
-  "plantId": "delayed_oven_three_delay_cases",
+  "plantId": "two-heaters-delays",
+  "operatingPoint": "Both heaters at 35 degC with 75% under P control",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 600.1,
+    "durationSeconds": 152.1,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX96.0",
+      "address": "%MX16.0",
       "iecType": "BOOL",
       "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "analysis": {
+    "plant": {
+      "kind": "transfer-function",
+      "numerator": [
+        0.2
+      ],
+      "denominator": [
+        5,
+        1
+      ],
+      "delaySeconds": 1,
+      "inputUnit": "%",
+      "outputUnit": "degC",
+      "revision": "water-heater-lessons-12-29",
+      "source": "provided",
+      "validation": "unvalidated"
+    },
+    "controller": {
+      "numerator": [
+        {
+          "parameter": "Kp"
+        }
+      ],
+      "denominator": [
+        1
+      ],
+      "parameters": {
+        "Kp": {
+          "value": 10,
+          "minimum": 0,
+          "maximum": 20,
+          "unit": "%/degC"
+        }
+      }
+    },
+    "rootLocus": {
+      "parameter": "Kp",
+      "values": [
+        10
+      ],
+      "selectedValue": 10
     }
-  }
+  },
+  "revision": "sha256:43fabbae9c807f07a41ec43d50356dd063f599e89004151719fc0258633b7564"
 }

@@ -3,83 +3,103 @@ enabled = true
 seed = 20260829
 time_scale = 1
 max_plant_substeps_per_cycle = 100
-plant_trace_capacity = 12000
+plant_trace_capacity = 4000
 plant_step_ms = 100
 
+# One valve, two pressure arrangements, both driven by the same stem request. The motor moves the
+# stem at 0.5 % per second; flow follows the reached opening.
+
+# Regulated arrangement: a regulator holds 100 kPa across the valve, so q = 2z kg/s.
 [[plants]]
-id = "healthy-valve-bench"
-name = "Healthy cooling-water valve"
-description = "Fixed-head installed valve curve with ordinary positioner and hydraulic response."
-model = "first_order"
-command_sources = ["%QL184"]
-feedback_targets = ["%IL168"]
-initial_state = [64.0]
-initial_input = [64.0]
+id = "valve-regulated-flow"
+model = "piecewise_linear"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+actuator_feedback_targets = [{ address = "%IL16" }]
+initial_input = [75.0]
 
 [plants.parameters]
-gain = 1.0
-time_constant_s = 3.0
+input_points = [0.000000, 5.000000, 10.000000, 15.000000, 20.000000, 25.000000, 30.000000, 35.000000, 40.000000, 45.000000, 50.000000, 55.000000, 60.000000, 65.000000, 70.000000, 75.000000, 80.000000, 85.000000, 90.000000, 95.000000, 100.000000]
+output_points = [0.000000, 0.100000, 0.200000, 0.300000, 0.400000, 0.500000, 0.600000, 0.700000, 0.800000, 0.900000, 1.000000, 1.100000, 1.200000, 1.300000, 1.400000, 1.500000, 1.600000, 1.700000, 1.800000, 1.900000, 2.000000]
 
 [plants.actuator]
 minimum = 0.0
 maximum = 100.0
-rate_up_per_s = 25.0
-rate_down_per_s = 25.0
-deadband = 0.0
-stiction_band = 0.0
-slip_jump = 0.0
-lag_s = 0.4
-characteristic_exponent = 2.0
-initial_applied = 80.0
+rate_up_per_s = 0.5
+rate_down_per_s = 0.5
+initial_applied = 75.0
 
+[[plants.uncertainties]]
+id = "valve-regulated-flow-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "uniform_white"
+minimum = -0.005
+maximum = 0.005
+
+# Pressure across the valve in the regulated arrangement.
 [[plants]]
-id = "deadband-valve-bench"
-name = "Cooling-water valve with command deadband"
-description = "The same installed curve and hydraulic response with a two-point command deadband."
-model = "first_order"
-command_sources = ["%QL192"]
-feedback_targets = ["%IL176"]
-initial_state = [64.0]
-initial_input = [64.0]
+id = "valve-regulated-pressure"
+model = "piecewise_linear"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL24"]
+initial_input = [75.0]
 
 [plants.parameters]
-gain = 1.0
-time_constant_s = 3.0
+input_points = [0.000000, 5.000000, 10.000000, 15.000000, 20.000000, 25.000000, 30.000000, 35.000000, 40.000000, 45.000000, 50.000000, 55.000000, 60.000000, 65.000000, 70.000000, 75.000000, 80.000000, 85.000000, 90.000000, 95.000000, 100.000000]
+output_points = [100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000, 100.000000]
 
 [plants.actuator]
 minimum = 0.0
 maximum = 100.0
-rate_up_per_s = 25.0
-rate_down_per_s = 25.0
-deadband = 2.0
-stiction_band = 0.0
-slip_jump = 0.0
-lag_s = 0.4
-characteristic_exponent = 2.0
-initial_applied = 80.0
+rate_up_per_s = 0.5
+rate_down_per_s = 0.5
+initial_applied = 75.0
 
+# Fixed supply: 128.125 kPa total; the pipe loses 12.5 q^2, so q = 2z sqrt(1.28125/(1 + 0.5 z^2)).
 [[plants]]
-id = "stiction-valve-bench"
-name = "Cooling-water valve with mechanical stiction"
-description = "The same installed curve and response with a five-point breakaway band and two-point slip jump."
-model = "first_order"
-command_sources = ["%QL200"]
-feedback_targets = ["%IL184"]
-initial_state = [64.0]
-initial_input = [64.0]
+id = "valve-fixed-supply-flow"
+model = "piecewise_linear"
+command_sources = ["%QL16"]
+feedback_targets = ["%IL8"]
+initial_input = [75.0]
 
 [plants.parameters]
-gain = 1.0
-time_constant_s = 3.0
+input_points = [0.000000, 5.000000, 10.000000, 15.000000, 20.000000, 25.000000, 30.000000, 35.000000, 40.000000, 45.000000, 50.000000, 55.000000, 60.000000, 65.000000, 70.000000, 75.000000, 80.000000, 85.000000, 90.000000, 95.000000, 100.000000]
+output_points = [0.000000, 0.113122, 0.225821, 0.337683, 0.448308, 0.557320, 0.664370, 0.769141, 0.871355, 0.970770, 1.067187, 1.160446, 1.250424, 1.337037, 1.420235, 1.500000, 1.576340, 1.649290, 1.718903, 1.785252, 1.848423]
 
 [plants.actuator]
 minimum = 0.0
 maximum = 100.0
-rate_up_per_s = 25.0
-rate_down_per_s = 25.0
-deadband = 0.0
-stiction_band = 5.0
-slip_jump = 2.0
-lag_s = 0.4
-characteristic_exponent = 2.0
-initial_applied = 80.0
+rate_up_per_s = 0.5
+rate_down_per_s = 0.5
+initial_applied = 75.0
+
+[[plants.uncertainties]]
+id = "valve-fixed-supply-flow-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "uniform_white"
+minimum = -0.005
+maximum = 0.005
+
+# Pressure across the valve with the fixed supply: 128.125 - 12.5 q^2 kPa.
+[[plants]]
+id = "valve-fixed-supply-pressure"
+model = "piecewise_linear"
+command_sources = ["%QL24"]
+feedback_targets = ["%IL32"]
+initial_input = [75.0]
+
+[plants.parameters]
+input_points = [0.000000, 5.000000, 10.000000, 15.000000, 20.000000, 25.000000, 30.000000, 35.000000, 40.000000, 45.000000, 50.000000, 55.000000, 60.000000, 65.000000, 70.000000, 75.000000, 80.000000, 85.000000, 90.000000, 95.000000, 100.000000]
+output_points = [128.125000, 127.965044, 127.487562, 126.699629, 125.612745, 124.242424, 122.607656, 120.730271, 118.634259, 116.345062, 113.888889, 111.292074, 108.580508, 105.779154, 102.911647, 100.000000, 97.064394, 94.123049, 91.192171, 88.285960, 85.416667]
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+rate_up_per_s = 0.5
+rate_down_per_s = 0.5
+initial_applied = 75.0

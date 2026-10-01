@@ -3,99 +3,71 @@ icon = "activity"
 order = 0
 
 [[section]]
-title = "Status"
+title = "Heater"
 span = 12
-tier = "status"
+tier = "hero"
 
 [[section.widget]]
-type = "indicator"
-bind = "P1.ExperimentEnabled"
+type = "gauge"
+bind = "P1.TemperatureC"
 inferred_interface = true
-label = "Experiment Enabled"
-span = 2
+label = "Temperature"
+span = 4
+unit = "°C"
+min = 30
+max = 40
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.HeaterPoleResponseC"
+inferred_interface = true
+label = "Pole response"
+span = 4
+unit = "°C"
+min = 30
+max = 40
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.HeaterPowerPct"
+inferred_interface = true
+label = "Heater command"
+span = 4
+unit = "%"
+min = 0
+max = 100
 
 [[section]]
-title = "Details"
+title = "Shaft"
 span = 12
 tier = "detail"
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.CommonInput"
+bind = "P1.AngleRad"
 inferred_interface = true
-label = "Common Input"
-span = 3
-min = 0
-max = 100
+label = "Angle"
+span = 4
+unit = "rad"
+min = -2
+max = 2
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.IntegratingResponse"
+bind = "P1.ShaftPoleResponseRad"
 inferred_interface = true
-label = "Integrating Response"
-span = 3
-min = 0
-max = 100
+label = "Pole response"
+span = 4
+unit = "rad"
+min = -2
+max = 2
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.InverseNegativePath"
+bind = "P1.TorqueNm"
 inferred_interface = true
-label = "Inverse Negative Path"
-span = 3
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.InversePositivePath"
-inferred_interface = true
-label = "Inverse Positive Path"
-span = 3
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.InverseResponse"
-inferred_interface = true
-label = "Inverse Response"
-span = 3
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.OscillatingPoleImaginaryPart"
-inferred_interface = true
-label = "Oscillating Pole Imaginary Part"
-span = 3
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.OscillatingPoleRealPart"
-inferred_interface = true
-label = "Oscillating Pole Real Part"
-span = 3
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.OscillatingResponse"
-inferred_interface = true
-label = "Oscillating Response"
-span = 3
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.StablePole"
-inferred_interface = true
-label = "Stable Pole"
-span = 3
-min = 0
-max = 100
+label = "Torque"
+span = 4
+unit = "N·m"
+min = -20
+max = 20

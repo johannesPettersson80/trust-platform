@@ -7,7 +7,8 @@ import type { ControlLoopDefinition } from "./loopDefinition";
 import type { GeneralModel } from "./generalModel";
 import type { EngineerRequirements } from "./engineerVerificationPlan";
 import { engineerVerificationPlan } from "./engineerVerificationPlan";
-import { roundedTransferValue, transferTolerance, type TransferBinding, type TransferMember } from "./proportionalTransfer";
+import { decodePidLaw } from "./controllerLaw";
+import { noiseAwareTransferTolerance, roundedTransferValue, type TransferBinding, type TransferMember } from "./proportionalTransfer";
 import type { TransferStatus } from "./runtimeTransfer";
 import type { CommissioningProfile } from "./commissioningProfile";
 
@@ -38,11 +39,12 @@ export function declaredTransferBinding(loop: ControlLoopDefinition, definition:
     ...definition.states.map(({ symbol, iec_type, unit, minimum, maximum }) => ({ symbol, iec_type, unit, minimum, maximum }))];
   const guards = [...parameters.parameters.map(({ symbol, iec_type, unit, minimum, maximum }) => ({ symbol, iec_type, unit, minimum, maximum })),
     ...channels.measurements];
-  const symbols = [parameters.mode.symbol, ...states.map(state => state.symbol), ...guards.map(guard => guard.symbol),
+  const additional_modes = (loop.controller.project?.additionalModes ?? []).map(mode => ({ symbol: mode.symbol, manual_value: mode.manualValue }));
+  const symbols = [parameters.mode.symbol, ...additional_modes.map(mode => mode.symbol), ...states.map(state => state.symbol), ...guards.map(guard => guard.symbol),
     output.symbol, ...additional_outputs.map(output => output.symbol)];
   if (new Set(symbols.map(symbol => symbol.toUpperCase())).size !== symbols.length) throw new Error("Controller initialization roles overlap parameters, measurements or output ownership.");
-  return withActuatorFeedback(loop, { loop_id: parameters.loop_id, task_name: parameters.task_name, mode: parameters.mode, states, guards, output,
-    ...(additional_outputs.length ? { additional_outputs } : {}) });
+  return withActuatorFeedback(loop, { loop_id: parameters.loop_id, task_name: parameters.task_name, mode: parameters.mode,
+    ...(additional_modes.length ? { additional_modes } : {}), states, guards, output, ...(additional_outputs.length ? { additional_outputs } : {}) });
 }
 export function declaredCommissioningProfile(loop: ControlLoopDefinition, model: GeneralModel, definition: ControllerInitialization, label: string, parameters: Readonly<Record<string, number>> = {}): CommissioningProfile {
   const channels = declaredControllerChannels(loop);
@@ -71,7 +73,7 @@ export function declaredCommissioningProfile(loop: ControlLoopDefinition, model:
   };
 }
 export function declaredInitializationPlan(loop: ControlLoopDefinition, model: GeneralModel, task: EngineerRequirements,
-  values: Readonly<Record<string, number>>, definition: ControllerInitialization) {
+  values: Readonly<Record<string, number>>, definition: ControllerInitialization, processNoise?: number) {
   const binding = declaredTransferBinding(loop, definition);
   const base = engineerVerificationPlan(loop, model, task, values);
   const initialized = Object.fromEntries(definition.states.map(state => [state.symbol, base.request.initial_values[state.symbol]]));
@@ -85,7 +87,16 @@ export function declaredInitializationPlan(loop: ControlLoopDefinition, model: G
     return typeof planned === "number" ? planned : model.operatingPoint?.inputs[index] ?? 0;
   };
   const output = initialValue(loop.signals.manipulatedVariable.symbol, outputIndex);
-  const tolerance = transferTolerance(loop, task.transferTolerance), window = { start: 0, end: duration / 1000 };
+  const pid = decodePidLaw(loop.controller.law, loop.parameterBinding);
+  // A program's own P, PI or PID names its gains in its seed; noise reaches its first output as it reaches Control.PID's.
+  // A trajectory's feedforward is zero at rest, so its PID alone answers the noise (§17.16).
+  const seed = loop.controller.project?.seed, own = seed?.kind === "parallel-pid" || seed?.kind === "trajectory-feedforward-pid" ? seed : undefined;
+  const gains = pid ? { proportional: values[pid.proportionalGainSymbol], integral: values[pid.integralGainSymbol], derivative: values[pid.derivativeGainSymbol] }
+    : own ? { proportional: values[own.proportionalSymbol], integral: own.integralSymbol ? values[own.integralSymbol] : undefined,
+      derivative: own.derivativeSymbol ? values[own.derivativeSymbol] : undefined } : undefined;
+  const tolerance = noiseAwareTransferTolerance(loop, task.transferTolerance, gains?.proportional, processNoise,
+    gains ? { integralGain: gains.integral, derivativeGain: gains.derivative, cycleSeconds: loop.controller.taskPeriodMs / 1000 } : {});
+  const window = { start: 0, end: duration / 1000 };
   const held: Record<string, number> = { [binding.states[0].symbol]: roundedTransferValue(binding.states[0], reference),
     [binding.states[1].symbol]: roundedTransferValue(binding.states[1], output) };
   for (const channel of channels.references) {

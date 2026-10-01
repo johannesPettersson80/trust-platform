@@ -14,10 +14,13 @@ import {
 import * as chartContractModule from "../../controlStudio/chartContract";
 import { buildEngineeringPlotEvidence, engineeringPlotMessageEvidence } from "../../controlStudio/engineeringPlots";
 import { candidateFromControlPid, type ControlPidParameters } from "../../controlStudio/controllerCandidate";
-import { recordedResponseChannels } from "../../controlStudio/webview/engineerRecordedResponses";
-import { commissioningRecordedResponse } from "../../controlStudio/webview/commissioningRecordedResponse";
-import { ControlChartWorkspace } from "../../controlStudio/webview/chartWorkspace";
-import { liveSignalPlot, liveSignals } from "../../controlStudio/webview/liveSignalPlot";
+import { responseChartSeries, responseChartTooltip } from "../../controlStudio/webview/threePageResponseSeries";
+import { rootLocusChartSeries } from "../../controlStudio/webview/rootLocusChart";
+import { sensitivitySeries } from "../../controlStudio/webview/sensitivityChart";
+import { nyquistCountText, nyquistGeometry, nyquistSeries } from "../../controlStudio/webview/nyquistChart";
+import { initialStateResponseRows, initialStateResponseSeries } from "../../controlStudio/webview/initialStateResponseChart";
+import { poleMapGeometry } from "../../controlStudio/webview/complexPlaneGeometry";
+import { calculateDeclaredRootLocus } from "../../controlStudio/declaredAnalysis";
 
 suite("Control Studio chart contract", () => {
   test("a provisional structure comparison exposes paired fit, residuals and the original record without claiming validation data", () => {
@@ -36,98 +39,202 @@ suite("Control Studio chart contract", () => {
     assert.ok(after.some(plot => plot.id === "fit" && plot.available));
     assert.ok(after.some(plot => plot.id === "recorded-response" && plot.available));
   });
-  test("projects an explicit open-loop plot without inventing a setpoint", () => {
-    const samples = [{ elapsedSeconds: 0, sp: null, pv: 35, mv: 85, additional: [
-      { id: "experiment-authority", channel: "experiment", role: "state", unit: "", value: 1, quality: "good" as const },
-    ] }];
-    const openLoopSignals = (liveSignals as unknown as (
-      values: typeof samples, processUnit: string, outputUnit: string, topology?: "closed-loop" | "open-loop"
-    ) => ReturnType<typeof liveSignals>)(samples, "°C", "%", "open-loop");
-    const theme = { foreground: "black", muted: "gray", border: "gray", background: "white",
-      sp: "green", pv: "blue", mv: "red", auxiliaryOrange: "orange", auxiliaryPurple: "purple", auxiliaryYellow: "gold" };
-    assert.deepStrictEqual(openLoopSignals.map(signal => signal.id), ["pv", "mv", "experiment-authority"],
-      "an open-loop process has measured output and applied input, with no fabricated SP");
-    assert.deepStrictEqual(openLoopSignals.slice(0, 2).map(signal => signal.name), ["Measured output", "Applied input"]);
-    const all = liveSignalPlot(samples, openLoopSignals, new Set(openLoopSignals.map(signal => signal.id)),
-      { width: 1280, height: 500 }, { minimum: 0, maximum: 100 }, "%", theme);
-    assert.deepStrictEqual(all.legend.data, ["Measured output", "Applied input", "Experiment authority"]);
-    assert.ok(!all.series.some(series => series.name === "SP"), "the open-loop option must not contain an invented setpoint series");
-    const auxiliary = all.series.find(series => series.name === "Experiment authority");
-    assert.strictEqual(auxiliary?.itemStyle.color, theme.auxiliaryOrange,
-      "removing SP must not shift the first auxiliary trace to a negative palette index");
-    const primary = liveSignalPlot(samples, openLoopSignals, new Set(["pv", "mv"]),
-      { width: 1280, height: 500 }, { minimum: 0, maximum: 100 }, "%", theme);
-    assert.ok(primary.yAxis.some(axis => axis.name === "Measured output (°C)"));
-    assert.ok(primary.yAxis.some(axis => axis.name === "Applied input (%)"));
+  const threePageTheme = { foreground: "black", muted: "gray", border: "gray", background: "white",
+    sp: "green", pv: "blue", mv: "red", auxiliaryOrange: "orange", auxiliaryPurple: "purple", auxiliaryYellow: "gold" };
+  const threePageLoop = () => {
+    const signal = (symbol: string) => ({ symbol, address: "%ML0", iecType: "LREAL", direction: "read" as const,
+      unit: "%", range: { minimum: 0, maximum: 100 } });
+    return { signals: { setpoint: signal("P1.SP"), processVariable: signal("P1.PV"), manipulatedVariable: signal("P1.MV"),
+      additional: Array.from({ length: 9 }, (_, index) => ({ ...signal(`P1.State${index}`), id: `state-${index}`,
+        role: "state", channel: `state-${index}` })) } } as any;
+  };
+  const threePagePlot = (loop: any, ids: string[], prediction = false) => responseChartSeries(threePageTheme, loop,
+    [{ name: "Response", unit: "%", series: ids.map(signalId => ({ signalId, name: signalId, dashed: signalId === "sp",
+      prediction, points: [[0, 1]] })) }]);
+  const threePageIdentity = (series: ReturnType<typeof threePagePlot>[number]) =>
+    `${(series.lineStyle as { color?: string }).color}/${series.lineStyle.type}`;
+  test("the initial-state response draws the total as the wide primary line with its two parts over it in distinct auxiliary strokes", () => {
+    const points = [{ timeSeconds: 0, zeroState: [9, 0], initialCondition: [9, 0.02], total: [9, 0.02] }, { timeSeconds: 1, zeroState: [9, 0.001], initialCondition: [9, 0.019], total: [9, 0.02] }];
+    const colors = { total: "#0a84ff", zeroState: "#ff9f0a", initialCondition: "#bf5af2" };
+    const series = initialStateResponseSeries(points, 1, colors) as any[];
+    assert.deepStrictEqual(series.map(item => item.name), ["Zero-state input", "Initial condition", "Total"]);
+    assert.deepStrictEqual(series.map(item => item.data[1][1]), [0.001, 0.019, 0.02]);
+    assert.deepStrictEqual(series.map(item => item.lineStyle.color), [colors.zeroState, colors.initialCondition, colors.total]);
+    assert.deepStrictEqual(series.map(item => item.itemStyle.color), [colors.zeroState, colors.initialCondition, colors.total]);
+    assert.deepStrictEqual(series.map(item => item.lineStyle.type), ["dashed", "dotted", "solid"]);
+    const [zeroState, initialCondition, total] = series;
+    assert.ok(total.lineStyle.width > zeroState.lineStyle.width && total.lineStyle.width > initialCondition.lineStyle.width, "The total is the wide primary line");
+    assert.ok(zeroState.z > total.z && initialCondition.z > total.z, "A part that coincides with the total stays visible on top of it");
   });
-  test("labels an isolated controller-state axis by its actual role", () => {
-    const samples = [{ elapsedSeconds: 0, sp: 45, pv: 39, mv: 100, additional: [
-      { id: "tracking-correction", channel: "tracking", role: "state", unit: "percentage points", value: -0.2, quality: "good" as const },
-    ] }];
-    const signals = liveSignals(samples, "°C", "%");
-    const theme = { foreground: "black", muted: "gray", border: "gray", background: "white",
-      sp: "green", pv: "blue", mv: "red", auxiliaryOrange: "orange", auxiliaryPurple: "purple", auxiliaryYellow: "gold" };
-    const option = liveSignalPlot(samples, signals, new Set(["sp", "pv", "tracking-correction"]),
-      { width: 1280, height: 500 }, { minimum: 0, maximum: 100 }, "%", theme);
-    assert.strictEqual(option.yAxis[1].name, "Tracking correction (percentage points)",
-      "the right axis represents recorded controller state, not process PV");
+
+  test("the initial-state response table shows each column in one notation", () => {
+    const points = [
+      { timeSeconds: 0, zeroState: [0], initialCondition: [0], total: [0] },
+      { timeSeconds: 1, zeroState: [3.89e-5], initialCondition: [7.69e-4], total: [8.08e-4] },
+      { timeSeconds: 2, zeroState: [1.52e-4], initialCondition: [0.001477], total: [0.001629] },
+      { timeSeconds: 120, zeroState: [0.0476], initialCondition: [7.9e-4], total: [0.0484] },
+    ];
+    assert.deepStrictEqual(initialStateResponseRows(points, 0), [
+      ["0", "0", "0", "0"],
+      ["1", "0.000039", "0.000769", "0.000808"],
+      ["2", "0.000152", "0.001477", "0.001629"],
+      ["120", "0.0476", "0.00079", "0.0484"],
+    ]);
   });
-  test("keeps auxiliary trace identities distinct from primary signals and stable across selections", () => {
-    const samples = [{ elapsedSeconds: 0, sp: 45, pv: 39, mv: 100, additional:
-      Array.from({ length: 9 }, (_, index) => ({ id: `state-${index}`, channel: `state-${index}`,
-        role: "state", unit: "%", value: index, quality: "good" as const })),
-    }];
-    const signals = liveSignals(samples, "°C", "%");
-    const theme = { foreground: "black", muted: "gray", border: "gray", background: "white",
-      sp: "green", pv: "blue", mv: "red", auxiliaryOrange: "orange", auxiliaryPurple: "purple", auxiliaryYellow: "gold" };
-    const make = (selected: string[]) => liveSignalPlot(samples, signals, new Set(selected),
-      { width: 1280, height: 500 }, { minimum: 0, maximum: 100 }, "%", theme);
-    const all = make(signals.map(signal => signal.id));
-    const identity = (series: typeof all.series[number]) => `${series.lineStyle.color}/${series.lineStyle.type}`;
-    assert.strictEqual(new Set(all.series.map(identity)).size, signals.length,
-      "the included diagnostic traces must not reuse each other's or the primary traces' colour/style pair");
-    const isolated = make(["sp", "pv", "state-3"]);
-    assert.deepStrictEqual(isolated.series.map(identity), all.series.map(identity),
+
+  test("the three-page response plot keeps the primary strokes and each auxiliary identity across selections", () => {
+    const loop = threePageLoop();
+    const ids = ["sp", "pv", "mv", ...loop.signals.additional.map((signal: { id: string }) => signal.id)];
+    const all = threePagePlot(loop, ids);
+    assert.deepStrictEqual(all.slice(0, 3).map(threePageIdentity), ["green/dashed", "blue/solid", "red/solid"]);
+    assert.deepStrictEqual(threePagePlot(loop, ["pv", "state-4"]).map(threePageIdentity), [all[1], all[7]].map(threePageIdentity),
       "signal selection must not reassign the remaining trace identities");
+    assert.strictEqual((threePagePlot(loop, ["pv"], true)[0].lineStyle as { color?: string }).color, "orange",
+      "a model prediction keeps its prediction stroke");
   });
-  test("reserves a legend header above the response lanes and their axis labels", () => {
-    const samples = [{ elapsedSeconds: 0, sp: 45, pv: 39, mv: 100, additional: [
-      { id: "requested-power", channel: "requested-power", role: "state", unit: "%", value: 125, quality: "good" as const },
-      { id: "unavailable-power", channel: "unavailable-power", role: "state", unit: "percentage points", value: 25, quality: "good" as const },
-    ] }];
-    const signals = liveSignals(samples, "°C", "%");
-    const theme = { foreground: "black", muted: "gray", border: "gray", background: "white",
-      sp: "green", pv: "blue", mv: "red", auxiliaryOrange: "orange", auxiliaryPurple: "purple", auxiliaryYellow: "gold" };
-    const option = liveSignalPlot(samples, signals, new Set(signals.map(signal => signal.id)),
-      { width: 1280, height: 500 }, { minimum: 0, maximum: 100 }, "%", theme);
-    const legendTop = (option.legend as { top?: number }).top;
-    assert.strictEqual(typeof legendTop, "number", "the scroll legend must explicitly occupy the reserved header");
-    assert.ok(legendTop! >= 0 && legendTop! + 24 < option.grid[0].top - 15,
-      "legend text must fit above the first lane's axis heading instead of overlapping time ticks");
-    const compact = liveSignalPlot(samples, signals, new Set(signals.map(signal => signal.id)),
-      { width: 1280, height: 300 }, { minimum: 0, maximum: 100 }, "%", theme);
-    assert.ok(compact.grid[0].height / compact.yAxis[0].splitNumber >= 18,
-      "the compact Test plot must leave a readable line height between y-axis tick labels");
+  test("the three-page response plot never draws two displayed signals alike", () => {
+    const loop = threePageLoop();
+    const ids = ["sp", "pv", "mv", ...loop.signals.additional.map((signal: { id: string }) => signal.id)];
+    const all = threePagePlot(loop, ids);
+    assert.strictEqual(new Set(all.map(threePageIdentity)).size, ids.length,
+      `each displayed trace needs its own colour/style pair: ${all.map(threePageIdentity).join(", ")}`);
   });
-  test("applies saved plot selection without requiring a current monitor sample", () => {
-    const { JSDOM } = require("jsdom");
-    const dom = new JSDOM('<div data-control-studio></div>');
-    const original = { window: globalThis.window, document: globalThis.document, CustomEvent: globalThis.CustomEvent };
-    Object.assign(globalThis, { window: dom.window, document: dom.window.document, CustomEvent: dom.window.CustomEvent });
-    try {
-      let applied: string[] = [];
-      const owner = Object.assign(Object.create(ControlChartWorkspace.prototype), {
-        root: dom.window.document.querySelector("div"), selectedPlots: {}, revision: 0,
-        sessionBoundary: () => "saved-loop", renderSignals: () => {}, renderDesigns: () => {}, renderTabs: () => {},
-        adapter: { restoreWindow: () => {}, setSelectedSignals: (ids: readonly string[]) => { applied = [...ids]; } },
-      });
-      owner.restoreSession({ schemaVersion: 1, boundary: "saved-loop", activeStage: "Monitor",
-        selectedPlots: { Monitor: "response" }, selectedSignals: ["sp", "pv", "requested-power"],
-        window: [0, 100], expanded: false, pinnedCandidateRevisions: [] });
-      assert.deepStrictEqual(applied, ["sp", "pv", "requested-power"],
-        "historical plot selection must reach its adapter even without any current monitor declaration");
-    } finally { Object.assign(globalThis, original); dom.window.close(); }
+  test("the three-page response plot draws the applied output as held between samples", () => {
+    const loop = threePageLoop();
+    const [pv, mv] = threePagePlot(loop, ["pv", "mv"]);
+    assert.strictEqual((mv as { step?: unknown }).step, "end", "the actuator keeps each command until the next update");
+    assert.strictEqual((pv as { step?: unknown }).step, undefined, "a measurement is joined as sampled");
   });
+  test("the three-page response tooltip shows engineering values inside the plot", () => {
+    const tooltip = responseChartTooltip();
+    const shown = (value: number) => (tooltip.valueFormatter ?? String)(value);
+    assert.strictEqual(tooltip.trigger, "axis");
+    assert.strictEqual(shown(1.9017502305516345), "1.9", "a recorded torque reads like the other engineering charts, not as raw binary digits");
+    assert.strictEqual(shown(-2.405530441441469), "-2.41");
+    assert.strictEqual(tooltip.confine, true, "the tooltip stays inside the plot area");
+  });
+  test("the three-page root locus draws the pole paths, labels the inspected gains and marks the selected candidate", () => {
+    const result = calculateDeclaredRootLocus({
+      plant: { kind: "transfer-function", numerator: [1], denominator: [1, 8, 0], delaySeconds: 0,
+        inputUnit: "N·m", outputUnit: "rad", revision: "shaft-kd7", source: "provided", validation: "unvalidated" },
+      controller: { numerator: [{ parameter: "Kp" }], denominator: [1],
+        parameters: { Kp: { value: 16, minimum: 0, maximum: 20, unit: "N·m/rad" }, Kd: { value: 7, minimum: 7, maximum: 7, unit: "N·m·s/rad" } } },
+      rootLocus: { parameter: "Kp", values: [12, 16, 20], selectedValue: 16 },
+    });
+    const colors = { path: "#0000ff", inspected: "#ff8800", selected: "#aa00ff", foreground: "#ffffff" };
+    const series = rootLocusChartSeries(result, colors) as any[];
+    const paths = series.find(item => item.type === "line");
+    assert.ok(paths, "one line series joins the poles of consecutive gains");
+    assert.match(paths.name, /Kp 0–20 N·m\/rad/);
+    assert.strictEqual(paths.lineStyle.color, colors.path);
+    const breaks = paths.data.filter((point: unknown[]) => point[0] === null).length;
+    assert.strictEqual(breaks, 1, "the two branches are separate paths");
+    assert.strictEqual(paths.data.length, 2 * 201 + 1);
+    for (const start of [[-8, 0], [0, 0]]) assert.ok(paths.data.some((point: number[]) => point[0] !== null
+      && Math.abs(point[0] - start[0]) < 1e-9 && Math.abs(point[1] - start[1]) < 1e-9), `the path starts at ${start}`);
+    const inspected = series.find(item => item.name === "Inspected gains");
+    assert.deepStrictEqual(inspected.data.map((point: { value: number[] }) => point.value[2]), [12, 12, 20, 20]);
+    assert.strictEqual(inspected.itemStyle.color, colors.inspected);
+    assert.strictEqual(inspected.label.formatter({ value: inspected.data[0].value }), "Kp = 12");
+    const selected = series.find(item => item.name === "Selected Kp = 16");
+    assert.ok(selected, "the selected candidate is its own legend entry");
+    assert.strictEqual(selected.symbol, "diamond");
+    assert.ok(selected.symbolSize > inspected.symbolSize);
+    assert.strictEqual(selected.itemStyle.color, colors.selected);
+    assert.deepStrictEqual(selected.data.map((point: { value: number[] }) => point.value.map(value => Math.round(value * 1e6) / 1e6)), [[-4, 0, 16], [-4, 0, 16]]);
+    // Labels never sit on a path: above and right of a pole on the real axis, where a branch may also leave
+    // vertically, and beside a pole off it.
+    const aboveRight = [8, -18];
+    assert.deepStrictEqual(inspected.data.map((point: { label: { position: unknown } }) => point.label.position), [aboveRight, aboveRight, "right", "right"]);
+    assert.deepStrictEqual(selected.data.map((point: { label: { position: unknown } }) => point.label.position), [aboveRight, aboveRight]);
+  });
+
+  test("the sensitivity view gives S, T and CS their own visible colours and strokes", () => {
+    const points = [{ frequencyRadPerSecond: 0.2, sensitivityMagnitudeDb: -2.05, complementarySensitivityMagnitudeDb: -2.05, controlSensitivityMagnitudeDb: 14.94 }];
+    const colors = { sensitivity: "#0000ff", complementary: "#ff8800", control: "#aa00ff" };
+    const series = sensitivitySeries(points, colors) as any[];
+    assert.deepStrictEqual(series.map(item => item.name), ["S", "T", "CS"]);
+    assert.deepStrictEqual(series.map(item => item.lineStyle.color), [colors.sensitivity, colors.complementary, colors.control]);
+    assert.deepStrictEqual(series.map(item => item.itemStyle.color), [colors.sensitivity, colors.complementary, colors.control]);
+    assert.deepStrictEqual(series.map(item => item.lineStyle.type), ["solid", "dashed", "dotted"]);
+    assert.deepStrictEqual(series.map(item => item.data[0][1]), [-2.05, -2.05, 14.94]);
+  });
+
+  // L(jω) = 2·e^(−8jω)/(1 + 5jω): the heater under P control with an 8 s delivery delay.
+  const delayedLoop = Array.from({ length: 400 }, (_, index) => {
+    const omega = 0.01 * Math.pow(4000, index / 399);
+    const scale = 2 / (1 + 25 * omega * omega);
+    const c = Math.cos(8 * omega), q = Math.sin(8 * omega);
+    return { real: scale * (c - 5 * omega * q), imaginary: -scale * (q + 5 * omega * c) };
+  });
+
+  test("the Nyquist count states P, N with clockwise encirclements positive, and Z = P + N", () => {
+    assert.strictEqual(nyquistCountText({ encirclementsCounterClockwise: -2, openLoopRightHalfPlanePoles: 0, closedLoopRightHalfPlanePoles: 2, closedLoopStable: false }),
+      "P = 0 open-loop right-half-plane poles. N = 2 clockwise encirclements of −1. Z = P + N = 2 closed-loop right-half-plane poles: the closed loop is unstable.");
+    assert.strictEqual(nyquistCountText({ encirclementsCounterClockwise: 0, openLoopRightHalfPlanePoles: 0, closedLoopRightHalfPlanePoles: 0, closedLoopStable: true }),
+      "P = 0 open-loop right-half-plane poles. N = 0 clockwise encirclements of −1. Z = P + N = 0 closed-loop right-half-plane poles: the closed loop is stable.");
+  });
+
+  test("the Nyquist plot keeps equal units on both axes around the curve and −1", () => {
+    for (const area of [{ width: 1250, height: 440 }, { width: 500, height: 440 }]) {
+      const geometry = nyquistGeometry(delayedLoop, area);
+      const { grid, x, y } = geometry;
+      assert.ok(x && y && grid.width && grid.height, `explicit axis ranges and plot size: ${JSON.stringify(geometry)}`);
+      const perPixel = [(x.max - x.min) / grid.width, (y.max - y.min) / grid.height];
+      assert.ok(Math.abs(perPixel[0] / perPixel[1] - 1) < 1e-9, `equal units per pixel: ${perPixel}`);
+      assert.ok(grid.left >= 0 && grid.top >= 0 && grid.left + grid.width <= area.width && grid.top + grid.height <= area.height, `inside the plot area: ${JSON.stringify(grid)}`);
+      for (const point of [...delayedLoop, { real: -1, imaginary: 0 }]) {
+        assert.ok(point.real >= x.min && point.real <= x.max && -Math.abs(point.imaginary) >= y.min && Math.abs(point.imaginary) <= y.max, `point and its mirror inside: ${JSON.stringify(point)}`);
+      }
+    }
+  });
+
+  test("the Nyquist plot marks −1 and shows the traversal direction on both branches", () => {
+    const colors = { positive: "#3b82f6", negative: "#eab308", critical: "#ef4444", label: "#cccccc" };
+    const series = nyquistSeries(delayedLoop, colors) as any[];
+    const critical = series.find(item => item.name === "−1");
+    assert.deepStrictEqual(critical?.data, [[-1, 0]]);
+    assert.strictEqual(critical.itemStyle?.color, colors.critical);
+    assert.strictEqual(critical.label?.show, true);
+    const arrows = (name: string) => series.filter(item => item.name === name && item.symbol === "arrow").flatMap(item => item.data);
+    const rotation = (from: number[], to: number[]) => Math.atan2(to[1] - from[1], to[0] - from[0]) * 180 / Math.PI - 90;
+    const positive = arrows("Positive frequency");
+    const negative = arrows("Negative frequency");
+    assert.ok(positive.length >= 3 && negative.length >= 3, `arrows on both branches: ${positive.length}, ${negative.length}`);
+    for (const arrow of positive) {
+      const index = delayedLoop.findIndex(point => point.real === arrow.value[0] && point.imaginary === arrow.value[1]);
+      assert.ok(index >= 0 && index < delayedLoop.length - 1, "a positive-branch arrow sits on the curve");
+      const [from, to] = [delayedLoop[index], delayedLoop[index + 1]].map(point => [point.real, point.imaginary]);
+      assert.ok(Math.abs(arrow.symbolRotate - rotation(from, to)) < 1e-9, "the positive branch runs with rising frequency");
+    }
+    for (const arrow of negative) {
+      const index = delayedLoop.findIndex(point => point.real === arrow.value[0] && -point.imaginary === arrow.value[1]);
+      assert.ok(index >= 0 && index < delayedLoop.length - 1, "a negative-branch arrow sits on the mirrored curve");
+      const [from, to] = [delayedLoop[index + 1], delayedLoop[index]].map(point => [point.real, -point.imaginary]);
+      assert.ok(Math.abs(arrow.symbolRotate - rotation(from, to)) < 1e-9, "the negative branch runs from high frequency back to zero");
+    }
+  });
+
+  test("the pole-zero map keeps equal units on both axes and shows the whole stability boundary", () => {
+    // The sampled shaft loop at h = 0.6 s: a complex pair outside the unit circle, a real pole and a sampling zero inside.
+    const poles = [{ real: 0.6704, imaginary: 2.3151 }, { real: 0.6704, imaginary: -2.3151 }, { real: 0.2079, imaginary: 0 }];
+    const zeros = [{ real: -0.8192, imaginary: 0 }];
+    const cases = [
+      { discrete: true, boundary: [{ real: 1, imaginary: 0 }, { real: -1, imaginary: 0 }, { real: 0, imaginary: 1 }, { real: 0, imaginary: -1 }] },
+      { discrete: false, boundary: [{ real: 0, imaginary: 0 }] },
+    ];
+    for (const { discrete, boundary } of cases) for (const area of [{ width: 1250, height: 440 }, { width: 500, height: 440 }]) {
+      const geometry = poleMapGeometry(poles, zeros, discrete, area);
+      const { grid, x, y } = geometry;
+      assert.ok(x && y && grid.width && grid.height, `explicit axis ranges and plot size: ${JSON.stringify(geometry)}`);
+      const perPixel = [(x.max - x.min) / grid.width, (y.max - y.min) / grid.height];
+      assert.ok(Math.abs(perPixel[0] / perPixel[1] - 1) < 1e-9, `equal units per pixel: ${perPixel}`);
+      for (const point of [...poles, ...zeros, ...boundary]) {
+        assert.ok(point.real >= x.min && point.real <= x.max && point.imaginary >= y.min && point.imaginary <= y.max, `inside: ${JSON.stringify(point)}`);
+      }
+    }
+  });
+
   test("retains auxiliary identities and independent quality when reopening measured samples", () => {
     const sample = { elapsedSeconds: 1, sp: 45, pv: 39, appliedMv: 100,
       quality: "good" as const, events: [], additional: [
@@ -185,43 +292,7 @@ suite("Control Studio chart contract", () => {
     assert.ok(modelTabs.some(tab => tab.id === "bode" && tab.available));
     assert.strictEqual(chartContractModule.controlPlotView("Tune", "live-response"), "response");
   });
-  test("commissioning recordings retain explicit SP PV MV identities despite output-only bounds", () => {
-    const channels = [{ id: "target", unit: "m" }, { id: "position", unit: "m" }, { id: "drive", unit: "V" }];
-    const evaluation = commissioningRecordedResponse({ status: "passed", modelRevision: "model", channels,
-      recording: { evidence: { programRevision: "program" }, rawSamples: [
-        { elapsedSeconds: 0, sp: 1, pv: 0, appliedMv: 2, quality: "good", source: "Simulation", outputLimits: { minimum: -20, maximum: 20 } },
-        { elapsedSeconds: 1, sp: 1, pv: 0.9, appliedMv: 0.1, quality: "good", source: "Simulation", outputLimits: { minimum: -20, maximum: 20 } },
-      ] } } as any)!;
-    assert.deepStrictEqual(recordedResponseChannels(evaluation.run, evaluation), {
-      setpoint: channels[0], processVariable: channels[1], manipulatedVariable: channels[2],
-    }, "all three actual recorded curves must have their original units and values");
-    assert.strictEqual(evaluation.run.samples[1].values.position.value, 0.9);
-    assert.strictEqual(evaluation.specification!.length, 1, "display roles must not invent verification requirements");
-  });
-  test("resolves recorded SP, PV, and MV roles from requirement identities when channels are permuted", () => {
-    const run = {
-      channels: [{ id: "Main.MV", unit: "V" }, { id: "Main.PV", unit: "m" }, { id: "Main.SP", unit: "m" }],
-      samples: [], evidence: "ST-executed", conditions: { modelRevision: "model", programRevision: "program" },
-    } as any;
-    const resolved = recordedResponseChannels(run, { specification: [
-      { id: "target-error", kind: "error", channel: "Main.PV", reference: { channel: "Main.SP" }, window: { start: 0, end: 1 } },
-      { id: "output-bounds", kind: "bounds", channel: "Main.MV", minimum: 0, maximum: 100, window: { start: 0, end: 1 } },
-    ] });
-    assert.strictEqual(resolved.setpoint?.id, "Main.SP");
-    assert.strictEqual(resolved.processVariable?.id, "Main.PV");
-    assert.strictEqual(resolved.manipulatedVariable?.id, "Main.MV");
-  });
 
-  test("uses positional roles only for a legacy three-channel record without role metadata", () => {
-    const run = { channels: [{ id: "sp", unit: "m" }, { id: "pv", unit: "m" }, { id: "mv", unit: "V" }] } as any;
-    const resolved = recordedResponseChannels(run, { specification: [] });
-    assert.deepStrictEqual(Object.fromEntries(Object.entries(resolved).map(([key, channel]) => [key, channel?.id])), {
-      setpoint: "sp", processVariable: "pv", manipulatedVariable: "mv",
-    });
-    const unknown = recordedResponseChannels(run, { specification: [{ kind: "bounds", channel: "pv", window: { start: 0, end: 1 } }] });
-    assert.strictEqual(unknown.setpoint, undefined);
-    assert.strictEqual(unknown.manipulatedVariable, undefined);
-  });
   test("formats engineering values compactly for bounded metric cards", () => {
     const format = (chartContractModule as unknown as {
       formatEngineeringNumber?: (value: unknown, fractionDigits?: number) => string;
@@ -286,62 +357,6 @@ suite("Control Studio chart contract", () => {
     assert.match(styles, /data-binding-draft="true"/);
     assert.doesNotMatch(template, /plot-toolbar|plot-tools|data-design-exact|data-engineering-bode/,
       "the approved three-page shell does not expose legacy plot-editor controls");
-  });
-
-  test("labels live plots with real units and marks only saturation transitions", () => {
-    const contract = chartContractModule as unknown as {
-      controlChartAxisLabels?: (processUnit: string, outputUnit: string) => unknown;
-      controlChartSaturationEvent?: (
-        previous: "minimum" | "maximum" | "none" | undefined,
-        current: "minimum" | "maximum" | "none"
-      ) => unknown;
-      controlOutputLimitLines?: (minimum: number, maximum: number) => unknown;
-      controlOutputAxisRange?: (minimum: number, maximum: number) => unknown;
-      identificationOutputAxisRange?: (values: readonly number[]) => unknown;
-    };
-    assert.strictEqual(typeof contract.controlChartAxisLabels, "function",
-      "live chart unit labels are not implemented");
-    assert.deepStrictEqual(contract.controlChartAxisLabels?.("°C", "%"), {
-      process: "SP / PV (°C)", output: "MV (%)",
-      description: "SP and PV in °C; MV in %",
-    });
-    assert.deepStrictEqual(contract.controlChartAxisLabels?.("degC", "%"), {
-      process: "SP / PV (°C)", output: "MV (%)",
-      description: "SP and PV in °C; MV in %",
-    });
-    assert.strictEqual(typeof contract.controlChartSaturationEvent, "function",
-      "saturation transition projection is not implemented");
-    assert.deepStrictEqual(contract.controlChartSaturationEvent?.("none", "maximum"), {
-      kind: "limit", label: "Output entered maximum saturation",
-    });
-    assert.strictEqual(contract.controlChartSaturationEvent?.("maximum", "maximum"), undefined,
-      "a saturated scan must not create another plot marker");
-    assert.deepStrictEqual(contract.controlChartSaturationEvent?.("maximum", "none"), {
-      kind: "limit", label: "Output left maximum saturation",
-    });
-    assert.strictEqual(typeof contract.controlOutputLimitLines, "function",
-      "output-limit chart evidence is not implemented");
-    assert.deepStrictEqual(contract.controlOutputLimitLines?.(0, 100), [
-      { name: "Output minimum", value: 0 }, { name: "Output maximum", value: 100 },
-    ]);
-    assert.throws(() => contract.controlOutputLimitLines?.(100, 0), /minimum.*maximum/i);
-    assert.strictEqual(typeof contract.controlOutputAxisRange, "function",
-      "the MV axis must use the declared engineering limits instead of normalizing live data");
-    assert.deepStrictEqual(contract.controlOutputAxisRange?.(0, 100), { minimum: 0, maximum: 100 });
-    assert.deepStrictEqual(contract.controlOutputAxisRange?.(-10, 25), { minimum: -10, maximum: 25 });
-    assert.throws(() => contract.controlOutputAxisRange?.(100, 0), /minimum.*maximum/i);
-    assert.strictEqual(typeof contract.identificationOutputAxisRange, "function",
-      "identification plots must focus on measured model variation instead of forcing zero");
-    assert.deepStrictEqual(contract.identificationOutputAxisRange?.([30, 30.5, 31, 31.5]), {
-      minimum: 29.88, maximum: 31.62,
-    });
-    assert.deepStrictEqual(contract.identificationOutputAxisRange?.([30, 30]), {
-      minimum: 29.7, maximum: 30.3,
-    });
-    const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const chart = readControlChartSource(extensionRoot);
-    assert.match(chart, /markLine:[\s\S]*?label:\s*\{\s*show:\s*false\s*\}/,
-      "output-limit labels must not cover live traces; the adjacent loop state owns their text");
   });
 
   test("disables direct chart actions when the selected plot has no evidence", () => {
@@ -458,34 +473,6 @@ suite("Control Studio chart contract", () => {
     "stored event identifiers must be presented as readable language");
   });
 
-  test("keeps the owned unit-aware chart summary from being overwritten", () => {
-    const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const chart = readControlChartSource(extensionRoot);
-    const adapter = chart.slice(chart.indexOf("class ControlChartAdapter"), chart.indexOf("type DesignSnapshot"));
-    assert.match(adapter, /aria:\s*\{\s*enabled:\s*false/,
-      "the live chart must own its accessible summary so ECharts cannot replace engineering units");
-    assert.match(adapter, /controlChartAccessibleSummary\(/);
-  });
-
-  test("resizes engineering charts when a hidden direct plot becomes visible", () => {
-    const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const chart = readControlChartSource(extensionRoot);
-    const engineering = chart.slice(chart.indexOf("class EngineeringChartAdapter"), chart.indexOf("class MimoChartAdapter"));
-    assert.match(engineering, /addEventListener\("trust-control-studio-plot-shown"/,
-      "direct engineering plots must react when their previously hidden host becomes visible");
-    // A chart initialized (or last drawn) while hidden cannot be trusted to redraw
-    // correctly from a bare resize(); replaying the retained evidence through
-    // setEvidence is the same pattern already proven for MimoChartAdapter (finding V-03).
-    assert.match(engineering, /requestAnimationFrame\(\(\) => \{[\s\S]*?if \(this\.lastEvidence\) this\.setEvidence\(this\.lastEvidence\);[\s\S]*?else this\.resize\(\);/,
-      "engineering canvases must fully re-render (not merely resize) after their previously hidden host becomes visible");
-    assert.match(engineering, /private lastEvidence: EngineeringPlotMessageEvidence \| undefined;/,
-      "the last qualified evidence must be retained so a hidden-then-shown plot can be replayed");
-    const identification = chart.slice(chart.indexOf("class IdentificationChartAdapter"), chart.indexOf("function initEngineeringChart"));
-    assert.match(identification, /addEventListener\("trust-control-studio-plot-shown"/,
-      "identification plots (Fit, Residuals, Validation data, Poles and zeros) must also react when their previously hidden host becomes visible");
-    assert.match(identification, /if \(this\.lastEvidence\) this\.setEvidence\(this\.lastEvidence\);/);
-  });
-
   test("keeps the current three-page plot owner separate from legacy Bode editor markup", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
     const template = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageTemplate.ts"), "utf8");
@@ -522,16 +509,6 @@ suite("Control Studio chart contract", () => {
     const template = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageTemplate.ts"), "utf8");
     assert.match(template, /data-studio-tuning-result/);
     assert.doesNotMatch(template, /data-design-gain-margin|data-design-phase-margin/);
-  });
-
-  test("renders one selectable signal row with identity, value, unit, and quality", () => {
-    const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const chart = readControlChartSource(extensionRoot);
-    assert.match(chart, /role\.textContent\s*=\s*`\$\{signal\.role\} · \$\{signal\.symbol\}`/,
-      "the flat Signals view must not hide the bound runtime symbol");
-    assert.match(chart, /checked\.addEventListener\("change"/);
-    assert.match(chart, /formatEngineeringNumber\(signal\.value\)/);
-    assert.match(chart, /quality\.textContent\s*=\s*signal\.quality/);
   });
 
   test("keeps stable SP, PV, and MV identity without relying on color", () => {
@@ -764,6 +741,25 @@ suite("Control Studio chart contract", () => {
       "signal selection order must not contain duplicate channels");
   });
 
+  test("predicts a loop whose gain stays below one and reports its phase margin as unbounded", () => {
+    // P with Kp·K = 0.75: |L(jω)| < 1 at every frequency, so there is no gain crossover. The response is well defined.
+    const model = { kind: "first_order" as const, gain: 1, timeConstantSeconds: 1, stable: true, normalizedError: 0.01 };
+    const parameters: ControlPidParameters = {
+      proportionalGain: 0.75, integralGain: 0, derivativeGain: 0.0375,
+      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
+      outputMinimum: -20, outputMaximum: 20, rateMinimum: -1e6, rateMaximum: 1e6,
+      trackingTime: 1, antiWindup: "BackCalculation",
+    };
+    const candidate = candidateFromControlPid(parameters, "Constrained comparison");
+    let evidence: ReturnType<typeof buildEngineeringPlotEvidence> | undefined;
+    assert.doesNotThrow(() => { evidence = buildEngineeringPlotEvidence(model, candidate, candidate, undefined,
+      { cycleTimeSeconds: 0.02, durationSeconds: 4, referenceChange: 1 }); });
+    const final = evidence!.timeResponse[evidence!.timeResponse.length - 1].candidatePv;
+    assert.ok(Math.abs(final - 0.75 / 1.75) < 1e-3, `settles at Kp·K/(1 + Kp·K): ${final}`);
+    assert.strictEqual(evidence!.phaseMarginDegrees, Number.POSITIVE_INFINITY);
+    assert.strictEqual(engineeringPlotMessageEvidence(evidence!).phaseMarginDegrees, "unbounded", "infinity survives the message as unbounded");
+  });
+
   test("keeps direct engineering evidence serializable for a compatible saved result", () => {
     const model = { kind: "first_order" as const, gain: 1, timeConstantSeconds: 2, stable: true, normalizedError: 0.01 };
     const parameters: ControlPidParameters = {
@@ -797,8 +793,3 @@ suite("Control Studio chart contract", () => {
   });
 });
 
-
-function readControlChartSource(extensionRoot: string): string {
-  return ["chart.ts", "liveChart.ts", "liveSignalPlot.ts", "chartWorkspace.ts", "engineeringCharts.ts", "chartPrimitives.ts"]
-    .map(file => fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", file), "utf8")).join("\n");
-}

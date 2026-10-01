@@ -215,6 +215,225 @@ pub fn create_class_instance(
     Ok(instance_id)
 }
 
+/// The value of a variable whose type is an array of function block or class instances: a new instance for every element,
+/// in element order (IEC 61131-3 Ed.3 Table 11 feature 5). `None` for every other type.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn create_instance_array(
+    storage: &mut VariableStorage,
+    registry: &TypeRegistry,
+    profile: &DateTimeProfile,
+    classes: &IndexMap<SmolStr, ClassDef>,
+    function_blocks: &IndexMap<SmolStr, FunctionBlockDef>,
+    functions: &IndexMap<SmolStr, FunctionDef>,
+    stdlib: &StandardLibrary,
+    initializer_catalog: &InitializerCatalog,
+    type_id: trust_hir::TypeId,
+) -> Result<Option<Value>, RuntimeError> {
+    let Some((element, dimensions)) = instance_array_shape(type_id, registry) else {
+        return Ok(None);
+    };
+    let count = dimensions.iter().try_fold(1usize, |count, (lower, upper)| {
+        let width = upper.checked_sub(*lower)?.checked_add(1)?;
+        count.checked_mul(usize::try_from(width).ok().filter(|width| *width > 0)?)
+    });
+    let count = count.ok_or(RuntimeError::TypeMismatch)?;
+    let mut elements = Vec::with_capacity(count);
+    for _ in 0..count {
+        let value = if let Some(fb_name) = function_block_type_name(element, registry) {
+            let key = SmolStr::new(fb_name.to_ascii_uppercase());
+            let fb = function_blocks
+                .get(&key)
+                .ok_or_else(|| RuntimeError::UndefinedFunctionBlock(fb_name.clone()))?;
+            Value::Instance(create_fb_instance(
+                storage,
+                registry,
+                profile,
+                classes,
+                function_blocks,
+                functions,
+                stdlib,
+                initializer_catalog,
+                fb,
+            )?)
+        } else if let Some(class_name) = class_type_name(element, registry) {
+            let key = SmolStr::new(class_name.to_ascii_uppercase());
+            let class_def = classes.get(&key).ok_or(RuntimeError::TypeMismatch)?;
+            Value::Instance(create_class_instance(
+                storage,
+                registry,
+                profile,
+                classes,
+                function_blocks,
+                functions,
+                stdlib,
+                initializer_catalog,
+                class_def,
+            )?)
+        } else {
+            create_instance_array(
+                storage,
+                registry,
+                profile,
+                classes,
+                function_blocks,
+                functions,
+                stdlib,
+                initializer_catalog,
+                element,
+            )?
+            .ok_or(RuntimeError::TypeMismatch)?
+        };
+        elements.push(value);
+    }
+    let array = Value::Array(Box::new(crate::value::ArrayValue::from_canonical_parts(
+        elements, dimensions,
+    )));
+    // An array type declared with an initializer gives it to every variable of the type (Table 11 feature 5b).
+    if let Some(expr) = type_default_initializer(type_id, registry, initializer_catalog) {
+        apply_instance_array_initializer(
+            storage,
+            registry,
+            profile,
+            stdlib,
+            initializer_catalog,
+            function_blocks,
+            None,
+            &array,
+            expr,
+        )?;
+    }
+    Ok(Some(array))
+}
+
+/// The initializer a declared type gives its variables, found on the type or on the alias chain it names.
+fn type_default_initializer<'c>(
+    type_id: trust_hir::TypeId,
+    registry: &TypeRegistry,
+    initializer_catalog: &'c InitializerCatalog,
+) -> Option<&'c Expr> {
+    let mut current = type_id;
+    for _ in 0..64 {
+        if let Some(id) = initializer_catalog.type_default(current) {
+            return initializer_catalog.initializer(id);
+        }
+        match registry.get(current)? {
+            Type::Alias { target, .. } => current = *target,
+            _ => return None,
+        }
+    }
+    None
+}
+
+/// Pairs every instance of an instance array with its initializer, in element order: the array initializer's entries with
+/// every repetition n(...) expanded, recursing into nested arrays (IEC 61131-3 Ed.3 Table 11 feature 5b). Elements after the
+/// last entry keep their declared initial values; entries after the last element are ignored, as for every array
+/// initializer (docs/specs/02-data-types.md §3.4).
+pub(crate) fn for_each_element_initializer(
+    array: &Value,
+    expr: &Expr,
+    apply: &mut dyn FnMut(InstanceId, &Expr) -> Result<(), RuntimeError>,
+) -> Result<(), RuntimeError> {
+    let (Value::Array(array), Expr::ArrayInitializer(entries)) = (array, expr) else {
+        return Err(RuntimeError::TypeMismatch);
+    };
+    let elements = array.elements();
+    let mut next = 0usize;
+    for entry in entries {
+        let (count, values) = match crate::helper_eval::array_repeat_group(entry)? {
+            Some((count, args)) => {
+                let values = args
+                    .iter()
+                    .map(|arg| match &arg.value {
+                        crate::program_model::ArgValue::Expr(value) => Ok(value),
+                        crate::program_model::ArgValue::Target(_) => {
+                            Err(RuntimeError::TypeMismatch)
+                        }
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                (count, values)
+            }
+            None => (1, vec![entry]),
+        };
+        for _ in 0..count {
+            for value in &values {
+                let Some(element) = elements.get(next) else {
+                    return Ok(());
+                };
+                next += 1;
+                match element {
+                    Value::Instance(id) => apply(*id, value)?,
+                    Value::Array(_) => for_each_element_initializer(element, value, apply)?,
+                    _ => return Err(RuntimeError::TypeMismatch),
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Applies an instance array's initializer: each function block element receives its aggregate initializer. Class
+/// elements, like class instances, accept no initializer.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn apply_instance_array_initializer(
+    storage: &mut VariableStorage,
+    registry: &TypeRegistry,
+    profile: &DateTimeProfile,
+    stdlib: &StandardLibrary,
+    initializer_catalog: &InitializerCatalog,
+    function_blocks: &IndexMap<SmolStr, FunctionBlockDef>,
+    parent_instance_id: Option<InstanceId>,
+    array: &Value,
+    expr: &Expr,
+) -> Result<(), RuntimeError> {
+    for_each_element_initializer(array, expr, &mut |instance_id, value| {
+        let type_name = storage
+            .get_instance(instance_id)
+            .ok_or(RuntimeError::NullReference)?
+            .type_name
+            .clone();
+        let fb = function_blocks
+            .get(&SmolStr::new(type_name.to_ascii_uppercase()))
+            .ok_or(RuntimeError::TypeMismatch)?;
+        apply_fb_instance_initializer(
+            storage,
+            registry,
+            profile,
+            stdlib,
+            initializer_catalog,
+            parent_instance_id,
+            instance_id,
+            fb,
+            value,
+        )
+    })
+}
+
+/// Whether a variable of `type_id` is an array of function block or class instances.
+pub(crate) fn is_instance_array(type_id: trust_hir::TypeId, registry: &TypeRegistry) -> bool {
+    instance_array_shape(type_id, registry).is_some()
+}
+
+/// The element type and dimensions of an array whose elements are function block or class instances, directly or through
+/// further arrays.
+fn instance_array_shape(
+    type_id: trust_hir::TypeId,
+    registry: &TypeRegistry,
+) -> Option<(trust_hir::TypeId, Vec<(i64, i64)>)> {
+    match registry.get(type_id)? {
+        Type::Alias { target, .. } => instance_array_shape(*target, registry),
+        Type::Array {
+            element,
+            dimensions,
+        } if function_block_type_name(*element, registry).is_some()
+            || class_type_name(*element, registry).is_some()
+            || instance_array_shape(*element, registry).is_some() =>
+        {
+            Some((*element, dimensions.clone()))
+        }
+        _ => None,
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn init_param_defaults(
     storage: &mut VariableStorage,
@@ -314,6 +533,22 @@ fn init_var_defaults(
         if var.external {
             continue;
         }
+        if let Some(value) = create_instance_array(
+            storage,
+            registry,
+            profile,
+            classes,
+            function_blocks,
+            functions,
+            stdlib,
+            initializer_catalog,
+            var.type_id,
+        )
+        .map_err(|err| init_failed(owner, &var.name, err))?
+        {
+            storage.set_instance_var(instance_id, var.name.clone(), value);
+            continue;
+        }
         let value = crate::harness::initializer::default_value_for_type_id(
             storage,
             registry,
@@ -365,6 +600,25 @@ fn init_var_defaults(
             continue;
         };
         if var.external {
+            continue;
+        }
+        if is_instance_array(var.type_id, registry) {
+            let array = storage
+                .get_instance_var(instance_id, var.name.as_str())
+                .cloned()
+                .ok_or(RuntimeError::TypeMismatch)?;
+            apply_instance_array_initializer(
+                storage,
+                registry,
+                profile,
+                stdlib,
+                initializer_catalog,
+                function_blocks,
+                Some(instance_id),
+                &array,
+                expr,
+            )
+            .map_err(|err| init_failed(owner, &var.name, err))?;
             continue;
         }
         let value = crate::harness::initializer::evaluate_initializer(
@@ -439,6 +693,22 @@ fn init_method_static_defaults(
                 storage.set_instance_var(instance_id, key, Value::Instance(nested_id));
                 continue;
             }
+            if let Some(value) = create_instance_array(
+                storage,
+                registry,
+                profile,
+                classes,
+                function_blocks,
+                functions,
+                stdlib,
+                initializer_catalog,
+                local.type_id,
+            )
+            .map_err(|err| init_failed(owner, &local.name, err))?
+            {
+                storage.set_instance_var(instance_id, key, value);
+                continue;
+            }
             let value = crate::harness::initializer::default_value_for_type_id(
                 storage,
                 registry,
@@ -490,6 +760,26 @@ fn init_method_static_defaults(
             let Some(expr) = &local.initializer else {
                 continue;
             };
+            if is_instance_array(local.type_id, registry) {
+                let key = crate::program_model::static_storage_name(&method_owner, &local.name);
+                let array = storage
+                    .get_instance_var(instance_id, key.as_str())
+                    .cloned()
+                    .ok_or(RuntimeError::TypeMismatch)?;
+                apply_instance_array_initializer(
+                    storage,
+                    registry,
+                    profile,
+                    stdlib,
+                    initializer_catalog,
+                    function_blocks,
+                    Some(instance_id),
+                    &array,
+                    expr,
+                )
+                .map_err(|err| init_failed(owner, &local.name, err))?;
+                continue;
+            }
             let value = crate::harness::initializer::evaluate_initializer(
                 storage,
                 registry,

@@ -17,6 +17,8 @@ use super::types::{GlobalInitValue, RestartMode};
 
 pub(super) struct PreparedRestart {
     pub(super) storage: VariableStorage,
+    /// Markers committed from the restarted storage (Specification 11 §6.5).
+    pub(super) memory: crate::io::StagedImage,
 }
 
 impl Runtime {
@@ -37,7 +39,12 @@ impl Runtime {
         if matches!(mode, RestartMode::Warm) {
             for (name, meta) in &globals {
                 if retain_on_warm(meta.retain) {
-                    if let Some(value) = self.storage.get_global(name.as_ref()) {
+                    // Instance identities are never retained; their instances are reconstructed below.
+                    if let Some(value) = self
+                        .storage
+                        .get_global(name.as_ref())
+                        .filter(|value| value_is_retainable(value))
+                    {
                         retained.insert(name.clone(), value.clone());
                     }
                 }
@@ -147,6 +154,34 @@ impl Runtime {
                     )?;
                     storage.set_global(name.clone(), Value::Instance(instance_id));
                 }
+                GlobalInitValue::InstanceArray { initializer } => {
+                    let value = crate::instance::create_instance_array(
+                        &mut storage,
+                        &self.registry,
+                        &self.profile,
+                        &self.classes,
+                        &self.function_blocks,
+                        &self.functions,
+                        &self.stdlib,
+                        &self.initializer_catalog,
+                        meta.type_id,
+                    )?
+                    .ok_or(error::RuntimeError::TypeMismatch)?;
+                    if let Some(expr) = &initializer {
+                        crate::instance::apply_instance_array_initializer(
+                            &mut storage,
+                            &self.registry,
+                            &self.profile,
+                            &self.stdlib,
+                            &self.initializer_catalog,
+                            &self.function_blocks,
+                            None,
+                            &value,
+                            expr,
+                        )?;
+                    }
+                    storage.set_global(name.clone(), value);
+                }
             }
         }
 
@@ -172,7 +207,8 @@ impl Runtime {
             storage.set_instance_var(*id, var_name, value);
         }
 
-        Ok(PreparedRestart { storage })
+        let memory = self.io.interface().stage_memory(&storage)?;
+        Ok(PreparedRestart { storage, memory })
     }
 
     pub(super) fn commit_restart(&mut self, prepared: PreparedRestart) {
@@ -180,6 +216,7 @@ impl Runtime {
             debug.clear_runtime_mutations();
         }
         self.storage = prepared.storage;
+        self.io.interface_mut().apply_staged(prepared.memory);
         self.openot_telemetry.reset_scan_state();
         for state in self.task_state.values_mut() {
             *state = TaskState::new(self.current_time);

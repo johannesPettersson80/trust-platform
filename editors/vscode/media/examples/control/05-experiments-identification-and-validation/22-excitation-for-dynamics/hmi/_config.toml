@@ -7,48 +7,16 @@ accent = "#c2410c"
 [layout]
 navigation = "sidebar-left"
 header = true
-header_title = "P1 HMI"
+header_title = "Periodic excitation"
 
 [write]
 enabled = false
 allow = []
 
 [[alarm]]
-bind = "P1.AppliedTorque"
-high = 100
-low = 0
-deadband = 2
+bind = "P1.MiddleTemperatureC"
+high = 37
+low = 33
+deadband = 0.05
 inferred = true
-label = "Applied Torque"
-
-[[alarm]]
-bind = "P1.DrivePosition"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Drive Position"
-
-[[alarm]]
-bind = "P1.ElapsedSeconds"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Elapsed Seconds"
-
-[[alarm]]
-bind = "P1.NaturalFrequencyHz"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Natural Frequency HZ"
-
-[[alarm]]
-bind = "P1.RequestedTorque"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Requested Torque"
+label = "Temperature (0.2 rad/s)"

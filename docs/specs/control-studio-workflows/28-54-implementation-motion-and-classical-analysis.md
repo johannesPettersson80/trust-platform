@@ -15,7 +15,7 @@ controls, panels or navigation.
 Status: required behavior specification, 2026-09-07.
 
 This specification defines the required Studio behavior for authoritative
-lessons 28–54 in docs/specs/control-course-teaching-specification.md. The
+lessons 29–60 in docs/specs/control-course-teaching-specification.md. The
 mapped READMEs and companion documents were read in full. A runnable project
 or current UI may be incomplete; that is an implementation gap and remains
 visible in the result. ST arithmetic, a native trace, or a screenshot cannot
@@ -31,7 +31,7 @@ parameters, uncertainty, evidence class, status and failure reason.
 
 ## WF-028 — Measurement validity
 
-Source: [Lesson 28 README](../../../examples/control/03-production-quality-digital-pid/42-invalid-stale-data/README.md).
+Source: [Lesson 29 README](../../../examples/control/03-production-quality-digital-pid/42-invalid-stale-data/README.md).
 
 Trigger/inputs: PV, quality, acquisition and controller timestamps, age and
 interval limits, finite/range limits, recovery count and explicit enable edge.
@@ -51,7 +51,7 @@ updates state or held Auto resumes.
 
 ## WF-029 — Heater commissioning
 
-Source: [Lesson 29 README](../../../examples/control/14-integrated-capstones/81-water-heater/README.md).
+Source: [Lesson 30 README](../../../examples/control/14-integrated-capstones/81-water-heater/README.md).
 
 Trigger/inputs: validated heater model, gains, beta/filter, delay/history,
 limits, modes and lifecycle policy; separate 35→38 °C and 30 kW-load trials.
@@ -68,7 +68,7 @@ as measured proof, combined tests, or untested lifecycle behavior.
 
 ## WF-030 — Actuator tracking
 
-Source: [Lesson 30 README](../../../examples/control/01-feedback-foundations-and-temperature-control/08-heating-valve-rate-tracking/README.md).
+Source: [Lesson 31 README](../../../examples/control/01-feedback-foundations-and-temperature-control/08-heating-valve-rate-tracking/README.md).
 
 Trigger/inputs: actuator model, measured stem, target, flow, temperature, PI
 state, rate/lag/delay limits, reset and declared recovery requirements.
@@ -86,7 +86,7 @@ zero-flow claims.
 
 ## WF-031 — Valve characteristics
 
-Source: [Lesson 31 README](../../../examples/control/09-industrial-control-structures/58-valve-characterization/README.md).
+Source: [Lesson 32 README](../../../examples/control/09-industrial-control-structures/58-valve-characterization/README.md).
 
 Trigger/inputs: valve/pipe model or measured calibration records, pressure
 arrangement, actual stem, pressure, flow, temperature, bounded probes, rate,
@@ -103,7 +103,7 @@ unreported pressure dependence.
 
 ## WF-032 — Valve stiction
 
-Source: [Lesson 32 README](../../../examples/control/09-industrial-control-structures/59-valve-stiction/README.md).
+Source: [Lesson 33 README](../../../examples/control/09-industrial-control-structures/59-valve-stiction/README.md).
 
 Trigger/inputs: valve/positioner model or measured response, request, accepted
 target, stem, force/drive estimate, flow, temperature and pressure. Automatically
@@ -120,7 +120,7 @@ cannot distinguish the causes.
 
 ## WF-033 — Position control
 
-Source: [Lesson 33 README](../../../examples/control/02-derivative-action-and-dynamic-response/32-proportional-position-stiffness/README.md).
+Source: [Lesson 34 README](../../../examples/control/02-derivative-action-and-dynamic-response/32-proportional-position-stiffness/README.md).
 
 Trigger/inputs: shaft model, angle, velocity, target, J/B, motion requirements,
 limits and sample period. Automatically calculate position-loop gain needs
@@ -135,7 +135,7 @@ called settled or a visually fast torque violation.
 
 ## WF-034 — PD control
 
-Source: [Lesson 34 README](../../../examples/control/02-derivative-action-and-dynamic-response/33-derivative-motion-damping/README.md).
+Source: [Lesson 35 README](../../../examples/control/02-derivative-action-and-dynamic-response/33-derivative-motion-damping/README.md).
 
 Trigger/inputs: shaft model, Kp candidate, measured velocity, motion/torque
 requirements, noise and sample period. Automatically calculate damping need,
@@ -149,7 +149,7 @@ synthetic kick. Fail continuous damping algebra used as sampled qualification.
 
 ## WF-035 — PID load rejection
 
-Source: [Lesson 35 README](../../../examples/control/02-derivative-action-and-dynamic-response/34-servo-pid-holding-torque/README.md).
+Source: [Lesson 36 README](../../../examples/control/02-derivative-action-and-dynamic-response/34-servo-pid-holding-torque/README.md).
 
 Trigger/inputs: unloaded/loaded shaft model, load, motion requirements,
 limits, timing and candidate P/PD/PID structures. Automatically calculate
@@ -165,7 +165,7 @@ physical safe-hold claims after zero torque.
 
 ## WF-036 — Derivative filtering
 
-Source: [Lesson 36 README](../../../examples/control/02-derivative-action-and-dynamic-response/36-filtered-derivative/README.md).
+Source: [Lesson 37 README](../../../examples/control/02-derivative-action-and-dynamic-response/36-filtered-derivative/README.md).
 
 Trigger/inputs: angle/noise record or sensor model, measured/previous angle,
 velocity, Kd, sample period, motion/noise requirements and reset. Automatically
@@ -180,7 +180,7 @@ trajectories or a filter selected from noise alone.
 
 ## WF-037 — Discrete PID
 
-Source: [Lesson 37 README](../../../examples/control/03-production-quality-digital-pid/37-discrete-integral-derivative/README.md).
+Source: [Lesson 38 README](../../../examples/control/03-production-quality-digital-pid/37-discrete-integral-derivative/README.md).
 
 Trigger/inputs: continuous model, sample period, elapsed-time policy, limits,
 P/I/D requirements and state semantics. Automatically choose a supported
@@ -194,7 +194,7 @@ state semantics and timing; fail reordered updates or hidden discretization.
 
 ## WF-038 — Positional and incremental PID
 
-Source: [Lesson 38 README](../../../examples/control/03-production-quality-digital-pid/38-positional-incremental-pid/README.md).
+Source: [Lesson 39 README](../../../examples/control/03-production-quality-digital-pid/38-positional-incremental-pid/README.md).
 
 Trigger/inputs: continuous controller, supported discretization, mode/gain/
 filter/limit changes, elapsed-time policy and state contract. Automatically
@@ -210,7 +210,7 @@ arithmetic-only equivalence.
 
 ## WF-039 — Servo commissioning
 
-Source: [Lesson 39 README](../../../examples/control/14-integrated-capstones/82-servo/README.md).
+Source: [Lesson 41 README](../../../examples/control/14-integrated-capstones/82-servo/README.md).
 
 Trigger/inputs: validated shaft candidate, filter, realization, lifecycle,
 load, reset, timing and limits. Automatic result evaluates I=u_applied-P-D,
@@ -224,7 +224,7 @@ mixed histories.
 
 ## WF-040 — Volume balance
 
-Source: [Lesson 40 README](../../../examples/control/01-feedback-foundations-and-temperature-control/14-conservation-and-accumulation/README.md).
+Source: [Lesson 43 README](../../../examples/control/01-feedback-foundations-and-temperature-control/14-conservation-and-accumulation/README.md).
 
 Trigger/inputs: tank A=.5, h=.25, inlet/outlet flows and 1 s update. Automatic
 result calculates A dh/dt=qin-qout, volume and level. Recommend constant-outflow
@@ -236,7 +236,7 @@ prediction into sensor or claiming gravity.
 
 ## WF-041 — Gravity outflow
 
-Source: [Lesson 41 README](../../../examples/control/01-feedback-foundations-and-temperature-control/16-gravity-tank-nonlinearity/README.md).
+Source: [Lesson 45 README](../../../examples/control/01-feedback-foundations-and-temperature-control/16-gravity-tank-nonlinearity/README.md).
 
 Trigger/inputs: A=.5, c=.020, h=.25, qin=.010/.011, 1 s update and bounds.
 Automatic result calculates qout=c sqrt(h), derivative and equilibrium
@@ -248,7 +248,7 @@ negative-level sqrt repair or constant-outflow assumption.
 
 ## WF-042 — Linearization
 
-Source: [Lesson 42 README](../../../examples/control/01-feedback-foundations-and-temperature-control/17-gravity-tank-linearization/README.md).
+Source: [Lesson 46 README](../../../examples/control/01-feedback-foundations-and-temperature-control/17-gravity-tank-linearization/README.md).
 
 Trigger/inputs: nonlinear model, operating point, input/output coordinates,
 uncertainty, sample period and local-error requirement. Automatically compute
@@ -263,7 +263,7 @@ matched reset comparisons; fail changing criterion after results.
 
 ## WF-043 — Gain scheduling
 
-Source: [Lesson 43 README](../../../examples/control/09-industrial-control-structures/56-gain-scheduling/README.md).
+Source: [Lesson 47 README](../../../examples/control/09-industrial-control-structures/56-gain-scheduling/README.md).
 
 Trigger/inputs: nonlinear/local model, operating range, performance/robustness
 requirements, candidate fixed controller and scheduling variables. Automatically
@@ -278,7 +278,7 @@ scheduling adopted merely because it is available.
 
 ## WF-044 — Laplace transforms
 
-Source: [Lesson 44 README](../../../examples/control/01-feedback-foundations-and-temperature-control/18-transfer-function-from-physics/README.md).
+Source: [Lesson 48 README](../../../examples/control/01-feedback-foundations-and-temperature-control/18-transfer-function-from-physics/README.md).
 
 Trigger/inputs: physical balance, deviations, operating point, initial state,
 bias, gain and delay. Automatically show transform, derivative initial term,
@@ -295,7 +295,7 @@ omission or delay-free closed-loop shifting.
 
 ## WF-045 — Poles and zeros
 
-Source: [Lesson 45 README](../../../examples/control/02-derivative-action-and-dynamic-response/19-poles-zeros-and-response/README.md).
+Source: [Lesson 49 README](../../../examples/control/02-derivative-action-and-dynamic-response/19-poles-zeros-and-response/README.md).
 
 Trigger/inputs: unreduced rational numerator/denominator, internal state model,
 complex-plane plot and explicit learner-selected view. Automatic result retains
@@ -311,7 +311,7 @@ cancellation, zero-crossing interpretation or silent unstable-mode deletion.
 
 ## WF-046 — Characteristic equations
 
-Source: [Lesson 46 README](../../../examples/control/07-classical-stability-and-frequency-design/43-characteristic-equation/README.md).
+Source: [Lesson 50 README](../../../examples/control/07-classical-stability-and-frequency-design/43-characteristic-equation/README.md).
 
 Trigger/inputs: connected shaft equations, retained controller states, J/B/
 Kp/Kd, operating point and perturbation. Automatic result constructs the
@@ -324,7 +324,7 @@ denominator or omitted controller state.
 
 ## WF-047 — Root locus
 
-Source: [Lesson 47 README](../../../examples/control/07-classical-stability-and-frequency-design/45-root-locus/README.md).
+Source: [Lesson 51 README](../../../examples/control/07-classical-stability-and-frequency-design/45-root-locus/README.md).
 
 Trigger/inputs: supplied or identified connected plant/controller model,
 requirements, allowed gain range and all parameters except the chosen gain
@@ -339,7 +339,7 @@ parameters or replacing the Tune root-locus feature with an ST root solver.
 
 ## WF-048 — Routh–Hurwitz stability
 
-Source: [Lesson 48 README](../../../examples/control/07-classical-stability-and-frequency-design/44-routh-hurwitz/README.md).
+Source: [Lesson 52 README](../../../examples/control/07-classical-stability-and-frequency-design/44-routh-hurwitz/README.md).
 
 Trigger/inputs: the selected supplied OR identified plant model and compatible
 controller representation, coefficient units, parameter ranges and uncertainty.
@@ -363,7 +363,7 @@ solver output. Degree-1/2 implementation limits remain a gap.
 
 ## WF-049 — Periodic excitation
 
-Source: [Lesson 49 README](../../../examples/control/05-experiments-identification-and-validation/22-excitation-for-dynamics/README.md).
+Source: [Lesson 53 README](../../../examples/control/05-experiments-identification-and-validation/22-excitation-for-dynamics/README.md).
 
 Trigger/inputs: d=5–10 points, omega=.1/.2/.4 rad/s, manual bias 75%, PI off,
 0.1 s sample, five cycles and 5P duration. Automatic result generates sine,
@@ -377,7 +377,7 @@ or invented phase.
 
 ## WF-050 — Frequency response
 
-Source: [Lesson 50 README](../../../examples/control/07-classical-stability-and-frequency-design/46-bode-frequency-response/README.md).
+Source: [Lesson 54 README](../../../examples/control/07-classical-stability-and-frequency-design/46-bode-frequency-response/README.md).
 
 Trigger/inputs: retained periodic cycles, actual applied command/PV,
 frequency, bias, delay and units. Automatic result calculates amplitude ratio,
@@ -390,7 +390,7 @@ startup-cycle or nominal-model substitution.
 
 ## WF-051 — Sensitivity functions
 
-Source: [Lesson 51 README](../../../examples/control/07-classical-stability-and-frequency-design/48-sensitivity-functions/README.md).
+Source: [Lesson 55 README](../../../examples/control/07-classical-stability-and-frequency-design/48-sensitivity-functions/README.md).
 
 Trigger/inputs: C, G, disturbance path, target, physical load and measurement
 noise separately. Automatic result calculates L=CG, S=1/(1+L), T=L/(1+L),
@@ -403,7 +403,7 @@ paths. Fail combined injections or magnitude-sum identity.
 
 ## WF-052 — Loop shaping
 
-Source: [Lesson 52 README](../../../examples/control/07-classical-stability-and-frequency-design/49-loop-shaping/README.md).
+Source: [Lesson 56 README](../../../examples/control/07-classical-stability-and-frequency-design/49-loop-shaping/README.md).
 
 Trigger/inputs: baseline C/G, performance and robustness objectives, noise and
 actuator limits, and admissible lead/lag structure. Automatically calculate
@@ -418,7 +418,7 @@ changing requirements.
 
 ## WF-053 — Nyquist stability
 
-Source: [Lesson 53 README](../../../examples/control/07-classical-stability-and-frequency-design/47-nyquist-stability/README.md).
+Source: [Lesson 57 README](../../../examples/control/07-classical-stability-and-frequency-design/47-nyquist-stability/README.md).
 
 Trigger/inputs: complete directed loop/model, delay, frequency contour and
 -1 reference. Automatically compute open-loop unstable-pole count P from the
@@ -435,7 +435,7 @@ silent P=0.
 
 ## WF-054 — Sampled-data stability
 
-Source: [Lesson 54 README](../../../examples/control/07-classical-stability-and-frequency-design/50-position-z-plane/README.md).
+Source: [Lesson 60 README](../../../examples/control/07-classical-stability-and-frequency-design/50-position-z-plane/README.md).
 
 Trigger/inputs: supplied or identified continuous plant, controller, performance
 and robustness requirements, CPU budget, allowable computation delay and

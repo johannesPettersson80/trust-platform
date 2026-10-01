@@ -8,6 +8,17 @@ const run = (values = [0, 1, 1, 1, 1]) => ({ id: "run-a", evidence: "ST-executed
   samples: values.map((value, i) => ({ timeSeconds: i, sequence: 10 + i, values: { response: { value, quality: "good" } } })) });
 const error = { id: "error", kind: "error", channel: "response", window: { start: 1, end: 4 }, reference: 1, statistic: "maximum", maximum: 0.1 };
 suite("Control Studio recorded-run validation", () => {
+  test("accepts every channel an isolated run records, up to 64", () => {
+    const wide = (count: number) => {
+      const source: any = run();
+      const extra = Array.from({ length: count - 1 }, (_, index) => ({ id: `state-${index}`, unit: "1" }));
+      source.channels = [...source.channels, ...extra];
+      for (const sample of source.samples) for (const channel of extra) sample.values[channel.id] = { value: 0, quality: "good" };
+      return source;
+    };
+    assert.strictEqual(evaluateRecordedRun(wide(64), [error]).status, "Pass", "a PID group's transfer check records up to 64 channels");
+    assert.throws(() => evaluateRecordedRun(wide(65), [error]), /Invalid run channels/);
+  });
   test("evaluates engineer-declared error and immutable run evidence", () => {
     const source = run();
     const result = evaluateRecordedRun(source, [error]);

@@ -1,262 +1,287 @@
 {
-  "schemaVersion": 1,
-  "topology": "open-loop",
+  "schemaVersion": 2,
   "id": "control-lqr",
-  "name": "LQR",
-  "revision": "sha256:8908169f1d824b1145369097774a000fa97afee650aa641b8ffa4a7f6373f988",
+  "name": "Two-tank LQR",
   "projectId": "project:control-lqr",
   "runtimeId": "simulator",
   "controller": {
     "instance": "P1",
-    "type": "Linear-quadratic regulation and position-only linear-quadratic-Gaussian control",
+    "type": "LQR state feedback",
     "design": "project",
-    "revision": "sha256:curriculum-controller-67",
+    "revision": "sha256:4b26eac0ac4d39fd7c3210f57969b94b2cef05b5ee37b5536d700f2bd0cc704c",
     "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": "%MX120.3",
-    "modeWhenTrue": "Auto"
+    "taskPeriodMs": 1000,
+    "modeSignal": "P1.FeedbackEnabled",
+    "modeWhenTrue": "Auto",
+    "manualOutputSignal": "P1.ManualFlowM3PerS",
+    "manualOutputType": "LREAL",
+    "stateFeedback": {
+      "family": "LQR",
+      "convention": "sampled-deviation-negative-feedback",
+      "gainSymbols": [
+        [
+          "P1.K1",
+          "P1.K2"
+        ]
+      ],
+      "referenceGainSymbols": [
+        [
+          "P1.N"
+        ]
+      ],
+      "initialization": {
+        "kind": "declared-state-v1",
+        "states": []
+      }
+    }
   },
   "signals": {
-    "processVariable": {
-      "symbol": "P1.FullStateDeflectionMeasurement",
-      "address": "%IL0",
+    "setpoint": {
+      "symbol": "P1.Tank2SetpointM",
+      "address": "%ML0",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "m",
       "range": {
-        "minimum": -0.08,
-        "maximum": 0.08
+        "minimum": 0.05,
+        "maximum": 0.45
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.Tank2M",
+      "address": "%IL8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m",
+      "range": {
+        "minimum": 0,
+        "maximum": 0.5
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.ForceRequested",
-      "address": "%ML8",
+      "symbol": "P1.PumpM3PerS",
+      "address": "%QL0",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "kN",
+      "unit": "m3/s",
       "range": {
-        "minimum": -10,
-        "maximum": 10
+        "minimum": 0,
+        "maximum": 0.02
       }
     },
     "additional": [
       {
-        "id": "experiment-authority",
-        "channel": "experiment-authority",
+        "id": "tank-1",
+        "channel": "tank-1",
         "role": "state",
-        "symbol": "P1.ExperimentEnabled",
-        "address": "%MX120.3",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "controller-enabled",
-        "channel": "controller-enabled",
-        "role": "state",
-        "symbol": "P1.Enabled",
-        "address": "%MX120.0",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "controller-and-estimator-valid",
-        "channel": "controller-and-estimator-valid",
-        "role": "quality",
-        "symbol": "P1.ControllerValid",
-        "address": "%MX120.1",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "hydraulic-force-saturated",
-        "channel": "hydraulic-force-saturated",
-        "role": "quality",
-        "symbol": "P1.Saturated",
-        "address": "%MX120.2",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "design-selector",
-        "channel": "design-selector",
-        "role": "state",
-        "symbol": "P1.DesignMode",
-        "address": "%MD0",
-        "iecType": "DINT",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 5
-        }
-      },
-      {
-        "id": "estimated-suspension-deflection",
-        "channel": "estimated-suspension-deflection",
-        "role": "state",
-        "symbol": "P1.EstimatedDeflection",
-        "address": "%ML16",
+        "symbol": "P1.Tank1M",
+        "address": "%IL0",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "m",
         "range": {
-          "minimum": -0.08,
-          "maximum": 0.08
-        }
-      },
-      {
-        "id": "estimated-body-vertical-velocity",
-        "channel": "estimated-body-vertical-velocity",
-        "role": "state",
-        "symbol": "P1.EstimatedVelocity",
-        "address": "%ML24",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "m/s",
-        "range": {
-          "minimum": -0.5,
+          "minimum": 0,
           "maximum": 0.5
         }
       },
       {
-        "id": "position-innovation",
-        "channel": "position-innovation",
+        "id": "requested-flow",
+        "channel": "requested-flow",
         "role": "state",
-        "symbol": "P1.Innovation",
+        "symbol": "P1.RequestedFlowM3PerS",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m3/s",
+        "range": {
+          "minimum": -0.05,
+          "maximum": 0.05
+        }
+      },
+      {
+        "id": "level-cost",
+        "channel": "level-cost",
+        "role": "state",
+        "symbol": "P1.LevelCostSum",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "effort-cost",
+        "channel": "effort-cost",
+        "role": "state",
+        "symbol": "P1.EffortCostSum",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "late-peak",
+        "channel": "late-peak",
+        "role": "state",
+        "symbol": "P1.LatePeakM",
         "address": "%ML32",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "m",
         "range": {
-          "minimum": -0.1,
-          "maximum": 0.1
+          "minimum": 0,
+          "maximum": 0.2
         }
       },
       {
-        "id": "requested-road-equivalent-acceleration",
-        "channel": "requested-road-equivalent-acceleration",
-        "role": "disturbance",
-        "symbol": "P1.RoadAccelerationRequested",
-        "address": "%ML40",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "m/s2",
-        "range": {
-          "minimum": -2,
-          "maximum": 2
-        }
-      },
-      {
-        "id": "applied-hydraulic-force",
-        "channel": "applied-hydraulic-force",
-        "role": "MV",
-        "symbol": "P1.ForceApplied",
-        "address": "%QL0",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "kN",
-        "range": {
-          "minimum": -5,
-          "maximum": 5
-        }
-      },
-      {
-        "id": "applied-road-equivalent-acceleration",
-        "channel": "applied-road-equivalent-acceleration",
-        "role": "disturbance",
-        "symbol": "P1.RoadAccelerationApplied",
-        "address": "%QL8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "m/s2",
-        "range": {
-          "minimum": -2,
-          "maximum": 2
-        }
-      },
-      {
-        "id": "full-state-body-velocity-measurement",
-        "channel": "full-state-body-velocity-measurement",
-        "role": "PV",
-        "symbol": "P1.FullStateVelocityMeasurement",
-        "address": "%IL8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "m/s",
-        "range": {
-          "minimum": -0.5,
-          "maximum": 0.5
-        }
-      },
-      {
-        "id": "position-only-noisy-deflection-measurement",
-        "channel": "position-only-noisy-deflection-measurement",
-        "role": "PV",
-        "symbol": "P1.PositionOnlyMeasurement",
-        "address": "%IL16",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "m",
-        "range": {
-          "minimum": -0.1,
-          "maximum": 0.1
-        }
-      },
-      {
-        "id": "position-only-plant-simulation-truth-velocity",
-        "channel": "position-only-plant-simulation-truth-velocity",
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
         "role": "state",
-        "symbol": "P1.PositionOnlyVelocityTruth",
-        "address": "%IL24",
-        "iecType": "LREAL",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX40.0",
+        "iecType": "BOOL",
         "direction": "read",
-        "unit": "m/s",
+        "unit": "1",
         "range": {
-          "minimum": -0.5,
-          "maximum": 0.5
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "clipped",
+        "channel": "clipped",
+        "role": "state",
+        "symbol": "P1.Clipped",
+        "address": "%MX40.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "fault-latched",
+        "channel": "fault-latched",
+        "role": "state",
+        "symbol": "P1.FaultLatched",
+        "address": "%MX40.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "clock-valid",
+        "channel": "clock-valid",
+        "role": "state",
+        "symbol": "P1.ClockValid",
+        "address": "%MX40.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
         }
       }
     ]
   },
+  "channels": {
+    "inputs": [
+      {
+        "modelChannelId": "pump-flow",
+        "signalId": "manipulatedVariable",
+        "actuator": {
+          "kind": "continuous",
+          "minimum": 0,
+          "maximum": 0.02
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "modelChannelId": "tank-1-level",
+        "signalId": "tank-1"
+      },
+      {
+        "modelChannelId": "tank-2-level",
+        "signalId": "processVariable",
+        "setpointSignalId": "setpoint"
+      }
+    ],
+    "initialState": [
+      0,
+      0
+    ]
+  },
   "limits": {
-    "outputMinimum": -10,
-    "outputMaximum": 10
+    "outputMinimum": 0,
+    "outputMaximum": 0.02
   },
   "observedSampleTiming": {
-    "nominalPeriodMs": 100
+    "nominalPeriodMs": 1000
   },
-  "plantId": "equivalent_active_suspension_truth_and_position_sensor_copies",
+  "plantId": "cascade",
+  "operatingPoint": "The cascade at 0.25 m with the pump at 0.010 m3/s",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 12.1,
+    "durationSeconds": 124,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX120.3",
+      "address": "%MX40.0",
       "iecType": "BOOL",
       "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "parameterBinding": {
+    "loop_id": "control-lqr",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "P1.K1",
+        "iec_type": "LREAL",
+        "unit": "m3/s/m",
+        "convention": "Gain K1 on tank 1's level deviation",
+        "minimum": -1,
+        "maximum": 1
+      },
+      {
+        "symbol": "P1.K2",
+        "iec_type": "LREAL",
+        "unit": "m3/s/m",
+        "convention": "Gain K2 on tank 2's level deviation",
+        "minimum": -1,
+        "maximum": 1
+      },
+      {
+        "symbol": "P1.N",
+        "iec_type": "LREAL",
+        "unit": "m3/s/m",
+        "convention": "Reference gain N on tank 2's setpoint",
+        "minimum": -1,
+        "maximum": 1
+      }
+    ],
+    "mode": {
+      "symbol": "P1.FeedbackEnabled",
+      "manual_value": false
     }
-  }
+  },
+  "revision": "sha256:0391f779dd8088ef0f9d64475b002e62955c62cf474ecdc517c2bc5d159603f6"
 }

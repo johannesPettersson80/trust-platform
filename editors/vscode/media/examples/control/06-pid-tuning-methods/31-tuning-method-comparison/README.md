@@ -1,115 +1,144 @@
 # 21. Tuning comparison
 
-You will compare your manual, model-based and relay-derived PI settings on the same heater. You will decide which settings meet the temperature requirements and compare their command movement before choosing a controller.
+In this lesson, you will run the manual, model-based and relay PI candidates in the same two trials, against requirements and a selection rule written down before looking at any result. You will see that candidates can all pass and still differ greatly in what they ask of the heater.
 
 ## The problem
 
-A controller can pass a setpoint step and fail a thermal load, or look quiet in one run because it started with a different integral state. A fair comparison therefore requires both required conditions for every candidate. A candidate qualifies only when it passes every requirement in both trials. If none qualifies, that is the engineering result and the unresolved requirement must remain visible.
+Lesson 20's relay test gave $K_p$ 13.16 and $K_i$ 3.57, which settled a 3 °C step within 7.1 s but held the command at its 100% limit for 2.5 s. With the manual gains, $K_p$ 2.0 and $K_i$ 0.6, and the model-based gains, 4.17 and 0.833, there are now three candidates. Each was checked separately, in a different project and against different requirements, so the candidates have not been compared fairly.
+
+We will test all three in the same experiment, against requirements and a selection rule written down before looking at any result.
 
 ## What we need
 
-We need to decide which available settings meet both target and disturbance
-requirements under the same conditions. If several qualify, we need a stated
-way to choose among them without hiding a failed requirement in an average.
+We need to:
+
+1. test every candidate in the same experiment, from the same state;
+2. write down the requirements and the selection rule before looking at any result; and
+3. measure what each candidate asks of the heater, not only how well it controls.
 
 ## The new idea
 
-**Tuning comparison** selects between controller settings using matched
-experiments and requirements fixed before viewing the results. The method
-that produced a candidate does not establish that it is suitable.
+**Tuning comparison** tests every candidate in the same experiment against requirements written down before looking at any result, and picks the simplest that passes, or none. For this heater, the three PI candidates run the same setpoint trial and the same load trial on the actual heater program, with the same noisy probe.
 
-First check every requirement. Only among candidates that pass do we compare
-preferences such as settling time and command movement. Freeze this table
-before predictions and before opening results:
+**In words.** It works like choosing between quotes against a written specification: a quote that misses any line is out however good the rest is, the cheapest of the remaining quotes wins, and if none meets the specification you buy none. The comparison has four parts:
 
-| Trial | Requirement |
-| --- | --- |
-| Setpoint | SP 35→38 °C at time zero, D=0, duration 60 s; peak PV≤39 °C; absolute error≤.2 °C at every sample from 30 through 60 s |
-| Load | SP=35 °C, D=30 kW applied at time zero, duration 60 s; minimum PV≥33 °C; absolute error≤.2 °C at every sample from 30 through 60 s |
-| Both | applied command remains 0–100%; PV remains 0–80 °C; data remain valid |
+1. **The same experiment for every candidate.** The same starting state, the same events at the same times and the same probe, so that any difference comes from the gains.
+2. **Requirements and a selection rule written down first.** A rule chosen after seeing the results tends to favour the result one already likes.
+3. **Qualify.** A candidate qualifies only if it passes every requirement in both trials. A failure in one cannot be averaged out by a good result elsewhere.
+4. **Choose.** Among the qualified candidates, take the simplest. All three are PI controllers of the same form, so the simplest is the one that asks least of the heater. If none qualifies, keep the current settings and design again: "none qualifies" is a valid result.
 
-The trials are separate. The load trial begins at the hot reset with D=0, then applies D=30 at time zero; it does not begin with the load already present. The setpoint trial begins at the same reset and changes SP at time zero. Normal transient command saturation at 100% is allowed if the applied command stays within 0–100%, the anti-windup policy operates, and every requirement still passes. Do not average away a failed peak, minimum, or error window.
+What a candidate asks of the heater is its **command activity**: the total movement of the applied heater command, like the distance a valve travels. For this heater much of that movement is not control at all. The probe's noise passes straight into the P part, so the command jitters with every sample, and the water, which needs seconds to respond, cannot follow it: the movement only works the heater.
 
-Lesson 8's anti-windup sequence remains part of every candidate: use tracking time Tt=1 s, dt=.1 s, and the existing routine that reconciles integral state with the applied limited output. This comparison tests controller settings, not a new integral implementation.
+The requirements, written down first:
 
-Declare the secondary choice before running. Among candidates that qualify in both trials, compare the worst of their two settling times. Among candidates within 2 s of the shortest worst-case settling time, prefer lower total applied-command activity across both trials. This is a stated design choice for this exercise, not a universal controller rule.
+- **Setpoint trial**, 35 → 38 °C for 60 s: overshoot at most 1 °C, error at most 0.2 °C at the end, and within 0.2 °C of 38 °C by 30 s.
+- **Load trial**, 30 kW of extra heat loss at 35 °C for 60 s: never below 33 °C, error at most 0.2 °C from 30 to 60 s, and within ±0.1 °C of 35 °C by 30 s.
 
-Define activity in percentage points:
+**The formula.** The command activity adds up every change of the applied command:
 
 $$
-A=\sum_k |u_k-u_{k-1}|.
+A = \sum_k |u_k - u_{k-1}| .
 $$
 
-Here k labels consecutive controller samples; the command preceding the first sample is the initial 75%.
+- $u_k$ is the applied command at sample $k$, in %, and $|u_k - u_{k-1}|$ the size of its change from the sample before, whatever its sign;
+- $A$ is the activity, in percentage points. It measures movement, not energy.
 
-Use the .1 s samples in the enabled 60 s window, including the first movement from the initial 75% output and excluding shutdown. For 75%→80%→78%, A=5+2=7 percentage points. Activity is command movement; it is not energy consumption or valve wear.
+The noise's share can be estimated. Each new sample changes P by $K_p$ times the change in the noise. For noise spread evenly over ±0.02 °C, two independent samples differ on average by $2 \times 0.02/3 = 0.013$ °C. Over the $N$ samples of a trial, the noise alone therefore adds about
+
+$$
+A_{noise} \approx N \times 0.013\ \text{°C} \times K_p ,
+$$
+
+in percentage points, with $K_p$ in % per °C.
+
+**Example: scoring and choosing.** Calculated, with candidates and results that are not this lesson's:
+
+1. A command that goes 75 → 77 → 76 → 76 → 79% has $A = 2 + 1 + 0 + 3 = 6$ points: the step that does not change adds nothing, and the fall counts as much as a rise.
+2. A 60 s trial at 0.1 s has $N$ = 600 samples, so the noise changes the error by about $600 \times 0.013 = 8$ °C in total. A candidate with $K_p$ = 5 % per °C would move the command by about $8 \times 5 = 40$ points from noise alone.
+3. A candidate that settles the setpoint trial in 12 s but the load trial only at 31 s does not qualify: the load requirement is 30 s, and the fast setpoint result cannot make up for it.
+4. Of two qualifying candidates with activities of 50 and 120 points, the rule picks the one with 50: it reaches the same requirements while working the heater less.
+
+**Teaching choice.** Ranking by command activity is this lesson's rule, not a universal law: another purpose might rank speed or margin first.
+
+**The limitation.** Qualifying is pass or fail. A candidate 0.1 s inside a 30 s limit, 0.3% of the allowance, qualifies as fully as one 20 s inside, although a small change in the plant could push the first past the limit.
 
 ## Prediction
 
-Before running, write the actual Kp, Ki, anti-windup source, and candidate provenance for each candidate. Predict:
+Before running, answer these questions:
 
-1. which candidate is likely to reach the setpoint error window first;
-2. which may saturate during the setpoint trial;
-3. whether each candidate can recover from D=30 without a permanent error;
-4. whether any candidate is likely to fail the peak or minimum requirement; and
-5. which candidate would win the declared worst-of-two settling/activity tie-break if all requirements pass.
+1. Which candidates will pass both trials?
+2. Rank the candidates by their worse settling time.
+3. Rank them by command activity, and estimate the noise share with $8K_p$.
+4. Which candidate does the rule pick, and what does that choice cost?
 
-A prediction is not a result. Keep the requirements and the possibility that none qualifies.
+| Candidate | $K_p$ (% per °C) | Noise share, $8K_p$ |
+| --- | ---: | ---: |
+| Manual | 2.0 | 16 points |
+| Model-based | 4.17 | 33 points |
+| Relay | 13.16 | 105 points |
 
 ## Implementation
 
-Open src/Main.st and use the existing scalar controller parameters and tracking routine. Write the selected candidate's Kp and Ki into the named scalar parameters while the experiment is stopped. Keep its name and source with the run description.
+`Main.st` runs the real `Control.PID`; Control Studio writes each candidate's gains into `Parameters`. The program also sums the command activity from the 75% holding command:
 
-For each .1 s scan, calculate error and the existing PI output, apply Lesson 8 tracking with Tt=1 s, and retain requested and applied output. Use **Validate** to calculate peak PV, minimum PV, error-window maximum and settling time. For the ST exercise, initialize `PreviousAppliedPct` to 75.0 and `CommandActivityPoints` to 0.0. Each scan, add `ABS(AppliedPowerPct - PreviousAppliedPct)` to activity, then store the current applied value as previous. `ABS` returns magnitude regardless of sign. Verify that 75→80→78 adds 7 points. Guard invalid PV, timestamps, and command bounds. Keep shutdown samples out of A and do not let state from one candidate or trial enter the next.
+```st
+CommandActivityPoints := CommandActivityPoints + ABS(AppliedPowerPct - PreviousAppliedPct);
+PreviousAppliedPct := AppliedPowerPct;
+```
 
-The prepared project uses one selected candidate at a time. While stopped, set symbolic `KpPctPerC` and `KiPctPerCs` and record the candidate name/source; defaults5/1 are a nominal illustration, not a measured relay result. `TrialKind` at `%MW80` selects0 for the target trial or1 for the load trial. Restart the simulator for each60s run. `CommandActivityPoints` includes the first movement from75% and retains the final total without counting shutdown.
-
-Set `SafetyAbort` to stop heating immediately; its latch also sets on invalid
-measurement. An abort commands zero heating and zero extraction. Normal
-completion restores75% heating. After an abort, keep stopped and restart from
-the full hot reset before clearing the latch and collecting a new trial.
+**Exercise.** Start the simulator (Manual, 75%), set `P1.ManualOutput` to 80, then to 78. `P1.CommandActivityPoints` reads 5, then 7. Restart the simulator before the experiment.
 
 ## Experiment in Control Studio
 
-**Workflow verification remains open.** This project now records the
-specified heater case, and Control Studio stages are accessible. The complete
-lesson-specific fitting, uncertainty, candidate and validation interactions
-have not yet been verified against these recordings. Keep the recorded data;
-ST-generated numbers do not substitute for the required Control Studio work.
-
-Use the common hot heater state for every run:
-
-- PV=35 °C;
-- SP=35 °C;
-- applied output=75%;
-- integral state I=75%;
-- proportional correction=0%;
-- delayed command history=75%;
-- D=0;
-- dt=.1 s; and
-- valid, advancing timestamps.
-
-The candidates are your Lesson 11 manual PI settings, your Lesson 19 model-based settings, and your Lesson 20 relay settings when a valid cycle was obtained. A method may have produced no supported candidate, for example if its model approximation failed validation or the relay cycle was not repeatable. Record that reason and compare only the candidates you actually obtained. Carry each candidate's actual Kp, Ki, source record, and model revision; do not invent gains or treat supplied examples as learner findings. A simple baseline candidate may be retained as a comparison if its definition is stated, but it must meet the same requirements. The current Tune/Validate UI has no built-in roster that links these three lesson records into one candidate selector; enter or import one exact candidate at a time and preserve its provenance with the saved run.
-
-1. Select a candidate in **Control Studio → Tune** and record its scalar Kp, Ki, source, and anti-windup parameters.
-2. Run the **Test** workflow for the setpoint trial. Restart Simulator first and confirm PV35, SP35, I75, P0, delayed history75, D0, valid data, and dt=.1. At time zero apply SP35→38 with D still zero. Run 60 s and record PV, error, requested/applied output, saturation, I, and elapsed time.
-3. Cancel the setpoint test, set output to zero, and restart. Restore the complete hot reset. Then at time zero apply D=30 with SP fixed at 35. Run 60 s and record the same signals.
-4. Stop either trial on PV outside 0–80 °C, applied output outside 0–100%, invalid/stale data, stopped time, or hard fault. Abort to zero heat, cancel D, and reset before continuing.
-5. Repeat both separately reset trials for every candidate. Use **Validate** to compare the retained records; keep each candidate's setpoint and disturbance records paired.
-6. Compute the two requirement decisions, settling times, and total A for each candidate. Report every failed requirement separately.
+1. Start **Simulator**: the heater holds 35 °C with 75% output in Manual. Open **Control Studio**.
+2. On **Identify**, select **Identify plant**.
+3. On **Tune**, choose **P1.Controller · PI**, set **Tuning method** to **Manual** and enter the manual candidate's $K_p$ 2.0 and $K_i$ 0.6.
+4. Select **Requirements…**, enter Setpoint change 3 °C, Maximum steady-state error 0.2 °C, Maximum settling time 30 s, Settling band 0.1 °C and Validation duration 60 s, and select **Done**. They stay for the other candidates; the project adds the load-trial requirements and the activity rows.
+5. Select **Tune controller**. On **Validate**, select **Validate controller** and record every row, including **Command activity** for both trials.
+6. Repeat steps 3 and 5 for the model-based candidate, 4.17 and 0.833, and the relay candidate, 13.16 and 3.57.
 
 ## Evidence and decision
 
-A candidate qualifies only if it passes the peak-PV and error-window requirements in the setpoint trial, the minimum-PV and error-window requirements in the load trial, and the common validity/output limits. Normal 100% transients are permitted; a passing candidate is not rejected solely for reaching that limit.
+![All three candidates pass; the manual gains do so with the least heater work and almost no margin](figures/tuning-comparison.svg)
 
-Among all qualifiers, use the predeclared worst-of-two settling comparison. Among candidates within 2 s of the best worst-case settling time, compare total applied-command activity from both 60 s windows. If no candidate qualifies, state which requirement remains unresolved and retain the records for later redesign. Do not select a candidate by averaging a failed trial with a passed one.
+The numbered marks answer the predictions with the same numbers. From Control Studio's **Validate** page:
+
+| Requirement | Manual | Model-based | Relay |
+| --- | ---: | ---: | ---: |
+| Overshoot, setpoint trial ≤ 1 °C | 0.040 °C | 0.020 °C | 0.021 °C |
+| Error at the end, setpoint trial ≤ 0.2 °C | 0.040 °C | 0.026 °C | 0.023 °C |
+| Within 0.2 °C, setpoint trial ≤ 30 s | 18.6 s | 14.8 s | 7.2 s |
+| Lowest temperature, load trial ≥ 33 °C | 33.34 °C | 33.65 °C | 34.12 °C |
+| Error 30–60 s, load trial ≤ 0.2 °C | 0.086 °C | 0.066 °C | 0.023 °C |
+| Within ±0.1 °C, load trial ≤ 30 s | 29.8 s | 26.9 s | 9.3 s |
+| Command activity, setpoint / load trial | 28.3 / 26.1 | 49.7 / 42.6 | 135.2 / 122.6 |
+
+All three also passed the model agreement, below 0.5%, and 86 range, state and transfer checks.
+
+1. All three, the manual gains only just: their load trial settled at 29.8 s of the allowed 30 s.
+2. By the worse of the two settling times: relay 9.3 s, model-based 26.9 s, manual 29.8 s, all in the load trial.
+3. Manual 28.3, model-based 49.7, relay 135.2 points in the setpoint trial. The noise accounts for about 16, 33 and 105 of them: most of the relay's extra movement is amplified noise.
+4. The manual gains: they qualify with the least heater work, about a fifth of the relay's. The cost is the slowest response and no margin: 0.2 s inside the load limit.
+
+Had the load trial required settling within 9 s, no candidate would have qualified, the relay's 9.3 s included; the right decision would then be to keep the current settings and design again. These are simulation results.
 
 ## Conclusion
 
-A fair controller comparison uses identical hot resets, separate setpoint and load trials, explicit anti-windup, fixed requirements, and applied-command evidence. Manual, model-based, and relay-derived candidates remain tied to their learner records. The result may be a qualified candidate, a baseline, or none.
+A tuning comparison runs every candidate in the same experiment, against requirements and a selection rule written down in advance. Qualifying needs every requirement in every trial; among the qualified, the rule decides, and command activity shows what each candidate asks of the actuator.
+
+For this heater, all three PI candidates qualified. The relay gains were fastest but moved the command five times as much, mostly amplified noise; the manual gains asked least of the heater and were kept, with only 0.2 s to spare.
+
+## Check yourself
+
+1. **The command goes 75, 78, 76, 79%. What is the command activity?**
+   $3 + 2 + 3 = 8$ points.
+2. **Why does the relay candidate have by far the largest activity?**
+   Its $K_p$ of 13.16 multiplies the probe's noise: about $8 \times 13.16 = 105$ of its 135 points.
+3. **Why can "none qualifies" be the correct result?**
+   Picking the least bad candidate would accept a failed requirement; keeping the current settings and designing again does not.
 
 ## Reason for the next lesson
 
-A qualifying controller may still make a larger proportional command change than desired when the setpoint steps. Reducing Kp would also weaken its correction of a measured-temperature change caused by a disturbance. We need to separate those two proportional effects while keeping the selected gains.
+The rule kept the manual gains, only 0.2 s inside the 30 s load requirement. Every changed requirement means designing and comparing again by hand: with settling required within 15 s, the manual gains, at 18.6 s, would fail.
 
-[Setpoint weighting](../../01-feedback-foundations-and-temperature-control/10-proportional-setpoint-weighting/README.md) changes the setpoint contribution to P and tests whether the smaller command step is worth its response cost.
+[Tuning to requirements](../85-tuning-to-requirements/README.md) states the requirements and lets Control Studio design a controller that meets them, or say that none can.

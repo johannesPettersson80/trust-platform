@@ -568,7 +568,7 @@ fn process_dynamics_records_the_held_input_after_hot_preparation() {
                 .unwrap();
             debug.enqueue_io_write(
                 IoAddress::parse("%MX80.0").unwrap(),
-                Value::Bool(elapsed >= 0 && elapsed <= 300),
+                Value::Bool((0..=300).contains(&elapsed)),
             );
             r.advance_time(Duration::from_millis(100));
             r.execute_cycle().unwrap();
@@ -581,10 +581,10 @@ fn process_dynamics_records_the_held_input_after_hot_preparation() {
                 );
                 assert!((pv - 35.0).abs() < 1e-9);
             }
-            if elapsed >= 0 && elapsed < 300 {
+            if (0..300).contains(&elapsed) {
                 assert_eq!(applied, 85.0, "Test must hold the prepared input for30s");
             }
-            if elapsed >= 0 && elapsed < 10 {
+            if (0..10).contains(&elapsed) {
                 assert!(
                     (pv - 35.0).abs() < 1e-9,
                     "the existing75% history precedes the delayed input"
@@ -649,7 +649,7 @@ fn energy_balance_predicts_the_hot_step_with_separate_delayed_model_and_measurem
             .unwrap();
         debug.enqueue_io_write(
             IoAddress::parse("%MX40.2").unwrap(),
-            Value::Bool(elapsed_scan >= 0 && elapsed_scan < 300),
+            Value::Bool((0..300).contains(&elapsed_scan)),
         );
         r.advance_time(Duration::from_millis(100));
         r.execute_cycle().unwrap();
@@ -663,7 +663,7 @@ fn energy_balance_predicts_the_hot_step_with_separate_delayed_model_and_measurem
                 "separate model reset"
             );
         }
-        if elapsed_scan >= 0 && elapsed_scan < 300 {
+        if (0..300).contains(&elapsed_scan) {
             assert_eq!(number(&r, "%QL0"), 85.0);
             assert!(
                 (number(&r, "%MD0") - number(&r, "%IL0")).abs() < 0.05,
@@ -898,5 +898,68 @@ fn identification_experiment_rejects_spread_and_bad_quality_in_actual_samples() 
             sim.apply_post_cycle(Duration::from_millis((scan + 1) * 100), &r)
                 .unwrap();
         }
+    }
+}
+
+#[test]
+fn diagnosis_biased_target_trial_holds_the_reading_on_target_and_the_water_cold() {
+    let mut trace = String::from(
+        "case,time_s,pv_degC,reference_degC,requested_percent,applied_percent,integral_percent\n",
+    );
+    for bias in [0.0_f64, 0.3] {
+        let (mut r, mut sim) = setup_with_events(
+            "09-industrial-control-structures/60-loop-diagnosis",
+            &[],
+            &format!(
+                "\n[[plant_events]]\nat_ms = 0\nplant = \"heater-loop-diagnosis\"\nkind = \"set_sensor_bias\"\nchannel = 0\nvalue = {bias:.1}\n"
+            ),
+        );
+        let debug = r.enable_debug();
+        let mut end = [0.0_f64; 3];
+        for scan in 0..702 {
+            let elapsed_scan = scan - 100;
+            sim.apply_pre_cycle(Duration::from_millis(scan * 100), &mut r)
+                .unwrap();
+            debug.enqueue_io_write(
+                IoAddress::parse("%MX112.0").unwrap(),
+                Value::Bool((0..600).contains(&elapsed_scan)),
+            );
+            r.advance_time(Duration::from_millis(100));
+            r.execute_cycle().unwrap();
+            if (0..600).contains(&elapsed_scan) {
+                trace.push_str(&format!(
+                    "{},{:.1},{:.12},{:.12},{:.12},{:.12},{:.12}\n",
+                    if bias == 0.0 { "unbiased" } else { "biased" },
+                    elapsed_scan as f64 * 0.1,
+                    number(&r, "%IL0"),
+                    number(&r, "%IL16"),
+                    number(&r, "%ML32"),
+                    number(&r, "%QL0"),
+                    number(&r, "%ML16"),
+                ));
+                end = [number(&r, "%IL0"), number(&r, "%IL16"), number(&r, "%QL0")];
+            }
+            sim.apply_post_cycle(Duration::from_millis((scan + 1) * 100), &r)
+                .unwrap();
+        }
+        eprintln!(
+            "bias={bias}: end measured={:.4} reference={:.4} output={:.4}",
+            end[0], end[1], end[2]
+        );
+        assert!(
+            (end[0] - 38.0).abs() < 0.02,
+            "the reading is held on target"
+        );
+        assert!(
+            (end[1] - (38.0 - bias)).abs() < 0.02,
+            "the water is cold by the bias"
+        );
+        assert!(
+            (end[2] - (90.0 - 5.0 * bias)).abs() < 0.15,
+            "the output supplies the power for the water's actual temperature"
+        );
+    }
+    if let Ok(path) = std::env::var("TRUST_LESSON10_TRACE") {
+        std::fs::write(path, trace).expect("retain executed simulator trace");
     }
 }

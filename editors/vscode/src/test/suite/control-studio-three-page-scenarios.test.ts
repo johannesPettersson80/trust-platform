@@ -71,6 +71,27 @@ suite("Control Studio three-page scenario requirements", () => {
     } finally { view.restore(); }
   });
 
+  test("asks requirements only for the controlled output, not for an auxiliary measured output", () => {
+    const view = fixture();
+    try {
+      const measured = { ...loop, schemaVersion: 2,
+        signals: { ...loop.signals,
+          setpoint: { symbol: "P1.Setpoint", address: "%ML0", iecType: "LREAL", direction: "read", unit: "°C", range: { minimum: 0, maximum: 80 } },
+          additional: [{ id: "upstream", channel: "upstream", role: "state", symbol: "P1.Upstream", address: "%IW2", iecType: "REAL", direction: "read", unit: "°C", range: { minimum: 0, maximum: 80 } }] },
+        channels: { inputs: [{ modelChannelId: "u", signalId: "manipulatedVariable", actuator: { kind: "continuous", minimum: 0, maximum: 100 } }],
+          outputs: [{ modelChannelId: "upstream", signalId: "upstream" }, { modelChannelId: "downstream", signalId: "processVariable", setpointSignalId: "setpoint" }] } } as unknown as ControlLoopDefinition;
+      const holder: { committed?: Record<string, unknown> } = {};
+      (editControlRequirements as any)(measured, { referenceChange: 5, maximumError: 1, settlingBand: .2, settlingTimeSeconds: 8, durationSeconds: 20 }, (next: Record<string, unknown>) => { holder.committed = next; });
+      const document: Document = view.dom.window.document;
+      const keys = [...document.querySelectorAll<HTMLInputElement>("input[data-studio-requirement]")].map(input => input.dataset.studioRequirement);
+      assert.deepStrictEqual(keys, ["referenceChange", "maximumError", "settlingTimeSeconds", "settlingBand", "durationSeconds", "constantInputDisturbance", "transferTolerance"],
+        "no row for the auxiliary measured output; the input disturbance and Auto-entry tolerance belong to the controller output");
+      (document.querySelector("[data-studio-editor-done]") as HTMLButtonElement).click();
+      assert.strictEqual(holder.committed?.referenceChange, 5);
+      assert.strictEqual(holder.committed?.channelRequirements, undefined);
+    } finally { view.restore(); }
+  });
+
   test("reuses one validation message when malformed scenario input is submitted repeatedly", () => {
     const view = fixture();
     try {

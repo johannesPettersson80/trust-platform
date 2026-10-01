@@ -199,7 +199,8 @@
       "iecType": "BOOL",
       "direction": "write"
     },
-    "baselineSeconds": 5
+    "baselineSeconds": 5,
+    "holdParameter": "P1.HoldSeconds"
   },
   "parameterBinding": {
     "loop_id": "control-lesson-21",
@@ -228,5 +229,5 @@
     }
   },
   "parameterPurpose": "experiment",
-  "revision": "sha256:168152ed188d9f200f13f426b86ced5b8e7bc84e62b58fed533f351ffdceac39"
+  "revision": "sha256:683f2dd3218200671085f29c9f76b977456807fea81368bc78c43c48e8b6e307"
 }

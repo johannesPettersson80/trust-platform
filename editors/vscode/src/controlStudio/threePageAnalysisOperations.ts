@@ -11,9 +11,8 @@ export function estimatePeriodicFrequency(
 ): FrequencyResponseEstimate {
   const startupSamples = options.startupSamples ?? 0;
   if (!Number.isSafeInteger(startupSamples) || startupSamples < 0 || startupSamples >= input.length || input.length !== output.length) return { status: "rejected", reason: "insufficient-data" };
-  const trimmedInput = input.slice(startupSamples); const trimmedOutput = output.slice(startupSamples);
-  if (trimmedInput.length % options.segmentCount !== 0) return { status: "rejected", reason: "insufficient-data" };
-  return estimateFrequencyResponse(trimmedInput, trimmedOutput, sampleTimeSeconds, frequenciesRadPerSecond, options);
+  // The estimate uses whole segments; samples left over at the end are not used.
+  return estimateFrequencyResponse(input.slice(startupSamples), output.slice(startupSamples), sampleTimeSeconds, frequenciesRadPerSecond, options);
 }
 
 export function calculateLeadLag(

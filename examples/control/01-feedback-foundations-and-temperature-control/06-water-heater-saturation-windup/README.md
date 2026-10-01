@@ -1,133 +1,134 @@
 # 7. Saturation and windup
 
-You will distinguish a PI request from heater power that can actually be applied. You will calculate why a 45 °C setpoint is unreachable for this heater and why returning to 35 °C can still leave the heater at full power.
+In this lesson, you will ask the heater for a temperature it cannot reach and then return to 35 °C. You will observe that the PI controller keeps the heater at full power after it is no longer wanted, because its integral has piled up a demand the heater could never deliver.
 
 ## The problem
 
-PI can remove steady error while the heater has enough power. Now we ask what
-happens when the desired temperature exceeds its capacity. Start settled at
-35 °C with 75% holding output and request 45 °C, although full power supports
-only 40 °C. We will inspect what happens to the stored integral demand.
+Lesson 6's PI controller held the water at 35 °C with 75% heater power, and raised the integral to 90% when colder water removed 30 kW more. In both cases the heater had power to spare, so every command the controller asked for could be applied.
+
+A heater has a maximum power. We will ask for 45 °C, more than the heater can hold, and then return to 35 °C after 10 s, to see what the integral does while the heater is at its limit.
 
 ## What we need
 
-We need to distinguish a temperature the heater cannot reach from delayed
-recovery caused by accumulated controller demand. That requires comparing
-what PI requests, what the heater can apply and what remains stored in I.
+We need to:
+
+1. tell apart what the controller asks for from what the heater actually delivers;
+2. find out whether a temperature is reachable at all with the heater's full power; and
+3. see what happens to the integral while the heater cannot follow the request, and what that does when the setpoint returns to a reachable value.
 
 ## The new idea
 
-**Actuator saturation** occurs when applied output reaches a physical or
-configured limit. **Integral windup** is the continued accumulation of
-controller demand while the actuator cannot follow it. A larger calculated
-request cannot create power beyond the heater's capacity.
+**Actuator saturation** means the actuator is at its limit and cannot do more: for this heater, saturation means it is at full power, and a larger command cannot add more heat. **Integral windup** is the integral piling up a demand the heater cannot deliver. When the target becomes reachable again, that pile must be worked off before the heater turns down, so the water overshoots for a long time.
 
-Let I be the integral contribution in percent and e = SP − PV the temperature
-error in °C. Requested and applied outputs are:
+**In words.** The controller calculates a **requested output**; the heater can apply only part of it, the **applied output**. Between 0 and 100 % the two are equal; above 100 %, the heater gives 100 % whatever is requested. While the heater is at 100 % and the water is still below the setpoint, the error stays positive, so the integral keeps growing, although the extra demand adds no heat. Later, the request stays above 100 % until the integral has come down again, and only then does the heater turn down. In PLC terms: the output is clamped to its range, but the integral inside the controller does not know that it was clamped.
+
+**The formula.**
 
 $$
-u_r=K_p e+I,\qquad u_a=\min(100,\max(0,u_r)).
+u_r = K_p\, e + I, \qquad u_a = \min(100, \max(0, u_r)), \qquad \Delta I = K_i\, e\, \Delta t .
 $$
 
-Here max selects the larger value and min the smaller. A 125% request gives
-100% applied and a 25-point mismatch; the extra request adds no heat.
+- $u_r$ is the requested output and $u_a$ the applied output, in percent;
+- max selects the larger value and min the smaller, so $u_a$ is the request limited to 0–100 %;
+- $e$, $K_p$, $K_i$, $I$ and $\Delta t$ are the error, the two gains, the integral part and the update interval, as in Lesson 6.
 
-The integral update still adds $K_i e\Delta t$, so positive error during upper saturation makes I grow without increasing delivered power. This accumulation beyond what the actuator can deliver is **integral windup**. When SP returns to 35 °C, P changes immediately at the next scan, but I does not reset. If the reduction in P is large enough, the request leaves the limit on that scan. Otherwise the retained I keeps the request above 100%, and negative error must reduce it before applied output can decrease.
+The integral update does not look at $u_a$: a positive error keeps adding to $I$ even while $u_a$ is stuck at 100 %.
 
-The supplied steady-temperature relationship for this teaching heater is $T_{eq}=20+0.2u_a$, with temperature in °C and command in percent. At zero power the equilibrium is 20 °C; each additional percentage point raises the equilibrium by 0.2 °C. Full power therefore supports $20+0.2(100)=40$ °C. This illustrative relationship makes 45 °C infeasible; the [energy-balance lesson](../15-water-heater-energy-balance/README.md) later derives it from delivered power and heat loss. Command changes also have a 1 s delivery delay before their changed heating reaches the water.
+Which temperatures can the heater reach at all? At a steady temperature $T$, the heat in equals the heat out: $2\,u_a = 10\,(T - 20)$, with $u_a$ in percent and the heat in kW. So:
 
-The limit acts after the controller has formed its request. It does not change the error, and the limited command is not a measurement of delivered heat. Keep three questions separate: what PI asked for, what the output limiter allowed, and what the process temperature did after the delivery delay. This separation is what makes windup visible in both the signal record and the physical response.
+$$
+T = 20 + 0.2\, u_a .
+$$
+
+At full power, $T = 20 + 0.2 \times 100 = 40$ °C. No controller can hold 45 °C with this heater; that is a **capacity** limit, the most the equipment can deliver.
+
+**Example.** A 125 % request gives 100 % applied: the extra 25 points add no heat. Follow the test with $K_p = 2$ and $K_i = 0.5$ as in Lesson 6, starting settled at 35 °C with $I = 75\%$:
+
+1. The setpoint jumps to 45 °C. The error is 10 °C, so $P = 20\%$, $\Delta I = 0.5 \times 10 \times 0.1 = 0.5$ point, and the request is $20 + 75.5 = 95.5\%$.
+2. The water warms slowly, the integral keeps rising, and within about a second the request passes 100 %. The heater delivers 100 %, but the integral keeps rising, because the water is still far below 45 °C.
+3. At 10 s the setpoint returns to 35 °C. The water is at about 39 °C, so the error is about −4 °C and $P \approx -8\%$. If the integral has piled up above 108 %, the request is still above 100 % and the heater stays at full power.
+4. Only the negative error can now reduce the integral, 0.5 point per second for each degree of error, so the heater keeps heating water that is already too warm.
+
+**The delay.** The heater's power also reaches the water 1 s late, so the water keeps warming for a while after the power falls.
 
 ## Prediction
 
-At SP=45 °C, PV=35 °C and I=75%, calculate P, the first integral increment, and the request using $K_p=2$ percentage points/°C, $K_i=0.5$ percentage points/(°C·s), and $\Delta t=0.1$ s. Predict the signs of I and $u_r-u_a$ while PV remains below 45 °C. After SP returns to 35 °C, can applied output decrease immediately? What observation separates brief saturation from substantial windup?
+Before running, answer these questions:
+
+1. What is the first request when the setpoint jumps to 45 °C?
+2. While the water stays below 45 °C, what happens to the request and to the integral once the heater is at 100%? Can the water ever reach 45 °C?
+3. When the setpoint returns to 35 °C at 10 s, can the applied power fall at once?
+4. How high will the water go?
+5. How long will it take to be back within 0.2 °C of 35 °C?
 
 ## Implementation
 
-This lesson deliberately declares `Parameters.OutputMaximum := LREAL#200.0`, while
-the heater can apply only 100%. The real PID already contains anti-windup, but
-it cannot correct a limit that it has not been told about. Its internal maximum
-never binds in this experiment; the native regression checks that fact. This
-is an intentional simulation commissioning failure, not a configuration to
-deploy. Lesson 8 corrects the declared maximum without adding another controller.
+Open [`src/Main.st`](src/Main.st). The program runs `Control.PID` with $K_p = 2$ and $K_i = 0.5$, updated every 0.1 s. It tells the controller that its output may go up to 200%:
 
-The complete application is in [src/Main.st](src/Main.st). It calls the real
-`Control.PID` with Kp=2, Ki=0.5, Kd=0, proportional weight 1 and
-`BackCalculation` with Tt=1 s. The 0.1 s task uses rate bounds that do not
-constrain this experiment. `HeaterCommand := Controller.Update(Input := Input)`
-owns `%QL0` directly. The native actuator owns its separate 0–100% limit;
-measured temperature returns on `%IL0` and applied actuator feedback on `%IL8`.
-
-The controller is initialized once with the measured hot state, previous SP
-35 °C and nominal/saturated output 75%. Manual preparation holds 75%. Enabling
-applies the 45 °C step immediately, giving the same first 95.5% request. The
-setpoint returns to 35 °C at 10 s. Completion or abort selects Manual zero;
-there is no separate output equation or independent stored integrator.
-
-`GetState()` supplies value copies before and after Update. The displayed
-pre-correction request is reconstructed from the real prior nominal state and
-this call's P/I increments. Retained I is the real post-correction nominal
-output minus current P; the tracking correction is the change from candidate
-to retained nominal output. These calculations are observations only.
-
-Keep the sample phases distinct:
-
-| Quantity | Binding | Meaning |
-|---|---|---|
-| Current requested power | `%ML8` | This call's candidate before anti-windup correction. |
-| Controller command | `%QL0` | This call's actual PID return, after its declared limits. |
-| Applied heater power | `%IL8` | Native actuator value from the preceding completed step, before heat-delivery delay. |
-| Paired requested power | `%ML88` | The preceding request associated with that applied feedback. |
-| Unavailable power | `%ML16` | Paired request minus applied feedback, in percentage points. |
-| Stored I / tracking correction | `%ML64` / `%ML80` | State and correction from the current PID call. |
-
-Compare paired request with applied feedback when assessing physical mismatch.
-Comparing the newly calculated request with the previous applied value would
-mix two scans. A zero command is immediate; measured zero applied output arrives
-at the next completed input publication. The one-second delivery delay and
-stored heat still govern the later temperature response.
-
-From this lesson directory, run:
-
-```sh
-trust-runtime check --project .
-trust-dev test --project tests
+```st
+OutputMaximum := LREAL#200.0,
 ```
 
-The second command checks the worked arithmetic in
-[tests/src/Arithmetic.st](tests/src/Arithmetic.st), not a second runtime
-controller. From the repository root, the complete native regression command is:
+The heater can apply only 100%, so the controller does not know when the heater has reached its limit, and nothing stops the integral from piling up. This is a deliberate setup error; the next lesson corrects it.
 
-```sh
-cargo test -p trust-runtime --test control_curriculum_heater_windup_pid
-```
+The controller starts from the hot state: 35 °C, 75% and the integral at 75%. The experiment steps the setpoint to 45 °C at once and back to 35 °C at 10 s. The heater reports the power it applied one update later, so `PairedRequestedHeaterPower`, the request of that same update, is the one to compare with `AppliedHeaterPower`. `IntegralCorrection` is the stored integral. After the run, or on a temperature outside 0–80 °C, the command is 0%.
 
-It compares both complete hot runs with their preserved pre-conversion
-physical references, checks the real PID owner and scan-aligned feedback, and
-checks abort timing. Restore the entire hot reset before repeating a run.
+**Exercise.** Find the line that calculates `UnavailablePower`. By hand: at 9.9 s the paired request is 124.9% and the heater applies 100%, so 24.9 percentage points are asked for but cannot be delivered. With a 6 °C error, how fast does the integral grow? 0.5 × 6 = 3 points per second. `trust-dev test --project tests` checks the worked arithmetic.
 
 ## Experiment in Control Studio
 
-1. Start **Simulator** and establish the hot state: SP=PV=35 °C, I=75%, P=0%, requested and applied output=75%, and no added load. The preceding 1 s command history must also be 75%, so delivered heating is initially steady. This deliberately replaces the earlier 20 °C warming start.
-2. In **Control Studio → Identify**, display SP, PV and error in °C; retained I and current requested power in percent; paired requested power and applied feedback in percent; and their phase-aligned mismatch in percentage points.
-3. In **Identify → Method → Project experiment**, click **Review project test** for the 70.1 s recording envelope (70 s active sequence), then select **Confirm and start**. The project experiment automatically records the reviewed sequence. At time zero, SP becomes 45 °C; at 10 s it returns to 35 °C. Use time from **Confirm and start**.
-4. Record when request exceeds 100%, whether I continues rising, I at the 10 s return, and how long applied output remains 100% afterward. Observe the 60 s recovery interval.
-5. After restoration, inspect the complete recording on Identify and use **Signals** to select its quantities. Confirm 0% controller command immediately and 0% applied feedback at the following completed input publication; after the delivery delay, heat loss cools the water. For a repeat, reset the simulator to the complete hot starting state, including I and command history.
+1. Open this lesson's project and start **Simulator**. The heater holds 35 °C with 75% power and the integral at 75%. In the **truST** side bar, select **Control Studio**.
+2. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.Setpoint · Setpoint (°C)`, `P1.ProcessValue · Process value (°C)` and `P1.AppliedHeaterPower · Applied output (%)`; add `P1.PairedRequestedHeaterPower · state (%)` (the request) and `P1.IntegralCorrection · state (%)` (the stored integral).
+3. Answer the predictions before starting.
+4. Select **Review project test** and check the declared **70.1 s** duration: 10 s at the 45 °C setpoint, then 60 s to recover at 35 °C.
+5. Select **Confirm and start**; this is time zero, and the setpoint jumps to 45 °C.
+6. Watch the request rise above 100% while the applied power stays at 100% and the integral keeps rising. At 10 s, watch the request drop but stay above 100%, then the applied power leave 100% and the temperature peak. After the run, hover these moments. A time you read can differ by one 0.1 s sample from the table below, depending on the update in which the test started.
+7. At completion, Control Studio shows **Project test completed. Outputs restored.** and the heater command is 0%.
 
-Abort outside 0–80 °C, outside 0–100% applied output, or on unusable measurements. Select **Abort test**, confirm immediate 0% command and 0% applied feedback on the following completed input publication, and stop the simulator if it is unresponsive. An over-range request is intentional; the applied signal must remain bounded.
+Select **Abort test** to stop early. To repeat, stop and restart **Simulator**; it starts again from the hot state.
 
 ## Evidence and decision
 
-At the initial 10 °C error, P is 20%, the first increment is $0.5(10)(0.1)=0.5$ point, and the request is 95.5%. If error persists, I rises and the request crosses 100% while applied output stays at 100%. That is evidence of windup only when retained I also grows.
+![The integral keeps rising while the heater is at full power and holds it there after the setpoint is reduced](figures/saturation-windup-response.svg)
 
-The request can cross the limit before the temperature reaches its maximum because the controller integrates error on every scan while the process responds slowly. Do not infer windup from a high request alone: record its history, the applied signal, and the integral state. Likewise, do not infer a capacity failure merely because PV is below SP during a transient; the equilibrium limit and sustained full output matter.
+The numbered marks answer the predictions with the same numbers. From the recorded run; the lesson's native test checks the same run sample by sample:
 
-For an illustrative post-return state PV=39 °C and I=112%, the next request is $112+2(-4)+0.5(-4)(0.1)=103.8$%; applied output remains 100%. This is a calculation, not a measured sample. Judge temperature and controller state separately. Inability to maintain 45 °C is a capacity result, not a tuning failure.
+| Time | Measured temperature | Request | Integral | Applied output |
+| --- | ---: | ---: | ---: | ---: |
+| 0 s | 35.00 °C | 95.5% | 75.5% | 95.5% |
+| 1.0 s | 35.00 °C | 100.5% | 80.5% | 100% |
+| 9.9 s, before the return | 39.14 °C | 124.9% | 113.2% | 100% |
+| 10.0 s, setpoint back to 35 °C | 39.16 °C | 104.7% | 113.0% | 100% |
+| 11.9 s, last full-power sample | 39.42 °C | 100.1% | 108.9% | 100% |
+| 13.8 s, peak | 39.57 °C | 95.5% | 104.6% | 95.5% |
+
+1. The first request, 95.5%, matches the hand calculation.
+2. From 1.0 s the request exceeded 100% and the heater delivered all it could, yet the integral kept rising: by 9.9 s it had reached 113.2%, 13 points more than the heater can ever deliver. The water was at 39.14 °C, approaching the 40 °C that full power can hold; 45 °C was out of reach.
+3. When the setpoint returned to 35 °C, P fell to −8.3%, but the wound-up integral still held the request at 104.7%. The heater stayed at full power until 12.0 s, 2 s after the return.
+4. With the 1 s delivery delay, the water kept warming to 39.57 °C at 13.8 s.
+5. It was back within 0.2 °C of 35 °C only at 44.8 s, almost 35 s after the setpoint was reduced.
+
+Two separate results follow. The heater cannot reach 45 °C: that is a capacity limit, and no tuning can change it. The slow recovery is a controller defect: the piled-up integral kept full power after it was no longer wanted. This lesson only shows the problem. These are simulation results.
 
 ## Conclusion
 
-Saturation limits applied power but does not limit the ordinary integral state. Windup accumulates an integral contribution the heater cannot deliver and can keep output saturated after the setpoint is reduced.
+Saturation limits the power the heater applies, but it does not limit the integral. While the heater is at its limit and the error stays positive, the integral piles up a demand that can never be delivered, and that pile keeps the heater at full power after the setpoint is reduced.
+
+For this heater, the integral reached 113.2%, kept full power for 2 s after the return to 35 °C, and delayed the recovery until 44.8 s.
+
+## Check yourself
+
+1. **The request is 118% and the heater's limit is 100%. What is applied, and how much is unavailable?**
+   100% is applied; 18 percentage points are requested but cannot be delivered.
+2. **Why did the heater stay at full power for 2 s after the setpoint returned to 35 °C?**
+   The integral had piled up to 113%. Even with P = −8.3%, the request stayed above 100% until the negative error
+   had worked the integral down.
+3. **Could better gains make the water reach 45 °C?**
+   No. At full power the heater holds 20 + 0.2 × 100 = 40 °C at most. That is a capacity limit, not a tuning
+   problem.
 
 ## Reason for the next lesson
 
-The controller needs the actual actuator limit so its integral state follows what the heater can deliver; the separate applied feedback verifies that behavior. [Anti-windup](../07-water-heater-anti-windup/README.md) adds that correction and repeats the same hot 45-to-35 °C test.
+Returning to a reachable setpoint does not remove the piled-up integral; the controller still asks for more than the heater can deliver, and the water overshoots for a long time.
+
+[Anti-windup](../07-water-heater-anti-windup/README.md) keeps the integral in step with the power the heater actually delivers and repeats the same 45-to-35 °C test.

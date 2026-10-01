@@ -111,7 +111,7 @@ export function fitSensorLagStep(samples: readonly IdentificationSample[], refer
     || Math.abs(fitted.gain - gains[0]) < EPSILON || Math.abs(fitted.gain - gains[gains.length - 1]) < EPSILON;
   const boundaryLimited = amplitudeBoundary || onBoundary(fitted.delaySeconds, settings.delay, true)
     || onBoundary(fitted.timeConstantSeconds, settings.timeConstant) || onBoundary(fitted.secondTimeConstantSeconds, sensor);
-  const warnings = ["Additional lag is a hypothesis; the recording alone cannot assign the two time constants to water and sensor."];
+  const warnings = ["Additional lag is a hypothesis; the recording alone cannot assign the two time constants to the process and the sensor."];
   if (boundaryLimited) warnings.push("The sensor-lag fit reaches a search boundary; inspect or extend the justified range.");
   if (amplitudeBoundary) warnings.push("The fitted baseline or gain reaches its grid boundary; review window uncertainty and grid resolution.");
   if (!consistency.count) warnings.push("No sensor-lag grid point satisfies the declared measurement bound; model adequacy does not replace measurement consistency.");

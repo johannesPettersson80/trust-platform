@@ -1,4 +1,3 @@
-import { physicalStateModel, validatePhysicalStateModel, type PhysicalBalance } from "./physicalModel";
 import { calculateGeneralStateStructure, type GeneralStateStructure } from "./generalStateStructure";
 import { analyzeTransferFunction, eigenvalues, relativeGainArray, solveLeastSquares } from "./numerics";
 import type { ComplexValue, DenseMatrix } from "./numerics";
@@ -9,7 +8,6 @@ export interface ModelChannel {
   operatingRange: { minimum: number; maximum: number };
 }
 interface ModelIdentity {
-  physical?: PhysicalBalance;
   revision: string;
   source: "provided" | "fitted" | "simulation";
   validation: "unvalidated" | "validated";
@@ -55,10 +53,6 @@ const tolerance = { absolute: 1e-12, relative: 1e-10, conditionLimit: 1e12 };
 
 /** Validate imported model data before it reaches numerical or plotting code. */
 export function decodeGeneralModel(value: unknown): GeneralModel | undefined {
-  if (record(value) && value.kind === "physical-balance") {
-    try { value = physicalStateModel(value as unknown as Parameters<typeof physicalStateModel>[0], value.physical as PhysicalBalance,
-      (value.operatingPoint as { outputs: number[] }).outputs); } catch { return undefined; }
-  }
   if (!record(value) || !text(value.revision) || !["provided", "fitted", "simulation"].includes(String(value.source))
       || !["unvalidated", "validated"].includes(String(value.validation)) || !Array.isArray(value.evidence)
       || !value.evidence.every(text) || (value.validation === "validated" && value.evidence.length === 0)
@@ -78,7 +72,6 @@ export function decodeGeneralModel(value: unknown): GeneralModel | undefined {
         || (value.kind === "discrete-state-space" && (!finite(value.sampleTimeSeconds) || value.sampleTimeSeconds <= 0))
         || (value.kind === "continuous-state-space" && value.sampleTimeSeconds !== undefined)) return undefined;
   } else return undefined;
-  if (!validatePhysicalStateModel(value as unknown as GeneralModel)) return undefined;
   // Own a snapshot so callers cannot mutate the model after validation.
   return JSON.parse(JSON.stringify(value)) as GeneralModel;
 }
@@ -127,6 +120,15 @@ export function analyzeGeneralModelFrequency(value: unknown, frequencies: readon
   if (channelsResult.some(channel => channel.points.some(point => !Object.values(point).every(Number.isFinite)))) {
     return { status: "rejected", reason: "nonfinite-response" };
   }
+  // A Bode phase is continuous in frequency: each point takes the branch nearest the previous one, so a delay keeps
+  // lowering the phase instead of wrapping it back past ±180°.
+  for (const channel of channelsResult) {
+    for (let index = 1; index < channel.points.length; index++) {
+      const previous = channel.points[index - 1].phaseRadians;
+      const phase = channel.points[index].phaseRadians;
+      channel.points[index] = { ...channel.points[index], phaseRadians: phase - 2 * Math.PI * Math.round((phase - previous) / (2 * Math.PI)) };
+    }
+  }
   // Square shape is necessary, not sufficient. RGA additionally needs a qualified DC solve.
   let relativeGain: { available: boolean; reason?: string } = { available: false, reason: model.inputs.length !== model.outputs.length
     ? "Relative gain requires equal input and output counts." : "Relative gain requires a qualified nonsingular DC gain matrix." };
@@ -146,9 +148,7 @@ export function analyzeGeneralModelFrequency(value: unknown, frequencies: readon
   return { status: "qualified", model, channels: channelsResult, poles, relativeGainMatrix,
     ...(model.kind !== "transfer-function" ? { stateStructure: calculateGeneralStateStructure(model) } : {}),
     stable: poles.every(pole => model.kind === "discrete-state-space" ? Math.hypot(pole.real, pole.imaginary) < 1 : pole.real < 0),
-    poleScope: model.physical && model.physical.kind !== "thermal-balance"
-      ? "Local Jacobian poles at the physical equilibrium; they do not establish global nonlinear or closed-loop stability."
-      : "Model poles only; pure delay is not represented in the pole list. This is not closed-loop stability.",
+    poleScope: "Model poles only; pure delay is not represented in the pole list. This is not closed-loop stability.",
     capabilities: { relativeGain,
       stepResponse: { available: false, reason: "Select a qualified time-response execution adapter and initial conditions." },
       transferConversion: model.kind === "transfer-function" ? { available: true }

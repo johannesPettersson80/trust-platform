@@ -10,6 +10,7 @@
 
 mod control_bridge;
 mod core;
+mod cycle_pacing;
 mod handlers;
 mod io;
 mod launch;

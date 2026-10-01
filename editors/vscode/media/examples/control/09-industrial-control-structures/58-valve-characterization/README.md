@@ -1,94 +1,160 @@
-# 31. Valve characteristics
+# 32. Valve characteristics
 
-You will measure how valve position affects flow and how pipe pressure loss changes that relationship. You will use the flow to estimate heating power at a stated water temperature.
+In this lesson, you will measure how much hot water the valve lets through at each opening, with two kinds of supply, and convert that flow into heating power. You will see that the installation, not only the valve, decides how the flow changes with the opening.
 
 ## The problem
 
-The position-tracking lesson assumed flow proportional to stem position at a regulated pressure drop. We now test that assumption while keeping the same valve and vessel. The shared vessel has $C=50$ kJ/°C and loses $10(T-20)$ kW. Hot inlet water is 60 °C with $c_p=4$ kJ/(kg·°C), and flow q is kg/s. At T=35 °C, q=1.5 kg/s delivers $4(60-35)(1.5)=150$ kW, balancing the 150 kW loss. The valve is at 75%, with actual stem and flow history reset to 75% and 1.5 kg/s.
+Lesson 31 fed the measured stem position back into the controller: after the 35 → 37 °C step the request stayed within 2 points of the slow stem from 5 s, and the water peaked at 37.02 °C and settled from 29.5 s, while without tracking it overshot to 37.98 °C. That lesson assumed that each percent of stem position delivers 2 kW, as each percent of the electric heater's command did. But the stem position only says how far the valve is open. How much hot water flows also depends on the pressure across the valve, so the relation between opening and flow is unknown, and with it the heat that each percent delivers.
+
+We will measure the flow at several openings with two kinds of supply, and turn it into heat.
 
 ## What we need
 
-We need to know how actual valve position and pressure determine delivered
-flow, and therefore heating. A position reading alone cannot establish the
-heat input needed for the temperature-control decision.
+We need to:
+
+1. measure the flow at several openings, only after the stem and the flow have settled;
+2. see how the pressure across the valve changes the flow; and
+3. turn the flow into the heat it delivers.
 
 ## The new idea
 
-A **valve characteristic** describes how opening relates to flow. The installed
-relationship also depends on the pressure drop across the valve. A position
-measurement tells us where the stem is; it does not by itself establish how
-much hot water reaches the vessel.
+A **valve characteristic** tells how much flow each opening gives. In a real pipe the flow also depends on how much pressure is left for the valve, so equal steps in opening do not give equal steps in flow. For this heater's valve, it decides how much heat each percent of stem position really delivers.
 
-Here $x$ is stem opening in percent and $q_{ss}$ is steady mass flow in kg/s.
+**In words.** The physics is the same as in a garden hose: pressure pushes water through the opening. The pressure across the valve becomes speed of the water in the opening, and that speed grows with the square root of the pressure: four times the pressure gives twice the speed. A wider opening lets more of that water through. The flow therefore depends on two things: how far the valve is open, and how much pressure is left across it.
 
-At regulated valve pressure drop $\Delta p=100\pm1$ kPa, the supplied local characteristic is $q_{ss}=2x/100$ kg/s. Measure its slope rather than treating it as an electric-heater rating. For 75→80%, q=1.5→1.6 gives
+That gives two characteristics:
 
-$$
-\frac{dq}{dx}=\frac{1.6-1.5}{80-75}=0.02\ \mathrm{kg/(s\ point)}.
-$$
+1. The **inherent characteristic** is the flow at each opening with a constant pressure across the valve. It belongs to the valve alone and is what its datasheet describes. Datasheets give the flow at 1 bar across the fully open valve as its Kvs value, in cubic metres per hour: for this valve 2 kg/s, about 7.2 m³/h.
+2. The **installed characteristic** is the flow at each opening in the valve's own pipe. The pipe and its fittings take their share of the supply pressure, and that share grows with the flow. When the valve opens further and more water flows, less pressure is left across the valve, so the flow rises less than the valve alone suggests.
 
-At T=35 °C, the local heat slope is $c_p(60-35)(0.02)=2$ kW/point; it changes when T changes.
+For this heater, the installed characteristic decides whether each percent of stem really adds the 2 kW that Lesson 31 assumed. With a regulated supply it does; with a fixed supply and a pipe that takes its share, the heat added per percent changes with the opening.
 
-For water treated as incompressible with density ρ≈1000 kg/m³, pressure work per unit mass is Δp/ρ. Converting that work to flow kinetic energy gives a velocity proportional to sqrt(Δp). Effective opening area and a discharge coefficient account for valve geometry and losses. Calibrating full opening at 2 kg/s and 100 kPa gives
+**The formula.** The supplied calibration of this valve, its inherent characteristic, is
 
 $$
-q_{ss}=2z\sqrt{\frac{\Delta p}{100\ \mathrm{kPa}}}\ \mathrm{kg/s},\qquad z=x/100.
+q = 2z\sqrt{\Delta p / 100\ \text{kPa}}\ \text{kg/s}, \qquad z = \frac{x}{100} .
 $$
 
-This approximation assumes effective area proportional to opening. The actual installed characteristic must be measured; the formula supplies a comparison case.
-
-Now keep the same valve and pipe, but hold total supply pressure at 128.125 kPa rather than regulating pressure across the valve. The pipe-loss coefficient is 12.5 kPa/(kg/s)². At q=1.5 kg/s the pipe loses 12.5(1.5)²=28.125 kPa, leaving 100 kPa across the valve, so the original operating point is unchanged.
-
-At other flows, valve pressure is Δp=128.125−12.5q², in kPa when q is expressed in kg/s. Substitute into the calibrated flow equation and square it:
+With the fixed supply, the pressure across the valve is what the pipe leaves of the supply: $\Delta p = 128.125 - 12.5\,q^2$ kPa. Squaring the calibration gives $q^2 = 0.04\,z^2\,\Delta p$; inserting $\Delta p$ and collecting $q^2$ gives $q^2\,(1 + 0.5z^2) = 5.125\,z^2$. So, installed in this pipe,
 
 $$
-q^2=4z^2(1.28125-0.125q^2),
+q = 2z\sqrt{1.28125 / (1 + 0.5z^2)}\ \text{kg/s}.
 $$
 
-$$
-q^2(1+0.5z^2)=5.125z^2.
-$$
+The heat follows from the flow, as in Lesson 31: $Q = c_p\,q\,(T_{in} - T)$.
 
-Taking the nonnegative flow solution gives
+- $q$ is the mass flow, in kilograms per second;
+- $x$ is the stem position in percent, and $z = x/100$ the opening as a fraction;
+- $\Delta p$ is the pressure across the valve, in kilopascals; 100 kPa is 1 bar;
+- 128.125 kPa is the fixed supply's pressure, and $12.5\,q^2$ kPa is what the pipe loses at the flow $q$; and
+- $Q$ is the heat, in kilowatts, $c_p = 4$ kJ/(kg·°C) the specific heat of water, and $T_{in}$ and $T$ the supply and water temperatures, in degrees Celsius.
 
-$$
-q_{ss}=2z\sqrt{\frac{1.28125}{1+0.5z^2}}\ \mathrm{kg/s}.
-$$
+**Example: the valve at 75 % and at 85 %.** Follow the numbers:
 
-At 85%, this is approximately 1.649 kg/s, unlike the regulated-pressure value
-1.7 kg/s. The installed characteristic changes because pressure drop changes
-with flow even though the valve's internal geometry is unchanged. These
-coefficients are model assumptions; the activity measures local slopes and uncertainty.
+1. With the regulated supply, a pressure regulator holds 100 kPa across the valve whatever the flow, so $q = 2z$: 1.5 kg/s at 75 % and 1.6 kg/s at 80 %, 0.02 kg/s per point. Equal steps in opening give equal steps in flow.
+2. With the fixed supply at 75 %, the pipe loses $12.5 \times 1.5^2 = 28.125$ kPa of the 128.125 kPa, so 100 kPa remain and the flow is again 1.5 kg/s: both supplies share this operating point.
+3. With the fixed supply at 85 %, $q = 1.7 \times \sqrt{1.28125/1.36125} = 1.649$ kg/s instead of 1.7. The pipe now loses $12.5 \times 1.649^2 = 34.0$ kPa, so only 94.1 kPa remain across the valve.
+4. The heat at 75 %, with 60 °C supply water and 35 °C water: $Q = 4 \times 1.5 \times 25 = 150$ kW. Each extra 0.02 kg/s adds $4 \times 0.02 \times 25 = 2$ kW: the 2 kW per point of Lesson 31, as long as 100 kPa stay across the valve.
 
-Use valve rate 0.5 percentage points/s, flow lag 0.5 s, delivery delay 1 s, temperature bounds 33–37 °C, stem/target bounds 0–100%, and flow bounds 0–2.1 kg/s. Hold each target until the actual stem arrives and the measured flow range (maximum minus minimum) is at most 0.015 kg/s over the final 3 s. For the worked calibration, assume each qualified steady-flow mean has uncertainty ±0.005 kg/s. Then the 75→80% slope lies between (0.1−0.01)/5=0.018 and (0.1+0.01)/5=0.022 kg/(s·percentage point).
+A characteristic describes steady values, so a point counts only after the stem has reached its target and the flow has settled. Here each opening is held 30 s, and the point is the mean of its final 3 s, provided the stem is within 0.1 point of its target and each flow varied by at most 0.015 kg/s.
+
+**The limitation.** A characteristic tells only where the flow settles at each opening, not how the stem and the flow get there, and the installed characteristic belongs to one installation: another pipe or supply gives another one. The pipe loss, the supply pressure and the steadiness thresholds are teaching values.
 
 ## Prediction
 
-Predict flow at 70, 75, 80 and 85% under regulated pressure, then predict why the fixed-total line gives a different 85% value. Predict heat at T=35 °C and explain why T does not jump when the stem target changes. State how flow lag and 1 s heat-delivery delay will order the observations.
+Before running, answer these questions:
+
+1. What is the regulated flow at 70, 75, 80 and 85 %?
+2. Is the fixed-supply flow higher or lower than the regulated flow at 70 % and at 85 %? Why?
+3. Does the second visit to 75 % give the same flow as the first?
+4. How much heat does each supply deliver at 85 %, with 60 °C supply water and 35 °C water?
+
+| Stem | Regulated flow | Fixed-supply flow |
+| ---: | ---: | ---: |
+| 70 % | 1.400 kg/s | 1.421 kg/s |
+| 75 % | 1.500 kg/s | 1.500 kg/s |
+| 80 % | 1.600 kg/s | 1.576 kg/s |
+| 85 % | 1.700 kg/s | 1.649 kg/s |
 
 ## Implementation
 
-With PI disabled, write the scalar calculations `FlowSlopeKgPerSPerPoint := FlowChangeKgPerS / StemChangePct;` and `EstimatedHeatKW := 4.0 * DelayedFlowKgPerS * (60.0 - MeasuredTemperatureC);`. Guard a zero stem change before division, and check the 75→80% example. Read actual stem and measured flow rather than assigning model predictions to them. Log actual stem, not request alone. Use a hold for calibration only after arrival and the stated steady-flow range rule. Keep flow lag and thermal delivery delay as separate states. A stop request sets target to 0% but closure and flow decay continue.
+Open [`src/Main.st`](src/Main.st). While the project test enables `ExperimentEnabled`, the program holds the stem request at each of `Targets` = [70, 75, 80, 85, 75] % for 30 s and averages the final 3 s:
+
+```st
+IF Active THEN
+    ValveRequestPct := Targets[StepIndex];
+    HoldTimer(IN := TRUE, PT := T#30s);
+    (* The final 3 s of each hold form the steady window. *)
+    IF HoldTimer.ET >= T#27s THEN
+        ...
+    END_IF;
+    IF HoldTimer.Q THEN
+        SteadyStemPct[StepIndex] := StemSum / DINT_TO_LREAL(Samples);
+        SteadyFlowRegulated[StepIndex] := RegulatedSum / DINT_TO_LREAL(Samples);
+        SteadyFlowFixedSupply[StepIndex] := FixedSum / DINT_TO_LREAL(Samples);
+        ...
+        SteadyQualified[StepIndex] := ABS(SteadyStemPct[StepIndex] - Targets[StepIndex]) <= LREAL#0.1
+            AND RegulatedMaximum - RegulatedMinimum <= SteadyRangeKgS
+            AND FixedMaximum - FixedMinimum <= SteadyRangeKgS;
+        ...
+    END_IF;
+END_IF;
+```
+
+One stem request drives both supplies, and `SteadyRangeKgS` is the 0.015 kg/s limit.
+
+**Exercise.** Run the tests in [`src/tests.st`](src/tests.st) from the **Testing** view. They check 1.5 and 1.6 kg/s at 100 kPa, the doubled flow at four times the pressure, the 1.649 kg/s fixed-supply flow at 85 % and the 150 kW of heat. Then compute the fixed-supply flow at 80 % by hand: $1.6\sqrt{1.28125/1.32} = 1.576$ kg/s.
 
 ## Experiment in Control Studio
 
-1. Reset T=35 °C, stem/target 75%, q=1.5 kg/s, pressure condition, and history. Set time zero at **Confirm and start**.
-2. In **Control Studio → Test**, review the regulated-pressure staircase 75→70→75→80→85→75%, holding each new target 30 s for a 150 s total record. Display target, actual stem, q, pressure, temperature, heat estimate and validity.
-3. Accept a steady sample only after stem arrival and the final 3 s flow-range rule. Record local slope and uncertainty.
-4. Stop if regulated valve pressure leaves 100±1 kPa. Fully reset and repeat under fixed total supply 128.125±0.5 kPa. Stop on T outside 33–37 °C, target/stem outside 0–100%, q outside 0–2.1, invalid data, fixed supply outside 128.125±0.5 kPa, or normal completion at 150 s.
-5. Issue stop/target 0%, wait for slow closure, then stop the simulator if needed. Zero target does not mean instant zero heat. Fully reset before repeating.
+1. Open this lesson's project and start **Simulator**. The valve rests at 75 % with 1.5 kg/s with both supplies. In the **truST** side bar, select **Control Studio**.
+2. On **Identify**, check **Plant inputs** `P1.ValveRequestPct (%)` and **Measured outputs** `P1.FlowRegulatedKgS (kg/s)`, and choose **Project experiment** in **Method**.
+3. In **Signals**, show `P1.FlowRegulatedKgS · Process value (kg/s)`, `P1.StemPositionPct · Applied output (%)`, `P1.ValveRequestPct · Requested output (%)`, `P1.FlowFixedSupplyKgS · state (kg/s)`, `P1.PressureRegulatedKPa · state (kPa)` and `P1.PressureFixedSupplyKPa · state (kPa)`.
+4. Select **Review project test**. The plan shows **Test signal** `P1.ExperimentEnabled · FALSE → TRUE`, **Duration** 155.1 s and the **Stop conditions**. Select **Confirm and start**.
+5. When Control Studio shows **Project test completed. Outputs restored.**, read the steady values of each hold for both supplies.
 
 ## Evidence and decision
 
-Report each accepted hold with target, actual stem, pressure, q, heat, arrival time and uncertainty. Compare regulated and fixed-total slopes; normal pressure-dependent differences are expected. Reject holds that never settle or mix transient flow with steady calibration. Do not infer heat from request or call nominal coefficients measured facts.
+![Regulated pressure gives equal flow steps; with the fixed supply the flow rises less above 75 % and more below](figures/valve-characteristic.svg)
+
+The numbered marks answer the predictions with the same numbers. Steady points from the recording, the mean of the final 3 s of each hold:
+
+| Stem | Regulated flow | Fixed-supply flow | Fixed-supply valve pressure |
+| ---: | ---: | ---: | ---: |
+| 70 % | 1.400 kg/s | 1.421 kg/s | 102.9 kPa |
+| 75 % | 1.500 kg/s | 1.500 kg/s | 100.0 kPa |
+| 80 % | 1.600 kg/s | 1.577 kg/s | 97.1 kPa |
+| 85 % | 1.700 kg/s | 1.650 kg/s | 94.1 kPa |
+| 75 % | 1.500 kg/s | 1.501 kg/s | 100.0 kPa |
+
+Every point qualifies: each stem arrived exactly and each flow varied by at most 0.010 kg/s in its final 3 s.
+
+1. The regulated flow followed $q = 2z$: 1.400, 1.500, 1.600 and 1.700 kg/s.
+2. The fixed supply gave more flow at 70 %, 1.421 kg/s, because less flow leaves more pressure across the valve, 102.9 kPa; and less at 85 %, 1.650 kg/s with 94.1 kPa left.
+3. The second visit to 75 % gave 1.500 and 1.501 kg/s again: the steady characteristic has no hysteresis.
+4. At 85 %, the regulated supply delivers $4 \times 1.700 \times 25 = 170.0$ kW and the fixed supply $4 \times 1.650 \times 25 = 165.0$ kW.
+
+From 75 to 80 %, the slope falls from 0.0200 to 0.0153 kg/s per point, about a quarter less: one point of stem adds 2.0 kW with regulated pressure but only about 1.5 kW with the fixed supply. A controller tuned for 2 kW per point therefore acts about a quarter more weakly above 75 % with the fixed supply. We take the measured installed characteristic, not the valve calibration, as the relation between stem position and heat for this installation. These are simulation results for this valve, not a physical calibration.
 
 ## Conclusion
 
-The installed valve characteristic belongs to pressure, stem, flow and thermal conditions. Separating actuator travel, hydraulic lag and heat delivery makes a local calibration useful for control and diagnosis.
+The flow through a valve depends on its opening and on the pressure across it, $q \propto z\sqrt{\Delta p}$. Where pipe losses take a flow-dependent share of the supply pressure, the installed characteristic flattens, and the same stem movement delivers less additional flow and heat than the valve alone suggests.
+
+For this valve, the fixed supply delivered 165.0 kW instead of 170.0 kW at 85 %, and a quarter less heat per point above 75 %; only steady, measured stem, pressure and flow values showed it.
+
+## Check yourself
+
+1. **With the fixed supply, what flow and heat does the formula give at 90 %, with 60 °C supply water and 35 °C water?**
+   $q = 1.8\sqrt{1.28125/1.405} = 1.719$ kg/s, so $Q = 4 \times 1.719 \times 25 = 171.9$ kW.
+2. **Why does the fixed supply give more flow than the regulated supply at 70 %?**
+   Less flow means less pipe loss, so more of the supply pressure, 102.9 kPa instead of 100 kPa, is left across
+   the valve and pushes water through it.
+3. **Why does a point count only after the stem has stopped and the flow has settled?**
+   A characteristic relates steady flow to steady opening. A value taken while the stem is still moving, or the flow
+   still changing, mixes in how fast they move.
 
 ## Reason for the next lesson
 
-The steady characteristic assumes the stem reaches its target. It does not
-explain a small request that is ignored, or an accepted target with a stem
-that remains stuck. [Valve stiction](../59-valve-stiction/README.md) distinguishes
-command deadband from mechanical hold-and-release on the same installation.
+A smooth characteristic describes where the stem settles, not how it gets there. It cannot explain a valve that ignores small commands and then jumps: real valves can hold against friction, break away suddenly and stop short.
+
+[Valve stiction](../59-valve-stiction/README.md) tells a deliberate command deadband from a sticking valve.

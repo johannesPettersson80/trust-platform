@@ -10,7 +10,7 @@ suite("Control Studio three-page binding selection", () => {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();
     this.timeout(60000);
     const project = vscode.workspace.workspaceFolders![0].uri.fsPath;
-    const sourcePath = path.join(project, "src/main.st"), source = fs.readFileSync(sourcePath, "utf8");
+    const sourcePath = path.join(project, "src/Main.st"), source = fs.readFileSync(sourcePath, "utf8");
     const loop = JSON.parse(fs.readFileSync(path.join(project, "control-loop.json"), "utf8"));
     // A second compiled instance tests target selection; this fixture does not claim
     // that its unused controller has passed process validation or can be applied.
@@ -96,7 +96,8 @@ suite("Control Studio three-page binding selection", () => {
       await inner("d.querySelector('[data-studio-editor-cancel]').click();return 'cancel limits';");
 
       await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();d.querySelector('[data-studio-requirements]').click();return 'requirements';");
-      assert.strictEqual(await inner("return String(d.querySelectorAll('[data-studio-requirement]').length);"), "9", "MIMO Requirements has four fields per output plus duration");
+      assert.strictEqual(await inner("return String(d.querySelectorAll('[data-studio-requirement]').length);"), "11", "MIMO Requirements has four fields per output, the duration, the input disturbance and the Auto-entry tolerance");
+      assert.strictEqual(await inner("const x=d.querySelector('[data-studio-requirement=transferTolerance]');return x.value+'|'+x.required;"), "|false", "The Auto-entry tolerance starts blank and optional");
       assert.strictEqual(await inner("return String([...d.querySelectorAll('[data-studio-requirement]')].filter(x=>x.dataset.studioSignal==='P1.ProcessValue2').length);"), "4");
       assert.strictEqual(await inner("return String(d.querySelector('[data-studio-requirement=\\'referenceChange:output-2\\']')?.value||'');"), "", "Second-output target starts blank");
       for (const [key, value] of Object.entries({

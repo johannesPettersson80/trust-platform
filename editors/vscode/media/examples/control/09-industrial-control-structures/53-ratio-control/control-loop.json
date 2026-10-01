@@ -1,165 +1,148 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "control-ratio-control",
   "name": "Ratio control",
-  "revision": "sha256:f5d8b0ff7e3c15b0470b8be9ca5f1a8ae4f822cbd034b129d2b3c6596095fa50",
   "projectId": "project:control-ratio-control",
   "runtimeId": "simulator",
   "controller": {
-    "instance": "P1",
-    "type": "Wild-stream ratio station with analyser PI trim and low-flow authority",
+    "instance": "P1.StepStation",
+    "type": "RatioStation",
     "design": "project",
-    "revision": "sha256:curriculum-controller-55",
+    "revision": "sha256:4479fc6f30808b0ba1faa0276eb32eada9029835249435b75e9a4ba4317ade49",
     "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": "%MX160.0",
-    "modeWhenTrue": "Auto"
+    "taskPeriodMs": 100
   },
   "signals": {
     "setpoint": {
-      "symbol": "P1.RatioSetpoint",
-      "address": "%ML120",
-      "iecType": "LREAL",
-      "direction": "read",
-      "unit": "1",
-      "range": {
-        "minimum": 0.1,
-        "maximum": 0.5
-      }
-    },
-    "processVariable": {
-      "symbol": "P1.FeedbackRatio",
-      "address": "%IL48",
-      "iecType": "LREAL",
-      "direction": "read",
-      "unit": "1",
-      "range": {
-        "minimum": 0.1,
-        "maximum": 0.5
-      }
-    },
-    "manipulatedVariable": {
-      "symbol": "P1.FeedbackAdditiveRequest",
-      "address": "%QL48",
+      "symbol": "P1.StepSetpointLMin",
+      "address": "%ML16",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "L/min",
       "range": {
         "minimum": 0,
-        "maximum": 60
+        "maximum": 20
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.StepAdditiveLMin",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "L/min",
+      "range": {
+        "minimum": 0,
+        "maximum": 20
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.StepPumpPct",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
       }
     },
     "additional": [
       {
-        "id": "wild-flow-validity-1",
-        "channel": "wild-flow-validity",
-        "role": "quality",
-        "symbol": "P1.WildFlowValid",
-        "address": "%MX88.2",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "ratio-authority-2",
-        "channel": "ratio-authority",
+        "id": "stop-additive",
+        "channel": "stop-additive",
         "role": "state",
-        "symbol": "P1.RatioAuthority",
-        "address": "%MX88.3",
-        "iecType": "BOOL",
+        "symbol": "P1.StopAdditiveLMin",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "L/min",
+        "range": {
+          "minimum": 0,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "ratio",
+        "channel": "ratio",
+        "role": "state",
+        "symbol": "P1.MixRatio",
+        "address": "%ML32",
+        "iecType": "LREAL",
         "direction": "read",
         "unit": "1",
         "range": {
           "minimum": 0,
-          "maximum": 1
+          "maximum": 0.2
         }
       },
       {
-        "id": "actual-wild-stream-flow-3",
-        "channel": "actual-wild-stream-flow",
+        "id": "carrier-step",
+        "channel": "carrier-step",
         "role": "disturbance",
-        "symbol": "P1.ActualWildFlow",
-        "address": "%ML128",
+        "symbol": "P1.StepCarrierLMin",
+        "address": "%ML0",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "L/min",
         "range": {
           "minimum": 0,
-          "maximum": 160
+          "maximum": 200
         }
       },
       {
-        "id": "measured-wild-stream-flow-4",
-        "channel": "measured-wild-stream-flow",
+        "id": "stop-setpoint",
+        "channel": "stop-setpoint",
         "role": "state",
-        "symbol": "P1.MeasuredWildFlow",
-        "address": "%ML136",
+        "symbol": "P1.StopSetpointLMin",
+        "address": "%ML24",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "L/min",
         "range": {
           "minimum": 0,
-          "maximum": 160
+          "maximum": 20
         }
       },
       {
-        "id": "untrimmed-ratio-demand-5",
-        "channel": "untrimmed-ratio-demand",
+        "id": "tail",
+        "channel": "tail",
         "role": "state",
-        "symbol": "P1.RatioDemand",
-        "address": "%ML144",
+        "symbol": "P1.TailL",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "L",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "carrier-stop",
+        "channel": "carrier-stop",
+        "role": "disturbance",
+        "symbol": "P1.StopCarrierLMin",
+        "address": "%ML8",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "L/min",
         "range": {
           "minimum": 0,
-          "maximum": 60
+          "maximum": 200
         }
       },
       {
-        "id": "composition-feedback-trim-6",
-        "channel": "composition-feedback-trim",
+        "id": "stop-command",
+        "channel": "stop-command",
         "role": "state",
-        "symbol": "P1.RatioTrim",
-        "address": "%ML152",
+        "symbol": "P1.StopPumpPct",
+        "address": "%QL8",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "L/min",
-        "range": {
-          "minimum": -30,
-          "maximum": 30
-        }
-      },
-      {
-        "id": "ratio-controlled-blend-ratio-7",
-        "channel": "ratio-controlled-blend-ratio",
-        "role": "state",
-        "symbol": "P1.RatioControlledRatio",
-        "address": "%IL56",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0.1,
-          "maximum": 0.5
-        }
-      },
-      {
-        "id": "ratio-controlled-additive-request-8",
-        "channel": "ratio-controlled-additive-request",
-        "role": "state",
-        "symbol": "P1.RatioAdditiveRequest",
-        "address": "%QL64",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "L/min",
+        "unit": "%",
         "range": {
           "minimum": 0,
-          "maximum": 60
+          "maximum": 100
         }
       },
       {
@@ -167,10 +150,38 @@
         "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
-        "address": "%MX160.1",
+        "address": "%MX48.0",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "stop-ratio-evaluated",
+        "channel": "stop-ratio-evaluated",
+        "role": "state",
+        "symbol": "P1.StopRatioEvaluated",
+        "address": "%MX48.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "step-ratio-evaluated",
+        "channel": "step-ratio-evaluated",
+        "role": "state",
+        "symbol": "P1.StepRatioEvaluated",
+        "address": "%MX48.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
         "range": {
           "minimum": 0,
           "maximum": 1
@@ -180,23 +191,26 @@
   },
   "limits": {
     "outputMinimum": 0,
-    "outputMaximum": 60
+    "outputMaximum": 100
   },
   "observedSampleTiming": {
     "nominalPeriodMs": 100
   },
-  "plantId": "two_equivalent_local_blending_skids",
+  "plantId": "two-additive-pumps",
+  "operatingPoint": "Both additive pumps at 10 L/min with 50% for 100 L/min of carrier",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 90.1,
+    "durationSeconds": 62.1,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX160.1",
+      "address": "%MX48.0",
       "iecType": "BOOL",
       "direction": "write"
-    }
-  }
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:b9e2e892c979cd0b581d5c1dfef025affa608914bddcf507eb159587a34a5d74"
 }

@@ -1,0 +1,21 @@
+[simulation]
+enabled = true
+seed = 20260930
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 5000
+plant_step_ms = 1000
+
+# A gravity tank (A = 0.5 m², c = 0.020 m^(5/2)/s) at rest at its low operating point, 0.09 m, with the holding inflow
+# c·√0.09 = 0.006 m³/s. Its local gain and time constant grow with the level.
+[[plants]]
+id = "tank"
+model = "gravity_tank"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [0.09]
+initial_input = [0.006]
+
+[plants.parameters]
+area_m2 = 0.5
+outflow_coefficient_m2_sqrt_m_per_s = 0.02

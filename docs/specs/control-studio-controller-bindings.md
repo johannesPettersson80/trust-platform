@@ -41,7 +41,10 @@ verification worker uses a different symbol traversal. I/O aliases retain their
 existing coercion and ownership checks.
 
 The isolated-run request and its checkpoint stream support the same maximum of
-32 observed scalar channels, including controller parameters and retained states.
+64 observed scalar channels, including controller parameters and retained states,
+so a PID group's transfer check, with every member's retained states and a
+decoupler's entries (Specification 35 §17.15), fits; the budget of 250000
+channel samples per run still bounds a long run.
 An accepted request must not lose its results because the checkpoint reader
 uses a lower channel limit. Larger, duplicate or malformed channel maps remain
 rejected by the shared execution contract.

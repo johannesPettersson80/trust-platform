@@ -44,6 +44,12 @@ maximum settling time, maximum overshoot and maximum steady-state error; show
 the criteria applicable to this task rather than an unrelated catalogue.
 Existing declared disturbance, actuator, rate and state constraints remain part
 of the same requirement set and must not disappear when editing these rows.
+The editor always offers an optional **Input disturbance** row in the controller
+output's unit: a constant load added to the plant input at the start of a
+separate trial with the setpoint unchanged, for example a weight pulling on a
+drive as a negative torque. Blank declares no load trial. When the loop declares a
+measurement filter among its tuning components (a low-pass or notch), the editor
+also offers the **Measurement noise** row, which that filter's validation needs.
 
 Recommendation, Tune and Validate use this one saved requirement set. For
 multiple outputs, identify the channel on each row. Use the same names, values
@@ -56,6 +62,10 @@ model, its identification recording and the configured operating/actuator limits
 Do not open an empty Requirements editor. Preserve every project-declared or
 manually entered value, the accepted controller and pinned settings. Calculate
 per-output settings for explicit multichannel mappings; never infer a mapping.
+This page declares no response choice for the Automatic tuning method, so that
+setting is always filled as **More robust**, also when every requirement was
+entered: the same requirements give the same design whether or not Tune
+generated criteria before they were entered.
 
 Generated values are **automatic test criteria**, not inferred production
 requirements. In Requirements, label generated rows with a compact “Automatic”

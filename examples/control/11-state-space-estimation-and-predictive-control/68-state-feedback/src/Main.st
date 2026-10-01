@@ -1,165 +1,132 @@
-FUNCTION Lesson68BearingReference : LREAL
+(* State feedback around the operating point: q = 0.010 + v with v = N·(r − 0.25) − K1·x1 − K2·x2, where x = h − 0.25 are
+   the level deviations in m, K1 and K2 are in m²/s (m³/s per m) and r is tank 2's setpoint. *)
+FUNCTION FeedbackFlowM3PerS : LREAL
 VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
-    ControlAuthority : BOOL;
+    Tank1M : LREAL;
+    Tank2M : LREAL;
+    SetpointM : LREAL;
+    K1 : LREAL;
+    K2 : LREAL;
+    N : LREAL;
 END_VAR
-IF ControlAuthority AND (ExperimentElapsedSeconds >= LREAL#80.0) AND
-   (ExperimentElapsedSeconds < LREAL#160.0) THEN
-    Lesson68BearingReference := LREAL#0.1;
+FeedbackFlowM3PerS := LREAL#0.010 + N * (SetpointM - LREAL#0.25) - K1 * (Tank1M - LREAL#0.25) - K2 * (Tank2M - LREAL#0.25);
+END_FUNCTION
+
+(* The pump delivers 0–0.020 m³/s. *)
+FUNCTION LimitedFlowM3PerS : LREAL
+VAR_INPUT
+    RequestedM3PerS : LREAL;
+END_VAR
+LimitedFlowM3PerS := MIN(MAX(RequestedM3PerS, LREAL#0.0), LREAL#0.020);
+END_FUNCTION
+
+(* A setpoint outside the 0.05–0.45 m levels, such as the unwritten 0 of a memory-bound value, means the operating
+   level. *)
+FUNCTION ValidSetpointM : LREAL
+VAR_INPUT
+    SetpointM : LREAL;
+END_VAR
+IF SetpointM >= LREAL#0.05 AND SetpointM <= LREAL#0.45 THEN
+    ValidSetpointM := SetpointM;
 ELSE
-    Lesson68BearingReference := LREAL#0.0;
+    ValidSetpointM := LREAL#0.25;
 END_IF;
-END_FUNCTION
-
-FUNCTION Lesson68BearingCurrentRequest : LREAL
-VAR_INPUT
-    Reference : LREAL;
-    Displacement : LREAL;
-    Velocity : LREAL;
-END_VAR
-Lesson68BearingCurrentRequest := LREAL#12.0 * Reference
-    - LREAL#16.0 * Displacement
-    - LREAL#7.0 * Velocity;
-END_FUNCTION
-
-FUNCTION Lesson68MotorTorqueRequest : LREAL
-VAR_INPUT
-    Reference : LREAL;
-    EstimatedSpeed : LREAL;
-    EstimatedLoad : LREAL;
-END_VAR
-Lesson68MotorTorqueRequest := LREAL#3.0 * Reference
-    - LREAL#2.0 * EstimatedSpeed
-    + EstimatedLoad;
 END_FUNCTION
 
 PROGRAM Main
 VAR
-    BearingEnabled : BOOL := TRUE;
-    MotorEnabled : BOOL := TRUE;
-    MotorObserverEnabled : BOOL := TRUE;
-    BearingArchitecture : INT := 1;
-    BearingSetpoint : LREAL := 0.0;
-    MotorSetpoint : LREAL := 0.0;
-    BearingCurrentRequested : LREAL := 0.0;
-    BearingCurrentApplied : LREAL := 0.0;
-    MotorTorqueRequested : LREAL := 0.0;
-    MotorTorqueApplied : LREAL := 0.0;
-    EstimatedMotorSpeed : LREAL := 0.0;
-    EstimatedLoadTorque : LREAL := 0.0;
-    MotorInnovation : LREAL := 0.0;
-    PreviousMotorTorque : LREAL := 0.0;
-    BearingDisplacement : LREAL := 0.0;
-    BearingVelocity : LREAL := 0.0;
-    MotorSpeed : LREAL := 0.0;
-    MotorLoadTruth : LREAL := 0.0;
+    (* K1, K2 and N are written by Control Studio's Apply. FeedbackEnabled is the Auto/Manual mode: in Manual the pump
+       delivers ManualFlowM3PerS, the operating flow 0.010 m³/s unless Control Studio writes another. The project
+       experiment returns tank 2's setpoint to 0.25 m, which Apply's live check leaves at another level, and holds it for
+       60 s. Then both pumps run one second at 0.020 m³/s, a slug; after it the first cascade runs under the feedback,
+       the second at 0.010 m³/s. *)
+    K1 : LREAL := 0.0;
+    K2 : LREAL := 0.0;
+    N : LREAL := 0.0;
+    ManualFlowM3PerS : LREAL := 0.010;
+    ControlledPumpM3PerS : LREAL := 0.010;
+    UncorrectedPumpM3PerS : LREAL := 0.010;
+    ControlledTank1M : LREAL := 0.25;
+    ControlledTank2M : LREAL := 0.25;
+    UncorrectedTank1M : LREAL := 0.25;
+    UncorrectedTank2M : LREAL := 0.25;
+    Tank2SetpointM : LREAL := 0.25;
+    RequestedFlowM3PerS : LREAL := 0.010;
+    ElapsedS : LREAL := 0.0;
     ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    ExperimentElapsed : LREAL := 0.0;
+    WasEnabled : BOOL := FALSE;
+    FeedbackEnabled : BOOL := FALSE;
+    Clipped : BOOL := FALSE;
+    ControlledFault : BOOL := FALSE;
+    UncorrectedFault : BOOL := FALSE;
+    ClockPrimed : BOOL := FALSE;
+    ClockValid : BOOL := TRUE;
+    Slug : BOOL := FALSE;
+    NowTime : TIME;
+    PreviousTime : TIME;
 END_VAR
-
-(* Control Studio grants one Boolean authority. The project owns the reviewed
-   sequence and restores both actuators when authority is removed. Preserve
-   the learner's feedback selections for separate comparison runs. *)
-IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
-    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
-    BearingEnabled := TRUE;
-    MotorEnabled := TRUE;
-    MotorSetpoint := LREAL#1.0;
-    BearingSetpoint := Lesson68BearingReference(
-        ExperimentElapsedSeconds := ExperimentElapsed,
-        ControlAuthority := TRUE);
-ELSE
-    ExperimentElapsed := LREAL#0.0;
-    BearingEnabled := FALSE;
-    MotorEnabled := FALSE;
-    BearingSetpoint := LREAL#0.0;
-    MotorSetpoint := LREAL#0.0;
-    EstimatedMotorSpeed := LREAL#0.0;
-    EstimatedLoadTorque := LREAL#0.0;
-    MotorInnovation := LREAL#0.0;
+(* A level outside 0.05–0.45 m latches zero flow on its own cascade; a wrong update interval latches both. *)
+NowTime := TIME();
+ClockValid := NOT ClockPrimed OR ((NowTime - PreviousTime) >= T#950ms AND (NowTime - PreviousTime) <= T#1050ms);
+IF NOT ClockValid OR ControlledTank1M < LREAL#0.05 OR ControlledTank1M > LREAL#0.45
+    OR ControlledTank2M < LREAL#0.05 OR ControlledTank2M > LREAL#0.45 THEN
+    ControlledFault := TRUE;
 END_IF;
-
-IF BearingEnabled THEN
-    IF BearingArchitecture = 1 THEN
-        BearingCurrentRequested := Lesson68BearingCurrentRequest(
-            Reference := BearingSetpoint,
-            Displacement := BearingDisplacement,
-            Velocity := BearingVelocity);
-    ELSE
-        BearingCurrentRequested := LREAL#5.0
-            * (BearingSetpoint - BearingDisplacement);
-    END_IF;
-    BearingCurrentApplied := LIMIT(
-        LREAL#-2.0,
-        BearingCurrentRequested,
-        LREAL#2.0
-    );
-ELSE
-    BearingCurrentRequested := LREAL#0.0;
-    BearingCurrentApplied := LREAL#0.0;
+IF NOT ClockValid OR UncorrectedTank1M < LREAL#0.05 OR UncorrectedTank1M > LREAL#0.45
+    OR UncorrectedTank2M < LREAL#0.05 OR UncorrectedTank2M > LREAL#0.45 THEN
+    UncorrectedFault := TRUE;
 END_IF;
-
-IF MotorEnabled THEN
-    IF MotorObserverEnabled THEN
-        MotorInnovation := MotorSpeed - EstimatedMotorSpeed;
-        // The observer predicts with torque applied during the preceding scan.
-        EstimatedMotorSpeed := EstimatedMotorSpeed + LREAL#0.1 * (
-            -EstimatedMotorSpeed - EstimatedLoadTorque + PreviousMotorTorque
-            + LREAL#8.0 * MotorInnovation
-        );
-        // Positive physical load reduces speed, so its innovation gain is negative.
-        EstimatedLoadTorque := EstimatedLoadTorque
-            + LREAL#0.1 * (LREAL#-20.0 * MotorInnovation);
-    ELSE
-        EstimatedMotorSpeed := MotorSpeed;
-        EstimatedLoadTorque := LREAL#0.0;
-        MotorInnovation := LREAL#0.0;
-    END_IF;
-
-    MotorTorqueRequested := Lesson68MotorTorqueRequest(
-        Reference := MotorSetpoint,
-        EstimatedSpeed := EstimatedMotorSpeed,
-        EstimatedLoad := EstimatedLoadTorque);
-    MotorTorqueApplied := LIMIT(
-        LREAL#-3.0,
-        MotorTorqueRequested,
-        LREAL#3.0
-    );
-    PreviousMotorTorque := MotorTorqueApplied;
-ELSE
-    MotorTorqueRequested := LREAL#0.0;
-    MotorTorqueApplied := LREAL#0.0;
-    PreviousMotorTorque := LREAL#0.0;
+Tank2SetpointM := ValidSetpointM(SetpointM := Tank2SetpointM);
+IF ExperimentEnabled AND NOT WasEnabled THEN
+    ElapsedS := LREAL#0.0;
+    Tank2SetpointM := LREAL#0.25;
+ELSIF ExperimentEnabled THEN
+    ElapsedS := ElapsedS + LREAL#1.0;
 END_IF;
+Slug := ExperimentEnabled AND ElapsedS >= LREAL#59.5 AND ElapsedS < LREAL#60.5;
+IF Slug THEN
+    RequestedFlowM3PerS := LREAL#0.020;
+ELSIF FeedbackEnabled THEN
+    RequestedFlowM3PerS := FeedbackFlowM3PerS(Tank1M := ControlledTank1M, Tank2M := ControlledTank2M, SetpointM := Tank2SetpointM,
+        K1 := K1, K2 := K2, N := N);
+ELSE
+    RequestedFlowM3PerS := ManualFlowM3PerS;
+END_IF;
+ControlledPumpM3PerS := LimitedFlowM3PerS(RequestedM3PerS := RequestedFlowM3PerS);
+Clipped := ControlledPumpM3PerS <> RequestedFlowM3PerS;
+IF ControlledFault THEN
+    ControlledPumpM3PerS := LREAL#0.0;
+END_IF;
+UncorrectedPumpM3PerS := LREAL#0.010;
+IF Slug THEN
+    UncorrectedPumpM3PerS := LREAL#0.020;
+END_IF;
+IF UncorrectedFault THEN
+    UncorrectedPumpM3PerS := LREAL#0.0;
+END_IF;
+WasEnabled := ExperimentEnabled;
+PreviousTime := NowTime;
+ClockPrimed := TRUE;
 END_PROGRAM
 
 CONFIGURATION Config
 RESOURCE Res ON PLC
-    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);
+    TASK MainTask(INTERVAL := T#1s, PRIORITY := 1);
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.BearingArchitecture AT %MW0 : INT;
-    P1.BearingSetpoint AT %ML8 : LREAL;
-    P1.MotorSetpoint AT %ML16 : LREAL;
-    P1.BearingCurrentRequested AT %ML24 : LREAL;
-    P1.MotorTorqueRequested AT %ML32 : LREAL;
-    P1.EstimatedMotorSpeed AT %ML40 : LREAL;
-    P1.EstimatedLoadTorque AT %ML48 : LREAL;
-    P1.MotorInnovation AT %ML56 : LREAL;
-    P1.BearingEnabled AT %MX120.0 : BOOL;
-    P1.MotorEnabled AT %MX120.1 : BOOL;
-    P1.MotorObserverEnabled AT %MX120.2 : BOOL;
-    P1.ExperimentEnabled AT %MX120.3 : BOOL;
-    P1.SafetyAbort AT %MX120.4 : BOOL;
-    P1.InputsValid AT %MX120.5 : BOOL;
-    P1.BearingCurrentApplied AT %QL0 : LREAL;
-    P1.MotorTorqueApplied AT %QL16 : LREAL;
-    P1.BearingDisplacement AT %IL0 : LREAL;
-    P1.BearingVelocity AT %IL8 : LREAL;
-    P1.MotorSpeed AT %IL16 : LREAL;
-    P1.MotorLoadTruth AT %IL24 : LREAL;
+    P1.ControlledPumpM3PerS AT %QL0 : LREAL;
+    P1.UncorrectedPumpM3PerS AT %QL8 : LREAL;
+    P1.ControlledTank1M AT %IL0 : LREAL;
+    P1.ControlledTank2M AT %IL8 : LREAL;
+    P1.UncorrectedTank1M AT %IL16 : LREAL;
+    P1.UncorrectedTank2M AT %IL24 : LREAL;
+    P1.Tank2SetpointM AT %ML0 : LREAL;
+    P1.RequestedFlowM3PerS AT %ML8 : LREAL;
+    P1.ExperimentEnabled AT %MX16.0 : BOOL;
+    P1.Clipped AT %MX16.2 : BOOL;
+    P1.ControlledFault AT %MX16.3 : BOOL;
+    P1.UncorrectedFault AT %MX16.4 : BOOL;
+    P1.ClockValid AT %MX16.5 : BOOL;
 END_VAR
 END_CONFIGURATION

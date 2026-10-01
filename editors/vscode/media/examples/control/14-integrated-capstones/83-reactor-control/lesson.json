@@ -3,38 +3,101 @@
   "id": "control-capstone-reactor",
   "title": "Vessel commissioning",
   "level": "Modern",
-  "sequence": 61,
-  "equipment": "Jacketed heated vessel",
-  "principalTechnique": "Vessel commissioning",
+  "sequence": 68,
+  "equipment": "Five copies of the jacketed vessel of Lesson 63 (jacket 5 kJ/°C, vessel 50 kJ/°C, 10 kW/°C between them, 2 kW/°C losses): single loop and cascade on a setpoint step and on a 30 kW jacket loss, and the cascade through Manual, the switch to Auto and a failed vessel sensor",
+  "principalTechnique": "Vessel commissioning: requirement-driven choice between single-loop PI and cascade, verified with startup, bumpless transfer and a latched sensor fault",
   "prerequisites": [
     "control-capstone-servo",
     "control-smith-predictor"
   ],
-  "objective": "Compare two suitable control arrangements, including mode transfer and invalid-data recovery, before defending a choice.",
+  "objective": "Fix the requirements, use the heat balance to decide which structures the application needs, compare single loop and cascade in matched tests, and verify the recommended cascade through Manual, the transfer to Auto and a latched sensor fault.",
   "nextLesson": "control-mimo-paths",
-  "physicalPurpose": "Choose single-loop or cascade control against the taught vessel target and jacket-disturbance requirements.",
+  "physicalPurpose": "Choose the simplest arrangement that meets the vessel's setpoint, jacket-disturbance and lifecycle requirements, and verify it as a whole.",
   "signals": [
     {
       "role": "SP",
       "name": "Vessel setpoint",
       "unit": "degC",
-      "minimum": 30,
-      "maximum": 40,
+      "minimum": 0,
+      "maximum": 80,
       "resolution": 0.001,
       "binding": "%ML0"
     },
     {
       "role": "PV",
-      "name": "Vessel temperature",
+      "name": "Vessel temperature, lifecycle",
       "unit": "degC",
-      "minimum": 30,
-      "maximum": 40,
-      "resolution": 0.001,
-      "binding": "%IL0"
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL72"
     },
     {
       "role": "MV",
-      "name": "Applied heating",
+      "name": "Heater command, lifecycle",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL64"
+    },
+    {
+      "role": "state",
+      "name": "Jacket temperature, lifecycle",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL64"
+    },
+    {
+      "role": "state",
+      "name": "Jacket setpoint, lifecycle",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "Auto, lifecycle",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX48.1"
+    },
+    {
+      "role": "state",
+      "name": "Fault latch, lifecycle",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX48.2"
+    },
+    {
+      "role": "state",
+      "name": "Vessel reading valid, lifecycle",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX48.3"
+    },
+    {
+      "role": "state",
+      "name": "Vessel temperature, single loop, setpoint test",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Heater command, single loop, setpoint test",
       "unit": "%",
       "minimum": 0,
       "maximum": 100,
@@ -43,139 +106,191 @@
     },
     {
       "role": "state",
-      "name": "Experiment authority",
+      "name": "Vessel temperature, cascade, setpoint test",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL24"
+    },
+    {
+      "role": "state",
+      "name": "Heater command, cascade, setpoint test",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL16"
+    },
+    {
+      "role": "disturbance",
+      "name": "Jacket loss",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 50,
+      "resolution": 0.01,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Vessel temperature, single loop, jacket loss",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL40"
+    },
+    {
+      "role": "state",
+      "name": "Jacket temperature, single loop, jacket loss",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL32"
+    },
+    {
+      "role": "state",
+      "name": "Heater command, single loop, jacket loss",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL32"
+    },
+    {
+      "role": "state",
+      "name": "Vessel temperature, cascade, jacket loss",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL56"
+    },
+    {
+      "role": "state",
+      "name": "Jacket temperature, cascade, jacket loss",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL48"
+    },
+    {
+      "role": "state",
+      "name": "Heater command, cascade, jacket loss",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL48"
+    },
+    {
+      "role": "state",
+      "name": "ExperimentEnabled",
       "unit": "1",
       "minimum": 0,
       "maximum": 1,
       "resolution": 1,
-      "binding": "%MX240.5"
-    },
-    {
-      "role": "state",
-      "name": "Jacket temperature",
-      "unit": "degC",
-      "minimum": 20,
-      "maximum": 55,
-      "resolution": 0.001,
-      "binding": "%IL8"
-    },
-    {
-      "role": "disturbance",
-      "name": "Jacket extraction",
-      "unit": "kW",
-      "minimum": 0,
-      "maximum": 30,
-      "resolution": 0.001,
-      "binding": "%QL8"
+      "binding": "%MX48.0"
     }
   ],
   "plant": {
-    "modelId": "jacketed-vessel",
+    "modelId": "five-jacketed-vessels",
     "executable": "simulation.toml",
     "parameters": [
       {
-        "name": "jacket_capacity",
+        "name": "jacket_heat_capacity",
         "value": 5,
-        "unit": "kJ/degC"
+        "unit": "kJ/°C"
       },
       {
-        "name": "vessel_capacity",
+        "name": "vessel_heat_capacity",
         "value": 50,
-        "unit": "kJ/degC"
+        "unit": "kJ/°C"
       },
       {
-        "name": "jacket_transfer",
+        "name": "jacket_to_vessel",
         "value": 10,
-        "unit": "kW/degC"
+        "unit": "kW/°C"
       },
       {
-        "name": "ambient_loss",
+        "name": "vessel_losses",
         "value": 2,
-        "unit": "kW/degC"
+        "unit": "kW/°C"
       },
       {
-        "name": "heater_conversion",
+        "name": "heater_per_point",
         "value": 2,
-        "unit": "kW/percentage-point"
+        "unit": "kW/%"
       }
     ],
     "sampleTimeSeconds": 0.1,
     "initialState": {
-      "vesselC": 35,
-      "jacketC": 38
+      "jacketC": 38,
+      "vesselC": 35
     },
     "seed": 20260829,
     "operatingPoint": {
-      "Vessel setpoint": 35,
-      "Vessel temperature": 35,
-      "Jacket temperature": 38,
-      "Applied heating": 15,
-      "Jacket extraction": 0,
-      "Experiment authority": 0
+      "Vessel temperature, lifecycle": 35,
+      "Heater command, lifecycle": 15
     },
     "validityRange": [
       {
-        "signal": "Vessel temperature",
+        "signal": "Vessel temperature, lifecycle",
         "minimum": 30,
         "maximum": 40,
         "unit": "degC"
       },
       {
-        "signal": "Jacket temperature",
+        "signal": "Jacket temperature, lifecycle",
         "minimum": 20,
         "maximum": 55,
         "unit": "degC"
-      },
-      {
-        "signal": "Applied heating",
-        "minimum": 0,
-        "maximum": 100,
-        "unit": "%"
       }
     ],
     "simplifications": [
-      "Two energy-storage states with the taught capacities, heat-transfer coefficients and20°C ambient.",
-      "One selected controller arrangement and one heater owner per independent simulation run.",
-      "Cooling and42°C override are optional application extensions, not silently included."
+      "5·dTj/dt = 2·u − 10·(Tj − Tv) − Dj and 50·dTv/dt = 10·(Tj − Tv) − 2·(Tv − 20); no delivery delay.",
+      "Jacket and vessel temperatures are measured exactly; the lifecycle vessel's 0 °C reading from 48 to 50 s is scripted in the program, the plant is unchanged."
     ]
   },
   "baseline": {
-    "executableId": "P1.Controller",
+    "executableId": "P1",
     "settings": {
-      "UseCascade": false,
-      "singleKp": 2.5,
-      "singleKi": 0.1
+      "arrangement": "single-loop vessel PI, Kp = 2.5 %/°C, Ki = 0.1 %/(°C·s), heater 0–100 %"
     },
-    "limitation": "The specified single-loop baseline may react too late to jacket extraction; this does not prove every single-loop tuning fails."
+    "limitation": "Meets the setpoint test but falls to 31.74 °C on the 30 kW jacket loss and is still 2.61 °C low from 30 s."
   },
   "change": {
-    "executableId": "P1.Controller",
+    "executableId": "P1",
     "settings": {
-      "UseCascade": true,
-      "outerKp": 0.5,
-      "outerKi": 0.12,
-      "innerKp": 5,
-      "innerKi": 10
+      "arrangement": "cascade (Lesson 63's Control Studio design): outer PI 0.8717 °C/°C and 0.21 1/s to a 20–50 °C jacket setpoint, inner PI 25.25 %/°C and 13.59 %/(°C·s) to the heater, 0–100 %",
+      "lifecycle": "Manual 15 % until 10 s, then Auto; vessel reading 0 °C from 48 to 50 s",
+      "durationSeconds": 60
     },
-    "decision": "Accept only for the specified target, jacket-load, mode and recovery requirements actually met."
+    "decision": "Recommend the cascade with Lesson 63's Control Studio gains: it meets both events (step: 37.00 °C at 60 s, |e| 0.013 °C from 30 s; jacket loss: lowest 34.91 °C, |e| 0.003 °C from 30 s), transfers from Manual without a jump (15.000 %, then 16.118 %) and latches a failed reading at 0 %. The single loop falls to 31.74 °C under the jacket loss."
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Experiment authority",
+    "signal": "ExperimentEnabled",
     "baseline": 0,
     "amplitude": 0,
-    "durationSeconds": 60.1,
+    "durationSeconds": 62.1,
     "settlingSeconds": 0,
-    "disturbances": [],
+    "disturbances": [
+      "Vessel setpoint 35 → 37 °C on the setpoint test and on the lifecycle vessel",
+      "30 kW jacket loss on the jacket-loss test",
+      "Lifecycle vessel: Manual at 15 % until 10 s, then Auto",
+      "Lifecycle vessel reading 0 °C from 48 to 50 s"
+    ],
     "seed": 20260829,
-    "restorationValue": 0,
-    "activationSignal": "P1.ExperimentEnabled"
+    "restorationValue": 0
   },
   "acceptance": [
     {
-      "metric": "peak",
-      "signal": "Vessel temperature",
-      "window": "target trial0–60s",
+      "metric": "setpoint_peak",
+      "signal": "Vessel temperature, cascade, setpoint test",
+      "window": "complete trial",
       "comparator": "<=",
       "limit": 38,
       "unit": "degC",
@@ -183,9 +298,19 @@
       "evidenceClass": "simulation"
     },
     {
-      "metric": "minimum",
-      "signal": "Vessel temperature",
-      "window": "jacket-load trial0–60s",
+      "metric": "setpoint_late_error",
+      "signal": "Vessel temperature, cascade, setpoint test",
+      "window": "30–60 s",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "jacket_loss_minimum",
+      "signal": "Vessel temperature, cascade, jacket loss",
+      "window": "complete trial",
       "comparator": ">=",
       "limit": 34,
       "unit": "degC",
@@ -193,12 +318,32 @@
       "evidenceClass": "simulation"
     },
     {
-      "metric": "absolute_error",
-      "signal": "Vessel temperature",
-      "window": "each trial30–60s",
+      "metric": "jacket_loss_late_error",
+      "signal": "Vessel temperature, cascade, jacket loss",
+      "window": "30–60 s",
       "comparator": "<=",
       "limit": 0.2,
       "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "transfer_step",
+      "signal": "Heater command, lifecycle",
+      "window": "transfer update to the next update",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "%",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "fault_command",
+      "signal": "Heater command, lifecycle",
+      "window": "from the first invalid reading to the end",
+      "comparator": "<=",
+      "limit": 0,
+      "unit": "%",
       "tolerance": 0,
       "evidenceClass": "simulation"
     }
@@ -206,72 +351,61 @@
   "safety": {
     "hardLimits": [
       {
-        "signal": "Vessel temperature",
+        "signal": "Vessel temperature, lifecycle",
         "minimum": 30,
         "maximum": 40,
         "unit": "degC"
       },
       {
-        "signal": "Jacket temperature",
+        "signal": "Jacket temperature, lifecycle",
         "minimum": 20,
         "maximum": 55,
         "unit": "degC"
       },
       {
-        "signal": "Applied heating",
+        "signal": "Heater command, lifecycle",
         "minimum": 0,
         "maximum": 100,
         "unit": "%"
       }
     ],
     "abortPredicates": [
-      "Vessel temperature leaves30–40°C or jacket leaves20–55°C",
-      "Required data or clock invalid",
-      "Applied heating leaves0–100%"
+      "A vessel reading outside 30–40 °C or a jacket reading outside 20–55 °C latches zero heat",
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
     ],
     "safeMv": 0,
-    "restorationMode": "Abort to zero heater and zero extraction; a valid reading does not clear the latch. Stop, restore the full35/38°C and15% reset, then explicitly clear SafetyAbort before another trial.",
-    "physicalApprovalRole": "authorised process-control engineer with process-safety, chemical, mechanical, utility, electrical, operations, environmental, and functional-safety owners",
+    "restorationMode": "When the experiment ends, the setpoint returns to 35 °C and the jacket loss to zero. A latched fault clears only on a restart from the restored rest state: vessel 35 °C, jacket 38 °C, 15 %.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
     "simulationOnlyRestrictions": [
-      "Do not operate a physical reactor, steam valve, cooling valve, or protection layer from this capstone.",
-      "Physical testing requires an independently reviewed process-safety topology, chemistry and runaway assessment, relief and trip status, utility capacity, mode ownership, excitation, abort, approval, and rollback immediately before action.",
-      "Applying the exported architecture requires separate explicit approval and a rollback-ready commissioning window."
+      "This lesson cannot authorise physical heating changes",
+      "Physical use requires independent temperature-limit, interlock and approval review"
     ]
   },
   "workflowStages": [
-    "Monitor",
-    "Test",
-    "Validate"
+    "Identify"
   ],
   "proof": {
     "specification": "docs/specs/control-course-content/55-66-industrial-and-multivariable.md#61-vessel-commissioning",
-    "nativeTest": "vessel_commissioning",
-    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_vessel_commissioning vessel_commissioning",
+    "nativeTest": "lesson61",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_61_63 lesson61",
     "projectPath": "examples/control/14-integrated-capstones/83-reactor-control",
     "runArtifactFields": [
-      "vesselTemperature",
-      "jacketTemperature",
-      "setpoint",
-      "appliedHeating",
-      "jacketExtraction",
-      "controllerStates",
-      "arrangement",
-      "mode",
-      "abort",
-      "experimentConditions",
+      "vesselTemperatures",
+      "jacketTemperatures",
+      "jacketSetpoints",
+      "commands",
+      "lifecycleFlags",
       "evidenceClass"
     ],
     "renderedJourneyId": "control-capstone-reactor"
   },
   "video": {
-    "viewerOutcome": "Compare two suitable control arrangements, including mode transfer and invalid-data recovery, before defending a choice.",
+    "viewerOutcome": "See the jacket loss, not the setpoint step, decide between single loop and cascade, and watch the chosen cascade take over without a jump and switch its heater off on a failed sensor.",
     "requiredVisibleEvidence": [
-      "Taught vessel energy balance",
-      "Single-loop and cascade settings",
-      "Both matched60s trials",
-      "Vessel/jacket temperatures",
-      "Heater authority and controller states",
-      "Manual transfer and invalid-data recovery",
+      "both arrangements on the setpoint step",
+      "both arrangements on the jacket loss with their jackets",
+      "the lifecycle vessel's transfer, fault and latch",
       "Simulation label"
     ],
     "durationClass": "extended",
@@ -281,20 +415,20 @@
     "publicationState": "not_started"
   },
   "learning": {
-    "context": "Choose single-loop or cascade control against the taught vessel target and jacket-disturbance requirements.",
-    "reason": "The vessel may need disturbance rejection, cooling, a jacket-temperature constraint, or a combination. Each adds a different requirement. Your task is to select the arrangement that meets the stated application, rather than include every available technique.",
+    "context": "Lesson 67's Smith predictor gave the delayed heater a step with 0.1 % overshoot, where the same gains without the model overshot by 15.1 %. Lessons 63, 65, 66 and 67 each solved one problem on its own: cascade, split range, override and prediction. These structures have not been combined and compared for the vessel. The jacketed vessel must now follow a change from 35 to 37 °C, ride through a 30 kW jacket loss, start up in Manual, switch to Auto and survive a failed sensor. Adding every structure adds controllers to tune, states to track and failures to verify.\n\nWe will choose the combination this vessel needs from its requirements and heat balance, and test it as a whole.",
+    "reason": "We need to:\n\n1. fix the requirements before any result;\n2. decide from the heat balance which structures the vessel needs at all;\n3. compare the remaining candidates in matched tests; and\n4. check the chosen arrangement's startup, transfer and fault behaviour.",
     "theory": [
-      "**Vessel commissioning** checks whether a chosen combination of control\nstructures meets the vessel's performance, constraint and operating requirements.\nIt combines capabilities already taught: a single loop measures vessel\ntemperature, cascade adds faster jacket feedback, split-range supplies heating\nor cooling, and override gives a constraint authority over heating demand.\n\nSelect two arrangements capable of addressing your chosen application. Explain each controller’s measurement and output, where limits and selection occur, and which state must track the applied output. Calculate the steady heat and actuator demand for each event before tuning. If a requirement is infeasible, identify that from the balance and propose an explicit requirement or equipment change.\n\nReuse [cascade control](../../09-industrial-control-structures/52-cascade/README.md) and [controller initialization, modes and validity](../../03-production-quality-digital-pid/39-controller-mode-initialization/README.md) through measurement recovery. Include [split-range control](../../09-industrial-control-structures/54-split-range/README.md) if you choose cooling, and [override control](../../09-industrial-control-structures/55-override-control/README.md) if you choose the jacket constraint.\n\nUse the taught vessel: jacket capacity 5 kJ/°C, vessel capacity 50 kJ/°C, jacket-to-vessel conductance 10 kW/°C, vessel loss 2 kW/°C to 20 °C, and 2 kW per heater percentage point. Start at vessel 35 °C, jacket 38 °C and heater 15%, with .1 s controller updates.\n\nKeep these baseline requirements for both candidates:\n\n| Separate 60 s test | Requirement |\n| --- | --- |\n| Vessel setpoint 35→37 °C | Peak at most 38 °C; error within ±.2 °C from 30–60 s |\n| Jacket extraction 30 kW at vessel setpoint 35 °C | Minimum at least 34 °C; error within ±.2 °C from 30–60 s |\n\nBefore choosing candidates, decide whether your application also requires the taught excess-heat case, jacket limit, or both. Copy the corresponding requirements and actuator capacities from those lessons without changing them between candidates. Ordinary simulation bounds are jacket 20–55 °C and vessel 30–40 °C; the override application additionally requires jacket at most 42 °C."
+      "**Vessel commissioning** picks the combination of loops the vessel needs and checks it against its performance, limits and operating requirements. Here the requirements and the heat balance decide the candidates, not the list of structures we happen to know.\n\n**In words.** Commissioning means choosing, not collecting. Every structure added is another controller to tune, more stored values to track and more failures to verify, so a structure earns its place only by meeting a requirement that a simpler arrangement fails. The method has three parts:\n\n1. **Requirements first.** What the vessel must do, which limits it must keep and which operating cases it must survive are written down before any result, so the results cannot shape them.\n2. **One question per structure.** Each structure of Lessons 63 to 67 solves one kind of problem, and the heat balance tells whether this vessel has that problem. If it does not, the structure stays out.\n3. **Matched tests.** The remaining candidates run the same tests, and the simplest that meets every requirement is chosen.\n\nIt is the same discipline as a factory acceptance test: the test list is agreed before the machine is shown, and the machine passes it or does not.\n\n**The formula.** The heat balance stays the same for every candidate. At steady state the vessel loses $2(T_v - 20)$ kW, the jacket passes it on at 10 kW per °C of difference, and the heater supplies it plus any loss from the jacket:\n\n$$\nT_j = T_v + 0.2\\,(T_v - 20), \\qquad u = \\frac{2\\,(T_v - 20) + D_j}{2} .\n$$\n\nLet:\n\n- $T_v$ and $T_j$ be the vessel and jacket temperatures, in °C;\n- $u$ be the heater command, in %, worth 2 kW per point within 0–100 %; and\n- $D_j$ be an extra heat loss from the jacket, in kW.\n\nThe requirements, fixed before any result, each a separate 60 s test from rest at 35 °C:\n\n| Test | Requirement |\n| --- | --- |\n| Setpoint 35 → 37 °C | peak at most 38 °C; within 0.2 °C from 30 to 60 s |\n| 30 kW jacket loss at 35 °C | vessel at least 34 °C; within 0.2 °C from 30 to 60 s |\n| Lifecycle | start in Manual at the 15 % holding command; Manual → Auto without a jump; an invalid reading removes heat in the same update and stays latched |\n\nA reading is valid within 30–40 °C for the vessel and 20–55 °C for the jacket.\n\n**Example: choosing for the jacketed vessel.** First the balance:\n\n1. At 35 °C the vessel loses $2 \\times 15 = 30$ kW: jacket $35 + 0.2 \\times 15 = 38$ °C, heater $30/2 = 15$ %.\n2. At 37 °C it loses $2 \\times 17 = 34$ kW: jacket 40.4 °C, heater 17 %.\n3. With the 30 kW jacket loss at 35 °C: heater $(30 + 30)/2 = 30$ %. Every demand is heat, within the heater's 0–200 kW.\n\nThen each structure answers its question:\n\n1. **Earlier correction of a jacket disturbance?** The 30 kW loss acts on the jacket, so the cascade is a candidate.\n2. **Cooling as well as heating?** The balance never asks for negative heat, so split range is not needed.\n3. **A maximum jacket temperature?** None is specified, so override is not needed.\n4. **A long known delay?** The heater acts on the jacket without a delivery delay, so Smith prediction is not needed.\n5. **Startup, transfer and fault behaviour?** Required, as for the heater in Lessons 26, 27 and 29.\n\nThe candidates are therefore the single-loop PI, the simplest, and the cascade. The rule: recommend the simplest arrangement that meets every requirement; the cascade is justified only if the single loop fails the jacket loss. The single loop uses $K_p = 2.5$ %/°C and $K_i = 0.1$ %/(°C·s), as in Lesson 63; the cascade uses Lesson 63's Control Studio design, outer 0.8717 and 0.21 per second, inner 25.25 %/°C and 13.59 %/(°C·s).\n\nThe lifecycle requirement rests on tracking. In Manual every controller follows the held command, and the outer PI follows the jacket, so their stored values already match the plant. The first update with Auto requested is still a tracking update. On the next, with 37 °C requested and the vessel at 35 °C, a tracked outer PI moves the jacket setpoint only by its integral part, $0.21 \\times 2 \\times 0.1 = 0.042$ °C; one whose stored error is still zero adds the proportional step $0.8717 \\times 2 = 1.743$ °C as well.\n\n**The limitation.** A choice made this way holds only for the requirements and tests it was made with. Cooling and a jacket limit were not required, so the chosen arrangement says nothing about them; a later requirement for either would reopen questions 2 and 3. The same holds for sizes: a 40 kW jacket loss at 37 °C would need $(34 + 40)/2 = 37$ %, still within the heater's range, but it is not one of the tests and is not claimed."
     ],
-    "workedPrediction": "Predict the first command after each event and the temperature that should change first. Identify a result that would reject each candidate. Select your gains and predict a specific benefit and cost of the second arrangement.",
+    "workedPrediction": "Before running, answer these questions:\n\n1. Which requirement can the single loop fail, and why?\n2. Where do the heaters end in the setpoint test and in the jacket-loss test?\n3. The lifecycle vessel switches to Auto with 37 °C requested and the vessel at 35 °C. What does the heater command on the transfer update and on the next? What would a cascade command whose stored values had not tracked in Manual?\n4. What happens to the heater when the vessel reading becomes invalid?\n\n| Quantity | Predicted |\n| --- | ---: |\n| Heater holding 37 °C | 17 % |\n| Heater holding 35 °C with the 30 kW loss | 30 % |\n| Tracked cascade's first automatic update | 15 + 25.25 × 0.042 + 13.59 × 0.042 × 0.1 = 16.12 % |\n| Untracked cascade's first automatic update | 15 + 25.25 × 1.785 + 13.59 × 1.785 × 0.1 = 62.5 % |",
     "practicalPreparation": [
-      "The prepared alternatives are the taught single-loop PI and cascade.\nSet symbolic `UseCascade` FALSE or TRUE while stopped, then restart for each\nindependent trial. The single-loop gains are2.5/.1; cascade uses outer.5/.12\nand inner5/10. These are starting candidates, not claims that both qualify.\n`TrialKind` at `%MW192` selects0 for the target step,1 for30kW jacket extraction,\nor2 for no event during the separate mode-transfer check. `ManualRequested`\nselects manual15% heating. With unchanged setpoint and measurements, returning\nto Auto must preserve that holding output. `SafetyAbort` commands zero heat\nand extraction and remains latched after measurements recover. Stop, restore\nthe full35/38°C state and15% holding command, then explicitly clear the latch.\n\n`ReactorTrain` reuses the stateful `Control.PID` interface. The local library's\nread-only `GetState` method copies its retained state for the P/I display.\n`NominalPowerPct` is the tracking-corrected nominal PI output before its final\noutput clamp; it is labelled separately from applied heating. Inactive\ncontrollers follow the selected states through the interface's manual mode.\nCooling and the42°C jacket-override case remain optional application extensions;\nthe prepared baseline does not claim those capabilities."
+      "1. Open this lesson's project and start **Simulator**. The five vessels rest at 35 °C, their jackets at 38 °C, with 15 %. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.SetpointC · Setpoint (°C)`, `P1.LifecycleVesselC · Process value (°C)` and `P1.LifecyclePct · Applied output (%)`, the lifecycle vessel; add `P1.SingleStepVesselC · state (°C)`, `P1.CascadeStepVesselC · state (°C)`, `P1.SingleStepPct · state (%)` and `P1.CascadeStepPct · state (%)`.\n3. Answer the predictions before starting.\n4. Select **Review project test** and check the declared **62.1 s** duration: 2 s at rest, then the 60 s tests.\n5. Select **Confirm and start**.\n6. After the run, hover 10 s and 30 s after the step. Then show the jacket-loss test, `P1.SingleLossVesselC`, `P1.CascadeLossVesselC`, their jackets and commands and `P1.JacketLossKw`, and hover each vessel's lowest point. Finally show the lifecycle vessel with `P1.LifecycleJacketSetpointC`, `P1.LifecycleAuto`, `P1.LifecycleFault` and `P1.LifecycleReadingValid`, and hover the transfer at 10 s and the fault at 48 s. Control Studio shows **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early. To repeat, stop and restart **Simulator**; only a restart clears the fault latch."
     ],
-    "baseline": "Single-loop PI gains2.5/.1, integral15%.",
-    "change": "Use the prepared candidate controls and keep every actual-runtime record; complete the stated Control Studio verification before acceptance.",
-    "comparison": "Defend a choice with the results for every requirement, including actuator use and fault behavior. Explain whether the extra controller or actuator improved a required capability. If neither qualifies, report the failed requirements and the next bounded investigation; do not choose a winner simply because one trace looks smoother.",
-    "validation": "Defend a choice with the results for every requirement, including actuator use and fault behavior. Explain whether the extra controller or actuator improved a required capability. If neither qualifies, report the failed requirements and the next bounded investigation; do not choose a winner simply because one trace looks smoother.",
-    "explanation": "The assessment establishes that you can turn vessel requirements into a coherent ST control arrangement, calculate its feasibility, commission it through matched experiments, and justify the result.",
-    "transfer": "The assessment regulates one product-vessel temperature, using the jacket measurement to support that requirement. The next process has two temperatures with independently chosen setpoints, and heat transfer between the vessels means each heater can affect both measurements. Choosing two controllers without measuring those cross effects would leave the pairing decision unsupported.\n\n[Multivariable process paths](../../10-multivariable-control/61-mimo-paths/README.md) derives and measures all four heater-to-temperature paths before selecting the pairings."
+    "baseline": "Cascade, split range and override each solve one problem; adding them all to the vessel adds controllers, states and failures without a requirement that needs them.",
+    "change": "Fix the requirements, exclude structures with the heat balance, compare the single loop and the cascade on a setpoint step and a 30 kW jacket loss, and verify the recommended cascade through Manual, the transfer to Auto and a latched sensor fault.",
+    "comparison": "![The cascade meets both tests and its lifecycle requirements; the single loop fails the jacket loss](figures/vessel-commissioning.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's recording, times from the start of the tests:\n\n| Requirement | Single loop | Cascade |\n| --- | ---: | ---: |\n| Setpoint test: peak ≤ 38 °C | 37.01 °C at 60 s | 37.00 °C at 60 s |\n| Setpoint test: largest error, 30–60 s | 0.083 °C | 0.013 °C |\n| Jacket loss: vessel ≥ 34 °C | **31.74 °C** at 16.3 s | 34.91 °C at 2.2 s |\n| Jacket loss: largest error, 30–60 s | **2.61 °C** | 0.003 °C |\n| Heater at 60 s, setpoint test / jacket loss | 17.01 % / 30.09 % | 17.00 % / 30.00 % |\n\n| Lifecycle requirement | Result | Decision |\n| --- | --- | --- |\n| Start in Manual | 15.000 % until 9.9 s, vessel 35.000 °C | pass |\n| Manual → Auto at 10 s, 37 °C requested | 15.000 % on the transfer update, 16.118 % on the next | pass |\n| Invalid reading at 48 s | 0 % in the same update; latched; still 0 % after the reading returned at 50 s | pass |\n\n1. The single loop failed the jacket loss: it saw the loss only once the vessel had cooled, its jacket fell to 33.88 °C and the vessel to 31.74 °C. The cascade's inner loop raised the heater to 30.55 % within seconds; the jacket fell only to 37.46 °C and the vessel to 34.91 °C.\n2. The heaters ended at the balance's values: 17.01 % and 17.00 % at 37 °C, 30.09 % and 30.00 % under the loss.\n3. The tracked transfer gave 15.000 % and then 16.118 %; an untracked cascade would have started at 62.5 %. The vessel reached 36.99 °C by 48 s.\n4. At the invalid reading the heater went to 0 % in the same update and stayed off after the reading returned; the vessel cooled to 31.17 °C by 60 s.\n\nBoth met the setpoint test; the jacket loss separated them. The cascade costs a second controller to tune and track, and holds the vessel at 34.91 °C instead of 31.74 °C under the loss. The recommendation is the cascade, for these two events and this lifecycle case; cooling and a jacket limit were not required and are not claimed. These are simulation results.",
+    "validation": "![The cascade meets both tests and its lifecycle requirements; the single loop fails the jacket loss](figures/vessel-commissioning.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's recording, times from the start of the tests:\n\n| Requirement | Single loop | Cascade |\n| --- | ---: | ---: |\n| Setpoint test: peak ≤ 38 °C | 37.01 °C at 60 s | 37.00 °C at 60 s |\n| Setpoint test: largest error, 30–60 s | 0.083 °C | 0.013 °C |\n| Jacket loss: vessel ≥ 34 °C | **31.74 °C** at 16.3 s | 34.91 °C at 2.2 s |\n| Jacket loss: largest error, 30–60 s | **2.61 °C** | 0.003 °C |\n| Heater at 60 s, setpoint test / jacket loss | 17.01 % / 30.09 % | 17.00 % / 30.00 % |\n\n| Lifecycle requirement | Result | Decision |\n| --- | --- | --- |\n| Start in Manual | 15.000 % until 9.9 s, vessel 35.000 °C | pass |\n| Manual → Auto at 10 s, 37 °C requested | 15.000 % on the transfer update, 16.118 % on the next | pass |\n| Invalid reading at 48 s | 0 % in the same update; latched; still 0 % after the reading returned at 50 s | pass |\n\n1. The single loop failed the jacket loss: it saw the loss only once the vessel had cooled, its jacket fell to 33.88 °C and the vessel to 31.74 °C. The cascade's inner loop raised the heater to 30.55 % within seconds; the jacket fell only to 37.46 °C and the vessel to 34.91 °C.\n2. The heaters ended at the balance's values: 17.01 % and 17.00 % at 37 °C, 30.09 % and 30.00 % under the loss.\n3. The tracked transfer gave 15.000 % and then 16.118 %; an untracked cascade would have started at 62.5 %. The vessel reached 36.99 °C by 48 s.\n4. At the invalid reading the heater went to 0 % in the same update and stayed off after the reading returned; the vessel cooled to 31.17 °C by 60 s.\n\nBoth met the setpoint test; the jacket loss separated them. The cascade costs a second controller to tune and track, and holds the vessel at 34.91 °C instead of 31.74 °C under the loss. The recommendation is the cascade, for these two events and this lifecycle case; cooling and a jacket limit were not required and are not claimed. These are simulation results.",
+    "explanation": "Commissioning starts from requirements and a heat balance, not from the list of available structures. Here only the jacket disturbance justified an added structure, and only after the single loop failed it in a matched test.\n\nFor the jacketed vessel, the cascade met both tests and its startup, transfer and fault requirements, for the conditions tested and no others.",
+    "transfer": "Next, two vessels share a wall, and each has its own heater. Each heater warms both vessels, so it is unclear which heater should control which temperature.\n\n[Multivariable process paths](../../10-multivariable-control/61-mimo-paths/README.md) measures how strongly each heater moves each vessel."
   }
 }

@@ -8,7 +8,10 @@ import { mountThreePageScenarios, type ThreePageScenarioOptions } from "./threeP
 export function editControlRequirements(loop: ControlLoopDefinition, current: Partial<EngineerRequirements>,
   commit: (next: EngineerRequirements) => void, scenarios?: ThreePageScenarioOptions): void {
   const output = loop.signals.processVariable;
-  const outputs = loop.channels?.outputs.map(channel => ({ channel, signal: loopSignal(loop, channel.signalId) })) ?? [];
+  // Requirements belong to controlled outputs, those with a setpoint; an auxiliary measured output has none.
+  const channels = loop.channels?.outputs.map(channel => ({ channel, signal: loopSignal(loop, channel.signalId) })) ?? [];
+  const controlled = channels.filter(item => item.channel.setpointSignalId);
+  const outputs = controlled.length ? controlled : channels;
   const multichannel = outputs.length > 1;
   const channelFields = (modelChannelId: string, signal: typeof output, values: Partial<EngineerRequirements> | undefined): CompactNumberField[] => {
     const unit = displayEngineeringUnit(signal.unit), suffix = multichannel ? `:${modelChannelId}` : "";
@@ -33,9 +36,17 @@ export function editControlRequirements(loop: ControlLoopDefinition, current: Pa
     : channelFields("", output, current);
   const unit = displayEngineeringUnit(output.unit);
   fields.push({ key: "durationSeconds", label: `Validation duration (s)${current.automaticCriteria?.fields.includes("durationSeconds") ? " · Automatic" : ""}`, value: current.durationSeconds, minimum: 0, maximum: 600 });
-  if (current.constantInputDisturbance !== undefined) fields.push({ key: "constantInputDisturbance", label: `Input disturbance (${displayEngineeringUnit(loop.signals.manipulatedVariable.unit)})`, value: current.constantInputDisturbance });
-  if (current.measurementNoiseBand !== undefined) fields.push({ key: "measurementNoiseBand", label: `Measurement noise (±${unit})`, value: current.measurementNoiseBand, minimum: 0 });
+  // A constant load added to the plant input in its own trial with the setpoint unchanged; blank declares none.
+  const command = loop.signals.manipulatedVariable;
+  fields.push({ key: "constantInputDisturbance", label: `Input disturbance (${displayEngineeringUnit(command.unit)})`, signal: command.symbol,
+    value: current.constantInputDisturbance, optional: true, placeholder: "None" });
+  // A declared measurement filter is validated against noise, so the loop needs this band from the user.
+  const filtered = loop.controller.project?.components?.some(component => component.kind === "low-pass" || component.kind === "notch") ?? false;
+  if (current.measurementNoiseBand !== undefined || filtered) fields.push({ key: "measurementNoiseBand", label: `Measurement noise (±${unit})`, value: current.measurementNoiseBand, minimum: 0 });
   if (current.gainUncertaintyFraction !== undefined) fields.push({ key: "gainUncertaintyFraction", label: "Gain uncertainty (0–1)", value: current.gainUncertaintyFraction, minimum: 0, maximum: 1 });
+  // Auto commissioning checks the controller's first Auto output against this tolerance; blank uses the automatic allowance.
+  fields.push({ key: "transferTolerance", label: `Auto-entry tolerance (${displayEngineeringUnit(command.unit)})`, signal: command.symbol,
+    value: current.transferTolerance, minimum: 0, maximum: loop.limits.outputMaximum - loop.limits.outputMinimum, optional: true, placeholder: "Automatic" });
   const validate = (values: Readonly<Record<string, number>>) => {
     const suffixes = multichannel ? outputs.map(item => `:${item.channel.modelChannelId}`) : [""];
     let slowest = 0;
@@ -62,13 +73,16 @@ export function editControlRequirements(loop: ControlLoopDefinition, current: Pa
       const origin = current.automaticCriteria ? { automaticCriteria: { ...current.automaticCriteria, fields: generated! } } : {};
       const scenarioValues = scenarioEditor?.read();
       const scenarioPayload = scenarioValues ? { scenarioDefinitions: scenarioValues } : {};
-      if (!multichannel) return commit({ ...current, ...values, ...origin, ...scenarioPayload } as EngineerRequirements);
+      const reviewed: Partial<EngineerRequirements> = { ...current };
+      if (values.transferTolerance === undefined) delete reviewed.transferTolerance;
+      if (values.constantInputDisturbance === undefined) delete reviewed.constantInputDisturbance;
+      if (!multichannel) return commit({ ...reviewed, ...values, ...origin, ...scenarioPayload } as EngineerRequirements);
       const channelRequirements = Object.fromEntries(outputs.map(item => {
         const suffix = `:${item.channel.modelChannelId}`;
         return [item.channel.modelChannelId, { referenceChange: values[`referenceChange${suffix}`], maximumError: values[`maximumError${suffix}`], settlingBand: values[`settlingBand${suffix}`], settlingTimeSeconds: values[`settlingTimeSeconds${suffix}`] }];
       }));
       const first = channelRequirements[outputs[0].channel.modelChannelId];
-      commit({ ...current, ...values, ...first, channelRequirements, ...origin, ...scenarioPayload } as EngineerRequirements);
+      commit({ ...reviewed, ...values, ...first, channelRequirements, ...origin, ...scenarioPayload } as EngineerRequirements);
     } });
   if (scenarios) {
     const dialog = document.querySelector<HTMLElement>("[data-trust-compact-editor]");

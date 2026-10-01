@@ -1,0 +1,64 @@
+title = "Overview"
+icon = "thermometer"
+order = 0
+
+[[section]]
+title = "Key Metrics"
+span = 12
+tier = "hero"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.TemperatureC"
+inferred_interface = true
+label = "Temperature"
+span = 4
+unit = "°C"
+min = 33
+max = 39
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.SetpointC"
+inferred_interface = true
+label = "Setpoint"
+span = 4
+unit = "°C"
+min = 33
+max = 39
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.AppliedPowerPct"
+inferred_interface = true
+label = "Heater command"
+span = 4
+unit = "%"
+min = 0
+max = 100
+
+[[section]]
+title = "Status"
+span = 12
+tier = "status"
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.AutoMode"
+inferred_interface = true
+label = "Automatic mode"
+span = 2
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.MeasurementUsable"
+inferred_interface = true
+label = "Measurement valid"
+span = 2
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.MeasurementFault"
+inferred_interface = true
+label = "Measurement fault"
+span = 2

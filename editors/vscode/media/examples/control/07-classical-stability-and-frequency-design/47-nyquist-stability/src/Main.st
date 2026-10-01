@@ -1,118 +1,123 @@
-FUNCTION Lesson47GainCrossover : LREAL
+USING Control;
+
+(* The loop of this lesson, L(jω) = K·e^(−jω·td)/(1 + jωτ) with K = Kp·0.2 = 2 and τ = 5 s. With c = cos(ω·td) and
+   q = sin(ω·td): Re L = K·(c − ωτ·q)/(1 + (ωτ)²) and Im L = −K·(q + ωτ·c)/(1 + (ωτ)²). *)
+FUNCTION LoopReal : LREAL
 VAR_INPUT
-    ControllerGain : LREAL;
-    PlantGain : LREAL;
-    TimeConstantSeconds : LREAL;
+    LoopGain : LREAL;
+    TimeConstantS : LREAL;
+    DelayS : LREAL;
+    OmegaRadS : LREAL;
 END_VAR
-Lesson47GainCrossover := SQRT(
-    ControllerGain * ControllerGain * PlantGain * PlantGain - LREAL#1.0
-) / TimeConstantSeconds;
+LoopReal := LoopGain * (COS(OmegaRadS * DelayS) - OmegaRadS * TimeConstantS * SIN(OmegaRadS * DelayS))
+    / (LREAL#1.0 + (OmegaRadS * TimeConstantS) ** LREAL#2.0);
 END_FUNCTION
 
-FUNCTION Lesson47CrossoverPhase : LREAL
+FUNCTION LoopImag : LREAL
 VAR_INPUT
-    AngularFrequency : LREAL;
-    TimeConstantSeconds : LREAL;
-    DelaySeconds : LREAL;
+    LoopGain : LREAL;
+    TimeConstantS : LREAL;
+    DelayS : LREAL;
+    OmegaRadS : LREAL;
 END_VAR
-Lesson47CrossoverPhase := -ATAN(TimeConstantSeconds * AngularFrequency)
-    - DelaySeconds * AngularFrequency;
+LoopImag := -LoopGain * (SIN(OmegaRadS * DelayS) + OmegaRadS * TimeConstantS * COS(OmegaRadS * DelayS))
+    / (LREAL#1.0 + (OmegaRadS * TimeConstantS) ** LREAL#2.0);
 END_FUNCTION
 
-FUNCTION Lesson47ProportionalEquilibrium : LREAL
+(* |L| = K/√(1 + (ωτ)²) = 1 at the crossover ω_c = √(K² − 1)/τ, whatever the delay. *)
+FUNCTION CrossoverRadS : LREAL
 VAR_INPUT
-    BaselineTemperature : LREAL;
-    Setpoint : LREAL;
-    ControllerGain : LREAL;
-    PlantGain : LREAL;
+    LoopGain : LREAL;
+    TimeConstantS : LREAL;
 END_VAR
-Lesson47ProportionalEquilibrium :=
-    (BaselineTemperature
-        + ControllerGain * PlantGain * Setpoint)
-    / (LREAL#1.0 + ControllerGain * PlantGain);
+CrossoverRadS := SQRT(LoopGain * LoopGain - LREAL#1.0) / TimeConstantS;
 END_FUNCTION
 
-FUNCTION Lesson47ClosedLoopUnstablePoleCount : INT
+(* The delay that brings the phase at ω_c to −180°, so that L(jω_c) = −1: arctan(ω_c·τ) + ω_c·td = π. *)
+FUNCTION CriticalDelayS : LREAL
 VAR_INPUT
-    OpenLoopUnstablePoles : INT;
-    CounterClockwiseEncirclements : INT;
+    LoopGain : LREAL;
+    TimeConstantS : LREAL;
 END_VAR
-Lesson47ClosedLoopUnstablePoleCount := OpenLoopUnstablePoles
-    - CounterClockwiseEncirclements;
+VAR
+    Crossover : LREAL;
+END_VAR
+Crossover := CrossoverRadS(LoopGain := LoopGain, TimeConstantS := TimeConstantS);
+CriticalDelayS := (LREAL#3.14159265358979 - ATAN(Crossover * TimeConstantS)) / Crossover;
 END_FUNCTION
 
 PROGRAM Main
 VAR
+    (* Two copies of the heater, delivery delay 1 s and 8 s, each under Control.PID as P control: Kp = 10 % per °C
+       about the resting command, u = 75 + 10·(SP − T). *)
+    ShortDelayController : Control.PID;
+    LongDelayController : Control.PID;
+    Parameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#10.0,
+        IntegralGain := LREAL#0.0,
+        DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#1.0,
+        DerivativeSetpointWeight := LREAL#0.0,
+        Bias := LREAL#75.0,
+        OutputMinimum := LREAL#0.0,
+        OutputMaximum := LREAL#100.0,
+        RateMinimum := LREAL#-1000.0,
+        RateMaximum := LREAL#1000.0,
+        TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation
+    );
+    State : Control.PIDInitialState;
+    ShortDelayInput : Control.PIDInput;
+    LongDelayInput : Control.PIDInput;
+    Initialized : BOOL := FALSE;
+    ShortDelayC : LREAL := 35.0;
+    ShortDelayPct : LREAL := 75.0;
+    LongDelayC : LREAL := 35.0;
+    LongDelayPct : LREAL := 75.0;
+    SetpointC : LREAL := 35.0;
+    (* A heater that leaves 34–36 °C gets the resting 75 % until the experiment ends. *)
+    ShortDelayAbort : BOOL := FALSE;
+    LongDelayAbort : BOOL := FALSE;
+    (* Control Studio's project experiment steps the setpoint of both loops to 35.1 °C. *)
     ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    ProportionalGain : LREAL := 2.0;
-    HoldingCommand : LREAL := 50.0;
-    Setpoint : LREAL := 101.0;
-    ShortDelayTemperature : LREAL := 100.0;
-    MediumDelayTemperature : LREAL := 100.0;
-    LongDelayTemperature : LREAL := 100.0;
-    ShortDelayRequested : LREAL := 50.0;
-    MediumDelayRequested : LREAL := 50.0;
-    LongDelayRequested : LREAL := 50.0;
-    ShortDelayApplied : LREAL := 50.0;
-    MediumDelayApplied : LREAL := 50.0;
-    LongDelayApplied : LREAL := 50.0;
-    ShortDelayAborted : BOOL := FALSE;
-    MediumDelayAborted : BOOL := FALSE;
-    LongDelayAborted : BOOL := FALSE;
 END_VAR
 
-(* The PLC runs only bounded time-domain validation. Nyquist contours remain
-   retained evidence, so the expected frequency-domain verdict is not embedded
-   in the controller being tested. *)
-IF (NOT ExperimentEnabled) OR SafetyAbort OR (NOT InputsValid) THEN
-    Setpoint := LREAL#100.0;
-    ShortDelayRequested := HoldingCommand;
-    MediumDelayRequested := HoldingCommand;
-    LongDelayRequested := HoldingCommand;
-    ShortDelayApplied := HoldingCommand;
-    MediumDelayApplied := HoldingCommand;
-    LongDelayApplied := HoldingCommand;
-    ShortDelayAborted := FALSE;
-    MediumDelayAborted := FALSE;
-    LongDelayAborted := FALSE;
+IF ExperimentEnabled THEN
+    SetpointC := LREAL#35.1;
 ELSE
-    Setpoint := LREAL#101.0;
-    ShortDelayRequested := HoldingCommand
-        + ProportionalGain * (Setpoint - ShortDelayTemperature);
-    MediumDelayRequested := HoldingCommand
-        + ProportionalGain * (Setpoint - MediumDelayTemperature);
-    LongDelayRequested := HoldingCommand
-        + ProportionalGain * (Setpoint - LongDelayTemperature);
+    SetpointC := LREAL#35.0;
+    ShortDelayAbort := FALSE;
+    LongDelayAbort := FALSE;
+END_IF;
+ShortDelayAbort := ShortDelayAbort OR ShortDelayC < LREAL#34.0 OR ShortDelayC > LREAL#36.0;
+LongDelayAbort := LongDelayAbort OR LongDelayC < LREAL#34.0 OR LongDelayC > LREAL#36.0;
 
-    ShortDelayAborted := ShortDelayAborted
-        OR (ShortDelayTemperature < LREAL#90.0)
-        OR (ShortDelayTemperature > LREAL#110.0);
-    MediumDelayAborted := MediumDelayAborted
-        OR (MediumDelayTemperature < LREAL#90.0)
-        OR (MediumDelayTemperature > LREAL#110.0);
-    LongDelayAborted := LongDelayAborted
-        OR (LongDelayTemperature < LREAL#90.0)
-        OR (LongDelayTemperature > LREAL#110.0);
-
-    (* An abort restores HoldingCommand to the reviewed equilibrium instead of
-       continuing a potentially unstable correction. *)
-    IF ShortDelayAborted THEN
-        ShortDelayApplied := HoldingCommand;
-    ELSE
-        ShortDelayApplied := MAX(MIN(ShortDelayRequested, LREAL#100.0), LREAL#0.0);
-    END_IF;
-    IF MediumDelayAborted THEN
-        MediumDelayApplied := HoldingCommand;
-    ELSE
-        MediumDelayApplied := MAX(MIN(MediumDelayRequested, LREAL#100.0), LREAL#0.0);
-    END_IF;
-    IF LongDelayAborted THEN
-        LongDelayApplied := HoldingCommand;
-    ELSE
-        LongDelayApplied := MAX(MIN(LongDelayRequested, LREAL#100.0), LREAL#0.0);
-    END_IF;
+ShortDelayController.Configure(Parameters := Parameters);
+LongDelayController.Configure(Parameters := Parameters);
+IF NOT Initialized THEN
+    State.Setpoint := LREAL#35.0;
+    State.ProcessValue := LREAL#35.0;
+    State.NominalOutput := LREAL#75.0;
+    State.SaturatedOutput := LREAL#75.0;
+    ShortDelayController.Initialize(State := State);
+    LongDelayController.Initialize(State := State);
+    Initialized := TRUE;
+END_IF;
+ShortDelayInput.Mode := PIDMode#Auto;
+ShortDelayInput.CycleTime := LREAL#0.1;
+ShortDelayInput.Setpoint := SetpointC;
+ShortDelayInput.ProcessValue := ShortDelayC;
+ShortDelayPct := ShortDelayController.Update(Input := ShortDelayInput);
+LongDelayInput.Mode := PIDMode#Auto;
+LongDelayInput.CycleTime := LREAL#0.1;
+LongDelayInput.Setpoint := SetpointC;
+LongDelayInput.ProcessValue := LongDelayC;
+LongDelayPct := LongDelayController.Update(Input := LongDelayInput);
+IF ShortDelayAbort THEN
+    ShortDelayPct := LREAL#75.0;
+END_IF;
+IF LongDelayAbort THEN
+    LongDelayPct := LREAL#75.0;
 END_IF;
 END_PROGRAM
 
@@ -122,21 +127,13 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.ExperimentEnabled AT %MX96.0 : BOOL;
-    P1.SafetyAbort AT %MX96.1 : BOOL;
-    P1.InputsValid AT %MX96.2 : BOOL;
-    P1.ShortDelayAborted AT %MX97.0 : BOOL;
-    P1.MediumDelayAborted AT %MX97.1 : BOOL;
-    P1.LongDelayAborted AT %MX97.2 : BOOL;
-    P1.ShortDelayRequested AT %ML0 : LREAL;
-    P1.MediumDelayRequested AT %ML8 : LREAL;
-    P1.LongDelayRequested AT %ML16 : LREAL;
-    P1.Setpoint AT %ML24 : LREAL;
-    P1.ShortDelayApplied AT %QL0 : LREAL;
-    P1.MediumDelayApplied AT %QL8 : LREAL;
-    P1.LongDelayApplied AT %QL16 : LREAL;
-    P1.ShortDelayTemperature AT %IL0 : LREAL;
-    P1.MediumDelayTemperature AT %IL8 : LREAL;
-    P1.LongDelayTemperature AT %IL16 : LREAL;
+    P1.ShortDelayPct AT %QL0 : LREAL;
+    P1.ShortDelayC AT %IL0 : LREAL;
+    P1.LongDelayPct AT %QL8 : LREAL;
+    P1.LongDelayC AT %IL8 : LREAL;
+    P1.SetpointC AT %ML0 : LREAL;
+    P1.ExperimentEnabled AT %MX16.0 : BOOL;
+    P1.ShortDelayAbort AT %MX16.1 : BOOL;
+    P1.LongDelayAbort AT %MX16.2 : BOOL;
 END_VAR
 END_CONFIGURATION

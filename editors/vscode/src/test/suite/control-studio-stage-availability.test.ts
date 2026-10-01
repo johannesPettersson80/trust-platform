@@ -33,7 +33,6 @@ suite("Control Studio stage availability", () => {
     const availability = controlStudioStageAvailability("control-studio");
     for (const stage of CONTROL_STUDIO_STAGE_ORDER) {
       assert.strictEqual(availability[stage].disabled, false, `${stage} must stay available`);
-      assert.notStrictEqual(availability[stage].status, "not-in-lesson");
     }
   });
 
@@ -54,7 +53,6 @@ suite("Control Studio stage availability", () => {
     const availability = controlStudioStageAvailability("project-scripted", { loopBound: true });
     for (const stage of ["Identify", "Tune", "Validate"] as const) {
       assert.strictEqual(availability[stage].disabled, false, `${stage} must remain available`);
-      assert.notStrictEqual(availability[stage].status, "not-in-lesson");
     }
   });
 
@@ -88,7 +86,7 @@ suite("Control Studio stage availability", () => {
   });
 
   test("every status resolves to a non-empty human-readable label", () => {
-    for (const status of ["ready", "needs-data", "in-progress", "complete", "warning", "failed", "not-in-lesson"] as const) {
+    for (const status of ["ready", "needs-data", "in-progress", "complete", "warning", "failed"] as const) {
       assert.ok(controlStudioStageStatusLabel(status).length > 0);
     }
   });

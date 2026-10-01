@@ -1,6 +1,8 @@
 import type { SetupPromptPresenter } from "./setupPromptTypes";
 import * as vscode from "vscode";
 import { configureControlLoop, type DiscoverControlSignals } from "./configureLoop";
+import { decodeCompiledCatalog } from "./loopSetup/compiledCatalog";
+import { openLoopSetupPanel } from "./loopSetup/loopSetupPanel";
 import { getSelectedRuntimeId } from "../selectedRuntime";
 import { controlStudioRequestForWorkspace } from "./projectLoop";
 
@@ -50,16 +52,30 @@ export async function configureControlStudioCommand(
   show: (context: vscode.ExtensionContext, request: unknown) => void | Promise<void>,
   discover?: DiscoverControlSignals,
   presenter?: SetupPromptPresenter
-): Promise<void> {
-  const configured = await configureControlLoop(getSelectedRuntimeId(), discover, presenter);
-  if (configured.kind === "accepted") await show(context, configured.request);
-  else if (configured.kind !== "cancelled") void vscode.window.showErrorMessage(configured.reason);
+): Promise<{ opened: boolean; reason?: string }> {
+  const refuse = (reason: string) => { void vscode.window.showErrorMessage(reason); return { opened: false, reason }; };
+  const folders = vscode.workspace.workspaceFolders ?? [];
+  const folder = folders.length === 1 ? folders[0] : (await vscode.window.showQuickPick(
+    folders.map(item => ({ label: item.name, description: item.uri.fsPath, folder: item })),
+    { title: "Configure control loop", placeHolder: "Choose the project containing your controller" }))?.folder;
+  if (!folder) return { opened: false, reason: "cancelled" };
+  if (!discover) return refuse("Compiled signal discovery is unavailable. Wait for the language server and retry.");
+  const payload = await discover(folder.uri.toString()) as { ok?: boolean; error?: string; controlSymbols?: unknown } | undefined;
+  const catalog = payload?.ok === true ? decodeCompiledCatalog(payload.controlSymbols) : undefined;
+  if (!catalog) return refuse(payload?.error ?? "Compile the project successfully before configuring its loop.");
+  await openLoopSetupPanel(context, folder.uri, getSelectedRuntimeId(), catalog, request => show(context, request), async () => {
+    // Controllers the form does not set up yet keep the step-by-step setup.
+    const configured = await configureControlLoop(getSelectedRuntimeId(), discover, presenter);
+    if (configured.kind === "accepted") await show(context, configured.request);
+    else if (configured.kind !== "cancelled") void vscode.window.showErrorMessage(configured.reason);
+  });
+  return { opened: true };
 }
 
 /** Native commands reuse the bound panel's existing result/export owner. */
 export function registerControlStudioCommands(context: vscode.ExtensionContext, handlers: {
   open: (request?: unknown) => void | Promise<void>;
-  configure: () => void | Promise<void>;
+  configure: () => unknown;
   exportRecording: () => void | Promise<void>;
 }): void {
   for (const [name, handler] of Object.entries(handlers)) {

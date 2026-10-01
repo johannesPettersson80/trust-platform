@@ -1,129 +1,242 @@
-FUNCTION Lesson43RouthCubicS1Element : LREAL
+USING Control;
+
+(* Characteristic equation of the shaft under PD control, J·s² + (B + Kd)·s + Kp = 0, divided by J:
+   s² + a1·s + a0 = 0 with a1 = (B + Kd)/J in s⁻¹ and a0 = Kp/J in s⁻². *)
+FUNCTION DampingCoefficientOf : LREAL
 VAR_INPUT
-    CubicCoefficient : LREAL;
-    QuadraticCoefficient : LREAL;
+    Inertia : LREAL;
+    Friction : LREAL;
+    DerivativeGain : LREAL;
+END_VAR
+DampingCoefficientOf := (Friction + DerivativeGain) / Inertia;
+END_FUNCTION
+
+FUNCTION StiffnessCoefficientOf : LREAL
+VAR_INPUT
+    Inertia : LREAL;
+    ProportionalGain : LREAL;
+END_VAR
+StiffnessCoefficientOf := ProportionalGain / Inertia;
+END_FUNCTION
+
+(* Natural motion for a repeated root p: z = (z1 + (v1 − p·z1)·t)·e^(p·t) from the displacement z1 and the
+   velocity v1 at t = 0, and its velocity (v1 + p·(v1 − p·z1)·t)·e^(p·t). *)
+FUNCTION RepeatedRootDisplacement : LREAL
+VAR_INPUT
+    Displacement : LREAL;
+    Velocity : LREAL;
+    Root : LREAL;
+    Seconds : LREAL;
+END_VAR
+RepeatedRootDisplacement := (Displacement + (Velocity - Root * Displacement) * Seconds) * EXP(Root * Seconds);
+END_FUNCTION
+
+FUNCTION RepeatedRootVelocity : LREAL
+VAR_INPUT
+    Displacement : LREAL;
+    Velocity : LREAL;
+    Root : LREAL;
+    Seconds : LREAL;
+END_VAR
+RepeatedRootVelocity := (Velocity + Root * (Velocity - Root * Displacement) * Seconds) * EXP(Root * Seconds);
+END_FUNCTION
+
+(* A real root of a·s² + b·s + c = 0: (−b + sign·√(b² − 4ac))/(2a), with sign +1 or −1. *)
+FUNCTION QuadraticRoot : LREAL
+VAR_INPUT
+    SquareCoefficient : LREAL;
     LinearCoefficient : LREAL;
     ConstantCoefficient : LREAL;
+    Sign : LREAL;
 END_VAR
-Lesson43RouthCubicS1Element :=
-    (QuadraticCoefficient * LinearCoefficient
-        - CubicCoefficient * ConstantCoefficient)
-    / QuadraticCoefficient;
+QuadraticRoot := (-LinearCoefficient + Sign * SQRT(LinearCoefficient * LinearCoefficient
+    - LREAL#4.0 * SquareCoefficient * ConstantCoefficient)) / (LREAL#2.0 * SquareCoefficient);
 END_FUNCTION
 
-FUNCTION Lesson43ProportionalRequest : LREAL
+(* Natural motion for two distinct real roots p1 and p2: z = c1·e^(p1·t) + c2·e^(p2·t) with c1 + c2 = z1 and
+   p1·c1 + p2·c2 = v1, and its velocity p1·c1·e^(p1·t) + p2·c2·e^(p2·t). *)
+FUNCTION TwoRootDisplacement : LREAL
 VAR_INPUT
-    Gain : LREAL;
-    Setpoint : LREAL;
-    Position : LREAL;
+    Displacement : LREAL;
+    Velocity : LREAL;
+    FirstRoot : LREAL;
+    SecondRoot : LREAL;
+    Seconds : LREAL;
 END_VAR
-Lesson43ProportionalRequest := Gain * (Setpoint - Position);
+TwoRootDisplacement := ((Velocity - SecondRoot * Displacement) * EXP(FirstRoot * Seconds)
+    + (FirstRoot * Displacement - Velocity) * EXP(SecondRoot * Seconds)) / (FirstRoot - SecondRoot);
 END_FUNCTION
 
-FUNCTION Lesson43ForceClamp : LREAL
+FUNCTION TwoRootVelocity : LREAL
 VAR_INPUT
-    RequestedForce : LREAL;
+    Displacement : LREAL;
+    Velocity : LREAL;
+    FirstRoot : LREAL;
+    SecondRoot : LREAL;
+    Seconds : LREAL;
 END_VAR
-Lesson43ForceClamp := MAX(MIN(RequestedForce, LREAL#100.0), LREAL#-100.0);
+TwoRootVelocity := (FirstRoot * (Velocity - SecondRoot * Displacement) * EXP(FirstRoot * Seconds)
+    + SecondRoot * (FirstRoot * Displacement - Velocity) * EXP(SecondRoot * Seconds)) / (FirstRoot - SecondRoot);
+END_FUNCTION
+
+(* The heater of Lesson 49 under PI control, without its delay: 5·dx/dt + x = 0.2·v with v = −2.5·x + i and
+   di/dt = −0.5·x, where x is the temperature and i the integral, as deviations from 35 °C and 75 %. *)
+FUNCTION HeaterTemperatureRate : LREAL
+VAR_INPUT
+    TemperatureDeviationC : LREAL;
+    IntegralDeviationPct : LREAL;
+END_VAR
+HeaterTemperatureRate := LREAL#-0.3 * TemperatureDeviationC + LREAL#0.04 * IntegralDeviationPct;
+END_FUNCTION
+
+FUNCTION HeaterIntegralRate : LREAL
+VAR_INPUT
+    TemperatureDeviationC : LREAL;
+END_VAR
+HeaterIntegralRate := LREAL#-0.5 * TemperatureDeviationC;
 END_FUNCTION
 
 PROGRAM Main
 VAR
+    (* The shaft of Lesson 35 under PD control: u = Kp·(r − θ) − Kd·dθ/dt with Kp = 16 N·m/rad and
+       Kd = 7 N·m·s/rad, limited to ±20 N·m. *)
+    Controller : Control.PID;
+    Parameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#16.0,
+        IntegralGain := LREAL#0.0,
+        DerivativeGain := LREAL#7.0,
+        ProportionalSetpointWeight := LREAL#1.0,
+        DerivativeSetpointWeight := LREAL#0.0,
+        Bias := LREAL#0.0,
+        OutputMinimum := LREAL#-20.0,
+        OutputMaximum := LREAL#20.0,
+        RateMinimum := LREAL#-10000.0,
+        RateMaximum := LREAL#10000.0,
+        TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation
+    );
+    State : Control.PIDInitialState;
+    Input : Control.PIDInput;
+    Initialized : BOOL := FALSE;
+    InertiaKgM2 : LREAL := 1.0;
+    FrictionNmsRad : LREAL := 1.0;
+    SetpointRad : LREAL := 0.0;
+    AngleRad : LREAL := 0.0;
+    VelocityRadS : LREAL := 0.0;
+    TorqueNm : LREAL := 0.0;
+    (* Control Studio's project experiment knocks the shaft: 10 N·m for five 20 ms updates. *)
+    KnockTorqueNm : LREAL := 0.0;
+    KnockUpdates : INT := 0;
+    (* s² + a1·s + a0 = 0 and its repeated root −a1/2, which requires a1² = 4·a0. *)
+    DampingCoefficient : LREAL := 0.0;
+    StiffnessCoefficient : LREAL := 0.0;
+    RootPerS : LREAL := 0.0;
+    (* The sampled law: each torque is held for one update, and D uses the angle change over that update. P acts on
+       average half an update late and D a whole update late; with e^(−s·τ) ≈ 1 − s·τ the equation becomes
+       (J − Kd·Δt)·s² + (B + Kd − Kp·Δt/2)·s + Kp = 0. *)
+    UpdateS : LREAL := 0.02;
+    SampledSquareCoefficient : LREAL := 0.0;
+    SampledLinearCoefficient : LREAL := 0.0;
+    SlowRootPerS : LREAL := 0.0;
+    FastRootPerS : LREAL := 0.0;
+    (* The natural motion from the state measured when the knock ends; before that, the measured state. *)
+    StartDisplacementRad : LREAL := 0.0;
+    StartVelocityRadS : LREAL := 0.0;
+    Predicting : BOOL := FALSE;
+    AfterKnockS : LREAL := 0.0;
+    ModeAngleRad : LREAL := 0.0;
+    ModeVelocityRadS : LREAL := 0.0;
+    SampledModeAngleRad : LREAL := 0.0;
+    SampledModeVelocityRadS : LREAL := 0.0;
     ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    StableGain : LREAL := 4.0;
-    MarginalGain : LREAL := 6.0;
-    UnstableGain : LREAL := 8.0;
-    StableSetpoint : LREAL := 0.0;
-    MarginalSetpoint : LREAL := 0.0;
-    UnstableSetpoint : LREAL := 0.0;
-    StableRequested : LREAL := 0.0;
-    MarginalRequested : LREAL := 0.0;
-    UnstableRequested : LREAL := 0.0;
-    StableApplied : LREAL := 0.0;
-    MarginalApplied : LREAL := 0.0;
-    UnstableApplied : LREAL := 0.0;
-    StablePosition : LREAL := 0.1;
-    MarginalPosition : LREAL := 0.1;
-    UnstablePosition : LREAL := 0.1;
-    StableAborted : BOOL := FALSE;
-    MarginalAborted : BOOL := FALSE;
-    UnstableAborted : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    Active : BOOL := FALSE;
 END_VAR
 
-(* Global validity rejects corrupt measurements. Each comparison path owns its
-   own two-metre motion abort below, so the deliberately unstable copy cannot
-   erase the stable and marginal evidence. *)
-InputsValid := (StablePosition = StablePosition)
-    AND (MarginalPosition = MarginalPosition)
-    AND (UnstablePosition = UnstablePosition)
-    AND ABS(StablePosition) < LREAL#1000000.0
-    AND ABS(MarginalPosition) < LREAL#1000000.0
-    AND ABS(UnstablePosition) < LREAL#1000000.0;
+DampingCoefficient := DampingCoefficientOf(Inertia := InertiaKgM2, Friction := FrictionNmsRad,
+    DerivativeGain := Parameters.DerivativeGain);
+StiffnessCoefficient := StiffnessCoefficientOf(Inertia := InertiaKgM2, ProportionalGain := Parameters.ProportionalGain);
+RootPerS := -DampingCoefficient / LREAL#2.0;
+SampledSquareCoefficient := InertiaKgM2 - Parameters.DerivativeGain * UpdateS;
+SampledLinearCoefficient := FrictionNmsRad + Parameters.DerivativeGain - Parameters.ProportionalGain * UpdateS / LREAL#2.0;
+SlowRootPerS := QuadraticRoot(SquareCoefficient := SampledSquareCoefficient, LinearCoefficient := SampledLinearCoefficient,
+    ConstantCoefficient := Parameters.ProportionalGain, Sign := LREAL#1.0);
+FastRootPerS := QuadraticRoot(SquareCoefficient := SampledSquareCoefficient, LinearCoefficient := SampledLinearCoefficient,
+    ConstantCoefficient := Parameters.ProportionalGain, Sign := LREAL#-1.0);
 
-IF NOT ExperimentEnabled OR SafetyAbort OR NOT InputsValid THEN
-    StableRequested := LREAL#0.0;
-    MarginalRequested := LREAL#0.0;
-    UnstableRequested := LREAL#0.0;
-    StableApplied := LREAL#0.0;
-    MarginalApplied := LREAL#0.0;
-    UnstableApplied := LREAL#0.0;
-    StableAborted := FALSE;
-    MarginalAborted := FALSE;
-    UnstableAborted := FALSE;
+IF ExperimentEnabled AND NOT ExperimentWasEnabled THEN
+    Active := TRUE;
+    KnockUpdates := 0;
+    Predicting := FALSE;
+ELSIF NOT ExperimentEnabled THEN
+    Active := FALSE;
+    Predicting := FALSE;
+END_IF;
+ExperimentWasEnabled := ExperimentEnabled;
+
+KnockTorqueNm := LREAL#0.0;
+IF Active AND KnockUpdates < 5 THEN
+    KnockTorqueNm := LREAL#10.0;
+    KnockUpdates := KnockUpdates + 1;
+ELSIF Active AND NOT Predicting THEN
+    StartDisplacementRad := AngleRad - SetpointRad;
+    StartVelocityRadS := VelocityRadS;
+    AfterKnockS := LREAL#0.0;
+    Predicting := TRUE;
+END_IF;
+
+Controller.Configure(Parameters := Parameters);
+IF NOT Initialized THEN
+    State.Setpoint := SetpointRad;
+    State.ProcessValue := AngleRad;
+    Controller.Initialize(State := State);
+    Initialized := TRUE;
+END_IF;
+Input.Mode := PIDMode#Auto;
+Input.CycleTime := UpdateS;
+Input.Setpoint := SetpointRad;
+Input.ProcessValue := AngleRad;
+TorqueNm := Controller.Update(Input := Input);
+
+IF Predicting THEN
+    ModeAngleRad := SetpointRad + RepeatedRootDisplacement(Displacement := StartDisplacementRad,
+        Velocity := StartVelocityRadS, Root := RootPerS, Seconds := AfterKnockS);
+    ModeVelocityRadS := RepeatedRootVelocity(Displacement := StartDisplacementRad,
+        Velocity := StartVelocityRadS, Root := RootPerS, Seconds := AfterKnockS);
+    SampledModeAngleRad := SetpointRad + TwoRootDisplacement(Displacement := StartDisplacementRad,
+        Velocity := StartVelocityRadS, FirstRoot := SlowRootPerS, SecondRoot := FastRootPerS, Seconds := AfterKnockS);
+    SampledModeVelocityRadS := TwoRootVelocity(Displacement := StartDisplacementRad,
+        Velocity := StartVelocityRadS, FirstRoot := SlowRootPerS, SecondRoot := FastRootPerS, Seconds := AfterKnockS);
+    AfterKnockS := AfterKnockS + UpdateS;
 ELSE
-    (* These explicit paths differ only in gain, so the comparison corresponds
-       directly to the three predictions made before the run. *)
-    StableRequested := Lesson43ProportionalRequest(Gain := StableGain,
-        Setpoint := StableSetpoint, Position := StablePosition);
-    MarginalRequested := Lesson43ProportionalRequest(Gain := MarginalGain,
-        Setpoint := MarginalSetpoint, Position := MarginalPosition);
-    UnstableRequested := Lesson43ProportionalRequest(Gain := UnstableGain,
-        Setpoint := UnstableSetpoint, Position := UnstablePosition);
-
-    IF ABS(StablePosition) >= LREAL#2.0 OR ABS(StableRequested) > LREAL#100.0 THEN
-        StableAborted := TRUE;
-    END_IF;
-    IF ABS(MarginalPosition) >= LREAL#2.0 OR ABS(MarginalRequested) > LREAL#100.0 THEN
-        MarginalAborted := TRUE;
-    END_IF;
-    IF ABS(UnstablePosition) >= LREAL#2.0 OR ABS(UnstableRequested) > LREAL#100.0 THEN
-        UnstableAborted := TRUE;
-    END_IF;
-
-    IF StableAborted THEN StableApplied := LREAL#0.0;
-    ELSE StableApplied := Lesson43ForceClamp(RequestedForce := StableRequested); END_IF;
-    IF MarginalAborted THEN MarginalApplied := LREAL#0.0;
-    ELSE MarginalApplied := Lesson43ForceClamp(RequestedForce := MarginalRequested); END_IF;
-    IF UnstableAborted THEN UnstableApplied := LREAL#0.0;
-    ELSE UnstableApplied := Lesson43ForceClamp(RequestedForce := UnstableRequested); END_IF;
+    ModeAngleRad := AngleRad;
+    ModeVelocityRadS := VelocityRadS;
+    SampledModeAngleRad := AngleRad;
+    SampledModeVelocityRadS := VelocityRadS;
 END_IF;
 END_PROGRAM
 
 CONFIGURATION Config
 RESOURCE Res ON PLC
-    TASK MainTask(INTERVAL := T#10ms, PRIORITY := 1);
+    TASK MainTask(INTERVAL := T#20ms, PRIORITY := 1);
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.ExperimentEnabled AT %MX96.0 : BOOL;
-    P1.SafetyAbort AT %MX96.1 : BOOL;
-    P1.InputsValid AT %MX96.2 : BOOL;
-    P1.StableRequested AT %ML0 : LREAL;
-    P1.MarginalRequested AT %ML8 : LREAL;
-    P1.UnstableRequested AT %ML16 : LREAL;
-    P1.StableSetpoint AT %ML24 : LREAL;
-    P1.MarginalSetpoint AT %ML32 : LREAL;
-    P1.UnstableSetpoint AT %ML40 : LREAL;
-    P1.StableApplied AT %QL0 : LREAL;
-    P1.MarginalApplied AT %QL8 : LREAL;
-    P1.UnstableApplied AT %QL16 : LREAL;
-    P1.StablePosition AT %IL0 : LREAL;
-    P1.MarginalPosition AT %IL8 : LREAL;
-    P1.UnstablePosition AT %IL16 : LREAL;
-    P1.StableAborted AT %MX97.0 : BOOL;
-    P1.MarginalAborted AT %MX97.1 : BOOL;
-    P1.UnstableAborted AT %MX97.2 : BOOL;
+    P1.TorqueNm AT %QL0 : LREAL;
+    P1.KnockTorqueNm AT %QL8 : LREAL;
+    P1.AngleRad AT %IL0 : LREAL;
+    P1.VelocityRadS AT %IL8 : LREAL;
+    P1.SetpointRad AT %ML0 : LREAL;
+    P1.ModeAngleRad AT %ML8 : LREAL;
+    P1.ModeVelocityRadS AT %ML16 : LREAL;
+    P1.ExperimentEnabled AT %MX24.0 : BOOL;
+    P1.Active AT %MX24.1 : BOOL;
+    P1.DampingCoefficient AT %ML32 : LREAL;
+    P1.StiffnessCoefficient AT %ML40 : LREAL;
+    P1.RootPerS AT %ML48 : LREAL;
+    P1.SampledModeAngleRad AT %ML56 : LREAL;
+    P1.SampledModeVelocityRadS AT %ML64 : LREAL;
+    P1.SlowRootPerS AT %ML72 : LREAL;
+    P1.FastRootPerS AT %ML80 : LREAL;
 END_VAR
 END_CONFIGURATION

@@ -327,7 +327,7 @@ Source: [Lesson 21 README](../../../examples/control/06-pid-tuning-methods/31-tu
 
 ## WF-022 — Setpoint weighting
 
-Source: [Lesson 22 README](../../../examples/control/01-feedback-foundations-and-temperature-control/10-proportional-setpoint-weighting/README.md).
+Source: [Lesson 23 README](../../../examples/control/01-feedback-foundations-and-temperature-control/10-proportional-setpoint-weighting/README.md).
 
 - **Trigger, inputs, prerequisites:** PI candidate passes/assesses separate target and load trials, has a declared reference/weight `0<=beta<=1` and uses full error for integral action.
 - **Automatic operation:** calculate weighted P `Kp[beta(SP-T0)-(PV-T0)]`; compare candidate beta values on matched target and disturbance plans while preserving full-error integral path. Output target-kick/activity versus response tradeoff.
@@ -339,7 +339,7 @@ Source: [Lesson 22 README](../../../examples/control/01-feedback-foundations-and
 
 ## WF-023 — Measurement filtering
 
-Source: [Lesson 23 README](../../../examples/control/01-feedback-foundations-and-temperature-control/11-measurement-filtering/README.md).
+Source: [Lesson 24 README](../../../examples/control/01-feedback-foundations-and-temperature-control/11-measurement-filtering/README.md).
 
 - **Trigger, inputs, prerequisites:** raw PV quality/sample timestamps, acquisition chain, existing controller filter/estimator placement and a noise/real-disturbance comparison plan exist.
 - **Automatic operation:** inspect acquisition rate, quantization, gaps, existing filtering/estimation and spectra/replay evidence to determine whether filtering is needed, which signal/type is affected and where it belongs. Evaluate bypass, supported first-/second-order low-pass candidates (the first-order update is `alpha=dt/(Tf+dt)`, `yf_new=yf_old+alpha(yr-yf_old)`), and a typed notch only when a declared narrow periodic disturbance and adequate sampling justify it; estimators remain scoped to their declared state/model and are never presented as generic noise filters. Replay candidates first, then co-design with closed-loop response/effort before recommendation.
@@ -351,7 +351,7 @@ Source: [Lesson 23 README](../../../examples/control/01-feedback-foundations-and
 
 ## WF-024 — Sampling and timing
 
-Source: [Lesson 24 README](../../../examples/control/01-feedback-foundations-and-temperature-control/12-elapsed-time-and-sampling/README.md).
+Source: [Lesson 25 README](../../../examples/control/01-feedback-foundations-and-temperature-control/12-elapsed-time-and-sampling/README.md).
 
 - **Trigger, inputs, prerequisites:** acquisition time, controller update time, applied-command time, freshness/gap rules and retained timestamp baseline are bound.
 - **Automatic operation:** calculate all state updates from accepted elapsed `dt`, detect missing/incompatible samples, gap/jitter and Nyquist/aliasing risk; output timing evidence and block Identify/Test when completeness requirements fail.
@@ -363,7 +363,7 @@ Source: [Lesson 24 README](../../../examples/control/01-feedback-foundations-and
 
 ## WF-025 — Controller initialization
 
-Source: [Lesson 25 README](../../../examples/control/03-production-quality-digital-pid/39-controller-mode-initialization/README.md).
+Source: [Lesson 26 README](../../../examples/control/03-production-quality-digital-pid/39-controller-mode-initialization/README.md).
 
 - **Trigger, inputs, prerequisites:** Manual owns output; fresh PV, applied MV, weighted P, filter state, valid timing and one persistent PID instance are available.
 - **Automatic operation:** before Auto authority, initialize filtered PV, timestamp baseline and `I_initial=u_applied-P`, expose Ready, and ensure a one-shot gate. It outputs no automatic command until initialization succeeds.
@@ -375,7 +375,7 @@ Source: [Lesson 25 README](../../../examples/control/03-production-quality-digit
 
 ## WF-026 — Bumpless transfer
 
-Source: [Lesson 26 README](../../../examples/control/03-production-quality-digital-pid/40-bumpless-transfer/README.md).
+Source: [Lesson 27 README](../../../examples/control/03-production-quality-digital-pid/40-bumpless-transfer/README.md).
 
 - **Trigger, inputs, prerequisites:** Ready controller, Manual applied output, fresh weighted P/filtered PV and an explicit rising Auto request with a single output selector exist.
 - **Automatic operation:** while Manual, track `I=u_a-P`; on accepted transfer snapshot fresh P, set I again, reconstruct first request equal to `u_a`, establish timing baseline and skip ordinary integration for exactly that transfer scan.
@@ -387,7 +387,7 @@ Source: [Lesson 26 README](../../../examples/control/03-production-quality-digit
 
 ## WF-027 — Parameter updates
 
-Source: [Lesson 27 README](../../../examples/control/03-production-quality-digital-pid/41-atomic-parameter-update/README.md).
+Source: [Lesson 28 README](../../../examples/control/03-production-quality-digital-pid/41-atomic-parameter-update/README.md).
 
 - **Trigger, inputs, prerequisites:** complete typed candidate record contains finite Kp/Ki/beta/filter/limits/gap/revision; active record, snapshot SP/raw/filtered PV and retained I are current.
 - **Automatic operation:** validate whole record, calculate same-snapshot `P_old` and `P_new`, set `I_new=I_old+P_old-P_new`, then publish complete record/revision at one task boundary and perform exactly one ordinary update for the control interval. Invalid candidate changes nothing.

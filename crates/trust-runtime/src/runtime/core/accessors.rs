@@ -235,6 +235,12 @@ impl Runtime {
         self.io.interface_mut()
     }
 
+    /// Commits every marker binding from program storage, so that the next cycle starts from the
+    /// variables' initialized or retained values (Specification 11 §6.5).
+    pub fn commit_memory_bindings(&mut self) -> Result<(), crate::error::RuntimeError> {
+        self.io.interface_mut().commit_memory(&self.storage)
+    }
+
     /// Register an I/O driver invoked at cycle boundaries.
     /// True when native I/O and active protocol clients are simulation-only.
     pub fn simulation_only_io(&self)->bool {

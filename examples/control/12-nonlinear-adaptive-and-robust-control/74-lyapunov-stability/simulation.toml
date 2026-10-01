@@ -2,22 +2,27 @@
 enabled = true
 seed = 20260829
 time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 4000
 plant_step_ms = 10
 
+# An upright arm, J·dω/dt = τ − B·ω + G·sin φ with J = 1 kg·m², B = 1 N·m·s/rad and G = 4 N·m, torque limited to
+# ±20 N·m. The joint model measures its angle from hanging down, θ = π + φ, so upright rest is θ = π: its gravity term
+# −G·sin θ equals +G·sin φ, which pushes the arm away from upright. Outputs: θ in rad and ω in rad/s.
 [[plants]]
-id = "inverted-pendulum-rig"
+id = "upright-arm"
 model = "robot_joint"
 command_sources = ["%QL0"]
 feedback_targets = ["%IL0", "%IL8"]
-initial_state = [3.241592653589793,0]
+initial_state = [3.141592653589793, 0.0]
 
 [plants.parameters]
 inertia_kg_m2 = 1.0
-gravity_torque_nm = 1.0
-viscous_friction_nm_s_per_rad = 0.0
+gravity_torque_nm = 4.0
+viscous_friction_nm_s_per_rad = 1.0
 coulomb_friction_nm = 0.0
 friction_smoothing_rad_s = 0.01
 
 [plants.actuator]
-minimum = -2.0
-maximum = 2.0
+minimum = -20.0
+maximum = 20.0

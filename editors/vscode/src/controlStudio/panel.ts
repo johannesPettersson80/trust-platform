@@ -6,6 +6,7 @@ import { createControlStudioRuntimeStartHandler, routeControlStudioRuntimeStart 
 import { restoredEngineerStage, restoredEngineerViewSelection, storeEngineerStage } from "./engineerNavigationStorage";
 import { completedCommissioningMatchesCheckpoint } from "./commissioningCheckpoint";
 import { storeEngineerDraft, restoreEngineerDraft, restoreWorkflowDraft } from "./engineerDraftStorage";
+import { CoalescedTask } from "./coalescedTask";
 import { observeStudioApplication } from "./observedStudioApplication";
 import { restoredEngineerView } from "./restoredEngineerView";
 import { restoreCommissioningCheckpoint, storeCommissioningCheckpoint, restoreIsolatedOperation, storeIsolatedOperation, restoreMimoAnalysis } from "./panelPersistence";
@@ -42,6 +43,7 @@ workflowResultStorageKey
 } from "./panelPersistence";
 import { controlStudioHtml } from "./panelPresentation";
 import { connectRuntimeParameters } from "./runtimeParameterConnection";
+import { appliedProjectHoldSeconds } from "./projectExperimentHold";
 import type { PlantControlStudioHandoff } from "./handoff";
 import type { ControlLoopDefinition } from "./loopDefinition";
 
@@ -374,8 +376,16 @@ async function showControlStudio(
           manualWorkflowState.validation = undefined; manualWorkflowState.declaredAnalysis = undefined;
         }
         if ((stage === "engineer" || stage === "general-model") && payload.status !== "running" && payload.status !== "commissioning") {
-          try { await retainCurrentWorkflowDraft(context, loop); }
-          catch (error) { if (payload.status === "reset") throw error; void vscode.window.showWarningMessage(`Could not retain the workflow draft: ${String(error)}`); }
+          if (stage === "engineer" && payload.status === "edited") {
+            // Settings edits arrive in bursts; validating and storing the whole study for each one blocks the editor.
+            // Closing the panel retains the latest draft, so a pending retention cannot lose an edit.
+            draftRetention.schedule(() => void retainCurrentWorkflowDraft(context, loop)
+              .catch(error => vscode.window.showWarningMessage(`Could not retain the workflow draft: ${String(error)}`)));
+          } else {
+            draftRetention.cancel();
+            try { await retainCurrentWorkflowDraft(context, loop); }
+            catch (error) { if (payload.status === "reset") throw error; void vscode.window.showWarningMessage(`Could not retain the workflow draft: ${String(error)}`); }
+          }
         }
         if (payload.status === "reset" && ownerPanel) {
           ownerPanel.webview.html = controlStudioHtml(ownerPanel.webview, context, loop.name, loop.runtimeId,
@@ -420,7 +430,7 @@ async function showControlStudio(
         const restoredDraft = workflowResultUnavailableReason ? undefined : restoreEngineerDraft(context, loop);
         const restoredModel = restoredDraft && !viewingWorkflowResult ? sessions.engineer?.modelChanged() : undefined;
         if (restoredDraft && !viewingWorkflowResult) await postEngineeringResult(panel, activeLoop, editorSessionId, "engineer",
-          { ...restoredEngineerView(restoredDraft, sessions.engineer?.recordedCommissioning()), modelAnalysis: restoredModel?.modelAnalysis, task: restoredModel?.task ?? restoredDraft.task, stageEvidence: sessions.engineer?.currentStageEvidence(), ...sessions.engineer?.restoredOwnerView() });
+          { ...restoredEngineerView(restoredDraft, sessions.engineer?.recordedCommissioning()), modelAnalysis: restoredModel?.modelAnalysis, task: restoredModel?.task ?? restoredDraft.task, stageEvidence: sessions.engineer?.currentStageEvidence(), relayCycle: sessions.engineer?.relayCycle(), ...sessions.engineer?.restoredOwnerView() });
         else if (sessions.engineer?.restoredOwnerView()) await postEngineeringResult(panel, activeLoop, editorSessionId, "engineer",
           { status: "restored", ...sessions.engineer.restoredOwnerView(), stageEvidence: sessions.engineer.currentStageEvidence() });
         if (!manualRecoveryReconciled) {
@@ -547,6 +557,18 @@ async function handleExperimentCommand(
     const ownerPanel = panel;
     await refreshLoopMonitor();
     if (panel !== ownerPanel || activeLoop !== loop) return;
+    let holdSeconds: number | undefined;
+    try {
+      holdSeconds = await appliedProjectHoldSeconds(loop, () => connectRuntimeParameters(loop));
+    } catch (error) {
+      if (panel !== ownerPanel || activeLoop !== loop) return;
+      relayTuningSession.reset();
+      pendingExperiment = undefined;
+      await postExperimentResult(panel, activeLoop, editorSessionId, "review",
+        { kind: "rejected", reason: error instanceof Error ? error.message : String(error) });
+      return;
+    }
+    if (panel !== ownerPanel || activeLoop !== loop) return;
     const result = buildControlExperimentPlan({
       loop,
       sample: currentLoopSample ?? {
@@ -560,6 +582,7 @@ async function handleExperimentCommand(
       durationSeconds: command.durationSeconds,
       physicalTopologyReviewed: command.physicalTopologyReviewed,
       seed: loop.experiment?.seed,
+      ...(holdSeconds === undefined ? {} : { holdSeconds }),
     });
     if (result.kind === "accepted") {
       relayTuningSession.reset();
@@ -912,6 +935,7 @@ async function activateWorkflowResult(result: ControlStudioWorkflowResult, resto
 }
 
 function disposeCurrentAnalysisSessions(context: vscode.ExtensionContext): void {
+  draftRetention.cancel();
   try {
     if (activeLoop) void retainCurrentWorkflowDraft(context, activeLoop)
       .catch(error => vscode.window.showWarningMessage(`Could not retain the workflow draft: ${String(error)}`));
@@ -929,6 +953,9 @@ function buildCurrentWorkflowResult(context: vscode.ExtensionContext, loop: Cont
     .then(result => ({ ...result, resultRevision: revision }));
 }
 
+/** Coalesces the draft retention of settings edits; results and resets are retained at once. */
+const draftRetention = new CoalescedTask(750);
+
 function retainCurrentWorkflowDraft(context: vscode.ExtensionContext, loop: ControlLoopDefinition): Promise<void> {
   if (draftSessions !== analysisSessions) return Promise.resolve();
   if (workflowResultUnavailableReason) return Promise.reject(new Error(workflowResultUnavailableReason));
@@ -936,9 +963,9 @@ function retainCurrentWorkflowDraft(context: vscode.ExtensionContext, loop: Cont
   const study = analysisSessions.engineer?.snapshotDraft() ?? { campaigns: [] };
   const workflow = buildWorkflowDraftSnapshot(loop, currentWorkflowSnapshotState(study));
   workflow.software.extensionVersion = text(context.extension.packageJSON.version, "Unavailable");
-  return storeEngineerDraft(context, loop, study, workflow).then(async () => {
+  return storeEngineerDraft(context, loop, study, workflow).then(async stored => {
     if (!owner || panel !== owner || editorSessionId !== ownerSession || activeLoop !== loop) return;
-    currentWorkflowResult = restoreWorkflowDraft(context, loop) ?? workflow;
+    currentWorkflowResult = stored ?? workflow;
     currentResultIsDraft = true;
     if (viewingWorkflowResult) await postWorkflowResult("draft", {});
   });

@@ -20,7 +20,7 @@
       "minimum": 0,
       "maximum": 80,
       "resolution": 0.001,
-      "binding": "%ML40"
+      "binding": "%IL8"
     },
     {
       "role": "MV",
@@ -30,15 +30,6 @@
       "maximum": 100,
       "resolution": 0.01,
       "binding": "%QL0"
-    },
-    {
-      "role": "state",
-      "name": "Experiment authority",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX96.1"
     },
     {
       "role": "disturbance",
@@ -57,15 +48,6 @@
       "maximum": 80,
       "resolution": 0.001,
       "binding": "%ML48"
-    },
-    {
-      "role": "state",
-      "name": "Probe input",
-      "unit": "degC",
-      "minimum": 0,
-      "maximum": 80,
-      "resolution": 0.001,
-      "binding": "%IL8"
     },
     {
       "role": "state",
@@ -93,6 +75,15 @@
       "maximum": 80,
       "resolution": 0.001,
       "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "Automatic mode",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "P1.AutoMode"
     }
   ],
   "plant": {
@@ -113,11 +104,6 @@
         "name": "delivery_delay",
         "value": 1,
         "unit": "s"
-      },
-      {
-        "name": "probe_time_constant",
-        "value": 2,
-        "unit": "s"
       }
     ],
     "sampleTimeSeconds": 0.1,
@@ -128,8 +114,7 @@
     "seed": 20260829,
     "operatingPoint": {
       "Measured temperature": 35,
-      "Applied heating command": 75,
-      "Experiment authority": 0
+      "Applied heating command": 75
     },
     "validityRange": [
       {
@@ -146,10 +131,10 @@
       }
     ],
     "simplifications": [
-      "Local heater model with initial temperature35 °C and command75%.",
+      "Local heater model with initial temperature 35 °C and command 75%.",
       "Nominal coefficients are supplied simulation values, not accepted learner estimates.",
-      "Simulation-only process I/O;100ms samples.",
-      "Native state-space simulation owns the water and probe states, the one-second heater delay, the immediate load input and normal PLC I/O feedback. Main.st executes Control.PID and publishes diagnostics; nominal gains are examples, not qualified learner candidates."
+      "Simulation-only process I/O;100 ms samples.",
+      "Native state-space simulation owns the same single water state, one-second heater delay, immediate load and normal PLC I/O. Main.st executes Control.PID; nominal gains illustrate the algebra, while actual candidates use the validated learner model."
     ]
   },
   "baseline": {
@@ -161,35 +146,38 @@
       "appliedPowerPct": 75,
       "disturbanceKw": 0
     },
-    "limitation": "An unexcited record does not reveal the complete heater dynamics."
+    "limitation": "Manual PI trials give no general rule for choosing gains from the validated model."
   },
   "change": {
     "executableId": "P1",
     "settings": {
-      "TrialKind": "0:35→38°C target;1:30kW extraction at SP35",
+      "designMethod": "coefficient matching",
       "KpPctPerC": 5,
       "KiPctPerCs": 1,
+      "desiredResponseS": 5,
+      "slowerDesiredResponseS": 10,
       "durationSeconds": 60
     },
-    "decision": "Use the qualified Control Studio record to answer the lesson question; do not accept supplied nominal parameters as measured results."
+    "decision": "Keep the model-based candidate only when Control Studio validates both the setpoint and the load trial against the fixed limits; otherwise slow λ or redesign."
   },
   "experiment": {
-    "kind": "observation",
-    "signal": "Experiment authority",
-    "baseline": 0,
-    "amplitude": 0,
-    "durationSeconds": 60.1,
-    "settlingSeconds": 0,
-    "disturbances": [],
+    "kind": "setpoint_step",
+    "signal": "Heater setpoint",
+    "baseline": 35,
+    "amplitude": 3,
+    "durationSeconds": 60,
+    "settlingSeconds": 30,
+    "disturbances": [
+      "Separate load trial: 30 kW extraction at the 35 °C setpoint"
+    ],
     "seed": 20260829,
-    "restorationValue": 0,
-    "activationSignal": "P1.ExperimentEnabled"
+    "restorationValue": 35
   },
   "acceptance": [
     {
       "metric": "peak_temperature",
       "signal": "Measured temperature",
-      "window": "setpoint trial0–60s",
+      "window": "setpoint trial 0–60 s",
       "comparator": "<=",
       "limit": 39,
       "unit": "degC",
@@ -199,7 +187,7 @@
     {
       "metric": "minimum_temperature",
       "signal": "Measured temperature",
-      "window": "load trial0–60s",
+      "window": "load trial 0–60 s",
       "comparator": ">=",
       "limit": 33,
       "unit": "degC",
@@ -209,7 +197,7 @@
     {
       "metric": "maximum_absolute_error",
       "signal": "Measured temperature",
-      "window": "each trial30–60s",
+      "window": "each trial 30–60 s",
       "comparator": "<=",
       "limit": 0.2,
       "unit": "degC",
@@ -234,10 +222,10 @@
     ],
     "abortPredicates": [
       "Required measurements or timestamps are invalid, stale or nonfinite",
-      "Temperature leaves0–80 °C or applied command leaves0–100%"
+      "Temperature leaves 0–80 °C or applied command leaves 0–100%"
     ],
     "safeMv": 0,
-    "restorationMode": "Normal completion disables the experiment and restores 75% heating with zero load. Abort sets SafetyAbort and commands zero heating and zero load. Keep stopped until valid measurements and the full 35°C/75% hot reset are restored.",
+    "restorationMode": "Normal completion disables the experiment and restores 75% heating with zero load. Abort sets SafetyAbort and commands zero heating and zero load. Keep stopped until valid measurements and the full 35 °C/75% hot reset are restored.",
     "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
     "simulationOnlyRestrictions": [
       "This lesson cannot authorise physical excitation or parameter application",
@@ -245,8 +233,7 @@
     ]
   },
   "workflowStages": [
-    "Monitor",
-    "Test",
+    "Identify",
     "Tune",
     "Validate"
   ],
@@ -283,21 +270,20 @@
     "publicationState": "not_started"
   },
   "learning": {
-    "context": "Derive starting gains from the validated model and a chosen response time. Retain relevant delay, additional dynamics and uncertainty.",
-    "reason": "When your model meets the independent-validation requirements, it can support a controller calculation for a chosen response time. Manual PI tuning in Lesson 11 gives useful practice with gain changes, output limits, and response requirements. It does not provide a general calculation for how much gain to choose. Lessons 15 and 18 provide a learner model: process gain K in °C per command percentage point, time constant τ in seconds, and a measured delay L. We can use those quantities to choose a desired response time, and calculate gains under stated model assumptions.\n\nThe controller must also start from the common hot state. The heater is already holding 35 °C with 75% output. If the integral state were reset to zero while the proportional term were also zero, the experiment would quietly remove the holding power and change the plant before the setpoint test began.",
+    "context": "Lesson 18 validated the heater model, gain 0.1999 °C per %, delay 1 s and time constant 5 s, on three new records to within 0.002 °C. The model predicts the heater, but the PI gains are not yet derived from it. Gains found by trial must be searched for again for every new heater or requirement.\n\nWe will calculate the gains from the model and a chosen response time, test them on the actual heater program, and compare them with Control Studio's design.",
+    "reason": "We need to:\n\n1. choose how quickly the temperature should follow a setpoint change;\n2. calculate the PI gains from that choice and the model; and\n3. check the calculated gains on the actual heater program.",
     "theory": [
-      "**Model-based PI tuning** calculates proportional and integral settings\nfrom a process model and a chosen response requirement. We use the model\nto obtain starting gains, then test them with this heater's actual limits.\nThe desired response time is a design choice, not a measured plant parameter.\n\nThis calculation requires a validated first-order approximation. If an additional lag is essential, retain the full model for response comparisons and validate any proposed reduction before applying these formulas. If no first-order reduction meets the prediction requirements, retain your manual candidate for comparison rather than discarding the extra dynamics.\n\nStart with your local first-order model around the hot operating point. A dot denotes a derivative with respect to time:\n\n$$\n\\tau\\dot y+y=Kv.\n$$\n\nHere y=T−35 °C is temperature deviation from the 35 °C operating point, v=u−75 percentage points is command deviation from the 75% holding command, K is °C/point, and τ is seconds. The validated model may have a delay L; temporarily omit that delay only for this algebra. The delay is restored as a feasibility risk during testing.\n\nLet r=SP−35 °C be the desired temperature deviation and e=r−y be control error. Choose the desired ideal response:\n\n$$\n\\dot y=e/\\lambda.\n$$\n\nThis means error would decay with the selected time scale λ if the model and actuator were ideal. λ is a design choice, not a measured plant constant. A shorter λ asks for a faster response and therefore produces larger gains; a longer λ reduces gains and gives more margin for delay and model uncertainty.\n\nSubstitute the desired derivative into the plant. From τy'+y=Kv:\n\n$$\nv=\\frac{\\tau\\dot y+y}{K}.\n$$\n\nUse y'=e/λ:\n\n$$\nv=\\frac{\\tau e/\\lambda+y}{K}.\n$$\n\nNow differentiate this expression. K, τ, and λ are fixed parameters during the trial:\n\n$$\n\\dot v=\\frac{\\tau}{K\\lambda}\\dot e+\\frac{\\dot y}{K}.\n$$\n\nReplace y' with e/λ:\n\n$$\n\\dot v=\\frac{\\tau}{K\\lambda}\\dot e+\\frac{e}{K\\lambda}.\n$$\n\nThe implemented PI command uses an integral state I that already includes the 75% holding command:\n\n$$\nu=K_p e+I,\\qquad\\dot I=K_i e.\n$$\n\nBecause the baseline 75% is constant, u'=v'. Differentiating the PI expression gives:\n\n$$\n\\dot u=K_p\\dot e+K_i e.\n$$\n\nMatch the coefficient of e' and the coefficient of e with the derived v' expression:\n\n$$\nK_p=\\frac{\\tau}{K\\lambda},\\qquad K_i=\\frac{1}{K\\lambda}.\n$$\n\nThis method is called coefficient matching. Kp has units (s)/(°C/point × s)=percentage points/°C. Ki has units 1/(°C/point × s)=percentage point/(°C·s). The derivation assumes a local first-order model, fixed K and τ, no delay during the algebra, no output saturation, and an integral state that represents the baseline command.\n\nThe learner's delay L is not canceled by this rule. During L, the controller may continue integrating before the plant responds. Model uncertainty and output limits can therefore produce overshoot or saturation even when the ideal equation predicts decay. Lesson 8 anti-windup behavior remains required after the trial output is limited: update the integral consistently with the applied output and declared saturation policy.\n\nFor the reproducible nominal example, K=.2 °C/point, τ=5 s, and λ=5 s give Kp=5 percentage points/°C and Ki=1 percentage point/(°C·s). With the common hot reset, SP changes from 35 to 38, e=3 °C, I starts at 75%, and dt=.1 s. The first update is:\n\n$$\nu=5(3)+[75+1(3)(0.1)]=90.3\\%.\n$$\n\nFor λ=10 s, Kp=2.5 and Ki=.5; the first request is 75+2.5(3)+.5(3)(.1)=82.65%. These are nominal calculations only. The student candidate must use the learner's validated K, τ, and uncertainty."
+      "**Model-based tuning** calculates the PI settings from the model and the speed we want. We choose how quickly the temperature should follow a change, and the formula gives the gains. For this heater, the model says how strongly and how slowly the water answers the heater, and so how hard the controller must push for a chosen speed.\n\n**In words.** It replaces trial and error with a calculation, the way an engineer sizes a pump from the required flow instead of trying pumps until one is big enough. The method has three parts:\n\n1. **Choose the speed.** The **response time**, written $\\lambda$, is how long the temperature should take, once the delay has passed, to cover 63.2% of a setpoint change. It is the only design choice.\n2. **Let the integral cancel the water's slowness.** The water warms slowly because it stores heat. The integral keeps adding heat while an error remains. If the integral time equals the water's time constant, the integral rebuilds the push at the same pace as the stored heat holds the temperature back. The two cancel, and what remains is a simple loop.\n3. **Set the strength for that speed.** The proportional gain is then chosen so that the loop follows the setpoint with the chosen response time. A process that answers weakly, with a small gain, needs a stronger push. A long delay needs a gentler one, because part of the push is based on an error that is already out of date.\n\nFor this heater, the validated model supplies the gain, the time constant and the delay; only $\\lambda$ is chosen.\n\n**The formula.** The rule is\n\n$$\nK_p = \\frac{\\tau}{K(\\lambda + L)}, \\qquad T_i = \\tau, \\qquad K_i = \\frac{K_p}{\\tau}.\n$$\n\n- $K$, $\\tau$ and $L$ are the model's gain in °C per %, time constant in s and delay in s;\n- $\\lambda$ is the chosen response time, in s;\n- $K_p$ is the proportional gain, in % per °C, $T_i$ the integral time in s, and $K_i$ the integral gain in % per (°C·s).\n\n**Why it works.** Follow the loop after a setpoint change, with $e$ the error, setpoint minus temperature, and $x$ the temperature's change, both in °C:\n\n1. Let $z$ be the error summed over time, so its rate of change is $e$. The PI command change is $K_p(e + z/\\tau) = (K_p/\\tau)(\\tau\\,dz/dt + z)$. The water's temperature change obeys $\\tau\\,dx/dt + x$ = $K$ times the command change, delayed by $L$. Both equations contain the same lag, so from rest $x = (KK_p/\\tau)\\,z(t-L)$, and\n   $$\n   \\frac{dx}{dt} = \\frac{K K_p}{\\tau}\\,e(t-L) = \\frac{e(t-L)}{\\lambda + L}.\n   $$\n2. One delay earlier the error was larger by about $L\\,dx/dt$: $e(t-L) \\approx e + L\\,dx/dt$. Substituting gives $\\lambda\\,dx/dt = e$.\n3. This is Lesson 13's single lag, with time constant $\\lambda$ instead of the water's.\n\nControl Studio uses the same rule under the name **SIMC**, simple internal model control. When you do not choose $\\lambda$, it chooses one from the model, and its gains show which: $\\lambda = \\tau/(KK_p) - L$.\n\n**Example: this heater.** With $K$ = 0.2 °C per %, $\\tau$ = 5 s, $L$ = 1 s and $\\lambda$ = 5 s:\n\n1. $K_p = 5/(0.2 \\times (5 + 1)) = 4.17$ % per °C: each degree of error adds 4.17 points at once.\n2. $T_i$ = 5 s, so $K_i = 4.17/5 = 0.833$ % per (°C·s).\n3. For a 3 °C setpoint step the command jumps at once by $4.17 \\times 3 = 12.5$ points.\n4. One delay later, the temperature rises at $3/(5 + 1) = 0.5$ °C/s, by step 1 of the walk-through.\n5. A faster choice, $\\lambda$ = 2.5 s, gives $K_p = 5/(0.2 \\times 3.5) = 7.14$ and $K_i = 1.43$: the same 3 °C step makes the command jump $7.14 \\times 3 = 21.4$ points. A shorter $\\lambda$ means larger gains and a faster but harder push.\n\n**Teaching choice.** $\\lambda$ = 5 s, as fast as the heater on its own.\n\n**The limitation.** Step 2 of the walk-through needs the delay to be short compared with $\\lambda$. For $\\lambda$ = 5 s, a share $L/(\\lambda + L) = 1/6$ of the push comes from an out-of-date error; for $\\lambda$ = 0.5 s it is $2/3$, and a small step overshoots by about 21% (calculated) instead of following a single lag. The gains are also only as good as the model: a model gain 20% too low, 0.16 instead of 0.2, gives $K_p = 5/(0.16 \\times 6) = 5.21$ instead of 4.17, 25% too high."
     ],
-    "workedPrediction": "Before opening Control Studio:\n\n1. Write your learner K, τ, L, uncertainty, and chosen λ with units.\n2. Derive Kp and Ki using the coefficient matching above.\n3. Predict the first request for SP35→38 from PV35, I75, P0, and dt=.1.\n4. Predict how doubling λ changes Kp and Ki. Both should be halved.\n5. Predict how the 1 s delay and model uncertainty could change the measured response.\n6. State what evidence would make you keep, slow, or reject the candidate after the exact setpoint and load trials.\n\nThe manual gain-change bounds in Lesson 11 are practice choices, not global feasibility limits. The model-based candidate still obeys 0–100% output and must meet the declared requirements.",
+    "workedPrediction": "Before running, answer these questions:\n\n1. When will the temperature reach 63.2% of a 35 → 38 °C change, 36.90 °C?\n2. Will it overshoot 38 °C?\n3. Control Studio's SIMC design gives $K_p$ 3.21 and $K_i$ 0.655 for its model, $K$ 0.2, $\\tau$ 4.9 s, $L$ 1.1 s. Which $\\lambda$ is that, and when will it reach 63.2%?\n4. Under a 30 kW load, which design lets the temperature fall further?\n\n| Design | $K_p$ (% per °C) | $K_i$ (% per (°C·s)) | $\\lambda$ | 63.2% reached |\n| --- | ---: | ---: | ---: | ---: |\n| Your design | 4.17 | 0.833 | 5 s | 6 s |\n| SIMC | 3.21 | 0.655 | $4.9/(0.2 \\times 3.21) - 1.1 = 6.5$ s | 7.6 s |",
     "practicalPreparation": [
-      "With the simulator stopped, set `ProcessGainCPerPoint`, `TimeConstantS`, `DelayS`, `DesiredResponseS`, `ModelDataValid` and `ModelRevision` in `src/Main.st` from the validated learner record. The project calculates gains and executes the actual `Control.PID`; it does not duplicate the controller equations.",
-      "The nominal illustration K=.2, τ=5 s, L=1 s, λ=5 s gives Kp=5 and Ki=1. Set `TrialKind` in `src/Main.st` to 0 for the 35→38 °C target step or 1 for 30 kW extraction at SP35. Restart the simulator for each 60 s trial and use Control Studio Test's existing Confirm and start route."
+      "1. Start **Simulator**: the heater holds 35 °C with 75% output in Manual. Open **Control Studio**.\n2. On **Identify**, keep **Method: Automatic** and select **Identify plant**. Control Studio steps the heater and shows `G(s) = (0.2) / (4.9s +1) · e^(−1.1s)`: its compact way of writing gain 0.2, time constant 4.9 s and delay 1.1 s.\n3. On **Tune**, choose **P1.Controller · PI** from **Controller**, set **Tuning method** to **Manual** and enter $K_p$ 4.17 and $K_i$ 0.833.\n4. Select **Requirements…**, enter these values and select **Done**:\n\n   | Requirement | Value |\n   | --- | --- |\n   | Setpoint change | 3 °C |\n   | Maximum steady-state error | 0.2 °C |\n   | Maximum settling time | 30 s |\n   | Settling band | 0.1 °C |\n   | Validation duration | 60 s |\n\n5. Select **Tune controller** and compare the predicted response with your predictions.\n6. On **Validate**, select **Validate controller**. Control Studio checks the model against a fresh recording, then runs the actual `Main.st` with your gains from the hot state: a setpoint trial, 35 → 38 °C for 60 s, and a load trial, 30 kW of extra heat loss at 35 °C. Read every row.\n7. If every row passes, select **Apply**: Control Studio writes the gains into the running `Control.PID`, checks the response and reports **Applied**. **Restore previous settings** undoes the change.\n8. Return to **Tune**, set **Tuning method** to **Simple internal model control (SIMC)**, select **Tune controller**, read its gains, and repeat step 6."
     ],
-    "baseline": "Use the declared35 °C and75% initial state; retain the actual baseline record.",
-    "change": "Use the validated model to calculate coefficient-matched PI gains, execute the real Control.PID from the common hot reset, and test separate setpoint and load trials while retaining delay, limits, anti-windup and model provenance.",
-    "comparison": "The derivation is valid for the stated local model and ideal unsaturated algebra. The experiment decides whether the learner's candidate meets the exact requirements with its measured delay, uncertainty, and limits. Report first request, peak, error windows, minimum under load, saturation, applied output, model revision, λ, and reset evidence.\n\nKeep the candidate when both trials pass and the record supports the model assumptions. Choose a slower λ when the candidate is too aggressive or delay uncertainty dominates. Reject or redesign when requirements fail, data are invalid, or the learner model is not validated. Do not claim that nominal K=.2 and τ=5 apply to every learner.",
-    "validation": "The derivation is valid for the stated local model and ideal unsaturated algebra. The experiment decides whether the learner's candidate meets the exact requirements with its measured delay, uncertainty, and limits. Report first request, peak, error windows, minimum under load, saturation, applied output, model revision, λ, and reset evidence.\n\nKeep the candidate when both trials pass and the record supports the model assumptions. Choose a slower λ when the candidate is too aggressive or delay uncertainty dominates. Reject or redesign when requirements fail, data are invalid, or the learner model is not validated. Do not claim that nominal K=.2 and τ=5 apply to every learner.",
-    "explanation": "Starting from τy'+y=Kv and the desired decay y'=e/λ gives v' = τe'/(Kλ)+e/(Kλ). Matching that derivative to PI's u'=Kp e'+Ki e yields Kp=τ/(Kλ) and Ki=1/(Kλ). The integral state contains the 75% holding command, the delay remains a risk, and the exact reset and tests determine whether the design works.",
-    "transfer": "The calculated settings depend on the model parameters and the approximation used in the derivation. We have not yet obtained a candidate directly from a controlled oscillation, which can provide a different experimental starting point for the same heater.\n\n[Relay tuning](../29-relay-tuning/README.md) obtains that candidate from measured cycle amplitude and period. It will still need the same setpoint and disturbance tests."
+    "baseline": "Same 35 °C / 75 % heater and hot reset validated in Lesson 18; Manual holds 75 % until the candidate is applied.",
+    "change": "Coefficient-matched PI gains for λ = 5 s, then λ = 10 s, validated on the setpoint and load trials before Apply.",
+    "comparison": "![The 5 s design reaches 63.2% at 6.1 s without overshoot; SIMC is slower and lets the load pull the temperature lower](figures/model-based-tuning.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's **Validate** page:\n\n| Row | Your design | SIMC |\n| --- | ---: | ---: |\n| Maximum settling time | 14.4 s | 18.8 s |\n| Maximum overshoot, setpoint trial | 0 °C | 0 °C |\n| Maximum steady-state error, setpoint trial | 0.0091 °C | 0.034 °C |\n| Maximum steady-state error, load trial | 0.054 °C | 0.114 °C |\n| Operating range, load trial | 33.66–35 °C | 33.53–35 °C |\n\nEvery row passed for both, including the model agreement, 0.29%, and 86 range, state and transfer checks. **Maximum settling time** is when the temperature last left the 0.2 °C error limit; the trace stays within ±0.1 °C from 17.9 s.\n\n1. 6.1 s, one sample after the predicted 6 s.\n2. No: the peak was 38.00 °C. The command jumped from 75 to 87.8% and settled at the 90% that holds 38 °C.\n3. $\\lambda$ = 6.5 s; it reached 63.2% at 7.8 s.\n4. SIMC: its lower gains let the load pull the temperature to 33.53 °C instead of 33.66 °C.\n\nYour design was applied. Its benefit is speed and a stronger answer to load. Its cost is a harder push, a 12.5-point jump instead of SIMC's 9.6, and less room for model error. These are simulation results.",
+    "validation": "![The 5 s design reaches 63.2% at 6.1 s without overshoot; SIMC is slower and lets the load pull the temperature lower](figures/model-based-tuning.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's **Validate** page:\n\n| Row | Your design | SIMC |\n| --- | ---: | ---: |\n| Maximum settling time | 14.4 s | 18.8 s |\n| Maximum overshoot, setpoint trial | 0 °C | 0 °C |\n| Maximum steady-state error, setpoint trial | 0.0091 °C | 0.034 °C |\n| Maximum steady-state error, load trial | 0.054 °C | 0.114 °C |\n| Operating range, load trial | 33.66–35 °C | 33.53–35 °C |\n\nEvery row passed for both, including the model agreement, 0.29%, and 86 range, state and transfer checks. **Maximum settling time** is when the temperature last left the 0.2 °C error limit; the trace stays within ±0.1 °C from 17.9 s.\n\n1. 6.1 s, one sample after the predicted 6 s.\n2. No: the peak was 38.00 °C. The command jumped from 75 to 87.8% and settled at the 90% that holds 38 °C.\n3. $\\lambda$ = 6.5 s; it reached 63.2% at 7.8 s.\n4. SIMC: its lower gains let the load pull the temperature to 33.53 °C instead of 33.66 °C.\n\nYour design was applied. Its benefit is speed and a stronger answer to load. Its cost is a harder push, a 12.5-point jump instead of SIMC's 9.6, and less room for model error. These are simulation results.",
+    "explanation": "Model-based tuning turns a model and a chosen response time into PI gains: $K_p = \\tau/(K(\\lambda + L))$ and $T_i = \\tau$. The integral time cancels the process lag, and the loop then follows a setpoint change like a single lag of time constant $\\lambda$ after the delay, as long as the delay is short compared with $\\lambda$.\n\nFor this heater, $\\lambda$ = 5 s gave $K_p$ 4.17 and $K_i$ 0.833, and the actual program reached 63.2% of a 3 °C step at 6.1 s without overshoot; Control Studio's SIMC chose a slower 6.5 s.",
+    "transfer": "These gains depend on the model: an error in $K$ or $\\tau$ goes straight into $K_p$ and $K_i$. A candidate found without a model would be a useful check.\n\n[Relay tuning](../29-relay-tuning/README.md) finds PI gains from a steady oscillation of the heater itself, without a model."
   }
 }

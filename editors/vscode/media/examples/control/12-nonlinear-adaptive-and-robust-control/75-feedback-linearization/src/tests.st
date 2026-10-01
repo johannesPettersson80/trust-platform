@@ -1,30 +1,16 @@
 (* @trustlsp:runtime-ignore — run these assertions with trust-dev test;
    they are not scheduled PLC instances in the lesson simulator. *)
-TEST_PROGRAM Lesson75ScheduleGainAndGravityModelAreExplicit
-ASSERT_NEAR(EXPECTED := LREAL#1.2,
-    ACTUAL := Lesson75ReviewedSetpoint(
-        ExperimentElapsedSeconds := LREAL#1.0, ControlAuthority := TRUE),
-    DELTA := LREAL#1.0e-12);
-ASSERT_NEAR(EXPECTED := LREAL#-1.2,
-    ACTUAL := Lesson75ReviewedSetpoint(
-        ExperimentElapsedSeconds := LREAL#16.0, ControlAuthority := TRUE),
-    DELTA := LREAL#1.0e-12);
-ASSERT_NEAR(EXPECTED := LREAL#0.0,
-    ACTUAL := Lesson75ReviewedSetpoint(
-        ExperimentElapsedSeconds := LREAL#20.0, ControlAuthority := FALSE),
-    DELTA := LREAL#1.0e-12);
-ASSERT_NEAR(EXPECTED := LREAL#15.19,
-    ACTUAL := Lesson75ScheduledProportionalGain(SetpointAngle := LREAL#0.0),
-    DELTA := LREAL#1.0e-12);
-ASSERT_NEAR(EXPECTED := LREAL#16.903457618,
-    ACTUAL := Lesson75ScheduledProportionalGain(SetpointAngle := LREAL#0.6),
-    DELTA := LREAL#1.0e-12);
-ASSERT_NEAR(EXPECTED := LREAL#21.445270429,
-    ACTUAL := Lesson75ScheduledProportionalGain(SetpointAngle := LREAL#-1.2),
-    DELTA := LREAL#1.0e-12);
-ASSERT_NEAR(EXPECTED := LREAL#4.703164533707231,
-    ACTUAL := Lesson75GravityCompensation(
-        EstimatedGravityCoefficient := LREAL#9.81,
-        JointAngle := LREAL#0.5),
-    DELTA := LREAL#1.0e-9);
+
+TEST_PROGRAM TheCompensatedLaw
+(* At upright rest with the 0.1 rad target the law gives 16·0.1 = 1.6 N·m, whatever Ĝ. At the target at rest it gives only
+   −Ĝ·sin 0.1: −0.3993 N·m with Ĝ = 4, which balances gravity's 4·sin 0.1, and 0 without compensation. *)
+ASSERT_NEAR(EXPECTED := LREAL#1.6, ACTUAL := CompensatedTorqueNm(AngleRad := LREAL#0.0, SpeedRadPerS := LREAL#0.0, SetpointRad := LREAL#0.1, GravityEstimateNm := LREAL#4.0), DELTA := LREAL#1.0e-12);
+ASSERT_NEAR(EXPECTED := LREAL#-0.3993336666, ACTUAL := CompensatedTorqueNm(AngleRad := LREAL#0.1, SpeedRadPerS := LREAL#0.0, SetpointRad := LREAL#0.1, GravityEstimateNm := LREAL#4.0), DELTA := LREAL#1.0e-9);
+ASSERT_NEAR(EXPECTED := LREAL#0.0, ACTUAL := CompensatedTorqueNm(AngleRad := LREAL#0.1, SpeedRadPerS := LREAL#0.0, SetpointRad := LREAL#0.1, GravityEstimateNm := LREAL#0.0), DELTA := LREAL#1.0e-12);
+END_TEST_PROGRAM
+
+TEST_PROGRAM TheBalanceWithoutCompensation
+(* Without compensation the arm rests where the P term balances gravity, 16(0.1 − φ) = −4·sin φ: at φ = 0.13320 rad the
+   law gives −0.53120 N·m and gravity 4·sin 0.13320 = 0.53120 N·m. *)
+ASSERT_NEAR(EXPECTED := LREAL#-4.0 * SIN(LREAL#0.1332), ACTUAL := CompensatedTorqueNm(AngleRad := LREAL#0.1332, SpeedRadPerS := LREAL#0.0, SetpointRad := LREAL#0.1, GravityEstimateNm := LREAL#0.0), DELTA := LREAL#1.0e-4);
 END_TEST_PROGRAM

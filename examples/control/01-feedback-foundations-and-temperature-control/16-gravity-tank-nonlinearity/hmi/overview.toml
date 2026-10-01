@@ -9,95 +9,62 @@ tier = "hero"
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.GravityOutflow"
+bind = "P1.LevelM"
 inferred_interface = true
-label = "Gravity Outflow"
+label = "Tank level"
 span = 4
-unit = "l/min"
+unit = "m"
 min = 0
-max = 500
+max = 1
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.InitialLevelRate"
+bind = "P1.InletFlowM3S"
 inferred_interface = true
-label = "Initial Level Rate"
+label = "Inlet flow"
 span = 4
-unit = "%"
+unit = "m³/s"
 min = 0
-max = 100
+max = 0.02
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.InletFlow"
+bind = "P1.GravityModelOutflowM3S"
 inferred_interface = true
-label = "Inlet Flow"
+label = "Model outflow"
 span = 4
-unit = "l/min"
+unit = "m³/s"
 min = 0
-max = 500
+max = 0.02
 
 [[section]]
-title = "Status"
-span = 12
-tier = "status"
-
-[[section.widget]]
-type = "indicator"
-bind = "P1.ExperimentEnabled"
-inferred_interface = true
-label = "Experiment Enabled"
-span = 2
-
-[[section]]
-title = "Details"
+title = "Model"
 span = 12
 tier = "detail"
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.NetFlow"
+bind = "P1.GravityModelLevelM"
 inferred_interface = true
-label = "NET Flow"
+label = "Gravity model level"
 span = 4
-unit = "l/min"
+unit = "m"
 min = 0
-max = 500
+max = 1
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.OutletCoefficient"
+bind = "P1.EquilibriumLevelM"
 inferred_interface = true
-label = "Outlet Coefficient"
-span = 3
+label = "Equilibrium level"
+span = 4
+unit = "m"
 min = 0
-max = 100
+max = 1
 
 [[section.widget]]
-type = "gauge"
-bind = "P1.PredictedEquilibriumLevel"
+type = "indicator"
+bind = "P1.NegativeModelLevel"
 inferred_interface = true
-label = "Predicted Equilibrium Level"
-span = 4
-unit = "%"
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.TankArea"
-inferred_interface = true
-label = "Tank Area"
-span = 4
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.TankLevel"
-inferred_interface = true
-label = "Tank Level"
-span = 4
-unit = "%"
-min = 0
-max = 100
+label = "Negative model level"
+span = 2

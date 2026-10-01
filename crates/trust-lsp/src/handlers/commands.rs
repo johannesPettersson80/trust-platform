@@ -2,7 +2,7 @@
 
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tower_lsp::lsp_types::{
     CreateFile, CreateFileOptions, DeleteFile, DeleteFileOptions, DocumentChangeOperation,
@@ -26,6 +26,8 @@ use crate::handlers::lsp_utils::{offset_to_position, position_to_offset};
 use crate::library_graph::build_library_graph;
 use crate::state::{path_to_uri, uri_to_path, ServerState};
 
+#[path = "commands/control_links.rs"]
+mod control_links;
 #[path = "commands/control_symbols.rs"]
 mod control_symbols;
 
@@ -397,8 +399,40 @@ fn hmi_bindings_value_with_context<C: ServerContext>(
         .chain(&memory)
         .cloned()
         .collect::<Vec<_>>();
-    let control_symbols = control_symbols::catalog(&metadata, &snapshot, &addressed)
+    let mut control_symbols = control_symbols::catalog(&metadata, &snapshot, &addressed)
         .unwrap_or_else(|error| json!({ "error": error }));
+    let texts = sources
+        .iter()
+        .map(|source| source.text.as_str())
+        .collect::<Vec<_>>();
+    // Compiled storage names a PROGRAM instance after itself; report the type its configuration declares.
+    let configured = control_links::program_types(&texts);
+    if let Some(controllers) = control_symbols["controllers"].as_array_mut() {
+        for entry in controllers.iter_mut() {
+            let declared = entry["instance"].as_str().and_then(|name| {
+                configured
+                    .iter()
+                    .find(|(instance, _)| instance.eq_ignore_ascii_case(name))
+            });
+            if let Some((_, kind)) = declared {
+                entry["type"] = json!(kind);
+            }
+        }
+    }
+    if let Some(controllers) = control_symbols["controllers"].as_array() {
+        let instances = controllers
+            .iter()
+            .filter_map(|entry| {
+                Some((
+                    entry["instance"].as_str()?.to_string(),
+                    entry["type"].as_str()?.to_string(),
+                ))
+            })
+            .collect::<Vec<_>>();
+        let facts = control_links::facts(&texts, &instances);
+        control_symbols["links"] = json!(facts.links);
+        control_symbols["writes"] = json!(facts.writes);
+    }
 
     Some(json!({
         "ok": true,
@@ -588,38 +622,36 @@ fn resolve_hmi_bindings_project_root(
 
 fn load_hmi_sources(root: &Path) -> Result<(PathBuf, Vec<LoadedSource>), String> {
     let sources_root = resolve_sources_root(root, None).map_err(|error| error.to_string())?;
-    let mut source_paths = BTreeSet::new();
-    for pattern in ["**/*.st", "**/*.ST", "**/*.pou", "**/*.POU"] {
-        let glob_pattern = format!("{}/{}", sources_root.display(), pattern);
-        let entries = glob::glob(&glob_pattern)
-            .map_err(|error| format!("invalid glob '{glob_pattern}': {error}"))?;
-        for entry in entries {
-            let path = entry.map_err(|error| error.to_string())?;
-            source_paths.insert(path);
-        }
-    }
-
-    if source_paths.is_empty() {
+    // The same collection the runtime build uses: project sources plus declared local package dependencies.
+    let collected = trust_runtime::bundle_builder::collect_project_source_files(root, None)
+        .map_err(|error| error.to_string())?;
+    if collected.is_empty() {
         return Err(format!(
             "no ST sources found under {}",
             sources_root.display()
         ));
     }
 
-    let mut sources = Vec::with_capacity(source_paths.len());
-    for path in source_paths {
-        let text = std::fs::read_to_string(&path)
-            .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let mut sources = Vec::with_capacity(collected.len());
+    for source in collected {
         // Match the debugger's default source-header opt-out. Tests remain
         // available to language tooling, but are not configured PLC instances.
-        if text
+        if source
+            .text
             .lines()
             .take(20)
             .any(|line| line.contains("@trustlsp:runtime-ignore"))
         {
             continue;
         }
-        sources.push(LoadedSource { path, text });
+        let path = source
+            .path
+            .map(PathBuf::from)
+            .unwrap_or_else(|| sources_root.clone());
+        sources.push(LoadedSource {
+            path,
+            text: source.text,
+        });
     }
 
     Ok((sources_root, sources))

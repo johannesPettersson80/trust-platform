@@ -203,6 +203,12 @@ suite("Control Studio sensor-lag comparison", () => {
     assert.ok(result.fit.modelStructure.candidateB.analysis.warnings.some((warning: string) => /measurement bound/.test(warning)));
   });
 
+  test("states the unresolved origin of an additional lag without naming a domain", () => {
+    const warnings: string[] = review(recording(), settings).fit.modelStructure.candidateB.analysis.warnings;
+    assert.strictEqual(warnings[0], "Additional lag is a hypothesis; the recording alone cannot assign the two time constants to the process and the sensor.");
+    assert.deepStrictEqual(warnings.filter(warning => /water|heater|tank|temperature/i.test(warning)), [], "Control Studio serves any plant");
+  });
+
   test("rejects malformed or excessive sensor grids with the original record untouched", () => {
     const samples = recording(), before = JSON.stringify(samples);
     for (const sensorTimeConstant of [

@@ -1,70 +1,145 @@
-# 26. Bumpless transfer
+# 27. Bumpless transfer
 
-You will keep the PI integral aligned with manual heater power and switch to automatic control without an output jump.
+In this lesson, you will hand the heater from the operator to the controller without a jump in the heater command. You will see what a jump does when the controller's memory is out of date, and that a smooth hand-over does not make the recovery itself faster.
 
 ## The problem
 
-Lesson 25 initialized the controller from a 35 °C/75% state. Manual operation can then change applied power while automatic control is inactive. If the integral state remains at 75%, automatic control returns with a stale request. A bumpless transfer means continuity of the command at the mode boundary; it does not freeze the water temperature or make an infeasible manual output sustainable.
+Lesson 26 initialized the controller's memory from the running heater: the initialized start held the command within 74.93–75.05 % and the water within 34.98–35.02 °C, while a start from zeros cooled the water to 27.52 °C. But initialization matches the memory to the heater at one moment only. Suppose the operator then holds 60 % in Manual for 3 s: the water cools to 34.046 °C, while the memory still says 75 % at 35 °C. Switching from manual to automatic makes the command jump, because the first automatic update continues from the remembered 75 %:
+
+$$
+u = 75 + 5.79 \times 0.954 + 1.14 \times 0.954 \times 0.1 = 80.63\ \%,
+$$
+
+instead of the operator's 60 %: a 20.6-point jump caused only by the change of mode.
+
+We will keep the memory in step with the heater while the operator commands it, so that Auto starts exactly where the operator left.
 
 ## What we need
 
-We need to return from manual to automatic control without an unintended
-command jump. The inactive controller must be ready to continue from the
-output actually applied, even if manual operation changed it.
+We need to:
+
+1. keep the controller's memory in step with the heater while the operator commands it in Manual;
+2. make the first automatic command equal to the command the operator left; and
+3. let the controller continue its normal corrections from there.
 
 ## The new idea
 
-**Bumpless transfer** changes control ownership without an unintended jump
-in the actuator command. We keep the inactive controller's state aligned with
-actual manual output, then resume feedback from that command. Necessary
-corrections on later updates are separate from a jump caused by changing mode.
+**Bumpless transfer** means switching between manual and automatic without a sudden change in the heater command. While in manual, the integral is kept in step with the manual output. Keeping it in step is called **tracking**. For this heater, tracking means that while the operator holds 60 %, the controller keeps rewriting its memory as if it had produced that 60 % itself.
 
-Let $P$ be the current weighted proportional contribution using the filtered PV, $I$ the stored integral contribution, and $u_a$ the applied manual output. While Manual owns the actuator, track
+**In words.** In Manual the operator writes the heater command. If the controller is simply not updated meanwhile, its memory stands still at the moment Manual began, while the operator changes the command and the water changes temperature. When Auto takes over, the controller continues from that old memory, and the command jumps to what the controller would have done, not to what the operator did.
+
+Tracking keeps the controller in step while it is not in charge. At every manual update it copies the operator's command into its memory and works out the integral that would have produced that command with the present setpoint and measurement. It is like a co-driver who keeps their hands lightly on a second steering wheel and follows every movement: when they take over, nothing changes at that moment, and they steer on from there.
+
+The switch itself happens on one scan, the **transfer scan**: it reproduces the operator's command exactly, without any correction. From the next scan the controller makes its ordinary corrections, starting from a command and a memory that agree. For this heater, the water may still be too cold after the operator's period, so the command must still rise, but gradually, through the controller's corrections, not in one jump.
+
+**The formula.** In manual, at every update,
 
 $$
-I=u_a-P.
+I = u_a - P, \qquad P = K_p\,[\beta\,(SP - T_0) - (PV - T_0)],
 $$
 
-At 35 °C with 75% applied power, $P=0$, so tracking gives $I=75$. If the current weighted $P=4$ points and manual output is 60%, tracking gives $I=56$, so $P+I=60$. If the tracking update is omitted and stale $I=75$ remains, the same $P=4$ would request 79%, a 19-point jump. The illustrative $K_p=2$ value may be used for this arithmetic only; the live controller retains the selected gains.
+so that $P + I = u_a$ at every moment.
 
-On the first Automatic scan, calculate P from the current filtered sample and assign I=ua−P again, then reconstruct $u=P+I=u_a$, apply limits and tracking as required, and do not add the normal $K_i e\Delta t$ increment on that scan. On following Automatic scans, use the ordinary selected PI order: calculate the trial integral, form the complete request, limit it, and finally correct the retained integral from applied minus requested output, exactly as in Lesson 8.
+- $u_a$ is the applied manual command, in percent;
+- $P$ is the weighted P part at the present setpoint and measurement, and $I$ the integral part, both in percent; and
+- $SP$, $PV$, $T_0$, $K_p$ and $\beta$ are the setpoint, the measurement, the 35 °C operating point, the proportional gain and the setpoint weight of Lesson 23.
 
-The heater's one-second delivery delay means applied heat may still change after a command boundary. A manual 75→60% change held long enough can cool the water toward a lower equilibrium; a live transfer therefore must not assume a 15-point temperature-independent jump. The 15-point and 19-point values are isolated command calculations.
+`Control.PID` works with the previous command plus a change, so for it tracking simply means storing the applied command, the setpoint and the measurement at every manual update.
+
+**Example: the operator holds 60 % for 3 s.** The setpoint stays at 35 °C, and the water cools to 34.046 °C. Set B has $K_p = 5.79$ %/°C, $K_i = 1.14$ %/(°C·s) and $\beta = 0.8$. Follow the numbers:
+
+1. Tracking keeps $P = 5.79 \times [0.8 \times 0 - (34.046 - 35)] = 5.79 \times 0.954 = 5.52$ % and $I = 60 - 5.52 = 54.48$ %. Then $P + I = 60$ %: if Auto took over now, it would start exactly where the operator left.
+2. Without tracking, the memory still says 75 % at 35 °C. The first automatic update adds the change since then: $u = 75 + 5.79 \times 0.954 + 1.14 \times 0.954 \times 0.1 = 80.63$ %, a jump of 20.6 points caused only by the change of mode.
+3. With tracking, the transfer scan gives 60 %, and the next update adds only about the integral step, $1.14 \times 0.95 \times 0.1 = 0.11$ point: the correction begins smoothly.
+
+**The limitation.** Bumpless transfer removes the jump caused by changing mode, not the need to correct. The water is 0.95 °C too cold, so the command must still rise over the following updates, and the heater's 1 s delivery delay still sets how fast the water recovers.
 
 ## Prediction
 
-For an isolated state at 35 °C with $I=75$, $P=0$, and manual output 60%, predict tracked $I=60$ and first automatic request 60%. Without tracking, predict a 15-point request jump. With current $P=4$, predict tracked $I=56$, request 60%, and stale-state request 79%, a 19-point jump. Predict that PV may have cooled during a manual hold even when command continuity is exact.
+Before running, answer these questions:
+
+1. While the operator holds 60 % and the water reads 34.046 °C, what integral does tracking keep?
+2. What is the first automatic command with tracking, and without?
+3. Which hand-over lets the water cool further?
+4. Will either hand-over carry the water above 35 °C?
+
+| Hand-over | P at the switch | Integral | First automatic command |
+| --- | ---: | ---: | ---: |
+| Tracked | 5.52 % | 54.48 % | 60 % |
+| Untracked | 5.52 % | 75 % + 0.11 point | 80.63 % |
 
 ## Implementation
 
-Use the same interface and controller instance as Lesson 25. Continue using the Lesson 22 weighted setpoint path and Lesson 23 filtered PV, plus the selected Lesson 21 gains, integral state, limits and tracking. While Manual owns the output, automatic calculation must not write it. The controller must track the applied manual output, select Automatic on an explicit event, and skip the ordinary integral increment on the transfer scan.
+Open [`src/Main.st`](src/Main.st). In Manual and on the transfer scan, it runs `Control.PID` in its Manual mode with the applied command; otherwise it runs the ordinary PI update:
 
-The boundary requirement is command continuity: the requested automatic output immediately after transfer must differ from the applied manual output immediately before transfer by no more than 0.1 percentage point, with one output writer and applied power within 0–100%. Temperature recovery is assessed separately.
+```st
+IF AutoActive AND (AutoWasActive OR NOT TrackManual) THEN
+    (* Ordinary PI update. *)
+    Input.Mode := PIDMode#Auto;
+    AppliedPowerPct := Controller.Update(Input := Input);
+    AutoWasActive := TRUE;
+ELSIF TrackManual THEN
+    (* Tracking: in Manual and on the transfer scan, the stored values follow the applied command,
+       the setpoint and the measurement, so I = u_a − P. The command stays u_a: no integral step. *)
+    Input.Mode := PIDMode#Manual;
+    AppliedPowerPct := Controller.Update(Input := Input);
+    AutoWasActive := AutoActive;
+END_IF;
+```
 
-Use the mode and output selector from Lesson 25. In Manual, calculate the current weighted $P$ from filtered PV and set $I:=AppliedPowerPct-P$; select applied manual output. A rising edge means `AutomaticRequest` is true now and was false on the previous scan. Retain that previous Boolean value. When a rising edge is accepted while Ready, copy the current applied output into the transfer boundary, recalculate P from the current filtered sample, assign I=applied−P and calculate the first automatic request $P+I$, and skip ordinary integration once. On later Automatic scans, use the normal PI calculation, limits and anti-windup. Set a Boolean `EnteringAutomatic` for this scan, then clear it on the following scan. Set the control-time baseline to the transfer time; no manual interval is integrated.
+`Input.ManualOutput` holds the applied command. The transfer scan is the first scan with `AutoActive` TRUE and `AutoWasActive` FALSE. `IntegralPct` shows $I = u_a - P$ while Manual commands the heater. `TrackManual` = FALSE switches tracking off: the untracked counterexample.
 
-Keep requested, applied and delayed delivered power separate. Expose mode, transfer flag, $P$, $I$, request and applied output. Do not create a second controller instance or a second output writer for the comparison.
+**Exercise.** Open [`src/tests.st`](src/tests.st). Its second test uses other gains, $K_p = 13$ and $K_i = 3.5$, with the water at 34.2 °C: 85.68 % untracked, 60 % tracked and 60.28 % on the next update. Change the gains to 5.79 and 1.14; the expected values become 79.7232 % and 60.0912 %. Run the tests from the **Testing** view, then restore the file.
 
 ## Experiment in Control Studio
 
-1. Start at PV 35 °C, setpoint 35 °C, applied/manual power 75%, integral 75%, filtered PV 35 °C and delay history 75%. Display mode, ownership, filtered PV, weighted $P$, $I$, request and applied power.
-2. In **Control Studio → Test**, review the 35 s sequence. **Confirm and start** establishes time zero and changes the manual command from 75% to 60%. Hold it for 5 s; at 5 s request Automatic, continue observing to 35 s. Keep setpoint, load and selected gains unchanged.
-3. At the transfer boundary compare the last Manual applied value with the first Automatic request using the fresh $P$, filter state, $I$ and timestamp. Check the 0.1-point continuity requirement and confirm only one writer is active.
-4. Repeat after a full reset with an isolated untracked-state counterexample, not as a combined live run. Report the command jump separately from the temperature trajectory; manual cooling and the one-second delivery delay remain physical.
-5. Stop if PV leaves 0–80 °C, applied command leaves 0–100%, data/timestamps are invalid, or signals stop updating. Cancel automatic control, command zero heat, wait for restoration, clear transfer/history state and fully reset before repeating. Select **Abort test** to stop early, and stop the simulator if it is unresponsive.
+Besides the setpoint and load trials, the project validates two hand-overs at a 35 °C setpoint: the operator holds 60 % in Manual and Auto takes over at 3 s. The **tracked transfer** must keep the command within 59.9–60.1 % across the switch, stay at or above 33 °C, be within ±0.2 °C from 30 s and settle within 30 s. The **untracked transfer**, with `TrackManual` = FALSE, carries only the operating limits: its rows show what happens.
+
+1. Open this lesson's project and start **Simulator**. The heater holds 35 °C with 75 % in Manual. In the **truST** side bar, select **Control Studio**.
+2. On **Identify**, keep **Method** at **Automatic** and select **Identify plant**; the model is G(s) = (0.2) / (5.1s +1) · e^(−1s).
+3. On **Tune**, choose **P1.Controller · PI** and **Manual**. Enter **Proportional gain (Kp)** 5.79, **Integral gain (Ki)** 1.14, **Setpoint weight (β)** 0.8 and **Measurement filter time (Tf)** 1.
+4. Select **Requirements…** and enter **Setpoint change (°C)** 3, **Maximum steady-state error (°C)** 0.2, **Maximum settling time (s)** 15, **Settling band (±°C)** 0.1 and **Validation duration (s)** 60. Select **Done**, then **Tune controller**.
+5. On **Validate**, select **Validate controller** and compare the rows of the two transfers.
+6. Select **Apply**. Control Studio switches to Auto at one task boundary, the program's transfer scan takes over from the manual command, and Control Studio shows **Applied**.
 
 ## Evidence and decision
 
-The tracked run qualifies the transfer only if the boundary request step is ≤0.1 point, applied output stays within limits, and ownership changes once. Check that the transfer scan skipped ordinary integration and that the next scan resumed the selected PI update. A smooth request does not prove that PV remained constant or that later target requirements are met.
+![Tracking starts Auto at the operator's 60 %; without it the command jumps to 80.63 % and the water overshoots](figures/transfer-comparison.svg)
 
-Use the isolated arithmetic to explain any untracked counterexample: 75% stale state versus 60% manual output gives a 15-point jump at $P=0$, while $P=4$ gives a 19-point jump. The live run's temperature may differ because the heater dynamics continue during the manual hold. If manual output is infeasible or already limited, tracking preserves continuity but cannot create unavailable heat.
+The numbered marks answer predictions 2–4; the table above answers 1. From the validation:
+
+| Hand-over | Command across the switch | Temperature range | Within ±0.1 °C of 35 °C |
+| --- | ---: | ---: | --- |
+| Tracked | 60 % → 60 % | 33.23–35.02 °C | settled in 23 s; error 0.035 °C from 30 s |
+| Untracked | 60 % → 80.63 % | 33.70–35.50 °C | from 19.7 s |
+
+The setpoint and load trials passed, settling in 8.6 s and 18.7 s.
+
+2. The tracked hand-over started Auto at exactly 60 %, and the next update added 0.14 point. Without tracking, the command jumped from 60 % to 80.63 % in one scan.
+3. The tracked hand-over let the water cool further, to 33.23 °C at 6.4 s, against 33.70 °C: the untracked jump happened to add 20.6 points of heat just when the cold water needed heat.
+4. Only the untracked hand-over overshot, to 35.50 °C, because its extra heat came from the stale memory, not from the measurement. The tracked one never exceeded 35.02 °C.
+
+The untracked jump helped the dip only by luck: the stale memory held more heat than the operator's 60 %. Had the operator held 90 % and warmed the water to 36 °C, the same memory would give $75 - 5.79 - 0.11 = 69.1$ %, a 21-point cut at the switch in the wrong direction. We keep tracking: the hand-over no longer depends on what happened in Manual, and the tracked recovery meets its requirements. Its slower recovery, 23 s instead of 19.7 s, belongs to the tuning, not to the transfer. We apply set B; Control Studio reports **Applied**. These are simulation results for this heater.
 
 ## Conclusion
 
-Bumpless transfer is output continuity at an explicit mode boundary. Tracking $I=u_a-P$ with the current weighted and filtered proportional contribution aligns the controller with the command currently applied, while a one-scan transfer flag prevents an extra integral increment. It does not remove thermal dynamics, delay or output feasibility limits.
+Bumpless transfer keeps the controller's memory in step with the heater while Manual commands it, $I = u_a - P$ at every update, so the switch to Auto continues from the operator's command. It removes the jump caused by the change of mode, not the correction the process still needs.
+
+For this heater, the tracked hand-over started at exactly 60 % and recovered in 23 s; without tracking, the command jumped 20.6 points and the water overshot by half a degree.
+
+## Check yourself
+
+1. **The operator holds 70 % with the setpoint at 35 °C and the water at 34.5 °C. With set B, what P and I does tracking keep?**
+   $P = 5.79 \times 0.5 = 2.90$ %, so $I = 70 - 2.90 = 67.10$ %.
+2. **Why is the untracked trial's smaller dip no argument against tracking?**
+   Its jump came from a memory that described the heater before the operator acted. Here that memory held more heat
+   than needed; after a different manual action it would cut the heat at the worst moment.
+3. **Why is no integral step added on the transfer scan?**
+   The transfer scan must reproduce the operator's command exactly. Corrections start with the next update, from a
+   command and a memory that agree.
 
 ## Reason for the next lesson
 
-The same state-continuity requirement applies when gains, limits or filter settings are revised. A complete parameter record must be validated and applied together.
+Tracking keeps the command smooth when the mode changes. Changing gains or limits while running can still make the command jump: in the form $u = P + I$, a new $K_p$ changes P at once, although the measurement has not moved. Holding 38 °C at 90 %, raising $K_p$ from 5.79 to 6.95 would change P from −3.47 % to −4.17 %.
 
-[Atomic parameter update](../41-atomic-parameter-update/README.md) preserves output while committing a coherent revision.
+[Parameter updates](../41-atomic-parameter-update/README.md) changes the settings while the controller runs, without such a jump.

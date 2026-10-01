@@ -1,6 +1,0 @@
-case,status,absolute_error_integral_degC_s,comfort_violation_degC_s,comfort_violation_s,tariff_weighted_heat,movement_pp,peak_shared_percent,fallback_s
-incremental_pi,qualified,158.670000,0.000000,0.000,46624.000000,18.740000,166.290000,0.000
-finite_grid_mpc,selected_tradeoff,146.720000,0.000000,0.000,46200.000000,160.000000,160.000000,0.000
-infeasible_comfort,fallback_required,,,,,,,,
-invalid_weights,fallback_required,,,,,,,,
-recovered_configuration,qualified,,,,,,,,

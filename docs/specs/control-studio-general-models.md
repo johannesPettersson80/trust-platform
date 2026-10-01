@@ -152,7 +152,11 @@ The nominal actual-ST run loads these states and observes their declared bounds.
 Auto uses the same initialization record through the existing task-boundary
 transfer client and commissioning owner. Coupled transfer binds every actuator and its typed Manual command separately
 from the controlled references. The existing task-boundary transaction stages
-all states/mode together and checks each first output. The reviewed primary
+all states/mode together and checks each first output. Unless a transfer
+tolerance is reviewed, the first-output allowance covers the measured process
+noise n through the law's gains, 2·Kp·n + Ki·Δt·n + 4·Kd·n/Δt, for `Control.PID`
+and for a program's own P, PI or PID law named by its seed alike; without noise
+evidence it is 10⁻⁶ of the output span. The reviewed primary
 output-change tolerance is converted to the same fraction of each additional
 actuator's declared span; subsequent target changes use the full reviewed spans.
 Commissioning sets all references in that transaction and assesses every recorded
@@ -226,7 +230,14 @@ recording closure and persistence all complete.
 
 Declared controller initialization can use fresh task-boundary `model-input`,
 `model-output`, `model-input-is`, integral, weighted-error and notch-history
-formulas. Actuator inputs use bound applied feedback where available. Explicit
+formulas, and `scaled-measurement`: a bound measurement times a bound
+controller parameter, whose unit is the state's unit per measurement unit, for
+example a feedforward state `K_ff·d` (Specification 35 §17.12); and
+`decoupled-output`: row `j` of `D⁻¹·u` for a square matrix `D` of bound
+controller parameters and the fresh committed outputs `u`, the output a
+decoupled group member starts at (Specification 35 §17.15); a singular `D` is
+refused. A measured disturbance that is a model input is read as a
+measurement, not as an actuator. Actuator inputs use bound applied feedback where available. Explicit
 model-state coordinates remain declared nominal state. Coherent first-output
 rejection prevents publication of the rejected output image. This contract does
 not relax operating-point, type, unit or state-bound checks.

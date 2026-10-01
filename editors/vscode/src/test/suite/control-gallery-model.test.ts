@@ -393,7 +393,7 @@ suite("Control gallery model", () => {
       assert.deepStrictEqual(modules, []);
     });
 
-    test("groups the approved 82-lesson catalog into its twelve retained source directories", () => {
+    test("groups the approved 89-lesson catalog into its thirteen source directories", () => {
       const repositoryRoot = process.env.TRUST_REPOSITORY_ROOT
         ? path.resolve(process.env.TRUST_REPOSITORY_ROOT)
         : path.resolve(__dirname, "..", "..", "..", "..", "..");
@@ -406,12 +406,30 @@ suite("Control gallery model", () => {
 
       const modules = controlModulesFromEntries(entries);
 
-      assert.strictEqual(modules.length, 12, "the teaching specification maps 82 lessons to twelve retained source directories");
+      assert.strictEqual(modules.length, 13, "the teaching specification maps 89 lessons to thirteen source directories");
       assert.strictEqual(
         modules.reduce((total, module) => total + module.lessonCount, 0),
-        82,
+        89,
         "every lesson must belong to exactly one module"
       );
+    });
+
+    test("offers the Control Studio commissioning examples as runnable projects beside the course", () => {
+      const repositoryRoot = process.env.TRUST_REPOSITORY_ROOT
+        ? path.resolve(process.env.TRUST_REPOSITORY_ROOT)
+        : path.resolve(__dirname, "..", "..", "..", "..", "..");
+      const catalog = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "examples", "catalog.json"), "utf8")) as Array<{ id: string; path: string; tags?: string[] }>;
+      const studio = catalog.filter((entry) => entry.tags?.includes("studio"));
+      assert.deepStrictEqual(studio.map((entry) => entry.path).sort(), ["control-cascade-commissioning", "control-onoff-commissioning",
+        "control-pid-commissioning", "control-state-feedback-commissioning", "control-two-zone-commissioning"]);
+      for (const entry of studio) {
+        assert.ok(!entry.id.startsWith("control-") && !entry.tags?.includes("control"), `${entry.id} is an example, not a course lesson`);
+        for (const file of ["README.md", "simulation.toml"]) {
+          assert.ok(fs.existsSync(path.join(repositoryRoot, "examples", entry.path, file)), `${entry.path} has ${file}`);
+        }
+        assert.ok(fs.readdirSync(path.join(repositoryRoot, "examples", entry.path, "src")).some((file) => file.toLowerCase().endsWith(".st")),
+          `${entry.path} has its ST program`);
+      }
     });
 
     test("orders curriculum modules by their declared lesson sequence", () => {
@@ -440,9 +458,9 @@ suite("Control gallery model", () => {
         return lessonEntry(entry.id, entry.path, metadata.sequence);
       });
       const modules = controlModulesFromEntries(entries);
-      assert.strictEqual(modules.find((module) => module.id.startsWith("02-"))?.range, "Lessons 33–36, Lesson 45, Lesson 67");
-      assert.strictEqual(modules.find((module) => module.id.startsWith("01-"))?.range, "Lessons 1–3, 5–9, 12–13, 22–24, Lesson 30, 40–42, Lesson 44");
-      assert.strictEqual(modules.reduce((total, module) => total + module.lessonCount, 0), 82);
+      assert.strictEqual(modules.find((module) => module.id.startsWith("02-"))?.range, "Lessons 34–37, Lesson 49, Lesson 74");
+      assert.strictEqual(modules.find((module) => module.id.startsWith("01-"))?.range, "Lessons 1–3, 5–9, 12–13, 23–25, Lesson 31, 43–46, Lesson 48");
+      assert.strictEqual(modules.reduce((total, module) => total + module.lessonCount, 0), 89);
     });
 
     test("all real lesson prerequisites resolve to earlier stable lesson ids", () => {

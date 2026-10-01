@@ -1,6 +1,0 @@
-case,status,event_iae_ratio_s,peak_ratio_deviation,first_scan_ratio_demand_L_min,final_error,final_trim_L_min,saturation_duration_s,authority,abort,restoration
-feedback_only,qualified,0.526905,0.033861,0.000000,,,0.000,automatic,false,qualified
-ratio_plus_trim,qualified,0.000000,0.000000,36.000000,,,0.000,automatic,false,qualified
-meter_bias,qualified,,,,0.000218,-1.481363,0.000,automatic,false,qualified
-invalid_quality_fallback,invalid_quality_metrics_ineligible,,,,,,0.000,unavailable,false,tracked_zero
-low_flow_fallback,low_flow_metrics_ineligible,,,,,,0.000,unavailable,false,tracked_zero

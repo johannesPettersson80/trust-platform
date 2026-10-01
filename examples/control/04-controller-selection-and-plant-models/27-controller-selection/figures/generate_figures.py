@@ -1,74 +1,249 @@
 #!/usr/bin/env python3
-"""Render Lesson 31's topology diagram.
-
-Writes figures/controller-selection-topology.svg from the four loops
-declared in lesson.json; that diagram has no time-series data source.
-
-figures/controller-selection.svg is owned by the native test
-control_curriculum_selection
-(crates/trust-runtime/tests/control_curriculum_selection.rs). Refresh it
-with: TRUST_UPDATE_CONTROL_CURRICULUM_ARTIFACTS=1 cargo test -p trust-runtime --test control_curriculum_selection
-"""
+"""Generate the Lesson 42 annotated plot from its Control Studio validation runs."""
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
-INK = "#243044"
-MUTED = "#526078"
-GRID = "#d8e0eb"
-AXIS = "#526078"
-PAPER = "#f7f9fc"
-BLUE = "#0072b2"
-ORANGE = "#d55e00"
-GREEN = "#009e73"
-PINK = "#cc79a7"
 
-def loop_box(x: float, label: str, actuator: str, sensor: str, colour: str) -> str:
-    width = 195
-    return (
-        f'<rect x="{x:.1f}" y="150" width="{width}" height="180" rx="10" fill="#eff6ff" stroke="{colour}" stroke-width="2"/>'
-        f'<text x="{x + width / 2:.1f}" y="182" text-anchor="middle" font-size="18" font-weight="700">{label}</text>'
-        f'<line x1="{x + 20:.1f}" y1="200" x2="{x + width - 20:.1f}" y2="200" stroke="{MUTED}" stroke-width="1.5"/>'
-        f'<text x="{x + width / 2:.1f}" y="228" text-anchor="middle" font-size="14" fill="{MUTED}">actuator</text>'
-        f'<text x="{x + width / 2:.1f}" y="248" text-anchor="middle" font-size="13">{actuator}</text>'
-        f'<text x="{x + width / 2:.1f}" y="278" text-anchor="middle" font-size="14" fill="{MUTED}">sensor</text>'
-        f'<text x="{x + width / 2:.1f}" y="298" text-anchor="middle" font-size="13">{sensor}</text>'
+ROOT = Path(__file__).resolve().parent
+FONT = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+ACCENT = "#b45309"
+STYLE = f"""
+  svg {{ forced-color-adjust: none; color-scheme: light; }}
+  .surface {{ fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; }}
+  text {{ font-family: {FONT}; fill: #172033; }}
+  .title {{ font-size: 20px; font-weight: 650; }}
+  .subtitle {{ font-size: 12px; fill: #4b5568; }}
+  .box {{ fill: #ffffff; stroke: #526076; stroke-width: 1.5; }}
+  .axis {{ stroke: #526076; stroke-width: 1.2; }}
+  .grid {{ stroke: #cbd3df; stroke-width: 0.8; stroke-dasharray: 3 5; }}
+  .signal {{ stroke: #1769aa; stroke-width: 2.2; fill: none; }}
+  .signal-b {{ stroke: #c64b16; stroke-width: 2.2; fill: none; stroke-dasharray: 8 4; }}
+  .signal-c {{ stroke: #7a3eb1; stroke-width: 2.0; fill: none; stroke-dasharray: 2 3; }}
+  .signal-d {{ stroke: #26734d; stroke-width: 2.0; fill: none; stroke-dasharray: 7 4; }}
+  .signal-thin {{ stroke: #1769aa; stroke-width: 1.0; fill: none; }}
+  .command {{ stroke: #334155; stroke-width: 1.6; fill: none; }}
+  .surroundings {{ stroke: #26734d; stroke-width: 2; fill: none; stroke-dasharray: 7 4; }}
+  .request {{ stroke: #7a3eb1; stroke-width: 2.2; fill: none; stroke-dasharray: 2 3; }}
+  .applied {{ stroke: #c64b16; stroke-width: 2.2; fill: none; stroke-dasharray: 8 4; }}
+  .disturbance {{ stroke: #9b3152; stroke-width: 1.8; fill: none; stroke-dasharray: 5 4; }}
+  .reference {{ stroke: #475569; stroke-width: 1.4; fill: none; stroke-dasharray: 2 4; }}
+  .limit {{ stroke: #9b3152; stroke-width: 1.4; fill: none; stroke-dasharray: 6 3; }}
+  .door-band {{ fill: #f4d9e2; opacity: 0.42; }}
+  .band {{ fill: #cfe8d8; opacity: 0.55; }}
+  .tick {{ font-size: 11px; fill: #465268; }}
+  .label {{ font-size: 12px; font-weight: 600; }}
+  .note {{ font-size: 11px; fill: #374258; }}
+  .halo {{ paint-order: stroke; stroke: #f8fafc; stroke-width: 4px; stroke-linejoin: round; }}
+  .mark {{ fill: {ACCENT}; stroke: #ffffff; stroke-width: 1.4; }}
+  .leader {{ stroke: {ACCENT}; stroke-width: 1.2; fill: none; }}
+  .badge {{ fill: {ACCENT}; }}
+  .badge-text {{ font-size: 11px; font-weight: 700; fill: #ffffff; }}
+  .callout {{ font-size: 12px; fill: #172033; }}
+"""
+
+
+def svg_document(title: str, description: str, body: str, height: int) -> str:
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="900" height="{height}" viewBox="0 0 900 {height}" role="img" aria-labelledby="title desc">
+  <title id="title">{title}</title>
+  <desc id="desc">{description}</desc>
+  <style>{STYLE}</style>
+  <rect x="1" y="1" width="898" height="{height - 2}" rx="8" class="surface" />
+{body}
+</svg>
+"""
+
+
+def text(x: float, y: float, value: str, css: str, anchor: str = "start") -> str:
+    return f'  <text x="{x:.1f}" y="{y:.1f}" class="{css}" text-anchor="{anchor}">{value}</text>'
+
+
+def line(x1: float, y1: float, x2: float, y2: float, css: str, marker: bool = False) -> str:
+    suffix = ' marker-end="url(#arrow)"' if marker else ""
+    return f'  <line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" class="{css}"{suffix} />'
+
+
+def path(points: list[tuple[float, float]], css: str) -> str:
+    commands = " ".join(("M" if index == 0 else "L") + f"{x:.2f},{y:.2f}" for index, (x, y) in enumerate(points))
+    return f'  <path d="{commands}" class="{css}" />'
+
+
+def read_rows(name: str) -> list[dict[str, str]]:
+    with (ROOT / name).open(newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))
+
+
+def column(rows: list[dict[str, str]], key: str) -> list[float]:
+    return [float(row[key]) for row in rows]
+
+
+class Plot:
+    """Stacked time plots with numbered marks that answer the lesson's predictions.
+
+    Panels share the time window 0..t_max unless a panel sets its own "t0", "t1" and "t_ticks" (a zoom)."""
+
+    LEFT, RIGHT = 82.0, 850.0
+
+    def __init__(self, title: str, subtitle: str, t_max: float, t_ticks: list[float], panels: list[dict]) -> None:
+        self.title, self.subtitle = title, subtitle
+        self.body: list[str] = []
+        self.over: list[str] = []
+        self.legend: list[tuple[str, str]] = []
+        top = 104.0
+        for index, panel in enumerate(panels):
+            panel.setdefault("t0", 0.0)
+            panel.setdefault("t1", t_max)
+            panel.setdefault("t_ticks", t_ticks)
+            panel["top"] = top
+            panel["bottom"] = top + panel.get("height", 170.0)
+            following = panels[index + 1] if index + 1 < len(panels) else None
+            panel["time_labels"] = following is None or (following.get("t0", 0.0), following.get("t1", t_max)) != (panel["t0"], panel["t1"])
+            top = panel["bottom"] + panel.get("gap", 58.0 if panel["time_labels"] else 34.0)
+        self.panels = panels
+        self.height = int(panels[-1]["bottom"] + 64)
+
+    def sx(self, t: float, index: int = 0) -> float:
+        panel = self.panels[index]
+        return self.LEFT + (t - panel["t0"]) / (panel["t1"] - panel["t0"]) * (self.RIGHT - self.LEFT)
+
+    def sy(self, index: int, value: float) -> float:
+        panel = self.panels[index]
+        return panel["bottom"] - (value - panel["lo"]) / (panel["hi"] - panel["lo"]) * (panel["bottom"] - panel["top"])
+
+    def series(self, index: int, ts: list[float], values: list[float], css: str, legend: str | None = None, step: bool = False) -> None:
+        """A step series holds each sample until the next one, as a PLC output does between updates."""
+        panel = self.panels[index]
+        points = [(self.sx(t, index), self.sy(index, v)) for t, v in zip(ts, values) if panel["t0"] <= t <= panel["t1"]]
+        if step:
+            held: list[tuple[float, float]] = []
+            for (x, y), (next_x, _) in zip(points, points[1:] + [(points[-1][0], 0.0)]):
+                held.extend([(x, y), (next_x, y)])
+            points = held
+        self.body.append(path(points, css))
+        if legend:
+            self.legend.append((css, legend))
+
+    def hline(self, index: int, value: float, css: str, label: str | None = None, at: float | None = None, below: bool = False) -> None:
+        y = self.sy(index, value)
+        self.body.append(line(self.LEFT, y, self.RIGHT, y, css))
+        if label:
+            x = self.sx(at, index) if at is not None else self.RIGHT - 4
+            self.over.append(text(x, y + (14 if below else -5), label, "note halo", "start" if at is not None else "end"))
+
+    def band(self, index: int, lo: float, hi: float, t0: float, t1: float, label: str | None = None) -> None:
+        x0, x1 = self.sx(t0, index), self.sx(t1, index)
+        y0, y1 = self.sy(index, hi), self.sy(index, lo)
+        self.body.append(f'  <rect x="{x0:.1f}" y="{y0:.1f}" width="{x1 - x0:.1f}" height="{y1 - y0:.1f}" class="band" />')
+        if label:
+            self.over.append(text(x0 + 4, y0 - 4, label, "note halo"))
+
+    def span(self, t0: float, t1: float, label: str | None = None, panels: list[int] | None = None) -> None:
+        chosen = panels if panels is not None else list(range(len(self.panels)))
+        for index in chosen:
+            panel = self.panels[index]
+            x0, x1 = max(self.sx(t0, index), self.LEFT), min(self.sx(t1, index), self.RIGHT)
+            if x1 > x0:
+                self.body.append(f'  <rect x="{x0:.1f}" y="{panel["top"]:.1f}" width="{x1 - x0:.1f}" height="{panel["bottom"] - panel["top"]:.1f}" class="door-band" />')
+        if label:
+            self.over.append(text(self.sx(t0, chosen[0]) + 5, self.panels[chosen[0]]["top"] + 14, label, "note halo"))
+
+    def vline(self, t: float, label: str | None = None, panels: list[int] | None = None, label_y: float | None = None) -> None:
+        chosen = panels if panels is not None else list(range(len(self.panels)))
+        x = self.sx(t, chosen[0])
+        self.body.append(line(x, self.panels[chosen[0]]["top"], x, self.panels[chosen[-1]]["bottom"], "disturbance"))
+        if label:
+            self.over.append(text(x + 5, label_y if label_y is not None else self.panels[chosen[0]]["top"] + 14, label, "note halo"))
+
+    def mark(self, index: int, t: float, value: float, number: int, label: str, dx: float, dy: float) -> None:
+        px, py = self.sx(t, index), self.sy(index, value)
+        bx, by = px + dx, py + dy
+        distance = max((dx * dx + dy * dy) ** 0.5, 1.0)
+        ex, ey = bx - dx / distance * 9.0, by - dy / distance * 9.0
+        self.over.append(line(px, py, ex, ey, "leader"))
+        self.over.append(f'  <circle cx="{px:.1f}" cy="{py:.1f}" r="4" class="mark" />')
+        self.over.append(f'  <circle cx="{bx:.1f}" cy="{by:.1f}" r="9" class="badge" />')
+        self.over.append(text(bx, by + 4, str(number), "badge-text", "middle"))
+        lines = label.split("\n")
+        anchor = "start" if dx >= 0 else "end"
+        lx = bx + 14 if dx >= 0 else bx - 14
+        first = by + 4 - (len(lines) - 1) * 7
+        for offset, value_text in enumerate(lines):
+            self.over.append(text(lx, first + offset * 14, value_text, "callout halo", anchor))
+
+    def render(self, name: str, accessible_title: str, description: str) -> None:
+        frame = [
+            text(48, 31, self.title, "title"),
+            text(48, 52, self.subtitle, "subtitle"),
+        ]
+        for index, panel in enumerate(self.panels):
+            for value in panel["ticks"]:
+                y = self.sy(index, value)
+                frame.extend([line(self.LEFT, y, self.RIGHT, y, "grid"), text(self.LEFT - 10, y + 4, panel.get("format", "{:g}").format(value), "tick", "end")])
+            for t in panel["t_ticks"]:
+                x = self.sx(t, index)
+                frame.append(line(x, panel["top"], x, panel["bottom"], "grid"))
+                if panel["time_labels"]:
+                    frame.append(text(x, panel["bottom"] + 20, f"{t:g}", "tick", "middle"))
+            middle = (panel["top"] + panel["bottom"]) / 2
+            frame.extend([
+                f'  <text x="20" y="{middle:.1f}" class="label" text-anchor="middle" transform="rotate(-90 20 {middle:.1f})">{panel["label"]}</text>',
+                line(self.LEFT, panel["top"], self.LEFT, panel["bottom"], "axis"),
+                line(self.LEFT, panel["bottom"], self.RIGHT, panel["bottom"], "axis"),
+            ])
+            if panel["time_labels"]:
+                frame.append(text((self.LEFT + self.RIGHT) / 2, panel["bottom"] + 42, panel.get("time_label", "Time (s)"), "label", "middle"))
+        x = 48.0
+        for css, label in self.legend:
+            frame.extend([line(x, 76, x + 30, 76, css), text(x + 37, 80, label, "note")])
+            x += 37 + len(label) * 6.2 + 26
+        (ROOT / name).write_text(
+            svg_document(accessible_title, description, "\n".join(frame + self.body + self.over), self.height),
+            encoding="utf-8",
+        )
+
+
+def response_plot() -> None:
+    rows = read_rows("controller-families.csv")
+    heater = [row for row in rows if row["process"] == "heater"]
+    step = [row for row in rows if row["process"] == "axis" and row["case"] == "step"]
+    load = [row for row in rows if row["process"] == "axis" and row["case"] == "load"]
+    assert len(heater) == 3001 and len(step) == len(load) == 401
+    th, ta = column(heater, "time_s"), column(step, "time_s")
+    temperature = column(heater, "measurement")
+    angle_step, angle_load = column(step, "measurement"), column(load, "measurement")
+    plot = Plot(
+        "The recommended family for each process",
+        "Control Studio validation runs on the actual ST · the families it refused are explained in the text · numbers answer the predictions",
+        8.0,
+        [0, 1, 2, 3, 4, 5, 6, 7, 8],
+        [
+            {"label": "Heater, PI (°C)", "lo": 34.5, "hi": 38.8, "ticks": [35, 36, 37, 38], "height": 130.0,
+             "t0": 0.0, "t1": 60.0, "t_ticks": [0, 10, 20, 30, 40, 50, 60], "time_label": "Heater time (s)"},
+            {"label": "Shaft step, PID (rad)", "lo": 0.0, "hi": 1.45, "ticks": [0, 0.5, 1], "height": 130.0},
+            {"label": "Shaft load, PID (rad)", "lo": -0.11, "hi": 0.03, "ticks": [-0.1, -0.05, 0], "format": "{:g}", "height": 120.0, "time_label": "Shaft time (s)"},
+        ],
+    )
+    plot.band(0, 37.8, 38.2, 30.0, 60.0)
+    plot.hline(0, 38.0, "reference")
+    plot.series(0, th, temperature, "signal", "Measured value")
+    plot.band(1, 0.98, 1.02, 4.0, 8.0)
+    plot.hline(1, 1.0, "reference")
+    plot.series(1, ta, angle_step, "signal")
+    plot.band(2, -0.02, 0.02, 4.0, 8.0)
+    plot.hline(2, 0.0, "reference")
+    plot.series(2, ta, angle_load, "signal")
+    plot.mark(0, 19.1, temperature[955], 1, "PI recommended: within 0.2 °C from 19.1 s", 30, 40)
+    plot.mark(1, 3.1, angle_step[155], 2, "PID recommended: within 0.02 rad from 3.12 s", 30, 40)
+    low = min(range(401), key=lambda i: angle_load[i])
+    plot.mark(2, ta[low], angle_load[low], 3, "Weight: lowest −0.080 rad, back within 0.02 rad at 2.12 s,\nthen held with 1.962 N·m at zero error", 120, 6)
+    plot.render(
+        "controller-families.svg",
+        "The recommended family for each process",
+        "Control Studio recommends PI for the heater, which is within 0.2 degrees Celsius of 38 from 19.1 seconds, and PID for the shaft, which settles within 0.02 radians at 3.12 seconds and returns under the 1.962 newton-metre load within 2.12 seconds.",
     )
 
 
-def render_topology() -> str:
-    loops = [
-        (55, "Cold room", "compressor (binary)", "temperature", BLUE),
-        (270, "Water heater", "heater power (%)", "temperature", ORANGE),
-        (485, "Buffer tank", "inlet pump (%)", "level", GREEN),
-        (700, "Positioning table", "motor torque (N·m)", "position", PINK),
-    ]
-    body: list[str] = [loop_box(x, label, actuator, sensor, colour) for x, label, actuator, sensor, colour in loops]
-    for x, *_ in loops:
-        cx = x + 195 / 2
-        body.append(f'<line x1="{cx:.1f}" y1="345" x2="{cx:.1f}" y2="380" stroke="{MUTED}" stroke-width="2" stroke-dasharray="6 4"/>')
-    body.append(f'<line x1="152" y1="380" x2="798" y2="380" stroke="{MUTED}" stroke-width="2" stroke-dasharray="6 4"/>')
-    body.append(f'<rect x="330" y="405" width="240" height="46" rx="8" fill="#fff7ed" stroke="{MUTED}" stroke-width="1.5"/>')
-    body.append('<text x="450" y="433" text-anchor="middle" font-size="15" font-weight="700">P1.ExperimentEnabled</text>')
-
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="480" viewBox="0 0 1120 480" role="img" aria-labelledby="title2 desc2">
-<title id="title2">Four independent loops share one experiment authority</title>
-<desc id="desc2">Cold room, water heater, buffer tank, and positioning table each keep a separate actuator and sensor. Only the reviewed Boolean P1.ExperimentEnabled is common to all four.</desc>
-<rect width="1120" height="480" rx="14" fill="{PAPER}" stroke="{GRID}"/>
-<text x="48" y="48" font-family="system-ui, sans-serif" font-size="22" font-weight="700" fill="{INK}">Four loops, one shared authority, no shared signal path</text>
-<text x="48" y="75" font-family="system-ui, sans-serif" font-size="15" fill="{MUTED}">Each plant keeps its own actuator and sensor; only the reviewed experiment authority is common.</text>
-<g font-family="system-ui, sans-serif" text-anchor="middle" fill="{INK}">
-{"".join(body)}
-</g>
-</svg>
-'''
-
-
-def main() -> None:
-    (ROOT / "controller-selection-topology.svg").write_text(render_topology(), encoding="utf-8")
-
-
 if __name__ == "__main__":
-    main()
+    response_plot()

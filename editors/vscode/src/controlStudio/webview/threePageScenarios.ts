@@ -1,5 +1,5 @@
-import { initEngineerScenarioEditor } from "./engineerScenarioEditor";
-import { validEngineerScenarios } from "../scenarioContract";
+import { applyEventTimeLimit, initEngineerScenarioEditor, type EngineerScenarioEditorContext } from "./engineerScenarioEditor";
+import { latestScenarioCheck, validEngineerScenarios, type EngineerScenario } from "../scenarioContract";
 
 export interface ThreePageScenarioOptions {
   scenarioDefinitions: readonly Record<string, unknown>[];
@@ -30,11 +30,18 @@ export function mountThreePageScenarios(section: HTMLElement, options: ThreePage
   const form = section.querySelector<HTMLFormElement>("form");
   const actions = form?.querySelector<HTMLElement>(".trust-compact-editor-actions");
   (actions ? form!.insertBefore(container, actions) : section.append(container));
-  initEngineerScenarioEditor(container, {
+  // The validation duration can change in the same dialog, so event-time limits follow its field.
+  const durationField = section.querySelector<HTMLInputElement>("[data-studio-requirement='durationSeconds']");
+  const context: EngineerScenarioEditorContext = {
     processSymbol: options.processSymbol, setpointSymbol: options.setpointSymbol,
-    samplePeriodMs: options.samplePeriodMs, durationSeconds: options.durationSeconds,
-    processMinimum: options.processMinimum, processMaximum: options.processMaximum,
-  });
+    samplePeriodMs: options.samplePeriodMs, processMinimum: options.processMinimum, processMaximum: options.processMaximum,
+    get durationSeconds() {
+      const entered = durationField ? Number(durationField.value) : Number.NaN;
+      return durationField && durationField.value.trim() !== "" && Number.isFinite(entered) ? entered : options.durationSeconds;
+    },
+  };
+  initEngineerScenarioEditor(container, context);
+  durationField?.addEventListener("input", () => applyEventTimeLimit(container, context));
   return {
     read: () => { try { const value: unknown = JSON.parse(raw.value); return Array.isArray(value) ? value as Record<string, unknown>[] : undefined; } catch { return undefined; } },
     validate: () => {
@@ -43,6 +50,11 @@ export function mountThreePageScenarios(section: HTMLElement, options: ThreePage
       const parsed = (() => { try { return JSON.parse(raw.value) as unknown; } catch { return undefined; } })();
       if (!validEngineerScenarios(parsed)) {
         error.textContent = "Enter valid scenario definitions. Native validation will check requirements and effects before Tune."; error.hidden = false; return error.textContent;
+      }
+      const latest = latestScenarioCheck(parsed as EngineerScenario[]), duration = context.durationSeconds ?? 0;
+      if (latest && duration > 0 && latest.endSeconds > duration + 1e-9) {
+        error.textContent = `${latest.scenario} checks ${latest.requirement} until ${latest.endSeconds} s. Allow a validation duration of at least ${latest.endSeconds} s.`;
+        error.hidden = false; return error.textContent;
       }
       error.textContent = ""; error.hidden = true; return undefined;
     },

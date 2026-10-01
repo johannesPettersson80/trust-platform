@@ -14,6 +14,8 @@ export type TransferTracking = ProportionalTracking | ParallelPidTracking | Decl
 export interface TransferStatus {
   program_revision: string; binding_revision: string;
   values: Record<string, number | boolean>;
+  /** The runtime clock of the reported scan. */
+  runtime_time_ns?: number;
   status: "idle" | "pending" | "applied" | "rejected" | "failed" | "cancelled";
   reason: string | null;
   supported_tracking?: string[];
@@ -150,7 +152,9 @@ export class RuntimeTransferClient {
     const expectedEntries = tracking?.kind === "parallel-pid-v1"
       ? Object.entries(expected).filter(([key]) => key === tracking.reference_symbol || key === tracking.manual_command_symbol)
       : Object.entries(expected);
-    if (!observed || observed[this.binding.mode.symbol] !== expectedMode || (!exactExpected && !pidPostScanStatesValid)
+    // Further controllers switched with the loop, such as a cascade's outer one, must follow its mode (Specification 35 §17.11).
+    const furtherModes = (this.binding.additional_modes ?? []).every(mode => observed?.[mode.symbol] === (manual ? mode.manual_value : !mode.manual_value));
+    if (!observed || observed[this.binding.mode.symbol] !== expectedMode || !furtherModes || (!exactExpected && !pidPostScanStatesValid)
       || expectedEntries.some(([key, value]) => observed[key] !== value)) {
       throw new Error("The observed transfer does not match the reviewed mode and state.");
     }
@@ -200,9 +204,10 @@ export class RuntimeTransferClient {
   }
 
   private validValues(value: unknown): value is Record<string, number | boolean> {
-    if (!record(value) || typeof value[this.binding.mode.symbol] !== "boolean") return false;
+    const modes = [this.binding.mode, ...(this.binding.additional_modes ?? [])];
+    if (!record(value) || modes.some(mode => typeof value[mode.symbol] !== "boolean")) return false;
     const members = [...this.binding.states, ...this.binding.guards, this.binding.output, ...(this.binding.additional_outputs ?? [])];
-    return Object.keys(value).length === members.length + 1 && members.every(member =>
+    return Object.keys(value).length === members.length + modes.length && members.every(member =>
       typeof value[member.symbol] === "number" && Number.isFinite(value[member.symbol]));
   }
 }

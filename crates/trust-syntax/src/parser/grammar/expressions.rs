@@ -371,6 +371,14 @@ impl Parser<'_, '_> {
             self.error("expected array repetition value");
         }
 
+        if self.at_bare_aggregate_initializer_start() {
+            // IEC 61131-3 Ed.3 Table 11 feature 5b writes a repeated aggregate as n(PT := T#100ms); it is the element
+            // initializer that the Annex A grammar writes n((PT := T#100ms)).
+            self.start_node(SyntaxKind::Arg);
+            self.parse_bare_initializer_list();
+            self.finish_node();
+        }
+
         while !self.at(TokenKind::RParen) && !self.at_end() {
             self.start_node(SyntaxKind::Arg);
             self.parse_var_initializer();

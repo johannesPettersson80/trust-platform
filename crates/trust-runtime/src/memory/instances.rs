@@ -198,25 +198,7 @@ impl VariableStorage {
     }
 
     pub fn declared_instance_field_offset(&self, id: InstanceId, name: &str) -> Option<usize> {
-        let instance = self.instances.get(&id)?;
-        let field_name = SmolStr::new(name);
-        let key = (instance.type_name.clone(), field_name.clone());
-        if let Some(offset) = self
-            .declared_instance_field_offsets
-            .read()
-            .expect("cache poisoned")
-            .get(&key)
-            .copied()
-        {
-            return Some(offset);
-        }
-
-        let offset = instance.variables.get_index_of(field_name.as_str())?;
-        self.declared_instance_field_offsets
-            .write()
-            .expect("cache poisoned")
-            .insert(key, offset);
-        Some(offset)
+        self.instances.get(&id)?.variables.get_index_of(name)
     }
 
     pub fn declared_instance_field_ref(

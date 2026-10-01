@@ -2,18 +2,15 @@
   "schemaVersion": 2,
   "id": "control-capstone-reactor",
   "name": "Vessel commissioning",
-  "revision": "sha256:0924e3224ae398745c22a412fcee2940121dba40c620bb70cbe99b64c0cb8a9c",
   "projectId": "project:control-capstone-reactor",
   "runtimeId": "simulator",
   "controller": {
-    "instance": "P1.Controller",
+    "instance": "P1.Lifecycle",
     "type": "ReactorTrain",
     "design": "project",
-    "revision": "sha256:ceccc58b7abc7cb314832d8a82826a65dfbf75e0fdf70344ef5a32fe7e878736",
+    "revision": "sha256:18a57c9cdb215f8035ffe20c8635f9e8d4bced87a66c6dd51b8819bb67a63cda",
     "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": "P1.ControllerAuto",
-    "modeWhenTrue": "Auto"
+    "taskPeriodMs": 100
   },
   "signals": {
     "setpoint": {
@@ -23,24 +20,24 @@
       "direction": "read",
       "unit": "degC",
       "range": {
-        "minimum": 30,
-        "maximum": 40
+        "minimum": 0,
+        "maximum": 80
       }
     },
     "processVariable": {
-      "symbol": "P1.VesselC",
-      "address": "%IL0",
+      "symbol": "P1.LifecycleVesselC",
+      "address": "%IL72",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "degC",
       "range": {
-        "minimum": 30,
-        "maximum": 40
+        "minimum": 0,
+        "maximum": 80
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.AppliedPowerPct",
-      "address": "%QL0",
+      "symbol": "P1.LifecyclePct",
+      "address": "%QL64",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "%",
@@ -51,80 +48,122 @@
     },
     "additional": [
       {
-        "id": "jacket",
-        "channel": "jacket",
+        "id": "single-step-vessel",
+        "channel": "single-step-vessel",
         "role": "state",
-        "symbol": "P1.JacketC",
+        "symbol": "P1.SingleStepVesselC",
         "address": "%IL8",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "degC",
         "range": {
-          "minimum": 20,
-          "maximum": 55
+          "minimum": 0,
+          "maximum": 80
         }
       },
       {
-        "id": "jacket-target",
-        "channel": "jacket-target",
-        "role": "SP",
-        "symbol": "P1.JacketSetpointC",
-        "address": "%ML8",
+        "id": "cascade-step-vessel",
+        "channel": "cascade-step-vessel",
+        "role": "state",
+        "symbol": "P1.CascadeStepVesselC",
+        "address": "%IL24",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "degC",
         "range": {
-          "minimum": 20,
-          "maximum": 50
+          "minimum": 0,
+          "maximum": 80
         }
       },
       {
-        "id": "extraction",
-        "channel": "extraction",
-        "role": "disturbance",
-        "symbol": "P1.JacketExtractionKw",
-        "address": "%QL8",
+        "id": "lifecycle-jacket",
+        "channel": "lifecycle-jacket",
+        "role": "state",
+        "symbol": "P1.LifecycleJacketC",
+        "address": "%IL64",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "kW",
+        "unit": "degC",
         "range": {
           "minimum": 0,
-          "maximum": 30
+          "maximum": 80
         }
       },
       {
-        "id": "heater-i",
-        "channel": "heater-i",
+        "id": "single-step-command",
+        "channel": "single-step-command",
         "role": "state",
-        "symbol": "P1.HeaterIntegralPct",
-        "address": "%ML16",
+        "symbol": "P1.SingleStepPct",
+        "address": "%QL0",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "%",
         "range": {
-          "minimum": -200,
-          "maximum": 200
+          "minimum": 0,
+          "maximum": 100
         }
       },
       {
-        "id": "heater-p",
-        "channel": "heater-p",
+        "id": "cascade-step-command",
+        "channel": "cascade-step-command",
         "role": "state",
-        "symbol": "P1.HeaterProportionalPct",
-        "address": "%ML24",
+        "symbol": "P1.CascadeStepPct",
+        "address": "%QL16",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "%",
         "range": {
-          "minimum": -200,
-          "maximum": 200
+          "minimum": 0,
+          "maximum": 100
         }
       },
       {
-        "id": "outer-i",
-        "channel": "outer-i",
+        "id": "lifecycle-reading-valid",
+        "channel": "lifecycle-reading-valid",
         "role": "state",
-        "symbol": "P1.OuterIntegralC",
+        "symbol": "P1.LifecycleReadingValid",
+        "address": "%MX48.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "single-loss-jacket",
+        "channel": "single-loss-jacket",
+        "role": "state",
+        "symbol": "P1.SingleLossJacketC",
+        "address": "%IL32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "lifecycle-fault",
+        "channel": "lifecycle-fault",
+        "role": "state",
+        "symbol": "P1.LifecycleFault",
+        "address": "%MX48.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "lifecycle-jacket-setpoint",
+        "channel": "lifecycle-jacket-setpoint",
+        "role": "state",
+        "symbol": "P1.LifecycleJacketSetpointC",
         "address": "%ML32",
         "iecType": "LREAL",
         "direction": "read",
@@ -135,59 +174,171 @@
         }
       },
       {
-        "id": "nominal-power",
-        "channel": "nominal-power",
-        "role": "MV",
-        "symbol": "P1.NominalPowerPct",
-        "address": "%ML40",
+        "id": "single-loss-vessel",
+        "channel": "single-loss-vessel",
+        "role": "state",
+        "symbol": "P1.SingleLossVesselC",
+        "address": "%IL40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "cascade-loss-vessel",
+        "channel": "cascade-loss-vessel",
+        "role": "state",
+        "symbol": "P1.CascadeLossVesselC",
+        "address": "%IL56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "load",
+        "channel": "load",
+        "role": "disturbance",
+        "symbol": "P1.JacketLossKw",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": 0,
+          "maximum": 50
+        }
+      },
+      {
+        "id": "single-loss-command",
+        "channel": "single-loss-command",
+        "role": "state",
+        "symbol": "P1.SingleLossPct",
+        "address": "%QL32",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "%",
         "range": {
-          "minimum": -200,
-          "maximum": 200
+          "minimum": 0,
+          "maximum": 100
         }
       },
       {
-        "id": "mode",
-        "channel": "mode",
+        "id": "cascade-loss-command",
+        "channel": "cascade-loss-command",
         "role": "state",
-        "symbol": "P1.ControllerAuto",
-        "address": "%MX240.3",
-        "iecType": "BOOL",
+        "symbol": "P1.CascadeLossPct",
+        "address": "%QL48",
+        "iecType": "LREAL",
         "direction": "read",
-        "unit": "",
+        "unit": "%",
         "range": {
           "minimum": 0,
-          "maximum": 1
+          "maximum": 100
         }
       },
       {
-        "id": "experiment",
-        "channel": "experiment",
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
-        "address": "%MX240.5",
+        "address": "%MX48.0",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "",
+        "unit": "1",
         "range": {
           "minimum": 0,
           "maximum": 1
         }
       },
       {
-        "id": "abort",
-        "channel": "abort",
+        "id": "single-step-jacket",
+        "channel": "single-step-jacket",
         "role": "state",
-        "symbol": "P1.SafetyAbort",
-        "address": "%MX240.6",
+        "symbol": "P1.SingleStepJacketC",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "cascade-loss-jacket",
+        "channel": "cascade-loss-jacket",
+        "role": "state",
+        "symbol": "P1.CascadeLossJacketC",
+        "address": "%IL48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "cascade-loss-jacket-setpoint",
+        "channel": "cascade-loss-jacket-setpoint",
+        "role": "state",
+        "symbol": "P1.CascadeLossJacketSetpointC",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "lifecycle-auto",
+        "channel": "lifecycle-auto",
+        "role": "state",
+        "symbol": "P1.LifecycleAuto",
+        "address": "%MX48.1",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "",
+        "unit": "1",
         "range": {
           "minimum": 0,
           "maximum": 1
+        }
+      },
+      {
+        "id": "cascade-step-jacket",
+        "channel": "cascade-step-jacket",
+        "role": "state",
+        "symbol": "P1.CascadeStepJacketC",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "cascade-step-jacket-setpoint",
+        "channel": "cascade-step-jacket-setpoint",
+        "role": "state",
+        "symbol": "P1.CascadeStepJacketSetpointC",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
         }
       }
     ]
@@ -199,18 +350,21 @@
   "observedSampleTiming": {
     "nominalPeriodMs": 100
   },
-  "plantId": "jacketed-vessel",
+  "plantId": "five-jacketed-vessels",
+  "operatingPoint": "Five jacketed vessels at 35 degC with the jacket at 38 degC and 15% heater command",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 60.1,
+    "durationSeconds": 62.1,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX240.5",
+      "address": "%MX48.0",
       "iecType": "BOOL",
       "direction": "write"
-    }
-  }
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:2ecc7ac76c85f0c1c9e849c37ceb86fee0dcce1ce4dfe2620c0172666659858e"
 }

@@ -1,4 +1,10 @@
+// `VmTrap` owns strings, so its drop is a real call: an eager `ok_or(VmTrap::...)` builds and drops a trap on every
+// successful lookup. The VM builds traps lazily, only when a lookup fails.
+#![allow(clippy::unnecessary_lazy_evaluations)]
+
 use std::collections::{HashMap, HashSet};
+
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use smol_str::SmolStr;
 
@@ -83,18 +89,22 @@ pub(super) struct VmModule {
     pub(super) types: TypeTable,
     pub(super) refs: Vec<VmRef>,
     pub(super) consts: Vec<Value>,
-    pub(super) pou_by_id: HashMap<u32, VmPouEntry>,
-    pub(super) program_ids: HashMap<SmolStr, u32>,
-    pub(super) function_ids: HashMap<SmolStr, u32>,
-    pub(super) function_block_ids: HashMap<SmolStr, u32>,
-    pub(super) class_ids: HashMap<SmolStr, u32>,
-    pub(super) parent_pou_ids: HashMap<u32, u32>,
-    pub(super) interface_type_ids_by_pou: HashMap<u32, Vec<u32>>,
+    pub(super) pou_by_id: FxHashMap<u32, VmPouEntry>,
+    pub(super) program_ids: FxHashMap<SmolStr, u32>,
+    pub(super) function_ids: FxHashMap<SmolStr, u32>,
+    pub(super) function_block_ids: FxHashMap<SmolStr, u32>,
+    pub(super) class_ids: FxHashMap<SmolStr, u32>,
+    pub(super) parent_pou_ids: FxHashMap<u32, u32>,
+    pub(super) interface_type_ids_by_pou: FxHashMap<u32, Vec<u32>>,
     native_symbol_specs: Vec<VmNativeSymbolSpec>,
-    pou_params: HashMap<u32, Vec<VmParamMeta>>,
-    pou_has_return_slot: HashSet<u32>,
-    method_table_by_owner: HashMap<u32, HashMap<SmolStr, u32>>,
-    ref_types: HashMap<u32, u32>,
+    pou_params: FxHashMap<u32, Vec<VmParamMeta>>,
+    pou_has_return_slot: FxHashSet<u32>,
+    method_table_by_owner: FxHashMap<u32, FxHashMap<SmolStr, u32>>,
+    /// The declared type of each reference, indexed by reference number.
+    ref_types: Vec<Option<u32>>,
+    /// Global and instance references by storage slot: (instance owner, or `None` for the global area, offset) → reference
+    /// numbers in ascending order. A dynamic reference finds its declared type here instead of scanning every reference.
+    ref_slots: FxHashMap<(Option<u32>, usize), Vec<u32>>,
     debug_map: debug_map::VmDebugMap,
     pub(super) instruction_budget: usize,
 }
@@ -158,6 +168,7 @@ impl VmModule {
             _ => None,
         };
         let ref_types = build_ref_type_map(var_meta)?;
+        let ref_slots = build_ref_slot_index(&refs);
         let debug_map = debug_map::VmDebugMap::from_sections(
             strings,
             var_meta,
@@ -171,16 +182,17 @@ impl VmModule {
             },
         );
 
-        let mut pou_by_id = HashMap::new();
-        let mut program_ids = HashMap::new();
-        let mut function_ids = HashMap::new();
-        let mut function_block_ids = HashMap::new();
-        let mut class_ids = HashMap::new();
-        let mut parent_pou_ids = HashMap::new();
-        let mut interface_type_ids_by_pou = HashMap::new();
-        let mut pou_params = HashMap::new();
-        let mut pou_has_return_slot = HashSet::new();
-        let mut method_table_by_owner: HashMap<u32, HashMap<SmolStr, u32>> = HashMap::new();
+        let mut pou_by_id = FxHashMap::default();
+        let mut program_ids = FxHashMap::default();
+        let mut function_ids = FxHashMap::default();
+        let mut function_block_ids = FxHashMap::default();
+        let mut class_ids = FxHashMap::default();
+        let mut parent_pou_ids = FxHashMap::default();
+        let mut interface_type_ids_by_pou = FxHashMap::default();
+        let mut pou_params = FxHashMap::default();
+        let mut pou_has_return_slot = FxHashSet::default();
+        let mut method_table_by_owner: FxHashMap<u32, FxHashMap<SmolStr, u32>> =
+            FxHashMap::default();
 
         let mut pou_name_by_id: HashMap<u32, SmolStr> = HashMap::new();
         for entry in &pou_index.entries {
@@ -319,6 +331,7 @@ impl VmModule {
             pou_has_return_slot,
             method_table_by_owner,
             ref_types,
+            ref_slots,
             debug_map,
             instruction_budget: DEFAULT_INSTRUCTION_BUDGET,
         })
@@ -341,7 +354,30 @@ impl VmModule {
     }
 
     pub(super) fn ref_type(&self, ref_idx: u32) -> Option<u32> {
-        self.ref_types.get(&ref_idx).copied()
+        self.ref_types.get(ref_idx as usize).copied().flatten()
+    }
+
+    #[cfg(test)]
+    pub(super) fn set_ref_type(&mut self, ref_idx: u32, type_idx: u32) {
+        let index = ref_idx as usize;
+        if self.ref_types.len() <= index {
+            self.ref_types.resize(index + 1, None);
+        }
+        self.ref_types[index] = Some(type_idx);
+    }
+
+    /// Rebuilds the slot index after a test adds references to a constructed module.
+    #[cfg(test)]
+    pub(super) fn reindex_refs(&mut self) {
+        self.ref_slots = build_ref_slot_index(&self.refs);
+    }
+
+    /// The global or instance references that address `(owner, offset)`, in ascending order.
+    pub(super) fn refs_at_slot(&self, owner: Option<u32>, offset: usize) -> &[u32] {
+        self.ref_slots
+            .get(&(owner, offset))
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
     }
 
     pub(super) fn resolve_method_pou_id_uppercase(
@@ -369,17 +405,38 @@ impl VmModule {
     }
 }
 
-fn build_ref_type_map(var_meta: Option<&VarMeta>) -> Result<HashMap<u32, u32>, RuntimeError> {
+fn build_ref_type_map(var_meta: Option<&VarMeta>) -> Result<Vec<Option<u32>>, RuntimeError> {
     let Some(var_meta) = var_meta else {
-        return Ok(HashMap::new());
+        return Ok(Vec::new());
     };
-    let mut ref_types = HashMap::new();
+    let mut ref_types = Vec::new();
     for entry in &var_meta.entries {
-        if ref_types.insert(entry.ref_idx, entry.type_id).is_some() {
+        let index = entry.ref_idx as usize;
+        if ref_types.len() <= index {
+            ref_types.resize(index + 1, None);
+        }
+        if ref_types[index].replace(entry.type_id).is_some() {
             return Err(invalid_bytecode("duplicate VAR_META ref index"));
         }
     }
     Ok(ref_types)
+}
+
+fn build_ref_slot_index(refs: &[VmRef]) -> FxHashMap<(Option<u32>, usize), Vec<u32>> {
+    let mut slots: FxHashMap<(Option<u32>, usize), Vec<u32>> = FxHashMap::default();
+    for (index, reference) in refs.iter().enumerate() {
+        let key = match reference {
+            VmRef::Global { offset, .. } => (None, *offset),
+            VmRef::Instance {
+                owner_instance_id,
+                offset,
+                ..
+            } => (Some(*owner_instance_id), *offset),
+            _ => continue,
+        };
+        slots.entry(key).or_default().push(index as u32);
+    }
+    slots
 }
 
 #[derive(Debug, Clone)]
@@ -689,8 +746,9 @@ mod tests {
             entries: vec![var_meta(2, 5), var_meta(9, 16)],
         };
         let map = build_ref_type_map(Some(&metadata)).unwrap();
-        assert_eq!(map.get(&2), Some(&5));
-        assert_eq!(map.get(&9), Some(&16));
+        assert_eq!(map.get(2).copied().flatten(), Some(5));
+        assert_eq!(map.get(9).copied().flatten(), Some(16));
+        assert_eq!(map.get(3).copied().flatten(), None);
 
         let duplicate = VarMeta {
             entries: vec![var_meta(2, 5), var_meta(2, 16)],

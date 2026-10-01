@@ -27,11 +27,7 @@ export function pinnedControllerGains(loop: ControlLoopDefinition, family: Contr
     controllerAdapter(loop).materialize(combined, {});
     return combined;
   }
-  const pid = decodePidLaw(loop.controller.law, loop.parameterBinding);
-  const symbols: Record<string, Exclude<keyof ControllerGains, "parameters">> = pid ? {
-    [pid.proportionalGainSymbol]: "proportionalGain", [pid.integralGainSymbol]: "integralGain", [pid.derivativeGainSymbol]: "derivativeGain",
-    ...(pid.antiWindup ? { [pid.antiWindup.trackingGainSymbol]: "backCalculationGain" as const } : {}),
-  } : { [proportionalParameter(loop).symbol]: "proportionalGain" };
+  const symbols = controllerGainSymbols(loop);
   const result = { ...gains };
   for (const [symbol, value] of Object.entries(pin.values)) {
     const key = symbols[symbol];
@@ -45,4 +41,27 @@ export function pinnedControllerGains(loop: ControlLoopDefinition, family: Contr
     throw new Error("Pinned integral/derivative settings conflict with the accepted controller family.");
   }
   return result;
+}
+
+/** The PID or proportional ST parameters that hold each controller setting. */
+function controllerGainSymbols(loop: ControlLoopDefinition): Record<string, Exclude<keyof ControllerGains, "parameters">> {
+  const pid = decodePidLaw(loop.controller.law, loop.parameterBinding);
+  return pid ? {
+    [pid.proportionalGainSymbol]: "proportionalGain", [pid.integralGainSymbol]: "integralGain", [pid.derivativeGainSymbol]: "derivativeGain",
+    ...(pid.antiWindup ? { [pid.antiWindup.trackingGainSymbol]: "backCalculationGain" as const } : {}),
+    ...(pid.proportionalSetpointWeightSymbol ? { [pid.proportionalSetpointWeightSymbol]: "proportionalSetpointWeight" as const } : {}),
+    ...(pid.derivativeSetpointWeightSymbol ? { [pid.derivativeSetpointWeightSymbol]: "derivativeSetpointWeight" as const } : {}),
+    ...(pid.measurementFilterTimeSymbol ? { [pid.measurementFilterTimeSymbol]: "measurementFilterSeconds" as const } : {}),
+  } : { [proportionalParameter(loop).symbol]: "proportionalGain" };
+}
+
+/** The running controller's settings, read from its bound ST parameter values. */
+export function currentControllerGains(loop: ControlLoopDefinition, values: Readonly<Record<string, number>>): ControllerGains | undefined {
+  if (loop.controller.stateFeedback || loop.controller.onOff || loop.controller.project) return undefined;
+  const gains: ControllerGains = {};
+  for (const [symbol, key] of Object.entries(controllerGainSymbols(loop))) {
+    const value = values[symbol];
+    if (typeof value === "number" && Number.isFinite(value)) gains[key] = value;
+  }
+  return typeof gains.proportionalGain === "number" ? gains : undefined;
 }

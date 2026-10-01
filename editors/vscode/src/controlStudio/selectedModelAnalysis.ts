@@ -22,12 +22,14 @@ export function acceptedIdentificationModel(
 
 /** A single-record model is available for tuning without inventing independent validation. */
 export function provisionalIdentificationModel(model: IdentifiedModel, samples: readonly IdentificationSample[],
-  channels: { inputs: readonly ModelChannel[]; outputs: readonly ModelChannel[] }, evidence: string): GeneralTransferModel {
-  return identifiedTransferModel(model, samples, channels, "unvalidated", [evidence]);
+  channels: { inputs: readonly ModelChannel[]; outputs: readonly ModelChannel[] }, evidence: string,
+  operatingPoint?: { input0: number; output0: number }): GeneralTransferModel {
+  return identifiedTransferModel(model, samples, channels, "unvalidated", [evidence], operatingPoint);
 }
 
 function identifiedTransferModel(model: IdentifiedModel, samples: readonly IdentificationSample[],
-  channels: { inputs: readonly ModelChannel[]; outputs: readonly ModelChannel[] }, validation: GeneralModel["validation"], evidence: string[]): GeneralTransferModel {
+  channels: { inputs: readonly ModelChannel[]; outputs: readonly ModelChannel[] }, validation: GeneralModel["validation"], evidence: string[],
+  operatingPoint?: { input0: number; output0: number }): GeneralTransferModel {
   if (channels.inputs.length !== 1 || channels.outputs.length !== 1) {
     throw new Error("Low-order identification requires one input and one output channel.");
   }
@@ -38,7 +40,7 @@ function identifiedTransferModel(model: IdentifiedModel, samples: readonly Ident
     denominator.forEach((coefficient, i) => { next[i] += coefficient * time; next[i + 1] += coefficient; });
     denominator = next;
   }
-  const { input0, output0 } = identificationOperatingPoint(samples);
+  const { input0, output0 } = operatingPoint ?? identificationOperatingPoint(samples);
   return { kind: "transfer-function", numerator: [model.gain], denominator,
     delaySeconds: model.deadTimeSeconds ?? 0, source: "fitted", validation, evidence,
     operatingPoint: { inputs: [input0], outputs: [output0] },

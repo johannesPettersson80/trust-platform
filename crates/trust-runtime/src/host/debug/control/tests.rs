@@ -93,7 +93,7 @@ fn nested_control_pid_parameter_transaction_adopts_and_rejects_post_st_write() {
         ),
         crate::harness::SourceFile::with_path(
             "src/tests.st",
-            include_str!("../../../../../../examples/control-pid-commissioning/src/main.st"),
+            include_str!("../../../../../../examples/control-pid-commissioning/src/Main.st"),
         ),
     ])
     .build_runtime()
@@ -220,7 +220,7 @@ fn nested_control_pid_transfer_transaction_adopts_state_at_task_boundary() {
         ),
         crate::harness::SourceFile::with_path(
             "src/main.st",
-            include_str!("../../../../../../examples/control-pid-commissioning/src/main.st"),
+            include_str!("../../../../../../examples/control-pid-commissioning/src/Main.st"),
         ),
     ])
     .build_runtime()
@@ -303,7 +303,7 @@ fn nested_control_pid_transfer_transaction_adopts_state_at_task_boundary() {
         process_value,
         crate::value::Value::LReal(initial_process_value)
     );
-    control.confirm_transfer_task("MainTask", &task_storage);
+    control.confirm_transfer_task("MainTask", &mut task_storage);
     control.finish_transfer_cycle(&task_storage, crate::value::Duration::from_millis(200));
     let confirmed = control
         .transfer_status(json!({"binding": binding}), &metadata)

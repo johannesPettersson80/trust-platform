@@ -49,7 +49,8 @@ suite("Control Studio per-output requirements", () => {
       const fields = [...document.querySelectorAll<HTMLInputElement>("[data-studio-requirement]")];
       assert.strictEqual(fields.filter(field => field.dataset.studioSignal === "P1.PV").length, 4);
       assert.strictEqual(fields.filter(field => field.dataset.studioSignal === "P1.PV2").length, 4);
-      assert.ok(fields.filter(field => field.dataset.studioRequirement !== "durationSeconds").every(field => field.dataset.studioSignal === "P1.PV" || field.dataset.studioSignal === "P1.PV2"));
+      assert.ok(fields.filter(field => !["durationSeconds", "transferTolerance", "constantInputDisturbance"].includes(field.dataset.studioRequirement ?? "")).every(field => field.dataset.studioSignal === "P1.PV" || field.dataset.studioSignal === "P1.PV2"),
+        "every per-output requirement names its own output");
       assert.match(document.body.textContent ?? "", /P1\.PV2/);
       assert.match(document.body.textContent ?? "", /bar/);
       assert.strictEqual(document.querySelector<HTMLInputElement>("[data-studio-requirement='referenceChange:output-2']")?.value, "", "second output starts blank");
@@ -96,6 +97,132 @@ suite("Control Studio per-output requirements", () => {
       assert.strictEqual(committed.measurementNoiseBand, 0.1);
       assert.strictEqual(committed.gainUncertaintyFraction, 0.2);
       assert.strictEqual(committed.transferTolerance, 0.05);
+    } finally {
+      dom.window.HTMLDialogElement.prototype.showModal = showModal;
+      dom.window.HTMLDialogElement.prototype.close = close;
+      (globalThis as { document?: Document }).document = previousDocument;
+      (globalThis as { window?: Window }).window = previousWindow;
+      (globalThis as any).HTMLElement = previousHTMLElement;
+      dom.window.close();
+    }
+  });
+
+  test("offers an optional input disturbance in output units, blank declaring no load trial", () => {
+    const dom = new JSDOM("<main></main>");
+    const document = dom.window.document as Document;
+    const previousDocument = (globalThis as { document?: Document }).document;
+    const previousHTMLElement = (globalThis as any).HTMLElement;
+    (globalThis as any).HTMLElement = dom.window.HTMLElement;
+    const previousWindow = (globalThis as { window?: Window }).window;
+    (globalThis as { document?: Document }).document = document;
+    (globalThis as { window?: Window }).window = dom.window;
+    const showModal = dom.window.HTMLDialogElement.prototype.showModal;
+    const close = dom.window.HTMLDialogElement.prototype.close;
+    dom.window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+    dom.window.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new dom.window.Event("close")); };
+    const edit = (current: any, disturbance: string) => {
+      let committed: any;
+      editControlRequirements(multichannelLoop(), current, next => { committed = next; });
+      const values: Record<string, string> = {
+        "referenceChange:output-1": "5", "maximumError:output-1": "1", "settlingBand:output-1": "0.2", "settlingTimeSeconds:output-1": "8",
+        "referenceChange:output-2": "2", "maximumError:output-2": "0.5", "settlingBand:output-2": "0.1", "settlingTimeSeconds:output-2": "6", durationSeconds: "16",
+        constantInputDisturbance: disturbance,
+      };
+      for (const [key, value] of Object.entries(values)) document.querySelector<HTMLInputElement>(`[data-studio-requirement='${key}']`)!.value = value;
+      document.querySelector<HTMLButtonElement>("[data-studio-editor-done]")!.click();
+      return committed;
+    };
+    try {
+      const base = { referenceChange: 5, maximumError: 1, settlingBand: 0.2, settlingTimeSeconds: 8, durationSeconds: 16 };
+      editControlRequirements(multichannelLoop(), base, () => undefined);
+      const field = document.querySelector<HTMLInputElement>("[data-studio-requirement='constantInputDisturbance']");
+      assert.ok(field, "Requirements offers an input disturbance although none is declared yet");
+      assert.strictEqual(field!.dataset.studioSignal, "P1.MV", "the disturbance is added to the controller output's plant input");
+      assert.strictEqual(field!.value, "");
+      assert.strictEqual(field!.placeholder, "None");
+      assert.match(document.querySelector(`label[for='${field!.id}']`)?.textContent ?? "", /^Input disturbance \(%\)$/);
+      document.querySelector<HTMLButtonElement>("[data-studio-editor-cancel]")!.click();
+      assert.strictEqual("constantInputDisturbance" in edit(base, ""), false, "blank declares no load trial");
+      assert.strictEqual("constantInputDisturbance" in edit({ ...base, constantInputDisturbance: 3 }, ""), false, "clearing the field removes the load trial");
+      assert.strictEqual(edit(base, "-2").constantInputDisturbance, -2, "a load can pull against the output");
+    } finally {
+      dom.window.HTMLDialogElement.prototype.showModal = showModal;
+      dom.window.HTMLDialogElement.prototype.close = close;
+      (globalThis as { document?: Document }).document = previousDocument;
+      (globalThis as { window?: Window }).window = previousWindow;
+      (globalThis as any).HTMLElement = previousHTMLElement;
+      dom.window.close();
+    }
+  });
+
+  test("offers the measurement noise a declared notch needs", () => {
+    const dom = new JSDOM("<main></main>");
+    const document = dom.window.document as Document;
+    const previousDocument = (globalThis as { document?: Document }).document;
+    const previousHTMLElement = (globalThis as any).HTMLElement;
+    (globalThis as any).HTMLElement = dom.window.HTMLElement;
+    const previousWindow = (globalThis as { window?: Window }).window;
+    (globalThis as { document?: Document }).document = document;
+    (globalThis as { window?: Window }).window = dom.window;
+    const showModal = dom.window.HTMLDialogElement.prototype.showModal;
+    dom.window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+    try {
+      const loop: any = multichannelLoop();
+      loop.controller = { ...loop.controller, project: { components: [{ kind: "notch", convention: "direct-form-minus-feedback",
+        symbols: ["P1.B0", "P1.B1", "P1.B2", "P1.A1", "P1.A2"], frequenciesHz: [3], qualityFactors: [1] }] } };
+      editControlRequirements(loop, { referenceChange: 5, maximumError: 1, settlingBand: 0.2, settlingTimeSeconds: 8, durationSeconds: 16 }, () => undefined);
+      const field = document.querySelector<HTMLInputElement>("[data-studio-requirement='measurementNoiseBand']");
+      assert.ok(field, "a loop with a notch needs a measurement-noise band, so Requirements must offer it");
+      assert.match(document.querySelector(`label[for='${field!.id}']`)?.textContent ?? "", /^Measurement noise \(±°C\)$/);
+    } finally {
+      dom.window.HTMLDialogElement.prototype.showModal = showModal;
+      (globalThis as { document?: Document }).document = previousDocument;
+      (globalThis as { window?: Window }).window = previousWindow;
+      (globalThis as any).HTMLElement = previousHTMLElement;
+      dom.window.close();
+    }
+  });
+
+  test("offers the Auto-entry tolerance as an optional reviewed limit in output units", () => {
+    const dom = new JSDOM("<main></main>");
+    const document = dom.window.document as Document;
+    const previousDocument = (globalThis as { document?: Document }).document;
+    const previousHTMLElement = (globalThis as any).HTMLElement;
+    (globalThis as any).HTMLElement = dom.window.HTMLElement;
+    const previousWindow = (globalThis as { window?: Window }).window;
+    (globalThis as { document?: Document }).document = document;
+    (globalThis as { window?: Window }).window = dom.window;
+    const showModal = dom.window.HTMLDialogElement.prototype.showModal;
+    const close = dom.window.HTMLDialogElement.prototype.close;
+    dom.window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+    dom.window.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new dom.window.Event("close")); };
+    const edit = (current: any, tolerance: string) => {
+      let committed: any;
+      editControlRequirements(multichannelLoop(), current, next => { committed = next; });
+      const values: Record<string, string> = {
+        "referenceChange:output-1": "5", "maximumError:output-1": "1", "settlingBand:output-1": "0.2", "settlingTimeSeconds:output-1": "8",
+        "referenceChange:output-2": "2", "maximumError:output-2": "0.5", "settlingBand:output-2": "0.1", "settlingTimeSeconds:output-2": "6", durationSeconds: "16",
+        transferTolerance: tolerance,
+      };
+      for (const [key, value] of Object.entries(values)) document.querySelector<HTMLInputElement>(`[data-studio-requirement='${key}']`)!.value = value;
+      document.querySelector<HTMLButtonElement>("[data-studio-editor-done]")!.click();
+      return committed;
+    };
+    try {
+      const base = { referenceChange: 5, maximumError: 1, settlingBand: 0.2, settlingTimeSeconds: 8, durationSeconds: 16 };
+      editControlRequirements(multichannelLoop(), base, () => undefined);
+      const field = document.querySelector<HTMLInputElement>("[data-studio-requirement='transferTolerance']");
+      assert.ok(field, "Requirements offers the Auto-entry tolerance");
+      assert.strictEqual(field!.dataset.studioSignal, "P1.MV", "the tolerance applies to the controller output");
+      assert.strictEqual(field!.value, "", "no tolerance is reviewed yet");
+      assert.strictEqual(field!.placeholder, "Automatic");
+      assert.match(document.querySelector(`label[for='${field!.id}']`)?.textContent ?? "", /^Auto-entry tolerance \(%\)$/);
+      document.querySelector<HTMLButtonElement>("[data-studio-editor-cancel]")!.click();
+      assert.strictEqual("transferTolerance" in edit(base, ""), false, "a blank tolerance keeps the automatic allowance");
+      assert.strictEqual("transferTolerance" in edit({ ...base, transferTolerance: 0.05 }, ""), false, "clearing the field removes the reviewed tolerance");
+      assert.strictEqual(edit(base, "0.5").transferTolerance, 0.5);
+      assert.strictEqual(edit(base, "150"), undefined, "a tolerance beyond the 0-100 % output span is refused");
+      assert.match(document.body.textContent ?? "", /Use 100 or less/);
     } finally {
       dom.window.HTMLDialogElement.prototype.showModal = showModal;
       dom.window.HTMLDialogElement.prototype.close = close;

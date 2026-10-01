@@ -2,23 +2,31 @@
   "schemaVersion": 2,
   "id": "control-loop-shaping",
   "name": "Loop shaping",
-  "revision": "sha256:f13f8e9674e3dfd6b6f6226a9e764bea3cf778a80a2c1b2ac0eaf2b0999ad501",
   "projectId": "project:control-loop-shaping",
   "runtimeId": "simulator",
   "controller": {
     "instance": "P1",
     "type": "Main",
     "design": "project",
-    "revision": "sha256:331f476c5bbc41c02cfb6d53f0374b99bce8b75361eeb3c91a9c85658640af76",
+    "revision": "sha256:0be1756e74f9242957f0c7f26b816ca75cc40166bd1b87415864b7ad0552f469",
     "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": "P1.ExperimentEnabled",
-    "modeWhenTrue": "Auto"
+    "taskPeriodMs": 100
   },
   "signals": {
+    "setpoint": {
+      "symbol": "P1.TargetSetpointC",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
     "processVariable": {
-      "symbol": "P1.TemperatureC",
-      "address": "%ML40",
+      "symbol": "P1.TargetBaselineC",
+      "address": "%IL0",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "degC",
@@ -28,7 +36,7 @@
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.AppliedPowerPct",
+      "symbol": "P1.TargetBaselinePct",
       "address": "%QL0",
       "iecType": "LREAL",
       "direction": "read",
@@ -40,39 +48,11 @@
     },
     "additional": [
       {
-        "id": "experiment-authority",
-        "channel": "experiment-authority",
+        "id": "target-lead3",
+        "channel": "target-lead3",
         "role": "state",
-        "symbol": "P1.ExperimentEnabled",
-        "address": "%MX96.0",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "thermal-load",
-        "channel": "thermal-load",
-        "role": "disturbance",
-        "symbol": "P1.DisturbanceKw",
-        "address": "%QL8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "kW",
-        "range": {
-          "minimum": 0,
-          "maximum": 30
-        }
-      },
-      {
-        "id": "actual-water",
-        "channel": "actual-water",
-        "role": "state",
-        "symbol": "P1.WaterTemperatureC",
-        "address": "%ML48",
+        "symbol": "P1.TargetLead3C",
+        "address": "%IL8",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "degC",
@@ -82,17 +62,101 @@
         }
       },
       {
-        "id": "integral",
-        "channel": "integral",
+        "id": "target-lead10",
+        "channel": "target-lead10",
         "role": "state",
-        "symbol": "P1.IntegralPct",
-        "address": "%ML16",
+        "symbol": "P1.TargetLead10C",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "load-baseline",
+        "channel": "load-baseline",
+        "role": "state",
+        "symbol": "P1.LoadBaselineC",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "load-lead3",
+        "channel": "load-lead3",
+        "role": "state",
+        "symbol": "P1.LoadLead3C",
+        "address": "%IL32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "load-lead10",
+        "channel": "load-lead10",
+        "role": "state",
+        "symbol": "P1.LoadLead10C",
+        "address": "%IL40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "load",
+        "channel": "load",
+        "role": "disturbance",
+        "symbol": "P1.DisturbanceKw",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": 0,
+          "maximum": 50
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX64.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "noise-lead10-command",
+        "channel": "noise-lead10-command",
+        "role": "state",
+        "symbol": "P1.NoiseLead10Pct",
+        "address": "%QL128",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "%",
         "range": {
-          "minimum": -200,
-          "maximum": 200
+          "minimum": 0,
+          "maximum": 100
         }
       },
       {
@@ -100,89 +164,95 @@
         "channel": "noise",
         "role": "state",
         "symbol": "P1.NoiseC",
-        "address": "%ML24",
+        "address": "%ML16",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "degC",
         "range": {
-          "minimum": -0.05,
-          "maximum": 0.05
-        }
-      },
-      {
-        "id": "shape-state",
-        "channel": "shape-state",
-        "role": "state",
-        "symbol": "P1.ShapeStatePct",
-        "address": "%ML72",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": -200,
-          "maximum": 200
-        }
-      },
-      {
-        "id": "requested-power",
-        "channel": "requested-power",
-        "role": "MV",
-        "symbol": "P1.RequestedPowerPct",
-        "address": "%ML32",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": -500,
-          "maximum": 500
-        }
-      },
-      {
-        "id": "safety-abort",
-        "channel": "safety-abort",
-        "role": "state",
-        "symbol": "P1.SafetyAbort",
-        "address": "%MX96.1",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "",
-        "range": {
-          "minimum": 0,
+          "minimum": -1,
           "maximum": 1
         }
+      },
+      {
+        "id": "target-lead3-command",
+        "channel": "target-lead3-command",
+        "role": "state",
+        "symbol": "P1.TargetLead3Pct",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "target-lead10-command",
+        "channel": "target-lead10-command",
+        "role": "state",
+        "symbol": "P1.TargetLead10Pct",
+        "address": "%QL32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "noise-baseline-command",
+        "channel": "noise-baseline-command",
+        "role": "state",
+        "symbol": "P1.NoiseBaselinePct",
+        "address": "%QL96",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "noise-lead3-command",
+        "channel": "noise-lead3-command",
+        "role": "state",
+        "symbol": "P1.NoiseLead3Pct",
+        "address": "%QL112",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
       }
-    ],
-    "setpoint": {
-      "symbol": "P1.SetpointC",
-      "address": "%ML0",
-      "iecType": "LREAL",
-      "direction": "read",
-      "unit": "degC",
-      "range": {
-        "minimum": 0,
-        "maximum": 80
-      }
-    }
+    ]
   },
   "limits": {
     "outputMinimum": 0,
     "outputMaximum": 100
   },
   "observedSampleTiming": {
-    "nominalPeriodMs": 10
+    "nominalPeriodMs": 100
   },
-  "plantId": "heater-lesson-52",
+  "plantId": "nine-heaters",
+  "operatingPoint": "Nine heaters at 35 degC with 75% under PI control",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 60.1,
+    "durationSeconds": 62.1,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX96.0",
+      "address": "%MX64.0",
       "iecType": "BOOL",
       "direction": "write"
-    }
-  }
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:6d03a43300624ec97dd9c0cf7384aeb69a3c715b52b408004205c75aa45b02c8"
 }

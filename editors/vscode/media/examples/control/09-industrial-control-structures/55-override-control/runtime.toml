@@ -3,7 +3,7 @@ version = 1
 
 [resource]
 name = "Res"
-cycle_interval_ms = 50
+cycle_interval_ms = 100
 
 [runtime.control]
 endpoint = "tcp://127.0.0.1:0"

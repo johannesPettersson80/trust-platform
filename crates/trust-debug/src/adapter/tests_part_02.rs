@@ -1024,8 +1024,10 @@ fn debug_control_server_experiment_keeps_the_typed_pid_loop_running() {
                 "source": "simulation",
                 "kind": "setpoint_step",
                 "address": "%ML0",
-                "value": 5,
-                "restoration_value": 0,
+                // The setpoint marker holds its initialized 20.0 (Specification 11 §6.5), which the
+                // experiment restores.
+                "value": 25,
+                "restoration_value": 20,
                 "value_type": "LREAL",
                 "minimum": 0,
                 "maximum": 100,

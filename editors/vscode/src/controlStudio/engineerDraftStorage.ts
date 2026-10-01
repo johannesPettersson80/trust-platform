@@ -3,6 +3,7 @@ import type { ControlLoopDefinition } from "./loopDefinition";
 import { decodeEngineerStudy, type EngineerStudy } from "./engineerStudyPersistence";
 import { decodeWorkflowResult, type ControlStudioWorkflowResult } from "./workflowResult";
 import { isDeepStrictEqual } from "util";
+import { compactStoredEvidence, expandStoredEvidence } from "./studyStorageCompaction";
 
 type Storage = Pick<ExtensionContext, "workspaceState">;
 type Draft = { loopRevision: string; study: EngineerStudy; workflow?: ControlStudioWorkflowResult };
@@ -12,20 +13,22 @@ function key(loop: ControlLoopDefinition): string {
   return `trust.controlStudio.draft.${loop.projectId}.${loop.runtimeId}.${loop.id}`;
 }
 
-/** Latest editable study only. Runtime owners have separate durable journals. */
+/** Latest editable study only. Runtime owners have separate durable journals. Resolves with the validated
+ * workflow that was stored, which is what a later restore returns. */
 export async function storeEngineerDraft(context: Storage, loop: ControlLoopDefinition, study: EngineerStudy | undefined,
-  workflow?: ControlStudioWorkflowResult): Promise<void> {
+  workflow?: ControlStudioWorkflowResult): Promise<ControlStudioWorkflowResult | undefined> {
   // Retain an explicit empty draft so reopening cannot fall back to an older result.
   const decoded = decodeEngineerStudy(study ?? { campaigns: [] });
   if (!decoded) throw new Error("The current study cannot be retained; existing saved evidence was preserved.");
   const fullWorkflow = workflow === undefined ? undefined : validateWorkflowDraft(workflow, loop, decoded);
   const storageKey = key(loop), value = { loopRevision: loop.revision, study: decoded, ...(fullWorkflow ? { workflow: fullWorkflow } : {}) };
   const writing = (pending.get(storageKey)?.writing ?? Promise.resolve()).catch(() => undefined)
-    .then(async () => { await context.workspaceState.update(storageKey, value); });
+    .then(async () => { await context.workspaceState.update(storageKey, compactStoredEvidence(value)); });
   const entry = { value, writing };
   pending.set(storageKey, entry);
   try { await writing; }
   finally { if (pending.get(storageKey) === entry) pending.delete(storageKey); }
+  return fullWorkflow;
 }
 
 export function restoreEngineerDraft(context: Storage, loop: ControlLoopDefinition): EngineerStudy | undefined {
@@ -38,7 +41,7 @@ export function restoreWorkflowDraft(context: Storage, loop: ControlLoopDefiniti
 }
 
 function readDraft(context: Storage, loop: ControlLoopDefinition): Draft | undefined {
-  const value: unknown = pending.get(key(loop))?.value ?? context.workspaceState.get(key(loop));
+  const value: unknown = pending.get(key(loop))?.value ?? expandStoredEvidence(context.workspaceState.get(key(loop)));
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const draft = value as Draft;
   // A different loop's draft remains stored; its parameter pins cannot enter this loop.

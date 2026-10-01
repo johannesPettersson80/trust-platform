@@ -23,6 +23,9 @@ impl EdgeInputTransaction {
         let Some(instance_id) = instance_id else {
             return Ok(None);
         };
+        if runtime.edge_inputs.is_empty() {
+            return Ok(None);
+        }
         let Some(owner) = module.pou_name(pou_id) else {
             return Ok(None);
         };

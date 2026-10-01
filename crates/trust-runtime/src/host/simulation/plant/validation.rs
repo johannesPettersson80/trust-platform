@@ -10,14 +10,14 @@ use super::PlantModelConfig;
 
 pub(super) fn parse_addresses(
     values: &[String],
-    expected_area: IoArea,
+    expected_areas: &[IoArea],
     role: &str,
 ) -> Result<Vec<IoAddress>, RuntimeError> {
     values
         .iter()
         .map(|text| {
             let address = IoAddress::parse(text)?;
-            if address.area != expected_area {
+            if !expected_areas.contains(&address.area) {
                 return invalid(format!("plant {role} address has wrong area: {text}"));
             }
             Ok(address)

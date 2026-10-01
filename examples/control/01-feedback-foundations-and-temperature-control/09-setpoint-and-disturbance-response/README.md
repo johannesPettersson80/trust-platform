@@ -1,122 +1,128 @@
 # 9. Setpoint and disturbance response
 
-In this lesson, you will learn why a setpoint step changes the PI output before the water temperature changes, while an unmeasured thermal load must first affect the measured temperature. You will calculate the initial response in each case and assess both on the same heater.
+In this lesson, you will state requirements before a test and judge the PI heater against them in two situations: a new setpoint, and an extra heat loss at an unchanged setpoint. You will see why the controller reacts to the first at once but to the second only after the water has cooled.
 
 ## The problem
 
-The heater is hot and settled at SP=PV=35 °C with 75% nominal holding output. A new setpoint of 38 °C needs more power. So does an added 30 kW heat load while SP stays 35 °C. Their final nominal output is the same, but the controller begins correcting them at different points in the physical response.
+Lesson 8's anti-windup brought the water back within 0.2 °C of 35 °C at 29.2 s, after an unreachable 45 °C request. That shows recovery from a limit, but nothing yet says what a good response is in normal operation: when the operator asks for a new temperature, or when colder water arrives while the setpoint stays at 35 °C.
+
+We will write down requirements for both situations before testing, then check each one on the same heater.
 
 ## What we need
 
-We need separate ways to judge following a new target and rejecting an
-unwanted heat load. The comparison must show how each event reaches the
-controller and whether its temperature response is acceptable.
+We need to:
+
+1. separate following a new setpoint from recovering from an outside change;
+2. describe each response with numbers: how far the temperature goes past or away from its target, and how long it takes to settle; and
+3. decide pass or fail against limits chosen before the test.
 
 ## The new idea
 
-**Setpoint response** is the reaction to a changed desired value.
-**Disturbance rejection** is the response to an unwanted physical influence
-while that desired value stays fixed. They enter different places in the loop:
-the setpoint enters the controller, while the heat load acts on the water.
+The **setpoint response** is how the loop follows a new desired temperature. The **disturbance response** is how the loop recovers when something outside changes the temperature, such as colder inlet water, while the setpoint stays the same. We judge both by numbers decided before the test: how far the temperature overshoots, how long it takes to settle, and how far a disturbance pushes it.
 
-Here $SP$ is desired temperature, $PV$ is measured temperature and
-$e=SP-PV$ is error, all in °C. On each update, before output limiting and
-anti-windup tracking, this PI controller calculates
+**In words.** The two events enter the loop at different places. A setpoint change enters the controller directly: the error jumps at the next update, before the water has moved. A disturbance acts on the water, and the controller learns about it only when the measured temperature changes. With feedback alone, the first part of a disturbance's effect is therefore unavoidable, and the heater's 1 s delivery delay adds to it. In PLC terms, the three numbers are the acceptance criteria of a loop test, written down before it runs.
 
-$$
-I_{new}=I_{old}+K_i e\Delta t,\qquad u_{request}=K_p e+I_{new}.
-$$
+**The formula.** Three numbers describe a response:
 
-$I$ is the retained integral contribution in percentage points, $u_{request}$
-is requested heater output in percent, $K_p=2$ points/°C,
-$K_i=0.5$ points/(°C·s), and $\Delta t=0.1$ s is the update interval.
-A setpoint step from 35 to 38 °C changes e immediately at the next controller update, before water temperature can move. With I=75%, the first request is $75+2(3)+0.5(3)(0.1)=81.15\%$.
+- **Overshoot**: how far the temperature goes past the new setpoint, as a fraction of the step, $(T_{peak} - T_{target}) / \Delta T_{step}$.
+- **Settling time**: the last time the temperature is outside a band around its target; after that it stays inside.
+- **Excursion**: how far a disturbance pushes the temperature away from its setpoint, $SP - T_{low}$ for a loss of heat.
 
-The disturbance is an imposed 30 kW heat-extraction load. It can represent the
-extra heating demand from colder incoming water at unchanged flow; the local
-model represents that equivalent load directly rather than simulating inlet
-mixing separately. The PI controller receives SP and vessel PV; it has no measurement of this added heat load. At its onset PV is still 35 °C, so e and the request remain 0 °C and 75% until the vessel cools. Feedback then sees positive error and increases heating. The known 1 s delivery delay further separates a changed command from its thermal effect.
+Here $T_{peak}$ is the highest temperature, $T_{target}$ the new setpoint, $\Delta T_{step}$ the size of the setpoint step and $T_{low}$ the lowest temperature, all in °C.
 
-For this configured heater, the equilibrium relation is $T_\infty=20+0.2u$, with temperature $T_\infty$ in °C and output $u$ in percent: each output point adds 0.2 °C above the 20 °C inlet. The nominal steady output for 38 °C is $(38-20)/0.2=90\%$. The heater is rated at 200 kW at 100%, so one command percentage point corresponds to 2 kW. Replacing the additional 30 kW therefore requires $30/2=15$ more percentage points, taking the nominal 75% holding command to 90%. These are equilibrium calculations, not recorded responses. Equal final outputs do not imply equal transient traces.
+**Example.** Invented numbers first: a 3 °C step that peaks at 38.6 °C overshoots by $0.6 / 3 = 20\%$. With a ±0.2 °C band, a temperature last outside the band at 17.0 s settles at 17.0 s. A loss that pulls the water from 35 °C down to 34.1 °C is an excursion of 0.9 °C.
 
-The distinction is causal. SP is an input to the controller, so the setpoint trial can change the error without waiting for the water. The load is an input to the process, and the controller has no load measurement, so its first opportunity to react is a changed PV. A command can therefore be correct at the instant a disturbance begins while the temperature is already about to move. The record should preserve that ordering instead of treating the first deviation as a controller defect.
+Now follow this lesson's setpoint step from 35 to 38 °C, starting settled with the integral at 75 %:
 
-Set these requirements before running either experiment:
+1. At the next update the error jumps from 0 to 3 °C, before the water has moved.
+2. The request becomes $75 + 2 \times 3 + 0.5 \times 3 \times 0.1 = 81.15\%$: P gives 6 points and the integral 0.15 point more.
+3. The water warms, the error shrinks, and the integral grows until it supplies the new holding power.
+
+Follow the extra 30 kW loss at a 35 °C setpoint:
+
+1. At the instant the loss starts, the water is still at 35 °C, so the error is 0 and the request stays 75 %.
+2. The water cools. Only then does the error become positive and the controller raise the power.
+3. The integral grows until it supplies the extra loss.
+
+Both situations end at the same power. Holding 38 °C needs $(38 - 20) \times 10 / 2 = 90\%$. At 35 °C with the extra loss, $75 + 30/2 = 90\%$ as well. Equal final power does not mean equal responses.
+
+**The requirements.** They are set before the test, so a result cannot change them:
 
 | Trial | Requirement through 60 s |
 | --- | --- |
-| SP 35→38 °C | Peak ≤39 °C; $\vert PV-38\vert≤0.2$ °C by 30 s and thereafter |
-| SP 35 °C, load +30 kW | Minimum ≥33 °C; $\vert PV-35\vert≤0.2$ °C by 30 s and thereafter |
+| Setpoint 35 → 38 °C | Peak ≤ 39 °C; within ±0.2 °C of 38 °C by 30 s and from then on |
+| Setpoint 35 °C, extra loss 30 kW | Lowest ≥ 33 °C; within ±0.2 °C of 35 °C by 30 s and from then on |
 
-Applied output must remain within 0–100% in both trials. The peak is the highest temperature reached; the minimum is the lowest. Settling requires the temperature to enter the stated error band and remain there until the end of the record.
+The heater power must stay within 0–100 % in both trials. A 39 °C peak allows an overshoot of $1/3 = 33\%$. These are teaching requirements for this simulated heater.
 
 ## Prediction
 
-For the setpoint trial, identify the first changing signals and calculate the first request. For the load trial, what happens at the instant the 30 kW load appears? Why can feedback not prevent the first PV deviation from an unmeasured disturbance? Predict which trial has a peak requirement and which has a minimum requirement.
+Before running, answer these questions:
+
+1. In the setpoint trial, which signals change first, and what is the first request?
+2. In the load trial, what is the request at the instant the 30 kW loss begins?
+3. Will the setpoint trial meet both of its requirements?
+4. How far will the loss push the temperature down: will it stay above 33 °C?
+5. Will the load trial be within ±0.2 °C of 35 °C by 30 s?
 
 ## Implementation
 
-The prepared project calls the existing `Control.PID` with the same PI settings
-and back-calculation as Lesson 8. The block owns the retained history and heater
-command. The displayed P, equivalent I and unlimited request are observations
-of that history; they do not run a second controller. With fixed gains,
-proportional weight one and no derivative or feedforward, they give the PI
-calculation above. Use those same settings for both cases. For each isolated calculation, reset I to 75% and use SP/PV pairs 38/35 °C and 35/35 °C. Reset I to 75% again and check SP 35 °C with PV 34.9 °C; the request becomes $75+2(0.1)+0.5(0.1)(0.1)=75.205\%$. Keep disturbance magnitude out of the feedback expression: it belongs to the process experiment.
+Open [`src/Main.st`](src/Main.st). The program runs Lesson 8's `Control.PID`: $K_p$ = 2, $K_i$ = 0.5, anti-windup with $T_t$ = 1 s, output 0–100%, updated every 0.1 s, from the hot state. `TrialKind` selects the trial: 0 steps the setpoint to 38 °C, 1 starts the 30 kW loss at 35 °C. Change it with the simulator stopped; a restart returns to the hot state. The loss acts on the water at once, while the heater's power arrives 1 s late. After the run, or on a temperature outside 0–80 °C, the program removes heat and load.
 
-The prepared `TrialKind` selects `0` for the target trial or `1` for the
-load trial. Set its initial value in [Main.st](src/Main.st) before starting
-the simulator for that trial. Restart between trials to reset all state; a
-value written to runtime memory before a restart would be lost. The
-program holds the hot reset while preparing, then performs only that one
-selected event. Normal completion and abort switch the actual PID to Manual at 0% and remove
-extraction. The native plant supplies one measured temperature at `%IL0` and
-the preceding applied heater output at `%IL8`; a new request therefore appears
-one observation before its applied readback. The plant retains the 1 s heater
-delivery history while extraction enters immediately.
+**Exercise.** From an integral of 75%, calculate the first request for setpoint/measurement 38/35 °C (81.15%), 35/35 °C (75%) and 35/34.9 °C: $75 + 2 \times 0.1 + 0.5 \times 0.1 \times 0.1 = 75.205\%$. Find where the load is written in the program, and check that it is sent to the plant, not to the controller.
 
 ## Experiment in Control Studio
 
-1. Leave `TrialKind : INT := 0;` for the target trial, then start **Simulator** at SP=PV=35 °C, I=75%, P=0%, requested/applied output=75%, no added load, and the preceding 1 s command history at 75%. Keep Kp=2 percentage points/°C, Ki=0.5 percentage points/(°C·s), the 0.1 s update and 1 s tracking time from Lesson 8.
-2. In **Signals** under **Identify → Method → Project experiment**, select SP and PV with I and requested/applied output. Add the thermal-load signal for the load trial. Use the response plot below to compare the measured temperature with its target. Leave Error unselected in this overview: its near-zero values would compress the absolute-temperature scale.
-3. In **Identify → Method → Project experiment**, click **Review project test** for the independent 60 s sequence, then select **Confirm and start**. The project experiment automatically records the reviewed sequence and establishes time zero, with SP changing 35→38 °C at time zero. Do not add a load. Record first error/output changes, peak PV, and settling.
-4. After restoration, inspect the target response on Identify and record its peak, settling and gain values in your comparison notes. Stop Simulator, change the `TrialKind` initializer to `1`, restart and re-establish the complete 35 °C/75% state, including I and command history. Run a second independent 60 s test with SP fixed at 35 °C and a 30 kW load introduced at time zero. Do not change SP. Again use **Review project test**, then **Confirm and start**; the project experiment automatically records the reviewed sequence. Record first PV and output changes, minimum PV, and settling; after restoration, record the second response’s minimum, settling and gain values in the same comparison notes.
-5. Abort outside 0–80 °C, outside 0–100% applied output, or on unusable measurements. Select **Abort test**, cancel the load, disable heating and confirm 0% output. Stop the simulator if it is unresponsive. At normal completion also restore these stopped conditions; after the delivery delay, the water cools.
+1. Check that `TrialKind := 0;` in `src/Main.st`, open this lesson's project and start **Simulator**. The heater holds 35 °C with 75% power. In the **truST** side bar, select **Control Studio**.
+2. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.SetpointC · Setpoint (°C)`, `P1.TemperatureC · Process value (°C)` and `P1.AppliedPowerPct · Applied output (%)`; add `P1.IntegralPct · state (%)` and `P1.ErrorC · state (°C)`.
+3. Write down the requirements and answer the predictions before starting.
+4. Select **Review project test** and check the declared **60.1 s** duration.
+5. Select **Confirm and start**; this is time zero, and the setpoint steps to 38 °C.
+6. After the run, hover the first sample, the peak and the last time the water is more than 0.2 °C from 38 °C. Right-click the plot and choose **Save recording…** to keep the run.
+7. Stop the simulator, change to `TrialKind := 1;`, start **Simulator** again and repeat steps 2–6, adding `P1.DisturbanceKw · disturbance (kW)` to **Signals**. Hover the first sample, the lowest temperature and the last time the water is more than 0.2 °C from 35 °C.
+8. At the end of each run, Control Studio shows **Project test completed. Outputs restored.**, and heater and load return to 0.
 
-## Reusing the project
-
-The delivered project contains its Control library dependency, 100 ms task,
-signal mappings and native simulation configuration. To adapt it, map the
-measured temperature and applied-output feedback to your real sensors, and map
-the heater and extraction commands to the corresponding outputs. Set process
-units, bounds and actuator limits for that equipment. The example latches an
-out-of-range temperature fault and removes both commands. The runtime rejects
-nonfinite typed input before ST executes, so that fault needs the runtime stop
-policy rather than this program flag. Real I/O also needs site-specific
-quality/freshness supervision and an independent stop path. This nominal simulator uses 0.1 s per controller update; a deployment with
-variable intervals must supply the actual elapsed time, covered later in the
-sampling lesson. The simulated results do not qualify a physical heater.
+Select **Abort test** to stop early. A temperature outside 0–80 °C latches `SafetyAbort`, which removes heat until you restart the simulator.
 
 ## Evidence and decision
 
-In the prepared nominal simulation, the maximum 30–60 s error is about 0.0751 °C
-for the target trial and 0.2120 °C for the load trial. The target trial meets
-the 0.2 °C requirement; the load trial narrowly fails it. Keep that failure for
-the next diagnostic lesson. Do not change the gains or widen the requirement
-to make this baseline pass.
+![The setpoint change moves the command at once; the load must first cool the water](figures/setpoint-and-load-trials.svg)
 
-The setpoint trial should show SP and error changing before PV. The disturbance trial should show load changing before PV, then error and controller output. Use the timestamps, not visual ordering alone. Applied output must remain 0–100% in both trials. A 39.5 °C peak fails even if the response reaches 38 °C quickly; a good setpoint trial does not establish disturbance rejection.
+The numbered marks answer the predictions with the same numbers. From the two recorded trials:
 
-To inspect error separately, use **Signals** to hide SP, PV and the output
-traces, select **Error**, and return to **Response**. **Samples** shows the
-selected values with their times and quality. Assess the 30–60 s interval,
-excluding the later stopped state; restore SP and PV to compare temperatures.
+| Trial | First request | Extreme | Last outside ±0.2 °C | Largest error 30–60 s | Result |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Setpoint 35 → 38 °C | 81.15% | peak 38.00 °C | 23.4 s | 0.075 °C | passes |
+| Extra loss 30 kW at 35 °C | 75.00% | lowest 33.32 °C | 30.4 s | 0.212 °C | fails by 0.4 s |
 
-For each trial, write the event time, first changed signal, first controller response, PV extreme, first time inside the required band, and whether it stayed there to 60 s. If the band is never reached, write “not reached” rather than estimating a settling time beyond the record. The 30 kW event is intentionally separate from the 38 °C step; combining them would change the capacity question and invalidate the comparison.
+1. In the setpoint trial, the setpoint and the error changed at the first update, and the request rose to the calculated 81.15% before the water moved.
+2. In the load trial, the first update still read 35 °C, so the request stayed at 75%. Error and power rose only after the water had cooled.
+3. The setpoint response peaked at 38.00 °C, with no overshoot, and stayed within ±0.2 °C of 38 °C from 23.4 s: it passes.
+4. The loss pushed the temperature down to 33.32 °C, an excursion of 1.68 °C, inside the 33 °C limit.
+5. The temperature was still more than 0.2 °C from 35 °C at 30.4 s, so the load trial fails its settling requirement by 0.4 s.
+
+Both trials ended at 90% power, as calculated, and the power stayed within 0–100%. The setpoint response meets its requirements; the disturbance response narrowly does not. A good setpoint response does not establish good disturbance rejection, because the controller meets the two events at different points in the loop.
+
+Keep that failure for the next lesson. Do not change the gains or widen the requirement to make this result pass. These are simulation results.
 
 ## Conclusion
 
-PI responds directly to a setpoint step through SP in the error calculation. It rejects an unmeasured load only after the process changes PV. Both responses require separate records and separate decisions.
+A setpoint change reaches the controller directly, so it acts before the temperature moves. A disturbance acts on the process, so feedback can only respond after the measurement has changed. Each needs its own test and its own requirements, set before the test.
+
+For this heater, the PI controller follows the 3 °C setpoint step well, but its recovery from the extra 30 kW loss is 0.4 s too slow for the stated requirement.
+
+## Check yourself
+
+1. **A 35 → 38 °C step peaks at 38.45 °C. What is the overshoot, and does it meet the 39 °C limit?**
+   (38.45 − 38) / 3 = 15%. It meets the limit, which allows 33%.
+2. **Why did the heater power not change at the moment the 30 kW loss began?**
+   The controller sees only the measured temperature. The loss acts on the water, so the power changes only after
+   the water has cooled.
+3. **The water was last more than 0.2 °C from 35 °C at 30.4 s. What is the settling time, and the verdict against "by 30 s"?**
+   The settling time is 30.4 s; the requirement fails by 0.4 s.
 
 ## Reason for the next lesson
 
-A failed requirement does not identify its cause. [Loop diagnosis](../../09-industrial-control-structures/60-loop-diagnosis/README.md) checks measurement, actuator, capacity, and disturbance evidence before any gain change.
+The load trial failed its settling requirement, but the result does not say why. The controller could be too slow, the measurement could be wrong, the heater could fail to deliver what is commanded, or the load could be too large for the heater.
+
+[Loop diagnosis](../../09-industrial-control-structures/60-loop-diagnosis/README.md) checks the measurement, the actuator and the capacity before anyone changes a gain.

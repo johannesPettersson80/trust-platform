@@ -8,6 +8,20 @@ const base = () => ({ revision: "engineer-model-1", source: "provided", validati
   kind: "continuous-state-space", a: [[-2]], b: [[1, 3]], c: [[2]], d: [[0, 1]] });
 
 suite("Control Studio general models", () => {
+  test("keeps the Bode phase continuous while a delay keeps lowering it", () => {
+    const { analyzeGeneralModelFrequency } = require("../../controlStudio/generalModel") as typeof import("../../controlStudio/generalModel");
+    const heater = { kind: "transfer-function", revision: "heater", source: "provided", validation: "unvalidated", evidence: [], delaySeconds: 1,
+      inputs: [{ id: "u", unit: "%", operatingRange: { minimum: 0, maximum: 100 } }],
+      outputs: [{ id: "T", unit: "degC", operatingRange: { minimum: 0, maximum: 80 } }], numerator: [0.2], denominator: [5, 1] };
+    const frequencies = Array.from({ length: 17 }, (_, index) => 0.0125 * Math.SQRT2 ** index);
+    const result = analyzeGeneralModelFrequency(heater, frequencies);
+    assert.strictEqual(result.status, "qualified");
+    const phases = result.status === "qualified" ? result.channels[0].points.map(point => point.phaseRadians) : [];
+    phases.forEach((phase, index) => assert.ok(Math.abs(phase - (-frequencies[index] - Math.atan(5 * frequencies[index]))) < 1e-9,
+      `φ = −ω − arctan(5ω) at ${frequencies[index]}: ${phase}`));
+    assert.ok(phases[16] < -Math.PI, "past −180° at 3.2 rad/s rather than wrapped to +90°");
+  });
+
   test("connects supported SISO continuous state-space models to declared analysis", () => {
     const api = require("../../controlStudio/selectedModelAnalysis") as { selectedModelAnalysis: (declared: unknown, selected: unknown) => any };
     const selected = { ...base(), inputs: [channel("u", "V")], outputs: [channel("y", "m")],

@@ -1,4 +1,3 @@
-use super::super::*;
 use super::*;
 use crate::diagnostics::Diagnostic;
 use crate::Symbol;

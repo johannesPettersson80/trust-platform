@@ -1,24 +1,174 @@
 {
-  "schemaVersion": 1,
-  "topology": "open-loop",
-  "id": "control-lesson-19",
-  "name": "Connect poles and zeros to response",
-  "revision": "sha256:b13d9652cbd3a0f549c458100a55fb9129e6c3c92d95a73651af7315b848fe8e",
-  "projectId": "project:control-lesson-19",
-  "runtimeId": "simulator",
-  "controller": { "instance": "P1", "type": "open_loop_model_comparison", "design": "project", "revision": "sha256:b13d9652cbd3a0f549c458100a55fb9129e6c3c92d95a73651af7315b848fe8e", "action": "direct", "taskPeriodMs": 100, "modeSignal": "%MX80.0" },
-  "signals": {
-    "processVariable": { "symbol": "P1.StableResponse", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "1", "range": { "minimum": 0, "maximum": 1 } },
-    "manipulatedVariable": { "symbol": "P1.CommonInput", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "1", "range": { "minimum": 0, "maximum": 1 } },
-    "additional": [
-      { "id": "integrating-response", "channel": "integrating-response", "role": "state", "symbol": "P1.IntegratingResponse", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "1", "range": { "minimum": 0, "maximum": 5 } },
-      { "id": "oscillating-response", "channel": "oscillating-response", "role": "state", "symbol": "P1.OscillatingResponse", "address": "%IL16", "iecType": "LREAL", "direction": "read", "unit": "1", "range": { "minimum": 0, "maximum": 2 } },
-      { "id": "inverse-response", "channel": "inverse-response", "role": "state", "symbol": "P1.InverseResponse", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "1", "range": { "minimum": -1, "maximum": 1 } },
-      { "id": "lesson-experiment", "channel": "lesson-experiment", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX80.0", "iecType": "BOOL", "direction": "read", "unit": "", "range": { "minimum": 0, "maximum": 1 } }
-    ]
-  },
-  "limits": { "outputMinimum": 0, "outputMaximum": 1 },
-  "observedSampleTiming": { "nominalPeriodMs": 100 },
-  "plantId": "pole-zero-response-examples",
-  "experiment": { "execution": "project-scripted", "kind": "observation", "amplitude": 0, "durationSeconds": 40.1, "seed": 20260829, "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX80.0", "iecType": "BOOL", "direction": "write" } }
+    "schemaVersion": 2,
+    "id": "control-lesson-19",
+    "name": "Poles and zeros",
+    "projectId": "project:control-lesson-19",
+    "runtimeId": "simulator",
+    "controller": {
+        "instance": "P1.Controller",
+        "type": "Control.PID",
+        "design": "project",
+        "revision": "sha256:48bbf45f9675d43ab2d08dffb0ba995ad5147b4e9be915ca4495700a37c1da39",
+        "action": "direct",
+        "taskPeriodMs": 20
+    },
+    "signals": {
+        "setpoint": {
+            "symbol": "P1.SetpointRad",
+            "address": "%ML0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "rad",
+            "range": {
+                "minimum": -2,
+                "maximum": 2
+            }
+        },
+        "processVariable": {
+            "symbol": "P1.AngleRad",
+            "address": "%IL8",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "rad",
+            "range": {
+                "minimum": -2,
+                "maximum": 2
+            }
+        },
+        "manipulatedVariable": {
+            "symbol": "P1.TorqueNm",
+            "address": "%QL8",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "N·m",
+            "range": {
+                "minimum": -20,
+                "maximum": 20
+            }
+        },
+        "additional": [
+            {
+                "id": "velocity",
+                "channel": "velocity",
+                "role": "state",
+                "symbol": "P1.VelocityRadS",
+                "address": "%IL16",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "rad/s",
+                "range": {
+                    "minimum": -10,
+                    "maximum": 10
+                }
+            },
+            {
+                "id": "temperature",
+                "channel": "temperature",
+                "role": "state",
+                "symbol": "P1.TemperatureC",
+                "address": "%IL0",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "degC",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 80
+                }
+            },
+            {
+                "id": "heater-command",
+                "channel": "heater-command",
+                "role": "state",
+                "symbol": "P1.HeaterPowerPct",
+                "address": "%QL0",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "%",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 100
+                }
+            },
+            {
+                "id": "heater-pole-response",
+                "channel": "heater-pole-response",
+                "role": "state",
+                "symbol": "P1.HeaterPoleResponseC",
+                "address": "%ML8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "degC",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 80
+                }
+            },
+            {
+                "id": "shaft-pole-response",
+                "channel": "shaft-pole-response",
+                "role": "state",
+                "symbol": "P1.ShaftPoleResponseRad",
+                "address": "%ML16",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "rad",
+                "range": {
+                    "minimum": -2,
+                    "maximum": 2
+                }
+            },
+            {
+                "id": "experiment-authority",
+                "channel": "experiment-authority",
+                "role": "state",
+                "symbol": "P1.ExperimentEnabled",
+                "address": "%MX24.0",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "1",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            },
+            {
+                "id": "active",
+                "channel": "active",
+                "role": "state",
+                "symbol": "P1.Active",
+                "address": "%MX24.1",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "1",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            }
+        ]
+    },
+    "limits": {
+        "outputMinimum": -20,
+        "outputMaximum": 20
+    },
+    "observedSampleTiming": {
+        "nominalPeriodMs": 20
+    },
+    "plantId": "heater-and-shaft",
+    "operatingPoint": "Heater at 36 degC with 80%; shaft at rest at 0 rad without torque",
+    "experiment": {
+        "execution": "project-scripted",
+        "kind": "observation",
+        "amplitude": 0,
+        "durationSeconds": 22.1,
+        "seed": 20260829,
+        "activation": {
+            "symbol": "P1.ExperimentEnabled",
+            "address": "%MX24.0",
+            "iecType": "BOOL",
+            "direction": "write"
+        },
+        "baselineSeconds": 2
+    },
+    "revision": "sha256:9604be8b1b0d6c5ae93af300bf1456217a06184cbf814039233d32c3e149324e"
 }

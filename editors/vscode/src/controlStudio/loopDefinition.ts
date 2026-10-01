@@ -1,4 +1,3 @@
-import { validPhysicalIdentification, type PhysicalIdentification } from "./physicalIdentification";
 import { validPidControllerGroup, type PidControllerGroup } from "./pidControllerGroup";
 import { decodeLibraryPidInitialization, libraryPidInitialization, type LibraryPidInitialization } from "./libraryPidInitialization";
 import { decodeProjectController, type ProjectControllerBinding } from "./projectController";
@@ -11,12 +10,14 @@ import { decodeControllerLaw, decodePidLaw, type ControllerLaw } from "./control
 import { decodeParameterBinding, validAnalysisParameterSymbols, type ParameterBinding } from "./parameterBinding";
 import { decodeDeclaredAnalysis, type DeclaredControlAnalysis } from "./declaredAnalysis";
 import { expectedPrimarySignalDirection, isAuxiliarySignalDirectionAccepted } from "./loopSignalDirections";
+import { projectStepRecordingMs } from "./projectExperimentHold";
 
 export type ControlSignalDirection = "read" | "write";
 
 export interface ControlSignalBinding {
   symbol: string;
-  address: string;
+  /** Absent for a program variable that has no address (Specification 35 §17.1). */
+  address?: string;
   iecType: string;
   direction: ControlSignalDirection;
   unit: string;
@@ -66,7 +67,6 @@ export interface ControlPidInitializationAdapter {
 export interface ControlLoopDefinition {
   schemaVersion: 1 | 2;
   channels?: LoopChannels;
-  physicalIdentification?: PhysicalIdentification;
   identificationPolicy?: IdentificationPolicy;
   verificationScenarios?: readonly EngineerScenario[];
   analysis?: DeclaredControlAnalysis;
@@ -74,6 +74,12 @@ export interface ControlLoopDefinition {
   parameterPurpose?: "controller" | "experiment";
   analysisParameterSymbols?: Readonly<Record<string, string>>;
   topology?: "closed-loop" | "open-loop";
+  /** Two loops of one cascade: the outer loop's manipulated variable is the inner loop's setpoint (Specification 35 §1). */
+  cascade?: {
+    role: "inner" | "outer"; partnerLoopId: string;
+    /** An inner loop's setpoint is the outer output: validation holds the outer PID in Manual with its manual output at the target. */
+    referenceHold?: { modeSymbol: string; manualValue: boolean; manualOutputSymbol: string };
+  };
   id: string;
   name: string;
   revision: string;
@@ -126,6 +132,8 @@ export interface ControlLoopDefinition {
     relayDirection?: "positive" | "negative";
     durationSeconds: number;
     baselineSeconds?: number;
+    /** Declared experiment parameter (in s) whose applied value sets how long a project step is held. */
+    holdParameter?: string;
     seed: number;
     activation?: {
       symbol: string;
@@ -207,10 +215,10 @@ export function decodeControlLoopDefinition(value: unknown): ControlLoopDefiniti
     if (value.parameterPurpose === "experiment" && (!record(value.experiment) || value.experiment.execution !== "project-scripted" ||
         !record(value.experiment.activation) || binding.mode.symbol !== value.experiment.activation.symbol || binding.mode.manual_value !== false)) return rejected("malformed_loop");
   }
+  if (record(value.experiment) && value.experiment.holdParameter !== undefined && !validHoldParameter(value)) return rejected("malformed_loop");
   if (record(value.controller) && value.controller.law !== undefined &&
       (value.schemaVersion !== 2 || !decodeControllerLaw(value.controller.law, decodeParameterBinding(value.parameterBinding, value.id)))) return rejected("malformed_loop");
   if (value.verificationScenarios !== undefined && (value.schemaVersion !== 2 || !validEngineerScenarios(value.verificationScenarios))) return rejected("malformed_loop");
-  if (value.physicalIdentification !== undefined && !validPhysicalIdentification(value.physicalIdentification)) return rejected("malformed_loop");
   if (value.identificationPolicy !== undefined && !validIdentificationPolicy(value.identificationPolicy)) return rejected("malformed_loop");
   if (value.channels !== undefined && (value.schemaVersion !== 2 || !validLoopChannels(value.channels))) return rejected("malformed_loop");
   if (record(value.controller) && value.controller.stateFeedback !== undefined &&
@@ -235,7 +243,17 @@ export function decodeControlLoopDefinition(value: unknown): ControlLoopDefiniti
   ) return rejected("malformed_loop");
   if (record(value.controller) && value.controller.group !== undefined && (value.schemaVersion !== 2
     || !validPidControllerGroup(value.controller.group, value.channels as LoopChannels | undefined))) return rejected("malformed_loop");
-  return { kind: "accepted", loop: value as unknown as ControlLoopDefinition };
+  return { kind: "accepted", loop: withDimensionlessUnits(value as unknown as ControlLoopDefinition) };
+}
+
+/** A signal declared without a unit is dimensionless; recordings and requirements need that unit stated explicitly. */
+function withDimensionlessUnits(loop: ControlLoopDefinition): ControlLoopDefinition {
+  const { setpoint, processVariable, manipulatedVariable, actuator, additional } = loop.signals;
+  if (![setpoint, processVariable, manipulatedVariable, actuator, ...(additional ?? [])].some(signal => signal && !signal.unit.trim())) return loop;
+  const stated = <T extends ControlSignalBinding>(signal: T): T => signal.unit.trim() ? signal : { ...signal, unit: "1" };
+  return { ...loop, signals: { ...loop.signals, processVariable: stated(processVariable), manipulatedVariable: stated(manipulatedVariable),
+    ...(setpoint ? { setpoint: stated(setpoint) } : {}), ...(actuator ? { actuator: stated(actuator) } : {}),
+    ...(additional ? { additional: additional.map(stated) } : {}) } };
 }
 
 /**
@@ -482,8 +500,9 @@ function auxiliarySignal(value: unknown): boolean {
 }
 
 function signal(value: unknown): boolean {
-  return record(value) && nonempty(value.symbol) && nonempty(value.address) &&
-    addressRange(value.address as string) !== undefined &&
+  // An address is optional: a loop may bind a program variable that has none (Specification 35 §17.1).
+  return record(value) && nonempty(value.symbol) && (value.address === undefined || nonempty(value.address) &&
+    addressRange(value.address as string) !== undefined) &&
     nonempty(value.iecType) && (value.direction === "read" || value.direction === "write") &&
     typeof value.unit === "string" && range(value.range);
 }
@@ -493,6 +512,7 @@ function range(value: unknown): boolean {
 }
 
 function addressRangesOverlap(left: ControlSignalBinding, right: ControlSignalBinding): boolean {
+  if (left.address === undefined || right.address === undefined) return false;
   const leftRange = addressRange(left.address);
   const rightRange = addressRange(right.address);
   if (!leftRange || !rightRange || leftRange.area !== rightRange.area) return left.address === right.address;
@@ -538,6 +558,20 @@ function experiment(value: unknown): boolean {
   }
   return value.activation === undefined && value.abort === undefined &&
     (value.kind === "observation" ? value.amplitude === 0 : value.amplitude !== 0);
+}
+
+/** A hold parameter is a declared experiment parameter in seconds whose longest permitted value the declared maximum can record. */
+function validHoldParameter(value: Record<string, unknown>): boolean {
+  const experiment = value.experiment;
+  const binding = decodeParameterBinding(value.parameterBinding, value.id);
+  if (value.schemaVersion !== 2 || value.parameterPurpose !== "experiment" || !binding || !record(experiment) ||
+      experiment.execution !== "project-scripted" || !record(value.observedSampleTiming) || !positive(value.observedSampleTiming.nominalPeriodMs) ||
+      !finite(experiment.durationSeconds)) return false;
+  const hold = binding.parameters.find(parameter => parameter.symbol === experiment.holdParameter);
+  if (!hold || hold.unit !== "s" || hold.minimum < 0) return false;
+  const timing = { observedSampleTiming: { nominalPeriodMs: value.observedSampleTiming.nominalPeriodMs as number },
+    experiment: { baselineSeconds: finite(experiment.baselineSeconds) ? experiment.baselineSeconds : undefined } };
+  return Math.round(experiment.durationSeconds * 1_000) >= projectStepRecordingMs(timing, hold.maximum);
 }
 
 function activation(value: unknown): boolean {

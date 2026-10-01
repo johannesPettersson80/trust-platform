@@ -1,272 +1,197 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "topology": "open-loop",
   "id": "control-lyapunov-stability",
-  "name": "Lyapunov stability",
-  "revision": "sha256:61e7799434b19bb0fb8c67235b9c4c61ff135fde413f18c91f05f1e4c3f9bd2e",
+  "name": "Upright arm energy",
   "projectId": "project:control-lyapunov-stability",
   "runtimeId": "simulator",
   "controller": {
     "instance": "P1",
-    "type": "Quadratic Lyapunov certificate for a declared nonlinear sublevel set",
+    "type": "Main",
     "design": "project",
-    "revision": "sha256:curriculum-controller-69",
+    "revision": "sha256:266f795ad407d318d114335b8b7293f5b3711f582a49dc0ff1224a30bcc224e1",
     "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": "%MX64.5",
-    "modeWhenTrue": "Auto"
+    "taskPeriodMs": 20
   },
   "signals": {
-    "setpoint": {
-      "symbol": "P1.AngleSetpoint",
+    "processVariable": {
+      "symbol": "P1.AngleRad",
       "address": "%ML0",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "rad",
       "range": {
-        "minimum": 3.14,
-        "maximum": 3.142
-      }
-    },
-    "processVariable": {
-      "symbol": "P1.AbsoluteAngle",
-      "address": "%IL0",
-      "iecType": "LREAL",
-      "direction": "read",
-      "unit": "rad",
-      "range": {
-        "minimum": 0,
-        "maximum": 6.2832
+        "minimum": -0.5,
+        "maximum": 0.5
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.TorqueRequested",
-      "address": "%ML16",
+      "symbol": "P1.TorqueNm",
+      "address": "%QL0",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "N m",
+      "unit": "N*m",
       "range": {
-        "minimum": -4,
-        "maximum": 4
+        "minimum": -20,
+        "maximum": 20
       }
     },
     "additional": [
       {
-        "id": "experiment-authority",
-        "channel": "experiment-authority",
+        "id": "speed",
+        "channel": "speed",
         "role": "state",
-        "symbol": "P1.ExperimentEnabled",
-        "address": "%MX64.5",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "control-enabled",
-        "channel": "control-enabled",
-        "role": "state",
-        "symbol": "P1.Enabled",
-        "address": "%MX64.0",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "torque-saturated",
-        "channel": "torque-saturated",
-        "role": "state",
-        "symbol": "P1.TorqueSaturated",
-        "address": "%MX64.1",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "sampled-evidence-initialized",
-        "channel": "sampled-evidence-initialized",
-        "role": "quality",
-        "symbol": "P1.EvidenceInitialized",
-        "address": "%MX64.2",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "inside-certified-set",
-        "channel": "inside-certified-set",
-        "role": "state",
-        "symbol": "P1.InsideCertifiedSet",
-        "address": "%MX64.3",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "certificate-valid",
-        "channel": "certificate-valid",
-        "role": "quality",
-        "symbol": "P1.CertificateValid",
-        "address": "%MX64.4",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "angle-error",
-        "channel": "angle-error",
-        "role": "state",
-        "symbol": "P1.AngleError",
-        "address": "%ML8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "rad",
-        "range": {
-          "minimum": -3.1416,
-          "maximum": 3.1416
-        }
-      },
-      {
-        "id": "lyapunov-value",
-        "channel": "lyapunov-value",
-        "role": "state",
-        "symbol": "P1.LyapunovValue",
-        "address": "%ML24",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 10
-        }
-      },
-      {
-        "id": "continuous-lyapunov-derivative",
-        "channel": "continuous-lyapunov-derivative",
-        "role": "state",
-        "symbol": "P1.LyapunovDerivative",
-        "address": "%ML32",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1/s",
-        "range": {
-          "minimum": -100,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "previous-lyapunov-value",
-        "channel": "previous-lyapunov-value",
-        "role": "state",
-        "symbol": "P1.PreviousLyapunovValue",
-        "address": "%ML40",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 10
-        }
-      },
-      {
-        "id": "sampled-lyapunov-change",
-        "channel": "sampled-lyapunov-change",
-        "role": "state",
-        "symbol": "P1.LyapunovDelta",
-        "address": "%ML48",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": -10,
-          "maximum": 10
-        }
-      },
-      {
-        "id": "certificate-sublevel",
-        "channel": "certificate-sublevel",
-        "role": "state",
-        "symbol": "P1.CertificateLevel",
-        "address": "%ML56",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 0.1
-        }
-      },
-      {
-        "id": "applied-motor-torque",
-        "channel": "applied-motor-torque",
-        "role": "MV",
-        "symbol": "P1.TorqueApplied",
-        "address": "%QL0",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "N m",
-        "range": {
-          "minimum": -2,
-          "maximum": 2
-        }
-      },
-      {
-        "id": "pendulum-angular-rate",
-        "channel": "pendulum-angular-rate",
-        "role": "state",
-        "symbol": "P1.AngularRate",
+        "symbol": "P1.SpeedRadPerS",
         "address": "%IL8",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "rad/s",
         "range": {
-          "minimum": -10,
-          "maximum": 10
+          "minimum": -3,
+          "maximum": 3
+        }
+      },
+      {
+        "id": "energy",
+        "channel": "energy",
+        "role": "state",
+        "symbol": "P1.EnergyJ",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "J",
+        "range": {
+          "minimum": -1,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "inside-certificate",
+        "channel": "inside-certificate",
+        "role": "state",
+        "symbol": "P1.InsideCertificate",
+        "address": "%MX24.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "released",
+        "channel": "released",
+        "role": "state",
+        "symbol": "P1.Released",
+        "address": "%MX24.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "saturated",
+        "channel": "saturated",
+        "role": "state",
+        "symbol": "P1.Saturated",
+        "address": "%MX24.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX24.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "fault-latched",
+        "channel": "fault-latched",
+        "role": "state",
+        "symbol": "P1.FaultLatched",
+        "address": "%MX24.4",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "clock-valid",
+        "channel": "clock-valid",
+        "role": "state",
+        "symbol": "P1.ClockValid",
+        "address": "%MX24.5",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
         }
       }
     ]
   },
   "limits": {
-    "outputMinimum": -4,
-    "outputMaximum": 4
+    "outputMinimum": -20,
+    "outputMaximum": 20
   },
   "observedSampleTiming": {
-    "nominalPeriodMs": 100
+    "nominalPeriodMs": 20
   },
-  "plantId": "nonlinear_inverted_pendulum_rig",
+  "plantId": "upright-arm",
+  "operatingPoint": "The arm at rest upright with zero torque",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 8.1,
+    "durationSeconds": 13,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX64.5",
+      "address": "%MX24.0",
       "iecType": "BOOL",
       "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "parameterPurpose": "experiment",
+  "parameterBinding": {
+    "loop_id": "control-lyapunov-stability",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "P1.InitialAngleRad",
+        "iec_type": "LREAL",
+        "unit": "rad",
+        "convention": "The start angle from upright at which the arm is held, then released",
+        "minimum": 0.05,
+        "maximum": 0.25
+      }
+    ],
+    "mode": {
+      "symbol": "P1.ExperimentEnabled",
+      "manual_value": false
     }
-  }
+  },
+  "revision": "sha256:9bf91e89acc7184529bb9f7679677ade8222a721b77686ae831f664882f926d8"
 }

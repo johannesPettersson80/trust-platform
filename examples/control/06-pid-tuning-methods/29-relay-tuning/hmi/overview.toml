@@ -9,14 +9,33 @@ tier = "hero"
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.QualifiedTemperature"
+bind = "P1.TemperatureC"
 inferred_interface = true
 label = "Temperature"
 span = 4
 unit = "°C"
 min = 33
-max = 37
+max = 39
 
+[[section.widget]]
+type = "gauge"
+bind = "P1.SetpointC"
+inferred_interface = true
+label = "Setpoint"
+span = 4
+unit = "°C"
+min = 33
+max = 39
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.AppliedPowerPct"
+inferred_interface = true
+label = "Heater command"
+span = 4
+unit = "%"
+min = 0
+max = 100
 
 [[section]]
 title = "Status"
@@ -25,54 +44,21 @@ tier = "status"
 
 [[section.widget]]
 type = "indicator"
+bind = "P1.AutoMode"
+inferred_interface = true
+label = "Automatic mode"
+span = 2
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.DataUsable"
+inferred_interface = true
+label = "Measurement valid"
+span = 2
+
+[[section.widget]]
+type = "indicator"
 bind = "P1.SafetyAbort"
 inferred_interface = true
-label = "Safety Abort"
+label = "Safety abort"
 span = 2
-
-[[section.widget]]
-type = "indicator"
-bind = "P1.ExperimentEnabled"
-inferred_interface = true
-label = "Experiment Enabled"
-span = 2
-
-[[section]]
-title = "Details"
-span = 12
-tier = "detail"
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.ExperimentElapsed"
-inferred_interface = true
-label = "Elapsed time"
-span = 3
-unit = "s"
-min = 0
-max = 60
-
-[[section.widget]]
-type = "indicator"
-bind = "P1.InputsValid"
-inferred_interface = true
-label = "Inputs Valid"
-span = 3
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.QualifiedRelayApplied"
-inferred_interface = true
-label = "Heater command"
-span = 3
-min = 0
-max = 100
-
-[[section.widget]]
-type = "indicator"
-bind = "P1.QualifiedRelayHigh"
-inferred_interface = true
-label = "High command"
-span = 3
-
-

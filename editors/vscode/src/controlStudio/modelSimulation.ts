@@ -38,17 +38,6 @@ export function materializeSelectedModelSimulation(
   if (!model) throw new Error("Select a valid general model before materializing a simulated plant.");
   validateBinding(binding);
   if (binding.actuators && binding.actuators.length !== model.inputs.length) throw new Error("Actuator count must match model inputs.");
-  if (model.physical && model.physical.kind !== "thermal-balance") {
-    const physical = model.physical;
-    validatePlantShape(binding, model.outputs.length, 1, model.outputs.length);
-    const absolute = { ...binding, initialState: binding.initialState.map((value, index) => value + model.operatingPoint!.outputs[index]),
-      initialInput: binding.initialInput.map((value, index) => value + model.operatingPoint!.inputs[index]) };
-    if (absolute.initialState.some(value => value < 0)) throw new Error("Gravity-tank initial levels must remain nonnegative.");
-    return { simulation_override: { model_revision: model.revision, model_provenance: `declared-${model.source}-${model.validation}`,
-      simulation_toml: simulationToml(absolute, { ...model, operatingPoint: undefined }, physical.kind === "gravity-tank" ? "gravity_tank" : "gravity_tank_cascade", {
-        area_m2: physical.areaM2, outflow_coefficient_m2_sqrt_m_per_s: physical.outflowCoefficient,
-      }) }, stateCoordinateDescription: "The native gravity balance executes absolute physical levels. Declared initial state deviations are added to the selected equilibrium; linear analysis uses its local Jacobian." };
-  }
   const exactScalarDelay = model.kind === "transfer-function" && model.denominator.length === 2 && model.numerator.length === 1 && model.denominator[0] > 0 && model.denominator[1] >= 0;
   const materialized = model.delaySeconds > 0 && !exactScalarDelay
     ? materializeDelayedModel(model, binding)
@@ -145,12 +134,17 @@ function validateBinding(binding: SelectedModelSimulationBinding): void {
   if (binding.actuators && !binding.actuators.every(validActuator)) throw new Error("Invalid actuator capability or limits.");
   if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(binding.plantId)) throw new Error("Plant id must match the runtime plant identifier contract.");
   if (!Number.isInteger(binding.stepMs) || binding.stepMs < 1 || binding.stepMs > 1000) throw new Error("Simulation step must be a whole millisecond from 1 to 1000.");
-  for (const [kind, addresses, prefix] of [
-    ["command", binding.commandSources, "%Q"],
-    ["feedback", binding.feedbackTargets, "%I"],
+  // Specification 33 §13.1–§13.2: a plant is commanded by an output or by a program variable in memory, such as the
+  // inner setpoint a cascade's outer controller writes, and feeds back to inputs; either end may instead be a program
+  // variable without an address, named by its symbolic path.
+  const symbol = (text: string) => /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(text);
+  for (const [kind, addresses, prefixes, names] of [
+    ["command", binding.commandSources, ["%Q", "%M"], "%Q output or %M memory"],
+    ["feedback", binding.feedbackTargets, ["%I"], "%I input"],
   ] as const) {
-    if (addresses.length === 0 || addresses.some(address => typeof address !== "string" || !address.startsWith(prefix))) {
-      throw new Error(`Ordered ${kind} bindings must use addressed ${prefix} signals.`);
+    if (addresses.length === 0 || addresses.some(address => typeof address !== "string"
+      || (address.startsWith("%") ? !prefixes.some(prefix => address.startsWith(prefix)) : !symbol(address)))) {
+      throw new Error(`Ordered ${kind} bindings must use ${names} signals or program variables.`);
     }
   }
   for (const values of [binding.initialState, binding.initialInput]) {

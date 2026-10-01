@@ -45,15 +45,16 @@ export function libraryPidInitialization(loop: ControlLoopDefinition): Controlle
 
 /** The same retained-state contract applies to scalar and explicitly grouped library PIDs. */
 export function assertLibraryPidStates(instance: string, states: ControllerInitialization["states"],
-  outputUnit: string, inputUnit: string, inputIndex = 0, outputIndex = 0): void {
+  outputUnit: string, inputUnit: string, inputIndex = 0, outputIndex = 0, decoupled = false): void {
   const expected = new Map<string, { unit: string; initial: ControllerInitialValue }>([
     ["Setpoint", { unit: outputUnit, initial: { source: "model-output", index: outputIndex } }],
     ["SetpointRate", { unit: `${outputUnit}/s`, initial: 0 }],
     ["ProcessValue", { unit: outputUnit, initial: { source: "model-output", index: outputIndex } }],
     ["ProcessValueRate", { unit: `${outputUnit}/s`, initial: 0 }],
     ["FeedForward", { unit: inputUnit, initial: 0 }],
-    ["NominalOutput", { unit: inputUnit, initial: { source: "model-input", index: inputIndex } }],
-    ["SaturatedOutput", { unit: inputUnit, initial: { source: "model-input", index: inputIndex } }],
+    // Behind a static decoupler the output starts at the member's share of the plant inputs (Specification 35 §17.15).
+    ["NominalOutput", { unit: inputUnit, initial: { source: decoupled ? "decoupled-model-input" : "model-input", index: inputIndex } as ControllerInitialValue }],
+    ["SaturatedOutput", { unit: inputUnit, initial: { source: decoupled ? "decoupled-model-input" : "model-input", index: inputIndex } as ControllerInitialValue }],
   ]);
   if (states.length !== expected.size) throw new Error(`Declare all seven retained states for ${instance}.`);
   for (const [member, contract] of expected) {

@@ -1,9 +1,12 @@
 {
   "kind": "continuous-state-space",
-  "revision": "cascade-linearization-h025-v1",
+  "revision": "cascade-linearization-h025-v2",
   "source": "provided",
-  "validation": "unvalidated",
-  "evidence": [],
+  "validation": "validated",
+  "evidence": [
+    "Local linearization of 0.5·dh1/dt = q − 0.020·√h1 and 0.5·dh2/dt = 0.020·√h1 − 0.020·√h2 at h = 0.25 m, q = 0.010 m³/s: outlet slope 0.020/(2·√0.25) = 0.020 m²/s over 0.5 m² gives −0.04 1/s and +0.04 1/s.",
+    "Pump flow into tank 1 over 0.5 m² gives 2 m⁻²; the downstream level is measured, so C = [0, 1]."
+  ],
   "delaySeconds": 0,
   "inputs": [
     {
@@ -71,5 +74,13 @@
     [
       0
     ]
-  ]
+  ],
+  "operatingPoint": {
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      0
+    ]
+  }
 }

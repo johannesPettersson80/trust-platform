@@ -2,118 +2,112 @@
 enabled = true
 seed = 20260829
 time_scale = 1
-plant_step_ms = 20
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2000
+plant_step_ms = 100
+
+# Lesson 13's heater, six times: 50·dT/dt = 2·u(t − 1) − 10·(T − 20), T in °C, u the command in points delivered 1 s late.
+# Each rests at 35 °C with 75 %. The program derives the two sensor readings of each heater from this temperature and adds the
+# case's sensor fault after 5 s.
 
 [[plants]]
-id = "naive-pressure-a"
-model = "first_order"
+id = "stale"
+model = "state_space"
 command_sources = ["%QL0"]
 feedback_targets = ["%IL0"]
-initial_state = [6.0]
+initial_state = [15.0]
+initial_input = [75.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
+
 [plants.parameters]
-gain = 0.04
-time_constant_s = 4.0
-output_bias = 4.0
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]
 
 [[plants]]
-id = "protected-pressure-a"
-model = "first_order"
+id = "range"
+model = "state_space"
 command_sources = ["%QL8"]
 feedback_targets = ["%IL8"]
-initial_state = [6.0]
+initial_state = [15.0]
+initial_input = [75.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
+
 [plants.parameters]
-gain = 0.04
-time_constant_s = 4.0
-output_bias = 4.0
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]
 
 [[plants]]
-id = "protected-pressure-b"
-model = "first_order"
-command_sources = ["%QL8"]
+id = "disagreement"
+model = "state_space"
+command_sources = ["%QL16"]
 feedback_targets = ["%IL16"]
-initial_state = [6.0]
+initial_state = [15.0]
+initial_input = [75.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
+
 [plants.parameters]
-gain = 0.04
-time_constant_s = 4.0
-output_bias = 4.0
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]
 
 [[plants]]
-id = "protected-drive-feedback"
-model = "static_gain"
-command_sources = ["%QL8"]
+id = "short-disagreements"
+model = "state_space"
+command_sources = ["%QL24"]
 feedback_targets = ["%IL24"]
+initial_state = [15.0]
+initial_input = [75.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
+
 [plants.parameters]
-gain = 1.0
-[plants.actuator]
-minimum = 0.0
-maximum = 100.0
-initial_applied = 50.0
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]
 
 [[plants]]
-id = "naive-physical-header"
-model = "first_order"
-command_sources = ["%QL0"]
-feedback_targets = ["%IL40"]
-initial_state = [6.0]
+id = "both-invalid"
+model = "state_space"
+command_sources = ["%QL32"]
+feedback_targets = ["%IL32"]
+initial_state = [15.0]
+initial_input = [75.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
+
 [plants.parameters]
-gain = 0.04
-time_constant_s = 4.0
-output_bias = 4.0
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]
 
-[[plant_events]]
-at_ms = 5000
-plant = "naive-pressure-a"
-kind = "set_sensor_bias"
-channel = 0
-value = 1.0
+[[plants]]
+id = "restored"
+model = "state_space"
+command_sources = ["%QL40"]
+feedback_targets = ["%IL40"]
+initial_state = [15.0]
+initial_input = [75.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
 
-[[plant_events]]
-at_ms = 5000
-plant = "protected-pressure-a"
-kind = "set_sensor_bias"
-channel = 0
-value = 1.0
-
-[[plant_events]]
-at_ms = 10000
-plant = "naive-pressure-a"
-kind = "set_sensor_bias"
-channel = 0
-value = 0.0
-
-[[plant_events]]
-at_ms = 10000
-plant = "protected-pressure-a"
-kind = "set_sensor_bias"
-channel = 0
-value = 0.0
-
-[[plant_events]]
-at_ms = 22000
-plant = "protected-pressure-a"
-kind = "stick_actuator"
-
-[[plant_events]]
-at_ms = 22000
-plant = "protected-pressure-b"
-kind = "stick_actuator"
-
-[[plant_events]]
-at_ms = 22000
-plant = "protected-drive-feedback"
-kind = "stick_actuator"
-
-[[plant_events]]
-at_ms = 24000
-plant = "protected-pressure-a"
-kind = "release_actuator"
-
-[[plant_events]]
-at_ms = 24000
-plant = "protected-pressure-b"
-kind = "release_actuator"
-
-[[plant_events]]
-at_ms = 24000
-plant = "protected-drive-feedback"
-kind = "release_actuator"
+[plants.parameters]
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]

@@ -1,4 +1,5 @@
-import { designPidForTask, poleMatchedPid } from "./pidTaskDesign";
+import { poleMatchedPid } from "./pidTaskDesign";
+import { delayedIntegrator, designIntegratingPToRequirements, designPidToRequirements } from "./automaticPidResponse";
 import { linearTransferModel } from "./linearTransferModel";
 import { decodePidLaw, materializePidGainRecord } from "./controllerLaw";
 import type { ControlLoopDefinition } from "./loopDefinition";
@@ -69,6 +70,9 @@ export function recommendAutomaticController(
   try {
     if (pid && applicationMode === "auto") controllerAdapter(loop).checkInitialization();
     const proportional = (() => {
+      // A delayed integrator keeps P eligible with SIMC's gain (Specification 35 §9.2).
+      const integrator = pid ? delayedIntegrator(model) : undefined;
+      if (integrator) return designIntegratingPToRequirements(loop, model, task, integrator.rateGain, integrator.delaySeconds);
       try { return designSimpleProportionalController(model, requirements); }
       catch { return poleMatchedPid(model, "P", task, loop.controller.taskPeriodMs); }
     })();
@@ -90,11 +94,11 @@ export function recommendAutomaticController(
     throw new Error(attempts[0].reason);
   }
 
-  const pi = typedCandidate("PI", () => designPidForTask(model, "PI", task, loop.controller.taskPeriodMs), loop, model, task, applicationMode);
+  const pi = typedCandidate("PI", () => designPidToRequirements(loop, model, "PI", task), loop, model, task, applicationMode);
   attempts.push(pi.attempt);
-  const pd = typedCandidate("PD", () => designPidForTask(model, "PD", task, loop.controller.taskPeriodMs), loop, model, task, applicationMode);
+  const pd = typedCandidate("PD", () => designPidToRequirements(loop, model, "PD", task), loop, model, task, applicationMode);
   attempts.push(pd.attempt);
-  const pidCandidate = typedCandidate("PID", () => designPidForTask(model, "PID", task, loop.controller.taskPeriodMs), loop, model, task, applicationMode);
+  const pidCandidate = typedCandidate("PID", () => designPidToRequirements(loop, model, "PID", task), loop, model, task, applicationMode);
   attempts.push(pidCandidate.attempt);
   if (p) return { ...p, attempts,
     reason: "Automatic comparison retained P, PI, PD and PID attempts. P is the simplest model-screened candidate; the selected P requires actual-ST Verify." };

@@ -7,11 +7,11 @@ svg = "process.auto.svg"
 [[bind]]
 selector = "#pid-pump-indicator"
 attribute = "fill"
-source = "P1.ExperimentEnabled"
+source = "P1.AutoMode"
 map = { "true" = "#22c55e", "false" = "#ef4444" }
 
 [[bind]]
 selector = "#pid-main-line"
 attribute = "stroke"
-source = "P1.ExperimentEnabled"
+source = "P1.AutoMode"
 map = { "true" = "#2563eb", "false" = "#94a3b8" }

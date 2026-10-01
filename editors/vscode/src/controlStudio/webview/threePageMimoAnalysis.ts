@@ -1,6 +1,7 @@
 import type { RecordedMimoAnalysis } from "../threePageMimoAnalysis";
 import type { MimoSettledTrial } from "../threePageMimoAnalysis";
-import { formatEngineeringNumber } from "../chartContract";
+import { automaticFractionDigits, formatEngineeringNumber } from "../chartContract";
+import { displayEngineeringUnit } from "../unitDisplay";
 
 export interface ThreePageMimoAnalysisPresenter {
   setContext(value: ThreePageMimoAnalysisContext | undefined): void;
@@ -77,9 +78,10 @@ export function initializeThreePageMimoAnalysis(root: HTMLElement, initialContex
   const render = (value: RecordedMimoAnalysis | undefined): void => {
     section.hidden = !selected || (!value && !context);
     if (!value) { clearResult(); status.textContent = ""; renderControls(); return; }
-    if (value.status === "rejected") { clearResult(); status.textContent = `MIMO analysis unavailable: ${value.reason}`; renderControls(); return; }
-    status.textContent = `${value.sampleCount} good samples · rank ${value.inputRank} · cond ${formatEngineeringNumber(value.inputConditionNumber)}`;
-    summary.textContent = `${value.inputs.map(input => `${input.symbol} (${input.unit})`).join(" · ")} → ${value.outputs.map(output => `${output.symbol} (${output.unit})`).join(" · ")}`;
+    if (value.status === "rejected") { clearResult(); status.textContent = `MIMO analysis unavailable: ${rejectionText(value.reason)}`; renderControls(); return; }
+    // A qualified fit has full-rank, well-conditioned input steps; poorer excitation is rejected before this point.
+    status.textContent = `${value.sampleCount} good samples from ${value.inputs.length} independent input steps.`;
+    summary.textContent = `${value.inputs.map(input => `${input.symbol} (${displayEngineeringUnit(input.unit)})`).join(" · ")} → ${value.outputs.map(output => `${output.symbol} (${displayEngineeringUnit(output.unit)})`).join(" · ")}`;
     renderMatrix(section.querySelector<HTMLElement>("[data-three-page-mimo-analysis-gain]")!, value.gainMatrix, value.outputIds, value.inputIds);
     renderMatrix(section.querySelector<HTMLElement>("[data-three-page-mimo-analysis-rga]")!, value.rga, value.outputIds, value.inputIds);
     renderMatrix(section.querySelector<HTMLElement>("[data-three-page-mimo-analysis-decoupler]")!, value.decoupler, value.inputIds, value.outputIds);
@@ -97,12 +99,33 @@ export function initializeThreePageMimoAnalysis(root: HTMLElement, initialContex
   return { setContext, setSelected, receive: value => { evidence = value; render(value); }, actionLabel: () => "Calculate measured paths", run: runAnalysis, clear: () => { evidence = undefined; render(undefined); } };
 }
 
+/** Writes a matrix entry at the matrix's shared precision, keeping trailing zeros so that precision stays visible. */
+function matrixEntryText(value: number, digits: number | undefined): string {
+  if (digits === undefined || !Number.isFinite(value) || (value !== 0 && Math.abs(value) < 10 ** -digits)) return formatEngineeringNumber(value, digits);
+  return value.toFixed(digits);
+}
+
 function renderMatrix(host: HTMLElement, matrix: readonly (readonly number[])[], rows: readonly string[], columns: readonly string[]): void {
   const table = document.createElement("table");
   const head = table.createTHead().insertRow();
   head.append(document.createElement("th"));
   columns.forEach(column => { const cell = document.createElement("th"); cell.textContent = column; head.append(cell); });
   const body = table.createTBody();
-  matrix.forEach((row, index) => { const tr = body.insertRow(); const label = tr.insertCell(); label.textContent = rows[index] ?? String(index + 1); row.forEach(value => { const cell = tr.insertCell(); cell.textContent = formatEngineeringNumber(value); }); });
+  // One precision per matrix, set by its smallest entry, so rows and columns can be read against each other.
+  const magnitudes = matrix.flat().map(Math.abs).filter(value => Number.isFinite(value) && value > 0);
+  const digits = magnitudes.length ? automaticFractionDigits(Math.min(...magnitudes)) : undefined;
+  matrix.forEach((row, index) => { const tr = body.insertRow(); const label = tr.insertCell(); label.textContent = rows[index] ?? String(index + 1); row.forEach(value => { const cell = tr.insertCell(); cell.textContent = matrixEntryText(value, digits); }); });
   host.replaceChildren(table);
 }
+
+/** The measured-path analysis names its reason in plain words; an unrecognised reason is shown as reported. */
+const REJECTION_TEXT: Readonly<Record<string, string>> = {
+  "square-multichannel-binding-required": "Declare as many bound inputs as outputs.",
+  "pairing-dimension-exceeds-bounded-analysis": "At most eight input/output pairs can be compared.",
+  "one-settled-trial-per-input-required": "Enter one baseline and one settled window for each input.",
+  "no-retained-samples": "The selected recording has no samples.",
+  "insufficient-quality-valid-mimo-samples": "A window lies outside the recording or has no good sample of every channel.",
+  "unexcited-input-drift": "An input that was not stepped moved during another input's trial.",
+  "window-straddles-input-change": "A window contains the input step. Place the baseline before the step and the settled window after it.",
+};
+function rejectionText(reason: string): string { return REJECTION_TEXT[reason] ?? reason; }

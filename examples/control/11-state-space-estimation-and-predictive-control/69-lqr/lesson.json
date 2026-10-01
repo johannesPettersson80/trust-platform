@@ -3,11 +3,11 @@
   "id": "control-lqr",
   "title": "LQR control",
   "level": "Modern",
-  "sequence": 73,
-  "equipment": "Reduced body-bounce mode of an active road-vehicle suspension",
-  "physicalPurpose": "Balance suspension travel, body motion, and hydraulic effort, then preserve the selected design when only noisy displacement is measured.",
-  "principalTechnique": "LQR",
-  "objective": "Derive state feedback from declared state and effort costs.",
+  "sequence": 80,
+  "equipment": "A two-tank gravity cascade with an inlet pump; both levels measured",
+  "physicalPurpose": "Recover the levels after an upset with a pump effort chosen by weighing level deviations against pump corrections.",
+  "principalTechnique": "Finite-horizon LQR (20 steps, Riccati recursion) with the first gain repeated each update, designed in Control Studio",
+  "objective": "Weigh level deviations against pump effort, let Control Studio calculate, validate and apply the 20-step LQR gains for two effort weights, and compare level recovery and pump corrections after a slug of water.",
   "prerequisites": [
     "control-state-feedback",
     "control-kalman-filter"
@@ -15,455 +15,316 @@
   "nextLesson": "control-lqg",
   "signals": [
     {
-      "role": "state",
-      "name": "Experiment authority",
-      "unit": "1",
+      "role": "PV",
+      "name": "Tank 2 level",
+      "unit": "m",
       "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.3"
-    },
-    {
-      "role": "state",
-      "name": "Safety abort",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.4"
-    },
-    {
-      "role": "state",
-      "name": "Inputs valid",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.5"
-    },
-    {
-      "role": "state",
-      "name": "Controller enabled",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.0"
-    },
-    {
-      "role": "quality",
-      "name": "Controller and estimator valid",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.1"
-    },
-    {
-      "role": "quality",
-      "name": "Hydraulic force saturated",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.2"
-    },
-    {
-      "role": "state",
-      "name": "Design selector",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 5,
-      "resolution": 1,
-      "binding": "%MD0"
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%IL8"
     },
     {
       "role": "MV",
-      "name": "Requested hydraulic force",
-      "unit": "kN",
-      "minimum": -10,
-      "maximum": 10,
-      "resolution": 0.001,
+      "name": "Pump flow",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 0.02,
+      "resolution": 1e-06,
+      "binding": "%QL0"
+    },
+    {
+      "role": "SP",
+      "name": "Tank 2 setpoint",
+      "unit": "m",
+      "minimum": 0.05,
+      "maximum": 0.45,
+      "resolution": 1e-06,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "Tank 1 level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Requested flow",
+      "unit": "m3/s",
+      "minimum": -0.05,
+      "maximum": 0.05,
+      "resolution": 1e-06,
       "binding": "%ML8"
     },
     {
       "role": "state",
-      "name": "Estimated suspension deflection",
-      "unit": "m",
-      "minimum": -0.08,
-      "maximum": 0.08,
-      "resolution": 0.0001,
+      "name": "Level cost",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 1e-06,
       "binding": "%ML16"
     },
     {
       "role": "state",
-      "name": "Estimated body vertical velocity",
-      "unit": "m/s",
-      "minimum": -0.5,
-      "maximum": 0.5,
-      "resolution": 0.001,
+      "name": "Effort cost",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 1e-06,
       "binding": "%ML24"
     },
     {
       "role": "state",
-      "name": "Position innovation",
+      "name": "Late peak deviation",
       "unit": "m",
-      "minimum": -0.1,
-      "maximum": 0.1,
-      "resolution": 0.0001,
+      "minimum": 0,
+      "maximum": 0.2,
+      "resolution": 1e-06,
       "binding": "%ML32"
     },
     {
-      "role": "disturbance",
-      "name": "Requested road-equivalent acceleration",
-      "unit": "m/s2",
-      "minimum": -2,
-      "maximum": 2,
-      "resolution": 0.01,
-      "binding": "%ML40"
-    },
-    {
-      "role": "MV",
-      "name": "Applied hydraulic force",
-      "unit": "kN",
-      "minimum": -5,
-      "maximum": 5,
-      "resolution": 0.001,
-      "binding": "%QL0"
-    },
-    {
-      "role": "disturbance",
-      "name": "Applied road-equivalent acceleration",
-      "unit": "m/s2",
-      "minimum": -2,
-      "maximum": 2,
-      "resolution": 0.01,
-      "binding": "%QL8"
-    },
-    {
-      "role": "PV",
-      "name": "Full-state suspension-deflection measurement",
-      "unit": "m",
-      "minimum": -0.08,
-      "maximum": 0.08,
-      "resolution": 0.0001,
-      "binding": "%IL0"
-    },
-    {
-      "role": "PV",
-      "name": "Full-state body-velocity measurement",
-      "unit": "m/s",
-      "minimum": -0.5,
-      "maximum": 0.5,
-      "resolution": 0.001,
-      "binding": "%IL8"
-    },
-    {
-      "role": "PV",
-      "name": "Position-only noisy deflection measurement",
-      "unit": "m",
-      "minimum": -0.1,
-      "maximum": 0.1,
-      "resolution": 0.0001,
-      "binding": "%IL16"
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX40.0"
     },
     {
       "role": "state",
-      "name": "Position-only plant Simulation truth velocity",
-      "unit": "m/s",
-      "minimum": -0.5,
-      "maximum": 0.5,
-      "resolution": 0.001,
-      "binding": "%IL24"
+      "name": "Clipped",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX40.1"
+    },
+    {
+      "role": "state",
+      "name": "Fault latched",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX40.2"
+    },
+    {
+      "role": "state",
+      "name": "Clock valid",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX40.3"
     }
   ],
   "plant": {
-    "modelId": "equivalent_active_suspension_truth_and_position_sensor_copies",
+    "modelId": "two-tank-cascade",
     "executable": "simulation.toml",
     "parameters": [
       {
-        "name": "spring_acceleration_coefficient",
-        "value": 4,
-        "unit": "1/s2"
-      },
-      {
-        "name": "damping_coefficient",
-        "value": 1.2,
-        "unit": "1/s"
-      },
-      {
-        "name": "hydraulic_force_coefficient",
+        "name": "area_m2",
         "value": 0.5,
-        "unit": "m/(kN*s^2)"
+        "unit": "m2"
       },
       {
-        "name": "position_sensor_noise_standard_deviation",
-        "value": 0.002,
-        "unit": "m"
+        "name": "outflow_coefficient_m2_sqrt_m_per_s",
+        "value": 0.02,
+        "unit": "m^(5/2)/s"
       }
     ],
     "sampleTimeSeconds": 0.1,
     "initialState": {
-      "suspensionDeflection": 0,
-      "bodyVerticalVelocity": 0,
-      "estimatedDeflection": 0,
-      "estimatedVelocity": 0,
-      "previousForce": 0,
-      "previousRoadAcceleration": 0
+      "tank1Level": 0.25,
+      "tank2Level": 0.25
     },
     "seed": 20260829,
     "operatingPoint": {
-      "Requested hydraulic force": 0,
-      "Applied hydraulic force": 0,
-      "Requested road-equivalent acceleration": 0,
-      "Applied road-equivalent acceleration": 0
+      "Pump flow": 0.01,
+      "Tank 1 level": 0.25,
+      "Tank 2 level": 0.25
     },
     "validityRange": [
       {
-        "signal": "Full-state suspension-deflection measurement",
-        "minimum": -0.08,
-        "maximum": 0.08,
+        "signal": "Tank 1 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
         "unit": "m"
       },
       {
-        "signal": "Full-state body-velocity measurement",
-        "minimum": -0.5,
-        "maximum": 0.5,
-        "unit": "m/s"
-      },
-      {
-        "signal": "Applied hydraulic force",
-        "minimum": -5,
-        "maximum": 5,
-        "unit": "kN"
+        "signal": "Tank 2 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
       }
     ],
     "simplifications": [
-      "The two-state local body-bounce model omits the tyre, unsprung mass, hydraulic actuator dynamics, pitch, roll, delay and structural modes.",
-      "Equivalent simulator copies separate clean validation state from the noisy position-only sensor record.",
-      "The road event is a bounded equivalent vertical-acceleration pulse rather than measured tyre-profile geometry.",
-      "The steady-state Kalman gain assumes the declared linear model and covariance and is not an online covariance estimator.",
-      "Simulation evidence does not qualify a physical suspension, actuator, sensor, road profile or vehicle."
+      "0.5·dh1/dt = q − 0.020·√h1 and 0.5·dh2/dt = 0.020·√h1 − 0.020·√h2; tank 1 discharges freely into tank 2, without backpressure.",
+      "Control Studio designs with the local linear model sampled for a flow held over each 1 s update; the program applies the first 20-step gain every update."
     ]
   },
   "baseline": {
-    "executableId": "Suspension.PolePlacement",
+    "executableId": "P1",
     "settings": {
-      "designMode": 0,
-      "gain": [
-        13,
-        6
-      ]
+      "gains": "Lesson 77's pole placement: poles chosen for speed, gains calculated from them"
     },
-    "limitation": "Pole placement stabilizes the local mode but does not encode a reproducible preference among suspension travel, body motion and hydraulic effort."
+    "limitation": "Pole placement fixes a speed of recovery but says nothing about how much pump movement that speed is worth."
   },
   "change": {
-    "executableId": "Suspension.BalancedLqrAndPositionOnlyLqg",
+    "executableId": "P1",
     "settings": {
-      "fullStateDesignMode": 3,
-      "positionOnlyDesignMode": 5,
-      "stateWeightDiagonal": [
-        40,
-        4
-      ],
-      "inputWeight": 1,
-      "lqrGain": [
-        2.19803903,
-        1.90722139
-      ],
-      "kalmanGain": [
-        0.58488259,
-        2.24682847
-      ]
+      "weights": "Q = diag(400, 400) m⁻², terminal weight Q, R = 40000 and 160000 s²/m⁶, 20-step horizon",
+      "gains": "Control Studio's finite-horizon LQR: K1, K2 and N applied in Auto",
+      "experiment": "setpoint back to 0.25 m for 60 s, then a 1 s slug at 0.020 m3/s; costs from 61 s to 120 s",
+      "durationSeconds": 124
     },
-    "decision": "Select a regulator only from common physical tradeoff measures, then accept position-only LQG only when estimator and abnormal-case evidence remain inside declared bounds."
+    "decision": "Accepted around 0.25 m, both designs: Control Studio's 20-step LQR with Q = diag(400, 400), terminal weight Q, gave K0 = [0.0784, 0.0245] m²/s (R = 40000) and [0.0344, 0.0098] m²/s (R = 160000); both validated against the nonlinear cascade and applied in Auto. After a 0.01 m³ slug, R = 40000 kept tank 2 within +3.0 mm and both levels within 2 mm from 22 s (level cost 0.489, effort 0.288); R = 160000 within +4.4 mm and 40 s (0.913, 0.100); both met the 2 mm late requirement without clipping, and each had the lower cost by its own weights. The choice between them is the choice of weights. Simulation evidence; effort counts pump correction, not energy or wear."
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Experiment authority",
+    "signal": "Lesson experiment",
     "baseline": 0,
     "amplitude": 0,
-    "durationSeconds": 12.1,
-    "settlingSeconds": 1,
-    "activationSignal": "P1.ExperimentEnabled",
+    "durationSeconds": 124,
+    "settlingSeconds": 60,
     "disturbances": [
-      "Apply +0.5 m/s2 road-equivalent acceleration from 1.0 through 1.5 seconds.",
-      "Compare pole placement and all four full-state LQR candidates from identical state, seed, event, limits and interval.",
-      "Compare balanced full-state LQR with balanced position-only LQG.",
-      "Repeat LQG with 0.004 m position noise and with the declared spring/damping mismatch."
+      "Tank 2 setpoint back to 0.25 m for 60 s",
+      "Pump 0.020 m3/s for 1 s at 60 s: 0.01 m3 into tank 1"
     ],
     "seed": 20260829,
     "restorationValue": 0
   },
   "acceptance": [
     {
-      "metric": "maximum_applied_hydraulic_force",
-      "signal": "Applied hydraulic force",
-      "window": "complete 12-second road-pulse record",
-      "comparator": "<=",
-      "limit": 5,
-      "unit": "kN",
-      "tolerance": 0.001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "maximum_absolute_suspension_deflection",
-      "signal": "Full-state suspension-deflection measurement",
-      "window": "complete 12-second road-pulse record",
-      "comparator": "<=",
-      "limit": 0.08,
-      "unit": "m",
-      "tolerance": 0.0001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "nominal_lqg_position_estimation_rms",
-      "signal": "Estimated suspension deflection",
-      "window": "1 through 12 seconds against Simulation truth",
-      "comparator": "<=",
-      "limit": 0.01,
-      "unit": "m",
-      "tolerance": 0.0001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "nominal_lqg_velocity_estimation_rms",
-      "signal": "Estimated body vertical velocity",
-      "window": "1 through 12 seconds against Simulation truth",
-      "comparator": "<=",
-      "limit": 0.1,
-      "unit": "m/s",
-      "tolerance": 0.001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "nominal_lqg_absolute_innovation_mean",
-      "signal": "Position innovation",
-      "window": "absolute mean from 1 through 12 seconds",
+      "metric": "maximum_absolute_deviation",
+      "signal": "Late peak deviation",
+      "window": "both levels, 50–60 s after the slug, against 0.25 m, for each design",
       "comparator": "<=",
       "limit": 0.002,
       "unit": "m",
-      "tolerance": 0.0001,
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "clipped_updates",
+      "signal": "Clipped",
+      "window": "whole experiment, each design",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "cost_comparison",
+      "signal": "Effort cost",
+      "window": "61–120 s: each design's level cost plus R/40000 times its effort cost, against the other design's total by the same weights",
+      "comparator": "<",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 0,
       "evidenceClass": "simulation"
     }
   ],
   "safety": {
     "hardLimits": [
       {
-        "signal": "Applied hydraulic force",
-        "minimum": -5,
-        "maximum": 5,
-        "unit": "kN"
+        "signal": "Pump flow",
+        "minimum": 0,
+        "maximum": 0.02,
+        "unit": "m3/s"
       },
       {
-        "signal": "Applied road-equivalent acceleration",
-        "minimum": -2,
-        "maximum": 2,
-        "unit": "m/s2"
+        "signal": "Tank 1 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
       },
       {
-        "signal": "Full-state suspension-deflection measurement",
-        "minimum": -0.08,
-        "maximum": 0.08,
+        "signal": "Tank 2 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
         "unit": "m"
       }
     ],
     "abortPredicates": [
-      "Any required signal is nonfinite, stale, forced, invalid, missing or bound to the wrong simulator copy.",
-      "Applied force, road acceleration, suspension deflection or body velocity leaves its declared local range.",
-      "A comparison changes model, interval, initial state, event, seed, limit or an undeclared weight.",
-      "The position-only LQG calculation reads validation velocity truth.",
-      "Force saturation occurs where unconstrained LQR optimality is claimed."
+      "A level outside 0.05–0.45 m or an update interval outside 1 ± 0.05 s latches zero flow",
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
     ],
     "safeMv": 0,
-    "restorationMode": "Remove the road request, disable hydraulic control, verify exactly zero applied force, then reset both simulator copies and estimator state.",
-    "physicalApprovalRole": "authorised vehicle-controls engineer with the responsible hydraulic, mechanical, test-track and functional-safety owners",
+    "restorationMode": "Manual holds ManualFlowM3PerS (0.010 m3/s); Control Studio's Restore previous settings returns the previous gains and mode; a latched fault holds zero flow until a restart from the rest state.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
     "simulationOnlyRestrictions": [
-      "Clean state, exact model matrices and deterministic noise are Simulation validation data.",
-      "No vehicle, suspension actuator, hydraulic system or road-test equipment is operated.",
-      "Physical use requires identified full-order dynamics, calibrated sensing, actuator and structural limits, reviewed containment, explicit immediate approval and rollback."
+      "This lesson cannot authorise physical pump changes",
+      "The costs are design measures of level deviation and pump correction, not measured energy or wear",
+      "The gains are validated only for the local model around 0.25 m and small upsets"
     ]
   },
   "workflowStages": [
-    "Monitor",
-    "Test"
+    "Identify",
+    "Tune",
+    "Validate"
   ],
   "proof": {
-    "specification": "docs/specs/38-control-engineering-curriculum.md#79-state-space-estimation-optimal-control-and-prediction",
-    "nativeTest": "TEST_PROGRAM::Lesson69RoadScheduleAndDerivedForceRequestsAreExplicit",
-    "nativeCommand": "target/debug/trust-dev test --project examples/control/11-state-space-estimation-and-predictive-control/69-lqr --filter TEST_PROGRAM::Lesson69RoadScheduleAndDerivedForceRequestsAreExplicit --timeout 20",
+    "specification": "docs/specs/control-course-content/67-75-state-estimation-and-optimal-control.md#73-lqr-control",
+    "nativeTest": "lesson73",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_73_75 lesson73",
     "projectPath": "examples/control/11-state-space-estimation-and-predictive-control/69-lqr",
     "runArtifactFields": [
-      "projectIdentity",
-      "plantIdentity",
-      "evidenceClass",
-      "sampleTime",
-      "seed",
-      "continuousModel",
-      "sampledModel",
-      "normalizedWeights",
-      "dimensionalQ",
-      "dimensionalR",
-      "regulatorGain",
-      "regulatorPoles",
-      "estimatorCovariance",
-      "estimatorGain",
-      "estimatorPoles",
-      "designMode",
-      "roadEvent",
-      "requestedForce",
-      "appliedForce",
-      "validationState",
-      "positionMeasurement",
-      "estimatedState",
-      "innovation",
-      "limits",
-      "abortState",
-      "disabledState",
-      "metrics",
-      "tradeoffDecision"
+      "weights",
+      "horizon",
+      "riccatiStages",
+      "designedGains",
+      "validationResults",
+      "appliedGains",
+      "tankLevels",
+      "pumpFlows",
+      "clipped",
+      "levelCost",
+      "effortCost",
+      "latePeakDeviation",
+      "evidenceClass"
     ],
     "renderedJourneyId": "control-lqr"
   },
   "video": {
-    "viewerOutcome": "Turn explicit suspension-motion and force preferences into qualified LQR gains, then decide whether position-only LQG preserves the selected design.",
+    "viewerOutcome": "See Control Studio turn level and effort weights into a 20-step LQR gain, show the Riccati stages, validate and apply it, and compare a strong and a gentle effort weight after a slug of water.",
     "requiredVisibleEvidence": [
-      "active-suspension identity and local-model boundary",
-      "normalized and dimensional weights",
-      "independently solved gains and poles",
-      "common road event",
-      "requested and applied hydraulic force",
-      "common physical tradeoff table",
-      "position-only measurement and estimated state",
-      "innovation and estimator error",
-      "noise and model-mismatch disposition",
-      "Simulation and physical-approval boundary"
+      "state, input and terminal weights and the 20-step horizon",
+      "the Riccati stages with the one-step and first gains",
+      "validation against the nonlinear cascade",
+      "the applied gains in Auto",
+      "level recovery and pump flow after the slug for both designs",
+      "level and effort costs",
+      "Simulation label"
     ],
-    "durationClass": "extended",
+    "durationClass": "standard",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
     "thumbnailPath": "video/thumbnail.svg",
     "publicationState": "not_started"
   },
   "learning": {
-    "context": "A reduced active-suspension body mode must reject one common road pulse with bounded hydraulic force.",
-    "reason": "Pole placement does not express the desired state-versus-effort trade, and a physical controller may not measure every required state.",
+    "context": "Lesson 79's Kalman filter estimated tank 1 within 2 mm from 25 s, by weighing the model against the reading from their uncertainties. Estimation tells the controller where the water is; it does not decide how hard the pump should work to put it right. Placing poles by choice says how fast the levels recover, but not how much pump movement that speed is worth.\n\nWe will state that trade as a cost, let Control Studio find the gains that minimise it, and compare two effort weights after the same slug.",
+    "reason": "We need to:\n\n1. state, in comparable numbers, what a level deviation and a pump correction cost;\n2. find the gains that make the total cost smallest for the tanks' model; and\n3. compare two weightings on recovery and pump movement.",
     "theory": [
-      "State and input weights give a quadratic cost a declared engineering meaning only after unit scaling is handled.",
-      "The Riccati solution produces the optimal unconstrained state-feedback gain for one declared linear model and cost.",
-      "Common physical measures, rather than each candidate's private cost, support the engineering selection.",
-      "LQG combines the selected LQR with a covariance-qualified state estimate but inherits model, noise and constraint limitations."
+      "**LQR**, the linear-quadratic regulator, chooses the feedback gains that best balance two costs we state: how much the levels may deviate and how much the pump may work. For the tanks, a large weight on pump effort gives a gentle pump and a slower recovery; a small one gives the opposite.\n\n**In words.** In lesson 77 we chose how fast the levels should recover and calculated the gains for it; nothing said whether that speed was worth the pump movement it took. LQR starts from the other end: it asks what a level deviation costs and what pump movement costs, and finds the gains that make the total smallest. It is the trade-off every commissioning engineer makes by feel, a fast but busy loop against a calm but slow one, written down as numbers so that the model can do the balancing. The parts:\n\n1. **The level cost.** Every second, each level's deviation is squared and weighted, so one large deviation costs more than several small ones.\n2. **The effort cost.** Every second, the pump correction is squared and weighted the same way.\n3. **The total over the coming seconds.** The controller looks ahead, adds both costs up over the coming seconds, and the LQR gains make that total as small as possible.\n\nThe result is still state feedback, $v = -Kx$, as in lesson 77; only the way the gains are chosen is new. For the tanks, the weights say how much a millimetre of level is worth against pump movement, and the model works out the gains.\n\n> **Math you need: quadratic cost.** A quadratic cost adds weighted squares: $qx^2$ is 0 at $x = 0$ and grows faster the further $x$ is from 0, so one large deviation costs more than several small ones. For two levels, $x^TQx = q_1x_1^2 + q_2x_2^2$ with $Q = \\mathrm{diag}(q_1, q_2)$. A quadratic $av^2 + bv$ is smallest where its derivative $2av + b$ is zero, at $v = -b/2a$.\n\n**The formula.** Over $N$ updates the cost is\n\n$$\nJ = \\sum_{k=0}^{N-1}\\left(x_k^TQx_k + R\\,v_k^2\\right) + x_N^TQx_N .\n$$\n\n- $k$ counts the one-second updates, from now, $k = 0$, to the end of the look-ahead, $N$;\n- $x_k$ are the level deviations at update $k$, in metres, and $v_k$ is the pump correction, in m³/s;\n- $Q$ weighs the level deviations, per square metre, and $R$ weighs the pump correction, in s²/m⁶;\n- $x_N^TQx_N$ charges the deviation left at the end; and\n- $J$ is the total cost, a pure number.\n\nWith the one-second model $x_{k+1} = A_dx_k + B_dv_k$, the cost of the last step, $Rv^2 + x_{k+1}^TQx_{k+1}$, is a quadratic in $v$, and it is smallest at $v = -Kx$ with\n\n$$\nK = (R + B_d^TQB_d)^{-1}B_d^TQA_d .\n$$\n\nFurther back, today's correction has more seconds of consequences, and $Q$ is replaced by $P$, the weight of the cost still to come: $x^TPx$ is the least cost from state $x$ to the end. Working backward from the end, starting with $P = Q$, each step calculates\n\n$$\nK = (R + B_d^TPB_d)^{-1}B_d^TPA_d, \\qquad P \\leftarrow Q + A_d^TPA_d - K^T(R + B_d^TPB_d)K .\n$$\n\nThis backward repetition is the **Riccati recursion**. The gain it gives for the first step is the one used, every second.\n\n- $A_d = \\begin{bmatrix}0.96&0\\\\0.04&0.96\\end{bmatrix}$ and $B_d = [2, 0]^T$ are lesson 74's one-second model;\n- $P$ is a 2 × 2 matrix of weights, per square metre, like $Q$; and\n- $K = [k_1, k_2]$ holds the gains, in m²/s, as in lesson 77.\n\n**Choosing the weights.** To make the terms comparable, let a level deviation of 0.05 m cost as much as a pump correction of 0.005 m³/s. Dividing by these scales and squaring gives $Q = \\mathrm{diag}(1/0.05^2, 1/0.05^2) = \\mathrm{diag}(400, 400)$ per square metre and $R = 1/0.005^2 = 40000$ s²/m⁶. These weights are design choices, not uncertainties.\n\n**Example: effort weighted four times as much.** Take $Q = \\mathrm{diag}(400, 400)$ and $R = 4 \\cdot 40000 = 160000$ s²/m⁶, the second design below.\n\n1. One step: $B_d^TQB_d = 2 \\cdot 400 \\cdot 2 = 1600$ and $B_d^TQA_d = [2 \\cdot 400 \\cdot 0.96,\\ 0] = [768, 0]$, so $K = [768, 0]/(160000 + 1600) = [0.00475, 0]$ m²/s. A slug that leaves tank 1 2 cm high, $x = [0.02, 0]^T$, would turn the pump down by only $0.00475 \\cdot 0.02 = 0.000095$ m³/s.\n2. Tank 2 gets no gain: within one second the pump changes only tank 1, so in a one-second look-ahead nothing the pump does can lower tank 2's cost.\n3. One step further back, the cost still to come is $P = Q + A_d^TQA_d - K^T(R + 1600)K$. With $A_d^TQA_d = \\begin{bmatrix}369.3&15.36\\\\15.36&368.6\\end{bmatrix}$ and $K^T(R + 1600)K = 0.00475^2 \\cdot 161600 = 3.65$ in the top-left corner, $P = \\begin{bmatrix}765.6&15.36\\\\15.36&768.6\\end{bmatrix}$. Its off-diagonal 15.36 links the levels, because water in tank 1 will reach tank 2. Then $B_d^TPB_d = 4 \\cdot 765.6 = 3062.5$ and $B_d^TPA_d = 2\\,[765.6 \\cdot 0.96 + 15.36 \\cdot 0.04,\\ 15.36 \\cdot 0.96] = [1471.2, 29.5]$, so the gain becomes $K = [1471.2, 29.5]/(160000 + 3062.5) = [0.00902, 0.00018]$: looking two seconds ahead, the pump turns down harder for tank 1's water and starts to act on tank 2's level too.\n4. Twenty steps back, calculated with the same two lines, $K = [0.0346, 0.0095]$ m²/s. The program applies this first gain every second, as if planning 20 s ahead each time.\n\nFor $R = 40000$ the same twenty steps give $K = [0.0787, 0.0239]$ m²/s (calculated): a smaller effort weight gives larger gains, a busier pump and a faster recovery.\n\n**The limitation.** A gain is best only for its own weights: other weights make another gain best, so the weights are the decision. It is also best only while the pump delivers $-Kx$; a clipped pump follows a different law. With $R = 160000$'s gains and tank 2 at rest, the pump would clip at 0 m³/s only with tank 1 $0.010/0.0346 = 0.29$ m high (calculated), far beyond this lesson's slug. The two effort weights are a teaching choice that shows the trade."
     ],
-    "workedPrediction": "At z=0.03 m and v=0, pole placement requests -0.39000 kN while body-motion, travel, balanced and effort-saving LQR request -0.03495, -0.16694, -0.06594 and -0.01456 kN.",
+    "workedPrediction": "Before running, answer these questions:\n\n1. What is the one-step gain for $R = 40000$, and the pump correction at $x = [0.02, 0]^T$?\n2. With the 20-step gains, how far does each design turn the pump down when a slug leaves tank 1 2 cm high?\n3. After the slug, which design brings the levels within 2 mm sooner?\n4. Which moves the pump less?\n5. Do both keep the levels within 2 mm from 50 to 60 s after the slug?\n\n| From the design | $R = 40000$ | $R = 160000$ |\n| --- | ---: | ---: |\n| One-step gain | $[0.01846, 0]$ | $[0.00475, 0]$ |\n| 20-step gain, calculated | $[0.0787, 0.0239]$ | $[0.0346, 0.0095]$ |\n| Pump correction at $[0.02, 0]^T$ | −0.00157 m³/s | −0.00069 m³/s |",
     "practicalPreparation": [
-      "Verify model, interval, state, road event, seed, selector, force limits, estimator initialization and Simulation-only truth labels.",
-      "Inspect normalized preferences and their dimensional Q/R transformation before comparing solved gains."
+      "1. Open this lesson's project and start **Simulator**. The tanks rest at 0.25 m with 0.010 m³/s. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Supplied plant model** from **Method** and open `provided-model.json`.\n3. On **Tune**, open **Requirements…** and enter **Setpoint change (m)** 0.01, **Maximum steady-state error (m)** 0.002, **Maximum settling time (s)** 90, **Settling band (±m)** 0.001 and **Validation duration (s)** 120; select **Done**.\n4. Choose **Controller** **P1 · LQR** and **Tuning method** **State-space design**. Set **Solver policy** to **Finite-horizon (fixed policy)**, **State weights (Q)** `[[400, 0], [0, 400]]`, **Input weights (R)** `[[40000]]`, **Finite horizon steps** 20 and **Terminal weights** `[[400, 0], [0, 400]]`, and press **Tune controller**. Open **Riccati stages**.\n5. On **Validate**, press **Validate controller**, then **Apply**.\n6. On **Identify**, choose **Project experiment**. **Signals** shows `P1.Tank2SetpointM · Setpoint (m)`, `P1.Tank2M · Process value (m)` and `P1.PumpM3PerS · Applied output (m3/s)`; add `P1.Tank1M · state (m)`. Select **Review project test**, check the declared **124 s** and select **Confirm and start**. The slug comes about 62 s later.\n7. After the run, hover 1 s, 22 s and 55 s after the slug. Show `P1.LevelCostSum`, `P1.EffortCostSum` and `P1.LatePeakM`, and hover the end.\n8. Restart **Simulator** and repeat steps 4–7 with **Input weights (R)** `[[160000]]`. Each run ends with **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early."
     ],
-    "baseline": "Execute pole-placement gain [13,6] as a stable but preference-implicit causal baseline.",
-    "change": "Execute four independently solved LQR gains, select from common physical measures, then combine the balanced gain with the position-only Kalman estimator.",
-    "comparison": "Compare deflection, velocity, acceleration, force energy, force movement, peak force, saturation and return time under one common road pulse, then add estimation error and innovation for LQG.",
-    "validation": "Accept only finite, unsaturated, locally valid records whose regulator, estimator, nominal and abnormal evidence satisfy the declared requirements.",
-    "explanation": "Weights express preferences, Riccati equations solve the declared unconstrained problem, and estimator error enters force when complete state is unavailable.",
-    "transfer": "Lesson 70 continues with State observer."
+    "baseline": "Lesson 77 chose the poles for speed; nothing said how much pump movement that speed was worth.",
+    "change": "Weigh level deviations against pump effort, let Control Studio calculate the 20-step LQR gains for R = 40000 and R = 160000, and compare level recovery and pump corrections after a slug.",
+    "comparison": "![Four times the effort weight moves the pump less and recovers more slowly; both meet the late requirement](figures/lqr-effort-weights.svg)\n\nThe numbered marks answer predictions 3–5. **Tune controller** gave **Gain K1** 0.0784 and **Gain K2** 0.0245 m3/s/m with **Reference gain N** 0.1229 for $R = 40000$, and 0.0344, 0.0098 and 0.0642 for $R = 160000$, close to the calculated values. **Riccati stages** shows stage 19, the one-step design, with $K = [0.0182, 0.0004]$, and the gains growing towards stage 0; Studio's model lets part of each second's water reach tank 2, which gives tank 2 its small gain at stage 19. **Validate controller** passed both designs: settling in 38 s and 45 s.\n\n1. The one-step gain is $[0.01846, 0]$: the pump would drop only 0.00037 m³/s.\n\nFrom Control Studio's two recordings:\n\n| Design | Pump 1 s after the slug | Tank 2 peak | Within 2 mm from | Largest deviation 50–60 s | Level cost | Effort cost |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n| $R = 40000$ | 0.00845 m³/s | +3.0 mm at 9 s | 22 s | 0.46 mm | 0.489 | 0.288 |\n| $R = 160000$ | 0.00932 m³/s | +4.4 mm at 13 s | 40 s | 1.20 mm | 0.913 | 0.100 |\n\n2. One second after the slug, with tank 1 about 19.4 mm above rest, the pump ran at 0.00845 m³/s for $R = 40000$ and 0.00932 m³/s for $R = 160000$: drops of 0.00155 and 0.00068 m³/s, as the 20-step gains predicted for 2 cm, 0.00157 and 0.00069 m³/s.\n3. $R = 40000$ was within 2 mm 22 s after the slug; $R = 160000$ only after 40 s.\n4. $R = 160000$ moved the pump less: its effort cost was a third.\n5. Both stayed within 2 mm 50–60 s after the slug, and neither clipped.\n\nFour times the effort weight cut the effort cost to a third and nearly doubled the level cost: each design is cheapest by its own weights, so the weights are the decision. Both designs are accepted for these tanks around 0.25 m. The effort cost counts pump correction, not energy or wear. These are simulation results.",
+    "validation": "![Four times the effort weight moves the pump less and recovers more slowly; both meet the late requirement](figures/lqr-effort-weights.svg)\n\nThe numbered marks answer predictions 3–5. **Tune controller** gave **Gain K1** 0.0784 and **Gain K2** 0.0245 m3/s/m with **Reference gain N** 0.1229 for $R = 40000$, and 0.0344, 0.0098 and 0.0642 for $R = 160000$, close to the calculated values. **Riccati stages** shows stage 19, the one-step design, with $K = [0.0182, 0.0004]$, and the gains growing towards stage 0; Studio's model lets part of each second's water reach tank 2, which gives tank 2 its small gain at stage 19. **Validate controller** passed both designs: settling in 38 s and 45 s.\n\n1. The one-step gain is $[0.01846, 0]$: the pump would drop only 0.00037 m³/s.\n\nFrom Control Studio's two recordings:\n\n| Design | Pump 1 s after the slug | Tank 2 peak | Within 2 mm from | Largest deviation 50–60 s | Level cost | Effort cost |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n| $R = 40000$ | 0.00845 m³/s | +3.0 mm at 9 s | 22 s | 0.46 mm | 0.489 | 0.288 |\n| $R = 160000$ | 0.00932 m³/s | +4.4 mm at 13 s | 40 s | 1.20 mm | 0.913 | 0.100 |\n\n2. One second after the slug, with tank 1 about 19.4 mm above rest, the pump ran at 0.00845 m³/s for $R = 40000$ and 0.00932 m³/s for $R = 160000$: drops of 0.00155 and 0.00068 m³/s, as the 20-step gains predicted for 2 cm, 0.00157 and 0.00069 m³/s.\n3. $R = 40000$ was within 2 mm 22 s after the slug; $R = 160000$ only after 40 s.\n4. $R = 160000$ moved the pump less: its effort cost was a third.\n5. Both stayed within 2 mm 50–60 s after the slug, and neither clipped.\n\nFour times the effort weight cut the effort cost to a third and nearly doubled the level cost: each design is cheapest by its own weights, so the weights are the decision. Both designs are accepted for these tanks around 0.25 m. The effort cost counts pump correction, not energy or wear. These are simulation results.",
+    "explanation": "LQR turns \"how much faster recovery is worth how much more pump movement\" into weights, and the model turns the weights into gains.\n\nFor the tanks, the larger effort weight spared the pump and left more level deviation; both met the requirement, so the choice between them is the choice of weights.",
+    "transfer": "The design assumes that both levels are measured, but the installation measures only tank 2, and tank 1 comes from a noisy estimator.\n\n[LQG control](../72-lqg/README.md) feeds the LQR gains with the Kalman filter's estimates."
   }
 }

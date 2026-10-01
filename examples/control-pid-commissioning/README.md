@@ -1,36 +1,44 @@
 # Temperature control with Control.PID
 
-This standalone project runs the actual `Control.PID` library through ordinary
-PLC I/O. Control Studio identifies the temperature process, tunes PI, verifies
-the ST, applies the complete parameter record, observes Auto operation and
-restores the previous settings in Manual.
+A heater loop that runs the actual `Control.PID` library through ordinary PLC I/O. The simulated plant
+gains 1.5 °C per % of output with a 4 s lag and a 0.5 s delay; it starts at 20 °C, in Manual, with 0 %
+output. Control Studio identifies the process, tunes a PI controller to your requirements, validates it on
+the actual ST, applies it in Auto and can restore the previous settings. The bundled library sources are
+unchanged; `src/control-library/SOURCE-MANIFEST.txt` records their identities.
 
-Use a matching Control Studio extension and runtime build that supports this
-project's `control-pid-v1` state binding. The bundled library sources are unchanged;
-`src/control-library/SOURCE-MANIFEST.txt` records their identities.
+## Set up the loop
 
-## Run the example
+The project ships `control-loop.json`, so **Open Control Studio** opens it directly. To set the loop up
+yourself, delete that file and run **Configure control loop** with the structure **One PID loop**. The form
+takes the controller `P1.Controller`, its parameter record `P1.Parameters`, the measurement
+`P1.ProcessValue`, the output `P1.ManipulatedValue`, the setpoint `P1.Setpoint` and the manual output
+`P1.ManualOutput` from the compiled program. Enter the units and ranges (degC, 0–100; %, 0–100), a 10 %
+identification step for 20 s, the Auto/Manual signal `P1.AutoMode` (TRUE means Auto) and the startup-done flag
+`P1.Initialized`, then **Save loop**. Validate starts the program with that flag set, so its startup code
+cannot overwrite the controller state under test.
 
-1. Open this folder in VS Code and start the local simulator using the normal
-   runtime control. The process starts at 20°C, with zero output and Manual mode.
-2. Open Control Studio and select **Identify model**. The default bounded
-   experiment lasts 16 simulated seconds and uses a separate validation run.
-   Inspect the measured and predicted temperature curves.
-3. Select **Continue to Tune**, choose **PI**, and use a target change of 1°C,
-   allowed error of 0.1°C and response time of 12s. In Settings → Advanced
-   requirements, set the trial duration to 24s, then close Settings.
-4. Select **Tune controller** and inspect the predicted response. Select
-   **Run verification** to execute the actual ST and state-initialization cases.
-5. After verification passes, select **Review changes**. Inspect the current
-   and proposed parameter rows, then select **Apply and start Auto**.
-6. Observe the response toward 21°C. Control Studio records the commissioning
-   run and checks the response requirements. **Review rollback** followed by
-   **Restore previous settings** restores the old parameter record in Manual
-   while holding the current actuator output.
+## Measured in Control Studio
 
-`fopdt-model.json` describes the configured plant for the Supply-model route.
-It is deliberately marked unvalidated; its label alone grants no application
-or validation authority.
+- **Identify plant** (the output stepped 10 % for 20 s): G(s) = 1.47/(3.9 s + 1)·e^(−0.7 s), against the
+  configured 1.5/(4 s + 1)·e^(−0.5 s). The extra 0.2 s of delay is the output rate limit: the 10 % step
+  takes 0.4 s at 25 %/s, and the controller lives with the same limit.
+- **Tune** with PI, the Automatic method and these **Requirements…**: setpoint change 1 °C, steady-state
+  error 0.1 °C, settling time 12 s, settling band 0.05 °C, validation duration 24 s. Result:
+  Kp = 0.8013 %/°C, Ki = 0.2055 %/(°C·s).
+- **Validate controller**: settled in 6.8 s, remaining error 0.0122 °C, the actual ST within 1.93 % of the
+  model's prediction, and all 44 generated checks of ranges, controller states and transfer passed.
+- **Apply** wrote the complete parameter record and started Auto from the validated operating point (20 °C,
+  0 %), then recorded the 24 s response. **Restore previous settings** returns the previous record in Manual
+  while holding the current output.
+
+How the gains follow from the model (SIMC): the integral time Ti = Kp/Ki = 3.9 s equals the plant lag and
+cancels it, and Kp = T/(K·(λ + θ)) sets the closed-loop time constant λ. The More robust response,
+λ = 4·max(θ, T/3) = 5.2 s, would still be 0.11 °C from the target after 12 s, outside the 0.1 °C allowed, so
+Automatic takes the Balanced response, λ = 2.6 s. A shorter settling time needs a smaller λ; the delay sets
+the limit, because λ below θ makes the loop sensitive to any error in the delay.
+
+`fopdt-model.json` is the configured plant as a model file for the **Supplied plant model** method. It is
+marked unvalidated, so Validate first checks it against a fresh recording.
 
 ## Signals and timing
 

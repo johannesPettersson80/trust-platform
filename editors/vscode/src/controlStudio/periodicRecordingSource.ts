@@ -27,9 +27,11 @@ export function retainedPeriodicRecordingSource(
       || !Number.isFinite(sample.appliedMv) || !Number.isFinite(sample.pv)
       || sample.appliedMv === sample.outputLimits.minimum || sample.appliedMv === sample.outputLimits.maximum
       || index > 0 && (sample.scan !== raw[index - 1].scan + 1 || sample.loopRevision !== raw[0].loopRevision))) return undefined;
-  const sampleTimeSeconds = raw[0].actualCycleSeconds;
+  // The first scan of a live recording has no predecessor, so its cycle time may be unknown.
+  const timed = raw[0].actualCycleSeconds === null ? raw.slice(1) : raw;
+  const sampleTimeSeconds = timed[0]?.actualCycleSeconds ?? null;
   if (sampleTimeSeconds === null || !Number.isFinite(sampleTimeSeconds) || sampleTimeSeconds <= 0
-    || raw.some(sample => sample.actualCycleSeconds === null || !Number.isFinite(sample.actualCycleSeconds)
+    || timed.some(sample => sample.actualCycleSeconds === null || !Number.isFinite(sample.actualCycleSeconds)
       || Math.abs(sample.actualCycleSeconds - sampleTimeSeconds) > 1e-6 * Math.max(1, sampleTimeSeconds))) return undefined;
   return { input: raw.map(sample => sample.appliedMv as number), output: raw.map(sample => sample.pv as number), sampleTimeSeconds, recordingId, recordingRevision };
 }

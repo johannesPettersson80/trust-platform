@@ -16,3 +16,13 @@ initial_state = [0.25]
 [plants.parameters]
 area_m2 = 0.5
 outflow_coefficient_m2_sqrt_m_per_s = 0.02
+
+# The level sensor reads within ±0.0005 m.
+[[plants.uncertainties]]
+id = "level-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "uniform_white"
+minimum = -0.0005
+maximum = 0.0005

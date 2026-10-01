@@ -161,6 +161,67 @@ END_CONFIGURATION
 }
 
 #[test]
+fn var_config_memory_binding_starts_from_the_initialized_value_at_every_cold_start() {
+    // IEC 61131-3 Ed.3 §6.5.1 and §6.5.6.1: a cold restart starts every variable from its initialized
+    // value; a marker binding must not replace it with a zero or pre-restart memory image.
+    let source = r#"
+PROGRAM Main
+VAR
+    setting : LREAL := 20.0;
+    configured : LREAL;
+    observed : LREAL;
+    observed_configured : LREAL;
+END_VAR
+observed := setting;
+observed_configured := configured;
+setting := setting + 1.0;
+END_PROGRAM
+
+CONFIGURATION Conf
+PROGRAM P1 : Main;
+VAR_CONFIG
+    P1.setting AT %ML0 : LREAL;
+    P1.configured AT %ML8 : LREAL := 30.0;
+END_VAR
+END_CONFIGURATION
+"#;
+
+    let mut harness = TestHarness::from_source(source).unwrap();
+    harness.cycle();
+    assert_eq!(
+        harness.get_output("observed"),
+        Some(Value::LReal(20.0)),
+        "declared initial value"
+    );
+    assert_eq!(
+        harness.get_output("observed_configured"),
+        Some(Value::LReal(30.0)),
+        "VAR_CONFIG initial value"
+    );
+    assert_eq!(
+        harness.get_direct_output("%ML0").unwrap(),
+        Value::LWord(21.0f64.to_bits())
+    );
+
+    harness.cycle();
+    assert_eq!(
+        harness.get_output("observed"),
+        Some(Value::LReal(21.0)),
+        "the marker keeps the program's writes between cycles"
+    );
+
+    harness
+        .restart(trust_runtime::RestartMode::Cold)
+        .expect("cold restart");
+    harness.cycle();
+    assert_eq!(
+        harness.get_output("observed"),
+        Some(Value::LReal(20.0)),
+        "a cold restart starts from the initialized value again"
+    );
+}
+
+#[test]
 fn memory_variants_sync_via_var_config_wildcards() {
     let source = r#"
 PROGRAM Main

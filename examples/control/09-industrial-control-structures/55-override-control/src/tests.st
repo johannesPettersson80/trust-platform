@@ -1,34 +1,17 @@
 (* @trustlsp:runtime-ignore — run these assertions with trust-dev test;
    they are not scheduled PLC instances in the lesson simulator. *)
-TEST_PROGRAM Lesson55SelectorDirectionScheduleAndAbortAreExplicit
-ASSERT_FALSE(IN := Lesson55ControlAuthority(
-    MarginValid := TRUE, InputsValid := TRUE, SafetyAbort := TRUE));
-ASSERT_FALSE(IN := Lesson55ControlAuthority(
-    MarginValid := FALSE, InputsValid := TRUE, SafetyAbort := FALSE));
-ASSERT_TRUE(IN := Lesson55ControlAuthority(
-    MarginValid := TRUE, InputsValid := TRUE, SafetyAbort := FALSE));
-ASSERT_NEAR(EXPECTED := LREAL#42.0,
-    ACTUAL := Lesson55HighSelect(
-        NormalDemand := LREAL#31.0, ProtectiveDemand := LREAL#42.0),
-    DELTA := LREAL#1.0e-12);
-ASSERT_TRUE(IN := Lesson55TakeoverRequired(MarginPercent := LREAL#14.0));
-ASSERT_FALSE(IN := Lesson55TakeoverRequired(MarginPercent := LREAL#14.1));
-ASSERT_TRUE(IN := Lesson55ReleasePermitted(
-    MarginPercent := LREAL#16.0,
-    NormalDemand := LREAL#41.0,
-    ProtectiveDemand := LREAL#40.0));
-ASSERT_FALSE(IN := Lesson55ReleasePermitted(
-    MarginPercent := LREAL#15.9,
-    NormalDemand := LREAL#41.0,
-    ProtectiveDemand := LREAL#40.0));
-ASSERT_NEAR(EXPECTED := LREAL#9.0,
-    ACTUAL := Lesson55ReviewedPressureSetpoint(
-        ExperimentElapsedSeconds := LREAL#20.0,
-        ExperimentEnabled := TRUE, InputsValid := TRUE, SafetyAbort := FALSE),
-    DELTA := LREAL#1.0e-12);
-ASSERT_NEAR(EXPECTED := LREAL#8.0,
-    ACTUAL := Lesson55ReviewedPressureSetpoint(
-        ExperimentElapsedSeconds := LREAL#40.0,
-        ExperimentEnabled := TRUE, InputsValid := TRUE, SafetyAbort := TRUE),
-    DELTA := LREAL#1.0e-12);
+
+TEST_PROGRAM TheLowSelect
+(* For a heating constraint the smaller request wins: 60 % and 40 % give 40 %. *)
+ASSERT_NEAR(EXPECTED := LREAL#40.0, ACTUAL := LowSelect(NormalPct := LREAL#60.0, LimitPct := LREAL#40.0), DELTA := LREAL#1.0e-12);
+ASSERT_NEAR(EXPECTED := LREAL#40.0, ACTUAL := LowSelect(NormalPct := LREAL#40.0, LimitPct := LREAL#60.0), DELTA := LREAL#1.0e-12);
+END_TEST_PROGRAM
+
+TEST_PROGRAM TheFeasibleVessel
+(* A 37 °C vessel needs a 40.4 °C jacket; 40 °C would need 44 °C. A 42 °C jacket allows at most 38.333 °C, the 41.8 °C
+   setpoint of the jacket controller 38.167 °C. *)
+ASSERT_NEAR(EXPECTED := LREAL#40.4, ACTUAL := HoldingJacketC(VesselC := LREAL#37.0), DELTA := LREAL#1.0e-12);
+ASSERT_NEAR(EXPECTED := LREAL#44.0, ACTUAL := HoldingJacketC(VesselC := LREAL#40.0), DELTA := LREAL#1.0e-12);
+ASSERT_NEAR(EXPECTED := LREAL#38.333333, ACTUAL := MaximumVesselC(JacketLimitC := LREAL#42.0), DELTA := LREAL#1.0e-6);
+ASSERT_NEAR(EXPECTED := LREAL#38.166667, ACTUAL := MaximumVesselC(JacketLimitC := LREAL#41.8), DELTA := LREAL#1.0e-6);
 END_TEST_PROGRAM

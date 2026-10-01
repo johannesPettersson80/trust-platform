@@ -1,6 +1,7 @@
 import type { ControlLoopDefinition } from "./loopDefinition";
 import type { LoopMonitorSample, LoopRecording, LoopRecordingEvidence } from "./loopMonitor";
 import type { RecordingRecoveryOwner } from "./runtimeRecording";
+import { projectStepRecordingMs } from "./projectExperimentHold";
 
 export type ControlExperimentKind = "observation" | "setpoint_step" | "load_step" |
   "mv_step" | "mv_pulse" | "relay" | "prbs" | "multisine" | "output_step" |
@@ -369,6 +370,28 @@ interface PlanInput {
   durationSeconds: number;
   physicalTopologyReviewed?: boolean;
   seed?: number;
+  /** Mean and half-range of the process variable over the steady baseline; they centre and size a relay's switching band. */
+  processCenter?: number;
+  processNoise?: number;
+  /** Applied value of the loop's declared hold parameter, read from the runtime for a project step test. */
+  holdSeconds?: number;
+}
+
+/** A project step test with a declared hold parameter records its baseline, the applied hold and one restoration sample. */
+function projectHoldRecording(input: PlanInput): { kind: "accepted"; durationMs?: number } | { kind: "rejected"; reason: string } {
+  const experiment = input.loop.experiment;
+  const symbol = experiment?.holdParameter;
+  if (!experiment || !symbol) return { kind: "accepted" };
+  const parameter = input.loop.parameterBinding?.parameters.find(candidate => candidate.symbol === symbol);
+  const hold = input.holdSeconds;
+  if (!parameter || hold === undefined || !Number.isFinite(hold) || hold < parameter.minimum || hold > parameter.maximum) {
+    return { kind: "rejected", reason: `Apply a ${symbol} value within ${parameter?.minimum ?? "its"}–${parameter?.maximum ?? "declared"} s before reviewing the project test.` };
+  }
+  const durationMs = projectStepRecordingMs(input.loop, hold);
+  if (durationMs > Math.round(experiment.durationSeconds * 1_000)) {
+    return { kind: "rejected", reason: `A ${hold} s hold needs ${durationMs / 1_000} s, more than the declared ${experiment.durationSeconds} s maximum.` };
+  }
+  return { kind: "accepted", durationMs };
 }
 
 export function buildControlExperimentPlan(input: PlanInput): ControlExperimentPlanResult {
@@ -391,7 +414,9 @@ export function buildControlExperimentPlan(input: PlanInput): ControlExperimentP
     if (input.sample.source === "Physical" && !input.physicalTopologyReviewed) {
       return rejected("A reviewed physical topology is required before approval can be requested.");
     }
-    const durationMs = Math.round(input.durationSeconds * 1_000);
+    const hold = projectHoldRecording(input);
+    if (hold.kind === "rejected") return hold;
+    const durationMs = hold.durationMs ?? Math.round(input.durationSeconds * 1_000);
     const baselineSeconds = input.loop.experiment?.baselineSeconds ?? 0;
     const baselineMs = Math.ceil(baselineSeconds * 1_000 / input.loop.observedSampleTiming.nominalPeriodMs) * input.loop.observedSampleTiming.nominalPeriodMs;
     if (!Number.isFinite(baselineSeconds) || baselineSeconds < 0 ||
@@ -416,7 +441,7 @@ export function buildControlExperimentPlan(input: PlanInput): ControlExperimentP
         durationMs,
         expectedScan: input.sample.scan,
         stopOnStaleMs: Math.max(500, input.loop.observedSampleTiming.nominalPeriodMs * 5),
-        stopConditions: ["Abort", `${input.durationSeconds} s timeout`, "Stale runtime data", "Signal force", "Runtime fault",
+        stopConditions: ["Abort", `${durationMs / 1_000} s timeout`, "Stale runtime data", "Signal force", "Runtime fault",
           ...(abort ? [`Abort or failure asserts ${abort.symbol} = ${abort.assertedValue}; normal completion does not.`] : [])],
         ...(abort ? { abortBinding: { symbol: abort.symbol, address: abort.address, valueType: abort.iecType, assertedValue: abort.assertedValue } } : {}),
         restorationValue: false,
@@ -503,16 +528,23 @@ export function buildControlExperimentPlan(input: PlanInput): ControlExperimentP
   const frequenciesHz = kind === "multisine"
     ? [1 / input.durationSeconds, 2 / input.durationSeconds, 3 / input.durationSeconds] : undefined;
   const pvRange = input.loop.signals.processVariable.range;
-  const relayHysteresis = (pvRange.maximum - pvRange.minimum) * 0.005;
-  const relayFeedback: ControlRelayFeedbackPlan | undefined = kind === "relay" ? {
+  const pvSpan = pvRange.maximum - pvRange.minimum;
+  // Switch just above the measured noise (twice its half-range) so the band stays small next to the cycle.
+  const relayHysteresis = input.processNoise === undefined ? pvSpan * 0.005 : Math.max(2 * input.processNoise, pvSpan * 0.0001);
+  const relayCenter = input.processCenter ?? input.sample.processVariable.value;
+  const relayAddress = input.sample.processVariable.address;
+  if (kind === "relay" && !relayAddress) {
+    return rejected(`The feedback relay switches on the measurement's I/O address, and ${input.sample.processVariable.symbol} has none. Choose another identification method.`);
+  }
+  const relayFeedback: ControlRelayFeedbackPlan | undefined = kind === "relay" && relayAddress ? {
     processVariable: input.sample.processVariable.symbol,
-    address: input.sample.processVariable.address,
+    address: relayAddress,
     valueType: input.loop.signals.processVariable.iecType,
     unit: input.sample.processVariable.unit,
-    center: input.sample.processVariable.value,
+    center: relayCenter,
     hysteresis: relayHysteresis,
-    lowerThreshold: input.sample.processVariable.value - relayHysteresis,
-    upperThreshold: input.sample.processVariable.value + relayHysteresis,
+    lowerThreshold: relayCenter - relayHysteresis,
+    upperThreshold: relayCenter + relayHysteresis,
     lowOutput: relayLowOutput,
     highOutput: requested,
   } : undefined;

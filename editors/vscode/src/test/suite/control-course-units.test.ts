@@ -12,10 +12,10 @@ suite("Control course engineering units", () => {
     const main = fs.readFileSync(path.join(lessonDir, "src/Main.st"), "utf8");
     const readme = fs.readFileSync(path.join(lessonDir, "README.md"), "utf8");
     const procedure = `${lesson.learning.change}\n${readme.match(/## Experiment in Control Studio[\s\S]*?## Evidence and decision/)?.[0] ?? ""}`;
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Identify"]);
     assert.strictEqual(lesson.plant.seed, 20260829);
     assert.deepStrictEqual(lesson.plant.initialState, { temperatureC: 35, delayedInputPct: 75 });
-    assert.strictEqual(lesson.experiment.durationSeconds, 35.1);
+    assert.strictEqual(lesson.experiment.durationSeconds, 35.1, "the published 30 s hold records 5 s + 30 s + 0.1 s");
     const pv = lesson.signals.find((signal: { name: string }) => signal.name === "Measured temperature");
     assert.deepStrictEqual([pv?.minimum, pv?.maximum], [33, 39]);
     const pvValidity = lesson.plant.validityRange.find((range: { signal: string }) => range.signal === "Measured temperature");
@@ -25,7 +25,8 @@ suite("Control course engineering units", () => {
     assert.strictEqual(loop.topology, "open-loop");
     assert.strictEqual(loop.controller.type, "Main");
     assert.strictEqual(loop.observedSampleTiming.nominalPeriodMs, 100);
-    assert.strictEqual(loop.experiment.durationSeconds, 35.1);
+    assert.strictEqual(loop.experiment.holdParameter, "P1.HoldSeconds", "the recording follows the hold the learner applies");
+    assert.strictEqual(loop.experiment.durationSeconds, 45.1, "the declared maximum records the longest permitted 40 s hold");
     assert.match(main, /initial_delayed_input|75\.0/);
     const diagnosticSymbols = [
       "P1.ProposedCommandPct", "P1.PredictedFinalC", "P1.BaselineRangeC", "P1.BaselineSlopeCPerS",
@@ -38,8 +39,8 @@ suite("Control course engineering units", () => {
         loop.signals.additional.find((candidate: { symbol: string; address: string }) => candidate.symbol === symbol)?.address === signal.binding),
         `lesson metadata must expose the binding for ${symbol}`);
     }
-    assert.match(procedure, /Control Studio[\s\S]*Monitor[\s\S]*Test[\s\S]*Validate[\s\S]*Save result[\s\S]*Saved results[\s\S]*Open/i,
-      "the published procedure must describe the complete retained public workflow");
+    assert.match(procedure, /Identify[\s\S]*Project experiment[\s\S]*Hold Seconds[\s\S]*Apply reviewed values[\s\S]*Review project test[\s\S]*35\.1 s[\s\S]*Confirm and start[\s\S]*Save recording/,
+      "the published procedure must follow the three-page Identify route and the recording length that follows the chosen hold");
     assert.doesNotMatch(procedure, /integral state|proportional correction|automatic controller|extra load D\s*=/i,
       "the public procedure must use the existing project owner without nonexistent controller controls");
   });

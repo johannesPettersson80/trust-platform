@@ -53,6 +53,18 @@ suite("Control Studio selected-model simulation materialization", () => {
     assert.throws(() => materialize()!(plant, binding([0])), /history|delayed|declared/i);
   });
 
+  test("drives a plant from a program variable in memory, as a cascade's outer controller drives its inner loop", () => {
+    // The outer loop's model runs from the inner setpoint the outer controller writes (%ML8) to the outer measurement.
+    const closedInner = { kind: "transfer-function", numerator: [0.8337], denominator: [5.21, 4.57, 1], delaySeconds: 0,
+      revision: "vessel", source: "fitted", validation: "validated", evidence: ["record"],
+      inputs: [channel("u", "degC")], outputs: [channel("y", "degC")], operatingPoint: { inputs: [38], outputs: [35] } };
+    let result: ReturnType<Materialize> | undefined;
+    assert.doesNotThrow(() => { result = materialize()!(closedInner, { ...binding([0, 0]), commandSources: ["%ML8"], feedbackTargets: ["%IL8"] }); });
+    assert.match(result!.simulation_override.simulation_toml, /command_sources = \["%ML8"\]/);
+    assert.throws(() => materialize()!(closedInner, { ...binding([0, 0]), commandSources: ["%IL0"] }), /%Q output or %M memory/,
+      "an input cannot command a plant");
+  });
+
   test("keeps every delay-free transfer-function mode and zero in controllable companion coordinates", () => {
     const materializeSelectedModelSimulation = materialize();
     assert.ok(

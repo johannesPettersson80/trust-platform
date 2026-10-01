@@ -1,162 +1,154 @@
-FUNCTION Lesson10ProportionalChange : LREAL
+USING Control;
+
+(* Change of the weighted proportional term: Kp·(β·ΔSP − ΔPV). *)
+FUNCTION WeightedProportionalChange : LREAL
 VAR_INPUT
     ProportionalGain : LREAL;
     SetpointWeight : LREAL;
     SetpointChange : LREAL;
     MeasurementChange : LREAL;
 END_VAR
-Lesson10ProportionalChange := ProportionalGain
+WeightedProportionalChange := ProportionalGain
     * (SetpointWeight * SetpointChange - MeasurementChange);
 END_FUNCTION
 
-FUNCTION Lesson10ReachablePosition : LREAL
+FUNCTION SamePidParameters : BOOL
 VAR_INPUT
-    RequestedPosition : LREAL;
-    PreviousPosition : LREAL;
-    MaximumRate : LREAL;
-    CycleTime : LREAL;
+    Left : Control.PIDParameters;
+    Right : Control.PIDParameters;
 END_VAR
-Lesson10ReachablePosition := MAX(
-    MAX(LREAL#0.0, PreviousPosition - MaximumRate * CycleTime),
-    MIN(
-        RequestedPosition,
-        MIN(LREAL#100.0, PreviousPosition + MaximumRate * CycleTime)
-    )
-);
+SamePidParameters :=
+    Left.ProportionalGain = Right.ProportionalGain
+    AND Left.IntegralGain = Right.IntegralGain
+    AND Left.DerivativeGain = Right.DerivativeGain
+    AND Left.ProportionalSetpointWeight = Right.ProportionalSetpointWeight
+    AND Left.DerivativeSetpointWeight = Right.DerivativeSetpointWeight
+    AND Left.Bias = Right.Bias
+    AND Left.OutputMinimum = Right.OutputMinimum
+    AND Left.OutputMaximum = Right.OutputMaximum
+    AND Left.RateMinimum = Right.RateMinimum
+    AND Left.RateMaximum = Right.RateMaximum
+    AND Left.TrackingTime = Right.TrackingTime
+    AND Left.AntiWindup = Right.AntiWindup;
 END_FUNCTION
 
 PROGRAM Main
 VAR
+    Controller : Control.PID;
+    (* Tune replaces this record with each candidate; the defaults are the controller
+       Lesson 21 selected (the relay candidate), with the full setpoint weight. *)
+    Parameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#13.0,
+        IntegralGain := LREAL#3.5,
+        DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#1.0,
+        DerivativeSetpointWeight := LREAL#0.0,
+        Bias := LREAL#0.0,
+        OutputMinimum := LREAL#0.0,
+        OutputMaximum := LREAL#100.0,
+        RateMinimum := LREAL#-10000.0,
+        RateMaximum := LREAL#10000.0,
+        TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation
+    );
+    ConfiguredParameters : Control.PIDParameters;
+    ParameterRevision : DINT := 0;
+    InitialState : Control.PIDInitialState;
+    ObservedState : Control.PIDInitialState;
+    Input : Control.PIDInput;
     Initialized : BOOL := FALSE;
-    ExperimentEnabled : BOOL := FALSE;
-    ExperimentWasEnabled : BOOL := FALSE;
-    ExperimentCycle : ULINT := ULINT#0;
     AutoMode : BOOL := FALSE;
-    LastAutoMode : BOOL := FALSE;
+    ManualOutput : LREAL := 75.0;
     SafetyAbort : BOOL := FALSE;
-    Setpoint : LREAL := 35.0;
-    PreviousSetpoint : LREAL := 35.0;
-    ProcessValue : LREAL := 20.0;
-    PreviousProcessValue : LREAL := 20.0;
-    Error : LREAL := 15.0;
-    ProportionalGain : LREAL := 2.0;
-    IntegralGain : LREAL := 0.5;
-    SetpointWeight : LREAL := 0.5;
-    CycleTime : LREAL := 0.1;
-    TrackingTime : LREAL := 1.0;
-    MaximumValveRate : LREAL := 5.0;
-    ManualValvePosition : LREAL := 0.0;
-    SetpointChange : LREAL := 0.0;
-    MeasurementChange : LREAL := 0.0;
-    ProportionalChange : LREAL := 0.0;
-    IntegralChange : LREAL := 0.0;
-    TrackingCorrection : LREAL := 0.0;
-    ControllerOutputState : LREAL := 0.0;
-    RequestedValvePosition : LREAL := 0.0;
-    AppliedValvePosition : LREAL := 0.0;
-    PreviousAppliedPosition : LREAL := 0.0;
+    DataUsable : BOOL := FALSE;
+    SetpointC : LREAL := 35.0;
+    DisturbanceKw : LREAL := 0.0;
+    WaterInputC : LREAL := 35.0;
+    WaterTemperatureC : LREAL := 35.0;
+    TemperatureC : LREAL := 35.0;
+    SafeProcessValueC : LREAL := 35.0;
+    AppliedPowerPct : LREAL := 75.0;
+    RequestedPowerPct : LREAL := 75.0;
+    ErrorC : LREAL := 0.0;
+    (* Reference of the weighted proportional term: the 35 °C hot operating point. *)
+    OperatingPointC : LREAL := 35.0;
+    ProportionalPct : LREAL := 0.0;
+    IntegralPct : LREAL := 75.0;
+    PreviousAppliedPct : LREAL := 75.0;
+    CommandActivityPoints : LREAL := 0.0;
 END_VAR
 
+(* The Lesson 21 heater: both feedback bindings observe the heated water, and the
+   temperature measurement carries ±0.02 °C noise. *)
+WaterTemperatureC := WaterInputC;
+DataUsable := TemperatureC >= LREAL#0.0 AND TemperatureC <= LREAL#80.0;
+IF DataUsable THEN
+    SafeProcessValueC := TemperatureC;
+ELSE
+    SafetyAbort := TRUE;
+END_IF;
+
+(* Control Studio's Apply replaces this complete record at the task boundary; the
+   program copies it into the actual controller and never overwrites it cyclically. *)
+IF NOT Initialized OR NOT SamePidParameters(Left := Parameters, Right := ConfiguredParameters) THEN
+    ConfiguredParameters := Parameters;
+    ParameterRevision := ParameterRevision + 1;
+END_IF;
+Controller.Configure(Parameters := Parameters);
+
 IF NOT Initialized THEN
-    PreviousSetpoint := Setpoint;
-    PreviousProcessValue := ProcessValue;
-    AppliedValvePosition := LREAL#0.0;
-    ControllerOutputState := LREAL#0.0;
+    (* Common hot reset: the heater already holds 35 °C with 75 % output, so the
+       controller's retained output starts at the holding command. *)
+    ManualOutput := LREAL#75.0;
+    IF NOT AutoMode THEN
+        SetpointC := SafeProcessValueC;
+    END_IF;
+    InitialState.Setpoint := SetpointC;
+    InitialState.ProcessValue := SafeProcessValueC;
+    InitialState.NominalOutput := ManualOutput;
+    InitialState.SaturatedOutput := ManualOutput;
+    InitialState.SetpointRate := LREAL#0.0;
+    InitialState.ProcessValueRate := LREAL#0.0;
+    InitialState.FeedForward := LREAL#0.0;
+    Controller.Initialize(State := InitialState);
     Initialized := TRUE;
 END_IF;
 
-ProportionalGain := LREAL#2.0;
-IntegralGain := LREAL#0.5;
-SetpointWeight := LREAL#0.5;
-CycleTime := LREAL#0.1;
-TrackingTime := LREAL#1.0;
-MaximumValveRate := LREAL#5.0;
-
-IF ExperimentEnabled AND NOT SafetyAbort THEN
-    IF NOT ExperimentWasEnabled THEN
-        ExperimentCycle := ULINT#0;
-    END_IF;
-    ExperimentCycle := ExperimentCycle + ULINT#1;
-    IF ExperimentCycle = ULINT#1 THEN
-        Setpoint := LREAL#35.0;
-        ManualValvePosition := LREAL#0.0;
-        AutoMode := FALSE;
-    ELSIF ExperimentCycle <= ULINT#500 THEN
-        Setpoint := LREAL#35.0;
-        ManualValvePosition := LREAL#75.0;
-        AutoMode := FALSE;
-    ELSIF ExperimentCycle <= ULINT#550 THEN
-        Setpoint := LREAL#35.0;
-        ManualValvePosition := LREAL#75.0;
-        AutoMode := TRUE;
-    ELSIF ExperimentCycle <= ULINT#850 THEN
-        Setpoint := LREAL#38.0;
-        ManualValvePosition := LREAL#75.0;
-        AutoMode := TRUE;
-    ELSIF ExperimentCycle <= ULINT#1150 THEN
-        Setpoint := LREAL#35.0;
-        ManualValvePosition := LREAL#75.0;
-        AutoMode := TRUE;
-    ELSE
-        Setpoint := LREAL#35.0;
-        ManualValvePosition := LREAL#0.0;
-        AutoMode := FALSE;
-    END_IF;
+Input.Setpoint := SetpointC;
+Input.ProcessValue := SafeProcessValueC;
+Input.CycleTime := LREAL#0.1;
+Input.FeedForward := LREAL#0.0;
+Input.TrackingOutput := ManualOutput;
+IF SafetyAbort THEN
+    (* An abort or invalid measurement removes heat and the test load until a full restart. *)
+    Input.Mode := PIDMode#Manual;
+    Input.ManualOutput := LREAL#0.0;
+    DisturbanceKw := LREAL#0.0;
+ELSIF AutoMode AND Parameters.ProportionalGain > LREAL#0.0 AND Parameters.IntegralGain > LREAL#0.0 THEN
+    Input.Mode := PIDMode#Auto;
+    Input.ManualOutput := ManualOutput;
 ELSE
-    ExperimentCycle := ULINT#0;
-    Setpoint := LREAL#35.0;
-    ManualValvePosition := LREAL#0.0;
-    AutoMode := FALSE;
+    Input.Mode := PIDMode#Manual;
+    Input.ManualOutput := ManualOutput;
 END_IF;
+ErrorC := SetpointC - SafeProcessValueC;
+AppliedPowerPct := Controller.Update(Input := Input);
 
-Error := Setpoint - ProcessValue;
-PreviousAppliedPosition := AppliedValvePosition;
-
-IF AutoMode THEN
-    IF NOT LastAutoMode THEN
-        ControllerOutputState := PreviousAppliedPosition;
-        PreviousSetpoint := Setpoint;
-        PreviousProcessValue := ProcessValue;
-    END_IF;
-    SetpointChange := Setpoint - PreviousSetpoint;
-    MeasurementChange := ProcessValue - PreviousProcessValue;
-    ProportionalChange := Lesson10ProportionalChange(
-        ProportionalGain := ProportionalGain,
-        SetpointWeight := SetpointWeight,
-        SetpointChange := SetpointChange,
-        MeasurementChange := MeasurementChange
-    );
-    IntegralChange := IntegralGain * Error * CycleTime;
-    RequestedValvePosition := ControllerOutputState
-        + ProportionalChange + IntegralChange;
+(* Diagnostics come from the actual controller state; the PI equations live in Control.PID.
+   Command activity adds every applied-command movement, starting from the 75% holding command. *)
+ObservedState := Controller.GetState();
+RequestedPowerPct := ObservedState.NominalOutput;
+IF Input.Mode = PIDMode#Auto THEN
+    (* Weighted P = Kp·(β·(SP − T0) − (PV − T0)); the integral uses the full error. *)
+    ProportionalPct := Parameters.ProportionalGain * (Parameters.ProportionalSetpointWeight * (SetpointC - OperatingPointC)
+        - (SafeProcessValueC - OperatingPointC));
 ELSE
-    SetpointChange := LREAL#0.0;
-    MeasurementChange := LREAL#0.0;
-    ProportionalChange := LREAL#0.0;
-    IntegralChange := LREAL#0.0;
-    RequestedValvePosition := ManualValvePosition;
+    ProportionalPct := LREAL#0.0;
 END_IF;
+IntegralPct := RequestedPowerPct - ProportionalPct;
+CommandActivityPoints := CommandActivityPoints + ABS(AppliedPowerPct - PreviousAppliedPct);
+PreviousAppliedPct := AppliedPowerPct;
 
-AppliedValvePosition := Lesson10ReachablePosition(
-    RequestedPosition := RequestedValvePosition,
-    PreviousPosition := PreviousAppliedPosition,
-    MaximumRate := MaximumValveRate,
-    CycleTime := CycleTime
-);
-
-IF AutoMode THEN
-    TrackingCorrection := (CycleTime / TrackingTime)
-        * (AppliedValvePosition - RequestedValvePosition);
-    ControllerOutputState := RequestedValvePosition + TrackingCorrection;
-ELSE
-    TrackingCorrection := LREAL#0.0;
-    ControllerOutputState := AppliedValvePosition;
-END_IF;
-
-PreviousSetpoint := Setpoint;
-PreviousProcessValue := ProcessValue;
-LastAutoMode := AutoMode;
-ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -165,23 +157,18 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.Setpoint AT %ML0 : LREAL;
-    P1.RequestedValvePosition AT %ML8 : LREAL;
-    P1.SetpointWeight AT %ML16 : LREAL;
-    P1.ProportionalGain AT %ML24 : LREAL;
-    P1.IntegralGain AT %ML32 : LREAL;
-    P1.SetpointChange AT %ML40 : LREAL;
-    P1.MeasurementChange AT %ML48 : LREAL;
-    P1.ProportionalChange AT %ML56 : LREAL;
-    P1.IntegralChange AT %ML64 : LREAL;
-    P1.TrackingCorrection AT %ML72 : LREAL;
-    P1.ControllerOutputState AT %ML80 : LREAL;
-    P1.Error AT %ML88 : LREAL;
-    P1.PreviousAppliedPosition AT %ML96 : LREAL;
-    P1.ExperimentEnabled AT %MX128.0 : BOOL;
-    P1.AutoMode AT %MX128.1 : BOOL;
-    P1.SafetyAbort AT %MX128.2 : BOOL;
-    P1.AppliedValvePosition AT %QL0 : LREAL;
-    P1.ProcessValue AT %IL0 : LREAL;
+    P1.SafetyAbort AT %MX96.3 : BOOL;
+    P1.DataUsable AT %MX96.2 : BOOL;
+    P1.AppliedPowerPct AT %QL0 : LREAL;
+    P1.DisturbanceKw AT %QL8 : LREAL;
+    P1.WaterInputC AT %IL0 : LREAL;
+    P1.TemperatureC AT %IL8 : LREAL;
+    P1.SetpointC AT %ML0 : LREAL;
+    P1.IntegralPct AT %ML16 : LREAL;
+    P1.RequestedPowerPct AT %ML32 : LREAL;
+    P1.WaterTemperatureC AT %ML48 : LREAL;
+    P1.ProportionalPct AT %ML56 : LREAL;
+    P1.CommandActivityPoints AT %ML64 : LREAL;
+    P1.ManualOutput AT %ML72 : LREAL;
 END_VAR
 END_CONFIGURATION

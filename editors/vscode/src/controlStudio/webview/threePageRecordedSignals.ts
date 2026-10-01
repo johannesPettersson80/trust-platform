@@ -12,6 +12,14 @@ export function experimentSignalBindings(loop: ControlLoopDefinition) {
   ];
 }
 
+/** The binding that names an identification experiment's recorded input trace. The recorded plant
+ * input is the applied value, so a declared actuator names the manipulated variable's trace. */
+export function experimentInputBinding(loop: ControlLoopDefinition, traceId: string) {
+  const bindings = experimentSignalBindings(loop);
+  return loop.signals.actuator && traceId === loop.signals.manipulatedVariable.symbol
+    ? bindings.find(signal => signal.id === "mv") : bindings.find(signal => signal.symbol === traceId);
+}
+
 /** Preserve signal identity and units; invalid samples are gaps, never zero. */
 export function recordedSignalResponses(loop: ControlLoopDefinition, samples: readonly WorkflowResultSample[], selected: readonly string[]) {
   const signals = experimentSignalBindings(loop).filter(signal => selected.includes(signal.id));

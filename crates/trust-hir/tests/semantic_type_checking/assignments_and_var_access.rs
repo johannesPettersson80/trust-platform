@@ -97,6 +97,56 @@ END_FUNCTION
 }
 
 #[test]
+fn test_separate_function_block_input_assignment_from_outside_is_allowed() {
+    // IEC 61131-3 Ed.3 Figure 13 row 2b: outside the instance, an input may be assigned separately and is used by the
+    // next call; docs/specs/06-statements.md §3.3.
+    check_no_errors(
+        r#"
+FUNCTION_BLOCK Accumulator
+    VAR_INPUT
+        Increment : DINT;
+    END_VAR
+    VAR_OUTPUT
+        Total : DINT;
+    END_VAR
+    Total := Total + Increment;
+END_FUNCTION_BLOCK
+
+PROGRAM Test
+    VAR
+        Single : Accumulator;
+        Several : ARRAY[0..1] OF Accumulator;
+        Delay : TON;
+    END_VAR
+    Single.Increment := 7;
+    Single();
+    Several[1].Increment := 3;
+    Several[1]();
+    Delay.IN := TRUE;
+    Delay.PT := T#1s;
+    Delay();
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_function_block_assigning_its_own_input_is_an_error() {
+    // IEC 61131-3 Ed.3 Figure 13 row 2a: inside the function block, its input is not assigned.
+    check_has_error(
+        r#"
+FUNCTION_BLOCK Accumulator
+    VAR_INPUT
+        Increment : DINT;
+    END_VAR
+    Increment := 1;
+END_FUNCTION_BLOCK
+"#,
+        DiagnosticCode::InvalidAssignmentTarget,
+    );
+}
+
+#[test]
 fn test_assignment_to_function_name_error() {
     check_has_error(
         r#"

@@ -9,7 +9,7 @@ cycle_interval_ms = 100
 endpoint = "tcp://127.0.0.1:0"
 mode = "debug"
 debug_enabled = true
-auth_token = "fixture-simulation-token"
+auth_token = "trust-example-token"
 
 [runtime.log]
 level = "info"

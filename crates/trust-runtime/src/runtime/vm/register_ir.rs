@@ -3,7 +3,6 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::debug::DebugHook;
 use crate::error::RuntimeError;
 use crate::execution_backend::{
     VmRegisterCallOpCounters, VmRegisterFallbackReason, VmRegisterHotBlock,
@@ -539,16 +538,18 @@ fn execute_register_program(
             );
         }
         if runtime.debug.is_some() {
-            if let Some(location) =
-                register_statement_location(runtime, module, program.pou_id, block.start_pc)
-            {
+            if let Some(location) = super::dispatch::vm_statement_location(
+                runtime,
+                module,
+                program.pou_id,
+                block.start_pc,
+            ) {
                 let storage = &runtime.storage;
                 let current_time = runtime.current_time;
                 if let Some(debug) = runtime.debug.as_mut() {
                     let call_depth =
                         depth_offset.saturating_add(frames.len().saturating_sub(1) as u32);
-                    debug.refresh_snapshot_from_storage(storage, current_time);
-                    debug.on_statement(Some(&location), call_depth);
+                    debug.on_vm_statement(Some(&location), call_depth, storage, current_time);
                 }
             }
         }
@@ -719,16 +720,6 @@ fn block_index_from_id(program: &RegisterProgram, block_id: u32) -> Result<usize
         )));
     }
     Ok(block_index)
-}
-
-fn register_statement_location(
-    runtime: &Runtime,
-    module: &VmModule,
-    pou_id: u32,
-    pc: usize,
-) -> Option<crate::debug::SourceLocation> {
-    let source = module.debug_map.source_by_pc.get(&(pou_id, pc as u32))?;
-    runtime.resolve_vm_debug_location(source.file.as_str(), source.line, source.column)
 }
 
 fn deadline_exceeded(deadline: Option<Instant>) -> bool {

@@ -6,6 +6,7 @@ import type { ExtensionContext } from "vscode";
 import { IdentificationWorkflow, type IdentificationSample } from "../../controlStudio/identification";
 import { createWorkflowResult } from "../../controlStudio/workflowResult";
 import { buildWorkflowDraftSnapshot, buildWorkflowResultSnapshot } from "../../controlStudio/workflowResultSnapshot";
+import { evaluateRecordedRun } from "../../controlStudio/runValidation";
 
 suite("Control Studio automatic draft storage", () => {
   const loop = { projectId: "project", runtimeId: "sim", id: "loop", revision: "sha256:loop-v1" } as ControlLoopDefinition;
@@ -51,6 +52,29 @@ suite("Control Studio automatic draft storage", () => {
       update: async (key: string, value: unknown) => { await write?.(); entries.set(key, value); },
     } } as unknown as Pick<ExtensionContext, "workspaceState"> };
   }
+  function verificationResult(id: string): any {
+    const channels = Array.from({ length: 27 }, (_, i) => ({ id: `P1.Controller.StateValue.Channel${String(i).padStart(2, "0")}`, unit: "degC" }));
+    const times = Array.from({ length: 601 }, (_, i) => i * 100 / 1000);
+    const run = { id: `${id}-run`, evidence: "ST-executed", parameters: { "P1.Parameters.ProportionalGain": 5 },
+      conditions: { initialState: { "P1.SetpointC": 38 }, events: [], durationSeconds: 60, sampleTimesSeconds: times, seed: 7,
+        modelRevision: "sha256:model", programRevision: "sha256:program", parameterSchemaRevision: "sha256:schema" },
+      channels, samples: times.map((timeSeconds, sequence) => ({ timeSeconds, sequence,
+        values: Object.fromEntries(channels.map((channel, i) => [channel.id, { value: 35 + i / 100 + timeSeconds / 1000, quality: "good" }])) })) };
+    const evaluation = evaluateRecordedRun(run, [{ id: `${id}-range`, kind: "bounds", channel: channels[0].id, window: { start: 0, end: 60 }, minimum: 0, maximum: 80 }]);
+    const request = { step_ms: 100, duration_ms: 60000, seed: 7, initial_values: { "P1.SetpointC": 38 }, events: [],
+      observations: channels.map(channel => ({ symbol: channel.id, unit: channel.unit })),
+      parameter_overrides: [{ symbol: "P1.Parameters.ProportionalGain", value: 5 }], execution: "isolated-simulation", expected_project_revision: "sha256:project" };
+    return { id, result: { projectRevision: "sha256:project", request, run: evaluation.run, evaluation } };
+  }
+  test("retains a realistic 60-second multi-scenario study within the storage bound", async function () {
+    this.timeout(120_000);
+    const { context, entries } = storage();
+    const evidence = { campaigns: [], scenarioResults: Array.from({ length: 8 }, (_, i) => verificationResult(`scenario-${i}`)) } as unknown as EngineerStudy;
+    await storeEngineerDraft(context, loop, evidence);
+    const stored = Buffer.byteLength(JSON.stringify([...entries.values()][0]), "utf8");
+    assert.ok(stored < 16 * 1024 * 1024, `Autosave must stay within workspace storage bounds; stored ${stored} bytes`);
+    assert.deepStrictEqual(restoreEngineerDraft(context, loop), evidence, "Reopening restores exactly the saved evidence");
+  });
   test("restores edited settings and task without adding runtime approval", async () => {
     const { context } = storage();
     await storeEngineerDraft(context, loop, study);

@@ -1,6 +1,6 @@
 import type { ControlLoopDefinition } from "./loopDefinition";
 import type { GeneralModel } from "./generalModel";
-import { controllerModelIndex, type ControllerInitialization } from "./controllerInitialState";
+import { controllerModelIndex, solveLinear, type ControllerInitialization } from "./controllerInitialState";
 import { connectedModelChannels } from "./loopChannels";
 
 export type InitializationFormula =
@@ -9,13 +9,31 @@ export type InitializationFormula =
   | { kind: "notch-history"; process_variable: string; denominator_symbols: readonly [string, string] }
   | { kind: "model-input"; output_symbol: string }
   | { kind: "model-output"; process_variable: string }
-  | { kind: "model-input-is"; output_symbol: string; value: number };
+  | { kind: "model-input-is"; output_symbol: string; value: number }
+  | { kind: "scaled-measurement"; process_variable: string; gain_symbol: string }
+  | { kind: "decoupled-output"; output_symbols: readonly string[]; matrix_symbols: readonly (readonly string[])[]; row: number };
 export function initializationFormulas(loop: ControlLoopDefinition, model: GeneralModel,
   definition: ControllerInitialization): Readonly<Record<string, InitializationFormula>> | undefined {
   const channels = connectedModelChannels(loop, model), formulas: Record<string, InitializationFormula> = {};
+  const disturbance = (index: number) => channels.inputs[index]?.disturbance === true;
   for (const state of definition.states) {
     const initial = state.initial;
     if (typeof initial === "number") continue;
+    if (initial.source === "decoupled-model-input") {
+      // The committed plant inputs in the group's declared order (Specification 35 §17.15).
+      const output_symbols = initial.matrixSymbols.map((_, index) => channels.inputs[controllerModelIndex(loop, model, "model-input", index)]?.signal.symbol);
+      if (output_symbols.some(symbol => !symbol)) throw new Error("The decoupled initialization has no bound plant input.");
+      formulas[state.symbol] = { kind: "decoupled-output", output_symbols: output_symbols as string[], matrix_symbols: initial.matrixSymbols, row: initial.index };
+      continue;
+    }
+    if (initial.source === "scaled-model-input" || initial.source === "model-input" && disturbance(initial.index)) {
+      // A measured disturbance is read as a measurement at the task boundary (Specification 35 §17.12).
+      const process_variable = channels.inputs[initial.index]?.signal.symbol;
+      if (!process_variable || !disturbance(initial.index)) throw new Error("A scaled initialization reads a measured disturbance.");
+      formulas[state.symbol] = initial.source === "scaled-model-input" ? { kind: "scaled-measurement", process_variable, gain_symbol: initial.gainSymbol }
+        : { kind: "model-output", process_variable };
+      continue;
+    }
     if (initial.source === "model-input" || initial.source === "model-input-is") {
       const input = channels.inputs[controllerModelIndex(loop, model, "model-input", initial.index)], output_symbol = input?.signal.symbol;
       if (!input || !output_symbol) throw new Error("The initialization formula has no bound actuator.");
@@ -60,6 +78,9 @@ export function evaluateInitializationFormula(binding: import("./proportionalTra
   if (formula.kind === "model-input") return freshOutput(formula.output_symbol);
   if (formula.kind === "model-input-is") return Number(freshOutput(formula.output_symbol) === formula.value);
   if (formula.kind === "model-output") return value(formula.process_variable);
+  if (formula.kind === "scaled-measurement") return value(formula.gain_symbol) * value(formula.process_variable);
+  if (formula.kind === "decoupled-output") return solveLinear(formula.matrix_symbols.map(row => row.map(value)),
+    formula.output_symbols.map(freshOutput))[formula.row];
   if (formula.kind === "pid-integral") return value(binding.tracking_outputs?.[formula.output_symbol] ?? formula.output_symbol)
     - value(formula.gain_symbol) * ((formula.weight_symbol ? value(formula.weight_symbol) : formula.weight ?? 1) - 1) * value(formula.process_variable);
   if (formula.kind === "weighted-error") return ((formula.weight_symbol ? value(formula.weight_symbol) : formula.weight ?? 0) - 1) * value(formula.process_variable);

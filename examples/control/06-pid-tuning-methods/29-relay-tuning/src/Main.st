@@ -1,3 +1,27 @@
+USING Control;
+
+FUNCTION SamePidParameters : BOOL
+VAR_INPUT
+    Left : Control.PIDParameters;
+    Right : Control.PIDParameters;
+END_VAR
+SamePidParameters :=
+    Left.ProportionalGain = Right.ProportionalGain
+    AND Left.IntegralGain = Right.IntegralGain
+    AND Left.DerivativeGain = Right.DerivativeGain
+    AND Left.ProportionalSetpointWeight = Right.ProportionalSetpointWeight
+    AND Left.DerivativeSetpointWeight = Right.DerivativeSetpointWeight
+    AND Left.Bias = Right.Bias
+    AND Left.OutputMinimum = Right.OutputMinimum
+    AND Left.OutputMaximum = Right.OutputMaximum
+    AND Left.RateMinimum = Right.RateMinimum
+    AND Left.RateMaximum = Right.RateMaximum
+    AND Left.TrackingTime = Right.TrackingTime
+    AND Left.AntiWindup = Right.AntiWindup;
+END_FUNCTION
+
+(* The relay switching rule that Control Studio applies during the bounded test,
+   written in ST, and the relay-rule calculations used for the startup design. *)
 FUNCTION Lesson29RelayHighState : BOOL
 VAR_INPUT
     CurrentHighState : BOOL;
@@ -61,124 +85,143 @@ END_FUNCTION
 
 PROGRAM Main
 VAR
-    ExperimentEnabled : BOOL := FALSE;
+    Controller : Control.PID;
+    (* Declaration defaults only apply before the startup design below replaces the gains. *)
+    Parameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#0.0,
+        IntegralGain := LREAL#0.0,
+        DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#1.0,
+        DerivativeSetpointWeight := LREAL#0.0,
+        Bias := LREAL#0.0,
+        OutputMinimum := LREAL#0.0,
+        OutputMaximum := LREAL#100.0,
+        RateMinimum := LREAL#-10000.0,
+        RateMaximum := LREAL#10000.0,
+        TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation
+    );
+    ConfiguredParameters : Control.PIDParameters;
+    ParameterRevision : DINT := 0;
+    InitialState : Control.PIDInitialState;
+    ObservedState : Control.PIDInitialState;
+    Input : Control.PIDInput;
+    Initialized : BOOL := FALSE;
+    AutoMode : BOOL := FALSE;
+    ManualOutput : LREAL := 75.0;
     SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    RelayAmplitude : LREAL := 5.0; (* Percentage points; choose 5..10 before starting. *)
-    ActiveAmplitude : LREAL := 0.0;
-    ExperimentElapsed : LREAL := 0.0;
-    QualifiedRelayHigh : BOOL := TRUE;
-    QualifiedRelayApplied : LREAL := 75.0;
-    QualifiedTemperature : LREAL := 35.0;
-    Started : BOOL := FALSE;
-    Finished : BOOL := FALSE;
-    Ticks : UINT := 0;
-    PreviousHigh : BOOL := TRUE;
-    CycleStartS : LREAL := 0.0;
-    CycleUpperC : LREAL := 35.0;
-    CycleLowerC : LREAL := 35.0;
-    CompletedCycles : LREAL := 0.0;
-    RetainedCycles : LREAL := 0.0;
-    LastAmplitudeC : LREAL := 0.0;
-    LastPeriodS : LREAL := 0.0;
-    SumAmplitudeC : LREAL := 0.0;
-    SumPeriodS : LREAL := 0.0;
-    MeanAmplitudeC : LREAL := 0.0;
-    MeanPeriodS : LREAL := 0.0;
-    MinimumAmplitudeC : LREAL := 0.0;
-    MaximumAmplitudeC : LREAL := 0.0;
-    MinimumPeriodS : LREAL := 0.0;
-    MaximumPeriodS : LREAL := 0.0;
-    CandidateValid : BOOL := FALSE;
-    CandidateKu : LREAL := 0.0;
-    CandidateKp : LREAL := 0.0;
-    CandidateTi : LREAL := 0.0;
-    CandidateKi : LREAL := 0.0;
+    (* The relay record measured in Control Studio: command half-amplitude d,
+       temperature half-amplitude a and full cycle period Pu. *)
+    RelayAmplitudePct : LREAL := 10.0;
+    CycleAmplitudeC : LREAL := 0.45;
+    CyclePeriodS : LREAL := 4.5;
+    RelayDataValid : BOOL := TRUE;
+    RelayRevision : UDINT := 0; (* 0 denotes the provided illustration, not your measurement. *)
+    RelayGainsUsable : BOOL := FALSE;
+    KuPctPerC : LREAL := 0.0;
+    KpPctPerC : LREAL := 0.0;
+    TiS : LREAL := 0.0;
+    KiPctPerCs : LREAL := 0.0;
+    DataUsable : BOOL := FALSE;
+    SetpointC : LREAL := 35.0;
+    DisturbanceKw : LREAL := 0.0;
+    WaterInputC : LREAL := 35.0;
+    WaterTemperatureC : LREAL := 35.0;
+    TemperatureC : LREAL := 35.0;
+    SafeProcessValueC : LREAL := 35.0;
+    AppliedPowerPct : LREAL := 75.0;
+    RequestedPowerPct : LREAL := 75.0;
+    ErrorC : LREAL := 0.0;
+    ProportionalPct : LREAL := 0.0;
+    IntegralPct : LREAL := 75.0;
+    PreviousAppliedPct : LREAL := 75.0;
+    CommandActivityPoints : LREAL := 0.0;
 END_VAR
 
-(* Ordinary PLC input comes from the native heater. A failed comparison also
-   rejects NaN; the latched abort requires a full runtime/plant restart. *)
-InputsValid := QualifiedTemperature >= LREAL#33.0
-    AND QualifiedTemperature <= LREAL#37.0
-    AND RelayAmplitude >= LREAL#5.0 AND RelayAmplitude <= LREAL#10.0;
-IF Started AND RelayAmplitude <> ActiveAmplitude THEN InputsValid := FALSE; END_IF;
-IF NOT InputsValid THEN SafetyAbort := TRUE; END_IF;
+(* The same heater as Lessons 15-19; its temperature measurement carries ±0.02 °C noise. *)
+WaterTemperatureC := WaterInputC;
+DataUsable := TemperatureC >= LREAL#0.0 AND TemperatureC <= LREAL#80.0;
+IF DataUsable THEN
+    SafeProcessValueC := TemperatureC;
+ELSE
+    SafetyAbort := TRUE;
+END_IF;
 
-QualifiedRelayApplied := LREAL#75.0;
-IF SafetyAbort THEN
-    QualifiedRelayApplied := LREAL#0.0;
-    CandidateValid := FALSE;
-    Finished := TRUE;
-ELSIF ExperimentEnabled AND NOT Finished AND Ticks < 600 THEN
-    IF NOT Started THEN
-        Started := TRUE;
-        ActiveAmplitude := RelayAmplitude;
-        QualifiedRelayHigh := TRUE;
-        CycleUpperC := QualifiedTemperature;
-        CycleLowerC := QualifiedTemperature;
-    END_IF;
-    ExperimentElapsed := UINT_TO_LREAL(Ticks) * LREAL#0.1;
-    PreviousHigh := QualifiedRelayHigh;
-    QualifiedRelayHigh := Lesson29RelayHighState(
-        CurrentHighState := QualifiedRelayHigh,
-        MeasuredTemperature := QualifiedTemperature,
-        CenterTemperature := LREAL#35.0,
-        HysteresisHalfWidth := LREAL#0.1
-    );
-    IF QualifiedTemperature > CycleUpperC THEN CycleUpperC := QualifiedTemperature; END_IF;
-    IF QualifiedTemperature < CycleLowerC THEN CycleLowerC := QualifiedTemperature; END_IF;
-
-    (* A low-to-high crossing ends a complete high/low cycle. The initial
-       partial/transient response is included among the two discarded cycles. *)
-    IF QualifiedRelayHigh AND NOT PreviousHigh THEN
-        CompletedCycles := CompletedCycles + LREAL#1.0;
-        LastAmplitudeC := (CycleUpperC - CycleLowerC) / LREAL#2.0;
-        LastPeriodS := ExperimentElapsed - CycleStartS;
-        IF CompletedCycles > LREAL#2.0 THEN
-            RetainedCycles := RetainedCycles + LREAL#1.0;
-            SumAmplitudeC := SumAmplitudeC + LastAmplitudeC;
-            SumPeriodS := SumPeriodS + LastPeriodS;
-            IF RetainedCycles = LREAL#1.0 THEN
-                MinimumAmplitudeC := LastAmplitudeC;
-                MaximumAmplitudeC := LastAmplitudeC;
-                MinimumPeriodS := LastPeriodS;
-                MaximumPeriodS := LastPeriodS;
-            END_IF;
-            IF LastAmplitudeC < MinimumAmplitudeC THEN MinimumAmplitudeC := LastAmplitudeC; END_IF;
-            IF LastAmplitudeC > MaximumAmplitudeC THEN MaximumAmplitudeC := LastAmplitudeC; END_IF;
-            IF LastPeriodS < MinimumPeriodS THEN MinimumPeriodS := LastPeriodS; END_IF;
-            IF LastPeriodS > MaximumPeriodS THEN MaximumPeriodS := LastPeriodS; END_IF;
-            MeanAmplitudeC := SumAmplitudeC / RetainedCycles;
-            MeanPeriodS := SumPeriodS / RetainedCycles;
-        END_IF;
-        CycleStartS := ExperimentElapsed;
-        CycleUpperC := QualifiedTemperature;
-        CycleLowerC := QualifiedTemperature;
-    END_IF;
-    QualifiedRelayApplied := Lesson29RelayOutput(
-        Bias := LREAL#75.0, Amplitude := RelayAmplitude, HighState := QualifiedRelayHigh
-    );
-    Ticks := Ticks + 1;
-ELSIF Started AND NOT Finished THEN
-    (* Normal completion retains the measured scalars. No candidate is applied.
-       A new amplitude or PI trial requires a full 35°C/75% plant reset. *)
-    Finished := TRUE;
-    ExperimentElapsed := UINT_TO_LREAL(Ticks) * LREAL#0.1;
-    CandidateValid := Ticks = 600 AND RetainedCycles >= LREAL#3.0
-        AND MeanAmplitudeC > LREAL#0.0 AND MeanPeriodS > LREAL#0.0
-        AND MinimumAmplitudeC >= LREAL#0.9 * MeanAmplitudeC
-        AND MaximumAmplitudeC <= LREAL#1.1 * MeanAmplitudeC
-        AND MinimumPeriodS >= LREAL#0.9 * MeanPeriodS
-        AND MaximumPeriodS <= LREAL#1.1 * MeanPeriodS;
-    IF CandidateValid THEN
-        CandidateKu := Lesson29CriticalGainEstimate(
-            RelayAmplitude := RelayAmplitude, ProcessAmplitude := MeanAmplitudeC
-        );
-        CandidateKp := Lesson29HistoricalProportionalGain(UltimateGain := CandidateKu);
-        CandidateTi := Lesson29HistoricalIntegralTime(UltimatePeriodSeconds := MeanPeriodS);
-        CandidateKi := CandidateKp / CandidateTi;
+IF NOT Initialized THEN
+    (* Startup design from the relay cycle: Ku = 4d/(pi*a), Kp = 0.45*Ku,
+       Ti = Pu/1.2 and Ki = Kp/Ti. Divide only for a valid positive record;
+       otherwise keep zero gains and stay Manual. *)
+    RelayGainsUsable := RelayDataValid AND RelayAmplitudePct > LREAL#0.0
+        AND CycleAmplitudeC > LREAL#0.0 AND CyclePeriodS > LREAL#0.0;
+    IF RelayGainsUsable THEN
+        KuPctPerC := Lesson29CriticalGainEstimate(RelayAmplitude := RelayAmplitudePct,
+            ProcessAmplitude := CycleAmplitudeC);
+        KpPctPerC := Lesson29HistoricalProportionalGain(UltimateGain := KuPctPerC);
+        TiS := Lesson29HistoricalIntegralTime(UltimatePeriodSeconds := CyclePeriodS);
+        KiPctPerCs := KpPctPerC / TiS;
+        Parameters.ProportionalGain := KpPctPerC;
+        Parameters.IntegralGain := KiPctPerCs;
     END_IF;
 END_IF;
+
+(* Control Studio's Apply replaces this complete record at the task boundary; the
+   program copies it into the actual controller and never overwrites it cyclically. *)
+IF NOT Initialized OR NOT SamePidParameters(Left := Parameters, Right := ConfiguredParameters) THEN
+    ConfiguredParameters := Parameters;
+    ParameterRevision := ParameterRevision + 1;
+END_IF;
+Controller.Configure(Parameters := Parameters);
+
+IF NOT Initialized THEN
+    (* Common hot reset: the heater already holds 35 °C with 75 % output, so the
+       controller's retained output starts at the holding command. *)
+    ManualOutput := LREAL#75.0;
+    IF NOT AutoMode THEN
+        SetpointC := SafeProcessValueC;
+    END_IF;
+    InitialState.Setpoint := SetpointC;
+    InitialState.ProcessValue := SafeProcessValueC;
+    InitialState.NominalOutput := ManualOutput;
+    InitialState.SaturatedOutput := ManualOutput;
+    InitialState.SetpointRate := LREAL#0.0;
+    InitialState.ProcessValueRate := LREAL#0.0;
+    InitialState.FeedForward := LREAL#0.0;
+    Controller.Initialize(State := InitialState);
+    Initialized := TRUE;
+END_IF;
+
+Input.Setpoint := SetpointC;
+Input.ProcessValue := SafeProcessValueC;
+Input.CycleTime := LREAL#0.1;
+Input.FeedForward := LREAL#0.0;
+Input.TrackingOutput := ManualOutput;
+IF SafetyAbort THEN
+    (* An abort or invalid measurement removes heat and the test load until a full restart. *)
+    Input.Mode := PIDMode#Manual;
+    Input.ManualOutput := LREAL#0.0;
+    DisturbanceKw := LREAL#0.0;
+ELSIF AutoMode AND Parameters.ProportionalGain > LREAL#0.0 AND Parameters.IntegralGain > LREAL#0.0 THEN
+    Input.Mode := PIDMode#Auto;
+    Input.ManualOutput := ManualOutput;
+ELSE
+    Input.Mode := PIDMode#Manual;
+    Input.ManualOutput := ManualOutput;
+END_IF;
+ErrorC := SetpointC - SafeProcessValueC;
+AppliedPowerPct := Controller.Update(Input := Input);
+
+(* Diagnostics come from the actual controller state; the PI equations live in Control.PID. *)
+ObservedState := Controller.GetState();
+RequestedPowerPct := ObservedState.NominalOutput;
+IF Input.Mode = PIDMode#Auto THEN
+    ProportionalPct := Parameters.ProportionalGain * ErrorC;
+ELSE
+    ProportionalPct := LREAL#0.0;
+END_IF;
+IntegralPct := RequestedPowerPct - ProportionalPct;
+CommandActivityPoints := CommandActivityPoints + ABS(AppliedPowerPct - PreviousAppliedPct);
+PreviousAppliedPct := AppliedPowerPct;
+
 END_PROGRAM
 
 CONFIGURATION Config
@@ -187,20 +230,18 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.ExperimentEnabled AT %MX8.0 : BOOL;
-    P1.SafetyAbort AT %MX8.1 : BOOL;
-    P1.InputsValid AT %MX8.2 : BOOL;
-    P1.QualifiedRelayHigh AT %MX8.3 : BOOL;
-    P1.CandidateValid AT %MX8.4 : BOOL;
-    P1.QualifiedRelayApplied AT %QL0 : LREAL;
-    P1.QualifiedTemperature AT %IL0 : LREAL;
-    P1.CompletedCycles AT %ML32 : LREAL;
-    P1.RetainedCycles AT %ML40 : LREAL;
-    P1.LastAmplitudeC AT %ML48 : LREAL;
-    P1.LastPeriodS AT %ML56 : LREAL;
-    P1.MeanAmplitudeC AT %ML64 : LREAL;
-    P1.MeanPeriodS AT %ML72 : LREAL;
-    P1.CandidateKp AT %ML80 : LREAL;
-    P1.CandidateKi AT %ML88 : LREAL;
+    P1.SafetyAbort AT %MX96.3 : BOOL;
+    P1.DataUsable AT %MX96.2 : BOOL;
+    P1.AppliedPowerPct AT %QL0 : LREAL;
+    P1.DisturbanceKw AT %QL8 : LREAL;
+    P1.WaterInputC AT %IL0 : LREAL;
+    P1.TemperatureC AT %IL8 : LREAL;
+    P1.SetpointC AT %ML0 : LREAL;
+    P1.IntegralPct AT %ML16 : LREAL;
+    P1.RequestedPowerPct AT %ML32 : LREAL;
+    P1.WaterTemperatureC AT %ML48 : LREAL;
+    P1.ProportionalPct AT %ML56 : LREAL;
+    P1.CommandActivityPoints AT %ML64 : LREAL;
+    P1.ManualOutput AT %ML72 : LREAL;
 END_VAR
 END_CONFIGURATION

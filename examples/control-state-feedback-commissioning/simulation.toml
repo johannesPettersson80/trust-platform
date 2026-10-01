@@ -1,0 +1,23 @@
+[simulation]
+enabled = true
+seed = 20260929
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2000
+plant_step_ms = 100
+
+# Two open tanks in series (area 0.5 m², outlet coefficient 0.020 m^(5/2)/s): the pump fills tank 1, tank 1 drains
+# into tank 2, tank 2 drains away:
+#   0.5·dh1/dt = q − 0.020·√h1,   0.5·dh2/dt = 0.020·√h1 − 0.020·√h2,
+# at rest at 0.25 m in both tanks with the pump at q = 0.010 m³/s.
+[[plants]]
+id = "tanks"
+model = "gravity_tank_cascade"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [0.25, 0.25]
+initial_input = [0.010]
+
+[plants.parameters]
+area_m2 = 0.5
+outflow_coefficient_m2_sqrt_m_per_s = 0.020

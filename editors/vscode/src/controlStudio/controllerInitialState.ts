@@ -7,6 +7,10 @@ export type ControllerInitialValue = number
   | { source: "model-input" | "model-output" | "model-state" | "model-input-is"; index: number; value?: number }
   | { source: "pid-integral"; index: number; inputIndex: number; gainSymbol: string; weightSymbol?: string; weight?: number }
   | { source: "weighted-error"; index: number; weightSymbol?: string; weight?: number }
+  /** A model input times a controller parameter, such as a feedforward state `K_ff·d` (Specification 35 §17.12). */
+  | { source: "scaled-model-input"; index: number; gainSymbol: string }
+  /** Row `index` of D⁻¹·u: a decoupled group member's output at the model's operating inputs (Specification 35 §17.15). */
+  | { source: "decoupled-model-input"; index: number; matrixSymbols: readonly (readonly string[])[] }
   | { source: "notch-history"; index: number; denominatorSymbols: readonly [string, string] };
 
 export interface ControllerInitialization {
@@ -27,9 +31,13 @@ export function decodeControllerInitialization(value: unknown): ControllerInitia
     if (state.iec_type === "BOOL" && (state.unit !== "1" || state.minimum !== 0 || state.maximum !== 1)) return undefined;
     const initial = state.initial;
     if (!finite(initial)) {
-      if (!record(initial) || !["model-input", "model-output", "model-state", "model-input-is", "pid-integral", "weighted-error", "notch-history"].includes(String(initial.source))
+      if (!record(initial) || !["model-input", "model-output", "model-state", "model-input-is", "pid-integral", "weighted-error", "notch-history", "scaled-model-input", "decoupled-model-input"].includes(String(initial.source))
         || !Number.isSafeInteger(initial.index) || (initial.index as number) < 0) return undefined;
       if (initial.source === "model-input-is" && !finite(initial.value)) return undefined;
+      if (initial.source === "scaled-model-input" && (typeof initial.gainSymbol !== "string" || !initial.gainSymbol)) return undefined;
+      if (initial.source === "decoupled-model-input" && !(Array.isArray(initial.matrixSymbols) && initial.matrixSymbols.length > 0
+        && initial.matrixSymbols.length <= 8 && initial.matrixSymbols.every(row => Array.isArray(row) && row.length === (initial.matrixSymbols as unknown[]).length
+          && row.every(symbol => typeof symbol === "string" && !!symbol)) && (initial.index as number) < initial.matrixSymbols.length)) return undefined;
       if (initial.source === "pid-integral" && (!Number.isSafeInteger(initial.inputIndex) || (initial.inputIndex as number) < 0 || typeof initial.gainSymbol !== "string" || !initial.gainSymbol)) return undefined;
       if (["pid-integral", "weighted-error"].includes(String(initial.source)) && (initial.weight !== undefined && !finite(initial.weight)
         || initial.weightSymbol !== undefined && (typeof initial.weightSymbol !== "string" || !initial.weightSymbol)
@@ -68,6 +76,17 @@ export function initializationValues(loop: ControlLoopDefinition, model: General
         }
       } else throw new Error("Unknown controller initialization formula.");
     }
+    else if (initial.source === "scaled-model-input") {
+      // A feedforward state K_ff·d at the operating point (Specification 35 §17.12).
+      const input = model.inputs[initial.index], gain = loop.parameterBinding?.parameters.find(parameter => parameter.symbol === initial.gainSymbol);
+      if (!input || !gain || gain.unit !== `${state.unit}/${input.unit}` || !Number.isFinite(parameters[initial.gainSymbol])) {
+        throw new Error(`Initialization of ${state.symbol} needs the bound gain ${initial.gainSymbol} in ${state.unit}/${input?.unit ?? "input unit"}.`);
+      }
+      value = parameters[initial.gainSymbol] * (model.operatingPoint?.inputs[initial.index] ?? 0);
+    }
+    else if (initial.source === "decoupled-model-input") {
+      value = decoupledInput(loop, model, initial.index, initial.matrixSymbols, parameters, state.unit, state.symbol);
+    }
     else if (initial.source === "model-input-is") {
       const input = connectedModelChannels(loop, model).inputs[initial.index];
       if (!input || initial.value === undefined || !Number.isFinite(initial.value)
@@ -87,6 +106,39 @@ export function initializationValues(loop: ControlLoopDefinition, model: General
     }
     return [state.symbol, roundedTransferValue(state, value)];
   }));
+}
+/** Row `row` of D⁻¹·u at the model's operating inputs, in the group's declared input order (Specification 35 §17.15). */
+function decoupledInput(loop: ControlLoopDefinition, model: GeneralModel, row: number, matrixSymbols: readonly (readonly string[])[],
+  parameters: Readonly<Record<string, number>>, unit: string, symbol: string): number {
+  const inputs = matrixSymbols.map((_, index) => controllerModelIndex(loop, model, "model-input", index));
+  if (inputs.some(index => !model.inputs[index]) || model.inputs[inputs[row]].unit !== unit) throw new Error(`Initialization coordinates/units do not match ${symbol}.`);
+  const matrix = matrixSymbols.map(entries => entries.map(entry => {
+    if (!Number.isFinite(parameters[entry])) throw new Error(`Initialization parameter ${entry} is not available.`);
+    return parameters[entry];
+  }));
+  return solveLinear(matrix, inputs.map(index => model.operatingPoint?.inputs[index] ?? 0))[row];
+}
+
+/** Solves A·x = b by Gaussian elimination with partial pivoting; a singular A is refused. */
+export function solveLinear(matrix: readonly (readonly number[])[], right: readonly number[]): number[] {
+  const size = right.length, a = matrix.map((entries, index) => [...entries, right[index]]);
+  for (let column = 0; column < size; column++) {
+    let pivot = column;
+    for (let row = column + 1; row < size; row++) if (Math.abs(a[row][column]) > Math.abs(a[pivot][column])) pivot = row;
+    if (!(Math.abs(a[pivot][column]) > 1e-12)) throw new Error("The decoupler matrix is singular.");
+    [a[column], a[pivot]] = [a[pivot], a[column]];
+    for (let row = column + 1; row < size; row++) {
+      const factor = a[row][column] / a[column][column];
+      for (let k = column; k <= size; k++) a[row][k] -= factor * a[column][k];
+    }
+  }
+  const result = Array<number>(size).fill(0);
+  for (let row = size - 1; row >= 0; row--) {
+    let sum = a[row][size];
+    for (let k = row + 1; k < size; k++) sum -= a[row][k] * result[k];
+    result[row] = sum / a[row][row];
+  }
+  return result;
 }
 /** Group state declarations retain their channel identities when a model orders channels differently. */
 export function controllerModelIndex(loop: ControlLoopDefinition, model: GeneralModel,

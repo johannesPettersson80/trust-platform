@@ -538,7 +538,7 @@ export function identifyPlant(
   const tau = Math.max(dt, t63 - deadTime);
   const horizon = values[values.length - 1].timeSeconds - stepTime;
   const models: IdentifiedModel[] = [
-    candidate("integrating", slopeGain(values, stepIndex, inputChange), undefined, undefined, 0),
+    candidate("integrating", slopeGain(values, stepIndex, inputChange), undefined, undefined, rampDelay(values, stepIndex, output0)),
     candidate("first_order", gain, tau + deadTime, undefined, 0),
     candidate("first_order_dead_time", gain, tau, undefined, deadTime),
     candidate("second_order", gain, Math.max(dt, (tau + deadTime) / 2.146), Math.max(dt, (tau + deadTime) / 2.146), 0),
@@ -684,6 +684,18 @@ function slopeGain(samples: readonly IdentificationSample[], stepIndex: number, 
   const first = tail[0];
   const last = tail[tail.length - 1];
   return (last.output - first.output) / Math.max(1e-12, (last.timeSeconds - first.timeSeconds) * inputChange);
+}
+
+/** Where the late ramp, a least-squares line extended back, meets the level before the step: an integrator's delay. */
+function rampDelay(samples: readonly IdentificationSample[], stepIndex: number, output0: number): number {
+  const tail = samples.slice(stepIndex + Math.floor((samples.length - stepIndex) / 2));
+  const meanTime = mean(tail.map((sample) => sample.timeSeconds)), meanOutput = mean(tail.map((sample) => sample.output));
+  const covariance = tail.reduce((sum, sample) => sum + (sample.timeSeconds - meanTime) * (sample.output - meanOutput), 0);
+  const variance = tail.reduce((sum, sample) => sum + (sample.timeSeconds - meanTime) ** 2, 0);
+  const slope = covariance / Math.max(1e-12, variance);
+  if (!(Math.abs(slope) > 1e-12)) return 0;
+  const start = meanTime - (meanOutput - output0) / slope;
+  return Number.isFinite(start) ? Math.max(0, start - samples[stepIndex].timeSeconds) : 0;
 }
 
 function firstCrossing(samples: readonly IdentificationSample[], start: number, target: number): number {

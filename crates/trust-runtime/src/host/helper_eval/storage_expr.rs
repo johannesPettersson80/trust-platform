@@ -441,7 +441,7 @@ fn eval_array_initializer_element(
     Ok(())
 }
 
-fn array_repeat_group(expr: &Expr) -> Result<Option<(usize, &[CallArg])>, RuntimeError> {
+pub(crate) fn array_repeat_group(expr: &Expr) -> Result<Option<(usize, &[CallArg])>, RuntimeError> {
     let Expr::Call { target, args } = expr else {
         return Ok(None);
     };

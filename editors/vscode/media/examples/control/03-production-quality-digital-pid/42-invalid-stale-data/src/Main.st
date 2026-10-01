@@ -1,385 +1,375 @@
 USING Control;
 
-FUNCTION Lesson42NumericRangeIsValid : BOOL
-VAR_INPUT
-    Setpoint : LREAL;
-    ProcessValue : LREAL;
-    ActualValvePosition : LREAL;
-    FeedForward : LREAL;
-END_VAR
-Lesson42NumericRangeIsValid := (Setpoint >= LREAL#0.0) AND (Setpoint <= LREAL#12.0)
-    AND (ProcessValue >= LREAL#0.0) AND (ProcessValue <= LREAL#12.0)
-    AND (ActualValvePosition >= LREAL#0.0) AND (ActualValvePosition <= LREAL#100.0)
-    AND (FeedForward >= LREAL#-100.0) AND (FeedForward <= LREAL#100.0);
-END_FUNCTION
-
-FUNCTION Lesson42MeasurementIsFresh : BOOL
-VAR_INPUT
-    QualityGood : BOOL;
-    AgeSeconds : LREAL;
-END_VAR
-Lesson42MeasurementIsFresh := QualityGood
-    AND (AgeSeconds >= LREAL#0.0)
-    AND (AgeSeconds <= LREAL#0.5);
-END_FUNCTION
-
-FUNCTION Lesson42TimingIsValid : BOOL
+(* Fraction of the raw-minus-filtered difference applied per update: alpha = dt/(Tf + dt). *)
+FUNCTION FilterFraction : LREAL
 VAR_INPUT
     CycleTime : LREAL;
+    FilterTime : LREAL;
 END_VAR
-Lesson42TimingIsValid := (CycleTime > LREAL#0.0)
-    AND (CycleTime <= LREAL#0.2);
+FilterFraction := CycleTime / (FilterTime + CycleTime);
 END_FUNCTION
 
-FUNCTION Lesson42CandidateIsValid : BOOL
+(* First-order low-pass update: yf_new = yf_old + alpha·(yr − yf_old). *)
+FUNCTION FilterUpdate : LREAL
+VAR_INPUT
+    PreviousFilteredValue : LREAL;
+    RawValue : LREAL;
+    FilterFraction : LREAL;
+END_VAR
+FilterUpdate := PreviousFilteredValue + FilterFraction * (RawValue - PreviousFilteredValue);
+END_FUNCTION
+
+(* An interval is usable only if time has advanced and the samples can still represent the
+   loop's fastest oscillation. *)
+FUNCTION IntervalUsable : BOOL
+VAR_INPUT
+    ElapsedTime : LREAL;
+    MaximumInterval : LREAL;
+END_VAR
+IntervalUsable := ElapsedTime > LREAL#0.0 AND ElapsedTime <= MaximumInterval;
+END_FUNCTION
+
+(* A reading is usable only with good source quality, inside the sensor's 0–80 °C range and with an age
+   between 0 and MaximumAge. NaN fails every comparison. *)
+FUNCTION ReadingUsable : BOOL
+VAR_INPUT
+    QualityGood : BOOL;
+    Value : LREAL;
+    Age : LREAL;
+    MaximumAge : LREAL;
+END_VAR
+ReadingUsable := QualityGood AND Value >= LREAL#0.0 AND Value <= LREAL#80.0
+    AND Age >= LREAL#0.0 AND Age <= MaximumAge;
+END_FUNCTION
+
+(* Weighted proportional term about the operating point T0: P = Kp·(β·(SP − T0) − (PV − T0)). *)
+FUNCTION WeightedProportional : LREAL
 VAR_INPUT
     ProportionalGain : LREAL;
-    IntegralGain : LREAL;
-    TrackingTime : LREAL;
-    OutputMinimum : LREAL;
-    OutputMaximum : LREAL;
-    RateLimit : LREAL;
+    SetpointWeight : LREAL;
+    Setpoint : LREAL;
+    ProcessValue : LREAL;
+    OperatingPoint : LREAL;
 END_VAR
-Lesson42CandidateIsValid :=
-    (ProportionalGain >= LREAL#0.0)
-    AND (ProportionalGain <= LREAL#100.0)
-    AND (IntegralGain >= LREAL#0.0)
-    AND (IntegralGain <= LREAL#50.0)
-    AND (TrackingTime >= LREAL#0.01)
-    AND (TrackingTime <= LREAL#10.0)
-    AND (OutputMinimum >= LREAL#0.0)
-    AND (OutputMaximum <= LREAL#100.0)
-    AND (OutputMinimum < OutputMaximum)
-    AND (RateLimit > LREAL#0.0)
-    AND (RateLimit <= LREAL#1000.0);
+WeightedProportional := ProportionalGain
+    * (SetpointWeight * (Setpoint - OperatingPoint) - (ProcessValue - OperatingPoint));
 END_FUNCTION
 
-FUNCTION Lesson42DetectedFault : INT
+(* Integral state that makes P + I reproduce the applied command: I = u_applied − P. *)
+FUNCTION InitialIntegral : LREAL
 VAR_INPUT
-    NumericRangeValid : BOOL;
-    MeasurementFresh : BOOL;
-    TimingValid : BOOL;
-    DeadlineMissed : BOOL;
-    ApplyConfiguration : BOOL;
-    CandidateConfigurationValid : BOOL;
+    AppliedOutput : LREAL;
+    Proportional : LREAL;
 END_VAR
-IF NOT NumericRangeValid THEN
-    Lesson42DetectedFault := 1;
-ELSIF NOT MeasurementFresh THEN
-    Lesson42DetectedFault := 2;
-ELSIF NOT TimingValid THEN
-    Lesson42DetectedFault := 3;
-ELSIF DeadlineMissed THEN
-    Lesson42DetectedFault := 4;
-ELSIF ApplyConfiguration AND NOT CandidateConfigurationValid THEN
-    Lesson42DetectedFault := 5;
-ELSE
-    Lesson42DetectedFault := 0;
-END_IF;
+InitialIntegral := AppliedOutput - Proportional;
 END_FUNCTION
 
-FUNCTION Lesson42ControllerMutationAllowed : BOOL
+(* A candidate set is usable only as a whole: non-negative gains, weights in 0–1, a minimum below the
+   maximum, rate limits around zero, a positive tracking time and a non-negative filter time.
+   Any NaN fails its comparison and rejects the set. *)
+FUNCTION ValidPidParameters : BOOL
 VAR_INPUT
-    NumericRangeValid : BOOL;
-    MeasurementFresh : BOOL;
-    TimingValid : BOOL;
-    DeadlineMissed : BOOL;
-    ConfigurationValid : BOOL;
+    Candidate : Control.PIDParameters;
+    FilterTime : LREAL;
 END_VAR
-Lesson42ControllerMutationAllowed := NumericRangeValid
-    AND MeasurementFresh
-    AND TimingValid
-    AND NOT DeadlineMissed
-    AND ConfigurationValid;
+ValidPidParameters :=
+    Candidate.ProportionalGain >= LREAL#0.0 AND Candidate.IntegralGain >= LREAL#0.0
+    AND Candidate.DerivativeGain >= LREAL#0.0
+    AND Candidate.ProportionalSetpointWeight >= LREAL#0.0 AND Candidate.ProportionalSetpointWeight <= LREAL#1.0
+    AND Candidate.DerivativeSetpointWeight >= LREAL#0.0 AND Candidate.DerivativeSetpointWeight <= LREAL#1.0
+    AND Candidate.Bias = Candidate.Bias
+    AND Candidate.OutputMinimum < Candidate.OutputMaximum
+    AND Candidate.RateMinimum <= LREAL#0.0 AND Candidate.RateMaximum >= LREAL#0.0
+    AND Candidate.TrackingTime > LREAL#0.0
+    AND FilterTime >= LREAL#0.0;
+END_FUNCTION
+
+FUNCTION SamePidParameters : BOOL
+VAR_INPUT
+    Left : Control.PIDParameters;
+    Right : Control.PIDParameters;
+END_VAR
+SamePidParameters :=
+    Left.ProportionalGain = Right.ProportionalGain
+    AND Left.IntegralGain = Right.IntegralGain
+    AND Left.DerivativeGain = Right.DerivativeGain
+    AND Left.ProportionalSetpointWeight = Right.ProportionalSetpointWeight
+    AND Left.DerivativeSetpointWeight = Right.DerivativeSetpointWeight
+    AND Left.Bias = Right.Bias
+    AND Left.OutputMinimum = Right.OutputMinimum
+    AND Left.OutputMaximum = Right.OutputMaximum
+    AND Left.RateMinimum = Right.RateMinimum
+    AND Left.RateMaximum = Right.RateMaximum
+    AND Left.TrackingTime = Right.TrackingTime
+    AND Left.AntiWindup = Right.AntiWindup;
 END_FUNCTION
 
 PROGRAM Main
 VAR
     Controller : Control.PID;
-    CandidateParameters : Control.PIDParameters;
-    ActiveParameters : Control.PIDParameters;
+    (* Tune replaces this record with each candidate; the defaults are the Lesson 24
+       controller: relay gains, setpoint weight 0.3 and the 1 s measurement filter. *)
+    Parameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#13.0,
+        IntegralGain := LREAL#3.5,
+        DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#0.3,
+        DerivativeSetpointWeight := LREAL#0.0,
+        Bias := LREAL#0.0,
+        OutputMinimum := LREAL#0.0,
+        OutputMaximum := LREAL#100.0,
+        RateMinimum := LREAL#-10000.0,
+        RateMaximum := LREAL#10000.0,
+        TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation
+    );
+    ConfiguredParameters : Control.PIDParameters;
+    ConfiguredFilterTimeS : LREAL := 1.0;
+    ParameterRevision : DINT := 0;
+    ParametersRejected : BOOL := FALSE;
     InitialState : Control.PIDInitialState;
+    ObservedState : Control.PIDInitialState;
     Input : Control.PIDInput;
-    ExperimentEnabled : BOOL := FALSE;
-    ExperimentWasEnabled : BOOL := FALSE;
-    ExperimentCycle : ULINT := ULINT#0;
+    (* Ready: every retained value has been set from the actual operating condition. *)
+    Initialized : BOOL := FALSE;
     InitializeRequest : BOOL := FALSE;
-    ApplyConfiguration : BOOL := FALSE;
+    InitializeRequestWas : BOOL := FALSE;
+    AutoMode : BOOL := FALSE;
+    AutoActive : BOOL := FALSE;
+    (* TRUE at start: a program that starts in Auto from preset stored values continues without a
+       transfer. A real start begins uninitialized in Manual, which clears it. *)
+    AutoWasActive : BOOL := TRUE;
+    (* FALSE runs the untracked counterexample: Manual leaves the stored values as initialized. *)
+    TrackManual : BOOL := TRUE;
+    ManualOutput : LREAL := 75.0;
+    (* Sensor interface: the simulated device delivers the reading with a quality flag; these three
+       inputs inject faults for the lesson. *)
     SensorQualityGood : BOOL := TRUE;
-    DeadlineMissed : BOOL := FALSE;
-    AcknowledgeRequest : BOOL := FALSE;
-    ResetRequest : BOOL := FALSE;
-    EnableAutoRequest : BOOL := FALSE;
-    Setpoint : LREAL := 6.0;
-    ProcessValue : LREAL := 6.0;
-    ActualValvePosition : LREAL := 40.0;
-    FeedForward : LREAL := 0.0;
-    SensorAgeSeconds : LREAL := 0.0;
-    MeasuredCycleTime : LREAL := 0.1;
-    CandidateOutputMinimum : LREAL := 0.0;
-    CandidateOutputMaximum : LREAL := 100.0;
-    CandidateProportionalGain : LREAL := 5.0;
-    CandidateIntegralGain : LREAL := 1.0;
-    CandidateTrackingTime : LREAL := 1.0;
-    CandidateRateLimit : LREAL := 20.0;
-    ValveCommand : LREAL := 30.0;
-    FaultCode : INT := 0;
-    DetectedFaultCode : INT := 0;
-    ActiveRevision : INT := 0;
-    RecoveryValidCount : INT := 0;
-    FaultLatched : BOOL := FALSE;
-    FaultAcknowledged : BOOL := FALSE;
-    RecoveryReady : BOOL := FALSE;
+    SensorFrozen : BOOL := FALSE;
+    InjectedOffsetC : LREAL := 0.0;
+    ReadingC : LREAL := 35.0;
+    AcquisitionTimer : TON;
+    AcquisitionAgeS : LREAL := 0.0;
+    NewAcquisition : BOOL := FALSE;
+    (* Measurement validity: a reading older than MaximumAgeS is stale; recovery needs
+       FreshSamplesRequired consecutive fresh valid acquisitions after an acknowledgement. *)
+    MaximumAgeS : LREAL := 0.5;
+    FreshSamplesRequired : DINT := 3;
+    MeasurementUsable : BOOL := FALSE;
+    MeasurementFault : BOOL := FALSE;
+    FaultAcknowledge : BOOL := FALSE;
+    Acknowledged : BOOL := FALSE;
+    RecoveryCount : DINT := 0;
     RecoveryComplete : BOOL := FALSE;
-    ControllerCalledThisScan : BOOL := FALSE;
-    ConfiguredThisScan : BOOL := FALSE;
-    AutoAuthorized : BOOL := FALSE;
-    ControllerReady : BOOL := FALSE;
-    NumericRangeValid : BOOL := FALSE;
-    MeasurementFresh : BOOL := FALSE;
-    TimingValid : BOOL := FALSE;
-    CandidateConfigurationValid : BOOL := FALSE;
-    ActiveConfigurationValid : BOOL := FALSE;
-    RecoveryInputValid : BOOL := FALSE;
+    SetpointC : LREAL := 35.0;
+    DisturbanceKw : LREAL := 0.0;
+    WaterInputC : LREAL := 35.0;
+    WaterTemperatureC : LREAL := 35.0;
+    TemperatureC : LREAL := 35.0;
+    SafeProcessValueC : LREAL := 35.0;
+    AppliedPowerPct : LREAL := 75.0;
+    RequestedPowerPct : LREAL := 75.0;
+    ErrorC : LREAL := 0.0;
+    (* Reference of the weighted proportional term: the 35 °C hot operating point. *)
+    OperatingPointC : LREAL := 35.0;
+    (* Measurement filter: Tf = 0 bypasses it; Control Studio applies Tf with the gains. *)
+    FilterTimeS : LREAL := 1.0;
+    FilterAlpha : LREAL := 1.0;
+    FilteredC : LREAL := 35.0;
+    FilterRestart : BOOL := TRUE;
+    (* Timing: the controller updates every ControllerPeriodS of measured time. *)
+    IntervalTimer : TON;
+    SinceLastUpdateS : LREAL := 0.0;
+    ElapsedS : LREAL := 0.0;
+    ControllerPeriodS : LREAL := 0.1;
+    (* Longest usable interval: half the loop's 4.42 s ultimate period (Lesson 20). *)
+    MaximumIntervalS : LREAL := 2.2;
+    UpdateDue : BOOL := FALSE;
+    TimingUsable : BOOL := FALSE;
+    RejectedUpdates : DINT := 0;
+    ProportionalPct : LREAL := 0.0;
+    IntegralPct : LREAL := 75.0;
+    PreviousAppliedPct : LREAL := 75.0;
+    CommandActivityPoints : LREAL := 0.0;
 END_VAR
 
-ControllerCalledThisScan := FALSE;
-ConfiguredThisScan := FALSE;
+(* The Lesson 21 heater: both feedback bindings observe the heated water, and the
+   temperature measurement carries ±0.02 °C noise. *)
+WaterTemperatureC := WaterInputC;
+(* Sensor interface: every scan the device delivers a new acquisition unless it is frozen. The
+   acquisition timer restarts with each new acquisition, so its elapsed time is the reading's age. *)
+IF NOT SensorFrozen THEN
+    ReadingC := TemperatureC + InjectedOffsetC;
+    AcquisitionTimer(IN := FALSE, PT := T#1h);
+    NewAcquisition := TRUE;
+ELSE
+    NewAcquisition := FALSE;
+END_IF;
+AcquisitionTimer(IN := TRUE, PT := T#1h);
+AcquisitionAgeS := UDINT_TO_LREAL(DWORD_TO_UDINT(TIME_TO_DWORD(AcquisitionTimer.ET))) / LREAL#1000.0;
 
-(* Control Studio writes one reviewed Boolean. The project owns the invalid
-   candidate, correction, acknowledgement, three qualification scans, reset,
-   renewed Auto, and safe restoration as separate observable scans. *)
-IF ExperimentEnabled THEN
-    IF NOT ExperimentWasEnabled THEN
-        ExperimentCycle := ULINT#0;
-    END_IF;
-    ExperimentCycle := ExperimentCycle + ULINT#1;
-    InitializeRequest := FALSE;
-    ApplyConfiguration := FALSE;
-    AcknowledgeRequest := FALSE;
-    ResetRequest := FALSE;
-    EnableAutoRequest := FALSE;
-    SensorQualityGood := TRUE;
-    SensorAgeSeconds := LREAL#0.0;
-    MeasuredCycleTime := LREAL#0.1;
-    DeadlineMissed := FALSE;
-    IF ExperimentCycle = ULINT#1 THEN
-        Setpoint := LREAL#6.0;
-        ActualValvePosition := LREAL#40.0;
-        CandidateOutputMinimum := LREAL#0.0;
-        CandidateOutputMaximum := LREAL#100.0;
-        InitializeRequest := TRUE;
-    ELSIF ExperimentCycle = ULINT#2 THEN
-        CandidateOutputMinimum := LREAL#80.0;
-        CandidateOutputMaximum := LREAL#20.0;
-        ApplyConfiguration := TRUE;
-    ELSIF ExperimentCycle = ULINT#3 THEN
-        CandidateOutputMinimum := LREAL#0.0;
-        CandidateOutputMaximum := LREAL#100.0;
-    ELSIF ExperimentCycle = ULINT#4 THEN
-        AcknowledgeRequest := TRUE;
-    ELSIF ExperimentCycle = ULINT#8 THEN
-        Setpoint := ProcessValue;
-        ActualValvePosition := LREAL#30.0;
-        ResetRequest := TRUE;
-    ELSIF ExperimentCycle >= ULINT#9 THEN
-        Setpoint := ProcessValue;
-        ActualValvePosition := LREAL#30.0;
-        EnableAutoRequest := TRUE;
-    END_IF;
-ELSIF ExperimentWasEnabled THEN
-    ExperimentCycle := ULINT#0;
-    InitializeRequest := FALSE;
-    ApplyConfiguration := FALSE;
-    AcknowledgeRequest := FALSE;
-    ResetRequest := FALSE;
-    EnableAutoRequest := FALSE;
-    ValveCommand := LREAL#30.0;
+MeasurementUsable := ReadingUsable(QualityGood := SensorQualityGood, Value := ReadingC,
+    Age := AcquisitionAgeS, MaximumAge := MaximumAgeS);
+IF MeasurementUsable THEN
+    SafeProcessValueC := ReadingC;
 END_IF;
 
-(* Evaluate every external value before Configure or Initialize. This makes
-   the no-mutation promise true even if startup and bad data coincide. *)
-NumericRangeValid := Lesson42NumericRangeIsValid(
-    Setpoint := Setpoint,
-    ProcessValue := ProcessValue,
-    ActualValvePosition := ActualValvePosition,
-    FeedForward := FeedForward
-);
-MeasurementFresh := Lesson42MeasurementIsFresh(
-    QualityGood := SensorQualityGood,
-    AgeSeconds := SensorAgeSeconds
-);
-TimingValid := Lesson42TimingIsValid(CycleTime := MeasuredCycleTime);
-CandidateConfigurationValid := Lesson42CandidateIsValid(
-    ProportionalGain := CandidateProportionalGain,
-    IntegralGain := CandidateIntegralGain,
-    TrackingTime := CandidateTrackingTime,
-    OutputMinimum := CandidateOutputMinimum,
-    OutputMaximum := CandidateOutputMaximum,
-    RateLimit := CandidateRateLimit
-);
-
-IF InitializeRequest
-    AND Lesson42ControllerMutationAllowed(
-        NumericRangeValid := NumericRangeValid,
-        MeasurementFresh := MeasurementFresh,
-        TimingValid := TimingValid,
-        DeadlineMissed := DeadlineMissed,
-        ConfigurationValid := CandidateConfigurationValid
-    ) THEN
-    ActiveParameters.ProportionalGain := LREAL#5.0;
-    ActiveParameters.IntegralGain := LREAL#1.0;
-    ActiveParameters.DerivativeGain := LREAL#0.0;
-    ActiveParameters.ProportionalSetpointWeight := LREAL#1.0;
-    ActiveParameters.DerivativeSetpointWeight := LREAL#0.0;
-    ActiveParameters.Bias := LREAL#0.0;
-    ActiveParameters.OutputMinimum := LREAL#0.0;
-    ActiveParameters.OutputMaximum := LREAL#100.0;
-    ActiveParameters.RateMinimum := LREAL#-20.0;
-    ActiveParameters.RateMaximum := LREAL#20.0;
-    ActiveParameters.TrackingTime := LREAL#1.0;
-    ActiveParameters.AntiWindup := PIDAntiWindup#Combined;
-    Controller.Configure(Parameters := ActiveParameters);
-
-    InitialState.Setpoint := Setpoint;
-    InitialState.SetpointRate := LREAL#0.0;
-    InitialState.ProcessValue := ProcessValue;
-    InitialState.ProcessValueRate := LREAL#0.0;
-    InitialState.FeedForward := FeedForward;
-    InitialState.NominalOutput := ActualValvePosition;
-    InitialState.SaturatedOutput := ActualValvePosition;
-    Controller.Initialize(State := InitialState);
-
-    ValveCommand := ActualValvePosition;
-    FaultCode := 0;
-    ActiveRevision := 0;
-    RecoveryValidCount := 0;
-    FaultLatched := FALSE;
-    FaultAcknowledged := FALSE;
-    RecoveryReady := FALSE;
-    RecoveryComplete := FALSE;
-    AutoAuthorized := FALSE;
-    ControllerReady := TRUE;
+(* A latched fault removes heat, stops every controller and filter update, and clears the Auto
+   request and the manual demand, so neither can restart the heater by itself. *)
+IF NOT MeasurementUsable AND NOT MeasurementFault THEN
+    MeasurementFault := TRUE;
+    AutoMode := FALSE;
+    ManualOutput := LREAL#0.0;
+    Acknowledged := FALSE;
+    RecoveryCount := 0;
 END_IF;
-
-(* Range comparisons reject infinities and also reject NaN because every
-   ordered comparison with NaN is false. Invalid values never reach PID math. *)
-ActiveConfigurationValid :=
-    (ActiveParameters.ProportionalGain >= LREAL#0.0)
-    AND (ActiveParameters.ProportionalGain <= LREAL#100.0)
-    AND (ActiveParameters.IntegralGain >= LREAL#0.0)
-    AND (ActiveParameters.IntegralGain <= LREAL#50.0)
-    AND (ActiveParameters.TrackingTime >= LREAL#0.01)
-    AND (ActiveParameters.TrackingTime <= LREAL#10.0)
-    AND (ActiveParameters.OutputMinimum >= LREAL#0.0)
-    AND (ActiveParameters.OutputMaximum <= LREAL#100.0)
-    AND (ActiveParameters.OutputMinimum < ActiveParameters.OutputMaximum)
-    AND (ActiveParameters.RateMinimum < LREAL#0.0)
-    AND (ActiveParameters.RateMaximum > LREAL#0.0);
-
-(* Stable priority makes simultaneous failures reproducible. The first cause
-   remains operator-facing until a qualified reset. *)
-DetectedFaultCode := Lesson42DetectedFault(
-    NumericRangeValid := NumericRangeValid,
-    MeasurementFresh := MeasurementFresh,
-    TimingValid := TimingValid,
-    DeadlineMissed := DeadlineMissed,
-    ApplyConfiguration := ApplyConfiguration,
-    CandidateConfigurationValid := CandidateConfigurationValid
-);
-
-IF (DetectedFaultCode <> 0) AND NOT FaultLatched THEN
-    FaultCode := DetectedFaultCode;
-    FaultLatched := TRUE;
-    FaultAcknowledged := FALSE;
-    RecoveryValidCount := 0;
-    RecoveryReady := FALSE;
-    RecoveryComplete := FALSE;
-    AutoAuthorized := FALSE;
-END_IF;
-
-IF FaultLatched THEN
-    ValveCommand := LREAL#30.0;
-
-    IF AcknowledgeRequest THEN
-        (* Acknowledgement records awareness; it never clears the fault. *)
-        FaultAcknowledged := TRUE;
+(* Recovery: after an acknowledgement, FreshSamplesRequired consecutive new and valid acquisitions.
+   A repeated old reading does not count; an invalid one restarts the count. *)
+RecoveryComplete := FALSE;
+IF MeasurementFault THEN
+    IF FaultAcknowledge THEN
+        Acknowledged := TRUE;
+        FaultAcknowledge := FALSE;
+        RecoveryCount := 0;
     END_IF;
-
-    (* Qualification starts after the acknowledgement scan. This preserves
-       three observable valid scans instead of counting the button press as
-       process evidence. *)
-    RecoveryInputValid := FaultAcknowledged
-        AND NOT AcknowledgeRequest
-        AND (DetectedFaultCode = 0)
-        AND ActiveConfigurationValid;
-    IF RecoveryInputValid THEN
-        IF RecoveryValidCount < 3 THEN
-            RecoveryValidCount := RecoveryValidCount + 1;
-        END_IF;
-    ELSE
-        RecoveryValidCount := 0;
+    IF NOT MeasurementUsable THEN
+        RecoveryCount := 0;
+    ELSIF Acknowledged AND NewAcquisition THEN
+        RecoveryCount := RecoveryCount + 1;
     END_IF;
-    RecoveryReady := RecoveryValidCount >= 3;
-
-    IF ResetRequest AND FaultAcknowledged AND RecoveryReady THEN
-        (* Rebuild controller histories from present measured state. Automatic
-           authority is deliberately left false on the reset scan. *)
-        Controller.Configure(Parameters := ActiveParameters);
-        ConfiguredThisScan := TRUE;
-        InitialState.Setpoint := Setpoint;
-        InitialState.SetpointRate := LREAL#0.0;
-        InitialState.ProcessValue := ProcessValue;
-        InitialState.ProcessValueRate := LREAL#0.0;
-        InitialState.FeedForward := FeedForward;
-        InitialState.NominalOutput := ActualValvePosition;
-        InitialState.SaturatedOutput := ActualValvePosition;
-        Controller.Initialize(State := InitialState);
-        ValveCommand := ActualValvePosition;
-        FaultCode := 0;
-        FaultLatched := FALSE;
-        FaultAcknowledged := FALSE;
-        RecoveryValidCount := 0;
-        RecoveryReady := FALSE;
+    IF RecoveryCount >= FreshSamplesRequired THEN
+        MeasurementFault := FALSE;
+        Acknowledged := FALSE;
+        RecoveryCount := 0;
         RecoveryComplete := TRUE;
-        AutoAuthorized := FALSE;
     END_IF;
 ELSE
-    IF ApplyConfiguration AND CandidateConfigurationValid THEN
-        CandidateParameters.ProportionalGain := CandidateProportionalGain;
-        CandidateParameters.IntegralGain := CandidateIntegralGain;
-        CandidateParameters.DerivativeGain := LREAL#0.0;
-        CandidateParameters.ProportionalSetpointWeight := LREAL#1.0;
-        CandidateParameters.DerivativeSetpointWeight := LREAL#0.0;
-        CandidateParameters.Bias := LREAL#0.0;
-        CandidateParameters.OutputMinimum := CandidateOutputMinimum;
-        CandidateParameters.OutputMaximum := CandidateOutputMaximum;
-        CandidateParameters.RateMinimum := -CandidateRateLimit;
-        CandidateParameters.RateMaximum := CandidateRateLimit;
-        CandidateParameters.TrackingTime := CandidateTrackingTime;
-        CandidateParameters.AntiWindup := PIDAntiWindup#Combined;
-        ActiveParameters := CandidateParameters;
-        Controller.Configure(Parameters := ActiveParameters);
-        ActiveRevision := ActiveRevision + 1;
-        ConfiguredThisScan := TRUE;
+    FaultAcknowledge := FALSE;
+END_IF;
+(* Measured time since the previous update decision, read in the scan that acquires the measurement. *)
+IntervalTimer(IN := TRUE, PT := T#1h);
+SinceLastUpdateS := UDINT_TO_LREAL(DWORD_TO_UDINT(TIME_TO_DWORD(IntervalTimer.ET))) / LREAL#1000.0;
+
+(* Parameter updates: Control Studio's Apply writes the complete record and FilterTimeS at one task
+   boundary. The program adopts a changed set only as a whole and only if it is valid; an invalid set
+   changes nothing, and the controller keeps running on the active set. *)
+IF NOT Initialized OR NOT SamePidParameters(Left := Parameters, Right := ConfiguredParameters)
+        OR FilterTimeS <> ConfiguredFilterTimeS THEN
+    IF ValidPidParameters(Candidate := Parameters, FilterTime := FilterTimeS) THEN
+        ConfiguredParameters := Parameters;
+        ConfiguredFilterTimeS := FilterTimeS;
+        ParameterRevision := ParameterRevision + 1;
+        ParametersRejected := FALSE;
+    ELSE
+        ParametersRejected := TRUE;
+    END_IF;
+ELSE
+    ParametersRejected := FALSE;
+END_IF;
+Controller.Configure(Parameters := ConfiguredParameters);
+
+(* Hot reset: the program starts with the operator's manual command at the 75 % that holds the
+   heater at 35 °C. *)
+IF NOT Initialized THEN
+    ManualOutput := LREAL#75.0;
+END_IF;
+
+(* One writer for the heater: a safety stop, else Manual until automatic control is active.
+   Manual applies its own command and does not update the controller. *)
+AutoActive := AutoMode AND Initialized AND NOT MeasurementFault
+    AND ConfiguredParameters.ProportionalGain > LREAL#0.0 AND ConfiguredParameters.IntegralGain > LREAL#0.0;
+IF MeasurementFault THEN
+    AppliedPowerPct := LREAL#0.0;
+ELSIF NOT AutoActive THEN
+    AppliedPowerPct := LIMIT(MN := LREAL#0.0, IN := ManualOutput, MX := LREAL#100.0);
+END_IF;
+
+(* Initialization sets every retained value from the actual operating condition: at startup and
+   once per rising edge of InitializeRequest, only while Manual owns the heater and the data is valid. *)
+IF (NOT Initialized OR (InitializeRequest AND NOT InitializeRequestWas) OR RecoveryComplete)
+        AND NOT AutoActive AND NOT MeasurementFault AND MeasurementUsable THEN
+    IF NOT Initialized AND NOT AutoMode THEN
+        SetpointC := SafeProcessValueC;
+    END_IF;
+    FilteredC := SafeProcessValueC;
+    InitialState.Setpoint := SetpointC;
+    InitialState.ProcessValue := FilteredC;
+    InitialState.NominalOutput := AppliedPowerPct;
+    InitialState.SaturatedOutput := AppliedPowerPct;
+    InitialState.SetpointRate := LREAL#0.0;
+    InitialState.ProcessValueRate := LREAL#0.0;
+    InitialState.FeedForward := LREAL#0.0;
+    Controller.Initialize(State := InitialState);
+    ProportionalPct := WeightedProportional(ProportionalGain := ConfiguredParameters.ProportionalGain,
+        SetpointWeight := ConfiguredParameters.ProportionalSetpointWeight, Setpoint := SetpointC,
+        ProcessValue := FilteredC, OperatingPoint := OperatingPointC);
+    IntegralPct := InitialIntegral(AppliedOutput := AppliedPowerPct, Proportional := ProportionalPct);
+    RequestedPowerPct := AppliedPowerPct;
+    Initialized := TRUE;
+END_IF;
+InitializeRequestWas := InitializeRequest;
+
+(* Manual keeps the timing baseline current every scan, so the first automatic update integrates
+   one scan, not the time spent in Manual. Auto updates every ControllerPeriodS. *)
+UpdateDue := NOT AutoActive OR NOT AutoWasActive
+    OR SinceLastUpdateS >= ControllerPeriodS - LREAL#0.001;
+IF UpdateDue THEN
+    ElapsedS := SinceLastUpdateS;
+    TimingUsable := IntervalUsable(ElapsedTime := ElapsedS, MaximumInterval := MaximumIntervalS);
+    IntervalTimer(IN := FALSE, PT := T#1h);
+    IntervalTimer(IN := TRUE, PT := T#1h);
+END_IF;
+IF UpdateDue AND NOT TimingUsable THEN
+    (* No state is updated over an unusable interval: the command is held, and the next
+       accepted update restarts the filter from the fresh measurement. *)
+    IF AutoActive THEN
+        RejectedUpdates := RejectedUpdates + 1;
+    END_IF;
+    FilterRestart := TRUE;
+ELSIF UpdateDue AND NOT MeasurementFault THEN
+    (* The filter runs in Auto; in Manual, on the transfer scan and after a restart it takes the fresh measurement. *)
+    IF AutoActive AND AutoWasActive AND NOT FilterRestart THEN
+        FilterAlpha := FilterFraction(CycleTime := ElapsedS, FilterTime := ConfiguredFilterTimeS);
+        FilteredC := FilterUpdate(PreviousFilteredValue := FilteredC, RawValue := SafeProcessValueC, FilterFraction := FilterAlpha);
+    ELSE
+        FilteredC := SafeProcessValueC;
+    END_IF;
+    FilterRestart := FALSE;
+    Input.Setpoint := SetpointC;
+    Input.ProcessValue := FilteredC;
+    Input.CycleTime := ElapsedS;
+    Input.FeedForward := LREAL#0.0;
+    Input.TrackingOutput := AppliedPowerPct;
+    Input.ManualOutput := AppliedPowerPct;
+    ErrorC := SetpointC - FilteredC;
+    IF AutoActive AND (AutoWasActive OR NOT TrackManual) THEN
+        (* Ordinary PI update. *)
+        Input.Mode := PIDMode#Auto;
+        AppliedPowerPct := Controller.Update(Input := Input);
+        AutoWasActive := TRUE;
+    ELSIF TrackManual THEN
+        (* Tracking: in Manual and on the transfer scan, the stored values follow the applied command,
+           the setpoint and the measurement, so I = u_a − P. The command stays u_a: no integral step. *)
+        Input.Mode := PIDMode#Manual;
+        AppliedPowerPct := Controller.Update(Input := Input);
+        AutoWasActive := AutoActive;
     END_IF;
 
-    IF ControllerReady AND EnableAutoRequest THEN
-        Input.Setpoint := Setpoint;
-        Input.ProcessValue := ProcessValue;
-        Input.FeedForward := FeedForward;
-        Input.Mode := PIDMode#Auto;
-        Input.CycleTime := MeasuredCycleTime;
-        ValveCommand := Controller.Update(Input := Input);
-        ControllerCalledThisScan := TRUE;
-        AutoAuthorized := TRUE;
-        RecoveryComplete := FALSE;
-    ELSE
-        ValveCommand := ActualValvePosition;
-        AutoAuthorized := FALSE;
-    END_IF;
+    (* Diagnostics come from the actual controller state; the PI equations live in Control.PID. *)
+    ObservedState := Controller.GetState();
+    RequestedPowerPct := ObservedState.NominalOutput;
+    ProportionalPct := WeightedProportional(ProportionalGain := ConfiguredParameters.ProportionalGain,
+        SetpointWeight := ConfiguredParameters.ProportionalSetpointWeight, Setpoint := SetpointC,
+        ProcessValue := FilteredC, OperatingPoint := OperatingPointC);
+    IntegralPct := RequestedPowerPct - ProportionalPct;
 END_IF;
-ExperimentWasEnabled := ExperimentEnabled;
+IF NOT AutoActive THEN
+    AutoWasActive := FALSE;
+END_IF;
+(* Command activity adds every applied-command movement, starting from the 75 % holding command. *)
+CommandActivityPoints := CommandActivityPoints + ABS(AppliedPowerPct - PreviousAppliedPct);
+PreviousAppliedPct := AppliedPowerPct;
+
 END_PROGRAM
 
 CONFIGURATION Config
@@ -388,35 +378,18 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.InitializeRequest AT %MX64.0 : BOOL;
-    P1.ApplyConfiguration AT %MX64.1 : BOOL;
-    P1.SensorQualityGood AT %MX64.2 : BOOL;
-    P1.DeadlineMissed AT %MX64.3 : BOOL;
-    P1.AcknowledgeRequest AT %MX64.4 : BOOL;
-    P1.ResetRequest AT %MX64.5 : BOOL;
-    P1.EnableAutoRequest AT %MX64.6 : BOOL;
-    P1.ExperimentEnabled AT %MX64.7 : BOOL;
-    P1.FaultLatched AT %MX65.0 : BOOL;
-    P1.FaultAcknowledged AT %MX65.1 : BOOL;
-    P1.RecoveryReady AT %MX65.2 : BOOL;
-    P1.RecoveryComplete AT %MX65.3 : BOOL;
-    P1.ControllerCalledThisScan AT %MX65.4 : BOOL;
-    P1.ConfiguredThisScan AT %MX65.5 : BOOL;
-    P1.AutoAuthorized AT %MX65.6 : BOOL;
-    P1.FaultCode AT %MW66 : INT;
-    P1.ActiveRevision AT %MW68 : INT;
-    P1.RecoveryValidCount AT %MW70 : INT;
-    P1.Setpoint AT %ML0 : LREAL;
-    P1.ActualValvePosition AT %ML8 : LREAL;
-    P1.FeedForward AT %ML16 : LREAL;
-    P1.SensorAgeSeconds AT %ML24 : LREAL;
-    P1.MeasuredCycleTime AT %ML32 : LREAL;
-    P1.CandidateOutputMinimum AT %ML40 : LREAL;
-    P1.CandidateOutputMaximum AT %ML48 : LREAL;
-    P1.CandidateProportionalGain AT %ML56 : LREAL;
-    P1.CandidateIntegralGain AT %ML80 : LREAL;
-    P1.CandidateTrackingTime AT %ML72 : LREAL;
-    P1.ValveCommand AT %QL0 : LREAL;
-    P1.ProcessValue AT %IL0 : LREAL;
+    P1.MeasurementFault AT %MX96.3 : BOOL;
+    P1.MeasurementUsable AT %MX96.2 : BOOL;
+    P1.AppliedPowerPct AT %QL0 : LREAL;
+    P1.DisturbanceKw AT %QL8 : LREAL;
+    P1.WaterInputC AT %IL0 : LREAL;
+    P1.TemperatureC AT %IL8 : LREAL;
+    P1.SetpointC AT %ML0 : LREAL;
+    P1.IntegralPct AT %ML16 : LREAL;
+    P1.RequestedPowerPct AT %ML32 : LREAL;
+    P1.WaterTemperatureC AT %ML48 : LREAL;
+    P1.ProportionalPct AT %ML56 : LREAL;
+    P1.CommandActivityPoints AT %ML64 : LREAL;
+    P1.ManualOutput AT %ML72 : LREAL;
 END_VAR
 END_CONFIGURATION

@@ -677,3 +677,43 @@ Evidence: [active task](control-studio-single-identification.md).
 - [x] Verify diagram and source/manifest agreement after rendering.
 
 [Active task](control-studio-automatic-tuning-setup.md).
+
+## Bytecode VM execution cost — 2026-09-28/29
+
+- [x] Root cause 1: `dispatch.rs` resolved a debug source location for every executed statement even without debug control, and with debug control copied the variable storage before every statement. The statement location is now resolved only with debug control and cached per (POU, pc) in `Runtime::vm_statement_locations` (cleared on every module change); the debug snapshot is taken at a stop and once per completed cycle (`cycle.rs` step 9a). Behaviour locks: `debug_snapshot_timing.rs`, register-IR location test; spec 13 updated.
+- [x] Remaining costs (callgrind): lazy `VmTrap` construction; dense `ref_types` and a `ref_slots` (owner, offset) index in `dynamic_ref_type` instead of a scan of every reference; store fast path for values that already have the declared elementary type (`type_policy.rs`); same-type arithmetic fast path in `apply_binary` (`same_type_binary`); `declared_instance_field_offset` reads the instance's own map instead of a string-keyed type-layout cache (cache removed); `VmModule` and local-init plan maps moved to Fx hashing. Behaviour locks added before each change and green before and after (`same_type_operands_keep_checked_results_errors_and_float_comparisons`, `primitive_policy_keeps_values_of_the_declared_elementary_type_unchanged`) plus core/runtime lib, differential, complete_program, FB-array, debug and lesson suites.
+- [x] SOLID/KISS/DRY review: each change stays in its owning module (dispatch, type policy, core ops, memory); no new module boundaries; the fast paths return `None` and defer to the unchanged generic path, so there is one semantic owner per operation.
+- [x] Diagram `docs/diagrams/architecture/runtime-execution.puml` updated for the debug-hook gating and cycle snapshot; render and drift check on trust-builder recorded with the final gates.
+
+Release measurements: Lesson 79 scan 2.8 → 1.8 → 0.79 ms; `X := X + 1` loop iteration 1.39 → 0.6 → 0.44 µs; function-block call 2.39 → 1.64 → 1.24 µs (debug control 7.93 → 2.18 → 1.81 µs).
+
+## Control Studio setup, Apply and program-law prediction — 2026-09-29/30
+
+- [x] New setup owner: `controlStudio/loopSetup/*` (compiled catalog decoding, form model, one generator per structure: PID, cascade,
+  PID group, ON/OFF, state feedback, identify only) and the setup webview (`webview/loopSetupForm.ts`); the language server adds
+  `controlSymbols.links`/`writes` and each configured program instance's declared type.
+- [x] Apply: `commissioningStartingPoint.ts` owns the settled-start rule, the bounded cancellable wait and the state-feedback
+  Auto-entry allowance; `runtimeDuration.ts` owns observation in runtime time from `control.transfer.status` `runtime_time_ns`.
+- [x] Tune/Validate share `modelPredictionRuns.ts` (the program's ST with current and candidate settings on the model).
+- [x] Removed the built-in physical families (`physicalModel.ts`, `physicalIdentification.ts`) and their branches.
+- [x] SOLID/KISS review: new behaviour went into new modules with explicit owner interfaces; `engineerWorkflowSession.ts` still grew
+  (997 → 1,085 lines) and its 537-line `handle()` needs a per-action split (tracker CPGP-217).
+- [x] Diagram `docs/diagrams/architecture/control-studio.puml` updated (setup form and generators, program-law prediction, Apply
+  wait and runtime-time observation); rendered with `scripts/render_diagrams.sh` and `scripts/check_diagram_drift.py` clean on
+  trust-builder (30 Sep).
+- [x] Automatic tuning: `automaticPidResponse.ts` owns the requirement-driven response choice for PI/PD/PID (Spec 35 §9.2); it
+  reuses `designPidForTask` per response and `engineerPrediction`, and shares `responseDeadlineSeconds` with the verification plan.
+- [x] Session split (tracker CPGP-217): `engineerSessionState.ts` holds the session's working state behind one explicit interface
+  (`EngineerSessionState`); `engineerActions/*` own one action each: `find.ts` (Identify), `tune.ts`, `verify.ts` (Validate),
+  `application.ts` (Apply review and confirmation), `recovery.ts` (runtime review, retirement and interrupted rollback). They
+  reach the session only through `EngineerActionHost` (`host.ts`). `engineerWorkflowSession.ts` keeps request guards, input
+  invalidation, persistence and recovery: 1,088 → 654 lines. Behaviour lock: full VS Code suite green before the split (both
+  phases, 30 Sep) and the session-level suites green after it; new session-level locks for Validate cancellation confirmation
+  and the Manual rollback ticket were green on the code before the split.
+- [x] Structure designs share one path module (30 Sep): `pathReduction.ts` owns the settling horizon, the open-loop step
+  response, the two-point first-order-plus-delay reduction, the model sampling, the single-loop view of one controller and the
+  first-order path model. The PID-group design (`decentralizedPidDesign.ts`), the cascade design (`cascadePidDesign.ts`) and the
+  feedforward design (`feedforwardPidDesign.ts`) use it instead of three copies. Behaviour lock: PID-group and cascade suites green
+  before and after. Measured disturbances are model inputs the controller only reads: `measuredDisturbanceInput` (loopChannels)
+  keeps them out of the controller outputs, the verification output bounds and the transfer's written states, and
+  `engineerDisturbanceScenarios.ts` owns their verification case.

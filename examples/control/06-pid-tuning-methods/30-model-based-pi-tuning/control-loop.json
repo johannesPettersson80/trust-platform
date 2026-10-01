@@ -5,19 +5,133 @@
   "projectId": "project:control-model-based-tuning",
   "runtimeId": "simulator",
   "controller": {
-    "instance": "P1",
-    "type": "Main",
-    "design": "project",
-    "revision": "sha256:ce75b0beecf6839bb5096893613ba8dcdb8bef8b80f15ae7ca5853bd2b71e787",
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:99568c4808dba6e06db31f02af586ddf979bc19f169b922536865f6c6f2a9da0",
     "action": "direct",
     "taskPeriodMs": 100,
-    "modeSignal": "P1.ExperimentEnabled",
-    "modeWhenTrue": "Auto"
+    "modeSignal": "P1.AutoMode",
+    "modeWhenTrue": "Auto",
+    "manualOutputSignal": "P1.ManualOutput",
+    "manualOutputAddress": "%ML72",
+    "manualOutputType": "LREAL",
+    "law": {
+      "kind": "pid",
+      "parameterRecordSymbol": "P1.Parameters",
+      "parameterRevisionSymbol": "P1.ParameterRevision",
+      "proportionalGainSymbol": "P1.Parameters.ProportionalGain",
+      "integralGainSymbol": "P1.Parameters.IntegralGain",
+      "derivativeGainSymbol": "P1.Parameters.DerivativeGain"
+    },
+    "pidInitialization": {
+      "kind": "control-pid-v1",
+      "maximumSnapshotAgeMs": 500,
+      "states": [
+        {
+          "symbol": "P1.Controller.StateValue.Setpoint",
+          "iec_type": "LREAL",
+          "unit": "degC",
+          "minimum": 0,
+          "maximum": 80,
+          "initial": {
+            "source": "model-output",
+            "index": 0
+          },
+          "postScan": "bounded"
+        },
+        {
+          "symbol": "P1.Controller.StateValue.SetpointRate",
+          "iec_type": "LREAL",
+          "unit": "degC/s",
+          "minimum": -1000,
+          "maximum": 1000,
+          "initial": 0,
+          "postScan": "bounded"
+        },
+        {
+          "symbol": "P1.Controller.StateValue.ProcessValue",
+          "iec_type": "LREAL",
+          "unit": "degC",
+          "minimum": 0,
+          "maximum": 80,
+          "initial": {
+            "source": "model-output",
+            "index": 0
+          },
+          "postScan": "bounded"
+        },
+        {
+          "symbol": "P1.Controller.StateValue.ProcessValueRate",
+          "iec_type": "LREAL",
+          "unit": "degC/s",
+          "minimum": -1000,
+          "maximum": 1000,
+          "initial": 0,
+          "postScan": "bounded"
+        },
+        {
+          "symbol": "P1.Controller.StateValue.FeedForward",
+          "iec_type": "LREAL",
+          "unit": "%",
+          "minimum": -100,
+          "maximum": 100,
+          "initial": 0,
+          "postScan": "bounded"
+        },
+        {
+          "symbol": "P1.Controller.StateValue.NominalOutput",
+          "iec_type": "LREAL",
+          "unit": "%",
+          "minimum": -1000,
+          "maximum": 1000,
+          "initial": {
+            "source": "model-input",
+            "index": 0
+          },
+          "postScan": "bounded"
+        },
+        {
+          "symbol": "P1.Controller.StateValue.SaturatedOutput",
+          "iec_type": "LREAL",
+          "unit": "%",
+          "minimum": 0,
+          "maximum": 100,
+          "initial": {
+            "source": "model-input",
+            "index": 0
+          },
+          "postScan": "bounded"
+        }
+      ],
+      "applicationStates": [
+        {
+          "symbol": "P1.Initialized",
+          "iec_type": "BOOL",
+          "unit": "1",
+          "minimum": 0,
+          "maximum": 1,
+          "initial": 1,
+          "postScan": "unchanged"
+        }
+      ]
+    }
   },
   "signals": {
+    "setpoint": {
+      "symbol": "P1.SetpointC",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
     "processVariable": {
       "symbol": "P1.TemperatureC",
-      "address": "%ML40",
+      "address": "%IL8",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "degC",
@@ -30,7 +144,7 @@
       "symbol": "P1.AppliedPowerPct",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "read",
+      "direction": "write",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -38,20 +152,6 @@
       }
     },
     "additional": [
-      {
-        "id": "experiment-authority",
-        "channel": "experiment-authority",
-        "role": "state",
-        "symbol": "P1.ExperimentEnabled",
-        "address": "%MX96.1",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
       {
         "id": "thermal-load",
         "channel": "thermal-load",
@@ -81,20 +181,6 @@
         }
       },
       {
-        "id": "probe-input",
-        "channel": "probe-input",
-        "role": "state",
-        "symbol": "P1.ProbeInputC",
-        "address": "%IL8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 0,
-          "maximum": 80
-        }
-      },
-      {
         "id": "integral",
         "channel": "integral",
         "role": "state",
@@ -109,23 +195,9 @@
         }
       },
       {
-        "id": "activity",
-        "channel": "activity",
-        "role": "state",
-        "symbol": "P1.CommandActivityPoints",
-        "address": "%ML64",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "percentage-point",
-        "range": {
-          "minimum": 0,
-          "maximum": 100000
-        }
-      },
-      {
         "id": "requested-power",
         "channel": "requested-power",
-        "role": "MV",
+        "role": "state",
         "symbol": "P1.RequestedPowerPct",
         "address": "%ML32",
         "iecType": "LREAL",
@@ -144,24 +216,13 @@
         "address": "%MX96.3",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "",
+        "unit": "1",
         "range": {
           "minimum": 0,
           "maximum": 1
         }
       }
-    ],
-    "setpoint": {
-      "symbol": "P1.SetpointC",
-      "address": "%ML0",
-      "iecType": "LREAL",
-      "direction": "read",
-      "unit": "degC",
-      "range": {
-        "minimum": 0,
-        "maximum": 80
-      }
-    }
+    ]
   },
   "limits": {
     "outputMinimum": 0,
@@ -171,19 +232,180 @@
     "nominalPeriodMs": 100
   },
   "plantId": "heater-model-based-pi",
-  "operatingPoint": "35\u00b0C water temperature at75% heater command, with no extraction",
   "experiment": {
-    "execution": "project-scripted",
-    "kind": "observation",
-    "amplitude": 0,
-    "durationSeconds": 60.1,
-    "seed": 20260829,
-    "activation": {
-      "symbol": "P1.ExperimentEnabled",
-      "address": "%MX96.1",
-      "iecType": "BOOL",
-      "direction": "write"
+    "execution": "control-studio",
+    "kind": "mv_step",
+    "amplitude": 20,
+    "durationSeconds": 60,
+    "seed": 20260829
+  },
+  "identificationPolicy": {
+    "openLoopPermitted": true,
+    "sustainedHoldPermitted": true,
+    "information": "basic",
+    "maximumNormalizedError": 0.05
+  },
+  "parameterBinding": {
+    "loop_id": "control-model-based-tuning",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "P1.Parameters.ProportionalGain",
+        "iec_type": "LREAL",
+        "unit": "%/degC",
+        "convention": "Control.PID ProportionalGain",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "P1.Parameters.IntegralGain",
+        "iec_type": "LREAL",
+        "unit": "%/(degC*s)",
+        "convention": "Control.PID IntegralGain",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "P1.Parameters.DerivativeGain",
+        "iec_type": "LREAL",
+        "unit": "%*s/degC",
+        "convention": "Control.PID DerivativeGain",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "P1.Parameters.ProportionalSetpointWeight",
+        "iec_type": "LREAL",
+        "unit": "1",
+        "convention": "Control.PID ProportionalSetpointWeight",
+        "minimum": 0,
+        "maximum": 1
+      },
+      {
+        "symbol": "P1.Parameters.DerivativeSetpointWeight",
+        "iec_type": "LREAL",
+        "unit": "1",
+        "convention": "Control.PID DerivativeSetpointWeight",
+        "minimum": 0,
+        "maximum": 1
+      },
+      {
+        "symbol": "P1.Parameters.Bias",
+        "iec_type": "LREAL",
+        "unit": "%",
+        "convention": "Control.PID Bias",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "P1.Parameters.OutputMinimum",
+        "iec_type": "LREAL",
+        "unit": "%",
+        "convention": "Control.PID OutputMinimum",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "P1.Parameters.OutputMaximum",
+        "iec_type": "LREAL",
+        "unit": "%",
+        "convention": "Control.PID OutputMaximum",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "P1.Parameters.RateMinimum",
+        "iec_type": "LREAL",
+        "unit": "%/s",
+        "convention": "Control.PID RateMinimum",
+        "minimum": -10000,
+        "maximum": 0
+      },
+      {
+        "symbol": "P1.Parameters.RateMaximum",
+        "iec_type": "LREAL",
+        "unit": "%/s",
+        "convention": "Control.PID RateMaximum",
+        "minimum": 0,
+        "maximum": 10000
+      },
+      {
+        "symbol": "P1.Parameters.TrackingTime",
+        "iec_type": "LREAL",
+        "unit": "s",
+        "convention": "Control.PID TrackingTime",
+        "minimum": 0.001,
+        "maximum": 1000
+      }
+    ],
+    "mode": {
+      "symbol": "P1.AutoMode",
+      "manual_value": false
     }
   },
-  "revision": "sha256:9dc8a97cb8d21592ff5c896c1287bdae9a651e0e85d74c79b19990111cf7b840"
+  "verificationScenarios": [
+    {
+      "id": "setpoint-trial",
+      "initialValues": {
+        "P1.SetpointC": 38
+      },
+      "events": [],
+      "requirements": [
+        {
+          "id": "setpoint-peak",
+          "kind": "overshoot",
+          "channel": "P1.TemperatureC",
+          "window": {
+            "start": 0,
+            "end": 60
+          },
+          "initial": 35,
+          "target": 38,
+          "maximum": 1
+        }
+      ]
+    },
+    {
+      "id": "load-trial",
+      "initialValues": {
+        "P1.SetpointC": 35
+      },
+      "events": [
+        {
+          "atMs": 0,
+          "symbol": "P1.DisturbanceKw",
+          "value": 30
+        }
+      ],
+      "requirements": [
+        {
+          "id": "load-minimum",
+          "kind": "bounds",
+          "channel": "P1.TemperatureC",
+          "window": {
+            "start": 0,
+            "end": 60
+          },
+          "minimum": 33,
+          "maximum": 80
+        },
+        {
+          "id": "load-late-error",
+          "kind": "error",
+          "channel": "P1.TemperatureC",
+          "reference": {
+            "channel": "P1.SetpointC"
+          },
+          "statistic": "maximum",
+          "maximum": 0.2,
+          "window": {
+            "start": 30,
+            "end": 60
+          }
+        }
+      ]
+    }
+  ],
+  "operatingPoint": "35°C water temperature at 75% heater command, with no extraction",
+  "revision": "sha256:f04422b3f1c32085ee888c2df8cfc88301f7bbecf86e9daa501255bf681bc1db"
 }

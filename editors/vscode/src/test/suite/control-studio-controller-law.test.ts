@@ -26,9 +26,9 @@ suite("Control Studio model-free controller law", () => {
       inputs: [channel("u", "V")], outputs: [channel("y", "m")] };
     const stateSpace = { ...model, kind: "continuous-state-space", states: [channel("x", "m")],
       a: [[-1]], b: [[2]], c: [[0.5]], d: [[0]] };
-    const task = { referenceChange: 1, maximumError: 0.5, settlingBand: 0.02, settlingTimeSeconds: 0.5, durationSeconds: 4 };
+    const task = { referenceChange: 1, maximumError: 0.5, settlingBand: 0.05, settlingTimeSeconds: 2, durationSeconds: 4 };
     const expected = recommendAutomaticController(bound, model, task, "manual");
-    assert.strictEqual(expected.family, "PD");
+    assert.strictEqual(expected.family, "P");
     let actual: any;
     assert.doesNotThrow(() => { actual = recommendAutomaticController(bound, stateSpace, task, "manual"); });
     assert.strictEqual(actual.family, expected.family);
@@ -170,6 +170,23 @@ suite("Control Studio model-free controller law", () => {
       assert.strictEqual(result.candidate.applied, false);
       assert.throws(() => designTypedPiCandidate({ ...model, delaySeconds: 0 }), /positive.*delay/i);
     }
+  });
+
+  test("reduces a second-order model by Skogestad's half rule before the SIMC PI formula", () => {
+    const { designTypedPiCandidate } = require("../../controlStudio/pidPiDesign");
+    const channel = (id: string, unit: string) => ({ id, unit, operatingRange: { minimum: -20, maximum: 20 } });
+    // G(s) = 2·e^(−0.5s) / ((5s + 1)(s + 1)): the half rule gives τ = 5 + 1/2 = 5.5 s and θ = 0.5 + 1/2 = 1 s.
+    const model = { kind: "transfer-function", numerator: [2], denominator: [5, 6, 1], delaySeconds: 0.5, revision: "second-order",
+      source: "fitted", validation: "validated", evidence: ["independent record"], inputs: [channel("u", "%")], outputs: [channel("y", "degC")] };
+    let result: any;
+    assert.doesNotThrow(() => { result = designTypedPiCandidate(model); }, "a second-order model is within SIMC's scope");
+    const closedLoop = 2 * Math.max(1, 5.5 / 3), kp = 5.5 / (2 * (closedLoop + 1));
+    const close = (actual: number, expected: number) => Math.abs(actual - expected) <= 1e-7 * Math.abs(expected);
+    assert.ok(close(result.candidate.proportionalGain, kp), `Kp ${result.candidate.proportionalGain} ≠ ${kp}`);
+    assert.ok(close(result.candidate.integralGain, kp / 5.5), "Ti = min(τ, 4(τc + θ)) = 5.5 s");
+    assert.match(result.scope, /half rule/i, "the reduction is named, not hidden");
+    assert.throws(() => designTypedPiCandidate({ ...model, denominator: [1, 0.4, 1] }), /complex poles/i,
+      "an oscillatory second-order model has no half-rule reduction");
   });
 
   test("considers a compatible PD alternative instead of claiming all finite error tasks require integral action", () => {

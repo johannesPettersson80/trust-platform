@@ -276,7 +276,7 @@ fn register_executor_runs_program_with_complex_local_fields_without_fallback() {
         0x21, 1, 0, 0, 0,    // STORE_REF global
         0x06, // RETURN
     ];
-    let mut pou_by_id = HashMap::new();
+    let mut pou_by_id = rustc_hash::FxHashMap::default();
     pou_by_id.insert(
         pou_id,
         VmPouEntry {
@@ -288,7 +288,7 @@ fn register_executor_runs_program_with_complex_local_fields_without_fallback() {
             primary_instance_owner: None,
         },
     );
-    let mut program_ids = HashMap::new();
+    let mut program_ids = rustc_hash::FxHashMap::default();
     program_ids.insert(SmolStr::new("MAIN"), pou_id);
     let refs = vec![
         VmRef::Local {
@@ -314,16 +314,17 @@ fn register_executor_runs_program_with_complex_local_fields_without_fallback() {
         consts: vec![Value::DInt(7)],
         pou_by_id,
         program_ids,
-        function_ids: HashMap::new(),
-        function_block_ids: HashMap::new(),
-        class_ids: HashMap::new(),
-        parent_pou_ids: HashMap::new(),
-        interface_type_ids_by_pou: HashMap::new(),
+        function_ids: Default::default(),
+        function_block_ids: Default::default(),
+        class_ids: Default::default(),
+        parent_pou_ids: Default::default(),
+        interface_type_ids_by_pou: Default::default(),
         native_symbol_specs: Vec::new(),
-        pou_params: HashMap::new(),
-        pou_has_return_slot: HashSet::new(),
-        method_table_by_owner: HashMap::new(),
-        ref_types: HashMap::new(),
+        pou_params: Default::default(),
+        pou_has_return_slot: Default::default(),
+        method_table_by_owner: Default::default(),
+        ref_types: Vec::new(),
+        ref_slots: Default::default(),
         debug_map: super::super::debug_map::VmDebugMap::default(),
         instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
     };

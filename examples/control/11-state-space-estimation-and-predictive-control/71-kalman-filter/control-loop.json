@@ -1,65 +1,160 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "topology": "open-loop",
   "id": "control-kalman-filter",
-  "name": "Kalman filter",
-  "revision": "sha256:67d8bde286a16578bb402078fdf20bf17b8677239d10d3171c34339583539c10",
+  "name": "Two-tank Kalman filter",
   "projectId": "project:control-kalman-filter",
   "runtimeId": "simulator",
   "controller": {
     "instance": "P1",
-    "type": "Scalar discrete Kalman filtering and innovation diagnosis",
+    "type": "Main",
     "design": "project",
-    "revision": "sha256:curriculum-controller-66",
+    "revision": "sha256:74ef5f555ab64849a8364a8440eb2321f81bb0f53d1f2f153fb18edabedbbbf6",
     "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": "%MX120.3",
-    "modeWhenTrue": "Auto"
+    "taskPeriodMs": 1000
   },
   "signals": {
     "processVariable": {
-      "symbol": "P1.MassFlowMeasurement",
+      "symbol": "P1.Tank2M",
       "address": "%IL8",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "kg/s",
+      "unit": "m",
       "range": {
-        "minimum": -10,
-        "maximum": 30
+        "minimum": 0,
+        "maximum": 0.5
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.BeltCommandRequested",
-      "address": "%ML16",
+      "symbol": "P1.PumpM3PerS",
+      "address": "%QL0",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "%",
+      "unit": "m3/s",
       "range": {
-        "minimum": -20,
-        "maximum": 40
+        "minimum": 0,
+        "maximum": 0.02
       }
     },
     "additional": [
+      {
+        "id": "tank-1",
+        "channel": "tank-1",
+        "role": "state",
+        "symbol": "P1.Tank1M",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "corrected-tank-1",
+        "channel": "corrected-tank-1",
+        "role": "state",
+        "symbol": "P1.CorrectedTank1M",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "reading",
+        "channel": "reading",
+        "role": "state",
+        "symbol": "P1.ReadingM",
+        "address": "%ML0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "gain-tank-1",
+        "channel": "gain-tank-1",
+        "role": "state",
+        "symbol": "P1.GainTank1",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 25
+        }
+      },
+      {
+        "id": "predicted-tank-1",
+        "channel": "predicted-tank-1",
+        "role": "state",
+        "symbol": "P1.PredictedTank1M",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "filter-sd",
+        "channel": "filter-sd",
+        "role": "state",
+        "symbol": "P1.FilterSdTank1M",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.05
+        }
+      },
+      {
+        "id": "innovation",
+        "channel": "innovation",
+        "role": "state",
+        "symbol": "P1.InnovationM",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": -0.05,
+          "maximum": 0.05
+        }
+      },
+      {
+        "id": "corrected-tank-2",
+        "channel": "corrected-tank-2",
+        "role": "state",
+        "symbol": "P1.CorrectedTank2M",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
       {
         "id": "experiment-authority",
         "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
-        "address": "%MX120.3",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "estimator-execution-enabled",
-        "channel": "estimator-execution-enabled",
-        "role": "state",
-        "symbol": "P1.Enabled",
-        "address": "%MX120.0",
+        "address": "%MX72.0",
         "iecType": "BOOL",
         "direction": "read",
         "unit": "1",
@@ -69,97 +164,55 @@
         }
       },
       {
-        "id": "kalman-estimate-selected",
-        "channel": "kalman-estimate-selected",
+        "id": "rms-error",
+        "channel": "rms-error",
         "role": "state",
-        "symbol": "P1.UseKalman",
-        "address": "%MX120.1",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "estimator-covariance-valid",
-        "channel": "estimator-covariance-valid",
-        "role": "quality",
-        "symbol": "P1.EstimatorValid",
-        "address": "%MX120.2",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "process-noise-variance",
-        "channel": "process-noise-variance",
-        "role": "state",
-        "symbol": "P1.ProcessNoiseVariance",
-        "address": "%ML0",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "(kg/s)^2",
-        "range": {
-          "minimum": 0,
-          "maximum": 20
-        }
-      },
-      {
-        "id": "measurement-noise-variance",
-        "channel": "measurement-noise-variance",
-        "role": "state",
-        "symbol": "P1.MeasurementNoiseVariance",
-        "address": "%ML8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "(kg/s)^2",
-        "range": {
-          "minimum": 0.001,
-          "maximum": 20
-        }
-      },
-      {
-        "id": "predicted-mass-flow-estimate",
-        "channel": "predicted-mass-flow-estimate",
-        "role": "state",
-        "symbol": "P1.PredictedEstimate",
-        "address": "%ML24",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "kg/s",
-        "range": {
-          "minimum": -20,
-          "maximum": 40
-        }
-      },
-      {
-        "id": "predicted-estimate-covariance",
-        "channel": "predicted-estimate-covariance",
-        "role": "state",
-        "symbol": "P1.PredictedCovariance",
-        "address": "%ML32",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "(kg/s)^2",
-        "range": {
-          "minimum": 0,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "kalman-gain",
-        "channel": "kalman-gain",
-        "role": "state",
-        "symbol": "P1.KalmanGain",
+        "symbol": "P1.RmsM",
         "address": "%ML40",
         "iecType": "LREAL",
         "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.05
+        }
+      },
+      {
+        "id": "claimed-rms",
+        "channel": "claimed-rms",
+        "role": "state",
+        "symbol": "P1.ClaimedRmsM",
+        "address": "%ML80",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.05
+        }
+      },
+      {
+        "id": "peak-error",
+        "channel": "peak-error",
+        "role": "state",
+        "symbol": "P1.PeakM",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.05
+        }
+      },
+      {
+        "id": "clock-valid",
+        "channel": "clock-valid",
+        "role": "state",
+        "symbol": "P1.ClockValid",
+        "address": "%MX72.1",
+        "iecType": "BOOL",
+        "direction": "read",
         "unit": "1",
         "range": {
           "minimum": 0,
@@ -167,152 +220,62 @@
         }
       },
       {
-        "id": "corrected-kalman-mass-flow-estimate",
-        "channel": "corrected-kalman-mass-flow-estimate",
+        "id": "fault-latched",
+        "channel": "fault-latched",
         "role": "state",
-        "symbol": "P1.Estimate",
-        "address": "%ML48",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "kg/s",
-        "range": {
-          "minimum": -20,
-          "maximum": 40
-        }
-      },
-      {
-        "id": "corrected-estimate-covariance",
-        "channel": "corrected-estimate-covariance",
-        "role": "state",
-        "symbol": "P1.Covariance",
-        "address": "%ML56",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "(kg/s)^2",
-        "range": {
-          "minimum": 0,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "fixed-filter-mass-flow-estimate",
-        "channel": "fixed-filter-mass-flow-estimate",
-        "role": "state",
-        "symbol": "P1.SimpleEstimate",
-        "address": "%ML64",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "kg/s",
-        "range": {
-          "minimum": -20,
-          "maximum": 40
-        }
-      },
-      {
-        "id": "selected-mass-flow-estimate",
-        "channel": "selected-mass-flow-estimate",
-        "role": "state",
-        "symbol": "P1.SelectedEstimate",
-        "address": "%ML72",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "kg/s",
-        "range": {
-          "minimum": -20,
-          "maximum": 40
-        }
-      },
-      {
-        "id": "mass-flow-innovation",
-        "channel": "mass-flow-innovation",
-        "role": "state",
-        "symbol": "P1.Innovation",
-        "address": "%ML80",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "kg/s",
-        "range": {
-          "minimum": -20,
-          "maximum": 20
-        }
-      },
-      {
-        "id": "innovation-variance",
-        "channel": "innovation-variance",
-        "role": "state",
-        "symbol": "P1.InnovationVariance",
-        "address": "%ML88",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "(kg/s)^2",
-        "range": {
-          "minimum": 0,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "normalized-innovation-squared",
-        "channel": "normalized-innovation-squared",
-        "role": "state",
-        "symbol": "P1.NormalizedInnovationSquared",
-        "address": "%ML96",
-        "iecType": "LREAL",
+        "symbol": "P1.FaultLatched",
+        "address": "%MX72.2",
+        "iecType": "BOOL",
         "direction": "read",
         "unit": "1",
         "range": {
           "minimum": 0,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "applied-belt-speed-command",
-        "channel": "applied-belt-speed-command",
-        "role": "MV",
-        "symbol": "P1.BeltCommandApplied",
-        "address": "%QL0",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": 0,
-          "maximum": 20
-        }
-      },
-      {
-        "id": "simulation-truth-mass-flow",
-        "channel": "simulation-truth-mass-flow",
-        "role": "state",
-        "symbol": "P1.MassFlowTruth",
-        "address": "%IL0",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "kg/s",
-        "range": {
-          "minimum": 0,
-          "maximum": 20
+          "maximum": 1
         }
       }
     ]
   },
   "limits": {
-    "outputMinimum": -20,
-    "outputMaximum": 40
+    "outputMinimum": 0,
+    "outputMaximum": 0.02
   },
   "observedSampleTiming": {
-    "nominalPeriodMs": 100
+    "nominalPeriodMs": 1000
   },
-  "plantId": "equivalent_truth_and_noisy_weigh_feeder_copies",
+  "plantId": "cascade",
+  "operatingPoint": "The cascade at 0.25 m with the pump at 0.010 m3/s",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 30.1,
+    "durationSeconds": 123,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX120.3",
+      "address": "%MX72.0",
       "iecType": "BOOL",
       "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "parameterPurpose": "experiment",
+  "parameterBinding": {
+    "loop_id": "control-kalman-filter",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "P1.AssumedReadingSdM",
+        "iec_type": "LREAL",
+        "unit": "m",
+        "convention": "The filter's assumed standard deviation of the tank-2 reading; R is its square",
+        "minimum": 0.0001,
+        "maximum": 0.2
+      }
+    ],
+    "mode": {
+      "symbol": "P1.ExperimentEnabled",
+      "manual_value": false
     }
-  }
+  },
+  "revision": "sha256:0784ad99f6a19e3eab545c6a56c44f393f331f204956ce7796726d2f36c6191d"
 }

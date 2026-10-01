@@ -3,44 +3,21 @@ enabled = true
 seed = 20260829
 time_scale = 1
 max_plant_substeps_per_cycle = 100
-plant_trace_capacity = 5000
-plant_step_ms = 10
+plant_trace_capacity = 2500
+plant_step_ms = 20
 
+# The shaft of Lessons 34–35: J·dω/dt = u + τk − B·ω, dθ/dt = ω with J = 1 kg·m² and B = 1 N·m·s/rad.
+# Inputs: motor torque (%QL0) and a knock, an external torque pushing the shaft forward (%QL8);
+# outputs: angle (%IL0) and velocity (%IL8).
 [[plants]]
-id = "overhead-crane-k4-stable"
+id = "shaft"
 model = "state_space"
-command_sources = ["%QL0"]
-feedback_targets = ["%IL0"]
-initial_state = [0.1, 0.0, 0.0]
+command_sources = ["%QL0", "%QL8"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [0.0, 0.0]
 
 [plants.parameters]
-a = [[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [0.0, -3.0, -2.0]]
-b = [[0.0], [0.0], [1.0]]
-c = [[1.0, 0.0, 0.0]]
-d = [[0.0]]
-
-[[plants]]
-id = "overhead-crane-k6-marginal"
-model = "state_space"
-command_sources = ["%QL8"]
-feedback_targets = ["%IL8"]
-initial_state = [0.1, 0.0, 0.0]
-
-[plants.parameters]
-a = [[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [0.0, -3.0, -2.0]]
-b = [[0.0], [0.0], [1.0]]
-c = [[1.0, 0.0, 0.0]]
-d = [[0.0]]
-
-[[plants]]
-id = "overhead-crane-k8-unstable"
-model = "state_space"
-command_sources = ["%QL16"]
-feedback_targets = ["%IL16"]
-initial_state = [0.1, 0.0, 0.0]
-
-[plants.parameters]
-a = [[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [0.0, -3.0, -2.0]]
-b = [[0.0], [0.0], [1.0]]
-c = [[1.0, 0.0, 0.0]]
-d = [[0.0]]
+a = [[0.0, 1.0], [0.0, -1.0]]
+b = [[0.0, 0.0], [1.0, 1.0]]
+c = [[1.0, 0.0], [0.0, 1.0]]
+d = [[0.0, 0.0], [0.0, 0.0]]

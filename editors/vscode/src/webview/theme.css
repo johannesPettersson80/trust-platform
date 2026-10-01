@@ -475,6 +475,29 @@ button.trust-button.trust-button--primary[disabled],
   padding-top: 10px;
 }
 
+.trust-table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.trust-table caption {
+  text-align: left;
+  color: var(--trust-text-muted);
+  padding-bottom: 4px;
+}
+
+.trust-table th,
+.trust-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 4px 16px 4px 0;
+  border-bottom: 1px solid var(--trust-border-subtle);
+}
+
+.trust-table th {
+  font-weight: 600;
+}
+
 .trust-field {
   display: flex;
   flex-direction: column;

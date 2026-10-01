@@ -566,7 +566,8 @@ export function renderExamplesGalleryHtml(panel: vscode.WebviewPanel, context: v
       control.appendChild(controlTitle);
       const controlMeta = document.createElement("div");
       controlMeta.className = "badges";
-      for (const label of ["84 practical lessons", courses.length + " modules", "No hardware"]) {
+      const lessonTotal = courses.reduce((total, course) => total + course.lessonCount, 0);
+      for (const label of [lessonTotal + " practical lessons", courses.length + " modules", "No hardware"]) {
         const badge = document.createElement("span");
         badge.className = "badge";
         badge.textContent = label;

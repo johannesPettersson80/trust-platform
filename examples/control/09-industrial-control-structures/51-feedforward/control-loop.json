@@ -1,45 +1,42 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "control-feedforward",
-  "name": "Feedforward",
-  "revision": "sha256:181321f0aa4f09a818e6ac5f79735073016653047b3b9d15f294439b21522297",
+  "name": "Feedforward control",
   "projectId": "project:control-feedforward",
   "runtimeId": "simulator",
   "controller": {
-    "instance": "P1",
-    "type": "Static and dynamic measured-disturbance feedforward with PI trim",
+    "instance": "P1.PiOnlyLoop",
+    "type": "Control.PID",
     "design": "project",
-    "revision": "sha256:curriculum-controller-53",
+    "revision": "sha256:ad5270a1db8bdffb54f9398511a4dba9a27f82c53fd9696abe8a04c8955cdcfe",
     "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": "%MX136.1",
-    "modeWhenTrue": "Auto"
+    "taskPeriodMs": 100
   },
   "signals": {
     "setpoint": {
-      "symbol": "P1.Setpoint",
-      "address": "%ML88",
+      "symbol": "P1.SetpointC",
+      "address": "%ML0",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "degC",
       "range": {
-        "minimum": 90,
-        "maximum": 145
+        "minimum": 0,
+        "maximum": 80
       }
     },
     "processVariable": {
-      "symbol": "P1.FeedbackTemperature",
+      "symbol": "P1.PiOnlyC",
       "address": "%IL0",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "degC",
       "range": {
-        "minimum": 90,
-        "maximum": 145
+        "minimum": 0,
+        "maximum": 80
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.FeedbackHeaterRequest",
+      "symbol": "P1.PiOnlyPct",
       "address": "%QL0",
       "iecType": "LREAL",
       "direction": "read",
@@ -51,122 +48,52 @@
     },
     "additional": [
       {
-        "id": "conveyor-speed-validity-1",
-        "channel": "conveyor-speed-validity",
-        "role": "quality",
-        "symbol": "P1.SpeedValid",
-        "address": "%MX136.0",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "actual-conveyor-speed-2",
-        "channel": "actual-conveyor-speed",
-        "role": "disturbance",
-        "symbol": "P1.ActualLineSpeed",
-        "address": "%ML96",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0.5,
-          "maximum": 2.5
-        }
-      },
-      {
-        "id": "measured-conveyor-speed-3",
-        "channel": "measured-conveyor-speed",
+        "id": "feedforward-temperature",
+        "channel": "feedforward-temperature",
         "role": "state",
-        "symbol": "P1.MeasuredLineSpeed",
-        "address": "%ML104",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0.5,
-          "maximum": 2.5
-        }
-      },
-      {
-        "id": "dynamic-feedforward-scale-4",
-        "channel": "dynamic-feedforward-scale",
-        "role": "state",
-        "symbol": "P1.DynamicFeedforwardScale",
-        "address": "%ML112",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0.5,
-          "maximum": 1.5
-        }
-      },
-      {
-        "id": "static-feedforward-5",
-        "channel": "static-feedforward",
-        "role": "state",
-        "symbol": "P1.StaticFeedforward",
-        "address": "%ML120",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": -30,
-          "maximum": 30
-        }
-      },
-      {
-        "id": "dynamic-feedforward-6",
-        "channel": "dynamic-feedforward",
-        "role": "state",
-        "symbol": "P1.DynamicFeedforward",
-        "address": "%ML128",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": -30,
-          "maximum": 30
-        }
-      },
-      {
-        "id": "static-feedforward-product-temperature-7",
-        "channel": "static-feedforward-product-temperature",
-        "role": "state",
-        "symbol": "P1.StaticTemperature",
+        "symbol": "P1.FeedforwardC",
         "address": "%IL8",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "degC",
         "range": {
-          "minimum": 90,
-          "maximum": 145
+          "minimum": 0,
+          "maximum": 80
         }
       },
       {
-        "id": "dynamic-feedforward-product-temperature-8",
-        "channel": "dynamic-feedforward-product-temperature",
+        "id": "biased-temperature",
+        "channel": "biased-temperature",
         "role": "state",
-        "symbol": "P1.DynamicTemperature",
+        "symbol": "P1.BiasedC",
         "address": "%IL16",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "degC",
         "range": {
-          "minimum": 90,
-          "maximum": 145
+          "minimum": 0,
+          "maximum": 80
         }
       },
       {
-        "id": "static-feedforward-heater-request-9",
-        "channel": "static-feedforward-heater-request",
+        "id": "load",
+        "channel": "load",
+        "role": "disturbance",
+        "symbol": "P1.LoadKw",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": 0,
+          "maximum": 50
+        }
+      },
+      {
+        "id": "feedforward-command",
+        "channel": "feedforward-command",
         "role": "state",
-        "symbol": "P1.StaticHeaterRequest",
+        "symbol": "P1.FeedforwardHeaterPct",
         "address": "%QL16",
         "iecType": "LREAL",
         "direction": "read",
@@ -177,10 +104,10 @@
         }
       },
       {
-        "id": "dynamic-feedforward-heater-request-10",
-        "channel": "dynamic-feedforward-heater-request",
+        "id": "biased-command",
+        "channel": "biased-command",
         "role": "state",
-        "symbol": "P1.DynamicHeaterRequest",
+        "symbol": "P1.BiasedHeaterPct",
         "address": "%QL32",
         "iecType": "LREAL",
         "direction": "read",
@@ -195,13 +122,69 @@
         "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
-        "address": "%MX136.2",
+        "address": "%MX48.0",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "",
+        "unit": "1",
         "range": {
           "minimum": 0,
           "maximum": 1
+        }
+      },
+      {
+        "id": "feedback-part",
+        "channel": "feedback-part",
+        "role": "state",
+        "symbol": "P1.FeedbackPct",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -100,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "biased-feedback-part",
+        "channel": "biased-feedback-part",
+        "role": "state",
+        "symbol": "P1.BiasedFeedbackPct",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -100,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "feedforward-part",
+        "channel": "feedforward-part",
+        "role": "state",
+        "symbol": "P1.FeedforwardPct",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "biased-feedforward-part",
+        "channel": "biased-feedforward-part",
+        "role": "state",
+        "symbol": "P1.BiasedFeedforwardPct",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
         }
       }
     ]
@@ -213,18 +196,21 @@
   "observedSampleTiming": {
     "nominalPeriodMs": 100
   },
-  "plantId": "three_equivalent_two_path_conveyor_ovens",
+  "plantId": "three-heaters-feedforward",
+  "operatingPoint": "Three heaters at 35 degC with 75% under PI control",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 90.1,
+    "durationSeconds": 62.1,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX136.2",
+      "address": "%MX48.0",
       "iecType": "BOOL",
       "direction": "write"
-    }
-  }
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:0cc1c4d30d690b5a7890a8e820ee6bfbe7ec7fc6cae28647df3ec198a98594b3"
 }

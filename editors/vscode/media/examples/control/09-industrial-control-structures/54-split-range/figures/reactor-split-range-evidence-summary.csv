@@ -1,5 +1,0 @@
-case,status,gap_samples,simultaneous_samples,utility_throughput_percent_s,peak_error_degC,final_settling_s,saturation_duration_s,authority,abort,restoration
-dead_zone,rejected,167,0,644.003377,8.045180,57.900,0.000,automatic,false,qualified
-overlap,rejected,0,1661,1699.440178,7.876841,34.200,0.000,automatic,false,qualified
-characterized,qualified,0,0,741.403271,7.992605,55.300,0.000,automatic,false,qualified
-unavailable_authority,unavailable_metrics_ineligible,,,,,,0.000,unavailable,false,tracked_zero_closed_valves

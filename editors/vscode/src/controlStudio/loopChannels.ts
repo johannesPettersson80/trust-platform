@@ -17,7 +17,8 @@ export interface ChannelRequirements {
   settlingTimeSeconds: number;
 }
 export interface LoopChannels {
-  inputs: readonly { modelChannelId: string; signalId: string; manualOutputSignal?: string; manualOutputType?: "REAL" | "LREAL" | "BOOL"; appliedSignalId?: string; actuator: ActuatorCapabilities }[];
+  /** `experimentStep` is this input's own identification step in its unit (Specification 35 §17.9). */
+  inputs: readonly { modelChannelId: string; signalId: string; manualOutputSignal?: string; manualOutputType?: "REAL" | "LREAL" | "BOOL"; appliedSignalId?: string; actuator: ActuatorCapabilities; experimentStep?: number }[];
   outputs: readonly { modelChannelId: string; signalId: string; setpointSignalId?: string; requirements?: ChannelRequirements }[];
   /** State deviations in the selected model's declared coordinates. */
   initialState?: readonly number[];
@@ -30,7 +31,9 @@ export function validLoopChannels(value: unknown): value is LoopChannels {
     && new Set(items.map(item => (item as Record<string, unknown>).signalId)).size === items.length;
   return channels(value.inputs) && channels(value.outputs)
     && value.inputs.every(item => validActuator(item.actuator) && (item.manualOutputSignal === undefined || text(item.manualOutputSignal))
-      && (item.manualOutputType === undefined || item.manualOutputType === "REAL" || item.manualOutputType === "LREAL" || item.manualOutputType === "BOOL") && (item.appliedSignalId === undefined || text(item.appliedSignalId)))
+      && (item.manualOutputType === undefined || item.manualOutputType === "REAL" || item.manualOutputType === "LREAL" || item.manualOutputType === "BOOL") && (item.appliedSignalId === undefined || text(item.appliedSignalId))
+      && (item.experimentStep === undefined || finite(item.experimentStep) && item.experimentStep > 0
+        && item.experimentStep <= (item.actuator as { maximum: number }).maximum - (item.actuator as { minimum: number }).minimum))
     && value.outputs.every(item => (item.setpointSignalId === undefined || text(item.setpointSignalId))
       && (item.requirements === undefined || validChannelRequirements(item.requirements)))
     && (value.initialState === undefined || Array.isArray(value.initialState) && value.initialState.length <= 32 && value.initialState.every(finite));
@@ -47,6 +50,10 @@ export function validActuator(value: unknown): value is ActuatorCapabilities {
     && ["rateUpPerS", "rateDownPerS", "minimumOnSeconds", "minimumOffSeconds"].every(key =>
       value[key] === undefined || finite(value[key]) && value[key] >= 0);
 }
+/** A measured disturbance is a model input the controller only reads (Specification 35 §17.12). */
+export function measuredDisturbanceInput(loop: ControlLoopDefinition, input: { signalId: string }): boolean {
+  return loop.signals.additional?.some(signal => signal.id === input.signalId && signal.role === "disturbance") ?? false;
+}
 export function loopSignal(loop: ControlLoopDefinition, id: string): ControlSignalBinding {
   const primary = id === "setpoint" ? loop.signals.setpoint : id === "processVariable" ? loop.signals.processVariable
     : id === "manipulatedVariable" ? loop.signals.manipulatedVariable : id === "actuator" ? loop.signals.actuator : undefined;
@@ -59,7 +66,8 @@ export function validateLoopChannelBindings(loop: ControlLoopDefinition): void {
   if (!validLoopChannels(loop.channels)) throw new Error("Invalid multichannel binding, actuator or requirement.");
   const role = (id: string) => id === "manipulatedVariable" ? "MV" : id === "processVariable" ? "PV" : id === "setpoint" ? "SP"
     : loop.signals.additional?.find(signal => signal.id === id)?.role;
-  if (loop.channels.inputs.some(input => role(input.signalId) !== "MV")
+  // A measured disturbance is a model input the controller never writes (Specification 35 §17.12).
+  if (loop.channels.inputs.some((input, index) => role(input.signalId) !== "MV" && !(index > 0 && role(input.signalId) === "disturbance"))
     || loop.channels.outputs.some(output => !["PV", "state"].includes(role(output.signalId) ?? "")
       || output.setpointSignalId !== undefined && role(output.setpointSignalId) !== "SP")) {
     throw new Error("Model input, output and setpoint bindings must match their declared signal roles.");
@@ -74,7 +82,7 @@ export function validateLoopChannelBindings(loop: ControlLoopDefinition): void {
     const signal = loopSignal(loop, input.signalId);
     if (signal.iecType === "BOOL" && (signal.unit !== "1" || input.actuator.kind !== "on-off" || input.actuator.minimum !== 0 || input.actuator.maximum !== 1)) throw new Error("Boolean actuation requires ON/OFF levels 0/1 in dimensionless coordinates.");
     const applied = input.appliedSignalId ? loopSignal(loop, input.appliedSignalId) : signal.symbol === loop.signals.manipulatedVariable.symbol ? loop.signals.actuator : undefined;
-    if (applied && (applied.unit !== signal.unit || applied.symbol === signal.symbol || !applied.address.startsWith("%I"))) throw new Error("Applied actuator feedback requires a separate input binding in command coordinates.");
+    if (applied && (applied.unit !== signal.unit || applied.symbol === signal.symbol || !applied.address?.startsWith("%I"))) throw new Error("Applied actuator feedback requires a separate input binding in command coordinates.");
     if (input.actuator.minimum < signal.range.minimum || input.actuator.maximum > signal.range.maximum) {
       throw new Error(`Actuator limits exceed ${signal.symbol}'s declared range.`);
     }
@@ -96,7 +104,7 @@ export function connectedModelChannels(loop: ControlLoopDefinition, model: Gener
     return {
       inputs: [{ signal: loop.signals.manipulatedVariable, applied: loop.signals.actuator, actuator: { kind: loop.controller.onOff ? "on-off" as const : "continuous" as const,
         minimum: loop.controller.onOff?.lowOutput ?? loop.limits.outputMinimum, maximum: loop.controller.onOff?.highOutput ?? loop.limits.outputMaximum,
-        rateUpPerS: loop.limits.rateUpPerS, rateDownPerS: loop.limits.rateDownPerS } }],
+        rateUpPerS: loop.limits.rateUpPerS, rateDownPerS: loop.limits.rateDownPerS }, disturbance: false }],
       outputs: [{ signal: loop.signals.processVariable, reference: loop.signals.setpoint, requirements: undefined as ChannelRequirements | undefined }],
       initialState: undefined as readonly number[] | undefined,
     };
@@ -108,7 +116,7 @@ export function connectedModelChannels(loop: ControlLoopDefinition, model: Gener
     inputs: model.inputs.map(channel => {
       const input = configured.inputs.find(input => input.modelChannelId === channel.id);
       if (!input) throw new Error(`Missing input binding for ${channel.id}.`);
-      return { signal: loopSignal(loop, input.signalId), actuator: input.actuator,
+      return { signal: loopSignal(loop, input.signalId), actuator: input.actuator, disturbance: measuredDisturbanceInput(loop, input),
         applied: input.appliedSignalId ? loopSignal(loop, input.appliedSignalId) : input.signalId === "manipulatedVariable" ? loop.signals.actuator : undefined };
     }),
     outputs: model.outputs.map(channel => {

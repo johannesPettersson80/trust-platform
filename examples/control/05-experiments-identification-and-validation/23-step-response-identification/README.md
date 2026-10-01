@@ -1,151 +1,147 @@
 # 15. Step-response identification
 
-You will estimate the heater’s gain, time constant and input delay from a measured step response. You will use measurement uncertainty to decide how precisely those parameters can be known.
+In this lesson, you will calculate the heater's gain, delay and time constant from a recorded step, compare them with Control Studio's fit, and check the numbers on a different step.
 
 ## The problem
 
-The step experiment gave us an applied-power record and a temperature response.
-We now need to turn them into model parameters. A noisy first movement may
-precede the real response, and a short record may end before equilibrium, so
-we must distinguish what the data establish from what we merely assume.
+Lesson 14's 12-point step, held 40 s, gave a clean record: a steady baseline at 35.000 °C, a first rise 1.1 s after the step, and 37.399 °C at the end of the hold. The record shows the response, but it does not state the heater's gain, delay and time constant. Reading them off by eye is unreliable: noise can look like the first movement, and one point on the curve says nothing about precision.
+
+We will calculate the three numbers from the whole record, compare them with Control Studio's fit, and check them on a step the calculation has not seen.
 
 ## What we need
 
-We need to turn the measured step response into estimates of process gain,
-response time and delay, and establish how precisely the data support those
-estimates. A visible first movement or last sample alone is not enough.
+We need to:
+
+1. calculate the gain from the steady temperatures before and after the step;
+2. calculate the delay and the time constant from the shape of the curve; and
+3. check the result against a second, different step.
 
 ## The new idea
 
-**Step-response identification** estimates a process model from its response
-to a held input change. For our delayed first-order model, we estimate:
+**Step-response identification** reads three numbers from the response to a step. The gain is how far the temperature finally moves per % of power. The delay is how long before it starts to move. The time constant is how quickly it gets there. For this heater, it turns the planned step record into the numbers of its first-order model with delay.
 
-- **Gain $K$:** final temperature change per applied-command change.
-- **Time constant $\tau$:** the scale of the gradual approach to that value.
-- **Delay $L$:** when the changed input begins affecting the output.
+**In words.** The method has one part for each number, and a check:
 
-We calculate a first estimate, then compare the model with the complete record.
-The result includes uncertainty rather than one falsely precise set of numbers.
+1. **The gain from two steady windows.** It is found like an analog scaling factor in a PLC: take two steady points and divide the change of the output by the change of the input. Here the points are the average temperature over the 5 s before the step and over the last 5 s of the hold; averaging many samples reduces the effect of noise.
+2. **The time constant and the delay from the whole curve.** After the delay, the remaining gap to the final temperature shrinks by the same fraction in every equal stretch of time. The logarithm turns that steady shrinking into a straight line: how steep the line is gives the time constant, and where it starts gives the delay. A line through many samples is more reliable than one point read off by eye.
+3. **Visible is not the same as started.** Noise can look like the first movement, so a change counts as real only when it is clearly larger than the noise. The moment the response first passes that test is the **detectable onset**. The delay is found from the curve, not from that moment.
+4. **A best fit as the check.** Control Studio tries many values of gain, delay and time constant, predicts the whole record with each set, and keeps the set that predicts it best: the **best fit**. It also lists the range of each value that still keeps every prediction within the measurement uncertainty. A range shows what the record cannot tell apart; it is not a statistical confidence interval.
 
-Use the qualified five-second pre-step window from −5 to 0 s for the baseline mean $T_0$. For the final mean $T_f$, use the last five seconds of the hold, excluding samples at or after command restoration. Require valid samples, temperature range at most .10 °C and absolute window slope at most .01 °C/s, using the slope calculation from the preceding lesson. If the final window still drifts, obtain a new, longer bounded record rather than calling its last value an equilibrium. Then
-
-$$
-\Delta T=T_f-T_0,\qquad K=\frac{\Delta T}{\Delta u}.
-$$
-
-For the supplied illustration, 75% held at 35 °C and 85% held at 37 °C gives Δu=10 points, ΔT=2 °C, and $K=0.2$ °C/point. If each baseline and final window is only known within ±0.05 °C, then ΔT is 1.9–2.1 °C and K is 0.19–0.21 °C/point. Do not report more precision than the windows support.
-
-Define a sustained departure as the first of three consecutive .1 s samples above $T_0+.15$ °C for this positive heater step. The .15 °C threshold exceeds the .10 °C possible difference between a baseline and reading each uncertain by ±.05 °C. Report that first timestamp and the .1 s sampling resolution. This gives a **detectable delay**, not necessarily true transport delay L. Thermal rise, sensor filtering, sample spacing, and threshold bias can make that crossing later than L. Use the whole record to fit or compare the delayed response rather than renaming the threshold time as physical delay.
-
-For the model derived in the energy-balance lesson, the temperature gap remaining after the delay is
+**The formula.** The gain, then the gap to the final value after the delay:
 
 $$
-T_f-T(t)=(T_f-T_0)e^{-(t-L)/\tau}.
+K = \frac{T_f - T_0}{\Delta u}, \qquad T_f - T(t) = (T_f - T_0)\,e^{-(t - L)/\tau}.
 $$
 
-Divide by the initial gap, then take the natural logarithm, which undoes the exponential:
+- $T_0$ is the average temperature over the 5 s before the step, and $T_f$ over the last 5 s of the hold, in °C;
+- $\Delta u$ is the step of the command, in percentage points, and $K$ the gain, in °C per %;
+- $t$ is the time after the step, $L$ the delay and $\tau$ the time constant, all in seconds.
+
+> **Math you need: the natural logarithm.** The **natural logarithm** $\ln$ undoes the exponential: if $y = e^x$, then $x = \ln y$. So $\ln 1 = 0$, $\ln e^{-1} = -1$ and $\ln e^{-2} = -2$; as numbers, $\ln 0.368 \approx -1$ and $\ln 0.135 \approx -2$.
+
+Divide the gap by the initial gap and take the natural logarithm:
 
 $$
-q(t)=\ln\left(\frac{T_f-T(t)}{T_f-T_0}\right)=-\frac{t-L}{\tau}.
+q(t) = \ln\frac{T_f - T(t)}{T_f - T_0} = -\frac{t - L}{\tau}.
 $$
 
-Here q is a dimensionless logarithm of the remaining fraction. Plotting q against time gives a straight line for an ideal first-order response. Its slope is −1/τ. This calculation uses samples after the response begins and before the remaining gap becomes comparable with measurement noise.
+- $q$ is the logarithm of the fraction of the gap still left, without a unit. Plotted against $t$ it is a straight line with slope $-1/\tau$ that crosses zero at $t = L$. From two points on it, $\tau = -(t_2 - t_1)/(q_2 - q_1)$, and rearranging gives $L = t + \tau\,q$.
 
-Consider illustrative rounded readings T(6 s)=36.264 °C and T(11 s)=36.729 °C, with T0=35 °C and Tf=37 °C. They give q(6)=ln(0.736/2)≈−1 and q(11)=ln(0.271/2)≈−2. The slope is approximately
-
-$$
-\frac{-2-(-1)}{11-6}=-0.2\ \mathrm{s}^{-1},
-$$
-
-so τ≈−1/(−0.2)=5 s. Rearranging q=−(t−L)/τ gives L=t+τq; at 6 s this gives L≈6+5(−1)=1 s. Both points are needed to obtain the slope. These rounded teaching values demonstrate the calculation; use the complete valid record and its uncertainty for your model.
-
-The 63.2% temperature is $T_{63}=T_0+0.632\Delta T$. Once L has been estimated from the response, $\tau=t_{63}-L$ gives another check. A threshold onset can help initialize a fit, but does not by itself establish either parameter.
-
-To fit the whole record, calculate a candidate temperature at every sample time:
+The detectable onset is the first of three samples in a row that lie more than 0.15 °C beyond $T_0$ in the direction of the response, because two readings each uncertain by ±0.05 °C can differ by 0.1 °C. Control Studio's best fit is the set with the smallest sum of squared differences over all samples,
 
 $$
-T_{pred}(t)=
-\begin{cases}
-T_0,&t<L,\\
-T_0+K\Delta u\left(1-e^{-(t-L)/\tau}\right),&t\ge L.
-\end{cases}
+S = \left(T_1 - \hat T_1\right)^2 + \left(T_2 - \hat T_2\right)^2 + \dots ,
 $$
 
-A **fit** chooses parameters that make these predictions agree with the observations. For each candidate, calculate measurement minus prediction, square each difference and add them. Squaring prevents positive and negative differences from canceling. The candidate with the smallest sum is the best fit within the searched set, not automatically a physically adequate model.
+where $T_1, T_2, \dots$ are the measured and $\hat T_1, \hat T_2, \dots$ the predicted temperatures at the samples, in °C, and $S$ is in °C². Squaring makes every difference count as positive and weighs large misses most; this is a **least-squares fit**.
 
-In Identify, start with K from the two window means, search $0\le L\le2$ s and $.1\le\tau\le20$ s, both in .1 s increments, and compare all valid samples during the hold. These initial search limits cover the planning model's 1 s delay and 5 s time constant with room for disagreement. If the best value reaches the upper L boundary or either positive τ boundary, examine the record and refine or extend the justified search before claiming an estimate. Zero delay is admissible: at L=0 report one-sided delay uncertainty rather than searching for negative delay.
+**Example: a step down from 75% to 70%.** Calculated from the heater's energy balance, without noise, not run in this lesson:
 
-A single best fit is not an uncertainty range. To examine the stated ±.05 °C measurement bound, also vary $T_0$ across its baseline-mean bound in .01 °C increments and K across the gain interval from the window bounds in .001 °C/point increments. Retain candidates only if their final temperature lies within the final-mean bound and every predicted hold sample differs from its measured value by at most .05 °C. Report the range of K, L and τ among these retained candidates, together with the grid spacing and timestamp resolution. These are grid-resolved approximations to the consistent parameter ranges, not exhaustive bounds or statistical confidence intervals. Refine the grid around the accepted range and check sensitivity to the .1 s timestamp resolution. If the coarse grid contains no acceptable candidate, refine it and check timing before attributing the failure to the model or error assumptions. A minimum squared error alone cannot resolve that failure.
+1. **Gain.** $T_0$ = 35.000 °C and $T_f$ = 34.000 °C, so $K = (34.000 - 35.000)/(-5) = 0.2$ °C per %.
+2. **Two points on the log line.** At $t$ = 6 s, $T$ = 34.368 °C, so $q = \ln\frac{34.000 - 34.368}{34.000 - 35.000} = \ln 0.368 = -1.00$. At $t$ = 11 s, $T$ = 34.135 °C, so $q = \ln 0.135 = -2.00$.
+3. **Time constant.** The slope is $(-2.00 - (-1.00))/(11 - 6) = -0.2$ per second, so $\tau = 5$ s.
+4. **Delay.** $L = t + \tau q = 6 + 5 \times (-1.00) = 1$ s: the line crosses zero 1 s after the step.
+5. **The 63.2% check.** The 63.2% level is $35.000 - 0.632 \times 1.000 = 34.368$ °C, reached at 6 s: one time constant after the 1 s delay.
+6. **Detectable onset.** Just after the delay the water cools at its fastest, 0.2 °C/s, so it needs at least $0.15 / 0.2 = 0.75$ s to move 0.15 °C: this step becomes visible no earlier than 1.75 s after it starts.
+
+**The limitation.** The log line is reliable only while the gap is large. Late in the hold the gap is small and the ±0.05 °C uncertainty swamps it: for the step down, a 0.10 °C gap read as 0.05 or 0.15 °C gives $q$ between $\ln 0.05 = -3.0$ and $\ln 0.15 = -1.9$, a spread of 1.1, which is 5.5 s on a line that falls 0.2 per second. Control Studio's fit compares temperatures, not logarithms, so it avoids this. Both share one limitation: a first-order model with delay can only bend in one way. If the real response has a feature this shape lacks, no choice of the three numbers fits it.
 
 ## Prediction
 
-Before calculating, predict the sign and approximate size of ΔT, the K interval from ±0.05 °C windows, and whether the record supports a final window. Predict how threshold bias changes detectable delay and why two rounded samples do not justify precise τ or L.
+Before running, answer these questions for the 12-point record:
+
+1. What temperature change and gain do you expect?
+2. Will the detectable onset come earlier than, at, or later than the 1 s delay?
+3. What time constant and delay do the log line and the 63.2% level give?
+4. Will the unchanged model predict a separate 10-point step to within the 0.05 °C measurement uncertainty?
+
+| Quantity | Predicted |
+| --- | ---: |
+| Temperature change, $0.2 \times 12$ | 2.4 °C |
+| Gain | 0.2 °C per % |
+| Detectable onset | later than 1 s |
+| Time constant and delay | 5 s and 1 s |
 
 ## Implementation
 
-Use the same Lesson 14 record: known applied command, 0.1 s timestamps, qualified baseline, and a held step. Estimate Δu in command points, ΔT in °C, gain K in °C/point, a defensible transport delay L in seconds, and time constant τ in seconds. Keep the raw record, windows, threshold, and uncertainty with the estimates.
+Open [`src/Main.st`](src/Main.st). It holds 75% until the experiment starts, then applies 85% for 40 s in a 45.1 s record: the separate step that checks the estimate. `SafetyAbort` removes heat on an invalid measurement; restart the simulator after an abort.
 
-Use **Identify** for window averages and fitting when the required recording is actually available. Write ST calculations for `CommandChangePct`, `TemperatureChangeC`, `ProcessGainCPerPoint := TemperatureChangeC / CommandChangePct;` and `Temperature63C := BaselineTemperatureC + 0.632 * TemperatureChangeC;`. These are learner calculation variables, not existing symbols in the current `Main.st`; the shipped program exposes `AppliedPowerPct`, `TemperatureC`, and the `Lesson23ProcessGain`, `Lesson23Delay`, and `Lesson23TimeConstant` helpers. Guard division with an `IF` that requires a nonzero command change. The helper contract uses the standard `ENO` output: bind `ENO => GainValid` and use the result only when `GainValid` is true. A zero command change must return normally with `ENO = FALSE`; its zero result is an unused placeholder, not an identified zero gain. A nonzero command change with unchanged temperature instead returns a valid zero gain. This follows the EN/ENO call contract; the lesson helper does not change the runtime's division semantics. Check data validity and a supported final window before accepting the calculation; logarithms also require a positive argument.
+The program also provides three helper functions: `Lesson23ProcessGain` returns $K$ from the two command and temperature values, `Lesson23Delay` returns the delay from the step and response-start times, and `Lesson23TimeConstant` returns $\tau$ from the response-start and 63% times. A zero command change would divide by zero, so `Lesson23ProcessGain` then returns 0 with `ENO = FALSE`.
 
-The prepared program holds 75% until `ExperimentEnabled` starts the 85% step. Test records 5 s at the baseline before enabling, then holds the step for 40 s within a 45.1 s recording envelope. This uses the upper end of the preceding lesson's 20–40 s hold range; the preceding project now keeps a 45.1 s maximum so every permitted hold fits; a shorter hold returns to 75% before recording ends. Normal completion restores 75%. No fitted parameters are pre-filled as measured results. Control Studio observes the project-owned step; its observation amplitude of zero does not add another command to the one in `Main.st`.
-
-Set `SafetyAbort` to stop heating immediately; its latch also sets on invalid
-measurement. An abort commands zero heating. Normal
-completion restores 75% heating. After an abort, keep stopped and restart from
-the full hot reset before clearing the latch and collecting a new trial.
-
-For another plant, first select the I/O driver in `io.toml`, update the addressed
-bindings in `Main.st` and `control-loop.json`, and check units and scaling. Set
-the initial operating point and dynamics in
-`simulation.toml`, and the step, bounds and abort behavior in `Main.st`. Match
-the task/sample period and the baseline/hold durations to the plant. The helper
-only performs arithmetic on already-qualified finite measurements; it cannot
-establish data quality or a steady final value. Requalify the baseline and
-response windows, then validate the estimate on a distinct input step before
-using it for tuning. The supplied simulation is rehearsal, not qualification
-of the new physical installation.
+**Exercise.** Write your own calculation of `ProcessGainCPerPoint` from your record, guard the division, and check it: $(37.398 - 35.000)/12 = 0.1999$. Then run the tests in the **Testing** view.
 
 ## Experiment in Control Studio
 
-Use the qualified imported record to estimate gain, delay and time constant
-with the stated windows and uncertainty grid. Then acquire and qualify a
-distinct held-step record, compare it with the frozen estimate, and keep both
-records attached to your decision. Reject the estimate when the step, windows
-or samples do not support the model.
+1. In Lesson 14's project, right-click the plot of the **12 points, 40 s** recording and choose **Save recording…**.
+2. Open this lesson's project and start **Simulator**. In the **truST** side bar, select **Control Studio**. On **Identify**, choose **Recorded-data fit** from **Method**, check **Use held-step measurement and search**, and set **Model family** to **First order with dead time**.
+3. Select **Open recording…** and choose the saved file. The plot shows the recorded temperature and command; nothing is fitted yet. **Measurement and search settings** holds the 5 s windows, the 0.15 °C departure threshold and the search ranges; keep them.
+4. Select **Check recording** and read **Step-response measurements**: the two windows, the detectable onset and the 63.2% level.
+5. Select **Fit plant model**. Read **Best gain**, **Transport delay** and **Time constant**, the **Consistent grid** ranges, and the model line, `G(s) = 0.199858 e^(-1s) / (5s + 1)`: Control Studio's compact way of writing gain 0.1999, delay 1 s and time constant 5 s.
+6. Check the model on a new step. Choose **Project experiment** from **Method**, select **Review project test**, check the **45.1 s** plan and select **Confirm and start**. After the run, choose **Recorded-data fit** again, select **Check recording**, then **Compare with model**: the frozen model predicts the new record without refitting. Read **Prediction RMSE** and **Maximum absolute residual**.
+7. If the prediction agrees, select **Use fitted model**; the button then shows **Model ready**.
 
-1. Use the Lesson 14 recording made with **12 points and a 40 s hold**. In that project, right-click the response plot and choose **Save recording…**. Open this lesson's project, then choose **Identify → Method → Recorded-data fit** and check **Use held-step measurement and search**. Press **Open recording…** and select the saved JSON. The chart shows the original measured temperature and applied input before fitting; opening the file does not change the plant or accept a model.
-2. Expand **Measurement and search settings**. Keep both window durations at 5 s, the departure threshold at .15 °C and the consecutive-sample rule at 3; review the window limits, measurement bound and grid values stated above. Press **Check recording** and expand **Step-response measurements**. Confirm the measured pre-step and pre-restoration windows, their means, ranges and slopes. Then close the details and press **Fit plant model**.
-3. Calculate K, detectable onset, the explained grid estimate of L/τ, and $T_{63}$. Inspect the measured curve and dashed model prediction alongside the retained applied-input trace. In **Step-response measurements**, read the baseline, final mean, departure threshold and 63.2% level; use the plot's time/value tooltip to compare them with the response. Inspect the whole curve, not only the two worked timestamps.
-4. Report **Best gain**, **Transport delay** and **Time constant** separately from the **Consistent grid** ranges. In **Measurement and search settings**, refine the delay/time-constant bounds around the retained ranges and halve their grid steps; also halve the baseline and gain grid steps. Check and fit again. Repeat with **Sample time offset** at −0.1 and +0.1 s, then return it to zero for the nominal estimate. Keep the command amplitude, hold duration, windows and search spacing attached to each comparison. Preserve an empty or unresolved candidate set as a finding.
-5. Reject the estimate if the step is ambiguous, the final window is still rising, a disturbance overlaps, or samples are invalid. Do not substitute .2, 5, or 1 as learner values. **Open recording…** selects replacement data; changing the stated analysis settings requires **Check recording** before another fit.
+Select **Abort test** to stop the project test early.
 
 ## Evidence and decision
 
-Accept a model estimate only when the applied step and windows are traceable and the whole response supports a consistent delayed approach. Report K in °C/point and L/τ in seconds with uncertainty. A first threshold crossing is labelled detectable delay; a whole-curve fit supplies the physical estimate only under the stated model assumptions.
+![The log of the gap is a straight line; the fitted model also predicts a new step](figures/step-identification.svg)
 
-If no first-order candidate explains the full record within the stated bounds, retain the pattern of prediction errors. A correct final value with a repeatable mismatch early in the response raises a different question from parameter arithmetic: does the model need to describe another physical response, such as the sensor itself? If many different parameter combinations remain possible, retain that ambiguity for the identifiability lesson. Do not discard either finding to obtain a neat parameter list.
+The numbered marks answer the predictions with the same numbers. From Control Studio:
 
-For the separate validation experiment, keep this study open and choose
-**Method → Project experiment**. Press **Review project test** and check the
-45.1 s maximum and 5 s baseline. **Confirm and start** runs this project's
-75% to 85% step and restores 75%. Its amplitude differs from the imported
-75% to 87% experiment; reusing the same amplitude is rejected.
+| Quantity | Result |
+| --- | ---: |
+| Baseline and final windows | 35.000 °C and 37.398 °C |
+| Detectable onset | 1.4 s after the step |
+| 63.2% level | 36.52 °C, reached at 6.0 s |
+| Best fit | $K$ 0.1999 °C per %, $L$ 1 s, $\tau$ 5 s |
+| Consistent ranges, ±0.05 °C | $K$ 0.1925–0.2075, $L$ 0.8–1.2 s, $\tau$ 4.5–5.5 s |
+| New 10-point step: RMS and largest error | 0.0013 °C and 0.0014 °C |
 
-After the new record completes, choose **Method → Recorded-data fit** again.
-The recording is available directly: press **Check recording**, then
-**Compare with model**. This compares the new observations with the frozen
-estimation model without refitting its coefficients. Expand
-**Validation step measurements** and inspect the validation response and
-windows. Press **Use fitted model** only after reviewing the independent
-agreement. Keep both original records; **Save recording…** exports the current
-study with its measured data and retained identification evidence.
+1. The temperature changed by 2.398 °C: $K$ = 0.1999 °C per %, as predicted.
+2. The detectable onset came 1.4 s after the step, 0.4 s after the true delay: the temperature needed that long to rise 0.15 °C. The whole-curve fit found the delay itself.
+3. The log of the gap fell on a straight line through −1 at 6 s and −2 at 11 s: $\tau$ = 5 s and $L$ = 1 s, the same as Control Studio's best fit.
+4. On the separate 75 → 85% step the frozen model predicted the temperature with an RMS error of 0.0013 °C, far inside the 0.05 °C uncertainty, so it was accepted.
+
+The ranges show the cost of a finite measurement: any delay from 0.8 to 1.2 s still fits the record within ±0.05 °C. These are simulation results.
 
 ## Conclusion
 
-Step identification turns a qualified applied-command record into a traceable, uncertain model. Gain comes from equilibrium change; delay and time scale require the complete response and explicit assumptions.
+Step-response identification turns a planned step record into three numbers: the gain from two steady windows, and the delay and time constant from the whole curve, through the straight line of the log of the gap or a least-squares fit. A threshold crossing only marks when the response became visible.
+
+For this heater the record gave a gain of 0.1999 °C per %, a 1 s delay and a 5 s time constant, and the unchanged model predicted a new step to 0.0013 °C.
+
+## Check yourself
+
+1. **A 10-point step moves the temperature from 35.00 to 36.50 °C. What is the gain?**
+   $1.50/10 = 0.15$ °C per %.
+2. **Why does the detectable onset come later than the delay?**
+   The temperature must rise 0.15 °C above the baseline before a change counts as real, and that takes time
+   after the delayed heat arrives.
+3. **On the log line, q is −1 at 4 s and −3 at 12 s after a step. What are the time constant and the delay?**
+   The slope is −2/8 = −0.25 per second, so $\tau$ = 4 s; $L = 4 + 4 \times (-1) = 0$ s.
 
 ## Reason for the next lesson
 
-The fit has assumed one temperature state and a pure delivery delay. Adjusting K, L and τ can improve agreement within that assumption, but it cannot explain the physical origin of a repeatable response feature the model misses.
+The fit assumed one store of heat and a pure delay. A first-order model can miss a repeatable feature that this shape lacks, such as a temperature sensor that warms up more slowly than the water around it.
 
-[Model structure](../24-choose-model-structure/README.md) examines the same heater when the temperature sensor has its own response and asks whether an additional state is justified. Keep your identified model and record for that comparison.
+[Model structure](../24-choose-model-structure/README.md) asks whether the model needs a second store for the sensor.

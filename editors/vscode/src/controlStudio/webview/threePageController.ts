@@ -1,3 +1,4 @@
+import { familyLabel } from "../controllerFamilies";
 import type { ControlLoopDefinition } from "../loopDefinition";
 import { controllerInstanceLabel } from "../controllerGroupPresentation";
 import type { StudioPost } from "./threePageOperation";
@@ -7,9 +8,11 @@ export class ThreePageController {
   choice = "automatic";
   private explicit = false;
   private recommended: string | undefined;
+  /** The configuration of the automatic candidate that manual settings edit, kept apart from the host's recommendation. */
+  private candidate: string | undefined;
   private families: string[] = [];
   private readonly select: HTMLSelectElement;
-  get selectedFamily(): string { return this.explicit ? this.choice : this.recommended ?? "automatic"; }
+  get selectedFamily(): string { return this.explicit ? this.choice : this.candidate ?? this.recommended ?? "automatic"; }
   constructor(private readonly root: HTMLElement, private readonly loop: ControlLoopDefinition, private readonly post: StudioPost) {
     this.select = root.querySelector<HTMLSelectElement>("[data-studio-controller]")!;
     this.select.addEventListener("change", () => {
@@ -26,13 +29,14 @@ export class ThreePageController {
   receive(payload: Record<string, unknown>): void {
     if (Array.isArray(payload.availableFamilies)) this.families = payload.availableFamilies.filter((family): family is string => typeof family === "string");
     if (payload.status === "candidate" && typeof payload.family === "string") {
-      if (!this.explicit) this.recommended = payload.family;
+      if (!this.explicit) this.recommended = this.candidate = payload.family;
     } else if (typeof payload.controllerChoice === "string" && (payload.status === "restored" || !this.explicit || payload.controllerChoice === this.choice)) {
       this.choice = payload.controllerChoice;
       this.explicit = payload.controllerChoice !== "automatic";
-      if (!this.explicit && typeof payload.family === "string") this.recommended = payload.family;
-      if (this.explicit) this.recommended = undefined;
+      if (!this.explicit && typeof payload.family === "string") this.recommended = this.candidate = payload.family;
     }
+    // The host recommends from the model and requirements; an explicit choice never changes what is recommended.
+    if ("recommendedFamily" in payload) this.recommended = typeof payload.recommendedFamily === "string" ? payload.recommendedFamily : undefined;
     if (!this.families.length) return;
     const options: HTMLOptionElement[] = [];
     if (this.choice === "automatic") {
@@ -40,7 +44,7 @@ export class ThreePageController {
       automatic.dataset.family = "automatic"; options.push(automatic);
     }
     for (const family of this.families) {
-      const option = new Option(`${controllerInstanceLabel(this.loop.controller)} · ${family}${family === this.recommended ? " — recommended" : ""}`, `${this.loop.controller.instance}::${family}`);
+      const option = new Option(`${controllerInstanceLabel(this.loop.controller)} · ${familyLabel(family)}${family === this.recommended ? " — recommended" : ""}`, `${this.loop.controller.instance}::${family}`);
       option.dataset.family = family; options.push(option);
     }
     this.select.replaceChildren(...options);

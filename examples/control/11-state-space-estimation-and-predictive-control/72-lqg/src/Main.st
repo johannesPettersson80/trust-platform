@@ -1,191 +1,295 @@
-FUNCTION Lesson72ReviewedRoadAcceleration : LREAL
+(* State feedback around the operating point: q = 0.010 + v with v = N·(r − 0.25) − K1·x1 − K2·x2, where x are the level
+   deviations in m, measured or estimated, K1 and K2 are in m²/s and r is tank 2's setpoint. *)
+FUNCTION FeedbackFlowM3PerS : LREAL
 VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
-    ControlAuthority : BOOL;
+    Deviation1M : LREAL;
+    Deviation2M : LREAL;
+    SetpointM : LREAL;
+    K1 : LREAL;
+    K2 : LREAL;
+    N : LREAL;
 END_VAR
-IF ControlAuthority
-    AND (ExperimentElapsedSeconds >= LREAL#1.0)
-    AND (ExperimentElapsedSeconds < LREAL#1.5) THEN
-    Lesson72ReviewedRoadAcceleration := LREAL#0.5;
+FeedbackFlowM3PerS := LREAL#0.010 + N * (SetpointM - LREAL#0.25) - K1 * Deviation1M - K2 * Deviation2M;
+END_FUNCTION
+
+(* The pump delivers 0–0.020 m³/s. *)
+FUNCTION LimitedFlowM3PerS : LREAL
+VAR_INPUT
+    RequestedM3PerS : LREAL;
+END_VAR
+LimitedFlowM3PerS := MIN(MAX(RequestedM3PerS, LREAL#0.0), LREAL#0.020);
+END_FUNCTION
+
+(* A setpoint outside the 0.05–0.45 m levels, such as the unwritten 0 of a memory-bound value, means the operating
+   level. *)
+FUNCTION ValidSetpointM : LREAL
+VAR_INPUT
+    SetpointM : LREAL;
+END_VAR
+IF SetpointM >= LREAL#0.05 AND SetpointM <= LREAL#0.45 THEN
+    ValidSetpointM := SetpointM;
 ELSE
-    Lesson72ReviewedRoadAcceleration := LREAL#0.0;
+    ValidSetpointM := LREAL#0.25;
 END_IF;
 END_FUNCTION
 
-FUNCTION Lesson72ForceRequest : LREAL
+(* Lesson 80's costs of one update: 400(x1² + x2²) for the levels and 40000(q − 0.010)² for the applied flow. *)
+FUNCTION LevelCost : LREAL
 VAR_INPUT
-    GainDeflection : LREAL;
-    GainVelocity : LREAL;
-    Deflection : LREAL;
-    Velocity : LREAL;
+    Tank1M : LREAL;
+    Tank2M : LREAL;
 END_VAR
-Lesson72ForceRequest := -GainDeflection * Deflection
-    - GainVelocity * Velocity;
+LevelCost := LREAL#400.0 * ((Tank1M - LREAL#0.25) * (Tank1M - LREAL#0.25) + (Tank2M - LREAL#0.25) * (Tank2M - LREAL#0.25));
 END_FUNCTION
+
+FUNCTION EffortCost : LREAL
+VAR_INPUT
+    FlowM3PerS : LREAL;
+END_VAR
+EffortCost := LREAL#40000.0 * (FlowM3PerS - LREAL#0.010) * (FlowM3PerS - LREAL#0.010);
+END_FUNCTION
+
+(* The one-second prediction of tank 2's deviation, 0.04·x1 + 0.96·x2, and the innovation of a reading against it. *)
+FUNCTION Innovation : LREAL
+VAR_INPUT
+    ReadingM : LREAL;
+    X1Hat : LREAL;
+    X2Hat : LREAL;
+END_VAR
+Innovation := (ReadingM - LREAL#0.25) - (LREAL#0.04 * X1Hat + LREAL#0.96 * X2Hat);
+END_FUNCTION
+
+(* The corrected estimate of tank 1's deviation: the prediction 0.96·x1 + 2·v from the old estimate and the previous command,
+   plus L1 times the innovation. *)
+FUNCTION CorrectedTank1 : LREAL
+VAR_INPUT
+    X1Hat : LREAL;
+    CommandDeviationM3PerS : LREAL;
+    InnovationM : LREAL;
+    L1 : LREAL;
+END_VAR
+CorrectedTank1 := LREAL#0.96 * X1Hat + LREAL#2.0 * CommandDeviationM3PerS + L1 * InnovationM;
+END_FUNCTION
+
+(* The corrected estimate of tank 2's deviation: the prediction 0.04·x1 + 0.96·x2 plus L2 times the innovation. *)
+FUNCTION CorrectedTank2 : LREAL
+VAR_INPUT
+    X1Hat : LREAL;
+    X2Hat : LREAL;
+    InnovationM : LREAL;
+    L2 : LREAL;
+END_VAR
+CorrectedTank2 := LREAL#0.04 * X1Hat + LREAL#0.96 * X2Hat + L2 * InnovationM;
+END_FUNCTION
+
+(* Lesson 79's reading noise with a 5 mm standard deviation; Restart begins the sequence again. *)
+FUNCTION_BLOCK ReadingNoise
+VAR_INPUT
+    Restart : BOOL;
+END_VAR
+VAR_OUTPUT
+    NoiseM : LREAL := 0.0;
+END_VAR
+VAR
+    State : DINT := 92429;
+END_VAR
+IF Restart THEN
+    State := DINT#92429;
+END_IF;
+State := (DINT#8121 * State + DINT#28411) MOD DINT#134456;
+NoiseM := (LREAL#2.0 * DINT_TO_LREAL(State) / LREAL#134456.0 - LREAL#1.0) * SQRT(LREAL#3.0) * LREAL#0.005;
+END_FUNCTION_BLOCK
+
+(* Root-mean-square of the errors so far. *)
+FUNCTION_BLOCK ErrorStatistics
+VAR_INPUT
+    ErrorM : LREAL;
+END_VAR
+VAR_OUTPUT
+    RmsM : LREAL := 0.0;
+END_VAR
+VAR
+    Count : LREAL := 0.0;
+    SumOfSquares : LREAL := 0.0;
+END_VAR
+Count := Count + LREAL#1.0;
+SumOfSquares := SumOfSquares + ErrorM * ErrorM;
+RmsM := SQRT(SumOfSquares / Count);
+END_FUNCTION_BLOCK
 
 PROGRAM Main
 VAR
-    Enabled : BOOL := FALSE;
-    ControllerValid : BOOL := TRUE;
-    Saturated : BOOL := FALSE;
-    DesignMode : DINT := 3;
-    ForceRequested : LREAL := 0.0;
-    EstimatedDeflection : LREAL := 0.0;
-    EstimatedVelocity : LREAL := 0.0;
-    Innovation : LREAL := 0.0;
-    RoadAccelerationRequested : LREAL := 0.0;
-    PreviousForce : LREAL := 0.0;
-    PreviousRoad : LREAL := 0.0;
-    ForceApplied : LREAL := 0.0;
-    RoadAccelerationApplied : LREAL := 0.0;
-    FullStateDeflectionMeasurement : LREAL := 0.0;
-    FullStateVelocityMeasurement : LREAL := 0.0;
-    PositionOnlyMeasurement : LREAL := 0.0;
-    PositionOnlyVelocityTruth : LREAL := 0.0;
-    PredictedDeflection : LREAL := 0.0;
-    PredictedVelocity : LREAL := 0.0;
-    FeedbackDeflection : LREAL := 0.0;
-    FeedbackVelocity : LREAL := 0.0;
-    GainDeflection : LREAL := 0.0;
-    GainVelocity : LREAL := 0.0;
+    (* Two cascades with the same gains, written by Control Studio's Apply: A measures both levels, the full-state
+       reference; B measures only tank 2 and feeds the gains with its steady Kalman estimate X1Hat, X2Hat (L1, L2). The
+       project experiment adds Lesson 79's reading noise, restarted, and both cascades read tank 2 with the same sample.
+       B's estimator predicts from its old estimate and the command it gave last update, corrects with the new reading,
+       and only then is the command calculated; it runs in Manual as well. FeedbackEnabled is the Auto/Manual mode. The
+       experiment returns tank 2's setpoint to 0.25 m for 60 s, then both pumps deliver a slug, 0.020 m³/s for one
+       second: water from outside, which B's estimator is not told. From 61 s to 120 s each cascade adds Lesson 80's
+       costs and records its largest level deviation from 110 s, and B scores its tank-1 estimate against the true
+       level, which it never uses. *)
+    K1 : LREAL := 0.0;
+    K2 : LREAL := 0.0;
+    N : LREAL := 0.0;
+    L1 : LREAL := 0.0;
+    L2 : LREAL := 0.0;
+    X1Hat : LREAL := 0.0;
+    X2Hat : LREAL := 0.0;
+    ManualFlowM3PerS : LREAL := 0.010;
+    FullStatePumpM3PerS : LREAL := 0.010;
+    EstimatedPumpM3PerS : LREAL := 0.010;
+    FullStateTank1M : LREAL := 0.25;
+    FullStateTank2M : LREAL := 0.25;
+    EstimatedTank1M : LREAL := 0.25;
+    EstimatedTank2M : LREAL := 0.25;
+    Tank2SetpointM : LREAL := 0.25;
+    ReadingM : LREAL := 0.25;
+    CommandM3PerS : LREAL := 0.010;
+    EstimateTank1M : LREAL := 0.25;
+    EstimateTank2M : LREAL := 0.25;
+    FullStateLevelCost : LREAL := 0.0;
+    FullStateEffortCost : LREAL := 0.0;
+    EstimatedLevelCost : LREAL := 0.0;
+    EstimatedEffortCost : LREAL := 0.0;
+    FullStateLatePeakM : LREAL := 0.0;
+    EstimatedLatePeakM : LREAL := 0.0;
+    EstimationRmsM : LREAL := 0.0;
+    FullStateRequestedM3PerS : LREAL := 0.010;
+    EstimatedRequestedM3PerS : LREAL := 0.010;
+    InnovationM : LREAL := 0.0;
+    ReadingNoiseM : LREAL := 0.0;
+    (* The command B gave last update, unbound so that it holds the operating flow from the first update. *)
+    LastCommandM3PerS : LREAL := 0.010;
+    PreviousX1Hat : LREAL := 0.0;
+    ElapsedS : LREAL := 0.0;
+    Noise : ReadingNoise;
+    EstimationErrors : ErrorStatistics;
     ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    ExperimentElapsed : LREAL := 0.0;
+    WasEnabled : BOOL := FALSE;
+    FeedbackEnabled : BOOL := FALSE;
+    FullStateClipped : BOOL := FALSE;
+    EstimatedClipped : BOOL := FALSE;
+    FullStateFault : BOOL := FALSE;
+    EstimatedFault : BOOL := FALSE;
+    ClockPrimed : BOOL := FALSE;
+    ClockValid : BOOL := TRUE;
+    Slug : BOOL := FALSE;
+    NowTime : TIME;
+    PreviousTime : TIME;
 END_VAR
-
-(* Control Studio grants only authority. The project owns the balanced LQG road
-   pulse; alternative regulators and faults remain retained simulations. *)
-IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
-    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
-    Enabled := TRUE;
-    DesignMode := DINT#5;
-    RoadAccelerationRequested := Lesson72ReviewedRoadAcceleration(
-        ExperimentElapsedSeconds := ExperimentElapsed,
-        ControlAuthority := TRUE);
-ELSE
-    ExperimentElapsed := LREAL#0.0;
-    Enabled := FALSE;
-    DesignMode := DINT#5;
-    RoadAccelerationRequested := LREAL#0.0;
+Noise(Restart := ExperimentEnabled AND NOT WasEnabled);
+ReadingNoiseM := LREAL#0.0;
+IF ExperimentEnabled THEN
+    ReadingNoiseM := Noise.NoiseM;
 END_IF;
-
-ControllerValid := (DesignMode >= DINT#0)
-    AND (DesignMode <= DINT#5)
-    AND (RoadAccelerationRequested >= LREAL#-2.0)
-    AND (RoadAccelerationRequested <= LREAL#2.0)
-    AND (EstimatedDeflection >= LREAL#-0.08)
-    AND (EstimatedDeflection <= LREAL#0.08)
-    AND (EstimatedVelocity >= LREAL#-0.5)
-    AND (EstimatedVelocity <= LREAL#0.5);
-
-IF DesignMode = DINT#5 THEN
-    ControllerValid := ControllerValid
-        AND (PositionOnlyMeasurement >= LREAL#-0.10)
-        AND (PositionOnlyMeasurement <= LREAL#0.10);
-ELSE
-    ControllerValid := ControllerValid
-        AND (FullStateDeflectionMeasurement >= LREAL#-0.08)
-        AND (FullStateDeflectionMeasurement <= LREAL#0.08)
-        AND (FullStateVelocityMeasurement >= LREAL#-0.5)
-        AND (FullStateVelocityMeasurement <= LREAL#0.5);
+ReadingM := EstimatedTank2M + ReadingNoiseM;
+(* A wrong update interval latches both cascades; A latches on its levels, B on its reading. *)
+NowTime := TIME();
+ClockValid := NOT ClockPrimed OR ((NowTime - PreviousTime) >= T#950ms AND (NowTime - PreviousTime) <= T#1050ms);
+IF NOT ClockValid OR FullStateTank1M < LREAL#0.05 OR FullStateTank1M > LREAL#0.45
+    OR FullStateTank2M < LREAL#0.05 OR FullStateTank2M > LREAL#0.45 THEN
+    FullStateFault := TRUE;
 END_IF;
-
-IF ControllerValid THEN
-    // Exact 0.1 s zero-order-hold model used by the position-only estimator.
-    PredictedDeflection := LREAL#0.98084004 * EstimatedDeflection
-        + LREAL#0.09360616 * EstimatedVelocity
-        + LREAL#0.00239499 * PreviousForce
-        + LREAL#0.00478999 * PreviousRoad;
-    PredictedVelocity := LREAL#-0.37442462 * EstimatedDeflection
-        + LREAL#0.86851265 * EstimatedVelocity
-        + LREAL#0.04680308 * PreviousForce
-        + LREAL#0.09360616 * PreviousRoad;
-    Innovation := PositionOnlyMeasurement - PredictedDeflection;
-    // Steady-state Kalman gain is independently qualified by the lesson test.
-    EstimatedDeflection := PredictedDeflection
-        + LREAL#0.58488259 * Innovation;
-    EstimatedVelocity := PredictedVelocity
-        + LREAL#2.24682847 * Innovation;
-
-    IF DesignMode = DINT#5 THEN
-        FeedbackDeflection := EstimatedDeflection;
-        FeedbackVelocity := EstimatedVelocity;
-    ELSE
-        FeedbackDeflection := FullStateDeflectionMeasurement;
-        FeedbackVelocity := FullStateVelocityMeasurement;
-    END_IF;
-
-    IF DesignMode = DINT#0 THEN
-        GainDeflection := LREAL#13.0;
-        GainVelocity := LREAL#6.0;
-    ELSIF DesignMode = DINT#1 THEN
-        GainDeflection := LREAL#1.16515139;
-        GainVelocity := LREAL#3.11548779;
-    ELSIF DesignMode = DINT#2 THEN
-        GainDeflection := LREAL#5.56465997;
-        GainVelocity := LREAL#3.07892689;
-    ELSIF (DesignMode = DINT#3) OR (DesignMode = DINT#5) THEN
-        GainDeflection := LREAL#2.19803903;
-        GainVelocity := LREAL#1.90722139;
-    ELSE
-        GainDeflection := LREAL#0.48528137;
-        GainVelocity := LREAL#0.51566896;
-    END_IF;
-
-    ForceRequested := Lesson72ForceRequest(
-        GainDeflection := GainDeflection,
-        GainVelocity := GainVelocity,
-        Deflection := FeedbackDeflection,
-        Velocity := FeedbackVelocity);
-    Saturated := (ForceRequested < LREAL#-5.0)
-        OR (ForceRequested > LREAL#5.0);
-    RoadAccelerationApplied := LIMIT(
-        LREAL#-2.0,
-        RoadAccelerationRequested,
-        LREAL#2.0
-    );
-    IF Enabled THEN
-        ForceApplied := LIMIT(LREAL#-5.0, ForceRequested, LREAL#5.0);
-    ELSE
-        ForceApplied := LREAL#0.0;
-    END_IF;
-ELSE
-    ForceRequested := LREAL#0.0;
-    ForceApplied := LREAL#0.0;
-    RoadAccelerationApplied := LREAL#0.0;
-    Saturated := FALSE;
+IF NOT ClockValid OR ReadingM < LREAL#0.05 OR ReadingM > LREAL#0.45 THEN
+    EstimatedFault := TRUE;
 END_IF;
-
-PreviousForce := ForceApplied;
-PreviousRoad := RoadAccelerationApplied;
+Tank2SetpointM := ValidSetpointM(SetpointM := Tank2SetpointM);
+IF ExperimentEnabled AND NOT WasEnabled THEN
+    ElapsedS := LREAL#0.0;
+    Tank2SetpointM := LREAL#0.25;
+    FullStateLevelCost := LREAL#0.0;
+    FullStateEffortCost := LREAL#0.0;
+    EstimatedLevelCost := LREAL#0.0;
+    EstimatedEffortCost := LREAL#0.0;
+    FullStateLatePeakM := LREAL#0.0;
+    EstimatedLatePeakM := LREAL#0.0;
+ELSIF ExperimentEnabled THEN
+    ElapsedS := ElapsedS + LREAL#1.0;
+END_IF;
+(* B's estimator: predict from the old estimate and the previous command, correct with the new reading. *)
+IF NOT EstimatedFault THEN
+    InnovationM := Innovation(ReadingM := ReadingM, X1Hat := X1Hat, X2Hat := X2Hat);
+    PreviousX1Hat := X1Hat;
+    X1Hat := CorrectedTank1(X1Hat := X1Hat, CommandDeviationM3PerS := LastCommandM3PerS - LREAL#0.010, InnovationM := InnovationM, L1 := L1);
+    X2Hat := CorrectedTank2(X1Hat := PreviousX1Hat, X2Hat := X2Hat, InnovationM := InnovationM, L2 := L2);
+END_IF;
+EstimateTank1M := LREAL#0.25 + X1Hat;
+EstimateTank2M := LREAL#0.25 + X2Hat;
+IF FeedbackEnabled THEN
+    FullStateRequestedM3PerS := FeedbackFlowM3PerS(Deviation1M := FullStateTank1M - LREAL#0.25,
+        Deviation2M := FullStateTank2M + ReadingNoiseM - LREAL#0.25, SetpointM := Tank2SetpointM, K1 := K1, K2 := K2, N := N);
+    EstimatedRequestedM3PerS := FeedbackFlowM3PerS(Deviation1M := X1Hat, Deviation2M := X2Hat, SetpointM := Tank2SetpointM,
+        K1 := K1, K2 := K2, N := N);
+ELSE
+    FullStateRequestedM3PerS := ManualFlowM3PerS;
+    EstimatedRequestedM3PerS := ManualFlowM3PerS;
+END_IF;
+FullStatePumpM3PerS := LimitedFlowM3PerS(RequestedM3PerS := FullStateRequestedM3PerS);
+FullStateClipped := FullStatePumpM3PerS <> FullStateRequestedM3PerS;
+IF NOT EstimatedFault THEN
+    CommandM3PerS := LimitedFlowM3PerS(RequestedM3PerS := EstimatedRequestedM3PerS);
+    LastCommandM3PerS := CommandM3PerS;
+END_IF;
+EstimatedClipped := CommandM3PerS <> EstimatedRequestedM3PerS;
+EstimatedPumpM3PerS := CommandM3PerS;
+(* The slug is water from outside: the pumps deliver it, B's estimator keeps the controller's command. *)
+Slug := ExperimentEnabled AND ElapsedS >= LREAL#59.5 AND ElapsedS < LREAL#60.5;
+IF Slug THEN
+    FullStatePumpM3PerS := LREAL#0.020;
+    EstimatedPumpM3PerS := LREAL#0.020;
+END_IF;
+IF FullStateFault THEN
+    FullStatePumpM3PerS := LREAL#0.0;
+END_IF;
+IF EstimatedFault THEN
+    EstimatedPumpM3PerS := LREAL#0.0;
+END_IF;
+IF ExperimentEnabled AND ElapsedS >= LREAL#60.5 AND ElapsedS < LREAL#120.5 THEN
+    FullStateLevelCost := FullStateLevelCost + LevelCost(Tank1M := FullStateTank1M, Tank2M := FullStateTank2M);
+    FullStateEffortCost := FullStateEffortCost + EffortCost(FlowM3PerS := FullStatePumpM3PerS);
+    EstimatedLevelCost := EstimatedLevelCost + LevelCost(Tank1M := EstimatedTank1M, Tank2M := EstimatedTank2M);
+    EstimatedEffortCost := EstimatedEffortCost + EffortCost(FlowM3PerS := EstimatedPumpM3PerS);
+    EstimationErrors(ErrorM := EstimateTank1M - EstimatedTank1M);
+    EstimationRmsM := EstimationErrors.RmsM;
+    IF ElapsedS >= LREAL#109.5 THEN
+        FullStateLatePeakM := MAX(FullStateLatePeakM, MAX(ABS(FullStateTank1M - LREAL#0.25), ABS(FullStateTank2M - LREAL#0.25)));
+        EstimatedLatePeakM := MAX(EstimatedLatePeakM, MAX(ABS(EstimatedTank1M - LREAL#0.25), ABS(EstimatedTank2M - LREAL#0.25)));
+    END_IF;
+END_IF;
+WasEnabled := ExperimentEnabled;
+PreviousTime := NowTime;
+ClockPrimed := TRUE;
 END_PROGRAM
 
 CONFIGURATION Config
 RESOURCE Res ON PLC
-    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);
+    TASK MainTask(INTERVAL := T#1s, PRIORITY := 1);
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.DesignMode AT %MD0 : DINT;
-    P1.ForceRequested AT %ML8 : LREAL;
-    P1.EstimatedDeflection AT %ML16 : LREAL;
-    P1.EstimatedVelocity AT %ML24 : LREAL;
-    P1.Innovation AT %ML32 : LREAL;
-    P1.RoadAccelerationRequested AT %ML40 : LREAL;
-    P1.PreviousForce AT %ML48 : LREAL;
-    P1.PreviousRoad AT %ML56 : LREAL;
-    P1.Enabled AT %MX120.0 : BOOL;
-    P1.ControllerValid AT %MX120.1 : BOOL;
-    P1.Saturated AT %MX120.2 : BOOL;
-    P1.ExperimentEnabled AT %MX120.3 : BOOL;
-    P1.SafetyAbort AT %MX120.4 : BOOL;
-    P1.InputsValid AT %MX120.5 : BOOL;
-    P1.ForceApplied AT %QL0 : LREAL;
-    P1.RoadAccelerationApplied AT %QL8 : LREAL;
-    P1.FullStateDeflectionMeasurement AT %IL0 : LREAL;
-    P1.FullStateVelocityMeasurement AT %IL8 : LREAL;
-    P1.PositionOnlyMeasurement AT %IL16 : LREAL;
-    P1.PositionOnlyVelocityTruth AT %IL24 : LREAL;
+    P1.FullStatePumpM3PerS AT %QL0 : LREAL;
+    P1.EstimatedPumpM3PerS AT %QL8 : LREAL;
+    P1.FullStateTank1M AT %IL0 : LREAL;
+    P1.FullStateTank2M AT %IL8 : LREAL;
+    P1.EstimatedTank1M AT %IL16 : LREAL;
+    P1.EstimatedTank2M AT %IL24 : LREAL;
+    P1.Tank2SetpointM AT %ML0 : LREAL;
+    P1.ReadingM AT %ML8 : LREAL;
+    P1.CommandM3PerS AT %ML16 : LREAL;
+    P1.EstimateTank1M AT %ML24 : LREAL;
+    P1.EstimateTank2M AT %ML32 : LREAL;
+    P1.FullStateLevelCost AT %ML40 : LREAL;
+    P1.FullStateEffortCost AT %ML48 : LREAL;
+    P1.EstimatedLevelCost AT %ML56 : LREAL;
+    P1.EstimatedEffortCost AT %ML64 : LREAL;
+    P1.FullStateLatePeakM AT %ML72 : LREAL;
+    P1.EstimatedLatePeakM AT %ML80 : LREAL;
+    P1.EstimationRmsM AT %ML88 : LREAL;
+    P1.ExperimentEnabled AT %MX96.0 : BOOL;
+    P1.FullStateClipped AT %MX96.1 : BOOL;
+    P1.EstimatedClipped AT %MX96.2 : BOOL;
+    P1.FullStateFault AT %MX96.3 : BOOL;
+    P1.EstimatedFault AT %MX96.4 : BOOL;
+    P1.ClockValid AT %MX96.5 : BOOL;
 END_VAR
 END_CONFIGURATION

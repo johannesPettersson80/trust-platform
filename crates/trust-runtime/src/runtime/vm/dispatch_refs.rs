@@ -29,11 +29,11 @@ pub(super) fn load_ref(
     let reference = module
         .refs
         .get(ref_idx as usize)
-        .ok_or(VmTrap::InvalidRefIndex(ref_idx))?;
+        .ok_or_else(|| VmTrap::InvalidRefIndex(ref_idx))?;
 
     match reference {
         VmRef::Local { offset, path, .. } => {
-            let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
+            let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
             if path.is_empty() {
                 frame.load_local(ref_idx)
             } else {
@@ -54,38 +54,41 @@ pub(super) fn peek_ref<'a>(
     let reference = module
         .refs
         .get(ref_idx as usize)
-        .ok_or(VmTrap::InvalidRefIndex(ref_idx))?;
+        .ok_or_else(|| VmTrap::InvalidRefIndex(ref_idx))?;
 
     match reference {
         VmRef::Global { offset, path } if path.is_empty() => runtime
             .storage
             .read_global_slot_by_offset(*offset)
-            .ok_or(VmTrap::NullReference),
+            .ok_or_else(|| VmTrap::NullReference),
         VmRef::Global { offset, path } => runtime
             .storage
             .read_by_ref_parts(MemoryLocation::Global, *offset, path)
-            .ok_or(VmTrap::NullReference),
+            .ok_or_else(|| VmTrap::NullReference),
         VmRef::Local { offset, path, .. } => {
-            let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
+            let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
             if path.is_empty() {
                 let slot = frame.local_slot_index(ref_idx)?;
-                frame.locals.get(slot).ok_or(VmTrap::InvalidLocalRef {
-                    ref_index: ref_idx,
-                    start: frame.local_ref_start,
-                    count: frame.local_ref_count,
-                })
+                frame
+                    .locals
+                    .get(slot)
+                    .ok_or_else(|| VmTrap::InvalidLocalRef {
+                        ref_index: ref_idx,
+                        start: frame.local_ref_start,
+                        count: frame.local_ref_count,
+                    })
             } else {
                 let slot = *offset;
                 peek_vm_local_ref(frame, slot, path)
             }
         }
         _ => {
-            let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
+            let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
             let (location, offset, path) = runtime_access_target(reference, frame)?;
             runtime
                 .storage
                 .read_by_ref_parts(location, offset, path)
-                .ok_or(VmTrap::NullReference)
+                .ok_or_else(|| VmTrap::NullReference)
         }
     }
 }
@@ -98,10 +101,10 @@ pub(super) fn load_ref_addr(
     let reference = module
         .refs
         .get(ref_idx as usize)
-        .ok_or(VmTrap::InvalidRefIndex(ref_idx))?;
+        .ok_or_else(|| VmTrap::InvalidRefIndex(ref_idx))?;
     match reference {
         VmRef::Local { offset, path, .. } => {
-            let _ = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
+            let _ = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
             Ok(ValueRef {
                 location: MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID)),
                 offset: *offset,
@@ -109,7 +112,7 @@ pub(super) fn load_ref_addr(
             })
         }
         _ => {
-            let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
+            let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
             let (location, offset, path) = runtime_access_target(reference, frame)?;
             Ok(ValueRef {
                 location,
@@ -130,7 +133,7 @@ pub(super) fn store_ref(
     let reference = module
         .refs
         .get(ref_idx as usize)
-        .ok_or(VmTrap::InvalidRefIndex(ref_idx))?;
+        .ok_or_else(|| VmTrap::InvalidRefIndex(ref_idx))?;
     let value = normalize_vm_value_for_ref(module, ref_idx, value).map_err(VmTrap::Runtime)?;
 
     match reference {
@@ -155,7 +158,9 @@ pub(super) fn store_ref(
             }
         }
         VmRef::Local { offset, path, .. } => {
-            let frame = frames.current_mut().ok_or(VmTrap::CallStackUnderflow)?;
+            let frame = frames
+                .current_mut()
+                .ok_or_else(|| VmTrap::CallStackUnderflow)?;
             if path.is_empty() {
                 frame.store_local(ref_idx, value)
             } else {
@@ -164,7 +169,7 @@ pub(super) fn store_ref(
             }
         }
         _ => {
-            let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
+            let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
             let (location, offset, path) = runtime_access_target(reference, frame)?;
             if runtime.storage.write_by_ref_parts_typed(
                 &runtime.registry,
@@ -208,7 +213,7 @@ pub(super) fn dynamic_ref_field(
         Value::Instance(instance_id) => runtime
             .storage
             .resolved_instance_field_ref(*instance_id, field.as_str())
-            .ok_or(VmTrap::Runtime(RuntimeError::UndefinedField(field))),
+            .ok_or_else(|| VmTrap::Runtime(RuntimeError::UndefinedField(field))),
         _ => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
     }
 }
@@ -232,7 +237,7 @@ pub(super) fn dynamic_ref_field_borrowed(
         Value::Instance(instance_id) => runtime
             .storage
             .resolved_instance_field_ref(*instance_id, field.as_str())
-            .ok_or(VmTrap::Runtime(RuntimeError::UndefinedField(field))),
+            .ok_or_else(|| VmTrap::Runtime(RuntimeError::UndefinedField(field))),
         _ => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
     }
 }
@@ -316,17 +321,17 @@ fn peek_dynamic_ref_path<'a>(
         reference.location,
         MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID))
     ) {
-        let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
+        let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
         let root = frame
             .locals
             .get(reference.offset)
-            .ok_or(VmTrap::NullReference)?;
-        return read_value_path_borrowed(root, path).ok_or(VmTrap::NullReference);
+            .ok_or_else(|| VmTrap::NullReference)?;
+        return read_value_path_borrowed(root, path).ok_or_else(|| VmTrap::NullReference);
     }
     runtime
         .storage
         .read_by_ref_parts(reference.location, reference.offset, path)
-        .ok_or(VmTrap::NullReference)
+        .ok_or_else(|| VmTrap::NullReference)
 }
 
 pub(super) fn dynamic_load_ref(
@@ -338,17 +343,17 @@ pub(super) fn dynamic_load_ref(
         reference.location,
         MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID))
     ) {
-        let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
+        let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
         let root = frame
             .locals
             .get(reference.offset)
-            .ok_or(VmTrap::NullReference)?;
-        return materialize_value_path(root, &reference.path).ok_or(VmTrap::NullReference);
+            .ok_or_else(|| VmTrap::NullReference)?;
+        return materialize_value_path(root, &reference.path).ok_or_else(|| VmTrap::NullReference);
     }
     runtime
         .storage
         .materialize_by_ref_ref(reference)
-        .ok_or(VmTrap::NullReference)
+        .ok_or_else(|| VmTrap::NullReference)
 }
 
 pub(super) fn dynamic_store_ref(
@@ -362,7 +367,9 @@ pub(super) fn dynamic_store_ref(
         reference.location,
         MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID))
     ) {
-        let frame = frames.current_mut().ok_or(VmTrap::CallStackUnderflow)?;
+        let frame = frames
+            .current_mut()
+            .ok_or_else(|| VmTrap::CallStackUnderflow)?;
         return write_vm_local_ref(
             frame,
             reference.offset,
@@ -371,7 +378,7 @@ pub(super) fn dynamic_store_ref(
             &runtime.registry,
         );
     }
-    let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
+    let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
     let value = normalize_dynamic_store_value(module, frame, reference, value)?;
     if runtime.storage.write_by_ref_parts_typed(
         &runtime.registry,
@@ -391,13 +398,19 @@ fn peek_vm_local_ref<'a>(
     offset: usize,
     path: &[RefSegment],
 ) -> Result<&'a Value, VmTrap> {
-    let root = frame.locals.get(offset).ok_or(VmTrap::NullReference)?;
-    read_value_path_borrowed(root, path).ok_or(VmTrap::NullReference)
+    let root = frame
+        .locals
+        .get(offset)
+        .ok_or_else(|| VmTrap::NullReference)?;
+    read_value_path_borrowed(root, path).ok_or_else(|| VmTrap::NullReference)
 }
 
 fn read_vm_local_ref(frame: &VmFrame, offset: usize, path: &[RefSegment]) -> Result<Value, VmTrap> {
-    let root = frame.locals.get(offset).ok_or(VmTrap::NullReference)?;
-    materialize_value_path(root, path).ok_or(VmTrap::NullReference)
+    let root = frame
+        .locals
+        .get(offset)
+        .ok_or_else(|| VmTrap::NullReference)?;
+    materialize_value_path(root, path).ok_or_else(|| VmTrap::NullReference)
 }
 
 fn write_vm_local_ref(
@@ -407,7 +420,10 @@ fn write_vm_local_ref(
     value: Value,
     registry: &trust_hir::types::TypeRegistry,
 ) -> Result<(), VmTrap> {
-    let root = frame.locals.get_mut(offset).ok_or(VmTrap::NullReference)?;
+    let root = frame
+        .locals
+        .get_mut(offset)
+        .ok_or_else(|| VmTrap::NullReference)?;
     if crate::value::write_value_path_typed(root, path, value, registry) {
         Ok(())
     } else {
@@ -452,15 +468,29 @@ pub(super) fn dynamic_ref_type(
         return Ok(vm_type_for_path(module, base_type, &reference.path));
     }
 
+    // The references that can address this slot in this frame: the frame's own instance template, the instance itself, or
+    // the global area (runtime_access_target).
+    let (owner_slot, direct_slot) = match reference.location {
+        MemoryLocation::Global => (None, Some(None)),
+        MemoryLocation::Instance(runtime_id) => (
+            frame
+                .instance_owner
+                .filter(|owner| frame.runtime_instance.unwrap_or(InstanceId(*owner)) == runtime_id)
+                .map(Some),
+            (frame.instance_owner != Some(runtime_id.0)).then_some(Some(runtime_id.0)),
+        ),
+        _ => return Ok(None),
+    };
     let mut resolved = None;
-    for (ref_idx, candidate) in module.refs.iter().enumerate() {
-        let Some(base_type_idx) = module.ref_type(ref_idx as u32) else {
-            continue;
-        };
-        let Ok((location, offset, path)) = runtime_access_target(candidate, frame) else {
-            continue;
-        };
-        if location == reference.location && offset == reference.offset {
+    for owner in [owner_slot, direct_slot].into_iter().flatten() {
+        for &ref_idx in module.refs_at_slot(owner, reference.offset) {
+            let Some(base_type_idx) = module.ref_type(ref_idx) else {
+                continue;
+            };
+            let Ok((_, _, path)) = runtime_access_target(&module.refs[ref_idx as usize], frame)
+            else {
+                continue;
+            };
             let Some(suffix) = reference.path.as_slice().strip_prefix(path) else {
                 continue;
             };

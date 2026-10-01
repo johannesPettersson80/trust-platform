@@ -69,6 +69,61 @@
     ]
   },
   {
+    "id": "studio-pid",
+    "title": "Control Studio: PID loop",
+    "description": "Set up a Control.PID loop with the setup form, then identify, tune, validate and apply it on a simulated heater.",
+    "path": "control-pid-commissioning",
+    "hardware": "none",
+    "tags": [
+      "studio",
+      "simulator"
+    ]
+  },
+  {
+    "id": "studio-cascade",
+    "title": "Control Studio: cascade",
+    "description": "Two Control.PID blocks in cascade on a jacketed vessel: tune the inner loop first, then the outer loop through it.",
+    "path": "control-cascade-commissioning",
+    "hardware": "none",
+    "tags": [
+      "studio",
+      "simulator"
+    ]
+  },
+  {
+    "id": "studio-two-zone",
+    "title": "Control Studio: interacting loops",
+    "description": "Two heated zones that share a wall: tune them one after the other or together as a PID group.",
+    "path": "control-two-zone-commissioning",
+    "hardware": "none",
+    "tags": [
+      "studio",
+      "simulator"
+    ]
+  },
+  {
+    "id": "studio-onoff",
+    "title": "Control Studio: ON/OFF control",
+    "description": "A cold room held by a switching compressor: tune the hysteresis and the minimum ON and OFF times.",
+    "path": "control-onoff-commissioning",
+    "hardware": "none",
+    "tags": [
+      "studio",
+      "simulator"
+    ]
+  },
+  {
+    "id": "studio-state-feedback",
+    "title": "Control Studio: state feedback",
+    "description": "Two tanks in series held by an LQR law that feeds both measured levels back to the pump.",
+    "path": "control-state-feedback-commissioning",
+    "hardware": "none",
+    "tags": [
+      "studio",
+      "simulator"
+    ]
+  },
+  {
     "id": "control-lesson-01",
     "title": "1. Control-loop elements",
     "description": "Identify setpoint, controlled variable, measurement, actuator and command. Establish the physical response direction through a manual experiment.",
@@ -322,8 +377,20 @@
     ]
   },
   {
+    "id": "control-tuning-to-requirements",
+    "title": "22. Tuning to requirements",
+    "description": "State reference change, error allowance, settling band and settling time once. Control Studio designs PI candidates for them on the validated model, predicts each response, verifies the chosen one on the actual ST and refuses requirements no PI can meet. Explain what each requirement constrains.",
+    "path": "control/06-pid-tuning-methods/85-tuning-to-requirements",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "tuning",
+      "simulator"
+    ]
+  },
+  {
     "id": "control-lesson-10",
-    "title": "22. Setpoint weighting",
+    "title": "23. Setpoint weighting",
     "description": "Separate setpoint and measurement contributions to P while retaining full error in I. Assess reduced command steps against slower response.",
     "path": "control/01-feedback-foundations-and-temperature-control/10-proportional-setpoint-weighting",
     "hardware": "none",
@@ -335,7 +402,7 @@
   },
   {
     "id": "control-lesson-11",
-    "title": "23. Measurement filtering",
+    "title": "24. Measurement filtering",
     "description": "Derive a filter update and compare noise reduction with delayed detection of real temperature changes. Distinguish raw, filtered and physical values.",
     "path": "control/01-feedback-foundations-and-temperature-control/11-measurement-filtering",
     "hardware": "none",
@@ -347,7 +414,7 @@
   },
   {
     "id": "control-lesson-12",
-    "title": "24. Sampling and timing",
+    "title": "25. Sampling and timing",
     "description": "Explain aliasing, acquisition timestamps, controller intervals and held commands. Scale integral and filter updates correctly and reject unusable timing.",
     "path": "control/01-feedback-foundations-and-temperature-control/12-elapsed-time-and-sampling",
     "hardware": "none",
@@ -359,7 +426,7 @@
   },
   {
     "id": "control-booster-pump-modes",
-    "title": "25. Controller initialization",
+    "title": "26. Controller initialization",
     "description": "Introduce persistent controller instances, inputs, parameters, outputs and retained state. Initialize integral, filter and timing values deliberately.",
     "path": "control/03-production-quality-digital-pid/39-controller-mode-initialization",
     "hardware": "none",
@@ -371,7 +438,7 @@
   },
   {
     "id": "control-booster-pump-bumpless-transfer",
-    "title": "26. Bumpless transfer",
+    "title": "27. Bumpless transfer",
     "description": "Align the integral with manual output and current proportional action. Assess the transfer-induced command change separately from later temperature response.",
     "path": "control/03-production-quality-digital-pid/40-bumpless-transfer",
     "hardware": "none",
@@ -383,7 +450,7 @@
   },
   {
     "id": "control-booster-pump-atomic-update",
-    "title": "27. Parameter updates",
+    "title": "28. Parameter updates",
     "description": "Validate and apply a complete parameter set at one update boundary. Preserve intended state continuity and distinguish deliberate limit changes from accidental jumps.",
     "path": "control/03-production-quality-digital-pid/41-atomic-parameter-update",
     "hardware": "none",
@@ -395,7 +462,7 @@
   },
   {
     "id": "control-booster-pump-invalid-data",
-    "title": "28. Measurement validity",
+    "title": "29. Measurement validity",
     "description": "Detect unusable data, select the defined output response, preserve appropriate state and require fresh measurements before restarting automatic control.",
     "path": "control/03-production-quality-digital-pid/42-invalid-stale-data",
     "hardware": "none",
@@ -407,7 +474,7 @@
   },
   {
     "id": "control-capstone-water-heater",
-    "title": "29. Heater commissioning",
+    "title": "30. Heater commissioning",
     "description": "Write the ST integration and assess setpoint response, disturbance recovery, startup, transfer, limits, parameter changes and measurement faults.",
     "path": "control/14-integrated-capstones/81-water-heater",
     "hardware": "none",
@@ -419,7 +486,7 @@
   },
   {
     "id": "control-lesson-08",
-    "title": "30. Actuator tracking",
+    "title": "31. Actuator tracking",
     "description": "Distinguish requested position, bounded target and measured position. Explain rate-limit windup and correct integral state using actual actuator position.",
     "path": "control/01-feedback-foundations-and-temperature-control/08-heating-valve-rate-tracking",
     "hardware": "none",
@@ -431,7 +498,7 @@
   },
   {
     "id": "control-valve-characterization",
-    "title": "31. Valve characteristics",
+    "title": "32. Valve characteristics",
     "description": "Explain and measure how valve position, pressure drop and pipe losses determine flow. Convert flow into heating at stated temperatures.",
     "path": "control/09-industrial-control-structures/58-valve-characterization",
     "hardware": "none",
@@ -443,7 +510,7 @@
   },
   {
     "id": "control-valve-stiction",
-    "title": "32. Valve stiction",
+    "title": "33. Valve stiction",
     "description": "Diagnose deadband, holding force, breakaway and sticking through command, position, force and flow observations. Separate mechanical problems from tuning problems.",
     "path": "control/09-industrial-control-structures/59-valve-stiction",
     "hardware": "none",
@@ -455,7 +522,7 @@
   },
   {
     "id": "control-proportional-position-stiffness",
-    "title": "33. Position control",
+    "title": "34. Position control",
     "description": "Introduce shaft angle, velocity, torque, inertia and friction. Apply proportional position feedback and explain continued motion at zero position error.",
     "path": "control/02-derivative-action-and-dynamic-response/32-proportional-position-stiffness",
     "hardware": "none",
@@ -467,7 +534,7 @@
   },
   {
     "id": "control-derivative-motion-damping",
-    "title": "34. PD control",
+    "title": "35. PD control",
     "description": "Calculate braking torque from measured velocity. Explain damping, derivative on measurement and setpoint-induced derivative kick.",
     "path": "control/02-derivative-action-and-dynamic-response/33-derivative-motion-damping",
     "hardware": "none",
@@ -479,7 +546,7 @@
   },
   {
     "id": "control-loaded-position-pid",
-    "title": "35. PID load rejection",
+    "title": "36. PID load rejection",
     "description": "Calculate the torque from one explicit constant load. Compare PD steady error with PID recovery and account for torque saturation.",
     "path": "control/02-derivative-action-and-dynamic-response/34-servo-pid-holding-torque",
     "hardware": "none",
@@ -491,7 +558,7 @@
   },
   {
     "id": "control-servo-filtered-derivative",
-    "title": "36. Derivative filtering",
+    "title": "37. Derivative filtering",
     "description": "Explain noise amplification in a finite-difference velocity estimate. Filter it and assess both torque movement and delayed braking.",
     "path": "control/02-derivative-action-and-dynamic-response/36-filtered-derivative",
     "hardware": "none",
@@ -503,7 +570,7 @@
   },
   {
     "id": "control-discrete-integral-derivative",
-    "title": "37. Discrete PID",
+    "title": "38. Discrete PID",
     "description": "Calculate P, trial I, filtered D, requested output, output limiting and tracking for one update. Identify old and new values explicitly.",
     "path": "control/03-production-quality-digital-pid/37-discrete-integral-derivative",
     "hardware": "none",
@@ -515,7 +582,7 @@
   },
   {
     "id": "control-pid-forms",
-    "title": "38. Positional and incremental PID",
+    "title": "39. Positional and incremental PID",
     "description": "Derive output increments from consecutive complete-output equations. Preserve the state and correction terms required for equivalent behavior.",
     "path": "control/03-production-quality-digital-pid/38-positional-incremental-pid",
     "hardware": "none",
@@ -526,8 +593,20 @@
     ]
   },
   {
+    "id": "control-own-pid-law",
+    "title": "40. Your own PID law",
+    "description": "Set up the program's own positional PID in Control Studio from its gain variables, integral term and previous measurement. Design its gains to the requirements, verify the actual ST on the model and apply them with the integral term starting from the present output.",
+    "path": "control/03-production-quality-digital-pid/86-own-pid-law",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "digital-pid",
+      "simulator"
+    ]
+  },
+  {
     "id": "control-capstone-servo",
-    "title": "39. Servo commissioning",
+    "title": "41. Servo commissioning",
     "description": "Write and assess positioning, constant-load rejection, torque limits, initialization, transfer and fault recovery on the same shaft.",
     "path": "control/14-integrated-capstones/82-servo",
     "hardware": "none",
@@ -538,8 +617,20 @@
     ]
   },
   {
+    "id": "control-controller-families",
+    "title": "42. Controller families",
+    "description": "Let Control Studio design P, PI, PD and PID for the validated heater and shaft models against the same requirements. Explain from each model why P leaves an offset, why PD holds a constant load only with an offset that needs a large gain to shrink, and why the shaft needs derivative damping. Choose the simplest family that meets every requirement.",
+    "path": "control/04-controller-selection-and-plant-models/27-controller-selection",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "controller-selection",
+      "simulator"
+    ]
+  },
+  {
     "id": "control-lesson-14",
-    "title": "40. Volume balance",
+    "title": "43. Volume balance",
     "description": "Derive level rate from inflow, outflow and tank area. Explain why equal flows preserve the current level rather than restore a previous level.",
     "path": "control/01-feedback-foundations-and-temperature-control/14-conservation-and-accumulation",
     "hardware": "none",
@@ -550,8 +641,20 @@
     ]
   },
   {
+    "id": "control-level-control",
+    "title": "44. Level control",
+    "description": "Identify the tank as an integrator with Control Studio. Explain why P holds the level with an offset set by the outflow rather than by the setpoint change, why PI removes it, and why two integrators in the loop make PI overshoot unless its integral is slow. Design both for stated requirements.",
+    "path": "control/01-feedback-foundations-and-temperature-control/87-level-control",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "tanks",
+      "simulator"
+    ]
+  },
+  {
     "id": "control-lesson-16",
-    "title": "41. Gravity outflow",
+    "title": "45. Gravity outflow",
     "description": "Derive the square-root flow relationship and combine it with volume storage. Explain level-dependent equilibrium and response speed.",
     "path": "control/01-feedback-foundations-and-temperature-control/16-gravity-tank-nonlinearity",
     "hardware": "none",
@@ -564,7 +667,7 @@
   },
   {
     "id": "control-lesson-17",
-    "title": "42. Linearization",
+    "title": "46. Linearization",
     "description": "Derive a tangent approximation, local gain and time constant. Quantify errors for small and larger departures from the operating point.",
     "path": "control/01-feedback-foundations-and-temperature-control/17-gravity-tank-linearization",
     "hardware": "none",
@@ -577,7 +680,7 @@
   },
   {
     "id": "control-gain-scheduling",
-    "title": "43. Gain scheduling",
+    "title": "47. Gain scheduling",
     "description": "Calculate scheduled PI settings from the local tank model. Preserve controller state and compare scheduled and fixed gains across operating levels.",
     "path": "control/09-industrial-control-structures/56-gain-scheduling",
     "hardware": "none",
@@ -589,7 +692,7 @@
   },
   {
     "id": "control-lesson-18",
-    "title": "44. Laplace transforms",
+    "title": "48. Laplace transforms",
     "description": "Transform physical equations, retain initial-condition contributions and connect transfer functions. Solve the simple heater response and present more complicated familiar response expressions.",
     "path": "control/01-feedback-foundations-and-temperature-control/18-transfer-function-from-physics",
     "hardware": "none",
@@ -601,7 +704,7 @@
   },
   {
     "id": "control-lesson-19",
-    "title": "45. Poles and zeros",
+    "title": "49. Poles and zeros",
     "description": "Define poles and zeros before using them. Explain decay, growth, oscillation, input-response shape and specific cancellation examples through heater and shaft behavior.",
     "path": "control/02-derivative-action-and-dynamic-response/19-poles-zeros-and-response",
     "hardware": "none",
@@ -614,7 +717,7 @@
   },
   {
     "id": "control-characteristic-equation",
-    "title": "46. Characteristic equations",
+    "title": "50. Characteristic equations",
     "description": "Derive the equation governing natural modes from plant dynamics and the actual feedback law. Account for feedback signs, controller state and possible cancellation.",
     "path": "control/07-classical-stability-and-frequency-design/43-characteristic-equation",
     "hardware": "none",
@@ -626,7 +729,7 @@
   },
   {
     "id": "control-root-locus",
-    "title": "47. Root locus",
+    "title": "51. Root locus",
     "description": "Vary one gain while holding the other controller and plant properties fixed. Relate pole movement to damping and response speed.",
     "path": "control/07-classical-stability-and-frequency-design/45-root-locus",
     "hardware": "none",
@@ -638,7 +741,7 @@
   },
   {
     "id": "control-routh-hurwitz",
-    "title": "48. Routh–Hurwitz stability",
+    "title": "52. Routh–Hurwitz stability",
     "description": "Construct and interpret the Routh table. Find a stable gain interval and distinguish stable, marginal and unstable boundary cases.",
     "path": "control/07-classical-stability-and-frequency-design/44-routh-hurwitz",
     "hardware": "none",
@@ -650,7 +753,7 @@
   },
   {
     "id": "control-lesson-22",
-    "title": "49. Periodic excitation",
+    "title": "53. Periodic excitation",
     "description": "Choose a bounded sinusoidal input, operating point, frequency, amplitude and observation duration. Exclude startup transients and retain actual applied signals.",
     "path": "control/05-experiments-identification-and-validation/22-excitation-for-dynamics",
     "hardware": "none",
@@ -663,7 +766,7 @@
   },
   {
     "id": "control-bode-frequency-response",
-    "title": "50. Frequency response",
+    "title": "54. Frequency response",
     "description": "Derive sinusoidal response, introduce complex magnitude and angle, and interpret Bode plots with meaningful units and references.",
     "path": "control/07-classical-stability-and-frequency-design/46-bode-frequency-response",
     "hardware": "none",
@@ -675,7 +778,7 @@
   },
   {
     "id": "control-sensitivity-functions",
-    "title": "51. Sensitivity functions",
+    "title": "55. Sensitivity functions",
     "description": "Derive sensitivity and complementary sensitivity. Trace disturbances and noise into physical output and controller command, retaining the correct physical input paths.",
     "path": "control/07-classical-stability-and-frequency-design/48-sensitivity-functions",
     "hardware": "none",
@@ -687,7 +790,7 @@
   },
   {
     "id": "control-loop-shaping",
-    "title": "52. Loop shaping",
+    "title": "56. Loop shaping",
     "description": "Derive and implement lead/lag compensation. Assess the complete loop, noise amplification, actuator demand and temperature performance under fixed requirements.",
     "path": "control/07-classical-stability-and-frequency-design/49-loop-shaping",
     "hardware": "none",
@@ -699,7 +802,7 @@
   },
   {
     "id": "control-nyquist-stability",
-    "title": "53. Nyquist stability",
+    "title": "57. Nyquist stability",
     "description": "Explain the critical point, directed curve, pole count and encirclements. Determine how delivery delay changes stability and interpret slow growth near the boundary.",
     "path": "control/07-classical-stability-and-frequency-design/47-nyquist-stability",
     "hardware": "none",
@@ -710,8 +813,32 @@
     ]
   },
   {
+    "id": "control-robustness-margins",
+    "title": "58. Robustness margins",
+    "description": "Define gain, phase and delay margin and the peak sensitivity Ms as distances from the critical point. Relate each to a specific model error, a gain change or an extra delay, and verify with Control Studio's margins and a deliberately mismatched plant.",
+    "path": "control/07-classical-stability-and-frequency-design/88-robustness-margins",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "frequency-design",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-mechanical-resonance",
+    "title": "59. Mechanical resonance",
+    "description": "Identify the shaft's flexible-coupling resonance from its frequency response. Explain how its peak reduces the gain margin of the position loop, and restore the margin with a notch filter that Control Studio designs and verifies on the actual ST.",
+    "path": "control/07-classical-stability-and-frequency-design/89-mechanical-resonance",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "frequency-design",
+      "simulator"
+    ]
+  },
+  {
     "id": "control-position-z-plane-sampling",
-    "title": "54. Sampled-data stability",
+    "title": "60. Sampled-data stability",
     "description": "Derive held-command state updates and include the pending command. Explain unit-circle stability and separate physical timing from numerical integration errors.",
     "path": "control/07-classical-stability-and-frequency-design/50-position-z-plane",
     "hardware": "none",
@@ -722,8 +849,20 @@
     ]
   },
   {
+    "id": "control-trajectory-feedforward",
+    "title": "61. Trajectory feedforward",
+    "description": "Calculate torque from the planned acceleration and velocity of a motion profile and add it to the PID. Compare following errors with feedback alone and with feedforward, and let feedback correct inertia and friction errors.",
+    "path": "control/09-industrial-control-structures/90-trajectory-feedforward",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "industrial-structures",
+      "simulator"
+    ]
+  },
+  {
     "id": "control-feedforward",
-    "title": "55. Feedforward control",
+    "title": "62. Feedforward control",
     "description": "Derive a disturbance-based command from physical balance. Combine it with feedback and assess measurement error, limits and delivery delay.",
     "path": "control/09-industrial-control-structures/51-feedforward",
     "hardware": "none",
@@ -735,7 +874,7 @@
   },
   {
     "id": "control-cascade",
-    "title": "56. Cascade control",
+    "title": "63. Cascade control",
     "description": "Explain outer and inner loops, their different output quantities, relative response speeds, initialization and tracking. Assess earlier jacket-disturbance correction.",
     "path": "control/09-industrial-control-structures/52-cascade",
     "hardware": "none",
@@ -747,7 +886,7 @@
   },
   {
     "id": "control-ratio-control",
-    "title": "57. Ratio control",
+    "title": "64. Ratio control",
     "description": "Calculate and regulate an additive-to-carrier ratio. Account for pump lag, invalid measurements, low carrier flow and residual delivery after stopping.",
     "path": "control/09-industrial-control-structures/53-ratio-control",
     "hardware": "none",
@@ -759,7 +898,7 @@
   },
   {
     "id": "control-split-range",
-    "title": "58. Split-range control",
+    "title": "65. Split-range control",
     "description": "Convert net heat demand into appropriately scaled heater and cooler commands. Explain service exclusion, neutral regions and tracking from applied net heat.",
     "path": "control/09-industrial-control-structures/54-split-range",
     "hardware": "none",
@@ -771,7 +910,7 @@
   },
   {
     "id": "control-override-control",
-    "title": "59. Override control",
+    "title": "66. Override control",
     "description": "Select between normal and limiting requests, track inactive controllers and distinguish incompatible requirements from poor tuning.",
     "path": "control/09-industrial-control-structures/55-override-control",
     "hardware": "none",
@@ -783,7 +922,7 @@
   },
   {
     "id": "control-smith-predictor",
-    "title": "60. Smith prediction",
+    "title": "67. Smith prediction",
     "description": "Combine delay-free and delayed model predictions with current measurement correction. Assess model mismatch and transfer to ordinary feedback when prediction is unsuitable.",
     "path": "control/09-industrial-control-structures/57-smith-predictor",
     "hardware": "none",
@@ -795,7 +934,7 @@
   },
   {
     "id": "control-capstone-reactor",
-    "title": "61. Vessel commissioning",
+    "title": "68. Vessel commissioning",
     "description": "Select and assess suitable single-loop, cascade, split-range or override arrangements. Keep physical assumptions and requirements fixed across candidates.",
     "path": "control/14-integrated-capstones/83-reactor-control",
     "hardware": "none",
@@ -807,7 +946,7 @@
   },
   {
     "id": "control-mimo-paths",
-    "title": "62. Multivariable process paths",
+    "title": "69. Multivariable process paths",
     "description": "Derive coupled balances and measure each actuator's effect on each output. Introduce the gain matrix through its scalar physical relationships.",
     "path": "control/10-multivariable-control/61-mimo-paths",
     "hardware": "none",
@@ -819,7 +958,7 @@
   },
   {
     "id": "control-relative-gain-array",
-    "title": "63. Relative gain array",
+    "title": "70. Relative gain array",
     "description": "Derive isolated and compensated gains. Explain inverse, transpose and elementwise operations through the physical pairing calculation.",
     "path": "control/10-multivariable-control/62-relative-gain-array",
     "hardware": "none",
@@ -831,7 +970,7 @@
   },
   {
     "id": "control-decentralized-pi",
-    "title": "64. Decentralized PI",
+    "title": "71. Decentralized PI",
     "description": "Use separate PI states for paired loops. Assess changed and unchanged outputs under both setpoint directions and disturbance locations.",
     "path": "control/10-multivariable-control/63-decentralized-pi",
     "hardware": "none",
@@ -843,7 +982,7 @@
   },
   {
     "id": "control-decoupling",
-    "title": "65. Static decoupling",
+    "title": "72. Static decoupling",
     "description": "Derive the virtual-to-physical command map, holding biases and correct tracking through physical limits. Compare steady cancellation and transient costs.",
     "path": "control/10-multivariable-control/64-decoupling",
     "hardware": "none",
@@ -855,7 +994,7 @@
   },
   {
     "id": "control-robust-mimo-selection",
-    "title": "66. Multivariable design selection",
+    "title": "73. Multivariable design selection",
     "description": "Compare fixed architectures under unchanged requirements and justified uncertainty cases. Separate feasibility, transient performance and evidence coverage.",
     "path": "control/10-multivariable-control/65-robust-mimo-selection",
     "hardware": "none",
@@ -867,7 +1006,7 @@
   },
   {
     "id": "control-lesson-20",
-    "title": "67. State-space models",
+    "title": "74. State-space models",
     "description": "Derive the two-tank state equations from storage balances. Explain states, inputs, outputs and matrix rows through physical quantities and units.",
     "path": "control/02-derivative-action-and-dynamic-response/20-state-equations-from-stores",
     "hardware": "none",
@@ -880,7 +1019,7 @@
   },
   {
     "id": "control-controllability",
-    "title": "68. Controllability",
+    "title": "75. Controllability",
     "description": "Explain reachable local transient states and the controllability calculation. Distinguish transient reachability from independently maintainable steady setpoints.",
     "path": "control/11-state-space-estimation-and-predictive-control/66-controllability",
     "hardware": "none",
@@ -892,7 +1031,7 @@
   },
   {
     "id": "control-observability",
-    "title": "69. Observability",
+    "title": "76. Observability",
     "description": "Derive how downstream level and its change reveal upstream state. Explain why noisy differentiation can be practically unreliable despite theoretical observability.",
     "path": "control/11-state-space-estimation-and-predictive-control/67-observability",
     "hardware": "none",
@@ -904,7 +1043,7 @@
   },
   {
     "id": "control-state-feedback",
-    "title": "70. State feedback",
+    "title": "77. State feedback",
     "description": "Calculate a pump correction from both level deviations. Derive gains from chosen closed-loop modes and assess actuator limits and local-model validity.",
     "path": "control/11-state-space-estimation-and-predictive-control/68-state-feedback",
     "hardware": "none",
@@ -916,7 +1055,7 @@
   },
   {
     "id": "control-state-observer",
-    "title": "71. State observers",
+    "title": "78. State observers",
     "description": "Derive model prediction plus innovation correction. Choose observer gains, preserve update order and assess convergence and noise sensitivity.",
     "path": "control/11-state-space-estimation-and-predictive-control/70-state-observer",
     "hardware": "none",
@@ -928,7 +1067,7 @@
   },
   {
     "id": "control-kalman-filter",
-    "title": "72. Kalman filtering",
+    "title": "79. Kalman filtering",
     "description": "Define variance and covariance, derive weighting and perform a complete prediction/correction calculation. Compare estimated error with evaluation truth.",
     "path": "control/11-state-space-estimation-and-predictive-control/71-kalman-filter",
     "hardware": "none",
@@ -940,7 +1079,7 @@
   },
   {
     "id": "control-lqr",
-    "title": "73. LQR control",
+    "title": "80. LQR control",
     "description": "Derive costs from physical scales. Explain one-step minimization, future cost, backward calculation and the resulting finite-horizon feedback gains.",
     "path": "control/11-state-space-estimation-and-predictive-control/69-lqr",
     "hardware": "none",
@@ -952,7 +1091,7 @@
   },
   {
     "id": "control-lqg",
-    "title": "74. LQG control",
+    "title": "81. LQG control",
     "description": "Explain the assumptions behind combining LQR and Kalman filtering. Integrate prediction, correction and control using the previous applied input.",
     "path": "control/11-state-space-estimation-and-predictive-control/72-lqg",
     "hardware": "none",
@@ -964,7 +1103,7 @@
   },
   {
     "id": "control-mpc",
-    "title": "75. Model predictive control",
+    "title": "82. Model predictive control",
     "description": "Predict over a stated horizon, evaluate explicit costs and constraints, apply the first selected command and replan. Distinguish planning failure from insufficient capacity.",
     "path": "control/11-state-space-estimation-and-predictive-control/73-mpc",
     "hardware": "none",
@@ -976,7 +1115,7 @@
   },
   {
     "id": "control-lyapunov-stability",
-    "title": "76. Lyapunov stability",
+    "title": "83. Lyapunov stability",
     "description": "Derive an energy-like function for the nonlinear arm, explain its rate of change and establish a region consistent with actuator limits.",
     "path": "control/12-nonlinear-adaptive-and-robust-control/74-lyapunov-stability",
     "hardware": "none",
@@ -988,7 +1127,7 @@
   },
   {
     "id": "control-feedback-linearization",
-    "title": "77. Feedback linearization",
+    "title": "84. Feedback linearization",
     "description": "Derive nonlinear compensation from physical forces. Distinguish exact model cancellation from local approximation and assess coefficient error, noise and limits.",
     "path": "control/12-nonlinear-adaptive-and-robust-control/75-feedback-linearization",
     "hardware": "none",
@@ -1000,7 +1139,7 @@
   },
   {
     "id": "control-adaptive-control",
-    "title": "78. Adaptive control",
+    "title": "85. Adaptive control",
     "description": "Derive parameter estimation, state its information requirements and qualify updates before changing tuning. Compare adapted and fixed settings on the same physical condition.",
     "path": "control/12-nonlinear-adaptive-and-robust-control/76-adaptive-control",
     "hardware": "none",
@@ -1012,7 +1151,7 @@
   },
   {
     "id": "control-robust-control",
-    "title": "79. Robust control",
+    "title": "86. Robust control",
     "description": "Define bounded model uncertainty, check feasibility and distinguish robust stability from robust performance. Explain finite tests and range-wide bounds.",
     "path": "control/12-nonlinear-adaptive-and-robust-control/77-robust-control",
     "hardware": "none",
@@ -1024,7 +1163,7 @@
   },
   {
     "id": "control-networked-control",
-    "title": "80. Networked control",
+    "title": "87. Networked control",
     "description": "Handle sequence, connection identity, command age, clock assumptions, finite holding, local fallback and deliberate remote recovery.",
     "path": "control/13-networked-fault-aware-and-diagnostic-control/78-networked-control",
     "hardware": "none",
@@ -1036,7 +1175,7 @@
   },
   {
     "id": "control-fault-aware-control",
-    "title": "81. Fault-aware control",
+    "title": "88. Fault-aware control",
     "description": "Distinguish range, age and disagreement faults. Implement justified sensor fallback, state alignment, fault latching and qualified recovery.",
     "path": "control/13-networked-fault-aware-and-diagnostic-control/79-fault-aware-control",
     "hardware": "none",
@@ -1048,7 +1187,7 @@
   },
   {
     "id": "control-capstone-independent",
-    "title": "82. Independent design",
+    "title": "89. Independent design",
     "description": "Define requirements, select two suitable designs, calculate feasibility, write their ST integrations and defend the choice using matched performance, uncertainty and recovery evidence.",
     "path": "control/14-integrated-capstones/84-independent",
     "hardware": "none",

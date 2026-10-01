@@ -1,191 +1,147 @@
-FUNCTION Lesson69ReviewedRoadAcceleration : LREAL
+(* State feedback around the operating point: q = 0.010 + v with v = N·(r − 0.25) − K1·x1 − K2·x2, where x = h − 0.25 are
+   the level deviations in m, K1 and K2 are in m²/s (m³/s per m) and r is tank 2's setpoint. *)
+FUNCTION FeedbackFlowM3PerS : LREAL
 VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
-    ControlAuthority : BOOL;
+    Tank1M : LREAL;
+    Tank2M : LREAL;
+    SetpointM : LREAL;
+    K1 : LREAL;
+    K2 : LREAL;
+    N : LREAL;
 END_VAR
-IF ControlAuthority
-    AND (ExperimentElapsedSeconds >= LREAL#1.0)
-    AND (ExperimentElapsedSeconds < LREAL#1.5) THEN
-    Lesson69ReviewedRoadAcceleration := LREAL#0.5;
+FeedbackFlowM3PerS := LREAL#0.010 + N * (SetpointM - LREAL#0.25) - K1 * (Tank1M - LREAL#0.25) - K2 * (Tank2M - LREAL#0.25);
+END_FUNCTION
+
+(* The pump delivers 0–0.020 m³/s. *)
+FUNCTION LimitedFlowM3PerS : LREAL
+VAR_INPUT
+    RequestedM3PerS : LREAL;
+END_VAR
+LimitedFlowM3PerS := MIN(MAX(RequestedM3PerS, LREAL#0.0), LREAL#0.020);
+END_FUNCTION
+
+(* A setpoint outside the 0.05–0.45 m levels, such as the unwritten 0 of a memory-bound value, means the operating
+   level. *)
+FUNCTION ValidSetpointM : LREAL
+VAR_INPUT
+    SetpointM : LREAL;
+END_VAR
+IF SetpointM >= LREAL#0.05 AND SetpointM <= LREAL#0.45 THEN
+    ValidSetpointM := SetpointM;
 ELSE
-    Lesson69ReviewedRoadAcceleration := LREAL#0.0;
+    ValidSetpointM := LREAL#0.25;
 END_IF;
 END_FUNCTION
 
-FUNCTION Lesson69ForceRequest : LREAL
+(* The level cost of one update, xᵀQx with Q = diag(400, 400) m⁻²: a deviation of 0.05 m costs 1. *)
+FUNCTION LevelCost : LREAL
 VAR_INPUT
-    GainDeflection : LREAL;
-    GainVelocity : LREAL;
-    Deflection : LREAL;
-    Velocity : LREAL;
+    Tank1M : LREAL;
+    Tank2M : LREAL;
 END_VAR
-Lesson69ForceRequest := -GainDeflection * Deflection
-    - GainVelocity * Velocity;
+LevelCost := LREAL#400.0 * ((Tank1M - LREAL#0.25) * (Tank1M - LREAL#0.25) + (Tank2M - LREAL#0.25) * (Tank2M - LREAL#0.25));
+END_FUNCTION
+
+(* The effort cost of one update, 40000·v² s²/m⁶ for the applied pump deviation v = q − 0.010: 0.005 m³/s costs 1. *)
+FUNCTION EffortCost : LREAL
+VAR_INPUT
+    FlowM3PerS : LREAL;
+END_VAR
+EffortCost := LREAL#40000.0 * (FlowM3PerS - LREAL#0.010) * (FlowM3PerS - LREAL#0.010);
 END_FUNCTION
 
 PROGRAM Main
 VAR
-    Enabled : BOOL := FALSE;
-    ControllerValid : BOOL := TRUE;
-    Saturated : BOOL := FALSE;
-    DesignMode : DINT := 3;
-    ForceRequested : LREAL := 0.0;
-    EstimatedDeflection : LREAL := 0.0;
-    EstimatedVelocity : LREAL := 0.0;
-    Innovation : LREAL := 0.0;
-    RoadAccelerationRequested : LREAL := 0.0;
-    PreviousForce : LREAL := 0.0;
-    PreviousRoad : LREAL := 0.0;
-    ForceApplied : LREAL := 0.0;
-    RoadAccelerationApplied : LREAL := 0.0;
-    FullStateDeflectionMeasurement : LREAL := 0.0;
-    FullStateVelocityMeasurement : LREAL := 0.0;
-    PositionOnlyMeasurement : LREAL := 0.0;
-    PositionOnlyVelocityTruth : LREAL := 0.0;
-    PredictedDeflection : LREAL := 0.0;
-    PredictedVelocity : LREAL := 0.0;
-    FeedbackDeflection : LREAL := 0.0;
-    FeedbackVelocity : LREAL := 0.0;
-    GainDeflection : LREAL := 0.0;
-    GainVelocity : LREAL := 0.0;
+    (* K1, K2 and N are written by Control Studio's Apply. FeedbackEnabled is the Auto/Manual mode: in Manual the pump
+       delivers ManualFlowM3PerS, the operating flow 0.010 m³/s unless Control Studio writes another. The project
+       experiment returns tank 2's setpoint to 0.25 m, which Apply's live check leaves at another level, and holds it for
+       60 s. Then the pump runs one second at 0.020 m³/s, a slug, and the feedback recovers the levels. From 61 s to 120 s
+       the program adds each update's level and effort costs, with the same scales for every design, and records the
+       largest level deviation from 110 s to 120 s: 50–60 s after the slug. *)
+    K1 : LREAL := 0.0;
+    K2 : LREAL := 0.0;
+    N : LREAL := 0.0;
+    ManualFlowM3PerS : LREAL := 0.010;
+    PumpM3PerS : LREAL := 0.010;
+    Tank1M : LREAL := 0.25;
+    Tank2M : LREAL := 0.25;
+    Tank2SetpointM : LREAL := 0.25;
+    RequestedFlowM3PerS : LREAL := 0.010;
+    LevelCostSum : LREAL := 0.0;
+    EffortCostSum : LREAL := 0.0;
+    LatePeakM : LREAL := 0.0;
+    ElapsedS : LREAL := 0.0;
     ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    ExperimentElapsed : LREAL := 0.0;
+    WasEnabled : BOOL := FALSE;
+    FeedbackEnabled : BOOL := FALSE;
+    Clipped : BOOL := FALSE;
+    FaultLatched : BOOL := FALSE;
+    ClockPrimed : BOOL := FALSE;
+    ClockValid : BOOL := TRUE;
+    Slug : BOOL := FALSE;
+    NowTime : TIME;
+    PreviousTime : TIME;
 END_VAR
-
-(* Control Studio grants only authority. The project owns the balanced LQG road
-   pulse; alternative regulators and faults remain retained simulations. *)
-IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
-    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
-    Enabled := TRUE;
-    DesignMode := DINT#3;
-    RoadAccelerationRequested := Lesson69ReviewedRoadAcceleration(
-        ExperimentElapsedSeconds := ExperimentElapsed,
-        ControlAuthority := TRUE);
-ELSE
-    ExperimentElapsed := LREAL#0.0;
-    Enabled := FALSE;
-    DesignMode := DINT#3;
-    RoadAccelerationRequested := LREAL#0.0;
+(* A wrong update interval or a level outside 0.05–0.45 m latches zero flow. *)
+NowTime := TIME();
+ClockValid := NOT ClockPrimed OR ((NowTime - PreviousTime) >= T#950ms AND (NowTime - PreviousTime) <= T#1050ms);
+IF NOT ClockValid OR Tank1M < LREAL#0.05 OR Tank1M > LREAL#0.45 OR Tank2M < LREAL#0.05 OR Tank2M > LREAL#0.45 THEN
+    FaultLatched := TRUE;
 END_IF;
-
-ControllerValid := (DesignMode >= DINT#0)
-    AND (DesignMode <= DINT#5)
-    AND (RoadAccelerationRequested >= LREAL#-2.0)
-    AND (RoadAccelerationRequested <= LREAL#2.0)
-    AND (EstimatedDeflection >= LREAL#-0.08)
-    AND (EstimatedDeflection <= LREAL#0.08)
-    AND (EstimatedVelocity >= LREAL#-0.5)
-    AND (EstimatedVelocity <= LREAL#0.5);
-
-IF DesignMode = DINT#5 THEN
-    ControllerValid := ControllerValid
-        AND (PositionOnlyMeasurement >= LREAL#-0.10)
-        AND (PositionOnlyMeasurement <= LREAL#0.10);
-ELSE
-    ControllerValid := ControllerValid
-        AND (FullStateDeflectionMeasurement >= LREAL#-0.08)
-        AND (FullStateDeflectionMeasurement <= LREAL#0.08)
-        AND (FullStateVelocityMeasurement >= LREAL#-0.5)
-        AND (FullStateVelocityMeasurement <= LREAL#0.5);
+Tank2SetpointM := ValidSetpointM(SetpointM := Tank2SetpointM);
+IF ExperimentEnabled AND NOT WasEnabled THEN
+    ElapsedS := LREAL#0.0;
+    Tank2SetpointM := LREAL#0.25;
+    LevelCostSum := LREAL#0.0;
+    EffortCostSum := LREAL#0.0;
+    LatePeakM := LREAL#0.0;
+ELSIF ExperimentEnabled THEN
+    ElapsedS := ElapsedS + LREAL#1.0;
 END_IF;
-
-IF ControllerValid THEN
-    // Exact 0.1 s zero-order-hold model used by the position-only estimator.
-    PredictedDeflection := LREAL#0.98084004 * EstimatedDeflection
-        + LREAL#0.09360616 * EstimatedVelocity
-        + LREAL#0.00239499 * PreviousForce
-        + LREAL#0.00478999 * PreviousRoad;
-    PredictedVelocity := LREAL#-0.37442462 * EstimatedDeflection
-        + LREAL#0.86851265 * EstimatedVelocity
-        + LREAL#0.04680308 * PreviousForce
-        + LREAL#0.09360616 * PreviousRoad;
-    Innovation := PositionOnlyMeasurement - PredictedDeflection;
-    // Steady-state Kalman gain is independently qualified by the lesson test.
-    EstimatedDeflection := PredictedDeflection
-        + LREAL#0.58488259 * Innovation;
-    EstimatedVelocity := PredictedVelocity
-        + LREAL#2.24682847 * Innovation;
-
-    IF DesignMode = DINT#5 THEN
-        FeedbackDeflection := EstimatedDeflection;
-        FeedbackVelocity := EstimatedVelocity;
-    ELSE
-        FeedbackDeflection := FullStateDeflectionMeasurement;
-        FeedbackVelocity := FullStateVelocityMeasurement;
-    END_IF;
-
-    IF DesignMode = DINT#0 THEN
-        GainDeflection := LREAL#13.0;
-        GainVelocity := LREAL#6.0;
-    ELSIF DesignMode = DINT#1 THEN
-        GainDeflection := LREAL#1.16515139;
-        GainVelocity := LREAL#3.11548779;
-    ELSIF DesignMode = DINT#2 THEN
-        GainDeflection := LREAL#5.56465997;
-        GainVelocity := LREAL#3.07892689;
-    ELSIF (DesignMode = DINT#3) OR (DesignMode = DINT#5) THEN
-        GainDeflection := LREAL#2.19803903;
-        GainVelocity := LREAL#1.90722139;
-    ELSE
-        GainDeflection := LREAL#0.48528137;
-        GainVelocity := LREAL#0.51566896;
-    END_IF;
-
-    ForceRequested := Lesson69ForceRequest(
-        GainDeflection := GainDeflection,
-        GainVelocity := GainVelocity,
-        Deflection := FeedbackDeflection,
-        Velocity := FeedbackVelocity);
-    Saturated := (ForceRequested < LREAL#-5.0)
-        OR (ForceRequested > LREAL#5.0);
-    RoadAccelerationApplied := LIMIT(
-        LREAL#-2.0,
-        RoadAccelerationRequested,
-        LREAL#2.0
-    );
-    IF Enabled THEN
-        ForceApplied := LIMIT(LREAL#-5.0, ForceRequested, LREAL#5.0);
-    ELSE
-        ForceApplied := LREAL#0.0;
-    END_IF;
+Slug := ExperimentEnabled AND ElapsedS >= LREAL#59.5 AND ElapsedS < LREAL#60.5;
+IF Slug THEN
+    RequestedFlowM3PerS := LREAL#0.020;
+ELSIF FeedbackEnabled THEN
+    RequestedFlowM3PerS := FeedbackFlowM3PerS(Tank1M := Tank1M, Tank2M := Tank2M, SetpointM := Tank2SetpointM,
+        K1 := K1, K2 := K2, N := N);
 ELSE
-    ForceRequested := LREAL#0.0;
-    ForceApplied := LREAL#0.0;
-    RoadAccelerationApplied := LREAL#0.0;
-    Saturated := FALSE;
+    RequestedFlowM3PerS := ManualFlowM3PerS;
 END_IF;
-
-PreviousForce := ForceApplied;
-PreviousRoad := RoadAccelerationApplied;
+PumpM3PerS := LimitedFlowM3PerS(RequestedM3PerS := RequestedFlowM3PerS);
+Clipped := PumpM3PerS <> RequestedFlowM3PerS;
+IF FaultLatched THEN
+    PumpM3PerS := LREAL#0.0;
+END_IF;
+(* The costs charge the measured levels and the applied flow, clipped or not. *)
+IF ExperimentEnabled AND ElapsedS >= LREAL#60.5 AND ElapsedS < LREAL#120.5 THEN
+    LevelCostSum := LevelCostSum + LevelCost(Tank1M := Tank1M, Tank2M := Tank2M);
+    EffortCostSum := EffortCostSum + EffortCost(FlowM3PerS := PumpM3PerS);
+    IF ElapsedS >= LREAL#109.5 THEN
+        LatePeakM := MAX(LatePeakM, MAX(ABS(Tank1M - LREAL#0.25), ABS(Tank2M - LREAL#0.25)));
+    END_IF;
+END_IF;
+WasEnabled := ExperimentEnabled;
+PreviousTime := NowTime;
+ClockPrimed := TRUE;
 END_PROGRAM
 
 CONFIGURATION Config
 RESOURCE Res ON PLC
-    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);
+    TASK MainTask(INTERVAL := T#1s, PRIORITY := 1);
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.DesignMode AT %MD0 : DINT;
-    P1.ForceRequested AT %ML8 : LREAL;
-    P1.EstimatedDeflection AT %ML16 : LREAL;
-    P1.EstimatedVelocity AT %ML24 : LREAL;
-    P1.Innovation AT %ML32 : LREAL;
-    P1.RoadAccelerationRequested AT %ML40 : LREAL;
-    P1.PreviousForce AT %ML48 : LREAL;
-    P1.PreviousRoad AT %ML56 : LREAL;
-    P1.Enabled AT %MX120.0 : BOOL;
-    P1.ControllerValid AT %MX120.1 : BOOL;
-    P1.Saturated AT %MX120.2 : BOOL;
-    P1.ExperimentEnabled AT %MX120.3 : BOOL;
-    P1.SafetyAbort AT %MX120.4 : BOOL;
-    P1.InputsValid AT %MX120.5 : BOOL;
-    P1.ForceApplied AT %QL0 : LREAL;
-    P1.RoadAccelerationApplied AT %QL8 : LREAL;
-    P1.FullStateDeflectionMeasurement AT %IL0 : LREAL;
-    P1.FullStateVelocityMeasurement AT %IL8 : LREAL;
-    P1.PositionOnlyMeasurement AT %IL16 : LREAL;
-    P1.PositionOnlyVelocityTruth AT %IL24 : LREAL;
+    P1.PumpM3PerS AT %QL0 : LREAL;
+    P1.Tank1M AT %IL0 : LREAL;
+    P1.Tank2M AT %IL8 : LREAL;
+    P1.Tank2SetpointM AT %ML0 : LREAL;
+    P1.RequestedFlowM3PerS AT %ML8 : LREAL;
+    P1.LevelCostSum AT %ML16 : LREAL;
+    P1.EffortCostSum AT %ML24 : LREAL;
+    P1.LatePeakM AT %ML32 : LREAL;
+    P1.ExperimentEnabled AT %MX40.0 : BOOL;
+    P1.Clipped AT %MX40.1 : BOOL;
+    P1.FaultLatched AT %MX40.2 : BOOL;
+    P1.ClockValid AT %MX40.3 : BOOL;
 END_VAR
 END_CONFIGURATION

@@ -47,7 +47,7 @@ export interface CompiledControllerInstance {
 export interface SelectableControlSignal {
   id: string;
   symbol: string;
-  address: string;
+  address?: string;
   iecType: string;
   unit: string;
   bounds: { minimum: number; maximum: number };

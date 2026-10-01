@@ -1,0 +1,6 @@
+title = "Trends"
+kind = "trend"
+icon = "line-chart"
+order = 50
+duration_s = 60
+signals = ["P1.TemperatureC", "P1.SetpointC", "P1.AppliedPowerPct"]

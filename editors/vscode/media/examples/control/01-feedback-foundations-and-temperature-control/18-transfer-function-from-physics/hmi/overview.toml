@@ -1,5 +1,5 @@
 title = "Overview"
-icon = "droplets"
+icon = "thermometer"
 order = 0
 
 [[section]]
@@ -9,101 +9,55 @@ tier = "hero"
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.InletFlow"
+bind = "P1.TemperatureC"
 inferred_interface = true
-label = "Inlet Flow"
+label = "Temperature"
 span = 4
-unit = "l/min"
-min = 0
-max = 500
+unit = "°C"
+min = 30
+max = 40
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.OperatingFlow"
+bind = "P1.SetpointC"
 inferred_interface = true
-label = "Operating Flow"
+label = "Setpoint"
 span = 4
-unit = "l/min"
-min = 0
-max = 500
+unit = "°C"
+min = 30
+max = 40
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.NonlinearTankLevel"
+bind = "P1.HeaterPowerPct"
 inferred_interface = true
-label = "Nonlinear Tank Level"
+label = "Heater command"
 span = 4
 unit = "%"
 min = 0
 max = 100
 
 [[section]]
-title = "Status"
-span = 12
-tier = "status"
-
-[[section.widget]]
-type = "indicator"
-bind = "P1.ExperimentEnabled"
-inferred_interface = true
-label = "Experiment Enabled"
-span = 2
-
-[[section.widget]]
-type = "indicator"
-bind = "P1.ExperimentWasEnabled"
-inferred_interface = true
-label = "Experiment WAS Enabled"
-span = 2
-
-[[section]]
-title = "Details"
+title = "Predictions"
 span = 12
 tier = "detail"
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.DifferentialDeviation"
+bind = "P1.NoDelayPredictionC"
 inferred_interface = true
-label = "Differential Deviation"
-span = 3
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.DifferentialLevel"
-inferred_interface = true
-label = "Differential Level"
-span = 3
-unit = "%"
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.InputDeviation"
-inferred_interface = true
-label = "Input Deviation"
-span = 3
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.TransferDeviation"
-inferred_interface = true
-label = "Transfer Deviation"
-span = 3
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.OperatingLevel"
-inferred_interface = true
-label = "Operating Level"
+label = "Without delay"
 span = 4
-unit = "%"
-min = 0
-max = 100
+unit = "°C"
+min = 30
+max = 40
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.DelayedModelC"
+inferred_interface = true
+label = "With the 1 s delay"
+span = 4
+unit = "°C"
+min = 30
+max = 40

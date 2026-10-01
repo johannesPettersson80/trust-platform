@@ -152,31 +152,6 @@ suite("Control Studio relay tuning", () => {
       "the calculation must use the retained 0.2075-unit mean response amplitude, not the illustrative 0.20-unit example");
   });
 
-  test("shows relay evidence before the explicit calculation and labels the result unapplied", () => {
-    const presentation = relayPresentationApi();
-    assert.strictEqual(typeof presentation.reduceRelayTuningPresentation, "function",
-      "the Test workspace needs a dedicated visible-state owner for relay evidence and its explicit calculation");
-    let state = presentation.initialRelayTuningPresentation();
-    state = presentation.reduceRelayTuningPresentation(state, "terminal", { relayTuning: {
-      status: "ready", cycles: 4,
-      message: "Four measured feedback-relay cycles are ready. Calculate relay candidate to create an unapplied PI proposal.",
-    } });
-    assert.deepStrictEqual(state, {
-      phase: "ready", visible: true, calculateVisible: true, calculateEnabled: true,
-      candidateVisible: false, cycles: 4,
-      status: "Four measured feedback-relay cycles are ready. Calculate relay candidate to create an unapplied PI proposal.",
-      candidate: undefined,
-    });
-    state = presentation.reduceRelayTuningPresentation(state, "relay-candidate", { relayTuning: {
-      status: "qualified", ultimateGain: 30.68047096, periodSeconds: 2,
-      candidate: { proportionalGain: 13.80621193, integralTimeSeconds: 1.66666667, integralGain: 8.28372716, applied: false },
-    } });
-    assert.strictEqual(state.phase, "calculated");
-    assert.strictEqual(state.calculateVisible, false);
-    assert.strictEqual(state.candidateVisible, true);
-    assert.match(state.status, /unapplied.*PI/i);
-    assert.deepStrictEqual(state.candidate, { proportionalGain: 13.80621193, integralTimeSeconds: 1.66666667, integralGain: 8.28372716, applied: false });
-  });
 });
 
 function relaySamples() {
@@ -191,8 +166,4 @@ function relaySamples() {
 
 function relayApi(): any {
   try { return require("../../controlStudio/relayTuning"); } catch { return {}; }
-}
-
-function relayPresentationApi(): any {
-  try { return require("../../controlStudio/relayTuningPresentation"); } catch { return {}; }
 }

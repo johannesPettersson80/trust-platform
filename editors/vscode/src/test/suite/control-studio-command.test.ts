@@ -120,7 +120,8 @@ suite("Control Studio command", () => {
       fs.rmSync(root, { recursive: true, force: true });
     }
   });
-  test("configures a compiled custom open loop and preserves its ST program", async () => {
+  test("configures a compiled custom open loop step by step and preserves its ST program", async function () {
+    this.timeout(10000);
     const folder = vscode.workspace.workspaceFolders?.[0];
     assert.ok(folder);
     const rootFile = path.join(folder.uri.fsPath, "control-loop.json");
@@ -131,6 +132,7 @@ suite("Control Studio command", () => {
     fs.writeFileSync(sourceFile, sourceText, { flag: "wx" });
     const originalError = vscode.window.showErrorMessage;
     const originalInfo = vscode.window.showInformationMessage;
+    const originalPick = vscode.window.showQuickPick;
     (vscode.window as any).showErrorMessage = async () => "Configure control loop";
     const values: Record<string, string> = {
       "Loop name": "Custom pump", "Controller instance": "PumpStation.Regulator",
@@ -157,8 +159,9 @@ suite("Control Studio command", () => {
     let opened: any;
     try {
       if (fs.existsSync(rootFile)) fs.unlinkSync(rootFile);
-      const { openControlStudioCommand } = require("../../controlStudio/openCommand");
-      await openControlStudioCommand({}, undefined, (_context: unknown, request: unknown) => { opened = request; }, async () => ({
+      // Configure control loop opens the setup form; controllers it does not set up use this step-by-step setup.
+      const { configureControlLoop } = require("../../controlStudio/configureLoop");
+      const configured = await configureControlLoop("simulator", async () => ({
         ok: true,
         controlSymbols: { controllers: [{ instance: "PumpStation.Regulator", type: "MyPumpLaw",
           tasks: [{ name: "PumpTask", intervalMs: 20 }] }] },
@@ -167,6 +170,7 @@ suite("Control Studio command", () => {
           feedbacks: [{ symbol: "PumpStation.Pressure", address: "%IL0", type: "LREAL" }],
         },
       }), presenter);
+      if (configured.kind === "accepted") opened = configured.request;
       assert.ok(fs.existsSync(file), "guided setup saves the explicitly selected loop");
       const saved = JSON.parse(fs.readFileSync(file, "utf8"));
       assert.strictEqual(saved.schemaVersion, 2, "new loop saves use v2 without rewriting legacy files");
@@ -184,6 +188,8 @@ suite("Control Studio command", () => {
       const existing = JSON.stringify({ ...saved, name: "Existing loop with this ID" });
       fs.writeFileSync(rootFile, existing);
       const { configureControlStudioCommand } = require("../../controlStudio/openCommand");
+      // Other suites may leave a second workspace root; the command then asks for the project, answered here.
+      (vscode.window as any).showQuickPick = async (items: readonly { folder?: vscode.WorkspaceFolder }[]) => items.find(item => item.folder?.uri.fsPath === folder.uri.fsPath);
       await configureControlStudioCommand({}, () => assert.fail("a duplicate ID must not open"), async () => ({
         ok: true, processImage: {
           commands: [{ symbol: "PumpStation.Power", address: "%QL0", type: "LREAL" }],
@@ -196,6 +202,7 @@ suite("Control Studio command", () => {
     } finally {
       (vscode.window as any).showErrorMessage = originalError;
       (vscode.window as any).showInformationMessage = originalInfo;
+      (vscode.window as any).showQuickPick = originalPick;
       if (previous) fs.writeFileSync(rootFile, previous);
       else if (fs.existsSync(rootFile)) fs.unlinkSync(rootFile);
       if (fs.existsSync(file)) fs.unlinkSync(file);

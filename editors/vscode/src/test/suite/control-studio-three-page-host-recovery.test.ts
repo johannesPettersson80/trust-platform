@@ -101,7 +101,7 @@ suite("Control Studio typed host recovery", () => {
     } });
     const loop = pidLoop();
     const session = new EngineerWorkflowSession(loop, () => undefined, () => undefined);
-    (session as any).interruptedCheckpoint = {
+    (session as any).state.interruptedCheckpoint = {
       id: "checkpoint", loopRevision: loop.revision, stage: "parameters",
       origin: { ...status(), program_revision: "old-program" },
       model: {}, task: {}, candidate: parameterValues(2), parameterOperation: {

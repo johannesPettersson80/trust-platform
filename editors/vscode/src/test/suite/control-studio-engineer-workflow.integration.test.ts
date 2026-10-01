@@ -1029,7 +1029,7 @@ IF Manual THEN`));
       assert.match(await inner("return d.querySelector('[data-engineer-evidence]').textContent;"), /Main.Kp.*1/);
       if (manualPin) {
         await inner("d.querySelector('[data-engineer-find]').click();return 'identify a new model';");
-        await pollValue("new independently identified model", () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => value.includes("fitted") || value.startsWith("find failed"), 30000);
+        await pollValue("new independently identified model", () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => value.includes("fitted") || value.startsWith("Identification failed"), 30000);
         assert.strictEqual(await inner("return d.querySelector('[data-engineer-gain-mode]').value;"), "automatic",
           "A changed identified model invalidates the old manual gain pin just like a supplied model change");
       }

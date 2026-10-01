@@ -643,8 +643,9 @@ fn output_binding_rejects_conflicting_reference_types_for_nonstring_target() {
             offset: reference.offset,
             path: reference.path.clone(),
         });
-        module.ref_types.insert(type_idx, type_idx);
+        module.set_ref_type(type_idx, type_idx);
     }
+    module.reindex_refs();
 
     let error = super::bind_vm_call_arguments(
         &mut runtime,
@@ -704,5 +705,6 @@ fn install_string_inout_types(module: &mut VmModule, target: ValueRef) {
         offset: target.offset,
         path: target.path,
     });
-    module.ref_types.insert(0, 1);
+    module.set_ref_type(0, 1);
+    module.reindex_refs();
 }

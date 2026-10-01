@@ -3,29 +3,109 @@
   "id": "control-capstone-water-heater",
   "title": "Heater commissioning",
   "level": "Modern",
-  "sequence": 29,
-  "equipment": "Recirculating electric water heater",
-  "principalTechnique": "Water-heater capstone",
+  "sequence": 30,
+  "equipment": "Electric water heater",
+  "physicalPurpose": "Qualify the complete heater controller in simulation: capacity, temperature performance and every operating state.",
+  "principalTechnique": "Integrated commissioning with a capacity check and one trial per requirement",
+  "objective": "Check the heater's capacity from its energy balance, declare the requirements, and assess setpoint response, disturbance recovery, startup, manual transfer, limits, capacity, a measurement fault and a parameter update, each with its own evidence.",
   "prerequisites": [
-    "control-capstone-cold-storage",
     "control-booster-pump-invalid-data"
   ],
-  "objective": "Derive, identify, validate, tune, and qualify a PI loop.",
   "nextLesson": "control-lesson-08",
-  "physicalPurpose": "Maintain outlet-water temperature through setpoint and cold-water-load changes while respecting one-sided heater authority, limits, manual operation, and evidence boundaries.",
   "signals": [
     {
-      "role": "state",
-      "name": "Experiment authority",
-      "unit": "1",
+      "role": "PV",
+      "name": "Measured temperature",
+      "unit": "degC",
       "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX96.0"
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "disturbance",
+      "name": "DisturbanceKw",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 30,
+      "resolution": 0.001,
+      "binding": "%QL8"
     },
     {
       "role": "state",
-      "name": "Safety abort",
+      "name": "WaterTemperatureC",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "IntegralPct",
+      "unit": "%",
+      "minimum": -200,
+      "maximum": 200,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "CommandActivityPoints",
+      "unit": "percentage-point",
+      "minimum": 0,
+      "maximum": 100000,
+      "resolution": 0.001,
+      "binding": "%ML64"
+    },
+    {
+      "role": "state",
+      "name": "ManualOutput",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML72"
+    },
+    {
+      "role": "SP",
+      "name": "Heater setpoint",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "FilteredC",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "P1.FilteredC"
+    },
+    {
+      "role": "state",
+      "name": "ProportionalPct",
+      "unit": "%",
+      "minimum": -1000,
+      "maximum": 1000,
+      "resolution": 0.001,
+      "binding": "%ML56"
+    },
+    {
+      "role": "state",
+      "name": "MeasurementFault",
       "unit": "1",
       "minimum": 0,
       "maximum": 1,
@@ -33,311 +113,166 @@
       "binding": "%MX96.3"
     },
     {
-      "role": "quality",
-      "name": "Experiment inputs valid",
-      "unit": "1",
+      "role": "state",
+      "name": "AcquisitionAgeS",
+      "unit": "s",
       "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX96.4"
-    },
-    {
-      "role": "SP",
-      "name": "Outlet-temperature setpoint",
-      "unit": "degC",
-      "minimum": 20,
-      "maximum": 45,
-      "resolution": 0.01,
-      "binding": "%ML0"
-    },
-    {
-      "role": "PV",
-      "name": "P-plus-bias temperature",
-      "unit": "degC",
-      "minimum": 0,
-      "maximum": 80,
-      "resolution": 0.01,
-      "binding": "%IL0"
-    },
-    {
-      "role": "PV",
-      "name": "Historical-PI temperature",
-      "unit": "degC",
-      "minimum": 0,
-      "maximum": 80,
-      "resolution": 0.01,
-      "binding": "%IL8"
-    },
-    {
-      "role": "PV",
-      "name": "Robust-PI temperature",
-      "unit": "degC",
-      "minimum": 0,
-      "maximum": 80,
-      "resolution": 0.01,
-      "binding": "%IL16"
-    },
-    {
-      "role": "PV",
-      "name": "Balanced-PI temperature",
-      "unit": "degC",
-      "minimum": 0,
-      "maximum": 80,
-      "resolution": 0.01,
-      "binding": "%IL24"
-    },
-    {
-      "role": "MV",
-      "name": "P-plus-bias applied heater power",
-      "unit": "%",
-      "minimum": 0,
-      "maximum": 100,
-      "resolution": 0.1,
-      "binding": "%QL0"
-    },
-    {
-      "role": "MV",
-      "name": "Historical-PI applied heater power",
-      "unit": "%",
-      "minimum": 0,
-      "maximum": 100,
-      "resolution": 0.1,
-      "binding": "%QL8"
-    },
-    {
-      "role": "MV",
-      "name": "Robust-PI applied heater power",
-      "unit": "%",
-      "minimum": 0,
-      "maximum": 100,
-      "resolution": 0.1,
-      "binding": "%QL16"
-    },
-    {
-      "role": "MV",
-      "name": "Balanced-PI applied heater power",
-      "unit": "%",
-      "minimum": 0,
-      "maximum": 100,
-      "resolution": 0.1,
-      "binding": "%QL24"
-    },
-    {
-      "role": "quality",
-      "name": "Temperature quality good",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX96.2"
+      "maximum": 3600,
+      "resolution": 0.001,
+      "binding": "P1.AcquisitionAgeS"
     },
     {
       "role": "state",
-      "name": "Controller revision",
+      "name": "RecoveryCount",
       "unit": "1",
       "minimum": 0,
       "maximum": 2147483647,
       "resolution": 1,
-      "binding": "%MD24"
+      "binding": "P1.RecoveryCount"
     }
   ],
   "plant": {
-    "modelId": "four_equivalent_recirculating_water_heaters",
+    "modelId": "heater-lesson-29",
     "executable": "simulation.toml",
     "parameters": [
       {
-        "name": "process_gain",
-        "value": 0.2,
-        "unit": "degC/%"
+        "name": "stored_heat",
+        "value": 50,
+        "unit": "kJ/degC"
       },
       {
-        "name": "time_constant",
-        "value": 5,
-        "unit": "s"
+        "name": "heater_per_point",
+        "value": 2,
+        "unit": "kW/percentage-point"
       },
       {
-        "name": "dead_time",
+        "name": "loss_coefficient",
+        "value": 10,
+        "unit": "kW/degC"
+      },
+      {
+        "name": "ambient",
+        "value": 20,
+        "unit": "degC"
+      },
+      {
+        "name": "delivery_delay",
         "value": 1,
         "unit": "s"
       },
       {
-        "name": "holding_power",
-        "value": 75,
-        "unit": "%"
-      },
-      {
-        "name": "sensor_interference_amplitude",
+        "name": "measurement_noise_bound",
         "value": 0.02,
         "unit": "degC"
-      },
-      {
-        "name": "controller_interval",
-        "value": 100,
-        "unit": "ms"
       }
     ],
     "sampleTimeSeconds": 0.1,
     "initialState": {
-      "P-plus-bias temperature": 35,
-      "Historical-PI temperature": 35,
-      "Robust-PI temperature": 35,
-      "Balanced-PI temperature": 35
+      "waterTemperatureC": 35,
+      "delayedCommandPct": 75
     },
     "seed": 20260829,
     "operatingPoint": {
-      "Outlet-temperature setpoint": 35,
-      "P-plus-bias temperature": 35,
-      "Historical-PI temperature": 35,
-      "Robust-PI temperature": 35,
-      "Balanced-PI temperature": 35,
-      "P-plus-bias applied heater power": 75,
-      "Historical-PI applied heater power": 75,
-      "Robust-PI applied heater power": 75,
-      "Balanced-PI applied heater power": 75,
-      "Temperature quality good": 1,
-      "Controller revision": 77
+      "Measured temperature": 35,
+      "Applied heating command": 75
     },
     "validityRange": [
       {
-        "signal": "P-plus-bias temperature",
+        "signal": "Measured temperature",
         "minimum": 0,
         "maximum": 80,
         "unit": "degC"
       },
       {
-        "signal": "Historical-PI temperature",
-        "minimum": 0,
-        "maximum": 80,
-        "unit": "degC"
-      },
-      {
-        "signal": "Robust-PI temperature",
-        "minimum": 0,
-        "maximum": 80,
-        "unit": "degC"
-      },
-      {
-        "signal": "Balanced-PI temperature",
-        "minimum": 0,
-        "maximum": 80,
-        "unit": "degC"
-      },
-      {
-        "signal": "Robust-PI applied heater power",
-        "minimum": 0,
-        "maximum": 100,
-        "unit": "%"
-      },
-      {
-        "signal": "Balanced-PI applied heater power",
+        "signal": "Applied heating command",
         "minimum": 0,
         "maximum": 100,
         "unit": "%"
       }
     ],
     "simplifications": [
-      "The recirculating water volume is represented by one well-mixed FOPDT temperature state.",
-      "The power stage has ideal amplitude limits and omits element temperature, boiling, electrical protection, circulation loss, and pump failure.",
-      "The physical derivation and identification record are exact deterministic teaching evidence, not measurements from installed equipment.",
-      "All controller and plant results are Simulation evidence and cannot authorize physical application."
+      "The Lesson 20 heater: 50 dT/dt = 2 u(t − 1) − 10 (T − 20) − D with one-second delivered-power delay.",
+      "Known 75% holding command at 35 °C; uniform bounded ±.02 °C measurement noise.",
+      "Simulation commissioning only; not physical equipment approval."
     ]
   },
   "baseline": {
-    "executableId": "WaterHeater.PPlusBiasAndHistoricalPI",
+    "executableId": "P1",
     "settings": {
-      "pPlusBias": {
-        "kp": 2,
-        "ki": 0,
-        "bias": 75
-      },
-      "historicalPi": {
-        "kp": 4,
-        "ki": 0.8,
-        "bias": 75
-      }
+      "temperatureC": 35,
+      "setpointC": 35,
+      "integralPct": 75,
+      "appliedPowerPct": 75,
+      "disturbanceKw": 0
     },
-    "limitation": "P plus correct nominal bias retains changed-load offset, while the historical PI has not yet been justified against independently validated model and robustness evidence."
+    "limitation": "The installed heater still runs the introductory PI (Kp 2, Ki 0.5) and no requirement has been assessed on the complete controller."
   },
   "change": {
-    "executableId": "WaterHeater.ModelQualifiedSIMCComparison",
+    "executableId": "P1",
     "settings": {
-      "robustPi": {
-        "kp": 3.260869565,
-        "ki": 0.652173913
-      },
-      "balancedPi": {
-        "kp": 5.769230769,
-        "ki": 1.153846154
-      },
-      "activeControllerRevision": 77,
-      "application": "unapplied"
+      "installedSet": "Kp 2, Ki 0.5, beta 1, Tf 0",
+      "commissionedSet": "Kp 13, Ki 3.5, beta 0.3, Tf 1 s",
+      "holdingCommands": "75 % (35 °C), 90 % (35 °C, 30 kW), 90 % (38 °C), 105 % (38 °C, 30 kW)",
+      "capacityLimit": "37 °C at 100 % with 30 kW",
+      "trials": "setpoint, load, startup, manual transfer, saturation, capacity, stale sensor",
+      "durationSeconds": 60
     },
-    "decision": "Compare all four structures on equivalent nominal and uncertainty scenarios, preserve the confirmed revision, and export the simplest eligible PI as an unapplied recommendation."
+    "decision": "Apply the commissioned set only if every declared requirement passes on its own trial."
   },
   "experiment": {
-    "kind": "observation",
-    "signal": "Experiment authority",
-    "baseline": 0,
-    "amplitude": 0,
-    "durationSeconds": 220.1,
-    "settlingSeconds": 10,
+    "kind": "mv_step",
+    "signal": "Applied heating command",
+    "baseline": 75,
+    "amplitude": 20,
+    "durationSeconds": 60,
+    "settlingSeconds": 0,
     "disturbances": [
-      "Lower each plant copy's zero-power equilibrium by 3 degC at 100 seconds.",
-      "Request the deliberately unreachable 45 degC setpoint from 140 through 170 seconds and restore 35 degC.",
-      "Use manual 60 percent heater power from 180 through 185 seconds and invalidate temperature quality from 190 through 192 seconds.",
-      "Repeat Robust and Balanced PI validation with process gain 0.16 and 0.24 degC/% and delay 1.5 seconds."
+      "Uniform repeatable measurement noise bounded by ±.02 °C",
+      "Load trial: 30 kW extraction at the 35 °C setpoint",
+      "Capacity trial: 30 kW extraction at the 38 °C setpoint",
+      "Fault trial: a frozen sensor from 5 s to 6 s"
     ],
     "seed": 20260829,
-    "restorationValue": 0
+    "restorationValue": 75
   },
   "acceptance": [
     {
-      "metric": "p_plus_bias_changed_load_error",
-      "signal": "P-plus-bias temperature",
-      "window": "130 through 140 seconds after settling qualification",
-      "comparator": ">",
-      "limit": 1,
-      "unit": "degC",
-      "tolerance": 0.02,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "pi_changed_load_error",
-      "signal": "Robust-PI temperature",
-      "window": "130 through 140 seconds after settling qualification",
+      "metric": "peak_temperature",
+      "signal": "Measured temperature",
+      "window": "setpoint trial 0–60 s",
       "comparator": "<=",
-      "limit": 0.25,
+      "limit": 39,
       "unit": "degC",
-      "tolerance": 0.02,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "uncertainty_load_final_error",
-      "signal": "Robust-PI temperature",
-      "window": "130 through 140 seconds after settling qualification for every declared uncertainty scenario",
-      "comparator": "<=",
-      "limit": 0.3,
-      "unit": "degC",
-      "tolerance": 0.02,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "active_revision_changes",
-      "signal": "Controller revision",
-      "window": "complete nominal and uncertainty campaign",
-      "comparator": "==",
-      "limit": 0,
-      "unit": "1",
       "tolerance": 0,
       "evidenceClass": "simulation"
     },
     {
-      "metric": "applied_heater_maximum",
-      "signal": "Robust-PI applied heater power",
-      "window": "complete run",
+      "metric": "minimum_temperature",
+      "signal": "Measured temperature",
+      "window": "load trial 0–60 s",
+      "comparator": ">=",
+      "limit": 33,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_error",
+      "signal": "Measured temperature",
+      "window": "each trial 30–60 s",
       "comparator": "<=",
-      "limit": 100,
-      "unit": "%",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "settling_time_0_1_degC",
+      "signal": "Measured temperature",
+      "window": "each trial 0–60 s",
+      "comparator": "<=",
+      "limit": 30,
+      "unit": "s",
       "tolerance": 0,
       "evidenceClass": "simulation"
     }
@@ -345,145 +280,87 @@
   "safety": {
     "hardLimits": [
       {
-        "signal": "P-plus-bias temperature",
+        "signal": "Measured temperature",
         "minimum": 0,
         "maximum": 80,
         "unit": "degC"
       },
       {
-        "signal": "Historical-PI temperature",
-        "minimum": 0,
-        "maximum": 80,
-        "unit": "degC"
-      },
-      {
-        "signal": "Robust-PI temperature",
-        "minimum": 0,
-        "maximum": 80,
-        "unit": "degC"
-      },
-      {
-        "signal": "Balanced-PI temperature",
-        "minimum": 0,
-        "maximum": 80,
-        "unit": "degC"
-      },
-      {
-        "signal": "Robust-PI applied heater power",
-        "minimum": 0,
-        "maximum": 100,
-        "unit": "%"
-      },
-      {
-        "signal": "Balanced-PI applied heater power",
+        "signal": "Applied heating command",
         "minimum": 0,
         "maximum": 100,
         "unit": "%"
       }
     ],
     "abortPredicates": [
-      "Temperature, timing, model coefficient, requested power, or applied power is nonfinite or outside its declared range.",
-      "The identification experiment leaves its approved power, temperature, duration, circulation, or operating-region boundary.",
-      "A candidate is ranked from unvalidated model evidence or an unqualified response.",
-      "The confirmed controller revision changes without separate explicit application approval.",
-      "Simulation evidence is presented as physical commissioning or independent overtemperature protection."
+      "Temperature leaves 0–80 °C or applied command leaves 0–100%",
+      "Zero heat is not applied in the scan that detects an unusable reading",
+      "A physical-plant target is selected"
     ],
-    "safeMv": 60,
-    "restorationMode": "Track the reviewed manual heater power, restore valid measurement and circulation evidence, then explicitly return the unchanged confirmed controller to automatic mode.",
-    "physicalApprovalRole": "authorised process controls engineer with electrical, mechanical, operations, water-quality and safety owners",
+    "safeMv": 0,
+    "restorationMode": "An unusable reading latches a fault with zero heat; recovery needs an acknowledgement, three fresh valid acquisitions and a new Auto request. Control Studio restores the 35 °C/75% hot reset after each trial.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
     "simulationOnlyRestrictions": [
-      "Do not energize a physical heater, change a physical controller, or bypass independent trips.",
-      "Physical identification requires reviewed circulation, temperature, power, duration, abort and rollback boundaries immediately before excitation.",
-      "Applying the exported recommendation requires separate explicit approval and a rollback-ready commissioning window."
+      "This lesson cannot authorise physical excitation or gain application",
+      "Physical use requires independent topology, model, hazard, operating-window, interlock, personnel, abort, rollback, and immediate approval review"
     ]
   },
   "workflowStages": [
-    "Monitor",
-    "Test"
+    "Identify",
+    "Tune",
+    "Validate"
   ],
   "proof": {
-    "specification": "docs/specs/38-control-engineering-curriculum.md#711-capstone-assessments",
-    "nativeTest": "TEST_PROGRAM::Lesson81EnergyBalanceAndSIMCGainsAreExplicit",
-    "nativeCommand": "target/debug/trust-dev test --project examples/control/14-integrated-capstones/81-water-heater --filter TEST_PROGRAM::Lesson81EnergyBalanceAndSIMCGainsAreExplicit --timeout 20",
+    "specification": "docs/specs/control-course-teaching-specification.md",
+    "nativeTest": "lesson29",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_28_30 lesson29",
     "projectPath": "examples/control/14-integrated-capstones/81-water-heater",
     "runArtifactFields": [
-      "projectIdentity",
-      "plantIdentity",
-      "controllerRevision",
-      "evidenceClass",
-      "physicalModel",
-      "identificationRecord",
-      "validationRecord",
-      "modelUncertainty",
-      "sampleTime",
-      "SP",
-      "PV",
-      "MVRequested",
-      "MVApplied",
-      "mode",
-      "quality",
-      "limits",
-      "events",
-      "candidateGains",
-      "eligibility",
-      "settling",
-      "finalError",
-      "overshoot",
-      "IAE",
-      "movement",
-      "saturation",
-      "manualTracking",
-      "selectedRecommendation",
-      "applicationState",
-      "rollback",
-      "limitations"
+      "appliedCommand",
+      "temperature",
+      "parameterSet",
+      "parameterRevision",
+      "measurementFault",
+      "controllerState",
+      "transfer",
+      "settlingTime",
+      "stopReason",
+      "restoration",
+      "evidenceClass"
     ],
     "renderedJourneyId": "control-capstone-water-heater"
   },
-  "video": {
-    "viewerOutcome": "Complete a defensible process-control commissioning decision from plant physics and data through an unapplied PI recommendation.",
-    "requiredVisibleEvidence": [
-      "requirements",
-      "energy balance",
-      "safe identification step",
-      "competing model structures",
-      "independent validation",
-      "P and PI structure rejection",
-      "SIMC calculations",
-      "equivalent candidate plots",
-      "requested and applied power",
-      "saturation and recovery",
-      "manual tracking",
-      "uncertainty campaign",
-      "unapplied recommendation and rollback",
-      "Simulation boundary"
+  "learning": {
+    "context": "Lesson 29 made the controller check every reading: an invalid or frozen reading switched the heater off within half a second, and recovery needed an acknowledgement, three fresh readings and a new Auto request. Lessons 22–29 each added one mechanism and tested it on its own: tuning, setpoint weighting, filtering, timing, initialization, transfer, parameter updates and measurement validity. The installed heater still runs an introductory PI ($K_p = 2$, $K_i = 0.5$, $\\beta = 1$, $T_f = 0$), and the mechanisms have not been combined into one controller. Working parts do not show that the complete controller meets its temperature requirements and handles startup, transfer, limits, updates and faults without conflicting decisions.\n\nWe will combine every mechanism in one program, declare the requirements before any result, and assess each requirement with its own trial.",
+    "reason": "We need:\n\n1. one program that combines every mechanism, with one owner of the heater command;\n2. requirements declared before any result, including what the heater cannot do; and\n3. one observation and one decision for each requirement.",
+    "theory": [
+      "**Heater commissioning** checks the finished heater controller against all its requirements: target and disturbance response, startup, mode changes, limits, parameter changes and measurement faults. For this heater, it means one program that combines every mechanism of Lessons 22–29, a record of requirements written before any result, and one trial and one decision for each requirement.\n\n**In words.** Commissioning is the acceptance test of a control loop, the same idea as the site acceptance test a PLC engineer runs from a test protocol before handing over a machine. It has four parts:\n\n1. **Capacity first.** Before testing the controller, check what the heater can deliver at all. A requirement beyond the heater's power cannot be met by any controller, so it is recorded as a limit of the plant, not tested as a failure of the tuning.\n2. **Requirements before results.** Every requirement and its limits are written down before the first trial, so that no result can move the target afterwards.\n3. **One trial and one decision for each requirement.** A trial shows only what it exercises: a perfect setpoint step says nothing about a frozen sensor.\n4. **One program with one command writer.** The mechanisms run in a fixed order in every scan. Each stage decides what the later stages may do, and only one place writes the heater command, so no two mechanisms can fight over it.\n\nThe stages run in this order:\n\n1. Sensor and validity (Lesson 29): an unusable reading latches a fault with zero heat and frozen memory.\n2. Parameters (Lesson 28): a changed set is adopted only whole and valid, at one boundary.\n3. One command writer: the fault gives 0 %; otherwise Manual commands the heater until Auto is active.\n4. Initialization (Lesson 26): every remembered value comes from the actual condition at startup, on request and after recovery.\n5. Timing (Lesson 25): each update uses the measured interval; unusable intervals are refused.\n6. Tracking and transfer (Lesson 27): in Manual the remembered values follow the applied command, and the transfer scan reproduces it.\n7. PI update (Lessons 22–24): `Control.PID` with $\\beta$ on the filtered measurement and back-calculation anti-windup.\n\n**The formula.** The heater's energy balance says that the heat stored in the water changes by the heat delivered minus the heat lost and extracted:\n\n$$\n50\\,\\frac{dT}{dt} = 2\\,u(t-1) - 10\\,(T - 20) - D .\n$$\n\nAt equilibrium the temperature does not change, $dT/dt = 0$, so the heat delivered equals the heat lost, and the holding command is\n\n$$\nu_{hold} = \\frac{H\\,(T - T_a) + D}{a}.\n$$\n\n- $T$ is the water temperature, in degrees Celsius, and $dT/dt$ how fast it changes, in °C per second;\n- 50 is the water's heat capacity, in kilojoules per °C;\n- $u(t-1)$ is the command one second earlier, in percent: the heater delivers $a = 2$ kW per percent, one second after the command;\n- $H = 10$ kW per °C is the heat loss per degree above the ambient temperature $T_a = 20$ °C;\n- $D$ is the heat extracted by a load, in kilowatts; and\n- $u_{hold}$ is the command that holds $T$ steady, in percent.\n\n**Example: what the heater can hold.** Follow the numbers:\n\n1. 35 °C without extraction: $u_{hold} = (10 \\times 15 + 0)/2 = 75$ %.\n2. 35 °C with 30 kW: $(150 + 30)/2 = 90$ %.\n3. 38 °C without extraction: $(10 \\times 18)/2 = 90$ %.\n4. 38 °C with 30 kW: $(180 + 30)/2 = 105$ %, more than the heater has.\n5. At 100 % with 30 kW, the heater can hold only the temperature at which loss and extraction use up its 200 kW: $10\\,(T - 20) + 30 = 200$, so $T = 20 + 170/10 = 37$ °C. No controller can hold 38 °C under that load.\n6. 39 °C, the limits trial: $(10 \\times 19)/2 = 95$ %, inside the range. On the way there, though, the controller asks for more heat than the final 95 %, and the command meets the 100 % limit.\n\nThe capacity table collects these holding commands:\n\n| Operating point | $u_{hold}$ |\n| --- | ---: |\n| 35 °C | 75 % |\n| 35 °C with 30 kW | 90 % |\n| 38 °C | 90 % |\n| 38 °C with 30 kW | 105 % |\n\n**The limitation.** A calculated holding command is a prediction from the model, not measured proof: each one is confirmed only by its trial. Commissioning qualifies the controller only for what its trials exercise, on this simulated heater; it is not a physical qualification."
     ],
-    "durationClass": "extended",
+    "workedPrediction": "Before running, answer these questions:\n\n1. At which operating point is the heater beyond capacity, and at what temperature will the capacity trial settle?\n2. In the limits trial, 35 → 39 °C, how long will the heater stay at 100 %, and how far will the water rise above 39 °C?\n3. What command will the manual-transfer trial show across the switch at 3 s?\n4. When will the stale-sensor trial remove heat?\n5. Which requirement has no trial of its own, and what decides it?\n\n| Trial | Command needed | Expected |\n| --- | ---: | --- |\n| Limits, 39 °C | 95 % | 100 % for a few seconds, then 95 % |\n| Capacity, 38 °C with 30 kW | 105 % | 100 %, settling at 37 °C |\n| Manual transfer | 60 % held | 60 % across the switch |\n| Stale sensor from 5 s | — | 0 % from 5.5 s |",
+    "practicalPreparation": [
+      "The commissioning record is written before any result:\n\n| Requirement | Trial | Limits |\n| --- | --- | --- |\n| Setpoint response | 35 → 38 °C | rise ≤ 1 °C above 38 °C; settled within ±0.1 °C in 15 s; error ≤ 0.2 °C |\n| Disturbance recovery | 30 kW at 35 °C | lowest ≥ 33 °C; error ≤ 0.2 °C from 30 s; settled within ±0.1 °C by 30 s |\n| Startup | initialized start at 35 °C | command 74–76 %; temperature 34.9–35.1 °C |\n| Manual transfer | 60 % hold, Auto at 3 s | command 59.9–60.1 % across the switch; recovery as for the load trial |\n| Limits | 35 → 39 °C, 95 % needed | rise ≤ 1 °C; error and settling as for the load trial; command 0–100 % |\n| Capacity | 38 °C with 30 kW, 105 % needed | observation only: command and temperature range |\n| Measurement fault | stale sensor from 5 s to 6 s, Auto at 7 s | 0 % from 5.5 s to 6.9 s; error ≤ 0.2 °C from 40 s |\n| Parameter update | **Apply** | the complete set adopted at one boundary |\n\n1. Open this lesson's project and start **Simulator**. The heater holds 35 °C with 75 % in Manual on the introductory PI. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, keep **Method** at **Automatic** and select **Identify plant**; the model is G(s) = (0.2) / (5.1s +1) · e^(−1s).\n3. On **Tune**, choose **P1.Controller · PI** and **Manual**. Enter the controller of Lessons 22–29: **Proportional gain (Kp)** 6.95, **Integral gain (Ki)** 1.37, **Setpoint weight (β)** 0.8 and **Measurement filter time (Tf)** 1.\n4. Select **Requirements…** and enter **Setpoint change (°C)** 3, **Maximum steady-state error (°C)** 0.2, **Maximum settling time (s)** 15, **Settling band (±°C)** 0.1 and **Validation duration (s)** 60. Select **Done**, then **Tune controller**.\n5. On **Validate**, select **Validate controller** and decide every row of the record.\n6. Select **Apply**: the parameter update. Control Studio shows **Applied**."
+    ],
+    "baseline": "Validate P plus 75 percent bias and historical PI on equivalent copies, retaining both the P load offset and the historical PI's real performance.",
+    "change": "Calculate and run Robust and Balanced SIMC PI candidates without changing controller revision 77.",
+    "comparison": "![The capacity trial settles at 37 °C at full power; limits, transfer and fault trials behave as declared](figures/commissioning-trials.svg)\n\nThe numbered marks answer predictions 1–4. From the validation:\n\n| Requirement | Measured | Decision |\n| --- | --- | --- |\n| Setpoint response | rise 0.034 °C; error 0.081 °C; settled in 6.7 s | Pass |\n| Disturbance recovery | lowest 33.69 °C; error 0.025 °C; settled in 16.4 s | Pass |\n| Startup | command 74.95–75.05 %; temperature 34.98–35.02 °C | Pass |\n| Manual transfer | command 60 % → 60 %; lowest 33.28 °C; settled in 21.2 s; error 0.033 °C | Pass |\n| Limits | 100 % from 0.7 s to 3.9 s; rise 0.019 °C; settled in 18.7 s; error 0.026 °C | Pass |\n| Capacity | command 100 %; temperature settles at 37.00 °C | Beyond capacity, as calculated |\n| Measurement fault | 0 % from 5.5 s to 7.0 s; lowest 27.88 °C; error 0.040 °C from 40 s | Pass |\n| Parameter update | **Applied** | Pass |\n\n1. Only 38 °C with 30 kW is beyond capacity: the capacity trial held 100 % and settled at 37.00 °C, the calculated equilibrium.\n2. The limits trial held 100 % for 3.2 s, from 0.7 s to 3.9 s, and the water rose only 0.019 °C above 39 °C: the anti-windup kept the integral from piling up while the command was limited.\n3. The transfer kept the command at 60 % across the switch; the next update added 0.17 point.\n4. The stale sensor removed heat at 5.5 s, when its last reading was 0.5 s old.\n5. The parameter update has no trial of its own: **Apply** decides it, by adopting the complete set at one boundary.\n\nEvery declared requirement has its own trial and passes. The capacity shortfall is a property of the heater, not of the tuning. The controller is commissioned for this simulated heater, and Control Studio reports **Applied**. This is not a physical qualification.",
+    "validation": "![The capacity trial settles at 37 °C at full power; limits, transfer and fault trials behave as declared](figures/commissioning-trials.svg)\n\nThe numbered marks answer predictions 1–4. From the validation:\n\n| Requirement | Measured | Decision |\n| --- | --- | --- |\n| Setpoint response | rise 0.034 °C; error 0.081 °C; settled in 6.7 s | Pass |\n| Disturbance recovery | lowest 33.69 °C; error 0.025 °C; settled in 16.4 s | Pass |\n| Startup | command 74.95–75.05 %; temperature 34.98–35.02 °C | Pass |\n| Manual transfer | command 60 % → 60 %; lowest 33.28 °C; settled in 21.2 s; error 0.033 °C | Pass |\n| Limits | 100 % from 0.7 s to 3.9 s; rise 0.019 °C; settled in 18.7 s; error 0.026 °C | Pass |\n| Capacity | command 100 %; temperature settles at 37.00 °C | Beyond capacity, as calculated |\n| Measurement fault | 0 % from 5.5 s to 7.0 s; lowest 27.88 °C; error 0.040 °C from 40 s | Pass |\n| Parameter update | **Applied** | Pass |\n\n1. Only 38 °C with 30 kW is beyond capacity: the capacity trial held 100 % and settled at 37.00 °C, the calculated equilibrium.\n2. The limits trial held 100 % for 3.2 s, from 0.7 s to 3.9 s, and the water rose only 0.019 °C above 39 °C: the anti-windup kept the integral from piling up while the command was limited.\n3. The transfer kept the command at 60 % across the switch; the next update added 0.17 point.\n4. The stale sensor removed heat at 5.5 s, when its last reading was 0.5 s old.\n5. The parameter update has no trial of its own: **Apply** decides it, by adopting the complete set at one boundary.\n\nEvery declared requirement has its own trial and passes. The capacity shortfall is a property of the heater, not of the tuning. The controller is commissioned for this simulated heater, and Control Studio reports **Applied**. This is not a physical qualification.",
+    "explanation": "Commissioning qualifies the complete controller, not its parts: capacity first, requirements declared in advance, and one trial and decision for each requirement, including startup, transfer, limits, updates and faults. A requirement without its own evidence is untested.\n\nFor this heater, all seven declared trials and the parameter update passed, and the one shortfall, 37 °C instead of 38 °C under a 30 kW load, was the calculated limit of the heater.",
+    "transfer": "The electric heater applies its command at once. The next heater is fed through a valve that cannot move as fast as it is commanded: its motor moves the stem at a limited speed, so a command inside 0–100 % is not yet a delivered position.\n\n[Actuator tracking](../../01-feedback-foundations-and-temperature-control/08-heating-valve-rate-tracking/README.md) follows that moving actuator."
+  },
+  "video": {
+    "viewerOutcome": "Commission the complete heater controller with one trial and decision per requirement, then apply it.",
+    "requiredVisibleEvidence": [
+      "one native heater at 35 °C/75% on the introductory PI",
+      "the Lesson 21–24 controller entered in Tune (Manual)",
+      "every commissioning row decided in Validate",
+      "the capacity trial saturating at 100 % near 37 °C",
+      "Apply: Applied",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
     "thumbnailPath": "video/thumbnail.svg",
     "publicationState": "not_started"
-  },
-  "learning": {
-    "context": "A continuously modulated one-sided electric heater maintains 35 degC outlet water around a 75 percent operating point while cold-water load, noise, limits and mode changes act on the loop.",
-    "reason": "Separate lessons established P, bias, integral, PI, anti-windup, modelling, identification and tuning; the capstone requires one auditable choice rather than disconnected demonstrations.",
-    "theory": [
-      "Thermal equilibrium predicts the nominal holding power from zero-power temperature, steady process gain and desired outlet temperature.",
-      "A physical model and an identified model have different evidence sources and both require independent validation before tuning authority.",
-      "PI is the simplest eligible structure when prompt correction and zero constant-load error are required; derivative action needs separate benefit and noise evidence.",
-      "Combined anti-windup acts on the controller's private nominal and bounded outputs, while public requested and applied power expose actuator behavior without inventing private state.",
-      "Robust and Balanced SIMC candidates trade error response, actuator movement and uncertainty reserve rather than supplying a universal winner."
-    ],
-    "workedPrediction": "Calculate 75 percent holding power and independently reproduce Robust gains 3.26087/0.65217 and Balanced gains 5.76923/1.15385 from the validated 0.2, 5 second, 1 second FOPDT model.",
-    "practicalPreparation": [
-      "Declare requirements, model assumptions, identification approval, independent validation record, candidates, measures, uncertainty cases, limits, modes, aborts, rollback and Simulation label.",
-      "Predict P-plus-bias load offset and the Robust-versus-Balanced response/activity tradeoff before running."
-    ],
-    "baseline": "Validate P plus 75 percent bias and historical PI on equivalent copies, retaining both the P load offset and the historical PI's real performance.",
-    "change": "Calculate and run Robust and Balanced SIMC PI candidates without changing controller revision 77.",
-    "comparison": "Classify model, run and candidate eligibility before comparing final-window error, overshoot, IAE, applied-power total variation, saturation recovery and uncertainty results.",
-    "validation": "Repeat nominal, cold-load, sensor, unreachable-demand, restoration, manual, quality, gain-variation and delay-variation cases; retain the recommendation as unapplied.",
-    "explanation": "Connect energy balance, identified dynamics, structure choice, tuning calculations, actuator constraints, anti-windup, tracking and uncertainty evidence into one causal decision.",
-    "transfer": "Lesson 82 continues with Servo capstone."
   }
 }

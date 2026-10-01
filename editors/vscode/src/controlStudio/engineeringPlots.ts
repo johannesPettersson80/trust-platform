@@ -18,6 +18,10 @@ export interface EngineeringPredictionOptions {
   durationSeconds?: number;
   referenceChange?: number;
   operatingPoint?: { input: number; output: number };
+  /** First-order filter time Tf on the measurement the controller uses; 0 or absent bypasses it. */
+  measurementFilterSeconds?: number;
+  /** A constant load added to the plant input from the start, before its transport delay, as Validate's load trial adds it. */
+  inputDisturbance?: number;
 }
 
 export interface EngineeringTimePoint {
@@ -44,6 +48,8 @@ export interface EngineeringPlotEvidence {
     complementarySensitivityMagnitudeDb: number;
     controlSensitivityMagnitudeDb: number;
   }[];
+  /** Ms: the largest |S| at any frequency, beyond the plotted range too, where a strictly proper loop's |S| tends to one. */
+  peakSensitivity: number;
   rootLocus: { status: "qualified";
     parameter: RootLocusParameter;
     selectedValue: number;
@@ -55,8 +61,9 @@ export interface EngineeringPlotEvidence {
   // The exact open-loop point where the candidate crosses 0 dB (used to read phase
   // margin on the phase/Nichols plot) and, when resolved, where it crosses -180 degrees
   // (used to read gain margin on the magnitude/Nichols plot). A loop with no delay and no
-  // phase crossover leaves phaseCrossover undefined, matching an unbounded gain margin.
-  gainCrossover: FrequencyPoint;
+  // phase crossover leaves phaseCrossover undefined, matching an unbounded gain margin; a
+  // loop whose gain stays below one leaves gainCrossover undefined, an unbounded phase margin.
+  gainCrossover: FrequencyPoint | undefined;
   phaseCrossover: FrequencyPoint | undefined;
   requirements: readonly {
     name: string;
@@ -74,14 +81,16 @@ export interface EngineeringPlotEvidence {
   };
 }
 
-export type EngineeringPlotMessageEvidence = Omit<EngineeringPlotEvidence, "gainMarginDb"> & {
+export type EngineeringPlotMessageEvidence = Omit<EngineeringPlotEvidence, "gainMarginDb" | "phaseMarginDegrees"> & {
   gainMarginDb: number | "unbounded";
+  phaseMarginDegrees: number | "unbounded";
 };
 
 /** Converts mathematical infinity to an explicit value that survives VS Code message serialization. */
 export function engineeringPlotMessageEvidence(evidence: EngineeringPlotEvidence): EngineeringPlotMessageEvidence {
   return { ...evidence,
-    gainMarginDb: evidence.gainMarginDb === Number.POSITIVE_INFINITY ? "unbounded" : evidence.gainMarginDb };
+    gainMarginDb: evidence.gainMarginDb === Number.POSITIVE_INFINITY ? "unbounded" : evidence.gainMarginDb,
+    phaseMarginDegrees: evidence.phaseMarginDegrees === Number.POSITIVE_INFINITY ? "unbounded" : evidence.phaseMarginDegrees };
 }
 
 export function buildEngineeringPlotEvidence(
@@ -102,8 +111,12 @@ export function buildEngineeringPlotEvidence(
   if (![horizon, cycleTime, operating.input, operating.output, target].every(Number.isFinite) || horizon <= 0 || cycleTime <= 0 || steps > MAX_PREDICTION_PERIODS) {
     throw new Error("Prediction needs finite coordinates and at most 10000 controller periods.");
   }
-  const currentSimulation = simulationState(model, current, cycleTime, operating, target);
-  const candidateSimulation = simulationState(model, candidate, cycleTime, operating, target);
+  const filterSeconds = options.measurementFilterSeconds ?? 0;
+  if (!Number.isFinite(filterSeconds) || filterSeconds < 0) throw new Error("The measurement filter time must be finite and not negative.");
+  const disturbance = options.inputDisturbance ?? 0;
+  if (!Number.isFinite(disturbance)) throw new Error("The input disturbance must be finite.");
+  const currentSimulation = simulationState(model, current, cycleTime, operating, target, filterSeconds, disturbance);
+  const candidateSimulation = simulationState(model, candidate, cycleTime, operating, target, filterSeconds, disturbance);
   const timeResponse: EngineeringTimePoint[] = [{ timeSeconds: 0, currentPv: operating.output,
     candidatePv: operating.output, currentMv: operating.input, candidateMv: operating.input }];
   for (let step = 1; step <= steps; step += 1) {
@@ -128,7 +141,7 @@ export function buildEngineeringPlotEvidence(
   let minimumFrequency = 1e-2 / baseTime;
   let maximumFrequency = Math.max(10 / baseTime, delay > 0 ? 2 * Math.PI / delay : 0);
   const loopMagnitude = (frequency: number) => {
-    const value = multiply(plantFrequency(model, frequency), controllerFrequency(candidate, frequency));
+    const value = multiply(plantFrequency(model, frequency), controllerFrequency(candidate, frequency, filterSeconds));
     return Math.hypot(value.re, value.im);
   };
   for (let expansion = 0; expansion < 16 && loopMagnitude(maximumFrequency) > 1; expansion++) maximumFrequency *= 2;
@@ -138,7 +151,7 @@ export function buildEngineeringPlotEvidence(
   for (let index = 0; index < frequencyPoints; index += 1) {
     const frequency = minimumFrequency * Math.pow(maximumFrequency / minimumFrequency, index / (frequencyPoints - 1));
     const plant = plantFrequency(model, frequency);
-    const controller = controllerFrequency(candidate, frequency);
+    const controller = controllerFrequency(candidate, frequency, filterSeconds);
     const openLoop = multiply(plant, controller);
     plantBode.push(point(frequency, plant));
     candidateOpenLoopBode.push(point(frequency, openLoop));
@@ -152,44 +165,61 @@ export function buildEngineeringPlotEvidence(
     ...positiveNyquist.slice().reverse().map((point) => ({ ...point, imaginary: -point.imaginary })),
     ...positiveNyquist.slice(1),
   ];
-  const sensitivity = unwrappedOpenLoop.map((item) => sensitivityPoint(item, candidate));
+  const sensitivity = unwrappedOpenLoop.map((item) => sensitivityPoint(item, candidate, filterSeconds));
+  const far = maximumFrequency * 1e6;
+  const farLoop = multiply(plantFrequency(model, far), controllerFrequency(candidate, far, filterSeconds));
+  const farSensitivity = divide({ re: 1, im: 0 }, { re: 1 + farLoop.re, im: farLoop.im });
+  const peakSensitivity = Math.max(...sensitivity.map((item) => 10 ** (item.sensitivityMagnitudeDb / 20)), Math.hypot(farSensitivity.re, farSensitivity.im));
   const locus = buildRootLocus(model, candidate, sweep);
   const uncertainty = buildUncertaintyEnvelope(model, candidate, timeResponse, cycleTime);
-  const requirements = graphicalRequirements(timeResponse, margins, sensitivity);
+  const requirements = graphicalRequirements(timeResponse, margins, peakSensitivity);
   return { evidence: "Model-predicted", comparison: { candidate,
     context: { modelRevision: JSON.stringify(model),
       evidenceRevision: JSON.stringify({ baseline: current.parameters, horizon, steps, options }),
       method: "unit-step-model-prediction-v1" } }, timeResponse, plantBode: unwrappedPlant,
-    candidateOpenLoopBode: unwrappedOpenLoop, nichols, nyquist, sensitivity,
+    candidateOpenLoopBode: unwrappedOpenLoop, nichols, nyquist, sensitivity, peakSensitivity,
     rootLocus: locus, requirements, uncertainty, ...margins };
 }
 
 interface Complex { re: number; im: number }
 interface SimulationState { pid: ControlPidState; pv: number; delay: number[]; lag2: number;
-  operating: { input: number; output: number }; target: number }
+  operating: { input: number; output: number }; target: number; filtered: number; alpha: number; disturbance: number }
 
 function simulationState(model: IdentifiedModel, candidate: ControlPidCandidate, cycleTime: number,
-  operating = { input: 0, output: 0 }, target = 1): SimulationState {
+  operating = { input: 0, output: 0 }, target = 1, filterSeconds = 0, disturbance = 0): SimulationState {
   const delaySamples = Math.min(MAX_PREDICTION_PERIODS + 1, Math.max(0, Math.round((model.deadTimeSeconds ?? 0) / cycleTime)));
   return {
     pid: { setpoint: operating.output, setpointRate: 0, processValue: operating.output, processValueRate: 0,
       feedForward: 0, nominalOutput: operating.input, saturatedOutput: operating.input },
     pv: operating.output,
     delay: Array(delaySamples).fill(operating.input) as number[],
-    lag2: operating.output, operating, target,
+    // An integrating model keeps its rate here; a two-lag model its first lag.
+    lag2: model.kind === "integrating" ? 0 : operating.output, operating, target,
+    // alpha = dt/(Tf + dt): the backward-difference update of Tf·dyf/dt + yf = y.
+    filtered: operating.output, alpha: cycleTime / (filterSeconds + cycleTime), disturbance,
   };
 }
 
 function advance(state: SimulationState, model: IdentifiedModel, candidate: ControlPidCandidate, cycleTime: number) {
+  state.filtered += state.alpha * (state.pv - state.filtered);
   const updated = updateControlPid(candidate.parameters, state.pid, {
-    setpoint: state.target, processValue: state.pv, feedForward: 0, manualOutput: 0,
+    setpoint: state.target, processValue: state.filtered, feedForward: 0, manualOutput: 0,
     trackingOutput: 0, mode: "Auto", cycleTime,
   });
   state.pid = updated.state;
-  state.delay.push(updated.output);
+  state.delay.push(updated.output + state.disturbance);
   const delayed = state.delay.shift() ?? 0;
   if (model.kind === "integrating") {
-    state.pv += cycleTime * model.gain * (delayed - state.operating.input);
+    const rate = model.gain * (delayed - state.operating.input);
+    const lag = model.timeConstantSeconds;
+    if (lag === undefined) {
+      state.pv += cycleTime * rate;
+    } else {
+      // Exact held-input step of K/(s(τs + 1)): the rate approaches K·u with τ, the output integrates the rate.
+      const decay = Math.exp(-cycleTime / lag);
+      state.pv += rate * cycleTime + (state.lag2 - rate) * lag * (1 - decay);
+      state.lag2 = rate + (state.lag2 - rate) * decay;
+    }
   } else {
     const firstTime = model.timeConstantSeconds ?? 1;
     const firstTarget = state.operating.output + model.gain * (delayed - state.operating.input);
@@ -214,12 +244,14 @@ function plantFrequency(model: IdentifiedModel, frequency: number): Complex {
   return multiply(value, { re: Math.cos(angle), im: Math.sin(angle) });
 }
 
-function controllerFrequency(candidate: ControlPidCandidate, frequency: number): Complex {
+function controllerFrequency(candidate: ControlPidCandidate, frequency: number, filterSeconds = 0): Complex {
   const parameters = candidate.parameters;
-  return {
+  const controller = {
     re: parameters.proportionalGain,
     im: parameters.derivativeGain * frequency - parameters.integralGain / frequency,
   };
+  // The controller acts on the filtered measurement: feedback passes 1/(1 + jωTf) first.
+  return filterSeconds > 0 ? divide(controller, { re: 1, im: frequency * filterSeconds }) : controller;
 }
 
 function point(frequencyRadPerSecond: number, value: Complex): FrequencyPoint {
@@ -232,18 +264,21 @@ function point(frequencyRadPerSecond: number, value: Complex): FrequencyPoint {
 
 function stabilityMargins(points: readonly FrequencyPoint[], deadTimeSeconds: number): {
   gainMarginDb: number; phaseMarginDegrees: number;
-  gainCrossover: FrequencyPoint; phaseCrossover: FrequencyPoint | undefined;
+  gainCrossover: FrequencyPoint | undefined; phaseCrossover: FrequencyPoint | undefined;
 } {
   const unwrapped = unwrapPhase(points);
   const gainCross = crossing(unwrapped, (point) => point.magnitudeDb);
   const phaseCross = crossing(unwrapped, (point) => point.phaseDegrees + 180);
-  if (!gainCross) throw new Error("The sampled frequency range does not resolve the gain crossover.");
+  // Below 0 dB at every sampled frequency the loop never crosses: its phase margin is unbounded.
+  if (!gainCross && !unwrapped.every((point) => point.magnitudeDb < 0)) {
+    throw new Error("The sampled frequency range does not resolve the gain crossover.");
+  }
   if (!phaseCross && deadTimeSeconds > 0) {
     throw new Error("The sampled frequency range does not resolve the phase crossover.");
   }
   return {
     gainMarginDb: phaseCross ? -phaseCross.magnitudeDb : Number.POSITIVE_INFINITY,
-    phaseMarginDegrees: 180 + gainCross.phaseDegrees,
+    phaseMarginDegrees: gainCross ? 180 + gainCross.phaseDegrees : Number.POSITIVE_INFINITY,
     gainCrossover: gainCross,
     phaseCrossover: phaseCross,
   };
@@ -311,12 +346,12 @@ function frequencyPointToComplex(point: FrequencyPoint): {
     real: magnitude * Math.cos(phase), imaginary: magnitude * Math.sin(phase) };
 }
 
-function sensitivityPoint(point: FrequencyPoint, candidate: ControlPidCandidate) {
+function sensitivityPoint(point: FrequencyPoint, candidate: ControlPidCandidate, filterSeconds = 0) {
   const loop = frequencyPointToComplex(point);
   const onePlusLoop = { re: 1 + loop.real, im: loop.imaginary };
   const sensitivity = divide({ re: 1, im: 0 }, onePlusLoop);
   const complementary = divide({ re: loop.real, im: loop.imaginary }, onePlusLoop);
-  const control = multiply(controllerFrequency(candidate, point.frequencyRadPerSecond), sensitivity);
+  const control = multiply(controllerFrequency(candidate, point.frequencyRadPerSecond, filterSeconds), sensitivity);
   return {
     frequencyRadPerSecond: point.frequencyRadPerSecond,
     sensitivityMagnitudeDb: magnitudeDb(sensitivity),
@@ -474,12 +509,11 @@ function uncertaintyCornerModels(model: IdentifiedModel): IdentifiedModel[] {
 function graphicalRequirements(
   time: readonly EngineeringTimePoint[],
   margins: { gainMarginDb: number; phaseMarginDegrees: number },
-  sensitivity: EngineeringPlotEvidence["sensitivity"]
+  maximumSensitivity: number
 ): EngineeringPlotEvidence["requirements"] {
   const current = responseMetrics(time.flatMap((point) => point.currentPv === undefined ? [] : [{ time: point.timeSeconds, pv: point.currentPv }]));
   const candidate = responseMetrics(time.map((point) => ({ time: point.timeSeconds, pv: point.candidatePv })));
   const maximumOutput = Math.max(...time.map((point) => Math.abs(point.candidateMv)));
-  const maximumSensitivity = Math.max(...sensitivity.map((point) => 10 ** (point.sensitivityMagnitudeDb / 20)));
   return [
     requirement("Overshoot", "response", candidate.overshootPercent, Math.max(10, current.overshootPercent), "%", "maximum"),
     requirement("Settling time", "response", candidate.settlingSeconds, current.settlingSeconds, "s", "maximum"),

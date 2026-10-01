@@ -188,7 +188,7 @@ export function renderStepResponse(analysis: StepResponseMeasurement, output: st
   rows.push(["Applied change", `${n(analysis.inputChange)} ${displayEngineeringUnit(input)}`],
     ["Step / restoration", `${n(analysis.stepTimeSeconds)} / ${n(analysis.holdEndSeconds)} s`],
     ["Detectable onset", `${n(analysis.detectableOnsetSeconds)} s after step · ${n(analysis.sampleTimeSeconds)} s sampling`],
-    ["Departure / 63.2% level", `${n(analysis.onsetThreshold)} / ${n(analysis.temperature63)} ${unit}`],
+    ["Departure / 63.2% level", `${n(analysis.onsetThreshold)} / ${n(analysis.level63)} ${unit}`],
     ["Onset criterion", `${analysis.settings.onsetSamples} consecutive samples · ${n(analysis.settings.onsetThreshold)} ${unit} ${analysis.final.mean < analysis.baseline.mean ? "below" : "above"} baseline`]);
   if (estimation) {
     rows.push([validation ? "Estimation gain" : "Best gain", `${n(estimation.best.gain)} ${gainUnit}`], [validation ? "Estimation delay" : "Transport delay", `${n(estimation.best.delaySeconds)} s`],

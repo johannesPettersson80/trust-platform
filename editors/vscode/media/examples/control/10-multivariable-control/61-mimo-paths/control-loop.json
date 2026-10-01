@@ -1,63 +1,90 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "topology": "open-loop",
   "id": "control-mimo-paths",
-  "name": "Multivariable paths",
-  "revision": "sha256:64195fbb7b978ee599355a2caa99db86665d860e8101b3a8e3a7a262b5936636",
+  "name": "Multivariable process paths",
   "projectId": "project:control-mimo-paths",
   "runtimeId": "simulator",
   "controller": {
     "instance": "P1",
-    "type": "Open-loop interaction testing and Relative Gain Array pairing",
+    "type": "Open-loop path test",
     "design": "project",
-    "revision": "sha256:curriculum-controller-61",
+    "revision": "sha256:c4b216a18fa0ca0b8a4fa8c28ba778963795e3089d4e79a0cdc44dfb3a4458b6",
     "action": "direct",
     "taskPeriodMs": 100
   },
   "signals": {
     "processVariable": {
-      "symbol": "P1.OverheadPurityDeviation",
+      "symbol": "P1.Vessel1C",
       "address": "%IL0",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "pp",
+      "unit": "degC",
       "range": {
-        "minimum": -6,
-        "maximum": 6
+        "minimum": 0,
+        "maximum": 80
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.RefluxRequested",
-      "address": "%ML0",
+      "symbol": "P1.Heater1Pct",
+      "address": "%QL0",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "pp",
+      "unit": "%",
       "range": {
-        "minimum": -10,
-        "maximum": 10
+        "minimum": 0,
+        "maximum": 100
       }
     },
     "additional": [
+      {
+        "id": "vessel-2",
+        "channel": "vessel-2",
+        "role": "state",
+        "symbol": "P1.Vessel2C",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "heater-2",
+        "channel": "heater-2",
+        "role": "MV",
+        "symbol": "P1.Heater2Pct",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "wall-flow",
+        "channel": "wall-flow",
+        "role": "state",
+        "symbol": "P1.TransferKw",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": -50,
+          "maximum": 50
+        }
+      },
       {
         "id": "experiment-authority",
         "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
-        "address": "%MX16.1",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "automatic-mode",
-        "channel": "automatic-mode",
-        "role": "state",
-        "symbol": "P1.AutoMode",
-        "address": "%MX16.0",
+        "address": "%MX24.0",
         "iecType": "BOOL",
         "direction": "read",
         "unit": "1",
@@ -67,82 +94,89 @@
         }
       },
       {
-        "id": "reboiler-steam-requested-change",
-        "channel": "reboiler-steam-requested-change",
-        "role": "MV",
-        "symbol": "P1.ReboilerRequested",
+        "id": "model-2",
+        "channel": "model-2",
+        "role": "state",
+        "symbol": "P1.Model2C",
         "address": "%ML8",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "pp",
+        "unit": "degC",
         "range": {
-          "minimum": -10,
-          "maximum": 10
+          "minimum": 0,
+          "maximum": 80
         }
       },
       {
-        "id": "reflux-applied-change",
-        "channel": "reflux-applied-change",
-        "role": "MV",
-        "symbol": "P1.RefluxApplied",
-        "address": "%QL0",
+        "id": "model-1",
+        "channel": "model-1",
+        "role": "state",
+        "symbol": "P1.Model1C",
+        "address": "%ML0",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "pp",
+        "unit": "degC",
         "range": {
-          "minimum": -10,
-          "maximum": 10
-        }
-      },
-      {
-        "id": "reboiler-steam-applied-change",
-        "channel": "reboiler-steam-applied-change",
-        "role": "MV",
-        "symbol": "P1.ReboilerApplied",
-        "address": "%QL8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "pp",
-        "range": {
-          "minimum": -10,
-          "maximum": 10
-        }
-      },
-      {
-        "id": "bottoms-heavy-product-purity-deviation",
-        "channel": "bottoms-heavy-product-purity-deviation",
-        "role": "PV",
-        "symbol": "P1.BottomsPurityDeviation",
-        "address": "%IL8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "pp",
-        "range": {
-          "minimum": -6,
-          "maximum": 6
+          "minimum": 0,
+          "maximum": 80
         }
       }
     ]
   },
+  "channels": {
+    "inputs": [
+      {
+        "modelChannelId": "heater-1",
+        "signalId": "manipulatedVariable",
+        "actuator": {
+          "kind": "continuous",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "modelChannelId": "heater-2",
+        "signalId": "heater-2",
+        "actuator": {
+          "kind": "continuous",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "modelChannelId": "vessel-1",
+        "signalId": "processVariable"
+      },
+      {
+        "modelChannelId": "vessel-2",
+        "signalId": "vessel-2"
+      }
+    ]
+  },
   "limits": {
-    "outputMinimum": -10,
-    "outputMaximum": 10
+    "outputMinimum": 0,
+    "outputMaximum": 100
   },
   "observedSampleTiming": {
     "nominalPeriodMs": 100
   },
-  "plantId": "local_binary_distillation_interaction_2x2",
+  "plantId": "coupled-vessels",
+  "operatingPoint": "Both vessels at 35 degC with both heaters at 75%",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 400.1,
+    "durationSeconds": 92.1,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX16.1",
+      "address": "%MX24.0",
       "iecType": "BOOL",
       "direction": "write"
-    }
-  }
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:32cf8f0111b407ab60847fd1e24ac165a3ad7b14016401ebe02551d50adb2698"
 }

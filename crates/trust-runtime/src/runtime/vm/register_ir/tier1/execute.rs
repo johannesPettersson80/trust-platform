@@ -297,7 +297,7 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                     let right = module
                         .consts
                         .get(*const_idx as usize)
-                        .ok_or(VmTrap::InvalidConstIndex(*const_idx))
+                        .ok_or_else(|| VmTrap::InvalidConstIndex(*const_idx))
                         .map_err(VmTrap::into_runtime_error)?;
                     prepare_borrowed_binary_eval(*op, left, right)?
                 };
@@ -335,7 +335,7 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                     let left = module
                         .consts
                         .get(*const_idx as usize)
-                        .ok_or(VmTrap::InvalidConstIndex(*const_idx))
+                        .ok_or_else(|| VmTrap::InvalidConstIndex(*const_idx))
                         .map_err(VmTrap::into_runtime_error)?;
                     let right = peek_ref(runtime, module, frames, *right_ref_idx)
                         .map_err(VmTrap::into_runtime_error)?;
@@ -378,7 +378,7 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                     let right = module
                         .consts
                         .get(*const_idx as usize)
-                        .ok_or(VmTrap::InvalidConstIndex(*const_idx))
+                        .ok_or_else(|| VmTrap::InvalidConstIndex(*const_idx))
                         .map_err(VmTrap::into_runtime_error)?;
                     prepare_borrowed_binary_eval(*op, left, right)?
                 };

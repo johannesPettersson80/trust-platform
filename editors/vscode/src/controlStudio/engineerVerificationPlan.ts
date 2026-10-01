@@ -99,6 +99,11 @@ export function proportionalParameter(loop: ControlLoopDefinition): ParameterBin
   return parameter;
 }
 
+/** The response deadline: the settling time rounded up to a whole task period. */
+export function responseDeadlineSeconds(settlingTimeSeconds: number, stepMs: number): number {
+  return Math.ceil(settlingTimeSeconds * 1000 / stepMs) * stepMs / 1000;
+}
+
 export function engineerVerificationPlan(
   loop: ControlLoopDefinition, model: GeneralModel, task: EngineerRequirements, values: Readonly<Record<string, number>>,
   initialModelState?: readonly number[]
@@ -111,7 +116,7 @@ export function engineerVerificationPlan(
   const step = loop.controller.taskPeriodMs;
   if (!Number.isInteger(step) || step < 1 || step > 1000) throw new Error("This runtime adapter requires a whole-millisecond task period from 1 to 1000.");
   const duration = Math.ceil(task.durationSeconds * 1000 / step) * step;
-  const settled = Math.ceil(task.settlingTimeSeconds * 1000 / step) * step / 1000;
+  const settled = responseDeadlineSeconds(task.settlingTimeSeconds, step);
   if (duration > 600000 || settled >= duration / 1000 || duration / step + 1 > 12000) throw new Error("Choose a run of at most 12000 samples with observations after the response deadline.");
   const states = model.kind === "transfer-function" ? model.denominator.length - 1 : model.states.length;
   const initialInputs = channels.inputs.map((input, index) => {
@@ -119,8 +124,9 @@ export function engineerVerificationPlan(
     return input.actuator.kind === "on-off" && origin !== input.actuator.maximum ? input.actuator.minimum : origin;
   });
   const materialized = materializeSelectedModelSimulation(model, {
-    plantId: "selected-model", commandSources: channels.inputs.map(input => input.signal.address),
-    feedbackTargets: channels.outputs.map(output => output.signal.address), actuatorFeedbackTargets: channels.inputs.map(input => input.applied && !channels.outputs.some(output => output.signal.address === input.applied!.address) ? input.applied.address : null), initialState: initialModelState ?? channels.initialState ?? Array<number>(states).fill(0),
+    // A signal without an address is the program variable itself (Specification 33 §13.1–§13.2).
+    plantId: "selected-model", commandSources: channels.inputs.map(input => input.signal.address ?? input.signal.symbol),
+    feedbackTargets: channels.outputs.map(output => output.signal.address ?? output.signal.symbol), actuatorFeedbackTargets: channels.inputs.map(input => input.applied?.address && !channels.outputs.some(output => output.signal.address === input.applied!.address) ? input.applied.address : null), initialState: initialModelState ?? channels.initialState ?? Array<number>(states).fill(0),
     initialInput: initialInputs.map((value, index) => value - (model.operatingPoint?.inputs[index] ?? 0)),
     initialDelayedInput: initialInputs[0] - (model.operatingPoint?.inputs[0] ?? 0), stepMs: step,
     actuators: channels.inputs.map(input => input.actuator),
@@ -133,7 +139,7 @@ export function engineerVerificationPlan(
   const observations = [...new Map([...primary, ...binding.parameters, ...(initialization?.states ?? [])].map(signal =>
     [signal.symbol, { symbol: signal.symbol, unit: signal.unit }])).values()];
   if ((duration / step + 1) * observations.length > 250000) throw new Error("Verification exceeds the native channel-sample budget; shorten the duration or increase the task period.");
-  if (observations.length > 32) throw new Error("Verification supports at most 32 observed channels, including parameters.");
+  if (observations.length > 64) throw new Error("Verification supports at most 64 observed channels, including parameters.");
   for (const parameter of binding.parameters) {
     const value = values[parameter.symbol];
     if (!Number.isFinite(value) || value < parameter.minimum || value > parameter.maximum
@@ -145,6 +151,8 @@ export function engineerVerificationPlan(
     ...pidOperatingState(loop, initializationModel, values),
     ...(initialization ? initializationValues(loop, initializationModel, initialization, values) : {}),
     [binding.mode.symbol]: Number(!binding.mode.manual_value),
+    // Further controllers switched with the loop, such as a cascade's outer one, run in Auto too (Specification 35 §17.11).
+    ...Object.fromEntries((loop.controller.project?.additionalModes ?? []).map(mode => [mode.symbol, Number(!mode.manualValue)])),
   };
   if (initialization?.states.some(state => binding.parameters.some(parameter => parameter.symbol === state.symbol)
     || [...channels.inputs.map(input => input.signal), ...channels.outputs.flatMap(output => output.reference ? [output.signal, output.reference] : [output.signal])].some(signal => signal.symbol === state.symbol) || state.symbol === binding.mode.symbol)) {
@@ -163,11 +171,17 @@ export function engineerVerificationPlan(
     if (output.reference && !required) throw new Error(`Declare requirements for controlled output ${model.outputs[index].id}.`);
     if (required && output.reference) {
       const target = (model.operatingPoint?.outputs[index] ?? 0) + required.referenceChange;
-      const deadline = Math.ceil(required.settlingTimeSeconds * 1000 / step) * step / 1000;
+      const deadline = responseDeadlineSeconds(required.settlingTimeSeconds, step);
       if (deadline >= window.end || target < output.signal.range.minimum || target > output.signal.range.maximum
         || target < output.reference.range.minimum || target > output.reference.range.maximum
         || target < model.outputs[index].operatingRange.minimum || target > model.outputs[index].operatingRange.maximum) throw new Error(`Target or deadline is outside the declared scope for ${output.signal.symbol}.`);
       initialValues[output.reference.symbol] = target;
+      // A cascade's inner setpoint is the outer output; it holds the target only with the outer PID in Manual.
+      const hold = loop.cascade?.referenceHold;
+      if (hold && output.reference.symbol === loop.signals.setpoint?.symbol) {
+        initialValues[hold.modeSymbol] = Number(hold.manualValue);
+        initialValues[hold.manualOutputSymbol] = target;
+      }
       requirements.push({ id: `${prefix}response-deadline`, kind: "settling", channel: output.signal.symbol,
         target, band: required.maximumError, deadlineSeconds: deadline, holdSeconds: window.end - deadline, window },
       { id: `${prefix}target-error`, kind: "error", channel: output.signal.symbol, reference: { channel: output.reference.symbol },
@@ -177,8 +191,11 @@ export function engineerVerificationPlan(
       minimum: Math.max(output.signal.range.minimum, model.outputs[index].operatingRange.minimum),
       maximum: Math.min(output.signal.range.maximum, model.outputs[index].operatingRange.maximum) });
   }
+  // A measured disturbance is not a controller output: scenarios move it and nothing bounds it as one (Specification 35 §17.12).
+  const actuated = channels.inputs.filter(input => !input.disturbance).length;
   for (const [index, input] of channels.inputs.entries()) {
-    const prefix = channels.inputs.length === 1 ? "" : `${model.inputs[index].id}:`;
+    if (input.disturbance) continue;
+    const prefix = actuated === 1 ? "" : `${model.inputs[index].id}:`;
     const applied = input.applied ?? input.signal;
     requirements.push({ id: `${prefix}output-bounds`, kind: "bounds", channel: applied.symbol, window,
       minimum: Math.max(input.actuator.minimum, model.inputs[index].operatingRange.minimum),
@@ -211,12 +228,16 @@ export function engineerVerificationPlan(
   }
   requirements.push(...binding.parameters.map(parameter => ({ id: `fixed-parameter:${parameter.symbol}`, kind: "bounds" as const,
     channel: parameter.symbol, window, minimum: values[parameter.symbol], maximum: values[parameter.symbol] })));
+  // One check per condition: an ON/OFF controller's switching levels and dwell times can repeat its on-off output's.
+  const condition = (requirement: RunRequirement) => JSON.stringify(Object.entries(requirement).filter(([key]) => key !== "id")
+    .sort(([left], [right]) => left.localeCompare(right)));
+  const unique = requirements.filter((requirement, index) => requirements.findIndex(other => condition(other) === condition(requirement)) === index);
   return { coordinates: materialized.stateCoordinateDescription,
     request: { step_ms: step, duration_ms: duration, seed: loop.experiment?.seed ?? 1,
       max_total_cycles: duration / step + 1, wall_budget_ms: 10000,
       initial_values: initialValues,
       events: [], observations, simulation_override: materialized.simulation_override,
       parameter_overrides: binding.parameters.map(parameter => ({ ...parameter, value: values[parameter.symbol] })),
-    }, requirements,
+    }, requirements: unique,
   };
 }

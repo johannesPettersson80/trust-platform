@@ -36,12 +36,12 @@ ${[["model", "Identify"], ["tune", "Tune"], ["verify", "Validate"]].map(([id, la
  <p class="studio-action-message" data-studio-message="model" role="status" hidden></p>
  ${loop ? renderThreePageExperimentTemplate(loop, escape) : ""}
  ${renderThreePageIdentificationTemplate()}
- <div class="studio-result" data-studio-model-result hidden><p data-studio-model-type></p><p class="studio-model-equation" data-studio-model-equation></p></div>
+ <div class="studio-result" data-studio-model-result hidden><p data-studio-model-type></p><p class="studio-model-equation" data-studio-model-equation></p><p data-studio-relay-cycle hidden></p></div>
 </section>
 <section id="studio-page-tune" data-studio-page="tune" role="tabpanel" aria-labelledby="studio-tab-tune" hidden>
  <div class="studio-fields">
   <div class="studio-controller-row"><label class="studio-field">Controller<select data-studio-controller>${loop ? `<option value="${escape(loop.controller.instance)}">${escape(controllerInstanceLabel(loop.controller))} · ${escape(loop.controller.type)}</option>` : '<option value="">Select controller</option>'}</select></label>${loop?.channels && (loop.channels.inputs.length > 1 || loop.channels.outputs.length > 1) ? '<button type="button" class="trust-button studio-auxiliary" data-engineer-channels>Channels…</button>' : ''}</div>
-  <label class="studio-field">Tuning method<select data-engineer-tuning-method><option value="automatic">Automatic</option><option value="SIMC">Simple internal model control (SIMC)</option><option value="AMIGO">Approximate M-constrained integral gain optimization (AMIGO)</option><option value="manual">Manual</option></select></label>
+  <label class="studio-field">Tuning method<select data-engineer-tuning-method><option value="automatic">Automatic</option><option value="SIMC">Simple internal model control (SIMC)</option><option value="AMIGO">Approximate M-constrained integral gain optimization (AMIGO)</option><option value="relay" hidden disabled>Relay rule (Ziegler–Nichols PI)</option><option value="manual">Manual</option></select></label>
  </div>
  <div class="studio-actions"><button class="trust-button trust-button--primary" data-engineer-tune disabled>Tune controller</button><button class="trust-button studio-auxiliary" data-studio-requirements>Requirements…</button></div>
  <p class="studio-action-message" data-studio-message="tune" role="status">Identify a plant model first.</p>

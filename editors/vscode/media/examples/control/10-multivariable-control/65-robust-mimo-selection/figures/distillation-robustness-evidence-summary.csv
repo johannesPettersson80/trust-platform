@@ -1,4 +1,0 @@
-architecture,status,strong_overhead_cross_peak_pp,strong_common_final_error_pp,strong_common_iae_pp_s,infeasible_final_error_pp,minimum_common_scale
-direct,rejected,0.144696,0.172813,126.485637,1.027470,1.000000
-static_decoupling,selected,0.053452,0.076655,79.512223,0.417445,1.000000
-centralized_coordinator,equivalent_in_normal_envelope,0.053452,0.076655,79.512223,0.274695,0.843583

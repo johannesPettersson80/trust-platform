@@ -3,4 +3,4 @@ kind = "trend"
 icon = "line-chart"
 order = 50
 duration_s = 60
-signals = ["P1.ExperimentElapsed", "P1.QualifiedRelayApplied", "P1.QualifiedTemperature", "P1.RelayAmplitude"]
+signals = ["P1.TemperatureC", "P1.SetpointC", "P1.AppliedPowerPct"]

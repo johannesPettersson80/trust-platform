@@ -521,6 +521,29 @@ impl Parser<'_, '_> {
         marker.complete(self, SyntaxKind::InitializerList);
     }
 
+    /// Whether the parser is at `name :=`, an aggregate initializer's first element written without its parentheses.
+    pub(crate) fn at_bare_aggregate_initializer_start(&self) -> bool {
+        matches!(
+            self.current(),
+            TokenKind::Ident | TokenKind::KwEn | TokenKind::KwEno
+        ) && self.peek_kind_n(1) == TokenKind::Assign
+    }
+
+    /// An aggregate initializer's elements without their own parentheses, up to the enclosing `)`.
+    pub(crate) fn parse_bare_initializer_list(&mut self) {
+        let marker = self.start();
+        self.parse_initializer_element();
+        while self.at(TokenKind::Comma) {
+            self.bump();
+            if self.at(TokenKind::RParen) {
+                self.error("expected initializer field");
+                break;
+            }
+            self.parse_initializer_element();
+        }
+        marker.complete(self, SyntaxKind::InitializerList);
+    }
+
     fn parse_initializer_element(&mut self) {
         if matches!(
             self.current(),

@@ -1,58 +1,55 @@
 import { experimentFromSamples } from "./identificationExperiment";
-import { controllerChannelMapping, controllerRequirementLoop, assertControllerRequirements, ChannelRequirementsRequired } from "./controllerChannelPreferences";
-import type { LoopChannels } from "./loopChannels";
+import { controllerChannelMapping, controllerRequirementLoop, ChannelRequirementsRequired } from "./controllerChannelPreferences";
 import { reconcileManualApplication } from "./manualApplicationReconciliation";
 import { engineerPrediction, selectedModelFrequencyAnalysis } from "./engineerPrediction";
 import { decodeModelComparison, type ModelComparison } from "./modelComparison";
-import { generalModelFitComparison } from "./generalModelFitPresentation";
-import { acquisitionSettings, configuredAcquisition, AcquisitionLimitsRequired, type AcquisitionSettings } from "./acquisitionSettings";
+import { acquisitionSettings, configuredAcquisition, AcquisitionLimitsRequired } from "./acquisitionSettings";
 import { decodeRecordingCatalog, type RecordingSignalCatalog } from "./openedRecordingChannels";
-import { controllerTuningPreferences, type ControllerTuningPreferences } from "./controllerTuningPreferences";
-import { InterruptedCommissioningRecovery } from "./interruptedCommissioningRecovery";
+import { controllerTuningPreferences } from "./controllerTuningPreferences";
 import type { CommissioningCheckpoint, CommissioningCheckpointWriter } from "./commissioningCheckpoint";
-import { tuneProjectController } from "./projectController";
-import type { ControllerTuningResult } from "./controllerTuning";
 import { stateControllerPoles, type StateControllerDesign } from "./stateControllerDesign";
 import { isControllerFamily } from "./controllerFamilies";
 import { bindRuntimeConnection } from "./runtimeConnection";
-import { tuneControllerAdapter, proportionalDesignLoop, type ControllerDesign } from "./controllerTuning";
-import { parseStateDesignDraft } from "./stateDesignPreferences";
-import type { EngineerDraft } from "./engineerDraft";
-import { engineerVerificationCampaign, campaignStatus, validEngineerScenarios, type EngineerScenario, type EngineerScenarioResult } from "./engineerVerificationCampaign";
-import { decodeControllerSettingsPins, pinnedControllerGains, type ControllerSettingsPins } from "./controllerSettingsPins";
-import { controllerAdapter } from "./controllerAdapters";
+import { tuneControllerAdapter, proportionalDesignLoop } from "./controllerTuning";
+import { validEngineerScenarios } from "./engineerVerificationCampaign";
+import { currentControllerGains, decodeControllerSettingsPins, pinnedControllerGains } from "./controllerSettingsPins";
+import { controllerAdapter, type ControllerGains } from "./controllerAdapters";
 import { modelReadyReason } from "./engineerWorkflowPresentation";
-import { matchesGainRecovery } from "./gainRecoveryContext";
 import { designManualProportionalCandidate } from "./manualProportionalDesign";
-import { ProportionalCommissioning, type CommissioningResult } from "./proportionalCommissioning";
-import { PidCommissioning } from "./pidCommissioning";
+import { type CommissioningResult } from "./proportionalCommissioning";
 import type { LoopRecording } from "./loopMonitor";
-import type { EngineerGainChoice, EngineerGainPin } from "./engineerGainChoice";
+import type { EngineerGainPin } from "./engineerGainChoice";
 import { decodePidLaw } from "./controllerLaw";
+import { selectedModelRelayCycle, type RelayCycleEvidence } from "./relayCycleEvidence";
 import { decodeEngineerStudy, type EngineerStudy, type SavedEngineerFamilyEvaluation } from "./engineerStudyPersistence";
 import type { ControlLoopDefinition } from "./loopDefinition";
 import type { GeneralModel } from "./generalModel";
 import type { ControlStudioStageEvidence } from "./stageAvailability";
 import type { LoopMessageScope } from "./messages";
-import { engineerRequirements, engineerVerificationPlan, proportionalParameter, type EngineerRequirements } from "./engineerVerificationPlan";
+import { engineerRequirements, proportionalParameter, type EngineerRequirements } from "./engineerVerificationPlan";
 import { connectRuntimeSearch } from "./runtimeSearchConnection";
+import type { SearchConnection } from "./finiteSearchSession";
+import { compareOnModel } from "./modelPredictionRuns";
 import { connectRuntimeParameters } from "./runtimeParameterConnection";
 import { RuntimeVerificationClient, type RuntimeVerificationResult, type RuntimeVerificationAttempt } from "./verificationClient";
-import { sameParameterHistory, sameParameterValues, type ParameterApplicationClient, type ParameterReview, type ParameterStatus } from "./parameterApplication";
-import { randomUUID } from "crypto";
+import { type ParameterStatus } from "./parameterApplication";
 import { isDeepStrictEqual } from "util";
-import { ConnectedIdentification, type ConnectedIdentificationPorts } from "./connectedIdentification";
+import { type ConnectedIdentificationPorts } from "./connectedIdentification";
 import { identificationRecovery } from "./connectedIdentificationRecovery";
-import { checkIndependentModel } from "./modelValidationSession";
-import { resolveEngineerRequirements, previewAutomaticRequirements } from "./automaticEngineerRequirements";
-import { recordingFingerprint, type IndependentModelValidation } from "./independentModelValidation";
-import type { AutomaticIdentificationResult, IdentificationCampaignRecord } from "./automaticIdentification";
+import { previewAutomaticRequirements } from "./automaticEngineerRequirements";
 import { identifiedModelPresentation, type AcceptedIdentificationModel } from "./identification";
-import { dispatchPendingManualApplication } from "./panelPersistence";
-import { classifyMainWorkflowFailure, mainWorkflowNextActionLabel, verificationFailure, verificationFailureReason } from "./mainWorkflowFailure";
+import { classifyMainWorkflowFailure, mainWorkflowNextActionLabel } from "./mainWorkflowFailure";
+import { ApplyPrecondition } from "./commissioningStartingPoint";
 import { AutomaticControllerSelectionError } from "./automaticControllerRecommendation";
-import { configuredPlantRequest, usesConfiguredPlant } from "./configuredPlantVerification";
 import { assertEngineerModelCompatibility, assertQualifiedModelResult } from "./engineerModelCompatibility";
+import { createEngineerSessionState, type EngineerSessionState } from "./engineerSessionState";
+import { candidateMargins } from "./candidateMargins";
+import type { EngineerActionContext, EngineerActionHost } from "./engineerActions/host";
+import { identifyPlant } from "./engineerActions/find";
+import { tuneCandidate } from "./engineerActions/tune";
+import { validateCandidate } from "./engineerActions/verify";
+import { confirmReviewedOperation, reviewApplication } from "./engineerActions/application";
+import { reviewInterruptedRollback, reviewReplacementRuntime, retireInterruptedOperation } from "./engineerActions/recovery";
 
 /** Serializable host owner; deliberately excludes the single-use review and runtime client. */
 export interface PendingManualApplicationOwner {
@@ -75,59 +72,9 @@ export type ManualApplicationCloseRecovery = PendingManualApplicationRecovery | 
 
 /** Connects the existing model, design, isolated runtime and parameter transaction services. */
 export class EngineerWorkflowSession {
-  private acquisitionPreferences: AcquisitionSettings | undefined;
-  private recordingCatalog: RecordingSignalCatalog | undefined;
-  private tuningPreferences: ControllerTuningPreferences | undefined;
-  private scenarioDefinitions: readonly EngineerScenario[] | undefined;
-  private runtimeReplacementReview: ParameterStatus | undefined;
-  private interruptedCheckpoint: CommissioningCheckpoint | undefined;
-  private readonly tuningRuns: RuntimeVerificationResult[] = [];
-  private retainedDraft: EngineerDraft | undefined;
-  private settingsPins: ControllerSettingsPins | undefined;
-  private requiredScenarios: readonly string[] = [];
-  private readonly scenarioResults: EngineerScenarioResult[] = [];
-  private campaignPassed = false;
-  private verifiedInputs: string | undefined;
-  private generation = 0;
-  private readonly handledMessages = new Set<string>();
-  private design: ControllerDesign | undefined;
-  private gainChoice: EngineerGainChoice | undefined;
-  private pinModel: GeneralModel | undefined;
-  private task: EngineerRequirements | undefined;
-  private verified: RuntimeVerificationResult | undefined;
-  private verifier: RuntimeVerificationClient | undefined;
-  private values: Record<string, number> | undefined;
-  private review: { client: ParameterApplicationClient; value: ParameterReview; rollback: boolean; commissioning?: ProportionalCommissioning | PidCommissioning | InterruptedCommissioningRecovery } | undefined;
-  private commissioning: ProportionalCommissioning | PidCommissioning | InterruptedCommissioningRecovery | undefined;
-  private commissioned: CommissioningResult | undefined;
-  private applicationMode: "auto" | "manual" = "auto";
-  private family: NonNullable<EngineerStudy["family"]> = "P";
-  private controllerChoice: NonNullable<EngineerStudy["controllerChoice"]> = "automatic";
-  private familyEvaluations: readonly SavedEngineerFamilyEvaluation[] | undefined;
-  private busy: "verify" | "apply" | undefined;
-  private identification: ConnectedIdentification | undefined;
-  private modelComparison: ModelComparison | undefined;
-  private modelValidation: IndependentModelValidation | undefined;
-  private recordedBaseline: RuntimeVerificationResult | undefined;
-  private recordedCandidate: RuntimeVerificationResult | undefined;
-  private initialization: RuntimeVerificationResult | undefined;
-  private recordedInitialization: RuntimeVerificationResult | undefined;
-  private modelPrediction: EngineerStudy["modelPrediction"];
-  private pendingFind: Promise<unknown> | undefined;
-  private pendingVerification: Promise<unknown> | undefined;
-  private pendingManualApplication: {
-    operation: PendingManualApplicationRecovery["operation"];
-    origin: PendingManualApplicationRecovery["origin"];
-    settling: Promise<ParameterStatus>;
-  } | undefined;
-  private manualApplicationRecovery: { recovery: PendingManualApplicationOwner; reason: string } | undefined;
-  private cancelling = false;
-  private pendingInputOperation: Promise<boolean> | undefined;
-  private cancellationOwner: Pick<RuntimeVerificationClient, "cancel" | "snapshot"> | undefined;
-  private readonly verificationAttempts: RuntimeVerificationAttempt[] = [];
-  private readonly campaigns: (IdentificationCampaignRecord & { id: string })[] = [];
-  private channelMapping: LoopChannels | undefined;
-  private get loop(): ControlLoopDefinition { return controllerRequirementLoop(this.configuredLoop, this.channelMapping, this.task); }
+  private readonly state: EngineerSessionState;
+  private readonly host: EngineerActionHost;
+  private get loop(): ControlLoopDefinition { return controllerRequirementLoop(this.configuredLoop, this.state.channelMapping, this.state.task); }
   constructor(private readonly configuredLoop: ControlLoopDefinition, private readonly model: () => GeneralModel | undefined,
     private readonly acceptIdentification: (accepted: AcceptedIdentificationModel) => void,
     private readonly retainRecording?: (recording: LoopRecording) => Promise<void>,
@@ -136,12 +83,36 @@ export class EngineerWorkflowSession {
     private readonly acceptFittedModel?: (model: GeneralModel) => void,
     private readonly retainIsolatedOperation?: (attempt: RuntimeVerificationAttempt) => Promise<void>,
     private readonly retainCommissioningCheckpoint?: CommissioningCheckpointWriter,
-    private readonly liveIdentification?: ConnectedIdentificationPorts) { this.scenarioDefinitions = configuredLoop.verificationScenarios; }
+    private readonly liveIdentification?: ConnectedIdentificationPorts) {
+    this.state = createEngineerSessionState(configuredLoop.verificationScenarios);
+    this.host = this.actionHost();
+  }
+
+  /** The one view the action owners (`engineerActions/*`) have of this session. */
+  private actionHost(): EngineerActionHost {
+    return {
+      state: this.state, loop: () => this.loop, model: () => this.model(),
+      liveIdentification: this.liveIdentification, retainIsolatedOperation: this.retainIsolatedOperation, acceptFittedModel: this.acceptFittedModel,
+      retainRecording: this.retainRecording, retainPendingManualApplication: this.retainPendingManualApplication,
+      retainCommissioningCheckpoint: this.retainCommissioningCheckpoint,
+      acceptIdentification: accepted => this.acceptIdentification(accepted),
+      retainIdentificationComparison: accepted => this.retainIdentificationComparison(accepted),
+      retainAttempt: attempt => this.retainAttempt(attempt),
+      updateFamilyEvaluation: (family, status, reason) => this.updateFamilyEvaluation(family, status, reason),
+      clearIncompatiblePin: () => this.clearIncompatiblePin(), compatiblePin: pin => this.compatiblePin(pin),
+      relayCycle: () => this.relayCycle(), currentStageEvidence: () => this.currentStageEvidence(),
+      availableFamilies: () => this.availableFamilies(), requirementLoop: () => this.requirementLoop(), scenarioLoop: () => this.scenarioLoop(),
+      inputSignature: () => this.inputSignature(), checkVerifiedProject: () => this.checkVerifiedProject(), invalidate: () => this.invalidate(),
+      requireManualRecovery: (recovery, reason) => this.requireManualRecovery(recovery, reason),
+      compareOnModel: (connection, model, task, observed, values, generation) => this.compareOnModel(connection, model, task, observed, values, generation),
+      programLawPrediction: (model, task, values, generation, respond) => this.programLawPrediction(model, task, values, generation, respond),
+    };
+  }
 
   retainIdentificationComparison(accepted: AcceptedIdentificationModel): void {
     const selected = this.model();
     if (!selected) return;
-    this.modelComparison = { modelRevision: selected.revision,
+    this.state.modelComparison = { modelRevision: selected.revision,
       presentation: { ...identifiedModelPresentation(accepted.model, accepted.fit,
         this.loop.signals.manipulatedVariable.unit, this.loop.signals.processVariable.unit),
       experiment: experimentFromSamples(this.loop, accepted.review.validation) } };
@@ -150,26 +121,26 @@ export class EngineerWorkflowSession {
   retainOpenedRecordings(runs: readonly RuntimeVerificationResult[]): void {
     this.assertModelReplacementAllowed();
     const id = `opened-recording:${runs.map(result => result.run.id).join(":")}`;
-    if (this.campaigns.some(campaign => campaign.id === id)) return;
-    const campaigns = [...this.campaigns, { id, status: "completed" as const, runs }];
+    if (this.state.campaigns.some(campaign => campaign.id === id)) return;
+    const campaigns = [...this.state.campaigns, { id, status: "completed" as const, runs }];
     if (!decodeEngineerStudy({ campaigns })) throw new Error("The recording archive exceeds the study limits or contains invalid data.");
-    this.campaigns.push(campaigns[campaigns.length - 1]);
+    this.state.campaigns.push(campaigns[campaigns.length - 1]);
   }
 
   retainRecordingCatalog(value: RecordingSignalCatalog): void {
     const catalog = decodeRecordingCatalog(value);
     if (!catalog) throw new Error("The recording signal selection is invalid.");
-    this.recordingCatalog = catalog;
+    this.state.recordingCatalog = catalog;
   }
 
   retainModelComparison(value: ModelComparison): void {
     const comparison = decodeModelComparison(value, this.model());
     if (!comparison) throw new Error("The recorded fit does not match the selected model.");
-    this.modelComparison = comparison;
+    this.state.modelComparison = comparison;
   }
 
   modelChanged(): Record<string, unknown> {
-    this.modelValidation = undefined;
+    this.state.modelValidation = undefined;
     this.invalidate();
     this.clearIncompatiblePin();
     let model: GeneralModel | undefined;
@@ -177,16 +148,16 @@ export class EngineerWorkflowSession {
     try {
       model = this.model();
       if (!model) {
-        this.modelComparison = undefined;
+        this.state.modelComparison = undefined;
         return { status: "edited", stageEvidence: this.currentStageEvidence() };
       }
-      this.modelComparison = decodeModelComparison(this.modelComparison, model);
+      this.state.modelComparison = decodeModelComparison(this.state.modelComparison, model);
       modelAnalysis = selectedModelFrequencyAnalysis(model);
       assertQualifiedModelResult(this.loop, model);
-      this.task = previewAutomaticRequirements(configuredAcquisition(controllerRequirementLoop(this.configuredLoop, this.channelMapping, undefined), this.acquisitionPreferences), model, this.task, this.campaigns);
-      const evidence = this.currentStageEvidence(), families = this.availableFamilies();
-      return { status: "model-ready", task: this.task, compatibleControllerRequired: evidence?.hasModel !== true, model, ...(this.modelComparison ? { identificationPresentation: this.modelComparison.presentation } : {}), ...(modelAnalysis ? { modelAnalysis } : {}), stageEvidence: this.currentStageEvidence(), gainChoice: this.gainChoice,
-        availableFamilies: families, controllerChoice: this.controllerChoice,
+      this.state.task = previewAutomaticRequirements(this.requirementLoop(), model, this.state.task, this.state.campaigns);
+      const evidence = this.currentStageEvidence(), families = this.availableFamilies(), relayCycle = this.relayCycle();
+      return { status: "model-ready", task: this.state.task, compatibleControllerRequired: evidence?.hasModel !== true, model, ...(this.state.modelComparison ? { identificationPresentation: this.state.modelComparison.presentation } : {}), ...(modelAnalysis ? { modelAnalysis } : {}), ...(relayCycle ? { relayCycle } : {}), stageEvidence: this.currentStageEvidence(), gainChoice: this.state.gainChoice,
+        availableFamilies: families, controllerChoice: this.state.controllerChoice, recommendedFamily: this.recommendedFamily(),
         reason: evidence?.hasModel ? modelReadyReason(model, families) : "Choose a compatible controller on Tune." };
     } catch (error) {
       const failure = classifyMainWorkflowFailure("tune", error);
@@ -199,520 +170,176 @@ export class EngineerWorkflowSession {
     if (!record(message) || message.schemaVersion !== 1 || message.projectId !== scope.projectId || message.editorSessionId !== scope.editorSessionId
       || message.loopId !== scope.loopId || message.expectedLoopRevision !== scope.loopRevision || !record(message.payload)
       || typeof message.messageId !== "string" || typeof message.kind !== "string" || !message.kind.startsWith("control-studio.engineer.")) return false;
-    if (this.handledMessages.has(message.messageId)) {
+    if (this.state.handledMessages.has(message.messageId)) {
       await post({ status: "busy", reason: "This request has already been handled; no runtime operation was repeated." });
       return true;
     }
-    if (this.handledMessages.size >= 4096) {
+    if (this.state.handledMessages.size >= 4096) {
       await post({ status: "busy", reason: "Session request limit reached. Finish recovery and reopen the panel before starting new work." });
       return true;
     }
-    this.handledMessages.add(message.messageId);
+    this.state.handledMessages.add(message.messageId);
     const action = message.kind.slice("control-studio.engineer.".length);
     const requestedApplicationMode = message.payload.applicationMode;
     if (requestedApplicationMode !== undefined && requestedApplicationMode !== "auto" && requestedApplicationMode !== "manual") return false;
-    const applicationMode = requestedApplicationMode ?? this.applicationMode;
+    const applicationMode = requestedApplicationMode ?? this.state.applicationMode;
     if (!["find", "tune", "verify", "apply", "confirm", "rollback", "invalidate", "cancel", "clear-review", "retry-recovery", "inspect", "review-runtime"].includes(action)) return false;
     if (action === "inspect") {
       const vscode = await import("vscode");
       await vscode.commands.executeCommand("workbench.action.quickOpen", `#${this.loop.controller.instance}`);
       return true;
     }
-    if (this.interruptedCheckpoint && !["completed", "recovered", "retired"].includes(this.interruptedCheckpoint.stage) && !["rollback", "confirm", "cancel", "review-runtime"].includes(action)) {
+    if (this.state.interruptedCheckpoint && !["completed", "recovered", "retired"].includes(this.state.interruptedCheckpoint.stage) && !["rollback", "confirm", "cancel", "review-runtime"].includes(action)) {
       await post({ status: "recovery-required", commissioningCheckpoint: true, reason: "Commissioning was interrupted. Review rollback to reconcile the retained runtime operations before starting new work." });
       return true;
     }
-    if (!this.busy && this.commissioned?.recoveryConfirmed === false && !["rollback", "confirm", "review-runtime"].includes(action)) {
-      await post({ status: "recovery-required", commissioningCheckpoint: true, commissioning: this.commissioned,
+    if (!this.state.busy && this.state.commissioned?.recoveryConfirmed === false && !["rollback", "confirm", "review-runtime"].includes(action)) {
+      await post({ status: "recovery-required", commissioningCheckpoint: true, commissioning: this.state.commissioned,
         reason: "Recovery remains unconfirmed. Review Rollback on the current runtime before starting new work." });
       return true;
     }
-    if (this.busy === "apply" && action === "cancel" && this.commissioning) {
-      const generation = this.generation;
-      const result = await this.commissioning.cancel();
-      if (result && generation === this.generation) {
-        this.commissioned = result;
+    if (action === "cancel" && this.state.applySettling) { this.state.applySettling.cancelled = true; return true; }
+    if (this.state.busy === "apply" && action === "cancel" && this.state.commissioning) {
+      const generation = this.state.generation;
+      const result = await this.state.commissioning.cancel();
+      if (result && generation === this.state.generation) {
+        this.state.commissioned = result;
         if (result.recording) await this.retainRecording?.(result.recording);
-        if (result.recoveryConfirmed) this.busy = undefined;
+        if (result.recoveryConfirmed) this.state.busy = undefined;
         await post({ status: result.status === "passed" ? "commissioned" : "failed", commissioning: result,
           observed: result.parameters, reason: `Auto commissioning ${result.status}: ${result.reason}` });
       }
       return true;
     }
-    if (this.busy === "apply" && action !== "review-runtime") { await post({ status: "busy", reason: "The parameter transaction is awaiting observed confirmation." }); return true; }
+    if (this.state.busy === "apply" && action !== "review-runtime") { await post({ status: "busy", reason: "The parameter transaction is awaiting observed confirmation." }); return true; }
     if (action === "invalidate" || action === "cancel") {
       const current = this.invalidateInputs(action, message.payload, applicationMode, post);
-      const operation = Promise.all([this.pendingInputOperation, current]).then(() => true);
-      this.pendingInputOperation = operation;
+      const operation = Promise.all([this.state.pendingInputOperation, current]).then(() => true);
+      this.state.pendingInputOperation = operation;
       try { return await operation; }
-      finally { if (this.pendingInputOperation === operation) this.pendingInputOperation = undefined; }
+      finally { if (this.state.pendingInputOperation === operation) this.state.pendingInputOperation = undefined; }
     }
     // Input changes must finish cancellation and their replies before a new
     // candidate is produced; a late edit reply would otherwise hide that result.
-    const generation = this.generation;
-    await this.pendingInputOperation;
-    if (generation !== this.generation) return true;
-    if (this.busy && action !== "review-runtime") { await post({ status: "busy", reason: "Verification is running. Cancel it before changing the candidate." }); return true; }
-    if (this.manualApplicationRecovery && action !== "apply" && action !== "rollback" && action !== "retry-recovery") {
-      await post({ status: "recovery-required", retryManualRecovery: true, observed: "observed" in this.manualApplicationRecovery.recovery
-        ? this.manualApplicationRecovery.recovery.observed : undefined, reason: this.manualApplicationRecovery.reason });
+    const generation = this.state.generation;
+    await this.state.pendingInputOperation;
+    if (generation !== this.state.generation) return true;
+    if (this.state.busy && action !== "review-runtime") { await post({ status: "busy", reason: "Verification is running. Cancel it before changing the candidate." }); return true; }
+    if (this.state.manualApplicationRecovery && action !== "apply" && action !== "rollback" && action !== "retry-recovery") {
+      await post({ status: "recovery-required", retryManualRecovery: true, observed: "observed" in this.state.manualApplicationRecovery.recovery
+        ? this.state.manualApplicationRecovery.recovery.observed : undefined, reason: this.state.manualApplicationRecovery.reason });
       return true;
     }
-    if (applicationMode === "auto" || applicationMode === "manual") this.applicationMode = applicationMode;
-    if (action === "clear-review") { this.review = undefined; await post({ status: "review-cleared", reason: "Apply will review the selected application mode." }); return true; }
+    if (applicationMode === "auto" || applicationMode === "manual") this.state.applicationMode = applicationMode;
+    if (action === "clear-review") { this.state.review = undefined; await post({ status: "review-cleared", reason: "Apply will review the selected application mode." }); return true; }
     const respond = async (payload: Record<string, unknown>) => {
-      if (generation !== this.generation) return;
+      if (generation !== this.state.generation) return;
       if (payload.status === "model-ready" && this.model()) {
-        payload.modelAnalysis = selectedModelFrequencyAnalysis(this.model()!); this.task = previewAutomaticRequirements(configuredAcquisition(controllerRequirementLoop(this.configuredLoop, this.channelMapping, undefined), this.acquisitionPreferences), this.model()!, this.task, this.campaigns);
+        payload.modelAnalysis = selectedModelFrequencyAnalysis(this.model()!); this.state.task = previewAutomaticRequirements(this.requirementLoop(), this.model()!, this.state.task, this.state.campaigns);
       }
-      if (payload.status === "candidate" && this.design) {
-        const gains = pinnedControllerGains(this.loop, this.family, this.design.candidate, this.settingsPins);
-        if (this.settingsPins && this.task && !this.loop.controller.stateFeedback && !this.loop.controller.onOff && !this.loop.controller.project && !decodePidLaw(this.loop.controller.law, this.loop.parameterBinding)) {
+      if (payload.status === "candidate" && this.state.design) {
+        const gains = pinnedControllerGains(this.loop, this.state.family, this.state.design.candidate, this.state.settingsPins);
+        if (this.state.settingsPins && this.state.task && !this.loop.controller.stateFeedback && !this.loop.controller.onOff && !this.loop.controller.project && !decodePidLaw(this.loop.controller.law, this.loop.parameterBinding)) {
           const parameter = proportionalParameter(this.loop);
-          this.design = designManualProportionalCandidate(this.model(), gains.proportionalGain!, {
-            referenceChange: this.task.referenceChange, constantInputDisturbance: this.task.constantInputDisturbance ?? 0,
-            maximumSteadyError: this.task.maximumError - this.task.settlingBand, settlingBand: this.task.settlingBand,
-            settlingTimeSeconds: this.task.settlingTimeSeconds,
+          this.state.design = designManualProportionalCandidate(this.model(), gains.proportionalGain!, {
+            referenceChange: this.state.task.referenceChange, constantInputDisturbance: this.state.task.constantInputDisturbance ?? 0,
+            maximumSteadyError: this.state.task.maximumError - this.state.task.settlingBand, settlingBand: this.state.task.settlingBand,
+            settlingTimeSeconds: this.state.task.settlingTimeSeconds,
             proportionalGainBounds: { minimum: parameter.minimum, maximum: parameter.maximum },
           });
         }
-        if (this.settingsPins) {
-          delete payload.stability; delete payload.attempts; this.familyEvaluations = undefined;
+        if (this.state.settingsPins) {
+          delete payload.stability; delete payload.attempts; this.state.familyEvaluations = undefined;
           payload.reason = "Pinned settings retained in the candidate. Verify the actual ST before application.";
         }
-        this.design = { ...this.design, candidate: { ...this.design.candidate, ...gains } } as typeof this.design;
-        this.values = controllerAdapter(this.loop).materialize(this.design!.candidate, this.values ?? {});
-        if (this.loop.controller.stateFeedback) this.design = { ...this.design as StateControllerDesign,
-          ...(this.settingsPins ? { status: "exploratory" as const, scope: "Manual coefficient pins retained; current sampled poles are recalculated, and no original optimality claim is retained." } : {}),
-          closedLoopPoles: stateControllerPoles(this.loop, this.model()!, this.values) };
-        payload.design = this.design; payload.values = this.values;
-        this.retainedDraft = { modelRevision: this.model()!.revision, loopRevision: this.loop.revision, family: this.family,
-          values: structuredClone(this.values), design: structuredClone(this.design) as unknown as Record<string, unknown> };
+        this.state.design = { ...this.state.design, candidate: { ...this.state.design.candidate, ...gains } } as typeof this.state.design;
+        this.state.values = controllerAdapter(this.loop).materialize(this.state.design!.candidate, this.state.values ?? {});
+        if (this.loop.controller.stateFeedback) this.state.design = { ...this.state.design as StateControllerDesign,
+          ...(this.state.settingsPins ? { status: "exploratory" as const, scope: "Manual coefficient pins retained; current sampled poles are recalculated, and no original optimality claim is retained." } : {}),
+          closedLoopPoles: stateControllerPoles(this.loop, this.model()!, this.state.values) };
+        payload.design = this.state.design; payload.values = this.state.values;
+        this.state.retainedDraft = { modelRevision: this.model()!.revision, loopRevision: this.loop.revision, family: this.state.family,
+          values: structuredClone(this.state.values), design: structuredClone(this.state.design) as unknown as Record<string, unknown> };
       }
       if (payload.status === "model-ready" && this.model()) {
-        payload.modelAnalysis = selectedModelFrequencyAnalysis(this.model()!); this.task = previewAutomaticRequirements(configuredAcquisition(controllerRequirementLoop(this.configuredLoop, this.channelMapping, undefined), this.acquisitionPreferences), this.model()!, this.task, this.campaigns);
+        payload.modelAnalysis = selectedModelFrequencyAnalysis(this.model()!); this.state.task = previewAutomaticRequirements(this.requirementLoop(), this.model()!, this.state.task, this.state.campaigns);
       }
-      if (payload.status === "candidate" && this.design) payload.plots = engineerPrediction(this.model(), this.loop, this.design.candidate, this.task);
-      if (generation === this.generation) await post({ ...payload, ...(this.task ? { task: this.task } : {}), ...(this.modelValidation ? { modelValidation: this.modelValidation } : {}), requiredScenarios: this.requiredScenarios, channelMapping: this.channelMapping, ...(this.commissioned?.recoveryConfirmed === false ? { commissioningCheckpoint: true } : {}), tuningPreferences: this.tuningPreferences, acquisitionSettings: this.acquisitionPreferences, scenarioDefinitions: this.scenarioDefinitions ?? [], stageEvidence: this.currentStageEvidence(), gainChoice: this.gainChoice, settingsPins: this.settingsPins ?? null, verificationAttempts: this.verificationAttempts, campaigns: this.campaigns, controllerChoice: this.controllerChoice, availableFamilies: this.availableFamilies(), studyAvailable: Boolean(this.model() || this.task || this.campaigns.length) }); };
+      if (payload.status === "candidate" && this.state.design) {
+        const plots = engineerPrediction(this.model(), this.loop, this.state.design.candidate, this.state.task, await this.runningControllerGains());
+        payload.plots = plots;
+        // A program's own law keeps its ST prediction on the chart; its linear loop still gives the margins (Specification 35 §17.10).
+        const margins = candidateMargins(this.model(), this.loop, this.state.design, this.state.task, plots);
+        if (margins) payload.robustness = margins;
+      }
+      if (generation === this.state.generation) await post({ ...payload, ...(this.state.task ? { task: this.state.task } : {}), ...(this.state.modelValidation && payload.status !== "running" ? { modelValidation: this.state.modelValidation } : {}), requiredScenarios: this.state.requiredScenarios, channelMapping: this.state.channelMapping, ...(this.state.commissioned?.recoveryConfirmed === false ? { commissioningCheckpoint: true } : {}), tuningPreferences: this.state.tuningPreferences, acquisitionSettings: this.state.acquisitionPreferences, scenarioDefinitions: this.state.scenarioDefinitions ?? [], stageEvidence: this.currentStageEvidence(), gainChoice: this.state.gainChoice, settingsPins: this.state.settingsPins ?? null, verificationAttempts: this.state.verificationAttempts, controllerChoice: this.state.controllerChoice, availableFamilies: this.availableFamilies(), recommendedFamily: this.recommendedFamily(), studyAvailable: Boolean(this.model() || this.state.task || this.state.campaigns.length) }); };
+    const context: EngineerActionContext = { payload: message.payload, respond, post, generation, applicationMode: applicationMode as "auto" | "manual" };
     try {
       if (action === "retry-recovery") {
         if (!this.retryManualRecovery) throw new Error("No persisted Manual recovery is available to retry.");
         await this.retryManualRecovery(async payload => respond({ ...payload, retryManualRecovery: true }));
         return true;
       }
-      if (action === "find") {
-        this.recordingCatalog = undefined;
-        if (message.payload.acquisitionSettings !== undefined) {
-          const settings = acquisitionSettings(message.payload.acquisitionSettings);
-          if (!settings) throw new Error("Review acquisition method, duration, amplitude and relay direction before finding a model.");
-          this.acquisitionPreferences = settings;
-        }
-        const acquisitionLoop = configuredAcquisition(this.loop, this.acquisitionPreferences);
-        this.campaignPassed = false; this.verifiedInputs = undefined;
-    this.design = undefined; this.verified = undefined; this.initialization = undefined; this.values = undefined; this.review = undefined;
-        this.busy = "verify";
-        try {
-          await respond({ status: "running", reason: "Preparing the simulator…" });
-          const connection = await connectRuntimeSearch(this.loop, { cancelled: () => generation !== this.generation });
-          if (connection.source !== "simulation") throw new Error("This automatic campaign requires the local simulator.");
-          if (generation !== this.generation) return true;
-          if (!this.liveIdentification) throw new Error("The live plant acquisition service is unavailable.");
-          this.identification = new ConnectedIdentification(connection.request, this.liveIdentification);
-          const campaign = this.identification;
-          this.cancellationOwner = campaign.cancellationOwner();
-          let found: AutomaticIdentificationResult;
-          await respond({ status: "running", liveIdentification: true });
-          const finding = campaign.run(acquisitionLoop, reason => respond({ status: "running", reason }));
-          this.pendingFind = finding;
-          try { found = await finding; }
-          finally {
-            if (this.pendingFind === finding) this.pendingFind = undefined;
-            this.campaigns.push({ id: randomUUID(), ...campaign.snapshot() });
-            this.retainAttempt(campaign.cancellationOwner().snapshot());
-            campaign.dispose();
-          }
-          if (generation !== this.generation) return true;
-          this.modelValidation = undefined;
-          if ("model" in found) {
-            if (!this.acceptFittedModel) throw new Error("Identification has no selected-model handoff.");
-            this.acceptFittedModel(found.model);
-          } else this.acceptIdentification(found.accepted);
-          this.clearIncompatiblePin();
-          const selected = this.model();
-          if (!selected) throw new Error("Find model did not select its accepted model.");
-          assertQualifiedModelResult(this.loop, selected);
-          if ("accepted" in found) this.retainIdentificationComparison(found.accepted);
-          else this.modelComparison = found.fit ? generalModelFitComparison(selected, found.fit, found.runs, this.loop) : undefined;
-          await respond({ status: "model-ready", model: selected, compatibleControllerRequired: this.currentStageEvidence()?.hasModel !== true, identification: found,
-            ...(this.modelComparison ? { identificationPresentation: this.modelComparison.presentation } : {}),
-            reason: modelReadyReason(selected, this.availableFamilies()) });
-        } finally { if (!this.cancelling && this.cancellationOwner?.snapshot()?.status !== "cancellation-unconfirmed") { this.busy = undefined; this.cancellationOwner = undefined; } }
-        return true;
-      }
-      if (action === "tune") {
-        this.campaignPassed = false; this.verifiedInputs = undefined;
-        this.design = undefined; this.values = undefined; this.verified = undefined; this.initialization = undefined; this.review = undefined;
-        const model = this.model();
-        if (!model) throw new Error("Find or supply a model first.");
-        assertEngineerModelCompatibility(this.loop, model);
-        if (message.payload.pinnedValues !== undefined) message.payload.settingsPins = message.payload.pinnedValues === null ? null
-          : { loopRevision: this.loop.revision, family: isControllerFamily(message.payload.family) ? message.payload.family : this.family, values: message.payload.pinnedValues };
-        if (message.payload.settingsPins === null) this.settingsPins = undefined;
-        else if (message.payload.settingsPins !== undefined) {
-          const pin = decodeControllerSettingsPins(message.payload.settingsPins);
-          if (!pin || pin.loopRevision !== this.loop.revision) throw new Error("Pinned settings do not match the current loop revision.");
-          this.settingsPins = pin;
-        }
-        if (this.settingsPins) {
-          if (message.payload.family !== undefined && message.payload.family !== "automatic" && message.payload.family !== this.settingsPins.family) {
-            throw new Error("Clear pinned settings before changing controller family.");
-          }
-          message.payload.family = this.settingsPins.family;
-        }
-        if (message.payload.family === undefined) message.payload.family = this.controllerChoice;
-        if (this.gainChoice?.pin && this.compatiblePin(this.gainChoice.pin) && message.payload.gainMode !== "automatic") {
-          message.payload.family = "P";
-          message.payload.gainMode = "manual";
-          message.payload.proportionalGain ??= this.gainChoice.pin.value;
-        }
-        if ((message.payload.family === "automatic" || isControllerFamily(message.payload.family))) {
-          this.controllerChoice = message.payload.family as NonNullable<EngineerStudy["controllerChoice"]>;
-        }
-        if (message.payload.scenarioDefinitions !== undefined) {
-          if (JSON.stringify(message.payload.scenarioDefinitions).length > 256000 || !validEngineerScenarios(message.payload.scenarioDefinitions)) throw new Error("Invalid mandatory verification scenario policy.");
-          this.scenarioDefinitions = structuredClone(message.payload.scenarioDefinitions);
-        }
-        if (message.payload.tuningPreferences !== undefined) {
-          const preferences = controllerTuningPreferences(message.payload.tuningPreferences);
-          if (!preferences) throw new Error("Choose a supported tuning method and finite controller settings.");
-          this.tuningPreferences = preferences;
-        }
-        if (this.tuningPreferences?.method === "state-design" && this.tuningPreferences.stateDesignDraft) {
-          this.tuningPreferences.stateDesign = parseStateDesignDraft(this.tuningPreferences.stateDesignDraft,
-            String(message.payload.family ?? this.loop.controller.stateFeedback?.family ?? this.family));
-        }
-        const task = resolveEngineerRequirements(configuredAcquisition(controllerRequirementLoop(this.configuredLoop, this.channelMapping, undefined), this.acquisitionPreferences), model, message.payload, this.tuningPreferences, this.campaigns);
-        assertControllerRequirements(this.loop, task);
-        this.task = task;
-        let tuned: ControllerTuningResult;
-        if (this.tuningPreferences?.method === "manual") {
-          tuned = tuneControllerAdapter(this.loop, model, task, { family: String(message.payload.family), applicationMode,
-            manualValues: this.tuningPreferences.values ?? {}, pinnedValues: this.settingsPins?.values });
-        } else if (this.loop.controller.project) {
-          if (message.payload.family !== "automatic" && !controllerAdapter(this.loop).families.includes(message.payload.family as typeof this.family)) throw new Error("Choose the controller family declared by the current ST adapter.");
-          const selectedProjectFamily = message.payload.family === "automatic" ? undefined : message.payload.family as typeof this.family;
-          this.busy = "verify";
-          const tuning = (async () => {
-            const connection = await connectRuntimeSearch(this.loop, { cancelled: () => generation !== this.generation });
-            if (connection.source !== "simulation") throw new Error("Native controller tuning requires isolated simulation.");
-            const parameters = await connectRuntimeParameters(this.loop);
-            const observed = await parameters.client.status();
-            const readiness = await connection.request("control.simulation.run.status", {});
-            if (!record(readiness) || readiness.ready !== true || typeof readiness.project_revision !== "string") {
-              throw new Error("The loaded source project is not ready for native controller tuning.");
-            }
-            if (generation !== this.generation) throw new Error("Controller tuning cancelled.");
-            this.verifier = new RuntimeVerificationClient({ source: "simulation", request: connection.request }, this.retainIsolatedOperation);
-            this.cancellationOwner = this.verifier;
-            const design = await tuneProjectController(this.scenarioLoop(), model, task, observed.values, this.settingsPins?.values ?? {}, readiness.project_revision, this.verifier,
-              () => generation !== this.generation, result => this.tuningRuns.push(result), attempt => this.retainAttempt(attempt),
-              reason => respond({ status: "running", reason }), selectedProjectFamily);
-            return { family: design.candidate.structure, design, values: { ...design.candidate.parameters },
-              reason: "Native tuning retained the best qualifying declared-grid candidate. Verify the reviewed final campaign before application." };
-          })();
-          this.pendingVerification = tuning;
-          try { tuned = await tuning; }
-          finally {
-            this.retainAttempt(this.verifier?.snapshot());
-            if (this.pendingVerification === tuning) this.pendingVerification = undefined;
-            if (!this.cancelling && this.verifier?.snapshot()?.status !== "cancellation-unconfirmed") { this.busy = undefined; this.cancellationOwner = undefined; }
-          }
-          if (generation !== this.generation) return true;
-        } else tuned = tuneControllerAdapter(this.loop, model, task, { family: String(message.payload.family), applicationMode,
-          gainMode: message.payload.gainMode, proportionalGain: message.payload.proportionalGain,
-          pinnedValues: this.settingsPins?.values, stateDesign: this.tuningPreferences?.stateDesign },
-          this.gainChoice?.pin && this.compatiblePin(this.gainChoice.pin) ? this.gainChoice : undefined);
-        this.family = tuned.family;
-        this.design = tuned.design; this.task = task; this.values = tuned.values;
-        if (tuned.gainChoice) {
-          this.gainChoice = tuned.gainChoice;
-          if (tuned.gainChoice.mode === "manual") this.pinModel = structuredClone(model);
-        }
-        this.familyEvaluations = tuned.attempts?.map(attempt => ({ family: attempt.structure,
-          status: attempt.status === "Feasible" ? "model-qualified" : "unavailable", reason: attempt.reason }));
-        await respond({ status: "candidate", ...tuned, tuningRuns: this.tuningRuns });
-        return true;
-      }
+      if (action === "find") return await identifyPlant(this.host, context);
+      if (action === "tune") return await tuneCandidate(this.host, context);
 
-      if (action === "verify") {
-        let model = this.model(); const design = this.design; const task = this.task;
-        if (!model || !design || !task || model.revision !== design.selectedModel.revision) throw new Error("Tune against the selected model before verification.");
-        this.verified = undefined; this.initialization = undefined; this.review = undefined; this.scenarioResults.splice(0); this.busy = "verify";
-        const verifying = (async () => { try {
-          await respond({ status: "running", reason: "Preparing the simulator…" });
-          const connection = await connectRuntimeSearch(this.loop, { cancelled: () => generation !== this.generation });
-          if (connection.source !== "simulation") throw new Error("Start the local simulator before Verify.");
-          if (model.validation === "unvalidated") {
-            this.requiredScenarios = ["plant-model"]; this.verifier?.dispose(); this.verifier = undefined;
-            this.modelValidation = await checkIndependentModel(configuredAcquisition(this.loop, this.acquisitionPreferences), model, this.campaigns,
-              connection.request, this.liveIdentification, () => generation !== this.generation,
-              (acquisition, owner) => { this.identification = acquisition; this.cancellationOwner = owner; },
-              campaign => this.campaigns.push({ id: randomUUID(), ...campaign }), respond);
-            if (generation !== this.generation) return true;
-            if (this.modelValidation.status !== "Pass") {
-              await respond({ status: "verification-failed", reason: this.modelValidation.rows.find(row => row.status !== "Pass")?.reason ?? "Independent model validation did not pass." });
-              return true;
-            }
-            model = { ...model, validation: "validated", evidence: [...model.evidence, recordingFingerprint(this.modelValidation.record.run)] };
-            if (!this.acceptFittedModel) throw new Error("The validated model has no workflow handoff.");
-            this.acceptFittedModel(model);
-            if (this.pinModel?.revision === model.revision) this.pinModel = model;
-            if (this.modelComparison) this.modelComparison = { ...this.modelComparison, presentation: { ...this.modelComparison.presentation, uncertainty: { label: "Independent model validation passed on Validate." } } };
-            await respond({ status: "running", model, activity: "controller-check", reason: "Model checked. Validating the tuned controller…" });
-          }
-          const parameterClient = await connectRuntimeParameters(this.loop);
-          const observed = await parameterClient.client.status();
-          if (generation !== this.generation) return true;
-          const candidateGains = design.candidate;
-          const adapter = controllerAdapter(this.loop);
-          const values = adapter.materialize(candidateGains, observed.values);
-          const baseline = engineerVerificationPlan(this.loop, model, task, observed.values);
-          const campaign = engineerVerificationCampaign(this.scenarioLoop(), model, task, values);
-          const candidate = campaign[0];
-          this.requiredScenarios = [...(this.modelValidation ? ["plant-model"] : []), ...campaign.map(scenario => scenario.id), "controller-transfer"];
-          this.scenarioResults.splice(0); this.campaignPassed = false;
-          this.verifier = new RuntimeVerificationClient({ source: "simulation", request: connection.request }, this.retainIsolatedOperation);
-          this.cancellationOwner = this.verifier;
-          const predictedBaseline = await this.verifier.verify(baseline.request, baseline.requirements);
-          if (generation !== this.generation) return true;
-          this.tuningRuns.push(predictedBaseline);
-          const predictedCandidate = await this.verifier.verify(candidate.request, candidate.requirements);
-          if (generation !== this.generation) return true;
-          this.tuningRuns.push(predictedCandidate);
-          if (predictedBaseline.projectRevision !== predictedCandidate.projectRevision) throw new Error("The project changed during model prediction.");
-          this.modelPrediction = { baseline: predictedBaseline, candidate: predictedCandidate };
-          await respond({ status: "running", modelPrediction: { baseline: predictedBaseline.evaluation, candidate: predictedCandidate.evaluation }, reason: "Comparing current and tuned responses on the identified model." });
-          await respond({ status: "running", reason: "Executing baseline and candidate ST from the selected operating point, model initial states and declared controller initialization." });
-          const baselineResult = await this.verifier.verify(configuredPlantRequest(baseline.request), baseline.requirements);
-          if (generation !== this.generation) return true;
-          this.recordedBaseline = baselineResult;
-          const result = await this.verifier.verify(configuredPlantRequest(candidate.request), candidate.requirements);
-          if (generation !== this.generation) return true;
-          if (baselineResult.projectRevision !== result.projectRevision || result.projectRevision !== predictedCandidate.projectRevision) throw new Error("The project changed between prediction, baseline and candidate verification.");
-          this.recordedCandidate = result;
-          this.scenarioResults.push({ id: candidate.id, result });
-          for (const scenario of campaign.slice(1)) {
-            await respond({ status: "running", reason: `Executing mandatory scenario: ${scenario.id}.` });
-            if (generation !== this.generation) return true;
-            const scenarioResult = await this.verifier.verify(usesConfiguredPlant(this.scenarioLoop(), scenario.id) ? configuredPlantRequest(scenario.request) : scenario.request, scenario.requirements);
-            this.scenarioResults.push({ id: scenario.id, result: scenarioResult });
-            if (generation !== this.generation) return true;
-            if (scenarioResult.projectRevision !== result.projectRevision) throw new Error("The program changed during the mandatory verification campaign.");
-          }
-          this.campaignPassed = campaignStatus(campaign.map(scenario => scenario.id), this.scenarioResults) === "Pass" && (!this.modelValidation || this.modelValidation.status === "Pass");
-          this.updateFamilyEvaluation(this.family,
-            this.campaignPassed ? "actual-pass" : "actual-fail",
-            `Actual ST verification ${result.evaluation.status}.`);
-          if (applicationMode === "auto" && this.campaignPassed) {
-            const plan = adapter.initialization(model, task, values);
-            const initialization = await this.verifier.verify(configuredPlantRequest(plan.request), plan.requirements);
-            if (generation !== this.generation) return true;
-            if (initialization.projectRevision !== result.projectRevision) throw new Error("The program changed before initialization verification.");
-            this.initialization = initialization; this.recordedInitialization = initialization;
-          }
-          this.verified = result; this.values = values;
-          this.verifiedInputs = this.inputSignature();
-          const passed = this.campaignPassed && (applicationMode !== "auto" || this.initialization?.evaluation.status === "Pass");
-          const failure = passed ? undefined : this.campaignPassed
-            ? { cause: "implementation" as const, nextAction: "review-implementation" as const }
-            : verificationFailure(this.scenarioResults.flatMap(entry => entry.result.evaluation.requirements));
-          await respond({ status: passed ? "verified" : "verification-failed", baseline: baselineResult.evaluation,
-            candidate: result.evaluation, modelPrediction: { baseline: predictedBaseline.evaluation, candidate: predictedCandidate.evaluation }, scenarioResults: this.scenarioResults, campaignStatus: campaignStatus(campaign.map(scenario => scenario.id), this.scenarioResults), initialization: this.initialization?.evaluation, coordinates: "Configured plant with declared controller initialization",
-            ...(failure ? { failure } : {}),
-            reason: passed ? "Verification passed: actual ST satisfies every declared mandatory scenario requirement."
-              : this.campaignPassed ? `Transfer verification failed: inspect the first output, mode and parameter evidence. Next: ${mainWorkflowNextActionLabel(failure!.nextAction)}.`
-              : `${verificationFailureReason(this.scenarioResults.flatMap(entry => entry.result.evaluation.requirements))} Next: ${mainWorkflowNextActionLabel(failure!.nextAction)}.` });
-        } finally {
-          const owner = this.verifier ?? this.cancellationOwner;
-          const attempt = owner?.snapshot(); this.retainAttempt(attempt);
-          if (attempt?.status === "cancellation-unconfirmed") this.cancellationOwner = owner;
-          else if (!this.cancelling) { this.busy = undefined; this.cancellationOwner = undefined; }
-        } })();
-        this.pendingVerification = verifying;
-        try { await verifying; } finally { if (this.pendingVerification === verifying) this.pendingVerification = undefined; }
-        return true;
-      }
-      if (action === "review-runtime") {
-        if (!this.interruptedCheckpoint) throw new Error("No interrupted commissioning checkpoint is retained.");
-        const current = await (await connectRuntimeParameters(this.loop)).client.status();
-        if (current.program_revision === this.interruptedCheckpoint.origin.program_revision || current.status === "pending") {
-          throw new Error("The original runtime is still active or has a pending operation. Review rollback to recover that operation.");
-        }
-        this.runtimeReplacementReview = current;
-        this.review = undefined;
-        await respond({ status: "review", runtimeReplacementReview: true, replacementRuntimeAvailable: true, previous: this.interruptedCheckpoint.origin.values, next: current.values,
-          reason: "A new runtime epoch is active. Confirm archiving the previous unresolved operation as historical and starting a fresh study. This writes no controller values and does not claim the previous operation completed." });
-        return true;
-      }
-      if (action === "confirm" && this.runtimeReplacementReview && this.interruptedCheckpoint) {
-        const reviewed = this.runtimeReplacementReview;
-        this.runtimeReplacementReview = undefined;
-        const current = await (await connectRuntimeParameters(this.loop)).client.status();
-        if (!sameParameterHistory(current, reviewed) || current.status === "pending" || !this.retainCommissioningCheckpoint) throw new Error("The replacement runtime changed; review it again.");
-        await this.retainCommissioningCheckpoint({ ...this.interruptedCheckpoint, stage: "retired", replacementProgramRevision: current.program_revision });
-        this.interruptedCheckpoint = undefined; this.commissioning = undefined; this.commissioned = undefined;
-        this.invalidate();
-        await post({ status: "edited", recoveryResolved: true, reason: "Previous runtime operation retained as unresolved history. Find or supply a model and verify against the current runtime before application." });
-        return true;
-      }
-      if (action === "rollback" && this.interruptedCheckpoint) {
-        if (!this.retainCommissioningCheckpoint) throw new Error("The commissioning recovery journal is unavailable.");
-        const connection = await connectRuntimeParameters(this.loop);
-        const current = await connection.client.status();
-        if (current.program_revision !== this.interruptedCheckpoint.origin.program_revision && current.status !== "pending") {
-          await respond({ status: "failed", replacementRuntimeAvailable: true, reason: "The runtime restarted. Review its current settings before continuing." }); return true;
-        }
-        const recovery = await InterruptedCommissioningRecovery.review(this.loop, this.interruptedCheckpoint, connection.client,
-          async checkpoint => { await this.retainCommissioningCheckpoint!(checkpoint); this.interruptedCheckpoint = checkpoint.stage === "recovered" ? undefined : checkpoint; });
-        this.review = { client: connection.client, value: recovery.parameterReview(), rollback: true, commissioning: recovery };
-        await respond({ status: "review", rollback: true, previous: this.review.value.observed.values,
-          next: this.review.value.values, reason: recovery.rollbackDescription() });
-        return true;
-      }
-      if (action === "confirm") {
-        const retained = this.review; this.review = undefined;
-        if (!retained) throw new Error("Review the exact application or rollback first.");
-        if (!retained.rollback) await this.checkVerifiedProject();
-        if (generation !== this.generation) return true;
-        this.busy = "apply";
-        try {
-          if (retained.commissioning && !retained.rollback) {
-            if (!this.retainCommissioningCheckpoint) throw new Error("Persist commissioning recovery before dispatching the reviewed operation.");
-            retained.commissioning.setCheckpointWriter(async checkpoint => {
-              await this.retainCommissioningCheckpoint!(checkpoint);
-              this.interruptedCheckpoint = checkpoint.stage === "recovered" ? undefined : checkpoint;
-            });
-            this.commissioning = retained.commissioning;
-            await respond({ status: "commissioning", reason: "Commissioning the reviewed controller and recording its response. Cancel remains available." });
-            const result = await retained.commissioning.run(); this.commissioned = result;
-            if (result.recording) await this.retainRecording?.(result.recording);
-            await respond({ status: result.status === "passed" ? "commissioned" : "failed", commissioning: result,
-              observed: result.parameters, initialization: this.initialization?.evaluation,
-              ...(result.status !== "passed" && result.recoveryConfirmed ? { failure: { cause: "model-or-data", nextAction: "find-model" } } : {}),
-              reason: result.status === "passed" ? result.reason : `Auto commissioning ${result.status}: ${result.reason}` });
-            return true;
-          }
-          if (retained.rollback && retained.commissioning) {
-            this.commissioning = retained.commissioning;
-            await respond({ status: "commissioning", reason: "Recovering the reviewed controller in Manual. Cancel can retry an unconfirmed recovery." });
-          }
-          if (!retained.commissioning) {
-            const owner: PendingManualApplicationOwner = {
-              operation: retained.rollback ? "rollback" : "apply",
-              origin: { program_revision: retained.value.observed.program_revision, binding_revision: retained.value.observed.binding_revision,
-                review: { transaction_id: retained.value.transaction_id, active_revision: retained.value.observed.active_revision, previous_revision: retained.value.observed.previous_revision,
-                  values: { ...retained.value.observed.values }, requested: { ...retained.value.values } } },
-            };
-            let ownerRetained = false;
-            const applying = dispatchPendingManualApplication(owner, async value => {
-              if (!this.retainPendingManualApplication) throw new Error("Could not retain the pending Manual transaction before dispatch.");
-              await this.retainPendingManualApplication(value);
-              ownerRetained = true;
-            }, async (): Promise<ParameterStatus> => {
-              const observed = retained.rollback ? await retained.client.rollback(retained.value, false) : await retained.client.apply(retained.value, false);
-              await respond({ status: "applied", observed, reason: retained.rollback
-                ? "Previous values restored and observed after ST execution in Manual."
-                : "Candidate values staged in Manual and observed after ST execution. Automatic-mode transfer remains a separate commissioning operation." });
-              return observed;
-            });
-            const pendingApplication = {
-              ...owner,
-              settling: applying,
-            };
-            this.pendingManualApplication = pendingApplication;
-            try { await applying; }
-            catch (error) {
-              if (!ownerRetained) throw error;
-              this.busy = undefined;
-              const reason = this.requireManualRecovery(owner,
-                `The Manual ${owner.operation} could not be confirmed: ${explanation(error)}. Retry recovery to inspect the retained transaction.`);
-              await respond({ status: "recovery-required", retryManualRecovery: true, reason });
-            } finally { if (this.pendingManualApplication === pendingApplication) this.pendingManualApplication = undefined; }
-            return true;
-          }
-          const observed = retained.rollback && retained.commissioning ? await retained.commissioning.rollback()
-            : await retained.client.apply(retained.value, false);
-          if (retained.rollback && retained.commissioning) this.commissioned = retained.commissioning.recordedOutcome();
-          await respond({ status: "applied", observed, recoveryResolved: retained.rollback, applicationAction: retained.rollback ? "restore" : "apply", reason: retained.rollback ? "Previous values restored and observed after ST execution in Manual." : "Candidate values staged in Manual and observed after ST execution. Automatic-mode transfer remains a separate commissioning operation." });
-        } finally { if (this.commissioning?.recoveryConfirmed !== false || this.commissioning instanceof InterruptedCommissioningRecovery) this.busy = undefined; }
-        return true;
-      }
-      if (action === "apply") await this.checkVerifiedProject();
-      const connection = await connectRuntimeParameters(this.loop);
-      if (connection.source !== "simulation") throw new Error("This connected commissioning adapter requires the local simulator; physical application needs its explicit reviewed path.");
-      if (action === "apply") {
-        await this.checkVerifiedProject();
-        const value = await connection.client.review(this.values!);
-        await this.checkVerifiedProject();
-        if (generation !== this.generation) return true;
-        this.review = { client: connection.client, value, rollback: false };
-        this.manualApplicationRecovery = undefined;
-        if (applicationMode === "auto") {
-          if (this.initialization?.evaluation.status !== "Pass" || this.initialization.projectRevision !== this.verified?.projectRevision) {
-            throw new Error("Verify the Auto initialization case before commissioning.");
-          }
-          this.review.commissioning = await controllerAdapter(this.loop).commission(this.model()!, this.task!, connection.client, value);
-        }
-      } else {
-        const observed = await connection.client.status();
-        const matchesCommissioning = sameParameterHistory(observed, this.commissioned?.parameters)
-          || (!this.commissioned?.parameters && this.commissioned?.recoveryConfirmed === false
-            && matchesGainRecovery(observed, this.commissioned.gainRecovery));
-        if (matchesCommissioning && this.commissioned) {
-          controllerAdapter(this.loop).assertRecoveryNeeded(this.commissioned, this.model());
-        }
-        const value = await connection.client.reviewRollback();
-        if (generation !== this.generation) return true;
-        let commissioning: ProportionalCommissioning | PidCommissioning | InterruptedCommissioningRecovery | undefined;
-        if (matchesCommissioning && this.commissioned) {
-          const model = this.model();
-          if (!model || !this.task) throw new Error("Restore the compatible model and task before reviewing commissioning recovery.");
-          commissioning = this.commissioning ?? await controllerAdapter(this.loop).recover(
-            model, this.task, connection.client, value, this.commissioned);
-        }
-        if (generation !== this.generation) return true;
-        this.review = { client: connection.client, value, rollback: true, commissioning };
-        this.manualApplicationRecovery = undefined;
-      }
-      await respond({ status: "review", rollback: this.review.rollback, previous: this.review.value.observed.values,
-        next: this.review.value.values, reason: this.review.commissioning && !this.review.rollback
-          ? this.review.commissioning.description() : this.review.commissioning
-          ? this.review.commissioning.rollbackDescription() : "Review the exact change, then confirm application." });
+      if (action === "verify") return await validateCandidate(this.host, context);
+      if (action === "review-runtime") return await reviewReplacementRuntime(this.host, context);
+      if (action === "confirm" && this.state.runtimeReplacementReview && this.state.interruptedCheckpoint) return await retireInterruptedOperation(this.host, context);
+      if (action === "rollback" && this.state.interruptedCheckpoint) return await reviewInterruptedRollback(this.host, context);
+      if (action === "confirm") return await confirmReviewedOperation(this.host, context);
+      return await reviewApplication(this.host, context, action as "apply" | "rollback");
     } catch (error) {
-      this.review = undefined;
-      if (this.manualApplicationRecovery) {
-        const owner = this.manualApplicationRecovery.recovery;
+      this.state.review = undefined;
+      if (this.state.manualApplicationRecovery) {
+        const owner = this.state.manualApplicationRecovery.recovery;
         const reason = this.requireManualRecovery(owner,
           `The retained ${owner.operation} is still unconfirmed: ${explanation(error)}. Retry recovery after reconnecting.`);
         await respond({ status: "recovery-required", retryManualRecovery: true, reason });
         return true;
       }
-      if (action === "tune") { this.design = undefined; this.values = undefined; this.verified = undefined; this.campaignPassed = false; }
-      const recovery = this.busy === "apply" ? this.commissioning?.recordedOutcome() : undefined;
-      if (recovery?.recoveryConfirmed === false) this.commissioned = recovery;
+      if (action === "tune") { this.state.design = undefined; this.state.values = undefined; this.state.verified = undefined; this.state.campaignPassed = false; }
+      const recovery = this.state.busy === "apply" ? this.state.commissioning?.recordedOutcome() : undefined;
+      if (recovery?.recoveryConfirmed === false) this.state.commissioned = recovery;
       if (error instanceof AutomaticControllerSelectionError) {
-        this.familyEvaluations = error.attempts.map(attempt => ({ family: attempt.structure,
+        this.state.familyEvaluations = error.attempts.map(attempt => ({ family: attempt.structure,
           status: "unavailable", reason: attempt.reason }));
       }
       const failure = classifyMainWorkflowFailure(action, error);
-      await respond({ status: "failed", scenarioResults: this.scenarioResults, ...(recovery?.recoveryConfirmed === false ? { commissioning: recovery } : {}),
+      await respond({ status: "failed", scenarioResults: this.state.scenarioResults, ...(this.state.initialization ? { initialization: this.state.initialization.evaluation } : {}), ...(recovery?.recoveryConfirmed === false ? { commissioning: recovery } : {}),
         ...(error instanceof AcquisitionLimitsRequired || error instanceof ChannelRequirementsRequired ? { missing: error.missing } : {}),
         ...(error instanceof AutomaticControllerSelectionError ? { attempts: error.attempts } : {}),
-        failure, ...(this.interruptedCheckpoint && !["completed", "recovered", "retired"].includes(this.interruptedCheckpoint.stage) ? { commissioningCheckpoint: true } : {}), reason: error instanceof AutomaticControllerSelectionError
+        failure, ...(this.state.interruptedCheckpoint && !["completed", "recovered", "retired"].includes(this.state.interruptedCheckpoint.stage) ? { commissioningCheckpoint: true } : {}), reason: error instanceof AutomaticControllerSelectionError
           ? "No controller candidate fits the current model and limits. Choose a compatible controller or review Requirements."
-          : `${action} failed: ${explanation(error)} Next: ${mainWorkflowNextActionLabel(failure.nextAction)}.` });
+          : error instanceof ApplyPrecondition ? error.message
+          : `${failedOperationLabel(action)} failed: ${explanation(error)} Next: ${mainWorkflowNextActionLabel(failure.nextAction)}.` });
     }
     return true;
+  }
+
+  private async compareOnModel(connection: SearchConnection, model: GeneralModel, task: EngineerRequirements,
+    observed: Readonly<Record<string, number>>, values: Readonly<Record<string, number>>, generation: number) {
+    const comparison = await compareOnModel({ loop: this.loop, scenarioLoop: () => this.scenarioLoop(), retainIsolatedOperation: this.retainIsolatedOperation,
+      adopt: verifier => { this.state.verifier = verifier; this.state.cancellationOwner = verifier; }, record: run => { this.state.tuningRuns.push(run); },
+      current: () => generation === this.state.generation }, connection, model, task, observed, values);
+    if (comparison) this.state.modelPrediction = { baseline: comparison.predictedBaseline, candidate: comparison.predictedCandidate };
+    return comparison;
+  }
+
+  /** Specification 35 §9: a switching or state-feedback law in the program is predicted by its own ST on the selected model. */
+  private async programLawPrediction(model: GeneralModel, task: EngineerRequirements, values: Readonly<Record<string, number>>,
+    generation: number, respond: (payload: Record<string, unknown>) => Promise<void>) {
+    this.state.busy = "verify";
+    try {
+      await respond({ status: "running", reason: "Predicting the current and tuned responses on the model…" });
+      const connection = await connectRuntimeSearch(this.loop, { cancelled: () => generation !== this.state.generation });
+      const observed = await (await connectRuntimeParameters(this.loop)).client.status();
+      if (generation !== this.state.generation) return undefined;
+      return await this.compareOnModel(connection, model, task, observed.values, values, generation);
+    } catch (error) {
+      return { unavailable: `No predicted response: ${explanation(error)}` };
+    } finally {
+      if (!this.state.cancelling && this.state.verifier?.snapshot()?.status !== "cancellation-unconfirmed") { this.state.busy = undefined; this.state.cancellationOwner = undefined; }
+    }
   }
 
   snapshotStudy(): EngineerStudy | undefined { return this.captureStudy(false); }
@@ -720,43 +347,43 @@ export class EngineerWorkflowSession {
   snapshotDraft(): EngineerStudy | undefined { return this.captureStudy(true); }
 
   snapshotUnresolvedRecoveryStudy(): EngineerStudy | undefined {
-    if (this.busy !== "apply" || !this.commissioning
-      || !(this.commissioned?.recoveryConfirmed === false || this.commissioning.isCampaignRunning())) return undefined;
+    if (this.state.busy !== "apply" || !this.state.commissioning
+      || !(this.state.commissioned?.recoveryConfirmed === false || this.state.commissioning.isCampaignRunning())) return undefined;
     return this.captureStudy(true);
   }
 
   async finishUnresolvedRecoveryForClose(): Promise<CommissioningResult | undefined> {
-    const owner = this.commissioning;
-    this.commissioning = undefined;
+    const owner = this.state.commissioning;
+    this.state.commissioning = undefined;
     this.invalidate();
-    return owner ? await owner.settleForClose() : this.commissioned;
+    return owner ? await owner.settleForClose() : this.state.commissioned;
   }
 
-  hasPendingManualApplication(): boolean { return this.pendingManualApplication !== undefined; }
+  hasPendingManualApplication(): boolean { return this.state.pendingManualApplication !== undefined; }
 
-  hasPendingIdentification(): boolean { return this.pendingFind !== undefined || this.pendingVerification !== undefined && this.identification?.snapshot().status === "running"; }
+  hasPendingIdentification(): boolean { return this.state.pendingFind !== undefined || this.state.pendingVerification !== undefined && this.state.identification?.snapshot().status === "running"; }
   async recoverIdentificationMode(): Promise<void> {
-    if (this.identification || this.busy) return;
-    const recovery = identificationRecovery(this.loop, this.liveIdentification, () => { this.busy = undefined; this.cancellationOwner = undefined; });
+    if (this.state.identification || this.state.busy) return;
+    const recovery = identificationRecovery(this.loop, this.liveIdentification, () => { this.state.busy = undefined; this.state.cancellationOwner = undefined; });
     if (!recovery) return;
-    this.busy = "verify"; this.cancellationOwner = recovery;
+    this.state.busy = "verify"; this.state.cancellationOwner = recovery;
     await recovery.cancel();
   }
   async finishIdentificationForClose(): Promise<void> {
-    const owner = this.identification?.cancellationOwner();
+    const owner = this.state.identification?.cancellationOwner();
     this.invalidate();
     await owner?.cancel();
-    await this.pendingFind?.catch(() => undefined);
-    await this.pendingVerification?.catch(() => undefined);
+    await this.state.pendingFind?.catch(() => undefined);
+    await this.state.pendingVerification?.catch(() => undefined);
   }
 
   pendingManualApplicationOwner(): PendingManualApplicationOwner | undefined {
-    const pending = this.pendingManualApplication;
+    const pending = this.state.pendingManualApplication;
     return pending && structuredClone({ operation: pending.operation, origin: pending.origin });
   }
 
   async finishPendingManualApplicationForClose(): Promise<ManualApplicationCloseRecovery | undefined> {
-    const pending = this.pendingManualApplication;
+    const pending = this.state.pendingManualApplication;
     this.invalidate();
     if (!pending) return undefined;
     return pending.settling.then(observed => ({ operation: pending.operation, origin: pending.origin, observed }), error => ({
@@ -768,35 +395,35 @@ export class EngineerWorkflowSession {
   async reconcileManualApplicationRecovery(recovery: PendingManualApplicationOwner | ManualApplicationCloseRecovery,
     post: (payload: Record<string, unknown>) => Promise<void>): Promise<boolean> {
     return reconcileManualApplication(this.loop, recovery, post, (owner, reason) => this.requireManualRecovery(owner, reason),
-      () => { this.manualApplicationRecovery = undefined; });
+      () => { this.state.manualApplicationRecovery = undefined; });
   }
 
   private captureStudy(recoveryOnly: boolean): EngineerStudy | undefined {
     const selectedModel = this.model();
-    if (!this.recordingCatalog && !this.channelMapping && !selectedModel && !this.task && !this.tuningPreferences && !this.acquisitionPreferences && !this.settingsPins && !this.scenarioDefinitions?.length
-      && this.controllerChoice === "automatic" && !this.campaigns.length && !this.recordedBaseline && !this.recordedCandidate && !this.verificationAttempts.length) return undefined;
-    if (!recoveryOnly && (this.busy || this.pendingFind || this.pendingVerification) && this.cancellationOwner?.snapshot()?.status !== "cancellation-unconfirmed") throw new Error("Wait for the current operation or cancel it before saving the study.");
-    const study = decodeEngineerStudy({ ...(this.channelMapping ? { channelMapping: this.channelMapping } : {}), ...(this.tuningPreferences ? { tuningPreferences: this.tuningPreferences } : {}), ...(decodeModelComparison(this.modelComparison, selectedModel) ? { modelComparison: this.modelComparison } : {}), ...(this.acquisitionPreferences ? { acquisitionSettings: this.acquisitionPreferences } : {}), scenarioDefinitions: this.scenarioDefinitions ?? [], ...(selectedModel ? { selectedModel } : {}),
-      ...(this.tuningRuns.length ? { tuningRuns: this.tuningRuns } : {}),
-      ...(this.recordingCatalog ? { recordingCatalog: this.recordingCatalog } : {}),
-      ...(this.modelPrediction ? { modelPrediction: this.modelPrediction } : {}),
-      ...(this.modelValidation ? { modelValidation: this.modelValidation } : {}),
-      ...(this.retainedDraft ? { draft: this.retainedDraft } : {}),
-      ...(this.scenarioResults.length ? { scenarioResults: this.scenarioResults } : {}), requiredScenarios: this.requiredScenarios,
-      ...(this.settingsPins ? { settingsPins: this.settingsPins } : {}),
-      applicationMode: this.applicationMode, controllerChoice: this.controllerChoice,
-      ...(this.task ? { task: this.task, family: this.family } : {}),
-      ...(this.gainChoice ? { gainChoice: this.gainChoice } : {}),
-      ...(this.verificationAttempts.length ? { verificationAttempts: this.verificationAttempts } : {}), campaigns: this.campaigns,
-      ...(this.recordedBaseline ? { baseline: this.recordedBaseline } : {}),
-      ...(this.recordedCandidate ? { candidate: this.recordedCandidate } : {}),
-      ...(this.recordedInitialization ? { initialization: this.recordedInitialization } : {}),
-      ...(this.familyEvaluations ? { familyEvaluations: this.familyEvaluations } : {}) });
+    if (!this.state.recordingCatalog && !this.state.channelMapping && !selectedModel && !this.state.task && !this.state.tuningPreferences && !this.state.acquisitionPreferences && !this.state.settingsPins && !this.state.scenarioDefinitions?.length
+      && this.state.controllerChoice === "automatic" && !this.state.campaigns.length && !this.state.recordedBaseline && !this.state.recordedCandidate && !this.state.verificationAttempts.length) return undefined;
+    if (!recoveryOnly && (this.state.busy || this.state.pendingFind || this.state.pendingVerification) && this.state.cancellationOwner?.snapshot()?.status !== "cancellation-unconfirmed") throw new Error("Wait for the current operation or cancel it before saving the study.");
+    const study = decodeEngineerStudy({ ...(this.state.channelMapping ? { channelMapping: this.state.channelMapping } : {}), ...(this.state.tuningPreferences ? { tuningPreferences: this.state.tuningPreferences } : {}), ...(decodeModelComparison(this.state.modelComparison, selectedModel) ? { modelComparison: this.state.modelComparison } : {}), ...(this.state.acquisitionPreferences ? { acquisitionSettings: this.state.acquisitionPreferences } : {}), scenarioDefinitions: this.state.scenarioDefinitions ?? [], ...(selectedModel ? { selectedModel } : {}),
+      ...(this.state.tuningRuns.length ? { tuningRuns: this.state.tuningRuns } : {}),
+      ...(this.state.recordingCatalog ? { recordingCatalog: this.state.recordingCatalog } : {}),
+      ...(this.state.modelPrediction ? { modelPrediction: this.state.modelPrediction } : {}),
+      ...(this.state.modelValidation ? { modelValidation: this.state.modelValidation } : {}),
+      ...(this.state.retainedDraft ? { draft: this.state.retainedDraft } : {}),
+      ...(this.state.scenarioResults.length ? { scenarioResults: this.state.scenarioResults } : {}), requiredScenarios: this.state.requiredScenarios,
+      ...(this.state.settingsPins ? { settingsPins: this.state.settingsPins } : {}),
+      applicationMode: this.state.applicationMode, controllerChoice: this.state.controllerChoice,
+      ...(this.state.task ? { task: this.state.task, family: this.state.family } : {}),
+      ...(this.state.gainChoice ? { gainChoice: this.state.gainChoice } : {}),
+      ...(this.state.verificationAttempts.length ? { verificationAttempts: this.state.verificationAttempts } : {}), campaigns: this.state.campaigns,
+      ...(this.state.recordedBaseline ? { baseline: this.state.recordedBaseline } : {}),
+      ...(this.state.recordedCandidate ? { candidate: this.state.recordedCandidate } : {}),
+      ...(this.state.recordedInitialization ? { initialization: this.state.recordedInitialization } : {}),
+      ...(this.state.familyEvaluations ? { familyEvaluations: this.state.familyEvaluations } : {}) });
     if (!study) throw new Error("Study evidence is invalid or exceeds the supported storage bounds; no records were discarded.");
     return study;
   }
-  recordedCommissioning(): CommissioningResult | undefined { return this.commissioned; }
-  restoreCommissioning(value: CommissioningResult | undefined): void { this.commissioned = value; this.commissioning = undefined; }
+  recordedCommissioning(): CommissioningResult | undefined { return this.state.commissioned; }
+  restoreCommissioning(value: CommissioningResult | undefined): void { this.state.commissioned = value; this.state.commissioning = undefined; }
   assertStudyRestoreAllowed(study?: EngineerStudy): void {
     this.assertIdleForReplacement("Open");
     if (study?.settingsPins && study.settingsPins.loopRevision !== this.loop.revision) throw new Error("Saved settings pins belong to a different loop revision.");
@@ -804,8 +431,8 @@ export class EngineerWorkflowSession {
   }
   assertModelReplacementAllowed(): void { this.assertIdleForReplacement("Supply model"); }
   private assertIdleForReplacement(action: string): void {
-    if (this.busy || this.pendingFind || this.pendingVerification || this.cancelling || this.commissioned?.recoveryConfirmed === false || this.manualApplicationRecovery
-      || this.interruptedCheckpoint && !["completed", "recovered", "retired"].includes(this.interruptedCheckpoint.stage)) {
+    if (this.state.busy || this.state.pendingFind || this.state.pendingVerification || this.state.cancelling || this.state.commissioned?.recoveryConfirmed === false || this.state.manualApplicationRecovery
+      || this.state.interruptedCheckpoint && !["completed", "recovered", "retired"].includes(this.state.interruptedCheckpoint.stage)) {
       throw new Error(`Finish the running operation, or cancel it and wait for retained evidence, then retry ${action}.`);
     }
   }
@@ -814,51 +441,54 @@ export class EngineerWorkflowSession {
     const study = value === undefined ? undefined : decodeEngineerStudy(value);
     if (value !== undefined && !study) throw new Error("Saved engineer study is invalid.");
     const channelMapping = study?.channelMapping ? controllerChannelMapping(this.configuredLoop, study.channelMapping) : undefined;
-    this.invalidate(); this.channelMapping = channelMapping;
-    this.modelComparison = study?.modelComparison;
-    this.campaigns.splice(0, this.campaigns.length, ...(study?.campaigns ?? []));
-    this.tuningRuns.splice(0, this.tuningRuns.length, ...(study?.tuningRuns ?? []));
-    this.modelPrediction = study?.modelPrediction;
-    this.acquisitionPreferences = study?.acquisitionSettings;
-    this.recordingCatalog = study?.recordingCatalog;
-    this.modelValidation = study?.modelValidation;
-    this.tuningPreferences = study?.tuningPreferences;
-    this.scenarioDefinitions = study?.scenarioDefinitions ?? this.loop.verificationScenarios;
-    this.retainedDraft = study?.draft;
-    this.task = study?.task;
-    this.family = study?.family ?? "P";
-    this.controllerChoice = study?.controllerChoice ?? study?.family ?? "automatic";
-    this.applicationMode = study?.applicationMode ?? "auto";
-    this.gainChoice = study?.gainChoice;
-    this.settingsPins = study?.settingsPins;
-    this.scenarioResults.splice(0, this.scenarioResults.length, ...(study?.scenarioResults ?? []));
-    this.requiredScenarios = study?.requiredScenarios ?? [];
-    this.pinModel = study?.gainChoice?.pin ? structuredClone(study.selectedModel) : undefined;
-    this.verificationAttempts.splice(0, this.verificationAttempts.length, ...(study?.verificationAttempts ?? []));
-    this.cancellationOwner = undefined;
-    const unresolved = [...this.verificationAttempts].reverse().find(attempt => attempt.status === "cancellation-unconfirmed");
+    this.invalidate(); this.state.channelMapping = channelMapping;
+    this.state.modelComparison = study?.modelComparison;
+    this.state.campaigns.splice(0, this.state.campaigns.length, ...(study?.campaigns ?? []));
+    this.state.tuningRuns.splice(0, this.state.tuningRuns.length, ...(study?.tuningRuns ?? []));
+    this.state.modelPrediction = study?.modelPrediction;
+    this.state.acquisitionPreferences = study?.acquisitionSettings;
+    this.state.recordingCatalog = study?.recordingCatalog;
+    this.state.modelValidation = study?.modelValidation;
+    this.state.tuningPreferences = study?.tuningPreferences;
+    this.state.scenarioDefinitions = study?.scenarioDefinitions ?? this.loop.verificationScenarios;
+    this.state.retainedDraft = study?.draft;
+    this.state.task = study?.task;
+    this.state.family = study?.family ?? "P";
+    this.state.controllerChoice = study?.controllerChoice ?? study?.family ?? "automatic";
+    this.state.applicationMode = study?.applicationMode ?? "auto";
+    this.state.gainChoice = study?.gainChoice;
+    this.state.settingsPins = study?.settingsPins;
+    this.state.scenarioResults.splice(0, this.state.scenarioResults.length, ...(study?.scenarioResults ?? []));
+    this.state.requiredScenarios = study?.requiredScenarios ?? [];
+    this.state.pinModel = study?.gainChoice?.pin ? structuredClone(study.selectedModel) : undefined;
+    this.state.verificationAttempts.splice(0, this.state.verificationAttempts.length, ...(study?.verificationAttempts ?? []));
+    this.state.cancellationOwner = undefined;
+    const unresolved = [...this.state.verificationAttempts].reverse().find(attempt => attempt.status === "cancellation-unconfirmed");
     if (unresolved && restoreOperationOwner) this.restoreIsolatedOperation(unresolved);
-    this.recordedBaseline = study?.baseline;
-    this.recordedCandidate = study?.candidate;
-    this.recordedInitialization = study?.initialization;
-    this.familyEvaluations = study?.familyEvaluations ? structuredClone(study.familyEvaluations) : undefined;
+    this.state.recordedBaseline = study?.baseline;
+    this.state.recordedCandidate = study?.candidate;
+    this.state.recordedInitialization = study?.initialization;
+    this.state.familyEvaluations = study?.familyEvaluations ? structuredClone(study.familyEvaluations) : undefined;
   }
 
+  /** Relay-cycle results of the feedback-relay recording the selected model was fitted from. */
+  relayCycle(): RelayCycleEvidence | undefined { return selectedModelRelayCycle(this.loop, this.model(), this.state.campaigns); }
+
   restoredOwnerView(): Record<string, unknown> | undefined {
-    if (this.interruptedCheckpoint && !["completed", "recovered", "retired"].includes(this.interruptedCheckpoint.stage)) return {
+    if (this.state.interruptedCheckpoint && !["completed", "recovered", "retired"].includes(this.state.interruptedCheckpoint.stage)) return {
       status: "recovery-required", commissioningCheckpoint: true,
       reason: "An interrupted commissioning operation is retained. Review rollback, or review a restarted runtime, before starting new work.",
     };
-    const unresolved = this.cancellationOwner?.snapshot();
+    const unresolved = this.state.cancellationOwner?.snapshot();
     if (unresolved?.status === "cancellation-unconfirmed") return { status: "recovery-required", cancellationUnconfirmed: true,
       reason: "The retained isolated operation needs cancellation confirmation. Reconnect its runtime and press Cancel." };
-    if (this.interruptedCheckpoint?.stage === "completed") return { commissioningCheckpoint: true,
+    if (this.state.interruptedCheckpoint?.stage === "completed") return { commissioningCheckpoint: true,
       reason: "The completed commissioning checkpoint is retained. Review rollback to restore its original settings, or Tune and Verify a new candidate." };
     return undefined;
   }
 
   restoreCommissioningCheckpoint(checkpoint: CommissioningCheckpoint): void {
-    this.interruptedCheckpoint = checkpoint.stage === "recovered" || checkpoint.stage === "retired" ? undefined : structuredClone(checkpoint);
+    this.state.interruptedCheckpoint = checkpoint.stage === "recovered" || checkpoint.stage === "retired" ? undefined : structuredClone(checkpoint);
   }
 
   restoreIsolatedOperation(attempt: RuntimeVerificationAttempt): void {
@@ -866,8 +496,8 @@ export class EngineerWorkflowSession {
     if (attempt.status !== "cancellation-unconfirmed") return;
     const unresolved = attempt;
     let client: RuntimeVerificationClient | undefined;
-    this.busy = "verify";
-    this.cancellationOwner = {
+    this.state.busy = "verify";
+    this.state.cancellationOwner = {
       cancel: async () => {
         if (!client) {
           const connection = await bindRuntimeConnection(this.loop.runtimeId);
@@ -889,29 +519,29 @@ export class EngineerWorkflowSession {
       try { assertEngineerModelCompatibility(this.loop, model); hasModel = true; }
       catch { /* An incompatible selected model is inspectable, but cannot make Tune ready. */ }
     }
-    return { loopBound: true, hasModel, hasCandidate: hasModel && Boolean(this.design),
-      validationHasResult: Boolean(this.verified), validationPassed: this.campaignPassed && this.verified?.evaluation.status === "Pass" };
+    return { loopBound: true, hasModel, hasCandidate: hasModel && Boolean(this.state.design),
+      validationHasResult: Boolean(this.state.verified), validationPassed: this.state.campaignPassed && this.state.verified?.evaluation.status === "Pass" };
   }
 
   private retainAttempt(attempt: RuntimeVerificationAttempt | undefined): void {
     if (!attempt || attempt.request.execution === "connected-runtime") return;
-    const index = this.verificationAttempts.findIndex(value => value.jobId === attempt.jobId && value.projectRevision === attempt.projectRevision);
-    if (index < 0) this.verificationAttempts.push(attempt); else this.verificationAttempts[index] = attempt;
+    const index = this.state.verificationAttempts.findIndex(value => value.jobId === attempt.jobId && value.projectRevision === attempt.projectRevision);
+    if (index < 0) this.state.verificationAttempts.push(attempt); else this.state.verificationAttempts[index] = attempt;
   }
 
   private updateFamilyEvaluation(family: SavedEngineerFamilyEvaluation["family"],
     status: SavedEngineerFamilyEvaluation["status"], reason: string): void {
-    if (!this.familyEvaluations) return;
-    this.familyEvaluations = this.familyEvaluations.map(value => value.family === family ? { family, status, reason } : value);
+    if (!this.state.familyEvaluations) return;
+    this.state.familyEvaluations = this.state.familyEvaluations.map(value => value.family === family ? { family, status, reason } : value);
   }
 
   private clearIncompatiblePin(): void {
-    if (this.gainChoice?.pin && !this.compatiblePin(this.gainChoice.pin)) {
-      this.gainChoice = { mode: "automatic" }; this.pinModel = undefined;
+    if (this.state.gainChoice?.pin && !this.compatiblePin(this.state.gainChoice.pin)) {
+      this.state.gainChoice = { mode: "automatic" }; this.state.pinModel = undefined;
     }
   }
 
-  private compatiblePin(pin: EngineerGainPin, model = this.model(), pinnedModel = this.pinModel): boolean {
+  private compatiblePin(pin: EngineerGainPin, model = this.model(), pinnedModel = this.state.pinModel): boolean {
     try {
       const parameter = proportionalParameter(proportionalDesignLoop(this.loop));
       return pinnedModel !== undefined && isDeepStrictEqual(pinnedModel, model) && pin.modelRevision === model?.revision && pin.loopRevision === this.loop.revision &&
@@ -921,55 +551,81 @@ export class EngineerWorkflowSession {
     } catch { return false; }
   }
 
+  /** Reviewed acquisition limits bound automatic test settings; tuning a supplied model needs no identification experiment. */
+  private requirementLoop(): ControlLoopDefinition {
+    const loop = controllerRequirementLoop(this.configuredLoop, this.state.channelMapping, undefined);
+    return this.state.acquisitionPreferences ? configuredAcquisition(loop, this.state.acquisitionPreferences) : loop;
+  }
   private availableFamilies(): readonly string[] { try { return controllerAdapter(this.loop).families; } catch { return []; } }
-  private scenarioLoop(): ControlLoopDefinition { return { ...this.loop, verificationScenarios: this.scenarioDefinitions }; }
-  private inputSignature(): string { return JSON.stringify({ loop: this.scenarioLoop(), model: this.model(), task: this.task, values: this.values }); }
+  /** The configuration automatic tuning would choose for the selected model and requirements, shown when Tune opens. */
+  private recommendedFamily(): string | null {
+    const model = this.model();
+    if (!model || !this.state.task || this.loop.controller.project) return null;
+    const key = JSON.stringify([model.revision, this.loop.revision, this.state.task, this.state.applicationMode]);
+    if (this.state.recommendation?.key !== key) {
+      let family: string | null = null;
+      try {
+        assertEngineerModelCompatibility(this.loop, model);
+        family = tuneControllerAdapter(this.loop, model, this.state.task, { family: "automatic", applicationMode: this.state.applicationMode }).family;
+      } catch { family = null; }
+      this.state.recommendation = { key, family };
+    }
+    return this.state.recommendation.family;
+  }
+  /** The running controller's settings when its runtime is reachable; Tune then predicts it beside the tuned one. */
+  private async runningControllerGains(): Promise<ControllerGains | undefined> {
+    if (!this.loop.parameterBinding) return undefined;
+    try { return currentControllerGains(this.loop, (await (await connectRuntimeParameters(this.loop)).client.status()).values); }
+    catch { return undefined; }
+  }
+  private scenarioLoop(): ControlLoopDefinition { return { ...this.loop, verificationScenarios: this.state.scenarioDefinitions }; }
+  private inputSignature(): string { return JSON.stringify({ loop: this.scenarioLoop(), model: this.model(), task: this.state.task, values: this.state.values }); }
   private async checkVerifiedProject(): Promise<void> {
-    if (!this.campaignPassed) throw new Error("Every mandatory scenario must pass before application.");
-    if (this.verifiedInputs !== this.inputSignature()) throw new Error("Workflow inputs changed after verification. Verify the current candidate again.");
-    if (this.verified?.evaluation.status !== "Pass" || !this.values || this.model()?.revision !== this.design?.selectedModel.revision) throw new Error("Verify the selected candidate before application.");
+    if (!this.state.campaignPassed) throw new Error("Every mandatory scenario must pass before application.");
+    if (this.state.verifiedInputs !== this.inputSignature()) throw new Error("Workflow inputs changed after verification. Verify the current candidate again.");
+    if (this.state.verified?.evaluation.status !== "Pass" || !this.state.values || this.model()?.revision !== this.state.design?.selectedModel.revision) throw new Error("Verify the selected candidate before application.");
     if (this.model()?.validation !== "validated") throw new Error("Independent model validation or an accepted external model reference is required before application.");
     const connection = await connectRuntimeSearch(this.loop);
     const readiness = await connection.request("control.simulation.run.status", {});
-    if (!record(readiness) || readiness.project_revision !== this.verified.projectRevision) throw new Error("The loaded project changed since verification. Verify again.");
+    if (!record(readiness) || readiness.project_revision !== this.state.verified.projectRevision) throw new Error("The loaded project changed since verification. Verify again.");
   }
   private async invalidateInputs(action: "invalidate" | "cancel", inputs: Record<string, unknown>,
     applicationMode: "auto" | "manual", post: (payload: Record<string, unknown>) => Promise<void>): Promise<boolean> {
     if (action === "invalidate" && inputs.channelMapping !== undefined) {
-      try { this.channelMapping = controllerChannelMapping(this.configuredLoop, inputs.channelMapping); }
+      try { this.state.channelMapping = controllerChannelMapping(this.configuredLoop, inputs.channelMapping); }
       catch (error) { await post({ status: "failed", reason: explanation(error) }); return true; }
     }
     if (action === "invalidate" && (inputs.family === "automatic" || isControllerFamily(inputs.family))) {
-      this.controllerChoice = inputs.family;
+      this.state.controllerChoice = inputs.family;
     }
     if (action === "invalidate") {
-      if (inputs.tuningPreferences !== undefined) this.tuningPreferences = controllerTuningPreferences(inputs.tuningPreferences) ?? this.tuningPreferences;
+      if (inputs.tuningPreferences !== undefined) this.state.tuningPreferences = controllerTuningPreferences(inputs.tuningPreferences) ?? this.state.tuningPreferences;
       const settings = acquisitionSettings(inputs.acquisitionSettings);
-      if (settings) this.acquisitionPreferences = settings;
+      if (settings) this.state.acquisitionPreferences = settings;
       if (inputs.scenarioDefinitions !== undefined && validEngineerScenarios(inputs.scenarioDefinitions)
-        && JSON.stringify(inputs.scenarioDefinitions).length <= 256000) this.scenarioDefinitions = structuredClone(inputs.scenarioDefinitions);
-      try { this.task = engineerRequirements(inputs); } catch { /* Incomplete edits cannot replace the last usable task. */ }
-      if (applicationMode === "auto" || applicationMode === "manual") this.applicationMode = applicationMode;
-      if (inputs.pinnedValues === null) this.settingsPins = undefined;
+        && JSON.stringify(inputs.scenarioDefinitions).length <= 256000) this.state.scenarioDefinitions = structuredClone(inputs.scenarioDefinitions);
+      try { this.state.task = engineerRequirements(inputs); } catch { /* Incomplete edits cannot replace the last usable task. */ }
+      if (applicationMode === "auto" || applicationMode === "manual") this.state.applicationMode = applicationMode;
+      if (inputs.pinnedValues === null) this.state.settingsPins = undefined;
       else if (record(inputs.pinnedValues)) {
         const pins = decodeControllerSettingsPins({ loopRevision: this.loop.revision,
-          family: isControllerFamily(inputs.family) ? inputs.family : this.family, values: inputs.pinnedValues });
-        if (pins) this.settingsPins = pins;
+          family: isControllerFamily(inputs.family) ? inputs.family : this.state.family, values: inputs.pinnedValues });
+        if (pins) this.state.settingsPins = pins;
       }
     }
-    const pending = this.pendingVerification ?? this.pendingFind;
-    const owner = this.cancellationOwner ?? this.verifier ?? this.identification?.cancellationOwner();
-    this.cancelling = true; this.cancellationOwner = owner;
+    const pending = this.state.pendingVerification ?? this.state.pendingFind;
+    const owner = this.state.cancellationOwner ?? this.state.verifier ?? this.state.identification?.cancellationOwner();
+    this.state.cancelling = true; this.state.cancellationOwner = owner;
     this.invalidate();
     await pending?.catch(() => undefined);
     await owner?.cancel().catch(() => undefined);
     const attempt = owner?.snapshot(); this.retainAttempt(attempt);
-    this.cancelling = false;
+    this.state.cancelling = false;
     const unconfirmed = attempt?.status === "cancellation-unconfirmed";
-    this.busy = unconfirmed ? "verify" : undefined;
-    this.cancellationOwner = unconfirmed ? owner : undefined;
-    await post({ inputRevision: this.generation, channelMapping: this.channelMapping, tuningPreferences: this.tuningPreferences, stageEvidence: this.currentStageEvidence(), status: unconfirmed ? "failed" : action === "cancel" ? "cancelled" : "edited", campaigns: this.campaigns,
-      verificationAttempts: this.verificationAttempts, studyAvailable: true, cancellationUnconfirmed: unconfirmed,
+    this.state.busy = unconfirmed ? "verify" : undefined;
+    this.state.cancellationOwner = unconfirmed ? owner : undefined;
+    await post({ inputRevision: this.state.generation, channelMapping: this.state.channelMapping, tuningPreferences: this.state.tuningPreferences, stageEvidence: this.currentStageEvidence(), status: unconfirmed ? "failed" : action === "cancel" ? "cancelled" : "edited",
+      verificationAttempts: this.state.verificationAttempts, studyAvailable: true, cancellationUnconfirmed: unconfirmed,
       canTune: Boolean(this.model()), canIdentify: Boolean(this.loop.parameterBinding && (this.loop.controller.manualOutputSignal || this.loop.signals.setpoint)),
       reason: unconfirmed ? `${attempt.reason} New work is blocked; press Cancel to retry confirmation.`
         : action === "cancel" ? "Operation cancelled. Any started runtime job has reached a terminal state; retained outcomes do not authorize Apply."
@@ -978,20 +634,28 @@ export class EngineerWorkflowSession {
   }
 
   private invalidate(): void {
-    this.runtimeReplacementReview = undefined;
-    this.modelPrediction = undefined;
-    this.generation++; this.campaignPassed = false; this.verifiedInputs = undefined;
-    this.design = undefined; this.verified = undefined; this.initialization = undefined; this.values = undefined; this.review = undefined;
-    this.cancellationOwner ??= this.verifier ?? this.identification?.cancellationOwner();
-    this.verifier?.dispose(); this.verifier = undefined;
-    this.identification?.dispose(); this.identification = undefined;
+    this.state.runtimeReplacementReview = undefined;
+    this.state.modelPrediction = undefined;
+    this.state.generation++; this.state.campaignPassed = false; this.state.verifiedInputs = undefined;
+    this.state.design = undefined; this.state.verified = undefined; this.state.initialization = undefined; this.state.values = undefined; this.state.review = undefined;
+    this.state.cancellationOwner ??= this.state.verifier ?? this.state.identification?.cancellationOwner();
+    this.state.verifier?.dispose(); this.state.verifier = undefined;
+    this.state.identification?.dispose(); this.state.identification = undefined;
   }
   private requireManualRecovery(recovery: PendingManualApplicationOwner, reason: string): string {
-    this.manualApplicationRecovery = { recovery: structuredClone(recovery), reason };
+    this.state.manualApplicationRecovery = { recovery: structuredClone(recovery), reason };
     return reason;
   }
-  dispose(): void { void this.commissioning?.cancel().catch(() => undefined); this.invalidate(); }
+  dispose(): void { void this.state.commissioning?.cancel().catch(() => undefined); this.invalidate(); }
 }
 
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === "object" && !Array.isArray(value); }
 function explanation(error: unknown): string { return error instanceof Error ? error.message : String(error); }
+
+/** The failed operation as the learner knows it: by its page or button, never by its internal message kind. */
+function failedOperationLabel(action: string): string {
+  const labels: Record<string, string> = { find: "Identification", tune: "Tuning", verify: "Validation", apply: "Apply",
+    rollback: "Restoring the previous settings", confirm: "Confirmation", inspect: "Inspection", "review-runtime": "Runtime review",
+    "retry-recovery": "Recovery", cancel: "Cancelling", invalidate: "Updating the settings", "clear-review": "Clearing the review" };
+  return labels[action] ?? action.charAt(0).toUpperCase() + action.slice(1);
+}

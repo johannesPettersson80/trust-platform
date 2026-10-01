@@ -4,7 +4,7 @@ In this lesson, you will make the heater-power command increase with the differe
 
 ## The problem
 
-The cold-room assessment combined hysteresis and dwell in a controller whose output still had only two states. The temperature moved between switching boundaries. We now need a rule for a heater whose power can vary continuously.
+Lesson 4's cold-room assessment combined hysteresis and dwell in a controller whose output still had only two states. The temperature moved between 1.35 and 2.84 °C, because refrigeration could only be fully ON or fully OFF. We now need a rule for a heater whose power can vary continuously.
 
 An electric heater can use intermediate power. We will make a large temperature shortfall produce a large heater command and a small shortfall produce a small command.
 
@@ -18,42 +18,52 @@ We need to:
 
 ## The new idea
 
-**Proportional control** makes the correcting command proportional to the
-current difference between the desired and measured value. For this heater,
-a larger temperature shortfall produces more heating.
+**Proportional control** sets the heater power in proportion to how far the water is below its target: twice the shortfall gives twice the power.
 
-Water stores thermal energy. The heater adds energy, while the surroundings and incoming colder water remove energy. If the heater adds energy faster than it leaves, the water temperature rises. If energy leaves faster, the temperature falls.
+**In words.** Water stores thermal energy. The heater adds energy, while the surroundings and incoming colder water remove it. If the heater adds energy faster than it leaves, the temperature rises; if energy leaves faster, it falls.
 
-The temperature setpoint is 35 °C. Let:
+The controller looks at the shortfall, how far the water is below 35 °C, and sets the heater power from it. We want two properties:
 
-- $e$ be the temperature error, in degrees Celsius;
-- $SP$ be the temperature setpoint, in degrees Celsius; and
-- $PV$ be the measured temperature, in degrees Celsius.
+1. no shortfall gives no power from the controller; and
+2. each additional degree of shortfall adds the same amount of power.
 
-The error is the temperature setpoint minus the measured temperature:
+So the power follows a straight line through zero, and doubling the shortfall doubles the power. The slope of that line is the **proportional gain**: how many percentage points of heater power each degree of shortfall adds. In PLC terms, it is a scaling: the error times a constant, limited to the output range.
 
-$e = SP - PV$
+**The formula.**
 
-This subtraction measures the temperature shortfall. When the water is colder than desired, the error is positive. A positive error must produce positive heater power because increasing heater power raises the water temperature.
+$$
+e = SP - PV, \qquad u = K_p\, e
+$$
 
-We want the correction to have two properties:
+- $e$ is the temperature error, in °C: positive when the water is colder than wanted;
+- $SP$ is the temperature setpoint, 35 °C, and $PV$ the measured temperature, in °C;
+- $K_p$ is the proportional gain, in percentage points per °C;
+- $u$ is the heater command, in percent: 0 % adds no heat and 100 % requests the simulator's maximum heater power.
 
-1. zero error produces zero correction; and
-2. each additional degree of error adds the same amount of correction.
+A positive error must give positive power, because more power raises the temperature. The heater cannot remove heat, so a negative calculated command is applied as 0 %. A calculated command above 100 % is limited to 100 %; this experiment stays below that limit.
 
-These properties give a straight line through zero, so doubling the error doubles the correction. Its slope is called the **proportional gain**, written $K_p$. Let $u$ be the heater command in percent. The rule is:
+**Example.** This lesson uses $K_p = 2$ percentage points per °C, a teaching choice that keeps the command within its range, not a tuned value for physical equipment. Two percentage points means, for example, a command rising from 20 % to 22 %. With the water at 25 °C, $e = 35 - 25 = 10$ °C and $u = 2 \times 10 = 20\%$. At 34 °C, $e = 1$ °C and $u = 2\%$: one degree of shortfall gives two points of heater command.
 
-$u = K_p e$
+**The limitation.** At a steady hot temperature, the heater must keep replacing the energy that leaves the water. But when the measured temperature equals 35 °C, the error is zero and this rule commands no power. The water must therefore settle below 35 °C, where a remaining positive error gives just enough power to balance the heat loss. This difference after the temperature has settled is the **steady-state error**.
 
-The gain tells us how much the heater command changes for each degree of error. This lesson uses $K_p=2$ percentage points per degree Celsius. This is a teaching choice that keeps the simulated command within its available range; it is not a tuned value for physical equipment.
+We can calculate where it settles. This heater delivers 2 kW for each percentage point of command, and the water loses 10 kW for each degree it is above its 20 °C surroundings. At a steady temperature $T$, the heat in equals the heat out:
 
-Two percentage points means, for example, increasing a command from 20% to 22%. Thus one extra degree of temperature shortfall adds two points to the heater command.
+$$
+2\,K_p\,(35-T)=10\,(T-20).
+$$
 
-The heater command ranges from 0%, which adds no heater power, to 100%, which requests the simulator’s maximum heater power. The heater cannot remove heat, so a negative calculated command is applied as 0%. A calculated command above 100% is limited to 100%; this experiment stays below that upper limit.
+With $K_p=2$: $4(35-T)=10(T-20)$, so $140+200=14T$ and $T=24.29$ °C. The steady-state error is $35-24.29=10.71$ °C. A larger gain moves $T$ closer to 35 °C but can never reach it, because the heater power is zero whenever the error is.
 
-Proportional control has an important limitation. At a steady hot temperature, the heater must replace the energy continually leaving the water. But when the measured temperature equals 35 °C, the error is zero and this rule commands no heater power. The water must therefore settle below 35 °C, where a remaining positive error produces enough power to balance the heat loss. This difference after the temperature has settled is the **steady-state error**.
+If colder incoming water removes an extra 30 kW, the balance becomes $4(35-T)=10(T-20)+30$, so $T=22.14$ °C: the error grows to 12.86 °C.
 
 ## Prediction
+
+Before running, answer these questions:
+
+1. The water starts at 20 °C. What is the first heater command?
+2. How will the command change as the water warms?
+3. At what temperature will the water settle, and how far below 35 °C?
+4. After 60 s, colder incoming water removes 30 kW more. What happens to the temperature, the error and the command?
 
 The simulation starts with a temperature setpoint of 35 °C and a measured temperature of 20 °C:
 
@@ -71,63 +81,46 @@ Apply the same rule at two more temperatures:
 | 30 °C | 5 °C | 10% |
 | 35 °C | 0 °C | 0% |
 
-Before running, also predict:
-
-1. how the command will change as the water warms; and
-2. how the temperature, error, and command will respond when colder incoming water removes more energy after 60 s.
+The heat balance above answers questions 3 and 4.
 
 ## Implementation
 
-**ST practice.** Inspect the control-error calculation and the unlimited proportional request recorded for the plot, using the `LREAL` variables in `Main.st`:
+[Main.st](src/Main.st) runs `Control.PID` as a P controller: $K_p$ = 2 percentage points/°C, no integral or derivative action, output limited to 0–100 %, updated every 0.1 s. Its output is the only command the heater receives. The lines
 
 ```st
 ErrorC := Setpoint - ProcessValue;
 RequestedHeaterPower := ProportionalGain * ErrorC;
 ```
 
-`*` multiplies gain by error. Keep `Setpoint` at 35.0 and `ProportionalGain` at 2.0, then check the three temperature cases in the prediction table. As an arithmetic exercise, write a separate limiting decision that applies 0% below the lower bound, 100% above the upper bound, and the request between them. Keep requested and applied power separate. P recalculates its output from the current error; it does not accumulate an integral contribution.
+compute the unlimited request $K_p e$ for the plot; they do not drive the heater. Before and after the experiment the controller holds 0 % in Manual. The simulator delivers the heater's power 1 s late, applies the extra extraction and returns the measured temperature. A temperature outside 0–80 °C latches `SafetyAbort`, which removes heat until the simulator is restarted.
 
-The runnable project uses `Controller : Control.PID` with proportional gain 2,
-integral and derivative gains zero, zero bias and 0–100% output limits.
-`Configure` supplies this complete parameter record, `Initialize` sets the
-startup histories once, and `Update` executes every 0.1 s. Its returned output
-is the only assignment to the applied heater command:
-
-```st
-AppliedHeaterPower := Controller.Update(Input := Input);
-```
-
-The multiplication above is a diagnostic calculation; it does not drive the
-heater. The block runs in Manual with a zero command before the experiment,
-after completion and on abort. Enabling the experiment selects Auto and the
-same block executes P control. Its rate bounds allow the full 0–100% change in
-one scan, so they do not slow this experiment.
-
-The controller reads one measured temperature at `%IL0` and writes heater
-power to `%QL0`. The native simulator applies the one-second heater delivery
-delay and immediate extraction through `%QL8` before publishing that temperature.
-The controller contains no simulated temperature calculation. The lesson's
-activation and timed extraction sequence remain an explicit experiment;
-site limits, input quality and recovery need application-specific qualification.
+Exercise: check the three rows of the prediction table with these lines, then write the limit that applies 0 % below 0 %, 100 % above 100 % and the request in between.
 
 ## Experiment in Control Studio
 
-1. Open this lesson's project, start **Simulator**, and open **Control Studio → Monitor → Response**. Display temperature setpoint, measured temperature and error in °C, heater command in percent, and proportional gain.
-2. Confirm temperature setpoint 35 °C, measured temperature 20 °C, error 15 °C, proportional gain 2 percentage points per degree Celsius, heater command 0%, automatic control disabled, and `P1.ExperimentEnabled` false.
-3. Write down the predicted 30% initial command. Test will start and retain its own recording when you confirm the experiment.
-4. Open **Control Studio → Test**. Select **Observe without excitation**, leave the disabled amplitude at **0**, and set the maximum duration to **120.1 s**. This gives time to observe warming and the response to increased heat loss. All event times start at **Confirm and start**.
-5. Select **Review test**. Starting sets `P1.ExperimentEnabled` to true so that the proportional rule controls heater power; ending disables the rule and sets power to zero. Keep the 35 °C setpoint and gain of 2 unchanged during the run.
-6. Select **Confirm and start**. Confirm the first command is about 30%, then watch the error and command decrease as the water warms.
-7. At 60 s, the experiment introduces colder incoming water, increasing heat loss. Observe the decrease in PV and the resulting increases in control error and heater command.
-8. At completion, wait for restoration confirmation and **Complete recording**, then use **Validate → Save result**. Expand **Saved results**, select that revision and choose **Open** to inspect the retained response. Confirm `P1.ExperimentEnabled` false, automatic control disabled, and heater command 0%. The one-second delivery delay can keep temperature rising briefly after the command reaches zero; the water then cools.
+1. Open this lesson's project and start **Simulator**. First look at the new plant. In the **truST** side bar, select **Devices & Connections** and select **proportional-water-heater**; **Configure plant** opens. Under **CONNECTIONS**:
+   - **Input 1** is `P1.AppliedHeaterPower` (%QL0), the heater command your program writes;
+   - **Input 2** is `P1.HeatExtractionKw` (%QL8), the extra heat removed by colder inlet water, in kW, which the project's experiment sets;
+   - **Output 1** is `P1.ProcessValue` (%IL0), the water temperature your program reads; it starts at 20 °C.
 
-Select **Abort test** to stop early or if temperature leaves 0 to 80 °C or the heater command leaves 0 to 100%; make these range checks yourself. Confirm heater command 0%, or stop the simulator from the debug toolbar if it is unresponsive. For a fair repeat, restart at 20 °C with the same initial controller state and 60 s disturbance.
+   On the left, **Input delays (s)** shows 1 for Input 1: the heater's power reaches the water 1 s after it is commanded. Close the panel with **Cancel**.
 
-The program latches `SafetyAbort` when measured temperature leaves 0–80 °C and commands zero heating. A later valid reading or disabling and re-enabling the experiment does not clear that latch. Stop and restart Simulator to restore the declared 20 °C/0% initial state before repeating; distinguish the zero command from the native actuator response and the delayed change in water temperature.
+   ![The heater plant's connections in the hardware canvas](figures/heater-in-hardware-canvas.png)
+
+2. In the **truST** side bar, select **Control Studio**. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.Setpoint · Setpoint (°C)`, `P1.ProcessValue · Process value (°C)` and `P1.AppliedHeaterPower · Applied output (%)`; add `P1.HeatExtractionKw · disturbance (kW)`.
+3. Confirm the water at 20 °C, the heater command at 0% and the extraction at 0 kW. Answer the predictions before starting.
+4. Select **Review project test** and check the declared **120.1 s** duration: 60 s of warming and settling, then 60 s with the extra heat loss.
+5. Select **Confirm and start**; this is time zero. P control starts at once; at 60 s colder inlet water removes 30 kW more.
+6. Watch the command fall as the water warms. After 60 s, watch the temperature fall and the command rise. After the run, hover the first sample, the time just before 60 s and the end.
+7. At completion, Control Studio shows **Project test completed. Outputs restored.** and the heater command is 0%.
+
+Select **Abort test** to stop early. A temperature outside 0–80 °C latches `SafetyAbort`, which removes heat until you restart the simulator. To repeat, stop and restart **Simulator** so the water starts at 20 °C again.
 
 ## Evidence and decision
 
-The retained [simulation readings](figures/p-gain-comparison.csv) for gain 2 show:
+![P control settles below the setpoint, and further below after the extra heat loss](figures/p-control-response.svg)
+
+The numbered marks answer the predictions with the same numbers. The retained [simulation readings](figures/p-control-response.csv) show:
 
 | Time | Measured temperature | Error | Heater command |
 | --- | ---: | ---: | ---: |
@@ -135,7 +128,7 @@ The retained [simulation readings](figures/p-gain-comparison.csv) for gain 2 sho
 | Before the increased heat loss | 24.29 °C | 10.71 °C | 21.43% |
 | End of the controlled run | 22.14 °C | 12.86 °C | 25.71% |
 
-The first command matches the calculated 30%. As the water warms, both error and heater command decrease. When the heat loss increases, temperature falls, so error and heater command increase.
+The first command matches the calculated 30%. As the water warms, both error and heater command decrease. When the heat loss increases, temperature falls, so error and heater command increase. Both settled temperatures, 24.29 °C and 22.14 °C, are the ones the heat balance predicts.
 
 The controller increases heating when the water becomes colder, but the water still ends below 35 °C. The remaining shortfall produces the heater power needed to replace continuing heat loss. The rule responds in the right direction, yet does not achieve the temperature setpoint.
 
@@ -144,6 +137,17 @@ The controller increases heating when the water becomes colder, but the water st
 Proportional control makes the correction larger when the error is larger and smaller when the error is smaller. The gain determines how strongly the command responds to each degree of error.
 
 For this heater, proportional correction alone needs a remaining temperature error to produce the power that replaces continuing heat loss.
+
+## Check yourself
+
+1. **The water is at 27 °C. What command does P give with Kp = 2 percentage points per °C?**
+   e = 35 − 27 = 8 °C, so u = 2 × 8 = 16%.
+2. **With Kp = 4, where does the water settle? Does the larger gain reach 35 °C?**
+   8(35 − T) = 10(T − 20) gives T = 26.67 °C. The error shrinks from 10.71 to 8.33 °C but never reaches zero,
+   because P gives no power at zero error.
+3. **Why did the command rise after the colder inlet water arrived at 60 s?**
+   The extra loss cooled the water, the error grew, and P turned the larger error into more power: 25.71% instead of
+   21.43%.
 
 ## Reason for the next lesson
 

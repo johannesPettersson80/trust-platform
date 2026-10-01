@@ -7,72 +7,16 @@ accent = "#c2410c"
 [layout]
 navigation = "sidebar-left"
 header = true
-header_title = "P1 HMI"
+header_title = "Gravity outflow"
 
 [write]
 enabled = false
 allow = []
 
 [[alarm]]
-bind = "P1.GravityOutflow"
-high = 500
-low = 0
-deadband = 10
+bind = "P1.LevelM"
+high = 0.9
+low = 0.1
+deadband = 0.005
 inferred = true
-label = "Gravity Outflow"
-
-[[alarm]]
-bind = "P1.InitialLevelRate"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Initial Level Rate"
-
-[[alarm]]
-bind = "P1.InletFlow"
-high = 500
-low = 0
-deadband = 10
-inferred = true
-label = "Inlet Flow"
-
-[[alarm]]
-bind = "P1.NetFlow"
-high = 500
-low = 0
-deadband = 10
-inferred = true
-label = "NET Flow"
-
-[[alarm]]
-bind = "P1.OutletCoefficient"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Outlet Coefficient"
-
-[[alarm]]
-bind = "P1.PredictedEquilibriumLevel"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Predicted Equilibrium Level"
-
-[[alarm]]
-bind = "P1.TankArea"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Tank Area"
-
-[[alarm]]
-bind = "P1.TankLevel"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Tank Level"
+label = "Tank level"

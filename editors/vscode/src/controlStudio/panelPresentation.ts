@@ -78,7 +78,7 @@ export function controlStudioHtml(
   });
 }
 
-function webviewNonce(): string {
+export function webviewNonce(): string {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let value = "";
   for (let index = 0; index < 24; index += 1) value += alphabet[Math.floor(Math.random() * alphabet.length)];

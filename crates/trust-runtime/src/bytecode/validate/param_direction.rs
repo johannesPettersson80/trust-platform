@@ -221,6 +221,10 @@ fn pou_id_for_function_block_type(types: &TypeTable, type_id: u32, depth: usize)
         TypeData::Alias { target_type_id } => {
             pou_id_for_function_block_type(types, *target_type_id, depth + 1)
         }
+        // A call on an element of an instance array runs the element's function block.
+        TypeData::Array { elem_type_id, .. } => {
+            pou_id_for_function_block_type(types, *elem_type_id, depth + 1)
+        }
         _ => None,
     }
 }

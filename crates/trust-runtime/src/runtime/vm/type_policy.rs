@@ -108,6 +108,10 @@ fn normalize_value_for_type_table(
             prim_id,
             max_length,
         } => {
+            // A value that already has the declared non-string type is stored as it is.
+            if !matches!(*prim_id, 24 | 25) && primitive_value_matches(*prim_id, &value) {
+                return Ok(value);
+            }
             let value = normalize_string_primitive(*prim_id, *max_length, value);
             let value = match default_value_for_primitive(*prim_id) {
                 Some(target) => normalize_assignment_for_target(&target, value),

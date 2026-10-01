@@ -30,7 +30,7 @@ fn delivered_on_off_experiment_starts_switches_and_stops() {
         let debug = runtime.enable_debug();
         let project = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(PROJECT);
         let mut simulation = SimulationController::new(
-            SimulationConfig::load(&project.join("simulation.toml")).unwrap(),
+            SimulationConfig::load(project.join("simulation.toml")).unwrap(),
         );
         let mut csv = String::from(
             "simulation_time_s,experiment_time_s,pv_degC,command_percent,door_open,switch_count\n",

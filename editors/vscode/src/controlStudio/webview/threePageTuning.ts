@@ -12,6 +12,8 @@ export class ThreePageTuning {
   private pending: string | undefined;
   private hasSettings = false;
   private design: Record<string, unknown> | undefined;
+  /** The host's margins for the candidate (Specification 35 §17.10); a manual edit makes them stale. */
+  private robustness: unknown;
   private inputRevision = -1;
   private lastMethod: ControllerTuningPreferences["method"] = "automatic";
   private readonly fields;
@@ -64,13 +66,16 @@ export class ThreePageTuning {
     const draft = payload.draft as { values?: Record<string, number> } | undefined;
     if (payload.status === "candidate" && payload.values && typeof payload.values === "object") {
       this.values = { ...payload.values as Record<string, number> }; this.hasSettings = true;
-      this.design = payload.design as Record<string, unknown> | undefined;
+      this.design = payload.design as Record<string, unknown> | undefined; this.robustness = payload.robustness;
     } else if (payload.status === "restored" && draft?.values && preferences?.method !== "manual") {
       this.values = { ...draft.values }; this.hasSettings = true;
-      this.design = (payload.draft as { design?: Record<string, unknown> })?.design;
+      this.design = (payload.draft as { design?: Record<string, unknown> })?.design; this.robustness = undefined;
     }
+    // A failed Tune drops the host's candidate, so an earlier one must not stand beside the refusal as its result.
+    const refused = payload.status === "failed" && payload.flowStage === "Tune" && this.method.value !== "manual";
+    if (refused) { this.values = {}; this.hasSettings = false; this.design = undefined; this.robustness = undefined; }
     if (payload.settingsPins !== undefined && !this.pending) this.pins = { ...(payload.settingsPins as { values?: Record<string, number> } | null)?.values };
-    if (payload.status === "candidate" || payload.status === "restored" || preferences && !this.pending && !acknowledged) this.render();
+    if (refused || payload.status === "candidate" || payload.status === "restored" || preferences && !this.pending && !acknowledged) this.render();
   }
   private capture(): void {
     const fields = Array.from(this.root.querySelectorAll<HTMLInputElement>("[data-studio-manual-value]"));
@@ -85,6 +90,7 @@ export class ThreePageTuning {
     }
   }
   private edited(): void {
+    this.robustness = undefined;
     const preferences = this.preferences(); this.pending = JSON.stringify(preferences);
     this.post("control-studio.engineer.invalidate", { tuningPreferences: preferences, pinnedValues: this.pinnedValues(), family: this.method.value === "manual" ? this.family() : this.choice() });
   }
@@ -96,7 +102,8 @@ export class ThreePageTuning {
     if (this.method.value === "manual" && this.family() === "automatic") {
       const area = this.root.querySelector<HTMLElement>("[data-studio-tuning-result]")!; area.replaceChildren(); area.hidden = true; return;
     }
-    const payload = { status: "candidate", family: this.family(), values: this.values, design: this.design, settingsPins: { values: this.pins } };
+    const payload = { status: "candidate", family: this.family(), values: this.values, design: this.design, settingsPins: { values: this.pins },
+      ...(this.robustness ? { robustness: this.robustness } : {}) };
     if (this.method.value === "manual") this.fields.render(payload);
     else if (this.hasSettings) renderTunedController(this.root, this.loop, payload);
     else { const area = this.root.querySelector<HTMLElement>("[data-studio-tuning-result]")!; area.replaceChildren(); area.hidden = true; }

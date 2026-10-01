@@ -1,141 +1,185 @@
-# 44. Laplace transforms
+# 48. Laplace transforms
 
-You will use a Laplace transform to express the heater energy balance in a form that can be combined with feedback. You will calculate how proportional control changes response speed and steady-state temperature error.
+In this lesson, you will turn the heater's differential equation into algebra, connect a P controller to it by multiplying and dividing, and predict the closed-loop step response. You will then see why the heater's 1 s delay must stay inside that algebra.
 
 ## The problem
 
-We have connected plant and controller equations by repeated substitution and differentiation. A common algebraic representation will make those connections easier to calculate and inspect. Return first to the heater, whose physical response is already familiar.
+Lesson 47 held the gravity tank at 0.09, 0.25 and 0.49 m by scheduling the integral gain, from 0.00334 m²/s² at the low level to 0.00140 m²/s² at the high level. Getting there meant linearizing the tank's differential equation at each level and solving the connected equations again. Every new part, such as a delay or another controller term, makes such equations harder to combine.
 
-The [heater energy balance](../15-water-heater-energy-balance/README.md) supplied the physics. Here the question is narrower: with the same 35 °C operating point, how does proportional feedback change the temperature response to a 1 °C setpoint step, and why does a fixed 75% holding bias still leave error?
+We will write the heater and its P controller as fractions, connect them by algebra and check the predicted response on the heater.
 
 ## What we need
 
-We need a common way to express and connect plant and controller dynamics
-without repeatedly solving each differential equation from scratch. It must
-preserve initial-state effects and let us recover a physical response.
+We need to:
+
+1. turn derivatives into something we can multiply and divide, so that a plant and a controller connect by algebra;
+2. get from the algebra back to the response over time; and
+3. keep the heater's 1 s delivery delay in the calculation.
 
 ## The new idea
 
-A **Laplace transform** converts a time-dependent signal into a representation
-where differential equations can be handled algebraically. We use it to connect
-plant and controller equations and calculate their response without solving
-each connected differential equation from scratch. We will transform the
-familiar heater balance, then connect the result back to temperature versus time.
+**The Laplace transform** turns a differential equation into ordinary algebra: every derivative becomes a multiplication by $s$. A process can then be written as one fraction, its **transfer function**, which says how its output answers its input.
 
-Use hot SP=PV=35 °C, D=0, applied output 75%, $I=75\%$ held constant, $\beta=1$, and filter bypassed. Define deviations $x=T-35$ °C, $v=u-75$ percentage points, and $r=SP-35$ °C. Temporarily omit the 1 s delivered-power delay for the transform derivation, then restore it in the complete model.
+**In words.** A differential equation links a signal with its own rate of change, so connecting a plant and a controller means solving their equations together. The Laplace transform changes the signals instead of the method: it turns each signal over time into a function of a new variable, $s$. In that form:
 
-The deviation balance is
+1. **A rate of change becomes a multiplication.** Differentiating a signal multiplies its transform by $s$. One extra term remembers where the signal started.
+2. **A delay becomes a multiplication too.** Delaying a signal multiplies its transform by a fixed factor that depends on the delay.
+3. **A process becomes a fraction.** Divide the output's transform by the input's, with the process starting from rest. The result is the same whatever the input is, so it belongs to the process alone: this fraction is the transfer function.
 
-$$
-5\dot x+x=0.2v,
-$$
+It works like scaling an analog input in a PLC: the raw counts are converted into engineering units, the calculation is done there, and the result is converted back. Here the signals are converted into functions of $s$, the parts are connected by algebra, and the result is converted back into a response over time. In the $s$ form, parts connect like the gains of function blocks in a chain: in series their fractions multiply, and closing a feedback loop gives one more fraction.
 
-from $50\dot x=2v-10x$. Define the one-sided transform
+For the heater, the stored heat, the 0.2 °C per percentage point and the 1 s delivery delay become one fraction, and connecting a P controller to it takes one line of algebra.
 
-$$
-X(s)=\int_0^\infty x(t)e^{-st}\,dt,
-$$
+**The formula.**
 
-and similarly $V(s)$ and $R(s)$. Begin with s as a positive real weight large enough for the integral to converge; st is dimensionless, so s has units s⁻¹. The next lesson extends s to complex values to describe oscillation. Constants and sums pass through this integral, which is why the differential equation becomes an algebraic equation. Integration by parts gives
+> **Math you need: an integral transform.** An integral transform turns a whole signal into a new function. For each value of a variable $s$, it multiplies the signal by a weighting curve and adds up the area under the product, as the integral of the PI controller added up small pieces of error. Here the weight is $e^{-st}$. For the constant signal $x(t) = 1$, the area under $e^{-st}$ from 0 to infinity is $1/s$: at $s = 2$ per second, it is 0.5.
+
+The transform of a signal $x(t)$ is
 
 $$
-\mathcal L\{\dot x\}=[xe^{-st}]_0^\infty+sX(s)=-x(0)+sX(s),
+X(s) = \int_0^\infty x(t)\,e^{-st}\,dt .
 $$
 
-when the weighted boundary at infinity vanishes. Therefore
+Let:
+
+- $t$ be time, in seconds;
+- $x(t)$ be a signal, for example a temperature deviation in degrees Celsius;
+- $s$ be the transform variable, in 1 per second, positive and large enough for the area to stay finite;
+- $X(s)$ be the transformed signal, the area under $x(t)\,e^{-st}$; and
+- $t_d$ be a delay, in seconds.
+
+Four results do almost all the work:
+
+| Over time | Transform |
+| --- | --- |
+| A step of size 1 at $t = 0$ | $1/s$ |
+| The decay $e^{-at}$ | $1/(s + a)$ |
+| The derivative $\dot x$ | $s\,X(s) - x(0)$ |
+| The same signal delayed, $x(t - t_d)$ | $e^{-s t_d}\,X(s)$ |
+
+Where they come from:
+
+1. **The decay.** The product $e^{-at}\,e^{-st} = e^{-(s+a)t}$ has the area $1/(s + a)$. With $a = 0.2$ per second and $s = 0.8$ per second, the area is $1/(0.8 + 0.2) = 1.0$. With $a = 0$ the decay is the step, and the area is $1/s$.
+2. **The derivative.** Adding up the area by parts, the product rule of differentiation used backwards, gives $s\,X(s) - x(0)$. Check it on the decay: $\dot x = -0.2\,e^{-0.2t}$ transforms to $-0.2/(s + 0.2)$, and $s\,X - x(0) = s/(s + 0.2) - 1 = -0.2/(s + 0.2)$, the same.
+3. **The delay.** The delayed signal is the same curve, $t_d$ seconds later, so every piece of its area is weighted at a time $t_d$ later: $e^{-s(t + t_d)} = e^{-s t_d}\,e^{-st}$. Every piece, and so the whole area, is multiplied by $e^{-s t_d}$. A 1 s delay at $s = 0.8$ per second multiplies the area by $e^{-0.8} = 0.449$.
+
+The transfer function of a process with input $v$ and output $x$ is the ratio of their transforms, with the process starting from rest:
 
 $$
-5(sX-x(0))+X=0.2V.
+G(s) = \frac{X(s)}{V(s)} .
 $$
 
-A **transfer function** is the ratio of output transform to input transform
-when initial state deviations are zero. It describes that input-output
-relationship. For $x(0)=0$, the heater transfer function is
+Since $s$ stands for a rate of change, $s = 0$ describes a process whose rates have all become zero: one that has settled. $G(0)$ is therefore the process gain, also called the steady gain: how far the output finally moves per unit of input.
+
+**Back to time.** A transform belongs to exactly one signal. A result split into pieces from the table can therefore be read backwards, piece by piece.
+
+**Example: the water heater.** We return to the water heater: its equation is the simplest we know with a delay. Measure the temperature from its operating point, $x = T - 35$ °C, and the heater command from its holding value, $v = u - 75$ %. The water stores heat with a time constant of 5 s, settles 0.2 °C higher for every extra percentage point, and receives the heater's power 1 s late:
 
 $$
-G(s)=\frac{X}{V}=\frac{0.2}{5s+1}.
+5\,\dot x + x = 0.2\,v(t - 1).
 $$
 
-For $x(0)\ne0$, $X=(0.2V+5x(0))/(5s+1)$; the initial stored thermal deviation contributes a separate response even when the input does not change. If $v=0$ and $x(0)=1$ °C, temperature decays immediately even though no command changes, because heat loss acts on the stored deviation.
+Follow the method:
 
-With P feedback and fixed I/bias, $v=K_p(r-x)$. Substitution gives
-
-$$
-X=G K_p(R-X),\qquad (1+GK_p)X=GK_pR,
-$$
-
-so
+1. **Transform each term.** The derivative gives $5\,(sX - x(0))$ and the delayed command $0.2\,e^{-s}\,V$, so $5\,(sX - x(0)) + X = 0.2\,e^{-s}\,V$.
+2. **Collect $X$:** $(5s + 1)\,X = 0.2\,e^{-s}\,V + 5\,x(0)$. No derivative is left: the equation is algebra.
+3. **Divide by $V$, starting from rest,** $x(0) = 0$:
 
 $$
-H(s)=\frac{X}{R}=\frac{0.2K_p}{5s+1+0.2K_p}.
+G(s) = \frac{X}{V} = \frac{0.2\,e^{-s}}{5s + 1} .
 $$
 
-The closed-loop steady gain is $K_{cl}=0.2K_p/(1+0.2K_p)$, and the time constant is $\tau_{cl}=5/(1+0.2K_p)$. For $K_p=2$, $K_{cl}=2/7=0.285714$ and $\tau_{cl}=25/7=3.57143$ s. For $K_p=5$, $K_{cl}=0.5$ and $\tau_{cl}=2.5$ s.
+One fraction holds the stored heat, $5s + 1$, the gain 0.2 and the delay, $e^{-s}$.
 
-For a 1 °C step, the no-delay prediction is $x(t)=K_{cl}(1-e^{-t/\tau_{cl}})$. Thus final temperatures are 35.285714 °C and 35.5 °C, not 36 °C. P leaves errors 0.714286 °C and 0.5 °C because the 75% holding bias is fixed and no integral correction is allowed. One time constant reaches 63.2% of the final temperature change, not 63.2% of the 1 °C setpoint step.
-
-For a delay L and zero input-deviation history before time zero, the delayed signal is zero until L. Change integration variable to ξ=t−L:
-
-$$
-\int_L^\infty v(t-L)e^{-st}\,dt
-=e^{-sL}\int_0^\infty v(\xi)e^{-s\xi}\,d\xi=e^{-sL}V(s).
-$$
-
-Thus $G_d(s)=0.2e^{-sL}/(5s+1)$, with L=1 s. Repeating the feedback algebra gives denominator $5s+1+0.2K_pe^{-sL}$. Delay changes the complete feedback transient and can affect stability; it is not merely a horizontal shift of the no-delay curve.
-
-Use the same transform rule on the familiar shaft equation $\ddot\theta+\dot\theta+4\theta=4r$. Applying the derivative rule twice gives $\mathcal L\{\ddot\theta\}=s^2\Theta-s\theta(0)-\dot\theta(0)$. At zero initial angle and velocity,
+4. **The steady gain.** $G(0) = 0.2$ °C per percentage point: 10 points more power settles the water 2 °C higher.
+5. **Connect a P controller.** Leave the delay out for a moment: $G_0(s) = 0.2/(5s + 1)$. P control gives $V = K_p\,(R - X)$, where $R$ is the transformed setpoint change and $K_p$ the gain in percentage points per °C. Then $X = G_0\,K_p\,(R - X)$, and collecting $X$:
 
 $$
-(s^2+s+4)\Theta=4R,\qquad
-\frac{\Theta}{R}=\frac{4}{s^2+s+4}.
+H(s) = \frac{X}{R} = \frac{G_0\,K_p}{1 + G_0\,K_p} = \frac{0.2\,K_p}{5s + 1 + 0.2\,K_p} .
 $$
 
-Here $\Theta$ and R are transforms of angle and its setpoint. The position-control experiment showed a decaying oscillation. The denominator is now quadratic, so the first-order heater shortcut does not directly give its oscillation period and decay rate.
+The complete loop is one more fraction, found in one line.
 
-A second algebra exercise uses the same heater with PI gains $K_p=2.5$, $K_i=.5$, an initial 75% integral contribution and zero state deviations. Temporarily omit delivery delay for this calculation only. If $i=I-75$, transforming $\dot i=K_i e$ gives $s\mathcal I=K_iE$, so the controller's command-deviation transfer is $C(s)=2.5+.5/s$. With $G(s)=.2/(5s+1)$, the same feedback substitution yields
+6. **This lesson's gain.** With $K_p = 5$ percentage points per °C, $H(s) = 1/(5s + 2) = 0.5/(2.5s + 1)$. The loop is first order again, with gain 0.5 and time constant 2.5 s: feedback makes the water answer twice as fast as the heater's own 5 s, and it closes half of a setpoint step, the steady error of P control.
+7. **Back to time.** A 1 °C setpoint step has $R = 1/s$, so $X = 0.5/\big(s\,(2.5s + 1)\big) = 0.2/\big(s\,(s + 0.4)\big)$. Split it into pieces from the table: $0.5/s - 0.5/(s + 0.4)$; check: $0.5\,(s + 0.4) - 0.5\,s = 0.2$. Read backwards, $x(t) = 0.5 - 0.5\,e^{-0.4t} = 0.5\,(1 - e^{-t/2.5})$. Two seconds after the step, the delay-free loop has raised the water by $0.5\,(1 - e^{-0.8}) = 0.275$ °C.
+8. **The shaft, the same way.** Under P control with $K_p = 4$ N·m/rad, $\ddot\theta + \dot\theta = 4\,(r - \theta)$ becomes $(s^2 + s + 4)\,\Theta = 4\,R$ from rest, so $\Theta/R = 4/(s^2 + s + 4)$. Setting $s = 0$ gives 1: the angle settles on its target.
 
-$$
-\frac{X}{R}=\frac{CG}{1+CG}
-=\frac{.5(s+.2)}{5(s+.1)(s+.2)}
-=\frac{.1}{s+.1}.
-$$
+$K_p = 5$ is a teaching value, not a tuned value for physical equipment.
 
-For a disturbance, let d be extra heating expressed in command-equivalent percentage points: a 30 kW extraction means d=−15 points. Write its transform as $U_d$. At zero setpoint deviation, $X=G[-CX+U_d]$, hence
-
-$$
-\frac{X}{U_d}=\frac{G}{1+CG}
-=\frac{.2s}{(5s+1)(s+.1)}.
-$$
-
-Both expressions describe the same heater and PI settings, but the factor $(s+.2)$ cancels from the setpoint expression and remains in the disturbance expression. The algebra has not removed stored water energy. What do those numerator and denominator factors tell us about the response? Keep that question and the shaft's oscillation question for the next lesson. These are model calculations; the live P experiment below retains its fixed integral and physical 1 s delay.
+**The limitation: the delay.** With the delay kept, the loop's denominator becomes $5s + 1 + e^{-s}$. This is not a fraction of polynomials: it cannot be split into pieces from the table, so the response cannot be read back this way. Nor is it $H(s)$'s response moved 1 s later: while the extra power is on its way, the error stays larger, so the controller holds more power and the water then rises faster. A loop with a delay must be calculated with the delay inside it, step by step; the program does that beside the heater.
 
 ## Prediction
 
-Calculate $K_{cl}$, $\tau_{cl}$, final temperature and remaining error for $K_p=2$ and 5. Predict the 63.2% crossing and explain why the actual delayed trace may differ in both onset and shape. Predict the contribution of $x(0)=1$ °C with zero command deviation. Check the shaft transformation and the two PI feedback expressions algebraically; identify which common factor cancels and which remains.
+Before running, answer these questions for a setpoint step from 35 to 36 °C:
+
+1. Where will the water settle, and with which heater command?
+2. According to $H(s)$, how far will the water have risen 2.5 s after the step?
+3. What will the heater do in the first second after the step?
+4. Which prediction will follow the heater: $H(s)$ without the delay, or the loop computed with the delay?
+
+| Time after the step | $H(s)$, without the delay |
+| ---: | ---: |
+| 1 s | 35.165 °C |
+| 2.5 s | 35.316 °C |
+| 5 s | 35.432 °C |
+| Settled | 35.500 °C, with 77.5 % |
 
 ## Implementation
 
-Write scalar ST calculations for $K_{cl}$, $\tau_{cl}$, predicted final temperature, and predicted 63.2% level. Keep $I=75\%$ fixed, do not update it, and bypass filtering. Write `ClosedLoopGain := 0.2 * KpPctPerC / (1.0 + 0.2 * KpPctPerC);` and `ClosedLoopTimeS := 5.0 / (1.0 + 0.2 * KpPctPerC);`. Calculate final temperature as 35 plus ClosedLoopGain times the setpoint change. Check both gains and keep these prediction channels separate from measured PV.
+Open [`src/Main.st`](src/Main.st). `Control.PID` drives the heater as a P controller, $u = 75\,\% + 5\,(SP - T)$, every 0.1 s. When the project experiment starts, the setpoint steps to 36 °C and the program writes two predictions: `NoDelayPredictionC`, the step response of $H(s)$, and `DelayedModelC`, the same loop advanced every 0.1 s with the command arriving 1 s late. The measurement reads within ±0.02 °C.
+
+**ST practice.** Find the functions `ClosedLoopGain` and `ClosedLoopTimeS` and calculate both by hand for $K_p = 5$: 0.5 and 2.5 s. Then check the line that calculates `NoDelayPredictionC` at 2.5 s: $35 + 0.5\,(1 - e^{-1}) = 35.316$ °C. The tests in [`src/tests.st`](src/tests.st), run from the **Testing** view, check these values.
 
 ## Experiment in Control Studio
 
-1. Reset to SP=PV=35 °C, applied power 75%, I=75%, P=0, D=0, filter bypassed, and delayed history 75%. Set time zero at **Confirm and start**.
-2. Before each run, declare the 30 s duration, final-temperature tolerance ±0.05 °C around the correct P prediction, comparison of 63.2% crossings, and peak/output limits.
-3. In **Control Studio → Test**, review and start a 35→36 °C step with $K_p=2$. Display SP, PV, error, P, fixed I, requested/applied output, delayed command and elapsed time.
-4. Fully reset the same hot state and repeat with $K_p=5$. Do not compare runs with different delay history or initial conditions.
-5. After the P records, inspect the separate shaft and PI algebra calculations above. Retain their expressions beside the familiar smooth heater response and oscillating shaft response; do not label the no-delay PI calculation as a recorded P trial.
-6. Stop on PV outside 0–80 °C, applied output outside 0–100%, invalid data/clock, or unresponsive signals. Command zero heat and restart before repeating.
+1. Open this lesson's project and start **Simulator**. The heater holds 35 °C with 75 %. In the **truST** side bar, select **Control Studio**.
+2. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.SetpointC · Setpoint (°C)`, `P1.TemperatureC · Process value (°C)` and `P1.HeaterPowerPct · Applied output (%)`; add `P1.NoDelayPredictionC · state (°C)` and `P1.DelayedModelC · state (°C)`.
+3. Answer the predictions before starting.
+4. Select **Review project test** and check the declared **32.1 s** duration: 2 s at 35 °C, then 30 s after the setpoint step.
+5. Select **Confirm and start**. After 2 s the setpoint steps to 36 °C.
+6. After the run, hover the first seconds after the step, 2.5 s and 5 s after it, and the end.
+7. At completion, Control Studio shows **Project test completed. Outputs restored.**
+
+Select **Abort test** to stop early. To repeat, stop and restart **Simulator**.
 
 ## Evidence and decision
 
-Compare each final PV with 35.285714 °C or 35.5 °C, using the declared ±0.05 °C tolerance. Compare 63.2% crossings to each no-delay prediction, but do not claim the setpoint was fully reached. Record delay, peak, output limits and the shape difference caused by $e^{-sL}$. A delayed trace is not established by a simple horizontal shift if feedback acts during the delay.
+![The delay-free prediction rises at once; the loop computed with the delay follows the heater](figures/laplace-step-recording.svg)
+
+The numbered marks answer the predictions with the same numbers. From the recorded run, times after the setpoint step:
+
+| Time | Heater | $H(s)$, without the delay | Loop with the delay |
+| ---: | ---: | ---: | ---: |
+| 1 s | 34.997 °C | 35.165 °C | 35.000 °C |
+| 2.5 s | 35.274 °C | 35.316 °C | 35.255 °C |
+| 5 s | 35.453 °C | 35.432 °C | 35.439 °C |
+| 30 s | 35.500 °C | 35.500 °C | 35.500 °C |
+
+1. The water settled at 35.50 °C with a 77.50 % heater command, as $H(s)$'s steady gain predicts.
+2. $H(s)$ predicted 35.316 °C after 2.5 s; the heater was at 35.274 °C.
+3. For the first second nothing happened: 34.997 °C, 35 °C within the noise, while the extra power was on its way.
+4. The loop computed with the delay followed the heater within 0.021 °C throughout, the size of the measurement noise. $H(s)$ was up to 0.168 °C off in the first 5 s, and moving it 1 s later is also wrong: 0.055 °C low after 3 s.
+
+The algebra was quick: one fraction per part and one line for the loop. The cost: a delay does not fit a polynomial fraction and must stay inside the loop's calculation. There, it predicts the heater within the measurement noise. These are simulation results.
 
 ## Conclusion
 
-Laplace algebra carries the thermal initial condition into a plant transfer function. P feedback shortens the modeled time constant but, with fixed 75% bias and no integral update, leaves a predictable steady error. Restored transport delay changes the feedback dynamics themselves.
+The Laplace transform turns each derivative into a multiplication by $s$ and keeps the starting value as a separate term. A plant then becomes a fraction, its transfer function, and connected parts combine by algebra, as in $H = G\,K_p/(1 + G\,K_p)$. A delay enters as $e^{-s t_d}$ and must stay inside the loop.
+
+For the heater under P control, the fraction predicted the settled 35.50 °C and 77.50 %, and the loop computed with the 1 s delay followed the recorded rise within 0.021 °C.
+
+## Check yourself
+
+1. **What are the closed-loop gain and time constant for $K_p = 2$ percentage points per °C, without the delay?**
+   Gain $0.2 \times 2/(1 + 0.4) = 0.286$; time constant $5/1.4 = 3.57$ s.
+2. **Why is the delayed response not $H(s)$'s curve moved 1 s later?**
+   While the command waits, the error stays larger, so the controller holds more power and the water rises faster
+   afterwards. The delay changes the whole feedback transient, not only its start.
+3. **What is the transform of $x(t) = e^{-0.5t}$, and its value at $s = 1.5$ per second?**
+   $1/(s + 0.5)$, which is $1/2 = 0.5$ at $s = 1.5$.
 
 ## Reason for the next lesson
 
-For the simple heater expression we could read one time constant directly. The shaft expression $4/(s^2+s+4)$ describes a decaying oscillation, but how do we read both its period and decay rate? For the PI heater, why does $(s+.2)$ disappear from the setpoint expression while remaining in the disturbance expression?
+We can now write a plant and its loop as fractions and calculate their responses. But we cannot yet read such a fraction to see whether a response decays, grows or oscillates: the heater gave $1/(5s + 2)$, the shaft $4/(s^2 + s + 4)$, and nothing yet tells us that the second one swings.
 
-[Poles and zeros](../../02-derivative-action-and-dynamic-response/19-poles-zeros-and-response/README.md) answers these questions by finding and interpreting the numerator and denominator roots of the expressions we have just derived.
+[Poles and zeros](../../02-derivative-action-and-dynamic-response/19-poles-zeros-and-response/README.md) reads decay, growth and oscillation from the roots of a fraction's denominator and numerator.

@@ -3,61 +3,35 @@ enabled = true
 seed = 20260829
 time_scale = 1
 max_plant_substeps_per_cycle = 100
-plant_trace_capacity = 5000
+plant_trace_capacity = 2400
 plant_step_ms = 100
 
 [[plants]]
-id = "heat-exchanger-qualified-feedback-relay"
-model = "first_order_dead_time"
-command_sources = ["%QL0"]
-feedback_targets = ["%IL0"]
-initial_state = [50.0]
+id = "heater-feedback-relay"
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
+feedback_targets = ["%IL0", "%IL8"]
+# Same water balance as the validated heater; both feedback bindings observe the water.
+initial_state = [0.0]
+initial_input = [0.0, 0.0]
+input_offset = [-75.0, 0.0]
+output_offset = [35.0, 35.0]
 
 [plants.parameters]
-gain = 0.5
-time_constant_s = 20.0
-dead_time_s = 3.0
-initial_delayed_input = 20.0
-output_bias = 40.0
+a = [[-0.2]]
+b = [[0.04, -0.02]]
+c = [[1.0], [1.0]]
+d = [[0.0, 0.0], [0.0, 0.0]]
+# Heater transport is delayed; extraction acts on the water immediately.
+# Main supplies bounded 0..100% heating and 0..30 kW extraction commands.
+input_delays_s = [1.0, 0.0]
 
-[plants.actuator]
-minimum = 0.0
-maximum = 100.0
-initial_applied = 20.0
-
+# The relay cycle is measured through repeatable ±0.02 °C sensor noise.
 [[plants.uncertainties]]
-id = "qualified-relay-temperature-noise"
+id = "relay-temperature-noise"
 target = "measurement"
-channel = 0
+channel = 1
 mode = "add"
-generator = "normal_approx_white"
-mean = 0.0
-standard_deviation = 0.05
-
-[[plants]]
-id = "heat-exchanger-rejected-feedback-relay"
-model = "first_order_dead_time"
-command_sources = ["%QL8"]
-feedback_targets = ["%IL8"]
-initial_state = [50.0]
-
-[plants.parameters]
-gain = 0.5
-time_constant_s = 20.0
-dead_time_s = 3.0
-initial_delayed_input = 20.0
-output_bias = 40.0
-
-[plants.actuator]
-minimum = 0.0
-maximum = 100.0
-initial_applied = 20.0
-
-[[plants.uncertainties]]
-id = "rejected-relay-temperature-noise"
-target = "measurement"
-channel = 0
-mode = "add"
-generator = "normal_approx_white"
-mean = 0.0
-standard_deviation = 0.05
+generator = "uniform_white"
+minimum = -0.02
+maximum = 0.02

@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="512" viewBox="0 0 900 512" role="img" aria-labelledby="title desc">
+  <title id="title">A flow step fills the tank</title>
+  <desc id="desc">With 0.012 cubic metres per second in and 0.010 out, the level rises at 0.004 metres per second from 0.2502 to 0.2896 metres in 10 seconds; when the inflow returns to 0.010, the level stays between 0.2897 and 0.2903 metres instead of returning to 0.25.</desc>
+  <style>
+  svg { forced-color-adjust: none; color-scheme: light; }
+  .surface { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; }
+  text { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #172033; }
+  .title { font-size: 20px; font-weight: 650; }
+  .subtitle { font-size: 12px; fill: #4b5568; }
+  .box { fill: #ffffff; stroke: #526076; stroke-width: 1.5; }
+  .axis { stroke: #526076; stroke-width: 1.2; }
+  .grid { stroke: #cbd3df; stroke-width: 0.8; stroke-dasharray: 3 5; }
+  .signal { stroke: #1769aa; stroke-width: 2.2; fill: none; }
+  .signal-b { stroke: #c64b16; stroke-width: 2.2; fill: none; stroke-dasharray: 8 4; }
+  .signal-c { stroke: #7a3eb1; stroke-width: 2.0; fill: none; stroke-dasharray: 2 3; }
+  .signal-d { stroke: #26734d; stroke-width: 2.0; fill: none; stroke-dasharray: 7 4; }
+  .signal-thin { stroke: #1769aa; stroke-width: 1.0; fill: none; }
+  .command { stroke: #334155; stroke-width: 1.6; fill: none; }
+  .surroundings { stroke: #26734d; stroke-width: 2; fill: none; stroke-dasharray: 7 4; }
+  .request { stroke: #7a3eb1; stroke-width: 2.2; fill: none; stroke-dasharray: 2 3; }
+  .applied { stroke: #c64b16; stroke-width: 2.2; fill: none; stroke-dasharray: 8 4; }
+  .disturbance { stroke: #9b3152; stroke-width: 1.8; fill: none; stroke-dasharray: 5 4; }
+  .reference { stroke: #475569; stroke-width: 1.4; fill: none; stroke-dasharray: 2 4; }
+  .limit { stroke: #9b3152; stroke-width: 1.4; fill: none; stroke-dasharray: 6 3; }
+  .door-band { fill: #f4d9e2; opacity: 0.42; }
+  .band { fill: #cfe8d8; opacity: 0.55; }
+  .tick { font-size: 11px; fill: #465268; }
+  .label { font-size: 12px; font-weight: 600; }
+  .note { font-size: 11px; fill: #374258; }
+  .halo { paint-order: stroke; stroke: #f8fafc; stroke-width: 4px; stroke-linejoin: round; }
+  .mark { fill: #b45309; stroke: #ffffff; stroke-width: 1.4; }
+  .leader { stroke: #b45309; stroke-width: 1.2; fill: none; }
+  .badge { fill: #b45309; }
+  .badge-text { font-size: 11px; font-weight: 700; fill: #ffffff; }
+  .callout { font-size: 12px; fill: #172033; }
+</style>
+  <rect x="1" y="1" width="898" height="510" rx="8" class="surface" />
+  <text x="48.0" y="31.0" class="title" text-anchor="start">A flow step fills the tank, and equal flows keep the new level</text>
+  <text x="48.0" y="52.0" class="subtitle" text-anchor="start">Control Studio project experiment · tank area 0.5 m² · outlet pump 0.010 m³/s · numbers answer the predictions</text>
+  <line x1="82.0" y1="262.3" x2="850.0" y2="262.3" class="grid" />
+  <text x="72.0" y="266.3" class="tick" text-anchor="end">0.25</text>
+  <line x1="82.0" y1="230.7" x2="850.0" y2="230.7" class="grid" />
+  <text x="72.0" y="234.7" class="tick" text-anchor="end">0.26</text>
+  <line x1="82.0" y1="199.0" x2="850.0" y2="199.0" class="grid" />
+  <text x="72.0" y="203.0" class="tick" text-anchor="end">0.27</text>
+  <line x1="82.0" y1="167.3" x2="850.0" y2="167.3" class="grid" />
+  <text x="72.0" y="171.3" class="tick" text-anchor="end">0.28</text>
+  <line x1="82.0" y1="135.7" x2="850.0" y2="135.7" class="grid" />
+  <text x="72.0" y="139.7" class="tick" text-anchor="end">0.29</text>
+  <line x1="82.0" y1="104.0" x2="850.0" y2="104.0" class="grid" />
+  <text x="72.0" y="108.0" class="tick" text-anchor="end">0.30</text>
+  <line x1="82.0" y1="104.0" x2="82.0" y2="294.0" class="grid" />
+  <line x1="151.8" y1="104.0" x2="151.8" y2="294.0" class="grid" />
+  <line x1="221.6" y1="104.0" x2="221.6" y2="294.0" class="grid" />
+  <line x1="291.5" y1="104.0" x2="291.5" y2="294.0" class="grid" />
+  <line x1="361.3" y1="104.0" x2="361.3" y2="294.0" class="grid" />
+  <line x1="431.1" y1="104.0" x2="431.1" y2="294.0" class="grid" />
+  <line x1="500.9" y1="104.0" x2="500.9" y2="294.0" class="grid" />
+  <line x1="570.7" y1="104.0" x2="570.7" y2="294.0" class="grid" />
+  <line x1="640.5" y1="104.0" x2="640.5" y2="294.0" class="grid" />
+  <line x1="710.4" y1="104.0" x2="710.4" y2="294.0" class="grid" />
+  <line x1="780.2" y1="104.0" x2="780.2" y2="294.0" class="grid" />
+  <line x1="850.0" y1="104.0" x2="850.0" y2="294.0" class="grid" />
+  <text x="20" y="199.0" class="label" text-anchor="middle" transform="rotate(-90 20 199.0)">Level (m)</text>
+  <line x1="82.0" y1="104.0" x2="82.0" y2="294.0" class="axis" />
+  <line x1="82.0" y1="294.0" x2="850.0" y2="294.0" class="axis" />
+  <line x1="82.0" y1="425.5" x2="850.0" y2="425.5" class="grid" />
+  <text x="72.0" y="429.5" class="tick" text-anchor="end">0.010</text>
+  <line x1="82.0" y1="388.0" x2="850.0" y2="388.0" class="grid" />
+  <text x="72.0" y="392.0" class="tick" text-anchor="end">0.011</text>
+  <line x1="82.0" y1="350.5" x2="850.0" y2="350.5" class="grid" />
+  <text x="72.0" y="354.5" class="tick" text-anchor="end">0.012</text>
+  <line x1="82.0" y1="328.0" x2="82.0" y2="448.0" class="grid" />
+  <text x="82.0" y="468.0" class="tick" text-anchor="middle">0</text>
+  <line x1="151.8" y1="328.0" x2="151.8" y2="448.0" class="grid" />
+  <text x="151.8" y="468.0" class="tick" text-anchor="middle">2</text>
+  <line x1="221.6" y1="328.0" x2="221.6" y2="448.0" class="grid" />
+  <text x="221.6" y="468.0" class="tick" text-anchor="middle">4</text>
+  <line x1="291.5" y1="328.0" x2="291.5" y2="448.0" class="grid" />
+  <text x="291.5" y="468.0" class="tick" text-anchor="middle">6</text>
+  <line x1="361.3" y1="328.0" x2="361.3" y2="448.0" class="grid" />
+  <text x="361.3" y="468.0" class="tick" text-anchor="middle">8</text>
+  <line x1="431.1" y1="328.0" x2="431.1" y2="448.0" class="grid" />
+  <text x="431.1" y="468.0" class="tick" text-anchor="middle">10</text>
+  <line x1="500.9" y1="328.0" x2="500.9" y2="448.0" class="grid" />
+  <text x="500.9" y="468.0" class="tick" text-anchor="middle">12</text>
+  <line x1="570.7" y1="328.0" x2="570.7" y2="448.0" class="grid" />
+  <text x="570.7" y="468.0" class="tick" text-anchor="middle">14</text>
+  <line x1="640.5" y1="328.0" x2="640.5" y2="448.0" class="grid" />
+  <text x="640.5" y="468.0" class="tick" text-anchor="middle">16</text>
+  <line x1="710.4" y1="328.0" x2="710.4" y2="448.0" class="grid" />
+  <text x="710.4" y="468.0" class="tick" text-anchor="middle">18</text>
+  <line x1="780.2" y1="328.0" x2="780.2" y2="448.0" class="grid" />
+  <text x="780.2" y="468.0" class="tick" text-anchor="middle">20</text>
+  <line x1="850.0" y1="328.0" x2="850.0" y2="448.0" class="grid" />
+  <text x="850.0" y="468.0" class="tick" text-anchor="middle">22</text>
+  <text x="20" y="388.0" class="label" text-anchor="middle" transform="rotate(-90 20 388.0)">Flow (m³/s)</text>
+  <line x1="82.0" y1="328.0" x2="82.0" y2="448.0" class="axis" />
+  <line x1="82.0" y1="448.0" x2="850.0" y2="448.0" class="axis" />
+  <text x="466.0" y="490.0" class="label" text-anchor="middle">Time (s)</text>
+  <line x1="48.0" y1="76.0" x2="78.0" y2="76.0" class="signal-c" />
+  <text x="85.0" y="80.0" class="note" text-anchor="start">Model level (the balance)</text>
+  <line x1="266.0" y1="76.0" x2="296.0" y2="76.0" class="signal" />
+  <text x="303.0" y="80.0" class="note" text-anchor="start">Measured level</text>
+  <line x1="415.8" y1="76.0" x2="445.8" y2="76.0" class="applied" />
+  <text x="452.8" y="80.0" class="note" text-anchor="start">Inflow</text>
+  <line x1="516.0" y1="76.0" x2="546.0" y2="76.0" class="signal-d" />
+  <text x="553.0" y="80.0" class="note" text-anchor="start">Outflow</text>
+  <rect x="151.8" y="104.0" width="349.1" height="190.0" class="door-band" />
+  <rect x="151.8" y="328.0" width="349.1" height="120.0" class="door-band" />
+  <line x1="82.0" y1="262.3" x2="850.0" y2="262.3" class="reference" />
+  <path d="M82.00,262.33 L116.91,262.33 L151.82,261.71 L186.73,249.04 L221.64,236.38 L256.55,223.71 L291.45,211.04 L326.36,198.38 L361.27,185.71 L396.18,173.04 L431.09,160.38 L466.00,147.71 L500.91,135.04 L535.82,135.04 L570.73,135.04 L605.64,135.04 L640.55,135.04 L675.45,135.04 L710.36,135.04 L745.27,135.04 L780.18,135.04 L815.09,135.04 L850.00,135.04" class="signal-c" />
+  <path d="M82.00,263.76 L116.91,261.77 L151.82,261.71 L186.73,248.59 L221.64,237.57 L256.55,224.62 L291.45,212.16 L326.36,200.36 L361.27,186.97 L396.18,174.55 L431.09,161.09 L466.00,147.17 L500.91,136.90 L535.82,136.06 L570.73,135.22 L605.64,136.59 L640.55,135.46 L675.45,135.83 L710.36,135.68 L745.27,134.57 L780.18,135.79 L815.09,135.51 L850.00,135.09" class="signal" />
+  <path d="M82.00,425.50 L116.91,425.50 L116.91,425.50 L151.82,425.50 L151.82,350.50 L186.73,350.50 L186.73,350.50 L221.64,350.50 L221.64,350.50 L256.55,350.50 L256.55,350.50 L291.45,350.50 L291.45,350.50 L326.36,350.50 L326.36,350.50 L361.27,350.50 L361.27,350.50 L396.18,350.50 L396.18,350.50 L431.09,350.50 L431.09,350.50 L466.00,350.50 L466.00,350.50 L500.91,350.50 L500.91,425.50 L535.82,425.50 L535.82,425.50 L570.73,425.50 L570.73,425.50 L605.64,425.50 L605.64,425.50 L640.55,425.50 L640.55,425.50 L675.45,425.50 L675.45,425.50 L710.36,425.50 L710.36,425.50 L745.27,425.50 L745.27,425.50 L780.18,425.50 L780.18,425.50 L815.09,425.50 L815.09,425.50 L850.00,425.50 L850.00,425.50 L850.00,425.50" class="applied" />
+  <path d="M82.00,425.50 L116.91,425.50 L116.91,425.50 L151.82,425.50 L151.82,425.50 L186.73,425.50 L186.73,425.50 L221.64,425.50 L221.64,425.50 L256.55,425.50 L256.55,425.50 L291.45,425.50 L291.45,425.50 L326.36,425.50 L326.36,425.50 L361.27,425.50 L361.27,425.50 L396.18,425.50 L396.18,425.50 L431.09,425.50 L431.09,425.50 L466.00,425.50 L466.00,425.50 L500.91,425.50 L500.91,425.50 L535.82,425.50 L535.82,425.50 L570.73,425.50 L570.73,425.50 L605.64,425.50 L605.64,425.50 L640.55,425.50 L640.55,425.50 L675.45,425.50 L675.45,425.50 L710.36,425.50 L710.36,425.50 L745.27,425.50 L745.27,425.50 L780.18,425.50 L780.18,425.50 L815.09,425.50 L815.09,425.50 L850.00,425.50 L850.00,425.50 L850.00,425.50" class="signal-d" />
+  <text x="675.5" y="257.3" class="note halo" text-anchor="start">Starting level 0.25 m</text>
+  <line x1="326.4" y1="200.4" x2="309.2" y2="148.9" class="leader" />
+  <circle cx="326.4" cy="200.4" r="4" class="mark" />
+  <circle cx="306.4" cy="140.4" r="9" class="badge" />
+  <text x="306.4" y="144.4" class="badge-text" text-anchor="middle">1</text>
+  <text x="292.4" y="144.4" class="callout halo" text-anchor="end">Rises 0.0394 m in 10 s: 0.004 m/s</text>
+  <line x1="500.9" y1="136.9" x2="534.9" y2="174.2" class="leader" />
+  <circle cx="500.9" cy="136.9" r="4" class="mark" />
+  <circle cx="540.9" cy="180.9" r="9" class="badge" />
+  <text x="540.9" y="184.9" class="badge-text" text-anchor="middle">2</text>
+  <text x="554.9" y="177.9" class="callout halo" text-anchor="start">At 12 s: 0.2896 m measured,</text>
+  <text x="554.9" y="191.9" class="callout halo" text-anchor="start">0.2902 m model; 20 litres stored</text>
+  <line x1="780.2" y1="135.8" x2="771.1" y2="226.8" class="leader" />
+  <circle cx="780.2" cy="135.8" r="4" class="mark" />
+  <circle cx="770.2" cy="235.8" r="9" class="badge" />
+  <text x="770.2" y="239.8" class="badge-text" text-anchor="middle">3</text>
+  <text x="756.2" y="239.8" class="callout halo" text-anchor="end">Equal flows: 0.2897–0.2903 m, not back to 0.25 m</text>
+</svg>

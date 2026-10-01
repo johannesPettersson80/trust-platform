@@ -9,25 +9,24 @@
     "instance": "P1",
     "type": "Main",
     "design": "project",
-    "revision": "sha256:16d8b6ce500ddac6b280ce59ae4a88712130c499131a24275bfde72f36d54a3a",
+    "revision": "sha256:e0dc3f77df64ce6d22eab5408e80b2db89b660961474bfecf7b76df70f79be34",
     "action": "direct",
-    "taskPeriodMs": 1000,
-    "modeSignal": "%MX80.0"
+    "taskPeriodMs": 1000
   },
   "signals": {
     "processVariable": {
-      "symbol": "P1.Tank2Level",
+      "symbol": "P1.RaiseTank2M",
       "address": "%IL8",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "m",
       "range": {
-        "minimum": 0.05,
-        "maximum": 0.45
+        "minimum": 0,
+        "maximum": 0.5
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.PumpFlow",
+      "symbol": "P1.RaisePumpM3PerS",
       "address": "%QL0",
       "iecType": "LREAL",
       "direction": "read",
@@ -39,151 +38,123 @@
     },
     "additional": [
       {
-        "id": "upstream-level",
-        "channel": "upstream-level",
+        "id": "raise-tank-1",
+        "channel": "raise-tank-1",
         "role": "state",
-        "symbol": "P1.Tank1Level",
+        "symbol": "P1.RaiseTank1M",
         "address": "%IL0",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "m",
         "range": {
-          "minimum": 0.05,
-          "maximum": 0.45
+          "minimum": 0,
+          "maximum": 0.5
         }
       },
       {
-        "id": "upstream-model",
-        "channel": "upstream-model",
+        "id": "lower-tank-1",
+        "channel": "lower-tank-1",
         "role": "state",
-        "symbol": "P1.Model1LevelM",
+        "symbol": "P1.LowerTank1M",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "lower-tank-2",
+        "channel": "lower-tank-2",
+        "role": "state",
+        "symbol": "P1.LowerTank2M",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "lower-model-1",
+        "channel": "lower-model-1",
+        "role": "state",
+        "symbol": "P1.LowerModel1M",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "raise-model-1",
+        "channel": "raise-model-1",
+        "role": "state",
+        "symbol": "P1.RaiseModel1M",
         "address": "%ML0",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "m",
         "range": {
-          "minimum": 0.05,
-          "maximum": 0.45
+          "minimum": 0,
+          "maximum": 0.5
         }
       },
       {
-        "id": "downstream-model",
-        "channel": "downstream-model",
+        "id": "raise-model-2",
+        "channel": "raise-model-2",
         "role": "state",
-        "symbol": "P1.Model2LevelM",
+        "symbol": "P1.RaiseModel2M",
         "address": "%ML8",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "m",
         "range": {
-          "minimum": 0.05,
-          "maximum": 0.45
+          "minimum": 0,
+          "maximum": 0.5
         }
       },
       {
-        "id": "upstream-rate",
-        "channel": "upstream-rate",
+        "id": "lower-model-2",
+        "channel": "lower-model-2",
         "role": "state",
-        "symbol": "P1.Derivative1MPerS",
-        "address": "%ML16",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "m/s",
-        "range": {
-          "minimum": -0.02,
-          "maximum": 0.02
-        }
-      },
-      {
-        "id": "downstream-rate",
-        "channel": "downstream-rate",
-        "role": "state",
-        "symbol": "P1.Derivative2MPerS",
+        "symbol": "P1.LowerModel2M",
         "address": "%ML24",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "m/s",
-        "range": {
-          "minimum": -0.02,
-          "maximum": 0.02
-        }
-      },
-      {
-        "id": "upstream-model-error",
-        "channel": "upstream-model-error",
-        "role": "state",
-        "symbol": "P1.ModelError1M",
-        "address": "%ML88",
-        "iecType": "LREAL",
-        "direction": "read",
         "unit": "m",
         "range": {
-          "minimum": -0.4,
-          "maximum": 0.4
+          "minimum": 0,
+          "maximum": 0.5
         }
       },
       {
-        "id": "downstream-model-error",
-        "channel": "downstream-model-error",
+        "id": "lower-pump",
+        "channel": "lower-pump",
         "role": "state",
-        "symbol": "P1.ModelError2M",
-        "address": "%ML96",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "m",
-        "range": {
-          "minimum": -0.4,
-          "maximum": 0.4
-        }
-      },
-      {
-        "id": "flow-deviation",
-        "channel": "flow-deviation",
-        "role": "disturbance",
-        "symbol": "P1.FlowDeviationM3PerS",
-        "address": "%ML72",
+        "symbol": "P1.LowerPumpM3PerS",
+        "address": "%QL8",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "m3/s",
         "range": {
-          "minimum": -0.01,
-          "maximum": 0.01
+          "minimum": 0,
+          "maximum": 0.02
         }
       },
       {
-        "id": "experiment-seconds",
-        "channel": "experiment-seconds",
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
         "role": "state",
-        "symbol": "P1.ExperimentElapsedS",
-        "address": "%ML48",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "s",
-        "range": {
-          "minimum": 0,
-          "maximum": 120
-        }
-      },
-      {
-        "id": "experiment-enabled",
-        "channel": "experiment-enabled",
-        "role": "quality",
         "symbol": "P1.ExperimentEnabled",
-        "address": "%MX80.0",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "clock-valid",
-        "channel": "clock-valid",
-        "role": "quality",
-        "symbol": "P1.ClockValid",
-        "address": "%MX80.3",
+        "address": "%MX32.0",
         "iecType": "BOOL",
         "direction": "read",
         "unit": "1",
@@ -195,9 +166,9 @@
       {
         "id": "fault-latched",
         "channel": "fault-latched",
-        "role": "quality",
+        "role": "state",
         "symbol": "P1.FaultLatched",
-        "address": "%MX80.4",
+        "address": "%MX32.2",
         "iecType": "BOOL",
         "direction": "read",
         "unit": "1",
@@ -207,11 +178,11 @@
         }
       },
       {
-        "id": "predictor-ready",
-        "channel": "predictor-ready",
-        "role": "quality",
-        "symbol": "P1.PredictorReady",
-        "address": "%MX80.6",
+        "id": "clock-valid",
+        "channel": "clock-valid",
+        "role": "state",
+        "symbol": "P1.ClockValid",
+        "address": "%MX32.1",
         "iecType": "BOOL",
         "direction": "read",
         "unit": "1",
@@ -227,40 +198,23 @@
     "outputMaximum": 0.02
   },
   "observedSampleTiming": {
-    "nominalPeriodMs": 1000,
-    "maximumJitterMs": 0
+    "nominalPeriodMs": 1000
   },
-  "plantId": "two-connected-tanks",
+  "plantId": "two-tank-cascades",
+  "operatingPoint": "Both cascades at 0.25 m with the pumps at 0.010 m3/s",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 120,
+    "durationSeconds": 123,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX80.0",
+      "address": "%MX32.0",
       "iecType": "BOOL",
       "direction": "write"
-    }
+    },
+    "baselineSeconds": 2
   },
-  "parameterBinding": {
-    "loop_id": "control-lesson-20",
-    "task_name": "MainTask",
-    "parameters": [
-      {
-        "symbol": "P1.FlowDeviationM3PerS",
-        "iec_type": "LREAL",
-        "unit": "m3/s",
-        "convention": "Additive deviation from 0.010 m3/s during the first 20 seconds",
-        "minimum": 0,
-        "maximum": 0.001
-      }
-    ],
-    "mode": {
-      "symbol": "P1.ExperimentEnabled",
-      "manual_value": false
-    }
-  },
-  "revision": "sha256:0ef095d95773ee9ff6e8534f8549afdb9839e8cefb30ff7d9ae4f925bf7374b3"
+  "revision": "sha256:572a06a836826bdd0573517a1f1823572d360168194e632a3f8ab53cf6a06931"
 }

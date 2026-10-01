@@ -1,186 +1,143 @@
-FUNCTION Lesson50ReviewedSetpoint : LREAL
+(* Exact update of the shaft J = B = 1 over one period h with the torque u held: ω' = a·ω + d·u and
+   θ' = θ + b·ω + c·u, with a = e^(−h), b = d = 1 − e^(−h) and c = h − 1 + e^(−h). *)
+FUNCTION HeldVelocityFactor : LREAL
 VAR_INPUT
-    ExperimentEnabled : BOOL;
-    InputsValid : BOOL;
-    SafetyAbort : BOOL;
+    PeriodS : LREAL;
 END_VAR
-IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
-    Lesson50ReviewedSetpoint := LREAL#1.0;
+HeldVelocityFactor := EXP(-PeriodS);
+END_FUNCTION
+
+FUNCTION HeldVelocityGain : LREAL
+VAR_INPUT
+    PeriodS : LREAL;
+END_VAR
+HeldVelocityGain := LREAL#1.0 - EXP(-PeriodS);
+END_FUNCTION
+
+FUNCTION HeldAngleGain : LREAL
+VAR_INPUT
+    PeriodS : LREAL;
+END_VAR
+HeldAngleGain := PeriodS - LREAL#1.0 + EXP(-PeriodS);
+END_FUNCTION
+
+(* The characteristic polynomial of the sampled loop with one update of computation delay,
+   z·(z − 1)·(z − a) + Kd·d·(z − 1) + Kp·(c·(z − a) + b·d), at the multiplier z. *)
+FUNCTION SampledLoopPolynomial : LREAL
+VAR_INPUT
+    PeriodS : LREAL;
+    ProportionalGain : LREAL;
+    VelocityGain : LREAL;
+    Z : LREAL;
+END_VAR
+VAR
+    A : LREAL;
+    B : LREAL;
+    C : LREAL;
+END_VAR
+A := HeldVelocityFactor(PeriodS := PeriodS);
+B := HeldVelocityGain(PeriodS := PeriodS);
+C := HeldAngleGain(PeriodS := PeriodS);
+SampledLoopPolynomial := Z * (Z - LREAL#1.0) * (Z - A) + VelocityGain * B * (Z - LREAL#1.0)
+    + ProportionalGain * (C * (Z - A) + B * B);
+END_FUNCTION
+
+(* PD on the measured angle and velocity, u = Kp·(r − θ) − Kd·ω, with one update of computation delay: at each update
+   the torque calculated at the previous update is applied and the new one waits, limited to ±20 N·m. Outside ±0.2 rad
+   or ±2 rad/s the block latches its abort, clears the waiting torque and brakes the shaft with −Kd·ω. *)
+FUNCTION_BLOCK DelayedPd
+VAR_INPUT
+    Enable : BOOL;
+    Update : BOOL;
+    TargetRad : LREAL;
+    AngleRad : LREAL;
+    VelocityRadS : LREAL;
+END_VAR
+VAR_OUTPUT
+    TorqueNm : LREAL := 0.0;
+    PendingNm : LREAL := 0.0;
+    Abort : BOOL := FALSE;
+END_VAR
+VAR
+    ProportionalGain : LREAL := 16.0;
+    VelocityGain : LREAL := 7.0;
+END_VAR
+IF NOT Enable THEN
+    Abort := FALSE;
+    PendingNm := LREAL#0.0;
+    TorqueNm := LREAL#0.0;
 ELSE
-    Lesson50ReviewedSetpoint := LREAL#0.0;
+    Abort := Abort OR ABS(AngleRad) > LREAL#0.2 OR ABS(VelocityRadS) > LREAL#2.0;
+    IF Abort THEN
+        PendingNm := LREAL#0.0;
+        TorqueNm := LIMIT(LREAL#-20.0, -VelocityGain * VelocityRadS, LREAL#20.0);
+    ELSIF Update THEN
+        TorqueNm := PendingNm;
+        PendingNm := LIMIT(LREAL#-20.0, ProportionalGain * (TargetRad - AngleRad) - VelocityGain * VelocityRadS, LREAL#20.0);
+    END_IF;
 END_IF;
-END_FUNCTION
-
-FUNCTION Lesson50VelocityDecay : LREAL
-VAR_INPUT
-    SampleSeconds : LREAL;
-END_VAR
-Lesson50VelocityDecay := EXP(LREAL#-2.0 * SampleSeconds);
-END_FUNCTION
-
-FUNCTION Lesson50PositionInputCoefficient : LREAL
-VAR_INPUT
-    SampleSeconds : LREAL;
-END_VAR
-Lesson50PositionInputCoefficient := LREAL#5.0 * SampleSeconds
-    - LREAL#2.5 * (LREAL#1.0
-        - Lesson50VelocityDecay(SampleSeconds := SampleSeconds));
-END_FUNCTION
-
-FUNCTION Lesson50VelocityInputCoefficient : LREAL
-VAR_INPUT
-    SampleSeconds : LREAL;
-END_VAR
-Lesson50VelocityInputCoefficient := LREAL#5.0
-    * (LREAL#1.0 - Lesson50VelocityDecay(SampleSeconds := SampleSeconds));
-END_FUNCTION
-
-FUNCTION Lesson50NyquistAngularFrequency : LREAL
-VAR_INPUT
-    SampleSeconds : LREAL;
-END_VAR
-Lesson50NyquistAngularFrequency := LREAL#3.141592653589793 / SampleSeconds;
-END_FUNCTION
+END_FUNCTION_BLOCK
 
 PROGRAM Main
 VAR
+    (* Two copies of the shaft under the same delayed PD, Kp = 16 N·m/rad and Kd = 7 N·m·s/rad: the first updated
+       every 0.02 s, at every 20 ms scan, the second every 0.6 s, at every 30th scan. *)
+    FastController : DelayedPd;
+    SlowController : DelayedPd;
+    FastAngleRad : LREAL := 0.0;
+    FastVelocityRadS : LREAL := 0.0;
+    FastTorqueNm : LREAL := 0.0;
+    FastPendingNm : LREAL := 0.0;
+    SlowAngleRad : LREAL := 0.0;
+    SlowVelocityRadS : LREAL := 0.0;
+    SlowTorqueNm : LREAL := 0.0;
+    SlowPendingNm : LREAL := 0.0;
+    SlowScan : INT := 0;
+    TargetRad : LREAL := 0.0;
+    FastAbort : BOOL := FALSE;
+    SlowAbort : BOOL := FALSE;
+    (* Control Studio's project experiment steps the target of both shafts from 0 to 0.01 rad. *)
     ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    FineAborted : BOOL := FALSE;
-    CoarseAborted : BOOL := FALSE;
-    CorrectedAborted : BOOL := FALSE;
-    FineSampleSeconds : LREAL := 0.01;
-    CoarseSampleSeconds : LREAL := 0.1;
-    ContinuousProportionalGain : LREAL := 4.0;
-    ContinuousDerivativeGain : LREAL := 0.4;
-    CorrectedProportionalGain : LREAL := 1.0;
-    CorrectedDerivativeGain : LREAL := 0.4;
-    ForceMinimum : LREAL := -10.0;
-    ForceMaximum : LREAL := 10.0;
-    PositionSetpoint : LREAL := 0.0;
-    FinePosition : LREAL := 0.0;
-    FineVelocity : LREAL := 0.0;
-    CoarsePosition : LREAL := 0.0;
-    CoarseVelocity : LREAL := 0.0;
-    CorrectedPosition : LREAL := 0.0;
-    CorrectedVelocity : LREAL := 0.0;
-    FineRequestedForce : LREAL := 0.0;
-    FinePendingForce : LREAL := 0.0;
-    FineAppliedForce : LREAL := 0.0;
-    CoarseRequestedForce : LREAL := 0.0;
-    CoarsePendingForce : LREAL := 0.0;
-    CoarseAppliedForce : LREAL := 0.0;
-    CorrectedRequestedForce : LREAL := 0.0;
-    CorrectedPendingForce : LREAL := 0.0;
-    CorrectedAppliedForce : LREAL := 0.0;
-    CoarseCounter : DINT := 0;
-    CorrectedCounter : DINT := 0;
 END_VAR
 
-PositionSetpoint := Lesson50ReviewedSetpoint(
-    ExperimentEnabled := ExperimentEnabled,
-    InputsValid := InputsValid,
-    SafetyAbort := SafetyAbort
-);
-
-IF ExperimentEnabled AND (NOT SafetyAbort) AND InputsValid THEN
-    IF FineAborted THEN
-        FineAppliedForce := MAX(MIN(-LREAL#0.8 * FineVelocity, ForceMaximum), ForceMinimum);
-    ELSE
-        // Apply the preceding request before calculating the next one. This is
-        // the explicit one-sample computation and actuation delay.
-        FineAppliedForce := FinePendingForce;
-        FineRequestedForce := ContinuousProportionalGain * (PositionSetpoint - FinePosition)
-            - ContinuousDerivativeGain * FineVelocity;
-        IF (FineRequestedForce < ForceMinimum) OR (FineRequestedForce > ForceMaximum)
-            OR (FinePosition < LREAL#-5.0) OR (FinePosition > LREAL#5.0) THEN
-            FineAborted := TRUE;
-            FinePendingForce := LREAL#0.0;
-        ELSE
-            FinePendingForce := FineRequestedForce;
-        END_IF;
-    END_IF;
-
-    CoarseCounter := CoarseCounter + 1;
-    IF CoarseAborted THEN
-        CoarseAppliedForce := MAX(MIN(-LREAL#0.8 * CoarseVelocity, ForceMaximum), ForceMinimum);
-    ELSIF CoarseCounter >= 10 THEN
-        CoarseCounter := 0;
-        CoarseAppliedForce := CoarsePendingForce;
-        CoarseRequestedForce := ContinuousProportionalGain * (PositionSetpoint - CoarsePosition)
-            - ContinuousDerivativeGain * CoarseVelocity;
-        IF (CoarseRequestedForce < ForceMinimum) OR (CoarseRequestedForce > ForceMaximum)
-            OR (CoarsePosition < LREAL#-5.0) OR (CoarsePosition > LREAL#5.0) THEN
-            CoarseAborted := TRUE;
-            CoarsePendingForce := LREAL#0.0;
-            CoarseAppliedForce := MAX(MIN(-LREAL#0.8 * CoarseVelocity, ForceMaximum), ForceMinimum);
-        ELSE
-            CoarsePendingForce := CoarseRequestedForce;
-        END_IF;
-    END_IF;
-
-    CorrectedCounter := CorrectedCounter + 1;
-    IF CorrectedAborted THEN
-        CorrectedAppliedForce := MAX(MIN(-LREAL#0.8 * CorrectedVelocity, ForceMaximum), ForceMinimum);
-    ELSIF CorrectedCounter >= 10 THEN
-        CorrectedCounter := 0;
-        CorrectedAppliedForce := CorrectedPendingForce;
-        CorrectedRequestedForce := CorrectedProportionalGain * (PositionSetpoint - CorrectedPosition)
-            - CorrectedDerivativeGain * CorrectedVelocity;
-        IF (CorrectedRequestedForce < ForceMinimum) OR (CorrectedRequestedForce > ForceMaximum)
-            OR (CorrectedPosition < LREAL#-5.0) OR (CorrectedPosition > LREAL#5.0) THEN
-            CorrectedAborted := TRUE;
-            CorrectedPendingForce := LREAL#0.0;
-        ELSE
-            CorrectedPendingForce := CorrectedRequestedForce;
-        END_IF;
-    END_IF;
+IF ExperimentEnabled THEN
+    TargetRad := LREAL#0.01;
 ELSE
-    FineAborted := FALSE;
-    CoarseAborted := FALSE;
-    CorrectedAborted := FALSE;
-    FineRequestedForce := LREAL#0.0;
-    FinePendingForce := LREAL#0.0;
-    FineAppliedForce := LREAL#0.0;
-    CoarseRequestedForce := LREAL#0.0;
-    CoarsePendingForce := LREAL#0.0;
-    CoarseAppliedForce := LREAL#0.0;
-    CorrectedRequestedForce := LREAL#0.0;
-    CorrectedPendingForce := LREAL#0.0;
-    CorrectedAppliedForce := LREAL#0.0;
-    CoarseCounter := 0;
-    CorrectedCounter := 0;
+    TargetRad := LREAL#0.0;
+    SlowScan := 0;
 END_IF;
+FastController(Enable := ExperimentEnabled, Update := TRUE, TargetRad := TargetRad, AngleRad := FastAngleRad,
+    VelocityRadS := FastVelocityRadS);
+SlowController(Enable := ExperimentEnabled, Update := ExperimentEnabled AND SlowScan = 0, TargetRad := TargetRad,
+    AngleRad := SlowAngleRad, VelocityRadS := SlowVelocityRadS);
+IF ExperimentEnabled THEN
+    SlowScan := (SlowScan + 1) MOD 30;
+END_IF;
+FastTorqueNm := FastController.TorqueNm;
+FastPendingNm := FastController.PendingNm;
+FastAbort := FastController.Abort;
+SlowTorqueNm := SlowController.TorqueNm;
+SlowPendingNm := SlowController.PendingNm;
+SlowAbort := SlowController.Abort;
 END_PROGRAM
 
 CONFIGURATION Config
 RESOURCE Res ON PLC
-    TASK MainTask(INTERVAL := T#10ms, PRIORITY := 1);
+    TASK MainTask(INTERVAL := T#20ms, PRIORITY := 1);
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.ExperimentEnabled AT %MX96.0 : BOOL;
-    P1.SafetyAbort AT %MX96.1 : BOOL;
-    P1.InputsValid AT %MX96.2 : BOOL;
-    P1.FineAborted AT %MX97.0 : BOOL;
-    P1.CoarseAborted AT %MX97.1 : BOOL;
-    P1.CorrectedAborted AT %MX97.2 : BOOL;
-    P1.FineRequestedForce AT %ML0 : LREAL;
-    P1.FinePendingForce AT %ML8 : LREAL;
-    P1.CoarseRequestedForce AT %ML16 : LREAL;
-    P1.CoarsePendingForce AT %ML24 : LREAL;
-    P1.CorrectedRequestedForce AT %ML32 : LREAL;
-    P1.CorrectedPendingForce AT %ML40 : LREAL;
-    P1.PositionSetpoint AT %ML48 : LREAL;
-    P1.FineAppliedForce AT %QL0 : LREAL;
-    P1.CoarseAppliedForce AT %QL8 : LREAL;
-    P1.CorrectedAppliedForce AT %QL16 : LREAL;
-    P1.FinePosition AT %IL0 : LREAL;
-    P1.FineVelocity AT %IL8 : LREAL;
-    P1.CoarsePosition AT %IL16 : LREAL;
-    P1.CoarseVelocity AT %IL24 : LREAL;
-    P1.CorrectedPosition AT %IL32 : LREAL;
-    P1.CorrectedVelocity AT %IL40 : LREAL;
+    P1.FastTorqueNm AT %QL0 : LREAL;
+    P1.FastAngleRad AT %IL0 : LREAL;
+    P1.FastVelocityRadS AT %IL8 : LREAL;
+    P1.SlowTorqueNm AT %QL8 : LREAL;
+    P1.SlowAngleRad AT %IL16 : LREAL;
+    P1.SlowVelocityRadS AT %IL24 : LREAL;
+    P1.TargetRad AT %ML0 : LREAL;
+    P1.FastPendingNm AT %ML8 : LREAL;
+    P1.SlowPendingNm AT %ML16 : LREAL;
+    P1.ExperimentEnabled AT %MX24.0 : BOOL;
+    P1.FastAbort AT %MX24.1 : BOOL;
+    P1.SlowAbort AT %MX24.2 : BOOL;
 END_VAR
 END_CONFIGURATION

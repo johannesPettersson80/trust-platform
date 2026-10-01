@@ -36,6 +36,25 @@ suite("Control Studio runtime verification client", () => {
       value: 0.8935125977748761, limit: 0.1, unit: "°C", reason: "Observed measurement exceeds the declared limit." }]),
     "Recorded target error 0.8935 °C exceeds 0.1 °C.");
   });
+  test("names requirement units the way the rest of Control Studio does", () => {
+    const failure = require("../../controlStudio/mainWorkflowFailure");
+    assert.strictEqual(failure.verificationFailureReason([{ id: "target-error", kind: "error", status: "Fail",
+      value: 0.2053, limit: 0.2, unit: "degC", reason: "Observed measurement exceeds the declared limit." }]),
+    "Recorded target error 0.2053 °C exceeds 0.2 °C.");
+  });
+  test("names the exceeded recording bound before any runtime request", async () => {
+    const module = clientModule();
+    let requests = 0;
+    const runtime: RuntimeRequest = async () => { requests += 1; return {}; };
+    const client = new module.RuntimeVerificationClient!({ source: "simulation", request: runtime });
+    const channels = (count: number) => Array.from({ length: count }, (_, index) => ({ symbol: `P1.Signal${index}`, unit: "1" }));
+    await assert.rejects(client.verify({ ...request, observations: channels(65) }, requirements),
+      /records 65 channels; the runtime records at most 64/);
+    await assert.rejects(client.verify({ ...request, step_ms: 20, duration_ms: 200000, max_total_cycles: 10001, observations: channels(30) }, requirements),
+      /10001 samples × 30 channels = 300030 channel samples; the runtime allows 250000/);
+    assert.strictEqual(requests, 0, "a request the runtime would refuse is not dispatched");
+  });
+
   test("retains a failed terminal runtime record without accepting it as verified", async () => {
     const module = clientModule();
     let detailed = false;

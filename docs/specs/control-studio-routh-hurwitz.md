@@ -70,7 +70,7 @@ Routh tables, Save result, Review test or source badges to those pages.
 - [x] Generic non-shaft cases, invalid input and special-case tests.
 - [x] Registered rendered interaction red/green and actual VS Code screenshots.
 - [x] Actual shaft ST/simulation trials for positive, zero and negative gains.
-- [x] Lesson 48 source README and content authority match the proven workflow.
+- [x] Lesson 52 source README and content authority match the proven workflow.
 - [x] SOLID/KISS/DRY: isolated mathematical module; reuse declared model and UI shell;
       no unrelated runtime expansion or duplicated controller parameter writes.
 - [x] Diagram/checklist and changelog synchronized; versions unchanged.

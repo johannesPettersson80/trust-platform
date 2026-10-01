@@ -45,6 +45,51 @@ fn primitive_policy_rejects_incompatible_runtime_tags() {
 }
 
 #[test]
+fn primitive_policy_keeps_values_of_the_declared_elementary_type_unchanged() {
+    use crate::value::{
+        DateTimeValue, DateValue, Duration, LDateTimeValue, LDateValue, LTimeOfDayValue,
+        TimeOfDayValue,
+    };
+    let cases = [
+        (1, Value::Bool(true)),
+        (2, Value::Byte(0xA5)),
+        (3, Value::Word(0xBEEF)),
+        (4, Value::DWord(0xDEAD_BEEF)),
+        (5, Value::LWord(u64::MAX)),
+        (6, Value::SInt(i8::MIN)),
+        (7, Value::Int(i16::MIN)),
+        (8, Value::DInt(i32::MAX)),
+        (9, Value::LInt(i64::MIN)),
+        (10, Value::USInt(u8::MAX)),
+        (11, Value::UInt(u16::MAX)),
+        (12, Value::UDInt(u32::MAX)),
+        (13, Value::ULInt(u64::MAX)),
+        (14, Value::Real(-1.5e-40)),
+        (15, Value::LReal(f64::MAX)),
+        (16, Value::Time(Duration::from_nanos(-7))),
+        (17, Value::LTime(Duration::from_nanos(i64::MAX))),
+        (18, Value::Date(DateValue::new(3))),
+        (19, Value::LDate(LDateValue::new(4))),
+        (20, Value::Tod(TimeOfDayValue::new(5))),
+        (21, Value::LTod(LTimeOfDayValue::new(6))),
+        (22, Value::Dt(DateTimeValue::new(7))),
+        (23, Value::Ldt(LDateTimeValue::new(8))),
+        (24, Value::String("unbounded".into())),
+        (25, Value::WString("unbounded".into())),
+        (26, Value::Char(b'A')),
+        (27, Value::WChar(0x263A)),
+    ];
+
+    for (prim_id, value) in cases {
+        assert_eq!(
+            normalize_value_for_type_table(&primitive_table(prim_id), 0, value.clone(), 0),
+            Ok(value),
+            "primitive {prim_id}"
+        );
+    }
+}
+
+#[test]
 fn primitive_policy_materializes_only_accuracy_preserving_float_widening() {
     let real = primitive_table(14);
     let lreal = primitive_table(15);

@@ -18,6 +18,16 @@ fn scaled_sleep_interval(interval: Duration, scale: u32) -> Duration {
     Duration::from_nanos(scaled)
 }
 
+/// Start of the current cycle on the fixed cycle grid: the scheduled instant while the cycle starts within one interval
+/// of it, so a late wake-up does not delay every later cycle; otherwise `now`, so a stall or a paused debugger moves the
+/// grid instead of replaying the missed cycles in a burst.
+fn grid_cycle_start(scheduled: Option<i64>, now: i64, interval: i64) -> i64 {
+    match scheduled {
+        Some(due) if now <= due.saturating_add(interval) => due,
+        _ => now,
+    }
+}
+
 fn cycle_deadline_from(
     start: std::time::Instant,
     timeout: Duration,
@@ -101,6 +111,7 @@ fn run_resource_loop_core<C, F>(
 {
     let mut paused = false;
     let mut automatic_restarts = AutomaticRestartLimiter::default();
+    let mut scheduled_start: Option<i64> = None;
     if let Some(gate) = runner.start_gate.as_ref() {
         set_resource_state(&state, ResourceState::Ready);
         if !gate.wait_open(&stop) {
@@ -201,6 +212,9 @@ fn run_resource_loop_core<C, F>(
         }
 
         let now_raw = runner.clock.now();
+        let sleep_interval =
+            scaled_sleep_interval(runner.cycle_interval, runner.time_scale).as_nanos();
+        let cycle_start = grid_cycle_start(scheduled_start, now_raw.as_nanos(), sleep_interval);
         let now = scaled_time(now_raw, runner.time_scale);
         runner.runtime.set_current_time(now);
         let wall_start = std::time::Instant::now();
@@ -289,9 +303,8 @@ fn run_resource_loop_core<C, F>(
             thread::yield_now();
             continue;
         }
-        let sleep_interval = scaled_sleep_interval(runner.cycle_interval, runner.time_scale);
-        let deadline =
-            Duration::from_nanos(now_raw.as_nanos().saturating_add(sleep_interval.as_nanos()));
+        let deadline = Duration::from_nanos(cycle_start.saturating_add(sleep_interval));
+        scheduled_start = Some(deadline.as_nanos());
         runner.clock.sleep_until(deadline);
     }
 }
@@ -498,6 +511,53 @@ mod runner_loop_poison_tests {
         assert_eq!(
             *recover_mutex_lock(last_error.lock()),
             Some(RuntimeError::DivisionByZero)
+        );
+    }
+
+    /// A clock whose every wake-up returns 0.5 ms after the instant it was asked to wake.
+    #[derive(Clone, Debug)]
+    struct LateWakeClock {
+        now: Arc<Mutex<Duration>>,
+    }
+
+    impl Clock for LateWakeClock {
+        fn now(&self) -> Duration {
+            *self.now.lock().expect("late clock lock")
+        }
+
+        fn sleep_until(&self, deadline: Duration) {
+            let mut now = self.now.lock().expect("late clock lock");
+            *now = Duration::from_nanos(deadline.as_nanos().max(now.as_nanos()) + 500_000);
+        }
+    }
+
+    #[test]
+    fn late_wake_ups_do_not_shift_the_cycle_grid() {
+        let clock = LateWakeClock {
+            now: Arc::new(Mutex::new(Duration::ZERO)),
+        };
+        let runner = ResourceRunner::new(Runtime::new(), clock, Duration::from_millis(10));
+        let starts = Arc::new(Mutex::new(Vec::new()));
+        let recorded = Arc::clone(&starts);
+        run_resource_loop_core(
+            runner,
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(Mutex::new(ResourceState::Boot)),
+            Arc::new(Mutex::new(None)),
+            move |runtime| {
+                let mut starts = recorded.lock().expect("cycle starts lock");
+                starts.push(runtime.current_time().as_nanos());
+                if starts.len() == 101 {
+                    return Err(RuntimeError::SimulationFault("stop after 101 cycles".into()));
+                }
+                Ok(())
+            },
+        );
+        let starts = starts.lock().expect("cycle starts lock");
+        assert_eq!(starts.len(), 101);
+        assert_eq!(
+            starts[100], 1_000_500_000,
+            "100 cycles of 10 ms keep the 1 s grid; one late wake-up is not added per cycle"
         );
     }
 

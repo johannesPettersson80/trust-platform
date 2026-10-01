@@ -3,111 +3,71 @@ icon = "droplets"
 order = 0
 
 [[section]]
-title = "Key Metrics"
+title = "Small step"
 span = 12
 tier = "hero"
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.LargeInletFlow"
+bind = "P1.SmallLevelM"
 inferred_interface = true
-label = "Large Inlet Flow"
+label = "Tank level"
 span = 4
-unit = "l/min"
+unit = "m"
 min = 0
-max = 500
+max = 1
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.OperatingFlow"
+bind = "P1.SmallTangentLevelM"
 inferred_interface = true
-label = "Operating Flow"
+label = "Tangent model"
 span = 4
-unit = "l/min"
+unit = "m"
 min = 0
-max = 500
+max = 1
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.SmallInletFlow"
+bind = "P1.SmallInletFlowM3S"
 inferred_interface = true
-label = "Small Inlet Flow"
+label = "Inlet flow"
 span = 4
-unit = "l/min"
+unit = "m³/s"
 min = 0
-max = 500
+max = 0.02
 
 [[section]]
-title = "Status"
-span = 12
-tier = "status"
-
-[[section.widget]]
-type = "indicator"
-bind = "P1.ExperimentEnabled"
-inferred_interface = true
-label = "Experiment Enabled"
-span = 2
-
-[[section]]
-title = "Details"
+title = "Large step"
 span = 12
 tier = "detail"
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.LargeFlowDeviation"
+bind = "P1.LargeLevelM"
 inferred_interface = true
-label = "Large Flow Deviation"
-span = 3
-unit = "l/min"
-min = 0
-max = 500
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.SmallFlowDeviation"
-inferred_interface = true
-label = "Small Flow Deviation"
-span = 3
-unit = "l/min"
-min = 0
-max = 500
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.LargeLocalLevel"
-inferred_interface = true
-label = "Large Local Level"
+label = "Tank level"
 span = 4
-unit = "%"
+unit = "m"
 min = 0
-max = 100
+max = 1
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.LargePhysicalLevel"
+bind = "P1.LargeTangentLevelM"
 inferred_interface = true
-label = "Large Physical Level"
+label = "Tangent model"
 span = 4
-unit = "%"
+unit = "m"
 min = 0
-max = 100
+max = 1
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.LargePhysicalEquilibrium"
+bind = "P1.LargeInletFlowM3S"
 inferred_interface = true
-label = "Large Physical Equilibrium"
-span = 3
+label = "Inlet flow"
+span = 4
+unit = "m³/s"
 min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.LocalGain"
-inferred_interface = true
-label = "Local Gain"
-span = 3
-min = 0
-max = 100
+max = 0.02

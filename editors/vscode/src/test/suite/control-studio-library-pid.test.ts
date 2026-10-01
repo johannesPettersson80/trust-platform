@@ -60,7 +60,7 @@ suite("Control Studio actual library PID state adapter", () => {
     const session = new EngineerWorkflowSession(loop, () => model, () => undefined);
     let release!: () => void;
     const retainedOwner = new Promise<void>(resolve => { release = resolve; });
-    session.cancellationOwner = { cancel: () => retainedOwner, snapshot: () => undefined };
+    session.state.cancellationOwner = { cancel: () => retainedOwner, snapshot: () => undefined };
     const scope = { projectId: loop.projectId, editorSessionId: "edit-order", loopId: loop.id, loopRevision: loop.revision };
     const posts: string[] = [];
     const invoke = (action: string) => session.handle({ schemaVersion: 1, kind: `control-studio.engineer.${action}`,

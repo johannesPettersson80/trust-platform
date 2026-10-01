@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use rustc_hash::FxHashMap;
 use smol_str::SmolStr;
 
 use crate::stdlib::conversions;
@@ -25,7 +24,7 @@ pub(in crate::runtime::vm) fn preparse_native_symbol_spec(symbol: &SmolStr) -> V
 
 pub(in crate::runtime::vm) fn resolve_native_symbol_specs(
     specs: &mut [VmNativeSymbolSpec],
-    function_ids: &HashMap<SmolStr, u32>,
+    function_ids: &FxHashMap<SmolStr, u32>,
 ) {
     for spec in specs {
         if let VmNativeSymbolSpec::Parsed {

@@ -1,9 +1,0 @@
-sample,underlying_temperature_degC,measurement_noise_degC,measured_pv_degC,mv_percent,transition,evidence_class
-1,2.00,0.05,2.05,100.0,0,simulation
-2,2.00,-0.05,1.95,0.0,1,simulation
-3,2.00,0.04,2.04,100.0,1,simulation
-4,2.00,-0.04,1.96,0.0,1,simulation
-5,2.00,0.03,2.03,100.0,1,simulation
-6,2.00,-0.03,1.97,0.0,1,simulation
-7,2.00,0.02,2.02,100.0,1,simulation
-8,2.00,-0.02,1.98,0.0,1,simulation

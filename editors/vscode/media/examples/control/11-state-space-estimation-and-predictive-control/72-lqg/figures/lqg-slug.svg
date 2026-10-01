@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="532" viewBox="0 0 900 532" role="img" aria-labelledby="title desc">
+  <title id="title">LQG after a slug the estimator was not told about</title>
+  <desc id="desc">With tank 1 measured the pump reacts at once and tank 2 rises 2.9 millimetres. LQG with the model's error alone hardly moves its estimate, keeps the pump at 0.010 cubic metres per second and lets tank 2 rise 7.4 millimetres; with upsets allowed the estimate is 2.6 millimetres off after 20 seconds and tank 2 rises 5.4 millimetres.</desc>
+  <style>
+  svg { forced-color-adjust: none; color-scheme: light; }
+  .surface { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; }
+  text { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #172033; }
+  .title { font-size: 20px; font-weight: 650; }
+  .subtitle { font-size: 12px; fill: #4b5568; }
+  .box { fill: #ffffff; stroke: #526076; stroke-width: 1.5; }
+  .axis { stroke: #526076; stroke-width: 1.2; }
+  .grid { stroke: #cbd3df; stroke-width: 0.8; stroke-dasharray: 3 5; }
+  .signal { stroke: #1769aa; stroke-width: 2.2; fill: none; }
+  .signal-b { stroke: #c64b16; stroke-width: 2.2; fill: none; stroke-dasharray: 8 4; }
+  .signal-c { stroke: #7a3eb1; stroke-width: 2.0; fill: none; stroke-dasharray: 2 3; }
+  .signal-d { stroke: #26734d; stroke-width: 2.0; fill: none; stroke-dasharray: 7 4; }
+  .signal-thin { stroke: #1769aa; stroke-width: 1.0; fill: none; }
+  .command { stroke: #334155; stroke-width: 1.6; fill: none; }
+  .surroundings { stroke: #26734d; stroke-width: 2; fill: none; stroke-dasharray: 7 4; }
+  .request { stroke: #7a3eb1; stroke-width: 2.2; fill: none; stroke-dasharray: 2 3; }
+  .applied { stroke: #c64b16; stroke-width: 2.2; fill: none; stroke-dasharray: 8 4; }
+  .disturbance { stroke: #9b3152; stroke-width: 1.8; fill: none; stroke-dasharray: 5 4; }
+  .reference { stroke: #475569; stroke-width: 1.4; fill: none; stroke-dasharray: 2 4; }
+  .limit { stroke: #9b3152; stroke-width: 1.4; fill: none; stroke-dasharray: 6 3; }
+  .door-band { fill: #f4d9e2; opacity: 0.42; }
+  .band { fill: #cfe8d8; opacity: 0.55; }
+  .tick { font-size: 11px; fill: #465268; }
+  .label { font-size: 12px; font-weight: 600; }
+  .note { font-size: 11px; fill: #374258; }
+  .halo { paint-order: stroke; stroke: #f8fafc; stroke-width: 4px; stroke-linejoin: round; }
+  .mark { fill: #b45309; stroke: #ffffff; stroke-width: 1.4; }
+  .leader { stroke: #b45309; stroke-width: 1.2; fill: none; }
+  .badge { fill: #b45309; }
+  .badge-text { font-size: 11px; font-weight: 700; fill: #ffffff; }
+  .callout { font-size: 12px; fill: #172033; }
+</style>
+  <rect x="1" y="1" width="898" height="530" rx="8" class="surface" />
+  <text x="48.0" y="31.0" class="title" text-anchor="start">LQG after a slug the estimator was not told about</text>
+  <text x="48.0" y="52.0" class="subtitle" text-anchor="start">Control Studio recordings of this project · full-state feedback and LQG with two process noise settings · numbers answer the predictions</text>
+  <line x1="82.0" y1="268.1" x2="850.0" y2="268.1" class="grid" />
+  <text x="72.0" y="272.1" class="tick" text-anchor="end">0.250</text>
+  <line x1="82.0" y1="233.5" x2="850.0" y2="233.5" class="grid" />
+  <text x="72.0" y="237.5" class="tick" text-anchor="end">0.252</text>
+  <line x1="82.0" y1="199.0" x2="850.0" y2="199.0" class="grid" />
+  <text x="72.0" y="203.0" class="tick" text-anchor="end">0.254</text>
+  <line x1="82.0" y1="164.5" x2="850.0" y2="164.5" class="grid" />
+  <text x="72.0" y="168.5" class="tick" text-anchor="end">0.256</text>
+  <line x1="82.0" y1="129.9" x2="850.0" y2="129.9" class="grid" />
+  <text x="72.0" y="133.9" class="tick" text-anchor="end">0.258</text>
+  <line x1="139.3" y1="104.0" x2="139.3" y2="294.0" class="grid" />
+  <line x1="253.9" y1="104.0" x2="253.9" y2="294.0" class="grid" />
+  <line x1="368.6" y1="104.0" x2="368.6" y2="294.0" class="grid" />
+  <line x1="483.2" y1="104.0" x2="483.2" y2="294.0" class="grid" />
+  <line x1="597.8" y1="104.0" x2="597.8" y2="294.0" class="grid" />
+  <line x1="712.4" y1="104.0" x2="712.4" y2="294.0" class="grid" />
+  <line x1="827.1" y1="104.0" x2="827.1" y2="294.0" class="grid" />
+  <text x="20" y="199.0" class="label" text-anchor="middle" transform="rotate(-90 20 199.0)">Tank 2 (m)</text>
+  <line x1="82.0" y1="104.0" x2="82.0" y2="294.0" class="axis" />
+  <line x1="82.0" y1="294.0" x2="850.0" y2="294.0" class="axis" />
+  <line x1="82.0" y1="456.3" x2="850.0" y2="456.3" class="grid" />
+  <text x="72.0" y="460.3" class="tick" text-anchor="end">0</text>
+  <line x1="82.0" y1="427.2" x2="850.0" y2="427.2" class="grid" />
+  <text x="72.0" y="431.2" class="tick" text-anchor="end">5</text>
+  <line x1="82.0" y1="398.0" x2="850.0" y2="398.0" class="grid" />
+  <text x="72.0" y="402.0" class="tick" text-anchor="end">10</text>
+  <line x1="82.0" y1="368.8" x2="850.0" y2="368.8" class="grid" />
+  <text x="72.0" y="372.8" class="tick" text-anchor="end">15</text>
+  <line x1="82.0" y1="339.7" x2="850.0" y2="339.7" class="grid" />
+  <text x="72.0" y="343.7" class="tick" text-anchor="end">20</text>
+  <line x1="139.3" y1="328.0" x2="139.3" y2="468.0" class="grid" />
+  <text x="139.3" y="488.0" class="tick" text-anchor="middle">0</text>
+  <line x1="253.9" y1="328.0" x2="253.9" y2="468.0" class="grid" />
+  <text x="253.9" y="488.0" class="tick" text-anchor="middle">10</text>
+  <line x1="368.6" y1="328.0" x2="368.6" y2="468.0" class="grid" />
+  <text x="368.6" y="488.0" class="tick" text-anchor="middle">20</text>
+  <line x1="483.2" y1="328.0" x2="483.2" y2="468.0" class="grid" />
+  <text x="483.2" y="488.0" class="tick" text-anchor="middle">30</text>
+  <line x1="597.8" y1="328.0" x2="597.8" y2="468.0" class="grid" />
+  <text x="597.8" y="488.0" class="tick" text-anchor="middle">40</text>
+  <line x1="712.4" y1="328.0" x2="712.4" y2="468.0" class="grid" />
+  <text x="712.4" y="488.0" class="tick" text-anchor="middle">50</text>
+  <line x1="827.1" y1="328.0" x2="827.1" y2="468.0" class="grid" />
+  <text x="827.1" y="488.0" class="tick" text-anchor="middle">60</text>
+  <text x="20" y="398.0" class="label" text-anchor="middle" transform="rotate(-90 20 398.0)">Tank 1 estimate error (mm)</text>
+  <line x1="82.0" y1="328.0" x2="82.0" y2="468.0" class="axis" />
+  <line x1="82.0" y1="468.0" x2="850.0" y2="468.0" class="axis" />
+  <text x="466.0" y="510.0" class="label" text-anchor="middle">Time after the slug (s)</text>
+  <line x1="48.0" y1="76.0" x2="78.0" y2="76.0" class="signal" />
+  <text x="85.0" y="80.0" class="note" text-anchor="start">Full state, tank 1 measured</text>
+  <line x1="278.4" y1="76.0" x2="308.4" y2="76.0" class="signal-b" />
+  <text x="315.4" y="80.0" class="note" text-anchor="start">LQG, model error only</text>
+  <line x1="471.6" y1="76.0" x2="501.6" y2="76.0" class="signal-c" />
+  <text x="508.6" y="80.0" class="note" text-anchor="start">LQG, upsets allowed</text>
+  <rect x="712.4" y="233.5" width="114.6" height="60.5" class="band" />
+  <path d="M82.00,257.84 L93.46,258.93 L104.93,259.90 L116.39,260.63 L127.85,261.10 L139.31,261.53 L150.78,255.42 L162.24,244.43 L173.70,236.20 L185.16,230.15 L196.63,225.66 L208.09,222.32 L219.55,220.16 L231.01,219.01 L242.48,218.61 L253.94,218.84 L265.40,219.57 L276.87,220.62 L288.33,221.95 L299.79,223.46 L311.25,224.95 L322.72,226.59 L334.18,228.40 L345.64,230.27 L357.10,232.22 L368.57,234.01 L380.03,235.59 L391.49,237.08 L402.96,238.54 L414.42,239.94 L425.88,241.44 L437.34,243.01 L448.81,244.42 L460.27,245.74 L471.73,246.96 L483.19,247.92 L494.66,248.82 L506.12,249.86 L517.58,250.95 L529.04,252.06 L540.51,253.25 L551.97,254.29 L563.43,255.02 L574.90,255.70 L586.36,256.56 L597.82,257.32 L609.28,257.81 L620.75,258.16 L632.21,258.45 L643.67,258.70 L655.13,258.82 L666.60,258.98 L678.06,259.27 L689.52,259.48 L700.99,259.59 L712.45,259.60 L723.91,259.66 L735.37,259.82 L746.84,260.05 L758.30,260.40 L769.76,260.87 L781.22,261.49 L792.69,262.04 L804.15,262.40 L815.61,262.79 L827.07,263.24 L838.54,263.64 L850.00,263.94" class="signal" />
+  <path d="M82.00,254.16 L93.46,254.88 L104.93,255.57 L116.39,256.24 L127.85,256.86 L139.31,257.46 L150.78,251.38 L162.24,239.39 L173.70,228.36 L185.16,218.22 L196.63,208.92 L208.09,200.41 L219.55,192.65 L231.01,185.59 L242.48,179.18 L253.94,173.40 L265.40,168.21 L276.87,163.57 L288.33,159.44 L299.79,155.80 L311.25,152.61 L322.72,149.85 L334.18,147.49 L345.64,145.50 L357.10,143.87 L368.57,142.56 L380.03,141.55 L391.49,140.82 L402.96,140.35 L414.42,140.12 L425.88,140.11 L437.34,140.32 L448.81,140.72 L460.27,141.30 L471.73,142.04 L483.19,142.93 L494.66,143.95 L506.12,145.09 L517.58,146.35 L529.04,147.72 L540.51,149.18 L551.97,150.73 L563.43,152.35 L574.90,154.04 L586.36,155.79 L597.82,157.59 L609.28,159.43 L620.75,161.30 L632.21,163.21 L643.67,165.13 L655.13,167.08 L666.60,169.03 L678.06,171.00 L689.52,172.97 L700.99,174.94 L712.45,176.91 L723.91,178.87 L735.37,180.83 L746.84,182.77 L758.30,184.71 L769.76,186.63 L781.22,188.55 L792.69,190.45 L804.15,192.34 L815.61,194.21 L827.07,196.06 L838.54,197.88 L850.00,199.69" class="signal-b" />
+  <path d="M82.00,263.51 L93.46,265.38 L104.93,267.30 L116.39,269.06 L127.85,270.48 L139.31,271.59 L150.78,265.90 L162.24,254.30 L173.70,243.75 L185.16,234.19 L196.63,225.39 L208.09,217.13 L219.55,209.47 L231.01,202.54 L242.48,196.38 L253.94,191.04 L265.40,186.57 L276.87,182.92 L288.33,180.08 L299.79,178.01 L311.25,176.53 L322.72,175.67 L334.18,175.47 L345.64,175.91 L357.10,177.00 L368.57,178.54 L380.03,180.31 L391.49,182.23 L402.96,184.29 L414.42,186.47 L425.88,188.87 L437.34,191.57 L448.81,194.42 L460.27,197.38 L471.73,200.35 L483.19,203.14 L494.66,205.75 L506.12,208.36 L517.58,211.07 L529.04,213.88 L540.51,216.89 L551.97,219.95 L563.43,222.81 L574.90,225.46 L586.36,228.10 L597.82,230.69 L609.28,232.98 L620.75,234.92 L632.21,236.52 L643.67,237.80 L655.13,238.72 L666.60,239.38 L678.06,239.96 L689.52,240.41 L700.99,240.68 L712.45,240.74 L723.91,240.67 L735.37,240.61 L746.84,240.63 L758.30,240.84 L769.76,241.34 L781.22,242.24 L792.69,243.41 L804.15,244.67 L815.61,246.02 L827.07,247.50 L838.54,249.06 L850.00,250.58" class="signal-c" />
+  <path d="M82.00,456.60 L93.46,456.52 L104.93,456.49 L116.39,456.37 L127.85,456.48 L139.31,456.57 L150.78,342.18 L162.24,346.64 L173.70,350.89 L185.16,354.87 L196.63,358.73 L208.09,362.64 L219.55,366.29 L231.01,369.87 L242.48,373.29 L253.94,376.62 L265.40,379.75 L276.87,382.86 L288.33,385.75 L299.79,388.51 L311.25,391.34 L322.72,393.94 L334.18,396.52 L345.64,398.96 L357.10,401.20 L368.57,403.38 L380.03,405.53 L391.49,407.59 L402.96,409.58 L414.42,411.59 L425.88,413.44 L437.34,415.14 L448.81,416.89 L460.27,418.43 L471.73,419.92 L483.19,421.45 L494.66,423.01 L506.12,424.37 L517.58,425.79 L529.04,427.12 L540.51,428.25 L551.97,429.34 L563.43,430.54 L574.90,431.73 L586.36,432.65 L597.82,433.59 L609.28,434.50 L620.75,435.41 L632.21,436.26 L643.67,437.01 L655.13,437.92 L666.60,438.68 L678.06,439.38 L689.52,440.05 L700.99,440.67 L712.45,441.40 L723.91,442.02 L735.37,442.69 L746.84,443.30 L758.30,443.95 L769.76,444.55 L781.22,445.00 L792.69,445.46 L804.15,446.01 L815.61,446.46 L827.07,446.90 L838.54,447.24 L850.00,447.64" class="signal-b" />
+  <path d="M82.00,482.73 L93.46,471.02 L104.93,465.00 L116.39,450.49 L127.85,461.25 L139.31,469.09 L150.78,355.32 L162.24,362.92 L173.70,365.74 L185.16,357.46 L196.63,353.45 L208.09,371.16 L219.55,375.40 L231.01,387.46 L242.48,394.83 L253.94,405.51 L265.40,408.03 L276.87,420.19 L288.33,420.06 L299.79,418.55 L311.25,434.80 L322.72,437.04 L334.18,448.06 L345.64,451.63 L357.10,444.25 L368.57,441.25 L380.03,443.74 L391.49,445.15 L402.96,447.22 L414.42,459.74 L425.88,462.27 L437.34,454.67 L448.81,462.01 L460.27,452.19 L471.73,445.75 L483.19,450.28 L494.66,463.17 L506.12,460.36 L517.58,469.72 L529.04,474.40 L540.51,461.99 L551.97,452.55 L563.43,460.16 L574.90,470.46 L586.36,456.29 L597.82,449.87 L609.28,445.03 L620.75,445.28 L632.21,442.66 L643.67,434.27 L655.13,446.71 L666.60,446.20 L678.06,441.92 L689.52,439.23 L700.99,434.22 L712.45,443.72 L723.91,444.43 L735.37,452.46 L746.84,456.25 L758.30,466.67 L769.76,473.08 L781.22,464.93 L792.69,460.40 L804.15,468.49 L815.61,467.10 L827.07,467.47 L838.54,458.39 L850.00,458.19" class="signal-c" />
+  <line x1="425.9" y1="140.1" x2="457.8" y2="124.1" class="leader" />
+  <circle cx="425.9" cy="140.1" r="4" class="mark" />
+  <circle cx="465.9" cy="120.1" r="9" class="badge" />
+  <text x="465.9" y="124.1" class="badge-text" text-anchor="middle">2</text>
+  <text x="479.9" y="117.1" class="callout halo" text-anchor="start">Model error only: pump stays at 0.010 m³/s,</text>
+  <text x="479.9" y="131.1" class="callout halo" text-anchor="start">tank 2 rises 7.4 mm</text>
+  <line x1="368.6" y1="441.2" x2="432.6" y2="369.9" class="leader" />
+  <circle cx="368.6" cy="441.2" r="4" class="mark" />
+  <circle cx="438.6" cy="363.2" r="9" class="badge" />
+  <text x="438.6" y="367.2" class="badge-text" text-anchor="middle">3</text>
+  <text x="452.6" y="360.2" class="callout halo" text-anchor="start">Upsets allowed: estimate 2.6 mm off after 20 s</text>
+  <text x="452.6" y="374.2" class="callout halo" text-anchor="start">(model error only: 9.1 mm)</text>
+  <line x1="769.8" y1="241.3" x2="702.8" y2="275.3" class="leader" />
+  <circle cx="769.8" cy="241.3" r="4" class="mark" />
+  <circle cx="694.8" cy="279.3" r="9" class="badge" />
+  <text x="694.8" y="283.3" class="badge-text" text-anchor="middle">4</text>
+  <text x="680.8" y="283.3" class="callout halo" text-anchor="end">Largest deviation 50–60 s: 0.58, 5.28 and 1.69 mm</text>
+</svg>

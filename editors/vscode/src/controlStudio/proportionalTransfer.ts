@@ -6,6 +6,8 @@ import { engineerVerificationPlan, proportionalParameter, type EngineerRequireme
 export interface TransferMember { symbol: string; iec_type: "REAL" | "LREAL" | "BOOL"; unit: string; minimum: number; maximum: number }
 export interface TransferBinding {
   loop_id: string; task_name: string; mode: { symbol: string; manual_value: boolean };
+  /** Further controllers' modes switched with `mode` at the same task boundary (control-studio-controller-transfer.md). */
+  additional_modes?: { symbol: string; manual_value: boolean }[];
   tracking_outputs?: Readonly<Record<string, string>>;
   states: TransferMember[]; guards: TransferMember[]; output: TransferMember; additional_outputs?: TransferMember[];
 }
@@ -45,6 +47,19 @@ export function transferTolerance(loop: ControlLoopDefinition, manual?: number):
     throw new Error("Auto-entry tolerance must be between zero and the declared output span.");
   }
   return manual ?? 1e-6 * Math.max(1, span);
+}
+
+/** A verified Auto entry holds the setpoint at the model's operating point, so its output also moves by the
+ * controller's response to measurement noise of half-range n. Without a reviewed tolerance, allow the largest
+ * response of one cycle: Kp·2n from P on Δy, Ki·Δt·n from I, and Kd·4n/Δt from D on the change of the sampled rate. */
+export function noiseAwareTransferTolerance(loop: ControlLoopDefinition, reviewed: number | undefined,
+  proportionalGain: number | undefined, processNoise: number | undefined,
+  others: { integralGain?: number; derivativeGain?: number; cycleSeconds?: number } = {}): number {
+  if (reviewed !== undefined || !processNoise || proportionalGain === undefined || !Number.isFinite(proportionalGain)) return transferTolerance(loop, reviewed);
+  const cycle = others.cycleSeconds !== undefined && others.cycleSeconds > 0 ? others.cycleSeconds : undefined;
+  const integral = cycle && Number.isFinite(others.integralGain) ? Math.abs(others.integralGain!) * cycle * processNoise : 0;
+  const derivative = cycle && Number.isFinite(others.derivativeGain) ? 4 * Math.abs(others.derivativeGain!) * processNoise / cycle : 0;
+  return Math.max(transferTolerance(loop), 2 * Math.abs(proportionalGain) * processNoise + integral + derivative);
 }
 
 export function roundedTransferValue(member: TransferMember, value: number): number {

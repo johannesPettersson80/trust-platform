@@ -8,10 +8,17 @@ export interface ProportionalControllerLaw { kind: "proportional"; gainSymbol: s
 export interface PidControllerLaw {
   kind: "pid";
   parameterRecordSymbol: string;
-  parameterRevisionSymbol: string;
+  /** An optional program counter a project may bump when it adopts a new record; Studio does not require one. */
+  parameterRevisionSymbol?: string;
   proportionalGainSymbol: string;
   integralGainSymbol: string;
   derivativeGainSymbol: string;
+  /** Record field β in P = Kp·(β·SP − PV): the proportional setpoint weight, dimensionless in [0, 1]. */
+  proportionalSetpointWeightSymbol?: string;
+  /** Record field γ in D = Kd·(γ·dSP/dt − dPV/dt): the derivative setpoint weight, dimensionless in [0, 1]. */
+  derivativeSetpointWeightSymbol?: string;
+  /** Program setting Tf of the first-order filter on the measurement the controller uses, in seconds; 0 bypasses it. */
+  measurementFilterTimeSymbol?: string;
   antiWindup?: {
     method: "back-calculation";
     trackingGainSymbol: string;
@@ -34,24 +41,42 @@ export function decodeProportionalLaw(value: unknown, binding: ParameterBinding 
 export function decodePidLaw(value: unknown, binding: ParameterBinding | undefined): PidControllerLaw | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const law = value as Record<string, unknown>;
-  const expected = ["kind", "parameterRecordSymbol", "parameterRevisionSymbol", "proportionalGainSymbol", "integralGainSymbol", "derivativeGainSymbol"];
+  const expected = ["kind", "parameterRecordSymbol", "proportionalGainSymbol", "integralGainSymbol", "derivativeGainSymbol"];
   const antiWindup = decodePidAntiWindup(law.antiWindup);
-  if (law.kind !== "pid" || !Object.keys(law).every(key => expected.includes(key) || key === "antiWindup") ||
+  const optional = ["parameterRevisionSymbol", "antiWindup", "proportionalSetpointWeightSymbol", "derivativeSetpointWeightSymbol", "measurementFilterTimeSymbol"];
+  if (law.kind !== "pid" || !Object.keys(law).every(key => expected.includes(key) || optional.includes(key)) ||
       !expected.every(key => key in law) || (law.antiWindup !== undefined && !antiWindup) ||
+      (law.proportionalSetpointWeightSymbol !== undefined && !label(law.proportionalSetpointWeightSymbol)) ||
+      (law.derivativeSetpointWeightSymbol !== undefined && !label(law.derivativeSetpointWeightSymbol)) ||
+      (law.measurementFilterTimeSymbol !== undefined && !label(law.measurementFilterTimeSymbol)) ||
+      (law.parameterRevisionSymbol !== undefined && !label(law.parameterRevisionSymbol)) ||
       !expected.slice(1).every(key => label(law[key]))) return undefined;
+  const weight = law.proportionalSetpointWeightSymbol as string | undefined;
+  const derivativeWeight = law.derivativeSetpointWeightSymbol as string | undefined;
+  const filter = law.measurementFilterTimeSymbol as string | undefined;
   const symbols = [law.proportionalGainSymbol, law.integralGainSymbol, law.derivativeGainSymbol,
-    ...(antiWindup ? [antiWindup.trackingGainSymbol] : [])] as string[];
+    ...(antiWindup ? [antiWindup.trackingGainSymbol] : []), ...(weight ? [weight] : []), ...(derivativeWeight ? [derivativeWeight] : []),
+    ...(filter ? [filter] : [])] as string[];
   if (new Set(symbols).size !== symbols.length || !symbols.every(symbol => {
     const parameter = binding?.parameters.find(value => value.symbol === symbol);
     return parameter !== undefined && (parameter.iec_type === "REAL" || parameter.iec_type === "LREAL");
   })) return undefined;
   if (antiWindup && binding?.parameters.find(parameter => parameter.symbol === antiWindup.trackingGainSymbol)?.unit !== "1/s") return undefined;
+  for (const symbol of [weight, derivativeWeight]) {
+    const parameter = symbol ? binding?.parameters.find(entry => entry.symbol === symbol) : undefined;
+    if (symbol && (parameter?.unit !== "1" || parameter.minimum < 0 || parameter.maximum > 1)) return undefined;
+  }
+  const filterParameter = filter ? binding?.parameters.find(parameter => parameter.symbol === filter) : undefined;
+  if (filter && (filterParameter?.unit !== "s" || filterParameter.minimum < 0)) return undefined;
   return {
     kind: "pid", parameterRecordSymbol: law.parameterRecordSymbol as string,
-    parameterRevisionSymbol: law.parameterRevisionSymbol as string,
+    ...(law.parameterRevisionSymbol !== undefined ? { parameterRevisionSymbol: law.parameterRevisionSymbol as string } : {}),
     proportionalGainSymbol: law.proportionalGainSymbol as string,
     integralGainSymbol: law.integralGainSymbol as string,
     derivativeGainSymbol: law.derivativeGainSymbol as string,
+    ...(weight ? { proportionalSetpointWeightSymbol: weight } : {}),
+    ...(derivativeWeight ? { derivativeSetpointWeightSymbol: derivativeWeight } : {}),
+    ...(filter ? { measurementFilterTimeSymbol: filter } : {}),
     ...(antiWindup ? { antiWindup } : {}),
   };
 }
@@ -66,6 +91,9 @@ export function materializePidGainRecord(loop: ControlLoopDefinition, gains: {
   integralGain: number;
   derivativeGain: number;
   backCalculationGain?: number;
+  proportionalSetpointWeight?: number;
+  derivativeSetpointWeight?: number;
+  measurementFilterSeconds?: number;
 }, observed: Readonly<Record<string, number>>): Record<string, number> {
   const law = decodePidLaw(loop.controller.law, loop.parameterBinding);
   if (!law || !loop.parameterBinding) throw new Error("A typed PID record adapter is required before materializing controller gains.");
@@ -77,6 +105,24 @@ export function materializePidGainRecord(loop: ControlLoopDefinition, gains: {
   if (gains.backCalculationGain !== undefined) {
     if (!law.antiWindup) throw new Error("A typed PID anti-windup adapter is required before materializing a back-calculation gain.");
     entries.push([law.antiWindup.trackingGainSymbol, gains.backCalculationGain]);
+  }
+  if (law.proportionalSetpointWeightSymbol) {
+    // A calculated candidate is the standard form; only an engineer-entered or pinned weight differs from 1.
+    entries.push([law.proportionalSetpointWeightSymbol, gains.proportionalSetpointWeight ?? 1]);
+  } else if (gains.proportionalSetpointWeight !== undefined && gains.proportionalSetpointWeight !== 1) {
+    throw new Error("A declared proportional setpoint weight is required before materializing a weighted controller.");
+  }
+  if (law.derivativeSetpointWeightSymbol) {
+    // A calculated candidate differentiates the measurement (γ = 0), so a target step adds no derivative kick.
+    entries.push([law.derivativeSetpointWeightSymbol, gains.derivativeSetpointWeight ?? 0]);
+  } else if (gains.derivativeSetpointWeight !== undefined && gains.derivativeSetpointWeight !== 0) {
+    throw new Error("A declared derivative setpoint weight is required before materializing a controller that differentiates the setpoint.");
+  }
+  if (law.measurementFilterTimeSymbol) {
+    // A calculated candidate is designed without a measurement filter; Tf = 0 bypasses it unless Tf is entered or pinned.
+    entries.push([law.measurementFilterTimeSymbol, gains.measurementFilterSeconds ?? 0]);
+  } else if (gains.measurementFilterSeconds !== undefined && gains.measurementFilterSeconds !== 0) {
+    throw new Error("A declared measurement filter time is required before materializing a filtered controller.");
   }
   const values = { ...observed };
   for (const [symbol, value] of entries) {

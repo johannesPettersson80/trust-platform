@@ -25,7 +25,10 @@ export function manualControllerCandidate(loop: ControlLoopDefinition, model: Ge
     const required = pid ? [pid.proportionalGainSymbol,
       ...(["PI", "PID"].includes(family) ? [pid.integralGainSymbol] : []),
       ...(["PD", "PID"].includes(family) ? [pid.derivativeGainSymbol] : []),
-      ...(pid.antiWindup && ["PI", "PID"].includes(family) ? [pid.antiWindup.trackingGainSymbol] : [])]
+      ...(pid.antiWindup && ["PI", "PID"].includes(family) ? [pid.antiWindup.trackingGainSymbol] : []),
+      ...(pid.proportionalSetpointWeightSymbol && ["PI", "PID"].includes(family) ? [pid.proportionalSetpointWeightSymbol] : []),
+      ...(pid.derivativeSetpointWeightSymbol && ["PD", "PID"].includes(family) ? [pid.derivativeSetpointWeightSymbol] : []),
+      ...(pid.measurementFilterTimeSymbol ? [pid.measurementFilterTimeSymbol] : [])]
       : [proportionalParameter(loop).symbol];
     if (required.some(symbol => !Number.isFinite(values[symbol]))) throw new Error("Enter every required controller setting before tuning.");
     gains = pinnedControllerGains(loop, family, { proportionalGain: 0, integralGain: 0, derivativeGain: 0 },

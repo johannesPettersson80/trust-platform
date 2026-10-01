@@ -3,7 +3,7 @@ import { LineChart } from "echarts/charts";
 import { AriaComponent, GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
 import * as echarts from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
-import { axis, chartTheme, engineeringLine } from "./chartPrimitives";
+import { axis, chartTheme } from "./chartPrimitives";
 import type { IdentifiedModelPresentation } from "../identification";
 import type { StudioPage } from "./threePageHostState";
 import { displayEngineeringUnit } from "../chartContract";
@@ -11,7 +11,9 @@ import type { EngineeringPlotMessageEvidence } from "../engineeringPlots";
 import type { RunEvaluation } from "../runValidation";
 import type { ControlLoopDefinition } from "../loopDefinition";
 import { loopSignal } from "../loopChannels";
-import { experimentSignalBindings, recordedSignalResponses } from "./threePageRecordedSignals";
+import { experimentInputBinding, experimentSignalBindings, recordedSignalResponses } from "./threePageRecordedSignals";
+import { responseChartSeries, responseChartTooltip } from "./threePageResponseSeries";
+import { responseRowAxis, responseRowGrids } from "./responseRows";
 import type { WorkflowResultSample } from "../workflowResult";
 import { decodeLoopMonitorEnvelope } from "../messages";
 import { ThreePageLiveSignals, type SignalResponseGroup } from "./threePageLiveSignals";
@@ -50,15 +52,7 @@ if (host) {
     const height = Math.max(host.clientHeight, rows.length * minimumRowHeight);
     const times = groups.flatMap(group => group.series.flatMap(series => series.points.map(point => point[0]).filter((time): time is number => time !== null)));
     const timeRange = times.length ? times.reduce(([low, high], time) => [Math.min(low, time), Math.max(high, time)], [Infinity, -Infinity]) : undefined;
-    const auxiliaryIds = loop ? experimentSignalBindings(loop).map(signal => signal.id).filter(id => !["sp", "pv", "mv"].includes(id)) : [];
-    const series = groups.flatMap((group, index) => group.series.map(item => {
-      const id = item.signalId;
-      const color = item.prediction ? theme.auxiliaryOrange : id === "sp" || id === "pv" || id === "mv" ? theme[id]
-        : id ? [theme.auxiliaryOrange, theme.auxiliaryPurple, theme.auxiliaryYellow][Math.max(0, auxiliaryIds.indexOf(id)) % 3] : undefined;
-      const line = engineeringLine(item.name, index, item.points, item.dashed ? "dashed" : "solid");
-      return { ...line, xAxisIndex: index, ...(id ? { id } : {}),
-        ...(color ? { itemStyle: { color }, lineStyle: { ...line.lineStyle, color } } : {}) };
-    }));
+    const series = responseChartSeries(theme, loop, groups);
     const labels = new Map(groups.flatMap(group => group.series.map(item => [item.name, item.label ?? item.name] as const)));
     const description = groups.length ? `Response plot: ${[...labels.values()].join(", ")}. ${groups.map(group => `${group.name} (${displayEngineeringUnit(group.unit)})`).join(", ")}. Time in seconds.` : "Response plot";
     chart.setOption({
@@ -66,8 +60,8 @@ if (host) {
       backgroundColor: theme.background,
       color: [theme.pv, theme.auxiliaryOrange, theme.sp, theme.auxiliaryPurple],
       legend: { show: series.length > 0, top: 0, textStyle: { color: theme.foreground }, type: "scroll", formatter: (name: string) => labels.get(name) ?? name },
-      tooltip: { trigger: "axis" },
-      grid: rows.map((_group, index) => ({ left: 80, right: 24, top: index * height / rows.length + 40, height: height / rows.length - 100 })),
+      tooltip: responseChartTooltip(),
+      grid: responseRowGrids(rows.length, height),
       xAxis: rows.map((group, index) => ({ ...axis("Time (s)", "value", theme),
         ...(timeRange ? { min: timeRange[0], max: timeRange[1] } : {}), show: groups.length > 0, gridIndex: index })),
       yAxis: rows.map((group, index) => {
@@ -75,8 +69,8 @@ if (host) {
         // A stationary zero-percent actuator needs a readable engineering scale,
         // not millionths of a percent. Moving responses retain fit-to-data axes.
         const zeroSpan = group.zeroSpan && values.some(value => value === 0) && values.every(value => value === null || value === 0) ? group.zeroSpan : undefined;
-        return { ...axis(group.name ? `${group.name} (${displayEngineeringUnit(group.unit)})` : "", "value", theme,
-          zeroSpan ? [-zeroSpan, zeroSpan] : values, { fitToData: true }), show: groups.length > 0, gridIndex: index };
+        return responseRowAxis(group.name ? `${group.name} (${displayEngineeringUnit(group.unit)})` : "", theme,
+          zeroSpan ? [-zeroSpan, zeroSpan] : values, index, groups.length > 0, height / rows.length);
       }),
       series,
     }, { notMerge: true });
@@ -197,7 +191,8 @@ function experimentResponses(experiment: IdentificationExperiment, includeOutput
   const inputs = new Map<string, ResponseGroup>();
   for (const trace of experiment.inputs) {
     const group = inputs.get(trace.unit) ?? { name: "Applied input", unit: trace.unit, series: [] };
-    group.series.push({ signalId: binding(trace.id)?.id, name: binding(trace.id)?.symbol ?? `${trace.id} · Applied input`, points: trace.points.map(point => [point.timeSeconds, point.value]) });
+    const applied = loop ? experimentInputBinding(loop, trace.id) : undefined;
+    group.series.push({ signalId: applied?.id, name: applied?.symbol ?? `${trace.id} · Applied input`, points: trace.points.map(point => [point.timeSeconds, point.value]) });
     inputs.set(trace.unit, group);
   }
   return [...outputs, ...inputs.values()];

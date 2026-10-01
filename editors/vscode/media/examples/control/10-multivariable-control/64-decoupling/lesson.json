@@ -3,502 +3,237 @@
   "id": "control-decoupling",
   "title": "Static decoupling",
   "level": "Modern",
-  "sequence": 65,
-  "equipment": "Continuous binary distillation column",
-  "physicalPurpose": "Regulate overhead and bottoms product quality while managing the measured interaction between reflux and reboiler steam.",
-  "principalTechnique": "Decoupling",
-  "objective": "Cancel supported static and dynamic interaction.",
+  "sequence": 72,
+  "equipment": "The coupled vessels of Lesson 69 at 30 °C and 50 %, one Control.PID per vessel and the decoupler variables D11–D22, commissioned by Control Studio as a decoupled PID group",
+  "physicalPurpose": "Coordinate the two heaters through the steady gain matrix so that a request for one vessel does not move the other, and test the cost.",
+  "principalTechnique": "Static decoupling: virtual PI requests mapped by M = K⁻¹/9, with the bias after the map and tracking through M⁻¹",
+  "objective": "Derive the decoupler M = K⁻¹·(1/9)I, relate it to Control Studio's D = K⁻¹·diag(K), explain why the decoupled controllers need room to start at v = D⁻¹u, and let Control Studio design, validate and apply both PIs and D against Lesson 71's requirements.",
   "prerequisites": [
     "control-decentralized-pi"
   ],
   "nextLesson": "control-robust-mimo-selection",
   "signals": [
     {
-      "role": "state",
-      "name": "Experiment authority",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX24.3"
-    },
-    {
-      "role": "state",
-      "name": "Overhead automatic mode",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX24.0"
-    },
-    {
-      "role": "state",
-      "name": "Bottoms automatic mode",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX24.1"
-    },
-    {
-      "role": "state",
-      "name": "Control architecture",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 2,
-      "resolution": 1,
-      "binding": "%MW16"
-    },
-    {
       "role": "SP",
-      "name": "Overhead purity setpoint",
-      "unit": "pp",
-      "minimum": -4,
-      "maximum": 4,
-      "resolution": 0.01,
-      "binding": "%ML32"
-    },
-    {
-      "role": "SP",
-      "name": "Bottoms purity setpoint",
-      "unit": "pp",
-      "minimum": -4,
-      "maximum": 4,
-      "resolution": 0.01,
-      "binding": "%ML40"
-    },
-    {
-      "role": "disturbance",
-      "name": "Feed-composition disturbance request",
-      "unit": "pp",
-      "minimum": -3,
-      "maximum": 3,
-      "resolution": 0.01,
-      "binding": "%ML48"
-    },
-    {
-      "role": "state",
-      "name": "Virtual overhead correction",
-      "unit": "pp",
-      "minimum": -8,
-      "maximum": 8,
-      "resolution": 0.01,
-      "binding": "%ML56"
-    },
-    {
-      "role": "state",
-      "name": "Virtual bottoms correction",
-      "unit": "pp",
-      "minimum": -8,
-      "maximum": 8,
-      "resolution": 0.01,
-      "binding": "%ML64"
-    },
-    {
-      "role": "MV",
-      "name": "Requested reflux change",
-      "unit": "pp",
-      "minimum": -12,
-      "maximum": 12,
-      "resolution": 0.01,
-      "binding": "%ML72"
-    },
-    {
-      "role": "MV",
-      "name": "Requested reboiler steam change",
-      "unit": "pp",
-      "minimum": -12,
-      "maximum": 12,
-      "resolution": 0.01,
-      "binding": "%ML80"
-    },
-    {
-      "role": "MV",
-      "name": "Applied reflux change",
-      "unit": "pp",
-      "minimum": -10,
-      "maximum": 10,
-      "resolution": 0.01,
-      "binding": "%QL0"
-    },
-    {
-      "role": "MV",
-      "name": "Applied reboiler steam change",
-      "unit": "pp",
-      "minimum": -10,
-      "maximum": 10,
-      "resolution": 0.01,
-      "binding": "%QL8"
-    },
-    {
-      "role": "disturbance",
-      "name": "Applied feed-composition disturbance",
-      "unit": "pp",
-      "minimum": -3,
-      "maximum": 3,
-      "resolution": 0.01,
-      "binding": "%QL16"
+      "name": "Vessel 1 setpoint",
+      "unit": "degC",
+      "minimum": 20,
+      "maximum": 60,
+      "resolution": 0.001,
+      "binding": "%ML0"
     },
     {
       "role": "PV",
-      "name": "Overhead light-product purity deviation",
-      "unit": "pp",
-      "minimum": -6,
-      "maximum": 6,
-      "resolution": 0.01,
+      "name": "Vessel 1 temperature",
+      "unit": "degC",
+      "minimum": 20,
+      "maximum": 60,
+      "resolution": 0.0001,
       "binding": "%IL0"
     },
     {
-      "role": "PV",
-      "name": "Bottoms heavy-product purity deviation",
-      "unit": "pp",
-      "minimum": -6,
-      "maximum": 6,
-      "resolution": 0.01,
+      "role": "MV",
+      "name": "Heater 1 command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 2 setpoint",
+      "unit": "degC",
+      "minimum": 20,
+      "maximum": 60,
+      "resolution": 0.001,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 2 temperature",
+      "unit": "degC",
+      "minimum": 20,
+      "maximum": 60,
+      "resolution": 0.0001,
       "binding": "%IL8"
     },
     {
       "role": "state",
-      "name": "Static decoupler qualified",
-      "unit": "1",
+      "name": "Heater 2 command",
+      "unit": "%",
       "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX24.2"
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL8"
     }
   ],
   "plant": {
-    "modelId": "local_binary_distillation_four_dynamic_paths_with_feed_disturbance",
+    "modelId": "coupled-vessels-30c",
     "executable": "simulation.toml",
     "parameters": [
       {
-        "name": "g11_overhead_from_reflux",
-        "value": 0.8,
-        "unit": "pp/pp"
+        "name": "vessel_heat_capacity",
+        "value": 50,
+        "unit": "kJ/°C"
       },
       {
-        "name": "g12_overhead_from_reboiler",
-        "value": -0.4,
-        "unit": "pp/pp"
+        "name": "vessel_losses",
+        "value": 10,
+        "unit": "kW/°C"
       },
       {
-        "name": "g21_bottoms_from_reflux",
-        "value": -0.3,
-        "unit": "pp/pp"
+        "name": "wall_coupling",
+        "value": 8,
+        "unit": "kW/°C"
       },
       {
-        "name": "g22_bottoms_from_reboiler",
-        "value": 0.7,
-        "unit": "pp/pp"
-      },
-      {
-        "name": "t11",
-        "value": 20,
-        "unit": "s"
-      },
-      {
-        "name": "t12",
-        "value": 35,
-        "unit": "s"
-      },
-      {
-        "name": "t21",
-        "value": 40,
-        "unit": "s"
-      },
-      {
-        "name": "t22",
-        "value": 30,
-        "unit": "s"
+        "name": "heater_per_point",
+        "value": 2,
+        "unit": "kW/%"
       }
     ],
     "sampleTimeSeconds": 0.1,
     "initialState": {
-      "overheadFromReflux": 0,
-      "overheadFromReboiler": 0,
-      "bottomsFromReflux": 0,
-      "bottomsFromReboiler": 0
+      "vessel1C": 30,
+      "vessel2C": 30
     },
     "seed": 20260829,
     "operatingPoint": {
-      "Overhead purity setpoint": 0,
-      "Bottoms purity setpoint": 0,
-      "Applied reflux change": 0,
-      "Applied reboiler steam change": 0,
-      "Applied feed-composition disturbance": 0
+      "Vessel 1 temperature": 30,
+      "Heater 1 command": 50
     },
     "validityRange": [
       {
-        "signal": "Overhead purity setpoint",
-        "minimum": -4,
-        "maximum": 4,
-        "unit": "pp"
-      },
-      {
-        "signal": "Bottoms purity setpoint",
-        "minimum": -4,
-        "maximum": 4,
-        "unit": "pp"
-      },
-      {
-        "signal": "Applied reflux change",
-        "minimum": -10,
-        "maximum": 10,
-        "unit": "pp"
-      },
-      {
-        "signal": "Applied reboiler steam change",
-        "minimum": -10,
-        "maximum": 10,
-        "unit": "pp"
-      },
-      {
-        "signal": "Overhead light-product purity deviation",
-        "minimum": -6,
-        "maximum": 6,
-        "unit": "pp"
-      },
-      {
-        "signal": "Bottoms heavy-product purity deviation",
-        "minimum": -6,
-        "maximum": 6,
-        "unit": "pp"
+        "signal": "Vessel 1 temperature",
+        "minimum": 25,
+        "maximum": 35,
+        "unit": "degC"
       }
     ],
     "simplifications": [
-      "The four-path local model and steady gain matrix are inherited from Lesson 61.",
-      "One bounded third input represents a reproducible feed-composition test disturbance, not a complete feed model.",
-      "The perturbed model changes declared cross gains and response times while controller and decoupler settings remain nominal.",
-      "The two controllers, static inverse, and dynamic filters execute in Structured Text; performance ranking remains outside the controller.",
-      "Simulation-only I/O and evidence; no physical column or actuator is operated."
+      "50·dT1/dt = 2·u1 − 10·(T1 − 20) − 8·(T1 − T2) − D1 and 50·dT2/dt = 2·u2 − 10·(T2 − 20) + 8·(T1 − T2) − D2; no transport delay.",
+      "Both temperatures are measured exactly; the decoupler uses the nominal 8 kW/°C coupling."
     ]
   },
   "baseline": {
-    "executableId": "DistillationColumn.DirectDiagonalPI",
+    "executableId": "P1",
     "settings": {
-      "architecture": 0,
-      "overheadKp": 1.666666666666667,
-      "overheadKi": 0.0833333333333333,
-      "bottomsKp": 2.142857142857143,
-      "bottomsKi": 0.0714285714285714
+      "controllers": "both PIs in Manual at 50 %; previous settings Lesson 71's Kp 6.75, Ki 1.73, D the identity"
     },
-    "limitation": "The RGA-selected diagonal PI loops remain coupled because each physical actuator still moves both products."
+    "limitation": "Paired PI corrects the other vessel's influence only after it has moved: +0.269 °C in Lesson 71."
   },
   "change": {
-    "executableId": "DistillationColumn.StaticOrDynamicDecoupling",
+    "executableId": "P1",
     "settings": {
-      "staticArchitecture": 1,
-      "dynamicArchitecture": 2,
-      "normalizedG12": -0.5,
-      "normalizedG21": -0.428571428571429
+      "identification": "Control Studio's multisine excitation, 25 points per heater, 160 s",
+      "design": "Control Studio's decoupled PI: D = [[1.2462, −0.5538], [−0.5538, 1.2462]] = (81/65)·M; Kp 5.42 %/°C, Ki 1.74 %/(°C·s) per vessel",
+      "operatingPoint": "30 °C and 50 %, so that the controllers start at v = D⁻¹u = 72.2 % (108.3 % at 75 %)",
+      "requirements": "2 °C setpoint step per vessel; within ±0.2 °C in 30 s; steady error ≤ 0.3 °C; 60 s; input disturbance −5 % for the load"
     },
-    "decision": "Use the simplest architecture whose nominal and perturbed executed evidence satisfies the declared cross-response, primary-loop, effort, limit, and restoration requirements."
+    "decision": "Control Studio's decoupled group passes its validation and is applied; with one setpoint stepping alone the unchanged vessel moves 0.194 °C, inside ±0.2 °C, where paired PI moved 0.269 °C. Under a 10 kW load the other vessel moves 0.128 °C against 0.049 °C with paired PI."
   },
   "experiment": {
-    "kind": "observation",
-    "signal": "Experiment authority",
-    "baseline": 0,
-    "amplitude": 0,
-    "durationSeconds": 220.1,
-    "settlingSeconds": 10,
+    "kind": "multisine",
+    "signal": "Heater 1 command",
+    "baseline": 50,
+    "amplitude": 25,
+    "durationSeconds": 160,
+    "settlingSeconds": 0,
     "disturbances": [
-      "Run separate restored overhead-only and bottoms-only +2-composition-percentage-point setpoint records for direct, static, and dynamic architectures.",
-      "Run a separate restored +2-percentage-point feed-composition disturbance record for all three architectures.",
-      "Repeat the overhead-only comparison with simulation-perturbed.toml without changing controller or decoupler settings."
+      "Control Studio's multisine on each heater in turn",
+      "Validation: setpoint steps of both and of each vessel alone, input disturbance −5 % on heater 1"
     ],
     "seed": 20260829,
-    "restorationValue": 0,
-    "activationSignal": "P1.ExperimentEnabled"
+    "restorationValue": 50
   },
   "acceptance": [
     {
-      "metric": "final_window_combined_absolute_error",
-      "signal": "Overhead light-product purity deviation",
-      "window": "mean over the final 10 seconds after each nominal setpoint or disturbance event",
+      "metric": "unchanged_deviation",
+      "signal": "Vessel 2 temperature",
+      "window": "vessel-1 setpoint alone, 60 s",
       "comparator": "<=",
-      "limit": 0.05,
-      "unit": "pp",
-      "tolerance": 0.001,
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
       "evidenceClass": "simulation"
     },
     {
-      "metric": "dynamic_to_static_nominal_cross_peak_ratio",
-      "signal": "Bottoms heavy-product purity deviation",
-      "window": "complete overhead-only and bottoms-only nominal event windows",
-      "comparator": "<",
-      "limit": 1,
-      "unit": "1",
-      "tolerance": 0.001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "nominal_cross_peak",
-      "signal": "Bottoms heavy-product purity deviation",
-      "window": "complete overhead-only and bottoms-only nominal servo event windows",
+      "metric": "changed_settling_time",
+      "signal": "Vessel 1 temperature",
+      "window": "Studio's validation, ±0.2 °C",
       "comparator": "<=",
-      "limit": 0.05,
-      "unit": "pp",
-      "tolerance": 0.001,
+      "limit": 30,
+      "unit": "s",
+      "tolerance": 0,
       "evidenceClass": "simulation"
     },
     {
-      "metric": "nominal_servo_combined_iae",
-      "signal": "Overhead light-product purity deviation",
-      "window": "complete nominal servo event record across both product errors",
+      "metric": "starting_request",
+      "signal": "Heater 1 command",
+      "window": "v = D⁻¹u at Apply",
       "comparator": "<=",
       "limit": 100,
-      "unit": "pp*s",
-      "tolerance": 0.001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "nominal_feed_disturbance_combined_iae",
-      "signal": "Overhead light-product purity deviation",
-      "window": "complete nominal feed-disturbance record across both product errors",
-      "comparator": "<=",
-      "limit": 40,
-      "unit": "pp*s",
-      "tolerance": 0.001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "nominal_combined_applied_input_travel",
-      "signal": "Applied reflux change",
-      "window": "complete nominal servo event record across both physical inputs",
-      "comparator": "<=",
-      "limit": 6,
-      "unit": "pp",
-      "tolerance": 0.001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "dynamic_to_static_applied_travel_ratio",
-      "signal": "Applied reflux change",
-      "window": "complete nominal setpoint event records across both physical inputs",
-      "comparator": "<=",
-      "limit": 1.5,
-      "unit": "1",
-      "tolerance": 0.001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "perturbed_final_window_combined_absolute_error",
-      "signal": "Overhead light-product purity deviation",
-      "window": "final 10 seconds of the perturbed overhead-only event",
-      "comparator": "<=",
-      "limit": 0.1,
-      "unit": "pp",
-      "tolerance": 0.001,
+      "unit": "%",
+      "tolerance": 0,
       "evidenceClass": "simulation"
     }
   ],
   "safety": {
     "hardLimits": [
       {
-        "signal": "Overhead purity setpoint",
-        "minimum": -4,
-        "maximum": 4,
-        "unit": "pp"
+        "signal": "Vessel 1 temperature",
+        "minimum": 20,
+        "maximum": 60,
+        "unit": "degC"
       },
       {
-        "signal": "Bottoms purity setpoint",
-        "minimum": -4,
-        "maximum": 4,
-        "unit": "pp"
-      },
-      {
-        "signal": "Applied reflux change",
-        "minimum": -10,
-        "maximum": 10,
-        "unit": "pp"
-      },
-      {
-        "signal": "Applied reboiler steam change",
-        "minimum": -10,
-        "maximum": 10,
-        "unit": "pp"
-      },
-      {
-        "signal": "Overhead light-product purity deviation",
-        "minimum": -6,
-        "maximum": 6,
-        "unit": "pp"
-      },
-      {
-        "signal": "Bottoms heavy-product purity deviation",
-        "minimum": -6,
-        "maximum": 6,
-        "unit": "pp"
+        "signal": "Heater 1 command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
       }
     ],
     "abortPredicates": [
-      "Any required signal is nonfinite, stale, forced, invalid, missing, or bound to the wrong column model.",
-      "Either requested or applied physical input leaves -10 through +10 percentage points.",
-      "Either product deviation leaves -6 through +6 composition percentage points.",
-      "The selected static or dynamic path is not qualified or retains stale filter state.",
-      "Authority, timing, seed, limits, event, metric window, or restoration differs across compared records."
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
     ],
-    "safeMv": 0,
-    "restorationMode": "Return both setpoint deviations and the feed-disturbance request to zero; invalid input or abort puts both PIDs in Manual at zero; verify applied inputs and both product deviations restore before a new record.",
-    "physicalApprovalRole": "authorised process controls engineer with the responsible distillation operations and process-safety owners",
+    "safeMv": 50,
+    "restorationMode": "Restore previous settings returns both PIs to Manual with their previous gains and D to the identity.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
     "simulationOnlyRestrictions": [
-      "No physical distillation column, reflux valve, or reboiler-steam valve is operated.",
-      "Nominal or perturbed Simulation evidence does not qualify an untested physical operating point.",
-      "Physical use requires independently reviewed models, topology, limits, product disposition, abort and restoration procedures, and explicit immediate approval."
+      "This lesson cannot authorise physical heating changes",
+      "Physical use requires independent temperature-limit, interlock and approval review"
     ]
   },
   "workflowStages": [
-    "Monitor",
-    "Test"
+    "Identify",
+    "Tune",
+    "Validate"
   ],
   "proof": {
-    "specification": "docs/specs/38-control-engineering-curriculum.md#78-multivariable-control",
-    "nativeTest": "TEST_PROGRAM::Lesson64TuningMappingScheduleAndAbortAreExplicit",
-    "nativeCommand": "target/debug/trust-dev test --project examples/control/10-multivariable-control/64-decoupling --filter TEST_PROGRAM::Lesson64TuningMappingScheduleAndAbortAreExplicit --timeout 20",
+    "specification": "docs/specs/control-course-content/55-66-industrial-and-multivariable.md#65-static-decoupling",
+    "nativeTest": "lesson65",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_64_66 lesson65",
     "projectPath": "examples/control/10-multivariable-control/64-decoupling",
     "runArtifactFields": [
-      "projectIdentity",
-      "plantIdentity",
-      "evidenceClass",
-      "sampleTime",
-      "seed",
-      "architecture",
-      "controllerParameters",
-      "setpoints",
-      "processValues",
-      "virtualCorrections",
-      "requestedInputs",
-      "appliedInputs",
-      "filterStates",
-      "decouplerQualification",
-      "disturbance",
-      "modelRevision",
-      "limits",
-      "abortState",
-      "restorationState",
-      "metricDefinitions",
-      "metrics",
-      "eligibility",
-      "architectureDecision"
+      "identifiedGroupModel",
+      "decoupler",
+      "groupDesign",
+      "validationResults",
+      "vesselTemperatures",
+      "heaterCommands",
+      "evidenceClass"
     ],
     "renderedJourneyId": "control-decoupling"
   },
   "video": {
-    "viewerOutcome": "Compare direct, static, and realizable dynamic distillation control and select the simplest architecture supported by nominal and mismatch evidence.",
+    "viewerOutcome": "See Control Studio design both PIs and the decoupler as one group, heater 2 fall in the same update as heater 1 rises, and the unchanged vessel stay inside its band.",
     "requiredVisibleEvidence": [
-      "same binary column and Lesson 61 model",
-      "two PI loops",
-      "direct/static/dynamic selector",
-      "virtual corrections",
-      "requested and applied physical inputs",
-      "two product traces",
-      "feed disturbance",
-      "nominal and perturbed labels",
-      "cross excursion",
-      "integral absolute error",
-      "input travel",
-      "eligibility and decision",
-      "Simulation and physical boundary"
+      "the decoupled group setup",
+      "Studio's design with D",
+      "the validation trials and Apply",
+      "Simulation label"
     ],
     "durationClass": "standard",
     "scriptPath": "video/script.md",
@@ -507,24 +242,20 @@
     "publicationState": "not_started"
   },
   "learning": {
-    "context": "The same local binary column now closes two PI loops on the RGA-selected diagonal pairing and exposes virtual corrections and physical actuator changes separately.",
-    "reason": "Positive relative gains of 1.2727 and unequal path response times prove that pairing alone does not remove interaction.",
+    "context": "Lesson 71's decentralized PI, designed by Control Studio, met every requirement on the vessel it was asked to move, but when vessel 1's setpoint stepped alone, the unchanged vessel 2 rose 0.269 °C, outside its 0.2 °C limit. The loops still disturb each other: PI 2 corrected heater 1's heat only after vessel 2 had warmed, although the gain matrix already tells how much heat heater 1 sends through the wall.\n\nWe will turn heater 2 down together with heater 1, by the amount the gain matrix requires.",
+    "reason": "We need to:\n\n1. calculate from the gain matrix how both heaters must move for a request on one vessel;\n2. place that calculation between the two PIs and the heaters, so that it starts without a bump; and\n3. test it against Lesson 71's requirements.",
     "theory": [
-      "Decentralized PI uses two ordinary feedback loops on one coupled plant.",
-      "A normalized static matrix inverse cancels settled cross interaction while preserving direct gains.",
-      "Proper causal lead-lag ratios can shape unequal transient paths.",
-      "Dynamic inversion adds model, noise, timing, and realizability risk and must beat a simpler qualified architecture under mismatch."
+      "**Static decoupling** coordinates the two heaters so that a request for one temperature does not move the other: when one heater goes up, the other is turned down by just enough to cancel the cross effect. Each PI now writes a **request** $v_i$, in %, instead of a heater command, and a small matrix turns both requests into the two heater commands.\n\n**In words.** In Lesson 71, PI 2 corrected heater 1's heat only after vessel 2 had warmed, although the gain matrix already says how much heat heater 1 sends through the wall. A decoupler uses that knowledge at once:\n\n1. **Each PI asks for its own vessel only.** PI 1's request means \"move vessel 1\", PI 2's \"move vessel 2\".\n2. **The decoupler turns the requests into heater commands.** When request 1 rises, it raises heater 1 and, in the same update, lowers heater 2 by the amount that cancels the extra heat crossing the wall.\n3. **At steady state each request moves only its own vessel**, so each PI sees one simple process instead of two coupled ones.\n\n\"Static\" means it uses only the settled gains: it cancels where the temperatures end up, not the path they take there. In the PLC it is four multiplications and two additions between the PID outputs and the analog outputs.\n\n**The formula.** The decoupler is a matrix $M$ between the requests and the heater commands, $u = Mv$. The same holds for changes, so a change $v$ of the requests moves the temperatures by $x = KMv$. Each request moves only its own vessel if $KM$ is zero outside its diagonal; choosing $KM = \\frac{1}{9}I$ gives\n\n$$\nM = K^{-1}\\,\\tfrac{1}{9}I = \\begin{bmatrix}1 & -4/9\\\\ -4/9 & 1\\end{bmatrix}, \\qquad KM = \\tfrac{1}{9}I .\n$$\n\nLet:\n\n- $v$ be the two requests and $u$ the two heater commands, in %, or their changes, in percentage points;\n- $x$ be the two temperature changes, in °C;\n- $K$ be Lesson 69's gain matrix and $K^{-1}$ its inverse from Lesson 70, $\\begin{bmatrix}9 & -4\\\\ -4 & 9\\end{bmatrix}$ points per °C;\n- $I$ be the identity matrix, 1 on the diagonal and 0 elsewhere; and\n- 1/9 °C per point be the gain each request then has, the gain Lesson 71's PIs saw with the other loop closed.\n\n**Example: the coupled vessels.** Follow the numbers:\n\n1. Request 1 rises by 5 points: $u = M[5, 0]^T = [5, -2.222]^T$. Heater 1 rises 5 points and heater 2 falls 2.222 points, Lesson 70's held-vessel correction. At steady state vessel 1 ends $5/9 = 0.556$ °C higher and vessel 2 where it was.\n2. Control Studio uses the same directions with a different scale, $D = K^{-1}\\,\\mathrm{diag}(K) = \\frac{81}{65}M$, where $\\mathrm{diag}(K)$ keeps only $K$'s own gains on its diagonal. Then $KD = \\frac{9}{65}I$: each loop keeps its own path's gain, 0.1385 °C per point, and Studio designs both PIs for it. Per point of request 1, heater 2 changes by $-\\frac{81}{65}\\cdot\\frac{4}{9} = -36/65 = -0.554$ points.\n3. On **Apply**, Studio writes the gains and $D$ together and starts each controller at $v = D^{-1}u$, so the heaters keep their present commands. Here $D^{-1} = \\begin{bmatrix}1 & 4/9\\\\ 4/9 & 1\\end{bmatrix}$, so with both heaters at $u$ the controllers start at $u(1 + 4/9)$. At Lessons 69–71's 75 % that is 108.3 %, outside the controllers' 0–100 %: Studio cannot start them there.\n4. This lesson therefore holds the vessels at 30 °C, where the balance $2u = 10\\,(T - 20)$ gives 50 %, and the controllers start at $50 \\times 13/9 = 72.2$ %. The plant is linear, so $K$, $M$ and $D$ do not change.\n5. After a vessel-1 setpoint step from 30 to 32 °C, $x = [2, 0]^T$ needs heater changes $K^{-1}x = [18, -8]^T$ points: heaters at 68 % and 42 %, and requests at $D^{-1}[68, 42]^T = [86.7, 72.2]^T$ %, inside 0–100 %.\n\nStudio's group design follows three steps: it identifies both vessels and calculates $D$ from the measured gain matrix; it designs each PI on its own path behind $D$, where the relative gain is 1; and it validates the group before **Apply**.\n\n**The limitation.** $D$ cancels the steady cross effect only. Heater 2 falls at once, while heater 1's heat reaches vessel 2 through the wall later, so during a change vessel 2 first dips. The decoupler is exact only for the modelled wall of 8 kW per °C. And its controllers need room to start at $D^{-1}u$: with both heaters above $100 \\times 9/13 = 69.2$ %, the starting requests would leave the 0–100 % range. Holding the vessels at 30 °C and 50 % is the operating choice this lesson makes for that reason."
     ],
-    "workedPrediction": "Static compensation cancels the final cross effect; nominal D12 and D21 filters should reduce the remaining transient, while cross-path perturbation degrades exact cancellation.",
+    "workedPrediction": "Before running, answer these questions:\n\n1. Where do Studio's decoupled controllers start with the heaters at 75 % and at 50 %?\n2. What do the heaters do on the first update after vessel 1's setpoint step?\n3. Does the unchanged vessel stay within ±0.2 °C?\n4. Does the decoupler help or cost under a 10 kW load on vessel 1?\n\n| Quantity | Predicted |\n| --- | ---: |\n| Starting requests at 75 % / 50 % | 108.3 % / 72.2 % |\n| Heaters holding 32 °C and 30 °C | 68 % and 42 % |\n| Heater-2 change per point of request 1 | −36/65 = −0.554 |\n| Gain of each request through $D$ | 9/65 = 0.1385 °C per point |",
     "practicalPreparation": [
-      "Verify Simulation identity, Auto authority, SP/PV pairs, virtual/requested/applied commands, decoupler/filter state, timing, quality, limits, and restoration.",
-      "Define cross peak, combined IAE, final error, applied travel, saturation, eligibility, and mismatch comparison before results."
+      "1. Open this lesson's project and start **Simulator**. In the **truST** side bar, select **Control Studio**; the project has no loop yet, so select **Configure control loop**.\n2. In **Set up control loop**, enter **Loop name** `Vessel temperatures` and choose **Structure** **PID group: interacting PIDs tuned together**. Tick `P1.Vessel1` and `P1.Vessel2`; for each, choose its **Parameter record**, **Measurement** (degC, 20–60), **Output** `P1.Heater1Pct` or `P1.Heater2Pct`, the heater the program writes from $D$, **Setpoint** and **Manual output**, and enter **Identification step** 25. Choose **Shared Auto/Manual signal** `P1.VesselsAuto` and **Identification duration (s)** 160; tick **The program applies a static decoupler, u = D·v in Auto** and choose `P1.D11`, `P1.D12`, `P1.D21` and `P1.D22` for the four entries; choose **Startup-done flag** `P1.Initialized` and select **Save loop**.\n3. Answer the predictions before going on.\n4. On **Identify**, choose **Multisine** from **Method** and select **Identify plant**.\n5. On **Tune**, check **Controller** **P1.Vessel1 + P1.Vessel2 · Decoupled PI**. Select **Requirements…** and enter, for each vessel, **Setpoint change (°C)** 2, **Maximum steady-state error (°C)** 0.3, **Maximum settling time (s)** 30 and **Settling band (±°C)** 0.2, and **Validation duration (s)** 60; select **Done**, then **Tune controller**.\n6. On **Validate**, select **Validate controller**. As in Lesson 71, the table also judges **P1.Vessel1C setpoint alone** and **P1.Vessel2C setpoint alone**. Then select **Apply**; Studio shows **Applied**.\n7. Test a load: on **Tune**, choose **Manual** from **Tuning method**, open **Requirements…**, enter −5 in **Input disturbance (%)** and select **Done**, **Tune controller** and **Validate controller**.\n\n**Restore previous settings** on **Validate** undoes the change."
     ],
-    "baseline": "Commission and retain the direct diagonal PI response before inserting cross compensation.",
-    "change": "Select static and then dynamic mapping without changing either PI tuning, plant event, timing, limits, or metric windows.",
-    "comparison": "Use independently restored nominal servo and load records, then repeat the overhead event on the declared perturbed interaction model.",
-    "validation": "Select dynamic only if it remains eligible and materially improves nominal and mismatch requirements without unacceptable actuator effort.",
-    "explanation": "Static residuals come from path arrival-time differences; dynamic cancellation reduces them nominally but degrades when its model is wrong.",
-    "transfer": "Lesson 65 continues with Robust MIMO selection."
+    "baseline": "Paired PI corrects the other vessel only after its temperature has moved; in Lesson 71 the unchanged vessel strayed +0.28 °C.",
+    "change": "Map the two PI requests through M = K⁻¹/9 so that heater 2 moves the moment heater 1 does, with tracking in virtual coordinates, and compare with paired PI on the same targets and loads.",
+    "comparison": "![The decoupler keeps the unchanged vessel inside its band but moves it more under a load](figures/decoupling.svg)\n\nThe numbered marks answer the predictions with the same numbers. Control Studio's design: $D$ = [1.25 −0.5538; −0.5538 1.25], which is 81/65·M; each vessel's own path $K = 0.1385$ °C/% and $\\tau = 3.11$ s, relative gain 1, gain with the other loops closed 0.1385 °C/%; each PI $K_p = 5.42$ %/°C and $K_i = 1.74$ %/(°C·s). Its validation passed: settling 8.3 s, steady errors at most 0.008287 °C, 119 range, state and transfer checks. From its trials, against Lesson 71's:\n\n| Requirement | Paired PI, Lesson 71 | Decoupled group |\n| --- | ---: | ---: |\n| One setpoint alone: own vessel's settling time, ≤ 30 s | 9.4 s | 8.3 s |\n| One setpoint alone: unchanged vessel within ±0.2 °C | **+0.269 °C**, fails | −0.194 °C at 2.2 s |\n| 10 kW on vessel 1: loaded vessel | −0.255 °C | −0.270 °C |\n| 10 kW on vessel 1: other vessel | −0.049 °C | −0.128 °C |\n\n1. On the first update request 1 rose by 5.42 × 2 + 1.74 × 0.2 = 11.188 points; heater 1 went to 63.93 % and heater 2 fell at once by 6.19 points, to 43.81 %.\n2. Vessel 2 dipped 0.194 °C at 2.2 s instead of rising 0.269 °C, inside its band by 0.006 °C: $D$ cancels the steady cross effect, not the transient.\n3. Under the load the decoupler cost more: vessel 2 moved 0.128 °C against 0.049 °C, because request 1's correction also turned heater 2 down.\n4. The heaters ended at the balance's 68 % and 42 %.\n\nThe decoupled group meets every requirement of Lesson 71 with the heaters inside their range, so it qualifies where paired PI failed. Its costs: a lower operating point, so that the controllers can start at $D^{-1}u$; more deviation under loads; a margin of 0.006 °C; and a matrix that is right only for the modelled wall of 8 kW per °C. Studio's design is applied. These are simulation results.",
+    "validation": "![The decoupler keeps the unchanged vessel inside its band but moves it more under a load](figures/decoupling.svg)\n\nThe numbered marks answer the predictions with the same numbers. Control Studio's design: $D$ = [1.25 −0.5538; −0.5538 1.25], which is 81/65·M; each vessel's own path $K = 0.1385$ °C/% and $\\tau = 3.11$ s, relative gain 1, gain with the other loops closed 0.1385 °C/%; each PI $K_p = 5.42$ %/°C and $K_i = 1.74$ %/(°C·s). Its validation passed: settling 8.3 s, steady errors at most 0.008287 °C, 119 range, state and transfer checks. From its trials, against Lesson 71's:\n\n| Requirement | Paired PI, Lesson 71 | Decoupled group |\n| --- | ---: | ---: |\n| One setpoint alone: own vessel's settling time, ≤ 30 s | 9.4 s | 8.3 s |\n| One setpoint alone: unchanged vessel within ±0.2 °C | **+0.269 °C**, fails | −0.194 °C at 2.2 s |\n| 10 kW on vessel 1: loaded vessel | −0.255 °C | −0.270 °C |\n| 10 kW on vessel 1: other vessel | −0.049 °C | −0.128 °C |\n\n1. On the first update request 1 rose by 5.42 × 2 + 1.74 × 0.2 = 11.188 points; heater 1 went to 63.93 % and heater 2 fell at once by 6.19 points, to 43.81 %.\n2. Vessel 2 dipped 0.194 °C at 2.2 s instead of rising 0.269 °C, inside its band by 0.006 °C: $D$ cancels the steady cross effect, not the transient.\n3. Under the load the decoupler cost more: vessel 2 moved 0.128 °C against 0.049 °C, because request 1's correction also turned heater 2 down.\n4. The heaters ended at the balance's 68 % and 42 %.\n\nThe decoupled group meets every requirement of Lesson 71 with the heaters inside their range, so it qualifies where paired PI failed. Its costs: a lower operating point, so that the controllers can start at $D^{-1}u$; more deviation under loads; a margin of 0.006 °C; and a matrix that is right only for the modelled wall of 8 kW per °C. Studio's design is applied. These are simulation results.",
+    "explanation": "Static decoupling places a matrix between the PIs and the heaters, $M = K^{-1}\\frac{1}{9}I$, so that each request moves only its own vessel at steady state; Control Studio's $D = \\frac{81}{65}M$ has the same directions, scaled so each loop keeps its own gain. It is a steady cancellation, not a dynamic one, and its controllers need room to start at $D^{-1}u$.\n\nFor the coupled vessels at 30 °C, Control Studio's decoupled group kept the unchanged vessel within 0.194 °C, where paired PI let it rise 0.269 °C.",
+    "transfer": "$D$ was calculated for a wall of 8 kW per °C. If the real wall passes more or less heat, the decoupler over- or under-corrects: it turns the other heater down too much or too little.\n\n[Multivariable design selection](../65-robust-mimo-selection/README.md) compares paired PI and the decoupled group across a range of wall couplings and looks for the simplest that passes them all."
   }
 }

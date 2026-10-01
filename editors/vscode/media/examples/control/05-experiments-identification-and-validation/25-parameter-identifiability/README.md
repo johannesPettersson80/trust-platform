@@ -1,85 +1,151 @@
 # 17. Identifiability
 
-Different heater models can fit a short, noisy temperature record. You will decide whether an experiment can distinguish those models and choose an additional observation if it cannot.
+In this lesson, you will find out which of the heater's numbers a step record can tell apart and which it cannot, even with perfect data. You will then use a second measurement, the water temperature, to decide which lag belongs to the probe.
 
 ## The problem
 
-Gain and time constant can trade off in an early response. A short record may show the same initial slope for different $K,\tau$ pairs, while a long record may separate their final temperatures. Structural ambiguity is different: two hidden physical lags can produce exactly the same measured response, so more of the same sensor record cannot assign their origins.
+Lesson 16's two-store model followed the probe within 0.0024 °C, but its parameters are ambiguous: 1,174 different parameter sets stayed within the ±0.02 °C bound. Each of the two time constants could lie anywhere from 1.2 to 5.7 s, and the record could not say which lag belonged to the probe. If many sets of numbers fit equally well, the numbers we report have not really been measured.
+
+This project's probe also adds a measurement error of up to ±0.05 °C, as a real probe does. We will find out why the record cannot tell the numbers apart, and choose the experiment that can.
 
 ## What we need
 
-We need to determine whether our measurements can distinguish competing
-model parameters. If they cannot, we need to identify an additional observation
-or experiment that would separate the possibilities.
+We need to:
+
+1. tell whether an ambiguity comes from the quality of the record or from what is measured;
+2. calculate when two candidate heaters differ by more than the measurement can resolve; and
+3. choose the measurement that removes the ambiguity.
 
 ## The new idea
 
-**Identifiability** is the ability to distinguish different model parameter
-values from the available inputs and measurements. A good fit does not
-necessarily identify one unique model.
+**Identifiability** means that the experiment can tell a parameter's value apart from other values; such a parameter is identifiable. If two different heaters would give the same recording, the experiment cannot tell which one we have. For this heater, the question is whether one step record from the probe fixes the gain, the delay and both lags.
 
-**Practical ambiguity** comes from limited duration, noise or weak excitation;
-better observations can help. **Structural ambiguity** remains even with
-perfect data from the same input and measured output. We will see both kinds
-in the heater and sensor example.
+**In words.** It is the problem of two faults that raise the same alarm: from the alarm alone you cannot tell which fault you have, however often you look at it. Ambiguity comes in two kinds:
 
-For a delayed first-order step, $x(t')=K\Delta u(1-e^{-t'/\tau})$, where $t'=t-L$. When $t'\ll\tau$, use $e^{-t'/\tau}\approx1-t'/\tau$, giving
+1. A **practical ambiguity** disappears with a better record: a longer one, a less noisy one or a larger step. The difference between the candidates is in the record, but too small to see yet.
+2. A **structural ambiguity** remains even with perfect data from the same input and measurement. The difference never appears in what is measured, so only a different measurement or a different input can remove it.
+
+For this heater both kinds occur. Early in a step, a strong but slow heater looks like a weak but fast one: both start rising at the same rate, and only later does one end higher. In the probe record, the water's lag and the probe's lag appear only together, so the record cannot say which is which.
+
+**The formula.** Just after the delayed heat arrives, the water is hardly warmer than before, so it has not yet started to lose extra heat: it warms at the full rate the heater supplies. The early response and the full response are
 
 $$
-x(t')\approx\frac{K}{\tau}\Delta u\,t'.
+x(t') \approx \frac{K}{\tau}\,\Delta u\,t', \qquad x(t') = K\,\Delta u\left(1 - e^{-t'/\tau}\right).
 $$
 
-Thus early data mainly identify the ratio $K/\tau$. Consider local hypotheses K=.2 °C/point, τ=5 s and K=.4 °C/point, τ=10 s for the same 10-point step after the same delay. At 1 s after delay, the predictions are $2(1-e^{-0.2})=0.36254$ °C and $4(1-e^{-0.1})=0.38065$ °C. Their difference is 0.01811 °C, smaller than twice the ±0.05 °C measurement-error bound. The candidates' uncertainty bands overlap at that time, so this early portion does not guarantee a distinction.
+- $x$ is the water temperature minus its starting value, in °C;
+- $K$ is the gain, in °C per %, and $\tau$ the water's time constant, in seconds;
+- $\Delta u$ is the step size, in percentage points, and $t'$ the time after the delay, in seconds.
 
-At 10 s after delay, the predictions are $2(1-e^{-2})=1.72933$ °C and $4(1-e^{-1})=2.52848$ °C, differing by 0.79915 °C. These are local curve hypotheses, not two asserted physical heater parameters. A separately known steady heat balance can reject the K=.4 candidate even when the short record cannot.
+Early on, only the ratio $K/\tau$ shows. Two predictions are clearly separated only if they differ by more than the measurement can resolve: with each reading uncertain by ±0.05 °C, by more than $2 \times 0.05 = 0.1$ °C.
 
-A longer hold can resolve this practical ambiguity if PV bounds allow it. If the larger-gain hypothesis would end at 39 °C, choose a 5-point step when planning a new bounded experiment; its predicted difference scales with command amplitude. Structural ambiguity is different: a process lag of 5 s followed by sensor lag 2 s and a process lag 2 s followed by sensor lag 5 s give the same measured response when both start from the same zero-deviation initial states and their total gain matches. For arbitrary input v, eliminate the intermediate water state from the two lag equations. The measured deviation m obeys $\tau_p\tau_s\ddot m+(\tau_p+\tau_s)\dot m+m=Kv(t-L)$. Swapping 5 s and 2 s leaves both the product 10 s² and sum 7 s unchanged, so the measured input/output equation is identical. More data from that same channel cannot assign the two time constants to water or probe. A fast independent water reference or known probe calibration can.
+In the previous lesson's two-store model, the water lags with $\tau_p$ and the probe with $\tau_s$, in seconds, after the delay $L$:
 
-The worked $(K,\tau)=(.2,5)$ and $(.4,10)$ cases are both first-order parameter hypotheses. They are separate from Lesson 16's Control Studio structure comparison, where Candidate A is the retained first-order reference and Candidate B is the additional-lag structure. The worked pair tests practical parameter ambiguity; the Lesson 16 pair tests whether the measured record supports an added structure.
+$$
+\tau_p\dot x+x=Kv(t-L),\qquad \tau_s\dot m+m=x .
+$$
+
+Here $v$ is the command change, in percentage points, and $m$ the probe reading's change, in °C. The second equation gives $x = \tau_s\dot m + m$, so $\dot x = \tau_s\ddot m + \dot m$, where $\ddot m$ is the rate of change of $\dot m$. Substituting both into the first equation removes the water:
+
+$$
+\tau_p\tau_s\ddot m+(\tau_p+\tau_s)\dot m+m=Kv(t-L).
+$$
+
+The probe reading depends on the two lags only through their product $\tau_p\tau_s$, in s², and their sum $\tau_p + \tau_s$, in s.
+
+**Example: what a step record can and cannot separate.** Calculated for a 10-point step:
+
+1. A heater with $K$ = 0.2 °C per % and $\tau$ = 5 s and one with $K$ = 0.4 and $\tau$ = 10 s have the same ratio, 0.04 °C per % per second, so both start rising at $0.04 \times 10 = 0.4$ °C/s.
+2. 2 s after the delay they read $2(1 - e^{-0.4}) = 0.659$ °C and $4(1 - e^{-0.2}) = 0.725$ °C: 0.066 °C apart, less than 0.1 °C. The record cannot tell them apart yet.
+3. 3 s after the delay they read 0.902 and 1.037 °C: 0.134 °C apart. Now they are clearly separated: a record long enough removes this practical ambiguity.
+4. Lags of 5 s and 2 s have the product 10 s² and the sum 7 s. Swapped, 2 s and 5 s, they have the same product and sum, so they give the same probe record. A longer, cleaner record from the same probe cannot change this: the ambiguity is structural.
+5. The remedy is a second measurement. A fast reference thermometer in the water sees only the water's lag, so it reaches 63.2% of its change at $L + \tau_p$. If it reached 63.2% 3 s after the step, the water's lag would be $3 - 1 = 2$ s and the probe's $7 - 2 = 5$ s: the swapped pair. The time the reference shows decides between the two pairs.
+
+**Teaching choice.** The probe's ±0.05 °C error makes the noise visible.
+
+**The limitation.** The reference must be fast. A reference with its own 0.5 s lag would reach 63.2% about 0.5 s later, so a 5 s water lag would be read as 5.5 s, and the probe's lag as $7 - 5.5 = 1.5$ s.
 
 ## Prediction
 
-Calculate the two candidate temperatures at 1 s and 10 s after delay. Compare their difference with the 0.1 °C combined bound. Predict how a longer hold, smaller bounded step, or independent reference changes the decision. State whether the question is practical parameter ambiguity or structural physical-origin ambiguity.
+Before running, answer these questions:
+
+1. Which differences between the two heaters in the table exceed 0.1 °C?
+2. With the probe's ±0.05 °C error, will Control Studio's two-store fit return exactly 5 s and 2 s?
+3. Will the fit say which lag belongs to the probe?
+4. When will the water reference reach 63.2% of its change, and which lag is then the probe's?
+
+| Quantity | Predicted |
+| --- | ---: |
+| Heaters 1 s after the delay | 0.018 °C apart: too close |
+| Heaters 10 s after the delay | 0.799 °C apart: clear |
+| Water reference at 63.2% | $L + \tau_p$ = 6 s after the step |
+| Probe lag | $7 - 5 = 2$ s |
 
 ## Implementation
 
-Create or open this lesson's project, open [src/tests.st](src/tests.st), and run **ST: Run All Tests**. One calculation checks the two first-order hypotheses at 1 s and 10 s after delay. The other checks the swapped lag assignments. Both should pass; these are calculated hypotheses, not measured-record fits.
+[src/tests.st](src/tests.st) holds two calculations. The first computes both heater candidates 1 s and `LateObservationS` = 10 s after the delay:
 
-`SeparationC := ABS(CandidateAC - CandidateBC);` measures the prediction difference regardless of sign. `ClearlySeparated := SeparationC > 2.0 * MeasurementErrorBoundC;` checks whether the two prediction intervals are disjoint at that time. With the worked bound, the 0.01811 °C early difference is too small to guarantee separation; the 0.79915 °C late difference is large enough. Change `LateObservationS` from `10.0` to `1.0`, predict what happens, and rerun. The late-separation check now fails because that observation is also early. Restore `10.0` and rerun.
+```st
+SeparationC := ABS(CandidateAC - CandidateBC);
+ClearlySeparated := SeparationC > LREAL#2.0 * MeasurementErrorBoundC;
+```
 
-For measured-record work, preserve command amplitude, sampling, baseline and final-window uncertainty, and parameter provenance. Use **Check recording** to reject missing timestamps, invalid samples or an unusable step. Overlapping prediction intervals do not justify retaining a candidate whose residual contradicts the actual measurement bound.
+The second checks that the swapped lags have the same product, the same sum and the same 6 s response.
 
-The native simulation supplies water temperature at `%IL0`, ideal probe temperature at `%IL8`, and noisy measured probe temperature at `%IL16`. `Main.st` reads those inputs and exposes their diagnostic difference as `MeasurementErrorC` at `%ML0`. It does not emulate the probe or publish candidate-selection results.
+**Exercise.** Run the tests from the **Testing** view; both pass. Then change `LateObservationS` to 1.0, predict the result and run again: the late check fails, because 1 s is also early. Restore 10.0.
 
-The native state-space plant owns the probe state and adds deterministic bounded measurement error of ±.05 °C after that state. `MeasurementErrorC` is a diagnostic difference, not a second measured process variable. Candidate selection and distinguishability analysis remain Control Studio tasks.
-
-Set `SafetyAbort` to stop heating immediately; its latch also sets on invalid
-measurement. An abort commands zero heating. Normal
-completion restores 75% heating. After an abort, keep stopped and restart from
-the full hot reset before clearing the latch and collecting a new trial.
+In `Main.st`, the probe reading `TemperatureC` carries the simulated error, `IdealProbeC` is the same probe without it, and `MeasurementErrorC` is their difference; `WaterTemperatureC` is the water reference. The program applies 85% while `ExperimentEnabled` is TRUE; `SafetyAbort` removes heat on an invalid measurement.
 
 ## Experiment in Control Studio
 
-The calculation exercise and the Control Studio record answer different questions. The calculations use explicit local hypotheses at 1 s and 10 s; the Control Studio fit uses measured samples and its retained first-order reference. Do not present the calculated values as measured evidence.
+1. Start **Simulator**: the heater holds 35 °C at 75%. In the **truST** side bar, select **Control Studio**.
+2. On **Identify**, choose **Project experiment** from **Method**. **Signals** shows `P1.TemperatureC · Process value (°C)`, the probe with its error, and `P1.AppliedPowerPct · Applied output (%)`; add `P1.WaterTemperatureC · state (°C)`, `P1.IdealProbeC · state (°C)` and `P1.MeasurementErrorC · state (°C)`.
+3. Answer the predictions. Select **Review project test**, check the **45.1 s** plan (a 5 s steady start, then 85% until 45.1 s) and select **Confirm and start**. At the end, Control Studio shows **Project test completed. Outputs restored.**
+4. Hover `P1.MeasurementErrorC`: it stays within ±0.05 °C. Right-click the plot and choose **Save recording…**.
+5. Choose **Recorded-data fit** from **Method**, check **Use held-step measurement and search** and set **Model family** to **Compare additional lag**. Select **Open recording…**, open the saved file and select **Check recording**.
+6. Keep the default **Measurement and search settings** and select **Fit plant model**. In **Model comparison** and **Parameters and uncertainty**, read the B column's two lags and the note below the table.
+7. Hover `P1.WaterTemperatureC`: find its first rise and the time it reaches 63.2% of its change, $35 + 0.632 \times 2 = 36.26$ °C.
 
-1. Return to the Lesson 16 project using **File → Open Recent** or **File → Open Folder…**. In **Control Studio → Validate → Saved results**, select its saved comparison and choose **Open**, then return to **Identify**. This lesson inspects that existing study; no new import, fit or heater command is needed.
-2. Use **Fit** and **Residuals** to inspect the measured record and retained predictions. Expand **Parameters and uncertainty** and read the parameter ranges, consistent-set counts and search-boundary warnings. These ranges describe the searched models and bounds; a narrow search alone cannot rule out alternatives it never included.
-3. Relate the worked calculations to the record's duration and uncertainty. The two fixed first-order hypotheses differ by about 0.018 °C at 1 s and 0.799 °C at 10 s after delay. Compare those differences with the 0.1 °C combined bound, then ask whether the actual record covers informative times. The plotted Lesson 16 A/B are different structures, not those two fixed worked hypotheses. The retained 0.2 °C peak and 0.1 °C final model-error limits also remain separate from measurement uncertainty.
-4. Distinguish practical ambiguity from structural ambiguity. A longer bounded hold or different excitation can separate K and τ when the record is too short. A fast independent water reference or known probe calibration is needed to assign two indistinguishable lags to water or probe; more samples from the same measured channel cannot do that.
-5. Record the supported ranges, rejected alternatives, physical assumptions and proposed next measurement in your lesson notes. Keep the saved study unchanged. Independent validation on unused data is Lesson 18's task.
+Select **Abort test** to stop the project test early.
 
 ## Evidence and decision
 
-Declare candidates distinguishable only when prediction differences exceed the predeclared uncertainty in an informative portion of the record and the result persists under the stated sampling and window rules. A solver converging is not evidence of identifiability. If separation appears only after the record ends, report practical ambiguity and plan a longer bounded hold. If no measured channel can assign physical origins, report structural ambiguity and obtain an independent reference.
+![Early samples cannot separate two heaters, the probe fit cannot assign its lags, and the water reference can](figures/identifiability-record.svg)
 
-Carry the retained parameter interval and ambiguity into Lesson 18. Independent validation tests the frozen alternatives on unused data; it may validate the measured input/output prediction without identifying the hidden physical origin. A claim about unmeasured water temperature still needs the independent reference or physical calibration.
+The numbered marks answer the predictions with the same numbers. From the recording and Control Studio:
+
+| Quantity | Result |
+| --- | ---: |
+| Probe measurement error | within ±0.05 °C |
+| Two-store fit of the probe | lags 5.1 s and 1.8 s, delay 1.1 s, gain 0.1993 °C per % |
+| Largest and RMS residual, two stores | 0.055 °C and 0.030 °C |
+| Largest residual, one store | 0.138 °C |
+| Water reference | first rise 1.1 s and 63.2% at 6.0 s after the step |
+
+1. Only the 10 s difference. The measured water matched the $K$ 0.2, $\tau$ 5 s heater at both times; the other would have been 0.8 °C higher at 10 s.
+2. No: 5.1 s and 1.8 s with a 1.1 s delay. The true heater misses the noisy record by the same RMS, 0.030 °C: the error hides the difference.
+3. No. Control Studio noted: **Additional lag is a hypothesis; the recording alone cannot assign the two time constants to the process and the sensor.** Exchanging the two lags gives the same curve.
+4. The water reference first rose 1.1 s after the step and reached 36.26 °C at 6.0 s, so $L$ = 1 s and $\tau_p$ = 5 s. The 5.1 s lag belongs to the water and the 1.8 s lag to the probe, whose true lag is 2 s. A 1.8 s water lag would have put the water 0.64 °C higher 3 s after the step.
+
+The 40 s hold identifies the gain, and the water reference assigns 5 s to the water; the probe's error leaves its own lag uncertain by about 0.2 s. The cost is a second thermometer. These are simulation results.
 
 ## Conclusion
 
-Identifiability asks what this experiment can distinguish. Early heater data reveal $K/\tau$, longer data reveal equilibrium gain and time scale, and a single measured channel may never identify which physical store caused a lag.
+A parameter is identifiable only when the experiment can tell its value apart from others. A practical ambiguity, from a record that is too short, too noisy or too weak, is removed by a better record. A structural ambiguity, such as two lags seen only through their sum and product, needs a different measurement.
+
+For this heater, early samples fixed only $K/\tau$, the probe record fixed only the sum and product of the two lags, and the water reference assigned 5 s to the water and about 2 s to the probe.
+
+## Check yourself
+
+1. **What is the initial rate after a 10-point step for a heater with $K$ = 0.3, $\tau$ = 6 s, and one with $K$ = 0.15, $\tau$ = 3 s?**
+   Both $0.05 \times 10 = 0.5$ °C/s: the ratio $K/\tau$ is the same.
+2. **Two lags have the sum 9 s and the product 20 s². What are they, and which is the probe's?**
+   4 s and 5 s; the probe record cannot say which is the probe's.
+3. **Why can a longer record from the same probe not assign the lags?**
+   The probe record depends on the lags only through their sum and product, which a swap leaves unchanged.
 
 ## Reason for the next lesson
 
-We can now distinguish parameters supported by the record from alternatives that remain unresolved. That does not yet show whether the retained model predicts a different command or disturbance accurately enough to guide tuning.
+The parameters can now be told apart, but every check used the record they were fitted to. Being able to tell the parameters apart does not prove that the model predicts a different command or a disturbance.
 
-[Model validation](../26-independent-model-validation/README.md) keeps the model and its uncertainty unchanged while testing unused records.
+[Model validation](../26-independent-model-validation/README.md) tests the unchanged model on new records.

@@ -172,6 +172,8 @@ Every lesson README shall use exactly these sections:
 6. `Experiment in Control Studio`
 7. `Evidence and decision`
 8. `Conclusion`
+   `Check yourself` (three questions with answers; added by the user on 1 October 2026, see the
+   [Control Course Teaching Specification](control-course-teaching-specification.md) §4)
 9. `Reason for the next lesson`
 
 The title is followed immediately by one plain-language sentence stating what the student will do and what they will discover. Course-position metadata, evidence classifications, safety disclaimers, and author-facing objectives shall not precede the lesson.
@@ -358,11 +360,14 @@ The course contains 84 numbered lessons. The order below is authoritative. Exist
 | 11 | Filter only the measurement variation that the control objective does not need. | Filter behavior depends on elapsed update time. |
 | 12 | Use real elapsed time and understand missed samples and aliasing. | Observed curves alone do not explain why a plant responds as it does. |
 
-Lesson 12's current project is a scripted arithmetic comparison: its
-`ScriptedElapsedTime` value represents the hypothetical 0.2 s missed-update
-case at cycle 10. It is not a scheduler measurement. The configured runtime
-task remains 100 ms; plant-internal substeps and held outputs are independent.
-A real elapsed-time acquisition contract remains future work.
+Lesson 12's project measures the interval between acquisitions with a timer
+read in the scan that reads the local input image, rejects intervals that are
+not positive or longer than half the loop's measured ultimate period, and
+passes only accepted intervals to `Control.PID`. Scenario values make one
+update late, lengthen the update period, or substitute an assumed interval.
+The configured runtime task remains 100 ms; plant-internal substeps and held
+outputs are independent. Device-supplied acquisition timestamps remain future
+work.
 
 ### 7.2 Plant physics and models
 
@@ -371,6 +376,7 @@ A real elapsed-time acquisition contract remains future work.
 | 13 | Observe self-regulating, integrating, delayed, oscillating, inverse, and interacting responses without naming equations first. | Response shapes describe behavior but do not explain its physical cause. |
 | 14 | Derive accumulation equals inflow minus outflow from conservation. | Energy storage and loss require a specific dynamic thermal model. |
 | 15 | Derive a first-order water-heater model from stored energy, heater input, and heat loss. | Some plants contain nonlinear flow relationships. |
+| 87 | Level control (after lesson 14 in the teaching order): identify the pumped tank as an integrator with Control Studio; P reaches a new setpoint without offset but keeps one under an outflow change, PI removes it and needs a slow integral because the loop holds two integrators. | A gravity-drained tank is not a pure integrator. |
 | 16 | Derive the gravity-tank square-root outflow law from pressure head and conservation. | A nonlinear model is difficult to use with basic linear design tools. |
 | 17 | Linearize the gravity-tank model around one equilibrium and state the valid region. | The local differential equation still needs an input-output representation. |
 | 18 | Derive a transfer function from the local differential equation using the Laplace transform. | Coefficients alone do not reveal the response contribution of poles and zeros. |
@@ -387,10 +393,11 @@ A real elapsed-time acquisition contract remains future work.
 | 24 | Compare candidate model structures and choose the simplest adequate one. | A good fit can hide parameters the experiment cannot distinguish. |
 | 25 | Test parameter identifiability and redesign weak experiments. | An identifiable fitted model may still fail on new conditions. |
 | 26 | Freeze the model and validate it on unused amplitudes, disturbances, and operating points. | A validated model does not choose a controller automatically. |
-| 27 | Select ON/OFF, P, PI, PD, or PID from plant behavior and control requirements. | The selected controller still needs numerical settings. |
+| 27 | Controller families (taught after the servo, lesson 42 of the teaching order): Control Studio designs P, PI, PD and PID for the heater and shaft models against the same requirements; choose the simplest family that meets them and explain each failure from the model. | A new application controls liquid level, where flow changes stored volume. |
 | 28 | Tune PI manually by changing one term at a time and observing the trade-offs. | Manual iteration can be slow and subjective. |
 | 29 | Use a bounded relay experiment to estimate critical behavior and propose gains. | Critical-cycle rules ignore a validated process model and desired response speed. |
 | 30 | Derive model-based PI gains from a validated model and a chosen response target. | Different eligible methods produce different defensible trade-offs. |
+| 85 | Tuning to requirements (after lesson 31): state the requirements once; Control Studio designs PI candidates for them on the validated model, predicts, verifies the chosen one on the actual ST and refuses requirements no PI can meet. | A PI meeting the requirements can still step the command on a setpoint change. |
 | 31 | Compare tuning methods under identical requirements and select the simplest passing candidate. | Thermal PI does not provide damping for an oscillating mechanical plant. |
 
 ### 7.4 Motion control and derivative action
@@ -400,7 +407,7 @@ A real elapsed-time acquisition contract remains future work.
 | 32 | Use proportional position feedback and interpret it as commanded stiffness. | More stiffness can increase oscillation because the mechanism lacks damping. |
 | 33 | Add measured velocity feedback as damping to form PD control. | PD cannot supply steady holding torque against a constant load. |
 | 34 | Add integral action to PD to form PID and supply holding torque. | Differentiating a changed setpoint can create a torque kick. |
-| 35 | Apply derivative action to measurement rather than the setpoint change. | Derivative action still amplifies measurement noise. |
+| 35 | Retired 30 September 2026: derivative on measurement is taught with PD in lesson 34 (control-course teaching specification). | — |
 | 36 | Filter the derivative signal while preserving useful damping. | Continuous equations must be executed at discrete update times. |
 
 ### 7.5 Production digital PID
@@ -409,6 +416,7 @@ A real elapsed-time acquisition contract remains future work.
 | ---: | --- | --- |
 | 37 | Derive discrete integral and derivative updates from sampled areas and slopes. | Equivalent continuous ideas can be stored in different digital forms. |
 | 38 | Compare positional and incremental PID forms through their state and output behavior. | Stored state must be initialized before a controller receives authority. |
+| 86 | Your own PID law (after lesson 38 in the teaching order): set up the program's own positional PID in Control Studio from its gain variables, integral term and previous measurement, design its gains to the requirements, verify the actual ST and apply bumplessly. | A tuned law is not yet a commissioned servo. |
 | 39 | Initialize Disabled, Manual, Auto, and Track modes from measured process and actuator state. | Correct initialization alone does not prevent a transfer bump. |
 | 40 | Track the actual applied output to make Manual-to-Auto transfer bumpless. | Several related settings can still change incoherently within one scan. |
 | 41 | Apply controller parameters as one atomic configuration revision. | Coherent parameters are still unsafe when input data are invalid. |
@@ -425,6 +433,8 @@ A real elapsed-time acquisition contract remains future work.
 | 47 | Use the Nyquist contour to determine closed-loop stability with delay and unstable open-loop poles. | Stability alone does not measure disturbance rejection or noise amplification. |
 | 48 | Derive sensitivity and complementary sensitivity from the feedback equations. | Improving one frequency range necessarily affects another. |
 | 49 | Shape the loop to balance tracking, disturbance rejection, noise, robustness, and actuator effort. | The continuous design must survive sampling and computation delay. |
+| 88 | Robustness margins (after lesson 47 Nyquist in the teaching order): gain, phase and delay margins and Ms as distances from the critical point, each related to a model error and checked with Control Studio's margins on a mismatched plant. | A mechanical resonance can consume the gain margin a rigid model promised. |
+| 89 | Mechanical resonance and notch filtering: identify the shaft's flexible-coupling resonance, show how it reduces the position loop's gain margin and restore it with a notch filter verified on the actual ST. | The continuous design must survive sampling and computation delay. |
 | 50 | Map the sampled system into the z-plane and verify discrete-time stability. | Single-loop tools do not solve coordination between several control paths. |
 
 ### 7.7 Industrial control structures
@@ -434,6 +444,7 @@ These lessons introduce alternative structures in increasing order of architectu
 | Lesson | Lesson problem and new idea | Limitation that creates the next lesson |
 | ---: | --- | --- |
 | 51 | Add measured-disturbance feedforward while feedback corrects model mismatch. | Some important disturbances are not measured before they enter the plant. |
+| 90 | Trajectory feedforward: torque from a motion profile's planned acceleration and velocity, added to the PID; compare following errors with and without it. | An unmeasured jacket disturbance still reaches the vessel before its temperature feedback responds. |
 | 52 | Add a fast inner feedback loop beneath a slower primary loop to form cascade control. | Some processes require one material stream to follow another rather than an inner state. |
 | 53 | Make one measured flow follow another with ratio control and feedback trim. | One control demand may need two opposing actuators. |
 | 54 | Map one signed demand across heating and cooling actuators with split-range control. | A protective objective may need priority over the production objective. |

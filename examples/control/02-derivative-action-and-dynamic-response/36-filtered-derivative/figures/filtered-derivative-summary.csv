@@ -1,6 +1,0 @@
-filter,time_constant_s,torque_increment_rms_nm,positive_position_lag_rad_s,decision
-Bypass,,0.874919229704,0.009052920543,reject: activity above 0.250 N m
-First order,0.02,0.465867927717,0.010423809378,reject: activity above 0.250 N m
-First order,0.05,0.192292466117,0.017472814686,select: satisfies activity and lag limits
-First order,0.10,0.096748306860,0.031201974741,reject: lag above 0.020 rad s
-Second order,0.05,0.045913010647,0.028450604205,reject: lag above 0.020 rad s

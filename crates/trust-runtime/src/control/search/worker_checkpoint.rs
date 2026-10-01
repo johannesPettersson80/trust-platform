@@ -199,14 +199,14 @@ mod tests {
         format!("{HEADER}{}\n{SAMPLE}{}\n{last}", header(), sample())
     }
     #[test]
-    fn checkpoint_accepts_all_32_channels_permitted_by_the_run_contract() {
+    fn checkpoint_accepts_all_64_channels_permitted_by_the_run_contract() {
         let mut run = header();
-        run["channels"] = json!((0..32)
+        run["channels"] = json!((0..64)
             .map(|index| json!({"id":format!("state-{index}"),"unit":"1"}))
             .collect::<Vec<_>>());
         let mut row = sample();
         row["values"] = Value::Object(
-            (0..32)
+            (0..64)
                 .map(|index| {
                     (
                         format!("state-{index}"),

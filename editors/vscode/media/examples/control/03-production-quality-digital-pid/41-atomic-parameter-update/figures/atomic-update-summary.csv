@@ -1,5 +1,0 @@
-case,active_kp_percent_per_bar,active_ki_percent_per_bar_s,result_percent,accepted,decision
-atomic revision,15.0,3.0,55.300000000000,true,coherent revision 1
-mixed diagnostic,15.0,1.0,55.100000000000,false,reject mixed record
-internal feedforward,5.0,1.0,42.000000000000,true,rate constrained inside PID
-rejected external sum,,,60.000000000000,false,reject post-limit sum

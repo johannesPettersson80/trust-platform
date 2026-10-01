@@ -52,6 +52,10 @@ pub struct Runtime {
     pub(super) statement_index: IndexMap<u32, Vec<crate::debug::SourceLocation>>,
     pub(super) source_text_index: IndexMap<u32, String>,
     pub(super) source_label_index: HashMap<SmolStr, u32>,
+    /// Resolved VM statement locations by (POU, pc); filled only while debug control is attached, cleared when the module
+    /// or the registered sources change.
+    pub(super) vm_statement_locations:
+        rustc_hash::FxHashMap<(u32, u32), Option<crate::debug::SourceLocation>>,
     pub(super) functions: IndexMap<SmolStr, FunctionDef>,
     pub(super) function_blocks: IndexMap<SmolStr, FunctionBlockDef>,
     pub(super) classes: IndexMap<SmolStr, ClassDef>,

@@ -1,196 +1,183 @@
-USING Control;
-
-FUNCTION Lesson58InstalledTargetFlow : LREAL
-VAR_INPUT StemPercent : LREAL; END_VAR
-Lesson58InstalledTargetFlow := LREAL#100.0
-    * (StemPercent / LREAL#100.0) * (StemPercent / LREAL#100.0);
-END_FUNCTION
-
-FUNCTION Lesson58ReviewedManualDemand : LREAL
+(* Flow through the teaching valve: q = 2·z·sqrt(dp/100 kPa) kg/s with opening fraction z = x/100. *)
+FUNCTION ValveFlow : LREAL
 VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
-    ExperimentEnabled : BOOL;
-    InputsValid : BOOL;
-    SafetyAbort : BOOL;
+    OpeningPct : LREAL;
+    PressureDropKPa : LREAL;
 END_VAR
-IF NOT ExperimentEnabled OR NOT InputsValid OR SafetyAbort THEN
-    Lesson58ReviewedManualDemand := LREAL#0.0;
-ELSIF ExperimentElapsedSeconds < LREAL#10.0 THEN Lesson58ReviewedManualDemand := LREAL#0.0;
-ELSIF ExperimentElapsedSeconds < LREAL#20.0 THEN Lesson58ReviewedManualDemand := LREAL#20.0;
-ELSIF ExperimentElapsedSeconds < LREAL#30.0 THEN Lesson58ReviewedManualDemand := LREAL#40.0;
-ELSIF ExperimentElapsedSeconds < LREAL#40.0 THEN Lesson58ReviewedManualDemand := LREAL#60.0;
-ELSIF ExperimentElapsedSeconds < LREAL#50.0 THEN Lesson58ReviewedManualDemand := LREAL#80.0;
-ELSIF ExperimentElapsedSeconds < LREAL#60.0 THEN Lesson58ReviewedManualDemand := LREAL#100.0;
-ELSIF ExperimentElapsedSeconds < LREAL#70.0 THEN Lesson58ReviewedManualDemand := LREAL#70.0;
-ELSIF ExperimentElapsedSeconds < LREAL#71.0 THEN Lesson58ReviewedManualDemand := LREAL#70.5;
-ELSIF ExperimentElapsedSeconds < LREAL#72.0 THEN Lesson58ReviewedManualDemand := LREAL#71.0;
-ELSIF ExperimentElapsedSeconds < LREAL#73.0 THEN Lesson58ReviewedManualDemand := LREAL#71.5;
-ELSIF ExperimentElapsedSeconds < LREAL#74.0 THEN Lesson58ReviewedManualDemand := LREAL#72.0;
-ELSIF ExperimentElapsedSeconds < LREAL#75.0 THEN Lesson58ReviewedManualDemand := LREAL#72.5;
-ELSIF ExperimentElapsedSeconds < LREAL#76.0 THEN Lesson58ReviewedManualDemand := LREAL#73.0;
-ELSIF ExperimentElapsedSeconds < LREAL#77.0 THEN Lesson58ReviewedManualDemand := LREAL#73.5;
-ELSIF ExperimentElapsedSeconds < LREAL#78.0 THEN Lesson58ReviewedManualDemand := LREAL#74.0;
-ELSIF ExperimentElapsedSeconds < LREAL#79.0 THEN Lesson58ReviewedManualDemand := LREAL#74.5;
-ELSIF ExperimentElapsedSeconds < LREAL#80.0 THEN Lesson58ReviewedManualDemand := LREAL#75.0;
-ELSIF ExperimentElapsedSeconds < LREAL#82.0 THEN Lesson58ReviewedManualDemand := LREAL#75.5;
-ELSIF ExperimentElapsedSeconds < LREAL#83.0 THEN Lesson58ReviewedManualDemand := LREAL#75.0;
-ELSIF ExperimentElapsedSeconds < LREAL#84.0 THEN Lesson58ReviewedManualDemand := LREAL#74.5;
-ELSIF ExperimentElapsedSeconds < LREAL#85.0 THEN Lesson58ReviewedManualDemand := LREAL#74.0;
-ELSIF ExperimentElapsedSeconds < LREAL#86.0 THEN Lesson58ReviewedManualDemand := LREAL#73.5;
-ELSIF ExperimentElapsedSeconds < LREAL#87.0 THEN Lesson58ReviewedManualDemand := LREAL#73.0;
-ELSIF ExperimentElapsedSeconds < LREAL#88.0 THEN Lesson58ReviewedManualDemand := LREAL#72.5;
-ELSIF ExperimentElapsedSeconds < LREAL#89.0 THEN Lesson58ReviewedManualDemand := LREAL#72.0;
-ELSIF ExperimentElapsedSeconds < LREAL#90.0 THEN Lesson58ReviewedManualDemand := LREAL#71.5;
-ELSIF ExperimentElapsedSeconds < LREAL#91.0 THEN Lesson58ReviewedManualDemand := LREAL#71.0;
-ELSIF ExperimentElapsedSeconds < LREAL#92.0 THEN Lesson58ReviewedManualDemand := LREAL#70.5;
-ELSIF ExperimentElapsedSeconds < LREAL#94.0 THEN Lesson58ReviewedManualDemand := LREAL#70.0;
-ELSE Lesson58ReviewedManualDemand := LREAL#80.0;
-END_IF;
+ValveFlow := LREAL#2.0 * OpeningPct / LREAL#100.0 * SQRT(MAX(PressureDropKPa, LREAL#0.0) / LREAL#100.0);
 END_FUNCTION
 
-FUNCTION Lesson58ReviewedAutomaticMode : BOOL
+(* Installed flow with a fixed 128.125 kPa supply and pipe loss 12.5·q²: q = 2z·sqrt(1.28125/(1 + 0.5z²)). *)
+FUNCTION FixedSupplyFlow : LREAL
 VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
-    ExperimentEnabled : BOOL;
-    InputsValid : BOOL;
-    SafetyAbort : BOOL;
+    OpeningPct : LREAL;
 END_VAR
-Lesson58ReviewedAutomaticMode := ExperimentEnabled AND InputsValid
-    AND (NOT SafetyAbort) AND (ExperimentElapsedSeconds >= LREAL#110.0);
+VAR
+    Z : LREAL;
+END_VAR
+Z := OpeningPct / LREAL#100.0;
+FixedSupplyFlow := LREAL#2.0 * Z * SQRT(LREAL#1.28125 / (LREAL#1.0 + LREAL#0.5 * Z * Z));
 END_FUNCTION
 
-FUNCTION Lesson58ReviewedFlowSetpoint : LREAL
-VAR_INPUT AutomaticMode : BOOL; END_VAR
-IF AutomaticMode THEN
-    Lesson58ReviewedFlowSetpoint := LREAL#70.0;
+(* Heat carried by the hot water: Q = cp·q·(Tin − T) with cp = 4 kJ/(kg·°C), in kW. *)
+FUNCTION DeliveredHeatKW : LREAL
+VAR_INPUT
+    FlowKgS : LREAL;
+    SupplyC : LREAL;
+    WaterC : LREAL;
+END_VAR
+DeliveredHeatKW := LREAL#4.0 * FlowKgS * (SupplyC - WaterC);
+END_FUNCTION
+
+(* Local slope between two steady points, per percentage point of measured stem position. *)
+FUNCTION LocalSlope : LREAL
+VAR_INPUT
+    FlowLow : LREAL;
+    FlowHigh : LREAL;
+    StemLow : LREAL;
+    StemHigh : LREAL;
+END_VAR
+IF StemHigh <> StemLow THEN
+    LocalSlope := (FlowHigh - FlowLow) / (StemHigh - StemLow);
 ELSE
-    Lesson58ReviewedFlowSetpoint := LREAL#64.0;
+    LocalSlope := LREAL#0.0;
 END_IF;
 END_FUNCTION
 
 PROGRAM Main
 VAR
-    HealthyController : Control.PID;
-    DeadbandController : Control.PID;
-    StictionController : Control.PID;
-    Parameters : Control.PIDParameters;
-    InitialState : Control.PIDInitialState;
-    HealthyInput : Control.PIDInput;
-    DeadbandInput : Control.PIDInput;
-    StictionInput : Control.PIDInput;
-    Initialized : BOOL := FALSE;
     ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    ExperimentElapsed : LREAL := 0.0;
-    AutoMode : BOOL := FALSE;
-    ManualDemand : LREAL := 80.0;
-    FlowSetpoint : LREAL := 64.0;
-    HealthyFlow : LREAL := 64.0;
-    DeadbandFlow : LREAL := 64.0;
-    StictionFlow : LREAL := 64.0;
-    HealthyRequest : LREAL := 80.0;
-    DeadbandRequest : LREAL := 80.0;
-    StictionRequest : LREAL := 80.0;
+    WasEnabled : BOOL := FALSE;
+    Active : BOOL := FALSE;
+    (* One stem request drives both pressure arrangements; the copies feed the pressure measurements. *)
+    ValveRequestPct : LREAL := 75.0;
+    RegulatedPressureRequestPct : LREAL := 75.0;
+    FixedSupplyRequestPct : LREAL := 75.0;
+    FixedSupplyPressureRequestPct : LREAL := 75.0;
+    StemPositionPct : LREAL := 75.0;
+    FlowRegulatedKgS : LREAL := 1.5;
+    FlowFixedSupplyKgS : LREAL := 1.5;
+    PressureRegulatedKPa : LREAL := 100.0;
+    PressureFixedSupplyKPa : LREAL := 100.0;
+    (* Staircase: each target is held 30 s; the final 3 s count only if the stem has arrived within
+       0.1 point and each flow varied by at most SteadyRangeKgS. *)
+    Targets : ARRAY[0..4] OF LREAL := [70.0, 75.0, 80.0, 85.0, 75.0];
+    SteadyRangeKgS : LREAL := 0.015;
+    HoldTimer : TON;
+    StepIndex : INT := 0;
+    Samples : DINT := 0;
+    StemSum : LREAL := 0.0;
+    RegulatedSum : LREAL := 0.0;
+    RegulatedMinimum : LREAL := 0.0;
+    RegulatedMaximum : LREAL := 0.0;
+    FixedSum : LREAL := 0.0;
+    FixedMinimum : LREAL := 0.0;
+    FixedMaximum : LREAL := 0.0;
+    RegulatedPressureSum : LREAL := 0.0;
+    FixedPressureSum : LREAL := 0.0;
+    SteadyStemPct : ARRAY[0..4] OF LREAL;
+    SteadyFlowRegulated : ARRAY[0..4] OF LREAL;
+    SteadyFlowFixedSupply : ARRAY[0..4] OF LREAL;
+    SteadyPressureRegulated : ARRAY[0..4] OF LREAL;
+    SteadyPressureFixedSupply : ARRAY[0..4] OF LREAL;
+    SteadyQualified : ARRAY[0..4] OF BOOL;
+    (* Results at the stated temperatures: 60 °C supply, 35 °C water. *)
+    SupplyC : LREAL := 60.0;
+    WaterC : LREAL := 35.0;
+    SlopeRegulatedKgSPerPct : LREAL := 0.0;
+    SlopeFixedSupplyKgSPerPct : LREAL := 0.0;
+    HeatAt75PctKW : LREAL := 0.0;
+    HeatSlopeKWPerPct : LREAL := 0.0;
+    Index : INT := 0;
 END_VAR
 
-IF NOT Initialized THEN
-    ManualDemand := LREAL#80.0;
-    (* One parameter record keeps tuning identical while only valve condition changes. *)
-    Parameters.ProportionalGain := LREAL#0.5;
-    Parameters.IntegralGain := LREAL#0.25;
-    Parameters.DerivativeGain := LREAL#0.0;
-    Parameters.ProportionalSetpointWeight := LREAL#1.0;
-    Parameters.DerivativeSetpointWeight := LREAL#0.0;
-    Parameters.Bias := LREAL#80.0;
-    Parameters.OutputMinimum := LREAL#0.0;
-    Parameters.OutputMaximum := LREAL#100.0;
-    Parameters.RateMinimum := LREAL#-1000.0;
-    Parameters.RateMaximum := LREAL#1000.0;
-    Parameters.TrackingTime := LREAL#0.5;
-    Parameters.AntiWindup := PIDAntiWindup#Combined;
-    HealthyController.Configure(Parameters := Parameters);
-    DeadbandController.Configure(Parameters := Parameters);
-    StictionController.Configure(Parameters := Parameters);
-
-    (* Initialize at the measured operating point for bumpless Manual or Auto entry. *)
-    InitialState.Setpoint := FlowSetpoint;
-    InitialState.ProcessValue := HealthyFlow;
-    InitialState.NominalOutput := LREAL#80.0;
-    InitialState.SaturatedOutput := LREAL#80.0;
-    HealthyController.Initialize(State := InitialState);
-    InitialState.ProcessValue := DeadbandFlow;
-    DeadbandController.Initialize(State := InitialState);
-    InitialState.ProcessValue := StictionFlow;
-    StictionController.Initialize(State := InitialState);
-    Initialized := TRUE;
+IF ExperimentEnabled AND NOT WasEnabled THEN
+    Active := TRUE;
+    StepIndex := 0;
+    Samples := 0;
+    FOR Index := 0 TO 4 DO
+        SteadyQualified[Index] := FALSE;
+    END_FOR;
+    HoldTimer(IN := FALSE, PT := T#30s);
 END_IF;
-
-(* Control Studio grants only authority. The project owns characterization,
-   one reversal probe, the closed-loop observation, and safe closure. *)
-IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
-    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
-ELSE
-    ExperimentElapsed := LREAL#0.0;
+IF NOT ExperimentEnabled THEN
+    Active := FALSE;
 END_IF;
-AutoMode := Lesson58ReviewedAutomaticMode(
-    ExperimentElapsedSeconds := ExperimentElapsed,
-    ExperimentEnabled := ExperimentEnabled,
-    InputsValid := InputsValid,
-    SafetyAbort := SafetyAbort);
-FlowSetpoint := Lesson58ReviewedFlowSetpoint(AutomaticMode := AutoMode);
-ManualDemand := Lesson58ReviewedManualDemand(
-    ExperimentElapsedSeconds := ExperimentElapsed,
-    ExperimentEnabled := ExperimentEnabled,
-    InputsValid := InputsValid,
-    SafetyAbort := SafetyAbort);
+WasEnabled := ExperimentEnabled;
 
-HealthyInput.Setpoint := FlowSetpoint;
-HealthyInput.ProcessValue := HealthyFlow;
-HealthyInput.CycleTime := LREAL#0.1;
-DeadbandInput.Setpoint := FlowSetpoint;
-DeadbandInput.ProcessValue := DeadbandFlow;
-DeadbandInput.CycleTime := LREAL#0.1;
-StictionInput.Setpoint := FlowSetpoint;
-StictionInput.ProcessValue := StictionFlow;
-StictionInput.CycleTime := LREAL#0.1;
-
-IF AutoMode THEN
-    HealthyInput.Mode := PIDMode#Auto;
-    DeadbandInput.Mode := PIDMode#Auto;
-    StictionInput.Mode := PIDMode#Auto;
-ELSE
-    (* The common manual demand makes characterization and reversal probes equivalent. *)
-    HealthyInput.Mode := PIDMode#Manual;
-    DeadbandInput.Mode := PIDMode#Manual;
-    StictionInput.Mode := PIDMode#Manual;
-    HealthyInput.ManualOutput := ManualDemand;
-    DeadbandInput.ManualOutput := ManualDemand;
-    StictionInput.ManualOutput := ManualDemand;
+IF Active THEN
+    ValveRequestPct := Targets[StepIndex];
+    HoldTimer(IN := TRUE, PT := T#30s);
+    (* The final 3 s of each hold form the steady window. *)
+    IF HoldTimer.ET >= T#27s THEN
+        IF Samples = 0 THEN
+            RegulatedMinimum := FlowRegulatedKgS; RegulatedMaximum := FlowRegulatedKgS;
+            FixedMinimum := FlowFixedSupplyKgS; FixedMaximum := FlowFixedSupplyKgS;
+            StemSum := 0.0; RegulatedSum := 0.0; FixedSum := 0.0;
+            RegulatedPressureSum := 0.0; FixedPressureSum := 0.0;
+        END_IF;
+        Samples := Samples + 1;
+        StemSum := StemSum + StemPositionPct;
+        RegulatedSum := RegulatedSum + FlowRegulatedKgS;
+        FixedSum := FixedSum + FlowFixedSupplyKgS;
+        RegulatedPressureSum := RegulatedPressureSum + PressureRegulatedKPa;
+        FixedPressureSum := FixedPressureSum + PressureFixedSupplyKPa;
+        RegulatedMinimum := MIN(RegulatedMinimum, FlowRegulatedKgS);
+        RegulatedMaximum := MAX(RegulatedMaximum, FlowRegulatedKgS);
+        FixedMinimum := MIN(FixedMinimum, FlowFixedSupplyKgS);
+        FixedMaximum := MAX(FixedMaximum, FlowFixedSupplyKgS);
+    END_IF;
+    IF HoldTimer.Q THEN
+        SteadyStemPct[StepIndex] := StemSum / DINT_TO_LREAL(Samples);
+        SteadyFlowRegulated[StepIndex] := RegulatedSum / DINT_TO_LREAL(Samples);
+        SteadyFlowFixedSupply[StepIndex] := FixedSum / DINT_TO_LREAL(Samples);
+        SteadyPressureRegulated[StepIndex] := RegulatedPressureSum / DINT_TO_LREAL(Samples);
+        SteadyPressureFixedSupply[StepIndex] := FixedPressureSum / DINT_TO_LREAL(Samples);
+        SteadyQualified[StepIndex] := ABS(SteadyStemPct[StepIndex] - Targets[StepIndex]) <= LREAL#0.1
+            AND RegulatedMaximum - RegulatedMinimum <= SteadyRangeKgS
+            AND FixedMaximum - FixedMinimum <= SteadyRangeKgS;
+        Samples := 0;
+        HoldTimer(IN := FALSE, PT := T#30s);
+        IF StepIndex < 4 THEN
+            StepIndex := StepIndex + 1;
+        ELSE
+            Active := FALSE;
+            (* The 75 → 80 % step gives the local slopes and the heat at the stated temperatures. *)
+            SlopeRegulatedKgSPerPct := LocalSlope(FlowLow := SteadyFlowRegulated[1], FlowHigh := SteadyFlowRegulated[2],
+                StemLow := SteadyStemPct[1], StemHigh := SteadyStemPct[2]);
+            SlopeFixedSupplyKgSPerPct := LocalSlope(FlowLow := SteadyFlowFixedSupply[1], FlowHigh := SteadyFlowFixedSupply[2],
+                StemLow := SteadyStemPct[1], StemHigh := SteadyStemPct[2]);
+            HeatAt75PctKW := DeliveredHeatKW(FlowKgS := SteadyFlowRegulated[1], SupplyC := SupplyC, WaterC := WaterC);
+            HeatSlopeKWPerPct := LREAL#4.0 * (SupplyC - WaterC) * SlopeRegulatedKgSPerPct;
+        END_IF;
+    END_IF;
 END_IF;
+IF NOT Active THEN
+    ValveRequestPct := LREAL#75.0;
+    HoldTimer(IN := FALSE, PT := T#30s);
+END_IF;
+RegulatedPressureRequestPct := ValveRequestPct;
+FixedSupplyRequestPct := ValveRequestPct;
+FixedSupplyPressureRequestPct := ValveRequestPct;
 
-HealthyRequest := HealthyController.Update(Input := HealthyInput);
-DeadbandRequest := DeadbandController.Update(Input := DeadbandInput);
-StictionRequest := StictionController.Update(Input := StictionInput);
 END_PROGRAM
 
 CONFIGURATION Config
 RESOURCE Res ON PLC
-TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);
-PROGRAM P1 WITH MainTask : Main;
+    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);
+    PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.AutoMode AT %MX91.0 : BOOL;
-    P1.ExperimentEnabled AT %MX91.1 : BOOL;
-    P1.SafetyAbort AT %MX91.2 : BOOL;
-    P1.InputsValid AT %MX91.3 : BOOL;
-    P1.ManualDemand AT %ML328 : LREAL;
-    P1.FlowSetpoint AT %ML336 : LREAL;
-    P1.HealthyFlow AT %IL168 : LREAL;
-    P1.DeadbandFlow AT %IL176 : LREAL;
-    P1.StictionFlow AT %IL184 : LREAL;
-    P1.HealthyRequest AT %QL184 : LREAL;
-    P1.DeadbandRequest AT %QL192 : LREAL;
-    P1.StictionRequest AT %QL200 : LREAL;
+    P1.ExperimentEnabled AT %MX64.0 : BOOL;
+    P1.Active AT %MX64.1 : BOOL;
+    P1.ValveRequestPct AT %QL0 : LREAL;
+    P1.RegulatedPressureRequestPct AT %QL8 : LREAL;
+    P1.FixedSupplyRequestPct AT %QL16 : LREAL;
+    P1.FixedSupplyPressureRequestPct AT %QL24 : LREAL;
+    P1.FlowRegulatedKgS AT %IL0 : LREAL;
+    P1.FlowFixedSupplyKgS AT %IL8 : LREAL;
+    P1.StemPositionPct AT %IL16 : LREAL;
+    P1.PressureRegulatedKPa AT %IL24 : LREAL;
+    P1.PressureFixedSupplyKPa AT %IL32 : LREAL;
 END_VAR
 END_CONFIGURATION

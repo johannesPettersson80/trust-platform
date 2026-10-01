@@ -76,6 +76,8 @@ impl Runtime {
         }
 
         if let Some(debug) = &self.debug {
+            // While running, the debug snapshot shows the last completed cycle (docs/specs/13-debug-adapter.md).
+            debug.refresh_snapshot_from_storage(&self.storage, self.current_time);
             debug.finish_transfer_cycle(&self.storage, self.current_time);
         }
 
@@ -300,12 +302,7 @@ impl Runtime {
         }
         if let Some(debug) = &self.debug {
             debug.confirm_parameters(&task.name, &self.storage, self.current_time);
-            debug.confirm_transfer_task(&task.name, &self.storage);
-            if let Some(reason) = debug.take_transfer_output_rejection() {
-                return Err(error::RuntimeError::IoDriver(
-                    format!("reviewed controller transfer rejected output: {reason}").into(),
-                ));
-            }
+            debug.confirm_transfer_task(&task.name, &mut self.storage);
             debug.push_runtime_event(crate::debug::RuntimeEvent::TaskEnd {
                 name: task.name.clone(),
                 priority: task.priority,
@@ -365,12 +362,7 @@ impl Runtime {
         }
         if let Some(debug) = &self.debug {
             debug.confirm_parameters("$background", &self.storage, self.current_time);
-            debug.confirm_transfer_task("$background", &self.storage);
-            if let Some(reason) = debug.take_transfer_output_rejection() {
-                return Err(error::RuntimeError::IoDriver(
-                    format!("reviewed controller transfer rejected output: {reason}").into(),
-                ));
-            }
+            debug.confirm_transfer_task("$background", &mut self.storage);
         }
         background.clear();
         self.background_program_names_scratch = background;
@@ -438,6 +430,7 @@ impl Runtime {
         module.validate().map_err(error::RuntimeError::from)?;
         let vm_module = Arc::new(super::vm::VmModule::from_bytecode(&module)?);
         self.vm_module = Some(vm_module);
+        self.vm_statement_locations.clear();
         Ok(())
     }
 

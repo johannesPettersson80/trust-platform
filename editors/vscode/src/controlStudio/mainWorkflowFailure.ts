@@ -1,5 +1,5 @@
 import { RuntimeVerificationExecutionError } from "./verificationClient";
-import { formatEngineeringNumber } from "./chartContract";
+import { displayEngineeringUnit, formatEngineeringNumber } from "./chartContract";
 import type { RunRequirementResult } from "./runValidation";
 
 /**
@@ -22,7 +22,8 @@ export type MainWorkflowNextAction =
   | "choose-controller"
   | "revise-requirements"
   | "review-implementation"
-  | "choose-application-mode";
+  | "choose-application-mode"
+  | "reapply";
 
 export interface MainWorkflowFailure {
   cause: MainWorkflowFailureCause;
@@ -38,8 +39,8 @@ export function classifyMainWorkflowFailure(action: string, error: unknown): Mai
   const reason = explanation(error).toLowerCase();
   if (has(reason, ["review acquisition", "excitation amplitude", "excitation method", "headroom", "relay direction", "selected acquisition mode", "acquisition duration", "feedback relay", "frequency identification"])) return { cause: "settings", nextAction: "configure-acquisition" };
   if (has(reason, ["mandatory scenarios", "scenario effect", "scenario requirements", "scenario policy", "invalid mandatory verification", "measurement filter", "reference shaping", "reviewed input disturbance", "reviewed measurement-noise", "constrained recovery"])) return { cause: "settings", nextAction: "configure-scenarios" };
-  if (has(reason, ["physical equilibrium", "equipment range", "no bounded setpoint excitation"])) return { cause: "task-infeasible", nextAction: "revise-requirements" };
-  if (has(reason, ["identifiable", "independent", "physical balance", "dry-level", "model structure", "held-out", "coherence", "excitation headroom", "recorded model", "dynamic state model", "free-running prediction"])) return { cause: "model-or-data", nextAction: "find-model" };
+  if (has(reason, ["no bounded setpoint excitation"])) return { cause: "task-infeasible", nextAction: "revise-requirements" };
+  if (has(reason, ["identifiable", "independent", "model structure", "held-out", "coherence", "excitation headroom", "recorded model", "dynamic state model", "free-running prediction"])) return { cause: "model-or-data", nextAction: "find-model" };
   if (has(reason, ["st changed controller parameter", "candidate not adopted", "iec type does not match", "state initialization", "state-feedback recovery", "estimator perturbation", "compiled binding", "controller execution fault"])) {
     return { cause: "implementation", nextAction: "review-implementation" };
   }
@@ -74,6 +75,7 @@ export function mainWorkflowNextActionLabel(nextAction: MainWorkflowNextAction):
     case "revise-requirements": return "Revise requirements or equipment";
     case "choose-application-mode": return "Choose a supported application mode";
     case "review-implementation": return "Review ST implementation and bindings";
+    case "reapply": return "Apply again";
   }
 }
 
@@ -99,9 +101,9 @@ export function verificationFailureReason(results: readonly RunRequirementResult
   if (missing) return `Verification is incomplete: ${missing.reason}`;
   const error = results.find(result => result.id === "target-error" && result.status === "Fail"
     && Number.isFinite(result.value) && Number.isFinite(result.limit));
-  if (error) return `Recorded target error ${formatEngineeringNumber(error.value!)} ${error.unit} exceeds ${formatEngineeringNumber(error.limit!)} ${error.unit}.`;
+  if (error) return `Recorded target error ${formatEngineeringNumber(error.value!)} ${displayEngineeringUnit(error.unit)} exceeds ${formatEngineeringNumber(error.limit!)} ${displayEngineeringUnit(error.unit)}.`;
   const deadline = results.find(result => result.kind === "settling" && result.status === "Fail" && Number.isFinite(result.limit));
-  if (deadline) return `The recorded response did not settle within ${formatEngineeringNumber(deadline.limit!)} ${deadline.unit}.`;
+  if (deadline) return `The recorded response did not settle within ${formatEngineeringNumber(deadline.limit!)} ${displayEngineeringUnit(deadline.unit)}.`;
   const failed = results.find(result => result.status === "Fail");
   return failed ? `Verification failed: ${failed.reason}` : "Verification has no complete observed requirement results.";
 }

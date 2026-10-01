@@ -33,7 +33,7 @@ fn root_locus_shaft_candidates_meet_the_declared_step_requirements() {
             .unwrap();
         let debug = runtime.enable_debug();
         let mut simulation = SimulationController::new(
-            SimulationConfig::load(&project.join("simulation.toml")).unwrap(),
+            SimulationConfig::load(project.join("simulation.toml")).unwrap(),
         );
         let mut peak = 0.0_f64;
         let mut late_error = 0.0_f64;

@@ -66,7 +66,7 @@ Plant feedback uses the same scan-boundary rule as existing simulation effects:
 
 1. due plant feedback is written to the input image before a PLC cycle;
 2. the PLC cycle reads those inputs and commits its outputs;
-3. plant models read committed PLC outputs after the cycle;
+3. plant models read committed PLC outputs and memory commands after the cycle;
 4. the models advance through elapsed simulation time; and
 5. newly calculated feedback is queued for a later pre-cycle boundary.
 
@@ -104,7 +104,7 @@ plant and its storage shall be allocated when the controller is created.
 ### 3.2 Plant instance
 
 Each `[[plants]]` entry declares one state-owning model. A plant is used to turn
-one or more PLC output commands into one or more PLC input measurements.
+one or more PLC output or memory commands into one or more PLC input measurements.
 
 Every plant defines:
 
@@ -114,8 +114,8 @@ Every plant defines:
 | `name` | string | no | Human-readable display name; defaults to `id` when omitted. |
 | `description` | string | no | Optional project documentation for the simulated process. |
 | `model` | closed string enum | yes | Selects a built-in model from Section 7. |
-| `command_sources` | array of addresses | yes | Ordered numeric PLC output signals. |
-| `feedback_targets` | array of addresses | yes | Ordered numeric PLC input signals. |
+| `command_sources` | array of addresses or symbols | yes | Ordered numeric PLC output or memory signals, or unaddressed program variables (Section 13.1). |
+| `feedback_targets` | array of addresses or symbols | yes | Ordered numeric PLC input signals, or unaddressed program variables (Section 13.2). |
 | `actuator_feedback_targets` | array of records | no | Optional applied-actuator PLC input address for each ordered command channel; see Section 3.2.1. |
 | `step_ms` | positive integer | no | Overrides the default fixed integration step. |
 | `initial_state` | array of finite numbers | model-dependent | Sets dynamic state at activation. |
@@ -1180,8 +1180,16 @@ stable.
 
 ### 13.1 Command sources
 
-Each command source shall be a concrete `%Q` address backed by compiled scalar
-numeric process-image metadata. `BOOL`, character, string, aggregate, reference,
+Each command source shall be a concrete `%Q` output or `%M` memory address
+backed by compiled scalar numeric process-image metadata. A memory command
+source gives a plant a program variable as its input, for example the setpoint
+that an outer controller passes to an inner loop, so that a model of the inner
+loop closed around its process can be driven by the outer controller. It is
+read at the same post-cycle boundary as an output. A command source may instead
+name a compiled scalar numeric program variable that has no address, by its
+symbolic path (an address always starts with `%`), for example a controller
+output that the program maps to its physical output through further logic; it is
+read from program storage at the same boundary. `BOOL`, character, string, aggregate, reference,
 and untyped byte-sequence commands are invalid. Integer, bit-string, `REAL`, and
 `LREAL` values are converted to binary64 exactly where representable and by the
 runtime's checked numeric-conversion rules otherwise.
@@ -1189,8 +1197,13 @@ runtime's checked numeric-conversion rules otherwise.
 ### 13.2 Feedback targets
 
 Each feedback target shall be a concrete `%I` address backed by compiled scalar
-numeric process-image metadata. The completed scaled feedback is converted to
-the declared target type using the runtime's checked conversion rules.
+numeric process-image metadata, or the symbolic path of a compiled scalar
+numeric program variable that has no address. The completed scaled feedback is
+converted to the declared target type using the runtime's checked conversion
+rules. A symbolic target is written into program storage at the same boundary as
+an input, before the program runs. The program must only read it: a value the
+program assigns itself replaces the feedback during the scan, so a client that
+knows the program's assignments (Control Studio) refuses such a target.
 
 Conversion shall reject nonfinite values and numeric overflow. Integer targets
 round to nearest with ties to even before range checking. No conversion may
@@ -1203,7 +1216,7 @@ scenario.
 
 ### 13.3 Target ownership
 
-An enabled plant feedback target shall be unique across:
+An enabled plant feedback target, address or symbol, shall be unique across:
 
 - all enabled plants;
 - existing simulation couplings; and

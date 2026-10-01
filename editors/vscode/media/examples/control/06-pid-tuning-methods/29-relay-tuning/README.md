@@ -1,105 +1,146 @@
 # 20. Relay tuning
 
-You will switch the electric heater between two bounded commands, measure a repeatable temperature cycle, and use an empirical relay rule to propose a PI candidate.
+In this lesson, you will let Control Studio switch the heater between two power levels until the temperature oscillates steadily, and calculate PI gains from the size and period of that oscillation, without a model. You will then see what the resulting high gains cost.
 
 ## The problem
 
-In the step-response experiment, we changed the applied heater command once
-and held it. We used the temperature response to estimate a process model:
-its gain, time constant and delay. We then validated that model and used it
-to calculate PI settings.
+Lesson 19 calculated $K_p$ 4.17 and $K_i$ 0.833 from the validated model and a 5 s response time, and the heater program reached 63.2% of a 3 °C step at 6.1 s. Those gains are only as good as the model: an error in its gain or time constant goes straight into them, and there is only this one model-based candidate.
 
-Relay tuning takes another route. We repeatedly switch heater power between
-a higher and a lower value as temperature crosses the switching thresholds.
-We measure how large the temperature oscillation is and how long each cycle
-takes, then calculate approximate PI settings without first fitting that
-step-response model. This gives us an alternative candidate to compare;
-the experiment alone does not establish which controller is better.
+We will find a second candidate without a model, from a short test on the heater itself.
 
 ## What we need
 
-To compare another tuning route, we need a PI candidate obtained directly
-from a controlled repeating response rather than from the fitted step model.
-We must establish a repeatable cycle and extract meaningful measurements
-before treating its calculated settings as a candidate.
+We need to:
+
+1. make the heater show its own speed in a short, safe test;
+2. turn the test's result into PI gains; and
+3. check those gains on the actual heater program.
 
 ## The new idea
 
-**Relay tuning** uses a temporary two-level controller to obtain a repeating
-response for calculating tuning parameters. Higher power is selected when
-temperature is low and lower power when it is high. The retained state between
-thresholds uses the hysteresis rule already taught. We measure complete cycles
-after the startup response has settled.
+**Relay tuning** switches the heater between two levels whenever the temperature crosses the target. The loop then oscillates steadily, and the size and period of that oscillation tell us how to set the PI. For this heater, the relay switches the same number of points above and below the 75% holding command, and the 1 s delay makes the temperature overshoot every switch.
 
-Use the same heater as the physical-model and identification lessons: $C=50\ \mathrm{kJ/°C}$, $H=10\ \mathrm{kW/°C}$ to 20 °C, 200 kW full power, nominal gain $K=.2$ °C/percentage point, one-second delivered-power delay, and $dt=.1$ s. Start at SP=35 °C, PV=35 °C, applied command 75%, integral output 75%, proportional output 0%, command history 75% and $D=0$. Keep PI inactive during the relay test and hold its integral state at 75%.
+**In words.** The test is ON/OFF control with a small hysteresis, used on purpose to measure the heater. It has four parts:
 
-Before starting, choose relay amplitude $d$ between 5 and 10 percentage points and justify it against the repeatable sensor-noise bound of ±.02 °C and the switching band. Use bias 75%, high command $75+d$, low command $75-d$, and illustrative thresholds 35.1 °C and 34.9 °C. The .02 °C noise bound concerns repeatable fluctuations during the cycle; keep it distinct from the earlier absolute measurement-error bound and record any retained sensor dynamics. The relay state starts High and is retained between thresholds. Record a maximum 60 s, sample interval .1 s, temperature bounds 33–37 °C, command bounds 0–100%, invalid-data abort rule, normal restore command 75%, and a full-reset rule.
+1. **Switch at the target.** Below the target the heater gets the high level, above it the low level. Two switching points just outside the measurement noise keep the relay from chattering, as hysteresis did in the cold room.
+2. **Let the delay make a steady cycle.** After each switch, the old power is still arriving for 1 s, so the temperature runs past the switching point before it turns. The loop settles into a cycle of fixed size and period.
+3. **Read the cycle.** Its size says how far the temperature swings for the relay's push; its period says how fast the loop can go round once. Together they give the **ultimate gain**: the proportional gain at which the loop would keep oscillating, neither growing nor dying away. The cycle's period is the **ultimate period**.
+4. **Turn them into PI gains.** An empirical rule takes a safe fraction of the ultimate gain and an integral time from the period.
 
-The relay output is approximately a square wave of amplitude $d$ around the bias. The heater smooths that abrupt input, so we approximate the repeating temperature by a sine wave at the cycle frequency. To calculate the matching sine component of the command, multiply the square wave by a unit sine and integrate over one cycle, then divide by the integral of the squared unit sine. The latter integral is π; symmetry lets us use twice the positive half-cycle. Thus the command’s fundamental sine component has amplitude
+In PLC terms, the relay is a two-position output with a deadband, switched by a comparison in every scan. It needs no model: the heater shows its own speed in a test of about a minute, with the temperature held close to the target.
 
-$$
-\frac{2}{\pi}\int_0^\pi d\sin(\phi)\,d\phi
-=\frac{4d}{\pi}.
-$$
-
-Here $\phi$ spans one half-cycle from 0 to $\pi$; the other sine components, called higher harmonics, repeat at multiples of the main cycle frequency and are attenuated by the heater's thermal dynamics, so the fundamental is a useful approximation when the measured temperature cycle is near sinusoidal. If $a$ is half the measured peak-to-peak temperature amplitude in °C, estimate an equivalent relay gain. With a nearly sinusoidal temperature cycle and small switching hysteresis, this approximates the proportional gain at which the loop would sustain oscillation, called the ultimate gain:
+**The formula.** A square wave switching by ±$d$ contains a sine wave at the cycle frequency with amplitude $4d/\pi$: averaging it against a sine over one cycle gives $\frac{2}{\pi}\int_0^\pi d\sin\phi\,d\phi = 4d/\pi$. The heater smooths the faster parts, so the temperature swings almost like that sine. For this sine, the relay acts like a proportional controller with gain $(4d/\pi)/a$, the gain at which the loop neither grows nor decays:
 
 $$
-K_u\approx\frac{4d}{\pi a}
+K_u \approx \frac{4d}{\pi a}, \qquad K_p = 0.45K_u, \qquad T_i = \frac{P_u}{1.2}, \qquad K_i = \frac{K_p}{T_i}.
 $$
 
-in percentage points/°C. This is not the physical heater gain $K=.2$; it is an empirical cycle-based estimate under the relay assumptions.
+- $d$ is the relay amplitude, in percentage points above and below the holding command;
+- $a$ is half the peak-to-peak temperature swing, in °C, and $P_u$ the period of one full cycle, in s;
+- $K_u$ is the ultimate gain, in % per °C;
+- $K_p$, $T_i$ and $K_i$ are the PI settings, as in Lesson 19; the factors 0.45 and 1.2 are the empirical rule of Ziegler and Nichols.
 
-Use the Ziegler–Nichols-style empirical PI rule
+**Example: a 5-point relay.** Calculated with the model of Lesson 19, $K$ 0.2 °C per %, $\tau$ 5 s and $L$ 1 s, and Control Studio's switching points 35.04 and 34.96 °C, just outside the ±0.02 °C measurement noise. Follow one half cycle:
 
-$$
-K_p=0.45K_u,\qquad T_i=\frac{P_u}{1.2},\qquad K_i=\frac{K_p}{T_i},
-$$
+1. The temperature rises through 35.04 °C, and the relay switches from 80% to 70%.
+2. For the 1 s delay, the heater still delivers 80%, whose final temperature is 36 °C. The temperature keeps rising, by $(1 - 0.04)(1 - e^{-1/5}) = 0.17$ °C, to a peak of 35.21 °C.
+3. Then it falls toward 34 °C, the final temperature at 70%, and reaches 34.96 °C after $5\ln\frac{1 + 0.214}{1 - 0.04} = 1.17$ s: the peak was 0.214 °C above 35 °C, the final value 1 °C below it.
+4. The relay switches back, and the lower half mirrors the upper: $a \approx 0.214$ °C and $P_u \approx 2 \times (1 + 1.17) = 4.35$ s.
+5. $K_u = 4 \times 5/(\pi \times 0.214) = 29.7$ % per °C: for this sine, the relay pushes 29.7 points per degree of swing.
+6. $K_p = 0.45 \times 29.7 = 13.4$ % per °C, $T_i = 4.35/1.2 = 3.62$ s and $K_i = 13.4/3.62 = 3.7$ % per (°C·s).
 
-where $P_u$ is the full cycle period in seconds and $T_i$ is the integral time in seconds. The resulting $K_i$ has units percentage points/(°C·s). Finite hysteresis changes the switching phase; asymmetric heating/loss or saturation biases $a$ and $P_u$, and a nonrepeatable cycle makes the candidate unusable.
+**Teaching choice.** This lesson's relay uses $d$ = 10 points. With 5 points the swing is only about 0.2 °C, and the ±0.02 °C noise would shift single cycles by about 10%.
+
+**The limitation.** The rule knows nothing about the requirements or the command limits. Such high gains also pass the ±0.02 °C noise on to the command multiplied by $K_p$: with $K_p$ = 13.4, about $0.02 \times 13.4 = 0.27$, roughly ±0.3 points.
 
 ## Prediction
 
-Choose $d$ and calculate high/low commands. Predict whether the commands remain within 0–100% and whether a ±.02 °C noise signal can cross a .2 °C-wide switching band. Before evaluating data, require at least three complete cycles after discarding the first two, with each retained period and amplitude within 10% of their respective means. Predict whether your amplitude and 60 s duration can produce those observations.
+Before running, answer these questions:
 
-As a conditional arithmetic example only, suppose a cycle has upper 35.4 °C, lower 34.6 °C, full period $P_u=5$ s, and $d=10$ points. Then $a=.4$ °C,
+1. Which two commands will the relay apply?
+2. What half amplitude $a$ and period $P_u$ do you expect?
+3. Which $K_u$, $K_p$ and $K_i$ follow?
+4. Will the first command after a 3 °C setpoint step fit within 100%?
+5. Will the relay gains meet the same requirements as the model-based gains?
 
-$$
-K_u=\frac{40}{\pi(0.4)}\approx31.831\ \mathrm{points/°C},
-$$
-
-$$
-K_p\approx14.324,\quad T_i=4.1667\ \mathrm s,\quad
-K_i\approx3.43775\ \mathrm{points/(°C\cdot s)}.
-$$
-
-Use your own accepted cycle measurements for the actual candidate. From 75% and a 3 °C setpoint step, the first proportional-plus-integral request with $dt=.1$ s would be approximately $75+14.324(3)+3.43775(3)(.1)=119.003$% before limiting. The applied output would be 100%, so both target and disturbance trials must inspect saturation and anti-windup.
+| Quantity | Predicted |
+| --- | ---: |
+| Relay commands | 85% and 65% |
+| $a$ and $P_u$ | 0.40 °C and 4.0 s |
+| $K_u$ | 31.8 % per °C |
+| $K_p$, $T_i$, $K_i$ | 14.3, 3.33 s, 4.3 |
+| First command, $75 + 14.3 \times 3$ | 118%: limited to 100% |
 
 ## Implementation
 
-Use a retained BOOL RelayHigh. On each valid sample, set `RelayHigh := FALSE` at or above 35.1 °C and `RelayHigh := TRUE` at or below 34.9 °C; retain the previous state inside the band. Command $75+d$% in High and $75-d$% in Low. Guard the known conditions with IF/AND checks for validity, bounds and elapsed duration. A `BOOL` and the `IF`/`ELSIF` decision from hysteresis implement this rule.
+Open [`src/Main.st`](src/Main.st). The relay rule is a function:
 
-Accumulate only complete cycles after discarding the first two. Store scalar extrema, switch times, period and amplitude; require positive values before calculating $K_u$, $T_i$ and $K_i$. If a fault occurs, command zero heat and abort rather than restoring a nonzero command. On normal completion, restore 75%, disable relay mode and requalify the normal controller before any PI trial.
+```st
+IF MeasuredTemperature >= CenterTemperature + HysteresisHalfWidth THEN
+    Lesson29RelayHighState := FALSE;
+ELSIF MeasuredTemperature <= CenterTemperature - HysteresisHalfWidth THEN
+    Lesson29RelayHighState := TRUE;
+ELSE
+    Lesson29RelayHighState := CurrentHighState;
+END_IF;
+```
+
+Between the switching points it returns the previous state. `Lesson29RelayOutput` then commands $75 + d$% in High and $75 - d$% in Low; the tests in `src/tests.st` check both functions.
+
+The relay record at the top of `Main` holds `RelayAmplitudePct` ($d$), `CycleAmplitudeC` ($a$), `CyclePeriodS` ($P_u$), `RelayDataValid` and `RelayRevision`; revision 0 is a provided illustration. Before the controller first runs, the program calculates `KuPctPerC`, `KpPctPerC`, `TiS` and `KiPctPerCs` with the rule above, after checking the record; with an invalid record the gains stay zero and the heater stays in Manual at 75%. The real `Control.PID` runs the controller, Control Studio replaces its complete `Parameters` record when it applies gains, and `SafetyAbort` removes heat on an invalid measurement.
+
+**Exercise.** After the experiment, stop the simulator, set the record to your measurement, $d$ = 10, $a$ = 0.4354, $P_u$ = 4.42 and `RelayRevision` = 1, and calculate by hand: $K_u$ = 29.24, $K_p$ = 13.16, $T_i$ = 3.68 s and $K_i$ = 3.57. Start the simulator and compare with the variables view.
 
 ## Experiment in Control Studio
 
-1. Confirm PV=35 °C, SP=35 °C, applied and delayed command 75%, integral output 75%, PI inactive, $D=0$, noise bound ±.02 °C and thresholds 34.9/35.1 °C. Choose and record $d\in[5,10]$ with justification.
-2. In **Control Studio → Test**, select **Observe without excitation**, maximum duration 60 s, and record from **Confirm and start** at time 0. Display true/model temperature if available, PV, RelayHigh, thresholds, requested/applied command, validity and cycle counters.
-3. Ignore the first two transient cycles. Accept at least three later complete cycles only when each period and amplitude is within 10% of the accepted mean. Record every accepted scalar amplitude and period.
-4. Abort on PV outside 33–37 °C, applied command outside 0–100%, invalid data or unresponsive signals. On normal completion restore 75% and requalify; on fault command zero heat. Select **Abort test** for an early stop and stop the simulator if it is unresponsive. Fully reset temperature, I and the 1 s command history before a PI trial or another amplitude.
+1. Start **Simulator**: the heater holds 35 °C with 75% output in Manual. Open **Control Studio**.
+2. On **Identify**, choose **Feedback relay** from **Method** and select **Identify plant**. Control Studio holds 75% for 6 s to measure the noise, switches between 85% and 65% for at most 60 s, and restores 75%. It then shows the **Relay cycle** line with $d$, $a$, $P_u$ and $K_u$.
+3. On **Tune**, choose **P1.Controller · PI** and set **Tuning method** to **Relay rule (Ziegler–Nichols PI)**, available after a relay test.
+4. Select **Requirements…**, enter Setpoint change 3 °C, Maximum steady-state error 0.2 °C, Maximum settling time 30 s, Settling band 0.1 °C and Validation duration 60 s, and select **Done**.
+5. Select **Tune controller** and read $K_p$ and $K_i$.
+6. On **Validate**, select **Validate controller** and read every row: the setpoint trial, 35 → 38 °C, and the load trial with 30 kW of extra heat loss.
+7. If every row passes, select **Apply**; Control Studio reports **Applied**.
 
 ## Evidence and decision
 
-Report $d$, bias, thresholds, upper/lower commands, sample interval, accepted cycle table, mean $a$, mean $P_u$, and the 10% consistency checks. Calculate $K_u,K_p,T_i,K_i$ with units and guards. If no three consistent cycles exist, report no relay candidate.
+![The relay cycle gives Ku 29.2 and the gains 13.16 and 3.57, which settle within 7.1 s but saturate the command](figures/relay-tuning.svg)
 
-Trial the candidate from a full 35 °C/75% reset under the same fixed Lesson 9 requirements: 35→38 °C peak ≤39 °C and $|error|\le.2$ °C from 30–60 s, and, in a separately reset test, 30 kW disturbance minimum ≥33 °C and the same error window; 90% is the nominal final-output prediction for each, not a separate pass criterion. Keep selected anti-windup and limits. A relay estimate is not a physical stability proof and cannot override infeasibility or failed requirements.
+The numbered marks answer the predictions with the same numbers. From Control Studio:
+
+| Quantity | Result |
+| --- | ---: |
+| Relay cycle | **Relay cycle (11 cycles): d = 10 %, a = 0.4354 °C, Pu = 4.42 s, Ku = 4d/(πa) = 29.24 %/°C** |
+| $K_p$, $T_i$, $K_i$ | 13.16 % per °C, 3.68 s, 3.57 % per (°C·s) |
+| Maximum settling time | 7.1 s |
+| Overshoot, setpoint trial | 0.023 °C |
+| Steady-state error, setpoint and load trials | 0.024 °C |
+| Operating range, load trial | 34.12–35.02 °C |
+
+1. 85% and 65%.
+2. $a$ = 0.4354 °C and $P_u$ = 4.42 s, about 10% more than calculated. The relay switches one 0.1 s sample after each crossing, which acts like extra delay; with 1.1 s, the same four steps give 0.43 °C and 4.3 s.
+3. $K_u$ = 29.24, $K_p$ = 13.16 and $K_i$ = 3.57: lower than predicted, because $a$ was larger.
+4. No: the command stayed at its 100% limit for the first 2.5 s.
+5. Yes: every row passed, including the model agreement, 1.52%. The temperature stayed within 0.2 °C of 38 °C from 7.1 s, and the load pulled it only to 34.12 °C.
+
+The relay candidate was applied, and a model-free candidate now exists. Its cost is a hard-working heater: the command saturates at a setpoint change, and it jitters by about ±0.3 points with the noise. A repeated relay test gave $K_p$ 12.98 and $K_i$ 3.44, within 4%. These are simulation results.
 
 ## Conclusion
 
-A bounded heater relay can provide an empirical $K_u$ and $P_u$ when its temperature cycle is repeatable, its hysteresis and amplitude are recorded, and its limits are respected. The fundamental-component derivation explains the $4d/\pi$ estimate; the resulting PI values remain candidates requiring matched target and disturbance tests.
+Relay tuning makes the loop oscillate steadily by switching the command at the target. The cycle's half amplitude gives the ultimate gain, $K_u \approx 4d/(\pi a)$, its period the ultimate period, and an empirical rule turns both into PI gains without a model.
+
+For this heater, a 10-point relay produced cycles of 0.4354 °C and 4.42 s, so $K_u$ = 29.24 % per °C and the PI gains 13.16 and 3.57. They settled a 3 °C step within 7.1 s, at the price of a saturated, noisier command.
+
+## Check yourself
+
+1. **$d$ = 5 points, $a$ = 0.25 °C and $P_u$ = 6 s: what are $K_u$, $K_p$ and $K_i$?**
+   $K_u = 20/(\pi \times 0.25) = 25.5$ % per °C, $K_p$ = 11.5 % per °C, $T_i$ = 5 s and $K_i$ = 2.3 % per (°C·s).
+2. **Why does the temperature keep rising after the relay switches to 65%?**
+   The heater's 1 s delay: the 85% power commanded before the switch is still arriving.
+3. **Why does a larger $a$ give a smaller $K_u$?**
+   The relay's push, $4d/\pi$, is fixed, so a larger swing for the same push means a smaller gain.
 
 ## Reason for the next lesson
 
-The relay experiment can provide another set of PI gains when its cycle is repeatable. Neither those gains nor the model-derived gains are suitable merely because their calculations are complete.
+There are now three candidates: the manual gains, the model-based gains and the relay gains. Neither calculated candidate is proven suitable just because its calculation is complete, and the relay gains work the heater much harder.
 
-[Tuning comparison](../31-tuning-method-comparison/README.md) compares the available candidates using the same heater, initial states, temperature requirements and output limits. If the relay did not produce a valid cycle, retain that outcome rather than inventing a candidate.
+[Tuning comparison](../31-tuning-method-comparison/README.md) tests every candidate in the same experiment against requirements written down in advance.

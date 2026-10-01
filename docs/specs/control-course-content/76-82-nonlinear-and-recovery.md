@@ -3,7 +3,7 @@
 Part of [the course specification](../control-course-teaching-specification.md).
 These are the explanations to use in the mapped lessons.
 
-## 76. Lyapunov stability
+## 83. Lyapunov stability
 
 **Lyapunov stability analysis** uses a function of the system state to establish
 whether motion remains near an equilibrium.
@@ -41,7 +41,7 @@ the state and invariant-motion conditions matter.
 In Control Studio we compare angle, speed, torque and $V$ for initial states
 inside the justified region. Next we compensate gravity when holding a nonzero angle.
 
-## 77. Feedback linearization
+## 84. Feedback linearization
 
 **Feedback linearization** uses a nonlinear model-based control action to
 produce simpler, linear closed-loop dynamics under the model's assumptions.
@@ -80,7 +80,7 @@ motion and torque.
 
 Next we estimate parameter changes when fixed model values become inadequate.
 
-## 78. Adaptive control
+## 85. Adaptive control
 
 **Adaptive control** updates controller parameters using information learned
 from the operating process.
@@ -118,7 +118,7 @@ In Control Studio we compare fixed and revised tuning at the same changed
 heat-loss condition, and also reject an unsuitable estimation window.
 Next we design for uncertainty that cannot reliably be identified away.
 
-## 79. Robust control
+## 86. Robust control
 
 **Robust control** designs for a stated range of possible process models,
 rather than assuming one nominal model is exact.
@@ -143,15 +143,17 @@ At $H=12$, ambient 20 °C and $a=2$, holding 36 °C needs 96%.
 Holding 38 °C would need 108%, so no tuning can meet that requirement
 with the available heater.
 
-In Control Studio we keep each candidate fixed while varying the declared
-heat-loss and delivery-delay cases. We compare the same temperature requirements,
-using a physically correct reset for each case.
+In Control Studio the student loads the nominal heater as a supplied model, enters
+each candidate's gains, and lets **Validate** run the controller's ST on the
+nominal heater and on eight declared corner cases (heat loss 8 and 12 kW/°C ×
+delivery delay 0.8 and 1.2 s, each with the setpoint step and the 10 kW
+extraction). Only a candidate that passes every corner can be applied.
 
 Passing a finite grid demonstrates those tested cases. A claim covering every
 intermediate value also needs a justified bound or stability argument.
 Next we address uncertainty in command delivery over a network.
 
-## 80. Networked control
+## 87. Networked control
 
 **Networked control** exchanges measurements or commands through a communication
 link whose delay, ordering and availability affect operation.
@@ -186,7 +188,7 @@ recovery. Network delay is separate from the heater's physical delivery delay.
 
 Next we handle measurements that arrive correctly but are themselves faulty.
 
-## 81. Fault-aware control
+## 88. Fault-aware control
 
 **Fault-aware control** changes its behavior when measurements or components
 can no longer support the normal control decision.
@@ -219,7 +221,7 @@ observing measurement selection, timing, output and recovery.
 
 The final assessment combines the taught methods into a justified complete design.
 
-## 82. Independent design
+## 89. Independent design
 
 **Independent control design** means choosing and integrating suitable methods
 for a physical problem, then defending that choice with calculations and evidence.
@@ -244,9 +246,12 @@ instead uses its corresponding torque or flow balance.
 We then write the ST integrations using understood units, retained state,
 initialization, limits and recovery rules.
 
-In Control Studio we run matched tests for both alternatives. We compare
-every requirement, not just the most attractive trace, and recommend one
-or explain why neither qualifies.
+In Control Studio the student loads the heater's model with the draw-off as a
+second input (`provided-model.json`; Control Studio cannot identify this two-input
+heater by experiment), enters both candidates as **P1.Controller · Feedforward**
+settings, validates each on the project's heater and the declared scenarios, and
+applies the one that passes every case. We compare every requirement, not just the
+most attractive trace, and recommend one or explain why neither qualifies.
 
 The recommendation states which conditions were demonstrated and which remain
 untested. Completing this simulation design is distinct from verifying the

@@ -2,26 +2,111 @@
 enabled = true
 seed = 20260829
 time_scale = 1
-plant_step_ms = 20
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2000
+plant_step_ms = 100
+
+# Lesson 13's heater, six times: 50·dT/dt = 2·u(t − 1) − 10·(T − 20), T in °C, u the command in points delivered 1 s late.
+# Each rests at 35 °C with 75 %. The six differ only in what the network does to their remote commands after 5 s.
 
 [[plants]]
-id = "naive-network-header"
-model = "first_order"
+id = "dropped"
+model = "state_space"
 command_sources = ["%QL0"]
 feedback_targets = ["%IL0"]
-initial_state = [6.0]
+initial_state = [15.0]
+initial_input = [75.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
+
 [plants.parameters]
-gain = 0.04
-time_constant_s = 4.0
-output_bias = 4.0
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]
 
 [[plants]]
-id = "protected-network-header"
-model = "first_order"
+id = "reordered"
+model = "state_space"
 command_sources = ["%QL8"]
 feedback_targets = ["%IL8"]
-initial_state = [6.0]
+initial_state = [15.0]
+initial_input = [75.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
+
 [plants.parameters]
-gain = 0.04
-time_constant_s = 4.0
-output_bias = 4.0
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]
+
+[[plants]]
+id = "late"
+model = "state_space"
+command_sources = ["%QL16"]
+feedback_targets = ["%IL16"]
+initial_state = [15.0]
+initial_input = [75.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
+
+[plants.parameters]
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]
+
+[[plants]]
+id = "old-session"
+model = "state_space"
+command_sources = ["%QL24"]
+feedback_targets = ["%IL24"]
+initial_state = [15.0]
+initial_input = [75.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
+
+[plants.parameters]
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]
+
+[[plants]]
+id = "outage"
+model = "state_space"
+command_sources = ["%QL32"]
+feedback_targets = ["%IL32"]
+initial_state = [15.0]
+initial_input = [75.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
+
+[plants.parameters]
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]
+
+[[plants]]
+id = "recovery"
+model = "state_space"
+command_sources = ["%QL40"]
+feedback_targets = ["%IL40"]
+initial_state = [15.0]
+initial_input = [75.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
+
+[plants.parameters]
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]

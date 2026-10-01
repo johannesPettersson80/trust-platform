@@ -1,75 +1,216 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "topology": "open-loop",
   "id": "control-state-observer",
-  "name": "State observer",
-  "revision": "sha256:088fd827ab8355bcfb781cfc3a15c433fa0de3937eeff7d86fc0f89bc71cf2fa",
+  "name": "Two-tank state observers",
   "projectId": "project:control-state-observer",
   "runtimeId": "simulator",
   "controller": {
     "instance": "P1",
-    "type": "State-feedback pole placement, reference gain, and Luenberger observation",
+    "type": "Main",
     "design": "project",
-    "revision": "sha256:curriculum-controller-65",
+    "revision": "sha256:a68b9afebc313a377735a39ed3d710e23bb3b7e63364df8a7588d26d8a248397",
     "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": "%MX120.3",
-    "modeWhenTrue": "Auto"
+    "taskPeriodMs": 1000
   },
   "signals": {
-    "setpoint": {
-      "symbol": "P1.BearingSetpoint",
-      "address": "%ML8",
-      "iecType": "LREAL",
-      "direction": "read",
-      "unit": "mm",
-      "range": {
-        "minimum": -0.2,
-        "maximum": 0.2
-      }
-    },
     "processVariable": {
-      "symbol": "P1.BearingDisplacement",
-      "address": "%IL0",
+      "symbol": "P1.Tank2M",
+      "address": "%IL8",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "mm",
+      "unit": "m",
       "range": {
-        "minimum": -0.5,
+        "minimum": 0,
         "maximum": 0.5
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.BearingCurrentRequested",
-      "address": "%ML24",
+      "symbol": "P1.PumpM3PerS",
+      "address": "%QL0",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "A",
+      "unit": "m3/s",
       "range": {
-        "minimum": -4,
-        "maximum": 4
+        "minimum": 0,
+        "maximum": 0.02
       }
     },
     "additional": [
+      {
+        "id": "tank-1",
+        "channel": "tank-1",
+        "role": "state",
+        "symbol": "P1.Tank1M",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "clean-estimate",
+        "channel": "clean-estimate",
+        "role": "state",
+        "symbol": "P1.CleanEstimate1M",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "noisy-reading",
+        "channel": "noisy-reading",
+        "role": "state",
+        "symbol": "P1.NoisyReadingM",
+        "address": "%ML0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "clean-tank-2-estimate",
+        "channel": "clean-tank-2-estimate",
+        "role": "state",
+        "symbol": "P1.CleanEstimate2M",
+        "address": "%ML72",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "noisy-estimate",
+        "channel": "noisy-estimate",
+        "role": "state",
+        "symbol": "P1.NoisyEstimate1M",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "clean-fast-estimate",
+        "channel": "clean-fast-estimate",
+        "role": "state",
+        "symbol": "P1.CleanFastEstimate1M",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "clean-innovation",
+        "channel": "clean-innovation",
+        "role": "state",
+        "symbol": "P1.CleanInnovationM",
+        "address": "%ML80",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": -0.05,
+          "maximum": 0.05
+        }
+      },
+      {
+        "id": "clean-rms",
+        "channel": "clean-rms",
+        "role": "state",
+        "symbol": "P1.CleanRmsM",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "noisy-fast-estimate",
+        "channel": "noisy-fast-estimate",
+        "role": "state",
+        "symbol": "P1.NoisyFastEstimate1M",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "clean-fast-rms",
+        "channel": "clean-fast-rms",
+        "role": "state",
+        "symbol": "P1.CleanFastRmsM",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "noisy-rms",
+        "channel": "noisy-rms",
+        "role": "state",
+        "symbol": "P1.NoisyRmsM",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "noisy-fast-rms",
+        "channel": "noisy-fast-rms",
+        "role": "state",
+        "symbol": "P1.NoisyFastRmsM",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
       {
         "id": "experiment-authority",
         "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
-        "address": "%MX120.3",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "bearing-controller-enabled",
-        "channel": "bearing-controller-enabled",
-        "role": "state",
-        "symbol": "P1.BearingEnabled",
-        "address": "%MX120.0",
+        "address": "%MX88.0",
         "iecType": "BOOL",
         "direction": "read",
         "unit": "1",
@@ -79,11 +220,11 @@
         }
       },
       {
-        "id": "motor-controller-enabled",
-        "channel": "motor-controller-enabled",
+        "id": "clock-valid",
+        "channel": "clock-valid",
         "role": "state",
-        "symbol": "P1.MotorEnabled",
-        "address": "%MX120.1",
+        "symbol": "P1.ClockValid",
+        "address": "%MX88.1",
         "iecType": "BOOL",
         "direction": "read",
         "unit": "1",
@@ -93,194 +234,43 @@
         }
       },
       {
-        "id": "motor-observer-enabled",
-        "channel": "motor-observer-enabled",
+        "id": "fault-latched",
+        "channel": "fault-latched",
         "role": "state",
-        "symbol": "P1.MotorObserverEnabled",
-        "address": "%MX120.2",
+        "symbol": "P1.FaultLatched",
+        "address": "%MX88.2",
         "iecType": "BOOL",
         "direction": "read",
         "unit": "1",
         "range": {
           "minimum": 0,
           "maximum": 1
-        }
-      },
-      {
-        "id": "bearing-feedback-architecture",
-        "channel": "bearing-feedback-architecture",
-        "role": "state",
-        "symbol": "P1.BearingArchitecture",
-        "address": "%MW0",
-        "iecType": "INT",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "motor-speed-reference",
-        "channel": "motor-speed-reference",
-        "role": "SP",
-        "symbol": "P1.MotorSetpoint",
-        "address": "%ML16",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "rad/s",
-        "range": {
-          "minimum": -1.5,
-          "maximum": 1.5
-        }
-      },
-      {
-        "id": "requested-motor-torque",
-        "channel": "requested-motor-torque",
-        "role": "MV",
-        "symbol": "P1.MotorTorqueRequested",
-        "address": "%ML32",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "N m",
-        "range": {
-          "minimum": -6,
-          "maximum": 6
-        }
-      },
-      {
-        "id": "estimated-motor-speed",
-        "channel": "estimated-motor-speed",
-        "role": "state",
-        "symbol": "P1.EstimatedMotorSpeed",
-        "address": "%ML40",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "rad/s",
-        "range": {
-          "minimum": -2,
-          "maximum": 2
-        }
-      },
-      {
-        "id": "estimated-motor-load-torque",
-        "channel": "estimated-motor-load-torque",
-        "role": "state",
-        "symbol": "P1.EstimatedLoadTorque",
-        "address": "%ML48",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "N m",
-        "range": {
-          "minimum": -2,
-          "maximum": 2
-        }
-      },
-      {
-        "id": "motor-speed-innovation",
-        "channel": "motor-speed-innovation",
-        "role": "state",
-        "symbol": "P1.MotorInnovation",
-        "address": "%ML56",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "rad/s",
-        "range": {
-          "minimum": -2,
-          "maximum": 2
-        }
-      },
-      {
-        "id": "applied-bearing-current",
-        "channel": "applied-bearing-current",
-        "role": "MV",
-        "symbol": "P1.BearingCurrentApplied",
-        "address": "%QL0",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "A",
-        "range": {
-          "minimum": -2,
-          "maximum": 2
-        }
-      },
-      {
-        "id": "applied-motor-torque",
-        "channel": "applied-motor-torque",
-        "role": "MV",
-        "symbol": "P1.MotorTorqueApplied",
-        "address": "%QL16",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "N m",
-        "range": {
-          "minimum": -3,
-          "maximum": 3
-        }
-      },
-      {
-        "id": "bearing-velocity",
-        "channel": "bearing-velocity",
-        "role": "state",
-        "symbol": "P1.BearingVelocity",
-        "address": "%IL8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "mm/s",
-        "range": {
-          "minimum": -2,
-          "maximum": 2
-        }
-      },
-      {
-        "id": "measured-motor-speed",
-        "channel": "measured-motor-speed",
-        "role": "PV",
-        "symbol": "P1.MotorSpeed",
-        "address": "%IL16",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "rad/s",
-        "range": {
-          "minimum": -2,
-          "maximum": 2
-        }
-      },
-      {
-        "id": "simulation-truth-motor-load-torque",
-        "channel": "simulation-truth-motor-load-torque",
-        "role": "state",
-        "symbol": "P1.MotorLoadTruth",
-        "address": "%IL24",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "N m",
-        "range": {
-          "minimum": -2,
-          "maximum": 2
         }
       }
     ]
   },
   "limits": {
-    "outputMinimum": -4,
-    "outputMaximum": 4
+    "outputMinimum": 0,
+    "outputMaximum": 0.02
   },
   "observedSampleTiming": {
-    "nominalPeriodMs": 100
+    "nominalPeriodMs": 1000
   },
-  "plantId": "bearing_and_loaded_motor_state_space_training_benches",
+  "plantId": "cascade",
+  "operatingPoint": "The cascade at 0.25 m with the pump at 0.010 m3/s",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 200.1,
+    "durationSeconds": 123,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX120.3",
+      "address": "%MX88.0",
       "iecType": "BOOL",
       "direction": "write"
-    }
-  }
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:f110a5d92c1010665c8f1096d95a3e06fd9622a7e2848ea42f04e87681d221e6"
 }

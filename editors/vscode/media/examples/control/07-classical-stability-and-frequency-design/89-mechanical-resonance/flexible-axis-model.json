@@ -1,0 +1,126 @@
+{
+    "kind": "continuous-state-space",
+    "revision": "flexible-axis-3hz-z005",
+    "source": "provided",
+    "validation": "validated",
+    "evidence": [
+        "Rigid part from Lesson 34: J = 1 kg·m², B = 1 N·m·s/rad.",
+        "Load resonance from the measured frequency response: its peak at 3 Hz is 10 times the rigid model's gain, so ζ = 1/(2·10) = 0.05."
+    ],
+    "delaySeconds": 0,
+    "inputs": [
+        {
+            "id": "P1.TorqueNm",
+            "unit": "N·m",
+            "operatingRange": {
+                "minimum": -20,
+                "maximum": 20
+            }
+        }
+    ],
+    "outputs": [
+        {
+            "id": "P1.AngleRad",
+            "unit": "rad",
+            "operatingRange": {
+                "minimum": -2,
+                "maximum": 2
+            }
+        }
+    ],
+    "states": [
+        {
+            "id": "motor-angle",
+            "unit": "rad",
+            "operatingRange": {
+                "minimum": -2,
+                "maximum": 2
+            }
+        },
+        {
+            "id": "motor-velocity",
+            "unit": "rad/s",
+            "operatingRange": {
+                "minimum": -10,
+                "maximum": 10
+            }
+        },
+        {
+            "id": "load-angle",
+            "unit": "rad",
+            "operatingRange": {
+                "minimum": -2,
+                "maximum": 2
+            }
+        },
+        {
+            "id": "load-velocity",
+            "unit": "rad/s",
+            "operatingRange": {
+                "minimum": -20,
+                "maximum": 20
+            }
+        }
+    ],
+    "a": [
+        [
+            0,
+            1,
+            0,
+            0
+        ],
+        [
+            0,
+            -1,
+            0,
+            0
+        ],
+        [
+            0,
+            0,
+            0,
+            1
+        ],
+        [
+            355.3057584392169,
+            0,
+            -355.3057584392169,
+            -1.8849555921538759
+        ]
+    ],
+    "b": [
+        [
+            0
+        ],
+        [
+            1
+        ],
+        [
+            0
+        ],
+        [
+            0
+        ]
+    ],
+    "c": [
+        [
+            0,
+            0,
+            1,
+            0
+        ]
+    ],
+    "d": [
+        [
+            0
+        ]
+    ],
+    "operatingPoint": {
+        "inputs": [
+            0
+        ],
+        "outputs": [
+            0
+        ]
+    }
+}

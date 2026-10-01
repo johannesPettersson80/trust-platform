@@ -201,7 +201,7 @@ fn resolve_native_symbol_specs_caches_resolved_function_id() {
         preparse_native_symbol_spec(&SmolStr::new("Add|E:a")),
         preparse_native_symbol_spec(&SmolStr::new("Len|E:in")),
     ];
-    let mut function_ids = HashMap::new();
+    let mut function_ids = rustc_hash::FxHashMap::default();
     function_ids.insert(SmolStr::new("ADD"), 7);
 
     super::resolve_native_symbol_specs(&mut specs, &function_ids);

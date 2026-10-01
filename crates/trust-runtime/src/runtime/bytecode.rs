@@ -52,6 +52,7 @@ impl Runtime {
             debug.invalidate_control_program();
         }
         self.vm_module = None;
+        self.vm_statement_locations.clear();
         self.vm_local_init_plan_cache.invalidate_all();
         self.vm_register_lowering_cache.invalidate_all();
         self.vm_tier1_specialized_executor.invalidate_all();
@@ -71,6 +72,7 @@ impl Runtime {
         let vm_module = Arc::new(super::vm::VmModule::from_bytecode(module)?);
         self.apply_bytecode_metadata(&metadata, resource_name)?;
         self.vm_module = Some(vm_module);
+        self.vm_statement_locations.clear();
         Ok(())
     }
 

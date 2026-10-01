@@ -3,7 +3,7 @@
 Part of [the course specification](../control-course-teaching-specification.md).
 These are the explanations to use in the mapped lessons.
 
-## 33. Position control
+## 34. Position control
 
 **Position control** uses feedback to move an object to a desired position.
 
@@ -36,7 +36,7 @@ more without supplying enough braking.
 
 The next lesson adds a correction based on velocity.
 
-## 34. PD control
+## 35. PD control
 
 **Proportional-derivative control**, or PD, combines position correction with
 a contribution that responds to motion.
@@ -70,7 +70,7 @@ We inspect overshoot, velocity, settling and torque.
 
 At rest, D contributes no torque. The next lesson adds holding torque for a load.
 
-## 35. PID load rejection
+## 36. PID load rejection
 
 **PID control** combines proportional correction, accumulated-error correction
 and derivative damping.
@@ -109,7 +109,7 @@ In Control Studio we compare PD and PID under the same drum load, retaining
 torque limits and anti-windup. We check remaining position error and holding
 torque, then examine the measurement noise affecting derivative action.
 
-## 36. Derivative filtering
+## 37. Derivative filtering
 
 **Derivative filtering** reduces rapid noise-driven changes in the motion
 estimate used for derivative control.
@@ -146,7 +146,7 @@ overshoot and settling.
 
 Next we put all PID terms into one consistent sampled update.
 
-## 37. Discrete PID
+## 38. Discrete PID
 
 A **discrete PID controller** calculates its output at separate update times,
 using stored values from previous updates.
@@ -171,7 +171,7 @@ $$
 
 $k$ identifies the current update; $I^*$ is the trial integral before tracking.
 $u_r$ and $u_a$ are requested and applied torque. The clamp enforces ±20 N·m.
-$T_t$ is tracking time and $\omega_f$ is the filtered velocity from Lesson 36.
+$T_t$ is tracking time and $\omega_f$ is the filtered velocity from Lesson 37.
 
 For error 0.08 rad, $K_p=16$, $K_i=4$, $\Delta t=0.02$ s and old I = 1.962,
 P is 1.28 N·m and trial I is 1.9684 N·m. If unfiltered velocity is 1 rad/s
@@ -180,7 +180,7 @@ and $K_d=7$, requested torque is −3.7516 N·m.
 In Control Studio we inspect consecutive updates and compare one with this
 arithmetic. Next we derive the alternative incremental implementation.
 
-## 38. Positional and incremental PID
+## 39. Positional and incremental PID
 
 A **positional PID** calculates the complete output request each update.
 An **incremental PID** calculates a change and adds it to the previous request.
@@ -215,7 +215,39 @@ In Control Studio we compare both forms under identical inputs, limits and
 mode changes. Matching their arithmetic is distinct from commissioning the
 complete servo.
 
-## 39. Servo commissioning
+## 40. Your own PID law
+
+Control Studio tunes a PID the program computes itself as it tunes
+`Control.PID`, once the loop setup names the variables it needs: the three
+gains, the **integral term** $I$ and the **previous measurement** from which the
+derivative is taken.
+
+Control Studio designs the gains on the validated model for the stated
+requirements and predicts the response. It validates the actual ST, including
+the program's own law, by starting it in Auto at the operating point. That start
+needs the law's retained values: the integral term must already hold the present
+output and the previous measurement must equal the present measurement.
+Otherwise the first update calculates from stale values: with the integral term
+at zero the torque drops, and with a stale previous angle D sees a velocity that
+does not exist. Control Studio can set these values only if the setup names the
+variables that hold them. Apply writes the three gains and the same two values at
+one task boundary and switches to Auto; with the target at the measured angle,
+P and D start at zero and the torque continues from its present value.
+
+The lesson's own law is Lesson 39's `PositionalPid`, now driving the drum axis
+while it holds the 1.962 N·m weight. Its gain-revision rule remains: at rest at
+the target the previous error and velocity are zero apart from measurement noise,
+so it adds nothing to the integral term Apply sets. The model is the supplied shaft model of Lessons 34–37 at the holding
+operating point; the requirements are a 1 rad target change settled within
+±0.01 rad by 4 s, with an error of at most 0.02 rad from then to the end of the
+8 s test. Automatic tuning designs $K_p$, $K_i$ and $K_d$, the design is
+validated on the actual ST and applied while the axis holds the weight; the
+torque continues from 1.962 N·m.
+
+A tuned law is not yet a commissioned servo: its load, limit, startup, transfer
+and fault requirements are assessed next.
+
+## 41. Servo commissioning
 
 **Servo commissioning** checks whether the complete motion controller meets
 positioning, load and operating-state requirements.
@@ -246,7 +278,34 @@ requires separate verification.
 The next application is a tank. Its actuator changes flow, and flow changes
 stored volume, so we derive that physical relationship before designing its control.
 
-## 40. Volume balance
+## 42. Controller families
+
+A **controller family** is the set of terms a controller uses: P, PI, PD or
+PID. The model shows which family can meet the requirements before any gain is
+tuned:
+
+- On the self-regulating heater the extra power for a new temperature must come
+  from $K_p e$, so P settles with the offset $e=\Delta r/(1+KK_p)$. A small offset
+  needs a large $K_p$, which the delay makes oscillatory; PD keeps the same offset
+  because D is zero at steady state. PI removes it: the integral holds the power
+  at zero error.
+- On the shaft, torque sets acceleration, so a new angle needs no steady torque
+  and P reaches it without an offset. But the error's decay rate is $B/(2J)$
+  whatever $K_p$, 0.5 1/s here; D raises it to $(B+K_d)/(2J)$. A constant load
+  needs a steady torque: PD supplies it only from the offset $\tau_L/K_p$, and a
+  small offset needs a large $K_p$; PID's integral supplies it at zero error.
+
+Control Studio's Automatic tuning designs each family for the same requirements
+on the model, with the drum weight declared as an input disturbance, and
+**Choose automatically** recommends the simplest family that meets them: PI for
+the heater, PID for the shaft. Each refused family is reported with its reason:
+the offset, the missing damping, or the gain PD would need beyond its declared
+range. The recommended designs are validated on the actual ST.
+
+The next application controls liquid level: actuator flow changes stored volume
+rather than directly producing torque.
+
+## 43. Volume balance
 
 A **volume balance** calculates how stored liquid changes from inflow
 minus outflow.
@@ -274,7 +333,34 @@ It does not restore the original 0.25 m because the added water remains stored.
 In Control Studio we predict the level slope, apply the bounded flow change
 and compare the trace. Next we replace constant outflow with gravity drainage.
 
-## 41. Gravity outflow
+## 44. Level control
+
+A pumped tank is an **integrating process**: the level changes at the rate
+$(q_{in}-q_{out})/A$ and stays wherever it is when the flows are equal.
+Control Studio identifies it from a step as $G(s)=K'e^{-Ls}/s$: the **rate gain**
+$K'$ from the slope of the level ramp, the delay L from where the ramp starts.
+
+A bias-free P controller sets the pump from the error alone, so it holds the
+level only with the error that makes the pump deliver the outflow:
+$e=u_{out}/K_p$. Unlike the heater's offset, this does not grow with the
+setpoint change, because a higher level needs no more flow; it grows with the
+outflow. PI removes it: the integral carries the pump's steady command. With
+the tank's integrator and the controller's integrator the loop is of second
+order, and a fast integral makes it overshoot and ring. SIMC's integrating rule
+$K_p=1/(K'(\lambda+L))$ and $T_i=4(\lambda+L)$ makes $K_pK'T_i=4$, which keeps the
+two integrators critically damped.
+
+The lesson's tank has A = 0.5 m², pumps of 0.04 m³/s at 100 %, a 2 s delay from
+the inlet pump command to the inflow, and runs at 1.0 m with both pumps at 30 %.
+The requirements are a 0.1 m level step and a 10 % outflow increase, declared as
+an input disturbance. Control Studio refuses P with its offset and designs,
+validates and applies PI; a manual PI with a four times faster integral shows
+the overshoot.
+
+Many tanks drain through their outlet by gravity, so the outflow rises with the
+level and the tank is no longer a pure integrator.
+
+## 45. Gravity outflow
 
 **Gravity outflow** is drainage driven by the height of liquid above an outlet.
 
@@ -304,10 +390,15 @@ $$
 As level rises, drainage increases until it balances inflow.
 The square-root relationship is nonlinear: doubling level does not double flow.
 
-In Control Studio we compare this response with the previous constant-outflow
-model. Next we approximate the curved relationship near one operating level.
+In Control Studio the student runs the same inflow step from 0.25 m and, after
+setting the tank's **Starting level** to 1.0 m in the hardware canvas and restarting
+the simulator, from 1.0 m. The program holds the inflow that balances the level it
+finds at startup, $c\sqrt{h_0}$. The step raises the level 0.053 m from 0.25 m and
+0.100 m from 1.0 m, and the larger rise takes about twice as long, as the
+square-root law predicts. The recording also shows the previous constant-outflow
+model for comparison. Next we approximate the curved relationship near one operating level.
 
-## 42. Linearization
+## 46. Linearization
 
 **Linearization** replaces a nonlinear relationship near an operating point
 with a straight-line approximation having the same value and slope there.
@@ -341,7 +432,7 @@ In Control Studio we compare small-step predictions and observations,
 then calculate how the error grows for a larger departure. The next lesson
 adjusts controller gains when the operating level changes.
 
-## 43. Gain scheduling
+## 47. Gain scheduling
 
 **Gain scheduling** changes controller gains according to a known operating
 condition, such as measured water level.

@@ -7,16 +7,14 @@ export type ControlStudioStageId = "Monitor" | "Test" | "Identify" | "Tune" | "V
 export const CONTROL_STUDIO_STAGE_ORDER: readonly ControlStudioStageId[] =
   ["Monitor", "Test", "Identify", "Tune", "Validate"];
 
-/** The six vocabulary words Specification 35 section 4.2 defines, plus the
- * additional state a project-scripted lesson uses for a stage it excludes. */
+/** The six vocabulary words Specification 35 section 4.2 defines. */
 export type ControlStudioStageStatus =
   | "ready"
   | "needs-data"
   | "in-progress"
   | "complete"
   | "warning"
-  | "failed"
-  | "not-in-lesson";
+  | "failed";
 
 const STATUS_LABEL: Record<ControlStudioStageStatus, string> = {
   ready: "Ready",
@@ -25,7 +23,6 @@ const STATUS_LABEL: Record<ControlStudioStageStatus, string> = {
   complete: "Complete",
   warning: "Warning",
   failed: "Failed",
-  "not-in-lesson": "Not in this lesson",
 };
 
 export function controlStudioStageStatusLabel(status: ControlStudioStageStatus): string {

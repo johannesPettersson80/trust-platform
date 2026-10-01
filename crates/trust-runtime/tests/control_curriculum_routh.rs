@@ -33,9 +33,8 @@ fn run_gain(gain: i32) -> Vec<(f64, f64, f64, bool)> {
         .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
         .unwrap();
     let debug = runtime.enable_debug();
-    let mut simulation = SimulationController::new(
-        SimulationConfig::load(&project.join("simulation.toml")).unwrap(),
-    );
+    let mut simulation =
+        SimulationController::new(SimulationConfig::load(project.join("simulation.toml")).unwrap());
     let mut samples = Vec::new();
     for scan in 0..500 {
         simulation
@@ -69,7 +68,7 @@ fn assert_declared_shaft_plant() {
     assert_eq!(
         status.plants.len(),
         1,
-        "Lesson 48 must configure one shaft plant"
+        "Lesson 52 must configure one shaft plant"
     );
     let plant = &status.plants[0];
     assert_eq!(plant.id, "shaft-j1-b1");

@@ -1,28 +1,150 @@
 {
-  "schemaVersion": 1,
-  "topology": "open-loop",
-  "id": "control-lesson-17",
-  "name": "Linearize the gravity tank near one level",
-  "revision": "sha256:031d8382202df3085d2840c04c5e9debfa267473d0dce44a626016d478b1f1f6",
-  "projectId": "project:control-lesson-17",
-  "runtimeId": "simulator",
-  "controller": { "instance": "P1", "type": "open_loop_model_comparison", "design": "project", "revision": "sha256:031d8382202df3085d2840c04c5e9debfa267473d0dce44a626016d478b1f1f6", "action": "direct", "taskPeriodMs": 1000, "modeSignal": "%MX80.0" },
-  "signals": {
-    "processVariable": { "symbol": "P1.SmallPhysicalLevel", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "m", "range": { "minimum": 0, "maximum": 1 } },
-    "manipulatedVariable": { "symbol": "P1.SmallInletFlow", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "m3/s", "range": { "minimum": 0, "maximum": 0.02 } },
-    "additional": [
-      { "id": "reference-comparison", "channel": "reference-comparison", "role": "state", "symbol": "P1.SmallPhysicalEquilibrium", "address": "%ML32", "iecType": "LREAL", "direction": "read", "unit": "m", "range": { "minimum": 0, "maximum": 1 } },
-      { "id": "small-local", "channel": "small-local", "role": "state", "symbol": "P1.SmallLocalLevel", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "m", "range": { "minimum": 0, "maximum": 1 } },
-      { "id": "large-physical", "channel": "large-physical", "role": "state", "symbol": "P1.LargePhysicalLevel", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "m", "range": { "minimum": 0, "maximum": 1 } },
-      { "id": "large-local", "channel": "large-local", "role": "state", "symbol": "P1.LargeLocalLevel", "address": "%ML8", "iecType": "LREAL", "direction": "read", "unit": "m", "range": { "minimum": 0, "maximum": 1 } },
-      { "id": "local-gain", "channel": "local-gain", "role": "state", "symbol": "P1.LocalGain", "address": "%ML16", "iecType": "LREAL", "direction": "read", "unit": "m/(m3/s)", "range": { "minimum": 0, "maximum": 100 } },
-      { "id": "time-constant", "channel": "time-constant", "role": "state", "symbol": "P1.TimeConstant", "address": "%ML24", "iecType": "LREAL", "direction": "read", "unit": "s", "range": { "minimum": 0, "maximum": 100 } },
-      { "id": "lesson-experiment", "channel": "lesson-experiment", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX80.0", "iecType": "BOOL", "direction": "read", "unit": "", "range": { "minimum": 0, "maximum": 1 } }
-    ]
-  },
-  "limits": { "outputMinimum": 0, "outputMaximum": 0.02 },
-  "observedSampleTiming": { "nominalPeriodMs": 1000 },
-  "plantId": "gravity-tank-with-local-tangent",
-  "operatingPoint": "0.25 m level at 0.010 m3/s inlet flow",
-  "experiment": { "execution": "project-scripted", "kind": "observation", "amplitude": 0, "durationSeconds": 200.1, "seed": 20260829, "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX80.0", "iecType": "BOOL", "direction": "write" } }
+    "schemaVersion": 2,
+    "topology": "open-loop",
+    "id": "control-lesson-17",
+    "name": "Linearization",
+    "projectId": "project:control-lesson-17",
+    "runtimeId": "simulator",
+    "controller": {
+        "instance": "P1",
+        "type": "Main",
+        "design": "project",
+        "revision": "sha256:242216a80b92bb981988c8979489d85421699a571f7dcd75858271afea8820ec",
+        "action": "direct",
+        "taskPeriodMs": 1000
+    },
+    "signals": {
+        "processVariable": {
+            "symbol": "P1.SmallLevelM",
+            "address": "%IL0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "m",
+            "range": {
+                "minimum": 0,
+                "maximum": 1
+            }
+        },
+        "manipulatedVariable": {
+            "symbol": "P1.SmallInletFlowM3S",
+            "address": "%QL0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "m³/s",
+            "range": {
+                "minimum": 0,
+                "maximum": 0.02
+            }
+        },
+        "additional": [
+            {
+                "id": "small-tangent-level",
+                "channel": "small-tangent-level",
+                "role": "state",
+                "symbol": "P1.SmallTangentLevelM",
+                "address": "%ML0",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "m",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            },
+            {
+                "id": "large-level",
+                "channel": "large-level",
+                "role": "state",
+                "symbol": "P1.LargeLevelM",
+                "address": "%IL8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "m",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            },
+            {
+                "id": "large-tangent-level",
+                "channel": "large-tangent-level",
+                "role": "state",
+                "symbol": "P1.LargeTangentLevelM",
+                "address": "%ML8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "m",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            },
+            {
+                "id": "large-inlet-flow",
+                "channel": "large-inlet-flow",
+                "role": "state",
+                "symbol": "P1.LargeInletFlowM3S",
+                "address": "%QL8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "m³/s",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 0.02
+                }
+            },
+            {
+                "id": "experiment-authority",
+                "channel": "experiment-authority",
+                "role": "state",
+                "symbol": "P1.ExperimentEnabled",
+                "address": "%MX16.0",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "1",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            },
+            {
+                "id": "active",
+                "channel": "active",
+                "role": "state",
+                "symbol": "P1.Active",
+                "address": "%MX16.1",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "1",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            }
+        ]
+    },
+    "limits": {
+        "outputMinimum": 0,
+        "outputMaximum": 0.02
+    },
+    "observedSampleTiming": {
+        "nominalPeriodMs": 1000
+    },
+    "plantId": "two-gravity-tanks",
+    "experiment": {
+        "execution": "project-scripted",
+        "kind": "observation",
+        "amplitude": 0,
+        "durationSeconds": 202.1,
+        "seed": 20260829,
+        "activation": {
+            "symbol": "P1.ExperimentEnabled",
+            "address": "%MX16.0",
+            "iecType": "BOOL",
+            "direction": "write"
+        },
+        "baselineSeconds": 2
+    },
+    "operatingPoint": "Both tanks at 0.25 m with 0.010 m³/s inflow balancing the gravity outflow",
+    "revision": "sha256:d22c0786cfe6e126f284e0f64e11838e6267fd193986feb6af63b2d48baeae6e"
 }

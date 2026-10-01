@@ -1,3 +1,4 @@
+import { awaitRuntimeDuration, runtimeObservationBoundMs, transferClock } from "./runtimeDuration";
 import { transferOutputBasis, transferTargetAllowance } from "./transferActuatorFeedback";
 import type { ParameterOwner } from "./parameterApplication";
 import { CommissioningJournal, type CommissioningCheckpointWriter } from "./commissioningCheckpoint";
@@ -18,6 +19,7 @@ import type { ParameterApplicationClient, ParameterReview, ParameterStatus } fro
 import { sameParameterValues } from "./parameterApplication";
 import { parallelPidTracking, pidTransferBinding, pidTransferStates } from "./pidTransfer";
 import { transferTolerance } from "./proportionalTransfer";
+import { anchorIntegratingOutputs, assertCommissioningStartingPoint, assertReferenceHeld, autoEntryTolerance, awaitCommissioningStartingPoint, withReferenceHoldGuard, type StartingPointWait } from "./commissioningStartingPoint";
 import type { LoopRecording } from "./loopMonitor";
 import { RecordingStartUnconfirmed } from "./recordingStartFailure";
 import type { RecordingSession } from "./recordingCoordinator";
@@ -38,6 +40,7 @@ export class PidCommissioning {
   private finished: CommissioningResult | undefined;
   private recording: RecordingSession | undefined;
   private parameterApplicationAttempted = false;
+  private clock: (() => Promise<number>) | undefined;
   recoveryConfirmed = true;
 
   private constructor(private readonly loop: ControlLoopDefinition, private readonly model: GeneralModel,
@@ -46,19 +49,25 @@ export class PidCommissioning {
     private readonly previousReference: number, private readonly profile: CommissioningProfile) {}
 
   static async review(loop: ControlLoopDefinition, model: GeneralModel, task: EngineerRequirements,
-    parameters: ParameterApplicationClient, review: ParameterReview, profile: CommissioningProfile = pidProfile): Promise<PidCommissioning> {
+    parameters: ParameterApplicationClient, review: ParameterReview, profile: CommissioningProfile = pidProfile,
+    wait?: StartingPointWait): Promise<PidCommissioning> {
     const connection = await bindRuntimeConnection(loop.runtimeId);
     if (connection.source !== "simulation") throw new Error("This commissioning adapter requires the local simulator.");
-    const binding = profile.binding(loop);
+    const binding = withReferenceHoldGuard(loop, profile.binding(loop));
     const transfer = new RuntimeTransferClient(binding, review.observed.program_revision, connection.request);
-    const observed = await transfer.status();
-    if (![profile.trackingKind, ...(profile.requiredTracking ?? [])].every(kind => observed.supported_tracking?.includes(kind))) throw new Error(`The runtime needs ${profile.trackingKind} state tracking before Auto commissioning.`);
+    const first = await transfer.status();
+    if (![profile.trackingKind, ...(profile.requiredTracking ?? [])].every(kind => first.supported_tracking?.includes(kind))) throw new Error(`The runtime needs ${profile.trackingKind} state tracking before Auto commissioning.`);
+    assertReferenceHeld(loop, first.values);
+    const [inputs, outputs] = startingPointSymbols(loop, model);
+    model = anchorIntegratingOutputs(model, first.values, outputs);
+    const observed = wait ? await awaitCommissioningStartingPoint(loop, model, task, inputs, outputs, () => transfer.status(), wait) : first;
     if (observed.program_revision !== review.observed.program_revision) throw new Error("The program changed during PID commissioning review.");
     const result = new PidCommissioning(loop, structuredClone(model), { ...task }, parameters, review, transfer,
       number(observed, binding.states[0].symbol), profile);
     result.previousReferences = Object.fromEntries(result.referenceSymbols().map(symbol => [symbol, number(observed, symbol)]));
     result.reviewedMode = observed.values[binding.mode.symbol] as boolean;
     result.checkStartingPoint(observed);
+    result.clock = transferClock(transfer);
     return result;
   }
 
@@ -209,15 +218,17 @@ export class PidCommissioning {
         throw new Error("The staged controller parameters changed before Auto entry.");
       }
       await this.transfer.apply(this.profile.states(this.transfer.binding, beforeAuto), false,
-        transferTolerance(this.loop, this.task.transferTolerance), this.profile.tracking(this.loop, this.transfer.binding), beforeAuto);
+        autoEntryTolerance(this.loop, this.model, this.task, this.review.values), this.profile.tracking(this.loop, this.transfer.binding), beforeAuto);
       this.checkCancelled();
       const entered = await this.transfer.status();
       const target = this.profile.states(this.transfer.binding, entered);
       Object.assign(target, this.profile.targets?.(this.model, this.task) ?? { [this.transfer.binding.states[0].symbol]: this.target() });
       await this.transfer.apply(target, false, transferTargetAllowance(this.transfer.binding),
         this.profile.tracking(this.loop, this.transfer.binding, false), entered);
-      const until = Date.now() + this.task.durationSeconds * 1000 + this.loop.controller.taskPeriodMs * 2;
-      while (Date.now() < until) { this.checkCancelled(); await new Promise(resolve => setTimeout(resolve, 25)); }
+      // The reviewed duration is observed in the runtime's own time, which may run behind real time.
+      if (!this.clock) throw new Error("The runtime clock is unavailable for observing the reviewed response.");
+      await awaitRuntimeDuration(this.clock, this.task.durationSeconds * 1000 + this.loop.controller.taskPeriodMs * 2,
+        { checkCancelled: () => this.checkCancelled(), boundMs: runtimeObservationBoundMs(this.task.durationSeconds) });
       recording = await this.recording.stop();
       maximumError = assessCommissioningRecording(recording, this.criteria());
       parameters = await this.parameters.status();
@@ -230,8 +241,8 @@ export class PidCommissioning {
       if (error instanceof RecordingStartUnconfirmed) { this.recording = error.session; recording = error.recording; }
       status = this.cancelled ? "cancelled" : "failed";
       reason = error instanceof Error ? error.message : String(error);
-      try { await this.recover(); parameters = await this.parameters.status(); reason += " Recovery confirmed in Manual; previous PID parameters restored."; }
-      catch (recovery) { this.recoveryConfirmed = false; reason += ` Recovery unconfirmed: ${String(recovery)}`; }
+      try { await this.recover(); parameters = await this.parameters.status(); reason = withRecoveryOutcome(reason, recoveryConfirmedReason()); }
+      catch (recovery) { this.recoveryConfirmed = false; reason = withRecoveryOutcome(reason, `Recovery unconfirmed: ${String(recovery)}`); }
     } finally {
       if (!recording && this.recording) {
         try { recording = await this.recording.stop(); }
@@ -289,12 +300,7 @@ export class PidCommissioning {
   }
 
   private checkStartingPoint(observed: TransferStatus): void {
-    const channels = connectedModelChannels(this.loop, this.model);
-    const expected: [string, number][] = [...channels.inputs.map((input, index): [string, number] => [(input.applied ?? input.signal).symbol, this.model.operatingPoint?.inputs[index] ?? 0]),
-      ...channels.outputs.map((output, index): [string, number] => [output.signal.symbol, this.model.operatingPoint?.outputs[index] ?? 0])];
-    if (expected.some(([symbol, value]) => Math.abs(number(observed, symbol) - value) > 1e-6 * Math.max(1, Math.abs(value)))) {
-      throw new Error("The running process does not match the selected verified operating point; verify compatible starting conditions first.");
-    }
+    assertCommissioningStartingPoint(this.loop, this.model, this.task, ...startingPointSymbols(this.loop, this.model), observed.values);
   }
 
   private referenceSymbols(): readonly string[] { return this.profile.references?.(this.loop) ?? [this.transfer.binding.states[0].symbol]; }
@@ -308,8 +314,25 @@ export class PidCommissioning {
     processRange: { ...this.loop.signals.processVariable.range }, outputLimits: { minimum: this.transfer.binding.output.minimum, maximum: this.transfer.binding.output.maximum } }; }
 }
 
+/** The applied plant inputs and measured outputs whose validated operating point Apply starts from. */
+function startingPointSymbols(loop: ControlLoopDefinition, model: GeneralModel): [string[], string[]] {
+  const channels = connectedModelChannels(loop, model);
+  return [channels.inputs.map(input => (input.applied ?? input.signal).symbol), channels.outputs.map(output => output.signal.symbol)];
+}
+
 function number(status: TransferStatus, symbol: string): number {
   const value = status.values[symbol];
   if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`The runtime did not return a finite ${symbol} value.`);
   return value;
+}
+
+/** The failed commissioning outcome once recovery is confirmed, for every controller this commissioning drives. */
+/** Adds the recovery outcome to a failure reason as its own sentence. */
+export function withRecoveryOutcome(reason: string, outcome: string): string {
+  const failure = reason.trim();
+  return `${/[.!?]$/.test(failure) ? failure : `${failure}.`} ${outcome}`;
+}
+
+export function recoveryConfirmedReason(): string {
+  return "Recovery confirmed in Manual; previous controller parameters restored.";
 }

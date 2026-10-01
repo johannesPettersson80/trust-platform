@@ -9,6 +9,9 @@ export interface CompactNumberField {
   minimum?: number;
   maximum?: number;
   unit?: string;
+  /** A blank optional field is left out of the committed values; its placeholder names what applies instead. */
+  optional?: boolean;
+  placeholder?: string;
 }
 
 /** A small labelled editor using shared truST controls and native dialog focus handling. */
@@ -59,7 +62,8 @@ export function openCompactNumberEditor(options: {
     const row = document.createElement("div"); row.className = "trust-field";
     const label = document.createElement("label"); label.textContent = field.label;
     const input = document.createElement("input"); input.className = "trust-input";
-    input.type = "number"; input.step = "any"; input.required = true;
+    input.type = "number"; input.step = "any"; input.required = !field.optional;
+    if (field.placeholder) input.placeholder = field.placeholder;
     input.id = `${heading.id}-${field.key}`; label.htmlFor = input.id;
     input.setAttribute(options.fieldAttribute, field.key);
     if (field.signal) input.dataset.studioSignal = field.signal;
@@ -91,6 +95,7 @@ export function openCompactNumberEditor(options: {
     for (const field of options.fields) {
       const input = inputs.get(field.key)!;
       input.removeAttribute("aria-invalid"); input.classList.remove("trust-input--error"); notices.get(field.key)!.hidden = true;
+      if (field.optional && !input.value.trim()) continue;
       if (!input.value.trim() || !Number.isFinite(input.valueAsNumber)) { invalid(field.key, `Enter ${field.label.toLowerCase()}.`); return; }
       const value = input.valueAsNumber;
       if (field.minimum !== undefined && value < field.minimum) { invalid(field.key, `Use ${field.minimum} or greater.`); return; }

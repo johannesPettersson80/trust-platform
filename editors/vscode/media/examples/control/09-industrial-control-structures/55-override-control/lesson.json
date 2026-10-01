@@ -3,349 +3,270 @@
   "id": "control-override-control",
   "title": "Override control",
   "level": "Advanced",
-  "sequence": 59,
-  "equipment": "centrifugal compressor",
-  "physicalPurpose": "Give minimum-flow margin priority over discharge-pressure production demand without inactive windup or a release bump.",
-  "principalTechnique": "Override control",
-  "objective": "Give a protective constraint priority with tracked return.",
+  "sequence": 66,
+  "equipment": "Three copies of the heater-only jacketed vessel of Lesson 63 with a 42 °C jacket limit: vessel PI alone, override with tracking, override without tracking",
+  "physicalPurpose": "Let a jacket-limit controller take the heater from the vessel controller when the jacket nears its limit, without windup in the controller not in charge.",
+  "principalTechnique": "Override control: low select u = min(u_normal, u_limit) with tracking of the inactive controller",
+  "objective": "Select the smaller heating request of a vessel PI and a jacket-limit PI, track the applied command in the controller not selected, calculate the feasible vessel temperature under the jacket limit, and compare with the vessel PI alone and an untracked override.",
   "prerequisites": [
     "control-split-range"
   ],
   "nextLesson": "control-smith-predictor",
   "signals": [
     {
-      "role": "state",
-      "name": "Experiment authority",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX89.1"
-    },
-    {
-      "role": "quality",
-      "name": "Margin measurement validity",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX88.5"
-    },
-    {
-      "role": "state",
-      "name": "Tracked protection authority",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX88.7"
-    },
-    {
-      "role": "state",
-      "name": "Tracked protection availability",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX89.0"
-    },
-    {
       "role": "SP",
-      "name": "Discharge-pressure setpoint",
-      "unit": "bar",
-      "minimum": 7,
-      "maximum": 10,
-      "resolution": 0.01,
-      "binding": "%ML192"
-    },
-    {
-      "role": "state",
-      "name": "Tracked normal recycle demand",
-      "unit": "%",
+      "name": "Vessel setpoint",
+      "unit": "degC",
       "minimum": 0,
-      "maximum": 100,
-      "resolution": 0.01,
-      "binding": "%ML200"
-    },
-    {
-      "role": "state",
-      "name": "Tracked protective recycle demand",
-      "unit": "%",
-      "minimum": 0,
-      "maximum": 100,
-      "resolution": 0.01,
-      "binding": "%ML208"
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML0"
     },
     {
       "role": "PV",
-      "name": "Normal-only discharge pressure",
-      "unit": "bar",
-      "minimum": 7,
-      "maximum": 10,
-      "resolution": 0.01,
-      "binding": "%IL88"
-    },
-    {
-      "role": "state",
-      "name": "Normal-only flow margin",
-      "unit": "%",
+      "name": "Vessel temperature, override with tracking",
+      "unit": "degC",
       "minimum": 0,
-      "maximum": 40,
-      "resolution": 0.01,
-      "binding": "%IL96"
-    },
-    {
-      "role": "state",
-      "name": "Untracked discharge pressure",
-      "unit": "bar",
-      "minimum": 7,
-      "maximum": 10,
-      "resolution": 0.01,
-      "binding": "%IL104"
-    },
-    {
-      "role": "state",
-      "name": "Untracked flow margin",
-      "unit": "%",
-      "minimum": 0,
-      "maximum": 40,
-      "resolution": 0.01,
-      "binding": "%IL112"
-    },
-    {
-      "role": "state",
-      "name": "Tracked discharge pressure",
-      "unit": "bar",
-      "minimum": 7,
-      "maximum": 10,
-      "resolution": 0.01,
-      "binding": "%IL120"
-    },
-    {
-      "role": "state",
-      "name": "Tracked flow margin",
-      "unit": "%",
-      "minimum": 0,
-      "maximum": 40,
-      "resolution": 0.01,
-      "binding": "%IL128"
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL24"
     },
     {
       "role": "MV",
-      "name": "Normal-only recycle request",
+      "name": "Heater command, override with tracking",
       "unit": "%",
       "minimum": 0,
       "maximum": 100,
-      "resolution": 0.01,
-      "binding": "%QL128"
+      "resolution": 0.001,
+      "binding": "%QL8"
     },
     {
       "role": "state",
-      "name": "Untracked selected recycle request",
-      "unit": "%",
+      "name": "Jacket temperature, override with tracking",
+      "unit": "degC",
       "minimum": 0,
-      "maximum": 100,
-      "resolution": 0.01,
-      "binding": "%QL136"
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL16"
     },
     {
       "role": "state",
-      "name": "Tracked selected recycle request",
+      "name": "Jacket-limit setpoint",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Vessel request, override with tracking",
       "unit": "%",
       "minimum": 0,
       "maximum": 100,
-      "resolution": 0.01,
-      "binding": "%QL144"
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "Jacket request, override with tracking",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "Jacket controller selected, override with tracking",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX48.1"
+    },
+    {
+      "role": "state",
+      "name": "Jacket temperature, vessel PI alone",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Vessel temperature, vessel PI alone",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Jacket temperature, override without tracking",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL32"
+    },
+    {
+      "role": "state",
+      "name": "Vessel temperature, override without tracking",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL40"
+    },
+    {
+      "role": "state",
+      "name": "Jacket request, override without tracking",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML40"
+    },
+    {
+      "role": "state",
+      "name": "Jacket controller selected, override without tracking",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX48.2"
+    },
+    {
+      "role": "state",
+      "name": "ExperimentEnabled",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX48.0"
     }
   ],
   "plant": {
-    "modelId": "three_equivalent_local_compressors",
+    "modelId": "three-heater-only-jacketed-vessels",
     "executable": "simulation.toml",
     "parameters": [
       {
-        "name": "pressure_time_constant",
+        "name": "jacket_heat_capacity",
         "value": 5,
-        "unit": "s"
+        "unit": "kJ/°C"
       },
       {
-        "name": "margin_time_constant",
+        "name": "vessel_heat_capacity",
+        "value": 50,
+        "unit": "kJ/°C"
+      },
+      {
+        "name": "jacket_to_vessel",
+        "value": 10,
+        "unit": "kW/°C"
+      },
+      {
+        "name": "vessel_losses",
         "value": 2,
-        "unit": "s"
+        "unit": "kW/°C"
       },
       {
-        "name": "pressure_recycle_gain",
-        "value": -0.05,
-        "unit": "bar/%"
+        "name": "heater_per_point",
+        "value": 2,
+        "unit": "kW/%"
       },
       {
-        "name": "margin_recycle_gain",
-        "value": 1,
-        "unit": "1"
-      },
-      {
-        "name": "takeover_margin",
-        "value": 14,
-        "unit": "%"
-      },
-      {
-        "name": "release_margin",
-        "value": 16,
-        "unit": "%"
+        "name": "jacket_limit",
+        "value": 42,
+        "unit": "°C"
       }
     ],
     "sampleTimeSeconds": 0.1,
     "initialState": {
-      "dischargePressureBar": 8,
-      "flowMarginPercent": 20,
-      "recyclePercent": 30
+      "jacketC": 38,
+      "vesselC": 35
     },
     "seed": 20260829,
     "operatingPoint": {
-      "Discharge-pressure setpoint": 8,
-      "Tracked normal recycle demand": 30,
-      "Tracked protective recycle demand": 30,
-      "Normal-only discharge pressure": 8,
-      "Normal-only flow margin": 20,
-      "Untracked discharge pressure": 8,
-      "Untracked flow margin": 20,
-      "Tracked discharge pressure": 8,
-      "Tracked flow margin": 20,
-      "Normal-only recycle request": 30,
-      "Untracked selected recycle request": 30,
-      "Tracked selected recycle request": 30
+      "Vessel temperature, override with tracking": 35,
+      "Heater command, override with tracking": 15
     },
     "validityRange": [
       {
-        "signal": "Normal-only discharge pressure",
-        "minimum": 7,
-        "maximum": 10,
-        "unit": "bar"
-      },
-      {
-        "signal": "Untracked discharge pressure",
-        "minimum": 7,
-        "maximum": 10,
-        "unit": "bar"
-      },
-      {
-        "signal": "Tracked discharge pressure",
-        "minimum": 7,
-        "maximum": 10,
-        "unit": "bar"
-      },
-      {
-        "signal": "Normal-only flow margin",
-        "minimum": 0,
-        "maximum": 40,
-        "unit": "%"
-      },
-      {
-        "signal": "Untracked flow margin",
-        "minimum": 0,
-        "maximum": 40,
-        "unit": "%"
-      },
-      {
-        "signal": "Tracked flow margin",
-        "minimum": 0,
-        "maximum": 40,
-        "unit": "%"
+        "signal": "Jacket temperature, override with tracking",
+        "minimum": 20,
+        "maximum": 55,
+        "unit": "degC"
       }
     ],
     "simplifications": [
-      "Local linear pressure and flow-margin dynamics around one compressor operating point",
-      "Flow margin is an educational control variable, not a compressor-map surge coordinate",
-      "Ideal requested-equals-applied recycle position without valve stiction or rate limit",
-      "Three deterministic equivalent plants isolate selector state management",
-      "Simulation-only I/O and evidence; no machinery-protection claim"
+      "5·dTj/dt = 2·u − 10·(Tj − Tv) and 50·dTv/dt = 10·(Tj − Tv) − 2·(Tv − 20); no delivery delay.",
+      "Jacket and vessel temperatures are measured exactly."
     ]
   },
   "baseline": {
-    "executableId": "Compressor.NormalOnlyAndUntrackedOverride",
+    "executableId": "P1",
     "settings": {
-      "pressureKp": -10,
-      "pressureKi": -1,
-      "protectKp": 0.5,
-      "protectKi": 0.2,
-      "protectedMinimumPercent": 12
+      "controller": "vessel PI alone, Kp 2.5 %/°C, Ki 0.1 %/(°C·s)",
+      "setpoint": "40 °C, then 37 °C from 40 s"
     },
-    "limitation": "Normal pressure control violates margin, while an untracked inactive protection integral may take over late or return with a bump."
+    "limitation": "The vessel PI alone heats the jacket to 44 °C for a 40 °C request."
   },
   "change": {
-    "executableId": "Compressor.TrackedHystereticOverride",
+    "executableId": "P1",
     "settings": {
-      "takeoverMarginPercent": 14,
-      "releaseMarginPercent": 16,
-      "fallbackRecyclePercent": 30,
-      "selector": "MAX",
-      "externalTracking": true
+      "limit_controller": "jacket PI Kp 5, Ki 10, setpoint 41.8 °C",
+      "selector": "low select",
+      "tracking": "Track mode for the controller not selected",
+      "durationSeconds": 60
     },
-    "decision": "Accept override only when common-unit direction, quality, tracked inactive state, one takeover, one release and transition-step limits are all proven."
+    "decision": "The tracked override keeps the jacket at or below 41.83 °C, holds the vessel at the feasible 38.16 °C for the 40 °C request, and hands back to the vessel PI in the same update when 37 °C is requested; without tracking the jacket reaches 43.17 °C and the vessel stays stuck at 38.17 °C for 19.8 s."
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Experiment authority",
+    "signal": "ExperimentEnabled",
     "baseline": 0,
     "amplitude": 0,
-    "durationSeconds": 140.1,
-    "settlingSeconds": 20,
+    "durationSeconds": 62.1,
+    "settlingSeconds": 0,
     "disturbances": [
-      "Pressure setpoint changes from 8 to 9 bar at 20.0 s",
-      "Pressure setpoint returns to 8 bar at 80.0 s",
-      "A separate restored run invalidates flow-margin quality"
+      "Vessel setpoint 35 → 40 °C, which the jacket limit makes infeasible",
+      "Vessel setpoint 40 → 37 °C at 40 s"
     ],
     "seed": 20260829,
-    "restorationValue": 0,
-    "activationSignal": "P1.ExperimentEnabled"
+    "restorationValue": 0
   },
   "acceptance": [
     {
-      "metric": "normal_only_minimum_margin",
-      "signal": "Normal-only flow margin",
-      "window": "minimum from 20 through 80 s",
-      "comparator": "<",
-      "limit": 12,
-      "unit": "%",
-      "tolerance": 0.01,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "tracked_minimum_margin",
-      "signal": "Tracked flow margin",
-      "window": "minimum from 20 through 80 s",
-      "comparator": ">=",
-      "limit": 11.5,
-      "unit": "%",
-      "tolerance": 0.01,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "tracked_authority_transitions",
-      "signal": "Tracked protection authority",
-      "window": "complete 140-s demand cycle",
-      "comparator": "==",
-      "limit": 2,
-      "unit": "1",
+      "metric": "jacket_limit",
+      "signal": "Jacket temperature, override with tracking",
+      "window": "complete trial",
+      "comparator": "<=",
+      "limit": 42,
+      "unit": "degC",
       "tolerance": 0,
       "evidenceClass": "simulation"
     },
     {
-      "metric": "tracked_transition_step",
-      "signal": "Tracked selected recycle request",
-      "window": "adjacent samples at takeover and release",
-      "comparator": "<=",
-      "limit": 1,
-      "unit": "pp",
-      "tolerance": 0.01,
+      "metric": "feasible_vessel",
+      "signal": "Vessel temperature, override with tracking",
+      "window": "at 39.9 s",
+      "comparator": "==",
+      "limit": 38.1667,
+      "unit": "degC",
+      "tolerance": 0.02,
       "evidenceClass": "simulation"
     },
     {
-      "metric": "invalid_quality_fallback",
-      "signal": "Tracked selected recycle request",
-      "window": "complete invalid-margin-quality run",
+      "metric": "handback",
+      "signal": "Jacket controller selected, override with tracking",
+      "window": "at 40.0 s",
       "comparator": "==",
-      "limit": 30,
-      "unit": "%",
+      "limit": 0,
+      "unit": "1",
       "tolerance": 0,
       "evidenceClass": "simulation"
     }
@@ -353,100 +274,54 @@
   "safety": {
     "hardLimits": [
       {
-        "signal": "Normal-only discharge pressure",
-        "minimum": 7,
-        "maximum": 10,
-        "unit": "bar"
+        "signal": "Jacket temperature, override with tracking",
+        "minimum": 20,
+        "maximum": 55,
+        "unit": "degC"
       },
       {
-        "signal": "Tracked discharge pressure",
-        "minimum": 7,
-        "maximum": 10,
-        "unit": "bar"
-      },
-      {
-        "signal": "Normal-only flow margin",
-        "minimum": 0,
-        "maximum": 40,
-        "unit": "%"
-      },
-      {
-        "signal": "Tracked flow margin",
-        "minimum": 0,
-        "maximum": 40,
-        "unit": "%"
-      },
-      {
-        "signal": "Tracked selected recycle request",
+        "signal": "Heater command, override with tracking",
         "minimum": 0,
         "maximum": 100,
         "unit": "%"
       }
     ],
     "abortPredicates": [
-      "Any required signal is nonfinite, stale, forced, or has invalid quality",
-      "Pressure leaves 7 through 10 bar",
-      "Flow margin crosses the zero local-model boundary",
-      "Recycle request leaves 0 through 100 percent",
-      "Selector authority or restoration is inconsistent",
-      "Authority chatters beyond the declared transition count"
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
     ],
-    "safeMv": 30,
-    "restorationMode": "With invalid margin quality, remove automatic protection authority and track both candidates to the reviewed 30-percent simulated fallback; qualify measurement and valve state before re-enabling.",
-    "physicalApprovalRole": "authorised compressor controls engineer and responsible machinery engineer",
+    "safeMv": 0,
+    "restorationMode": "When the experiment ends, the setpoint returns to 35 °C.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
     "simulationOnlyRestrictions": [
-      "No physical compressor or recycle valve is operated",
-      "The simulated margin is not anti-surge or machinery-protection certification",
-      "Physical override requires a reviewed compressor map, instrumentation, trips, valve capacity/fail action, protection topology and explicit experiment approval"
+      "This lesson cannot authorise physical heating changes",
+      "An override selector is a control function, not an independent protective device"
     ]
   },
   "workflowStages": [
-    "Monitor",
-    "Test"
+    "Identify"
   ],
   "proof": {
-    "specification": "docs/specs/38-control-engineering-curriculum.md#77-industrial-control-structures",
-    "nativeTest": "TEST_PROGRAM::Lesson55SelectorDirectionScheduleAndAbortAreExplicit",
-    "nativeCommand": "target/debug/trust-dev test --project examples/control/09-industrial-control-structures/55-override-control --filter TEST_PROGRAM::Lesson55SelectorDirectionScheduleAndAbortAreExplicit --timeout 20",
+    "specification": "docs/specs/control-course-content/55-66-industrial-and-multivariable.md#59-override-control",
+    "nativeTest": "lesson59",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_58_60 lesson59",
     "projectPath": "examples/control/09-industrial-control-structures/55-override-control",
     "runArtifactFields": [
-      "projectIdentity",
-      "plantIdentities",
-      "controllerIdentities",
-      "evidenceClass",
-      "sampleTime",
-      "seed",
-      "pressureSetpoint",
-      "pressures",
-      "margins",
-      "candidateRequests",
-      "selectedRequests",
-      "appliedRecycleValues",
-      "protectionAvailability",
-      "authority",
-      "thresholds",
-      "limits",
-      "abortState",
-      "restorationState",
-      "metricDefinitions",
-      "metrics",
-      "settlingQualification"
+      "jacketTemperatures",
+      "vesselTemperatures",
+      "requests",
+      "selection",
+      "evidenceClass"
     ],
     "renderedJourneyId": "control-override-control"
   },
   "video": {
-    "viewerOutcome": "Configure and validate a tracked high-selector override, explain inactive windup, and distinguish control evidence from machinery protection.",
+    "viewerOutcome": "See a jacket-limit controller take the heater at the limit and give it back at once, and an untracked override fail both ways.",
     "requiredVisibleEvidence": [
-      "three equivalent compressors",
-      "pressure and margin SP/PV",
-      "normal and protective candidates",
-      "selected and applied recycle",
-      "authority and hysteresis",
-      "normal-only violation",
-      "untracked transition defect",
-      "tracked takeover and release",
-      "invalid-quality fallback",
-      "Simulation label and protection disclaimer"
+      "both requests, the applied heater and the selection",
+      "the three jackets against the limit",
+      "the three vessels",
+      "Simulation label"
     ],
     "durationClass": "standard",
     "scriptPath": "video/script.md",
@@ -455,23 +330,20 @@
     "publicationState": "not_started"
   },
   "learning": {
-    "context": "Three equivalent centrifugal-compressor local models expose discharge pressure, minimum-flow margin and one shared recycle valve.",
-    "reason": "Unlike split range, two complete control objectives compete for one actuator and equipment margin must have explicit priority over production pressure.",
+    "context": "Lesson 65's split range let one controller both heat and cool the jacketed vessel: with 60 kW coming into the jacket, the cooler settled at 30 % and the vessel stayed within 0.40 °C of 35 °C. Meeting the vessel's heat demand can, however, break a separate limit. Here the jacket must stay at or below 42 °C to protect the product near the wall, and a vessel setpoint of 40 °C would need a 44 °C jacket. The vessel controller knows nothing about the jacket's limit, yet the limit must win over normal control.\n\nWe will add a controller that holds the jacket below its limit, and let it take over whenever the limit would otherwise be broken.",
+    "reason": "We need to:\n\n1. hold the jacket below its limit with a second controller;\n2. give that controller authority whenever the limit would be broken, and hand back when it would not; and\n3. make both hand-overs without a bump in the heater command.",
     "theory": [
-      "The high selector follows actuator physics because a larger recycle request raises protected margin.",
-      "External tracking aligns whichever integral controller is inactive with the selected applied valve before it can receive authority.",
-      "A 14-percent takeover and 16-percent release band prevents threshold chatter without redefining the 12-percent protected minimum."
+      "**Override control** lets a limiting controller take over from the normal one whenever a limit would otherwise be broken. The smaller request wins. For the vessel, the jacket must stay at or below 42 °C, and a second controller guards that limit.\n\n**In words.** Two controllers run side by side, and both ask for a heater command:\n\n1. **The normal controller** asks for whatever holds the vessel at its setpoint.\n2. **The limiting controller** asks for whatever holds the jacket just below its limit.\n\nA **selector** passes on only one of the two requests. More heat raises both temperatures, so the request that keeps the jacket safe is always the smaller one. While the jacket is well below its limit, the limiter asks for more heat than the vessel needs, and the normal controller is in charge. As the jacket approaches its limit, the limiter's request falls below the other, and it takes over. When the vessel later needs less heat, its controller's request drops below the limiter's, and it is back in charge. Nobody switches anything: the selection follows from the two requests at every update.\n\nIn PLC terms the selector is a single MIN instruction. The difficult part is the controller that is not selected. It still sees its own error, and its integral keeps adding it up, so its request drifts away from the command actually applied: it then takes over late, or blocks the other controller when it should give way. Tracking, from Lesson 27, prevents this: the controller that is not selected runs in the Track mode of `Control.PID`, which restarts each update from the applied heater command and adds only its own current change.\n\n**The formula.** The selector applies the smaller request:\n\n$$\nu_r = \\min(u_{normal},\\ u_{limit}) .\n$$\n\nLet:\n\n- $u_r$ be the applied heater request, in %;\n- $u_{normal}$ be the vessel controller's request, in %; and\n- $u_{limit}$ be the jacket-limiting controller's request, in %.\n\nThe direction depends on the limit: a minimum temperature, or a limit that more output relieves, would need the larger request instead, a $\\max$.\n\nThe limit also caps what the vessel can reach. At rest the vessel loses $2(T_v - 20)$ kW, which the jacket passes on at 10 kW per °C of difference, so the jacket must be $0.2(T_v - 20)$ warmer than the vessel:\n\n$$\nT_j = T_v + 0.2\\,(T_v - 20) = 1.2\\,T_v - 4 ,\n$$\n\nwith $T_j$ and $T_v$ the jacket and vessel temperatures, in °C.\n\n**Example: the vessel asked for 40 °C.** The vessel PI uses $K_p = 2.5$ %/°C and $K_i = 0.1$ %/(°C·s), Lesson 63's single loop. The jacket-limit PI uses $K_p = 5$ %/°C and $K_i = 10$ %/(°C·s), Lesson 19's rule for the jacket alone, 0.2 °C/% and 0.5 s, with λ = 0.5 s. The limiter's setpoint is 41.8 °C, 0.2 °C below the limit to leave room for the hand-over, a teaching choice. Follow the numbers:\n\n1. Requests of 60 % and 40 % produce 40 %: the smaller request is applied, whichever controller makes it.\n2. A 37 °C vessel needs a jacket of $1.2 \\times 37 - 4 = 40.4$ °C, which is allowed; a 40 °C vessel needs 44 °C, which is not.\n3. With the jacket held at 41.8 °C, the vessel reaches at most $(41.8 + 4)/1.2 = 38.17$ °C, and 38.33 °C at the 42 °C limit itself. No tuning can reach 40 °C within the limit: the controller must hold the limit and leave the shortfall visible.\n4. At the start the jacket is at 38 °C, below 41.8 °C, so the limiter's error is positive and it asks for more heat than the vessel PI: the vessel PI is in charge.\n5. As the jacket approaches 41.8 °C, the limiter's request falls below the vessel PI's, and the limiter takes over, holding the vessel near 38.17 °C.\n6. When the setpoint later falls to 37 °C, the vessel PI's request drops below the limiter's, and the vessel PI is back in charge.\n\n**The limitation.** Override works only if the controller that is not selected tracks. Without tracking, the limiter's error at the start, $41.8 - 38 = 3.8$ °C, adds $10 \\times 3.8 = 38$ points per second to its request. Within seconds its request stands far above the applied command, and it can take over only after its integral has run back down, which needs the jacket above its setpoint. The vessel PI winds up the same way on the unreachable 40 °C, which delays the hand-back. Override also protects only the limit it watches: another limit needs another limiting controller in the selector.\n\nThe requirements, fixed before the run: the jacket stays at or below 42 °C throughout; with 40 °C requested, the vessel holds the feasible 38.17 °C; when the setpoint falls to 37 °C, the vessel controller takes over again without delay."
     ],
-    "workedPrediction": "Closing recycle from 30 to 10 percent predicts 9 bar but zero margin; at least 22 percent recycle preserves 12-percent margin and limits pressure to about 8.4 bar.",
+    "workedPrediction": "Before running, answer these questions:\n\n1. Which controller is in charge first, and when does the limiter take over?\n2. Where does the vessel settle while 40 °C is requested?\n3. What happens without tracking, to the jacket and after the setpoint falls to 37 °C?\n4. With tracking, what happens to the heater command at the moment the setpoint falls to 37 °C?\n\n| Quantity | Predicted |\n| --- | ---: |\n| Jacket needed for a 37 °C vessel | 40.4 °C |\n| Jacket needed for a 40 °C vessel | 44 °C, not allowed |\n| Warmest vessel with the jacket at 41.8 °C | 38.17 °C |\n| Selected request from 60 % and 40 % | 40 % |",
     "practicalPreparation": [
-      "Verify Simulation evidence, all identities, SP/PV/request units and signs, selector direction, candidates, applied valve, authority, thresholds, quality, timing and limits.",
-      "Define minimum margin, violation duration, IAE, takeover/release delay, transition count and valve-step measures before showing results."
+      "1. Open this lesson's project and start **Simulator**. The three vessels rest at 35 °C, their jackets at 38 °C, with 15 %. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.VesselSetpointC · Setpoint (°C)`, `P1.TrackedVesselC · Process value (°C)` and `P1.TrackedHeaterPct · Applied output (%)`, the override with tracking; add `P1.TrackedJacketC · state (°C)`, `P1.JacketLimitSetpointC · state (°C)`, `P1.TrackedVesselRequestPct · state (%)`, `P1.TrackedJacketRequestPct · state (%)` and `P1.TrackedJacketSelected · state (1)`.\n3. Answer the predictions before starting.\n4. Select **Review project test** and check the declared **62.1 s** duration: 2 s at rest, 40 s with 40 °C requested, then 20 s with 37 °C.\n5. Select **Confirm and start**.\n6. After the run, hover the hand-over and the setpoint change. Then show the three jackets, `P1.AloneJacketC` and `P1.UntrackedJacketC` with the limit setpoint, and hover the peaks; finally the three vessels, adding `P1.AloneVesselC` and `P1.UntrackedVesselC`, and hover before and after the change. Control Studio shows **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early. To repeat, stop and restart **Simulator** so the vessels start at rest again."
     ],
-    "baseline": "Run normal-only and untracked override through the same pressure demand to retain constraint conflict and inactive-state defects.",
-    "change": "Track the inactive candidate against selected recycle and use hysteretic takeover and release with valid margin data.",
-    "comparison": "Hold models, state, controller tuning, demand cycle, thresholds, timing, limits and seed equal while changing only selector and tracking behavior.",
-    "validation": "Require tracked margin at least 11.5 percent, exactly one takeover and release, no chatter, at most one-percentage-point transition steps, and explicit unavailable fallback for invalid quality.",
-    "explanation": "Pressure is sacrificed because equipment margin owns priority; tracking removes stored inactive integral mismatch and hysteresis prevents repeated threshold switching.",
-    "transfer": "Lesson 56 continues with Gain scheduling."
+    "baseline": "The vessel PI alone heats the jacket to 44 °C for a 40 °C request, above the 42 °C limit.",
+    "change": "Low-select between the vessel PI and a jacket-limit PI at 41.8 °C, and compare the override with and without tracking of the controller not selected.",
+    "comparison": "![With tracking, the limiter holds the jacket at its limit and hands back at once; without tracking, the jacket overshoots and the hand-back is late](figures/override-control.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's recording, times from the start of the test:\n\n| | Vessel PI alone | Override with tracking | Override without tracking |\n| --- | ---: | ---: | ---: |\n| Jacket peak | **44.00 °C** | 41.83 °C | **43.17 °C** at 14.7 s |\n| Vessel at 39.9 s, 40 °C requested | 39.96 °C | 38.16 °C | 38.17 °C |\n| Jacket controller in charge | never | 23.6–40.0 s | 14.7–59.8 s |\n| Vessel 10 s after the change to 37 °C | 38.20 °C | 36.57 °C | 38.17 °C |\n\n1. Apart from the very first update, the vessel PI was in charge until 23.6 s; then the limiter took over as the jacket reached 41.8 °C, and held it with a peak of 41.83 °C.\n2. With 40 °C requested, the vessel stopped at 38.16 °C, the feasible maximum, and the shortfall stayed visible.\n3. Without tracking, the limiter added up its 3.8 °C error while it was not selected; its request stood up to 75 points above the heater command, and it took over only at 14.7 s, after the jacket had reached 43.17 °C. After the setpoint fell, the vessel PI's integral, wound up on the unreachable 40 °C, kept its request above the limiter's for 19.8 s more, and the vessel stayed at 38.17 °C.\n4. With tracking, the vessel PI was selected again in the same update as the setpoint change; the heater dropped from 18.2 % to 10.7 %, the vessel PI's ordinary proportional step, and the vessel then dipped to 36.2 °C by 60 s.\n\nThe vessel PI alone broke the limit with a 44.00 °C jacket. The benefit of override is a limit that holds whatever the setpoint asks; the cost is a second controller and tracking that must be right, or the override exists and the limit is still broken. Only the tracked override meets the requirements, and it is accepted for this vessel. These are simulation results.",
+    "validation": "![With tracking, the limiter holds the jacket at its limit and hands back at once; without tracking, the jacket overshoots and the hand-back is late](figures/override-control.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's recording, times from the start of the test:\n\n| | Vessel PI alone | Override with tracking | Override without tracking |\n| --- | ---: | ---: | ---: |\n| Jacket peak | **44.00 °C** | 41.83 °C | **43.17 °C** at 14.7 s |\n| Vessel at 39.9 s, 40 °C requested | 39.96 °C | 38.16 °C | 38.17 °C |\n| Jacket controller in charge | never | 23.6–40.0 s | 14.7–59.8 s |\n| Vessel 10 s after the change to 37 °C | 38.20 °C | 36.57 °C | 38.17 °C |\n\n1. Apart from the very first update, the vessel PI was in charge until 23.6 s; then the limiter took over as the jacket reached 41.8 °C, and held it with a peak of 41.83 °C.\n2. With 40 °C requested, the vessel stopped at 38.16 °C, the feasible maximum, and the shortfall stayed visible.\n3. Without tracking, the limiter added up its 3.8 °C error while it was not selected; its request stood up to 75 points above the heater command, and it took over only at 14.7 s, after the jacket had reached 43.17 °C. After the setpoint fell, the vessel PI's integral, wound up on the unreachable 40 °C, kept its request above the limiter's for 19.8 s more, and the vessel stayed at 38.17 °C.\n4. With tracking, the vessel PI was selected again in the same update as the setpoint change; the heater dropped from 18.2 % to 10.7 %, the vessel PI's ordinary proportional step, and the vessel then dipped to 36.2 °C by 60 s.\n\nThe vessel PI alone broke the limit with a 44.00 °C jacket. The benefit of override is a limit that holds whatever the setpoint asks; the cost is a second controller and tracking that must be right, or the override exists and the limit is still broken. Only the tracked override meets the requirements, and it is accepted for this vessel. These are simulation results.",
+    "explanation": "Override control selects, at every update, the request that respects the limit: here the smaller heater request. The controller that is not selected must track the applied command, or its stored demand delays the hand-over in both directions.\n\nFor the vessel, the tracked override held the jacket at 41.83 °C, left the vessel at the feasible 38.16 °C, and handed back to the vessel controller in the same update as the setpoint change.",
+    "transfer": "The vessel's heater acts on its jacket at once. When a heater's power arrives only after a long delivery delay, every correction arrives too late: a controller fast enough to correct quickly loses its stability margin to the delay, so feedback on the delayed measurement must stay slow.\n\n[Smith prediction](../57-smith-predictor/README.md) lets the controller act on a model's prediction of the temperature without the delay."
   }
 }

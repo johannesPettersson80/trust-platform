@@ -1,0 +1,286 @@
+{
+  "schemaVersion": 4,
+  "id": "control-robustness-margins",
+  "title": "Robustness margins",
+  "level": "Advanced",
+  "sequence": 58,
+  "equipment": "Electric water heater",
+  "physicalPurpose": "Define gain, phase and delay margin and the peak sensitivity Ms as distances from the critical point. Relate each to a specific model error, a gain change or an extra delay, and verify with Control Studio's margins and a deliberately mismatched plant.",
+  "principalTechnique": "Robustness margins as distances from −1: gain, phase and delay margin and peak sensitivity",
+  "objective": "Calculate the balanced PI's gain, phase and delay margins, compare them with Control Studio's, and validate the loop on heaters with more gain and more delay inside and beyond those margins.",
+  "prerequisites": [
+    "control-nyquist-stability",
+    "control-tuning-to-requirements"
+  ],
+  "nextLesson": "control-mechanical-resonance",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "disturbance",
+      "name": "DisturbanceKw",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 30,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "WaterTemperatureC",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "IntegralPct",
+      "unit": "%",
+      "minimum": -200,
+      "maximum": 200,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "ManualOutput",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML72"
+    },
+    {
+      "role": "SP",
+      "name": "Heater setpoint",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    }
+  ],
+  "plant": {
+    "modelId": "heater-lesson-21",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "measurement_noise_bound",
+        "value": 0.02,
+        "unit": "degC"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "waterTemperatureC": 35,
+      "delayedCommandPct": 75
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Measured temperature": 35,
+      "Applied heating command": 75
+    },
+    "validityRange": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "The heater of Lessons 18–22; the validation scenarios replace it with deliberately mismatched models.",
+      "Uniform bounded ±.02 °C measurement noise.",
+      "Simulation only."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "temperatureC": 35,
+      "appliedPowerPct": 75,
+      "mode": "Manual"
+    },
+    "limitation": "The Nyquist count decides stability for the model only; it does not say how large a gain error or extra delay the loop tolerates."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "requirements": "3 °C step, within 0.2 °C from 15 s, band 0.1 °C, 60 s",
+      "scenarios": "gain ×3 and ×8, delay +4 s and +7 s"
+    },
+    "decision": "The margins predict which mismatches stay stable; validation confirms it, and Apply stays unavailable while the beyond-margin scenarios fail."
+  },
+  "experiment": {
+    "kind": "mv_step",
+    "signal": "Applied heating command",
+    "baseline": 75,
+    "amplitude": 20,
+    "durationSeconds": 60,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Uniform repeatable measurement noise bounded by ±.02 °C"
+    ],
+    "seed": 20260829,
+    "restorationValue": 75
+  },
+  "acceptance": [
+    {
+      "metric": "maximum_absolute_error",
+      "signal": "Measured temperature",
+      "window": "gain ×3 scenario 40–60 s",
+      "comparator": "<=",
+      "limit": 1,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_error",
+      "signal": "Measured temperature",
+      "window": "delay +4 s scenario 40–60 s",
+      "comparator": "<=",
+      "limit": 1,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_error",
+      "signal": "Measured temperature",
+      "window": "gain ×8 scenario 40–60 s",
+      "comparator": ">",
+      "limit": 1,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_error",
+      "signal": "Measured temperature",
+      "window": "delay +7 s scenario 40–60 s",
+      "comparator": ">",
+      "limit": 1,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves 0–80 °C or applied command leaves 0–100%",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Control Studio restores the 35 °C/75% hot reset after each validation. Abort sets SafetyAbort and commands zero heating. Keep stopped until valid measurements and the full 35 °C/75% hot reset are restored.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical excitation or gain application",
+      "Physical use requires independent topology, model, hazard, operating-window, interlock, personnel, abort, rollback, and immediate approval review"
+    ]
+  },
+  "workflowStages": [
+    "Identify",
+    "Tune",
+    "Validate"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/44-54-classical-analysis.md",
+    "nativeTest": "robustness_margins",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heater_design robustness_margins",
+    "projectPath": "examples/control/07-classical-stability-and-frequency-design/88-robustness-margins",
+    "runArtifactFields": [
+      "identifiedModel",
+      "designedGains",
+      "margins",
+      "scenarioResults",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-robustness-margins"
+  },
+  "video": {
+    "viewerOutcome": "Read the balanced PI's four margins in Control Studio and see which mismatched heaters stay stable.",
+    "requiredVisibleEvidence": [
+      "the margins beside the PI gains",
+      "the four scenario rows on Validate",
+      "the beyond-margin oscillations",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 57 counted how the P-controlled heater's frequency curve goes around −1. With a 1 s delay the water settled at 35.067 °C; with 8 s each swing grew 1.44 times, and a 6.05 s delay put the curve through −1. A count answers yes or no for one model, but the real heater never matches its model: at a lower water flow the same power raises the temperature more, and a longer pipe delays the hot water. The count does not say how much error the loop tolerates.\n\nLesson 57 used P control as the simplest delayed loop; the heater normally runs PI, so we return to a PI tuned by Control Studio. We will read its tolerated gain error and extra delay from its frequency curve and test both on wrong heater models.",
+    "reason": "We need to:\n\n1. state how much stronger the heating may be than the model says before the loop becomes unstable;\n2. state how much longer the delay may be; and\n3. read both from the loop's frequency curve.",
+    "theory": [
+      "**Robustness margins** say how much the real plant may differ from its model before the loop becomes unstable: how much more gain, how much more lag, how much more delay.\n\n**In words.** No model is exact. At a lower water flow the same power heats the water more, so the real gain is larger; a longer pipe delays the hot water more. Each kind of error moves the loop's frequency curve towards −1 in its own way:\n\n1. **A gain error** stretches every point of the curve by the same factor.\n2. **An extra delay** turns every point clockwise by $\\omega\\,\\Delta t$ radians without changing its length, so it turns the fast points most.\n\nA margin measures how far the curve can move one way before it reaches −1, the point where the loop keeps a swing going on its own. The **gain margin** is how much the curve may be stretched, the **phase margin** how much it may be turned at the crossover, and the **delay margin** how much extra delay that turn allows. The **peak sensitivity** measures the curve's closest approach to −1, whatever the direction.\n\nThey work like the safety factor of a mechanical part: the part is designed for a load, and the factor says how much more it can take before it fails. A margin says how much worse than its model the plant may be before the loop fails.\n\nFor the heater, they say how much stronger the heating may be, and how much later the hot water may arrive, before the temperature starts to swing.\n\n**The formula.** Let:\n\n- $\\omega_c$ be the crossover frequency, where $|L| = 1$, and $\\omega_{180}$ the frequency where the angle of $L$ is −180°, both in rad/s;\n- $GM = 1/|L(j\\omega_{180})|$ be the gain margin: the factor by which the loop gain may grow;\n- $PM = 180° + \\angle L(j\\omega_c)$ be the phase margin: the extra lag allowed at crossover, in degrees;\n- $DM = PM/\\omega_c$, with PM in radians, be the delay margin: the extra delay allowed, in seconds; and\n- $M_s = \\max_\\omega |1/(1 + L)|$ be the peak sensitivity. Since $|1 + L|$ is the distance from the curve to −1, $1/M_s$ is the curve's closest approach to −1.\n\nBeyond the gain margin the curve passes left of −1 at $\\omega_{180}$, and the loop swings at that speed. Beyond the delay margin the angle at crossover passes −180°.\n\nFor a loop of the form $L(s) = \\dfrac{a}{s}\\,e^{-s t_d}$, with $a$ in 1/s and the delay $t_d$ in seconds, the size is $a/\\omega$ and the angle $-90° - \\omega t_d$, with $\\omega t_d$ turned into degrees. Then\n\n$$\n\\omega_c = a, \\qquad PM = 90° - a\\,t_d, \\qquad \\omega_{180} = \\frac{\\pi}{2 t_d}, \\qquad GM = \\frac{\\pi}{2a\\,t_d}, \\qquad DM = \\frac{\\pi}{2a} - t_d .\n$$\n\n**Example: the heater's tuned PI.** Control Studio identifies the heater as $0.2001\\,e^{-s}/(5.1s + 1)$ and tunes $K_p = 5.79$ %/°C, $K_i = 1.14$ %/(°C·s). The integral time $K_p/K_i = 5.08$ s nearly equals the 5.1 s time constant, so the controller's zero cancels the heater's lag, as in Lesson 55:\n\n$$\nL(s) = \\frac{a}{s}\\,e^{-s t_d}, \\qquad a = \\frac{K K_p}{\\tau} = \\frac{0.2001 \\times 5.79}{5.1} = 0.227\\ \\text{1/s},\n$$\n\nwith $t_d = 1$ s, $K$ the heater's gain and $\\tau$ its time constant. Follow the margins:\n\n1. **Phase margin.** $|L| = 1$ at $\\omega_c = a = 0.227$ rad/s, where the delay lags 0.227 rad, 13.0°. The angle is −103.0°, so $PM = 77.0°$.\n2. **Gain margin.** The angle reaches −180° when $\\omega t_d = \\pi/2$: $\\omega_{180} = 1.571$ rad/s, where $|L| = 0.227/1.571 = 0.145$. So $GM = 1/0.145 = 6.91$, or $20\\log_{10} 6.91 = 16.79$ dB: the loop gain may grow almost seven times.\n3. **Delay margin.** $DM = 1.344/0.227 = 5.91$ s, the same as $\\pi/(2 \\times 0.227) - 1$: the hot water may arrive almost 6 s later.\n4. **Peak sensitivity.** Trying speeds, the curve comes closest to −1 at 0.93 rad/s, 0.817 away: $M_s = 1/0.817 = 1.22$. Since $S = 1/(1 + L)$, no load at any speed is amplified more than 1.22 times.\n\n**The limitation.** Each margin covers one error at a time, and an error inside a margin uses up part of the others:\n\n1. With twice the gain, the crossover moves to $2a = 0.454$ rad/s, where the delay lags 26.0°: only $90° - 26.0° = 64.0°$ of phase margin is left.\n2. With 2 s more delay, the angle at crossover is $-90° - 0.227 \\times 3 \\times 57.3° = -129.0°$: 51.0° left. The gain margin shrinks too, from 6.91 to $\\pi/(2 \\times 0.227 \\times 3) = 2.31$.\n\nThe less margin is left, the less damping: a loop inside its margins can still ring for a long time."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. Will Control Studio report the same margins as the formulas, although it calculates the complete loop without assuming exact cancellation?\n2. The heater's gain is three times the model's. Does the temperature settle?\n3. The gain is eight times the model's. What does the temperature do, and how long is one swing?\n4. The delay is 4 s longer. Does the temperature settle, and how?\n5. The delay is 7 s longer. Does it settle?\n\n| Heater | Margin check | Expected |\n| --- | --- | --- |\n| Gain ×3 | 3 < 6.91 | settles; phase margin 51.0° |\n| Gain ×8 | 8 > 6.91 | swings, one swing every 4.0 s |\n| Delay +4 s | 4 s < 5.91 s | settles slowly; phase margin 24.9° |\n| Delay +7 s | 7 s > 5.91 s | swings without settling |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. The heater rests at 35 °C with 75 %. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, keep **Automatic** in **Method** and select **Identify plant**. The command steps from 75 to 95 % for 60 s; Control Studio shows G(s) = (0.2001) / (5.1s +1) · e^(−1s).\n3. Answer the predictions.\n4. On **Tune**, keep **P1.Controller · PI — recommended** and **Automatic**. Select **Requirements…**, enter **Setpoint change (°C)** 3, **Maximum steady-state error (°C)** 0.2, **Maximum settling time (s)** 15, **Settling band (±°C)** 0.1 and **Validation duration (s)** 60, and select **Done**.\n5. Select **Tune controller** and read the line under the gains: **Gain margin 16.79 dB · phase margin 76.98° · delay margin 5.91 s · peak sensitivity Ms 1.22**.\n6. On **Validate**, select **Validate controller**. Control Studio checks the model on the simulated heater, then runs the tuned PI for 60 s on the model and on each scenario.\n7. Two rows fail: **Apply** stays unavailable, and Control Studio shows **Verification failed: Observed measurement exceeds the declared limit. Next: Tune again.**\n\nSelect **Abort** to stop identification or validation early. To repeat, stop and restart **Simulator**."
+    ],
+    "baseline": "The heater of Lesson 22 at 35 °C / 75 %.",
+    "change": "Tune the balanced PI, read its margins and validate it on heaters with more gain and more delay.",
+    "comparison": "![Inside both margins the heater settles; beyond them it swings](figures/margin-scenarios.svg)\n\nThe numbered marks answer predictions 2–5; Control Studio's tuning line answers 1. Its validation:\n\n| Heater | Measured | Limit | Result |\n| --- | ---: | ---: | --- |\n| Identified, settling time | 9.9 s | 15 s | Pass |\n| Gain ×3, error 40–60 s | 1.53e-5 °C | 1 °C | Pass |\n| Gain ×8, error 40–60 s | 9.14 °C | 1 °C | Fail |\n| Delay +4 s, error 40–60 s | 0.2736 °C | 1 °C | Pass |\n| Delay +7 s, error 40–60 s | 1.57 °C | 1 °C | Fail |\n\n1. Control Studio reported 16.79 dB, a factor of 6.91, 76.98°, 5.91 s and $M_s$ 1.22: the formulas' values. It calculates the complete loop, without assuming exact cancellation.\n2. With three times the gain, the temperature overshot once, to 38.70 °C at 3.6 s, and stayed within 0.1 °C from 7.5 s.\n3. With eight times the gain, it swung once every 4.0 s, as $\\omega_{180}$ predicts. The heater's 100 % limit stopped the growth at 28.9–41.4 °C from about 30 s.\n4. With 4 s more delay, it rang once every 22 s, with maxima 0.84, 0.43 and 0.17 °C above the target, and stayed within 0.27 °C from 40 s.\n5. With 7 s more delay, it swung once every 29 s without settling: the second maximum, 39.44 °C, was above the first, 39.30 °C.\n\nEvery wrong heater inside its margin passed and every one beyond it failed, as the margins said in advance: that is their benefit. Their cost is what they leave out: the heater with 4 s more delay passed but still swung 0.27 °C after 40 s. Two scenarios fail, so this PI is not applied. These are simulation results.",
+    "validation": "![Inside both margins the heater settles; beyond them it swings](figures/margin-scenarios.svg)\n\nThe numbered marks answer predictions 2–5; Control Studio's tuning line answers 1. Its validation:\n\n| Heater | Measured | Limit | Result |\n| --- | ---: | ---: | --- |\n| Identified, settling time | 9.9 s | 15 s | Pass |\n| Gain ×3, error 40–60 s | 1.53e-5 °C | 1 °C | Pass |\n| Gain ×8, error 40–60 s | 9.14 °C | 1 °C | Fail |\n| Delay +4 s, error 40–60 s | 0.2736 °C | 1 °C | Pass |\n| Delay +7 s, error 40–60 s | 1.57 °C | 1 °C | Fail |\n\n1. Control Studio reported 16.79 dB, a factor of 6.91, 76.98°, 5.91 s and $M_s$ 1.22: the formulas' values. It calculates the complete loop, without assuming exact cancellation.\n2. With three times the gain, the temperature overshot once, to 38.70 °C at 3.6 s, and stayed within 0.1 °C from 7.5 s.\n3. With eight times the gain, it swung once every 4.0 s, as $\\omega_{180}$ predicts. The heater's 100 % limit stopped the growth at 28.9–41.4 °C from about 30 s.\n4. With 4 s more delay, it rang once every 22 s, with maxima 0.84, 0.43 and 0.17 °C above the target, and stayed within 0.27 °C from 40 s.\n5. With 7 s more delay, it swung once every 29 s without settling: the second maximum, 39.44 °C, was above the first, 39.30 °C.\n\nEvery wrong heater inside its margin passed and every one beyond it failed, as the margins said in advance: that is their benefit. Their cost is what they leave out: the heater with 4 s more delay passed but still swung 0.27 °C after 40 s. Two scenarios fail, so this PI is not applied. These are simulation results.",
+    "explanation": "Robustness margins turn the distance between the loop's frequency curve and −1 into model errors the loop tolerates: a gain factor, a lag at crossover and an extra delay; the peak sensitivity gives the closest approach. Each covers one error at a time, and an error inside a margin uses up part of it.\n\nFor the heater's tuned PI, the margins were a gain factor of 6.91 and 5.91 s of extra delay. Three times the gain and 4 s more delay settled; eight times the gain and 7 s more delay swung.",
+    "transfer": "The margins assume the model's shape. A drive whose shaft twists swings strongly at one frequency, like a weight on a spring; there its gain rises sharply and can use up the gain margin a rigid model promised.\n\n[Mechanical resonance](../89-mechanical-resonance/README.md) measures that swing and removes its frequency from the loop."
+  }
+}

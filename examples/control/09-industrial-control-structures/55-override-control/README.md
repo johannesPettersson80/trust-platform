@@ -1,79 +1,146 @@
-# 59. Override control
+# 66. Override control
 
-You will let a jacket-temperature controller limit the vessel controller’s heating request. You will track both integral states through this selection and distinguish successful constraint control from an infeasible vessel setpoint.
+In this lesson, you will let a jacket-limiting controller take over from the vessel controller whenever the jacket would become too hot, and see why the controller that is not in charge must track the applied command.
 
 ## The problem
 
-Split-range mapping decides which service delivers a requested heat demand. To isolate the separate constraint-selection problem, return to the heater-only vessel baseline. The vessel needs heat, but the jacket must remain at or below 42 °C in this exercise. A vessel controller that sees only its own temperature cannot enforce that jacket requirement. An override uses the second measurement to reduce heating when necessary.
+Lesson 65's split range let one controller both heat and cool the jacketed vessel: with 60 kW coming into the jacket, the cooler settled at 30 % and the vessel stayed within 0.40 °C of 35 °C. Meeting the vessel's heat demand can, however, break a separate limit. Here the jacket must stay at or below 42 °C to protect the product near the wall, and a vessel setpoint of 40 °C would need a 44 °C jacket. The vessel controller knows nothing about the jacket's limit, yet the limit must win over normal control.
 
-Use the same heater-only jacketed vessel as [cascade control](../52-cascade/README.md), including its balances, heat capacities and 2 kW per heater percentage point. This investigation compares two controllers that request heater power directly; it does not require the split-range cooler.
+We will add a controller that holds the jacket below its limit, and let it take over whenever the limit would otherwise be broken.
 
 ## What we need
 
-We need the jacket-temperature constraint to take priority when normal
-vessel demand requests too much heating. Controllers that are not selected
-must remain ready to take over without an unintended command jump.
+We need to:
+
+1. hold the jacket below its limit with a second controller;
+2. give that controller authority whenever the limit would be broken, and hand back when it would not; and
+3. make both hand-overs without a bump in the heater command.
 
 ## The new idea
 
-**Override control** gives a limiting controller authority over the normal
-controller when a constraint needs protection. Here the vessel may request
-more heat while the jacket is already too hot. We select the request that
-protects the jacket and keep both controller states ready for a later transfer.
+**Override control** lets a limiting controller take over from the normal one whenever a limit would otherwise be broken. The smaller request wins. For the vessel, the jacket must stay at or below 42 °C, and a second controller guards that limit.
 
-Both controllers request heating in percent. More heating raises both temperatures. The **low selector** therefore chooses the smaller request:
+**In words.** Two controllers run side by side, and both ask for a heater command:
 
-$$
-u_{selected}=\min(u_{vessel},u_{jacket}),
-$$
+1. **The normal controller** asks for whatever holds the vessel at its setpoint.
+2. **The limiting controller** asks for whatever holds the jacket just below its limit.
 
-then limits the applied command to 0–100%. When jacket temperature approaches its setpoint, its error decreases and its controller can request less heat than the vessel controller. The selector then gives the jacket controller authority.
+A **selector** passes on only one of the two requests. More heat raises both temperatures, so the request that keeps the jacket safe is always the smaller one. While the jacket is well below its limit, the limiter asks for more heat than the vessel needs, and the normal controller is in charge. As the jacket approaches its limit, the limiter's request falls below the other, and it takes over. When the vessel later needs less heat, its controller's request drops below the limiter's, and it is back in charge. Nobody switches anything: the selection follows from the two requests at every update.
 
-Both integrators must account for the selected applied output. Otherwise an unselected controller can accumulate a request that cannot reach the heater. Use the same tracking correction for each: $I_{next}=I_{trial}+(dt/T_t)(u_{applied}-u_{request})$, with $T_t=1$ s. Each request uses its own error and integral; each correction uses the common applied output.
+In PLC terms the selector is a single MIN instruction. The difficult part is the controller that is not selected. It still sees its own error, and its integral keeps adding it up, so its request drifts away from the command actually applied: it then takes over late, or blocks the other controller when it should give way. Tracking, from Lesson 27, prevents this: the controller that is not selected runs in the Track mode of `Control.PID`, which restarts each update from the applied heater command and adds only its own current change.
 
-The temperature constraint can make a setpoint impossible. With no vessel disturbance, equilibrium requires
+**The formula.** The selector applies the smaller request:
 
 $$
-T_j=T_v+.2(T_v-20)=1.2T_v-4.
+u_r = \min(u_{normal},\ u_{limit}) .
 $$
 
-A 37 °C vessel needs a 40.4 °C jacket and is feasible below 42 °C. A 40 °C vessel would need a 44 °C jacket. With $T_j\le42$, the highest maintainable vessel temperature is $(42+4)/1.2=38.333$ °C. No tuning can satisfy both a 40 °C setpoint and that jacket limit.
+Let:
+
+- $u_r$ be the applied heater request, in %;
+- $u_{normal}$ be the vessel controller's request, in %; and
+- $u_{limit}$ be the jacket-limiting controller's request, in %.
+
+The direction depends on the limit: a minimum temperature, or a limit that more output relieves, would need the larger request instead, a $\max$.
+
+The limit also caps what the vessel can reach. At rest the vessel loses $2(T_v - 20)$ kW, which the jacket passes on at 10 kW per °C of difference, so the jacket must be $0.2(T_v - 20)$ warmer than the vessel:
+
+$$
+T_j = T_v + 0.2\,(T_v - 20) = 1.2\,T_v - 4 ,
+$$
+
+with $T_j$ and $T_v$ the jacket and vessel temperatures, in °C.
+
+**Example: the vessel asked for 40 °C.** The vessel PI uses $K_p = 2.5$ %/°C and $K_i = 0.1$ %/(°C·s), Lesson 63's single loop. The jacket-limit PI uses $K_p = 5$ %/°C and $K_i = 10$ %/(°C·s), Lesson 19's rule for the jacket alone, 0.2 °C/% and 0.5 s, with λ = 0.5 s. The limiter's setpoint is 41.8 °C, 0.2 °C below the limit to leave room for the hand-over, a teaching choice. Follow the numbers:
+
+1. Requests of 60 % and 40 % produce 40 %: the smaller request is applied, whichever controller makes it.
+2. A 37 °C vessel needs a jacket of $1.2 \times 37 - 4 = 40.4$ °C, which is allowed; a 40 °C vessel needs 44 °C, which is not.
+3. With the jacket held at 41.8 °C, the vessel reaches at most $(41.8 + 4)/1.2 = 38.17$ °C, and 38.33 °C at the 42 °C limit itself. No tuning can reach 40 °C within the limit: the controller must hold the limit and leave the shortfall visible.
+4. At the start the jacket is at 38 °C, below 41.8 °C, so the limiter's error is positive and it asks for more heat than the vessel PI: the vessel PI is in charge.
+5. As the jacket approaches 41.8 °C, the limiter's request falls below the vessel PI's, and the limiter takes over, holding the vessel near 38.17 °C.
+6. When the setpoint later falls to 37 °C, the vessel PI's request drops below the limiter's, and the vessel PI is back in charge.
+
+**The limitation.** Override works only if the controller that is not selected tracks. Without tracking, the limiter's error at the start, $41.8 - 38 = 3.8$ °C, adds $10 \times 3.8 = 38$ points per second to its request. Within seconds its request stands far above the applied command, and it can take over only after its integral has run back down, which needs the jacket above its setpoint. The vessel PI winds up the same way on the unreachable 40 °C, which delays the hand-back. Override also protects only the limit it watches: another limit needs another limiting controller in the selector.
+
+The requirements, fixed before the run: the jacket stays at or below 42 °C throughout; with 40 °C requested, the vessel holds the feasible 38.17 °C; when the setpoint falls to 37 °C, the vessel controller takes over again without delay.
 
 ## Prediction
 
-For vessel request 30% and jacket request 24%, identify the selected output and the sign of each tracking correction. Explain why reducing a request that is not selected still matters for the later transfer.
+Before running, answer these questions:
 
-Calculate the jacket temperature required at vessel setpoints 35, 37 and 40 °C. Predict which requirement must remain unmet in the 40 °C case.
+1. Which controller is in charge first, and when does the limiter take over?
+2. Where does the vessel settle while 40 °C is requested?
+3. What happens without tracking, to the jacket and after the setpoint falls to 37 °C?
+4. With tracking, what happens to the heater command at the moment the setpoint falls to 37 °C?
+
+| Quantity | Predicted |
+| --- | ---: |
+| Jacket needed for a 37 °C vessel | 40.4 °C |
+| Jacket needed for a 40 °C vessel | 44 °C, not allowed |
+| Warmest vessel with the jacket at 41.8 °C | 38.17 °C |
+| Selected request from 60 % and 40 % | 40 % |
 
 ## Implementation
 
-Write two PI calculations and one `MIN` selector. `MIN(a,b)` returns the smaller argument. Apply the output limit once after selection, then correct both integrators using their own unlimited requests. Display which request was smaller; do not infer selector authority from vessel error alone.
+Open [`src/Main.st`](src/Main.st). The project holds three copies of the heater-only jacketed vessel, all with the same setpoint: 40 °C when the project test starts, and 37 °C from 40 s. The first runs the vessel PI alone. The second runs the function block `OverrideLoop` with tracking: two `Control.PID` instances, the low select and Track mode for the controller not selected. The third runs `OverrideLoop` without tracking.
 
-At the 35/38 °C, 15% starting state, initialize vessel integral to 15%. The jacket error is $41.5-38=3.5$ °C and P is 35 points. Initialize its integral to $15-35=-20$%, making its initial complete request 15%. Negative integral state is legitimate: only the complete applied command is limited to 0–100%. Use .1 s updates, valid measurements and the initialization rules already taught.
+```st
+LowSelect := MIN(NormalPct, LimitPct);
+HoldingJacketC := VesselC + LREAL#0.2 * (VesselC - LREAL#20.0);
+MaximumVesselC := (JacketLimitC + LREAL#4.0) / LREAL#1.2;
+```
+
+**Exercise.** By hand, `LowSelect` gives 40 % for 60 % and 40 % in either order, `HoldingJacketC` gives 40.4 °C for 37 °C and 44 °C for 40 °C, and `MaximumVesselC` gives 38.33 °C at 42 °C and 38.17 °C at 41.8 °C. Open [`src/tests.st`](src/tests.st) and run its tests from the **Testing** view.
 
 ## Experiment in Control Studio
 
-The normal vessel PI has $K_p=2.5$ points/°C and $K_i=.1$ points/(°C·s). A second PI regulates jacket temperature toward 41.5 °C, leaving .5 °C between its setpoint and the 42 °C requirement. Its supplied starting gains are 10 points/°C and 2 points/(°C·s). They are design choices to test, not a guarantee that overshoot stays below .5 °C.
+1. Open this lesson's project and start **Simulator**. The three vessels rest at 35 °C, their jackets at 38 °C, with 15 %. In the **truST** side bar, select **Control Studio**.
+2. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.VesselSetpointC · Setpoint (°C)`, `P1.TrackedVesselC · Process value (°C)` and `P1.TrackedHeaterPct · Applied output (%)`, the override with tracking; add `P1.TrackedJacketC · state (°C)`, `P1.JacketLimitSetpointC · state (°C)`, `P1.TrackedVesselRequestPct · state (%)`, `P1.TrackedJacketRequestPct · state (%)` and `P1.TrackedJacketSelected · state (1)`.
+3. Answer the predictions before starting.
+4. Select **Review project test** and check the declared **62.1 s** duration: 2 s at rest, 40 s with 40 °C requested, then 20 s with 37 °C.
+5. Select **Confirm and start**.
+6. After the run, hover the hand-over and the setpoint change. Then show the three jackets, `P1.AloneJacketC` and `P1.UntrackedJacketC` with the limit setpoint, and hover the peaks; finally the three vessels, adding `P1.AloneVesselC` and `P1.UntrackedVesselC`, and hover before and after the change. Control Studio shows **Project test completed. Outputs restored.**
 
-Keep the two 60 s vessel tests from cascade control: setpoint 35→37 °C with peak at most 38 °C, and separate jacket extraction 30 kW at vessel setpoint 35 °C with minimum at least 34 °C. Both require vessel error within ±.2 °C from 30–60 s. Add the jacket maximum 42 °C to both tests before comparing designs.
-
-1. Display both temperatures, both errors, both unlimited requests and integral states, selected request, applied power and selector authority.
-2. Compare ordinary vessel PI and override in separate full resets for both 60 s tests. All events start at **Confirm and start**; initial temperatures are 35/38 °C, power 15%, disturbances zero, and integrals as specified above.
-3. In a separate override-only 60 s test, request vessel 40 °C for the first 20 s, then return to 35 °C. This is an intentionally infeasible demand. Require jacket at most 42 °C and vessel within 35±.2 °C from 50–60 s after the return. Inspect how selection and tracking affect recovery.
-4. Abort when jacket temperature exceeds 42 °C, vessel temperature leaves 30–40 °C, applied power leaves 0–100%, data become invalid, or time stops. Record a jacket exceedance as a failed requirement before commanding zero heat. Cancel disturbances, stop the simulator if needed, and reset both plant and controllers before repeating.
+Select **Abort test** to stop early. To repeat, stop and restart **Simulator** so the vessels start at rest again.
 
 ## Evidence and decision
 
-Assess jacket maximum and vessel performance separately. Passing the jacket requirement does not establish vessel tracking. In the 40 °C interval, persistent vessel error follows from the heat balance; evaluate constraint handling and subsequent recovery instead of claiming that tuning should remove the error.
+![With tracking, the limiter holds the jacket at its limit and hands back at once; without tracking, the jacket overshoots and the hand-back is late](figures/override-control.svg)
 
-Compare selected-output continuity and both integral states as authority changes. If the jacket limit is exceeded, the proposed override has not qualified; it is not an independent protective device merely because it is called an override.
+The numbered marks answer the predictions with the same numbers. From Control Studio's recording, times from the start of the test:
+
+| | Vessel PI alone | Override with tracking | Override without tracking |
+| --- | ---: | ---: | ---: |
+| Jacket peak | **44.00 °C** | 41.83 °C | **43.17 °C** at 14.7 s |
+| Vessel at 39.9 s, 40 °C requested | 39.96 °C | 38.16 °C | 38.17 °C |
+| Jacket controller in charge | never | 23.6–40.0 s | 14.7–59.8 s |
+| Vessel 10 s after the change to 37 °C | 38.20 °C | 36.57 °C | 38.17 °C |
+
+1. Apart from the very first update, the vessel PI was in charge until 23.6 s; then the limiter took over as the jacket reached 41.8 °C, and held it with a peak of 41.83 °C.
+2. With 40 °C requested, the vessel stopped at 38.16 °C, the feasible maximum, and the shortfall stayed visible.
+3. Without tracking, the limiter added up its 3.8 °C error while it was not selected; its request stood up to 75 points above the heater command, and it took over only at 14.7 s, after the jacket had reached 43.17 °C. After the setpoint fell, the vessel PI's integral, wound up on the unreachable 40 °C, kept its request above the limiter's for 19.8 s more, and the vessel stayed at 38.17 °C.
+4. With tracking, the vessel PI was selected again in the same update as the setpoint change; the heater dropped from 18.2 % to 10.7 %, the vessel PI's ordinary proportional step, and the vessel then dipped to 36.2 °C by 60 s.
+
+The vessel PI alone broke the limit with a 44.00 °C jacket. The benefit of override is a limit that holds whatever the setpoint asks; the cost is a second controller and tracking that must be right, or the override exists and the limit is still broken. Only the tracked override meets the requirements, and it is accepted for this vessel. These are simulation results.
 
 ## Conclusion
 
-Override control gives a measured constraint authority over the normal heating request. Tracking prepares both controllers for selection changes, while the heat balance determines whether the desired vessel temperature is compatible with the jacket limit.
+Override control selects, at every update, the request that respects the limit: here the smaller heater request. The controller that is not selected must track the applied command, or its stored demand delays the hand-over in both directions.
+
+For the vessel, the tracked override held the jacket at 41.83 °C, left the vessel at the feasible 38.16 °C, and handed back to the vessel controller in the same update as the setpoint change.
+
+## Check yourself
+
+1. **The vessel controller requests 32 % and the limiter 25 %. Which request is applied, and who is in charge?**
+   25 %, the smaller request, so the limiter is in charge.
+2. **Why can no tuning bring the vessel to 40 °C within the jacket limit?**
+   A 40 °C vessel needs a 44 °C jacket; with the jacket held at 41.8 °C, the vessel reaches at most 38.17 °C.
+3. **Why did the untracked override let the jacket reach 43.17 °C?**
+   Its limiter kept adding up its own error while not selected and asked for far more than the applied command, so
+   its request fell below the vessel's only after the jacket was already too hot.
 
 ## Reason for the next lesson
 
-The selector gives a measured constraint priority over normal heating demand. It does not compensate for a command whose physical heating effect arrives late. Return now to the single-store electric heater with its known delivery delay; the jacket model itself did not include that extra transport delay.
+The vessel's heater acts on its jacket at once. When a heater's power arrives only after a long delivery delay, every correction arrives too late: a controller fast enough to correct quickly loses its stability margin to the delay, so feedback on the delayed measurement must stay slow.
 
-[Smith prediction](../57-smith-predictor/README.md) uses a validated heater model to account for that timing inside the feedback arrangement while retaining measurement correction.
+[Smith prediction](../57-smith-predictor/README.md) lets the controller act on a model's prediction of the temperature without the delay.

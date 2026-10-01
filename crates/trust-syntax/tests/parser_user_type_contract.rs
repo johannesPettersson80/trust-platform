@@ -59,6 +59,50 @@ fn user_type_parser_accepts_nested_array_repetition_initializer() {
     accepted("TYPE Values : ARRAY[1..8] OF INT := [2(2(1, 2))]; END_TYPE");
 }
 
+/// The node kinds inside every array repetition, in order.
+fn repetition_nodes(source: &str) -> Vec<SyntaxKind> {
+    let parsed = parse(source);
+    assert!(
+        parsed.ok(),
+        "expected type source to parse: {:?}",
+        parsed.errors()
+    );
+    parsed
+        .syntax()
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::CallExpr)
+        .flat_map(|node| {
+            node.descendants()
+                .skip(1)
+                .map(|child| child.kind())
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+#[test]
+fn user_type_parser_reads_a_repeated_instance_initializer_with_or_without_inner_parentheses() {
+    // IEC 61131-3 Ed.3 Table 11 feature 5b writes n(PT := T#100ms); the Annex A grammar writes the same element as
+    // n((PT := T#100ms)). Both repeat one aggregate initializer.
+    let bare =
+        repetition_nodes("TYPE Timers : ARRAY[1..50] OF TON := [50(PT := T#100ms)]; END_TYPE");
+    let grammar =
+        repetition_nodes("TYPE Timers : ARRAY[1..50] OF TON := [50((PT := T#100ms))]; END_TYPE");
+    assert!(bare.contains(&SyntaxKind::InitializerList), "{bare:?}");
+    assert_eq!(bare, grammar);
+    let pairs = repetition_nodes(
+        "TYPE Timers : ARRAY[1..4] OF TON := [2(PT := T#1s, IN := TRUE)]; END_TYPE",
+    );
+    assert_eq!(
+        pairs
+            .iter()
+            .filter(|kind| **kind == SyntaxKind::InitializerList)
+            .count(),
+        1,
+        "{pairs:?}"
+    );
+}
+
 #[test]
 fn user_type_parser_accepts_structure_members_and_defaults() {
     accepted("TYPE Point : STRUCT x : INT := 1; y : INT := 2; END_STRUCT; END_TYPE");

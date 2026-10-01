@@ -1,84 +1,19 @@
 (* @trustlsp:runtime-ignore — run these assertions with trust-dev test;
    they are not scheduled PLC instances in the lesson simulator. *)
-TEST_PROGRAM Lesson42InvalidInputsAreRejectedBeforeControllerMutation
-ASSERT_FALSE(IN := Lesson42NumericRangeIsValid(
-    Setpoint := LREAL#6.0,
-    ProcessValue := LREAL#13.0,
-    ActualValvePosition := LREAL#40.0,
-    FeedForward := LREAL#0.0
-));
-ASSERT_FALSE(IN := Lesson42MeasurementIsFresh(
-    QualityGood := TRUE,
-    AgeSeconds := LREAL#0.6
-));
-ASSERT_FALSE(IN := Lesson42TimingIsValid(CycleTime := LREAL#0.0));
-ASSERT_FALSE(IN := Lesson42CandidateIsValid(
-    ProportionalGain := LREAL#5.0,
-    IntegralGain := LREAL#1.0,
-    TrackingTime := LREAL#1.0,
-    OutputMinimum := LREAL#80.0,
-    OutputMaximum := LREAL#20.0,
-    RateLimit := LREAL#20.0
-));
-ASSERT_FALSE(IN := Lesson42ControllerMutationAllowed(
-    NumericRangeValid := FALSE,
-    MeasurementFresh := TRUE,
-    TimingValid := TRUE,
-    DeadlineMissed := FALSE,
-    ConfigurationValid := TRUE
-));
-ASSERT_FALSE(IN := Lesson42ControllerMutationAllowed(
-    NumericRangeValid := TRUE,
-    MeasurementFresh := TRUE,
-    TimingValid := TRUE,
-    DeadlineMissed := FALSE,
-    ConfigurationValid := FALSE
-));
-ASSERT_TRUE(IN := Lesson42ControllerMutationAllowed(
-    NumericRangeValid := TRUE,
-    MeasurementFresh := TRUE,
-    TimingValid := TRUE,
-    DeadlineMissed := FALSE,
-    ConfigurationValid := TRUE
-));
-ASSERT_EQUAL(EXPECTED := INT#1, ACTUAL := Lesson42DetectedFault(
-    NumericRangeValid := FALSE,
-    MeasurementFresh := FALSE,
-    TimingValid := FALSE,
-    DeadlineMissed := TRUE,
-    ApplyConfiguration := TRUE,
-    CandidateConfigurationValid := FALSE
-));
-ASSERT_EQUAL(EXPECTED := INT#2, ACTUAL := Lesson42DetectedFault(
-    NumericRangeValid := TRUE,
-    MeasurementFresh := FALSE,
-    TimingValid := FALSE,
-    DeadlineMissed := TRUE,
-    ApplyConfiguration := TRUE,
-    CandidateConfigurationValid := FALSE
-));
-ASSERT_EQUAL(EXPECTED := INT#3, ACTUAL := Lesson42DetectedFault(
-    NumericRangeValid := TRUE,
-    MeasurementFresh := TRUE,
-    TimingValid := FALSE,
-    DeadlineMissed := TRUE,
-    ApplyConfiguration := TRUE,
-    CandidateConfigurationValid := FALSE
-));
-ASSERT_EQUAL(EXPECTED := INT#4, ACTUAL := Lesson42DetectedFault(
-    NumericRangeValid := TRUE,
-    MeasurementFresh := TRUE,
-    TimingValid := TRUE,
-    DeadlineMissed := TRUE,
-    ApplyConfiguration := TRUE,
-    CandidateConfigurationValid := FALSE
-));
-ASSERT_EQUAL(EXPECTED := INT#5, ACTUAL := Lesson42DetectedFault(
-    NumericRangeValid := TRUE,
-    MeasurementFresh := TRUE,
-    TimingValid := TRUE,
-    DeadlineMissed := FALSE,
-    ApplyConfiguration := TRUE,
-    CandidateConfigurationValid := FALSE
-));
+
+TEST_PROGRAM OldReadingsAreStale
+(* With a 0.5 s limit, 0.5 s passes and 0.6 s or 0.7 s fails, even if the reading still says 35 °C. *)
+ASSERT_TRUE(ReadingUsable(QualityGood := TRUE, Value := LREAL#35.0, Age := LREAL#0.5, MaximumAge := LREAL#0.5));
+ASSERT_FALSE(ReadingUsable(QualityGood := TRUE, Value := LREAL#35.0, Age := LREAL#0.6, MaximumAge := LREAL#0.5));
+ASSERT_FALSE(ReadingUsable(QualityGood := TRUE, Value := LREAL#35.0, Age := LREAL#0.7, MaximumAge := LREAL#0.5));
+(* A reading stamped in the future has a negative age and is unusable as well. *)
+ASSERT_FALSE(ReadingUsable(QualityGood := TRUE, Value := LREAL#35.0, Age := LREAL#-0.1, MaximumAge := LREAL#0.5));
+END_TEST_PROGRAM
+
+TEST_PROGRAM InvalidReadingsAreRejected
+(* A fresh reading still fails with bad quality or outside the sensor's 0–80 °C range. *)
+ASSERT_FALSE(ReadingUsable(QualityGood := FALSE, Value := LREAL#35.0, Age := LREAL#0.0, MaximumAge := LREAL#0.5));
+ASSERT_FALSE(ReadingUsable(QualityGood := TRUE, Value := LREAL#85.0, Age := LREAL#0.0, MaximumAge := LREAL#0.5));
+ASSERT_FALSE(ReadingUsable(QualityGood := TRUE, Value := LREAL#-1.0, Age := LREAL#0.0, MaximumAge := LREAL#0.5));
+ASSERT_TRUE(ReadingUsable(QualityGood := TRUE, Value := LREAL#35.0, Age := LREAL#0.0, MaximumAge := LREAL#0.5));
 END_TEST_PROGRAM

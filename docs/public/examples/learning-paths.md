@@ -67,7 +67,6 @@ Simulation evidence unless its learner page explicitly says otherwise.
 32. [`control-proportional-position-stiffness`](../../../examples/control/02-derivative-action-and-dynamic-response/32-proportional-position-stiffness/README.md)
 33. [`control-derivative-motion-damping`](../../../examples/control/02-derivative-action-and-dynamic-response/33-derivative-motion-damping/README.md)
 34. [`control-loaded-position-pid`](../../../examples/control/02-derivative-action-and-dynamic-response/34-servo-pid-holding-torque/README.md)
-35. [`control-servo-derivative-kick`](../../../examples/control/02-derivative-action-and-dynamic-response/35-derivative-on-measurement/README.md)
 36. [`control-servo-filtered-derivative`](../../../examples/control/02-derivative-action-and-dynamic-response/36-filtered-derivative/README.md)
 37. [`control-discrete-integral-derivative`](../../../examples/control/03-production-quality-digital-pid/37-discrete-integral-derivative/README.md)
 38. [`control-pid-forms`](../../../examples/control/03-production-quality-digital-pid/38-positional-incremental-pid/README.md)

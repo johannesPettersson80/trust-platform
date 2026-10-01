@@ -1,4 +1,5 @@
-import { designPidForTask } from "./pidTaskDesign";
+import type { StartingPointWait } from "./commissioningStartingPoint";
+import { designPidToRequirements } from "./automaticPidResponse";
 import { assertPidGroupAdapter } from "./pidControllerGroup";
 import { libraryPidInitialization } from "./libraryPidInitialization";
 import { decodeProjectController, projectControllerFamilies } from "./projectController";
@@ -26,7 +27,7 @@ import { PidCommissioning } from "./pidCommissioning";
 import { ProportionalCommissioning, type CommissioningResult } from "./proportionalCommissioning";
 import type { ParameterApplicationClient, ParameterReview } from "./parameterApplication";
 
-export interface ControllerGains { parameters?: Readonly<Record<string, number>>; proportionalGain?: number; integralGain?: number; derivativeGain?: number; backCalculationGain?: number }
+export interface ControllerGains { parameters?: Readonly<Record<string, number>>; proportionalGain?: number; integralGain?: number; derivativeGain?: number; backCalculationGain?: number; proportionalSetpointWeight?: number; derivativeSetpointWeight?: number; measurementFilterSeconds?: number }
 export interface ControllerAdapter {
   transferBinding(): TransferBinding;
   recoveryTracking(model: GeneralModel): TransferTracking;
@@ -35,8 +36,10 @@ export interface ControllerAdapter {
   checkInitialization(): void;
   assertRecoveryNeeded(report: CommissioningResult, model?: GeneralModel): void;
   recover(model: GeneralModel, task: EngineerRequirements, client: ParameterApplicationClient, review: ParameterReview, report: CommissioningResult): Promise<PidCommissioning | ProportionalCommissioning>;
-  initialization(model: GeneralModel, task: EngineerRequirements, values: Record<string, number>): ReturnType<typeof proportionalInitializationPlan>;
-  commission(model: GeneralModel, task: EngineerRequirements, client: ParameterApplicationClient, review: ParameterReview): Promise<PidCommissioning | ProportionalCommissioning>;
+  initialization(model: GeneralModel, task: EngineerRequirements, values: Record<string, number>, processNoise?: number): ReturnType<typeof proportionalInitializationPlan>;
+  /** With `wait`, the review waits (bounded, cancellable) until the process rests at the validated operating point. */
+  commission(model: GeneralModel, task: EngineerRequirements, client: ParameterApplicationClient, review: ParameterReview,
+    wait?: StartingPointWait): Promise<PidCommissioning | ProportionalCommissioning>;
 }
 
 /** One owner for actual ST conventions throughout Tune, Verify and Apply. */
@@ -75,8 +78,8 @@ export function controllerAdapter(loop: ControlLoopDefinition): ControllerAdapte
     checkInitialization: () => { pidInitializationAdapter(loop); },
     assertRecoveryNeeded: report => PidCommissioning.assertRecoveryNeeded(loop, report),
     recover: (model, task, client, review, report) => PidCommissioning.reviewRecovery(loop, model, task, client, review, report),
-    initialization: (model, task, values) => pidInitializationPlan(loop, model, task, values),
-    commission: (model, task, client, review) => PidCommissioning.review(loop, model, task, client, review),
+    initialization: (model, task, values, processNoise) => pidInitializationPlan(loop, model, task, values, processNoise),
+    commission: (model, task, client, review, wait) => PidCommissioning.review(loop, model, task, client, review, undefined, wait),
     };
   }
   const parameter = proportionalParameter(loop);
@@ -95,7 +98,7 @@ export function controllerAdapter(loop: ControlLoopDefinition): ControllerAdapte
     assertRecoveryNeeded: report => ProportionalCommissioning.assertRecoveryNeeded(loop, report),
     recover: (model, task, client, review, report) => ProportionalCommissioning.reviewRecovery(loop, model, task, client, review, report),
     initialization: (model, task, values) => proportionalInitializationPlan(loop, model, task, values),
-    commission: (model, task, client, review) => ProportionalCommissioning.review(loop, model, task, client, review),
+    commission: (model, task, client, review, wait) => ProportionalCommissioning.review(loop, model, task, client, review, wait),
   };
 }
 
@@ -106,7 +109,7 @@ export function tuneTypedController(loop: ControlLoopDefinition, model: GeneralM
   if (!adapter.families.includes(family)) throw new Error(`The bound ST adapter cannot realize ${family}.`);
   if (applicationMode === "auto") adapter.checkInitialization();
   const method = { method: task?.tuningMethod ?? "SIMC" as const, objective: task?.tuningObjective ?? "balanced" as const };
-  const design = task ? designPidForTask(model, family, task, loop.controller.taskPeriodMs)
+  const design = task ? designPidToRequirements(loop, model, family, task)
     : family === "PI" ? designTypedPiCandidate(model, method) : designTypedDerivativeCandidate(model, family, method);
   const law = decodePidLaw(loop.controller.law, loop.parameterBinding);
   if (law?.antiWindup) {
@@ -127,10 +130,13 @@ function applyPidPins(loop: ControlLoopDefinition, family: "PI" | "PD" | "PID",
   candidate: PidPiDesign["candidate"], pins: Readonly<Record<string, number>>): PidPiDesign["candidate"] {
   const law = decodePidLaw(loop.controller.law, loop.parameterBinding);
   if (!law) throw new Error("Pinned PID settings require the declared parallel PID law.");
-  type GainKey = "proportionalGain" | "integralGain" | "derivativeGain" | "backCalculationGain";
+  type GainKey = "proportionalGain" | "integralGain" | "derivativeGain" | "backCalculationGain" | "proportionalSetpointWeight" | "derivativeSetpointWeight" | "measurementFilterSeconds";
   const symbols: Record<string, GainKey> = {
     [law.proportionalGainSymbol]: "proportionalGain", [law.integralGainSymbol]: "integralGain", [law.derivativeGainSymbol]: "derivativeGain",
     ...(law.antiWindup ? { [law.antiWindup.trackingGainSymbol]: "backCalculationGain" as const } : {}),
+    ...(law.proportionalSetpointWeightSymbol ? { [law.proportionalSetpointWeightSymbol]: "proportionalSetpointWeight" as const } : {}),
+    ...(law.derivativeSetpointWeightSymbol ? { [law.derivativeSetpointWeightSymbol]: "derivativeSetpointWeight" as const } : {}),
+    ...(law.measurementFilterTimeSymbol ? { [law.measurementFilterTimeSymbol]: "measurementFilterSeconds" as const } : {}),
   };
   const result = { ...candidate };
   for (const [symbol, value] of Object.entries(pins)) {
@@ -162,12 +168,12 @@ function mappedControllerAdapter(loop: ControlLoopDefinition, families: readonly
     recoveryTracking: model => profile(model).tracking(loop, declaredTransferBinding(loop, requiredInitialization()), false),
     materialize: (gains, observed) => materializeBoundParameters(loop.parameterBinding!, symbols, gains.parameters ?? {}, observed),
     checkInitialization: () => { requiredInitialization(); },
-    initialization: (model, task, values) => declaredInitializationPlan(loop, model, task, values, requiredInitialization()),
+    initialization: (model, task, values, processNoise) => declaredInitializationPlan(loop, model, task, values, requiredInitialization(), processNoise),
     assertRecoveryNeeded: (report, model) => {
       if (!model) throw new Error("Restore the commissioning model before recovery.");
       PidCommissioning.assertRecoveryNeeded(loop, report, profile(model));
     },
-    commission: (model, task, client, review) => PidCommissioning.review(loop, model, task, client, review, profile(model, review.values)),
+    commission: (model, task, client, review, wait) => PidCommissioning.review(loop, model, task, client, review, profile(model, review.values), wait),
     recover: (model, task, client, review, report) => PidCommissioning.reviewRecovery(loop, model, task, client, review, report, profile(model)),
   };
 }

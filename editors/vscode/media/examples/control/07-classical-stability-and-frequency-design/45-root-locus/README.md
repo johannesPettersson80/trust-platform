@@ -1,157 +1,139 @@
-# 47. Root locus
+# 51. Root locus
 
-You will use a root locus to choose the shaft's proportional gain from its
-predicted decay and oscillation. You will keep velocity feedback fixed and
-test whether the chosen gain meets the position requirements.
+In this lesson, you will see where the shaft's poles go as the proportional gain grows, choose a gain from that picture in Control Studio, and test it against two alternatives on the shaft.
 
 ## The problem
 
-The previous lesson calculated the poles for a particular controller gain.
-That describes one choice, but we still need to choose a gain that makes the
-shaft reach its target quickly enough without excessive overshoot.
+Lesson 50 found the characteristic equation of the shaft under PD for one choice of gains, $K_p = 16$ N·m/rad and $K_d = 7$ N·m·s/rad: $(s + 4)^2 = 0$. After a knock, the shaft turned at 0.0953 rad and returned without passing its target, 0.0010 rad away after 2 s. That describes one gain. To choose $K_p$, we need to know how the poles, and so the response, change when $K_p$ changes.
+
+We will follow the poles as $K_p$ grows, choose a gain from that picture in Control Studio, and test it on target steps.
 
 ## What we need
 
-We need **a way to choose the proportional gain so the shaft reaches its
-target quickly enough without excessive overshoot**.
+We need to:
 
-The previous lesson calculated the poles for one gain. That tells us about
-that particular choice, but not how changing the gain changes the response.
-
-We therefore need to see **how the poles move as $K_p$ changes**, while the
-shaft and other controller settings stay fixed. That lets us identify
-promising gains and reject unsuitable ones.
-
-**Root locus provides that picture.** We use it to choose a candidate, then
-test its actual overshoot and settling in Control Studio.
+1. see how the poles move as $K_p$ changes while the shaft and the braking stay fixed;
+2. read from that picture which gains respond fast enough without overshoot; and
+3. check the chosen gain against the limits the model leaves out.
 
 ## The new idea
 
-A **root locus** plots the closed-loop pole locations as one controller gain
-changes. We use it to see which response speeds and oscillation patterns are
-available, choose a candidate gain, then test its actual response.
+**A root locus** is a plot of where the closed-loop poles go as one gain increases. From it you choose the gain that gives the speed and the overshoot you want.
 
-Each point is a pole at a particular gain, not the physical shaft position.
-The horizontal coordinate is its real part, describing decay or growth;
-the vertical coordinate is its imaginary part, describing oscillation rate.
-Both use inverse seconds, with imaginary magnitude interpreted in rad/s.
-Joining corresponding pole positions as gain changes traces the locus.
+**In words.** Lesson 50's characteristic equation gives the poles for one choice of gains. Change one gain, and every pole moves. A root locus follows that movement: it solves the characteristic equation for every value of the gain, from 0 upwards, and draws the path each pole takes. Reading it takes three things:
 
-Use the same shaft with inertia $J=1$ kg·m² and friction
-$B=1$ N·m·s/rad. Let $\theta$ be angle, $r$ its target and $u$ motor torque.
-The physical balance is $J\ddot\theta+B\dot\theta=u$.
-With P torque $u=K_p(r-\theta)$, the characteristic equation is:
+1. **Each point is a pole at one gain**, not a position of the shaft.
+2. **Left and right is speed.** The horizontal coordinate is the pole's real part: the further left, the faster its motion dies away. The slowest pole, the one furthest right, decides how long a response lasts.
+3. **Up and down is swinging.** The vertical coordinate is the imaginary part. A pole on the horizontal axis gives a smooth motion; a pair above and below it gives a swing, faster the further from the axis.
 
-$$
-s^2+s+K_p=0.
-$$
+It is like turning the gain up slowly during commissioning and watching how the response changes, except that the plot shows every gain at once, calculated, without moving the machine.
 
-The zero-initial-state shaft transfer from torque to angle is
-$G_0(s)=\Theta(s)/U(s)=1/[s(s+1)]$. It follows by transforming the
-same torque balance; $\Theta$ and U are the angle and torque transforms.
+For the shaft, the braking stays fixed at $K_d = 7$ N·m·s/rad while $K_p$ varies, and the locus shows which $K_p$ gives a fast response without overshoot.
 
-Now include the velocity braking already taught in PD:
-$u=K_p(r-\theta)-K_d\dot\theta$ with $K_d=7$ N·m·s/rad fixed.
-The total damping coefficient is $B+K_d=1+7=8$, giving:
+**The formula.** With $J = 1$ kg·m² and $B = 1$ N·m·s/rad, the shaft and its braking obey $\ddot\theta + 8\,\dot\theta = K_p\,(r - \theta)$. The characteristic equation and its roots are
 
 $$
-s^2+8s+K_p=0.
+s^2 + 8\,s + K_p = 0, \qquad s = \frac{-8 \pm \sqrt{64 - 4K_p}}{2} .
 $$
 
-The effective transfer with that velocity feedback already connected is
-$G_7(s)=1/[s(s+8)]$. The physical shaft has not changed. We will vary
-$K_p$ while holding the braking fixed. Keep torque limits ±20 N·m,
-$0\le K_p\le20$ in N·m/rad and the 0.02 s controller update.
+Let:
 
-For these two separate families, the quadratic formula gives:
+- $K_p$ be the proportional gain, in N·m/rad, the one gain that varies;
+- $p_1$ and $p_2$ be the two poles, in 1 per second, $p_1$ the slower when both are real;
+- $\sigma \pm j\omega$ be the poles when they are complex, $\sigma$ in 1 per second and $\omega$ in rad/s; and
+- $e(t)$ be how far the shaft is still short of its target after a step of 1 rad from rest, in rad.
 
-$$
-G_0:\ s=\frac{-1\pm\sqrt{1-4K_p}}{2},\qquad
-G_7:\ s=\frac{-8\pm\sqrt{64-4K_p}}{2}.
-$$
+What the poles say about a 1 rad step depends on where they are:
 
-For G0, the roots are [−1±√(1−4Kp)]/2. At Kp=0 they are 0 and −1; at .25 they meet at −.5; at 4 they are −.5±j1.93649; at 16 they are −.5±j3.96863. Increasing Kp moves the conjugate roots away from the real axis, increasing their oscillation frequency, but cannot move their real parts left of −.5. A screening goal Re(s)≤−2 for a four-second settling requirement is therefore impossible on this P-only locus. It is a design screen, not a guarantee that a recorded response settles in four seconds.
+| Poles | Remaining error $e(t)$ | What it means |
+| --- | --- | --- |
+| Real, $p_1 \neq p_2$ | $\dfrac{p_2\,e^{p_1 t} - p_1\,e^{p_2 t}}{p_2 - p_1}$ | no overshoot; the slow pole's term lasts longest |
+| Equal, $-4$ twice | $(1 + 4t)\,e^{-4t}$, Lesson 50's repeated root | no overshoot |
+| Complex, $\sigma \pm j\omega$ | swings | overshoot $e^{\sigma\pi/\omega}$ of the step, Lesson 49 |
 
-With fixed Kd=7, the shaft equation has total velocity coefficient B+Kd=8. The second locus has roots [−8±√(64−4Kp)]/2. At Kp=12 roots are −2 and −6; at Kp=16 they are a repeated −4 root; at Kp=20 they are −4±j2. The breakaway behavior shows why adding fixed velocity feedback changes the plant family seen by Kp. We vary one scalar on each separate locus, not two gains at once.
+The first torque at a step from rest is $K_p$ times the step, because the error is the whole step and the shaft is not yet moving.
+
+**Example: following the poles.** Only $K_p$ varies. Follow the roots as it grows from 0:
+
+1. $K_p = 0$: the roots are 0 and $-8$. The paths start there, at the poles of the shaft and its braking alone.
+2. $0 < K_p < 16$: two real poles move toward each other. $K_p = 15$ gives $\sqrt{64 - 60} = 2$ under the root, so $p_1 = -3$ and $p_2 = -5$. After 2 s, the remaining error is $(-5\,e^{-6} + 3\,e^{-10})/(-2) = 2.5\,e^{-6} - 1.5\,e^{-10} = 0.0061$ rad: the slow pole's term is all that is left. Trying times shows that the error falls below 0.02 rad at 1.60 s.
+3. $K_p = 16$: the two poles meet at $-4$, the repeated root of the last lesson.
+4. $K_p > 16$: they leave the real axis as $-4 \pm j\sqrt{K_p - 16}$. $K_p = 32$ gives $-4 \pm 4j$, and an overshoot of $e^{-4\pi/4} = e^{-\pi} = 0.043$, 4.3 % of the step.
+
+**Reading the picture.** Below 16, one pole is slower than $-4$, so the response lasts longer. At 16 both sit at $-4$: the fastest decay without swinging. Above 16 the real part stays at $-4$, so more gain decays no faster; it only adds a swing of $\sqrt{K_p - 16}$ rad/s, and with it overshoot.
+
+**The limitation.** The locus contains only what its linear model contains. At a 1 rad step the first torque is $K_p \times 1$ rad: $K_p = 32$ would ask for 32 N·m, more than the drive's 20 N·m. The torque would saturate, and the start would no longer follow the locus. The requirement and the candidate gains below are teaching choices.
 
 ## Prediction
 
-Calculate the roots at Kp=0.25,4,16,12,20. Decide which locus can meet the Re(s)≤−2 screen and which selected Kp, 12 or 16, you will test. Predict whether the screen guarantees the peak/error requirement; it does not account for torque saturation or sampling.
+The requirement for a step from 0 to 1 rad: within ±0.02 rad of the target from 2 s after the step, at most 0.05 rad overshoot, and the torque below the drive's 20 N·m limit. Before running, answer these questions:
+
+1. Will $K_p = 12$ be within ±0.02 rad of the target 2 s after the step?
+2. From when will $K_p = 16$ stay within ±0.02 rad?
+3. What overshoot and first torque does $K_p = 20$ give?
+4. Which gain meets every part of the requirement?
+
+| $K_p$ | Poles | Expected |
+| ---: | --- | --- |
+| 12 | −2, −6 | slow: 0.027 rad short after 2 s |
+| 16 | −4, −4 | within 0.02 rad from 1.46 s, no overshoot |
+| 20 | −4 ± 2j | overshoot 0.2 %, first torque 20 N·m |
 
 ## Implementation
 
-The root locus is calculated and displayed by **Control Studio**, not by the
-ST program. ST applies the gain selected from that plot to the shaft:
+Open [`src/Main.st`](src/Main.st). The function `BrakedPositionTorque` applies $u = K_p\,(r - \theta) - 7\,\omega$ from the measured angle and velocity, within ±20 N·m, every 20 ms. The program runs two identical shafts: `Kp` drives the candidate and `AlternativeKp` the alternative, preset to 16 and 12. The project experiment steps both targets to 1 rad. The program calculates no roots: Control Studio calculates the root locus from the model $1/(s\,(s + 8))$ declared in `control-loop.json`.
 
-$$
-u_r=K_p(r-\theta)-7\omega.
-$$
-
-Here $u_r$ is requested torque, $r-\theta$ the measured position error, and
-$\omega$ measured shaft velocity. Keep the existing ±20 N·m output limiter
-and the 0.02 s update. The student changes only the selected $K_p$; derivative
-gain remains 7. There is no root-calculation or plotting task to implement in ST.
-
-The prepared project supplies the shaft model, the Kp sweep and explicit
-symbolic parameter bindings. Control Studio applies a reviewed gain only
-while `ExperimentEnabled=FALSE`; `Kd` is fixed at7 in both the analysis and
-runtime binding. Selecting a point alone does not change the live controller.
+**ST practice.** Calculate `BrakedPositionTorque` by hand at the moment of the step, with the shaft at rest: $K_p \times 1$ rad, so 12, 16 and 20 N·m. Then calculate it with the shaft at 0.5 rad moving at 1 rad/s and $K_p = 16$: $16 \times 0.5 - 7 = 1$ N·m. The braking term takes torque away while the shaft moves toward its target. The tests in [`src/tests.st`](src/tests.st), run from the **Testing** view, check the same law.
 
 ## Experiment in Control Studio
 
-1. In the prepared project, open **Control Studio → Tune → Root locus**.
-   Select **Calculate root locus**. Confirm the physical model is
-   $G_0(s)=1/[s(s+1)]$, the varying parameter is `Kp`, and `Kd=7` is fixed.
-   The declared numerator `Kd s + Kp` represents the feedback terms in the
-   characteristic equation, giving the same locus as $K_pG_7(s)$. It does
-   not mean differentiating the target in the ST controller. Control Studio calculates
-   the pole paths; no ST root calculations supply this plot.
-2. Inspect the plotted pole pairs for gains 12, 16 and 20. Relate their
-   horizontal positions to decay and their imaginary parts to oscillation.
-   Check them against the short calculations above to understand the graph.
-3. Before testing, choose a gain from the locus and explain the expected
-   benefit and cost. The requirements are a 0→1 rad target step over 8 s,
-   peak≤1.1 rad, and absolute error≤.02 rad from 4–8 s, with torque±20 N·m.
-4. Start from zero angle and velocity, integral OFF, derivative filter
-   bypassed and update .02s. If a reset is needed, restart the simulator
-   **before applying the candidate**, because restart restores the source defaults.
-   Select **Inspect runtime parameters**, **Use selected analysis values**,
-   then **Review candidate**. Check the runtime identity, disabled experiment,
-   selected `P1.Kp` and unchanged `P1.Kd=7`; select **Apply reviewed values**
-   and wait for confirmation that the values were observed after ST execution.
-5. In **Test**, review the8s target-step experiment and select **Confirm and
-   start**. Inspect angle, velocity and requested/applied torque in **Response**.
-   Wait for the experiment to finish and restore Manual. Save the result and
-   reopen it to inspect the retained actual response alongside the chosen locus.
-6. Select an alternative gain from the same locus and repeat from the same
-   reset, keeping the plant and $K_d$ unchanged. Apply it through a fresh
-   review after the reset. Decide whether the measured response supports
-   keeping the first choice or replacing it. To restore the prior parameter
-   set on the same runtime, use **Review rollback** and **Apply reviewed values**
-   while the experiment is disabled; confirm the observed restored values.
-7. Abort if angle leaves ±2 rad, velocity leaves ±10 rad/s, applied torque
-   leaves ±20 N·m, or measurement/clock becomes invalid. Command zero torque,
-   stop the simulator if necessary and fully reset. Reaching a torque limit
-   is recorded saturation, not an out-of-range applied command.
+1. Open this lesson's project and start **Simulator**. Both shafts rest at 0 rad. In the **truST** side bar, select **Control Studio**.
+2. On **Tune**, choose **Root locus** in **Tuning method** and select **Calculate root locus**. The plot shows **Pole paths, Kp 0–20 N·m/rad**, with $K_d = 7$ fixed.
+3. Enter 12, 20 and 16 in **Kp (N·m/rad)**, selecting **Calculate root locus** after each, and read the selected poles under **Calculation details**.
+4. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.Setpoint · Setpoint (rad)`, `P1.Angle · Process value (rad)` and `P1.AppliedTorque · Applied output (N·m)`; add `P1.AlternativeAngle · state (rad)` and `P1.AlternativeTorque · state (N·m)`.
+5. Answer the predictions. Select **Review project test**, check the declared **8.1 s** duration, and select **Confirm and start**. After 2 s both targets step to 1 rad.
+6. After the run, hover both angles 1 s and 2 s after the step, and both torques at the step. At completion, Control Studio shows **Project test completed. Outputs restored.**
+7. Stop the simulator, set `AlternativeKp := 20.0` in `src/Main.st`, start **Simulator** again and repeat steps 4–6.
+
+Select **Abort test** to stop early.
 
 ## Evidence and decision
 
-Retain the **Control Studio root-locus plot**, its model, inspected gain/pole
-pairs, the selected candidate and the reason for choosing it. Pair that design
-evidence with the matched response records. A scalar calculation in ST or a
-response trace alone does not establish that the student used root locus.
+![Kp = 12 is too slow, Kp = 20 uses the whole drive, and Kp = 16 meets every part](figures/root-locus-steps.svg)
 
-Check that the locus varies only physical $K_p$ with $K_d=7$ fixed. A multiplier
-on the whole PD controller varies both gains and is a different locus. Compare
-the selected gain's predicted decay/oscillation with measured peak and settling;
-sampling or torque saturation can cause a candidate to miss the requirements.
+The numbered marks answer the predictions with the same numbers. Control Studio's root locus listed the poles −6 and −2 at $K_p = 12$, −4 twice at 16, and $-4 \pm 2j$ at 20. From the recorded steps:
+
+| $K_p$ | Angle after 2 s | Within ±0.02 rad from | Largest angle | First torque |
+| ---: | ---: | ---: | ---: | ---: |
+| 12 | 0.9731 rad | 2.16 s | 1.0000 rad | 12 N·m |
+| 16 | 0.9969 rad | 1.46 s | 1.0000 rad | 16 N·m |
+| 20 | 1.0005 rad | 1.04 s | 1.0013 rad | 20 N·m |
+
+1. At $K_p = 12$ the slow pole $-2$ kept the shaft 0.027 rad short after 2 s: it fails.
+2. At $K_p = 16$ the shaft stayed within 0.02 rad from 1.46 s, without overshoot.
+3. At $K_p = 20$ it settled fastest and overshot by only 0.0013 rad, but its first torque used the drive's whole 20 N·m: any larger move would hit the limit.
+4. Only $K_p = 16$ met every part of the requirement, and we keep it.
+
+Each difference is where the locus put it. The benefit of the picture is that it shows all gains at once; its cost is what it leaves out, here the torque limit, which only the test revealed. These are simulation results.
 
 ## Conclusion
 
-Root locus makes the effect of one scalar Kp visible. The P-only shaft is limited by real-part geometry; fixed Kd changes the same physical shaft's damping and creates a different Kp family.
+A root locus shows how the closed-loop poles move as one gain changes. For the shaft with $K_d = 7$, the poles meet at $K_p = 16$ and then move only vertically: more gain adds swinging, not speed.
+
+The locus chose the candidates; the test decided, including the torque limit the locus does not contain. $K_p = 16$ is kept.
+
+## Check yourself
+
+1. **What are the poles for $K_p = 7$, and which one decides how long a step takes?**
+   $s = (-8 \pm \sqrt{36})/2$, so −1 and −7 per second. The slow pole −1 decides: $e^{-t}$ still leaves 14 % after 2 s.
+2. **Why does raising $K_p$ above 16 not make the shaft settle faster?**
+   Above 16 the poles' real part stays at −4, which sets the decay; the extra gain only raises the imaginary part,
+   which adds swinging.
+3. **What first torque would $K_p = 25$ ask for at a 1 rad step, and what happens?**
+   25 N·m, more than the drive's 20 N·m, so the torque saturates and the linear locus no longer describes the start.
 
 ## Reason for the next lesson
 
-The pole paths show how proportional gain changes the shaft’s response. Checking selected gains has not yet established the complete stable range or its boundary cases.
+The locus showed the poles for the gains we plotted, 0 to 20 N·m/rad. It does not state the exact range of gains that keeps the loop stable, or what happens at the boundary of that range.
 
-[Routh–Hurwitz stability](../44-routh-hurwitz/README.md) derives a complete interval from polynomial coefficients. It starts with the same physical shaft under proportional control, with velocity feedback removed, so the table construction is easy to follow.
+[Routh–Hurwitz stability](../44-routh-hurwitz/README.md) finds that range from the coefficients of the characteristic equation alone.

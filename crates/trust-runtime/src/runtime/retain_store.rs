@@ -23,14 +23,15 @@ impl Runtime {
         let retained = self.prepare_retain_snapshot_for_restart(&snapshot, &restart)?;
         self.commit_restart(restart);
         self.commit_retain_snapshot(retained);
-        Ok(())
+        // Retained marker variables start the next cycle from their retained values.
+        self.commit_memory_bindings()
     }
 
     /// Load retained values from the configured store.
     pub fn load_retain_store(&mut self) -> Result<(), RuntimeError> {
         let snapshot = self.retain.load()?;
         self.apply_retain_snapshot(&snapshot)?;
-        Ok(())
+        self.commit_memory_bindings()
     }
 
     /// Persist retained values to the configured store.

@@ -42,9 +42,8 @@ fn setup_with(relative: &str, replacements: &[(&str, &str)]) -> (Runtime, Simula
     runtime
         .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
         .unwrap();
-    let simulation = SimulationController::new(
-        SimulationConfig::load(&project.join("simulation.toml")).unwrap(),
-    );
+    let simulation =
+        SimulationController::new(SimulationConfig::load(project.join("simulation.toml")).unwrap());
     (runtime, simulation)
 }
 
@@ -322,7 +321,7 @@ fn lesson18_runs_independent_hot_reset_holdouts_and_an_immediate_physical_load()
                 .unwrap();
             debug.enqueue_io_write(
                 IoAddress::parse("%MX64.0").unwrap(),
-                Value::Bool(scan >= 50 && scan < 450),
+                Value::Bool((50..450).contains(&scan)),
             );
             runtime.advance_time(Duration::from_millis(100));
             runtime.execute_cycle().unwrap();
@@ -340,7 +339,7 @@ fn lesson18_runs_independent_hot_reset_holdouts_and_an_immediate_physical_load()
             }
             assert_eq!(
                 number(&runtime, "%QL0"),
-                if scan >= 50 && scan < 450 {
+                if (50..450).contains(&scan) {
                     command
                 } else {
                     75.0
@@ -348,7 +347,7 @@ fn lesson18_runs_independent_hot_reset_holdouts_and_an_immediate_physical_load()
             );
             assert_eq!(
                 number(&runtime, "%QL8"),
-                if trial == 2 && scan >= 50 && scan < 450 {
+                if trial == 2 && (50..450).contains(&scan) {
                     30.0
                 } else {
                     0.0
@@ -370,99 +369,143 @@ fn lesson18_runs_independent_hot_reset_holdouts_and_an_immediate_physical_load()
     }
 }
 
-#[test]
-fn lesson19_applies_coefficient_matched_pi_from_the_common_hot_reset() {
-    let (mut runtime, mut simulation) = setup("06-pid-tuning-methods/30-model-based-pi-tuning");
-    let debug = runtime.enable_debug();
-    for scan in 0..602 {
-        simulation
-            .apply_pre_cycle(Duration::from_millis(scan * 100), &mut runtime)
-            .unwrap();
-        debug.enqueue_io_write(
-            IoAddress::parse("%MX96.1").unwrap(),
-            Value::Bool(scan > 0 && scan <= 600),
-        );
-        runtime.advance_time(Duration::from_millis(100));
-        runtime.execute_cycle().unwrap();
-        if scan == 0 {
-            assert_eq!(
-                number(&runtime, "%IL0"),
-                35.0,
-                "same heater reset, not a50°C heat exchanger"
-            );
-            assert_eq!(number(&runtime, "%QL0"), 75.0);
-        }
-        assert!((number(&runtime, "%IL8") - number(&runtime, "%IL0")).abs() < 1e-12,
-            "The controller must use the same heater measurement validated in Lesson18, without an unmodelled probe lag");
-        if scan == 1 {
-            let Value::Instance(program) = runtime.storage().get_global("P1").unwrap() else {
-                panic!("Lesson19 must execute its P1 program");
-            };
-            let Some(Value::Instance(controller)) =
-                runtime.storage().get_instance_var(*program, "Controller")
-            else {
-                panic!("Lesson19 must instantiate the real Control.PID block");
-            };
-            assert_eq!(
-                runtime
-                    .storage()
-                    .get_instance(*controller)
-                    .unwrap()
-                    .type_name
-                    .as_str(),
-                "Control.PID"
-            );
-            let Some(Value::Struct(state)) = runtime
-                .storage()
-                .get_instance_var(*controller, "StateValue")
-            else {
-                panic!("Control.PID must retain its executed state");
-            };
-            assert_eq!(state.field("Setpoint"), Some(&Value::LReal(38.0)));
-            assert_eq!(state.field("ProcessValue"), Some(&Value::LReal(35.0)));
-            assert_eq!(state.field("NominalOutput"), Some(&Value::LReal(90.3)));
-            assert_eq!(
-                state.field("SaturatedOutput"),
-                Some(&Value::LReal(number(&runtime, "%QL0")))
-            );
-            assert_eq!(
-                runtime.storage().get_instance_var(*program, "TemperatureC"),
-                Some(&Value::LReal(number(&runtime, "%IL8"))),
-                "Lesson19 must read the native probe input"
-            );
-            assert!(
-                (number(&runtime, "%ML32") - 90.3).abs() < 1e-9,
-                "Kp5 Ki1 and I75 give90.3% first request"
-            );
-        }
-        assert!((0.0..=100.0).contains(&number(&runtime, "%QL0")));
-        if scan == 601 {
-            assert_eq!(number(&runtime, "%QL0"), 75.0);
-        }
-        simulation
-            .apply_post_cycle(Duration::from_millis((scan + 1) * 100), &runtime)
-            .unwrap();
+fn lesson19_scan(runtime: &mut Runtime, simulation: &mut SimulationController, scan: i64) {
+    simulation
+        .apply_pre_cycle(Duration::from_millis(scan * 100), runtime)
+        .unwrap();
+    runtime.advance_time(Duration::from_millis(100));
+    runtime.execute_cycle().unwrap();
+    simulation
+        .apply_post_cycle(Duration::from_millis((scan + 1) * 100), runtime)
+        .unwrap();
+}
+
+fn lesson19_gain(
+    runtime: &Runtime,
+    program: trust_runtime::memory::InstanceId,
+    field: &str,
+) -> f64 {
+    let Some(Value::Struct(parameters)) = runtime.storage().get_instance_var(program, "Parameters")
+    else {
+        panic!("Lesson19 must keep a complete Control.PID parameter record");
+    };
+    match parameters.field(field) {
+        Some(Value::LReal(value)) => *value,
+        other => panic!("expected LREAL {field}, got {other:?}"),
     }
 }
 
 #[test]
-fn lesson19_halves_gains_for_double_response_time_and_inhibits_invalid_models() {
-    for (before, after, expected) in [
-        ("TrialKind : INT := 0;", "TrialKind : INT := 1;", 75.0),
-        (
-            "DesiredResponseS : LREAL := 5.0;",
-            "DesiredResponseS : LREAL := 10.0;",
-            82.65,
-        ),
+fn lesson19_executes_the_gains_control_studio_applies_without_overwriting_them() {
+    let (mut runtime, mut simulation) = setup("06-pid-tuning-methods/30-model-based-pi-tuning");
+    let debug = runtime.enable_debug();
+    let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
+        panic!("Lesson19 must execute its P1 program");
+    };
+    for scan in 0..10 {
+        lesson19_scan(&mut runtime, &mut simulation, scan);
+        assert_eq!(
+            number(&runtime, "%QL0"),
+            75.0,
+            "Manual holds the hot-reset heater command"
+        );
+        assert!(
+            (number(&runtime, "%IL8") - 35.0).abs() < 1e-9,
+            "the same heater holds 35°C"
+        );
+        assert!((number(&runtime, "%IL8") - number(&runtime, "%IL0")).abs() < 1e-12,
+            "The controller must use the same heater measurement validated in Lesson18, without an unmodelled probe lag");
+    }
+    let Some(Value::Instance(controller)) =
+        runtime.storage().get_instance_var(program, "Controller")
+    else {
+        panic!("Lesson19 must instantiate the real Control.PID block");
+    };
+    assert_eq!(
+        runtime
+            .storage()
+            .get_instance(*controller)
+            .unwrap()
+            .type_name
+            .as_str(),
+        "Control.PID"
+    );
+    // Control Studio's Apply writes the complete reviewed record at a task boundary.
+    let mut proposed = runtime
+        .storage()
+        .get_instance_var(program, "Parameters")
+        .unwrap()
+        .clone();
+    let Value::Struct(ref mut record) = proposed else {
+        panic!("complete Control.PID parameter record");
+    };
+    for (field, value) in [("ProportionalGain", 2.5), ("IntegralGain", 0.5)] {
+        *std::sync::Arc::make_mut(record).field_mut(field).unwrap() = Value::LReal(value);
+    }
+    assert!(runtime
+        .storage_mut()
+        .set_instance_var(program, "Parameters", proposed.clone()));
+    for scan in 10..13 {
+        lesson19_scan(&mut runtime, &mut simulation, scan);
+        assert_eq!(
+            runtime.storage().get_instance_var(program, "Parameters"),
+            Some(&proposed),
+            "cyclic code must preserve the gains Control Studio applied"
+        );
+    }
+    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    debug.enqueue_io_write(
+        IoAddress::parse("%ML0").unwrap(),
+        Value::LWord(38.0_f64.to_bits()),
+    );
+    lesson19_scan(&mut runtime, &mut simulation, 13);
+    assert!(
+        (number(&runtime, "%QL0") - 82.65).abs() < 1e-9,
+        "applied Kp2.5 Ki0.5 from I75 give 82.65% for SP35→38, got {}",
+        number(&runtime, "%QL0")
+    );
+    assert_eq!(
+        runtime.storage().get_instance_var(program, "TemperatureC"),
+        Some(&Value::LReal(number(&runtime, "%IL8"))),
+        "Lesson19 must read the native heater input"
+    );
+    for scan in 14..20 {
+        lesson19_scan(&mut runtime, &mut simulation, scan);
+        assert_eq!(
+            number(&runtime, "%ML0"),
+            38.0,
+            "the program keeps the setpoint it was given"
+        );
+        assert!((0.0..=100.0).contains(&number(&runtime, "%QL0")));
+    }
+}
+
+#[test]
+fn lesson19_startup_design_uses_coefficient_matching_and_inhibits_invalid_models() {
+    for (before, after, kp, ki) in [
         (
             "ProcessGainCPerPoint : LREAL := 0.2;",
             "ProcessGainCPerPoint : LREAL := 0.0;",
-            75.0,
+            0.0,
+            0.0,
         ),
         (
             "DesiredResponseS : LREAL := 5.0;",
             "DesiredResponseS : LREAL := 0.0;",
-            75.0,
+            0.0,
+            0.0,
+        ),
+        (
+            "DesiredResponseS : LREAL := 5.0;",
+            "DesiredResponseS : LREAL := 10.0;",
+            5.0 / (0.2 * (10.0 + 1.0)),
+            5.0 / (0.2 * (10.0 + 1.0)) / 5.0,
+        ),
+        (
+            "DesiredResponseS : LREAL := 5.0;",
+            "DesiredResponseS : LREAL := 5.0;",
+            5.0 / (0.2 * (5.0 + 1.0)),
+            5.0 / (0.2 * (5.0 + 1.0)) / 5.0,
         ),
     ] {
         let (mut runtime, mut simulation) = setup_with(
@@ -470,283 +513,350 @@ fn lesson19_halves_gains_for_double_response_time_and_inhibits_invalid_models() 
             &[(before, after)],
         );
         let debug = runtime.enable_debug();
-        simulation
-            .apply_pre_cycle(Duration::ZERO, &mut runtime)
-            .unwrap();
-        debug.enqueue_io_write(IoAddress::parse("%MX96.1").unwrap(), Value::Bool(true));
-        runtime.advance_time(Duration::from_millis(100));
-        runtime.execute_cycle().unwrap();
-        if before.starts_with("TrialKind") {
-            assert_eq!(
-                number(&runtime, "%QL8"),
-                30.0,
-                "the chosen load trial must execute"
-            );
-        }
+        let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
+            panic!("Lesson19 must execute its P1 program");
+        };
+        lesson19_scan(&mut runtime, &mut simulation, 0);
+        assert!(
+            (lesson19_gain(&runtime, program, "ProportionalGain") - kp).abs() < 1e-12,
+            "{after}: the delay-aware rule gives Kp = tau/(K*(lambda+L)) = {kp}"
+        );
+        assert!(
+            (lesson19_gain(&runtime, program, "IntegralGain") - ki).abs() < 1e-12,
+            "{after}: with Ti = tau the rule gives Ki = Kp/tau = {ki}"
+        );
+        debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+        debug.enqueue_io_write(
+            IoAddress::parse("%ML0").unwrap(),
+            Value::LWord(38.0_f64.to_bits()),
+        );
+        lesson19_scan(&mut runtime, &mut simulation, 1);
+        let expected = if kp > 0.0 {
+            75.0 + kp * 3.0 + ki * 3.0 * 0.1
+        } else {
+            75.0
+        };
         assert!(
             (number(&runtime, "%QL0") - expected).abs() < 1e-9,
-            "declared model arithmetic and no division by zero"
+            "{after}: first automatic request must be {expected}%, got {}",
+            number(&runtime, "%QL0")
         );
     }
 }
 
 #[test]
-fn lesson20_runs_feedback_relays_on_the_native_hot_heater_and_aborts_to_zero() {
+fn lesson20_executes_the_gains_control_studio_applies_without_overwriting_them() {
     let (mut runtime, mut simulation) = setup("06-pid-tuning-methods/29-relay-tuning");
     let debug = runtime.enable_debug();
-    let mut rising_edges = Vec::new();
-    let mut previous = 75.0;
-    for scan in 0..603 {
-        simulation
-            .apply_pre_cycle(Duration::from_millis(scan * 100), &mut runtime)
-            .unwrap();
-        debug.enqueue_io_write(
-            IoAddress::parse("%MX8.0").unwrap(),
-            Value::Bool(scan > 0 && scan <= 600),
+    let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
+        panic!("Lesson20 must execute its P1 program");
+    };
+    for scan in 0..10 {
+        lesson19_scan(&mut runtime, &mut simulation, scan);
+        assert_eq!(
+            number(&runtime, "%QL0"),
+            75.0,
+            "Manual holds the hot-reset heater command"
         );
-        runtime.advance_time(Duration::from_millis(100));
-        runtime.execute_cycle().unwrap();
-        let pv = number(&runtime, "%IL0");
-        let command = number(&runtime, "%QL0");
-        if scan == 0 {
-            assert!(
-                (pv - 35.0).abs() <= 0.020001,
-                "relay tuning must use the35°C heater with bounded±.02°C noise: {pv}"
-            );
-        }
-        assert!((33.0..=37.0).contains(&pv));
-        if scan == 1 {
-            assert_eq!(
-                command, 80.0,
-                "the reviewed relay starts High at the hot reset"
-            );
-        }
-        if scan > 0 && scan <= 600 {
-            assert!(
-                command == 70.0 || command == 80.0,
-                "the default relay switches 75 +/- 5 points: {command}"
-            );
-
-            if command > 75.0 && previous <= 75.0 {
-                rising_edges.push(scan);
-                if scan > 1 {
-                    assert!(pv <= 34.9, "feedback must cause the rising switch");
-                }
-            }
-            if command < 75.0 && previous > 75.0 {
-                assert!(pv >= 35.1, "feedback must cause the falling switch");
-            }
-        } else {
-            assert_eq!(
-                command, 75.0,
-                "normal completion restores the holding command"
-            );
-        }
-        previous = command;
-        simulation
-            .apply_post_cycle(Duration::from_millis((scan + 1) * 100), &runtime)
-            .unwrap();
+        assert!(
+            (number(&runtime, "%IL8") - 35.0).abs() <= 0.020001,
+            "the same heater holds 35°C within the ±.02°C noise"
+        );
     }
-    assert!(
-        rising_edges.len() >= 6,
-        "need at least five complete cycles to discard two and retain three: {rising_edges:?}"
-    );
-    let instance = match runtime.storage().get_global("P1") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected P1, got {other:?}"),
+    let Some(Value::Instance(controller)) = runtime
+        .storage()
+        .get_instance_var(program, "Controller")
+        .cloned()
+    else {
+        panic!("Lesson20 must instantiate the real Control.PID block");
     };
-    let scalar = |name| match runtime.storage().get_instance_var(instance, name) {
-        Some(Value::LReal(value)) => *value,
-        other => panic!("expected retained scalar {name}, got {other:?}"),
-    };
-    let cycles = scalar("RetainedCycles");
-    assert!(
-        cycles >= 3.0,
-        "discard two startup cycles and retain at least three complete cycles"
-    );
-    let amplitude = scalar("MeanAmplitudeC");
-    let period = scalar("MeanPeriodS");
-    assert!(amplitude > 0.0 && period > 0.0);
-    assert!(scalar("MaximumAmplitudeC") <= 1.1 * amplitude);
-    assert!(scalar("MinimumAmplitudeC") >= 0.9 * amplitude);
-    assert!(scalar("MaximumPeriodS") <= 1.1 * period);
-    assert!(scalar("MinimumPeriodS") >= 0.9 * period);
     assert_eq!(
         runtime
             .storage()
-            .get_instance_var(instance, "CandidateValid"),
-        Some(&Value::Bool(true))
+            .get_instance(controller)
+            .unwrap()
+            .type_name
+            .as_str(),
+        "Control.PID"
     );
-    let expected_kp = 0.45 * 20.0 / (std::f64::consts::PI * amplitude);
-    assert!((scalar("CandidateKp") - expected_kp).abs() < 1e-9);
-    assert!((scalar("CandidateKi") - expected_kp * 1.2 / period).abs() < 1e-9);
-    debug.enqueue_io_write(IoAddress::parse("%MX8.0").unwrap(), Value::Bool(true));
-    debug.enqueue_io_write(IoAddress::parse("%MX8.1").unwrap(), Value::Bool(true));
-    runtime.advance_time(Duration::from_millis(100));
-    runtime.execute_cycle().unwrap();
-    assert_eq!(number(&runtime, "%QL0"), 0.0);
-    debug.enqueue_io_write(IoAddress::parse("%MX8.1").unwrap(), Value::Bool(false));
-    debug.enqueue_io_write(
-        IoAddress::parse("%IL0").unwrap(),
-        Value::LWord(32.0_f64.to_bits()),
-    );
-    runtime.advance_time(Duration::from_millis(100));
-    runtime.execute_cycle().unwrap();
-    assert_eq!(
-        number(&runtime, "%QL0"),
-        0.0,
-        "out-of-bounds measurement removes heat"
-    );
-    assert_eq!(
-        runtime
-            .io()
-            .read(&IoAddress::parse("%MX8.1").unwrap())
-            .unwrap(),
-        Value::Bool(true)
-    );
-    // Non-finite typed I/O is rejected at the runtime boundary before ST runs.
-    // The already latched zero command must remain in effect.
-    debug.enqueue_io_write(
-        IoAddress::parse("%IL0").unwrap(),
-        Value::LWord(f64::NAN.to_bits()),
-    );
-    runtime.advance_time(Duration::from_millis(100));
-    let error = runtime.execute_cycle().unwrap_err();
-    assert!(error.to_string().contains("must be finite"));
-    assert_eq!(number(&runtime, "%QL0"), 0.0);
-}
-
-#[test]
-fn lesson20_aborts_if_the_reviewed_relay_amplitude_changes_during_acquisition() {
-    let (mut runtime, mut simulation) = setup("06-pid-tuning-methods/29-relay-tuning");
-    let debug = runtime.enable_debug();
-    for scan in 0..10 {
-        simulation
-            .apply_pre_cycle(Duration::from_millis(scan * 100), &mut runtime)
-            .unwrap();
-        debug.enqueue_io_write(IoAddress::parse("%MX8.0").unwrap(), Value::Bool(true));
-        runtime.advance_time(Duration::from_millis(100));
-        runtime.execute_cycle().unwrap();
-        simulation
-            .apply_post_cycle(Duration::from_millis((scan + 1) * 100), &runtime)
-            .unwrap();
-    }
-    let program = match runtime.storage().get_global("P1") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected P1, got {other:?}"),
+    let mut proposed = runtime
+        .storage()
+        .get_instance_var(program, "Parameters")
+        .unwrap()
+        .clone();
+    let Value::Struct(ref mut record) = proposed else {
+        panic!("complete Control.PID parameter record");
     };
+    for (field, value) in [("ProportionalGain", 4.0), ("IntegralGain", 0.4)] {
+        *std::sync::Arc::make_mut(record).field_mut(field).unwrap() = Value::LReal(value);
+    }
     assert!(runtime
         .storage_mut()
-        .set_instance_var(program, "RelayAmplitude", Value::LReal(10.0)));
-    runtime.advance_time(Duration::from_millis(100));
-    runtime.execute_cycle().unwrap();
-    assert_eq!(
-        number(&runtime, "%QL0"),
-        0.0,
-        "a different in-range amplitude invalidates the reviewed experiment"
+        .set_instance_var(program, "Parameters", proposed.clone()));
+    for scan in 10..13 {
+        lesson19_scan(&mut runtime, &mut simulation, scan);
+        assert_eq!(
+            runtime.storage().get_instance_var(program, "Parameters"),
+            Some(&proposed),
+            "cyclic code must preserve the gains Control Studio applied"
+        );
+    }
+    // Velocity form from the retained state: the setpoint started at the noisy measured 35 °C.
+    let (setpoint_before, pv_before) = {
+        let Some(Value::Struct(state)) =
+            runtime.storage().get_instance_var(controller, "StateValue")
+        else {
+            panic!("Control.PID must retain its executed state");
+        };
+        let field = |name: &str| match state.field(name) {
+            Some(Value::LReal(value)) => *value,
+            other => panic!("{name}: {other:?}"),
+        };
+        (field("Setpoint"), field("ProcessValue"))
+    };
+    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    debug.enqueue_io_write(
+        IoAddress::parse("%ML0").unwrap(),
+        Value::LWord(38.0_f64.to_bits()),
     );
-    assert_eq!(
-        runtime
-            .storage()
-            .get_instance_var(program, "CandidateValid"),
-        Some(&Value::Bool(false))
+    lesson19_scan(&mut runtime, &mut simulation, 13);
+    let pv = number(&runtime, "%IL8");
+    let expected =
+        75.0 + 4.0 * ((38.0 - setpoint_before) - (pv - pv_before)) + 0.4 * 0.1 * (38.0 - pv);
+    assert!(
+        (number(&runtime, "%QL0") - expected).abs() < 1e-9,
+        "applied Kp4 Ki.4 drive the first automatic request, got {} (expected {expected})",
+        number(&runtime, "%QL0")
     );
-    assert_eq!(
-        runtime.storage().get_instance_var(program, "SafetyAbort"),
-        Some(&Value::Bool(true))
-    );
+    for scan in 14..20 {
+        lesson19_scan(&mut runtime, &mut simulation, scan);
+        assert_eq!(
+            number(&runtime, "%ML0"),
+            38.0,
+            "the program keeps the setpoint it was given"
+        );
+    }
+}
+
+#[test]
+fn lesson20_startup_design_uses_the_relay_rule_and_inhibits_invalid_cycles() {
+    let ku = 4.0 * 10.0 / (std::f64::consts::PI * 0.45);
+    let (kp, ki) = (0.45 * ku, 0.45 * ku / (4.5 / 1.2));
+    for (before, after, kp, ki) in [
+        (
+            "CycleAmplitudeC : LREAL := 0.45;",
+            "CycleAmplitudeC : LREAL := 0.0;",
+            0.0,
+            0.0,
+        ),
+        (
+            "CyclePeriodS : LREAL := 4.5;",
+            "CyclePeriodS : LREAL := 0.0;",
+            0.0,
+            0.0,
+        ),
+        (
+            "CyclePeriodS : LREAL := 4.5;",
+            "CyclePeriodS : LREAL := 4.5;",
+            kp,
+            ki,
+        ),
+    ] {
+        let (mut runtime, mut simulation) =
+            setup_with("06-pid-tuning-methods/29-relay-tuning", &[(before, after)]);
+        let debug = runtime.enable_debug();
+        let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
+            panic!("Lesson20 must execute its P1 program");
+        };
+        lesson19_scan(&mut runtime, &mut simulation, 0);
+        assert!(
+            (lesson19_gain(&runtime, program, "ProportionalGain") - kp).abs() < 1e-9,
+            "{after}: relay rule gives Kp = .45*4d/(pi*a) = {kp}"
+        );
+        assert!(
+            (lesson19_gain(&runtime, program, "IntegralGain") - ki).abs() < 1e-9,
+            "{after}: relay rule gives Ki = Kp/(Pu/1.2) = {ki}"
+        );
+        debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+        debug.enqueue_io_write(
+            IoAddress::parse("%ML0").unwrap(),
+            Value::LWord(38.0_f64.to_bits()),
+        );
+        lesson19_scan(&mut runtime, &mut simulation, 1);
+        if kp == 0.0 {
+            assert_eq!(
+                number(&runtime, "%QL0"),
+                75.0,
+                "{after}: an unusable relay record keeps the heater in Manual"
+            );
+        } else {
+            assert_eq!(
+                number(&runtime, "%QL0"),
+                100.0,
+                "{after}: the relay candidate's first request exceeds 100 % and is limited"
+            );
+        }
+    }
 }
 
 #[test]
 fn lesson20_hmi_only_binds_signals_of_the_executed_heater_relay() {
     let (runtime, _) = setup("06-pid-tuning-methods/29-relay-tuning");
-    let project = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/control/06-pid-tuning-methods/29-relay-tuning");
+    let project = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/control/06-pid-tuning-methods/29-relay-tuning");
     let descriptor = trust_runtime::hmi::load_hmi_dir(&project).unwrap();
-    let diagnostics = trust_runtime::hmi::validate_hmi_bindings("Res", &runtime.metadata_snapshot(), None, &descriptor);
-    assert!(diagnostics.is_empty(), "The relay HMI must bind the executed one-heater project: {diagnostics:?}");
+    let diagnostics = trust_runtime::hmi::validate_hmi_bindings(
+        "Res",
+        &runtime.metadata_snapshot(),
+        None,
+        &descriptor,
+    );
+    assert!(
+        diagnostics.is_empty(),
+        "The relay HMI must bind the executed one-heater project: {diagnostics:?}"
+    );
+}
+
+/// The heater PI of Lessons 21 and 22 runs the actual `Control.PID` with the gains Control Studio applies.
+fn executes_the_pi_control_studio_applies(project: &str, kp: f64, ki: f64) {
+    let (mut runtime, mut simulation) = setup(project);
+    let debug = runtime.enable_debug();
+    let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
+        panic!("{project} must execute its P1 program");
+    };
+    for scan in 0..10 {
+        lesson19_scan(&mut runtime, &mut simulation, scan);
+        assert_eq!(
+            number(&runtime, "%QL0"),
+            75.0,
+            "Manual holds the hot-reset heater command"
+        );
+        assert!(
+            (number(&runtime, "%IL8") - 35.0).abs() <= 0.020001,
+            "the heater holds 35°C within its ±.02°C noise"
+        );
+    }
+    let Some(Value::Instance(controller)) = runtime
+        .storage()
+        .get_instance_var(program, "Controller")
+        .cloned()
+    else {
+        panic!("{project} must instantiate the real Control.PID block");
+    };
+    assert_eq!(
+        runtime
+            .storage()
+            .get_instance(controller)
+            .unwrap()
+            .type_name
+            .as_str(),
+        "Control.PID"
+    );
+    let Some(mut proposed) = runtime
+        .storage()
+        .get_instance_var(program, "Parameters")
+        .cloned()
+    else {
+        panic!("{project} must keep the complete Control.PID parameter record that Control Studio applies");
+    };
+    let Value::Struct(ref mut record) = proposed else {
+        panic!("complete Control.PID parameter record");
+    };
+    for (field, value) in [("ProportionalGain", kp), ("IntegralGain", ki)] {
+        *std::sync::Arc::make_mut(record).field_mut(field).unwrap() = Value::LReal(value);
+    }
+    assert!(runtime
+        .storage_mut()
+        .set_instance_var(program, "Parameters", proposed.clone()));
+    for scan in 10..13 {
+        lesson19_scan(&mut runtime, &mut simulation, scan);
+        assert_eq!(
+            runtime.storage().get_instance_var(program, "Parameters"),
+            Some(&proposed),
+            "{project}: cyclic code must preserve the gains Control Studio applied"
+        );
+    }
+    let (setpoint_before, pv_before) = {
+        let Some(Value::Struct(state)) =
+            runtime.storage().get_instance_var(controller, "StateValue")
+        else {
+            panic!("Control.PID must retain its executed state");
+        };
+        let field = |name: &str| match state.field(name) {
+            Some(Value::LReal(value)) => *value,
+            other => panic!("{name}: {other:?}"),
+        };
+        (field("Setpoint"), field("ProcessValue"))
+    };
+    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    debug.enqueue_io_write(
+        IoAddress::parse("%ML0").unwrap(),
+        Value::LWord(38.0_f64.to_bits()),
+    );
+    lesson19_scan(&mut runtime, &mut simulation, 13);
+    let pv = number(&runtime, "%IL8");
+    let expected =
+        75.0 + kp * ((38.0 - setpoint_before) - (pv - pv_before)) + ki * 0.1 * (38.0 - pv);
+    assert!((number(&runtime, "%QL0") - expected).abs() < 1e-9,
+        "{project}: the applied Kp {kp} and Ki {ki} drive the first automatic request, got {} (expected {expected})", number(&runtime, "%QL0"));
 }
 
 #[test]
-fn lesson21_compares_selected_scalar_candidates_with_matched_trials_and_activity() {
-    for (kp, ki) in [(5.0, 1.0), (2.5, 0.5)] {
-        for trial in [0_u16, 1] {
-            let kp_line = format!("KpPctPerC : LREAL := {kp};");
-            let ki_line = format!("KiPctPerCs : LREAL := {ki};");
-            let (mut runtime, mut simulation) = setup_with(
-                "06-pid-tuning-methods/31-tuning-method-comparison",
-                &[
-                    ("KpPctPerC : LREAL := 5.0;", &kp_line),
-                    ("KiPctPerCs : LREAL := 1.0;", &ki_line),
-                ],
-            );
-            let debug = runtime.enable_debug();
-            let mut last_activity = 0.0;
-            let mut peak = 35.0_f64;
-            let mut minimum = 35.0_f64;
-            let mut late_error = 0.0_f64;
-            for scan in 0..602 {
-                simulation
-                    .apply_pre_cycle(Duration::from_millis(scan * 100), &mut runtime)
-                    .unwrap();
-                debug.enqueue_io_write(
-                    IoAddress::parse("%MX104.0").unwrap(),
-                    Value::Bool(scan > 0 && scan <= 600),
-                );
-                debug.enqueue_io_write(IoAddress::parse("%MW80").unwrap(), Value::Word(trial));
-                runtime.advance_time(Duration::from_millis(100));
-                runtime.execute_cycle().unwrap();
-                if scan == 0 {
-                    assert_eq!(
-                        number(&runtime, "%IL0"),
-                        35.0,
-                        "all candidates start on the same heater"
-                    );
-                    assert_eq!(number(&runtime, "%QL0"), 75.0);
-                }
-                if scan == 1 {
-                    let expected = if trial == 0 {
-                        75.0 + 3.0 * kp + 0.3 * ki
-                    } else {
-                        75.0
-                    };
-                    assert!((number(&runtime, "%QL0") - expected).abs() < 1e-9);
-                    assert!((number(&runtime, "%ML64") - (expected - 75.0).abs()).abs() < 1e-9);
-                }
-                if scan > 0 && scan <= 600 {
-                    assert_eq!(
-                        number(&runtime, "%ML0"),
-                        if trial == 0 { 38.0 } else { 35.0 }
-                    );
-                    assert_eq!(
-                        number(&runtime, "%QL8"),
-                        if trial == 0 { 0.0 } else { 30.0 }
-                    );
-                    let pv = number(&runtime, "%ML40");
-                    peak = peak.max(pv);
-                    minimum = minimum.min(pv);
-                    if scan >= 301 {
-                        late_error =
-                            late_error.max((pv - if trial == 0 { 38.0 } else { 35.0 }).abs());
-                    }
-                    assert!((0.0..=100.0).contains(&number(&runtime, "%QL0")));
-                    let activity = number(&runtime, "%ML64");
-                    assert!(activity >= last_activity);
-                    last_activity = activity;
-                }
-                if scan == 601 {
-                    assert_eq!(
-                        number(&runtime, "%ML64"),
-                        last_activity,
-                        "shutdown movement must not enter activity"
-                    );
-                    assert_eq!(number(&runtime, "%QL8"), 0.0);
-                }
-                simulation
-                    .apply_post_cycle(Duration::from_millis((scan + 1) * 100), &runtime)
-                    .unwrap();
-            }
-            eprintln!("Kp={kp} Ki={ki} trial={trial}: peak={peak:.5} minimum={minimum:.5} lateError={late_error:.5} activity={last_activity:.5}");
-        }
+fn lesson21_executes_each_candidate_control_studio_applies_without_overwriting_it() {
+    executes_the_pi_control_studio_applies(
+        "06-pid-tuning-methods/31-tuning-method-comparison",
+        4.9,
+        1.0,
+    );
+}
+
+#[test]
+fn robustness_margins_executes_the_pi_whose_margins_control_studio_shows() {
+    // Lesson 58 runs the balanced PI of Lesson 22 on the same heater.
+    executes_the_pi_control_studio_applies(
+        "07-classical-stability-and-frequency-design/88-robustness-margins",
+        5.769231,
+        1.153846,
+    );
+}
+
+#[test]
+fn tuning_to_requirements_executes_the_pi_control_studio_designs_without_overwriting_it() {
+    // Set B's balanced response: lambda = 10/3 s gives Kp = 5/(0.2 (10/3 + 1)) and Ki = Kp/5.
+    executes_the_pi_control_studio_applies(
+        "06-pid-tuning-methods/85-tuning-to-requirements",
+        5.769231,
+        1.153846,
+    );
+}
+
+#[test]
+fn lesson21_counts_command_activity_from_the_initial_holding_command() {
+    let (mut runtime, mut simulation) = setup("06-pid-tuning-methods/31-tuning-method-comparison");
+    let debug = runtime.enable_debug();
+    lesson19_scan(&mut runtime, &mut simulation, 0);
+    assert_eq!(
+        number(&runtime, "%ML64"),
+        0.0,
+        "holding 75% has not moved the command"
+    );
+    // The lesson's worked example: 75% → 80% → 78% moves the command 5 + 2 = 7 points.
+    for (scan, command, activity) in [(1, 80.0, 5.0), (2, 78.0, 7.0), (3, 78.0, 7.0)] {
+        debug.enqueue_io_write(
+            IoAddress::parse("%ML72").unwrap(),
+            Value::LWord(f64::to_bits(command)),
+        );
+        lesson19_scan(&mut runtime, &mut simulation, scan);
+        assert_eq!(
+            number(&runtime, "%QL0"),
+            command,
+            "Manual applies the commanded heater power"
+        );
+        assert!(
+            (number(&runtime, "%ML64") - activity).abs() < 1e-9,
+            "after {command}%: activity {} (expected {activity})",
+            number(&runtime, "%ML64")
+        );
     }
 }
 
@@ -780,8 +890,18 @@ fn heater_design_lessons_latch_invalid_measurements_and_command_zero_heat_on_abo
         ),
         (
             "06-pid-tuning-methods/31-tuning-method-comparison",
-            "%MX104.0",
-            "%MX104.2",
+            "%MX96.1",
+            "%MX96.3",
+        ),
+        (
+            "06-pid-tuning-methods/85-tuning-to-requirements",
+            "%MX96.1",
+            "%MX96.3",
+        ),
+        (
+            "07-classical-stability-and-frequency-design/88-robustness-margins",
+            "%MX96.1",
+            "%MX96.3",
         ),
     ] {
         let (mut runtime, mut simulation) = setup(project);
@@ -803,6 +923,9 @@ fn heater_design_lessons_latch_invalid_measurements_and_command_zero_heat_on_abo
         let measured_input = if project.ends_with("24-choose-model-structure")
             || project.ends_with("26-independent-model-validation")
             || project.ends_with("30-model-based-pi-tuning")
+            || project.ends_with("31-tuning-method-comparison")
+            || project.ends_with("85-tuning-to-requirements")
+            || project.ends_with("88-robustness-margins")
         {
             "%IL8"
         } else if project.ends_with("25-parameter-identifiability") {
@@ -835,123 +958,5 @@ fn heater_design_lessons_latch_invalid_measurements_and_command_zero_heat_on_abo
                 .unwrap(),
             Value::Bool(true)
         );
-    }
-}
-
-#[test]
-fn lesson52_shapes_the_heater_request_before_limiting_and_scales_integral_tracking() {
-    for (zero, request, integral) in [(3.0, 97.95, 75.3), (10.0, 151.5, 74.27)] {
-        let declaration = format!("ZeroTimeS : LREAL := {zero};");
-        let (mut runtime, mut simulation) = setup_with(
-            "07-classical-stability-and-frequency-design/49-loop-shaping",
-            &[("ZeroTimeS : LREAL := 3.0;", &declaration)],
-        );
-        let debug = runtime.enable_debug();
-        for scan in 0..2 {
-            simulation
-                .apply_pre_cycle(Duration::from_millis(scan * 100), &mut runtime)
-                .unwrap();
-            debug.enqueue_io_write(IoAddress::parse("%MX96.0").unwrap(), Value::Bool(scan > 0));
-            runtime.advance_time(Duration::from_millis(100));
-            runtime.execute_cycle().unwrap();
-            if scan == 0 {
-                assert_eq!(
-                    number(&runtime, "%IL0"),
-                    35.0,
-                    "loop shaping uses the same35°C heater, not a speed drive"
-                );
-            }
-            if scan == 1 {
-                assert!(
-                    (number(&runtime, "%ML32") - request).abs() < 1e-9,
-                    "shape the complete command deviation using the old state"
-                );
-                assert!(
-                    (number(&runtime, "%ML16") - integral).abs() < 1e-9,
-                    "track the shaped request with1/a correction"
-                );
-                assert!((number(&runtime, "%QL0") - request.min(100.0)).abs() < 1e-9);
-            }
-            simulation
-                .apply_post_cycle(Duration::from_millis((scan + 1) * 100), &runtime)
-                .unwrap();
-        }
-    }
-}
-
-#[test]
-fn lesson52_runs_all_three_matched_trials_and_measures_the_declared_noise_window() {
-    for zero in [2.0, 3.0, 10.0] {
-        for trial in [0_u16, 1, 2] {
-            let declaration = format!("ZeroTimeS : LREAL := {zero};");
-            let (mut runtime, mut simulation) = setup_with(
-                "07-classical-stability-and-frequency-design/49-loop-shaping",
-                &[("ZeroTimeS : LREAL := 3.0;", &declaration)],
-            );
-            let debug = runtime.enable_debug();
-            let mut peak = 35.0_f64;
-            let mut minimum = 35.0_f64;
-            let mut late_error = 0.0_f64;
-            let mut noise_min = 100.0_f64;
-            let mut noise_max = 0.0_f64;
-            for scan in 0..602 {
-                simulation
-                    .apply_pre_cycle(Duration::from_millis(scan * 100), &mut runtime)
-                    .unwrap();
-                debug.enqueue_io_write(
-                    IoAddress::parse("%MX96.0").unwrap(),
-                    Value::Bool(scan > 0 && scan <= 600),
-                );
-                debug.enqueue_io_write(IoAddress::parse("%MW80").unwrap(), Value::Word(trial));
-                runtime.advance_time(Duration::from_millis(100));
-                runtime.execute_cycle().unwrap();
-                if scan == 0 {
-                    assert_eq!(
-                        number(&runtime, "%IL0"),
-                        35.0,
-                        "all shaping trials use the common heater reset"
-                    );
-                }
-                if scan > 0 && scan <= 600 {
-                    let elapsed = (scan - 1) as f64 * 0.1;
-                    let expected_noise = if trial == 2 {
-                        0.05 * elapsed.sin()
-                    } else {
-                        0.0
-                    };
-                    assert!(
-                        (number(&runtime, "%ML24") - expected_noise).abs() < 1e-9,
-                        "noise is.05sin(t),1rad/s, from experiment start"
-                    );
-                    assert_eq!(
-                        number(&runtime, "%QL8"),
-                        if trial == 1 { 30.0 } else { 0.0 }
-                    );
-                    let pv = number(&runtime, "%ML48");
-                    peak = peak.max(pv);
-                    minimum = minimum.min(pv);
-                    if elapsed >= 30.0 {
-                        late_error =
-                            late_error.max((pv - if trial == 0 { 38.0 } else { 35.0 }).abs());
-                    }
-                    let applied = number(&runtime, "%QL0");
-                    assert!((0.0..=100.0).contains(&applied));
-                    if elapsed >= 12.0 * std::f64::consts::PI
-                        && elapsed <= 18.0 * std::f64::consts::PI
-                    {
-                        noise_min = noise_min.min(applied);
-                        noise_max = noise_max.max(applied);
-                    }
-                }
-                if scan == 601 {
-                    assert_eq!(number(&runtime, "%QL8"), 0.0);
-                    assert_eq!(number(&runtime, "%ML24"), 0.0);
-                }
-                simulation
-                    .apply_post_cycle(Duration::from_millis((scan + 1) * 100), &runtime)
-                    .unwrap();
-            }
-            eprintln!("Tz={zero} trial={trial}: peak={peak:.5} minimum={minimum:.5} lateError={late_error:.5} commandHalfAmplitude={:.5}",(noise_max-noise_min)*0.5);
-        }
     }
 }

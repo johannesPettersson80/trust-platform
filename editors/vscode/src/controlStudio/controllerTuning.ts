@@ -11,10 +11,14 @@ import type { EngineerRequirements } from "./engineerVerificationPlan";
 import { proportionalParameter } from "./engineerVerificationPlan";
 import { controllerAdapter, tuneTypedController, type ControllerFamily } from "./controllerAdapters";
 import { recommendAutomaticController, type AutomaticControllerAttempt } from "./automaticControllerRecommendation";
+import { delayedIntegrator, designIntegratingPToRequirements } from "./automaticPidResponse";
 import { decodePidLaw, proportionalLoopAnalysis } from "./controllerLaw";
 import { designSimpleProportionalController, type SimpleProportionalDesign } from "./simpleControllerDesign";
 import { designManualProportionalCandidate, type ManualProportionalDesign } from "./manualProportionalDesign";
 import { designTypedProportionalCandidate, type PidPiDesign } from "./pidPiDesign";
+import { linearTransferModel } from "./linearTransferModel";
+import { formatEngineeringNumber } from "./chartContract";
+import { displayEngineeringUnit } from "./unitDisplay";
 import { selectedModelAnalysis } from "./selectedModelAnalysis";
 import { calculateDeclaredRouth } from "./routhHurwitz";
 import type { StateDesignPreferences } from "./stateDesignPreferences";
@@ -98,6 +102,13 @@ export function tuneControllerAdapter(loop: ControlLoopDefinition, model: Genera
   const requested = options.proportionalGain;
   if (gainMode === "manual" && (typeof requested !== "number" || !Number.isFinite(requested))) throw new Error("Enter a finite manual proportional gain.");
   const realized = parameter.iec_type === "REAL" ? Math.fround(requested as number) : requested as number;
+  // A delayed integrator keeps P eligible (Specification 35 §9.2): SIMC's gain, predicted like PI, load included.
+  const integrator = delayedIntegrator(model);
+  if (gainMode === "automatic" && integrator && pid) {
+    const integrating = designIntegratingPToRequirements(loop, model, task, integrator.rateGain, integrator.delaySeconds);
+    return { family: "P", design: integrating, values: adapter.materialize(integrating.candidate, {}),
+      reason: "Candidate ready. Verify the actual ST before applying." };
+  }
   const design = (() => {
     if (gainMode === "manual") {
       try { return designManualProportionalCandidate(model, realized, requirements); }
@@ -107,7 +118,8 @@ export function tuneControllerAdapter(loop: ControlLoopDefinition, model: Genera
     catch (error) {
       // A different formula cannot remove an explicitly established gain limit.
       if (error instanceof Error && /gain bounds|proportional gain is outside/i.test(error.message)) throw error;
-      return poleMatchedPid(model, "P", task, loop.controller.taskPeriodMs);
+      try { return poleMatchedPid(model, "P", task, loop.controller.taskPeriodMs); }
+      catch (placement) { throw delayedProportionalUnavailable(loop, model, task) ?? placement; }
     }
   })();
   const pinned = options.pinnedValues && Object.keys(options.pinnedValues).length
@@ -125,6 +137,26 @@ export function tuneControllerAdapter(loop: ControlLoopDefinition, model: Genera
   return { family: "P", design: typed, values: adapter.materialize(typed.candidate, {}), stability, gainChoice,
     reason: gainMode === "manual" ? "Manual exploratory gain retained. Verify the actual ST before applying."
       : "Candidate ready. Verify the actual ST before applying." };
+}
+
+/**
+ * P has no design rule for a self-regulating model with a transport delay (Specification 35: unavailable, not synthesized).
+ * Say so, and give the gain its offset Δr/(1 + K·Kp) would need, from the setpoint change and any declared input disturbance.
+ */
+function delayedProportionalUnavailable(loop: ControlLoopDefinition, model: GeneralModel, task: EngineerRequirements): MainWorkflowError | undefined {
+  let transfer: ReturnType<typeof linearTransferModel>;
+  try { transfer = linearTransferModel(model); } catch { return undefined; }
+  const a0 = transfer.denominator[transfer.denominator.length - 1], b0 = transfer.numerator[transfer.numerator.length - 1];
+  if (!(transfer.delaySeconds > 0) || !(Math.abs(a0) > 1e-12)) return undefined;
+  const gain = Math.abs(b0 / a0), allowance = task.maximumError - task.settlingBand;
+  if (!(gain > 0) || !(allowance > 0)) return undefined;
+  const offsets = [Math.abs(task.referenceChange), gain * Math.abs(task.constantInputDisturbance ?? 0)];
+  const needed = Math.max(0, ...offsets.map(offset => (offset / allowance - 1) / gain));
+  const pv = displayEngineeringUnit(loop.signals.processVariable.unit), mv = displayEngineeringUnit(loop.signals.manipulatedVariable.unit);
+  const shown = (value: number) => formatEngineeringNumber(Number(value.toPrecision(4)));
+  return new MainWorkflowError(`P is unavailable for a model with a transport delay: Control Studio has no P design rule for it. `
+    + `P also settles with the offset Δr/(1 + K·Kp), which stays within ${shown(allowance)} ${pv} only with Kp ≥ ${shown(needed)} ${mv}/${pv}.`,
+    { cause: "controller-capability", nextAction: "choose-controller" });
 }
 
 function applyProportionalPin(loop: ControlLoopDefinition, proposed: number, pins: Readonly<Record<string, number>>): number {

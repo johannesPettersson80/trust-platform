@@ -128,7 +128,7 @@ impl VmWriteTarget {
             Self::DirectStorage { location, offset } => runtime
                 .storage
                 .read_direct_slot_by_location(*location, *offset)
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference)),
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference)),
             Self::Reference(reference) => peek_vm_reference(runtime, caller_frame, reference),
         }
     }
@@ -181,7 +181,7 @@ impl VmWriteTarget {
                 .storage
                 .write_direct_slot_by_location(*location, *offset, value)
                 .then_some(())
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference)),
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference)),
             Self::Reference(reference) => {
                 write_vm_reference(runtime, caller_frame, reference, value)
             }
@@ -550,7 +550,7 @@ pub(super) fn bind_vm_function_block_arguments(
                             let value = module
                                 .consts
                                 .get(default_const_idx as usize)
-                                .ok_or(VmTrap::InvalidConstIndex(default_const_idx))?;
+                                .ok_or_else(|| VmTrap::InvalidConstIndex(default_const_idx))?;
                             let (value, cloned) = materialize_borrowed_value(value);
                             if cloned {
                                 runtime
@@ -618,7 +618,9 @@ pub(super) fn bind_vm_call_arguments(
     pou_id: u32,
     args: &[VmNativeArg],
 ) -> Result<(Vec<Value>, Vec<VmOutBinding>), VmTrap> {
-    let pou = module.pou(pou_id).ok_or(VmTrap::MissingPou(pou_id))?;
+    let pou = module
+        .pou(pou_id)
+        .ok_or_else(|| VmTrap::MissingPou(pou_id))?;
     let params = module.pou_params(pou_id).ok_or_else(|| {
         VmTrap::InvalidNativeCall(format!("missing parameter metadata for pou id {pou_id}").into())
     })?;
@@ -668,7 +670,7 @@ pub(super) fn bind_vm_call_arguments(
                                         RegisterValueOpKind::ConstLoadClone,
                                     )
                                 })
-                                .ok_or(VmTrap::InvalidConstIndex(default_const_idx))?
+                                .ok_or_else(|| VmTrap::InvalidConstIndex(default_const_idx))?
                         } else {
                             Value::Null
                         }
@@ -689,7 +691,7 @@ pub(super) fn bind_vm_call_arguments(
                                 RegisterValueOpKind::ConstLoadClone,
                             )
                         })
-                        .ok_or(VmTrap::InvalidConstIndex(default_const_idx))?
+                        .ok_or_else(|| VmTrap::InvalidConstIndex(default_const_idx))?
                 } else {
                     Value::Null
                 };
@@ -882,12 +884,12 @@ pub(super) fn peek_vm_reference<'a>(
             )
         })?;
         return read_value_path_borrowed(root, &reference.path)
-            .ok_or(VmTrap::Runtime(RuntimeError::NullReference));
+            .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference));
     }
     runtime
         .storage
         .read_by_ref_ref(reference)
-        .ok_or(VmTrap::Runtime(RuntimeError::NullReference))
+        .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))
 }
 
 pub(super) fn read_vm_reference(
@@ -916,7 +918,7 @@ pub(super) fn read_vm_reference(
             value
         } else {
             materialize_value_path(root, &reference.path)
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?
         }
     } else if let Some(value) = runtime.storage.read_by_ref_ref(reference) {
         let (value, cloned) = materialize_borrowed_value(value);
@@ -930,7 +932,7 @@ pub(super) fn read_vm_reference(
         runtime
             .storage
             .materialize_by_ref_ref(reference)
-            .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?
+            .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?
     };
     Ok(value)
 }

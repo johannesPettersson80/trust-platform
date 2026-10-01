@@ -19,14 +19,11 @@ We need to connect the desired temperature, sensor, refrigeration command, and c
 
 ## The new idea
 
-**Control-loop elements** are the parts that connect a desired value,
-a measurement, a control decision, an actuator and the physical process.
-We first identify those parts and observe the action's effect; automatic
-feedback comes in the next lesson.
+A **control loop** is the chain from what we want, through what we change, to what we measure, and back; its parts are the **control-loop elements**. To control something, you must know what you want, what you can measure, what you can change, and how the process answers that change.
+
+**In words.** Each of those four answers has a standard name:
 
 ![The command, equipment, and measurement in the cold room](figures/cold-room-loop.svg)
-
-The parts have standard control names:
 
 | Question | Cold-room answer | Control name |
 | --- | --- | --- |
@@ -37,27 +34,24 @@ The parts have standard control names:
 | What equipment applies the command? | Refrigeration system | Actuator |
 | What equipment responds? | Cold room and contents | Process or plant |
 
-When refrigeration switches ON, it removes heat from the room. Because the room and its contents store thermal energy, the measured temperature falls gradually rather than immediately.
+In PLC terms, the PV is an input your program reads, the MV is an output it writes, and the SP is a value the operator sets. A **disturbance** is an outside influence that changes the temperature we want to control, here heat entering through the open door. Nobody commands it, and the program sees it only through the PV.
 
-The temperature error is the desired value minus the measured value:
+The process takes time to answer. When refrigeration switches ON, it removes heat from the room, but the room and its contents store thermal energy, so the measured temperature falls gradually rather than immediately.
+
+**The formula.** How far the process is from what we want is the **error**:
 
 $$e = SP - PV$$
 
-The signed error is e = SP - PV, with SP and PV measured in °C. With
-SP = 2.0 °C and PV = 4.0 °C, e = 2.0 - 4.0 = -2.0 °C. The negative
-sign says that the room is warmer than
-the desired value. This calculation describes the difference; this lesson's
-fixed sequence does not use it to choose the command.
+- $e$ is the error, in °C;
+- $SP$ is the setpoint and $PV$ the measured temperature, both in °C.
 
-The manual command is a percentage on the simulator's 0–100% scale. OFF is
-0%, ON is 100%, and the applied command equals the selected state in this
-exercise. These are command units, not a claim that a real compressor can
-deliver a continuously adjustable percentage of cooling.
+A positive error means the room is colder than wanted; a negative error means it is warmer.
 
-Heat entering through the open door is a **disturbance**: an outside influence
-that changes the temperature we want to control.
+**Example.** With $SP = 2.0$ °C and $PV = 4.0$ °C, $e = 2.0 - 4.0 = -2.0$ °C. The negative sign says the room is 2 °C warmer than wanted, so refrigeration must remove heat.
 
-For this experiment, the program follows a fixed sequence: refrigeration ON for 20 s, then OFF. The door opens from 60 to 90 s, allowing more heat into the room. These times count from starting the experiment. You start the sequence; the program performs the changes. It does not switch refrigeration back ON just because the room becomes too warm.
+The MV is a command on the simulator's 0–100 % scale: OFF is 0 %, ON is 100 %, and the applied command equals the selected state. These are command units, not a claim that a real compressor can deliver a continuously adjustable percentage of cooling.
+
+**This lesson's sequence.** Nothing closes the loop yet. The program follows a fixed sequence: refrigeration ON for 20 s, then OFF; the door opens from 60 to 90 s. These times count from starting the experiment. You start the sequence; the program performs the changes. It does not use the error to choose the command, so it does not switch refrigeration back ON just because the room becomes too warm.
 
 ## Prediction
 
@@ -87,12 +81,21 @@ Use the project’s temperature input as the measured value. `VAR` and `END_VAR`
 
 ## Experiment in Control Studio
 
-1. Open this lesson's project and start **Simulator**. In **Control Studio → Identify**, choose **Project experiment** from **Method**. In **Signals**, select temperature setpoint, measured temperature, requested and applied refrigeration commands, and door state. The compressor is the part of the refrigeration system switched by these commands: 0 means OFF and 100 means ON; this experiment uses no intermediate power settings.
-2. Confirm temperature setpoint 2 °C, measured temperature 4 °C, both commands OFF, and door closed. `P1.ExperimentEnabled` should be false, meaning the sequence has not started. State your predictions before starting.
-3. Select **Review project test** and check the declared **120.1 s** duration. This covers cooling, warming with refrigeration OFF, and the door opening and closing. The project supplies the sequence and duration; no identification method or additional excitation is needed.
-4. Select **Confirm and start**. This begins the recording and enables the fixed sequence; you do not switch refrigeration or change the setpoint during the run. Stay on Identify to inspect the response plot; Tune and Validate are not needed for this observation exercise.
-5. During the first 20 s, record how measured temperature changes with refrigeration ON. After it switches OFF, record what happens to temperature. From 60 to 90 s, watch the open door indication and check whether rising temperature makes the refrigeration command change.
-6. At completion, confirm `P1.ExperimentEnabled` is false again, both commands are OFF, and the door is closed. Temperature can continue changing after the sequence ends.
+1. Open this lesson's project and start **Simulator**. First look at the plant. In the **truST** side bar, select **Devices & Connections**. Inside **Simulator** you see three boxes marked **SIMULATED PLANT**. Select **cold-storage-room**; the **Configure plant** panel opens. Under **CONNECTIONS**:
+   - **Input 1** is `P1.ManipulatedValue` (%QL0), the refrigeration command your program writes;
+   - **Input 2** is `P1.SurroundingsCommand` (%QL8), the temperature around the room: 4 °C, and 6 °C while the door is open;
+   - **Output 1** is `P1.ProcessValue` (%IL0), the measured temperature your program reads.
+
+   This is the loop in the figure above: command, cold room, measurement. The other two boxes only turn the door event into the door indication and the surroundings temperature. The left half of the panel, **MODEL & BEHAVIOR**, holds the equation the simulator uses to calculate the temperature; you do not need it yet. Close the panel with **Cancel**.
+
+   ![The cold-room plant's connections in the hardware canvas](figures/cold-room-in-hardware-canvas.png)
+
+2. In the **truST** side bar, select **Control Studio**. On **Identify**, choose **Project experiment** from **Method**. In **Signals**, select `P1.ProcessValue · Process value (°C)`, `P1.Setpoint · SP (°C)`, `P1.ManualDemand · Requested output (%)`, `P1.ManipulatedValue · Applied output (%)` and `P1.DoorOpenIndication · state (1)`. The compressor is the part of the refrigeration system switched by these commands: 0 means OFF and 100 means ON; this experiment uses no intermediate power settings.
+3. Confirm temperature setpoint 2 °C, measured temperature 4 °C, both commands OFF, and door closed. `P1.ExperimentEnabled` should be false, meaning the sequence has not started. State your predictions before starting.
+4. Select **Review project test** and check the declared **120.1 s** duration. This covers cooling, warming with refrigeration OFF, and the door opening and closing. The project supplies the sequence and duration; no identification method or additional excitation is needed.
+5. Select **Confirm and start**. This begins the recording and enables the fixed sequence; you do not switch refrigeration or change the setpoint during the run. Stay on Identify to inspect the response plot; Tune and Validate are not needed for this observation exercise.
+6. During the first 20 s, record how measured temperature changes with refrigeration ON. After it switches OFF, record what happens to temperature. From 60 to 90 s, watch the open door indication and check whether rising temperature makes the refrigeration command change.
+7. At completion, Control Studio shows **Project test completed. Outputs restored.** Confirm `P1.ExperimentEnabled` is false again, both commands are OFF, and the door is closed. Temperature can continue changing after the sequence ends.
 
 To stop early, select **Abort test**. Also stop if temperature leaves −10 to 10 °C or the signals stop updating. Confirm refrigeration OFF; if the simulator does not respond, stop it with the debug toolbar's **Stop** button. Before repeating, stop and restart **Simulator** and confirm the original 4 °C temperature, closed door and OFF commands.
 
@@ -101,6 +104,8 @@ These are exercise limits for the simulator, not operating limits or protection 
 ## Evidence and decision
 
 ![The compressor running lowers temperature; the open door raises it again](figures/manual-cooling-response.svg)
+
+The numbered marks answer the predictions with the same numbers. The dashed green line is the surroundings temperature the simulator uses: 4 °C, and 6 °C while the door is open.
 
 - With the compressor ON, measured temperature falls from 4.00 °C to 0.84 °C by 20.0 s.
 - After the compressor switches OFF, measured temperature rises to 2.84 °C by 40.0 s.
@@ -117,6 +122,17 @@ The third prediction concerns the command: it stays OFF while temperature rises 
 Before writing a controller, identify what you want to control, what you can measure, what you can change, and how the measurement responds.
 
 Switching refrigeration ON lowers the measured room temperature.
+
+## Check yourself
+
+1. **The room reads 1.5 °C and the setpoint is 2.0 °C. What is the error, and what does its sign tell you?**
+   e = 2.0 − 1.5 = +0.5 °C. The positive sign says the room is colder than desired.
+2. **Refrigeration switched ON at 0 s. Why did the temperature not drop to its lowest value at once?**
+   The room and its contents store heat. Refrigeration removes that heat over time, so the temperature falls
+   gradually: from 4.00 °C to 0.84 °C over 20 s.
+3. **The room warmed from 3.57 °C to 5.46 °C while the door was open. Why did the command stay OFF?**
+   The fixed sequence switched refrigeration OFF at 20 s and contains no rule that reads the temperature. Measuring
+   the temperature is not the same as controlling it.
 
 ## Reason for the next lesson
 

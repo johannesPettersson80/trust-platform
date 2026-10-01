@@ -3,349 +3,219 @@
   "id": "control-cascade",
   "title": "Cascade control",
   "level": "Advanced",
-  "sequence": 56,
-  "equipment": "jacketed production reactor",
-  "physicalPurpose": "Reject utility disturbances in the fast jacket loop before they propagate into product temperature.",
-  "principalTechnique": "Cascade",
-  "objective": "Use a fast inner loop to reject an intermediate disturbance.",
+  "sequence": 63,
+  "equipment": "Two copies of a jacketed vessel (jacket 5 kJ/°C, vessel 50 kJ/°C, 10 kW/°C between them, 2 kW/°C losses): a cascade of two Control.PID blocks that Control Studio commissions, and a single-loop PI tuned with Lesson 19's rule",
+  "physicalPurpose": "Use the jacket temperature, which a jacket disturbance moves first, in an inner loop whose setpoint comes from the vessel loop.",
+  "principalTechnique": "Cascade control: outer vessel PI → jacket setpoint (°C) → inner jacket PI → heater (%)",
+  "objective": "Derive the jacket and vessel balances, let Control Studio design the inner loop first and the outer loop through it, check the speed separation, and compare the applied cascade with a single loop on a jacket loss nobody measures.",
   "prerequisites": [
-    "control-feedforward"
+    "control-feedforward",
+    "control-trajectory-feedforward"
   ],
   "nextLesson": "control-ratio-control",
   "signals": [
     {
-      "role": "state",
-      "name": "Experiment authority",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX136.3"
-    },
-    {
-      "role": "quality",
-      "name": "Inner-loop availability",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX136.1"
-    },
-    {
-      "role": "state",
-      "name": "Inner commissioning mode",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX136.0"
-    },
-    {
       "role": "SP",
-      "name": "Reactor-temperature setpoint",
+      "name": "Vessel setpoint",
       "unit": "degC",
-      "minimum": 60,
-      "maximum": 95,
-      "resolution": 0.01,
-      "binding": "%ML88"
-    },
-    {
-      "role": "disturbance",
-      "name": "Heating-utility disturbance",
-      "unit": "degC",
-      "minimum": -15,
-      "maximum": 15,
-      "resolution": 0.01,
-      "binding": "%ML104"
-    },
-    {
-      "role": "state",
-      "name": "Jacket test setpoint",
-      "unit": "degC",
-      "minimum": 60,
-      "maximum": 85,
-      "resolution": 0.01,
-      "binding": "%ML96"
-    },
-    {
-      "role": "state",
-      "name": "Fast jacket setpoint",
-      "unit": "degC",
-      "minimum": 60,
-      "maximum": 85,
-      "resolution": 0.01,
-      "binding": "%ML112"
-    },
-    {
-      "role": "state",
-      "name": "Slow jacket setpoint",
-      "unit": "degC",
-      "minimum": 60,
-      "maximum": 85,
-      "resolution": 0.01,
-      "binding": "%ML120"
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML0"
     },
     {
       "role": "PV",
-      "name": "Direct reactor temperature",
+      "name": "Vessel temperature, cascade",
       "unit": "degC",
-      "minimum": 60,
-      "maximum": 95,
-      "resolution": 0.01,
-      "binding": "%IL0"
-    },
-    {
-      "role": "state",
-      "name": "Direct jacket temperature",
-      "unit": "degC",
-      "minimum": 45,
-      "maximum": 90,
-      "resolution": 0.01,
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
       "binding": "%IL8"
     },
     {
-      "role": "state",
-      "name": "Fast-cascade reactor temperature",
-      "unit": "degC",
-      "minimum": 60,
-      "maximum": 95,
-      "resolution": 0.01,
-      "binding": "%IL16"
-    },
-    {
-      "role": "state",
-      "name": "Fast-cascade jacket temperature",
-      "unit": "degC",
-      "minimum": 45,
-      "maximum": 90,
-      "resolution": 0.01,
-      "binding": "%IL24"
-    },
-    {
-      "role": "state",
-      "name": "Slow-cascade reactor temperature",
-      "unit": "degC",
-      "minimum": 60,
-      "maximum": 95,
-      "resolution": 0.01,
-      "binding": "%IL32"
-    },
-    {
-      "role": "state",
-      "name": "Slow-cascade jacket temperature",
-      "unit": "degC",
-      "minimum": 45,
-      "maximum": 90,
-      "resolution": 0.01,
-      "binding": "%IL40"
-    },
-    {
       "role": "MV",
-      "name": "Direct valve request",
+      "name": "Heater command, cascade",
       "unit": "%",
       "minimum": 0,
       "maximum": 100,
-      "resolution": 0.01,
+      "resolution": 0.001,
       "binding": "%QL0"
     },
     {
       "role": "state",
-      "name": "Fast-cascade valve request",
-      "unit": "%",
+      "name": "Jacket temperature, cascade",
+      "unit": "degC",
       "minimum": 0,
-      "maximum": 100,
-      "resolution": 0.01,
-      "binding": "%QL16"
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL0"
     },
     {
       "role": "state",
-      "name": "Slow-cascade valve request",
+      "name": "Jacket setpoint, cascade",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Vessel temperature, single loop",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL24"
+    },
+    {
+      "role": "state",
+      "name": "Jacket temperature, single loop",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Heater command, single loop",
       "unit": "%",
       "minimum": 0,
       "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL16"
+    },
+    {
+      "role": "disturbance",
+      "name": "Jacket loss",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 50,
       "resolution": 0.01,
-      "binding": "%QL32"
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "ExperimentEnabled",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX32.0"
     }
   ],
   "plant": {
-    "modelId": "three_equivalent_jacketed_reactors",
+    "modelId": "two-jacketed-vessels",
     "executable": "simulation.toml",
     "parameters": [
       {
-        "name": "jacket_time_constant",
+        "name": "jacket_heat_capacity",
+        "value": 5,
+        "unit": "kJ/°C"
+      },
+      {
+        "name": "vessel_heat_capacity",
+        "value": 50,
+        "unit": "kJ/°C"
+      },
+      {
+        "name": "jacket_to_vessel",
+        "value": 10,
+        "unit": "kW/°C"
+      },
+      {
+        "name": "vessel_losses",
         "value": 2,
-        "unit": "s"
+        "unit": "kW/°C"
       },
       {
-        "name": "reactor_time_constant",
-        "value": 12,
-        "unit": "s"
-      },
-      {
-        "name": "valve_to_jacket_gain",
-        "value": 1.4,
-        "unit": "degC/%"
-      },
-      {
-        "name": "jacket_to_reactor_gain",
-        "value": 1.142857142857,
-        "unit": "1"
+        "name": "heater_per_point",
+        "value": 2,
+        "unit": "kW/%"
       }
     ],
     "sampleTimeSeconds": 0.1,
     "initialState": {
-      "jacketTemperatureDegC": 70,
-      "reactorTemperatureDegC": 80
+      "jacketC": 38,
+      "vesselC": 35
     },
     "seed": 20260829,
     "operatingPoint": {
-      "Reactor-temperature setpoint": 80,
-      "Heating-utility disturbance": 0,
-      "Jacket test setpoint": 70,
-      "Direct reactor temperature": 80,
-      "Direct jacket temperature": 70,
-      "Fast-cascade reactor temperature": 80,
-      "Fast-cascade jacket temperature": 70,
-      "Slow-cascade reactor temperature": 80,
-      "Slow-cascade jacket temperature": 70,
-      "Direct valve request": 50,
-      "Fast-cascade valve request": 50,
-      "Slow-cascade valve request": 50
+      "Vessel temperature, cascade": 35,
+      "Heater command, cascade": 15
     },
     "validityRange": [
       {
-        "signal": "Direct reactor temperature",
-        "minimum": 60,
-        "maximum": 95,
-        "unit": "degC"
-      },
-      {
-        "signal": "Fast-cascade reactor temperature",
-        "minimum": 60,
-        "maximum": 95,
-        "unit": "degC"
-      },
-      {
-        "signal": "Slow-cascade reactor temperature",
-        "minimum": 60,
-        "maximum": 95,
-        "unit": "degC"
-      },
-      {
-        "signal": "Direct jacket temperature",
-        "minimum": 45,
-        "maximum": 90,
-        "unit": "degC"
-      },
-      {
-        "signal": "Fast-cascade jacket temperature",
-        "minimum": 45,
-        "maximum": 90,
-        "unit": "degC"
-      },
-      {
-        "signal": "Slow-cascade jacket temperature",
-        "minimum": 45,
-        "maximum": 90,
+        "signal": "Vessel temperature, cascade",
+        "minimum": 30,
+        "maximum": 40,
         "unit": "degC"
       }
     ],
     "simplifications": [
-      "Local linear energy balances around one production operating point",
-      "One ideal temperature measurement for each jacket and reactor state",
-      "Three deterministic equivalent plants isolate controller structure and inner-loop tuning",
-      "Controller requests are used as applied valve positions because no actuator nonideality is configured",
-      "Simulation-only I/O and evidence"
+      "5·dTj/dt = 2·u − 10·(Tj − Tv) − Dj and 50·dTv/dt = 10·(Tj − Tv) − 2·(Tv − 20); no delivery delay.",
+      "Jacket and vessel temperatures are measured exactly."
     ]
   },
   "baseline": {
-    "executableId": "Reactor.DirectPI",
+    "executableId": "P1",
     "settings": {
-      "kp": 2,
-      "ki": 0.2,
-      "biasPercent": 50
+      "controller": "single vessel PI, Kp = 2.5 %/°C, Ki = 0.1 %/(°C·s)"
     },
-    "limitation": "Direct reactor-temperature PI cannot act until the slow product temperature has already changed."
+    "limitation": "The single loop sees a jacket loss only after the vessel cools: 31.74 °C for 30 kW."
   },
   "change": {
-    "executableId": "Reactor.CommissionedCascade",
+    "executableId": "P1",
     "settings": {
-      "outerKp": 1,
-      "outerKi": 0.08,
-      "fastInnerKp": 2,
-      "fastInnerKi": 1,
-      "slowInnerKp": 0.2,
-      "slowInnerKi": 0.02,
-      "jacketSetpointLimitsDegC": [
-        60,
-        85
-      ]
+      "identification": "Control Studio's automatic 10-point heater step, 120 s, both PIDs in Manual",
+      "design": "Control Studio's cascade design: inner PI Kp 25.25 %/°C, Ki 13.59 %/(°C·s); outer PI Kp 0.8717 °C/°C, Ki 0.21 1/s",
+      "requirements": "2 °C setpoint step; within ±0.2 °C in 30 s; steady error ≤ 0.3 °C; 60 s",
+      "projectTest": "30 kW jacket loss on both vessels, 60 s"
     },
-    "decision": "Accept cascade only when the inner loop is commissioned first, detects the disturbance earlier, is at least three times faster, and improves equivalent reactor-temperature evidence."
+    "decision": "Control Studio's cascade passes its validation (settling 10.5 s ≤ 30 s, steady error 0.0129 °C) and is applied; under the 30 kW jacket loss the vessel moves 0.086 °C, while the single loop falls 3.26 °C and fails."
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Experiment authority",
+    "signal": "ExperimentEnabled",
     "baseline": 0,
     "amplitude": 0,
-    "durationSeconds": 120.1,
-    "settlingSeconds": 40,
+    "durationSeconds": 62.1,
+    "settlingSeconds": 0,
     "disturbances": [
-      "Commissioning run steps both jacket setpoints from 70 to 75 degC at 10.0 s",
-      "Regulatory run changes utility contribution from 0 to -10 degC at 40.0 s"
+      "30 kW jacket loss on the commissioned cascade and on the single loop"
     ],
     "seed": 20260829,
-    "restorationValue": 0,
-    "activationSignal": "P1.ExperimentEnabled"
+    "restorationValue": 0
   },
   "acceptance": [
     {
-      "metric": "inner_time_scale_separation",
-      "signal": "Fast-cascade jacket temperature",
-      "window": "10 through 40 s jacket-setpoint commissioning step",
-      "comparator": ">=",
-      "limit": 3,
-      "unit": "1",
-      "tolerance": 0.05,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "jacket_detection_lead",
-      "signal": "Fast-cascade jacket temperature",
-      "window": "first absolute 0.10-degC departure after 40 s compared with reactor departure",
-      "comparator": ">",
-      "limit": 0,
-      "unit": "s",
-      "tolerance": 0.1,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "cascade_reactor_event_iae_ratio",
-      "signal": "Fast-cascade reactor temperature",
-      "window": "40 through 90 s cascade IAE divided by direct IAE",
-      "comparator": "<",
-      "limit": 0.7,
-      "unit": "1",
-      "tolerance": 0.01,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "cascade_peak_improvement",
-      "signal": "Fast-cascade reactor temperature",
-      "window": "40 through 90 s peak absolute deviation below direct PI",
-      "comparator": "<",
-      "limit": 0,
-      "unit": "degC",
-      "tolerance": 0.01,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "valve_range",
-      "signal": "Fast-cascade valve request",
-      "window": "complete 120-s run",
+      "metric": "setpoint_settling_time",
+      "signal": "Vessel temperature, cascade",
+      "window": "Studio's validation, ±0.2 °C",
       "comparator": "<=",
-      "limit": 100,
-      "unit": "%",
+      "limit": 30,
+      "unit": "s",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "jacket_loss_minimum",
+      "signal": "Vessel temperature, cascade",
+      "window": "complete project test",
+      "comparator": ">=",
+      "limit": 34,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "single_loop_jacket_loss_minimum",
+      "signal": "Vessel temperature, single loop",
+      "window": "complete project test",
+      "comparator": "<",
+      "limit": 34,
+      "unit": "degC",
       "tolerance": 0,
       "evidenceClass": "simulation"
     }
@@ -353,99 +223,58 @@
   "safety": {
     "hardLimits": [
       {
-        "signal": "Direct valve request",
-        "minimum": 0,
-        "maximum": 100,
-        "unit": "%"
-      },
-      {
-        "signal": "Fast-cascade valve request",
-        "minimum": 0,
-        "maximum": 100,
-        "unit": "%"
-      },
-      {
-        "signal": "Slow-cascade valve request",
-        "minimum": 0,
-        "maximum": 100,
-        "unit": "%"
-      },
-      {
-        "signal": "Fast-cascade jacket temperature",
-        "minimum": 45,
-        "maximum": 90,
+        "signal": "Vessel temperature, cascade",
+        "minimum": 30,
+        "maximum": 40,
         "unit": "degC"
       },
       {
-        "signal": "Fast-cascade reactor temperature",
-        "minimum": 60,
-        "maximum": 95,
-        "unit": "degC"
+        "signal": "Heater command, cascade",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
       }
     ],
     "abortPredicates": [
-      "Any required signal is nonfinite, stale, forced, or has invalid quality",
-      "Any valve request leaves 0 through 100 percent",
-      "Any jacket temperature leaves 45 through 90 degC",
-      "Any reactor temperature leaves 60 through 95 degC",
-      "Inner-loop availability, authority, or restoration is lost"
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
     ],
-    "safeMv": 50,
-    "restorationMode": "Return utility disturbance to zero and jacket test setpoint to 70 degC; keep the outer controllers tracking until jacket temperatures and valve requests are restored.",
-    "physicalApprovalRole": "authorised reactor controls engineer and responsible process operator",
+    "safeMv": 15,
+    "restorationMode": "When the project test ends, the jacket loss returns to zero; Restore previous settings returns both PIDs to Manual.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
     "simulationOnlyRestrictions": [
-      "No physical reactor is excited or commissioned",
-      "Equivalent simulated plants do not prove physical sensor placement or time-scale separation",
-      "Physical cascade commissioning requires reviewed topology, interlocks, limits, operating permission and explicit action approval"
+      "This lesson cannot authorise physical heating changes",
+      "Physical use requires independent temperature-limit, interlock and approval review"
     ]
   },
   "workflowStages": [
-    "Monitor",
-    "Test"
+    "Identify",
+    "Tune",
+    "Validate"
   ],
   "proof": {
-    "specification": "docs/specs/38-control-engineering-curriculum.md#77-industrial-control-structures",
-    "nativeTest": "TEST_PROGRAM::Lesson52PhysicalPredictionsAndCommissioningOrderAreExplicit",
-    "nativeCommand": "target/debug/trust-dev test --project examples/control/09-industrial-control-structures/52-cascade --filter TEST_PROGRAM::Lesson52PhysicalPredictionsAndCommissioningOrderAreExplicit --timeout 20",
+    "specification": "docs/specs/control-course-content/55-66-industrial-and-multivariable.md#56-cascade-control",
+    "nativeTest": "lesson56",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_55_57 lesson56",
     "projectPath": "examples/control/09-industrial-control-structures/52-cascade",
     "runArtifactFields": [
-      "projectIdentity",
-      "plantIdentities",
-      "controllerIdentities",
-      "evidenceClass",
-      "sampleTime",
-      "seed",
-      "commissioningMode",
-      "innerAvailability",
-      "reactorSetpoint",
-      "jacketSetpoints",
-      "reactorTemperatures",
+      "identifiedModel",
+      "cascadeDesign",
+      "validationResults",
+      "vesselTemperatures",
       "jacketTemperatures",
-      "valveRequests",
-      "appliedValveValues",
-      "utilityDisturbance",
-      "authority",
-      "limits",
-      "abortState",
-      "restorationState",
-      "metricDefinitions",
-      "metrics",
-      "settlingQualification"
+      "jacketSetpoint",
+      "commands",
+      "evidenceClass"
     ],
     "renderedJourneyId": "control-cascade"
   },
   "video": {
-    "viewerOutcome": "Commission an inner jacket loop before closing a reactor outer loop and explain when measured cascade evidence justifies the added structure.",
+    "viewerOutcome": "See Control Studio design the inner loop first and the outer loop through it, and the applied cascade catch a jacket loss before the vessel moves while the single loop lets the vessel fall.",
     "requiredVisibleEvidence": [
-      "three equivalent reactors",
-      "inner commissioning mode",
-      "primary and secondary SP/PV",
-      "direct, fast-cascade and slow-cascade traces",
-      "valve requests and applied values",
-      "time-scale calculation",
-      "disturbance-detection lead",
-      "event IAE and peak deviation",
-      "authority and restoration",
+      "the cascade setup",
+      "Studio's model and design",
+      "the jacket-loss project test with both vessels and jackets",
       "Simulation label"
     ],
     "durationClass": "standard",
@@ -455,23 +284,20 @@
     "publicationState": "not_started"
   },
   "learning": {
-    "context": "Three equivalent jacketed reactors expose the fast jacket state, slow product state, one heating valve and the same bounded utility disturbance.",
-    "reason": "The preceding feedforward lesson required a measured external disturbance and path model; here the useful early signal is a faster controlled variable through which the disturbance propagates.",
+    "context": "Lesson 62's feedforward answered a measured 30 kW extraction on the water heater at once: the water dipped only 0.544 °C, while PI alone let it fall to 33.75 °C. That needs a measurement of the disturbance. In a jacketed vessel, the heater warms a jacket of water around the vessel, and the jacket warms the liquid inside. A heat loss through the jacket wall is not measured, and it reaches the liquid before a vessel-temperature loop can respond.\n\nThe jacket temperature shows such a loss early. We will put a fast loop around it inside the vessel-temperature loop.",
+    "reason": "We need to:\n\n1. act on the measurement the disturbance moves first, the jacket temperature;\n2. keep the vessel temperature as the objective;\n3. tune the inner loop first and the outer loop through it, each with its own output limits.",
     "theory": [
-      "The outer reactor loop requests a jacket temperature and never writes the valve directly; the inner jacket loop alone owns valve authority.",
-      "The jacket energy balance responds in 2 s while the reactor product balance responds in 12 s, but measured closed-loop settling proves whether the commissioned separation is adequate.",
-      "Tracking and constraint propagation prevent inactive or saturated loops from accumulating an unachievable demand."
+      "**Cascade control** uses two loops, one inside the other. The **inner loop** quickly holds an intermediate temperature, the jacket, that shows a disturbance early. The **outer loop** sets the inner loop's target to hold the product temperature. For the vessel, the inner loop corrects a jacket loss before the liquid notices it.\n\n**In words.** The heater does not warm the liquid directly: it warms the jacket, and the jacket warms the liquid. A heat loss in the jacket therefore shows in the jacket temperature at once, and in the liquid only later. A single loop on the liquid must wait until the liquid has cooled. A cascade splits the work between two controllers:\n\n1. **Outside: the vessel temperature.** The outer controller reads the vessel temperature, the one that matters, and decides which jacket temperature the vessel needs. Its output is not a heater command but the inner controller's setpoint.\n2. **Inside: the jacket temperature.** The inner controller reads the jacket temperature and moves the heater to hold the jacket at that setpoint. When the jacket loses heat, it raises the heater on its next update, before the liquid misses the heat.\n\nIn PLC terms it is the familiar level loop that writes the setpoint of a flow loop instead of a valve position: the flow loop removes supply-pressure changes within seconds, and the level loop never sees them. The arrangement works only if the inner loop is clearly faster than the outer one, because the outer loop counts on the jacket simply following its setpoint.\n\n**The formula.** The jacket and the liquid each store heat, so each gets an energy balance: the heat stored per °C times the rate of change equals the heat in minus the heat out.\n\n$$\n5\\,\\dot T_j = 2u - 10\\,(T_j - T_v) - D_j, \\qquad 50\\,\\dot T_v = 10\\,(T_j - T_v) - 2\\,(T_v - 20) - D_v .\n$$\n\nLet:\n\n- $T_j$ and $T_v$ be the jacket and vessel temperatures, in °C, and $\\dot T_j$ and $\\dot T_v$ how fast they change, in °C/s;\n- $u$ be the heater command, in %, each point delivering 2 kW;\n- 5 and 50 be the heat the jacket and the liquid store, in kJ per °C;\n- 10 be the heat the jacket passes to the liquid, in kW per °C of difference, and 2 the heat the liquid loses to the 20 °C surroundings, in kW per °C; and\n- $D_j$ and $D_v$ be extra losses from the jacket and from the liquid, in kW.\n\nThe liquid stores ten times as much heat as the jacket, and that sets the design order:\n\n1. **Inner loop first.** On the jacket's time scale the vessel hardly moves. With $T_v$ held, dividing the jacket balance by 10 gives $0.5\\,\\dot T_j + T_j = 0.2\\,u + \\ldots$: gain 0.2 °C/%, time constant 0.5 s.\n2. **Outer loop through the closed inner loop.** If the jacket follows its setpoint, $T_j = T_{j,sp}$, the vessel balance becomes $50\\dot T_v = 10\\,T_{j,sp} - 12\\,T_v + 40$: gain 10/12 = 0.833, time constant 50/12 = 4.17 s.\n3. Step 2 holds only if the closed inner loop is clearly faster than the 4.17 s of the outer process.\n\n**Example: the jacketed vessel at 35 °C.** Follow the numbers:\n\n1. Holding 35 °C: the liquid loses $2 \\times 15 = 30$ kW, so the jacket must pass 30 kW, which takes $30/10 = 3$ °C of difference: the jacket at 38 °C. The heater supplies the 30 kW at 15 %.\n2. With a 30 kW jacket loss, the heater must supply 60 kW: 30 %. At 37 °C the liquid loses 34 kW, so the heater needs 17 %, and 32 % with the loss.\n3. The moment the jacket loss starts, $\\dot T_j = -30/5 = -6$ °C/s while $\\dot T_v = 0$: in one 0.1 s update the jacket falls about 0.6 °C, and the vessel has not moved. The inner loop sees the fall on its next update; a single vessel loop sees nothing yet.\n4. A 30 kW loss taken from the liquid instead starts with $\\dot T_v = -30/50 = -0.6$ °C/s and $\\dot T_j = 0$: it does not show in the jacket first.\n\nControl Studio steps the heater with both PIDs in Manual, fits one model to both temperatures, and designs the inner PI first and the outer PI through the closed inner loop. The outer PI's output, the jacket setpoint, is limited to 20–50 °C; the inner PI's, the heater command, to 0–100 %. Two checks of its gains follow from the design order: with the vessel held, the inner closed-loop poles solve $0.5s^2 + (1 + 0.2K_{p,i})s + 0.2K_{i,i} = 0$; and an outer PI whose integral time cancels the vessel's 4.17 s responds in $\\lambda = 4.17/(0.833\\,K_{p,o})$.\n\nThe comparison is a single vessel loop with $K_p = 2.5$ %/°C and $K_i = 0.1$ %/(°C·s): Lesson 19's rule for the whole vessel, with gain 1 °C/%, time constant $50/2 = 25$ s from the liquid's store and loss, and $\\lambda = 10$ s.\n\nThe requirements, fixed before the test: a 2 °C setpoint step settles within ±0.2 °C in 30 s with a steady error of at most 0.3 °C; after a 30 kW jacket loss the vessel stays within 1 °C of its setpoint.\n\n**The limitation.** A cascade helps only against disturbances that reach the inner measurement first. Step 4 shows that a loss from the liquid itself does not move the jacket first, so the inner loop sees it no earlier than the outer loop would. The cascade also needs a second sensor and a second controller, designed first, and an inner loop as slow as the outer one would make the outer loop's model, a jacket that simply follows its setpoint, wrong."
     ],
-    "workedPrediction": "A 5-degC jacket-setpoint step exposes the fast and intentionally slow inner tunings; a -10-degC utility event moves jacket temperature before reactor temperature, allowing the fast inner loop to act first.",
+    "workedPrediction": "Before running, answer these questions:\n\n1. Which temperature moves first after the jacket loss, and at what rate?\n2. Which architecture lets the vessel fall further after the loss, and why?\n3. How quickly does each heater command reach what the loss requires?\n4. How much faster is Studio's inner loop than its outer loop?\n\n| Quantity | Predicted |\n| --- | ---: |\n| Jacket rate just after a 30 kW loss | −6 °C/s, −0.6 °C per 0.1 s update |\n| Heater command with the loss | 30 % at 35 °C, 32 % at 37 °C |",
     "practicalPreparation": [
-      "Verify Simulation evidence, the three plant and five controller identities, units, quality, 0.1-s timing, operating point, limits, modes and authority.",
-      "Define settling, disturbance-detection lead, reactor event IAE, peak deviation and applied-valve movement before viewing results."
+      "1. Open this lesson's project and start **Simulator**. In the **truST** side bar, select **Devices & Connections**: inside **Simulator**, two boxes marked **SIMULATED PLANT** hold the two vessels. Select **cascade-vessel**; **Configure plant** opens. Under **CONNECTIONS**:\n   - **Input 1** is `P1.HeaterPct` (%QL0), the heater command;\n   - **Input 2** is `P1.JacketLoadKw` (%QL8), the jacket loss in kW, which the project test sets;\n   - **Output 1** is `P1.JacketC` (%IL0), the jacket temperature, 38 °C; and\n   - **Output 2** is `P1.VesselC` (%IL8), the vessel temperature, 35 °C.\n\n   **MODEL & BEHAVIOR** shows 2 states, one per store. Close the panel with **Cancel**.\n\n   ![The jacketed vessel's connections in the hardware canvas](figures/vessel-in-hardware-canvas.png)\n\n2. Open the Command Palette and run **truST: Configure control loop**. **Set up control loop** recognises the cascade, **Cascade: one PID sets the other's setpoint**, with **Outer controller** `P1.Outer` and **Inner controller** `P1.Inner`. Enter **Loop name** `Vessel temperature`, each **Auto/Manual signal**, `P1.OuterAuto` and `P1.InnerAuto`, the units and ranges (vessel degC 20–60, jacket degC 20–80, heater % 0–100), **Identification step** 10, **Identification duration (s)** 120 and **Startup-done flag** `P1.Initialized`. Select **Save loop**; Control Studio opens on the new loop.\n3. Answer the predictions before going on.\n4. On **Identify**, keep **Method** **Automatic** and select **Identify plant**.\n5. On **Tune**, check **Controller** **P1.Inner · Cascade**. Select **Requirements…**, enter **Setpoint change (°C)** 2, **Maximum steady-state error (°C)** 0.3, **Maximum settling time (s)** 30, **Settling band (±°C)** 0.2 and **Validation duration (s)** 60, select **Done**, then **Tune controller**.\n6. On **Validate**, select **Validate controller**, then **Apply**. Studio shows **Applied**.\n7. In the **truST** side bar, select **Control Studio** and choose **Jacket-loss test**. On **Identify**, choose **Project experiment** from **Method**; to the **Signals** shown, `P1.VesselSetpointC · Setpoint (°C)`, `P1.VesselC · Process value (°C)` and `P1.HeaterPct · Applied output (%)`, add `P1.SingleVesselC · state (°C)`, `P1.SinglePct · state (%)` and `P1.JacketLoadKw · disturbance (kW)`. Select **Review project test**, check **62.1 s**, and **Confirm and start**. Control Studio shows **Project test completed. Outputs restored.**\n\n**Abort test** stops the test early; **Restore previous settings** on **Validate** returns the cascade to Manual."
     ],
-    "baseline": "Run direct reactor-temperature PI through the utility event and retain the response it cannot begin correcting until primary error appears.",
-    "change": "Commission the two jacket loops first, reject the deliberately slow one, then close the qualified fast inner loop beneath the same outer tuning.",
-    "comparison": "Hold plant physics, state, disturbance, timing, limits, outer tuning, duration and measure windows equal while changing only structure or inner tuning.",
-    "validation": "Require a finite bounded fast inner response, at least three-times separation, earlier jacket detection, less than 70 percent of direct reactor IAE and lower peak deviation.",
-    "explanation": "Cascade improves this plant because the inner jacket sensor observes and corrects utility loss before the slow product temperature moves; merely nesting a slow controller does not create that advantage.",
-    "transfer": "Lesson 53 continues with Ratio control."
+    "baseline": "The single vessel PI sees a 30 kW jacket loss only after the vessel cools, and falls to 31.74 °C.",
+    "change": "Tune the inner jacket loop first and the outer vessel loop on top with model-based PI, check the speed separation, and compare the cascade with the single loop on a setpoint step and the jacket loss.",
+    "comparison": "![Studio's cascade corrects the jacket loss before the vessel notices it; the single loop lets the vessel fall 3.26 °C](figures/cascade-comparison.svg)\n\nThe numbered marks answer the predictions with the same numbers. Control Studio designed the inner PI with $K_p = 25.25$ %/°C and $K_i = 13.59$ %/(°C·s), the outer PI with $K_p = 0.8717$ and $K_i = 0.21$ per second. Its validation of the 2 °C step all passed: settling time 10.5 s (≤ 30 s), steady error 0.0129 °C (≤ 0.3 °C) and 50 range, state and transfer checks; the vessel reached 63 % at 5.7 s. After **Apply** the cascade held 37 °C, the end of that step, and the single loop 35 °C; the plant is linear, so each vessel is compared by its deviation. From the project test:\n\n| Jacket loss of 30 kW | Single loop | Studio's cascade |\n| --- | ---: | ---: |\n| Largest fall of the vessel | **3.26 °C at 16.3 s, fails** | 0.086 °C at 2.2 s |\n| Largest error, 30–60 s | **2.61 °C** | 0.003 °C |\n| Heater above 29 % | after 26.4 s | after 0.1 s |\n| Heater at 60 s | 30.09 % | 32.00 % |\n\n1. The jacket fell 0.544 °C in the first 0.1 s, close to the predicted 0.6 °C; the vessel moved 0.006 °C.\n2. The single loop waited for the vessel to cool and let it fall 3.26 °C.\n3. The inner loop raised the heater to 31.6 % on its first update and held 32.00 %; the single loop's command passed 29 % only after 26.4 s.\n4. The inner poles are −11.6 and −0.47 per second, the slow one nearly cancelled by the PI's zero at −13.59/25.25 = −0.54: the jacket follows in about 0.09 s. The outer response time, 4.17/(0.833 × 0.8717) = 5.7 s, is about 60 times slower, as validated. After the loss the jacket was back within 0.1 °C of its setpoint at 3.8 s.\n\nThe benefit is a jacket loss that never reaches the product; the cost, a second, much faster controller designed first. The cascade meets every requirement; the single loop fails the jacket loss. Studio's cascade is accepted and applied for this vessel. These are simulation results.",
+    "validation": "![Studio's cascade corrects the jacket loss before the vessel notices it; the single loop lets the vessel fall 3.26 °C](figures/cascade-comparison.svg)\n\nThe numbered marks answer the predictions with the same numbers. Control Studio designed the inner PI with $K_p = 25.25$ %/°C and $K_i = 13.59$ %/(°C·s), the outer PI with $K_p = 0.8717$ and $K_i = 0.21$ per second. Its validation of the 2 °C step all passed: settling time 10.5 s (≤ 30 s), steady error 0.0129 °C (≤ 0.3 °C) and 50 range, state and transfer checks; the vessel reached 63 % at 5.7 s. After **Apply** the cascade held 37 °C, the end of that step, and the single loop 35 °C; the plant is linear, so each vessel is compared by its deviation. From the project test:\n\n| Jacket loss of 30 kW | Single loop | Studio's cascade |\n| --- | ---: | ---: |\n| Largest fall of the vessel | **3.26 °C at 16.3 s, fails** | 0.086 °C at 2.2 s |\n| Largest error, 30–60 s | **2.61 °C** | 0.003 °C |\n| Heater above 29 % | after 26.4 s | after 0.1 s |\n| Heater at 60 s | 30.09 % | 32.00 % |\n\n1. The jacket fell 0.544 °C in the first 0.1 s, close to the predicted 0.6 °C; the vessel moved 0.006 °C.\n2. The single loop waited for the vessel to cool and let it fall 3.26 °C.\n3. The inner loop raised the heater to 31.6 % on its first update and held 32.00 %; the single loop's command passed 29 % only after 26.4 s.\n4. The inner poles are −11.6 and −0.47 per second, the slow one nearly cancelled by the PI's zero at −13.59/25.25 = −0.54: the jacket follows in about 0.09 s. The outer response time, 4.17/(0.833 × 0.8717) = 5.7 s, is about 60 times slower, as validated. After the loss the jacket was back within 0.1 °C of its setpoint at 3.8 s.\n\nThe benefit is a jacket loss that never reaches the product; the cost, a second, much faster controller designed first. The cascade meets every requirement; the single loop fails the jacket loss. Studio's cascade is accepted and applied for this vessel. These are simulation results.",
+    "explanation": "A cascade lets a fast inner loop correct the disturbances that reach the intermediate measurement first, while the outer loop sets its target from the real objective. The inner loop is designed first and must be clearly faster.\n\nFor the jacketed vessel, Control Studio's inner loop was about 60 times faster than its outer loop; the applied cascade held the vessel within 0.086 °C through a 30 kW jacket loss, where the single loop let it fall 3.26 °C.",
+    "transfer": "A new production requirement is of a different kind: an additive must be dosed in a fixed proportion to a carrier flow that keeps changing. A fixed setpoint for the additive flow cannot do that.\n\n[Ratio control](../53-ratio-control/README.md) calculates the additive's setpoint from the measured carrier flow."
   }
 }

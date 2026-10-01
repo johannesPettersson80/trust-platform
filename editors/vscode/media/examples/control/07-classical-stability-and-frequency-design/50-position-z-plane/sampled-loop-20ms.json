@@ -1,0 +1,106 @@
+{
+  "kind": "discrete-state-space",
+  "revision": "shaft-pd-16-7-sampled-20ms",
+  "source": "provided",
+  "validation": "validated",
+  "evidence": [
+    "Exact held-torque update of the shaft J = B = 1 over h = 0.02 s: a = e^(−h) = 0.9801986733, b = d = 1 − e^(−h) = 0.0198013267, c = h − 1 + e^(−h) = 0.0001986733.",
+    "Closed loop with one update of computation delay: x' = x + b·ω + c·u, ω' = a·ω + d·u, u' = 16·(r − x) − 7·ω."
+  ],
+  "delaySeconds": 0,
+  "sampleTimeSeconds": 0.02,
+  "inputs": [
+    {
+      "id": "P1.TargetRad",
+      "unit": "rad",
+      "operatingRange": {
+        "minimum": -0.2,
+        "maximum": 0.2
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "id": "P1.FastAngleRad",
+      "unit": "rad",
+      "operatingRange": {
+        "minimum": -0.2,
+        "maximum": 0.2
+      }
+    }
+  ],
+  "states": [
+    {
+      "id": "angle",
+      "unit": "rad",
+      "operatingRange": {
+        "minimum": -0.2,
+        "maximum": 0.2
+      }
+    },
+    {
+      "id": "velocity",
+      "unit": "rad/s",
+      "operatingRange": {
+        "minimum": -2,
+        "maximum": 2
+      }
+    },
+    {
+      "id": "applied torque",
+      "unit": "N·m",
+      "operatingRange": {
+        "minimum": -20,
+        "maximum": 20
+      }
+    }
+  ],
+  "a": [
+    [
+      1,
+      0.019801326693244747,
+      0.0001986733067552704
+    ],
+    [
+      0,
+      0.9801986733067553,
+      0.019801326693244747
+    ],
+    [
+      -16,
+      -7,
+      0
+    ]
+  ],
+  "b": [
+    [
+      0
+    ],
+    [
+      0
+    ],
+    [
+      16
+    ]
+  ],
+  "c": [
+    [
+      1,
+      0,
+      0
+    ]
+  ],
+  "d": [
+    [
+      0
+    ]
+  ],
+  "operatingPoint": {
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      0
+    ]
+  }
+}

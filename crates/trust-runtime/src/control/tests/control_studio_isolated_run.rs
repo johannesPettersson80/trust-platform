@@ -150,6 +150,65 @@ outflow_coefficient_m2_sqrt_m_per_s = 0.020
 }
 
 #[test]
+fn isolated_run_drives_the_selected_plant_through_program_variables_without_addresses() {
+    // Specification 33 §13.1–§13.2 and Specification 35 §17.1: a controller output and a measurement without I/O addresses.
+    let (mut state, _root) = search_fixture();
+    state.sources = SourceRegistry::new(vec![SourceFile {
+        id: 1,
+        path: PathBuf::from("Main.st"),
+        text: "PROGRAM Main VAR Output : LREAL := 4.0; Measurement : LREAL; END_VAR END_PROGRAM"
+            .into(),
+    }]);
+    let revision = handle_request_value(
+        json!({"id":8830,"type":"control.simulation.run.status","params":{}}),
+        &state,
+        None,
+    )
+    .result
+    .unwrap()["project_revision"]
+        .clone();
+    let selected_plant = "[simulation]\nenabled = true\nplant_step_ms = 100\n[[plants]]\nid = \"selected-model\"\nmodel = \"static_gain\"\ncommand_sources = [\"Main.Output\"]\nfeedback_targets = [\"Main.Measurement\"]\n[plants.parameters]\ngain = 0.5\n";
+    let request = json!({"expected_project_revision":revision,"execution":"isolated-simulation","step_ms":100,"duration_ms":1000,"seed":7,
+        "max_total_cycles":11,"wall_budget_ms":5000,"initial_values":{},"events":[],
+        "observations":[{"symbol":"Main.Output","unit":"%"},{"symbol":"Main.Measurement","unit":"m"}],"parameter_overrides":[],
+        "simulation_override":{"model_revision":"symbolic:v1","model_provenance":"declared-fitted-validated","simulation_toml":selected_plant}});
+    let start = handle_request_value(
+        json!({"id":8831,"type":"control.simulation.run.start","params":request}),
+        &state,
+        None,
+    );
+    assert!(
+        start.ok,
+        "a plant on unaddressed program variables starts an isolated run: {:?}",
+        start.error
+    );
+    let job = start.result.unwrap()["job_id"].clone();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let response = handle_request_value(
+            json!({"id":8832,"type":"control.simulation.run.status","params":{"job_id":job,"expected_project_revision":revision}}),
+            &state,
+            None,
+        );
+        assert!(response.ok, "{:?}", response.error);
+        let result = response.result.unwrap();
+        if result["status"] == "completed" {
+            let samples = result["run"]["samples"].as_array().unwrap();
+            let last = &samples[samples.len() - 1]["values"];
+            assert_eq!(last["Main.Output"]["value"], 4.0);
+            assert_eq!(
+                last["Main.Measurement"]["value"], 2.0,
+                "the plant read the output and wrote the measurement: {last}"
+            );
+            break;
+        }
+        assert_ne!(result["status"], "failed", "{result}");
+        assert!(std::time::Instant::now() < deadline, "{result}");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}
+
+#[test]
 fn isolated_run_rejects_unmaterialized_or_nonplant_selected_model_configuration() {
     let (state, _root) = search_fixture();
     let revision = handle_request_value(
@@ -182,6 +241,49 @@ fn isolated_run_rejects_unmaterialized_or_nonplant_selected_model_configuration(
         );
     }
 }
+#[test]
+fn isolated_run_names_the_exceeded_recording_bound() {
+    let (state, _root) = search_fixture();
+    let ready = handle_request_value(
+        json!({"id":8812,"type":"control.search.status","params":{}}),
+        &state,
+        None,
+    )
+    .result
+    .unwrap();
+    let channels = |count: usize| {
+        json!((0..count)
+            .map(|index| json!({"symbol":format!("Main.Signal{index}"),"unit":"1"}))
+            .collect::<Vec<_>>())
+    };
+    let refusal = |request: serde_json::Value| {
+        let response = handle_request_value(
+            json!({"id":8813,"type":"control.simulation.run.start","params":request}),
+            &state,
+            None,
+        );
+        assert!(!response.ok);
+        response.error.unwrap_or_default()
+    };
+    let mut request = isolated_run_request(ready["project_revision"].clone());
+    // A decoupled PID group's transfer check records 34 channels (Specification 35 §17.15); the sample budget still bounds a run.
+    request["observations"] = channels(65);
+    assert!(
+        refusal(request).contains("65 observed channels exceed the limit of 64"),
+        "the refusal names the channel bound"
+    );
+    let mut request = isolated_run_request(ready["project_revision"].clone());
+    request["step_ms"] = json!(20);
+    request["duration_ms"] = json!(200_000);
+    request["max_total_cycles"] = json!(10_001);
+    request["observations"] = channels(30);
+    assert!(
+        refusal(request)
+            .contains("10001 samples × 30 channels exceed the limit of 250000 channel samples"),
+        "the refusal names the sample budget"
+    );
+}
+
 #[test]
 fn isolated_run_rejects_parameter_initial_conflicts_and_search_fields() {
     let (state, _root) = search_fixture();
@@ -748,7 +850,7 @@ fn isolated_run_checkpoint_budget_fails_with_its_received_prefix() {
         .collect::<String>();
     state.sources = SourceRegistry::new(vec![SourceFile {
         id: 1, path: PathBuf::from("Main.st"),
-        text: format!("PROGRAM Main VAR PV AT %IL0 : LREAL; MV AT %QL0 : LREAL; {declarations} END_VAR MV := 1.0; END_PROGRAM").into(),
+        text: format!("PROGRAM Main VAR PV AT %IL0 : LREAL; MV AT %QL0 : LREAL; {declarations} END_VAR MV := 1.0; END_PROGRAM"),
     }]);
     let revision = handle_request_value(
         json!({"id":8890,"type":"control.simulation.run.status","params":{}}),

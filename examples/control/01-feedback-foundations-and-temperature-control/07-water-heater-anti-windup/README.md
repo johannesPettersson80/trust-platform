@@ -1,136 +1,130 @@
 # 8. Anti-windup
 
-You will correct integral windup so the heater can recover when the requested temperature returns within its capacity. You will calculate how feedback from the applied output changes the integral state, then compare recovery with incorrect and correct declared actuator limits.
+In this lesson, you will stop the integral from piling up a demand the heater cannot deliver. You will repeat Lesson 7's test and compare how quickly the water recovers when the setpoint returns to 35 °C.
 
 ## The problem
 
-Lesson 7 showed how I can keep growing while the heater is already at 100%.
-Reducing the setpoint changes P immediately but does not remove that stored
-demand. We need a correction that accounts for what the heater actually applies.
+Lesson 7 asked for 45 °C, which this heater cannot hold, and returned to 35 °C after 10 s. While the heater was at full power, the integral kept rising to 113.2%, 13 points more than the heater can ever deliver. After the return, that piled-up integral kept the heater at full power for another 2 s, the water peaked at 39.57 °C, and it was back within 0.2 °C of 35 °C only at 44.8 s.
+
+We will keep the integral in step with the power the heater actually applies, and repeat the same test.
 
 ## What we need
 
-We need the integral demand to remain consistent with output the heater
-can actually apply. That should reduce stored excess during a limit and
-allow timely recovery when the requested temperature becomes reachable.
+We need to:
+
+1. notice when the heater applies less than the controller requests;
+2. stop the integral from growing beyond what the heater can deliver during that time; and
+3. leave the PI controller unchanged whenever the request can be applied.
 
 ## The new idea
 
-**Anti-windup** prevents unusable integral demand from causing excessive
-recovery delay. The back-calculation method corrects integral state using
-applied output minus requested output. It changes the stored demand, not
-the heater's available power.
+**Anti-windup** stops the integral from piling up a demand the heater cannot deliver. Whenever the requested power is above what is applied, it pulls the integral back towards what the heater actually does.
 
-Use the same Kp = 2 percentage points/°C and Ki = 0.5 percentage points/(°C·s).
-All output contributions are on the percentage-command scale. Let $P=K_pe$
-be the current proportional contribution, $I^*$ be I after ordinary integration,
-and $u_r=P+I^*$ the request. The integral consistent with applied output $u_a$
-is $u_a-P$. The required correction is
+**In words.** At every update the controller compares its request with what the heater applied. If they differ, it moves the integral part of the way towards the value that would make them equal; if they agree, it changes nothing, and the controller is the ordinary PI controller of Lesson 6. For this heater, the integral then stays close to the value that makes the request about 100 % while the heater is at full power, so the controller can turn down as soon as the water no longer needs full power. The method used here is called **back-calculation**: the integral is calculated back from the applied output. In PLC terms: the controller reads back what its output really did and corrects its own memory.
+
+**The formula.** First the ordinary update gives $I^* = I_{old} + K_i\, e\, \Delta t$ and the request $u_r = P + I^*$. The integral that would make the request equal to the applied output is $u_a - P$. It differs from $I^*$ by $(u_a - P) - I^* = u_a - u_r$. Back-calculation removes a fraction of that difference at every update:
 
 $$
-\Delta I_{track}=(u_a-P)-I^*=u_a-u_r.
+I_{next} = I^* + \frac{\Delta t}{T_t}\,(u_a - u_r).
 $$
 
-Apply a fraction each scan:
+- $P = K_p\, e$ is the proportional part, in percent;
+- $I^*$ is the integral after the ordinary update, in percent;
+- $u_r$ is the requested output and $u_a$ the applied output, in percent;
+- $T_t$ is the **tracking time**, in seconds: how quickly the integral is pulled back;
+- $\Delta t$ is the update interval, 0.1 s.
 
-$$
-I_{next}=I^*+\frac{\Delta t}{T_t}(u_a-u_r).
-$$
+With $T_t = 1$ s and $\Delta t = 0.1$ s, the fraction is $0.1/1 = 0.1$: one tenth of the mismatch is removed at each update.
 
-The **tracking time** $T_t$ sets how quickly this state correction acts. With $T_t=1$ s and $\Delta t=0.1$ s, one tenth of the mismatch is corrected each update. At upper saturation the correction is negative; at lower saturation it is positive; when request and applied output agree it is zero. This is **back-calculation anti-windup**: calculate the integral correction backward from the applied command. It limits stored excess; it cannot make 45 °C feasible.
+**Example.** The old integral is 110 % and the error 5 °C, with $K_p = 2$ and $K_i = 0.5$ as in Lesson 7.
 
-The correction adjusts the controller state using the output limit. During ordinary operation, $u_a=u_r$ and tracking contributes nothing, so PI behaves as before. During saturation, tracking moves I toward the value compatible with the command that was applied. It does not measure or cancel the heater's delivery delay, and gradual tracking need not make the unlimited request exactly equal to the limit. A shorter tracking time changes I faster; it is a controller choice that must be checked against the delayed thermal process.
+1. $I^* = 110 + 0.5 \times 5 \times 0.1 = 110.25\%$.
+2. $u_r = 2 \times 5 + 110.25 = 120.25\%$, applied as 100 %.
+3. The correction is $0.1 \times (100 - 120.25) = -2.025$ points.
+4. $I_{next} = 110.25 - 2.025 = 108.225\%$.
+
+The sign of the correction follows the limit. At the upper limit the request is too high, so the correction is negative. At the lower limit, for example a −20 % request applied as 0 %, it is $0.1 \times (0 - (-20)) = +2$ points. When request and applied output agree, the correction is zero, so ordinary PI control is unchanged.
+
+**The limitation.** Anti-windup changes only the stored integral. It cannot make the heater stronger: 45 °C stays out of reach, because full power holds at most 40 °C. The tracking time is a controller choice. A shorter tracking time pulls the integral back faster, but it must still be checked on the delayed heater.
 
 ## Prediction
 
-For old I=110%, error=5 °C, calculate $I^*$, $u_r$, tracking correction and next I with $K_p=2$, $K_i=0.5$, $\Delta t=0.1$ s. Then calculate the correction for a −20% request applied as 0%, and for equal requested and applied output. Predict how smaller I should affect recovery after SP returns to 35 °C.
+Before running, answer these questions:
+
+1. For an old integral of 110% and an error of 5 °C, calculate $I^*$, the request, the correction and the next integral. What is the correction for a −20% request applied as 0%, and for equal request and applied output?
+2. How large will the integral get before the setpoint returns at 10 s?
+3. When the setpoint returns to 35 °C, will the heater leave full power at once?
+4. Will the peak temperature be lower than Lesson 7's 39.57 °C?
+5. Will the water be back within 0.2 °C of 35 °C sooner than Lesson 7's 44.8 s?
 
 ## Implementation
 
-The correction is `Parameters.OutputMaximum := LREAL#100.0`, matching the actual
-actuator. The `BackCalculation` selection and Tt=1 s are unchanged from
-Lesson 7. There is no anti-windup-off mode or separate tracking integrator.
-For this static limit, the library uses its declared limited candidate for
-back-calculation; applied feedback independently verifies what the actuator
-did. The delayed readback is not fed into `PIDMode.Track`.
+Open [`src/Main.st`](src/Main.st). It is Lesson 7's program with one correction: the controller is now told the heater's real limit.
 
-The complete application is in [src/Main.st](src/Main.st). It calls the real
-`Control.PID` with Kp=2, Ki=0.5, Kd=0, proportional weight 1 and
-`BackCalculation` with Tt=1 s. The 0.1 s task uses rate bounds that do not
-constrain this experiment. `HeaterCommand := Controller.Update(Input := Input)`
-owns `%QL0` directly. The native actuator owns its separate 0–100% limit;
-measured temperature returns on `%IL0` and applied actuator feedback on `%IL8`.
-
-The controller is initialized once with the measured hot state, previous SP
-35 °C and nominal/saturated output 75%. Manual preparation holds 75%. Enabling
-applies the 45 °C step immediately, giving the same first 95.5% request. The
-setpoint returns to 35 °C at 10 s. Completion or abort selects Manual zero;
-there is no separate output equation or independent stored integrator.
-
-`GetState()` supplies value copies before and after Update. The displayed
-pre-correction request is reconstructed from the real prior nominal state and
-this call's P/I increments. Retained I is the real post-correction nominal
-output minus current P; the tracking correction is the change from candidate
-to retained nominal output. These calculations are observations only.
-
-Keep the sample phases distinct:
-
-| Quantity | Binding | Meaning |
-|---|---|---|
-| Current requested power | `%ML8` | This call's candidate before anti-windup correction. |
-| Controller command | `%QL0` | This call's actual PID return, after its declared limits. |
-| Applied heater power | `%IL8` | Native actuator value from the preceding completed step, before heat-delivery delay. |
-| Paired requested power | `%ML88` | The preceding request associated with that applied feedback. |
-| Unavailable power | `%ML16` | Paired request minus applied feedback, in percentage points. |
-| Stored I / tracking correction | `%ML64` / `%ML80` | State and correction from the current PID call. |
-
-Compare paired request with applied feedback when assessing physical mismatch.
-Comparing the newly calculated request with the previous applied value would
-mix two scans. A zero command is immediate; measured zero applied output arrives
-at the next completed input publication. The one-second delivery delay and
-stored heat still govern the later temperature response.
-
-From this lesson directory, run:
-
-```sh
-trust-runtime check --project .
-trust-dev test --project tests
+```st
+OutputMaximum := LREAL#100.0,
+TrackingTime := LREAL#1.0,
+AntiWindup := PIDAntiWindup#BackCalculation
 ```
 
-The second command checks the worked arithmetic in
-[tests/src/Arithmetic.st](tests/src/Arithmetic.st), not a second runtime
-controller. From the repository root, the complete native regression command is:
+`Control.PID` applies back-calculation with $T_t$ = 1 s whenever its request exceeds 100%. `TrackingCorrection` shows the correction of the integral at each update. The hot start, the 45 °C step and the return at 10 s are unchanged, as are Lesson 7's signals.
 
-```sh
-cargo test -p trust-runtime --test control_curriculum_heater_windup_pid
-```
-
-It compares both complete hot runs with their preserved pre-conversion
-physical references, checks the real PID owner and scan-aligned feedback, and
-checks abort timing. Restore the entire hot reset before repeating a run.
+**Exercise.** Work the four steps of the worked update by hand, then the −20% case. `trust-dev test --project tests` checks the same arithmetic.
 
 ## Experiment in Control Studio
 
-1. Start **Simulator** at the same hot state as Lesson 7: SP=PV=35 °C, I=75%, P=0%, requested/applied command=75%, no extra load, and a preceding 1 s command history at 75%.
-2. In **Control Studio → Identify**, display SP/PV/error in °C, retained I and current requested power in percent, paired requested power and applied feedback in percent, and tracking correction in percentage points.
-3. In **Identify → Method → Project experiment**, use **Review project test** for the 70.1 s recording envelope (70 s active sequence), then select **Confirm and start**. The project experiment automatically records the reviewed sequence. All times begin at **Confirm and start**, with SP 45 °C at time zero and SP 35 °C at 10 s. Run the Lesson 7 project with its deliberately incorrect 200% controller maximum, then run this corrected Lesson 8 project with the same complete hot reset; reset the state between runs.
-4. After each run confirms restoration, inspect its complete recording on Identify in that project. Record I immediately before the reduction, time until applied output falls below 100%, peak PV, and the time after the setpoint reduction when PV first enters 34.8–35.2 °C and remains there until shutdown. The 60 s recovery interval allows these effects to be observed; if PV has not settled by the end, record that result.
-5. Abort outside 0–80 °C, outside 0–100% applied output, or on unusable measurements. Select **Abort test**, disable heating, confirm immediate 0% command and then 0% applied feedback at the following completed input publication. Stop the simulator if it is unresponsive. At normal completion confirm immediate zero command and then zero applied feedback; after the delivery delay the water cools. Reset the entire hot state before repeating.
+1. Use your recording of Lesson 7's run for the comparison; if you have none, run Lesson 7 first.
+2. Open this lesson's project and start **Simulator**. The heater holds 35 °C with 75% power and the integral at 75%. In the **truST** side bar, select **Control Studio**.
+3. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.Setpoint · Setpoint (°C)`, `P1.ProcessValue · Process value (°C)` and `P1.AppliedHeaterPower · Applied output (%)`; add `P1.PairedRequestedHeaterPower · state (%)`, `P1.IntegralCorrection · state (%)` (the stored integral) and `P1.TrackingCorrection · state (percentage points)`.
+4. Answer the predictions before starting.
+5. Select **Review project test** and check the declared **70.1 s** duration, the same as in Lesson 7.
+6. Select **Confirm and start**; this is time zero, and the setpoint jumps to 45 °C.
+7. Watch the tracking correction turn negative whenever the request exceeds 100%. After the run, hover 9.9 s, the return at 10 s, the peak temperature and the time the water is back within 0.2 °C of 35 °C, and compare each with Lesson 7. A time you read can differ by one 0.1 s sample from the table below, depending on the update in which the test started.
+8. At completion, Control Studio shows **Project test completed. Outputs restored.** and the heater command is 0%.
+
+Select **Abort test** to stop early. To repeat, stop and restart **Simulator**.
 
 ## Evidence and decision
 
-The worked update is $I^*=110.25\%$, $u_r=120.25\%$, correction $0.1(100-120.25)=-2.025$ points, and $I_{next}=108.225\%$. At a −20% request applied as 0%, correction is +2 points; equal values give zero.
+![With the real limit declared, the integral stays near 90% and the heater turns down as soon as the setpoint returns](figures/anti-windup-comparison.svg)
 
-Compare reduction time, peak temperature, and final-band recovery separately. Faster exit from saturation is evidence of state correction, and the comparison must also report peak temperature and settling separately. A shorter saturation interval alone does not establish a better temperature response. Both runs have the same 40 °C full-power equilibrium, so inability to reach the 45 °C setpoint is not evidence against anti-windup.
+The numbered marks answer predictions 2–5. The worked update gives $I^* = 110.25\%$, $u_r = 120.25\%$, a correction of −2.025 points and $I_{next} = 108.225\%$; the −20% case gives +2 points and equal values give zero, which answers prediction 1.
 
-Also compare the sign and size of the tracking correction during each run. It should be negative while the request is above 100%, and it should return near zero when the request becomes attainable. If the correction has the wrong sign, the state will reinforce saturation rather than remove it. Record that implementation failure separately from a process response that is simply slow.
+From the two recorded runs, both from the same hot start:
+
+| | Lesson 7, limit declared as 200% | Lesson 8, limit 100% |
+| --- | ---: | ---: |
+| Tracking correction at 9.9 s | 0 | −0.26 point per update |
+| Integral at 9.9 s | 113.2% | 90.6% |
+| Request at 9.9 s | 124.9% | 102.6% |
+| Applied output first below 100% | 12.0 s | 10.0 s |
+| Peak temperature | 39.57 °C at 13.8 s | 39.31 °C at 11.0 s |
+| Within 34.8–35.2 °C from | 44.8 s | 29.2 s |
+
+2. The correction was negative whenever the request exceeded 100%, and it held the integral at 90.6% instead of letting it climb to 113.2%.
+3. When the setpoint returned, P fell to −8.3% and the request dropped at once to 82.1%, so the heater left full power immediately instead of 2 s later.
+4. The water peaked 0.26 °C lower, at 39.31 °C.
+5. It was back within 0.2 °C of 35 °C at 29.2 s, 15.6 s sooner: 19.2 s after the setpoint reduction instead of 34.8 s.
+
+Both runs have the same 40 °C full-power limit, so neither could reach 45 °C; that is capacity, not anti-windup. Anti-windup is accepted: with the heater's real limit declared, the integral stays consistent with what the heater can deliver, and the recovery is not delayed by a piled-up demand. These are simulation results.
 
 ## Conclusion
 
-Applied-output feedback corrects the integral state toward the contribution consistent with the limited command. It reduces unnecessary stored heating after saturation while preserving ordinary PI action when the request is attainable.
+Anti-windup feeds the applied output back into the integral. While the heater is at its limit, back-calculation pulls the integral towards the value that matches the power actually delivered; when the request can be applied, it does nothing, and PI control is unchanged.
+
+For this heater, the integral stayed near 90%, the heater turned down at the moment the setpoint returned, and the water recovered 15.6 s sooner than in Lesson 7.
+
+## Check yourself
+
+1. **The request is 130% and the heater applies 100%. With Δt = 0.1 s and Tt = 1 s, what is the correction to the integral at this update?**
+   0.1 × (100 − 130) = −3 percentage points.
+2. **Why does anti-windup not change the response when the heater is not at a limit?**
+   Then the applied output equals the request, so $u_a - u_r = 0$ and the correction is zero.
+3. **With anti-windup, why could the water still not reach 45 °C?**
+   Anti-windup only changes the stored integral, not the heater's power. Full power holds at most 40 °C.
 
 ## Reason for the next lesson
 
-The integral state now accounts for the output limit, and we have assessed recovery from an excessive setpoint. Ordinary operation poses two further questions: how should the loop follow a feasible setpoint change, and how should it recover from increased heat loss while the setpoint stays fixed?
+The integral now accounts for the heater's limit, and we have tested recovery from an unreachable setpoint. Normal operation poses two other questions: how well does the loop follow a reachable setpoint change, and how well does it recover when extra heat is lost while the setpoint stays fixed? So far no requirement says what a good response is.
 
-[Setpoint and disturbance response](../09-setpoint-and-disturbance-response/README.md) separates those causes and sets a useful requirement for each response before tuning.
+[Setpoint and disturbance response](../09-setpoint-and-disturbance-response/README.md) separates those two events and states a requirement for each before the test.

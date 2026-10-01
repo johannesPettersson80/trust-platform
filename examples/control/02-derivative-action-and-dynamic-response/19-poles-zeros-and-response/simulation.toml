@@ -3,55 +3,48 @@ enabled = true
 seed = 20260829
 time_scale = 1
 max_plant_substeps_per_cycle = 100
-plant_trace_capacity = 2000
-plant_step_ms = 100
+plant_trace_capacity = 3000
+plant_step_ms = 20
 
+# The heater of Lessons 12–30, 50·dT/dt = 2·u(t − 1) − 10·(T − 20), held at 36 °C by 80 %. Input: heater command
+# (%QL0, delivered 1 s later); output: water temperature (%IL0), read within ±0.02 °C.
 [[plants]]
-id = "stable-pole"
-model = "first_order"
+id = "water-heater"
+model = "state_space"
 command_sources = ["%QL0"]
 feedback_targets = ["%IL0"]
-initial_state = [0.0]
-[plants.parameters]
-gain = 1.0
-time_constant_s = 25.0
+initial_state = [16.0]
+initial_input = [80.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 80.0 }]
 
-[[plants]]
-id = "origin-pole"
-model = "integrator"
-command_sources = ["%QL0"]
-feedback_targets = ["%IL8"]
-initial_state = [0.0]
 [plants.parameters]
-gain = 0.1
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]
 
+[[plants.uncertainties]]
+id = "temperature-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "uniform_white"
+minimum = -0.02
+maximum = 0.02
+
+# The shaft of Lesson 34: J·dω/dt = u − B·ω, dθ/dt = ω with J = 1 kg·m² and B = 1 N·m·s/rad. Input: motor torque
+# (%QL8); outputs: angle (%IL8) and velocity (%IL16).
 [[plants]]
-id = "complex-poles"
-model = "second_order"
-command_sources = ["%QL0"]
-feedback_targets = ["%IL16"]
+id = "shaft"
+model = "state_space"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL8", "%IL16"]
 initial_state = [0.0, 0.0]
-[plants.parameters]
-gain = 1.0
-natural_frequency_rad_s = 1.5
-damping_ratio = 0.2
 
-[[plants]]
-id = "inverse-slow-positive"
-model = "first_order"
-command_sources = ["%QL0"]
-feedback_targets = ["%IL24"]
-initial_state = [0.0]
 [plants.parameters]
-gain = 2.0
-time_constant_s = 20.0
-
-[[plants]]
-id = "inverse-fast-negative"
-model = "first_order"
-command_sources = ["%QL0"]
-feedback_targets = ["%IL32"]
-initial_state = [0.0]
-[plants.parameters]
-gain = -1.0
-time_constant_s = 2.0
+a = [[0.0, 1.0], [0.0, -1.0]]
+b = [[0.0], [1.0]]
+c = [[1.0, 0.0], [0.0, 1.0]]
+d = [[0.0], [0.0]]

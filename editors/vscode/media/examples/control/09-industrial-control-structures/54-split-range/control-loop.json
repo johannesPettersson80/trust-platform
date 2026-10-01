@@ -1,46 +1,43 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "control-split-range",
-  "name": "Split-range",
-  "revision": "sha256:e8827561b2c818ec3e01f444caf4a4325769f777a70d44b066acc223a0a87514",
+  "name": "Split-range control",
   "projectId": "project:control-split-range",
   "runtimeId": "simulator",
   "controller": {
-    "instance": "P1",
-    "type": "Installed-gain-characterized split-range control",
+    "instance": "P1.SplitInflow",
+    "type": "SplitCascade",
     "design": "project",
-    "revision": "sha256:curriculum-controller-56",
+    "revision": "sha256:6e1b466079ab35a17762f1df57f9fce3c6fa5dbe4eed4d6a8e7b6072337785b0",
     "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": "%MX88.4",
-    "modeWhenTrue": "Auto"
+    "taskPeriodMs": 100
   },
   "signals": {
     "setpoint": {
-      "symbol": "P1.Setpoint",
-      "address": "%ML160",
+      "symbol": "P1.VesselSetpointC",
+      "address": "%ML0",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "degC",
       "range": {
-        "minimum": 72,
-        "maximum": 88
+        "minimum": 0,
+        "maximum": 80
       }
     },
     "processVariable": {
-      "symbol": "P1.DeadZoneTemperature",
-      "address": "%IL64",
+      "symbol": "P1.InflowVesselC",
+      "address": "%IL24",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "degC",
       "range": {
-        "minimum": 72,
-        "maximum": 88
+        "minimum": 0,
+        "maximum": 80
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.DeadZoneHeatingRequest",
-      "address": "%QL80",
+      "symbol": "P1.InflowHeaterPct",
+      "address": "%QL24",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "%",
@@ -51,25 +48,67 @@
     },
     "additional": [
       {
+        "id": "heater-only-vessel",
+        "channel": "heater-only-vessel",
+        "role": "state",
+        "symbol": "P1.HeaterOnlyVesselC",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "inflow-cooler",
+        "channel": "inflow-cooler",
+        "role": "state",
+        "symbol": "P1.InflowCoolerPct",
+        "address": "%QL32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "inflow-net",
+        "channel": "inflow-net",
+        "role": "state",
+        "symbol": "P1.InflowNetKw",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": -100,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "heater-only-heater",
+        "channel": "heater-only-heater",
+        "role": "state",
+        "symbol": "P1.HeaterOnlyHeaterPct",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
         "id": "experiment-authority",
         "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
-        "address": "%MX88.5",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "automatic-authority-1",
-        "channel": "automatic-authority",
-        "role": "quality",
-        "symbol": "P1.AutomaticAvailable",
-        "address": "%MX88.4",
+        "address": "%MX72.0",
         "iecType": "BOOL",
         "direction": "read",
         "unit": "1",
@@ -79,81 +118,81 @@
         }
       },
       {
-        "id": "dead-zone-signed-demand-2",
-        "channel": "dead-zone-signed-demand",
-        "role": "state",
-        "symbol": "P1.DeadZoneDemand",
-        "address": "%ML168",
+        "id": "inflow",
+        "channel": "inflow",
+        "role": "disturbance",
+        "symbol": "P1.InflowKw",
+        "address": "%ML8",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "%",
+        "unit": "kW",
         "range": {
           "minimum": -100,
-          "maximum": 100
+          "maximum": 200
         }
       },
       {
-        "id": "overlap-signed-demand-3",
-        "channel": "overlap-signed-demand",
+        "id": "heater-only-jacket-setpoint",
+        "channel": "heater-only-jacket-setpoint",
         "role": "state",
-        "symbol": "P1.OverlapDemand",
-        "address": "%ML176",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": -100,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "characterized-signed-demand-4",
-        "channel": "characterized-signed-demand",
-        "role": "state",
-        "symbol": "P1.CharacterizedDemand",
-        "address": "%ML184",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": -100,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "overlap-reactor-temperature-5",
-        "channel": "overlap-reactor-temperature",
-        "role": "state",
-        "symbol": "P1.OverlapTemperature",
-        "address": "%IL72",
+        "symbol": "P1.HeaterOnlyJacketSetpointC",
+        "address": "%ML56",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "degC",
         "range": {
-          "minimum": 72,
-          "maximum": 88
+          "minimum": 0,
+          "maximum": 80
         }
       },
       {
-        "id": "characterized-reactor-temperature-6",
-        "channel": "characterized-reactor-temperature",
+        "id": "inflow-jacket-setpoint",
+        "channel": "inflow-jacket-setpoint",
         "role": "state",
-        "symbol": "P1.CharacterizedTemperature",
-        "address": "%IL80",
+        "symbol": "P1.InflowJacketSetpointC",
+        "address": "%ML64",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "degC",
         "range": {
-          "minimum": 72,
-          "maximum": 88
+          "minimum": 0,
+          "maximum": 80
         }
       },
       {
-        "id": "dead-zone-cooling-request-7",
-        "channel": "dead-zone-cooling-request",
+        "id": "inflow-request",
+        "channel": "inflow-request",
         "role": "state",
-        "symbol": "P1.DeadZoneCoolingRequest",
-        "address": "%QL88",
+        "symbol": "P1.InflowRequestKw",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": -100,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "loss-vessel",
+        "channel": "loss-vessel",
+        "role": "state",
+        "symbol": "P1.LossVesselC",
+        "address": "%IL40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "loss-cooler",
+        "channel": "loss-cooler",
+        "role": "state",
+        "symbol": "P1.LossCoolerPct",
+        "address": "%QL56",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "%",
@@ -163,11 +202,25 @@
         }
       },
       {
-        "id": "overlap-heating-request-8",
-        "channel": "overlap-heating-request",
+        "id": "loss-net",
+        "channel": "loss-net",
         "role": "state",
-        "symbol": "P1.OverlapHeatingRequest",
-        "address": "%QL96",
+        "symbol": "P1.LossNetKw",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": -100,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "loss-heater",
+        "channel": "loss-heater",
+        "role": "state",
+        "symbol": "P1.LossHeaterPct",
+        "address": "%QL48",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "%",
@@ -177,45 +230,73 @@
         }
       },
       {
-        "id": "overlap-cooling-request-9",
-        "channel": "overlap-cooling-request",
+        "id": "loss-request",
+        "channel": "loss-request",
         "role": "state",
-        "symbol": "P1.OverlapCoolingRequest",
-        "address": "%QL104",
+        "symbol": "P1.LossRequestKw",
+        "address": "%ML40",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "%",
+        "unit": "kW",
         "range": {
-          "minimum": 0,
-          "maximum": 100
+          "minimum": -100,
+          "maximum": 200
         }
       },
       {
-        "id": "characterized-heating-request-10",
-        "channel": "characterized-heating-request",
-        "role": "state",
-        "symbol": "P1.CharacterizedHeatingRequest",
-        "address": "%QL112",
+        "id": "loss",
+        "channel": "loss",
+        "role": "disturbance",
+        "symbol": "P1.LossKw",
+        "address": "%ML16",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "%",
+        "unit": "kW",
         "range": {
-          "minimum": 0,
-          "maximum": 100
+          "minimum": -100,
+          "maximum": 200
         }
       },
       {
-        "id": "characterized-cooling-request-11",
-        "channel": "characterized-cooling-request",
+        "id": "inflow-jacket",
+        "channel": "inflow-jacket",
         "role": "state",
-        "symbol": "P1.CharacterizedCoolingRequest",
-        "address": "%QL120",
+        "symbol": "P1.InflowJacketC",
+        "address": "%IL16",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "%",
+        "unit": "degC",
         "range": {
           "minimum": 0,
-          "maximum": 100
+          "maximum": 80
+        }
+      },
+      {
+        "id": "heater-only-jacket",
+        "channel": "heater-only-jacket",
+        "role": "state",
+        "symbol": "P1.HeaterOnlyJacketC",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "loss-jacket",
+        "channel": "loss-jacket",
+        "role": "state",
+        "symbol": "P1.LossJacketC",
+        "address": "%IL32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
         }
       }
     ]
@@ -227,18 +308,21 @@
   "observedSampleTiming": {
     "nominalPeriodMs": 100
   },
-  "plantId": "three_equivalent_bidirectional_jacketed_reactors",
+  "plantId": "three-jacketed-vessels-with-cooler",
+  "operatingPoint": "Three jacketed vessels at 35 degC with the jacket at 38 degC, heater 15% and cooler 0%",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 200.1,
+    "durationSeconds": 62.1,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX88.5",
+      "address": "%MX72.0",
       "iecType": "BOOL",
       "direction": "write"
-    }
-  }
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:8987464e05e506c422107ff2410445a5f52f8ab13edad7f92ab27189787a8501"
 }

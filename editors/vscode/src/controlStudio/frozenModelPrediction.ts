@@ -1,12 +1,9 @@
 import { delayedModelRealization } from "./delayedModelRealization";
 import { solveLeastSquares } from "./numerics";
 import type { GeneralModel } from "./generalModel";
-import type { PhysicalBalance } from "./physicalModel";
 
 /** Predict from frozen coefficients and measured inputs; only the initial state is estimated. */
 export function frozenModelPrediction(model: GeneralModel, inputs: number[][], outputs: number[][], step: number): { start: number; values: number[][] } {
-  const physical = (model as GeneralModel & { physical?: PhysicalBalance }).physical;
-  if (physical) return physicalPrediction(physical, inputs, outputs, step);
   const m = model.inputs.length, p = model.outputs.length;
   const u0 = model.operatingPoint?.inputs ?? Array(m).fill(0), y0 = model.operatingPoint?.outputs ?? Array(p).fill(0);
   const u = inputs.map(row => row.map((value, index) => value - u0[index]));
@@ -55,25 +52,4 @@ export function frozenModelPrediction(model: GeneralModel, inputs: number[][], o
   return { start, values };
 }
 
-function physicalPrediction(physical: PhysicalBalance, inputs: number[][], outputs: number[][], step: number) {
-  let state = [...outputs[0]]; const values = [state];
-  for (let k = 0; k < inputs.length - 1; k++) {
-    if (physical.kind === "thermal-balance") {
-      const loss = physical.lossWattsPerK / physical.heatCapacityJPerK;
-      state = [(state[0] * (1 - loss * step / 2) + step * (inputs[k][0] / physical.heatCapacityJPerK + loss * physical.ambientTemperature)) / (1 + loss * step / 2)];
-    } else {
-      const previous = [...state], rate = physical.outflowCoefficient / physical.areaM2;
-      if (previous.some(value => value <= 0)) throw new Error("Gravity model validation requires positive levels.");
-      for (let channel = 0; channel < state.length; channel++) {
-        const inflow = channel === 0 ? inputs[k][0] / physical.areaM2 : rate * (Math.sqrt(previous[0]) + Math.sqrt(state[0])) / 2;
-        const right = previous[channel] + step * inflow - step * rate * Math.sqrt(previous[channel]) / 2;
-        if (right < 0) throw new Error("The frozen gravity model reaches its dry-level boundary.");
-        const coefficient = step * rate / 2;
-        state[channel] = ((Math.sqrt(coefficient ** 2 + 4 * right) - coefficient) / 2) ** 2;
-      }
-    }
-    values.push([...state]);
-  }
-  return { start: 1, values: values.slice(1) };
-}
 function dot(a: readonly number[], b: readonly number[]): number { return a.reduce((sum, value, i) => sum + value * b[i], 0); }

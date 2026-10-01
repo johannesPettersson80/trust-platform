@@ -1,6 +1,0 @@
-case,status,event_iae_degC_s,peak_deviation_degC,heater_travel_pp,final_error_degC,max_requested_heater_percent,max_applied_heater_percent,saturation_duration_s,authority,abort,restoration
-feedback_only,qualified,122.208203,9.072407,12.292610,0.010804,81.206041,81.206041,0.000,automatic,false,qualified
-static_feedforward,not_settled,48.132562,4.142618,18.536201,0.126500,84.370048,84.370048,0.000,automatic,false,not_settled
-dynamic_feedforward,qualified,0.603504,0.051990,39.994037,0.001580,95.000000,95.000000,0.000,automatic,false,qualified
-dynamic_mismatch,qualified,24.321023,,,0.002389,,,,automatic,false,qualified
-invalid_speed_fallback,invalid_quality_metrics_ineligible,,,,,,,feedback_only,false,tracked_fallback

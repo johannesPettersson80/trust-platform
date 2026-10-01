@@ -1,6 +1,0 @@
-case,status,total_iae_degC_s,setpoint_iae_degC_s,rise_time_s,overshoot_degC,final_error_degC,peak_model_correction_degC,fallback_samples
-ordinary_pi,qualified,580.206518,532.704551,51.400000,1.098871,0.066137,0,0
-aggressive_pi,rejected,543.315725,,,2.931691,0.065159,0,0
-nominal_smith,qualified,499.173435,466.989857,41.300000,0.845323,0.062281,3.154669,0
-moderate_mismatch,qualified_with_residual,531.172514,,,,,4.235080,0
-severe_mismatch,fallback_required,,,,,,,1102

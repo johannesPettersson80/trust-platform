@@ -39,6 +39,23 @@ suite("Control Studio automatic test criteria", () => {
     assert.ok(!result.task.automaticCriteria.fields.includes("maximumError"));
     assert.ok(result.task.durationSeconds > 45);
   });
+  test("fills Automatic's response choice as More robust also when every requirement was entered", async () => {
+    const entered = { referenceChange: 2, maximumError: .4, settlingBand: .1, settlingTimeSeconds: 45, durationSeconds: 90 };
+    const direct = await tune(model(), entered);
+    // The other order: Tune generates criteria first, then the learner enters every requirement.
+    const generated = await tune(model(), {});
+    const afterGenerated = await tune(model(), { ...generated.task, ...entered, automaticCriteria: { ...generated.task.automaticCriteria,
+      fields: generated.task.automaticCriteria.fields.filter((key: string) => !(key in entered)) } });
+    assert.strictEqual(direct.task.tuningObjective, "robust", "the page declares no response choice, so Tune fills it");
+    const gains = (result: typeof direct) => result.messages.find(message => message.status === "candidate").values;
+    assert.deepStrictEqual(gains(direct), gains(afterGenerated), "the same requirements design the same controller in either order");
+  });
+  test("explains a test change beyond the identified range and how to fix it", () => {
+    const loop = pidLoop();
+    assert.throws(() => automaticEngineerRequirements(loop, model(), { referenceChange: 30 }, []),
+      (error: Error) => /leaves the range the model was identified in \(.+\)\. Identify with a larger step, or choose a change of at most \S+/.test(error.message),
+      "the refusal names the identified range and the remedy instead of 'Tune again'");
+  });
   test("limits the automatically selected test step to actuator headroom", async () => {
     const result = await tune(model(), {}, loop => {loop.limits.outputMinimum=-.5;loop.limits.outputMaximum=.5;});
     assert.ok(result.task.referenceChange > 0 && result.task.referenceChange <= .075 + 1e-9);
@@ -71,6 +88,20 @@ suite("Control Studio automatic test criteria", () => {
     assert.ok(task.channelRequirements!.y2.referenceChange<=.020000001);
     assert.ok(task.automaticCriteria!.fields.includes('maximumError:y2'));
     assert.strictEqual(task.channelRequirements!.y1.maximumError,task.maximumError);
+  });
+
+  test("derives requirements only for the controlled output and none for an auxiliary measured output", () => {
+    const loop=pidLoop();
+    loop.signals.additional=[{id:'upstream',role:'state',channel:'upstream',symbol:'Main.upstream',address:'%ML32',iecType:'LREAL',direction:'read',unit:'m',range:{minimum:-20,maximum:20}}];
+    loop.channels={inputs:[{modelChannelId:'u',signalId:'manipulatedVariable',actuator:{kind:'continuous',minimum:-20,maximum:20}}],
+      outputs:[{modelChannelId:'y1',signalId:'upstream'},{modelChannelId:'y2',signalId:'processVariable',setpointSignalId:'setpoint'}]};
+    const plant:GeneralModel={...model(),kind:'continuous-state-space',inputs:[channel('u','V')],
+      outputs:[channel('y1','m'),channel('y2','m')],states:[channel('x1','m'),channel('x2','m')],
+      a:[[-.25,0],[.25,-.25]],b:[[.25],[0]],c:[[1,0],[0,1]],d:[[0],[0]],operatingPoint:{inputs:[0],outputs:[0,0]}};
+    const task=automaticEngineerRequirements(loop,plant,{},[]);
+    assert.strictEqual(task.channelRequirements,undefined,'the auxiliary output y1 has no setpoint, so it gets no requirements');
+    assert.ok(task.automaticCriteria!.fields.every(field=>!field.includes(':')),JSON.stringify(task.automaticCriteria));
+    assert.ok(task.referenceChange!==0);
   });
 
 });

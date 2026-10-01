@@ -1,6 +1,9 @@
 //! Portable VM execution helpers.
 
 #![allow(missing_docs)]
+// `VmTrap` owns strings, so its drop is a real call: an eager `ok_or(VmTrap::...)` builds and drops a trap on every
+// successful lookup. The VM builds traps lazily, only when a lookup fails.
+#![allow(clippy::unnecessary_lazy_evaluations)]
 
 mod const_pool;
 mod dispatch_ops;

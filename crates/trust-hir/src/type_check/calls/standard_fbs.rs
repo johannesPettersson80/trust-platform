@@ -1,4 +1,3 @@
-use super::super::*;
 use super::*;
 use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
 

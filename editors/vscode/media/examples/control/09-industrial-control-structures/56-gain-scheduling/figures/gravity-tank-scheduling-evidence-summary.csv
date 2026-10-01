@@ -1,5 +1,0 @@
-case,status,worst_regional_iae_m_s,schedule_transitions,maximum_transition_step_m3_s
-fixed_gain,rejected,3.283862,0,0
-interpolated_gain,qualified,3.049979,0,0
-parallel_bumpless,qualified,2.786078,4,0.000000
-unavailable_authority,unavailable_metrics_ineligible,,,

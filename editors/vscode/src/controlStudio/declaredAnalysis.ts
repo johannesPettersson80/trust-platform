@@ -34,6 +34,8 @@ export interface DeclaredRootLocusResult {
   provenance: string;
   approximation: string;
   branches: readonly { gain: number; poles: readonly { real: number; imaginary: number }[] }[];
+  /** Poles across the parameter's whole declared range, for drawing the pole paths. */
+  path?: readonly { gain: number; poles: readonly { real: number; imaginary: number }[] }[];
 }
 
 /** Validates explicitly declared mathematics, independently of PID implementation or a live runtime. */
@@ -89,7 +91,7 @@ export function calculateDeclaredRootLocus(input: DeclaredControlAnalysis): Decl
     if (typeof coefficient === "number") return coefficient;
     return (coefficient.scale ?? 1) * (coefficient.parameter === sweep.parameter ? gain : controller.parameters[coefficient.parameter].value);
   });
-  const branches = sweep.values.map(gain => {
+  const poles = (gain: number) => {
     const numerator = multiply(plantNumerator, substitute(controller.numerator, gain));
     const denominator = multiply(plantDenominator, substitute(controller.denominator, gain));
     if (!denominator.some(value => value !== 0)) throw new Error(`Controller denominator is zero at ${sweep.parameter} = ${gain}.`);
@@ -98,14 +100,19 @@ export function calculateDeclaredRootLocus(input: DeclaredControlAnalysis): Decl
     };
     if (result.status !== "qualified" || !result.branches?.[0]) throw new Error(result.reason ?? "Root solver could not qualify this model.");
     return { gain, poles: [...result.branches[0].poles].sort((a, b) => a.real - b.real || a.imaginary - b.imaginary) };
-  });
+  };
+  const branches = sweep.values.map(poles);
+  // The pole paths over the parameter's whole declared range; a gain where the loop is undefined leaves a gap.
+  const { minimum, maximum } = controller.parameters[sweep.parameter];
+  const path = (maximum > minimum ? Array.from({ length: 201 }, (_, index) => minimum + (maximum - minimum) * index / 200) : [minimum])
+    .flatMap(gain => { try { return [poles(gain)]; } catch { return []; } });
   return { parameter: sweep.parameter, parameterUnit: controller.parameters[sweep.parameter].unit,
     selectedValue: sweep.selectedValue,
     fixedParameters: Object.fromEntries(Object.entries(controller.parameters).filter(([name]) => name !== sweep.parameter)
       .map(([name, parameter]) => [name, { value: parameter.value, unit: parameter.unit }])),
     provenance: `${plant.source} model ${plant.revision} · ${plant.validation}`,
     approximation: `Declared continuous linear model; nonlinear limits and task sample/hold are not represented.${plant.delaySeconds > 0 ? " Delay uses first-order Padé approximation." : " No model delay."}`,
-    branches };
+    branches, path };
 }
 function multiply(a: readonly number[], b: readonly number[]): number[] {
   const result = Array<number>(a.length + b.length - 1).fill(0);

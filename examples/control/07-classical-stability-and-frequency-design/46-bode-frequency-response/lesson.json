@@ -3,11 +3,11 @@
   "id": "control-bode-frequency-response",
   "title": "Frequency response",
   "level": "Advanced",
-  "sequence": 50,
-  "equipment": "Flexible-shaft motor and load",
-  "physicalPurpose": "Measure frequency-dependent shaft response and compare loop-shaping candidates without applying unqualified gains.",
-  "principalTechnique": "Bode frequency response",
-  "objective": "Measure resonance, magnitude, phase, crossover, and margin.",
+  "sequence": 54,
+  "equipment": "The heater of Lessons 12–30 in open loop, driven by Lesson 53's sine at 0.2 rad/s",
+  "physicalPurpose": "Predict and measure how much the heater shrinks and delays a repeating command at each rate.",
+  "principalTechnique": "Frequency response G(jω): magnitude and phase, measured on settled cycles and shown on a Bode plot",
+  "objective": "Derive G(jω) = 0.2·e^(−jω)/(1 + 5jω) with its magnitude and phase, measure the amplitude ratio and phase at 0.2 rad/s on settled cycles in Control Studio, and compare them with the model's Bode plot.",
   "prerequisites": [
     "control-root-locus",
     "control-lesson-22"
@@ -15,358 +15,235 @@
   "nextLesson": "control-sensitivity-functions",
   "signals": [
     {
-      "role": "state",
-      "name": "Experiment authority",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX96.0"
-    },
-    {
-      "role": "state",
-      "name": "Low requested motor torque",
-      "unit": "%",
-      "minimum": -100,
-      "maximum": 100,
-      "resolution": 0.001,
-      "binding": "%ML0"
-    },
-    {
-      "role": "state",
-      "name": "Resonant requested motor torque",
-      "unit": "%",
-      "minimum": -100,
-      "maximum": 100,
-      "resolution": 0.001,
-      "binding": "%ML8"
-    },
-    {
-      "role": "state",
-      "name": "High requested motor torque",
-      "unit": "%",
-      "minimum": -100,
-      "maximum": 100,
-      "resolution": 0.001,
-      "binding": "%ML16"
-    },
-    {
-      "role": "MV",
-      "name": "Low applied motor torque",
-      "unit": "%",
-      "minimum": -100,
-      "maximum": 100,
-      "resolution": 0.001,
-      "binding": "%QL0"
-    },
-    {
-      "role": "MV",
-      "name": "Resonant applied motor torque",
-      "unit": "%",
-      "minimum": -100,
-      "maximum": 100,
-      "resolution": 0.001,
-      "binding": "%QL8"
-    },
-    {
-      "role": "MV",
-      "name": "High applied motor torque",
-      "unit": "%",
-      "minimum": -100,
-      "maximum": 100,
-      "resolution": 0.001,
-      "binding": "%QL16"
-    },
-    {
       "role": "PV",
-      "name": "Low-frequency load speed",
-      "unit": "rpm",
-      "minimum": 990,
-      "maximum": 1010,
+      "name": "Water temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
       "resolution": 0.001,
       "binding": "%IL0"
     },
     {
-      "role": "PV",
-      "name": "Resonant load speed",
-      "unit": "rpm",
-      "minimum": 990,
-      "maximum": 1010,
-      "resolution": 0.001,
-      "binding": "%IL8"
+      "role": "MV",
+      "name": "Heater command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
     },
     {
-      "role": "PV",
-      "name": "High-frequency load speed",
-      "unit": "rpm",
-      "minimum": 990,
-      "maximum": 1010,
-      "resolution": 0.001,
-      "binding": "%IL16"
+      "role": "state",
+      "name": "ModelAmplitudeRatio",
+      "unit": "degC/%",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1e-06,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "ModelPhaseRad",
+      "unit": "rad",
+      "minimum": -4,
+      "maximum": 0,
+      "resolution": 1e-06,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "ExperimentEnabled",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.0"
     }
   ],
   "plant": {
-    "modelId": "three_equivalent_flexible_drive_copies",
+    "modelId": "water-heater",
     "executable": "simulation.toml",
     "parameters": [
       {
-        "name": "static_gain",
-        "value": 0.25,
-        "unit": "rpm/%"
+        "name": "heat_capacity",
+        "value": 50,
+        "unit": "kJ/°C"
       },
       {
-        "name": "natural_frequency",
+        "name": "heater_per_point",
         "value": 2,
+        "unit": "kW/%"
+      },
+      {
+        "name": "loss_coefficient",
+        "value": 10,
+        "unit": "kW/°C"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "temperature_noise_bound",
+        "value": 0.02,
+        "unit": "°C"
+      },
+      {
+        "name": "excitation_amplitude",
+        "value": 5,
+        "unit": "%"
+      },
+      {
+        "name": "angular_frequency",
+        "value": 0.2,
         "unit": "rad/s"
-      },
-      {
-        "name": "damping_ratio",
-        "value": 0.05,
-        "unit": "1"
-      },
-      {
-        "name": "operating_speed",
-        "value": 1000,
-        "unit": "rpm"
       }
     ],
-    "sampleTimeSeconds": 0.01,
+    "sampleTimeSeconds": 0.1,
     "initialState": {
-      "speedDeviationRevolutionsPerMinute": 0,
-      "speedRateRevolutionsPerMinutePerSecond": 0
+      "temperatureC": 35
     },
     "seed": 20260829,
     "operatingPoint": {
-      "Low applied motor torque": 0,
-      "Resonant applied motor torque": 0,
-      "High applied motor torque": 0,
-      "Low-frequency load speed": 1000,
-      "Resonant load speed": 1000,
-      "High-frequency load speed": 1000
+      "Water temperature": 35,
+      "Heater command": 75
     },
     "validityRange": [
       {
-        "signal": "Low applied motor torque",
-        "minimum": -100,
-        "maximum": 100,
-        "unit": "%"
-      },
-      {
-        "signal": "Resonant applied motor torque",
-        "minimum": -100,
-        "maximum": 100,
-        "unit": "%"
-      },
-      {
-        "signal": "High applied motor torque",
-        "minimum": -100,
-        "maximum": 100,
-        "unit": "%"
-      },
-      {
-        "signal": "Low-frequency load speed",
-        "minimum": 990,
-        "maximum": 1010,
-        "unit": "rpm"
-      },
-      {
-        "signal": "Resonant load speed",
-        "minimum": 990,
-        "maximum": 1010,
-        "unit": "rpm"
-      },
-      {
-        "signal": "High-frequency load speed",
-        "minimum": 990,
-        "maximum": 1010,
-        "unit": "rpm"
+        "signal": "Water temperature",
+        "minimum": 33,
+        "maximum": 37,
+        "unit": "degC"
       }
     ],
     "simplifications": [
-      "One local linear flexible mode",
-      "Fixed inertia, stiffness, and viscous damping",
-      "Ideal torque actuation inside declared limits",
-      "No backlash, higher shaft modes, drive dynamics, or protection model",
-      "Simulation-only I/O"
+      "Well-mixed water: 50·dT/dt = 2·u(t − 1) − 10·(T − 20).",
+      "Uniform temperature noise of at most ±0.02 °C; simulation only."
     ]
   },
   "baseline": {
-    "executableId": "FlexibleDrive.UnshapedGainFive",
+    "executableId": "P1",
     "settings": {
-      "controllerGain": 5,
-      "probeFrequenciesRadiansPerSecond": [
-        0.5,
-        2,
-        8
-      ],
-      "probeAmplitudePercent": 1
+      "command": "75 %",
+      "temperature": "35 °C"
     },
-    "limitation": "The unshaped loop has a large resonant peak and approximately 6.9 degrees phase margin."
+    "limitation": "Lesson 53's traces show the swing shrinking and lagging, but not by how much."
   },
   "change": {
-    "executableId": "FlexibleDrive.ResonanceShapedCandidate",
+    "executableId": "P1",
     "settings": {
-      "controllerGain": 5,
-      "numerator": [
-        1,
-        0.2,
-        4
-      ],
-      "denominator": [
-        1,
-        3.2,
-        4
-      ],
-      "applicationState": "unapplied"
+      "command": "75 + 5·sin(0.2·t) % for five periods",
+      "durationSeconds": 159.2,
+      "model": "heater-model.json"
     },
-    "decision": "Accept for further simulation only when measured response, all crossings, margins, and perturbed-model checks meet the declared criteria."
+    "decision": "Measured M = 0.1416 °C/point and φ = −57.07° at 0.2 rad/s against the model's 0.1414 and −56.46°; the extra 0.6° is the 0.1 s command hold."
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Experiment authority",
+    "signal": "ExperimentEnabled",
     "baseline": 0,
     "amplitude": 0,
-    "durationSeconds": 120.1,
-    "settlingSeconds": 60,
-    "disturbances": [],
+    "durationSeconds": 159.2,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Sine command 75 ± 5 % at 0.2 rad/s for five periods",
+      "Uniform temperature noise bounded by ±0.02 °C"
+    ],
     "seed": 20260829,
-    "restorationValue": 0,
-    "activationSignal": "P1.ExperimentEnabled"
+    "restorationValue": 0
   },
   "acceptance": [
     {
-      "metric": "resonant_frequency_response_magnitude",
-      "signal": "Resonant load speed",
-      "window": "60 through 120 seconds after the transient-discard interval",
-      "comparator": ">=",
-      "limit": 2.425,
-      "unit": "rpm/%",
-      "tolerance": 0.075,
+      "metric": "amplitude_ratio",
+      "signal": "Water temperature",
+      "window": "cycles 3–5 at 0.2 rad/s",
+      "comparator": "==",
+      "limit": 0.141421,
+      "unit": "degC/%",
+      "tolerance": 0.0015,
       "evidenceClass": "simulation"
     },
     {
-      "metric": "unshaped_phase_margin",
-      "signal": "Resonant load speed",
-      "window": "qualified analytical sweep across every retained gain crossover",
-      "comparator": ">=",
-      "limit": 6.8,
-      "unit": "deg",
-      "tolerance": 0.1,
-      "evidenceClass": "model"
-    },
-    {
-      "metric": "shaped_phase_margin",
-      "signal": "Resonant load speed",
-      "window": "qualified analytical sweep across every retained gain crossover",
-      "comparator": ">=",
-      "limit": 112.4,
-      "unit": "deg",
-      "tolerance": 0.2,
-      "evidenceClass": "model"
+      "metric": "phase",
+      "signal": "Water temperature",
+      "window": "cycles 3–5 at 0.2 rad/s",
+      "comparator": "==",
+      "limit": -0.995398,
+      "unit": "rad",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
     }
   ],
-  "safety": {
-    "hardLimits": [
-      {
-        "signal": "Low applied motor torque",
-        "minimum": -100,
-        "maximum": 100,
-        "unit": "%"
-      },
-      {
-        "signal": "Resonant applied motor torque",
-        "minimum": -100,
-        "maximum": 100,
-        "unit": "%"
-      },
-      {
-        "signal": "High applied motor torque",
-        "minimum": -100,
-        "maximum": 100,
-        "unit": "%"
-      },
-      {
-        "signal": "Low-frequency load speed",
-        "minimum": 990,
-        "maximum": 1010,
-        "unit": "rpm"
-      },
-      {
-        "signal": "Resonant load speed",
-        "minimum": 990,
-        "maximum": 1010,
-        "unit": "rpm"
-      },
-      {
-        "signal": "High-frequency load speed",
-        "minimum": 990,
-        "maximum": 1010,
-        "unit": "rpm"
-      }
-    ],
-    "abortPredicates": [
-      "Any required signal is missing, stale, forced, nonfinite, or has bad quality",
-      "Requested and applied torque differ unexpectedly or applied torque reaches a limit",
-      "Load speed leaves 990 through 1010 rpm",
-      "Actual sample timing or plant identity differs from the reviewed experiment"
-    ],
-    "safeMv": 0,
-    "restorationMode": "Disable the experiment, command zero torque, and restart all three simulated drives from the 1000-rpm operating point",
-    "physicalApprovalRole": "authorised drive engineer and responsible machine operator",
-    "simulationOnlyRestrictions": [
-      "No candidate gain is applied by this lesson",
-      "Simulation evidence cannot authorise excitation or controller changes on a physical flexible drive",
-      "Physical work requires independent mechanical resonance, topology, protection, operating-envelope, abort, rollback, and immediate approval review"
-    ]
-  },
   "workflowStages": [
-    "Monitor",
-    "Test"
+    "Identify",
+    "Tune"
   ],
   "proof": {
-    "specification": "docs/specs/38-control-engineering-curriculum.md#76-classical-stability-and-frequency-design",
-    "nativeTest": "TEST_PROGRAM::Lesson46ComplexResponsePredictsAllThreePhysicalProbes",
-    "nativeCommand": "target/debug/trust-dev test --project examples/control/07-classical-stability-and-frequency-design/46-bode-frequency-response --filter TEST_PROGRAM::Lesson46ComplexResponsePredictsAllThreePhysicalProbes --timeout 20",
+    "specification": "docs/specs/control-course-teaching-specification.md",
+    "nativeTest": "lesson50",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_49_51 lesson50",
     "projectPath": "examples/control/07-classical-stability-and-frequency-design/46-bode-frequency-response",
     "runArtifactFields": [
-      "plantIdentity",
-      "modelRevision",
-      "sampleInterval",
-      "probeFrequencies",
-      "requestedTorque",
-      "appliedTorque",
-      "loadSpeed",
-      "fitWindow",
-      "inputAmplitude",
-      "outputAmplitude",
-      "magnitude",
+      "temperature",
+      "heaterCommand",
+      "amplitudeRatio",
       "phase",
       "coherence",
-      "gainCrossovers",
-      "phaseMargins",
-      "phaseCrossover",
-      "gainMargin",
-      "delayMargin",
-      "resonancePeak",
-      "bandwidth",
-      "perturbations",
-      "stopReason",
-      "seed",
       "evidenceClass"
     ],
     "renderedJourneyId": "control-bode-frequency-response"
   },
+  "learning": {
+    "context": "Lesson 53 drove the heater with a 5-point sine at three speeds. The water swung 0.91 °C at 0.1 rad/s, 0.72 °C at 0.2 rad/s and only 0.46 °C at 0.4 rad/s, and its peaks came about 5.6, 4.8 and 3.9 s after the command's. The traces say \"smaller and later\", but not by how much, in numbers we can predict from the heater's model.\n\nWe will derive the size and the lag of the heater's answer at each speed from its transfer function, measure both at 0.2 rad/s in Control Studio, and compare.",
+    "reason": "We need to:\n\n1. put a number on how much smaller and how much later the answer is at each speed;\n2. predict both numbers from the heater's model; and\n3. measure them on settled cycles to check the prediction.",
+    "theory": [
+      "**The frequency response** tells, for each speed of a sine wave, how much smaller the output wave is, the **amplitude ratio**, and how far it lags behind, the **phase**.\n\n**In words.** Lesson 53 found that once the start-up has died away, the heater answers a sine with a sine of the same speed. For a linear process this is always so, and then only two things can differ between the input wave and the output wave:\n\n1. **The size.** The amplitude ratio is the output's swing divided by the input's swing. Below 1 means the wave comes out smaller.\n2. **The timing.** The phase is how far the output's peaks come after the input's, measured as a part of the cycle: a whole cycle is 360°, so a lag of a quarter cycle is −90°.\n\nEach speed has its own pair of numbers. Together, over all speeds, they are the frequency response: a fingerprint of the process that says how it treats slow and fast changes. It is the same kind of curve as on the datasheet of an analog input filter or a drive's speed filter: for each frequency, how much gets through and how late.\n\nFor the heater, the amplitude ratio is the temperature swing per percentage point of command swing, and the phase is how far each temperature peak comes after the command's peak. Its two parts act differently: the stored heat makes the wave smaller and later, while the 1 s delivery delay only makes it later.\n\n**The formula.** A sine can be written with Euler's identity as part of $e^{j\\omega t}$. The derivative of $e^{j\\omega t}$ is $j\\omega\\,e^{j\\omega t}$, so for a sine every derivative becomes a multiplication by $j\\omega$, and a delay of $t_d$ seconds a multiplication by $e^{-j\\omega t_d}$. That is the transfer function with $s = j\\omega$: the output wave is the input wave multiplied by the complex number $G(j\\omega)$.\n\n> **Math you need: the magnitude and angle of a complex number.** A complex number $a + jb$ can be drawn as an arrow from 0 to the point $(a, b)$. Its length is the **magnitude** $\\sqrt{a^2 + b^2}$, and its direction is the **angle** $\\arctan(b/a)$ when $a > 0$. When complex numbers are multiplied, their magnitudes multiply and their angles add; when they are divided, magnitudes divide and angles subtract. Example: $1 + j$ has magnitude $\\sqrt{2} = 1.414$ and angle 45°.\n\nMultiplying by a complex number scales a wave by its magnitude and shifts it by its angle. So, for an input $d\\,\\sin(\\omega t)$, the settled output is $M d\\,\\sin(\\omega t + \\phi)$, with\n\n$$\nM = |G(j\\omega)|, \\qquad \\phi = \\angle G(j\\omega) .\n$$\n\nLet:\n\n- $\\omega$ be the angular frequency, in rad/s;\n- $M$ be the amplitude ratio, in output units per input unit, here °C per percentage point;\n- $\\phi$ be the phase, in radians or degrees, negative for a lag; and\n- $-\\phi/\\omega$ be the lag in seconds, with $\\phi$ in radians.\n\nFor the heater, $5\\dot x + x = 0.2\\,v(t - 1)$ gives\n\n$$\nG(j\\omega) = \\frac{0.2\\,e^{-j\\omega}}{1 + 5j\\omega} .\n$$\n\nThe magnitude of $e^{-j\\omega}$ is 1 and its angle is $-\\omega$ radians, so\n\n$$\nM = \\frac{0.2}{\\sqrt{1 + 25\\,\\omega^2}}, \\qquad \\phi = -\\omega - \\arctan(5\\omega) .\n$$\n\nA **Bode plot** shows $M$ and $\\phi$ against frequency on a logarithmic frequency axis, often with $M$ in decibels, $20\\log_{10} M$: the heater's steady gain 0.2 is −13.98 dB, and each factor of 10 is 20 dB.\n\n**Example: the heater at 0.8 rad/s.** Follow the two parts, then combine them:\n\n1. **The stored heat.** $1 + 5j\\omega = 1 + 4j$, with magnitude $\\sqrt{1 + 16} = 4.123$ and angle $\\arctan 4 = 75.96°$. Dividing by it shrinks the wave 4.123 times and delays it by 75.96°.\n2. **The delay.** $e^{-0.8j}$ has magnitude 1 and angle $-0.8$ rad, −45.84°: no change in size, 45.84° more lag.\n3. **Combined.** $M = 0.2/4.123 = 0.0485$ °C per point and $\\phi = -75.96° - 45.84° = -121.80°$, or −2.126 rad. A 5-point command swings the water by $5 \\times 0.0485 = 0.243$ °C, and each temperature peak comes $2.126/0.8 = 2.66$ s after the command's.\n4. **On the Bode plot,** $20\\log_{10} 0.0485 = -26.28$ dB, 12.3 dB below the steady gain.\n\nFollow what each part does as the speed rises:\n\n1. The stored heat shrinks the answer and adds a lag that never exceeds 90°: $\\arctan(5\\omega)$ approaches 90° but never reaches it.\n2. The delay keeps the size but adds $\\omega$ radians of lag, which keep growing with the speed.\n3. Well above $1/5$ rad/s, $M \\approx 0.2/(5\\omega)$: at 0.8 rad/s, $0.2/4 = 0.050$, close to the exact 0.0485. Ten times the speed gives a tenth of the swing.\n4. Very slowly, $M$ approaches 0.2, the steady gain: Lesson 53's largest possible swing.\n\n**Measuring it.** Control Studio compares the recorded temperature with the recorded command at the chosen speed, over settled cycles only, split into segments. It reports the **coherence**, between 0 and 1: 1 means that in every segment the temperature moved with the command by the same amplitude ratio and lag. Noise or another input lowers it, and a low coherence makes the measurement untrustworthy.\n\n**The limitation.** A frequency response describes a linear process near its operating point, and each measured speed needs settled cycles: at 0.2 rad/s, five periods take $5 \\times 31.4 = 157$ s. The 0.8 rad/s example above is calculated, not measured."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. How large will the temperature's half swing be at 0.2 rad/s, and what amplitude ratio does that measure?\n2. How far will each temperature peak lag the command's peak?\n3. Why must the measurement leave out the first cycles?\n4. What are $M$ and $\\phi$ at 0.1 and 0.4 rad/s?\n\n| $\\omega$ | $M$ | $\\phi$ | Swing for 5 points |\n| ---: | ---: | ---: | ---: |\n| 0.1 rad/s | 0.1789 °C/point | −32.29° | 0.894 °C |\n| 0.2 rad/s | 0.1414 °C/point | −56.46° | 0.707 °C |\n| 0.4 rad/s | 0.0894 °C/point | −86.35° | 0.447 °C |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. The heater rests at 35 °C. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.TemperatureC · Process value (°C)` and `P1.HeaterCommandPct · Applied output (%)`.\n3. Answer the predictions. Select **Review project test**, check the declared **159.2 s** duration and select **Confirm and start**. After 2 s the sine starts.\n4. On **Tune**, choose **Measured frequency response** in **Tuning method**. Enter 0.2 in **Frequencies (rad/s, comma separated)**, 3 **Segments**, 0.8 **Minimum coherence**, and **Discard startup samples** 648: the 2 s rest and two periods, 20 + 628 samples of 0.1 s. Select **Calculate measured frequency response** and expand **Calculation details**.\n5. On **Identify**, choose **Supplied plant model** in **Method**, select **Open model…** and open `heater-model.json`. On **Tune**, choose **Frequency response**, enter 0.0125 and 3.2 rad/s and 17 **Frequency points**, select **Calculate frequency response** and expand **Calculation details**.\n\nSelect **Abort test** to stop the recording early. To repeat, stop and restart **Simulator**."
+    ],
+    "baseline": "Lesson 53's traces show the swing shrinking and lagging, but not by how much.",
+    "change": "Derive G(jω) and its magnitude and phase, then measure both on settled cycles and compare them on a Bode plot.",
+    "comparison": "![After the start-up, the temperature swings 0.725 °C and peaks about 5 s after the command](figures/frequency-response-recording.svg)\n\nThe numbered marks answer predictions 1–3. Control Studio at 0.2 rad/s, on cycles 3–5 of the recording:\n\n| | Model | Measured |\n| --- | ---: | ---: |\n| $M$ | 0.1414 °C/point | 0.1416 °C/point |\n| $\\phi$ | −56.46° | −57.07° |\n| Coherence | | 1 |\n\n1. The temperature swung 0.725 °C each way in cycles 3–5; Control Studio measured $M = 0.1416$ °C per point, 0.2 % above the model. The noise adds to the extremes, so the half swing is a little larger than $5M$.\n2. The fourth cycle's temperature peak came 5.1 s after the command's peak, against 4.93 s; the measured phase was 0.6° later than the model's.\n3. The first cycles carry the start-up, which dies away as $e^{-t/5}$; leaving out 648 samples keeps only settled cycles.\n4. Control Studio's frequency response gave 0.1789 at −32.29° for 0.1 rad/s and 0.0894 at −86.35° for 0.4 rad/s, as calculated; Lesson 53's half swings, 0.912 and 0.458 °C, match $5M$ = 0.894 and 0.447 °C plus the noise.\n\nThe extra 0.6° comes from holding each command for its 0.1 s update: half an update, 0.05 s, is 0.01 rad, or 0.57°, at 0.2 rad/s. On the Bode table the magnitude stays near 0.2 below 0.05 rad/s and falls about tenfold per tenfold speed above 0.2 rad/s, while the phase keeps falling, to −269.8° at 3.2 rad/s, because the delay adds lag at every speed. These are simulation results.",
+    "validation": "![After the start-up, the temperature swings 0.725 °C and peaks about 5 s after the command](figures/frequency-response-recording.svg)\n\nThe numbered marks answer predictions 1–3. Control Studio at 0.2 rad/s, on cycles 3–5 of the recording:\n\n| | Model | Measured |\n| --- | ---: | ---: |\n| $M$ | 0.1414 °C/point | 0.1416 °C/point |\n| $\\phi$ | −56.46° | −57.07° |\n| Coherence | | 1 |\n\n1. The temperature swung 0.725 °C each way in cycles 3–5; Control Studio measured $M = 0.1416$ °C per point, 0.2 % above the model. The noise adds to the extremes, so the half swing is a little larger than $5M$.\n2. The fourth cycle's temperature peak came 5.1 s after the command's peak, against 4.93 s; the measured phase was 0.6° later than the model's.\n3. The first cycles carry the start-up, which dies away as $e^{-t/5}$; leaving out 648 samples keeps only settled cycles.\n4. Control Studio's frequency response gave 0.1789 at −32.29° for 0.1 rad/s and 0.0894 at −86.35° for 0.4 rad/s, as calculated; Lesson 53's half swings, 0.912 and 0.458 °C, match $5M$ = 0.894 and 0.447 °C plus the noise.\n\nThe extra 0.6° comes from holding each command for its 0.1 s update: half an update, 0.05 s, is 0.01 rad, or 0.57°, at 0.2 rad/s. On the Bode table the magnitude stays near 0.2 below 0.05 rad/s and falls about tenfold per tenfold speed above 0.2 rad/s, while the phase keeps falling, to −269.8° at 3.2 rad/s, because the delay adds lag at every speed. These are simulation results.",
+    "explanation": "For a sine command, a linear process answers with a sine of the same speed, scaled by $M = |G(j\\omega)|$ and shifted by $\\phi = \\angle G(j\\omega)$. A stored quantity shrinks and delays the answer more as the speed rises; a delay adds lag without changing the size.\n\nFor the heater, the model predicted the measured amplitude ratio within 0.2 % and the phase within 0.6°, and the 0.6° is the update hold.",
+    "transfer": "This describes the heater with its control off, driven by a known command. With feedback connected, a heat loss and a noisy sensor reading enter the loop at different points, and the plant's frequency response alone does not show how the loop treats each of them.\n\n[Sensitivity functions](../48-sensitivity-functions/README.md) derives those paths for the same heater under PI control."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Water temperature",
+        "minimum": 33,
+        "maximum": 37,
+        "unit": "degC"
+      },
+      {
+        "signal": "Heater command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 75,
+    "restorationMode": "After five periods, or when the experiment ends, the command returns to 75 %.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical heating changes",
+      "Physical use requires independent temperature-limit, interlock and approval review"
+    ]
+  },
   "video": {
-    "viewerOutcome": "Measure a flexible-drive frequency response, recognize resonance, and reject a loop-shaping candidate when its margins or model robustness are inadequate.",
+    "viewerOutcome": "See the measured amplitude ratio and phase land on the heater's Bode plot.",
     "requiredVisibleEvidence": [
-      "flexible shaft and signal path",
-      "three probe frequencies",
-      "requested and applied torque",
-      "measured Bode magnitude and phase",
-      "resonant peak",
-      "all gain crossovers",
-      "qualified margins",
-      "perturbed-model result",
+      "the settled sine cycles",
+      "the measured frequency response at 0.2 rad/s",
+      "the model's Bode plot with the 0.2 rad/s values",
       "Simulation label"
     ],
     "durationClass": "standard",
@@ -374,25 +251,5 @@
     "captionPath": "video/captions.en.vtt",
     "thumbnailPath": "video/thumbnail.svg",
     "publicationState": "not_started"
-  },
-  "learning": {
-    "context": "Three equivalent simulated flexible drives receive equal torque amplitudes at low, resonant, and high frequencies.",
-    "reason": "Root locus and one transient do not directly expose frequency-dependent resonance, phase loss, or full-loop margins.",
-    "theory": [
-      "Sinusoidal steady-state amplitude and timing define magnitude and phase.",
-      "Bode plots place magnitude and phase against logarithmic frequency.",
-      "Every qualified crossover contributes to gain, phase, and delay-margin decisions."
-    ],
-    "workedPrediction": "Calculate the three plant responses and the unshaped and shaped gain crossovers and phase margins before enabling a probe.",
-    "practicalPreparation": [
-      "Verify plant identity, operating point, units, quality, timing, limits, seed, restoration, and Simulation evidence.",
-      "Declare the transient-discard and fitting windows, tolerances, aborts, and candidate rules before testing."
-    ],
-    "baseline": "Measure the lightly damped plant and calculate the unshaped gain-five loop's resonant peak and small phase margin.",
-    "change": "Calculate an unapplied resonance-shaped candidate with the same controller gain and test its model dependence.",
-    "comparison": "Change only probe frequency for measurement and use the same qualified model and low-frequency gain for candidate calculations.",
-    "validation": "Require analytical and fitted magnitude and phase agreement, retain every crossover, and perturb damping and natural frequency before accepting the candidate for further simulation.",
-    "explanation": "Inertia and stiffness cancel near the flexible mode, leaving weak damping; shaping adds nominal damping but exact cancellation is model-dependent.",
-    "transfer": "Lesson 47 continues with Nyquist stability."
   }
 }

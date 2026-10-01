@@ -531,7 +531,11 @@ END_PROGRAM
 
     #[test]
     fn hmi_bindings_excludes_runtime_ignored_lesson_tests() {
-        for lesson in ["01-cold-storage-loop-anatomy", "02-cold-storage-on-off", "03-cold-storage-hysteresis-dwell"] {
+        for lesson in [
+            "01-cold-storage-loop-anatomy",
+            "02-cold-storage-on-off",
+            "03-cold-storage-hysteresis-dwell",
+        ] {
             let project = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                 .join("../../examples/control/01-feedback-foundations-and-temperature-control")
                 .join(lesson);
@@ -590,6 +594,205 @@ END_PROGRAM
         assert_eq!(result.get("ok").and_then(Value::as_bool), Some(false));
         let error = result.get("error").and_then(Value::as_str).unwrap_or("");
         assert!(error.contains("expects zero or one argument object"));
+    }
+
+    #[test]
+    fn hmi_bindings_command_compiles_the_project_with_its_library_dependencies() {
+        let root = temp_dir("trustlsp-library-dependency");
+        let library = root.join("libraries").join("control");
+        std::fs::create_dir_all(library.join("src")).expect("create library");
+        std::fs::create_dir_all(root.join("src")).expect("create src dir");
+        std::fs::write(
+            library.join("trust-lsp.toml"),
+            "[package]\nversion = \"0.1.0\"\n\n[project]\ninclude_paths = [\"src\"]\n",
+        )
+        .expect("write library manifest");
+        std::fs::write(
+            library.join("src").join("control.st"),
+            "NAMESPACE Control\nFUNCTION_BLOCK PID\nVAR Gain : LREAL; END_VAR\nEND_FUNCTION_BLOCK\nEND_NAMESPACE\n",
+        )
+        .expect("write library source");
+        std::fs::write(
+            root.join("trust-lsp.toml"),
+            "[project]\ninclude_paths = [\"src\"]\n\n[dependencies]\nControl = { path = \"libraries/control\", version = \"0.1.0\" }\n",
+        )
+        .expect("write project manifest");
+        std::fs::write(
+            root.join("src").join("main.st"),
+            "PROGRAM Main\nVAR Loop : Control.PID; Output : LREAL; END_VAR\nEND_PROGRAM\n\nCONFIGURATION Config\nRESOURCE Res ON PLC\n    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);\n    PROGRAM P1 WITH MainTask : Main;\nEND_RESOURCE\nVAR_CONFIG\n    P1.Output AT %QL0 : LREAL;\nEND_VAR\nEND_CONFIGURATION\n",
+        )
+        .expect("write source");
+        let root_uri = Url::from_directory_path(&root).expect("root uri");
+        let context = MockContext {
+            workspace_configs: vec![(
+                root_uri.clone(),
+                test_project_config(root.to_string_lossy().as_ref(), "x86_64"),
+            )],
+            workspace_folders: vec![root_uri],
+            ..MockContext::default()
+        };
+        let result = hmi_bindings_value_with_context(&context, Vec::new())
+            .expect("compiled bindings response");
+        assert_eq!(
+            result.get("ok").and_then(Value::as_bool),
+            Some(true),
+            "a declared library dependency is part of the compiled project: {result}"
+        );
+        let controllers = result["controlSymbols"]["controllers"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            controllers
+                .iter()
+                .any(|entry| entry["instance"] == "P1.Loop" && entry["type"] == "Control.PID"),
+            "the library's controller type is resolved: {controllers:?}"
+        );
+        std::fs::remove_dir_all(root).expect("remove temp dir");
+    }
+
+    #[test]
+    fn hmi_bindings_command_reports_the_compiled_links_between_cascaded_controllers() {
+        let root = temp_dir("trustlsp-controller-links");
+        let src_dir = root.join("src");
+        std::fs::create_dir_all(&src_dir).expect("create src dir");
+        std::fs::write(
+            src_dir.join("main.st"),
+            r#"
+NAMESPACE Control
+TYPE PIDInput :
+STRUCT
+    Setpoint : LREAL;
+    ProcessValue : LREAL;
+END_STRUCT
+END_TYPE
+FUNCTION_BLOCK PID
+VAR Last : LREAL; END_VAR
+METHOD PUBLIC Update : LREAL
+VAR_INPUT Input : PIDInput; END_VAR
+Update := Input.Setpoint - Input.ProcessValue;
+END_METHOD
+END_FUNCTION_BLOCK
+END_NAMESPACE
+
+PROGRAM Main
+VAR
+    Outer : Control.PID;
+    Inner : Control.PID;
+    OuterInput : Control.PIDInput;
+    InnerInput : Control.PIDInput;
+    VesselSetpointC : LREAL;
+    VesselC : LREAL;
+    JacketC : LREAL;
+    JacketSetpointC : LREAL;
+    HeaterPct : LREAL;
+END_VAR
+OuterInput.Setpoint := VesselSetpointC;
+OuterInput.ProcessValue := VesselC;
+JacketSetpointC := Outer.Update(Input := OuterInput);
+InnerInput.Setpoint := JacketSetpointC;
+InnerInput.ProcessValue := JacketC;
+HeaterPct := Inner.Update(Input := InnerInput);
+END_PROGRAM
+
+CONFIGURATION Config
+RESOURCE Res ON PLC
+    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);
+    PROGRAM P1 WITH MainTask : Main;
+END_RESOURCE
+VAR_CONFIG
+    P1.HeaterPct AT %QL0 : LREAL;
+    P1.VesselC AT %IL0 : LREAL;
+    P1.JacketC AT %IL8 : LREAL;
+END_VAR
+END_CONFIGURATION
+"#,
+        )
+        .expect("write source");
+        let root_uri = Url::from_directory_path(&root).expect("root uri");
+        let context = MockContext {
+            workspace_configs: vec![(
+                root_uri.clone(),
+                test_project_config(root.to_string_lossy().as_ref(), "x86_64"),
+            )],
+            workspace_folders: vec![root_uri],
+            ..MockContext::default()
+        };
+        let result = hmi_bindings_value_with_context(&context, Vec::new())
+            .expect("compiled bindings response");
+        let catalog = &result["controlSymbols"];
+        let links = catalog["links"].as_array().cloned().unwrap_or_default();
+        let inner = links.iter().find(|link| link["instance"] == "P1.Inner");
+        let outer = links.iter().find(|link| link["instance"] == "P1.Outer");
+        assert!(
+            inner.is_some_and(|link| link["fields"]["Setpoint"] == json!(["P1.JacketSetpointC"]))
+                && outer.is_some_and(|link| link["output"] == "P1.JacketSetpointC"),
+            "the catalog must show the outer output feeding the inner setpoint; controllers {} links {}",
+            catalog["controllers"],
+            catalog["links"]
+        );
+        assert_eq!(
+            catalog["writes"],
+            json!([
+                "P1.HeaterPct",
+                "P1.InnerInput.ProcessValue",
+                "P1.InnerInput.Setpoint",
+                "P1.JacketSetpointC",
+                "P1.OuterInput.ProcessValue",
+                "P1.OuterInput.Setpoint"
+            ]),
+            "the catalog lists every symbol the program assigns"
+        );
+        std::fs::remove_dir_all(root).expect("remove temp dir");
+    }
+
+    #[test]
+    fn hmi_bindings_command_reports_each_program_instance_with_its_program_type() {
+        let root = temp_dir("trustlsp-program-types");
+        let src_dir = root.join("src");
+        std::fs::create_dir_all(&src_dir).expect("create src dir");
+        std::fs::write(
+            src_dir.join("main.st"),
+            r#"
+PROGRAM Main
+VAR
+    RoomC : LREAL;
+END_VAR
+END_PROGRAM
+
+CONFIGURATION Config
+RESOURCE Res ON PLC
+    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);
+    PROGRAM P1 WITH MainTask : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+        )
+        .expect("write source");
+        let root_uri = Url::from_directory_path(&root).expect("root uri");
+        let context = MockContext {
+            workspace_configs: vec![(
+                root_uri.clone(),
+                test_project_config(root.to_string_lossy().as_ref(), "x86_64"),
+            )],
+            workspace_folders: vec![root_uri],
+            ..MockContext::default()
+        };
+        let result = hmi_bindings_value_with_context(&context, Vec::new())
+            .expect("compiled bindings response");
+        let controllers = result["controlSymbols"]["controllers"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        assert_eq!(
+            controllers
+                .iter()
+                .find(|entry| entry["instance"] == "P1")
+                .map(|entry| entry["type"].clone()),
+            Some(json!("Main")),
+            "a program instance is reported with its program type, not its instance name; controllers {controllers:?}"
+        );
+        std::fs::remove_dir_all(root).expect("remove temp dir");
     }
 
     #[test]
@@ -675,18 +878,25 @@ END_CONFIGURATION
             "compiled memory variables must be selectable in Control Studio"
         );
 
-        let symbols = result["controlSymbols"]["symbols"].as_array()
+        let symbols = result["controlSymbols"]["symbols"]
+            .as_array()
             .expect("compiled control symbols must be available");
-        assert!(symbols.iter().any(|entry| entry["symbol"] == "P1.PID.Alpha"
-            && entry["type"] == "REAL" && entry.get("address").is_none()),
-            "unaddressed controller parameters must retain their compiled symbolic path");
-        let controllers = result["controlSymbols"]["controllers"].as_array()
+        assert!(
+            symbols.iter().any(|entry| entry["symbol"] == "P1.PID.Alpha"
+                && entry["type"] == "REAL"
+                && entry.get("address").is_none()),
+            "unaddressed controller parameters must retain their compiled symbolic path"
+        );
+        let controllers = result["controlSymbols"]["controllers"]
+            .as_array()
             .expect("compiled controller instances");
-        assert!(controllers.iter().any(|entry| entry["instance"] == "P1.PID"
-            && entry["type"] == "CustomRegulator"
-            && entry["tasks"][0]["name"] == "MainTask"
-            && entry["tasks"][0]["intervalMs"] == 100.0),
-            "a misleading instance name must not replace the actual compiled controller type");
+        assert!(
+            controllers.iter().any(|entry| entry["instance"] == "P1.PID"
+                && entry["type"] == "CustomRegulator"
+                && entry["tasks"][0]["name"] == "MainTask"
+                && entry["tasks"][0]["intervalMs"] == 100.0),
+            "a misleading instance name must not replace the actual compiled controller type"
+        );
 
         std::fs::remove_dir_all(root).expect("remove temp dir");
     }

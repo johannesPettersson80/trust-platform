@@ -77,8 +77,10 @@ function validRangeMap(ranges: AcquisitionSettings["inputRanges"]): boolean {
 }
 function channelRanges(loop: ControlLoopDefinition, ranges: AcquisitionSettings["inputRanges"], direction: "input" | "output") {
   if (!ranges) return undefined;
+  // Every model input has an experiment range, including a measured disturbance (Specification 35 §17.12).
   const signals = direction === "input"
-    ? [loop.signals.manipulatedVariable, ...(loop.signals.additional ?? []).filter(signal => signal.role === "MV")]
+    ? [loop.signals.manipulatedVariable, ...(loop.signals.additional ?? []).filter(signal => signal.role === "MV"),
+      ...(loop.channels?.inputs.map(input => loopSignal(loop, input.signalId)) ?? [])]
     : [loop.signals.processVariable, ...(loop.signals.additional ?? []).filter(signal => signal.role === "PV" || signal.role === "state")];
   const allowed = new Set(signals.map(signal => signal.symbol));
   if (Object.keys(ranges).some(symbol => !allowed.has(symbol))) throw new Error(`Unknown ${direction} channel range.`);

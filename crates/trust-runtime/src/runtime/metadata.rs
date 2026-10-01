@@ -85,47 +85,43 @@ impl RuntimeMetadata {
         let mut address = None;
         let mut rest = path.peekable();
         while let Some(name) = rest.next() {
-            let declaration = if let Some(var) =
-                vars.iter().find(|var| var.name.eq_ignore_ascii_case(name))
-            {
-                (
-                    var.type_id,
-                    var.constant,
-                    var.external,
-                    var.in_out,
-                    var.address.clone(),
-                )
-            } else if let Some(param) = params
-                .iter()
-                .find(|param| param.name.eq_ignore_ascii_case(name))
-            {
-                (
-                    param.type_id,
-                    false,
-                    false,
-                    param.direction == trust_hir::symbols::ParamDirection::InOut,
-                    param.address.clone(),
-                )
-            } else if let Some(current) =
-                type_id
-                    .and_then(|id| self.registry.get(id))
-                    .and_then(|ty| match ty {
-                        trust_hir::types::Type::Alias { target, .. } => self.registry.get(*target),
-                        _ => Some(ty),
-                    })
-            {
-                match current {
-                    trust_hir::types::Type::Struct { fields, .. } => {
-                        let field = fields
-                            .iter()
-                            .find(|field| field.name.eq_ignore_ascii_case(name))?;
-                        (field.type_id, false, false, false, None)
-                    }
-                    _ => return None,
-                }
-            } else {
-                return None;
-            };
+            let declaration =
+                if let Some(var) = vars.iter().find(|var| var.name.eq_ignore_ascii_case(name)) {
+                    (
+                        var.type_id,
+                        var.constant,
+                        var.external,
+                        var.in_out,
+                        var.address.clone(),
+                    )
+                } else if let Some(param) = params
+                    .iter()
+                    .find(|param| param.name.eq_ignore_ascii_case(name))
+                {
+                    (
+                        param.type_id,
+                        false,
+                        false,
+                        param.direction == trust_hir::symbols::ParamDirection::InOut,
+                        param.address.clone(),
+                    )
+                } else {
+                    let current = type_id
+                        .and_then(|id| self.registry.get(id))
+                        .and_then(|ty| match ty {
+                            trust_hir::types::Type::Alias { target, .. } => {
+                                self.registry.get(*target)
+                            }
+                            _ => Some(ty),
+                        })?;
+                    let trust_hir::types::Type::Struct { fields, .. } = current else {
+                        return None;
+                    };
+                    let field = fields
+                        .iter()
+                        .find(|field| field.name.eq_ignore_ascii_case(name))?;
+                    (field.type_id, false, false, false, None)
+                };
             type_id = Some(declaration.0);
             constant |= declaration.1;
             external |= declaration.2;

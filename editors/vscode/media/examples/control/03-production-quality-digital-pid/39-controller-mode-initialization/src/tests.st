@@ -2,61 +2,53 @@
    they are not scheduled PLC instances in the lesson simulator. *)
 USING Control;
 
-TEST_PROGRAM Lesson39StartupStateMustMatchTheRunningPump
+TEST_PROGRAM IntegralReproducesTheAppliedCommand
+(* At SP = PV = 35 °C, P = 0, so I = 75 %. At SP 38 °C with beta 0.3, P = 13·0.3·3 = 11.7 %, so I = 63.3 %. *)
+ASSERT_NEAR(EXPECTED := LREAL#0.0, ACTUAL := WeightedProportional(ProportionalGain := LREAL#13.0,
+    SetpointWeight := LREAL#0.3, Setpoint := LREAL#35.0, ProcessValue := LREAL#35.0, OperatingPoint := LREAL#35.0),
+    DELTA := LREAL#1.0e-12);
+ASSERT_NEAR(EXPECTED := LREAL#75.0, ACTUAL := InitialIntegral(AppliedOutput := LREAL#75.0, Proportional := LREAL#0.0),
+    DELTA := LREAL#1.0e-12);
+ASSERT_NEAR(EXPECTED := LREAL#11.7, ACTUAL := WeightedProportional(ProportionalGain := LREAL#13.0,
+    SetpointWeight := LREAL#0.3, Setpoint := LREAL#38.0, ProcessValue := LREAL#35.0, OperatingPoint := LREAL#35.0),
+    DELTA := LREAL#1.0e-9);
+ASSERT_NEAR(EXPECTED := LREAL#63.3, ACTUAL := InitialIntegral(AppliedOutput := LREAL#75.0, Proportional := LREAL#11.7),
+    DELTA := LREAL#1.0e-9);
+END_TEST_PROGRAM
+
+TEST_PROGRAM FirstCommandComesFromTheStoredValues
 VAR
-    PressureFilter : Control.LowPass;
-    FilterParameters : Control.LowPassParameters;
     Controller : Control.PID;
     Parameters : Control.PIDParameters;
-    InitialState : Control.PIDInitialState;
+    State : Control.PIDInitialState;
     Input : Control.PIDInput;
-    ZeroStateFilteredPressure : LREAL;
-    MeasuredStateFilteredPressure : LREAL;
-    FirstAutoRequest : LREAL;
 END_VAR
-ASSERT_NEAR(EXPECTED := LREAL#6.0, ACTUAL := Lesson39EquilibriumPressure(
-    ZeroCommandPressure := LREAL#2.0,
-    PressureGain := LREAL#0.1,
-    ValveCommand := LREAL#40.0
-), DELTA := LREAL#1.0e-12);
-FilterParameters.TimeConstant := LREAL#0.5;
-FilterParameters.Order := FilterOrder#SecondOrder;
-PressureFilter.Configure(Parameters := FilterParameters);
-PressureFilter.Initialize(Input := LREAL#0.0);
-ZeroStateFilteredPressure := PressureFilter.Update(
-    Input := LREAL#6.0,
-    CycleTime := LREAL#0.1
-);
-ASSERT_NEAR(EXPECTED := LREAL#0.1983471074380165, ACTUAL := ZeroStateFilteredPressure, DELTA := LREAL#1.0e-12);
-PressureFilter.Initialize(Input := LREAL#6.0);
-MeasuredStateFilteredPressure := PressureFilter.Update(
-    Input := LREAL#6.0,
-    CycleTime := LREAL#0.1
-);
-ASSERT_NEAR(EXPECTED := LREAL#6.0, ACTUAL := MeasuredStateFilteredPressure, DELTA := LREAL#1.0e-12);
-
-Parameters.ProportionalGain := LREAL#15.0;
-Parameters.IntegralGain := LREAL#3.0;
-Parameters.DerivativeGain := LREAL#0.0;
-Parameters.ProportionalSetpointWeight := LREAL#1.0;
-Parameters.DerivativeSetpointWeight := LREAL#0.0;
-Parameters.Bias := LREAL#0.0;
+Parameters.ProportionalGain := LREAL#13.0;
+Parameters.IntegralGain := LREAL#3.5;
+Parameters.ProportionalSetpointWeight := LREAL#0.3;
 Parameters.OutputMinimum := LREAL#0.0;
 Parameters.OutputMaximum := LREAL#100.0;
-Parameters.RateMinimum := LREAL#-100.0;
-Parameters.RateMaximum := LREAL#100.0;
+Parameters.RateMinimum := LREAL#-10000.0;
+Parameters.RateMaximum := LREAL#10000.0;
 Parameters.TrackingTime := LREAL#1.0;
-Parameters.AntiWindup := PIDAntiWindup#Combined;
+Parameters.AntiWindup := PIDAntiWindup#BackCalculation;
 Controller.Configure(Parameters := Parameters);
-InitialState.Setpoint := LREAL#6.0;
-InitialState.ProcessValue := LREAL#6.0;
-InitialState.NominalOutput := LREAL#40.0;
-InitialState.SaturatedOutput := LREAL#40.0;
-Controller.Initialize(State := InitialState);
-Input.Setpoint := LREAL#6.0;
-Input.ProcessValue := LREAL#6.0;
+Input.Setpoint := LREAL#35.0;
+Input.ProcessValue := LREAL#35.0;
 Input.Mode := PIDMode#Auto;
 Input.CycleTime := LREAL#0.1;
-FirstAutoRequest := Controller.Update(Input := Input);
-ASSERT_NEAR(EXPECTED := LREAL#40.0, ACTUAL := FirstAutoRequest, DELTA := LREAL#1.0e-12);
+(* Stored values from the running heater: the first command continues the applied 75 %. *)
+State.Setpoint := LREAL#35.0;
+State.ProcessValue := LREAL#35.0;
+State.NominalOutput := LREAL#75.0;
+State.SaturatedOutput := LREAL#75.0;
+Controller.Initialize(State := State);
+ASSERT_NEAR(EXPECTED := LREAL#75.0, ACTUAL := Controller.Update(Input := Input), DELTA := LREAL#1.0e-12);
+(* Stored values all zero: dP = 13·(0.3·35 − 35) = −318.5 points, so the heater is switched off. *)
+State.Setpoint := LREAL#0.0;
+State.ProcessValue := LREAL#0.0;
+State.NominalOutput := LREAL#0.0;
+State.SaturatedOutput := LREAL#0.0;
+Controller.Initialize(State := State);
+ASSERT_NEAR(EXPECTED := LREAL#0.0, ACTUAL := Controller.Update(Input := Input), DELTA := LREAL#1.0e-12);
 END_TEST_PROGRAM

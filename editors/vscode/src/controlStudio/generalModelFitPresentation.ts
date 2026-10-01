@@ -49,15 +49,13 @@ export function generalModelFitComparison(model: GeneralModel, fit: GeneralIdent
         try { zeros = rootsOfRealPolynomial(stateSpaceTransferPolynomials(model).numerator); } catch { /* Keep qualified poles. */ }
       }
       plane = { domain, poles: eigen.values, ...(zeros ? { zeros } : {}),
-        scope: model.physical ? "Poles of the local physical linearization; not global nonlinear stability."
-          : "Poles of the identified model; not closed-loop stability." };
+        scope: "Poles of the identified model; not closed-loop stability." };
     }
   }
   const presentation: IdentifiedModelPresentation = {
     experiment,
     outputId: primary.id, inputChannels: model.inputs.map(({ id, unit }) => ({ id, unit })), outputFits, poleZeroPlane: plane,
-    equation: model.physical ? `Identified ${model.physical.kind} balance`
-      : model.kind === "discrete-state-space" ? "x[k+1] = A x[k] + B Δu[k]; Δy[k] = C x[k] + D Δu[k]"
+    equation: model.kind === "discrete-state-space" ? "x[k+1] = A x[k] + B Δu[k]; Δy[k] = C x[k] + D Δu[k]"
         : "dx/dt = A x + B Δu; Δy = C x + D Δu",
     units: { input: model.inputs[0].unit, output: primary.unit, gain: `${primary.unit}/${model.inputs[0].unit}`, time: "s" },
     parameters: [...(model.kind !== "transfer-function" ? [{ name: "States", value: model.states.length, unit: "1" }] : []),

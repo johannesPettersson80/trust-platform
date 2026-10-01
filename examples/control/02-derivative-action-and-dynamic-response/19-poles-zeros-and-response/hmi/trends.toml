@@ -2,5 +2,5 @@ title = "Trends"
 kind = "trend"
 icon = "line-chart"
 order = 50
-duration_s = 600
-signals = ["P1.CommonInput", "P1.IntegratingResponse", "P1.InverseNegativePath", "P1.InversePositivePath", "P1.InverseResponse", "P1.OscillatingPoleImaginaryPart", "P1.OscillatingResponse", "P1.StableResponse"]
+duration_s = 60
+signals = ["P1.TemperatureC", "P1.HeaterPoleResponseC", "P1.AngleRad", "P1.ShaftPoleResponseRad"]

@@ -1,4 +1,7 @@
-import { projectControllerSeed, type ProjectControllerSeed } from "./projectControllerSeed";
+import { decentralizedGroupDesign, projectControllerSeed, type ProjectControllerSeed } from "./projectControllerSeed";
+import type { DecentralizedPiDesign } from "./decentralizedPidDesign";
+import { feedforwardDesign, type FeedforwardDesign } from "./feedforwardPidDesign";
+import { decoupledGroupDesign, type DecouplerDesign } from "./decoupledGroupDesign";
 import { projectModelParameters, type ProjectModelParameter } from "./projectModelParameters";
 import { componentChoices, componentSymbols, validProjectComponents, type ProjectTuningComponent } from "./projectTuningComponents";
 import type { ControlLoopDefinition } from "./loopDefinition";
@@ -17,6 +20,8 @@ import { calculateDeclaredRouth } from "./routhHurwitz";
 export interface ProjectControllerBinding {
   family: typeof PROJECT_CONTROLLER_FAMILIES[number];
   convention: "project-owned-native-controller";
+  /** Further controllers' modes the transfer switches with the loop's mode, for example a cascade's outer controller. */
+  additionalModes?: readonly { symbol: string; manualValue: boolean }[];
   initialization: ControllerInitialization;
   seed?: ProjectControllerSeed;
   components?: readonly ProjectTuningComponent[];
@@ -31,6 +36,12 @@ export interface ProjectControllerBinding {
 export interface ProjectControllerDesign {
   status: "provisional";
   candidate: { applied: false; structure: ControllerFamily; parameters: Readonly<Record<string, number>>; proportionalGain?: never };
+  /** Per-member path, relative gain and effective gain of a group designed from its model. */
+  decentralized?: DecentralizedPiDesign;
+  /** Both paths, the feedforward values and the predicted deviations of a feedforward loop (Specification 35 §17.12). */
+  feedforward?: FeedforwardDesign;
+  /** The decoupler D of a decoupled group, by plant input and member (Specification 35 §17.15). */
+  decoupler?: Omit<DecouplerDesign, "members">;
   selectedModel: { revision: string; provenance: string };
   actualSTVerify: true;
   scope: string;
@@ -49,9 +60,14 @@ export function decodeProjectController(value: unknown, binding?: ParameterBindi
     || Object.keys(value.modelParameters).some(symbol => !binding.parameters.some(parameter => parameter.symbol === symbol)))) return undefined;
   if (value.requiredScenarioIds !== undefined && (!Array.isArray(value.requiredScenarioIds) || value.requiredScenarioIds.length > 64
     || !value.requiredScenarioIds.every(id => typeof id === "string" && !!id))) return undefined;
-  if (value.seed !== undefined && (!record(value.seed) || value.seed.kind !== "parallel-pid" || !["P", "PI", "PD", "PID"].includes(String(value.seed.family))
-    || [value.seed.proportionalSymbol, value.seed.integralSymbol, value.seed.derivativeSymbol].some(symbol => !binding.parameters.some(parameter => parameter.symbol === symbol))
-    || new Set([value.seed.proportionalSymbol, value.seed.integralSymbol, value.seed.derivativeSymbol]).size !== 3)) return undefined;
+  if (value.seed !== undefined && !(record(value.seed) && (value.seed.kind === "decentralized-pid" ? value.seed.family === "PI" && Object.keys(value.seed).length === 2
+    : value.seed.kind === "cascade-pid" ? validCascadeSeed(value.seed, binding)
+    : value.seed.kind === "feedforward-pid" ? validFeedforwardSeed(value.seed, binding)
+    : value.seed.kind === "smith-pid" ? validSmithSeed(value.seed, binding)
+    : value.seed.kind === "decoupled-pid" ? validDecoupledSeed(value.seed, binding)
+    : value.seed.kind === "trajectory-feedforward-pid" ? validTrajectorySeed(value.seed, binding)
+    : value.seed.kind === "parallel-pid" && validParallelSeed(value.seed, binding)))) return undefined;
+  if (value.additionalModes !== undefined && !validAdditionalModes(value.additionalModes, binding)) return undefined;
   const used = new Set<string>();
   for (const axis of value.axes) {
     if (!record(axis) || typeof axis.symbol !== "string" || used.has(axis.symbol) || !Array.isArray(axis.values) || !axis.values.length || axis.values.length > 64) return undefined;
@@ -94,8 +110,9 @@ export async function tuneProjectController(loop: ControlLoopDefinition, model: 
         if (grid.length * choices.length > definition.maximumCandidates) throw new Error("The joint controller/component grid exceeds its candidate budget; pin settings or narrow the choices.");
         grid = grid.flatMap(candidate => choices.map(choice => ({ ...candidate, values: { ...candidate.values, ...choice.values }, complexity: candidate.complexity + choice.complexity })));
       }
-      if (definition.seed) grid = grid.filter(candidate => !((family === "P" || family === "PD") && candidate.values[definition.seed!.integralSymbol]
-        || (family === "P" || family === "PI") && candidate.values[definition.seed!.derivativeSymbol]));
+      const parallel = definition.seed?.kind === "parallel-pid" ? definition.seed : undefined;
+      if (parallel) grid = grid.filter(candidate => !((family === "P" || family === "PD") && parallel.integralSymbol && candidate.values[parallel.integralSymbol]
+        || (family === "P" || family === "PI") && parallel.derivativeSymbol && candidate.values[parallel.derivativeSymbol]));
       if (!grid.length) throw new Error("Pinned integral/derivative settings conflict with the accepted controller family.");
       candidates.push(...grid);
     } catch (error) { seedFailures.push(`${family}: ${error instanceof Error ? error.message : String(error)}`); }
@@ -161,11 +178,75 @@ export async function tuneProjectController(loop: ControlLoopDefinition, model: 
     if (!best || candidate.complexity < best.complexity || candidate.complexity === best.complexity && score < best.score) best = { values: candidate.values, score, complexity: candidate.complexity, family: candidate.family };
   }
   if (!best) throw new Error("No project-controller candidate met every mandatory requirement within the declared tuning budget; retained runs show the failing or missing conditions.");
+  const decoupled = definition.seed?.kind === "decoupled-pid" ? decoupledGroupDesign(loop, model, task, definition.seed) : undefined;
+  const decentralized = definition.seed?.kind === "decentralized-pid" ? decentralizedGroupDesign(loop, model, task)
+    : decoupled ? { gainMatrix: [], relativeGains: [], members: decoupled.members } : undefined;
+  const decoupler = decoupled ? { matrix: decoupled.matrix, inputIds: decoupled.inputIds, memberIds: decoupled.memberIds } : undefined;
+  const feedforward = definition.seed?.kind === "feedforward-pid" ? (({ values: _values, ...design }) => design)(feedforwardDesign(loop, model, task, definition.seed)) : undefined;
   return { status: "provisional", candidate: { applied: false, structure: best.family, parameters: best.values },
+    ...(decentralized ? { decentralized } : {}), ...(feedforward ? { feedforward } : {}), ...(decoupler ? { decoupler } : {}),
     selectedModel: { revision: model.revision, provenance: `declared-${model.source}-${model.validation}` }, actualSTVerify: true,
-    scope: "Best observed qualifying record in the declared finite tuning grid. This is not a global optimum or a stability-region proof; reviewed Verify/Apply remain separate operations." };
+    scope: decentralized
+      ? "Each member's PI designed by SIMC on its own path of the group model, for the gain it has with the other loops closed; checked on the actual ST. Reviewed Verify/Apply remain separate operations."
+      : "Best observed qualifying record in the declared finite tuning grid. This is not a global optimum or a stability-region proof; reviewed Verify/Apply remain separate operations." };
 }
+/** A seeded P/PI/PD/PID law offers the families whose gains its seed names (Specification 35 §17.1). */
 export function projectControllerFamilies(definition: ProjectControllerBinding): readonly ControllerFamily[] {
-  return definition.seed && ["P", "PI", "PD", "PID"].includes(definition.family) ? ["P", "PI", "PD", "PID"] : [definition.family];
+  const seed = definition.seed;
+  if (!seed || !["P", "PI", "PD", "PID"].includes(definition.family)) return [definition.family];
+  if (seed.kind !== "parallel-pid") return ["P", "PI", "PD", "PID"];
+  return (["P", "PI", "PD", "PID"] as const).filter(family => (!family.includes("I") || seed.integralSymbol) && (!family.includes("D") || seed.derivativeSymbol));
+}
+/** A cascade's two PIDs each name their three gains, all distinct bound parameters (Specification 35 §17.11). */
+function validCascadeSeed(seed: Record<string, unknown>, binding: ParameterBinding): boolean {
+  if (seed.family !== "PI" || !record(seed.inner) || !record(seed.outer) || typeof seed.inner.instance !== "string" || !seed.inner.instance
+    || typeof seed.outer.instance !== "string" || !seed.outer.instance || seed.inner.instance === seed.outer.instance) return false;
+  const symbols = [seed.inner, seed.outer].flatMap(gains => [gains.proportionalSymbol, gains.integralSymbol, gains.derivativeSymbol]);
+  return symbols.every(symbol => typeof symbol === "string" && binding.parameters.some(parameter => parameter.symbol === symbol))
+    && new Set(symbols).size === 6;
+}
+/** A PI's three gains and the feedforward gain with, both or neither, its lead and lag times: distinct bound parameters (§17.12). */
+function validFeedforwardSeed(seed: Record<string, unknown>, binding: ParameterBinding): boolean {
+  const optional = [seed.leadSymbol, seed.lagSymbol];
+  if (seed.family !== "PI" || optional.some(symbol => symbol !== undefined) && !optional.every(symbol => symbol !== undefined)) return false;
+  const symbols = [seed.proportionalSymbol, seed.integralSymbol, seed.derivativeSymbol, seed.gainSymbol, ...optional.filter(symbol => symbol !== undefined)];
+  return symbols.every(symbol => typeof symbol === "string" && binding.parameters.some(parameter => parameter.symbol === symbol))
+    && new Set(symbols).size === symbols.length;
+}
+/** A square decoupler of distinct bound parameters, at most eight by eight (§17.15). */
+function validDecoupledSeed(seed: Record<string, unknown>, binding: ParameterBinding): boolean {
+  const rows = seed.matrixSymbols;
+  if (seed.family !== "PI" || !Array.isArray(rows) || !rows.length || rows.length > 8 || !rows.every(row => Array.isArray(row) && row.length === rows.length)) return false;
+  const symbols = (rows as unknown[][]).flat();
+  return symbols.every(symbol => typeof symbol === "string" && binding.parameters.some(parameter => parameter.symbol === symbol)) && new Set(symbols).size === symbols.length;
+}
+/** A PI's three gains and the program's model gain, time constant and delay: distinct bound parameters (§17.13). */
+function validSmithSeed(seed: Record<string, unknown>, binding: ParameterBinding): boolean {
+  const symbols = [seed.proportionalSymbol, seed.integralSymbol, seed.derivativeSymbol, seed.gainSymbol, seed.timeConstantSymbol, seed.delaySymbol];
+  return seed.family === "PI" && symbols.every(symbol => typeof symbol === "string" && binding.parameters.some(parameter => parameter.symbol === symbol))
+    && new Set(symbols).size === symbols.length;
+}
+/** At most eight further BOOL modes, each distinct from the loop's own mode. */
+function validAdditionalModes(value: unknown, binding: ParameterBinding): boolean {
+  if (!Array.isArray(value) || value.length > 8) return false;
+  const symbols = value.map(mode => record(mode) && typeof mode.symbol === "string" && mode.symbol.trim() && typeof mode.manualValue === "boolean"
+    && Object.keys(mode).length === 2 ? mode.symbol.toUpperCase() : "");
+  return symbols.every(Boolean) && new Set([...symbols, binding.mode.symbol.toUpperCase()]).size === symbols.length + 1;
+}
+/** The proportional gain and each gain the family uses are distinct bound parameters; a gain the program lacks is omitted. */
+/** A trajectory feedforward's PID gains and its rate and acceleration gains: five distinct bound parameters (§17.16). */
+function validTrajectorySeed(seed: Record<string, unknown>, binding: ParameterBinding): boolean {
+  const symbols = [seed.proportionalSymbol, seed.integralSymbol, seed.derivativeSymbol, seed.rateSymbol, seed.accelerationSymbol];
+  return ["P", "PI", "PD", "PID"].includes(String(seed.family)) && Object.keys(seed).length === 7
+    && symbols.every(symbol => typeof symbol === "string" && binding.parameters.some(parameter => parameter.symbol === symbol))
+    && new Set(symbols).size === 5;
+}
+function validParallelSeed(seed: Record<string, unknown>, binding: ParameterBinding): boolean {
+  const family = String(seed.family);
+  if (!["P", "PI", "PD", "PID"].includes(family) || family.includes("I") && seed.integralSymbol === undefined
+    || family.includes("D") && seed.derivativeSymbol === undefined) return false;
+  const symbols = [seed.proportionalSymbol, seed.integralSymbol, seed.derivativeSymbol].filter(symbol => symbol !== undefined);
+  return symbols.every(symbol => typeof symbol === "string" && binding.parameters.some(parameter => parameter.symbol === symbol))
+    && new Set(symbols).size === symbols.length;
 }
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === "object" && !Array.isArray(value); }

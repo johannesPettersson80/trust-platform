@@ -46,7 +46,7 @@ export function engineerEnvelopeScenarios(loop: ControlLoopDefinition, model: Ge
     const recovery = engineerVerificationPlan(loop, model, { ...task, settlingTimeSeconds: 2 * hold,
       durationSeconds: task.durationSeconds + hold }, values);
     add("constraint-recovery", channels.inputs.map((_, channel) => ({ id: `held-actuator-${channel}`, target: "command", channel,
-      mode: "replace", startSeconds: 0, endSeconds: hold, generator: "constant", value: model.physical && model.physical.kind !== "thermal-balance" ? model.operatingPoint?.inputs[channel] ?? 0 : 0 })), recovery);
+      mode: "replace", startSeconds: 0, endSeconds: hold, generator: "constant", value: 0 })), recovery);
   }
   return cases;
 }

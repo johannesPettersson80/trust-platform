@@ -75,7 +75,7 @@ export class ConnectedIdentification {
       await mode?.enter(manual);
       this.checkCancelled();
       await progress(validationOnly ? "Checking model — recording the connected plant…" : "Identifying — recording the connected plant…");
-      await this.acquire(loop, validationOnly ? 1 : 0);
+      await this.acquire(loop, validationOnly ? 1 : 0, progress);
       if (validationOnly) { this.retained.status = "completed"; return this.retained.runs[0]; }
       this.checkCancelled();
       await progress("Fitting the measured response…");
@@ -94,7 +94,7 @@ export class ConnectedIdentification {
     }
   }
 
-  private async acquire(loop: ControlLoopDefinition, trial: number): Promise<void> {
+  private async acquire(loop: ControlLoopDefinition, trial: number, progress: (text: string) => Promise<void>): Promise<void> {
     const duration = loop.experiment?.durationSeconds ?? 30;
     const baselineSeconds = Math.max(loop.controller.taskPeriodMs * 3 / 1000, duration * 0.1);
     const channels = await connectedIdentificationChannels(loop, this.request);
@@ -110,18 +110,20 @@ export class ConnectedIdentification {
     if (review.plan.kind === "relay" && loop.experiment?.relayDirection === "negative") throw new Error("The connected runtime does not support negative-gain relay feedback.");
     let recorder: RuntimeRecordingSession | undefined;
     let terminal = false;
+    await this.awaitSteadyOutput(loop, progress);
     try {
       try { recorder = this.recorder = await RuntimeRecordingSession.start(loop, this.ports.recordingPersistence); }
       catch (error) {
         if (error instanceof RecordingStartUnconfirmed && error.session instanceof RuntimeRecordingSession) recorder = this.recorder = error.session;
         throw error;
       }
-      await this.wait(baselineSeconds * 1000);
+      const baseline = await this.observeBaseline(baselineSeconds * 1000);
       const plans: ControlExperimentPlan[] = [];
       for (const [index, channel] of channels.entries()) {
       this.checkCancelled(); terminal = false;
       const prepared = buildControlExperimentPlan({ ...options, loop: channel.loop,
-        sample: channel.sample(await this.ports.sample()), seed: options.seed + index * 7919 });
+        amplitude: (channel.loop.experiment?.amplitude || configuredAmplitude) * (trial ? 0.75 : 1),
+        sample: channel.sample(await this.ports.sample()), seed: options.seed + index * 7919, ...(channels.length === 1 ? baseline : {}) });
       if (prepared.kind !== "accepted") throw new Error(prepared.reason);
       const plan = { ...prepared.plan, id: randomUUID() };
       await this.ports.persist(plan, recorder.recoveryOwner());
@@ -184,9 +186,52 @@ export class ConnectedIdentification {
   }
 
   private checkCancelled(): void { if (this.cancelled) throw new Error("Identification cancelled."); }
-  private async wait(ms: number): Promise<void> {
+  /** A step or excitation starts from a steady output (complete workflow, step identification). Over one observation
+   * window the output's drift, the difference between the means of its first and last fifths, must stay within four
+   * times its sample-to-sample noise, and at least 0.001 % of its declared range: a residual decay would otherwise
+   * become the fitted operating point that validation and Apply start from. While it still moves, wait, bounded. */
+  private async awaitSteadyOutput(loop: ControlLoopDefinition, progress: (text: string) => Promise<void>): Promise<void> {
+    const output = loop.signals.processVariable;
+    const windowMs = Math.max(2000, loop.controller.taskPeriodMs * 20);
+    const floor = 1e-5 * (output.range.maximum - output.range.minimum);
+    const until = Date.now() + Math.max(60_000, (loop.experiment?.durationSeconds ?? 30) * 3000);
+    const window: { at: number; value: number }[] = [];
+    let announced = false;
+    for (;;) {
+      this.checkCancelled();
+      const sample = await this.ports.sample().catch(() => undefined);
+      const now = Date.now();
+      if (sample?.availability === "available" && Number.isFinite(sample.processVariable.value)) window.push({ at: now, value: sample.processVariable.value });
+      while (window.length > 1 && window[1].at <= now - windowMs) window.shift();
+      if (window.length >= 5 && now - window[0].at >= windowMs) {
+        const values = window.map(point => point.value), fifth = Math.max(1, Math.floor(values.length / 5));
+        const mean = (part: number[]) => part.reduce((sum, value) => sum + value, 0) / part.length;
+        const drift = Math.abs(mean(values.slice(-fifth)) - mean(values.slice(0, fifth)));
+        const steps = values.slice(1).map((value, index) => value - values[index]);
+        const noise = Math.sqrt(mean(steps.map(step => step * step)) / 2);
+        if (drift <= Math.max(4 * noise, floor)) return;
+        if (!announced) { announced = true; await progress(`Waiting for ${output.symbol} to settle…`); }
+      }
+      if (now > until) throw new Error(`${output.symbol} did not settle before identification. Wait for a steady output or choose another permitted test.`);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  /** Waits out the steady baseline, noting each scan's process value: its mean and half-range centre and size a relay's band. */
+  private async observeBaseline(ms: number): Promise<{ processCenter?: number; processNoise?: number }> {
+    const values = new Map<number, number>();
     const until = Date.now() + ms;
-    while (Date.now() < until) { this.checkCancelled(); await new Promise(resolve => setTimeout(resolve, Math.min(100, until - Date.now()))); }
+    while (Date.now() < until) {
+      this.checkCancelled();
+      const sample = await this.ports.sample().catch(() => undefined);
+      if (sample?.availability === "available" && sample.processVariable.quality === "good" && Number.isFinite(sample.processVariable.value)) {
+        values.set(sample.scan, sample.processVariable.value);
+      }
+      await new Promise(resolve => setTimeout(resolve, Math.max(0, Math.min(100, until - Date.now()))));
+    }
+    const measured = [...values.values()];
+    if (measured.length < 10) return {};
+    return { processCenter: measured.reduce((sum, value) => sum + value, 0) / measured.length,
+      processNoise: (Math.max(...measured) - Math.min(...measured)) / 2 };
   }
   private async cancel(): Promise<void> {
     this.cancelled = true; this.fitting.cancel();

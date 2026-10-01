@@ -1,118 +1,153 @@
-# 73. LQR control
+# 80. LQR control
 
-You will balance two-tank level error against pump effort by calculating one-step feedback and then a finite-horizon LQR gain for the same sampled plant.
+This lesson is an introduction to LQR control. You will choose the state-feedback gains by stating what level deviations and pump effort cost, let Control Studio calculate the best gains, and compare two effort weights after a slug of water.
 
 ## The problem
 
-A pump correction that removes level error quickly may move the pump farther from its nominal flow. A gentler correction uses less actuator effort but may leave level deviations longer. LQR makes this physical tradeoff explicit instead of choosing a gain from an unexplained formula.
+Lesson 79's Kalman filter estimated tank 1 within 2 mm from 25 s, by weighing the model against the reading from their uncertainties. Estimation tells the controller where the water is; it does not decide how hard the pump should work to put it right. Placing poles by choice says how fast the levels recover, but not how much pump movement that speed is worth.
+
+We will state that trade as a cost, let Control Studio find the gains that minimise it, and compare two effort weights after the same slug.
 
 ## What we need
 
-We need to choose how much pump correction is worthwhile to reduce the
-level errors. The decision must express the tradeoff between recovery and
-actuator effort and use the model to calculate suitable feedback gains.
+We need to:
+
+1. state, in comparable numbers, what a level deviation and a pump correction cost;
+2. find the gains that make the total cost smallest for the tanks' model; and
+3. compare two weightings on recovery and pump movement.
 
 ## The new idea
 
-A **linear-quadratic regulator**, or **LQR**, calculates feedback that minimizes
-a chosen cost for a linear model. The cost expresses the tradeoff between
-correcting level errors and using pump effort. Its weights are design priorities,
-not the sensor and model uncertainties used by the Kalman filter.
+**LQR**, the linear-quadratic regulator, chooses the feedback gains that best balance two costs we state: how much the levels may deviate and how much the pump may work. For the tanks, a large weight on pump effort gives a gentle pump and a slower recovery; a small one gives the opposite.
 
-Use deviations x=[x1,x2]T in metres and pump deviation v in m³/s around h=.25 m and q=.010 m³/s. The one-second model is:
+**In words.** In lesson 77 we chose how fast the levels should recover and calculated the gains for it; nothing said whether that speed was worth the pump movement it took. LQR starts from the other end: it asks what a level deviation costs and what pump movement costs, and finds the gains that make the total smallest. It is the trade-off every commissioning engineer makes by feel, a fast but busy loop against a calm but slow one, written down as numbers so that the model can do the balancing. The parts:
 
-Ad=[[.96,0],[.04,.96]], Bd=[2,0]T.
+1. **The level cost.** Every second, each level's deviation is squared and weighted, so one large deviation costs more than several small ones.
+2. **The effort cost.** Every second, the pump correction is squared and weighted the same way.
+3. **The total over the coming seconds.** The controller looks ahead, adds both costs up over the coming seconds, and the LQR gains make that total as small as possible.
 
-Dividing a level deviation by .05 m and squaring gives coefficient $1/.05^2=400$ m⁻². Doing the same for a pump deviation scale .005 m³/s gives $R=1/.005^2=40000$ s²/m⁶. Thus $Q=400I$, where I has diagonal entries one and off-diagonal entries zero, and each cost contribution is dimensionless. Compare R=160000 as a four-times effort penalty. Keep absolute flow 0–.020 m³/s and levels .05–.45 m.
+The result is still state feedback, $v = -Kx$, as in lesson 77; only the way the gains are chosen is new. For the tanks, the weights say how much a millimetre of level is worth against pump movement, and the model works out the gains.
 
-The next sampled state is xnext=Ad x+Bd v. A one-step cost is:
+> **Math you need: quadratic cost.** A quadratic cost adds weighted squares: $qx^2$ is 0 at $x = 0$ and grows faster the further $x$ is from 0, so one large deviation costs more than several small ones. For two levels, $x^TQx = q_1x_1^2 + q_2x_2^2$ with $Q = \mathrm{diag}(q_1, q_2)$. A quadratic $av^2 + bv$ is smallest where its derivative $2av + b$ is zero, at $v = -b/2a$.
 
-$$
-J(v)=Rv^2+x_{next}^TQx_{next}.
-$$
-
-Here J is total cost, v the pump correction, Q the state-error weights and
-R the input-effort weight. The transpose makes each state term a weighted
-sum of squared deviations. We choose v to make this cost as small as possible.
-
-Transpose turns a column into a row; each matrix product is a row-by-column sum. Differentiating the scalar v gives:
+**The formula.** Over $N$ updates the cost is
 
 $$
-\frac{dJ}{dv}=2Rv+2B_d^TQ(A_dx+B_dv).
+J = \sum_{k=0}^{N-1}\left(x_k^TQx_k + R\,v_k^2\right) + x_N^TQx_N .
 $$
 
-Here $R+B_d^TQB_d$ is a positive scalar: R>0 and the squared-state penalty is nonnegative. Its superscript −1 means taking its reciprocal, not inverting an unexplained matrix. Setting the derivative to zero gives v=−K1x, where K1=(R+BdTQBd)^−1BdTQAd. For Q=400I and R=40000, K1=[.01846153846,0] m²/s. For x=[.02,0], Adx=[.0192,.0008], so v=−.000369230769 and q=.009630769 m³/s. The no-input cost is .147712 and the one-step minimum is .1420406154. x2 does not enter this one-step gain because the pump changes x1 immediately; it enters through future steps. Applying the model twice gives $x_{2,k+2}=.0768x_{1,k}+.9216x_{2,k}+.08v_k$. The present pump correction can therefore reduce downstream error two samples later, which gives the longer-horizon design a reason to use both levels.
+- $k$ counts the one-second updates, from now, $k = 0$, to the end of the look-ahead, $N$;
+- $x_k$ are the level deviations at update $k$, in metres, and $v_k$ is the pump correction, in m³/s;
+- $Q$ weighs the level deviations, per square metre, and $R$ weighs the pump correction, in s²/m⁶;
+- $x_N^TQx_N$ charges the deviation left at the end; and
+- $J$ is the total cost, a pure number.
 
-For a finite horizon of 20 one-second intervals, minimize $J=\sum_{k=0}^{19}(x_k^TQx_k+Rv_k^2)+x_{20}^TQx_{20}$. The final term penalizes level deviations left at the end. Write future cost as $x^TPx$: P tells the next decision how expensive a remaining state will be.
-
-Suppose the best achievable cost after the next state is already known as $x_{next}^TP_{next}x_{next}$. The current decision then minimizes
-
-$$
-J_{remaining}(x,v)=x^TQx+Rv^2+(A_dx+B_dv)^TP_{next}(A_dx+B_dv).
-$$
-
-The first term charges for the current level deviations, the second for this pump correction, and the last for the remaining consequences of the next state. At the final state there are no further pump decisions, so $P_{20}=Q$. Solve the last decision first, then use its minimized cost to solve the preceding decision. Working backward makes the future cost available before each earlier decision is calculated; it does not run the physical tanks backward.
-
-For the first backward step, use $P_{20}=400I$ and $R=40000$. The products needed by the same scalar minimization are
+With the one-second model $x_{k+1} = A_dx_k + B_dv_k$, the cost of the last step, $Rv^2 + x_{k+1}^TQx_{k+1}$, is a quadratic in $v$, and it is smallest at $v = -Kx$ with
 
 $$
-B_d^TP_{20}B_d=1600,\qquad B_d^TP_{20}A_d=[768,0],
-$$
-$$
-A_d^TP_{20}A_d=\begin{bmatrix}369.28&15.36\\15.36&368.64\end{bmatrix}.
+K = (R + B_d^TQB_d)^{-1}B_d^TQA_d .
 $$
 
-The minimizing gain is therefore $[768,0]/41600$, the one-step gain already calculated. Substituting that minimizing command back into the cost gives
+Further back, today's correction has more seconds of consequences, and $Q$ is replaced by $P$, the weight of the cost still to come: $x^TPx$ is the least cost from state $x$ to the end. Working backward from the end, starting with $P = Q$, each step calculates
 
 $$
-P_{19}=400I+\begin{bmatrix}369.28&15.36\\15.36&368.64\end{bmatrix}
--\frac{1}{41600}\begin{bmatrix}768^2&0\\0&0\end{bmatrix}
-=\begin{bmatrix}755.10153846&15.36\\15.36&768.64\end{bmatrix}.
+K = (R + B_d^TPB_d)^{-1}B_d^TPA_d, \qquad P \leftarrow Q + A_d^TPA_d - K^T(R + B_d^TPB_d)K .
 $$
 
-Thus $x^TP_{19}x=755.10153846x_1^2+30.72x_1x_2+768.64x_2^2$: upstream and downstream deviations jointly affect the remaining cost. At the next backward step, the second entry of $B_d^TP_{19}A_d$ is $2(15.36)(.96)=29.4912$, so the gain now uses downstream level too. Its future response matters even though the pump cannot change it in the first interval.
+This backward repetition is the **Riccati recursion**. The gain it gives for the first step is the one used, every second.
 
-Starting with P20=Q, repeat this calculation using the **Riccati recursion** below. Work backward for k=19 to 0:
+- $A_d = \begin{bmatrix}0.96&0\\0.04&0.96\end{bmatrix}$ and $B_d = [2, 0]^T$ are lesson 74's one-second model;
+- $P$ is a 2 × 2 matrix of weights, per square metre, like $Q$; and
+- $K = [k_1, k_2]$ holds the gains, in m²/s, as in lesson 77.
 
-$$
-K_k=(R+B_d^TP_{k+1}B_d)^{-1}B_d^TP_{k+1}A_d,
-$$
-$$
-P_k=Q+A_d^TP_{k+1}A_d-A_d^TP_{k+1}B_dK_k.
-$$
+**Choosing the weights.** To make the terms comparable, let a level deviation of 0.05 m cost as much as a pump correction of 0.005 m³/s. Dividing by these scales and squaring gives $Q = \mathrm{diag}(1/0.05^2, 1/0.05^2) = \mathrm{diag}(400, 400)$ per square metre and $R = 1/0.005^2 = 40000$ s²/m⁶. These weights are design choices, not uncertainties.
 
-Here $P_k$ is a future-cost matrix, not the estimation-error covariance P
-from Kalman filtering. The same letter is used for different physical meanings.
+**Example: effort weighted four times as much.** Take $Q = \mathrm{diag}(400, 400)$ and $R = 4 \cdot 40000 = 160000$ s²/m⁶, the second design below.
 
-Repeating exactly 20 steps gives the first gain K0=[.07874026,.02387430] m²/s for R=40000 and K0=[.03460802,.00952351] for R=160000. At x=[.02,0], their first pump deviations are −.001574805 and −.000692160 m³/s, so absolute flows are .008425195 and .009307840 m³/s. At each new sample, start a fresh 20-step horizon and apply the same first gain K0. This is a receding finite-horizon design, not a claim that K0 is the infinite-horizon solution. The gains are unconstrained; clipping changes the planned cost.
+1. One step: $B_d^TQB_d = 2 \cdot 400 \cdot 2 = 1600$ and $B_d^TQA_d = [2 \cdot 400 \cdot 0.96,\ 0] = [768, 0]$, so $K = [768, 0]/(160000 + 1600) = [0.00475, 0]$ m²/s. A slug that leaves tank 1 2 cm high, $x = [0.02, 0]^T$, would turn the pump down by only $0.00475 \cdot 0.02 = 0.000095$ m³/s.
+2. Tank 2 gets no gain: within one second the pump changes only tank 1, so in a one-second look-ahead nothing the pump does can lower tank 2's cost.
+3. One step further back, the cost still to come is $P = Q + A_d^TQA_d - K^T(R + 1600)K$. With $A_d^TQA_d = \begin{bmatrix}369.3&15.36\\15.36&368.6\end{bmatrix}$ and $K^T(R + 1600)K = 0.00475^2 \cdot 161600 = 3.65$ in the top-left corner, $P = \begin{bmatrix}765.6&15.36\\15.36&768.6\end{bmatrix}$. Its off-diagonal 15.36 links the levels, because water in tank 1 will reach tank 2. Then $B_d^TPB_d = 4 \cdot 765.6 = 3062.5$ and $B_d^TPA_d = 2\,[765.6 \cdot 0.96 + 15.36 \cdot 0.04,\ 15.36 \cdot 0.96] = [1471.2, 29.5]$, so the gain becomes $K = [1471.2, 29.5]/(160000 + 3062.5) = [0.00902, 0.00018]$: looking two seconds ahead, the pump turns down harder for tank 1's water and starts to act on tank 2's level too.
+4. Twenty steps back, calculated with the same two lines, $K = [0.0346, 0.0095]$ m²/s. The program applies this first gain every second, as if planning 20 s ahead each time.
+
+For $R = 40000$ the same twenty steps give $K = [0.0787, 0.0239]$ m²/s (calculated): a smaller effort weight gives larger gains, a busier pump and a faster recovery.
+
+**The limitation.** A gain is best only for its own weights: other weights make another gain best, so the weights are the decision. It is also best only while the pump delivers $-Kx$; a clipped pump follows a different law. With $R = 160000$'s gains and tank 2 at rest, the pump would clip at 0 m³/s only with tank 1 $0.010/0.0346 = 0.29$ m high (calculated), far beyond this lesson's slug. The two effort weights are a teaching choice that shows the trade.
 
 ## Prediction
 
-Calculate the one-step K1 and first flow. Predict which 20-step design uses less pump effort, whether either can meet the late deviation requirement, and why the second state affects K0 even though it does not affect K1.
+Before running, answer these questions:
+
+1. What is the one-step gain for $R = 40000$, and the pump correction at $x = [0.02, 0]^T$?
+2. With the 20-step gains, how far does each design turn the pump down when a slug leaves tank 1 2 cm high?
+3. After the slug, which design brings the levels within 2 mm sooner?
+4. Which moves the pump less?
+5. Do both keep the levels within 2 mm from 50 to 60 s after the slug?
+
+| From the design | $R = 40000$ | $R = 160000$ |
+| --- | ---: | ---: |
+| One-step gain | $[0.01846, 0]$ | $[0.00475, 0]$ |
+| 20-step gain, calculated | $[0.0787, 0.0239]$ | $[0.0346, 0.0095]$ |
+| Pump correction at $[0.02, 0]^T$ | −0.00157 m³/s | −0.00069 m³/s |
 
 ## Implementation
 
-Open src/Main.st. Store the selected finite-horizon K0 as two REAL gains and calculate v=−K0[1]x1−K0[2]x2. Add q0, expose requested/applied flow, and apply the 0–.020 limit. The runtime applies the supplied gain; it does not implement a hidden optimizer. Keep physical measured levels, deviation state, and design cost signals separate and abort on out-of-bounds levels rather than clamping them.
+Open [`src/Main.st`](src/Main.st). The program applies $q = 0.010 + N(r - 0.25) - K_1x_1 - K_2x_2$, limited to 0–0.020 m³/s, with `Clipped` reporting a limited request; Control Studio's **Apply** writes $K_1$, $K_2$ and $N$. In the experiment the program returns tank 2's setpoint to 0.25 m for 60 s, then pours the slug: one second at 0.020 m³/s. After it, the program adds up each update's level cost $400(x_1^2 + x_2^2)$ and effort cost $40000(q - 0.010)^2$, with the same scales for both designs, and records the largest level deviation 50–60 s after the slug.
+
+**Exercise.** Check the one-step gain by hand: $B_d^TQB_d = 2 \cdot 400 \cdot 2 = 1600$ and $B_d^TQA_d = [2 \cdot 400 \cdot 0.96, 0] = [768, 0]$, so $K_1 = 768/41600 = 0.01846$. Then run [`src/tests.st`](src/tests.st) from the **Testing** view; it checks the flow law, both costs and the limits.
 
 ## Experiment in Control Studio
 
-1. Restart with physical h1=.27 m and h2=.25 m, giving x=[.02,0], q=.010 m³/s, controller disabled, and dt=1 s.
-2. At **Confirm and start**, run a 60 s record with R=40000, then fully reset and run R=160000. Use the same plant, clock, reset, and requirements.
-3. Require both deviations to satisfy |x1|≤.002 m and |x2|≤.002 m at every sample from 50 through 60 s. Keep q within 0–.020 and levels within .05–.45 m.
-4. Display physical levels, deviations, requested/applied q, level cost, effort cost, and clipping. Abort if physical levels or applied flow leave their bounds, data become invalid, or time stops. Command zero pump flow and stop the simulator; record ordinary flow clipping separately.
-5. Restore nominal q and both levels, then reset all controller state before any repeat.
+1. Open this lesson's project and start **Simulator**. The tanks rest at 0.25 m with 0.010 m³/s. In the **truST** side bar, select **Control Studio**.
+2. On **Identify**, choose **Supplied plant model** from **Method** and open `provided-model.json`.
+3. On **Tune**, open **Requirements…** and enter **Setpoint change (m)** 0.01, **Maximum steady-state error (m)** 0.002, **Maximum settling time (s)** 90, **Settling band (±m)** 0.001 and **Validation duration (s)** 120; select **Done**.
+4. Choose **Controller** **P1 · LQR** and **Tuning method** **State-space design**. Set **Solver policy** to **Finite-horizon (fixed policy)**, **State weights (Q)** `[[400, 0], [0, 400]]`, **Input weights (R)** `[[40000]]`, **Finite horizon steps** 20 and **Terminal weights** `[[400, 0], [0, 400]]`, and press **Tune controller**. Open **Riccati stages**.
+5. On **Validate**, press **Validate controller**, then **Apply**.
+6. On **Identify**, choose **Project experiment**. **Signals** shows `P1.Tank2SetpointM · Setpoint (m)`, `P1.Tank2M · Process value (m)` and `P1.PumpM3PerS · Applied output (m3/s)`; add `P1.Tank1M · state (m)`. Select **Review project test**, check the declared **124 s** and select **Confirm and start**. The slug comes about 62 s later.
+7. After the run, hover 1 s, 22 s and 55 s after the slug. Show `P1.LevelCostSum`, `P1.EffortCostSum` and `P1.LatePeakM`, and hover the end.
+8. Restart **Simulator** and repeat steps 4–7 with **Input weights (R)** `[[160000]]`. Each run ends with **Project test completed. Outputs restored.**
+
+Select **Abort test** to stop early.
 
 ## Evidence and decision
 
-Retain Ad, Bd, Q, each R, horizon 20, terminal cost, K0, first flow, cost terms, and late deviation results. Compare level error and pump effort separately. Because R differs between designs, their differently weighted total costs cannot by themselves rank performance. Compare the same unweighted sums of squared level deviations and pump deviations, plus the fixed error requirement. Here effort means deviation from nominal flow; it is not a measured electrical-energy or wear cost. A finite-horizon gain with flow clipping is not an unconstrained optimality proof.
+![Four times the effort weight moves the pump less and recovers more slowly; both meet the late requirement](figures/lqr-effort-weights.svg)
+
+The numbered marks answer predictions 3–5. **Tune controller** gave **Gain K1** 0.0784 and **Gain K2** 0.0245 m3/s/m with **Reference gain N** 0.1229 for $R = 40000$, and 0.0344, 0.0098 and 0.0642 for $R = 160000$, close to the calculated values. **Riccati stages** shows stage 19, the one-step design, with $K = [0.0182, 0.0004]$, and the gains growing towards stage 0; Studio's model lets part of each second's water reach tank 2, which gives tank 2 its small gain at stage 19. **Validate controller** passed both designs: settling in 38 s and 45 s.
+
+1. The one-step gain is $[0.01846, 0]$: the pump would drop only 0.00037 m³/s.
+
+From Control Studio's two recordings:
+
+| Design | Pump 1 s after the slug | Tank 2 peak | Within 2 mm from | Largest deviation 50–60 s | Level cost | Effort cost |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| $R = 40000$ | 0.00845 m³/s | +3.0 mm at 9 s | 22 s | 0.46 mm | 0.489 | 0.288 |
+| $R = 160000$ | 0.00932 m³/s | +4.4 mm at 13 s | 40 s | 1.20 mm | 0.913 | 0.100 |
+
+2. One second after the slug, with tank 1 about 19.4 mm above rest, the pump ran at 0.00845 m³/s for $R = 40000$ and 0.00932 m³/s for $R = 160000$: drops of 0.00155 and 0.00068 m³/s, as the 20-step gains predicted for 2 cm, 0.00157 and 0.00069 m³/s.
+3. $R = 40000$ was within 2 mm 22 s after the slug; $R = 160000$ only after 40 s.
+4. $R = 160000$ moved the pump less: its effort cost was a third.
+5. Both stayed within 2 mm 50–60 s after the slug, and neither clipped.
+
+Four times the effort weight cut the effort cost to a third and nearly doubled the level cost: each design is cheapest by its own weights, so the weights are the decision. Both designs are accepted for these tanks around 0.25 m. The effort cost counts pump correction, not energy or wear. These are simulation results.
 
 ## Conclusion
 
-Sampled LQR assigns a numerical cost to physical level error and pump movement. The one-step derivation explains the sign and units; the 20-step Riccati recursion explains why downstream state appears in the actual gain.
+LQR turns "how much faster recovery is worth how much more pump movement" into weights, and the model turns the weights into gains.
+
+For the tanks, the larger effort weight spared the pump and left more level deviation; both met the requirement, so the choice between them is the choice of weights.
+
+## Check yourself
+
+1. **With $R = 10000$ instead of 40000, what is the one-step gain?**
+   $K_1 = 768/(10000 + 1600) = 0.0662$ m²/s, and still no gain on tank 2.
+2. **Why is the effort cost of $R = 160000$'s run smaller although its gain is the "best"?**
+   Its weights charge pump effort four times as much, so its best gains use less effort and accept more level
+   deviation.
+3. **Why does a clipped pump spoil the LQR design?**
+   The gains are best only while the pump delivers $-Kx$; a clipped flow is a different law, with a different cost.
 
 ## Reason for the next lesson
 
-The feedback calculation uses both state values. We must still establish
-its behavior when those values come from a noisy, imperfect estimate.
-[LQG control](../72-lqg/README.md) combines this selected gain with the
-Kalman estimator and compares it with the full-state reference.
+The design assumes that both levels are measured, but the installation measures only tank 2, and tank 1 comes from a noisy estimator.
+
+[LQG control](../72-lqg/README.md) feeds the LQR gains with the Kalman filter's estimates.

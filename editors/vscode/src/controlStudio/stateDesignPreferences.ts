@@ -18,11 +18,15 @@ export function decodeStateDesignDraft(value: unknown): StateDesignDraft | undef
   if (!record(value) || Object.entries(value).some(([key, text]) => !Object.prototype.hasOwnProperty.call(STATE_DESIGN_LABELS, key) || typeof text !== "string" || text.length > 32768)) return undefined;
   return { ...value } as StateDesignDraft;
 }
+/** A draft error; `field` names the field it concerns, when one does. */
+export class StateDesignDraftError extends Error {
+  constructor(readonly field: keyof StateDesignDraft | undefined, message: string) { super(message); }
+}
 /** Raw text is saved editing state. Only this validated projection reaches a solver. */
 export function parseStateDesignDraft(draft: StateDesignDraft, family: string): StateDesignPreferences {
   const result: Record<string, unknown> = {};
   const parse = (key: keyof StateDesignDraft) => {
-    try { return JSON.parse(draft[key]!); } catch { throw new Error(`${STATE_DESIGN_LABELS[key]} must be valid JSON.`); }
+    try { return JSON.parse(draft[key]!); } catch { throw new StateDesignDraftError(key, `${STATE_DESIGN_LABELS[key]} must be valid JSON.`); }
   };
   for (const key of STATE_DESIGN_FIELDS) {
     const applies = family === "state-feedback" ? key === "desiredPoles" : key === "stateWeights" || key === "inputWeights" || family === "LQG" && (key === "processNoise" || key === "measurementNoise");
@@ -30,12 +34,12 @@ export function parseStateDesignDraft(draft: StateDesignDraft, family: string): 
   }
   if (family !== "state-feedback" && draft.solverMode === "finite") {
     const steps = draft.horizonSteps?.trim() ? Number(draft.horizonSteps) : NaN;
-    if (!Number.isInteger(steps) || steps < 1 || steps > 512) throw new Error("Horizon steps must be an integer from 1 to 512.");
-    if (!draft.terminalWeights?.trim()) throw new Error("Enter the terminal weights matrix.");
+    if (!Number.isInteger(steps) || steps < 1 || steps > 512) throw new StateDesignDraftError("horizonSteps", "Horizon steps must be an integer from 1 to 512.");
+    if (!draft.terminalWeights?.trim()) throw new StateDesignDraftError("terminalWeights", "Enter the terminal weights matrix.");
     result.finiteHorizon = { steps, terminalWeights: parse("terminalWeights") };
-  } else if (draft.solverMode && !["finite", "infinite"].includes(draft.solverMode)) throw new Error("Choose finite or infinite horizon.");
+  } else if (draft.solverMode && !["finite", "infinite"].includes(draft.solverMode)) throw new StateDesignDraftError("solverMode", "Choose finite or infinite horizon.");
   const decoded = decodeStateDesignPreferences(result);
-  if (!decoded) throw new Error("Use finite symmetric weight matrices and valid desired poles.");
+  if (!decoded) throw new StateDesignDraftError(undefined, "Use finite symmetric weight matrices and valid desired poles.");
   return decoded;
 }
 

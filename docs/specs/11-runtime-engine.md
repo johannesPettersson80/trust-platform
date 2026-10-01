@@ -424,6 +424,14 @@ Marker bindings (`%M`) are synchronized with program storage at both cycle bound
 - Start of cycle: `%M` process image -> bound variables (same phase as `%I` input latch).
 - End of cycle: bound variables -> `%M` process image (same phase as `%Q` output commit).
 
+A bound variable starts from its initialized value at a cold restart and from its
+retained value at a warm restart (IEC 61131-3 Ed.3 §6.5.1, §6.5.6.1 and Figure 9):
+after runtime construction and after every restart, before the first cycle, each
+marker binding is committed from its bound variable. The first start-of-cycle latch
+therefore reads the declared or `VAR_CONFIG` initial value instead of a zero or
+pre-restart image. A value written to the memory image after that commit, for
+example by a client before the first cycle, is latched as before.
+
 ```rust
 pub trait IoDriver: Send {
     fn read_inputs(&mut self, inputs: &mut [u8]) -> Result<(), RuntimeError>;

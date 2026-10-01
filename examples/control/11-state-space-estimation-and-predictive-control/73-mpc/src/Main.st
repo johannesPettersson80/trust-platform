@@ -1,351 +1,174 @@
-FUNCTION Lesson73OutsideTemperature : LREAL
+(* One heater's part of a plan: three one-second predictions, T + (2·u − 10·(T − 20) − D)/50. The first second uses the
+   previous command, which the heater is still receiving; the next two use UPct. The part is feasible when UPct lies in
+   0–100 points and every predicted temperature in MinimumC–MaximumC. Its cost is the sum of the three squared temperature
+   errors plus MoveWeight times the squared command change. *)
+FUNCTION_BLOCK HeaterPlan
 VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
+    TemperatureC : LREAL;
+    PreviousPct : LREAL;
+    UPct : LREAL;
+    SetpointC : LREAL;
+    LoadKw : LREAL;
+    MoveWeight : LREAL;
+    MinimumC : LREAL;
+    MaximumC : LREAL;
 END_VAR
-IF ExperimentElapsedSeconds < LREAL#360.0 THEN
-    Lesson73OutsideTemperature := LREAL#5.0;
-ELSE
-    Lesson73OutsideTemperature := LREAL#4.0;
-END_IF;
-END_FUNCTION
-
-FUNCTION Lesson73OccupancyGain : LREAL
-VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
-    EventTimeSeconds : LREAL;
-    GainAfterEvent : LREAL;
+VAR_OUTPUT
+    Feasible : BOOL := FALSE;
+    Cost : LREAL := 0.0;
+    FirstC : LREAL := 0.0;
+    SecondC : LREAL := 0.0;
+    EndC : LREAL := 0.0;
 END_VAR
-IF ExperimentElapsedSeconds < EventTimeSeconds THEN
-    Lesson73OccupancyGain := LREAL#0.0;
-ELSE
-    Lesson73OccupancyGain := GainAfterEvent;
-END_IF;
-END_FUNCTION
-
-FUNCTION Lesson73EquilibriumHeat : LREAL
-VAR_INPUT
-    IndoorTemperature : LREAL;
-    OutdoorTemperature : LREAL;
-END_VAR
-(* u/3000 balances (Indoor-Outdoor)/600, hence u=5*(Indoor-Outdoor). *)
-Lesson73EquilibriumHeat := LREAL#5.0
-    * (IndoorTemperature - OutdoorTemperature);
-END_FUNCTION
+FirstC := TemperatureC + (LREAL#2.0 * PreviousPct - LREAL#10.0 * (TemperatureC - LREAL#20.0) - LoadKw) / LREAL#50.0;
+SecondC := FirstC + (LREAL#2.0 * UPct - LREAL#10.0 * (FirstC - LREAL#20.0) - LoadKw) / LREAL#50.0;
+EndC := SecondC + (LREAL#2.0 * UPct - LREAL#10.0 * (SecondC - LREAL#20.0) - LoadKw) / LREAL#50.0;
+Feasible := UPct >= LREAL#0.0 AND UPct <= LREAL#100.0 AND FirstC >= MinimumC AND FirstC <= MaximumC
+    AND SecondC >= MinimumC AND SecondC <= MaximumC AND EndC >= MinimumC AND EndC <= MaximumC;
+Cost := (FirstC - SetpointC) * (FirstC - SetpointC) + (SecondC - SetpointC) * (SecondC - SetpointC)
+    + (EndC - SetpointC) * (EndC - SetpointC) + MoveWeight * (UPct - PreviousPct) * (UPct - PreviousPct);
+END_FUNCTION_BLOCK
 
 PROGRAM Main
 VAR
-    Enabled : BOOL := FALSE;
-    UseMpc : BOOL := TRUE;
-    ConfigurationValid : BOOL := TRUE;
-    SolverComplete : BOOL := FALSE;
-    SolverFeasible : BOOL := FALSE;
-    Infeasible : BOOL := FALSE;
-    FallbackActive : BOOL := FALSE;
-    ConstraintActive : BOOL := FALSE;
-    CandidateCount : DINT := 0;
-    FeasibleCandidateCount : DINT := 0;
-    BestObjective : LREAL := 0.0;
-    Zone1Setpoint : LREAL := 21.0;
-    Zone2Setpoint : LREAL := 21.0;
-    ComfortMinimum : LREAL := 20.0;
-    ComfortMaximum : LREAL := 22.5;
-    TemperatureWeight : LREAL := 100.0;
-    EnergyWeight : LREAL := 0.01;
-    MoveWeight : LREAL := 0.0025;
-    Zone1HeatRequested : LREAL := 80.0;
-    Zone2HeatRequested : LREAL := 80.0;
-    PreviousZone1Heat : LREAL := 80.0;
-    PreviousZone2Heat : LREAL := 80.0;
-    OutsideCurrent : LREAL := 5.0;
-    Occupancy1Current : LREAL := 0.0;
-    Occupancy2Current : LREAL := 0.0;
-    OutsideForecast1 : LREAL := 5.0;
-    OutsideForecast2 : LREAL := 5.0;
-    OutsideForecast3 : LREAL := 5.0;
-    Occupancy1Forecast1 : LREAL := 0.0;
-    Occupancy1Forecast2 : LREAL := 0.0;
-    Occupancy1Forecast3 : LREAL := 0.0;
-    Occupancy2Forecast1 : LREAL := 0.0;
-    Occupancy2Forecast2 : LREAL := 0.0;
-    Occupancy2Forecast3 : LREAL := 0.0;
-    TariffForecast1 : LREAL := 0.1;
-    TariffForecast2 : LREAL := 0.1;
-    TariffForecast3 : LREAL := 0.1;
-    Zone1HeatApplied : LREAL := 0.0;
-    Zone2HeatApplied : LREAL := 0.0;
-    OutsideApplied : LREAL := 5.0;
-    Occupancy1Applied : LREAL := 0.0;
-    Occupancy2Applied : LREAL := 0.0;
-    Zone1Temperature : LREAL := 21.0;
-    Zone2Temperature : LREAL := 21.0;
-    Mpc : FiniteGridMpcController;
-    MpcRequest : BuildingMpcRequest;
-    MpcResult : BuildingMpcResult;
-    Zone1Error : LREAL := 0.0;
-    Zone2Error : LREAL := 0.0;
-    PreviousZone1Error : LREAL := 0.0;
-    PreviousZone2Error : LREAL := 0.0;
-    FallbackHeat1 : LREAL := 0.0;
-    FallbackHeat2 : LREAL := 0.0;
-    SharedScale : LREAL := 1.0;
+    (* Two heaters share a 100-point supply. Every second the program plans both commands together over the 231 pairs on
+       a 5-point grid with u1 + u2 ≤ 100: a plan is rejected when either heater's prediction leaves 26–33 °C, and its cost
+       is the sum of the two heaters' costs, since they share only the supply. So each heater is predicted once for each
+       of its 21 commands, and the pairs are compared by adding the two costs. The program applies the pair of the
+       cheapest plan and plans again at the next update. Without a feasible plan it holds the commands and reports the
+       planning failure. The project experiment steps the setpoints to 31 °C and 28 °C and, from 60 s, takes 30 kW more
+       from heater 2. A temperature outside 0–100 °C or an update interval outside 1 s ± 50 ms latches zero output. *)
+    Heater1C : LREAL := 28.0;
+    Heater2C : LREAL := 28.0;
+    Command1Pct : LREAL := 40.0;
+    Command2Pct : LREAL := 40.0;
+    Load1Kw : LREAL := 0.0;
+    Load2Kw : LREAL := 0.0;
+    Setpoint1C : LREAL := 28.0;
+    Setpoint2C : LREAL := 28.0;
+    SupplyPct : LREAL := 80.0;
+    Predicted1C : LREAL := 28.0;
+    Predicted2C : LREAL := 28.0;
+    PlanCost : LREAL := 0.0;
+    RejectedPlans : LREAL := 0.0;
+    MoveWeight : LREAL := 0.002;
+    (* The commands the heaters received last update, unbound so that they hold the resting 40 points from the first
+       update. *)
+    Previous1Pct : LREAL := 40.0;
+    Previous2Pct : LREAL := 40.0;
+    Best1Pct : LREAL;
+    Best2Pct : LREAL;
+    BestCost : LREAL;
+    Found : BOOL;
+    I : INT;
+    J : INT;
+    Plan1 : HeaterPlan;
+    Plan2 : HeaterPlan;
+    Cost1 : ARRAY[0..20] OF LREAL;
+    Cost2 : ARRAY[0..20] OF LREAL;
+    End1 : ARRAY[0..20] OF LREAL;
+    End2 : ARRAY[0..20] OF LREAL;
+    Feasible1 : ARRAY[0..20] OF BOOL;
+    Feasible2 : ARRAY[0..20] OF BOOL;
+    ElapsedS : LREAL := 0.0;
     ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    ExperimentElapsed : LREAL := 0.0;
+    WasEnabled : BOOL := FALSE;
+    PlanningFailed : BOOL := FALSE;
+    FaultLatched : BOOL := FALSE;
+    ClockPrimed : BOOL := FALSE;
+    ClockValid : BOOL := TRUE;
+    NowTime : TIME;
+    PreviousTime : TIME;
 END_VAR
-
-(* Control Studio grants only authority. The project owns the normal twenty-
-   minute schedule; infeasible and invalid cases remain retained simulations. *)
-IF SafetyAbort OR (NOT InputsValid) THEN
-    ExperimentElapsed := LREAL#0.0;
-    Enabled := FALSE;
-    UseMpc := TRUE;
-    OutsideCurrent := LREAL#5.0;
-    Occupancy1Current := LREAL#0.0;
-    Occupancy2Current := LREAL#0.0;
-    OutsideForecast1 := LREAL#5.0;
-    OutsideForecast2 := LREAL#5.0;
-    OutsideForecast3 := LREAL#5.0;
-    Occupancy1Forecast1 := LREAL#0.0;
-    Occupancy1Forecast2 := LREAL#0.0;
-    Occupancy1Forecast3 := LREAL#0.0;
-    Occupancy2Forecast1 := LREAL#0.0;
-    Occupancy2Forecast2 := LREAL#0.0;
-    Occupancy2Forecast3 := LREAL#0.0;
-    TariffForecast1 := LREAL#0.1;
-    TariffForecast2 := LREAL#0.1;
-    TariffForecast3 := LREAL#0.1;
+NowTime := TIME();
+ClockValid := NOT ClockPrimed OR ((NowTime - PreviousTime) >= T#950ms AND (NowTime - PreviousTime) <= T#1050ms);
+IF NOT ClockValid OR Heater1C < LREAL#0.0 OR Heater1C > LREAL#100.0 OR Heater2C < LREAL#0.0 OR Heater2C > LREAL#100.0 THEN
+    FaultLatched := TRUE;
+END_IF;
+IF ExperimentEnabled AND NOT WasEnabled THEN
+    ElapsedS := LREAL#0.0;
 ELSIF ExperimentEnabled THEN
-    ExperimentElapsed := ExperimentElapsed + LREAL#60.0;
-    Enabled := TRUE;
-    UseMpc := TRUE;
-    Zone1Setpoint := LREAL#21.0;
-    Zone2Setpoint := LREAL#21.0;
-    ComfortMinimum := LREAL#20.0;
-    ComfortMaximum := LREAL#22.5;
-    TemperatureWeight := LREAL#100.0;
-    EnergyWeight := LREAL#0.01;
-    MoveWeight := LREAL#0.0025;
-
-    OutsideCurrent := Lesson73OutsideTemperature(
-        ExperimentElapsedSeconds := ExperimentElapsed);
-    Occupancy1Current := Lesson73OccupancyGain(
-        ExperimentElapsedSeconds := ExperimentElapsed,
-        EventTimeSeconds := LREAL#480.0,
-        GainAfterEvent := LREAL#2.0);
-    Occupancy2Current := Lesson73OccupancyGain(
-        ExperimentElapsedSeconds := ExperimentElapsed,
-        EventTimeSeconds := LREAL#600.0,
-        GainAfterEvent := LREAL#1.0);
-    IF ExperimentElapsed + LREAL#60.0 < LREAL#480.0 THEN
-        TariffForecast1 := LREAL#0.1;
-    ELSIF ExperimentElapsed + LREAL#60.0 < LREAL#720.0 THEN
-        TariffForecast1 := LREAL#0.6;
-    ELSE
-        TariffForecast1 := LREAL#0.15;
+    ElapsedS := ElapsedS + LREAL#1.0;
+END_IF;
+Setpoint1C := LREAL#28.0;
+Setpoint2C := LREAL#28.0;
+Load2Kw := LREAL#0.0;
+IF ExperimentEnabled THEN
+    Setpoint1C := LREAL#31.0;
+    IF ElapsedS >= LREAL#59.5 THEN
+        Load2Kw := LREAL#30.0;
     END_IF;
-    (* The three preview positions announce scheduled changes one, two, and
-       three minutes ahead. *)
-    OutsideForecast1 := SEL(ExperimentElapsed + LREAL#60.0 >= LREAL#360.0, LREAL#5.0, LREAL#4.0);
-    OutsideForecast2 := SEL(ExperimentElapsed + LREAL#120.0 >= LREAL#360.0, LREAL#5.0, LREAL#4.0);
-    OutsideForecast3 := SEL(ExperimentElapsed + LREAL#180.0 >= LREAL#360.0, LREAL#5.0, LREAL#4.0);
-    Occupancy1Forecast1 := SEL(ExperimentElapsed + LREAL#60.0 >= LREAL#480.0, LREAL#0.0, LREAL#2.0);
-    Occupancy1Forecast2 := SEL(ExperimentElapsed + LREAL#120.0 >= LREAL#480.0, LREAL#0.0, LREAL#2.0);
-    Occupancy1Forecast3 := SEL(ExperimentElapsed + LREAL#180.0 >= LREAL#480.0, LREAL#0.0, LREAL#2.0);
-    Occupancy2Forecast1 := SEL(ExperimentElapsed + LREAL#60.0 >= LREAL#600.0, LREAL#0.0, LREAL#1.0);
-    Occupancy2Forecast2 := SEL(ExperimentElapsed + LREAL#120.0 >= LREAL#600.0, LREAL#0.0, LREAL#1.0);
-    Occupancy2Forecast3 := SEL(ExperimentElapsed + LREAL#180.0 >= LREAL#600.0, LREAL#0.0, LREAL#1.0);
-    IF ExperimentElapsed + LREAL#120.0 < LREAL#480.0 THEN
-        TariffForecast2 := LREAL#0.1;
-    ELSIF ExperimentElapsed + LREAL#120.0 < LREAL#720.0 THEN
-        TariffForecast2 := LREAL#0.6;
-    ELSE
-        TariffForecast2 := LREAL#0.15;
-    END_IF;
-    IF ExperimentElapsed + LREAL#180.0 < LREAL#480.0 THEN
-        TariffForecast3 := LREAL#0.1;
-    ELSIF ExperimentElapsed + LREAL#180.0 < LREAL#720.0 THEN
-        TariffForecast3 := LREAL#0.6;
-    ELSE
-        TariffForecast3 := LREAL#0.15;
-    END_IF;
+END_IF;
+IF FaultLatched THEN
+    Command1Pct := LREAL#0.0;
+    Command2Pct := LREAL#0.0;
 ELSE
-    ExperimentElapsed := LREAL#0.0;
-    (* Monitor holds the physical 21 degC, 80/80 percent equilibrium. Test
-       authority starts the reviewed weather, occupancy, and tariff schedule. *)
-    Enabled := TRUE;
-    UseMpc := TRUE;
-    OutsideCurrent := LREAL#5.0;
-    Occupancy1Current := LREAL#0.0;
-    Occupancy2Current := LREAL#0.0;
-    OutsideForecast1 := LREAL#5.0;
-    OutsideForecast2 := LREAL#5.0;
-    OutsideForecast3 := LREAL#5.0;
-    Occupancy1Forecast1 := LREAL#0.0;
-    Occupancy1Forecast2 := LREAL#0.0;
-    Occupancy1Forecast3 := LREAL#0.0;
-    Occupancy2Forecast1 := LREAL#0.0;
-    Occupancy2Forecast2 := LREAL#0.0;
-    Occupancy2Forecast3 := LREAL#0.0;
-    TariffForecast1 := LREAL#0.1;
-    TariffForecast2 := LREAL#0.1;
-    TariffForecast3 := LREAL#0.1;
-END_IF;
-
-MpcRequest.Enable := UseMpc;
-MpcRequest.UpstreamValid := InputsValid AND NOT SafetyAbort;
-MpcRequest.Zone1Temperature := Zone1Temperature;
-MpcRequest.Zone2Temperature := Zone2Temperature;
-MpcRequest.Zone1Setpoint := Zone1Setpoint;
-MpcRequest.Zone2Setpoint := Zone2Setpoint;
-MpcRequest.ComfortMinimum := ComfortMinimum;
-MpcRequest.ComfortMaximum := ComfortMaximum;
-MpcRequest.TemperatureWeight := TemperatureWeight;
-MpcRequest.EnergyWeight := EnergyWeight;
-MpcRequest.MoveWeight := MoveWeight;
-MpcRequest.PreviousZone1Heat := PreviousZone1Heat;
-MpcRequest.PreviousZone2Heat := PreviousZone2Heat;
-MpcRequest.OutsideCurrent := OutsideCurrent;
-MpcRequest.Occupancy1Current := Occupancy1Current;
-MpcRequest.Occupancy2Current := Occupancy2Current;
-MpcRequest.EstimatedBias1 := LREAL#0.0;
-MpcRequest.EstimatedBias2 := LREAL#0.0;
-MpcRequest.Forecast.OutsideTemperature[0] := OutsideForecast1;
-MpcRequest.Forecast.OutsideTemperature[1] := OutsideForecast2;
-MpcRequest.Forecast.OutsideTemperature[2] := OutsideForecast3;
-MpcRequest.Forecast.Zone1OccupancyGain[0] := Occupancy1Forecast1;
-MpcRequest.Forecast.Zone1OccupancyGain[1] := Occupancy1Forecast2;
-MpcRequest.Forecast.Zone1OccupancyGain[2] := Occupancy1Forecast3;
-MpcRequest.Forecast.Zone2OccupancyGain[0] := Occupancy2Forecast1;
-MpcRequest.Forecast.Zone2OccupancyGain[1] := Occupancy2Forecast2;
-MpcRequest.Forecast.Zone2OccupancyGain[2] := Occupancy2Forecast3;
-MpcRequest.Forecast.Tariff[0] := TariffForecast1;
-MpcRequest.Forecast.Tariff[1] := TariffForecast2;
-MpcRequest.Forecast.Tariff[2] := TariffForecast3;
-Mpc(Request := MpcRequest);
-MpcResult := Mpc.Result;
-ConfigurationValid := MpcResult.ConfigurationValid;
-SolverComplete := MpcResult.SolverComplete;
-SolverFeasible := MpcResult.SolverFeasible;
-Infeasible := MpcResult.Infeasible;
-CandidateCount := MpcResult.CandidateCount;
-FeasibleCandidateCount := MpcResult.FeasibleCandidateCount;
-BestObjective := MpcResult.BestObjective;
-// The PI pair is calculated every scan so fallback uses fresh measurements.
-Zone1Error := Zone1Setpoint - Zone1Temperature;
-Zone2Error := Zone2Setpoint - Zone2Temperature;
-FallbackHeat1 := PreviousZone1Heat
-    + LREAL#20.0 * (Zone1Error - PreviousZone1Error)
-    + LREAL#0.02 * LREAL#60.0 * Zone1Error;
-FallbackHeat2 := PreviousZone2Heat
-    + LREAL#20.0 * (Zone2Error - PreviousZone2Error)
-    + LREAL#0.02 * LREAL#60.0 * Zone2Error;
-FallbackHeat1 := LIMIT(
-    MAX(LREAL#0.0, PreviousZone1Heat - LREAL#20.0),
-    FallbackHeat1,
-    MIN(LREAL#100.0, PreviousZone1Heat + LREAL#20.0)
-);
-FallbackHeat2 := LIMIT(
-    MAX(LREAL#0.0, PreviousZone2Heat - LREAL#20.0),
-    FallbackHeat2,
-    MIN(LREAL#100.0, PreviousZone2Heat + LREAL#20.0)
-);
-IF FallbackHeat1 + FallbackHeat2 > LREAL#170.0 THEN
-    SharedScale := LREAL#170.0 / (FallbackHeat1 + FallbackHeat2);
-    FallbackHeat1 := SharedScale * FallbackHeat1;
-    FallbackHeat2 := SharedScale * FallbackHeat2;
-END_IF;
-
-
-FallbackActive := UseMpc AND ((NOT ConfigurationValid) OR (NOT SolverFeasible));
-IF UseMpc AND SolverFeasible THEN
-    Zone1HeatRequested := MpcResult.FirstZone1Heat;
-    Zone2HeatRequested := MpcResult.FirstZone2Heat;
-ELSE
-    Zone1HeatRequested := FallbackHeat1;
-    Zone2HeatRequested := FallbackHeat2;
-    IF NOT SolverFeasible THEN
-        BestObjective := LREAL#0.0;
+    Found := FALSE;
+    BestCost := LREAL#0.0;
+    RejectedPlans := LREAL#0.0;
+    FOR I := 0 TO 20 DO
+        Plan1(TemperatureC := Heater1C, PreviousPct := Previous1Pct, UPct := LREAL#5.0 * INT_TO_LREAL(I), SetpointC := Setpoint1C,
+            LoadKw := Load1Kw, MoveWeight := MoveWeight, MinimumC := LREAL#26.0, MaximumC := LREAL#33.0);
+        Plan2(TemperatureC := Heater2C, PreviousPct := Previous2Pct, UPct := LREAL#5.0 * INT_TO_LREAL(I), SetpointC := Setpoint2C,
+            LoadKw := Load2Kw, MoveWeight := MoveWeight, MinimumC := LREAL#26.0, MaximumC := LREAL#33.0);
+        Cost1[I] := Plan1.Cost;
+        Cost2[I] := Plan2.Cost;
+        End1[I] := Plan1.EndC;
+        End2[I] := Plan2.EndC;
+        Feasible1[I] := Plan1.Feasible;
+        Feasible2[I] := Plan2.Feasible;
+    END_FOR;
+    FOR I := 0 TO 20 DO
+        FOR J := 0 TO 20 - I DO
+            IF NOT (Feasible1[I] AND Feasible2[J]) THEN
+                RejectedPlans := RejectedPlans + LREAL#1.0;
+            ELSIF NOT Found OR Cost1[I] + Cost2[J] < BestCost THEN
+                Found := TRUE;
+                BestCost := Cost1[I] + Cost2[J];
+                Best1Pct := LREAL#5.0 * INT_TO_LREAL(I);
+                Best2Pct := LREAL#5.0 * INT_TO_LREAL(J);
+                Predicted1C := End1[I];
+                Predicted2C := End2[J];
+            END_IF;
+        END_FOR;
+    END_FOR;
+    PlanningFailed := NOT Found;
+    IF Found THEN
+        Command1Pct := Best1Pct;
+        Command2Pct := Best2Pct;
+        PlanCost := BestCost;
     END_IF;
+    Previous1Pct := Command1Pct;
+    Previous2Pct := Command2Pct;
 END_IF;
-
-ConstraintActive := (Zone1HeatRequested <= LREAL#0.0)
-    OR (Zone1HeatRequested >= LREAL#100.0)
-    OR (Zone2HeatRequested <= LREAL#0.0)
-    OR (Zone2HeatRequested >= LREAL#100.0)
-    OR (Zone1HeatRequested + Zone2HeatRequested >= LREAL#169.999999)
-    OR (ABS(Zone1HeatRequested - PreviousZone1Heat) >= LREAL#19.999999)
-    OR (ABS(Zone2HeatRequested - PreviousZone2Heat) >= LREAL#19.999999);
-
-OutsideApplied := LIMIT(LREAL#-10.0, OutsideCurrent, LREAL#15.0);
-Occupancy1Applied := LIMIT(LREAL#0.0, Occupancy1Current, LREAL#4.0);
-Occupancy2Applied := LIMIT(LREAL#0.0, Occupancy2Current, LREAL#4.0);
-IF Enabled THEN
-    Zone1HeatApplied := LIMIT(LREAL#0.0, Zone1HeatRequested, LREAL#100.0);
-    Zone2HeatApplied := LIMIT(LREAL#0.0, Zone2HeatRequested, LREAL#100.0);
-ELSE
-    Zone1HeatApplied := LREAL#0.0;
-    Zone2HeatApplied := LREAL#0.0;
-END_IF;
-
-PreviousZone1Heat := Zone1HeatApplied;
-PreviousZone2Heat := Zone2HeatApplied;
-PreviousZone1Error := Zone1Error;
-PreviousZone2Error := Zone2Error;
+SupplyPct := Command1Pct + Command2Pct;
+WasEnabled := ExperimentEnabled;
+PreviousTime := NowTime;
+ClockPrimed := TRUE;
 END_PROGRAM
 
 CONFIGURATION Config
 RESOURCE Res ON PLC
-    TASK MainTask(INTERVAL := T#60s, PRIORITY := 1);
+    TASK MainTask(INTERVAL := T#1s, PRIORITY := 1);
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.CandidateCount AT %MD0 : DINT;
-    P1.FeasibleCandidateCount AT %MD4 : DINT;
-    P1.BestObjective AT %ML8 : LREAL;
-    P1.Zone1Setpoint AT %ML16 : LREAL;
-    P1.Zone2Setpoint AT %ML24 : LREAL;
-    P1.ComfortMinimum AT %ML32 : LREAL;
-    P1.ComfortMaximum AT %ML40 : LREAL;
-    P1.TemperatureWeight AT %ML48 : LREAL;
-    P1.EnergyWeight AT %ML56 : LREAL;
-    P1.MoveWeight AT %ML64 : LREAL;
-    P1.Zone1HeatRequested AT %ML72 : LREAL;
-    P1.Zone2HeatRequested AT %ML80 : LREAL;
-    P1.PreviousZone1Heat AT %ML88 : LREAL;
-    P1.PreviousZone2Heat AT %ML96 : LREAL;
-    P1.OutsideCurrent AT %ML104 : LREAL;
-    P1.Occupancy1Current AT %ML112 : LREAL;
-    P1.Occupancy2Current AT %ML120 : LREAL;
-    P1.OutsideForecast1 AT %ML128 : LREAL;
-    P1.OutsideForecast2 AT %ML136 : LREAL;
-    P1.OutsideForecast3 AT %ML144 : LREAL;
-    P1.Occupancy1Forecast1 AT %ML152 : LREAL;
-    P1.Occupancy1Forecast2 AT %ML160 : LREAL;
-    P1.Occupancy1Forecast3 AT %ML168 : LREAL;
-    P1.Occupancy2Forecast1 AT %ML176 : LREAL;
-    P1.Occupancy2Forecast2 AT %ML184 : LREAL;
-    P1.Occupancy2Forecast3 AT %ML192 : LREAL;
-    P1.TariffForecast1 AT %ML200 : LREAL;
-    P1.TariffForecast2 AT %ML208 : LREAL;
-    P1.TariffForecast3 AT %ML216 : LREAL;
-    P1.Enabled AT %MX240.0 : BOOL;
-    P1.UseMpc AT %MX240.1 : BOOL;
-    P1.ConfigurationValid AT %MX240.2 : BOOL;
-    P1.SolverComplete AT %MX240.3 : BOOL;
-    P1.SolverFeasible AT %MX240.4 : BOOL;
-    P1.Infeasible AT %MX240.5 : BOOL;
-    P1.FallbackActive AT %MX240.6 : BOOL;
-    P1.ConstraintActive AT %MX240.7 : BOOL;
-    P1.ExperimentEnabled AT %MX241.0 : BOOL;
-    P1.SafetyAbort AT %MX241.1 : BOOL;
-    P1.InputsValid AT %MX241.2 : BOOL;
-    P1.Zone1HeatApplied AT %QL0 : LREAL;
-    P1.Zone2HeatApplied AT %QL8 : LREAL;
-    P1.OutsideApplied AT %QL16 : LREAL;
-    P1.Occupancy1Applied AT %QL24 : LREAL;
-    P1.Occupancy2Applied AT %QL32 : LREAL;
-    P1.Zone1Temperature AT %IL0 : LREAL;
-    P1.Zone2Temperature AT %IL8 : LREAL;
+    P1.Heater1C AT %IL0 : LREAL;
+    P1.Heater2C AT %IL8 : LREAL;
+    P1.Command1Pct AT %QL0 : LREAL;
+    P1.Load1Kw AT %QL8 : LREAL;
+    P1.Command2Pct AT %QL16 : LREAL;
+    P1.Load2Kw AT %QL24 : LREAL;
+    P1.Setpoint1C AT %ML0 : LREAL;
+    P1.Setpoint2C AT %ML8 : LREAL;
+    P1.SupplyPct AT %ML16 : LREAL;
+    P1.Predicted1C AT %ML24 : LREAL;
+    P1.Predicted2C AT %ML32 : LREAL;
+    P1.PlanCost AT %ML40 : LREAL;
+    P1.RejectedPlans AT %ML48 : LREAL;
+    P1.ExperimentEnabled AT %MX56.0 : BOOL;
+    P1.PlanningFailed AT %MX56.1 : BOOL;
+    P1.FaultLatched AT %MX56.2 : BOOL;
+    P1.ClockValid AT %MX56.3 : BOOL;
 END_VAR
 END_CONFIGURATION

@@ -10,12 +10,22 @@ import { decodeGeneralModel, type GeneralModel, type GeneralModelFrequencyResult
 import { isSavedGeneralModelAnalysis, isSavedPeriodicFrequencyAnalysis, validModelGrid, type ModelFrequencyGrid, type SavedGeneralModelAnalysis, type SavedPeriodicFrequencyAnalysis } from "../generalModelPersistence";
 import { isSavedLeadLagAnalysis, type SavedLeadLagAnalysis } from "../leadLagSession";
 import { declaredFeedbackDefinition } from "../declaredFeedbackModel";
+import { nyquistCountText, nyquistGeometry, nyquistSeries } from "./nyquistChart";
+import { poleMapGeometry, type PlaneArea, type PlaneGeometry } from "./complexPlaneGeometry";
 import { linearTransferModel } from "../linearTransferModel";
 import type { FrequencyResponseEstimate } from "../numerics/contracts";
 import type { ModelTimeResponse } from "../generalModelTime";
 import type { ModelPoleView } from "../generalModelPoleView";
 import { rootsOfRealPolynomial } from "../numerics/classicalAnalysis";
 import { axis, chartTheme, engineeringLine, formatChartValue } from "./chartPrimitives";
+import { rootLocusChartSeries, rootLocusTooltip } from "./rootLocusChart";
+import { routhBoundaryRows, routhDetailText, type InspectableCell } from "./routhDetails";
+import { sensitivitySeries } from "./sensitivityChart";
+import { initialStateResponseRows, initialStateResponseSeries } from "./initialStateResponseChart";
+import { stateStructureDetails } from "./stateStructureDetails";
+import { formatNumberList } from "./numberListText";
+import { decodePeriodicRecording } from "./periodicRecording";
+import { measuredFrequencyRows } from "../measuredFrequencyRows";
 import { formatEngineeringNumber } from "../chartContract";
 
 echarts.use([LineChart, ScatterChart, GridComponent, LegendComponent, TooltipComponent, AriaComponent, CanvasRenderer]);
@@ -51,13 +61,16 @@ export function initializeThreePageAnalysis(
   const detailsSummary = root.querySelector<HTMLElement>("[data-three-page-analysis-details-summary]");
   const table = root.querySelector<HTMLElement>("[data-three-page-analysis-table]");
   if (!disclosure || !result || !plotHost || !summary || !tableDetails || !detailsSummary || !table) return emptyPresenter();
+  const plotArea: HTMLElement = plotHost;
 
   const status = document.createElement("p"); status.setAttribute("role", "status"); status.className = "studio-action-message";
   const editor = document.createElement("section"); editor.className = "studio-fields"; editor.hidden = true;
   disclosure.insertBefore(status, result); disclosure.insertBefore(editor, result);
   const chart = echarts.init(plotHost, undefined, { renderer: "canvas" });
-  const resizeObserver = new ResizeObserver(() => chart.resize()); resizeObserver.observe(plotHost);
-  const resize = () => chart.resize(); window.addEventListener("resize", resize);
+  let redrawPlot: (() => void) | undefined;
+  const resize = () => { chart.resize(); redrawPlot?.(); };
+  const resizeObserver = new ResizeObserver(resize); resizeObserver.observe(plotHost);
+  window.addEventListener("resize", resize);
   let available: ThreePageAnalysisAvailability = {};
   let selected: ThreePageAnalysisTool | undefined;
   let declaredRoot: DeclaredRootLocusResult | undefined;
@@ -241,6 +254,7 @@ export function initializeThreePageAnalysis(
     disclosure.hidden = selected === undefined || !tools.includes(selected);
     if (!selected || !tools.includes(selected)) { editor.hidden = true; result.hidden = true; chart.clear(); return; }
     editor.replaceChildren(); renderEditor();
+    redrawPlot = undefined; plotHost.style.height = "280px";
     const drawsPlot = selected === "root-locus" || selected === "frequency" || selected === "periodic-frequency" || selected === "poles" || selected === "feedback" || selected === "response";
     plotHost.hidden = !drawsPlot;
     if (!drawsPlot) chart.clear();
@@ -335,21 +349,28 @@ export function initializeThreePageAnalysis(
   };
 
   function renderRootLocus(): void {
-    const source = declaredRoot ? { parameter: declaredRoot.parameter, selectedValue: declaredRoot.selectedValue, approximation: declaredRoot.approximation, branches: declaredRoot.branches }
-      : plots?.rootLocus?.status === "qualified" ? plots.rootLocus : undefined; if (!source) return;
-    const branches = source.branches;
-    chart.setOption({ ...base("Real axis", "Imaginary axis", "Root locus"), series: branches.map(branch => ({ ...engineeringLine(`${formatEngineeringNumber(branch.gain)} gain`, 0, branch.poles.map(pole => [pole.real, pole.imaginary]), "solid"), type: "scatter", symbolSize: 9 })) }, { notMerge: true });
-    addText(`Parameter ${source.parameter}; selected value ${formatEngineeringNumber(source.selectedValue)}.`); addDetailsText(source.approximation); addRows(["Gain", "Poles"], branches.map(branch => [formatEngineeringNumber(branch.gain), branch.poles.map(pole => `(${formatEngineeringNumber(pole.real)}, ${formatEngineeringNumber(pole.imaginary)})`).join("; ")]));
+    const source = declaredRoot ? { parameter: declaredRoot.parameter, parameterUnit: declaredRoot.parameterUnit, selectedValue: declaredRoot.selectedValue,
+      approximation: declaredRoot.approximation, branches: declaredRoot.branches, path: declaredRoot.path,
+      fixed: Object.entries(declaredRoot.fixedParameters).map(([name, parameter]) => `${name} = ${formatEngineeringNumber(parameter.value)} ${parameter.unit}`) }
+      : plots?.rootLocus?.status === "qualified" ? { ...plots.rootLocus, parameterUnit: undefined, path: undefined, fixed: [] as string[] } : undefined; if (!source) return;
+    const theme = chartTheme();
+    const frame = base("Real axis", "Imaginary axis", "Root locus");
+    // Padding keeps the ends of the paths and the outermost labels inside the plot frame.
+    chart.setOption({ ...frame, xAxis: { ...(frame.xAxis as object), boundaryGap: ["8%", "8%"] }, yAxis: { ...(frame.yAxis as object), boundaryGap: ["18%", "18%"] },
+      tooltip: rootLocusTooltip(source),
+      series: rootLocusChartSeries(source, { path: theme.pv, inspected: theme.auxiliaryOrange, selected: theme.auxiliaryPurple, foreground: theme.foreground }) }, { notMerge: true });
+    addText(`${source.parameter} varies${source.parameterUnit ? ` in ${source.parameterUnit}` : ""}; selected ${source.parameter} = ${formatEngineeringNumber(source.selectedValue)}.${source.fixed.length ? ` Fixed: ${source.fixed.join(", ")}.` : ""}`);
+    addDetailsText(source.approximation); addRows(["Gain", "Poles"], source.branches.map(branch => [formatEngineeringNumber(branch.gain), branch.poles.map(pole => `(${formatEngineeringNumber(pole.real)}, ${formatEngineeringNumber(pole.imaginary)})`).join("; ")]));
   }
   function renderRouth(): void {
     if (!routh) return; const polynomial = routh.polynomial;
-    addText(`${routh.parameter} = ${formatEngineeringNumber(routh.selectedValue)}. ${polynomial.interpretation}`); addRows(["Power of s", "Entries"], polynomial.rows.map(row => [String(row.power), row.entries.map(formatEngineeringNumber).join(", ")]));
+    addText(`${routh.parameter} = ${formatEngineeringNumber(routh.selectedValue)}. ${polynomial.interpretation}`); addRows(["Power of s", "Entries"], polynomial.rows.map(row => [String(row.power), formatNumberList(row.entries)]));
     if (polynomial.symbolicRows?.length) addRows(["Power of s", "Exact symbolic entries"], polynomial.symbolicRows.map(row => [String(row.power), row.entries.join(", ")]));
     const interval = routh.interval;
     const displayBound = (value: number | undefined, infinity: string): string => value === undefined ? infinity : formatEngineeringNumber(value);
     const bounds = interval.intervals?.map(value => `(${displayBound(value.lower, "−∞")}, ${displayBound(value.upper, "∞")})`).join(" ∪ ") ?? (interval.kind === "open" ? `(${displayBound(interval.lower, "−∞")}, ${displayBound(interval.upper, "∞")})` : interval.kind);
-    addText(`Stable interval: ${bounds}.`); addDetailsText(`First-column signs: ${polynomial.firstColumn.map(entry => entry.sign).join(", ")}. Allowed domain [${formatEngineeringNumber(routh.allowedDomain.minimum)}, ${formatEngineeringNumber(routh.allowedDomain.maximum)}]. ${interval.derivation}`);
-    if (interval.boundaries?.length) addRows(["Boundary polynomial", "Lower", "Upper"], interval.boundaries.map(boundary => [boundary.polynomial.join(", "), boundary.lower, boundary.upper]));
+    addText(`Stable interval: ${bounds}.`); addDetailsText(`${routhDetailText(polynomial)} Allowed domain [${formatEngineeringNumber(routh.allowedDomain.minimum)}, ${formatEngineeringNumber(routh.allowedDomain.maximum)}]. ${interval.derivation}`);
+    if (interval.boundaries?.length) addRows(["Boundary polynomial", "Boundary"], routhBoundaryRows(interval.boundaries));
   }
   function renderFrequency(): void {
     if (!model) return; const channel = model.result.channels[channelIndex] ?? model.result.channels[0];
@@ -361,8 +382,9 @@ export function initializeThreePageAnalysis(
   }
   function renderPeriodicFrequency(): void {
     if (!periodicResult || periodicResult.status !== "qualified") { if (periodicResult?.status === "rejected") addText(`Measured frequency response unavailable: ${periodicResult.reason}`); return; }
-    chart.setOption({ ...base("Frequency (rad/s)", "Magnitude / phase", "Measured periodic frequency response"), xAxis: axis("Frequency (rad/s)", "log", chartTheme()), yAxis: [axis("Magnitude (dB)", "value", chartTheme()), axis("Phase (°)", "value", chartTheme())], series: [{ ...engineeringLine("Measured magnitude", 0, periodicResult.points.map(point => [point.frequencyRadPerSecond, 20 * Math.log10(Math.max(Number.MIN_VALUE, point.magnitude))]), "solid"), showSymbol: true, symbol: "circle", symbolSize: 9 }, { ...engineeringLine("Measured phase", 1, periodicResult.points.map(point => [point.frequencyRadPerSecond, point.phaseRadians * 180 / Math.PI]), "dashed"), showSymbol: true, symbol: "circle", symbolSize: 8, yAxisIndex: 1 }] }, { notMerge: true });
-    addText(`Measured ${periodicResult.points.length} frequency ${periodicResult.points.length === 1 ? "point" : "points"}.`); addRows(["Frequency (rad/s)", "Magnitude", "Phase (°)", "Coherence"], periodicResult.points.map(point => [formatEngineeringNumber(point.frequencyRadPerSecond), formatEngineeringNumber(point.magnitude), formatEngineeringNumber(point.phaseRadians * 180 / Math.PI), formatEngineeringNumber(point.coherence)]));
+    const rows = measuredFrequencyRows(periodicResult.points);
+    chart.setOption({ ...base("Frequency (rad/s)", "Magnitude / phase", "Measured periodic frequency response"), xAxis: axis("Frequency (rad/s)", "log", chartTheme()), yAxis: [axis("Magnitude (dB)", "value", chartTheme()), axis("Phase (°)", "value", chartTheme())], series: [{ ...engineeringLine("Measured magnitude", 0, rows.map(row => [row.frequency, 20 * Math.log10(Math.max(Number.MIN_VALUE, row.magnitude))]), "solid"), showSymbol: true, symbol: "circle", symbolSize: 9 }, { ...engineeringLine("Measured phase", 1, rows.map(row => [row.frequency, row.phaseDegrees]), "dashed"), showSymbol: true, symbol: "circle", symbolSize: 8, yAxisIndex: 1 }] }, { notMerge: true });
+    addText(`Measured ${periodicResult.points.length} frequency ${periodicResult.points.length === 1 ? "point" : "points"}.`); addRows(["Frequency (rad/s)", "Magnitude", "Phase (°)", "Coherence"], rows.map(row => [formatEngineeringNumber(row.frequency), formatEngineeringNumber(row.magnitude), formatEngineeringNumber(row.phaseDegrees), formatEngineeringNumber(row.coherence)]));
   }
   function renderPoles(): void {
     if (!model) return;
@@ -375,7 +397,9 @@ export function initializeThreePageAnalysis(
       ...(zeros.length ? [{ ...engineeringLine("Zeros", 0, zeros.map(point => [point.real, point.imaginary]), "solid"), type: "scatter", symbol: "diamond", symbolSize: 12 }] : []),
     ];
     if (discrete) series.push({ name: "Unit circle", type: "line", showSymbol: false, data: Array.from({ length: 65 }, (_, index) => { const angle = index * 2 * Math.PI / 64; return [Math.cos(angle), Math.sin(angle)]; }), lineStyle: { type: "dashed" } });
-    chart.setOption({ ...base(discrete ? "Real axis (z)" : "Real axis (s)", discrete ? "Imaginary axis (z)" : "Imaginary axis (s)", discrete ? "Discrete pole-zero map" : "Continuous pole-zero map"), series }, { notMerge: true });
+    // Equal units on both axes: the unit circle stays a circle, and a pole's distance from it reads true.
+    drawComplexPlane(discrete ? "Real axis (z)" : "Real axis (s)", discrete ? "Imaginary axis (z)" : "Imaginary axis (s)", discrete ? "Discrete pole-zero map" : "Continuous pole-zero map",
+      area => poleMapGeometry(poles, zeros, discrete, area), () => series);
     addText(discrete ? "Discrete z-plane; the unit circle is the stability boundary." : "Continuous s-plane; negative real parts are the local model stability direction.");
     if (poleView?.warning) addText(poleView.warning);
     addRows(["Kind", "Coordinates"], [
@@ -395,26 +419,34 @@ export function initializeThreePageAnalysis(
   function renderResponse(): void {
     if (!timeResponse) return;
     const outputIndex = Math.min(responseOutputIndex, timeResponse.model.outputs.length - 1); responseOutputIndex = Math.max(0, outputIndex); const output = timeResponse.model.outputs[responseOutputIndex];
-    chart.setOption({ ...base("Time (s)", output?.unit ? `Output deviation (${output.unit})` : "Output deviation", "Initial-state response"), series: [engineeringLine("Zero-state input", 0, timeResponse.points.map(point => [point.timeSeconds, point.zeroState[outputIndex]]), "solid"), engineeringLine("Initial condition", 0, timeResponse.points.map(point => [point.timeSeconds, point.initialCondition[outputIndex]]), "dashed"), engineeringLine("Total", 0, timeResponse.points.map(point => [point.timeSeconds, point.total[outputIndex]]), "solid")] }, { notMerge: true });
-    addText(output ? `${output.id} initial-state response` : "Initial-state response"); addDetailsText(`${timeResponse.scope} Transform: ${timeResponse.transform}`); addRows(["Time (s)", "Zero state", "Initial condition", "Total"], timeResponse.points.slice(0, 256).map(point => [formatEngineeringNumber(point.timeSeconds), formatEngineeringNumber(point.zeroState[outputIndex]), formatEngineeringNumber(point.initialCondition[outputIndex]), formatEngineeringNumber(point.total[outputIndex])]));
+    chart.setOption({ ...base("Time (s)", output?.unit ? `Output deviation (${output.unit})` : "Output deviation", "Initial-state response"), series: initialStateResponseSeries(timeResponse.points, outputIndex, { total: chartTheme().pv, zeroState: chartTheme().auxiliaryOrange, initialCondition: chartTheme().auxiliaryYellow }) }, { notMerge: true });
+    addText(output ? `${output.id} initial-state response` : "Initial-state response"); addDetailsText(`${timeResponse.scope} Transform: ${timeResponse.transform}`); addRows(["Time (s)", "Zero state", "Initial condition", "Total"], initialStateResponseRows(timeResponse.points.slice(0, 256), outputIndex));
   }
   function renderPoleView(): void {
     if (!poleView) return;
     const selected = poleView.view === "minimal" ? poleView.minimal : poleView.unreduced;
     const poles = rootsOfRealPolynomial(selected.denominator) ?? []; const zeros = rootsOfRealPolynomial(selected.numerator) ?? [];
     chart.setOption({ ...base(`Real axis (${poleView.domain})`, `Imaginary axis (${poleView.domain})`, `${poleView.view} pole-zero view`), series: [{ ...engineeringLine("Poles", 0, poles.map(point => [point.real, point.imaginary]), "solid"), type: "scatter", symbol: "circle", symbolSize: 10 }, { ...engineeringLine("Zeros", 0, zeros.map(point => [point.real, point.imaginary]), "solid"), type: "scatter", symbol: "diamond", symbolSize: 10 }] }, { notMerge: true });
-    addText(poleView.warning ?? ""); addRows(["View", "Cancelled factor"], [[poleView.view, poleView.cancelledFactor.map(formatEngineeringNumber).join(", ") || "none"]]);
+    addText(poleView.warning ?? ""); addRows(["View", "Cancelled factor"], [[poleView.view, formatNumberList(poleView.cancelledFactor) || "none"]]);
   }
   function renderFeedback(): void {
     const selectedView = feedbackView;
     if (selectedView === "nyquist" && (plots?.nyquist || feedback?.openLoop)) {
-      const values = plots?.nyquist?.map(point => [point.real, point.imaginary]) ?? feedback!.openLoop.map(point => [point.real, point.imaginary]);
-      chart.setOption({ ...base("Real", "Imaginary", "Nyquist"), series: [engineeringLine(plots?.nyquist ? "Open-loop contour" : "Positive frequency", 0, values, "solid"),
-        ...(!plots?.nyquist ? [engineeringLine("Negative frequency", 0, values.map(([real, imaginary]) => [real, -imaginary]), "dashed")] : []),
-        { type: "scatter", name: "−1", data: [[-1, 0]], symbolSize: 12 }] }, { notMerge: true });
+      if (plots?.nyquist) {
+        const values = plots.nyquist.map(point => [point.real, point.imaginary]);
+        chart.setOption({ ...base("Real", "Imaginary", "Nyquist"), series: [engineeringLine("Open-loop contour", 0, values, "solid"),
+          { type: "scatter", name: "−1", data: [[-1, 0]], symbolSize: 12 }] }, { notMerge: true });
+      } else {
+        // A Nyquist plot keeps equal units on both axes, so that distances to −1 read true.
+        const points = feedback!.openLoop.map(point => ({ real: point.real, imaginary: point.imaginary }));
+        drawComplexPlane("Real", "Imaginary", "Nyquist", area => nyquistGeometry(points, area), () => {
+          const theme = chartTheme();
+          return nyquistSeries(points, { positive: theme.pv, negative: theme.auxiliaryPurple, critical: theme.mv, label: theme.foreground });
+        });
+      }
       const nyquist = feedback?.nyquistStability;
       addText(nyquist?.status === "qualified"
-        ? `Closed loop ${nyquist.closedLoopStable ? "stable" : "unstable"}. Encirclements of −1 (counterclockwise): ${nyquist.encirclementsCounterClockwise}.`
+        ? nyquistCountText(nyquist)
         : nyquist?.status === "rejected" && nyquist.reason === "insufficient-contour-closure"
           ? "Stability not determined. Extend the frequency range and calculate again."
           : "Stability not determined from this sampled response.");
@@ -424,21 +456,23 @@ export function initializeThreePageAnalysis(
     if (selectedView === "sensitivity" && (plots?.sensitivity || feedback?.sensitivity)) {
       const points = plots?.sensitivity ?? feedback?.sensitivity;
       if (!points) return;
-      chart.setOption({ ...base("Frequency (rad/s)", "Magnitude (dB)", "Sensitivity"), xAxis: axis("Frequency (rad/s)", "log", chartTheme()), series: [engineeringLine("S", 0, points.map(point => [point.frequencyRadPerSecond, point.sensitivityMagnitudeDb]), "solid"), engineeringLine("T", 0, points.map(point => [point.frequencyRadPerSecond, point.complementarySensitivityMagnitudeDb]), "dashed"), engineeringLine("CS", 0, points.map(point => [point.frequencyRadPerSecond, point.controlSensitivityMagnitudeDb]), "dashed")] }, { notMerge: true }); return;
+      chart.setOption({ ...base("Frequency (rad/s)", "Magnitude (dB)", "Sensitivity"), xAxis: axis("Frequency (rad/s)", "log", chartTheme()), series: sensitivitySeries(points, { sensitivity: chartTheme().pv, complementary: chartTheme().auxiliaryOrange, control: chartTheme().auxiliaryPurple }) }, { notMerge: true }); return;
     }
     const bode = plots?.candidateOpenLoopBode ?? feedback?.openLoop.map(point => ({
       frequencyRadPerSecond: point.frequencyRadPerSecond,
       magnitudeDb: 20 * Math.log10(Math.max(Number.MIN_VALUE, point.magnitude)),
     }));
     if (bode?.length) chart.setOption({ ...base("Frequency (rad/s)", "Magnitude (dB)", "Bode"), xAxis: axis("Frequency (rad/s)", "log", chartTheme()), series: [{ ...engineeringLine("Loop", 0, bode.map(point => [point.frequencyRadPerSecond, point.magnitudeDb]), "solid") }] }, { notMerge: true });
-    const margins = plots?.gainMarginDb !== undefined ? `Gain margin ${String(plots.gainMarginDb)} dB; phase margin ${formatEngineeringNumber(plots.phaseMarginDegrees ?? NaN)}°.` : feedback?.margins.status === "estimated" ? `Gain margin ${String(feedback.margins.gainMarginDb ?? "unavailable")} dB; phase margin ${formatEngineeringNumber(feedback.margins.phaseMarginDegrees)}°.` : "Margins unavailable."; addText(margins);
+    const margins = plots?.gainMarginDb !== undefined ? `Gain margin ${formatEngineeringNumber(plots.gainMarginDb)} dB; phase margin ${formatEngineeringNumber(plots.phaseMarginDegrees ?? NaN)}°.` : feedback?.margins.status === "estimated" ? `Gain margin ${String(feedback.margins.gainMarginDb ?? "unavailable")} dB; phase margin ${formatEngineeringNumber(feedback.margins.phaseMarginDegrees)}°.` : "Margins unavailable."; addText(margins);
     const nyquist = feedback?.nyquistStability;
     if (nyquist) addText(nyquist.status === "qualified"
-      ? `Nyquist contour: ${nyquist.encirclementsCounterClockwise} counter-clockwise encirclements; ${nyquist.openLoopRightHalfPlanePoles} open-loop and ${nyquist.closedLoopRightHalfPlanePoles} closed-loop right-half-plane poles. Closed-loop ${nyquist.closedLoopStable ? "stable" : "not stable"} within the shared contour limits.`
+      ? `Nyquist contour: ${nyquistCountText(nyquist)}`
       : `Nyquist contour unavailable: ${nyquist.reason}`);
   }
   function renderStateStructure(): void {
-    if (!model || model.model.kind === "transfer-function" || !model.result.stateStructure) return; const structure = model.result.stateStructure; addText(`Controllability rank ${structure.status === "qualified" ? structure.controllability.rank : "unavailable"}; observability rank ${structure.status === "qualified" ? structure.observability.rank : "unavailable"}.`); if (structure.status === "qualified") { addMatrix("Controllability", structure.controllability.matrix); addMatrix("Observability", structure.observability.matrix); }
+    if (!model || model.model.kind === "transfer-function" || !model.result.stateStructure) return;
+    const details = stateStructureDetails(model.model, model.result.stateStructure);
+    addText(details.summary); addDetailsText(details.order); if (details.matrices.length) addRows(["Matrix", "Rows in declared order"], details.matrices); addDetailsText(details.scope);
   }
   function renderRga(): void {
     if (!model?.result.relativeGainMatrix) return;
@@ -446,8 +480,7 @@ export function initializeThreePageAnalysis(
   }
   const addText = (value: string): void => { const p = document.createElement("p"); p.textContent = value; summary.append(p); };
   const addDetailsText = (value: string): void => { const p = document.createElement("p"); p.textContent = value; detailsSummary.append(p); tableDetails.hidden = false; };
-  const addRows = (headers: readonly string[], rows: readonly (readonly string[])[]): void => { tableDetails.hidden = false; const element = document.createElement("table"); const head = element.createTHead().insertRow(); headers.forEach(value => { const cell = document.createElement("th"); cell.textContent = value; head.append(cell); }); const body = element.createTBody(); rows.forEach(row => { const tr = body.insertRow(); row.forEach(value => { const cell = tr.insertCell(); cell.textContent = value; }); }); table.append(element); };
-  const addMatrix = (label: string, matrix: readonly (readonly number[])[]): void => { addRows([label, "Values"], matrix.map((row, index) => [String(index + 1), row.map(formatEngineeringNumber).join(", ")])); };
+  const addRows = (headers: readonly string[], rows: readonly (readonly (string | InspectableCell)[])[]): void => { tableDetails.hidden = false; const element = document.createElement("table"); element.className = "trust-table"; const head = element.createTHead().insertRow(); headers.forEach(value => { const cell = document.createElement("th"); cell.textContent = value; head.append(cell); }); const body = element.createTBody(); rows.forEach(row => { const tr = body.insertRow(); row.forEach(value => { const cell = tr.insertCell(); if (typeof value === "string") cell.textContent = value; else { cell.textContent = value.text; cell.title = value.title; } }); }); table.append(element); };
   const addVisibleMatrix = (label: string, matrix: readonly (readonly number[])[]): void => {
     const element = document.createElement("table"); element.className = "trust-table"; element.createCaption().textContent = label;
     const head = element.createTHead().insertRow(); head.append(document.createElement("th"));
@@ -456,6 +489,21 @@ export function initializeThreePageAnalysis(
     matrix.forEach((row, index) => { const tr = body.insertRow(); const name = document.createElement("th"); name.scope = "row"; name.textContent = model?.model.outputs[index]?.id ?? `Output ${index + 1}`; tr.append(name); row.forEach(value => { tr.insertCell().textContent = formatEngineeringNumber(value); }); });
     summary.append(element);
   };
+  /** A complex-plane plot with equal units on both axes, redrawn whenever the plot area changes size. */
+  function drawComplexPlane(xName: string, yName: string, label: string, geometryFor: (area: PlaneArea) => PlaneGeometry,
+    series: () => Record<string, unknown>[]): void {
+    plotArea.style.height = "440px";
+    const draw = () => {
+      const option = base(xName, yName, label) as Record<string, any>;
+      const geometry = geometryFor({ width: plotArea.clientWidth, height: plotArea.clientHeight });
+      const fitted = (current: Record<string, any>, range: { min: number; max: number } | undefined) =>
+        ({ ...current, ...range, axisLabel: { ...current.axisLabel, showMinLabel: false, showMaxLabel: false } });
+      chart.resize();
+      chart.setOption({ ...option, tooltip: { trigger: "item", valueFormatter: formatChartValue }, grid: geometry.grid,
+        xAxis: fitted(option.xAxis, geometry.x), yAxis: fitted(option.yAxis, geometry.y), series: series() }, { notMerge: true });
+    };
+    draw(); redrawPlot = draw;
+  }
   function base(xName: string, yName: string, label: string): Record<string, unknown> { const theme = chartTheme(); return { animation: false, aria: { enabled: true, description: label }, backgroundColor: theme.background, legend: { top: 4, textStyle: { color: theme.muted } }, tooltip: { trigger: "axis", valueFormatter: formatChartValue }, grid: { left: 64, right: 24, top: 36, bottom: 52 }, xAxis: axis(xName, "value", theme), yAxis: axis(yName, "value", theme) }; }
   const dispose = (): void => { disposed = true; resizeObserver.disconnect(); window.removeEventListener("resize", resize); chart.dispose(); };
   render();
@@ -475,30 +523,6 @@ function parseNumberList(value: string, allowEmpty = false): number[] | undefine
   if (values.some(item => !item)) return undefined;
   const parsed = values.map(Number);
   return parsed.every(Number.isFinite) ? parsed : undefined;
-}
-function decodePeriodicRecording(payload: Record<string, unknown>): { input: number[]; output: number[]; sampleTimeSeconds: number; recordingId: string; recordingRevision: string } | undefined {
-  const recording = isRecord(payload.recording) ? payload.recording : payload;
-  if (!Array.isArray(recording.rawSamples)) return undefined;
-  const usable = recording.rawSamples.filter(isRecord);
-  const evidence = isRecord(recording.evidence) ? recording.evidence : isRecord(recording.acquisition) ? recording.acquisition : undefined;
-  if (usable.length < 32 || evidence?.completeness !== "complete" || !Array.isArray(evidence.missingScanRanges) || evidence.missingScanRanges.length !== 0
-    || evidence.droppedObservedSamples !== 0 || evidence.actualCycleTimingAvailable !== true
-    || usable.some((sample, index) => {
-      if (sample.quality !== "good" || typeof sample.appliedMv !== "number" || !Number.isFinite(sample.appliedMv) || typeof sample.pv !== "number" || !Number.isFinite(sample.pv)
-        || (isRecord(sample.outputLimits) && (sample.appliedMv === sample.outputLimits.minimum || sample.appliedMv === sample.outputLimits.maximum))) return true;
-      if (index === 0) return false;
-      const previous = usable[index - 1];
-      return typeof sample.scan !== "number" || typeof previous.scan !== "number" || sample.scan !== previous.scan + 1 || sample.loopRevision !== usable[0].loopRevision;
-    })) return undefined;
-  const sampleTimeSeconds = typeof usable[0].actualCycleSeconds === "number" && Number.isFinite(usable[0].actualCycleSeconds) ? usable[0].actualCycleSeconds : undefined;
-  if (!sampleTimeSeconds || !Number.isFinite(sampleTimeSeconds) || sampleTimeSeconds <= 0) return undefined;
-  if (usable.some(sample => typeof sample.actualCycleSeconds !== "number" || !Number.isFinite(sample.actualCycleSeconds)
-      || Math.abs(sample.actualCycleSeconds - sampleTimeSeconds) > 1e-6 * Math.max(1, sampleTimeSeconds))) return undefined;
-  const provenance = isRecord(recording.provenance) ? recording.provenance : undefined;
-  const recordingId = typeof evidence?.recordingId === "string" ? evidence.recordingId : undefined;
-  const recordingRevision = typeof provenance?.resultRevision === "number" ? String(provenance.resultRevision) : typeof usable[0].loopRevision === "string" ? usable[0].loopRevision : undefined;
-  if (!recordingId || !recordingRevision) return undefined;
-  return { input: usable.map(sample => sample.appliedMv as number), output: usable.map(sample => sample.pv as number), sampleTimeSeconds, recordingId, recordingRevision };
 }
 function modelStudy(value: unknown): SavedGeneralModelAnalysis | undefined {
   if (isSavedGeneralModelAnalysis(value)) return value;

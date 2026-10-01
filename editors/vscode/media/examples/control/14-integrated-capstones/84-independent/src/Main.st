@@ -1,248 +1,144 @@
 USING Control;
 
-FUNCTION Lesson84ReceiverPressureRate : LREAL
+(* The command that holds a heater's temperature: in the steady state the heater's power a·u = 2·u kW equals the heat loss
+   H·(T − 20) plus the extraction D, so u = [H·(T − 20) + D]/2 points. *)
+FUNCTION HoldingCommandPct : LREAL
 VAR_INPUT
-    ReceiverRateGain : LREAL;
-    CompressorDelivery : LREAL;
-    PlantDemand : LREAL;
+    LossKwPerC : LREAL;
+    TemperatureC : LREAL;
+    ExtractionKw : LREAL;
 END_VAR
-Lesson84ReceiverPressureRate := ReceiverRateGain
-    * (CompressorDelivery - PlantDemand);
+HoldingCommandPct := (LossKwPerC * (TemperatureC - LREAL#20.0) + ExtractionKw) / LREAL#2.0;
 END_FUNCTION
 
-FUNCTION Lesson84CompressorDeliveryRate : LREAL
+(* Lesson 62's feedforward: a measured extraction D needs D/a points, with a = 2 kW per point. *)
+FUNCTION FeedforwardPct : LREAL
 VAR_INPUT
-    DeliveryRequest : LREAL;
-    ActualDelivery : LREAL;
-    DeliveryTimeConstant : LREAL;
+    ExtractionKw : LREAL;
 END_VAR
-Lesson84CompressorDeliveryRate :=
-    (DeliveryRequest - ActualDelivery) / DeliveryTimeConstant;
+FeedforwardPct := ExtractionKw / LREAL#2.0;
 END_FUNCTION
 
-FUNCTION Lesson84DemandFeedforward : LREAL
+(* The fall during the 1 s delivery delay, before the feedforward heat arrives: with 50·dx/dt = −H·x − D for 1 s from x = 0,
+   x(1) = −(D/H)(1 − e^(−H/50)). *)
+FUNCTION DelayDipC : LREAL
 VAR_INPUT
-    MeasuredDemand : LREAL;
-    OperatingDemand : LREAL;
+    LossKwPerC : LREAL;
+    ExtractionKw : LREAL;
 END_VAR
-Lesson84DemandFeedforward := MeasuredDemand - OperatingDemand;
+DelayDipC := ExtractionKw / LossKwPerC * (LREAL#1.0 - EXP(-LossKwPerC / LREAL#50.0));
 END_FUNCTION
 
-FUNCTION Lesson84PiProportionalGain : LREAL
+(* The declared decision rule: the simplest candidate that passes every case. 1 = A (PI), 2 = B (PI with feedforward, which
+   needs the extraction measured), 0 = neither qualifies: redesign. *)
+FUNCTION Recommendation : LREAL
 VAR_INPUT
-    CharacteristicLinearCoefficient : LREAL;
-    CompressorTimeConstant : LREAL;
-    ReceiverRateGain : LREAL;
+    PassedA : LREAL;
+    PassedB : LREAL;
+    Cases : LREAL;
 END_VAR
-Lesson84PiProportionalGain := CharacteristicLinearCoefficient
-    * CompressorTimeConstant / ReceiverRateGain;
-END_FUNCTION
-
-FUNCTION Lesson84PiIntegralGain : LREAL
-VAR_INPUT
-    CharacteristicConstantCoefficient : LREAL;
-    CompressorTimeConstant : LREAL;
-    ReceiverRateGain : LREAL;
-END_VAR
-Lesson84PiIntegralGain := CharacteristicConstantCoefficient
-    * CompressorTimeConstant / ReceiverRateGain;
-END_FUNCTION
-
-FUNCTION Lesson84ReviewedDemand : LREAL
-VAR_INPUT
-    ExperimentScan : DINT;
-END_VAR
-IF ExperimentScan <= DINT#60 THEN
-    Lesson84ReviewedDemand := LREAL#50.0;
-ELSIF ExperimentScan <= DINT#180 THEN
-    Lesson84ReviewedDemand := LREAL#65.0;
+IF PassedA >= Cases THEN
+    Recommendation := LREAL#1.0;
+ELSIF PassedB >= Cases THEN
+    Recommendation := LREAL#2.0;
 ELSE
-    Lesson84ReviewedDemand := LREAL#55.0;
+    Recommendation := LREAL#0.0;
 END_IF;
 END_FUNCTION
 
 PROGRAM Main
 VAR
-    Enabled : BOOL := FALSE;
-    OperatingMode : DINT := DINT#1;
-    PressureQualityGood : BOOL := TRUE;
-    DemandQualityGood : BOOL := TRUE;
-    DeliveryQualityGood : BOOL := TRUE;
-    CompressorAvailable : BOOL := TRUE;
-    PressureSetpoint : LREAL := 7.0;
-    MeasuredDemand : LREAL := 50.0;
-    ManualFeedbackRequest : LREAL := 0.0;
-    ManualIntegratedRequest : LREAL := 0.0;
-    CycleTime : LREAL := 1.0;
-    FeedbackPressure : LREAL := 7.0;
-    IntegratedPressure : LREAL := 7.0;
-    FeedbackActualDelivery : LREAL := 50.0;
-    IntegratedActualDelivery : LREAL := 50.0;
+    (* The production line's heater: 10 kW/°C with 1 s delivery delay, held at 35 °C; a draw-off takes 10 kW. Control Studio
+       takes its model, tunes the gains and the feedforward settings, validates them on heaters of 8 and 12 kW/°C and
+       applies them. The defaults are candidate A: Kp = 2.5 %/°C and Ki = 0.5 %/(°C·s) with no feedforward. The measured draw-off LoadKw is fed forward
+       through a lead/lag, FeedForward = K_ff·(z + T_lead/T_lag·(d − z)) with z the draw-off through the lag; with equal lead
+       and lag it is K_ff·d. A temperature outside 0–80 °C latches SafetyAbort, which removes heat and the draw-off until
+       a restart. *)
+    Controller : Control.PID;
+    Parameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#2.5,
+        IntegralGain := LREAL#0.5,
+        DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#1.0,
+        DerivativeSetpointWeight := LREAL#0.0,
+        Bias := LREAL#0.0,
+        OutputMinimum := LREAL#0.0,
+        OutputMaximum := LREAL#100.0,
+        RateMinimum := LREAL#-1000.0,
+        RateMaximum := LREAL#1000.0,
+        TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation
+    );
+    State : Control.PIDInitialState;
+    Input : Control.PIDInput;
     Initialized : BOOL := FALSE;
-    FeedforwardQualified : BOOL := TRUE;
-    TrackingActive : BOOL := TRUE;
-    FaultActive : BOOL := FALSE;
-    TimingValid : BOOL := TRUE;
-    FeedbackRequested : LREAL := 50.0;
-    IntegratedFeedback : LREAL := 50.0;
-    IntegratedFeedforward : LREAL := 0.0;
-    IntegratedRequested : LREAL := 50.0;
-    FeedbackApplied : LREAL := 0.0;
-    IntegratedApplied : LREAL := 0.0;
-    PreviousFeedbackApplied : LREAL := 50.0;
-    PreviousIntegratedApplied : LREAL := 50.0;
-    FeedbackPlantDemand : LREAL := 50.0;
-    IntegratedPlantDemand : LREAL := 50.0;
-    ControllerRevision : DINT := DINT#84;
-    Controller : CompressedAirController;
-    StartupInitialized : BOOL := FALSE;
-    ExperimentEnabled : BOOL := FALSE;
+    Auto : BOOL := FALSE;
     SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    ExperimentScan : DINT := DINT#0;
-    ExperimentElapsedSeconds : LREAL := 0.0;
+    ManualPct : LREAL := 75.0;
+    SetpointC : LREAL := 35.0;
+    WaterC : LREAL := 35.0;
+    HeaterPct : LREAL := 75.0;
+    LoadKw : LREAL := 0.0;
+    PlantLoadKw : LREAL := 0.0;
+    FeedforwardGain : LREAL := 0.0;
+    LeadS : LREAL := 1.0;
+    LagS : LREAL := 1.0;
+    FilteredLoadKw : LREAL := 0.0;
+    FeedforwardCommandPct : LREAL := 0.0;
 END_VAR
 
-// Start the simulated plant in its reviewed automatic production state.
-IF NOT StartupInitialized THEN
-    Enabled := FALSE;
-    OperatingMode := DINT#1;
-    PressureSetpoint := LREAL#7.0;
-    StartupInitialized := TRUE;
+IF WaterC < LREAL#0.0 OR WaterC > LREAL#80.0 THEN
+    SafetyAbort := TRUE;
 END_IF;
-IF SafetyAbort OR (NOT InputsValid) THEN
-    Enabled := FALSE;
-    OperatingMode := DINT#0;
-    PressureQualityGood := TRUE;
-    DemandQualityGood := TRUE;
-    DeliveryQualityGood := TRUE;
-    CompressorAvailable := TRUE;
-    PressureSetpoint := LREAL#7.0;
-    MeasuredDemand := LREAL#50.0;
-    ManualFeedbackRequest := LREAL#0.0;
-    ManualIntegratedRequest := LREAL#0.0;
-    ExperimentScan := DINT#0;
-    ExperimentElapsedSeconds := LREAL#0.0;
-ELSIF ExperimentEnabled THEN
-    ExperimentScan := ExperimentScan + DINT#1;
-    ExperimentElapsedSeconds := ExperimentElapsedSeconds + LREAL#1.0;
-    Enabled := TRUE;
-    OperatingMode := DINT#1;
-    PressureQualityGood := TRUE;
-    DemandQualityGood := TRUE;
-    DeliveryQualityGood := TRUE;
-    CompressorAvailable := TRUE;
-    PressureSetpoint := LREAL#7.0;
-    ManualFeedbackRequest := LREAL#0.0;
-    ManualIntegratedRequest := LREAL#0.0;
-    MeasuredDemand := Lesson84ReviewedDemand(ExperimentScan := ExperimentScan);
-    IF ExperimentScan > DINT#240 AND ExperimentScan <= DINT#250 THEN
-        DemandQualityGood := FALSE;
-    ELSIF ExperimentScan > DINT#250 AND ExperimentScan <= DINT#260 THEN
-        PressureQualityGood := FALSE;
-    ELSIF ExperimentScan > DINT#260 AND ExperimentScan <= DINT#270 THEN
-        DeliveryQualityGood := FALSE;
-    ELSIF ExperimentScan > DINT#270 AND ExperimentScan <= DINT#280 THEN
-        CompressorAvailable := FALSE;
-    ELSIF ExperimentScan > DINT#280 AND ExperimentScan <= DINT#290 THEN
-        OperatingMode := DINT#2;
-        ManualFeedbackRequest := LREAL#50.0;
-        ManualIntegratedRequest := LREAL#50.0;
-    ELSIF ExperimentScan > DINT#290 THEN
-        OperatingMode := DINT#3;
-    END_IF;
+IF SafetyAbort THEN
+    PlantLoadKw := LREAL#0.0;
 ELSE
-    (* Monitor holds the reviewed 7 bar, 50/50 percent operating equilibrium.
-       Test authority starts the demand and abnormal-event sequence. *)
-    Enabled := TRUE;
-    OperatingMode := DINT#1;
-    PressureQualityGood := TRUE;
-    DemandQualityGood := TRUE;
-    DeliveryQualityGood := TRUE;
-    CompressorAvailable := TRUE;
-    PressureSetpoint := LREAL#7.0;
-    MeasuredDemand := LREAL#50.0;
-    ManualFeedbackRequest := LREAL#0.0;
-    ManualIntegratedRequest := LREAL#0.0;
-    ExperimentScan := DINT#0;
-    ExperimentElapsedSeconds := LREAL#0.0;
+    PlantLoadKw := LoadKw;
 END_IF;
-
-Controller(
-    Enabled := Enabled,
-    OperatingMode := OperatingMode,
-    PressureQualityGood := PressureQualityGood,
-    DemandQualityGood := DemandQualityGood,
-    DeliveryQualityGood := DeliveryQualityGood,
-    CompressorAvailable := CompressorAvailable,
-    PressureSetpoint := PressureSetpoint,
-    MeasuredDemand := MeasuredDemand,
-    ManualFeedbackRequest := ManualFeedbackRequest,
-    ManualIntegratedRequest := ManualIntegratedRequest,
-    CycleTime := CycleTime,
-    FeedbackPressure := FeedbackPressure,
-    IntegratedPressure := IntegratedPressure,
-    FeedbackActualDelivery := FeedbackActualDelivery,
-    IntegratedActualDelivery := IntegratedActualDelivery
-);
-Initialized := Controller.Initialized;
-FeedforwardQualified := Controller.FeedforwardQualified;
-TrackingActive := Controller.TrackingActive;
-FaultActive := Controller.FaultActive;
-TimingValid := Controller.TimingValid;
-FeedbackRequested := Controller.FeedbackRequested;
-IntegratedFeedback := Controller.IntegratedFeedback;
-IntegratedFeedforward := Controller.IntegratedFeedforward;
-IntegratedRequested := Controller.IntegratedRequested;
-FeedbackApplied := Controller.FeedbackApplied;
-IntegratedApplied := Controller.IntegratedApplied;
-PreviousFeedbackApplied := Controller.PreviousFeedbackApplied;
-PreviousIntegratedApplied := Controller.PreviousIntegratedApplied;
-FeedbackPlantDemand := Controller.FeedbackPlantDemand;
-IntegratedPlantDemand := Controller.IntegratedPlantDemand;
-ControllerRevision := Controller.ControllerRevision;
+FilteredLoadKw := FilteredLoadKw + LREAL#0.1 / (LagS + LREAL#0.1) * (LoadKw - FilteredLoadKw);
+FeedforwardCommandPct := FeedforwardGain * (FilteredLoadKw + LeadS / LagS * (LoadKw - FilteredLoadKw));
+Controller.Configure(Parameters := Parameters);
+IF NOT Initialized THEN
+    State.Setpoint := SetpointC;
+    State.ProcessValue := WaterC;
+    State.FeedForward := FeedforwardCommandPct;
+    State.NominalOutput := ManualPct;
+    State.SaturatedOutput := ManualPct;
+    Controller.Initialize(State := State);
+    Initialized := TRUE;
+END_IF;
+Input.CycleTime := LREAL#0.1;
+Input.Setpoint := SetpointC;
+Input.ProcessValue := WaterC;
+IF SafetyAbort THEN
+    Input.Mode := PIDMode#Manual;
+    Input.ManualOutput := LREAL#0.0;
+    Input.FeedForward := LREAL#0.0;
+ELSIF Auto THEN
+    Input.Mode := PIDMode#Auto;
+    Input.ManualOutput := ManualPct;
+    Input.FeedForward := FeedforwardCommandPct;
+ELSE
+    Input.Mode := PIDMode#Manual;
+    Input.ManualOutput := ManualPct;
+    Input.FeedForward := FeedforwardCommandPct;
+END_IF;
+HeaterPct := Controller.Update(Input := Input);
 END_PROGRAM
 
 CONFIGURATION Config
 RESOURCE Res ON PLC
-    TASK MainTask(INTERVAL := T#1s, PRIORITY := 1);
+    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.OperatingMode AT %MD0 : DINT;
-    P1.Enabled AT %MX8.0 : BOOL;
-    P1.PressureQualityGood AT %MX8.1 : BOOL;
-    P1.DemandQualityGood AT %MX8.2 : BOOL;
-    P1.DeliveryQualityGood AT %MX8.3 : BOOL;
-    P1.CompressorAvailable AT %MX8.4 : BOOL;
-    P1.FeedforwardQualified AT %MX8.5 : BOOL;
-    P1.TrackingActive AT %MX8.6 : BOOL;
-    P1.FaultActive AT %MX8.7 : BOOL;
-    P1.Initialized AT %MX9.0 : BOOL;
-    P1.TimingValid AT %MX9.1 : BOOL;
-    P1.ExperimentEnabled AT %MX9.2 : BOOL;
-    P1.SafetyAbort AT %MX9.3 : BOOL;
-    P1.InputsValid AT %MX9.4 : BOOL;
-    P1.PressureSetpoint AT %ML16 : LREAL;
-    P1.MeasuredDemand AT %ML24 : LREAL;
-    P1.ManualFeedbackRequest AT %ML32 : LREAL;
-    P1.ManualIntegratedRequest AT %ML40 : LREAL;
-    P1.FeedbackRequested AT %ML48 : LREAL;
-    P1.IntegratedFeedback AT %ML56 : LREAL;
-    P1.IntegratedFeedforward AT %ML64 : LREAL;
-    P1.IntegratedRequested AT %ML72 : LREAL;
-    P1.PreviousFeedbackApplied AT %ML80 : LREAL;
-    P1.PreviousIntegratedApplied AT %ML88 : LREAL;
-    P1.ControllerRevision AT %MD96 : DINT;
-    P1.CycleTime AT %ML104 : LREAL;
-    P1.ExperimentElapsedSeconds AT %ML112 : LREAL;
-    P1.FeedbackApplied AT %QL0 : LREAL;
-    P1.FeedbackPlantDemand AT %QL8 : LREAL;
-    P1.IntegratedApplied AT %QL16 : LREAL;
-    P1.IntegratedPlantDemand AT %QL24 : LREAL;
-    P1.FeedbackPressure AT %IL0 : LREAL;
-    P1.FeedbackActualDelivery AT %IL8 : LREAL;
-    P1.IntegratedPressure AT %IL16 : LREAL;
-    P1.IntegratedActualDelivery AT %IL24 : LREAL;
+    P1.WaterC AT %IL0 : LREAL;
+    P1.HeaterPct AT %QL0 : LREAL;
+    P1.PlantLoadKw AT %QL8 : LREAL;
+    P1.SetpointC AT %ML0 : LREAL;
+    P1.LoadKw AT %ML8 : LREAL;
+    P1.ManualPct AT %ML16 : LREAL;
+    P1.FeedforwardCommandPct AT %ML24 : LREAL;
+    P1.SafetyAbort AT %MX32.0 : BOOL;
 END_VAR
 END_CONFIGURATION

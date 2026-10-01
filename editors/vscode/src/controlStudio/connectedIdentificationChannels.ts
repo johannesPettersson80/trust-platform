@@ -10,11 +10,13 @@ export async function connectedIdentificationChannels(loop: ControlLoopDefinitio
   const entries = [...raw.inputs ?? [], ...raw.outputs ?? [], ...raw.memory ?? []];
   return loop.channels.inputs.map(input => {
     const signal = loopSignal(loop, input.signalId);
-    if (signal.symbol === loop.signals.manipulatedVariable.symbol) return { loop, sample: (sample: LoopMonitorSample) => sample };
+    // A group member's input is stepped by its own identification step (Specification 35 §17.9).
+    const experiment = loop.experiment && input.experimentStep !== undefined ? { ...loop.experiment, amplitude: input.experimentStep } : loop.experiment;
+    if (signal.symbol === loop.signals.manipulatedVariable.symbol) return { loop: { ...loop, experiment }, sample: (sample: LoopMonitorSample) => sample };
     const command = input.manualOutputSignal;
     const address = entries.find(entry => entry.name?.toLowerCase() === command?.toLowerCase())?.address;
     if (!command || !address || !input.manualOutputType) throw new Error(`The connected runtime has no addressed Manual command for ${signal.symbol}.`);
-    return { loop: { ...loop, signals: { ...loop.signals, manipulatedVariable: signal },
+    return { loop: { ...loop, experiment, signals: { ...loop.signals, manipulatedVariable: signal },
       controller: { ...loop.controller, manualOutputSignal: command, manualOutputAddress: address, manualOutputType: input.manualOutputType },
       limits: { outputMinimum: input.actuator.minimum, outputMaximum: input.actuator.maximum } },
       sample: (sample: LoopMonitorSample): LoopMonitorSample => {

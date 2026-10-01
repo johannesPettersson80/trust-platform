@@ -87,7 +87,7 @@ fn register_executor_profile_records_dynamic_ref_and_instance_lookup_counters() 
     code.push(0x06);
 
     let pou_id = 1_u32;
-    let mut pou_by_id = HashMap::new();
+    let mut pou_by_id = rustc_hash::FxHashMap::default();
     pou_by_id.insert(
         pou_id,
         VmPouEntry {
@@ -99,7 +99,7 @@ fn register_executor_profile_records_dynamic_ref_and_instance_lookup_counters() 
             primary_instance_owner: None,
         },
     );
-    let mut program_ids = HashMap::new();
+    let mut program_ids = rustc_hash::FxHashMap::default();
     program_ids.insert(SmolStr::new("MAIN"), pou_id);
     let refs = vec![
         VmRef::Global {
@@ -123,16 +123,17 @@ fn register_executor_profile_records_dynamic_ref_and_instance_lookup_counters() 
         consts: vec![Value::DInt(11), Value::DInt(13)],
         pou_by_id,
         program_ids,
-        function_ids: HashMap::new(),
-        function_block_ids: HashMap::new(),
-        class_ids: HashMap::new(),
-        parent_pou_ids: HashMap::new(),
-        interface_type_ids_by_pou: HashMap::new(),
+        function_ids: Default::default(),
+        function_block_ids: Default::default(),
+        class_ids: Default::default(),
+        parent_pou_ids: Default::default(),
+        interface_type_ids_by_pou: Default::default(),
         native_symbol_specs: Vec::new(),
-        pou_params: HashMap::new(),
-        pou_has_return_slot: HashSet::new(),
-        method_table_by_owner: HashMap::new(),
-        ref_types: HashMap::new(),
+        pou_params: Default::default(),
+        pou_has_return_slot: Default::default(),
+        method_table_by_owner: Default::default(),
+        ref_types: Vec::new(),
+        ref_slots: Default::default(),
         debug_map: super::super::debug_map::VmDebugMap::default(),
         instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
     };

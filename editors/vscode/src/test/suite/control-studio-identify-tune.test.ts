@@ -42,7 +42,30 @@ function fopdtSamples(amplitude = 2): IdentificationSample[] {
   return result;
 }
 
+/** A pumped tank: the level ramps at 0.0004 m/s per % of pump command, 2 s after a 10 % step at 2 s. */
+function delayedIntegratorSamples(): IdentificationSample[] {
+  const result: IdentificationSample[] = [];
+  const dt = 0.1;
+  const delayed: number[] = Array(20).fill(0);
+  let level = 1;
+  for (let index = 0; index <= 600; index += 1) {
+    const input = index >= 20 ? 10 : 0;
+    delayed.push(input);
+    level += dt * 0.0004 * (delayed.shift() ?? 0);
+    result.push({ timeSeconds: index * dt, input, output: level, quality: "good" });
+  }
+  return result;
+}
+
 suite("Control Studio identification and tuning", () => {
+  test("fits a delayed integrator's rate gain and delay from a step", () => {
+    const result = identifyPlant(delayedIntegratorSamples());
+    assert.strictEqual(result.recommended.kind, "integrating");
+    assert.ok(Math.abs(result.recommended.gain - 0.0004) < 0.00002, `rate gain ${result.recommended.gain}`);
+    assert.ok(Math.abs((result.recommended.deadTimeSeconds ?? 0) - 2) < 0.2,
+      `the ramp starts 2 s after the step, so SIMC has the delay it needs: ${result.recommended.deadTimeSeconds}`);
+  });
+
   test("named root-locus sweep varies Kp while retaining measured-velocity feedback", () => {
     const model = { kind: "integrating" as const, gain: 1, timeConstantSeconds: 1, stable: true, normalizedError: 0 };
     const parameters: ControlPidParameters = {

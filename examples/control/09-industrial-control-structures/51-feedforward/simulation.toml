@@ -6,44 +6,57 @@ max_plant_substeps_per_cycle = 100
 plant_trace_capacity = 1000
 plant_step_ms = 100
 
+# Three copies of the heater of Lessons 12–30, 50·dT/dt = 2·u(t − 1) − 10·(T − 20) − D, at rest at 35 °C with 75 %:
+# PI alone, PI with feedforward from the exact load, PI with feedforward from a 36 kW estimate. Inputs: heater command
+# (delivered 1 s later) and heat extraction D in kW, which acts at once; output: the water temperature, read exactly.
+
 [[plants]]
-id = "conveyor-oven-feedback-only"
-name = "Continuous conveyor oven with feedback-only PI"
-description = "Product-zone temperature with separate heater and conveyor-speed paths."
+id = "pi-only"
 model = "state_space"
 command_sources = ["%QL0", "%QL8"]
 feedback_targets = ["%IL0"]
-initial_state = [140.0, -20.0]
+initial_state = [15.0]
+initial_input = [75.0, 0.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }, {}]
+
 [plants.parameters]
-a = [[-0.1, 0.0], [0.0, -0.25]]
-b = [[0.2, 0.0], [0.0, -5.0]]
-c = [[1.0, 1.0]]
+a = [[-0.2]]
+b = [[0.04, -0.02]]
+c = [[1.0]]
 d = [[0.0, 0.0]]
+input_delays_s = [1.0, 0.0]
 
 [[plants]]
-id = "conveyor-oven-static-feedforward"
-name = "Continuous conveyor oven with static feedforward and PI trim"
-description = "Equivalent oven used to isolate steady-gain feedforward."
+id = "pi-feedforward"
 model = "state_space"
 command_sources = ["%QL16", "%QL24"]
 feedback_targets = ["%IL8"]
-initial_state = [140.0, -20.0]
+initial_state = [15.0]
+initial_input = [75.0, 0.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }, {}]
+
 [plants.parameters]
-a = [[-0.1, 0.0], [0.0, -0.25]]
-b = [[0.2, 0.0], [0.0, -5.0]]
-c = [[1.0, 1.0]]
+a = [[-0.2]]
+b = [[0.04, -0.02]]
+c = [[1.0]]
 d = [[0.0, 0.0]]
+input_delays_s = [1.0, 0.0]
 
 [[plants]]
-id = "conveyor-oven-dynamic-feedforward"
-name = "Continuous conveyor oven with dynamic feedforward and PI trim"
-description = "Equivalent oven used to isolate gain-and-timing feedforward."
+id = "pi-feedforward-36kw"
 model = "state_space"
 command_sources = ["%QL32", "%QL40"]
 feedback_targets = ["%IL16"]
-initial_state = [140.0, -20.0]
+initial_state = [15.0]
+initial_input = [75.0, 0.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }, {}]
+
 [plants.parameters]
-a = [[-0.1, 0.0], [0.0, -0.25]]
-b = [[0.2, 0.0], [0.0, -5.0]]
-c = [[1.0, 1.0]]
+a = [[-0.2]]
+b = [[0.04, -0.02]]
+c = [[1.0]]
 d = [[0.0, 0.0]]
+input_delays_s = [1.0, 0.0]

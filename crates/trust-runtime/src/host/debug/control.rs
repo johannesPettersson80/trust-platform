@@ -16,7 +16,7 @@ use crate::value::Value;
 
 use super::breakpoints::{matches_breakpoint, BreakpointCycleKey};
 use super::hook::{DebugHook, DebugRuntimeContext};
-use super::trace::trace_debug;
+use super::trace::{trace_debug, trace_debug_with};
 use super::{
     DebugBreakpoint, DebugLog, DebugSnapshot, DebugStop, DebugStopReason, RuntimeEvent,
     SourceLocation,

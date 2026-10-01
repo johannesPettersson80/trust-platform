@@ -59,7 +59,7 @@ export function assertPidGroupAdapter(loop: ControlLoopDefinition, project: Proj
     if (!output.setpointSignalId) throw new Error(`PID group member ${member.instance} needs its declared setpoint.`);
     const ownStates = project.initialization.states.filter(state => state.symbol.startsWith(`${member.instance}.StateValue.`));
     assertLibraryPidStates(member.instance, ownStates, loopSignal(loop, output.signalId).unit,
-      loopSignal(loop, loop.channels!.inputs[inputIndex].signalId).unit, inputIndex, outputIndex);
+      loopSignal(loop, loop.channels!.inputs[inputIndex].signalId).unit, inputIndex, outputIndex, project.seed?.kind === "decoupled-pid");
     const owned = new Set([...ownStates.map(state => state.symbol), ...(member.applicationStateSymbols ?? [])]);
     for (const symbol of owned) {
       if (!symbol.toUpperCase().startsWith(`${member.instance.split(".")[0]}.`.toUpperCase())) throw new Error(`PID group state ${symbol} must belong to ${member.instance}'s owning program.`);
@@ -69,6 +69,8 @@ export function assertPidGroupAdapter(loop: ControlLoopDefinition, project: Proj
   const complete = (actual: readonly { symbol: string }[], expected: Set<string>) => actual.length === expected.size
     && new Set(actual.map(entry => entry.symbol.toUpperCase())).size === actual.length
     && actual.every(entry => expected.has(entry.symbol.toUpperCase()));
+  // A static decoupler's variables belong to the group as a whole (Specification 35 §17.15).
+  if (project.seed?.kind === "decoupled-pid") for (const symbol of project.seed.matrixSymbols.flat()) claim(parameters, symbol, "parameter");
   if (!complete(loop.parameterBinding.parameters, parameters)) throw new Error("Declare the complete PID group parameter union with one owner per parameter.");
   if (!complete(project.initialization.states, states)) throw new Error("Declare the complete PID group retained and application state union with one owner per state.");
 }

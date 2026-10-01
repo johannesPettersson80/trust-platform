@@ -9,7 +9,13 @@ const MAIN: &str = include_str!(
 );
 
 fn applied(temperature: f64, enabled: bool, abort: bool) -> f64 {
-    let session = CompileSession::from_sources(vec![SourceFile::with_path("src/Main.st", MAIN)]);
+    let session = CompileSession::from_sources(vec![
+        SourceFile::with_path("src/Main.st", MAIN),
+        SourceFile::with_path(
+            "Control/control.st",
+            include_str!("../../../libraries/control/src/control.st"),
+        ),
+    ]);
     let mut runtime = session.build_runtime().unwrap();
     runtime
         .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)

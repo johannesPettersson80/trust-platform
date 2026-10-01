@@ -3,6 +3,7 @@ import type { EngineerRequirements } from "./engineerVerificationPlan";
 import { linearTransferModel } from "./linearTransferModel";
 import { designTypedPiCandidate, designTypedDerivativeCandidate, type PidPiDesign } from "./pidPiDesign";
 import { MainWorkflowError } from "./mainWorkflowFailure";
+import { formatEngineeringNumber } from "./chartContract";
 
 /** Reuse qualified first-order rules; coefficient matching covers delay-free low-order motion/unstable plants. */
 export function designPidForTask(model: GeneralModel, family: "PI" | "PD" | "PID", task: EngineerRequirements, periodMs: number): PidPiDesign {
@@ -18,12 +19,14 @@ export function designPidForTask(model: GeneralModel, family: "PI" | "PD" | "PID
     return poleMatchedPid(model, family, task, periodMs);
   }
 }
-export function poleMatchedPid(model: GeneralModel, family: "P" | "PI" | "PD" | "PID", task: EngineerRequirements, periodMs: number): PidPiDesign {
+/** `envelope` sets the decay rate ζω = envelope/Tₛ; 4 is the 2 % envelope (Specification 35 §9.2). */
+export function poleMatchedPid(model: GeneralModel, family: "P" | "PI" | "PD" | "PID", task: EngineerRequirements, periodMs: number,
+  envelope = 4): PidPiDesign {
   const plant = linearTransferModel(model);
   if (plant.delaySeconds !== 0 || plant.numerator.length !== 1 || ![2, 3].includes(plant.denominator.length)
     || plant.numerator[0] === 0 || plant.denominator[0] <= 0) throw new Error("Pole matching needs a delay-free first/second-order model without zeros; use a compatible declared native tuning policy for other structures.");
   const b = plant.numerator[0], [leading] = plant.denominator;
-  const damping = 0.8, omega = 4 / (damping * task.settlingTimeSeconds);
+  const damping = 0.8, omega = envelope / (damping * task.settlingTimeSeconds);
   if (omega * periodMs / 1000 >= 0.2) throw new Error("The requested bandwidth needs a faster sample period or a longer response time.");
   let proportionalGain = 0, integralGain = 0, derivativeGain = 0;
   const a0 = plant.denominator[plant.denominator.length - 1];
@@ -42,7 +45,11 @@ export function poleMatchedPid(model: GeneralModel, family: "P" | "PI" | "PD" | 
   } else {
     const a1 = plant.denominator[1];
     if (family === "P") {
-      if (a1 <= 0 || a1 / (2 * leading) < 4 / task.settlingTimeSeconds) throw new Error("P cannot provide the required damping; compare PD or PID.");
+      // With P the error decays at a1/(2·a2) whatever Kp: only the plant's own friction damps it.
+      const decay = Math.max(0, a1 / (2 * leading)), needed = 4 / task.settlingTimeSeconds;
+      if (decay < needed) throw new MainWorkflowError(`P leaves the error's decay rate at ${formatEngineeringNumber(Number(decay.toPrecision(3)))} 1/s whatever Kp, `
+        + `and settling by ${formatEngineeringNumber(task.settlingTimeSeconds)} s needs at least ${formatEngineeringNumber(Number(needed.toPrecision(3)))} 1/s. Compare PD or PID.`,
+        { cause: "controller-capability", nextAction: "choose-controller" });
       proportionalGain = (Math.max(leading * omega * omega, numeratorError / allowance) - a0) / b;
     } else if (family === "PD") {
       proportionalGain = (Math.max(leading * omega * omega, numeratorError / allowance) - a0) / b;
@@ -54,9 +61,9 @@ export function poleMatchedPid(model: GeneralModel, family: "P" | "PI" | "PD" | 
       proportionalGain = (leading * (omega * omega + 2 * damping * omega * extraPole) - a0) / b;
       integralGain = leading * omega * omega * extraPole / b;
     } else {
-      if (a1 <= 0) throw new Error("PI cannot supply the missing second-order damping; compare PD or PID.");
+      if (a1 <= 0) throw new MainWorkflowError("PI cannot supply the missing second-order damping; compare PD or PID.", { cause: "controller-capability", nextAction: "choose-controller" });
       const achievableOmega = a1 / leading / (2 * damping + 3);
-      if (achievableOmega < omega) throw new Error("PI's fixed damping cannot meet the requested response time; compare PD/PID.");
+      if (achievableOmega < omega) throw new MainWorkflowError("PI's fixed damping cannot meet the requested response time; compare PD/PID.", { cause: "controller-capability", nextAction: "choose-controller" });
       proportionalGain = (leading * achievableOmega * achievableOmega * (1 + 6 * damping) - a0) / b;
       integralGain = 3 * leading * achievableOmega ** 3 / b;
     }

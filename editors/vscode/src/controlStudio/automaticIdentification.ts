@@ -188,7 +188,6 @@ export class AutomaticIdentification {
       .map(sample => ({ timeSeconds: sample.timeSeconds, input: sample.values[mv.symbol].value!, output: sample.values[pv.symbol].value!,
         quality: sample.values[mv.symbol].quality === "good" && sample.values[pv.symbol].quality === "good" ? "good" : "bad",
         inputUnit: mv.unit, outputUnit: pv.unit }));
-    if (loop.physicalIdentification) return this.fitStateRecords(loop, runs, progress);
     await progress("Fitting candidate models and testing them against the independent trial…");
     try {
     const accepted = await this.fitting.run<AcceptedIdentificationModel>(path.join(__dirname, "identificationWorker.js"), {
@@ -358,7 +357,6 @@ export class AutomaticIdentification {
       }
       records.push({ input: input as number[], output: output as number[] });
     }
-    if (loop.physicalIdentification) return this.fitStateRecords(loop, runs, progress);
     const estimated = estimateFrequencyResponse(records[0].input, records[0].output, sampleTimeSeconds, frequencies,
       { segmentCount: 2, minimumCoherence: 0.6 });
     const validated = estimateFrequencyResponse(records[1].input, records[1].output, sampleTimeSeconds, frequencies,

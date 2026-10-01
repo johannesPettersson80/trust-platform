@@ -7,6 +7,14 @@ pub struct IoInterface {
     hierarchical: std::collections::HashMap<IoAddressKey, Value>,
 }
 
+/// Output and memory areas staged from program storage, applied together or not at all.
+#[derive(Debug)]
+pub(crate) struct StagedImage {
+    outputs: Vec<u8>,
+    memory: Vec<u8>,
+    hierarchical: std::collections::HashMap<IoAddressKey, Value>,
+}
+
 pub const PROCESS_IMAGE_AREA_LIMIT: usize = 16 * 1024 * 1024;
 
 impl IoInterface {
@@ -213,10 +221,34 @@ impl IoInterface {
     }
 
     pub fn write_outputs(&mut self, storage: &VariableStorage) -> Result<(), RuntimeError> {
-        let bindings = self.bindings.clone();
+        let staged = self.stage_bound_values(storage, &[IoArea::Output, IoArea::Memory])?;
+        self.apply_staged(staged);
+        Ok(())
+    }
+
+    /// Commits every marker binding from its bound variable, so that the next start-of-cycle latch
+    /// reads the variable's initialized or retained value (Specification 11 §6.5).
+    pub fn commit_memory(&mut self, storage: &VariableStorage) -> Result<(), RuntimeError> {
+        let staged = self.stage_memory(storage)?;
+        self.apply_staged(staged);
+        Ok(())
+    }
+
+    /// The image with every marker binding written from `storage`; nothing changes until it is applied.
+    pub(crate) fn stage_memory(&self, storage: &VariableStorage) -> Result<StagedImage, RuntimeError> {
+        self.stage_bound_values(storage, &[IoArea::Memory])
+    }
+
+    pub(crate) fn apply_staged(&mut self, staged: StagedImage) {
+        self.outputs = staged.outputs;
+        self.memory = staged.memory;
+        self.hierarchical = staged.hierarchical;
+    }
+
+    fn stage_bound_values(&self, storage: &VariableStorage, areas: &[IoArea]) -> Result<StagedImage, RuntimeError> {
         let mut pending = Vec::new();
-        for binding in bindings {
-            if !matches!(binding.address.area, IoArea::Output | IoArea::Memory) {
+        for binding in &self.bindings {
+            if !areas.contains(&binding.address.area) {
                 continue;
             }
             let value = match &binding.target {
@@ -232,7 +264,7 @@ impl IoInterface {
             } else {
                 value.clone()
             };
-            pending.push((binding.address, value));
+            pending.push((binding.address.clone(), value));
         }
 
         let mut staged = Self {
@@ -245,10 +277,7 @@ impl IoInterface {
         for (address, value) in pending {
             staged.write(&address, value)?;
         }
-        self.outputs = staged.outputs;
-        self.memory = staged.memory;
-        self.hierarchical = staged.hierarchical;
-        Ok(())
+        Ok(StagedImage { outputs: staged.outputs, memory: staged.memory, hierarchical: staged.hierarchical })
     }
 
     pub fn read(&self, address: &IoAddress) -> Result<Value, RuntimeError> {

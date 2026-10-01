@@ -82,7 +82,7 @@ export interface RelayPiCandidate {
 }
 
 export type RelayPiCalculation =
-  | { status: "qualified"; ultimateGain: number; periodSeconds: number; candidate: RelayPiCandidate }
+  | { status: "qualified"; ultimateGain: number; periodSeconds: number; outputAmplitude: number; responseAmplitude: number; candidate: RelayPiCandidate }
   | { status: "not_qualified"; reason: string };
 
 type RelayCycleQualification =
@@ -146,6 +146,8 @@ export function calculateRelayPiCandidate(input: {
     status: "qualified",
     ultimateGain,
     periodSeconds: qualification.periodSeconds,
+    outputAmplitude: qualification.outputAmplitude,
+    responseAmplitude: qualification.responseAmplitude,
     candidate: { proportionalGain, integralTimeSeconds, integralGain: proportionalGain / integralTimeSeconds, applied: false },
   };
 }

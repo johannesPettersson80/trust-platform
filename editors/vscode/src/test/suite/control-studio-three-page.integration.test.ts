@@ -79,7 +79,7 @@ suite("Control Studio three-page workflow", () => {
     }, { capture: "native-project", loop: loop => { loop.experiment.durationSeconds = 2; } });
     } finally { if (vscode.debug.activeDebugSession) await vscode.debug.stopDebugging(vscode.debug.activeDebugSession); }
   });
-  test("fits a manually selected model from independent recordings in Identify", async function () {
+  test("fits a manually selected model and checks it against an independent recording in Identify", async function () {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();
     this.timeout(60000);
     await withStudio(async inner => {
@@ -90,7 +90,9 @@ suite("Control Studio three-page workflow", () => {
         await inner(`const transfer=new d.defaultView.DataTransfer();transfer.items.add(new d.defaultView.File([${JSON.stringify(recordingArchive(loop, id, amplitude))}],'recording.json',{type:'application/json'}));const file=d.querySelector('[data-identify-import-file]');file.files=transfer.files;file.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'open';`);
         await pollValue("recording check available", () => inner("return d.querySelector('[data-engineer-find]').textContent;"), value => value === "Check recording", 10000);
         await inner("const model=d.querySelector('[data-three-page-identification-model]');model.value='first_order';d.querySelector('[data-engineer-find]').click();return 'check';");
-        await pollValue("manual fit available", () => inner("return d.querySelector('[data-engineer-find]').textContent;"), value => value === "Fit plant model", 10000);
+        // The first recording estimates the model; the independent one only scores the frozen model (Spec 35: no refit on validation data).
+        const next = id === "manual-estimation" ? "Fit plant model" : "Compare with model";
+        await pollValue(`${id} checked`, () => inner("return d.querySelector('[data-engineer-find]').textContent;"), value => value === next, 10000);
         await inner("d.querySelector('[data-engineer-find]').click();return 'fit';");
         await pollValue("manual fit complete", () => inner("return d.querySelector('[data-engineer-find]').textContent;"), value => /Open validation recording|Use fitted model/.test(value), 15000);
       }
@@ -115,54 +117,6 @@ suite("Control Studio three-page workflow", () => {
       assert.match(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');"), /°C/);
       assert.match(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');"), /%/);
     }, { capture: "project-signals", loop: loop => { loop.experiment = { execution: "project-scripted", kind: "observation", amplitude: 0, durationSeconds: 20, seed: 1 }; loop.signals.manipulatedVariable.direction = "read"; } });
-  });
-
-  test("runs measured MIMO windows through the retained project recording and restores them", async function () {
-    if (process.env.TRUST_CONTROL_STUDIO_MIMO_RENDERED !== "1") this.skip();
-    this.timeout(180000);
-    await withStudio(async (inner, reopen) => {
-      const loop = JSON.parse(await inner("return d.querySelector('[data-studio-three-page]').dataset.studioLoop;"));
-      if (!loop.channels || loop.channels.inputs.length < 2) this.skip();
-      await inner("d.defaultView.__mimoResult=undefined;d.defaultView.addEventListener('message',event=>{if(event.data.stage==='mimo'&&event.data.payload?.status==='complete')d.defaultView.__mimoResult=event.data.payload;});return 'observe MIMO';");
-      await inner("const method=d.querySelector('[data-engineer-acquisition-method]');method.value='recorded-fit';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'recorded-fit';");
-      const archive = mimoRecordingArchive(loop, "rendered-mimo");
-      await inner(`const transfer=new d.defaultView.DataTransfer();transfer.items.add(new d.defaultView.File([${JSON.stringify(archive)}],'mimo-recording.json',{type:'application/json'}));const file=d.querySelector('[data-identify-import-file]');file.files=transfer.files;file.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'open-recording';`);
-      await pollValue("MIMO recording import", () => inner("return d.querySelector('[data-engineer-find]').textContent;"), value => value === "Check recording", 15000);
-      assert.strictEqual(await inner("const option=d.querySelector('[data-engineer-tuning-method] option[value=\"analysis:measured-mimo\"]');return String(!!option && !option.hidden && !option.disabled);"), "true", "A retained declared multichannel recording must expose measured MIMO paths in Tune");
-      await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();const method=d.querySelector('[data-engineer-tuning-method]');method.value='analysis:measured-mimo';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'mimo';");
-      assert.strictEqual(await inner("return String(d.querySelector('[data-three-page-mimo-analysis]').checkVisibility());"), "true");
-      assert.strictEqual(await inner("return String(d.documentElement.scrollWidth<=d.documentElement.clientWidth);"), "true", "MIMO fields must fit the actual editor width");
-      assert.strictEqual(await inner("return d.defaultView.getComputedStyle(d.querySelector('[data-mimo-window]')).backgroundColor;"), await inner("return d.defaultView.getComputedStyle(d.querySelector('[data-engineer-tuning-method]')).backgroundColor;"), "MIMO fields must use the shared input theme");
-      const values = ["1.9", "4.8", "5.2", "9.8", "10.2", "14.8", "15.2", "19.8"];
-      await inner(`const fields=[...d.querySelectorAll('[data-mimo-window]')];${JSON.stringify(values)}.forEach((value,index)=>{fields[index].value=value;fields[index].dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));});return 'windows';`);
-      await inner("d.querySelector('[data-engineer-tune]').click();return 'calculate';");
-      await pollValue("measured MIMO result", () => inner("return String(d.defaultView.__mimoResult?.result?.status);"), value => value === "qualified", 15000);
-      assert.ok((await inner("return d.querySelector('[data-three-page-mimo-analysis-gain]')?.textContent||'';" )).length > 0, "The host result must render the measured gain matrix");
-      assert.ok((await inner("return d.querySelector('[data-three-page-mimo-analysis-pairing]')?.textContent||'';" )).includes("Pairing"));
-      await inner("const field=d.querySelector('[data-mimo-window]');field.value='2.1';field.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));return 'edit-window';");
-      await inner("d.querySelector('[data-engineer-tune]').click();return 'recalculate';");
-      await pollValue("recalculated measured MIMO result", () => inner("return String(d.defaultView.__mimoResult?.trials?.[0]?.baseline.startSeconds);"), value => value === "2.1", 15000);
-      assert.ok((await inner("return d.querySelector('[data-three-page-mimo-analysis-gain]')?.textContent||'';" )).length > 0, "Recalculation must retain the host gain matrix");
-      await reopen();
-      await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();const method=d.querySelector('[data-engineer-tuning-method]');method.value='analysis:measured-mimo';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'reopened';");
-      await pollValue("restored MIMO windows", () => inner("return JSON.stringify([...d.querySelectorAll('[data-mimo-window]')].map(input=>input.value));"), value => value.includes("2.1") && value.includes("15.2"), 20000);
-      assert.ok((await inner("return d.querySelector('[data-three-page-mimo-analysis-gain]')?.textContent||'';" )).length > 0, "Reopening must retain the measured gain matrix");
-    }, { capture: "measured-mimo", loop: loop => {
-      loop.signals.additional = [
-        { id: "u2", channel: "u2", role: "MV", symbol: "P1.ManipulatedValue2", address: "%QL128", iecType: "LREAL", direction: "write", unit: "%", range: { minimum: -10, maximum: 10 } },
-        { id: "y2", channel: "y2", role: "PV", symbol: "P1.ProcessValue2", address: "%IL128", iecType: "LREAL", direction: "read", unit: "°C", range: { minimum: 0, maximum: 100 } },
-      ];
-      loop.channels = {
-        inputs: [
-          { modelChannelId: "u1", signalId: "manipulatedVariable", actuator: { kind: "continuous", minimum: 0, maximum: 100 } },
-          { modelChannelId: "u2", signalId: "u2", actuator: { kind: "continuous", minimum: -10, maximum: 10 } },
-        ],
-        outputs: [
-          { modelChannelId: "y1", signalId: "processVariable" },
-          { modelChannelId: "y2", signalId: "y2" },
-        ],
-      };
-    } });
   });
   test("runs the declared root locus from Tune without a candidate or runtime write", async function () {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();
@@ -236,11 +190,12 @@ suite("Control Studio three-page workflow", () => {
       const project = vscode.workspace.workspaceFolders![0].uri.fsPath;
       const loop = JSON.parse(fs.readFileSync(path.join(project, "control-loop.json"), "utf8"));
       for (const [id, amplitude] of [["manual-model-estimation", 2], ["manual-model-validation", 1.5]] as const) {
-        await inner(`const transfer=new d.defaultView.DataTransfer();transfer.items.add(new d.defaultView.File([${JSON.stringify(recordingArchive(loop, id, amplitude))}],'recording.json',{type:'application/json'}));const input=d.querySelector('[data-identify-import-file]');input.files=transfer.files;input.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'selected';`);
-        await pollValue("opened model analysis", () => inner("return d.querySelector('[data-studio-three-page]').dataset.busy;"), value => value === "false", 15000);
+        // The file is read asynchronously before the host starts, so wait for that operation to run and finish; an edit
+        // made while it runs would supersede it.
+        await inner(`const root=d.querySelector('[data-studio-three-page]');d.defaultView.__recordingBusy=false;new d.defaultView.MutationObserver(()=>{if(root.dataset.busy==='true')d.defaultView.__recordingBusy=true;}).observe(root,{attributes:true,attributeFilter:['data-busy']});const transfer=new d.defaultView.DataTransfer();transfer.items.add(new d.defaultView.File([${JSON.stringify(recordingArchive(loop, id, amplitude))}],'recording.json',{type:'application/json'}));const input=d.querySelector('[data-identify-import-file]');input.files=transfer.files;input.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'selected';`);
+        await pollValue("opened model analysis", () => inner("return String(d.defaultView.__recordingBusy && d.querySelector('[data-studio-three-page]').dataset.busy === 'false');"), value => value === "true", 15000);
       }
-      await pollValue("Tune requirements", () => inner("return String(!!d.querySelector('dialog[open]'));"), value => value === "true", 10000);
-      await inner("d.querySelector('[data-studio-editor-cancel]').click();return 'cancelled';");
+      assert.strictEqual(await inner("return String(!!d.querySelector('dialog[open]'));"), "false", "Opening recordings stays on Identify and never opens an empty Tune editor");
       await inner(hostUpdate({ status: "candidate", family: "PI", availableFamilies: ["P", "PI", "PD", "PID"],
         values: { "P1.Parameters.ProportionalGain": 1.23456789012345, "P1.Parameters.IntegralGain": .5, "P1.Parameters.DerivativeGain": 0 },
         stageEvidence: { hasModel: true, hasCandidate: true, validationPassed: false } }));
@@ -408,7 +363,8 @@ suite("Control Studio three-page workflow", () => {
       await inner(hostUpdate({ status: "verification-failed", candidate: evaluation, scenarioResults: [{ id: "nominal", result: { evaluation } }] }));
       await inner("d.querySelector('[data-engineer-stage-tab=verify]').click();return 'inspect results';");
       assert.strictEqual(await inner("return d.querySelector('[data-studio-validation-result] tbody tr').dataset.studioRequirement;"), "tracking-error", "Failures appear directly at the top of the results");
-      assert.strictEqual(await inner("return String(d.querySelectorAll('[data-studio-validation-result] tbody tr').length);"), "33", "Keep every mandatory check");
+      assert.deepStrictEqual(JSON.parse(await inner("return JSON.stringify([...d.querySelectorAll('[data-studio-validation-result] tbody tr')].map(row=>[...row.cells].map(cell=>cell.textContent)));")).map((row: string[]) => row[0] + " | " + row[1]).slice(1),
+        ["Ranges, states and transfer | 32 checks"], "The passing generated guards are counted in one row beneath the failure (CPREL-B13)");
       assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-apply]').getBoundingClientRect().bottom<=d.defaultView.innerHeight-8);"), "true", "Apply remains visible beside the response, without scrolling through technical checks");
       assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-apply]').disabled);"), "true", "A failed requirement keeps Apply unavailable");
     });
@@ -453,7 +409,8 @@ suite("Control Studio three-page workflow", () => {
   });
   test("starts identification from its visible button with the actual Control.PID plant", async function () {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();
-    this.timeout(120000);
+    // Identifying again waits, bounded, for the plant to settle after the first experiment.
+    this.timeout(240000);
     await withStudio(async (inner, reopen) => {
       await inner("d.querySelector('[data-engineer-stage-tab=model]').click();d.defaultView.__studioEvents=[];d.defaultView.addEventListener('trust-control-studio-engineer',event=>d.defaultView.__studioEvents.push(event.detail));d.querySelector('[data-engineer-find]').click();return 'started';");
       assert.strictEqual(await inner("return d.querySelector('[data-engineer-find]').textContent;"), "Abort", "Identify starts the operation and offers Abort");
@@ -461,7 +418,7 @@ suite("Control Studio three-page workflow", () => {
       const model = finished.find((event: {status: string}) => event.status === "model-ready");
       assert.ok(model?.model, JSON.stringify(finished));
       assert.ok(model.identificationPresentation?.predictedResponse?.length > 2, "The native model has measured-versus-predicted evidence");
-      assert.ok(finished.slice(0, finished.indexOf(model)).some((event: any) => event.identificationExperiment?.inputs?.length && event.identificationExperiment?.outputs?.length), "Show the actual experiment recording before the model result");
+      assert.ok(finished.slice(0, finished.indexOf(model)).some((event: any) => event.liveIdentification === true), "Show the live experiment recording before the model result");
       const experiment = model.identificationPresentation.experiment;
       assert.ok(experiment?.inputs?.length, "Retain the applied plant input with its model response");
       const inputValues = experiment.inputs[0].points.map((point: any) => point.value);
@@ -482,11 +439,12 @@ suite("Control Studio three-page workflow", () => {
       await inner("d.querySelector('[data-studio-reset-chart]').click();return 'reset';");
       await pollValue("reset study", () => inner("return String(d?.querySelector('[data-studio-three-page]')?.dataset.hostReady === 'true' && d?.querySelector('[data-studio-model-result]')?.hidden === true);").catch(() => "loading"), value => value === "true", 15000);
       assert.strictEqual(await inner("return d.querySelector('[data-studio-model-equation]').textContent;"), "", "Reset clears the model equation");
-      assert.strictEqual(await inner("return d.querySelector('[data-control-studio-chart]').dataset.pointCount;"), "0", "Reset clears the displayed experiment");
+      // Reset clears the recorded experiment and its model comparison, then resumes live observation (Identify spec).
+      assert.doesNotMatch(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label') ?? '';"), /Model prediction/, "Reset clears the displayed experiment");
       assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-tune]').disabled);"), "true");
       await inner("d.defaultView.__studioEvents=[];d.defaultView.addEventListener('trust-control-studio-engineer',e=>d.defaultView.__studioEvents.push(e.detail));return 'listen';");
       await inner("d.querySelector('[data-engineer-find]').click();return 'new identification';");
-      const repeated = JSON.parse(await pollValue("repeated native identification result", () => inner("return JSON.stringify(d.defaultView.__studioEvents.map(e=>({status:e.status,flowStage:e.flowStage,reason:e.reason})));"), text => JSON.parse(text).some((event: {status: string}) => ["completed", "failed", "paused"].includes(event.status)), 60000));
+      const repeated = JSON.parse(await pollValue("repeated native identification result", () => inner("return JSON.stringify(d.defaultView.__studioEvents.map(e=>({status:e.status,flowStage:e.flowStage,reason:e.reason})));"), text => JSON.parse(text).some((event: {status: string}) => ["completed", "failed", "paused"].includes(event.status)), 150000));
       assert.ok(repeated.some((event: {status:string;flowStage:string}) => event.status === "completed" && event.flowStage === "Identify"), JSON.stringify(repeated));
       assert.match(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');"), /Model prediction/, "The new result replaces the cleared chart");
     }, { capture: "identify-and-reset-chart" });

@@ -6,6 +6,26 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-09-28 - Repeated aggregate element initializers
+
+- Area: array initializers, including arrays of function block instances
+- IEC context:
+  - IEC 61131-3 Ed.3 Table 11 feature 5b initializes an array of `TON`
+    instances with `[50(PT:=T#100ms)]`.
+  - The Annex A productions `Array_Elem_Init : Array_Elem_Init_Value |
+    Unsigned_Int '(' Array_Elem_Init_Value? ')'` and `Struct_Init : '('
+    Struct_Elem_Init (',' Struct_Elem_Init)* ')'` write the same repeated
+    element as `50((PT:=T#100ms))`.
+- Decision:
+  - truST accepts both spellings. A repetition whose parentheses begin with
+    `name :=` repeats one aggregate initializer made of the elements inside
+    them, exactly as the parenthesized Annex A form does. Any other repetition
+    content remains a list of repeated element values.
+- Reason:
+  - The table example and the grammar disagree; accepting both keeps the
+    standard's example and every grammatical program valid, and both spellings
+    denote the same repeated element.
+
 ## 2026-07-30 - POU call evaluation, execution control, and output transfer
 
 - Area: Function, function-block, and method calls

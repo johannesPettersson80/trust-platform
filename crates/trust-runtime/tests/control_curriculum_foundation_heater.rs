@@ -45,7 +45,7 @@ fn setup_source(
         .unwrap();
     (
         r,
-        SimulationController::new(SimulationConfig::load(&p.join("simulation.toml")).unwrap()),
+        SimulationController::new(SimulationConfig::load(p.join("simulation.toml")).unwrap()),
     )
 }
 
@@ -171,6 +171,9 @@ fn proportional_heater_output_is_owned_by_the_actual_control_pid_instance() {
 
 #[test]
 fn proportional_heater_has_zero_bias_and_retains_the_physical_steady_state_error() {
+    let mut trace = String::from(
+        "time_s,setpoint_degC,pv_degC,requested_percent,applied_percent,extraction_kw\n",
+    );
     for preparation in [0, 100] {
         let (mut r, mut sim) = setup("04-water-heater-p");
         let debug = r.enable_debug();
@@ -180,10 +183,21 @@ fn proportional_heater_has_zero_bias_and_retains_the_physical_steady_state_error
                 .unwrap();
             debug.enqueue_io_write(
                 IoAddress::parse("%MX24.1").unwrap(),
-                Value::Bool(elapsed_scan >= 0 && elapsed_scan < 1200),
+                Value::Bool((0..1200).contains(&elapsed_scan)),
             );
             r.advance_time(Duration::from_millis(100));
             r.execute_cycle().unwrap();
+            if preparation == 0 && (0..1200).contains(&elapsed_scan) {
+                trace.push_str(&format!(
+                    "{:.1},{},{:.12},{:.12},{:.12},{}\n",
+                    elapsed_scan as f64 * 0.1,
+                    number(&r, "%ML0"),
+                    process_value(&r),
+                    number(&r, "%ML40"),
+                    number(&r, "%QL0"),
+                    number(&r, "%QL8"),
+                ));
+            }
             if elapsed_scan == 0 {
                 assert_eq!(
                     number(&r, "%IL0"),
@@ -211,10 +225,16 @@ fn proportional_heater_has_zero_bias_and_retains_the_physical_steady_state_error
                 .unwrap();
         }
     }
+    if let Ok(path) = std::env::var("TRUST_LESSON5_TRACE") {
+        std::fs::write(path, trace).expect("retain executed simulator trace");
+    }
 }
 
 #[test]
 fn integral_action_removes_the_same_heater_error_with_an_experiment_relative_load() {
+    let mut trace = String::from(
+        "time_s,setpoint_degC,pv_degC,proportional_percent,integral_percent,applied_percent,extraction_kw\n",
+    );
     for preparation in [0, 100] {
         let (mut r, mut sim) = setup("05-water-heater-pi");
         let debug = r.enable_debug();
@@ -224,10 +244,22 @@ fn integral_action_removes_the_same_heater_error_with_an_experiment_relative_loa
                 .unwrap();
             debug.enqueue_io_write(
                 IoAddress::parse("%MX80.0").unwrap(),
-                Value::Bool(elapsed_scan >= 0 && elapsed_scan < 1200),
+                Value::Bool((0..1200).contains(&elapsed_scan)),
             );
             r.advance_time(Duration::from_millis(100));
             r.execute_cycle().unwrap();
+            if preparation == 0 && (0..1200).contains(&elapsed_scan) {
+                trace.push_str(&format!(
+                    "{:.1},{},{:.12},{:.12},{:.12},{:.12},{}\n",
+                    elapsed_scan as f64 * 0.1,
+                    number(&r, "%ML0"),
+                    process_value(&r),
+                    number(&r, "%ML40"),
+                    number(&r, "%ML56"),
+                    number(&r, "%QL0"),
+                    number(&r, "%QL8"),
+                ));
+            }
             if elapsed_scan == 0 {
                 assert_eq!(number(&r, "%IL0"), 20.0);
                 assert_eq!(number(&r, "%QL0"), 30.75);
@@ -264,6 +296,9 @@ fn integral_action_removes_the_same_heater_error_with_an_experiment_relative_loa
             sim.apply_post_cycle(Duration::from_millis((scan + 1) * 100), &r)
                 .unwrap();
         }
+    }
+    if let Ok(path) = std::env::var("TRUST_LESSON6_TRACE") {
+        std::fs::write(path, trace).expect("retain executed simulator trace");
     }
 }
 
@@ -407,7 +442,7 @@ fn hot_windup_trial(
             .unwrap();
         debug.enqueue_io_write(
             IoAddress::parse(activation).unwrap(),
-            Value::Bool(experiment_scan >= 0 && experiment_scan < 700),
+            Value::Bool((0..700).contains(&experiment_scan)),
         );
         r.advance_time(Duration::from_millis(100));
         r.execute_cycle().unwrap();
@@ -424,7 +459,7 @@ fn hot_windup_trial(
                 "I75 plus P20 plus first.5point increment"
             );
         }
-        if experiment_scan >= 0 && experiment_scan < 700 {
+        if (0..700).contains(&experiment_scan) {
             assert_eq!(
                 number(&r, "%ML0"),
                 if experiment_scan < 100 { 45.0 } else { 35.0 }
@@ -495,6 +530,9 @@ fn antiwindup_repeats_the_same_hot_trial_and_reduces_excess_integral() {
 
 #[test]
 fn setpoint_and_load_lesson_uses_two_independent_sixty_second_heater_trials() {
+    let mut trace = String::from(
+        "trial,time_s,setpoint_degC,pv_degC,proportional_percent,integral_percent,requested_percent,applied_percent,extraction_kw\n",
+    );
     for trial in [0_u16, 1] {
         let (mut r, mut sim) = setup_source("09-setpoint-and-disturbance-response", |source| {
             source.replace(
@@ -510,7 +548,7 @@ fn setpoint_and_load_lesson_uses_two_independent_sixty_second_heater_trials() {
                 .unwrap();
             debug.enqueue_io_write(
                 IoAddress::parse("%MX112.0").unwrap(),
-                Value::Bool(elapsed_scan >= 0 && elapsed_scan < 600),
+                Value::Bool((0..600).contains(&elapsed_scan)),
             );
             r.advance_time(Duration::from_millis(100));
             r.execute_cycle().unwrap();
@@ -524,7 +562,19 @@ fn setpoint_and_load_lesson_uses_two_independent_sixty_second_heater_trials() {
                     "target changes error immediately; unmeasured extraction does not"
                 );
             }
-            if elapsed_scan >= 0 && elapsed_scan < 600 {
+            if (0..600).contains(&elapsed_scan) {
+                trace.push_str(&format!(
+                    "{},{:.1},{},{:.12},{:.12},{:.12},{:.12},{:.12},{}\n",
+                    if trial == 0 { "setpoint" } else { "load" },
+                    elapsed_scan as f64 * 0.1,
+                    number(&r, "%ML0"),
+                    number(&r, "%IL0"),
+                    number(&r, "%ML56"),
+                    number(&r, "%ML16"),
+                    number(&r, "%ML32"),
+                    number(&r, "%QL0"),
+                    number(&r, "%QL8"),
+                ));
                 assert_eq!(number(&r, "%ML0"), if trial == 0 { 38.0 } else { 35.0 });
                 assert_eq!(number(&r, "%QL8"), if trial == 0 { 0.0 } else { 30.0 });
                 let pv = number(&r, "%IL0");
@@ -546,6 +596,9 @@ fn setpoint_and_load_lesson_uses_two_independent_sixty_second_heater_trials() {
             maximum_late_error <= 0.2
         );
         assert_eq!(maximum_late_error<=0.2,trial==0,"retain the measured failed load requirement for diagnosis without retuning the baseline");
+    }
+    if let Ok(path) = std::env::var("TRUST_LESSON9_TRACE") {
+        std::fs::write(path, trace).expect("retain executed simulator trace");
     }
 }
 

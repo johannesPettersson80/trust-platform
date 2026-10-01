@@ -1,96 +1,153 @@
-# 37. Discrete PID
+# 38. Discrete PID
 
-You will translate PID action into one ST update using elapsed time and successive angle measurements. You will calculate the P, I and D torque contributions and identify which values must persist between updates.
+In this lesson, you will write the PID as one sampled update in a fixed order, calculate an update by hand, and check every recorded update of the running controller against that arithmetic.
 
 ## The problem
 
-The shaft controller runs every .02 s. Integral action adds an area over that interval, while derivative action estimates velocity from sampled angle. A display refresh is not the controller clock. A correct implementation must retain the previous angle, previous timestamp and integral state, initialize them deliberately, and distinguish requested from applied torque.
+Lesson 37 gave D a filtered speed: with a 0.1 s filter the torque changed by only 20 N·m in total during the loaded hold, instead of 177 N·m. P, the integral, the filtered D, the setpoint weight, the limit and the anti-windup tracking now all act on the shaft, but each was added on its own.
+
+The controller does not act continuously: every 20 ms it reads the angle, calculates one torque and holds it until the next update. Done in the wrong order, or with the wrong value kept, the same terms give a different torque. We will write all of them as one update.
 
 ## What we need
 
-We need one correctly ordered controller update that combines P, I,
-filtered D, limits and tracking using the same elapsed interval. Each
-calculation must use the appropriate current or retained previous value.
+We need to:
+
+1. fix the order in which the terms are calculated at each update;
+2. know which values are kept until the next update and which are recalculated; and
+3. check the running controller against that update.
 
 ## The new idea
 
-A **discrete PID controller** calculates its output at separate update times
-using values retained from previous updates. We combine the terms already
-taught in one order: calculate P and trial I, update the velocity filter,
-form the request, limit it, then correct the retained I for the next update.
+A **discrete PID** calculates its output once per update, in a fixed order: error, P, a trial integral, filtered D, the request, the limit, and finally the integral correction for the limit.
 
-Use $J=1$, $B=1$, $K_p=16$, $K_d=7$, $K_i=4$ when integral action is enabled, $dt=.02$ s, and torque limits ±20 N·m. Use scalar state only: previous angle, previous update time, integral torque and the previous filtered velocity. The trial integral is a calculation for this update; the corrected integral is the value retained afterward. Each retained value has a separate physical or timing role in this update.
+**In words.** "Discrete" means in steps. The controller does not act all the time: every 20 ms it reads the angle, calculates one torque, sends it to the drive and holds it until the next update, just as a PLC task with a fixed cycle reads its inputs, runs its program and writes its outputs. Within one update the controller works through seven steps, each using the results of the steps before:
 
-Let $e_k=SP_k-\theta_{m,k}$. Proportional torque is
+1. **Error:** how far the shaft is from its target now.
+2. **P:** the proportional part, from that error.
+3. **Trial integral:** the integral kept from the last update plus this update's share, as in Lesson 8.
+4. **Filtered D:** the braking torque from Lesson 37's filtered speed.
+5. **Request:** the sum of P, the trial integral and D.
+6. **Limit:** the drive gets the request, cut to its ±20 N·m.
+7. **Correction:** if the drive got less than was requested, the kept integral is pulled back, Lesson 8's back-calculation; otherwise the trial integral is kept as it is.
 
-$$
-P_k=K_p e_k.
-$$
+The order matters for the same reason as the order of rungs in a PLC program: a rung that uses a value before another rung has updated it gets the old value. Only three values survive from one update to the next: the integral, the filter's state and the previous filtered angle. Everything else is calculated fresh. In PLC terms, the kept values are the function block's static variables, and the others are temporary variables. Change the order, or keep the wrong value, and the same gains give a different torque.
 
-Let $I_{k-1}$ be the retained integral after the preceding tracking correction. The trial contribution after adding the current rectangular error area is
+For this lesson's shaft, all seven steps run every 20 ms, and the program records each intermediate result so that every update can be checked by hand.
 
-$$
-I_{trial,k}=I_{k-1}+K_i e_k\,dt.
-$$
-
-If $e_k=0.08$ rad, $K_i=4$, and $dt=.02$ s, the increment is $4(.08)(.02)=.0064\ \mathrm{N\,m}$ with Ki in N·m/(rad·s). The derivative uses the average angle slope over the sampled interval, not an always-current continuous velocity:
+**The formula.** At update $k$:
 
 $$
-\omega_k=\frac{\theta_{m,k}-\theta_{m,k-1}}{t_k-t_{k-1}},\qquad D_k=-K_d\omega_k.
+e_k = r_k - \theta_k, \qquad P_k = K_p e_k ,
+$$
+$$
+I^*_k = I_{k-1} + K_i e_k \Delta t ,
+$$
+$$
+u_{r,k} = P_k + I^*_k - K_d\,\omega_{f,k}, \qquad u_{a,k} = \mathrm{clamp}(u_{r,k}, -20, 20),
+$$
+$$
+I_k = I^*_k + \frac{\Delta t}{T_t}\,(u_{a,k} - u_{r,k}).
 $$
 
-With filtering bypassed, $\omega_k=1$ gives $D_k=-7\ \mathrm{N\,m}$. A smaller interval makes a fixed angle difference imply a larger slope; it also changes which noise differences are visible.
+- $k$ numbers the updates, and $\Delta t = 0.02$ s is the time between them;
+- $r_k$ is the target and $\theta_k$ the measured angle after Lesson 37's filter, in radians, and $e_k$ the error, in radians;
+- $P_k$ is the proportional part, in newton-metres;
+- $I_{k-1}$ is the integral kept from the previous update, and $I^*_k$ the **trial integral**: the kept integral plus this update's area $e_k\Delta t$ times $K_i$, both in newton-metres;
+- $\omega_{f,k}$ is the filtered speed, in radians per second;
+- $u_{r,k}$ is the requested and $u_{a,k}$ the applied torque, in newton-metres; clamp cuts the request to the drive's ±20 N·m;
+- $T_t$ is Lesson 8's tracking time, 1 s here; and
+- $I_k$ is the integral kept for the next update, in newton-metres.
 
-As a complete hypothetical update, use $SP=.50$, $\theta_m=.42$, previous measured angle 0.40 rad, previous integral $I_{k-1}=1.962$ N·m, $K_p=16$, $K_i=4$, $K_d=7$, $dt=.02$, and the derivative filter bypassed, giving $\omega=(0.42-0.40)/0.02=1$ rad/s. Then $e=.08$, $P=1.28$, $\Delta I=.0064$, $I_{trial,k}=1.9684$, $D=-7$, request $u=-3.7516\ \mathrm{N\,m}$, and applied torque is the same if it is within ±20. These are controller inputs for arithmetic, not a claimed physical run.
+The order carries meaning:
 
-Now keep those same arithmetic inputs but use the .2 s derivative filter, whose previous filtered velocity is .2 rad/s. The raw slope is still 1 rad/s. With the preceding lesson's $\alpha=dt/(T_f+dt)=1/11$,
+1. The trial integral adds the area $e_k\Delta t$ of the interval that ends now to the integral kept after the previous correction.
+2. The request needs every term before the clamp can compare it with the limit.
+3. Tracking uses this update's $u_a - u_r$: at the limit it pulls the kept integral back instead of letting it wind up; inside the limits $u_a = u_r$, so $I_k = I^*_k$.
+4. Only $I_k$, the filter state and the previous filtered angle are kept. $P$, $I^*$, $D$ and $u_r$ are recalculated at every update.
 
-$$
-\omega_{f,k}=.2+\frac{1}{11}(1-.2)=.272727\ \mathrm{rad/s},
-\qquad D_k=-7(.272727)=-1.909091\ \mathrm{N\,m}.
-$$
+**Example: one update of the shaft's controller.** The gains are $K_p = 16$, $K_i = 4$ and $K_d = 7$, teaching values for this simulated axis. At this update the error is 0.08 rad, the kept integral is 1.962 N·m, and the filtered angle has moved from 0.40 to 0.42 rad since the last update. Follow the seven steps:
 
-P remains 1.28 N·m and the trial integral remains 1.9684 N·m, so the complete request is $1.28+1.9684-1.909091=1.339309$ N·m. It is within ±20 N·m, so tracking adds zero and the retained integral equals the trial value. This example states the previous filter value explicitly; it is not the reset state for the live shaft experiment. The different torque shows the damping delay introduced by filtering the same measured slope.
+1. **Error:** $e = 0.08$ rad; the shaft is still short of its target.
+2. **P:** $P = 16 \times 0.08 = 1.28$ N·m, pushing towards the target.
+3. **Trial integral:** $I^* = 1.962 + 4 \times 0.08 \times 0.02 = 1.9684$ N·m; the integral grows a little because an error remains.
+4. **Filtered D:** the filtered speed is $(0.42 - 0.40)/0.02 = 1$ rad/s, so $D = -7 \times 1 = -7$ N·m, braking the approach.
+5. **Request:** $u_r = 1.28 + 1.9684 - 7 = -3.7516$ N·m; the brake outweighs the push.
+6. **Limit:** $-3.7516$ N·m lies inside ±20 N·m, so the drive gets $u_a = -3.7516$ N·m.
+7. **Correction:** $u_a - u_r = 0$, so $I = I^* = 1.9684$ N·m is kept for the next update.
 
-The last two operations are the output limit and retained-state correction:
+Now let the shaft approach faster, the filtered angle moving from 0.40 to 0.47 rad, with everything else the same. The filtered speed is $0.07/0.02 = 3.5$ rad/s, so $D = -7 \times 3.5 = -24.5$ N·m and the request is $1.28 + 1.9684 - 24.5 = -21.2516$ N·m. The drive gets only $-20$ N·m, and the correction is $\tfrac{0.02}{1} \times (-20 - (-21.2516)) = +0.0250$ N·m, so the kept integral becomes $1.9684 + 0.0250 = 1.9934$ N·m. Step 7 moves the integral in the direction that brings the next request back towards what the drive can deliver.
 
-$$
-u_{a,k}=\operatorname{clamp}(u_{r,k},-20,20),\qquad
-I_k=I_{trial,k}+\frac{dt}{T_t}(u_{a,k}-u_{r,k}).
-$$
-
-$u_r$ and $u_a$ are requested and applied torque in N·m. The clamp restricts
-the applied value to the stated bounds. Tracking time $T_t=0.2$ s is retained
-from Lesson 35. The corrected $I_k$ becomes the next update's old integral.
+**The limitation.** The update fixes what is calculated at each sample, not what happens between samples: the torque is held for 20 ms, and a shaft moving at 1 rad/s turns $1 \times 0.02 = 0.02$ rad in that time without the controller seeing it. A correct update is not yet a well-tuned controller: the arithmetic can be exact while the gains still give a slow or swinging response.
 
 ## Prediction
 
-Calculate both complete updates above, including which old filter value produces the filtered torque. Predict the signs when target is above measured angle and velocity is positive: P and the integral increment are positive while D opposes positive motion. The accumulated I also depends on its previous value. Predict that using two angle samples .04 s apart with the same angle difference gives an average velocity 0.5 rad/s, not a numerical “fix” for the sensor. Predict that a nonadvancing or backward timestamp must stop the demonstration rather than update state.
+The project steps the target from 0 to 1.5 rad with the 1.962 N·m load on the drum. Before running, answer these questions:
+
+1. The first update after the step requests about $P = 16 \times 1.5 = 24$ N·m. Which torque does the drive get, and what brings the request back inside the limit?
+2. How does tracking change the kept integral at that first update?
+3. Once the request is back inside the limits, what does tracking do to the kept integral, and does the integral still change?
+4. Will the integral have settled at the 1.962 N·m the load needs by the end of the 7 s test?
+
+| First update after the step | Expected |
+| --- | ---: |
+| Requested torque | about 24 N·m |
+| Applied torque | 20 N·m |
+| Tracking correction of the integral | about $0.02 \times (20 - 24) = -0.08$ N·m |
 
 ## Implementation
 
-Use scalar REAL variables for angle, setpoint, error, P, I, D, request, applied torque and elapsed time. Initialize the previous angle from the first valid measurement and skip derivative differencing until the next sample. Require $0<dt\le0.05$ s for this timing exercise. On valid updates, calculate error and raw velocity from the current and previous measured angles. Calculate the filtered velocity from its previous stored value using the selected filter time, or use raw velocity for bypass. Calculate P, the trial integral and D from that selected velocity, form the complete request, clamp to ±20 N·m, and apply `IntegralNm := TrialIntegralNm + (ElapsedS / 0.2) * (AppliedTorqueNm - RequestedTorqueNm);`. This is the torque tracking rule from the load lesson. On invalid data or time, stop this demonstration and command zero torque; full fault recovery is Lesson 28.
+Open [`src/Main.st`](src/Main.st). `Control.PID` drives the shaft with $K_p = 16$, $K_i = 4$, $K_d = 7$, the full target change in P, $T_t = 1$ s and the 0.1 s filter. After each update the program records the terms in the order above: `ErrorRad`, `ProportionalNm`, `TrialIntegralNm`, `DerivativeNm`, `RequestNm` and the kept `IntegralNm`. When the project test starts, the program waits 1 s, then couples the 1.962 N·m load and steps the target to 1.5 rad in Auto.
 
-After forming the request, limiting it and correcting the integral, retain the current measurement, timestamp, filtered velocity and corrected integral for the next update. Never replace the previous angle before taking its difference. Do not overwrite measured angle from source code. Expose the previous angle, interval, each term, unlimited request and applied torque so the learner can inspect one scan. Retain whether I was enabled; P/PD trials do not silently accumulate I.
+**ST practice.** Write the worked update in ST, line by line in the order above, and check the −3.7516 N·m request. Then open [`src/tests.st`](src/tests.st) and run its tests from the **Testing** view: they check the same update, `Control.PID` giving −3.7516 N·m from that kept state, and the clamp and tracking of the 1.5 rad step.
 
 ## Experiment in Control Studio
 
-Use **Identify → Tune → Validate**. On **Identify**, select the project-owned test and review the declared position signals. The project records the complete sampled update, including previous angle, interval, P, trial I, filtered D, requested torque, applied torque and corrected retained I. Press **Review project test**, then **Confirm and start**.
+1. Open this lesson's project and start **Simulator**; the shaft rests at 0 rad. In the **truST** side bar, select **Control Studio**.
+2. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.SetpointRad · Setpoint (rad)`, `P1.AngleRad · Process value (rad)` and `P1.TorqueNm · Applied output (N·m)`; add `P1.RequestNm · state (N·m)`, `P1.ProportionalNm · state (N·m)`, `P1.DerivativeNm · state (N·m)`, `P1.TrialIntegralNm · state (N·m)`, `P1.IntegralNm · state (N·m)` and `P1.ErrorRad · state (rad)`.
+3. Answer the predictions. Select **Review project test**, check the declared **7.02 s** duration and select **Confirm and start**; the step comes 1 s later.
+4. After the run, hover consecutive updates after the step and check one of them with the equations. The angle noise depends on when the test starts, so your numbers will differ slightly from the table below; the arithmetic must hold for every update.
+5. At completion, Control Studio shows **Project test completed. Outputs restored.**
 
-Use the compact project parameter editor to repeat the same reset with the declared sample interval (.02 s, then .04 s). Keep the prescribed .40/.42 rad arithmetic check separate from the plant record, and use **Tune** and **Validate** only to inspect the retained recording and requirements. Stop on angle outside ±2 rad, velocity outside ±10 rad/s, applied torque outside ±20 N·m, invalid data/time or monitor failure. Command zero torque, allow the unloaded shaft to coast, and reset before another case; under a constant load, cancel the virtual load before reset.
+Select **Abort test** to stop early. To repeat, stop and restart **Simulator**.
 
 ## Evidence and decision
 
-The bypass arithmetic must produce trial and retained I=1.9684 N·m, D=−7 N·m and request/applied torque −3.7516 N·m. The filtered arithmetic uses the same measurements and I, but the stated old filter state gives D=−1.909091 N·m and request/applied torque 1.339309 N·m. The live motion record separately assesses peak and error; it does not turn one matching scan into full performance evidence. Check that invalid state does not update.
+![The request is clipped for six updates while tracking pulls the integral back](figures/discrete-pid-recording.svg)
 
-Use the same recorded measured inputs only for an algebra shadow comparison of alternative calculations. If claiming motion performance, use separate plant resets and the full sensor/controller path. Report saturation and whether I was enabled.
+The numbered marks answer the predictions with the same numbers. Two updates from the recording:
+
+| Update | $e$ (rad) | $P$ | $I_{k-1}$ | $I^*$ | $D$ | $u_r$ | $u_a$ | $I$ |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1.00 s, first after the step | 1.50095 | 24.0151 | 0.25274 | 0.37282 | 0.5289 | 24.9169 | 20 | 0.27448 |
+| 1.84 s | 0.16044 | 2.5670 | 2.75510 | 2.76793 | −3.7811 | 1.5539 | 1.5539 | 2.76793 |
+
+All torques are in N·m. At 1.00 s: $I^* = 0.25274 + 4 \times 1.50095 \times 0.02 = 0.37282$, $u_r = 24.0151 + 0.37282 + 0.5289 = 24.9169$, the drive got 20, and tracking kept $I = 0.37282 + 0.02 \times (20 - 24.9169) = 0.27448$.
+
+1. The drive got 20 N·m for six updates, from 1.00 to 1.10 s; P fell as the shaft moved and D braked, and at 1.12 s the request was 18.3 N·m, inside the limit. D was positive at the first update only because the filtered angle moved with the noise.
+2. Tracking pulled the kept integral 0.098 N·m below the trial integral.
+3. At 1.84 s the request was inside the limits, so $u_a = u_r$ and tracking left $I = I^*$. The integral still grew, from 2.75510 to 2.76793 N·m, because the shaft was 0.16 rad short of its target; D braked with −3.78 N·m and P still pushed.
+4. No: the integral overshot to 2.92 N·m at 2.42 s, more than the load needs, and was still 2.25 N·m at 7.02 s, with the shaft 0.020 rad above its target.
+
+All 302 recorded updates after the step follow the equations to within $10^{-14}$ N·m. The update is correct; the slow final approach is a matter of tuning, not of arithmetic. These are simulation results.
 
 ## Conclusion
 
-Sampled integral action is a rectangular error area, and sampled derivative action is an average angle slope multiplied by $-K_d$. Their units, retained state, timestamps and initialization determine the controller actually running.
+A discrete PID calculates the error, P, the trial integral, D and the request; limits the request; and corrects only the kept integral with the difference between applied and requested torque. The order and the choice of kept values are part of the controller: change either and the same gains produce a different torque.
+
+For this shaft, every recorded update of `Control.PID` matched the hand arithmetic, including the six clipped updates after the step.
+
+## Check yourself
+
+1. **The kept integral is 1.5 N·m, the error 0.05 rad, $K_i = 4$ and $\Delta t = 0.02$ s. What is the trial integral?**
+   $I^* = 1.5 + 4 \times 0.05 \times 0.02 = 1.504$ N·m.
+2. **Why must the clamp come after the request, and the tracking correction after the clamp?**
+   The clamp can only compare a finished request with the limit, and tracking needs the difference between the
+   applied and the requested torque of this update.
+3. **The request is 25 N·m, the limit 20 N·m and $T_t = 1$ s. How much does tracking change the integral in one update?**
+   $0.02 \times (20 - 25) = -0.1$ N·m.
 
 ## Reason for the next lesson
 
-Consecutive complete-output equations can be subtracted to form an incremental PID update, but only when previous output and retained states represent the same controller.
+This update calculates the whole request every time. Code written in incremental form, which keeps the previous output and adds only a change to it, must be shown to behave the same.
 
-[Positional and incremental PID](../38-positional-incremental-pid/README.md) derives that equivalence.
+[Positional and incremental PID](../38-positional-incremental-pid/README.md) derives that form and shows when the two agree.

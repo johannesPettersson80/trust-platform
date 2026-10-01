@@ -3,355 +3,338 @@
   "id": "control-booster-pump-modes",
   "title": "Controller initialization",
   "level": "Practitioner",
-  "sequence": 25,
-  "equipment": "Variable-speed booster pump with recirculation valve",
-  "physicalPurpose": "Start automatic discharge-pressure control from the actual running pressure and valve position instead of arbitrary controller and filter histories.",
-  "principalTechnique": "Measured-state initialization and operating-mode authority",
-  "objective": "Initialize controller and filter histories from the running booster pump, distinguish Disabled, Manual, Auto, and Track authority, and block Auto until startup state is qualified.",
+  "sequence": 26,
+  "equipment": "Electric water heater",
+  "physicalPurpose": "Start automatic heater control from the running heater's temperature and applied command instead of arbitrary stored controller values.",
+  "principalTechnique": "Initialization of retained controller, filter and timing state",
+  "objective": "Initialize every value the heater controller retains from the actual operating condition, show that zero stored values switch the heater off, and allow automatic control only after initialization.",
   "prerequisites": [
     "control-lesson-12"
   ],
   "nextLesson": "control-booster-pump-bumpless-transfer",
   "signals": [
     {
-      "role": "SP",
-      "name": "Discharge-pressure setpoint",
-      "unit": "bar",
-      "minimum": 2,
-      "maximum": 10,
-      "resolution": 0.01,
-      "binding": "%ML0"
-    },
-    {
       "role": "PV",
-      "name": "Raw discharge pressure",
-      "unit": "bar",
+      "name": "Measured temperature",
+      "unit": "degC",
       "minimum": 0,
-      "maximum": 12,
-      "resolution": 0.01,
-      "binding": "%IL0"
-    },
-    {
-      "role": "state",
-      "name": "Filtered discharge pressure",
-      "unit": "bar",
-      "minimum": 0,
-      "maximum": 12,
-      "resolution": 0.01,
-      "binding": "%ML32"
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL8"
     },
     {
       "role": "MV",
-      "name": "Requested valve command",
+      "name": "Applied heating command",
       "unit": "%",
       "minimum": 0,
       "maximum": 100,
-      "resolution": 0.1,
+      "resolution": 0.01,
       "binding": "%QL0"
     },
     {
+      "role": "disturbance",
+      "name": "DisturbanceKw",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 30,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
       "role": "state",
-      "name": "Actual valve position",
+      "name": "WaterTemperatureC",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "IntegralPct",
+      "unit": "%",
+      "minimum": -200,
+      "maximum": 200,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "CommandActivityPoints",
+      "unit": "percentage-point",
+      "minimum": 0,
+      "maximum": 100000,
+      "resolution": 0.001,
+      "binding": "%ML64"
+    },
+    {
+      "role": "state",
+      "name": "ManualOutput",
       "unit": "%",
       "minimum": 0,
       "maximum": 100,
-      "resolution": 0.1,
-      "binding": "%ML8"
+      "resolution": 0.01,
+      "binding": "%ML72"
     },
     {
-      "role": "state",
-      "name": "Applied valve command",
-      "unit": "%",
+      "role": "SP",
+      "name": "Heater setpoint",
+      "unit": "degC",
       "minimum": 0,
-      "maximum": 100,
-      "resolution": 0.1,
-      "binding": "simulation.booster-pump-pressure.applied_input[0]"
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML0"
     },
     {
       "role": "state",
-      "name": "Requested mode",
-      "unit": "1",
-      "minimum": -1,
-      "maximum": 4,
-      "resolution": 1,
-      "binding": "%MW42"
-    },
-    {
-      "role": "quality",
-      "name": "Filter settled",
-      "unit": "1",
-      "minimum": -1,
-      "maximum": 2,
-      "resolution": 1,
-      "binding": "%MX41.1"
+      "name": "FilteredC",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "P1.FilteredC"
     },
     {
       "role": "state",
-      "name": "Experiment authority",
+      "name": "ProportionalPct",
+      "unit": "%",
+      "minimum": -1000,
+      "maximum": 1000,
+      "resolution": 0.001,
+      "binding": "%ML56"
+    },
+    {
+      "role": "state",
+      "name": "Initialized",
       "unit": "1",
       "minimum": 0,
       "maximum": 1,
       "resolution": 1,
-      "binding": "%MX40.3"
+      "binding": "P1.Initialized"
     }
   ],
   "plant": {
-    "modelId": "first_order",
-    "executable": "simulation.toml#plants[0]",
+    "modelId": "heater-lesson-25",
+    "executable": "simulation.toml",
     "parameters": [
       {
-        "name": "pressure_gain",
-        "value": 0.1,
-        "unit": "bar/%"
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
       },
       {
-        "name": "pressure_time_constant",
-        "value": 2,
+        "name": "time_constant",
+        "value": 5,
         "unit": "s"
       },
       {
-        "name": "zero_command_pressure",
-        "value": 2,
-        "unit": "bar"
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
       },
       {
-        "name": "pressure_filter_time_constant",
-        "value": 0.5,
-        "unit": "s"
+        "name": "measurement_noise_bound",
+        "value": 0.02,
+        "unit": "degC"
       }
     ],
     "sampleTimeSeconds": 0.1,
     "initialState": {
-      "dischargePressureBar": 6,
-      "appliedValvePercent": 40
+      "waterTemperatureC": 35,
+      "delayedCommandPct": 75
     },
     "seed": 20260829,
     "operatingPoint": {
-      "Raw discharge pressure": 6,
-      "Requested valve command": 40,
-      "Actual valve position": 40,
-      "Applied valve command": 40
+      "Measured temperature": 35,
+      "Applied heating command": 75
     },
     "validityRange": [
       {
-        "signal": "Raw discharge pressure",
+        "signal": "Measured temperature",
         "minimum": 0,
-        "maximum": 12,
-        "unit": "bar"
+        "maximum": 80,
+        "unit": "degC"
       },
       {
-        "signal": "Filtered discharge pressure",
-        "minimum": 0,
-        "maximum": 12,
-        "unit": "bar"
-      },
-      {
-        "signal": "Requested valve command",
-        "minimum": 0,
-        "maximum": 100,
-        "unit": "%"
-      },
-      {
-        "signal": "Actual valve position",
-        "minimum": 0,
-        "maximum": 100,
-        "unit": "%"
-      },
-      {
-        "signal": "Applied valve command",
+        "signal": "Applied heating command",
         "minimum": 0,
         "maximum": 100,
         "unit": "%"
       }
     ],
     "simplifications": [
-      "The first-order pressure model represents one bounded operating region and does not model pump curves, check valves, cavitation, or network demand transients.",
-      "Actual valve-position feedback is supplied independently of the controller output so startup state cannot be inferred from a stale command.",
-      "The zero-state and settle-interlock-bypass case is simulation-only diagnostic evidence and shall not be used on a physical pump."
+      "The Lesson 20 heater: local single-state water energy balance with one-second delivered-power delay.",
+      "Known 75% holding command at 35 °C; uniform bounded ±.02 °C measurement noise.",
+      "Simulation only; initialization is checked in Control Studio's Apply before automatic control continues."
     ]
   },
   "baseline": {
-    "executableId": "BoosterPump.ZeroStateInitialization",
+    "executableId": "P1",
     "settings": {
-      "useMeasuredInitialization": false,
-      "requireSettledFilter": false,
-      "actualValvePercent": 40,
-      "pressureBar": 6
+      "temperatureC": 35,
+      "setpointC": 35,
+      "integralPct": 75,
+      "appliedPowerPct": 75,
+      "disturbanceKw": 0
     },
-    "limitation": "Arbitrary zero controller and filter histories produce a first request of 10 percent and filtered pressure of 0.198 bar on a pump already operating at 40 percent and 6 bar."
+    "limitation": "Stored controller values that do not describe the running heater make the first automatic command wrong: from zeros it is −318.5 %, applied as 0 %."
   },
   "change": {
-    "executableId": "BoosterPump.MeasuredStateInitialization",
+    "executableId": "P1",
     "settings": {
-      "useMeasuredInitialization": true,
-      "requireSettledFilter": true,
-      "filterToleranceBar": 0.01,
-      "consecutiveSettledUpdates": 3,
-      "actualValvePercents": [
-        20,
-        40,
-        70
-      ]
+      "proportionalGainPctPerC": 5.79,
+      "integralGainPctPerCs": 1.14,
+      "setpointWeight": 0.8,
+      "filterTimeSeconds": 1,
+      "initialOutputPct": "applied command",
+      "initialReferences": "present setpoint and filtered temperature",
+      "initialIntegralAt35C": "75 − 0 = 75 %",
+      "initialIntegralAt38CSetpoint": "75 − 13.9 = 61.1 %",
+      "durationSeconds": 60
     },
-    "decision": "Copy current pressure, setpoint, and actual valve position into filter and controller histories atomically, retain Manual authority until the filter is qualified, then permit Auto."
+    "decision": "Initialize every retained value from the running heater before automatic control; apply the Lesson 24 controller."
   },
   "experiment": {
-    "kind": "observation",
-    "signal": "Experiment authority",
-    "baseline": 0,
-    "amplitude": 0,
-    "durationSeconds": 10.1,
-    "settlingSeconds": 0.3,
+    "kind": "mv_step",
+    "signal": "Applied heating command",
+    "baseline": 75,
+    "amplitude": 20,
+    "durationSeconds": 60,
+    "settlingSeconds": 0,
     "disturbances": [
-      "Repeat at 20, 40, and 70 percent equilibrium valve positions"
+      "Uniform repeatable measurement noise bounded by ±.02 °C",
+      "Separate load trial: 30 kW extraction at the 35 °C setpoint"
     ],
     "seed": 20260829,
-    "restorationValue": 0
+    "restorationValue": 75
   },
   "acceptance": [
     {
-      "metric": "measured_initialization_first_update_valve_mismatch",
-      "signal": "Requested valve command",
-      "window": "first permitted automatic update at each 20, 40, and 70 percent equilibrium",
+      "metric": "peak_temperature",
+      "signal": "Measured temperature",
+      "window": "setpoint trial 0–60 s",
       "comparator": "<=",
-      "limit": 1e-09,
-      "unit": "%",
-      "tolerance": 1e-09,
+      "limit": 39,
+      "unit": "degC",
+      "tolerance": 0,
       "evidenceClass": "simulation"
     },
     {
-      "metric": "measured_initialization_filter_error",
-      "signal": "Filtered discharge pressure",
-      "window": "immediately after initialization",
-      "comparator": "<=",
-      "limit": 1e-09,
-      "unit": "bar",
-      "tolerance": 1e-09,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "zero_state_first_update_valve_mismatch",
-      "signal": "Requested valve command",
-      "window": "first automatic update with deliberate settle-interlock bypass",
+      "metric": "minimum_temperature",
+      "signal": "Measured temperature",
+      "window": "load trial 0–60 s",
       "comparator": ">=",
-      "limit": 10,
-      "unit": "%",
-      "tolerance": 0.001,
+      "limit": 33,
+      "unit": "degC",
+      "tolerance": 0,
       "evidenceClass": "simulation"
     },
     {
-      "metric": "equilibrium_pressure_drift",
-      "signal": "Raw discharge pressure",
-      "window": "10 s measured-state run at 40 percent",
+      "metric": "maximum_absolute_error",
+      "signal": "Measured temperature",
+      "window": "each trial 30–60 s",
       "comparator": "<=",
-      "limit": 0.05,
-      "unit": "bar",
-      "tolerance": 0.005,
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "settling_time_0_1_degC",
+      "signal": "Measured temperature",
+      "window": "each trial 0–60 s",
+      "comparator": "<=",
+      "limit": 30,
+      "unit": "s",
+      "tolerance": 0,
       "evidenceClass": "simulation"
     }
   ],
   "safety": {
     "hardLimits": [
       {
-        "signal": "Raw discharge pressure",
+        "signal": "Measured temperature",
         "minimum": 0,
-        "maximum": 12,
-        "unit": "bar"
+        "maximum": 80,
+        "unit": "degC"
       },
       {
-        "signal": "Filtered discharge pressure",
-        "minimum": 0,
-        "maximum": 12,
-        "unit": "bar"
-      },
-      {
-        "signal": "Requested valve command",
-        "minimum": 0,
-        "maximum": 100,
-        "unit": "%"
-      },
-      {
-        "signal": "Applied valve command",
+        "signal": "Applied heating command",
         "minimum": 0,
         "maximum": 100,
         "unit": "%"
       }
     ],
     "abortPredicates": [
-      "Pressure, valve feedback, or controller value is nonfinite",
-      "Pressure or requested/applied valve command leaves its hard limit",
-      "Automatic authority is requested without complete initialization or settled-filter qualification"
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves 0–80 °C or applied command leaves 0–100%",
+      "A physical-plant target is selected"
     ],
-    "safeMv": 30,
-    "restorationMode": "Station Disabled with the declared 30 percent safe recirculation command",
-    "physicalApprovalRole": "authorised pump-station control engineer",
+    "safeMv": 0,
+    "restorationMode": "Control Studio restores the 35 °C/75% hot reset after each trial. Abort sets SafetyAbort and commands zero heating and zero load. Keep stopped until valid measurements and the full 35 °C/75% hot reset are restored.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
     "simulationOnlyRestrictions": [
-      "Do not bypass the filter-settle interlock or exercise startup transitions on a physical pump without reviewed topology, independent valve feedback, protection, and explicit approval."
+      "This lesson cannot authorise physical excitation or gain application",
+      "Physical use requires independent topology, model, hazard, operating-window, interlock, personnel, abort, rollback, and immediate approval review"
     ]
   },
   "workflowStages": [
-    "Monitor",
-    "Test"
+    "Identify",
+    "Tune",
+    "Validate"
   ],
   "proof": {
-    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-39--controller-mode-initialization",
-    "nativeTest": "TEST_PROGRAM::Lesson39StartupStateMustMatchTheRunningPump",
-    "nativeCommand": "target/debug/trust-dev test --project examples/control/03-production-quality-digital-pid/39-controller-mode-initialization --filter TEST_PROGRAM::Lesson39StartupStateMustMatchTheRunningPump --timeout 15",
+    "specification": "docs/specs/control-course-teaching-specification.md",
+    "nativeTest": "lesson25",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_25_27 lesson25",
     "projectPath": "examples/control/03-production-quality-digital-pid/39-controller-mode-initialization",
     "runArtifactFields": [
-      "time",
-      "SP",
-      "PV_raw",
-      "PV_filtered",
-      "MV_actual",
-      "MV_requested",
-      "MV_applied",
-      "requestedMode",
-      "activeAuthority",
-      "controllerReady",
-      "filterSettled",
-      "startupBlocked",
-      "limitState",
+      "appliedCommand",
+      "temperature",
+      "filteredTemperature",
+      "controllerState",
+      "proportionalTerm",
+      "integralTerm",
+      "initialized",
+      "transfer",
+      "initialState",
+      "settlingTime",
+      "stopReason",
+      "restoration",
       "evidenceClass"
     ],
     "renderedJourneyId": "control-booster-pump-modes"
   },
+  "learning": {
+    "context": "Lesson 25 made every update use the time that really passed: with the measured interval and the interval check, the 30 kW load trial dipped to 33.61 °C and settled in 19.2 s, while a wrongly assumed interval failed whatever the gains. Each update also continues from values the controller stored at the previous one: its last command, the last setpoint and measurement, the filtered temperature. When the controller first takes over, those values must come from somewhere, and the first command can jump because the controller's memory starts wrong.\n\n`Control.PID` calculates each command as the previous command plus the change since the previous update. Left at 0, the first automatic update of set B with $\\beta = 0.8$ compares 35 °C with a remembered 0 °C:\n\n$$\nu_1 = 0 + 5.79\\,(0.8 \\times 35 - 35) + 0 = -40.5\\ \\% \\;\\rightarrow\\; 0\\ \\%,\n$$\n\nalthough the hot heater needs 75 % to hold 35 °C: a correct calculation from a wrong memory.\n\nWe will set the controller's memory from the running heater before it takes over.",
+    "reason": "We need to:\n\n1. know which values the controller remembers between updates;\n2. set each of them from the heater's present state before automatic control starts; and\n3. allow automatic control only after that has succeeded with a valid measurement.",
+    "theory": [
+      "**Initialization** sets the values a controller remembers between updates, such as its integral, to match the plant's present state, so the first command is the one the plant already has. The remembered values are called the controller's **retained state**. For this heater, holding 35 °C with 75 % in Manual, initialization makes the controller's memory say: the last command was 75 %, the setpoint and the measurement were 35 °C, and nothing was changing.\n\n**In words.** `Control.PID` is a function block, and like every function block instance it keeps its internal variables from one call to the next, as a counter keeps its count between scans. It also works by changes: at each update it takes its previous command and adds the change that the new setpoint, the new measurement and the elapsed time call for. A correct change added to a wrong previous command gives a wrong command. Before the first update nothing has been calculated yet, so the memory holds the values it was declared with, typically 0.\n\nInitialization fills the memory from the running plant before the controller takes over, as an operator who takes over a valve by hand first looks where it is and starts from there. Each remembered value has its source:\n\n| Remembered value | Meaning | Initial value |\n| --- | --- | --- |\n| previous requested and applied command | where the next change starts | the applied command, 75 % |\n| previous setpoint and measurement | the references for the next change | the present setpoint and measurement |\n| previous rates of change | used by a derivative part | 0: the heater is steady |\n| filtered temperature | the filter's memory | the present measurement |\n| timing baseline | the start of the next interval | now |\n\nAutomatic control may start only after this has been done with a valid measurement, because a wrong reading would be remembered as the starting point.\n\n**The formula.** `Control.PID` calculates each command from the previous one:\n\n$$\nu_k = u_{k-1} + K_p\\,[\\beta\\,(SP_k - SP_{k-1}) - (PV_k - PV_{k-1})] + K_i\\, e_k\\,\\Delta t .\n$$\n\nInitialization sets $u_0 = u_a$, $SP_0 = SP$ and $PV_0 = PV$, so the first update changes the command only by the integral step: $u_1 = u_a + K_i\\,e\\,\\Delta t$. In the familiar form $u = P + I$, the same condition reads\n\n$$\nI_0 = u_a - P, \\qquad P = K_p\\,[\\beta\\,(SP - T_0) - (PV - T_0)] :\n$$\n\nthe integral starts at the applied command minus the P part.\n\n- $u_k$ is the command at update $k$ and $u_{k-1}$ the one before it, in percent; $u_a$ is the command applied when the controller takes over;\n- $SP_k$ and $PV_k$ are the setpoint and the measurement at update $k$, in degrees Celsius, and $e_k = SP_k - PV_k$ is the error;\n- $K_p$, $K_i$, $\\beta$ and $\\Delta t$ are the gains, the setpoint weight and the 0.1 s interval of the previous lessons;\n- $T_0 = 35$ °C is the operating point about which P is calculated; and\n- $I_0$ is the integral's starting value, in percent.\n\n**Example: three starts with set B and $\\beta = 0.8$.** Follow the numbers:\n\n1. Initialized at 35 °C with 75 % applied: $SP = PV = T_0$, so $P = 0$ and $I_0 = 75 - 0 = 75$ %. The error is 0, so the first update adds nothing: the command stays exactly at 75 %.\n2. Initialized while the setpoint already says 38 °C and the water is at 35 °C: $P = 5.79 \\times 0.8 \\times 3 = 13.9$ % and $I_0 = 75 - 13.9 = 61.1$ %. The command is still 75 %: the integral supplies only what P does not. The first update adds the integral step $1.14 \\times 3 \\times 0.1 = 0.34$ point, so the heating starts from 75 % and grows from there.\n3. Unaligned, with the remembered command, setpoint and measurement at 0: $u_1 = 0 + 5.79 \\times (0.8 \\times 35 - 35) + 1.14 \\times 0 \\times 0.1 = -40.5$ %, limited to 0 %. The calculation is correct, but it starts from a memory that says the heater was off at 0 °C, so the heater is switched off.\n\nThe filter's memory matters as much. A filter started at 0 with $T_f = 1$ s shows $35/11 = 3.2$ °C at the first update and 6.1 °C at the second: a false rise of 2.89 °C in 0.1 s, which would cut P by $5.79 \\times 2.89 = 16.7$ points. Initialization therefore starts the filter from the present measurement.\n\n**The limitation.** Initialization matches the memory to the plant at one moment only. It needs a usable measurement, so Auto must wait until it has succeeded, and it does not keep the memory in step afterwards. Nor does it make the controller better: it only makes the start smooth."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. What are $P$ and $I_0$ at 35 °C with 75 % applied, and with the setpoint at 38 °C while the water is at 35 °C?\n2. What is the first automatic command when all remembered values are 0?\n3. In the initialized start, how far will the command and the temperature move from 75 % and 35 °C?\n4. In the unaligned start, how far will the water cool before the controller has recovered?\n\n| Start | $P$ | $I_0$ | First command |\n| --- | ---: | ---: | ---: |\n| Initialized, 35 °C | 0 % | 75 % | 75 % |\n| Initialized, setpoint 38 °C | 13.9 % | 61.1 % | 75.34 %: 75 % plus the 0.34-point integral step |\n| Unaligned, all values 0 | — | — | 0 % (−40.5 % limited) |",
+    "practicalPreparation": [
+      "Besides the setpoint and load trials, the project validates two **start trials** at a 35 °C setpoint with no load for 60 s: the **initialized start** begins from the heater's values, and the **unaligned start** begins with the remembered setpoint, measurement and commands at 0. They carry only the operating limits, so their rows show how far the command and the temperature moved.\n\n1. Open this lesson's project and start **Simulator**. The program initializes at once: `Initialized` is TRUE, `ProportionalPct` is about 0 and `IntegralPct` about 75 %. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, keep **Method** at **Automatic** and select **Identify plant**; the model is G(s) = (0.2) / (5.1s +1) · e^(−1s).\n3. On **Tune**, choose **P1.Controller · PI** and **Manual**. Enter **Proportional gain (Kp)** 5.79, **Integral gain (Ki)** 1.14, **Setpoint weight (β)** 0.8 and **Measurement filter time (Tf)** 1.\n4. Select **Requirements…** and enter **Setpoint change (°C)** 3, **Maximum steady-state error (°C)** 0.2, **Maximum settling time (s)** 15, **Settling band (±°C)** 0.1 and **Validation duration (s)** 60. Select **Done**, then **Tune controller**.\n5. On **Validate**, select **Validate controller**. Compare the command and temperature ranges of the two start trials.\n6. Select **Apply**. Control Studio initializes `P1.Controller` from the running heater, switches to Auto at one task boundary and shows **Applied**."
+    ],
+    "baseline": "At 6 bar and 40 percent valve position, initialize filter and controller histories to zero and bypass the settle interlock in simulation. Record the first 10 percent command and 0.198 bar filtered value.",
+    "change": "Restore, initialize from current pressure, setpoint, and actual valve feedback, wait for three settled-filter updates under Manual authority, then permit Auto. Repeat at the 20, 40, and 70 percent equilibria.",
+    "comparison": "![From the heater's values the start is invisible; from zeros the heater switches off and the water cools 7.5 °C](figures/start-comparison.svg)\n\nThe numbered marks answer predictions 2–4; the table above and the tests answer 1. From the validation:\n\n| Start trial | Heater command | Water temperature | Within ±0.1 °C of 35 °C |\n| --- | ---: | ---: | --- |\n| Initialized | 74.93–75.05 % | 34.98–35.02 °C | throughout |\n| Unaligned, remembered values 0 | 0–76.98 % | 27.52–35.02 °C | from 30 s |\n\nThe setpoint and load trials passed, settling in 8.5 s and 19.5 s.\n\n2. With all remembered values 0, the first update requested −40.5 % and the heater received 0 %. The command stayed at 0 % from 0.2 s to 2.2 s, until the anti-windup and the cooling water had brought the request back above 0 %.\n3. The initialized start moved the command only within 74.93–75.05 % and the temperature within 34.98–35.02 °C: only the sensor noise.\n4. The unaligned start let the water cool to 27.52 °C, 7.5 °C below the setpoint, at 5.9 s. The command then rose to 76.98 % while the integral climbed back, and the water was within ±0.1 °C again only after 30 s.\n\nInitialization costs nothing in performance: the initialized start cannot be told apart from the heater holding in Manual. Its price is a rule: Auto must wait until initialization has succeeded with a usable measurement. We keep the initialization and apply set B; Control Studio reports **Applied**. These are simulation results for this heater.",
+    "validation": "![From the heater's values the start is invisible; from zeros the heater switches off and the water cools 7.5 °C](figures/start-comparison.svg)\n\nThe numbered marks answer predictions 2–4; the table above and the tests answer 1. From the validation:\n\n| Start trial | Heater command | Water temperature | Within ±0.1 °C of 35 °C |\n| --- | ---: | ---: | --- |\n| Initialized | 74.93–75.05 % | 34.98–35.02 °C | throughout |\n| Unaligned, remembered values 0 | 0–76.98 % | 27.52–35.02 °C | from 30 s |\n\nThe setpoint and load trials passed, settling in 8.5 s and 19.5 s.\n\n2. With all remembered values 0, the first update requested −40.5 % and the heater received 0 %. The command stayed at 0 % from 0.2 s to 2.2 s, until the anti-windup and the cooling water had brought the request back above 0 %.\n3. The initialized start moved the command only within 74.93–75.05 % and the temperature within 34.98–35.02 °C: only the sensor noise.\n4. The unaligned start let the water cool to 27.52 °C, 7.5 °C below the setpoint, at 5.9 s. The command then rose to 76.98 % while the integral climbed back, and the water was within ±0.1 °C again only after 30 s.\n\nInitialization costs nothing in performance: the initialized start cannot be told apart from the heater holding in Manual. Its price is a rule: Auto must wait until initialization has succeeded with a usable measurement. We keep the initialization and apply set B; Control Studio reports **Applied**. These are simulation results for this heater.",
+    "explanation": "A digital controller continues from what it remembers: the previous command, setpoint and measurement, the filter's value and the time of the last update. Initialization writes all of them from the plant's present state, so the first automatic command is the one the plant already has, with $I_0 = u_a - P$.\n\nFor this heater, the initialized start held 75 % and 35 °C without any visible change, while a start from zeros switched the heater off and cooled the water by 7.5 °C for half a minute.",
+    "transfer": "Initialization matches the memory to the heater at one moment. After a period of manual operation, the remembered values no longer match: when the operator has held 60 % for 3 s and the water has cooled to about 34 °C, the memory still says 75 % at 35 °C, and switching to Auto continues from there.\n\n[Bumpless transfer](../40-bumpless-transfer/README.md) keeps the remembered values in step while the operator commands the heater."
+  },
   "video": {
-    "viewerOutcome": "Initialize a running loop from actual process and actuator state and explain why Auto remains blocked until state is qualified.",
+    "viewerOutcome": "Initialize the heater controller from the running heater and see Control Studio's Apply continue the applied command when it switches to Auto.",
     "requiredVisibleEvidence": [
-      "20, 40, and 70 percent startup cases",
-      "zero-state failure",
-      "raw and filtered pressure",
-      "actual, requested, and applied valve values",
-      "requested and active authority",
-      "startup interlock",
-      "simulation evidence label"
+      "one native heater at 35 °C/75% with Initialized TRUE, P about 0 and I about 75%",
+      "the Lesson 24 controller entered in Tune (Manual)",
+      "setpoint and load results",
+      "Apply: first automatic command equal to the applied command",
+      "Simulation label"
     ],
     "durationClass": "standard",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
     "thumbnailPath": "video/thumbnail.svg",
     "publicationState": "not_started"
-  },
-  "learning": {
-    "context": "A booster pump is already operating when the controller starts. Pressure and valve position therefore have physical values before any PID update is allowed.",
-    "reason": "Lesson 26 showed that output and previous signals are controller state. Arbitrary startup state can command a valve movement unrelated to the running station.",
-    "theory": [
-      "Raw pressure is the sensor value; filtered pressure is the value used by the controller. Actual valve feedback, requested command, and applied command are separate signals and may differ.",
-      "Initialization copies present SP, PV, nominal output, applied output, and filter input into retained histories. It performs no feedback, integration, differentiation, limiting, or actuator command calculation.",
-      "Control.PID supports Manual, Auto, and Track. Disabled is station supervision outside PIDMode: it does not call the controller and applies the declared safe command.",
-      "Auto remains blocked under Manual authority until initialization is complete and filtered pressure stays within 0.01 bar of raw pressure for three consecutive updates."
-    ],
-    "workedPrediction": "The plant equilibrium is pressure = 2 bar + 0.1 bar/% times valve position. Valve positions 20, 40, and 70 percent therefore correspond to 4, 6, and 9 bar. With SP equal to PV and controller output initialized from actual valve feedback, the first Auto request equals the existing valve position.",
-    "practicalPreparation": [
-      "Verify raw and filtered pressure, independent actual valve feedback, requested and applied commands, requested and active authority, controller-ready, filter-settled, startup-blocked, limits, and simulation label.",
-      "Start Disabled at the 30 percent safe command; use the 100 ms task and never bypass the settle interlock outside the declared simulation baseline."
-    ],
-    "baseline": "At 6 bar and 40 percent valve position, initialize filter and controller histories to zero and bypass the settle interlock in simulation. Record the first 10 percent command and 0.198 bar filtered value.",
-    "change": "Restore, initialize from current pressure, setpoint, and actual valve feedback, wait for three settled-filter updates under Manual authority, then permit Auto. Repeat at the 20, 40, and 70 percent equilibria.",
-    "comparison": "Compare first-update valve mismatch, immediate filter initialization error, readiness, settle indication, startup blocking, active authority, and any requested-to-applied difference under identical initial conditions.",
-    "validation": "Require measured-state valve mismatch and filter error to be at most 1e-9, expose at least 10 percentage points of zero-state mismatch, and hold the 40 percent simulated equilibrium within 0.05 bar and 0.5 percentage points over 10 seconds.",
-    "explanation": "A correct PID equation cannot infer the already-running actuator position or repair invented filter history. Those values must enter initialization explicitly before feedback receives authority.",
-    "transfer": "Use the same startup discipline for any running process. Lesson 28 tests whether state remains aligned when authority changes after startup and establishes bumpless transfer."
   }
 }

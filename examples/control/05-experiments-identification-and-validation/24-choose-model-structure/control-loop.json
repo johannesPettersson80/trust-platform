@@ -93,14 +93,15 @@
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 40.1,
+    "durationSeconds": 45.1,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
       "address": "%MX80.0",
       "iecType": "BOOL",
       "direction": "write"
-    }
+    },
+    "baselineSeconds": 5
   },
-  "revision": "sha256:3f56fcbd5461875a6f6cdeb6115b06fb1973728b51934a7f0e6198df2bab4168"
+  "revision": "sha256:7b80f81a76dbeb40000792548cb3486e813e154870987a58d390e28b57e0fe19"
 }

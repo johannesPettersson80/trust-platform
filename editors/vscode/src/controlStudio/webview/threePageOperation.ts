@@ -48,7 +48,8 @@ export class ThreePageOperation {
     if (status === "candidate") this.hasCandidate = true;
     if (status === "verified") this.passed = true;
     if (["model-ready", "candidate", "verified"].includes(status)) this.notice(this.page, "");
-    if (status === "model-ready") this.notice("tune", "");
+    // An unavailable Tune shows why beside it; an available one needs no explanation.
+    if (status === "model-ready" || status === "unavailable") this.notice("tune", this.hasModel ? "" : String(payload.reason ?? ""));
     if (status === "candidate" || status === "verified") this.notice("verify", "");
     if (status === "running" && payload.flowStage) {
       this.busy = true;

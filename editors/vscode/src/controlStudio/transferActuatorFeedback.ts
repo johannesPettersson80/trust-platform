@@ -11,7 +11,7 @@ export function withActuatorFeedback(loop: ControlLoopDefinition, binding: Trans
     const applied = channel?.appliedSignalId ? loopSignal(loop, channel.appliedSignalId)
       : output.symbol === loop.signals.manipulatedVariable.symbol ? loop.signals.actuator : undefined;
     if (!applied) return output;
-    if (applied.unit !== output.unit || !applied.address.startsWith("%I") || !["REAL", "LREAL", "BOOL"].includes(applied.iecType)) throw new Error("Actuator tracking needs a separate typed input in command coordinates.");
+    if (applied.unit !== output.unit || !applied.address?.startsWith("%I") || !["REAL", "LREAL", "BOOL"].includes(applied.iecType)) throw new Error("Actuator tracking needs a separate typed input in command coordinates.");
     const member: TransferMember = { symbol: applied.symbol, iec_type: applied.iecType as TransferMember["iec_type"], unit: applied.unit,
       minimum: output.minimum, maximum: output.maximum };
     const existing = guards.find(guard => guard.symbol === member.symbol);

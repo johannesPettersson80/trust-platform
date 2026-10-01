@@ -219,7 +219,9 @@ export class RuntimeRecordingSession {
         actualCycleSeconds: index ? (sample.runtime_time_ns - samples[index - 1].runtime_time_ns) / 1e9 : null,
         scan: sample.scan, source: this.source, loopRevision: this.loop.revision,
         sp: value(sample, "setpoint"), pv: value(sample, "processVariable"),
-        requestedMv: null, appliedMv: value(sample, "manipulatedVariable"),
+        // A declared actuator reports what the device reached; the manipulated variable is then only the request.
+        requestedMv: this.loop.signals.actuator ? value(sample, "manipulatedVariable") : null,
+        appliedMv: value(sample, this.loop.signals.actuator ? "actuator" : "manipulatedVariable"),
         units: { sp: this.loop.signals.setpoint?.unit ?? "",
           pv: this.loop.signals.processVariable.unit, mv: this.loop.signals.manipulatedVariable.unit },
         quality: sample.forced.some(Boolean) || sample.quality?.some(value => value === "forced") ? "forced"

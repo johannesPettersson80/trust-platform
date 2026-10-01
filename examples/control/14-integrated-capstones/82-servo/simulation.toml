@@ -3,105 +3,30 @@ enabled = true
 seed = 20260829
 time_scale = 1
 max_plant_substeps_per_cycle = 100
-plant_trace_capacity = 12000
-plant_step_ms = 10
+plant_trace_capacity = 2500
+plant_step_ms = 20
 
+# The Lesson 34 axis lifting a weight on a drum: J·dω/dt = u − τL − B·ω, dθ/dt = ω with J = 1 kg·m² and
+# B = 1 N·m·s/rad. Inputs: motor torque (%QL0) and the drum's load torque (%QL8); outputs: angle and velocity.
 [[plants]]
-id = "indexing-table-p"
-name = "Flexible indexing table with P control"
-description = "Nominal two-inertia motor, shaft, and payload copy used for the proportional baseline."
+id = "drum-axis"
 model = "state_space"
 command_sources = ["%QL0", "%QL8"]
-feedback_targets = ["%IL0", "%IL8", "%IL16"]
-initial_state = [0.0, 0.0, 0.0, 0.0]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [0.0, 0.0]
 
 [plants.parameters]
-a = [[0.0, 1.0, 0.0, 0.0], [-100.0, -3.5, 100.0, 2.5], [0.0, 0.0, 0.0, 1.0], [25.0, 0.625, -25.0, -1.0]]
-b = [[0.0, 0.0], [5.0, 0.0], [0.0, 0.0], [0.0, -1.25]]
-c = [[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
-d = [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
+a = [[0.0, 1.0], [0.0, -1.0]]
+b = [[0.0, 0.0], [1.0, -1.0]]
+c = [[1.0, 0.0], [0.0, 1.0]]
+d = [[0.0, 0.0], [0.0, 0.0]]
 
+# The angle measurement carries repeatable noise of at most ±0.001 rad.
 [[plants.uncertainties]]
-id = "p-encoder-interference"
+id = "angle-noise"
 target = "measurement"
 channel = 0
 mode = "add"
-generator = "sine"
-amplitude = 0.002
-frequency_hz = 20.0
-phase_rad = 0.0
-
-[[plants]]
-id = "indexing-table-pd"
-name = "Flexible indexing table with filtered PD control"
-description = "Equivalent nominal copy used to isolate derivative damping."
-model = "state_space"
-command_sources = ["%QL16", "%QL24"]
-feedback_targets = ["%IL24", "%IL32", "%IL40"]
-initial_state = [0.0, 0.0, 0.0, 0.0]
-
-[plants.parameters]
-a = [[0.0, 1.0, 0.0, 0.0], [-100.0, -3.5, 100.0, 2.5], [0.0, 0.0, 0.0, 1.0], [25.0, 0.625, -25.0, -1.0]]
-b = [[0.0, 0.0], [5.0, 0.0], [0.0, 0.0], [0.0, -1.25]]
-c = [[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
-d = [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
-
-[[plants.uncertainties]]
-id = "pd-encoder-interference"
-target = "measurement"
-channel = 0
-mode = "add"
-generator = "sine"
-amplitude = 0.002
-frequency_hz = 20.0
-phase_rad = 0.0
-
-[[plants]]
-id = "indexing-table-pid"
-name = "Flexible indexing table with selected filtered PID control"
-description = "Equivalent nominal copy used for the selected 10 ms controller."
-model = "state_space"
-command_sources = ["%QL32", "%QL40"]
-feedback_targets = ["%IL48", "%IL56", "%IL64"]
-initial_state = [0.0, 0.0, 0.0, 0.0]
-
-[plants.parameters]
-a = [[0.0, 1.0, 0.0, 0.0], [-100.0, -3.5, 100.0, 2.5], [0.0, 0.0, 0.0, 1.0], [25.0, 0.625, -25.0, -1.0]]
-b = [[0.0, 0.0], [5.0, 0.0], [0.0, 0.0], [0.0, -1.25]]
-c = [[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
-d = [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
-
-[[plants.uncertainties]]
-id = "pid-encoder-interference"
-target = "measurement"
-channel = 0
-mode = "add"
-generator = "sine"
-amplitude = 0.002
-frequency_hz = 20.0
-phase_rad = 0.0
-
-[[plants]]
-id = "indexing-table-coarse-pid"
-name = "Flexible indexing table with delayed 100 ms PID control"
-description = "Equivalent nominal copy used to expose the unchanged controller under coarse held and delayed execution."
-model = "state_space"
-command_sources = ["%QL48", "%QL56"]
-feedback_targets = ["%IL72", "%IL80", "%IL88"]
-initial_state = [0.0, 0.0, 0.0, 0.0]
-
-[plants.parameters]
-a = [[0.0, 1.0, 0.0, 0.0], [-100.0, -3.5, 100.0, 2.5], [0.0, 0.0, 0.0, 1.0], [25.0, 0.625, -25.0, -1.0]]
-b = [[0.0, 0.0], [5.0, 0.0], [0.0, 0.0], [0.0, -1.25]]
-c = [[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
-d = [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
-
-[[plants.uncertainties]]
-id = "coarse-encoder-interference"
-target = "measurement"
-channel = 0
-mode = "add"
-generator = "sine"
-amplitude = 0.002
-frequency_hz = 20.0
-phase_rad = 0.0
+generator = "uniform_white"
+minimum = -0.001
+maximum = 0.001

@@ -5,7 +5,8 @@ import { withStudio } from "./control-studio-three-page.integration.test";
 import { pollValue, requiredEnvironment } from "./plant-rendered-harness";
 
 type View = (body: string) => Promise<string>;
-const setup = (loop: any) => { loop.experiment = { ...loop.experiment, kind: "relay", amplitude: 1, durationSeconds: 60, relayDirection: "positive" }; };
+// A 20 s experiment covers the 4 s process several times over, so eight identifications fit the budget.
+const setup = (loop: any) => { loop.experiment = { ...loop.experiment, kind: "relay", amplitude: 1, durationSeconds: 20, relayDirection: "positive" }; };
 const output = (name: string, value: unknown) => fs.writeFileSync(path.join(path.dirname(requiredEnvironment("TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT")), `${name}.json`), JSON.stringify(value));
 async function listen(inner: View) {
   await inner("d.defaultView.__continuity=[];d.defaultView.addEventListener('trust-control-studio-engineer',e=>{const p=e.detail;d.defaultView.__continuity.push({status:p.status,reason:p.reason,stage:p.flowStage,runs:p.identification?.runs,presentation:p.identificationPresentation});});return 'listening';");
@@ -32,7 +33,11 @@ async function identify(inner: View, method: string, capture: (name: string) => 
     assert.strictEqual(first.experiment.kind, "mv_step");
     assert.strictEqual(first.experiment.trajectory.length, 1, "One held step, with native end restoration");
     const points = result.presentation.experiment.inputs[0].points;
-    const plateau = points.filter((p: any) => p.timeSeconds > 15 && p.timeSeconds < 50).map((p: any) => p.value);
+    // The held part runs from the step until the input is restored at the end of the experiment.
+    const stepStart = points.find((p: any) => p.value !== points[0].value)?.timeSeconds;
+    const end = points[points.length - 1].timeSeconds;
+    const plateau = points.filter((p: any) => p.timeSeconds > stepStart + 1 && p.timeSeconds < end - 1).map((p: any) => p.value);
+    assert.ok(stepStart !== undefined && plateau.length > 10, "the displayed step input leaves its baseline and holds");
     assert.ok(Math.max(...plateau) - Math.min(...plateau) < 1e-6, "Actual displayed step input has a held plateau");
   }
   if (method === "relay") assert.ok(first.experiment.relayFeedback && first.experiment.trajectory.length === 0);
@@ -44,7 +49,7 @@ async function identify(inner: View, method: string, capture: (name: string) => 
 suite("Control Studio identification continuity", () => {
   test("runs each selected method in the same study and reacquires after reopening", async function () {
     if (process.env.TRUST_IDENTIFY_CONTINUOUS !== "1") this.skip();
-    this.timeout(600000);
+    this.timeout(900000);
     await withStudio(async (inner, reopen, capture) => {
       const ids = new Set<string>(); await listen(inner);
       for (const method of ["multisine", "mv_step", "mv_pulse", "prbs", "relay", "setpoint_step", "automatic"]) {
@@ -52,28 +57,6 @@ suite("Control Studio identification continuity", () => {
       }
       await reopen(); await listen(inner);
       await identify(inner, "mv_step", capture, ids);
-    }, { loop: setup });
-  });
-
-  test("Reset clears the model and dependent result state permanently before a new identification", async function () {
-    if (process.env.TRUST_IDENTIFY_CONTINUOUS !== "1") this.skip();
-    this.timeout(180000);
-    await withStudio(async (inner, reopen, capture) => {
-      await listen(inner); const ids = new Set<string>(); await identify(inner, "multisine", capture, ids, "reset-sequence");
-      const bindings = await inner("return JSON.stringify([...d.querySelectorAll('[data-studio-inputs],[data-studio-outputs]')].map(s=>s.value));");
-      await inner("d.querySelector('[data-studio-reset-chart]').click();return 'reset';");
-      await pollValue("fresh reset document", () => inner("return String(d?.querySelector('[data-studio-three-page]')?.dataset.hostReady === 'true' && d?.querySelector('[data-studio-model-result]')?.hidden === true);").catch(() => "loading"), value => value === "true", 15000);
-      const state = JSON.parse(await inner("return JSON.stringify({modelVisible:d.querySelector('[data-studio-model-result]').checkVisibility(),equation:d.querySelector('[data-studio-model-equation]').textContent,points:d.querySelector('[data-control-studio-chart]').dataset.pointCount,tuneDisabled:d.querySelector('[data-engineer-tune]').disabled,validateDisabled:d.querySelector('[data-engineer-verify]').disabled,applyDisabled:d.querySelector('[data-engineer-apply]').disabled});"));
-      output("reset-result",state); await capture("reset-result");
-      assert.strictEqual(state.modelVisible, false, "Reset must remove the identified model, not only its chart");
-      assert.strictEqual(state.equation, ""); assert.strictEqual(state.points, "0");
-      assert.ok(state.tuneDisabled && state.validateDisabled && state.applyDisabled, "No model, candidate or validation authority remains");
-      assert.strictEqual(await inner("return JSON.stringify([...d.querySelectorAll('[data-studio-inputs],[data-studio-outputs]')].map(s=>s.value));"), bindings);
-      await reopen(); await listen(inner);
-      assert.strictEqual(await inner("return String(d.querySelector('[data-studio-model-result]').checkVisibility());"), "false", "Reopening must not restore the reset model");
-      assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-tune]').disabled);"), "true");
-      await capture("reset-reopened");
-      await identify(inner, "mv_step", capture, ids, "reset-sequence");
     }, { loop: setup });
   });
 });

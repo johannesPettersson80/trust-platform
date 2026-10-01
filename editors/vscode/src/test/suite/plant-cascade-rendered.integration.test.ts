@@ -9,7 +9,8 @@ suite("Rendered cascaded gravity tank editor", () => {
     this.timeout(60000);
     const root = vscode.workspace.workspaceFolders![0].uri.fsPath;
     fs.mkdirSync(path.join(root, "src"), { recursive: true });
-    fs.writeFileSync(path.join(root, "src/Main.st"), `PROGRAM Main
+    // Replace the fixture program: a second file declaring Main and Config would not compile.
+    fs.writeFileSync(path.join(root, "src/main.st"), `PROGRAM Main
 VAR Flow : LREAL; H1 : LREAL; H2 : LREAL; END_VAR
 END_PROGRAM
 CONFIGURATION Config

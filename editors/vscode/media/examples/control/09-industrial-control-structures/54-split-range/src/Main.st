@@ -1,211 +1,247 @@
 USING Control;
 
-FUNCTION Lesson54ControlAuthority : BOOL
+(* Split range for Q = 2·uh − uc: a positive request selects the heater at 2 kW per point, a negative one the cooler at
+   1 kW per point; the other service stays at 0 %. There is no neutral band: only Q = 0 turns both off. *)
+FUNCTION HeaterPct : LREAL
 VAR_INPUT
-    AutomaticAvailable : BOOL;
-    InputsValid : BOOL;
-    SafetyAbort : BOOL;
+    RequestKw : LREAL;
 END_VAR
-Lesson54ControlAuthority := AutomaticAvailable AND InputsValid
-    AND (NOT SafetyAbort);
+HeaterPct := LIMIT(LREAL#0.0, MAX(RequestKw, LREAL#0.0) / LREAL#2.0, LREAL#100.0);
 END_FUNCTION
 
-FUNCTION Lesson54DeadZoneHeating : LREAL
-VAR_INPUT Demand : LREAL; END_VAR
-Lesson54DeadZoneHeating := MAX(Demand - LREAL#4.0, LREAL#0.0);
-END_FUNCTION
-
-FUNCTION Lesson54DeadZoneCooling : LREAL
-VAR_INPUT Demand : LREAL; END_VAR
-Lesson54DeadZoneCooling := MAX(-Demand - LREAL#4.0, LREAL#0.0);
-END_FUNCTION
-
-FUNCTION Lesson54OverlapHeating : LREAL
-VAR_INPUT Demand : LREAL; END_VAR
-Lesson54OverlapHeating := MAX(Demand + LREAL#4.0, LREAL#0.0);
-END_FUNCTION
-
-FUNCTION Lesson54OverlapCooling : LREAL
-VAR_INPUT Demand : LREAL; END_VAR
-Lesson54OverlapCooling := MAX(LREAL#4.0 - Demand, LREAL#0.0);
-END_FUNCTION
-
-FUNCTION Lesson54CharacterizedHeating : LREAL
-VAR_INPUT Demand : LREAL; END_VAR
-Lesson54CharacterizedHeating := MAX(Demand, LREAL#0.0);
-END_FUNCTION
-
-FUNCTION Lesson54CharacterizedCooling : LREAL
-VAR_INPUT Demand : LREAL; END_VAR
-Lesson54CharacterizedCooling :=
-    MAX(-Demand * LREAL#0.6666666666666667, LREAL#0.0);
-END_FUNCTION
-
-FUNCTION Lesson54ReviewedSetpoint : LREAL
+FUNCTION CoolerPct : LREAL
 VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
-    ExperimentEnabled : BOOL;
-    InputsValid : BOOL;
-    SafetyAbort : BOOL;
+    RequestKw : LREAL;
 END_VAR
-IF ExperimentEnabled AND InputsValid AND (NOT SafetyAbort) THEN
-    IF ExperimentElapsedSeconds < LREAL#20.0 THEN
-        Lesson54ReviewedSetpoint := LREAL#80.0;
-    ELSIF ExperimentElapsedSeconds < LREAL#80.0 THEN
-        Lesson54ReviewedSetpoint := LREAL#84.0;
-    ELSIF ExperimentElapsedSeconds < LREAL#140.0 THEN
-        Lesson54ReviewedSetpoint := LREAL#76.0;
-    ELSE
-        Lesson54ReviewedSetpoint := LREAL#80.0;
-    END_IF;
-ELSE
-    Lesson54ReviewedSetpoint := LREAL#80.0;
+CoolerPct := LIMIT(LREAL#0.0, MAX(-RequestKw, LREAL#0.0), LREAL#100.0);
+END_FUNCTION
+
+FUNCTION NetHeatKw : LREAL
+VAR_INPUT
+    HeaterPct : LREAL;
+    CoolerPct : LREAL;
+END_VAR
+NetHeatKw := LREAL#2.0 * HeaterPct - CoolerPct;
+END_FUNCTION
+
+(* The cascade of Lesson 63 with a net-heat inner loop: the outer PI (0.5 °C/°C, 0.12 1/s) sets the jacket setpoint in °C,
+   20–50 °C; the inner PI (10 kW/°C, 20 kW/(°C·s)) requests net heat in kW, limited to −100…200 kW, the capacities of the
+   cooler and the heater. The request is split onto the two services, so the inner PI's limited output is the applied
+   net heat that its back-calculation tracks. *)
+FUNCTION_BLOCK SplitCascade
+VAR_INPUT
+    VesselSetpointC : LREAL;
+    VesselC : LREAL;
+    JacketC : LREAL;
+END_VAR
+VAR_OUTPUT
+    JacketSetpointC : LREAL := 38.0;
+    RequestKw : LREAL := 30.0;
+    HeaterCommandPct : LREAL := 15.0;
+    CoolerCommandPct : LREAL := 0.0;
+    AppliedNetKw : LREAL := 30.0;
+END_VAR
+VAR
+    Outer : Control.PID;
+    Inner : Control.PID;
+    OuterParameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#0.5,
+        IntegralGain := LREAL#0.12,
+        DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#1.0,
+        DerivativeSetpointWeight := LREAL#0.0,
+        Bias := LREAL#0.0,
+        OutputMinimum := LREAL#20.0,
+        OutputMaximum := LREAL#50.0,
+        RateMinimum := LREAL#-1000.0,
+        RateMaximum := LREAL#1000.0,
+        TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation
+    );
+    InnerParameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#10.0,
+        IntegralGain := LREAL#20.0,
+        DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#1.0,
+        DerivativeSetpointWeight := LREAL#0.0,
+        Bias := LREAL#0.0,
+        OutputMinimum := LREAL#-100.0,
+        OutputMaximum := LREAL#200.0,
+        RateMinimum := LREAL#-10000.0,
+        RateMaximum := LREAL#10000.0,
+        TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation
+    );
+    OuterInput : Control.PIDInput;
+    InnerInput : Control.PIDInput;
+    State : Control.PIDInitialState;
+    Initialized : BOOL := FALSE;
+END_VAR
+Outer.Configure(Parameters := OuterParameters);
+Inner.Configure(Parameters := InnerParameters);
+IF NOT Initialized THEN
+    State.Setpoint := LREAL#35.0;
+    State.ProcessValue := LREAL#35.0;
+    State.NominalOutput := LREAL#38.0;
+    State.SaturatedOutput := LREAL#38.0;
+    Outer.Initialize(State := State);
+    State.Setpoint := LREAL#38.0;
+    State.ProcessValue := LREAL#38.0;
+    State.NominalOutput := LREAL#30.0;
+    State.SaturatedOutput := LREAL#30.0;
+    Inner.Initialize(State := State);
+    Initialized := TRUE;
 END_IF;
-END_FUNCTION
+OuterInput.Mode := PIDMode#Auto;
+OuterInput.CycleTime := LREAL#0.1;
+OuterInput.Setpoint := VesselSetpointC;
+OuterInput.ProcessValue := VesselC;
+JacketSetpointC := Outer.Update(Input := OuterInput);
+InnerInput.Mode := PIDMode#Auto;
+InnerInput.CycleTime := LREAL#0.1;
+InnerInput.Setpoint := JacketSetpointC;
+InnerInput.ProcessValue := JacketC;
+RequestKw := Inner.Update(Input := InnerInput);
+HeaterCommandPct := HeaterPct(RequestKw := RequestKw);
+CoolerCommandPct := CoolerPct(RequestKw := RequestKw);
+AppliedNetKw := NetHeatKw(HeaterPct := HeaterCommandPct, CoolerPct := CoolerCommandPct);
+END_FUNCTION_BLOCK
+
+(* The heater-only cascade of Lesson 63: the inner PI (5 %/°C, 10 %/(°C·s)) drives the heater, 0–100 %. *)
+FUNCTION_BLOCK HeaterCascade
+VAR_INPUT
+    VesselSetpointC : LREAL;
+    VesselC : LREAL;
+    JacketC : LREAL;
+END_VAR
+VAR_OUTPUT
+    JacketSetpointC : LREAL := 38.0;
+    HeaterCommandPct : LREAL := 15.0;
+END_VAR
+VAR
+    Outer : Control.PID;
+    Inner : Control.PID;
+    OuterParameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#0.5,
+        IntegralGain := LREAL#0.12,
+        DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#1.0,
+        DerivativeSetpointWeight := LREAL#0.0,
+        Bias := LREAL#0.0,
+        OutputMinimum := LREAL#20.0,
+        OutputMaximum := LREAL#50.0,
+        RateMinimum := LREAL#-1000.0,
+        RateMaximum := LREAL#1000.0,
+        TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation
+    );
+    InnerParameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#5.0,
+        IntegralGain := LREAL#10.0,
+        DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#1.0,
+        DerivativeSetpointWeight := LREAL#0.0,
+        Bias := LREAL#0.0,
+        OutputMinimum := LREAL#0.0,
+        OutputMaximum := LREAL#100.0,
+        RateMinimum := LREAL#-1000.0,
+        RateMaximum := LREAL#1000.0,
+        TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation
+    );
+    OuterInput : Control.PIDInput;
+    InnerInput : Control.PIDInput;
+    State : Control.PIDInitialState;
+    Initialized : BOOL := FALSE;
+END_VAR
+Outer.Configure(Parameters := OuterParameters);
+Inner.Configure(Parameters := InnerParameters);
+IF NOT Initialized THEN
+    State.Setpoint := LREAL#35.0;
+    State.ProcessValue := LREAL#35.0;
+    State.NominalOutput := LREAL#38.0;
+    State.SaturatedOutput := LREAL#38.0;
+    Outer.Initialize(State := State);
+    State.Setpoint := LREAL#38.0;
+    State.ProcessValue := LREAL#38.0;
+    State.NominalOutput := LREAL#15.0;
+    State.SaturatedOutput := LREAL#15.0;
+    Inner.Initialize(State := State);
+    Initialized := TRUE;
+END_IF;
+OuterInput.Mode := PIDMode#Auto;
+OuterInput.CycleTime := LREAL#0.1;
+OuterInput.Setpoint := VesselSetpointC;
+OuterInput.ProcessValue := VesselC;
+JacketSetpointC := Outer.Update(Input := OuterInput);
+InnerInput.Mode := PIDMode#Auto;
+InnerInput.CycleTime := LREAL#0.1;
+InnerInput.Setpoint := JacketSetpointC;
+InnerInput.ProcessValue := JacketC;
+HeaterCommandPct := Inner.Update(Input := InnerInput);
+END_FUNCTION_BLOCK
 
 PROGRAM Main
 VAR
-    DeadZoneController : Control.PID;
-    OverlapController : Control.PID;
-    CharacterizedController : Control.PID;
-    Parameters : Control.PIDParameters;
-    DeadZoneState : Control.PIDInitialState;
-    OverlapState : Control.PIDInitialState;
-    CharacterizedState : Control.PIDInitialState;
-    DeadZoneInput : Control.PIDInput;
-    OverlapInput : Control.PIDInput;
-    CharacterizedInput : Control.PIDInput;
-    Initialized : BOOL := FALSE;
-    AutomaticAvailable : BOOL := TRUE;
+    (* Three copies of the jacketed vessel with a cooler: the heater-only cascade and the split-range cascade with 60 kW
+       entering the jacket, and the split-range cascade with a 30 kW jacket loss. *)
+    HeaterOnly : HeaterCascade;
+    SplitInflow : SplitCascade;
+    SplitLoss : SplitCascade;
+    HeaterOnlyJacketC : LREAL := 38.0;
+    HeaterOnlyVesselC : LREAL := 35.0;
+    HeaterOnlyHeaterPct : LREAL := 15.0;
+    HeaterOnlyCoolerPct : LREAL := 0.0;
+    HeaterOnlyExtractionKw : LREAL := 0.0;
+    InflowJacketC : LREAL := 38.0;
+    InflowVesselC : LREAL := 35.0;
+    InflowHeaterPct : LREAL := 15.0;
+    InflowCoolerPct : LREAL := 0.0;
+    InflowExtractionKw : LREAL := 0.0;
+    LossJacketC : LREAL := 38.0;
+    LossVesselC : LREAL := 35.0;
+    LossHeaterPct : LREAL := 15.0;
+    LossCoolerPct : LREAL := 0.0;
+    LossExtractionKw : LREAL := 0.0;
+    VesselSetpointC : LREAL := 35.0;
+    (* Control Studio's project experiment lets 60 kW enter the first two jackets and removes 30 kW from the third. *)
+    InflowKw : LREAL := 0.0;
+    LossKw : LREAL := 0.0;
+    InflowRequestKw : LREAL := 30.0;
+    InflowNetKw : LREAL := 30.0;
+    LossRequestKw : LREAL := 30.0;
+    LossNetKw : LREAL := 30.0;
+    HeaterOnlyJacketSetpointC : LREAL := 38.0;
+    InflowJacketSetpointC : LREAL := 38.0;
     ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    ExperimentElapsed : LREAL := 0.0;
-    Setpoint : LREAL := 80.0;
-    DeadZoneTemperature : LREAL := 80.0;
-    OverlapTemperature : LREAL := 80.0;
-    CharacterizedTemperature : LREAL := 80.0;
-    DeadZoneDemand : LREAL := 0.0;
-    OverlapDemand : LREAL := 0.0;
-    CharacterizedDemand : LREAL := 0.0;
-    DeadZoneHeatingRequest : LREAL := 0.0;
-    DeadZoneCoolingRequest : LREAL := 0.0;
-    OverlapHeatingRequest : LREAL := 0.0;
-    OverlapCoolingRequest : LREAL := 0.0;
-    CharacterizedHeatingRequest : LREAL := 0.0;
-    CharacterizedCoolingRequest : LREAL := 0.0;
-    ControlAuthority : BOOL := TRUE;
 END_VAR
 
-IF NOT Initialized THEN
-    Setpoint := LREAL#80.0;
-    Parameters.ProportionalGain := LREAL#2.0;
-    Parameters.IntegralGain := LREAL#0.20;
-    Parameters.DerivativeGain := LREAL#0.0;
-    Parameters.ProportionalSetpointWeight := LREAL#1.0;
-    Parameters.DerivativeSetpointWeight := LREAL#0.0;
-    Parameters.Bias := LREAL#0.0;
-    Parameters.OutputMinimum := LREAL#-100.0;
-    Parameters.OutputMaximum := LREAL#100.0;
-    Parameters.RateMinimum := LREAL#-1000.0;
-    Parameters.RateMaximum := LREAL#1000.0;
-    Parameters.TrackingTime := LREAL#1.0;
-    Parameters.AntiWindup := PIDAntiWindup#Combined;
-
-    DeadZoneState.Setpoint := Setpoint;
-    DeadZoneState.ProcessValue := DeadZoneTemperature;
-    DeadZoneState.NominalOutput := LREAL#0.0;
-    DeadZoneState.SaturatedOutput := LREAL#0.0;
-    OverlapState.Setpoint := Setpoint;
-    OverlapState.ProcessValue := OverlapTemperature;
-    OverlapState.NominalOutput := LREAL#0.0;
-    OverlapState.SaturatedOutput := LREAL#0.0;
-    CharacterizedState.Setpoint := Setpoint;
-    CharacterizedState.ProcessValue := CharacterizedTemperature;
-    CharacterizedState.NominalOutput := LREAL#0.0;
-    CharacterizedState.SaturatedOutput := LREAL#0.0;
-    DeadZoneController.Configure(Parameters := Parameters);
-    OverlapController.Configure(Parameters := Parameters);
-    CharacterizedController.Configure(Parameters := Parameters);
-    DeadZoneController.Initialize(State := DeadZoneState);
-    OverlapController.Initialize(State := OverlapState);
-    CharacterizedController.Initialize(State := CharacterizedState);
-    Initialized := TRUE;
-END_IF;
-
-(* Control Studio only grants experiment authority. The runnable project owns
-   the complete, reproducible setpoint sequence and safe restoration. *)
-IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
-    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+VesselSetpointC := LREAL#35.0;
+IF ExperimentEnabled THEN
+    InflowKw := LREAL#60.0;
+    LossKw := LREAL#30.0;
 ELSE
-    ExperimentElapsed := LREAL#0.0;
+    InflowKw := LREAL#0.0;
+    LossKw := LREAL#0.0;
 END_IF;
-Setpoint := Lesson54ReviewedSetpoint(
-    ExperimentElapsedSeconds := ExperimentElapsed,
-    ExperimentEnabled := ExperimentEnabled,
-    InputsValid := InputsValid,
-    SafetyAbort := SafetyAbort);
-ControlAuthority := Lesson54ControlAuthority(
-    AutomaticAvailable := AutomaticAvailable,
-    InputsValid := InputsValid,
-    SafetyAbort := SafetyAbort);
-
-DeadZoneInput.Setpoint := Setpoint;
-DeadZoneInput.ProcessValue := DeadZoneTemperature;
-DeadZoneInput.FeedForward := LREAL#0.0;
-DeadZoneInput.CycleTime := LREAL#0.1;
-OverlapInput.Setpoint := Setpoint;
-OverlapInput.ProcessValue := OverlapTemperature;
-OverlapInput.FeedForward := LREAL#0.0;
-OverlapInput.CycleTime := LREAL#0.1;
-CharacterizedInput.Setpoint := Setpoint;
-CharacterizedInput.ProcessValue := CharacterizedTemperature;
-CharacterizedInput.FeedForward := LREAL#0.0;
-CharacterizedInput.CycleTime := LREAL#0.1;
-
-IF ControlAuthority THEN
-    DeadZoneInput.Mode := PIDMode#Auto;
-    OverlapInput.Mode := PIDMode#Auto;
-    CharacterizedInput.Mode := PIDMode#Auto;
-ELSE
-    (* Align error and output while authority is absent so no controller term
-       can reopen either utility during the tracking scan. *)
-    DeadZoneInput.Setpoint := DeadZoneTemperature;
-    DeadZoneInput.Mode := PIDMode#Track;
-    DeadZoneInput.TrackingOutput := LREAL#0.0;
-    OverlapInput.Setpoint := OverlapTemperature;
-    OverlapInput.Mode := PIDMode#Track;
-    OverlapInput.TrackingOutput := LREAL#0.0;
-    CharacterizedInput.Setpoint := CharacterizedTemperature;
-    CharacterizedInput.Mode := PIDMode#Track;
-    CharacterizedInput.TrackingOutput := LREAL#0.0;
-END_IF;
-
-DeadZoneDemand := DeadZoneController.Update(Input := DeadZoneInput);
-OverlapDemand := OverlapController.Update(Input := OverlapInput);
-CharacterizedDemand := CharacterizedController.Update(Input := CharacterizedInput);
-
-IF ControlAuthority THEN
-    (* Four demand points are deliberately unavailable around neutral. *)
-    DeadZoneHeatingRequest := Lesson54DeadZoneHeating(Demand := DeadZoneDemand);
-    DeadZoneCoolingRequest := Lesson54DeadZoneCooling(Demand := DeadZoneDemand);
-
-    (* Four points of overlap keep both opposing utilities open near neutral. *)
-    OverlapHeatingRequest := Lesson54OverlapHeating(Demand := OverlapDemand);
-    OverlapCoolingRequest := Lesson54OverlapCooling(Demand := OverlapDemand);
-
-    CharacterizedHeatingRequest := Lesson54CharacterizedHeating(
-        Demand := CharacterizedDemand);
-    CharacterizedCoolingRequest := Lesson54CharacterizedCooling(
-        Demand := CharacterizedDemand);
-ELSE
-    DeadZoneHeatingRequest := LREAL#0.0;
-    DeadZoneCoolingRequest := LREAL#0.0;
-    OverlapHeatingRequest := LREAL#0.0;
-    OverlapCoolingRequest := LREAL#0.0;
-    CharacterizedHeatingRequest := LREAL#0.0;
-    CharacterizedCoolingRequest := LREAL#0.0;
-END_IF;
+HeaterOnly(VesselSetpointC := VesselSetpointC, VesselC := HeaterOnlyVesselC, JacketC := HeaterOnlyJacketC);
+HeaterOnlyHeaterPct := HeaterOnly.HeaterCommandPct;
+HeaterOnlyCoolerPct := LREAL#0.0;
+HeaterOnlyExtractionKw := -InflowKw;
+HeaterOnlyJacketSetpointC := HeaterOnly.JacketSetpointC;
+SplitInflow(VesselSetpointC := VesselSetpointC, VesselC := InflowVesselC, JacketC := InflowJacketC);
+InflowHeaterPct := SplitInflow.HeaterCommandPct;
+InflowCoolerPct := SplitInflow.CoolerCommandPct;
+InflowExtractionKw := -InflowKw;
+InflowRequestKw := SplitInflow.RequestKw;
+InflowNetKw := SplitInflow.AppliedNetKw;
+InflowJacketSetpointC := SplitInflow.JacketSetpointC;
+SplitLoss(VesselSetpointC := VesselSetpointC, VesselC := LossVesselC, JacketC := LossJacketC);
+LossHeaterPct := SplitLoss.HeaterCommandPct;
+LossCoolerPct := SplitLoss.CoolerCommandPct;
+LossExtractionKw := LossKw;
+LossRequestKw := SplitLoss.RequestKw;
+LossNetKw := SplitLoss.AppliedNetKw;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -214,22 +250,30 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.AutomaticAvailable AT %MX88.4 : BOOL;
-    P1.ExperimentEnabled AT %MX88.5 : BOOL;
-    P1.SafetyAbort AT %MX88.6 : BOOL;
-    P1.InputsValid AT %MX88.7 : BOOL;
-    P1.Setpoint AT %ML160 : LREAL;
-    P1.DeadZoneDemand AT %ML168 : LREAL;
-    P1.OverlapDemand AT %ML176 : LREAL;
-    P1.CharacterizedDemand AT %ML184 : LREAL;
-    P1.DeadZoneTemperature AT %IL64 : LREAL;
-    P1.OverlapTemperature AT %IL72 : LREAL;
-    P1.CharacterizedTemperature AT %IL80 : LREAL;
-    P1.DeadZoneHeatingRequest AT %QL80 : LREAL;
-    P1.DeadZoneCoolingRequest AT %QL88 : LREAL;
-    P1.OverlapHeatingRequest AT %QL96 : LREAL;
-    P1.OverlapCoolingRequest AT %QL104 : LREAL;
-    P1.CharacterizedHeatingRequest AT %QL112 : LREAL;
-    P1.CharacterizedCoolingRequest AT %QL120 : LREAL;
+    P1.HeaterOnlyHeaterPct AT %QL0 : LREAL;
+    P1.HeaterOnlyCoolerPct AT %QL8 : LREAL;
+    P1.HeaterOnlyExtractionKw AT %QL16 : LREAL;
+    P1.HeaterOnlyJacketC AT %IL0 : LREAL;
+    P1.HeaterOnlyVesselC AT %IL8 : LREAL;
+    P1.InflowHeaterPct AT %QL24 : LREAL;
+    P1.InflowCoolerPct AT %QL32 : LREAL;
+    P1.InflowExtractionKw AT %QL40 : LREAL;
+    P1.InflowJacketC AT %IL16 : LREAL;
+    P1.InflowVesselC AT %IL24 : LREAL;
+    P1.LossHeaterPct AT %QL48 : LREAL;
+    P1.LossCoolerPct AT %QL56 : LREAL;
+    P1.LossExtractionKw AT %QL64 : LREAL;
+    P1.LossJacketC AT %IL32 : LREAL;
+    P1.LossVesselC AT %IL40 : LREAL;
+    P1.VesselSetpointC AT %ML0 : LREAL;
+    P1.InflowKw AT %ML8 : LREAL;
+    P1.LossKw AT %ML16 : LREAL;
+    P1.InflowRequestKw AT %ML24 : LREAL;
+    P1.InflowNetKw AT %ML32 : LREAL;
+    P1.LossRequestKw AT %ML40 : LREAL;
+    P1.LossNetKw AT %ML48 : LREAL;
+    P1.HeaterOnlyJacketSetpointC AT %ML56 : LREAL;
+    P1.InflowJacketSetpointC AT %ML64 : LREAL;
+    P1.ExperimentEnabled AT %MX72.0 : BOOL;
 END_VAR
 END_CONFIGURATION

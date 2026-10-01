@@ -59,7 +59,7 @@ impl VmFrame {
         self.locals
             .get(index)
             .map(|value| materialize_borrowed_value(value).0)
-            .ok_or(VmTrap::InvalidLocalRef {
+            .ok_or_else(|| VmTrap::InvalidLocalRef {
                 ref_index,
                 start: self.local_ref_start,
                 count: self.local_ref_count,
@@ -69,11 +69,14 @@ impl VmFrame {
     /// Store a local value by bytecode reference index.
     pub fn store_local(&mut self, ref_index: u32, value: Value) -> Result<(), VmTrap> {
         let index = self.local_slot_index(ref_index)?;
-        let slot = self.locals.get_mut(index).ok_or(VmTrap::InvalidLocalRef {
-            ref_index,
-            start: self.local_ref_start,
-            count: self.local_ref_count,
-        })?;
+        let slot = self
+            .locals
+            .get_mut(index)
+            .ok_or_else(|| VmTrap::InvalidLocalRef {
+                ref_index,
+                start: self.local_ref_start,
+                count: self.local_ref_count,
+            })?;
         *slot = value;
         Ok(())
     }
@@ -102,7 +105,7 @@ impl FrameStack {
 
     /// Pop the current frame.
     pub fn pop(&mut self) -> Result<VmFrame, VmTrap> {
-        self.frames.pop().ok_or(VmTrap::CallStackUnderflow)
+        self.frames.pop().ok_or_else(|| VmTrap::CallStackUnderflow)
     }
 
     /// Borrow the current frame.

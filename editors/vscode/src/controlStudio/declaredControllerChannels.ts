@@ -1,5 +1,5 @@
 import type { ControlLoopDefinition } from "./loopDefinition";
-import { loopSignal } from "./loopChannels";
+import { loopSignal, measuredDisturbanceInput } from "./loopChannels";
 import type { TransferMember } from "./proportionalTransfer";
 
 export function transferSignalMember(signal: ControlLoopDefinition["signals"]["processVariable"], actuator = false): TransferMember {
@@ -14,7 +14,9 @@ export function declaredControllerChannels(loop: ControlLoopDefinition) {
     reference: transferSignalMember(loopSignal(loop, output.setpointSignalId!)),
     process: transferSignalMember(loopSignal(loop, output.signalId)),
   })) ?? (loop.signals.setpoint ? [{ reference: transferSignalMember(loop.signals.setpoint), process: transferSignalMember(loop.signals.processVariable) }] : []);
-  const outputs = loop.channels?.inputs.map(input => {
+  // A measured disturbance is read like a measurement; the controller never writes it (Specification 35 §17.12).
+  const disturbances = loop.channels?.inputs.filter(input => measuredDisturbanceInput(loop, input)) ?? [];
+  const outputs = loop.channels?.inputs.filter(input => !disturbances.includes(input)).map(input => {
     const signal = loopSignal(loop, input.signalId), primary = signal.symbol === loop.signals.manipulatedVariable.symbol;
     const command = primary ? loop.controller.manualOutputSignal : input.manualOutputSignal;
     const type = primary ? loop.controller.manualOutputType : input.manualOutputType;
@@ -29,8 +31,8 @@ export function declaredControllerChannels(loop: ControlLoopDefinition) {
   const primaryReference = references.find(reference => reference.reference.symbol === loop.signals.setpoint?.symbol);
   const primaryOutput = outputs.find(output => output.output.symbol === loop.signals.manipulatedVariable.symbol);
   if (!primaryReference || !primaryOutput) throw new Error("The loop's primary reference and output must belong to the declared model channel bindings.");
-  const measurements = loop.channels?.outputs.map(output => transferSignalMember(loopSignal(loop, output.signalId)))
-    ?? [transferSignalMember(loop.signals.processVariable)];
+  const measurements = [...loop.channels?.outputs.map(output => transferSignalMember(loopSignal(loop, output.signalId)))
+    ?? [transferSignalMember(loop.signals.processVariable)], ...disturbances.map(input => transferSignalMember(loopSignal(loop, input.signalId)))];
   return { measurements, references: [primaryReference, ...references.filter(reference => reference !== primaryReference)],
     outputs: [primaryOutput, ...outputs.filter(output => output !== primaryOutput)] };
 }

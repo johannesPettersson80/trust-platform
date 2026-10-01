@@ -1,109 +1,168 @@
-# 24. Sampling and timing
+# 25. Sampling and timing
 
-You will calculate integral and filter updates from the elapsed interval, then decide which heater and sensor changes a sampled controller can miss between readings.
+In this lesson, you will see what happens when the controller looks at the temperature less often, late, or with a wrong idea of how much time has passed. You will learn why every update must use the time that really passed, and which intervals the controller must refuse.
 
 ## The problem
 
-The water has thermal inertia, so its temperature changes gradually. An electrical sensor can vary much faster because of pickup or quantization. Suppose a repeatable noise cycle has period 0.1 s and the controller samples every 0.1 s at the same phase: the raw value may be 35.0 °C at every sample even though it reaches 35.2 °C between samples. Equal samples do not prove that the analogue input was constant.
+Lesson 24 applied a 1 s measurement filter: the command's noise-driven movement fell from 48.4 to 3.35 points, and the setpoint step still settled in 8.5 s. Both the filter and the integral do arithmetic with the time between readings. The filter moves the fraction $\alpha = 0.1/1.1$ of the way at each update, and the integral adds $K_i\,e \times 0.1$ s. Both assume that a new reading arrives every 0.1 s. If a reading comes late, or the program uses the wrong time step, every update is wrong; and no filter can bring back a change that happened between two readings.
 
-This is **aliasing**: distinct continuous-time signals produce the same sampled sequence. A software filter applied after acquisition cannot reconstruct variations that were never sampled. Faster acquisition or filtering before sampling can address that information loss. Timing arithmetic is a separate issue: when a controller update is late, the state update must use the actual elapsed interval.
+We will make every update use the time that really passed, refuse intervals that cannot be used, and see what sampling can and cannot see.
 
 ## What we need
 
-We need to use the actual elapsed interval for state updates and distinguish
-when a measurement was acquired, when control was calculated and when output
-was applied. We also need to recognize changes the sampling cannot observe.
+We need to:
+
+1. make every update use the time that really passed since the previous one;
+2. refuse intervals that cannot be used, and hold the command instead; and
+3. know which changes of the process the chosen sampling can and cannot see.
 
 ## The new idea
 
-**Sampling** measures a signal at separate instants rather than continuously.
-**Controller timing** determines when calculations and output updates occur
-and how much elapsed time their state changes represent. The output is
-usually held between updates; a fast calculation does not refresh an old sample.
+**Sampling** means the controller looks at the temperature only at separate moments. Anything that changes faster than it looks can be missed or misread, and every update must use the time that really passed. For this heater the controller looks every 0.1 s, ten times a second, and holds its last command between two looks.
 
-For a constant rate $r$, change over an interval is
+**In words.** A PLC already works this way. A cyclic task reads its inputs at the start of each cycle, calculates, and writes its outputs, which keep their values until the next cycle writes them again. A controller in such a task meets three consequences:
 
-$$
-\mathrm{change}=r\,\Delta t.
-$$
+1. **It sees only snapshots.** What happens between two readings is invisible. A slow change is followed well, but a change much faster than the readings can be missed, or can look like a slow change that is not there at all. A film camera does the same to a turning wagon wheel: at 24 pictures a second, a fast wheel can seem to turn slowly backwards. This false slow signal is called **aliasing**. No filter after sampling can repair it, because the true signal was never read.
+2. **Its command is held.** Between updates the heater keeps the last command, which grows older until the next update. On average it is half an interval old, so slower sampling adds delay to the loop.
+3. **Its arithmetic needs the interval.** The integral adds error times time, and the filter's part $\alpha$ depends on the time between updates. If an update comes late, or the program assumes the wrong interval, the calculation is wrong.
 
-For the isolated arithmetic example, use $SP=36$ °C, $PV=35$ °C, $K_i=0.5$ percentage points/(°C·s), and no output limit. With a 0.1 s interval,
+So every update must use the time that really passed since the previous one. An interval that cannot be used is refused: zero or negative, because nothing new was read or the clock went back, or longer than the loop can tolerate. The controller then updates nothing and holds its command. For this heater, whose water changes over seconds, looking every 0.1 s is plenty.
 
-$$
-\Delta I=K_i(SP-PV)\Delta t=0.5(1)(0.1)=0.05\ \text{points}.
-$$
-
-With a 0.2 s interval and the same fixed error calculation,
+**The formula.** Every update moves the integral and the filter with the measured interval:
 
 $$
-\Delta I=0.5(1)(0.2)=0.10\ \text{points}.
+\Delta I = K_i\,e\,\Delta t, \qquad \alpha = \frac{\Delta t}{T_f + \Delta t}.
 $$
 
-This is a calculation of a fixed input, not a claimed live heater trace. A filter update uses the same accepted elapsed interval:
+At the sample times $t = k\,T_s$, a sine wave of frequency $f$ gives exactly the samples of a sine of frequency $f - f_s$. Subtracting $f_s$ removes a whole number of turns, $2\pi k$, and that leaves a sine unchanged:
 
 $$
-\alpha=\frac{\Delta t}{T_{\mathrm{filter}}+\Delta t},\qquad
-T_{f,\mathrm{new}}=T_{f,\mathrm{old}}+\alpha(T_{r,\mathrm{new}}-T_{f,\mathrm{old}}).
+\sin(2\pi f\,kT_s) = \sin(2\pi f\,kT_s - 2\pi k) = \sin(2\pi\,(f - f_s)\,kT_s), \qquad f_s = \frac{1}{T_s}.
 $$
 
-The acquisition timestamp says when a sensor value was obtained. The controller-update timestamp says when code accepts it and updates state. The applied-command timestamp records when the limited command is written to the actuator. Delivered heat is a separate physical quantity, delayed here by 1 s. A request can be held at the controller while an older command is still moving through the one-second heater delay; these are different events.
+Only frequencies below half the sampling rate, $f_s/2$, are seen as what they are. The same reasoning limits the interval: to show an oscillation of the loop at all, readings must come at least twice per period, so the usable intervals are
 
-For this exercise, a fresh sample and its controller update are synchronous. The numerical value may be unchanged and still be fresh. Elapsed time is measured from the previous accepted controller update, not repeatedly from an unchanged acquisition timestamp. At startup, initialize the time baseline once. On a valid interval, calculate it once and advance the baseline once; never double-count or leave an old accepted timestamp as if that were recovery.
+$$
+0 < \Delta t \le \frac{P_u}{2}.
+$$
 
-The exercise uses a maximum accepted gap of 0.25 s. A gap beyond that stops this demonstration and requires a reset; full invalid-data recovery belongs to Lesson 28.
+The lower bound also protects `Control.PID`, which divides by $\Delta t$.
+
+- $\Delta t$ is the time since the previous accepted update, in seconds;
+- $e$ is the temperature error, in degrees Celsius; $K_i$ is the integral gain, in percent per °C and second; and $\Delta I$ is the change of the integral, in percentage points;
+- $T_f$ is the filter time constant, and $\alpha$ the part of the gap the filter covers, as in Lesson 24;
+- $T_s$ is the sampling period, in seconds, and $f_s$ the sampling rate, in hertz (Hz): samples per second;
+- $f$ is the frequency of a sine wave, in hertz: cycles per second;
+- $k = 0, 1, 2, \dots$ counts the samples; and
+- $P_u$ is the loop's ultimate period from Lesson 20: the period with which it would oscillate at the edge of stability.
+
+**Example: the heater sampled 10 times a second.** Here $T_s = 0.1$ s and $f_s = 10$ Hz. Follow the numbers:
+
+1. A normal update with a 1 °C error adds $\Delta I = 1.14 \times 1 \times 0.1 = 0.114$ point.
+2. One update arrives late, after 0.3 s. The same error has lasted three times as long, so $\Delta I = 1.14 \times 1 \times 0.3 = 0.342$ point. A program that assumed 0.1 s would add only 0.114 point and lose two thirds of the correction.
+3. A program that updates every 0.5 s but tells the controller 0.1 s adds 0.114 point where 0.57 point belongs: a fifth at every update, as if $K_i$ were five times smaller, 0.228 %/(°C·s).
+4. The filter must use the real interval too. With 1 s updates and $T_f = 1$ s, $\alpha = 1/(1 + 1) = 0.5$: each update covers half the gap, and the filter still follows the water with its 1 s time constant.
+5. An 8 Hz sine sampled at 10 Hz: at $k = 1$, $\sin(2\pi \cdot 8 \cdot 0.1) = \sin 288° = -0.951$, while a 2 Hz sine gives $\sin 72° = +0.951$; at $k = 2$, $-0.588$ against $+0.588$. Since $8 - 10 = -2$ and $\sin(-x) = -\sin x$, every sample of the 8 Hz wave equals that of a 2 Hz wave turned upside down. A 10 Hz sine is caught at the same point of every cycle, $\sin(2\pi k) = 0$: it looks like no signal at all.
+6. Lesson 20 measured $P_u = 4.42$ s, so readings may be at most $4.42/2 = 2.21$ s apart; the program accepts $0 < \Delta t \le 2.2$ s.
+
+![An 8 Hz sine and an inverted 2 Hz sine through the same samples; a 10 Hz sine sampled once per cycle](figures/sampling-aliasing.svg)
+
+**The limitation.** Sampling loses information for good: what changed between two readings, or during a late update, cannot be recovered afterwards. Holding adds delay: 1 s sampling would make the held command on average 0.5 s old, on top of the heater's 1 s delivery delay and the 1 s filter. Over a refused interval the program updates nothing and holds the command; the next update restarts the filter from the fresh measurement.
 
 ## Prediction
 
-Predict the isolated integral increments $0.05$ and $0.10$ points above. Predict that a fixed-0.1 s implementation undercounts the 0.2 s interval. Predict that a controller request can remain unchanged while delivered heater power changes later because of the one-second delay.
+Before running, answer these questions:
 
-For the sampling illustration, a 0.1 s noise cycle can return to 35.0 °C at each sample while reaching 35.2 °C between samples. The sampled record cannot distinguish that signal from a constant 35.0 °C signal. A short 30 kW heat-removal pulse lasting 0.05 s changes stored energy by about $30(0.05)=1.5$ kJ and temperature by approximately $1.5/50=0.03$ °C. It may be below measurement resolution, but it does not exactly restore temperature between samples. State what faster acquisition or an event signal would be needed to establish it.
+1. How much does the integral grow for a 1 °C error over 0.1 s and over 1 s?
+2. Which of these intervals can the controller use: 0 s, 0.1 s, 1 s, 3.1 s?
+3. Under the 30 kW load, which trial dips deepest: normal timing, one update 3 s late, 1 s sampling, or 0.5 s updates with an assumed 0.1 s?
+4. Will 1 s sampling still settle within 30 s?
+5. What happens to the recovery when the integral is five times too weak?
+
+| Interval | Integral step at 1 °C | Usable? |
+| ---: | ---: | --- |
+| 0 s | — | no: nothing new acquired |
+| 0.1 s | 0.114 point | yes |
+| 1 s | 1.14 points | yes |
+| 3.1 s | — | no: longer than 2.2 s |
 
 ## Implementation
 
-In `src/Main.st`, run this fragment while the experiment is active. Initialize `AutomaticEnabled` to TRUE only when starting from the complete reset below. Convert the timestamp difference to seconds and guard one update:
+Open [`src/Main.st`](src/Main.st). It measures the time since the previous update with a timer, checks it, and only then updates the filter and `Control.PID`:
 
 ```st
-ElapsedS := CurrentUpdateTimeS - PreviousUpdateTimeS;
-IF AutomaticEnabled AND MeasurementValid
-    AND (ElapsedS > 0.0) AND (ElapsedS <= 0.25) THEN
-    Alpha := ElapsedS / (FilterTimeS + ElapsedS);
-    FilteredTemperatureC := FilteredTemperatureC
-        + Alpha * (RawTemperatureC - FilteredTemperatureC);
-    ErrorC := SetpointC - FilteredTemperatureC;
-    IntegralIncrementPct := KiPctPerCs * ErrorC * ElapsedS;
-    PreviousUpdateTimeS := CurrentUpdateTimeS;
-ELSE
-    AutomaticEnabled := FALSE;
-    RequestedPowerPct := 0.0;
-    AppliedPowerPct := 0.0;
+IF UpdateDue THEN
+    ElapsedS := SinceLastUpdateS;
+    TimingUsable := IntervalUsable(ElapsedTime := ElapsedS, MaximumInterval := MaximumIntervalS);
+    IntervalTimer(IN := FALSE, PT := T#1h);  (* the next interval starts at this reading *)
+    IntervalTimer(IN := TRUE, PT := T#1h);
+END_IF;
+IF UpdateDue AND NOT TimingUsable THEN
+    RejectedUpdates := RejectedUpdates + 1;  (* no state update: the command is held *)
+    FilterWasActive := FALSE;                (* the next update restarts the filter *)
+ELSIF UpdateDue THEN
+    FilterAlpha := FilterFraction(CycleTime := ElapsedS, FilterTime := MAX(FilterTimeS, LREAL#0.0));
+    ...
+    Input.CycleTime := SEL(AssumedCycleS > LREAL#0.0, ElapsedS, AssumedCycleS);
+    AppliedPowerPct := Controller.Update(Input := Input);
 END_IF;
 ```
 
-Use the new filtered measurement in both the weighted proportional calculation and the integral error. Add `IntegralIncrementPct` to the trial integral, then form the request, limit it and apply the existing anti-windup correction. These operations run only in the valid-update branch. A zero filter time gives Alpha=1 and therefore bypasses filtering; reject a negative filter time when selecting the candidate.
+`MaximumIntervalS` is the 2.2 s limit. `ControllerPeriodS` sets the sampling period, and `DelayUpdateS` makes one update late. `AssumedCycleS` = 0 passes the measured interval to `Control.PID`; a positive value replaces it with a fixed one, the wrong arithmetic tested below.
 
-The timestamp inputs are elapsed seconds on the same continuously advancing clock. Initialize `PreviousUpdateTimeS` from the current time before the first control interval. For a backward, invalid or overlong interval, this exercise stops automatic control and commands zero heat. A later valid interval does not re-enable the Boolean. Explicitly restart the experiment, reinitialize the time baseline and the other controller states, and then set `AutomaticEnabled` TRUE before restarting control, so the next update does not integrate over the stopped interval.
+**Exercise.** Run the tests in [`src/tests.st`](src/tests.st) from the **Testing** view. They check the interval rule (0, −0.1 and 3.1 s refused; 0.1 and 1 s accepted) and the two aliasing cases. Then work out by hand how much a 0.5 s update adds to the integral at a 1 °C error when the controller is told 0.1 s: 0.114 point instead of 0.57.
 
 ## Experiment in Control Studio
 
-1. Start Simulator and open Control Studio → Monitor → Response. Display SP, PV, raw/filtered temperature, acquisition time, controller-update time, elapsed interval, integral increment, requested power, applied power and delayed applied power.
-2. Reset to SP=35 °C, PV=35 °C, applied power 75%, integral output 75%, proportional output 0%, filter state 35 °C and delay history 75%. Use the selected Lesson 21 gains, Lesson 22 weight and Lesson 23 filter choice. The nominal update is 0.1 s.
-3. In **Control Studio → Test**, select **Confirm and start** as time zero for the scripted sampled-signal observation. The project task and simulator step are both 100 ms, and `src/Main.st` deliberately sets `ScriptedElapsedTime` to 0.2 s at experiment cycle 10, which is 1.0 s after enablement, not 5.0 s. The current project does not expose a control for omitting a live PLC update; it compares the scripted 0.2 s interval with the fixed 0.1 s assumption. Keep the project’s 2.1 s duration and reset between runs.
-4. At the scripted 1.0 s event, use the published current error and the 0.2 s value to calculate $K_i e(0.2)$, using the stated constant-latest-error approximation for this comparison. Do not assume the error is 1 °C in the live trace. Distinguish the held request during the scripted interval from any separate delayed plant behavior; this project is a sampled-signal arithmetic demonstration, not a live missed-task injection.
-5. Separately record the sampling illustration: a repeatable 0.1 s noise cycle sampled at the same phase, and the 0.05 s, 30 kW pulse as an input calculation rather than a claim that the plant exactly returns between readings. Record which analogue variation is unobservable.
-6. Abort if temperature leaves 0–80 °C, applied command leaves 0–100%, data is invalid, timestamps move backward, or elapsed time exceeds 0.25 s. On stop, cancel the target event, disable automatic control and command zero heat; confirm zero applied command and fully reset before repeating. Stop the simulator if it is unresponsive.
+The project validates four load trials, each with 30 kW of extra heat loss at a 35 °C setpoint: **load trial** (normal 0.1 s timing), **delayed update** (the update due at 1 s comes 3 s late, so its 3.1 s interval is refused), **slow sampling** (1 s updates) and **assumed interval** (0.5 s updates, but `Control.PID` is told 0.1 s). Each must stay at or above 33 °C, be within 0.2 °C from 30 s and settle within 30 s. The setpoint trial of Lesson 24 runs as well.
+
+1. Open this lesson's project and start **Simulator**. The heater holds 35 °C with 75 % in Manual. In the **truST** side bar, select **Control Studio**.
+2. On **Identify**, keep **Method** at **Automatic** and select **Identify plant**; the model is G(s) = (0.2) / (5.1s +1) · e^(−1s).
+3. On **Tune**, choose **P1.Controller · PI** and **Manual**. Enter Lesson 24's controller: **Proportional gain (Kp)** 5.79, **Integral gain (Ki)** 1.14, **Setpoint weight (β)** 0.8 and **Measurement filter time (Tf)** 1.
+4. Select **Requirements…** and enter **Setpoint change (°C)** 3, **Maximum steady-state error (°C)** 0.2, **Maximum settling time (s)** 15, **Settling band (±°C)** 0.1 and **Validation duration (s)** 60. Select **Done**, then **Tune controller**.
+5. On **Validate**, select **Validate controller** and read the rows of each trial.
+6. The assumed-interval trial fails, so Control Studio shows **The recorded response did not settle within 30 s. Next: Tune again.** and does not offer **Apply**. The evidence below explains why no tuning repairs it.
 
 ## Evidence and decision
 
-For the isolated calculation, verify 0.05 points at 0.1 s and 0.10 points at 0.2 s. For the live test, use the logged error at the scripted 1.0 s event and the $0.2$ s interval; a nominal-error substitution is not evidence. Check that the filter alpha and integral update both use the same accepted elapsed interval.
+![A late update deepens the dip; an assumed interval makes the integral too weak to recover](figures/timing-load-trials.svg)
 
-Keep the three time axes separate. A fresh unchanged sample is valid, the scripted 0.2 s interval is a controller timing event, and a delayed applied command is plant/actuator behavior. If the overlong-gap guard stops the run, report the stop and reset rather than treating the old state as recovered. The fixed target requirements assess the controller response; the noise-cycle record assesses sampling observability.
+The numbered marks answer predictions 3–5; the table above answers 1 and 2. From the validation:
+
+| Load trial | Lowest temperature | Error from 30 s | Settling, limit 30 s | Result |
+| --- | ---: | ---: | ---: | --- |
+| Normal, 0.1 s | 33.61 °C | 0.027 °C | 19.2 s | Pass |
+| One update 3 s late, 3.1 s refused | 33.21 °C | 0.028 °C | 19.7 s | Pass |
+| Slow sampling, 1 s | 33.56 °C | 0.029 °C | 18.9 s | Pass |
+| Assumed interval, 0.5 s told 0.1 s | 33.51 °C | 0.78 °C | not reached | **Fail** |
+
+The setpoint trial settled in 8.7 s, as in Lesson 24.
+
+3. The delayed update dipped deepest, to 33.21 °C, 0.40 °C below the normal trial: while the update was late, the old command stayed on and the load cooled the water unopposed. The 3.1 s interval was refused, so the integral did not jump on one reading; the correction missed during the gap was lost either way.
+4. Slow sampling dipped only 0.05 °C deeper than normal and settled in 18.9 s: for this loop, 1 s is still fast enough.
+5. With the assumed interval, each 0.5 s update added only a fifth of the true integral step. P still reacted, so the dip was ordinary, but the integral rose so slowly that the water was still 0.78 °C low after 30 s and never settled.
+
+No gains repair the assumed interval. A five times larger $K_i$ would rescue this trial and make every correctly timed update five times too strong: the fault is the program's arithmetic, not the tuning. We keep the measured interval, the interval check and 0.1 s sampling, which the program already uses, so nothing needs to be applied. These are simulation results for this heater.
 
 ## Conclusion
 
-Elapsed time belongs in every rate-based state update, while acquisition and actuator timing determine which measurements are available and when heating reaches the water. Aliasing can hide real analogue variation; a later software filter cannot reconstruct it. Correct timestamps and explicit gap handling prevent a late update from being undercounted or integrated twice.
+A sampled controller sees the process only at its updates and holds its command in between. Every update must use the measured time since the previous one, and an interval that is not positive, or too long to show the loop's oscillation, must be refused. Information missed between readings or during a late update cannot be recovered afterwards.
+
+For this heater, a late update cost 0.4 °C of extra dip and 1 s sampling cost almost nothing, but telling the controller the wrong interval made it fail its requirement, whatever the gains.
+
+## Check yourself
+
+1. **With $K_i = 1.14$ %/(°C·s), how much does a 2 °C error add to the integral over a correct 0.5 s interval?**
+   $1.14 \times 2 \times 0.5 = 1.14$ points.
+2. **Why is an interval of 3.1 s refused for this heater, although the temperature changes slowly?**
+   Readings further apart than half the 4.42 s ultimate period cannot show the loop oscillating, so an update over
+   3.1 s would integrate an error the controller never saw.
+3. **Why did a larger $K_i$ not count as a repair for the assumed-interval trial?**
+   The integral step was wrong because the program used the wrong time, not because the gain was wrong. A larger
+   gain would fix only that trial and make every correctly timed update too strong.
 
 ## Reason for the next lesson
 
-Timing correctness still leaves controller lifecycle questions: how should a stateful heater start when it is already hot and power is already applied?
+Every update continues from values the controller stored at the previous one: its last command, the last setpoint and measurement, the filtered temperature. Correct update equations still give a wrong first command if those stored values start wrong, for example from 0 while the hot heater needs 75 %.
 
-[Controller modes and initialization](../../03-production-quality-digital-pid/39-controller-mode-initialization/README.md) introduces that boundary.
+[Controller initialization](../../03-production-quality-digital-pid/39-controller-mode-initialization/README.md) sets those values from the running heater before the controller takes over.

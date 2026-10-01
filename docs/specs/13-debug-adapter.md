@@ -284,7 +284,10 @@ making a stop decision. Context-bearing calls additionally discard frame
 locations for frames no longer present and bind the current frame to the
 statement. A pause, step, or breakpoint stop snapshots the exact storage and
 runtime time at that boundary and recomputes watches before publishing the
-stop. Stop publication always updates `last_stop` and the ordered local stop
+stop. While running, the snapshot shows the storage and runtime time at the end
+of the last completed cycle; a statement that does not stop copies no storage.
+Without attached debug control, the runtime invokes no statement hook and
+resolves no statement location. Stop publication always updates `last_stop` and the ordered local stop
 buffer; a configured live receiver also gets one owned copy, while receiver
 closure cannot discard the buffered stop. A non-target runtime thread never
 consumes or blocks on another thread's pause or step.

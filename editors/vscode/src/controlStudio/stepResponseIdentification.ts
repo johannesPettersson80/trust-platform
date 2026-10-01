@@ -40,7 +40,7 @@ export interface StepResponseAnalysis {
   sampleTimeSeconds: number;
   detectableOnsetSeconds?: number;
   onsetThreshold: number;
-  temperature63: number;
+  level63: number;
   best: {
     baseline: number;
     gain: number;
@@ -70,7 +70,7 @@ export interface StepResponseMeasurement {
   sampleTimeSeconds: number;
   detectableOnsetSeconds?: number;
   onsetThreshold: number;
-  temperature63: number;
+  level63: number;
   warnings: string[];
 }
 
@@ -167,7 +167,7 @@ export function measureStepResponse(samples: readonly IdentificationSample[], se
     inputChange: prepared.inputChange, stepTimeSeconds: prepared.stepTime, holdEndSeconds: prepared.holdEnd,
     sampleTimeSeconds: prepared.sampleTime,
     ...(detectableOnsetSeconds === undefined ? {} : { detectableOnsetSeconds }), onsetThreshold,
-    temperature63: windows.baseline.mean + 0.632 * (windows.final.mean - windows.baseline.mean), warnings,
+    level63: windows.baseline.mean + 0.632 * (windows.final.mean - windows.baseline.mean), warnings,
   };
 }
 
@@ -221,7 +221,7 @@ export function analyzeStepResponse(samples: readonly IdentificationSample[], se
     settings: cloneSettings(settings), baseline: windows.baseline, final: windows.final, inputChange: deltaInput,
     stepTimeSeconds: prepared.stepTime, holdEndSeconds: prepared.holdEnd, sampleTimeSeconds: prepared.sampleTime,
     ...(detectableOnsetSeconds === undefined ? {} : { detectableOnsetSeconds }), onsetThreshold,
-    temperature63: baselineMean + 0.632 * (finalMean - baselineMean), best, consistency,
+    level63: baselineMean + 0.632 * (finalMean - baselineMean), best, consistency,
     boundaryLimited: warnings.some((warning) => /boundary/.test(warning)),
     warnings: [...warnings, ...(Math.abs(settings.timestampShiftSeconds) > 0 ? ["Timestamp-shift tolerance is retained for sensitivity analysis and is not nominal model evidence."] : [])], points,
   };

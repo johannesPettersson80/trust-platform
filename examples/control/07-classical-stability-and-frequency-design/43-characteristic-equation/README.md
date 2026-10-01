@@ -1,167 +1,167 @@
-# 46. Characteristic equations
+# 50. Characteristic equations
 
-You will derive the characteristic equation of a complete feedback loop, including its retained controller state. You will use it to explain the heater mode hidden by setpoint-transfer cancellation and how adding integral action changes the shaft’s dynamics.
+In this lesson, you will derive one equation that contains every natural motion of a connected plant and controller, and check its roots on the shaft after a knock.
 
 ## The problem
 
-The preceding lesson found only one pole in the reduced PI-heater setpoint transfer, although a disturbance still exposed two dynamic factors. Water temperature and the controller's integral are both stored quantities. To predict a response to an initial-state change, we must account for both rather than infer the whole system from one simplified input-output expression.
+Lesson 49 read the shaft's motion from its poles: a first peak at 1.62 s and one swing every 3.24 s. It also showed that one fraction can hide a mode. In the PI-controlled heater, the setpoint response $0.1/(s + 0.1)$ had lost the pole $-0.2$, while the disturbance response still showed it. The poles of a fraction written for one input are not necessarily all the poles of the loop.
 
-The shaft has the same need: feedback signs and a retained integral contribution change the equations governing its motion. We need to derive those complete equations before choosing gains.
+We will derive the loop's poles from the connected equations of plant and controller, with everything the controller stores, and check them on the shaft after a knock.
 
 ## What we need
 
-We need the natural dynamics of the complete connected controller and plant,
-including retained controller states. A cancellation in one input-output
-expression must not hide a mode relevant to another input or initial condition.
+We need to:
+
+1. find one equation whose roots are all the natural motions of the connected plant and controller, before any cancellation;
+2. include every quantity the controller stores; and
+3. use the feedback signs, and the timing, as the program applies them.
 
 ## The new idea
 
-A **characteristic equation** determines the natural modes of a complete
-linear dynamic system. Its roots tell us which exponential rates can occur
-without a continuing external input. We derive it from the connected plant
-and controller states, rather than infer all internal behavior from one
-input-output transfer that may contain a cancellation.
+**The characteristic equation** is the equation whose roots are the closed loop's poles. It comes from the plant and the controller together, and it tells whether every natural motion of the complete loop dies away. Each natural motion is called a **mode**.
 
-Use the no-delay heater calculation from the preceding lesson first, then the same shaft with inertia $J=1$ kg·m², physical damping $B=1$ N·m·s/rad, proportional gain $K_p$, derivative gain $K_d$, torque limit ±20 and controller update $dt=.02$ s. Derive the closed-loop equation, insert a trial exponential, interpret real and complex roots, and test one known candidate. The continuous equation is a model prediction; sampling, saturation and startup limits remain observable implementation effects.
+**In words.** A transfer function written for one input can lose a mode: in Lesson 49's PI loop, the controller's zero cancelled the water's pole from the setpoint response. The complete loop still has every mode, one for each quantity it stores: the heat in the water, the angle and the speed of a shaft, and the controller's own stored values, such as its integral. The characteristic equation is built from all the connected equations at once, before anything is divided out, so no mode can hide. It takes three steps:
 
-For the heater, use deviations $x=T-35$ in °C and $i=I-75$ in command points. Keep setpoint at 35 °C, $K_p=2.5$, $K_i=.5$, filtering bypassed and no disturbance. Omit delivery delay for this model calculation only. The physical balance and controller are
+1. **Write each part as it is applied:** the plant's equation and the control law, with the feedback signs as they are wired.
+2. **Count what is stored.** Each stored quantity gives one root: two stored quantities, an equation of second degree.
+3. **Eliminate** every signal but one, and try a mode $e^{st}$. What remains is one equation in $s$.
 
-$$
-5\dot x+x=.2v,\qquad v=-2.5x+i,\qquad\dot i=-.5x.
-$$
+In PLC terms, the stored quantities are like the variables a program keeps from one scan to the next. The controller's integral is such a variable, and the loop's behaviour depends on it as much as on the water's heat. An equation that leaves it out describes a different program.
 
-Substitution gives two coupled state rates:
+For the shaft under PD control, angle and speed are stored, so the loop has two modes; whether they swing or die away smoothly depends on both gains.
+
+**The formula.** With no input, a linear loop reduces to one equation in one signal $z$:
 
 $$
-\dot x=-.3x+.04i,\qquad\dot i=-.5x.
+a_n\,z^{(n)} + \dots + a_1\,\dot z + a_0\,z = 0 \quad\Longrightarrow\quad a_n s^n + \dots + a_1 s + a_0 = 0 .
 $$
 
-Differentiate the first and use the second to eliminate i:
+Let:
+
+- $z$ be the deviation of the controlled quantity from its target, for example in rad;
+- $z^{(n)}$ be its $n$th derivative, $a_0 \dots a_n$ the constant coefficients of the connected equations; and
+- $s$ be a root, in 1 per second, one for each stored quantity.
+
+The trial $z = A\,e^{st}$ turns every derivative into a factor $s$, which is why the second equation follows from the first. Every root with a negative real part gives a mode that dies away. A root that appears twice gives only one exponential, $e^{st}$; the second mode is then $t\,e^{st}$.
+
+For the shaft $J\ddot\theta + B\dot\theta = u$ under PD control, $u = K_p\,(r - \theta) - K_d\,\dot\theta$, and with $z = \theta - r$ for a fixed target:
 
 $$
-\ddot x=-.3\dot x+.04\dot i
-=-.3\dot x-.02x.
+J\ddot z + (B + K_d)\,\dot z + K_p\,z = 0, \qquad J s^2 + (B + K_d)\,s + K_p = 0 ,
 $$
 
-Trying $x=Ae^{st}$ gives the **characteristic equation**, whose roots describe the connected system's natural modes:
+where $J$ is the inertia in kg·m², $B$ the friction and $K_d$ the derivative gain in N·m·s/rad, and $K_p$ the proportional gain in N·m/rad. The derivative gain acts like extra friction.
+
+**Example 1: the heater and its integral.** Measure the temperature from 35 °C, $x = T - 35$, and let $i$ be the controller's integral, in percent above 75 %. With $K_p = 2.5$ and $K_i = 0.5$, and without the delay:
 
 $$
-s^2+.3s+.02=(s+.1)(s+.2)=0.
+5\dot x + x = 0.2\,v, \qquad v = -2.5\,x + i, \qquad \dot i = -0.5\,x .
 $$
 
-Both −.1 and −.2 s⁻¹ remain in the complete dynamics. The setpoint-transfer cancellation removed a factor from that particular zero-initial-state response, not from these state equations.
-
-For example, raise the initial water temperature by .1 °C while keeping the integral at 75%, so x(0)=.1 and i(0)=0. The initial rate is −.03 °C/s. Write $x=a e^{-.1t}+b e^{-.2t}$; the initial conditions give $a+b=.1$ and $-.1a-.2b=-.03$, hence
-
-$$
-x(t)=-.1e^{-.1t}+.2e^{-.2t}\ \mathrm{°C}.
-$$
-
-This prediction contains both modes. At 5 s it is approximately .012923 °C; at 10 s it is −.009721 °C. The temporary negative deviation occurs because the earlier above-setpoint temperature made control error negative and reduced the integral. The no-delay approximation is essential here: this formula is not the original heater's one-second-delayed physical trace.
-
-Now apply the same reasoning to the shaft. Let $\theta$ be shaft angle in radians and $r$ the target. A local linear shaft model with applied torque $u$ is
+1. **Two stored quantities, two equations.** Putting $v$ into the first: $\dot x = -0.3\,x + 0.04\,i$, and $\dot i = -0.5\,x$.
+2. **Eliminate $i$.** Differentiating the first and replacing $\dot i$: $\ddot x = -0.3\,\dot x - 0.02\,x$.
+3. **Try $e^{st}$:**
 
 $$
-J\ddot\theta+B\dot\theta=u.
+s^2 + 0.3\,s + 0.02 = (s + 0.1)(s + 0.2) = 0 .
 $$
 
-For feedback about target $r$, use $u=K_p(r-\theta)-K_d\dot\theta$. Substitution gives
+Both roots are negative, so every motion dies away, and the $-0.2$ that cancelled from the setpoint response is back. The integral matters: raise the water by 0.1 °C with the integral unchanged, and the solution is $x = -0.1\,e^{-0.1t} + 0.2\,e^{-0.2t}$. It starts at $-0.1 + 0.2 = 0.1$ °C and crosses 0 when $e^{0.1t} = 2$, after $10 \ln 2 = 6.9$ s: the water falls below 35 °C, because the integral fell while the water was warm. Leave the integral out and the equation is $s + 0.3 = 0$, a single decay that never crosses.
+
+**Example 2: the shaft under PD.** With $J = 1$ kg·m², $B = 1$ N·m·s/rad, $K_p = 16$ N·m/rad and $K_d = 7$ N·m·s/rad:
+
+1. The equation is $s^2 + 8s + 16 = (s + 4)^2 = 0$: the root $-4$ per second, twice. Both modes die away, with a time constant of $1/4 = 0.25$ s.
+2. **Signs matter.** With D added the wrong way, $B - K_d = -6$ and the equation is $s^2 - 6s + 16 = 0$, with the roots $3 \pm j2.65$: a growing swing.
+3. **The repeated root's motion.** From a displacement $z_1$ and a velocity $v_1$ at time 0, the two modes $e^{-4t}$ and $t\,e^{-4t}$ combine into
 
 $$
-J\ddot\theta+(B+K_d)\dot\theta+K_p\theta=K_pr.
+z(t) = \big(z_1 + (v_1 + 4\,z_1)\,t\big)\,e^{-4t}, \qquad \dot z(t) = \big(v_1 - 4\,(v_1 + 4\,z_1)\,t\big)\,e^{-4t} .
 $$
 
-For a fixed setpoint r, define z=θ−r. Its derivatives equal those of θ, so subtracting the equilibrium gives $J\ddot z+(B+K_d)\dot z+K_pz=0$. Try $z=Ae^{st}$, where $s$ has units s⁻¹. Its derivatives are $sAe^{st}$ and $s^2Ae^{st}$. Dividing by the nonzero trial amplitude gives the characteristic equation
+4. **A push.** Suppose a push leaves the shaft on its target moving away at $v_1 = 0.5$ rad/s, so $z_1 = 0$ and $z(t) = 0.5\,t\,e^{-4t}$. The factor $t$ lets it rise first, then $e^{-4t}$ wins. The velocity is zero when $0.5 - 2t = 0$, at 0.25 s, where the shaft has gone $0.5 \times 0.25 \times e^{-1} = 0.046$ rad. It comes back fastest at 0.5 s, at $(0.5 - 1.0)\,e^{-2} = -0.068$ rad/s, and after 2 s it is $0.5 \times 2 \times e^{-8} = 0.0003$ rad from the target.
+5. **No swing back.** Real roots cannot make the shaft swing to and fro: $z(t)$ can change sign at most once. Here $z_1 = 0$ and $v_1 + 4\,z_1 = 0.5$, neither negative, so $z(t)$ never changes sign: the shaft returns without passing back through the target.
 
-$$
-Js^2+(B+K_d)s+K_p=0.
-$$
-
-For $J=1,B=1,K_p=16,K_d=7$, this becomes $s^2+8s+16=0=(s+4)^2$, so both roots are $-4\ \mathrm{s^{-1}}$. The continuous model predicts a repeated decaying rate. Repeated roots can produce a term proportional to $t e^{-4t}$, which still decays; it is not an undamped oscillation.
-
-For a general quadratic, roots may be real or a complex conjugate pair. Negative real parts mean the exponential envelope decays. A nonzero imaginary part means position swings with angular frequency given by its magnitude. If coefficients or signs are changed, the root interpretation changes with them. The derivation does not assume that a digital saturated implementation has the same roots.
-
-The PID holding controller adds another retained quantity. With constant setpoint, no external load and integral torque w, the equations are
-
-$$
-J\ddot z+(B+K_d)\dot z+K_pz=w,\qquad\dot w=-K_i z.
-$$
-
-Differentiate the first equation and substitute the second:
-
-$$
-J\dddot z+(B+K_d)\ddot z+K_p\dot z+K_i z=0.
-$$
-
-Its characteristic equation is therefore
-
-$$
-Js^3+(B+K_d)s^2+K_p s+K_i=0.
-$$
-
-For J=1, B=1, Kp=16 and Kd=7, this is $s^3+8s^2+16s+K_i=0$. The stored integral has added a third mode. The P/PD experiments below disable integral action and use the earlier quadratic; the cubic belongs to the controller with its integral state retained.
+**The limitation.** The equation is only as good as the equations it came from: it assumes the law acts continuously and exactly as written, and that the torque stays inside the drive's ±20 N·m. The program calculates the torque every 20 ms and holds it in between. For modes with a time constant of 0.25 s, 20 ms is 8 % of that time, enough to show; the evidence shows how much.
 
 ## Prediction
 
-For the heater, calculate the initial temperature and integral rates at x=.1 and i=0, verify the two factors, and check the 5 s and 10 s values. Explain why its reduced setpoint transfer alone cannot supply this initial-state response. For the shaft, explain why adding w changes the degree from two to three.
+The shaft rests on its target when a knock pushes it with 10 N·m for 0.1 s. When the knock ends, the shaft is 0.0424 rad from the target and moving away at 0.740 rad/s. Before running, answer these questions, with times counted from the start of the knock:
 
-Before running, calculate the characteristic coefficients for $K_p=4,K_d=7$ and $K_p=16,K_d=7$. Confirm that the latter has roots $-4,-4\ \mathrm{s^{-1}}$. Predict the direction of initial torque for a positive position error, the qualitative decay of the known candidate, and why a ±20 torque limit can invalidate the continuous prediction.
+1. Will the shaft swing back through its target?
+2. When does it stop and turn back, and how far has it gone?
+3. How fast does it come back at most?
+4. How far from the target is it 2 s after the start of the knock?
 
-Also predict what a sampled trace can reveal: it can show shrinking peaks and settling, but it cannot by itself prove the exact continuous roots. If the initial request exceeds the torque limit, the linear transient prediction is incomplete. That alone does not make the final position infeasible: the unloaded shaft needs zero holding torque at rest.
+| From $(s + 4)^2$ | Value |
+| --- | ---: |
+| Turning point | 0.101 rad, 0.30 s after the start |
+| Lowest velocity | −0.148 rad/s, 0.55 s after the start |
+| 2 s after the start | 0.0009 rad |
 
 ## Implementation
 
-For the heater model-only check, write the two scalar rates from the same old state:
+Open [`src/Main.st`](src/Main.st). The program runs the shaft under `Control.PID` as PD, $K_p = 16$ N·m/rad and $K_d = 7$ N·m·s/rad on the angle, within ±20 N·m, every 20 ms. When the project experiment starts, a knock of 10 N·m pushes the shaft for 0.1 s. At the knock's end the program stores the measured angle and velocity and writes two predictions from them: `ModeAngleRad` from $(s + 4)^2$, and `SampledModeAngleRad` from the equation of the law as it is applied, explained in the evidence below.
 
-```st
-TemperatureRateCPerS := -0.3 * TemperatureDeviationC
-    + 0.04 * IntegralDeviationPct;
-IntegralRatePctPerS := -0.5 * TemperatureDeviationC;
-```
-
-At the prescribed .1 °C and zero integral-deviation state, these rates are −.03 °C/s and −.05 point/s. If you advance this model, compute both next states before storing either. These calculation channels do not command the heater.
-
-In the shaft project, calculate the characteristic coefficients from the selected $K_p,K_d,J,B$ and expose them for inspection. Do not implement a transform or general root solver. A compact calculation is sufficient:
-
-```st
-DampingRatePerS := (FrictionNmSPerRad + KdNmSPerRad) / InertiaKgM2;
-StiffnessRatePerS2 := KpNmPerRad / InertiaKgM2;
-```
-
-The first coefficient has units s⁻¹ and the second s⁻². For the PID cubic normalized by J, also calculate Ki/J, whose units are s⁻³. Keep it associated with the retained integral-torque state. For Kp=4 and Kd=7, the roots are −4±√12, approximately −0.53590 and −7.46410 s⁻¹. For Kp=16 they coincide at −4 s⁻¹.
-
-The model update should continue to calculate position, velocity and applied torque at $dt=.02$ s. Keep requested and applied torque separate, report saturation, and retain the initial state. A coefficient display is a prediction aid, not a replacement for the running model.
+**ST practice.** Find `DampingCoefficientOf` and `StiffnessCoefficientOf`. For $K_p = 16$ and $K_d = 7$ they give $a_1 = 8$ and $a_0 = 16$, and $a_1^2 - 4a_0 = 0$: one repeated root. Calculate the roots for $K_p = 4$: $s = (-8 \pm \sqrt{48})/2$, that is −0.54 and −7.46 per second. The tests in [`src/tests.st`](src/tests.st), run from the **Testing** view, check these coefficients and roots.
 
 ## Experiment in Control Studio
 
-Before enabling the shaft, use a separate model-only calculation for the heater: initialize x=.1 °C and i=0, omit delay in both calculations, and compare the analytic prediction above with the two scalar state updates over 30 s. At .1 s model increments, require their temperature predictions to agree within .001 °C. This checks the derived initial-state response; it is not a live delayed-heater test.
+1. Open this lesson's project and start **Simulator**. The shaft rests on its 0 rad target. In the **truST** side bar, select **Control Studio**.
+2. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.SetpointRad · Setpoint (rad)`, `P1.AngleRad · Process value (rad)` and `P1.TorqueNm · Applied output (N·m)`; add `P1.VelocityRadS · state (rad/s)`, `P1.KnockTorqueNm · disturbance (N·m)`, `P1.ModeAngleRad · state (rad)` and `P1.SampledModeAngleRad · state (rad)`.
+3. Answer the predictions before starting.
+4. Select **Review project test** and check the declared **5.1 s** duration: 2 s at rest, then 3 s from the knock.
+5. Select **Confirm and start**. After 2 s the knock pushes the shaft for 0.1 s.
+6. After the run, hover the angle's peak, its value 0.5 s and 2 s after the knock's start, and the lowest velocity.
+7. At completion, Control Studio shows **Project test completed. Outputs restored.**
 
-1. Start **Simulator** with angle 0 rad, angular velocity 0 rad/s, setpoint 0 rad, zero applied torque and no load. Disable I and bypass derivative filtering; use the supplied velocity measurement to match the continuous-model question.
-2. In **Control Studio → Monitor → Response**, display angle/error in rad, velocity in rad/s, requested/applied torque in N·m, Kp/Kd, and both calculated characteristic coefficients. Use J=1 kg·m², B=1 N·m·s/rad and the 0.02 s update.
-3. Predict both root pairs before running. With Kd=7 fixed, run a setpoint step 0→1 rad for 8 s at Kp=4, then fully reset and repeat at Kp=16. **Test → Confirm and start** establishes each event's time zero.
-4. Record whether the response decays, whether it oscillates and its time to enter and remain within ±0.02 rad of the setpoint. Compare this with the real-root predictions; do not look for peak spacing when there are no repeated peaks.
-5. Abort for angle outside ±2 rad, velocity outside ±10 rad/s, applied torque outside ±20 N·m or unusable measurements. Disable control and command zero torque, allowing unloaded coasting; stop the simulator if unresponsive and reset fully before repeating.
+Select **Abort test** to stop early. To repeat, stop and restart **Simulator**.
 
 ## Evidence and decision
 
-For the heater, verify the two initial rates, roots −.1 and −.2, and the two-mode initial-state prediction. The retained integral changes the subsequent temperature even when the setpoint does not move. For the PID shaft, identify the integral-torque state that produces the cubic term; do not silently apply its cubic to an I-disabled P/PD record.
+![The shaft returns without swinging through the target, close to the roots of the law as applied](figures/knock-recording.svg)
 
-For $K_p=16,K_d=7$, the algebra checks as $(s+4)^2$. Compare the measured response with a decaying repeated-root prediction while torque is unsaturated. For $K_p=4,K_d=7$, calculate roots from $s^2+8s+4=0$ and predict a slower pair of real decays; report the arithmetic and its units.
+The numbered marks answer the predictions with the same numbers. From the recorded run, times after the start of the knock:
 
-If requested torque clips at ±20, mark the corresponding interval as outside the linear equation and inspect applied torque separately. A stable continuous root does not guarantee a stable sampled saturated hardware loop, and a clipped transient does not by itself prove instability or an infeasible final angle. Use reset, limits and event timing in the evidence record.
+| Time | Angle | From $(s + 4)^2$ | From the sampled law |
+| ---: | ---: | ---: | ---: |
+| 0.28 s, peak | 0.0953 rad | 0.1003 rad | 0.0942 rad |
+| 0.5 s | 0.0725 rad | 0.0820 rad | 0.0719 rad |
+| 1 s | 0.0198 rad | 0.0235 rad | 0.0198 rad |
+| 2 s | 0.0010 rad | 0.0009 rad | 0.0010 rad |
 
-The characteristic equation is formed after feedback signs are substituted. If derivative feedback is accidentally added instead of subtracted, the coefficient of $s$ changes and so does the root prediction. Check the physical sign first: positive velocity should make derivative feedback oppose motion. Also check that $K_p$ has units consistent with torque per radian and that $J$ and $B+K_d$ produce common units.
+1. The shaft returned to its target without passing it, as $z(t)$ requires: real roots, and $z_1$ and $v_1 + 4\,z_1$ both positive.
+2. It turned at 0.28 s, at 0.0953 rad, slightly earlier and lower than the 0.101 rad that $(s + 4)^2$ predicts.
+3. Its lowest velocity was −0.147 rad/s at 0.5 s; $(s + 4)^2$ predicts −0.148 rad/s at 0.55 s.
+4. After 2 s it was 0.0010 rad from the target.
 
-The repeated-root example shows why “two negative roots” is not a complete response description. The time multiplier $t$ changes transient shape even though the envelope decays. Use the running curve to assess settling and torque demand, then use roots to explain the trend rather than replacing evidence with a root label.
+The shape follows $(s + 4)^2$, but the angle stayed up to 0.0096 rad below it during the first second. The feedback actually applied is sampled: each torque is held for 20 ms, so P acts on average 10 ms late, and D uses the angle change over the last update, so it acts 20 ms late. With a delay $\tau$ multiplying a term by about $1 - s\tau$:
 
-The characteristic polynomial is a compact statement of the feedback signs and physical coefficients. It does not include the actuator's torque limit, sample-and-hold behavior, sensor delay or mode transitions. Those boundaries belong in the experiment and can change which equation is active.
+$$
+s^2 + s + 16\,(1 - 0.01s) + 7s\,(1 - 0.02s) = 0.86\,s^2 + 7.84\,s + 16 = 0 ,
+$$
+
+with the roots −3.08 and −6.03 per second: the repeated root has split in two. The prediction from these roots followed the shaft within 0.0012 rad and 0.016 rad/s, and the torque stayed between −5.64 and 0.12 N·m, far from its limits. The characteristic equation must describe the feedback law as applied, delays included. These are simulation results.
 
 ## Conclusion
 
-The characteristic equation comes from the complete connected dynamics. The heater's temperature and integral state retain both modes even when one cancels from its setpoint transfer. The shaft's P/PD dynamics give a quadratic; retaining integral torque gives a cubic. The appropriate equation must be established before its roots can guide a controller decision.
+The characteristic equation comes from the connected equations of plant and controller, with every stored quantity and the signs and delays of the law as applied. Its roots are all the loop's modes; a mode that cancels from one transfer function is still among them.
+
+For the shaft under PD, the real roots predicted a return without swinging through the target; the sampled law's split roots matched the recorded motion within 0.0012 rad.
+
+## Check yourself
+
+1. **What are the shaft's roots for $K_p = 4$ and $K_d = 7$, and which one decides how long a disturbance lasts?**
+   $s^2 + 8s + 4 = 0$ gives −0.54 and −7.46 per second. The slower root, −0.54, decides: $e^{-0.54t}$ still
+   leaves a third after 2 s.
+2. **Why must the controller's integral be in the heater's characteristic equation?**
+   It is a stored quantity that changes with the error. Leaving it out removes a mode and wrongly predicts that a
+   raised water temperature never falls below 35 °C.
+3. **With D added the wrong way, the roots are $3 \pm j2.65$. What does the shaft do?**
+   The positive real part makes the motion grow: the shaft swings with growing amplitude, once every
+   $2\pi/2.65 = 2.37$ s.
 
 ## Reason for the next lesson
 
-We can now derive the relevant mode equation for a chosen controller. Checking isolated gain values does not yet show how the modes move as a gain changes, or which choices can meet a desired decay rate.
+We checked one choice of gains, $K_p = 16$. To choose gains, we need to know how the loop's poles move when a gain changes; one equation for one gain does not show that.
 
-[Root locus](../45-root-locus/README.md) follows those pole movements on the familiar shaft while varying one gain and holding the other controller and plant properties fixed.
+[Root locus](../45-root-locus/README.md) follows the shaft's poles while one gain varies and everything else stays fixed.

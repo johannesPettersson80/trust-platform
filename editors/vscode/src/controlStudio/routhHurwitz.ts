@@ -1,3 +1,4 @@
+import { powerOfS } from "./powerNotation";
 import { decodeDeclaredAnalysis, type DeclaredCoefficient, type DeclaredControlAnalysis } from "./declaredAnalysis";
 import { auxiliaryDerivativeRow } from "./routhSpecialCases";
 import { hurwitzPositiveInterval } from "./routhRegions";
@@ -84,24 +85,24 @@ export function analyzeRouthPolynomial(coefficients: readonly number[]): RouthPo
     const prior = table[row - 2];
     let pivotRow = table[row - 1];
     if (pivotRow.every(value => value === 0)) {
-      issues.push({ kind: "all-zero-row", explanation: `The s^${degree - row + 1} row is all zero; its auxiliary-polynomial case requires separate analysis.` });
+      issues.push({ kind: "all-zero-row", explanation: `The ${powerOfS(degree - row + 1)} row is all zero; its auxiliary-polynomial case requires separate analysis.` });
       table[row - 1] = auxiliaryDerivativeRow(prior, degree - row + 2, columns);
       pivotRow = table[row - 1];
     }
     const pivot = table[row - 1][0];
     if (pivot === 0) {
-      issues.push({ kind: "zero-pivot", explanation: `The s^${degree - row + 1} row has a zero first-column pivot; no epsilon substitution was made.` });
+      issues.push({ kind: "zero-pivot", explanation: `The ${powerOfS(degree - row + 1)} row has a zero first-column pivot; no epsilon substitution was made.` });
       break;
     }
     if (Math.abs(pivot) <= scale * RELATIVE_PIVOT_TOLERANCE) {
-      issues.push({ kind: "near-zero-pivot", explanation: `The s^${degree - row + 1} first-column pivot is too small relative to the polynomial scale for a confident count.` });
+      issues.push({ kind: "near-zero-pivot", explanation: `The ${powerOfS(degree - row + 1)} first-column pivot is too small relative to the polynomial scale for a confident count.` });
       break;
     }
     for (let column = 0; column < columns - 1; column += 1) {
       const result = (pivot * prior[column + 1] - prior[0] * pivotRow[column + 1]) / pivot;
       calculations[row].push({ column, a0: prior[0], aNext: prior[column + 1], b0: pivot, bNext: pivotRow[column + 1], result });
       if (!Number.isFinite(result)) {
-        issues.push({ kind: "numerical-overflow", explanation: `The s^${degree - row} row overflowed or lost finite numerical representation.` });
+        issues.push({ kind: "numerical-overflow", explanation: `The ${powerOfS(degree - row)} row overflowed or lost finite numerical representation.` });
         break;
       }
       table[row][column] = result;
@@ -109,7 +110,7 @@ export function analyzeRouthPolynomial(coefficients: readonly number[]): RouthPo
     if (issues.some(issue => issue.kind === "numerical-overflow")) break;
     computedRows = row + 1;
     if (table[row].every(value => value === 0)) {
-      issues.push({ kind: "all-zero-row", explanation: `The s^${degree - row} row is all zero; its auxiliary-polynomial case requires separate analysis.` });
+      issues.push({ kind: "all-zero-row", explanation: `The ${powerOfS(degree - row)} row is all zero; its auxiliary-polynomial case requires separate analysis.` });
       break;
     }
   }
@@ -125,8 +126,13 @@ export function analyzeRouthPolynomial(coefficients: readonly number[]): RouthPo
     firstColumn = special.signs.map(value => ({ value, sign: signOf(value) }));
     const signChanges = firstColumn.slice(1).reduce((count, entry, index) => count + (entry.sign !== firstColumn[index].sign ? 1 : 0), 0);
     const status: RouthStatus = special.boundary ? "boundary" : "qualified";
+    // The exact table resolved every all-zero row: say how, instead of deferring it to a separate analysis.
+    const resolved = issues.map(issue => issue.kind === "all-zero-row" ? { ...issue, explanation: `${issue.explanation.replace(/; its auxiliary-polynomial case requires separate analysis\.$/, ".")} `
+      + "The row above it defines an auxiliary polynomial whose roots are symmetric about the origin; the exact table replaces the zero row with that polynomial's derivative." } : issue);
+    const method = special.allZeroRow && special.zeroPivot ? "the exact Routh recurrence with the auxiliary polynomial and a formal ε"
+      : special.allZeroRow ? "the exact Routh recurrence with the auxiliary polynomial" : "the exact formal-ε Routh recurrence";
     return { status, coefficients: original, rows, symbolicRows: special.rows, firstColumn, signChanges, stable: status === "qualified" && signChanges === 0,
-      interpretation: `${issues.some(issue => issue.kind === "origin-pole") ? "An origin pole excludes strict stability. " : special.boundary ? "The auxiliary polynomial establishes imaginary-axis poles and excludes strict stability. " : ""}${signChanges} right-half-plane poles established by the exact formal-ε Routh recurrence.`, issues };
+      interpretation: `${issues.some(issue => issue.kind === "origin-pole") ? "An origin pole excludes strict stability. " : special.boundary ? "The auxiliary polynomial establishes imaginary-axis poles and excludes strict stability. " : ""}${signChanges} right-half-plane poles established by ${method}.`, issues: resolved };
   }
   if (!issues.some(issue => issue.kind === "near-zero-pivot" || issue.kind === "numerical-overflow")
       && firstColumn.some(entry => entry.value !== 0 && Math.abs(entry.value) <= scale * RELATIVE_PIVOT_TOLERANCE)) {

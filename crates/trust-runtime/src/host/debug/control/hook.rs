@@ -6,7 +6,7 @@ impl Default for DebugControl {
 
 impl DebugHook for DebugControl {
     fn on_statement(&mut self, location: Option<&SourceLocation>, call_depth: u32) {
-        self.on_statement_inner(location, call_depth, None);
+        self.on_statement_inner(location, call_depth, None, None);
     }
 
     fn on_statement_with_context(
@@ -15,20 +15,33 @@ impl DebugHook for DebugControl {
         location: Option<&SourceLocation>,
         call_depth: u32,
     ) {
-        self.on_statement_inner(location, call_depth, Some(ctx));
+        self.on_statement_inner(location, call_depth, Some(ctx), None);
     }
 }
 
 impl DebugControl {
+    /// The statement hook for executors without an evaluation context, such as the bytecode VM. A stop at this statement
+    /// snapshots `storage` at this boundary; a statement that does not stop copies nothing.
+    pub fn on_vm_statement(
+        &mut self,
+        location: Option<&SourceLocation>,
+        call_depth: u32,
+        storage: &crate::memory::VariableStorage,
+        now: crate::value::Duration,
+    ) {
+        self.on_statement_inner(location, call_depth, None, Some((storage, now)));
+    }
+
     fn on_statement_inner(
         &mut self,
         location: Option<&SourceLocation>,
         call_depth: u32,
         mut ctx: Option<&mut DebugRuntimeContext<'_>>,
+        stop_storage: Option<(&crate::memory::VariableStorage, crate::value::Duration)>,
     ) {
         let (lock, cvar) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        trace_debug(&format!(
+        trace_debug_with(|| format!(
             "hook.entry location={} depth={} mode={:?} current_thread={:?} target_thread={:?} pending_stop={:?} steps={} breakpoints={}",
             format_location_ref(location),
             call_depth,
@@ -57,7 +70,7 @@ impl DebugControl {
             state.target_thread.is_none() || state.target_thread == state.current_thread;
         if matches!(state.mode, DebugMode::Paused) && is_target_thread {
             if let Some(reason) = state.pending_stop.take() {
-                trace_debug(&format!(
+                trace_debug_with(|| format!(
                     "hook.pending_stop.consume reason={reason:?} location={} thread={:?}",
                     format_location_ref(location),
                     state.current_thread
@@ -65,6 +78,8 @@ impl DebugControl {
                 if let Some(eval_ctx) = ctx.as_mut() {
                     update_watch_snapshot(&mut state, eval_ctx);
                     update_snapshot(&mut state, eval_ctx);
+                } else if let Some((storage, now)) = stop_storage {
+                    snapshot_storage(&mut state, storage, now);
                 }
                 emit_stop(&mut state, reason, location.copied(), None);
             }
@@ -74,7 +89,7 @@ impl DebugControl {
         } else {
             DebugMode::Running
         };
-        trace_debug(&format!(
+        trace_debug_with(|| format!(
             "hook.decision effective_mode={effective_mode:?} is_target_thread={} location={}",
             is_target_thread,
             format_location_ref(location)
@@ -92,7 +107,7 @@ impl DebugControl {
                     if let Some(step) = state.steps.get_mut(&step_key) {
                         if !step.started {
                             step.started = true;
-                            trace_debug(&format!(
+                            trace_debug_with(|| format!(
                                 "hook.step.arm key={} kind={:?} target_depth={} current_depth={}",
                                 step_key, step.kind, step.target_depth, call_depth
                             ));
@@ -102,7 +117,7 @@ impl DebugControl {
                                 StepKind::Over => call_depth <= step.target_depth,
                                 StepKind::Out => call_depth <= step.target_depth,
                             };
-                            trace_debug(&format!(
+                            trace_debug_with(|| format!(
                                 "hook.step.check key={} kind={:?} target_depth={} current_depth={} should_pause={}",
                                 step_key, step.kind, step.target_depth, call_depth, should_pause
                             ));
@@ -132,7 +147,7 @@ impl DebugControl {
                         &mut ctx,
                     )
                 };
-                trace_debug(&format!(
+                trace_debug_with(|| format!(
                     "hook.breakpoint.check location={} matched_generation={:?}",
                     format_location_ref(Some(location)),
                     breakpoint_generation
@@ -150,7 +165,7 @@ impl DebugControl {
                 state.mode = DebugMode::Paused;
                 if let Some(reason) = stop_reason {
                     state.pending_stop = None;
-                    trace_debug(&format!(
+                    trace_debug_with(|| format!(
                         "hook.pause.enter reason={reason:?} generation={:?} location={} thread={:?}",
                         stop_generation,
                         format_location_ref(Some(location)),
@@ -159,6 +174,8 @@ impl DebugControl {
                     if let Some(eval_ctx) = ctx.as_mut() {
                         update_watch_snapshot(&mut state, eval_ctx);
                         update_snapshot(&mut state, eval_ctx);
+                    } else if let Some((storage, now)) = stop_storage {
+                        snapshot_storage(&mut state, storage, now);
                     }
                     emit_stop(&mut state, reason, Some(*location), stop_generation);
                 }
@@ -169,7 +186,7 @@ impl DebugControl {
                 state.target_thread.is_none() || state.target_thread == state.current_thread;
             if matches!(state.mode, DebugMode::Paused) && is_target_thread {
                 if let Some(reason) = state.pending_stop.take() {
-                    trace_debug(&format!(
+                    trace_debug_with(|| format!(
                         "hook.pending_stop.consume reason={reason:?} location={} thread={:?}",
                         format_location_ref(location),
                         state.current_thread
@@ -177,13 +194,15 @@ impl DebugControl {
                     if let Some(eval_ctx) = ctx.as_mut() {
                         update_watch_snapshot(&mut state, eval_ctx);
                         update_snapshot(&mut state, eval_ctx);
+                    } else if let Some((storage, now)) = stop_storage {
+                        snapshot_storage(&mut state, storage, now);
                     }
                     emit_stop(&mut state, reason, location.copied(), None);
                 }
             }
             match state.mode {
                 DebugMode::Running => {
-                    trace_debug(&format!(
+                    trace_debug_with(|| format!(
                         "hook.exit reason=running location={} thread={:?}",
                         format_location_ref(location),
                         state.current_thread
@@ -192,7 +211,7 @@ impl DebugControl {
                 }
                 DebugMode::Paused => {
                     if !is_target_thread {
-                        trace_debug(&format!(
+                        trace_debug_with(|| format!(
                             "hook.exit reason=paused_non_target location={} current_thread={:?} target_thread={:?}",
                             format_location_ref(location),
                             state.current_thread,
@@ -200,7 +219,7 @@ impl DebugControl {
                         ));
                         return;
                     }
-                    trace_debug(&format!(
+                    trace_debug_with(|| format!(
                         "hook.wait location={} current_thread={:?} target_thread={:?}",
                         format_location_ref(location),
                         state.current_thread,
@@ -209,7 +228,7 @@ impl DebugControl {
                     let wait_started = std::time::Instant::now();
                     state = cvar.wait(state).expect("debug state poisoned");
                     self.record_watchdog_pause(wait_started.elapsed());
-                    trace_debug(&format!(
+                    trace_debug_with(|| format!(
                         "hook.wake mode={:?} location={} current_thread={:?} target_thread={:?}",
                         state.mode,
                         format_location_ref(location),
@@ -234,7 +253,7 @@ fn emit_stop(
     location: Option<SourceLocation>,
     breakpoint_generation: Option<u64>,
 ) {
-    trace_debug(&format!(
+    trace_debug_with(|| format!(
         "stop reason={reason:?} location={:?} thread={:?}",
         location, state.current_thread
     ));
@@ -273,6 +292,13 @@ fn update_watch_snapshot(state: &mut DebugState, ctx: &mut DebugRuntimeContext<'
     if changed {
         state.watch_changed = true;
     }
+}
+
+fn snapshot_storage(state: &mut DebugState, storage: &crate::memory::VariableStorage, now: crate::value::Duration) {
+    state.snapshot = Some(DebugSnapshot {
+        storage: storage.clone(),
+        now,
+    });
 }
 
 fn update_snapshot(state: &mut DebugState, ctx: &mut DebugRuntimeContext<'_>) {

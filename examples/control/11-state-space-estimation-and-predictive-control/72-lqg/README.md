@@ -1,86 +1,140 @@
-# 74. LQG control
+# 81. LQG control
 
-You will combine the two-tank state-feedback controller with a Kalman filter. You will test how estimating the upstream level changes level regulation and pump demand compared with using both levels directly.
+In this lesson, you will feed the LQR gains with a Kalman filter's estimate of tank 1, let Control Studio design both, and compare the result with the same gains on both measured levels after a slug the estimator is not told about.
 
 ## The problem
 
-State feedback uses both level deviations, but the proposed installation measures only the downstream tank. The Kalman filter can estimate the missing upstream level. The remaining question is whether those estimates are accurate enough for the controller to meet the same requirements.
+Lesson 80's LQR with $R = 40000$ turned the pump down to 0.00845 m³/s the second after the slug and brought both levels within 2 mm 22 s later. It could do that because it measured both levels. The real installation measures only tank 2, so tank 1 must come from an estimate.
 
-Complete [state estimation](../71-kalman-filter/README.md) and [LQR design](../69-lqr/README.md) before this lesson. Keep the same two gravity tanks, local model and .25 m operating level.
+We will apply the LQR gains to a Kalman filter's estimate of tank 1 and compare the result with feedback on both measured levels, under the same noise and the same slug.
 
 ## What we need
 
-We need to run the state-feedback controller when only the downstream level
-is measured. We must connect the estimator and controller correctly and
-establish what relying on estimates costs in level regulation and pump demand.
+We need to:
+
+1. calculate the pump from the estimated state, in the right order each second;
+2. design the feedback gains and the estimator gains; and
+3. compare the result with feedback on both measured levels.
 
 ## The new idea
 
-**Linear-quadratic-Gaussian control**, or **LQG**, combines LQR state feedback
-with a Kalman state estimator. LQR tells us how to use the state to choose
-control action; the filter supplies an estimate when all states are not
-directly measured. We now connect those two calculations in the actual update order.
+**LQG** feeds the Kalman filter's estimates into the LQR law, so the optimal feedback works with only the measured level. For the tanks, the pump acts on the filter's estimate of tank 1 as if it were measured.
 
-Use the one-second prediction model and uncertainty assumptions:
+**In words.** Lesson 80's LQR needs both levels; lesson 79's Kalman filter estimates both from tank 2's readings. LQG puts the two together: every second the filter gives its best estimate of both levels, and the LQR law uses that estimate in place of measurements. In PLC terms it is like a calculated substitute value that the control logic uses as if it came from a transmitter. The parts:
+
+1. **The estimator.** Lesson 79's Kalman filter predicts with the model and the pump command that was applied, and corrects with tank 2's reading.
+2. **The law.** Lesson 80's LQR gains, applied to the estimate.
+3. **The order.** Each second the estimate is predicted and corrected first, and only then is the command calculated, so it uses the newest reading.
+
+The two halves are designed separately: the gains as if both levels were measured, the filter as if it only watched. For the tanks this means the pump reacts to tank 1's water only as far as the estimate shows it, and the estimate knows only three things: the model, the commands and the readings.
+
+**The formula.**
 
 $$
-A_d=\begin{bmatrix}.96&0\\.04&.96\end{bmatrix},\quad B_d=\begin{bmatrix}2\\0\end{bmatrix},\quad C=\begin{bmatrix}0&1\end{bmatrix},
+v_k = -K\hat x_k^+, \qquad q_k = 0.010 + v_k\ \mathrm{m^3/s},
 $$
 
-$$
-Q_w=\operatorname{diag}(10^{-6},10^{-6})\ \mathrm{m^2},\quad R_n=25\times10^{-6}\ \mathrm{m^2}.
-$$
+with the setpoint term $N(r - 0.25)$ added as before. Each second runs three steps:
 
-Here $Q_w$ is the covariance added per one-second prediction. Use the 20-step LQR design with level weight $Q_x=400I$, pump weight $R_u=40000$, and gain $K=[.0787402564,.0238743039]$ m²/s. The control weights penalize errors and effort; the covariance values describe assumed estimation uncertainty.
+1. **Predict** from the previous estimate and the command actually applied last second: $\hat x^-_k = A_d\hat x^+_{k-1} + B_dv_{k-1}$.
+2. **Correct** with the new reading of tank 2: $\hat x^+_k = \hat x^-_k + L(y_k - C\hat x^-_k)$.
+3. **Command**: only then calculate $v_k = -K\hat x^+_k$.
 
-Start with physical levels .27 m and .25 m, so $x=[.02,0]^T$. Initialize estimate $\hat x=[0,0]^T$ and covariance $P=10^{-4}I$. The nominal flow is .010 m³/s. Require both physical level deviations within ±.002 m from 50–60 s, applied flow 0–.020 m³/s, and physical levels .05–.45 m.
+- $K = [k_1, k_2]$ holds the LQR gains, in m²/s;
+- $\hat x^-_k$ and $\hat x^+_k$ are the estimated level deviations before and after the correction, in metres;
+- $v_{k-1}$ is the pump correction applied during the last second, in m³/s;
+- $A_d$, $B_d$ and $C = [0, 1]$ are lesson 79's one-second model, and $y_k$ is tank 2's reading, in metres;
+- $L = [l_1, l_2]^T$ is the filter's settled gain, in metres of correction per metre of disagreement: the Kalman gain stops changing after a few seconds, and the program uses that final value. It follows from the reading's noise variance, $(5\ \text{mm})^2$, and the **process noise** $Q$: the unexplained change per second that the filter allows each level, in m².
 
-Use estimated-state feedback $v=-K\hat x$, then command absolute flow $q=.010+v$. Compare it with a full-state reference $v=-Kx$. The reference has both levels; it lets us measure the cost of relying on one sensor and a model. Simulation truth is not an input to the estimated-state controller.
+A command that was requested but not applied, for example because the pump clipped it, would give the model a wrong history of what entered tank 1.
 
-**LQG** means linear-quadratic-Gaussian: linear dynamics, quadratic control cost, and Gaussian noise assumptions. Gaussian noise has a bell-shaped distribution described by its mean and variance. Under the appropriate unconstrained linear assumptions, state-feedback and estimator designs can be combined using the separation principle: their stable error modes can be designed separately. A finite horizon, bounded pump, nonlinear tank model and deterministic noise record must still be assessed on their actual terms; naming the arrangement LQG does not establish optimality for those conditions.
+The name is short for linear-quadratic-Gaussian: a linear model, a quadratic cost, and noise with a bell-shaped (Gaussian) spread. Under those assumptions the **separation principle** holds: the best gains and the best estimator can be designed separately and simply combined. The pump limit and the tanks' curved outflow lie outside those assumptions, so the combination must still be tested.
 
-At time zero, the full-state reference requests $.010-.0787402564(.02)=.008425195$ m³/s. The estimated-state controller initially requests .010 m³/s because its initialized estimate is zero. It cannot immediately respond to an upstream deviation that the downstream measurement has not yet revealed.
+**Example: one second of the controller.** Take $K = [0.0787, 0.0239]$ m²/s and the filter gain $L = [0.239, 0.106]$. Last second the estimate was $\hat x^+ = [0.010, 0.004]$ m and the applied correction $-0.0009$ m³/s; now tank 2 reads 5.2 mm above rest.
 
-From the next sample onward, first predict the state and covariance using the **previous applied** pump deviation. Then correct with the current downstream measurement. Finally calculate the new pump request from the corrected estimate. Using the requested flow in prediction when the actuator applied a different flow would introduce an avoidable model error.
+1. Predict: $\hat x^- = [0.96 \cdot 0.010 + 2 \cdot (-0.0009),\ 0.04 \cdot 0.010 + 0.96 \cdot 0.004] = [0.0078, 0.00424]$ m. The model expects tank 2 at 4.24 mm.
+2. Correct: the disagreement is $0.0052 - 0.00424 = 0.00096$ m, so $\hat x^+ = [0.0078 + 0.239 \cdot 0.00096,\ 0.00424 + 0.106 \cdot 0.00096] = [0.00803, 0.00434]$ m. Tank 2 is higher than expected, so the filter also raises tank 1's estimate, by 0.23 mm.
+3. Command: $v = -(0.0787 \cdot 0.00803 + 0.0239 \cdot 0.00434) = -0.00074$ m³/s, so the pump runs at 0.00926 m³/s.
+
+With $L = [0.0023, 0.0068]$ instead, the same 0.96 mm disagreement raises tank 1's estimate by $0.0023 \cdot 0.96 = 0.0022$ mm: a hundred times less.
+
+**The limitation.** The estimate knows only the model, the commands and the readings. Water poured into tank 1 from outside is in none of them: it shows only as tank 2 rises more than predicted, and the filter puts that disagreement down to tank 1 only as far as its process noise $Q$ lets tank 1 change unexplained. $Q_{11} = 10^{-8}$ m², the model's error alone, allows about $\sqrt{10^{-8}} = 0.1$ mm per second and gives $L = [0.0023, 0.0068]$; $Q_{11} = 4 \cdot 10^{-6}$ m² allows about 2 mm per second and gives $L = [0.239, 0.106]$. A larger $L$ also moves the estimate further with every noisy reading. These two settings are a teaching choice that shows the trade-off.
 
 ## Prediction
 
-Calculate the two initial commands. Explain why their difference follows from available information rather than different controller gains. Predict how sensor noise can move the estimated pump command, and identify which traces distinguish estimation error from actual level error.
+Before running, answer these questions:
+
+1. What pump flow does $v = -K\hat x^+$ give at $\hat x^+ = [0.02, 0]^T$ with $K = [0.0787, 0.0239]$?
+2. After the slug, how does the pump react with the model's error alone?
+3. How does the estimate behave with upsets allowed?
+4. Which of the three controllers keeps both levels within 2 mm 50–60 s after the slug?
+
+| Setting | Estimator gain $L$ | Expected behaviour |
+| --- | ---: | --- |
+| Full state, tank 1 measured | — | reacts at once |
+| LQG, model error only | $[0.0023, 0.0068]$ | barely sees the slug |
+| LQG, upsets allowed | $[0.239, 0.106]$ | catches up, noisier |
 
 ## Implementation
 
-Write the integration of the existing Kalman update and state-feedback calculation. Keep `PreviousAppliedFlowM3PerS`, the two estimate entries, four covariance entries, and the two gains in named state or parameter records. After prediction and correction, calculate
+Open [`src/Main.st`](src/Main.st). The rig has two cascades with the same gains: A measures both levels, B measures only tank 2 and uses the estimate. Both read tank 2 with the same 5 mm noise. B's estimator predicts from its old estimate and the command it gave last second, corrects with the new reading, and then the command is calculated. The experiment returns tank 2's setpoint to 0.25 m for 60 s and then pours the slug into both: 0.020 m³/s for one second. The slug stands for water from outside, so B's estimator is told its controller's command, not the slug. Each cascade adds up the level and effort costs after the slug, and B scores its estimate against the true tank 1, which the estimator never uses.
 
-```st
-RequestedFlowM3PerS := 0.010
-    - Gain1 * StateHat[1]
-    - Gain2 * StateHat[2];
-```
-
-Limit the complete flow request, apply it, and retain that applied value for the next prediction. Do not reinitialize the estimate at every scan. On invalid or stale downstream data, freeze the estimate and covariance, command zero pump flow, and require deliberate reinitialization before resuming. Zero inflow allows gravity drainage; stop the simulator rather than treating it as a level-holding mode.
+**Exercise.** By hand, at $\hat x^+ = [0.02, 0]^T$: $q = 0.010 - 0.0787 \cdot 0.02 - 0.0239 \cdot 0 = 0.00843$ m³/s, the same as with measured levels: the law cannot tell a measured state from an estimated one. Then run [`src/tests.st`](src/tests.st) from the **Testing** view; it checks one estimator step, this command and the costs.
 
 ## Experiment in Control Studio
 
-1. Reset to the stated physical levels, zero estimate and initial covariance. At **Confirm and start**, begin a 60 s record and apply the initial command calculated from each controller’s available state. The first predict/measurement/correct cycle occurs at 1 s.
-2. Run the full-state reference and estimated-state controller in separate full resets. Use the same gains, one-second clock, physical model, requirements and actuator limits.
-3. Add the same sequence of sensor errors, $[-.005,+.005,+.005,-.005]$ m repeated once per second, to each run’s own downstream level measurement. Reuse the additive errors, not the complete measured-level record: different pump commands create different physical trajectories. The full-state reference uses ideal measured levels; the Kalman filter uses only noisy tank 2.
-4. Display physical levels, estimated levels, level errors, estimation errors, innovation, covariance, requested/applied flow and clipping. Compare the late error requirement, estimation RMSE, and the same unweighted sums of squared pump deviations for both controllers.
-5. Abort on physical level or applied-flow violations, invalid data or clock, or failed fallback. Command zero inflow, stop the simulator if needed, and reset plant and estimator before repeating. Assess any planned stale-data test separately from these two valid-data records.
+1. Open this lesson's project and start **Simulator**. Both cascades rest at 0.25 m with 0.010 m³/s. In the **truST** side bar, select **Control Studio**.
+2. On **Identify**, choose **Supplied plant model** from **Method** and open `lqg-model.json`: the one-second model with only tank 2 measured.
+3. On **Tune**, open **Requirements…** and enter **Setpoint change (m)** 0.01, **Maximum steady-state error (m)** 0.002, **Maximum settling time (s)** 90, **Settling band (±m)** 0.001 and **Validation duration (s)** 120; select **Done**.
+4. Choose **Controller** **P1 · LQG** and **Tuning method** **State-space design**. Set **Solver policy** **Finite-horizon (fixed policy)**, **State weights (Q)** `[[400, 0], [0, 400]]`, **Input weights (R)** `[[40000]]`, **Process noise covariance** `[[1e-8, 0], [0, 1e-8]]`, **Measurement noise covariance** `[[2.5e-5]]`, **Finite horizon steps** 20 and **Terminal weights** `[[400, 0], [0, 400]]`, and press **Tune controller**.
+5. On **Validate**, press **Validate controller**, then **Apply**.
+6. On **Identify**, choose **Project experiment**. **Signals** shows `P1.Tank2SetpointM · Setpoint (m)`, `P1.EstimatedTank2M · Process value (m)` and `P1.EstimatedPumpM3PerS · Applied output (m3/s)`; add `P1.FullStateTank2M · state (m)`, `P1.FullStatePumpM3PerS · state (m3/s)`, `P1.EstimatedTank1M · state (m)` and `P1.EstimateTank1M · state (m)`. Select **Review project test**, check the declared **124 s** and select **Confirm and start**. The slug comes about 62 s later.
+7. After the run, hover 1 s, 20 s and 55 s after the slug, and the end of `P1.EstimationRmsM`, `P1.FullStateLatePeakM` and `P1.EstimatedLatePeakM`.
+8. Restart **Simulator** and repeat steps 4–7 with **Process noise covariance** `[[4e-6, 0], [0, 1e-8]]`. Each run ends with **Project test completed. Outputs restored.**
+
+Select **Abort test** to stop early.
 
 ## Evidence and decision
 
-Judge level regulation, estimation accuracy and pump demand separately. The full-state reference is a useful benchmark; it does not demonstrate what one physical sensor can observe instantly. If estimated-state control fails the fixed requirement, identify whether the early hidden-state error, noise weighting, local-model error or actuator limit accounts for the failure.
+![With tank 1 measured the pump reacts at once; the blind estimator lets tank 2 rise like an uncontrolled tank; allowing upsets catches up](figures/lqg-slug.svg)
 
-The repeating bounded noise sequence is a reproducible comparison. It has temporal correlation and is not a sample of independent Gaussian noise, so it does not verify the Gaussian optimality assumptions.
+The numbered marks answer predictions 2–4. **Tune controller** gave **Gain K1** 0.0787, **Gain K2** 0.0239 and **Reference gain N** 0.1226 m3/s/m in both runs, with **Estimator gain L1** and **L2** 0.002255 and 0.006778 for the model's error alone and 0.2393 and 0.1056 with upsets allowed. **Validate controller** passed both: the setpoint step settled in 38 s, and the estimator, started 4 mm wrong, recovered in 52 s and 34 s. Neither trial adds water from outside.
+
+1. At $\hat x^+ = [0.02, 0]^T$ the pump flow is 0.00843 m³/s, as with measured levels.
+
+From Control Studio's two recordings, times after the slug:
+
+| Controller | Pump at 1 s | Tank 2 peak | Largest deviation 50–60 s | Level cost | Effort cost | Estimate RMS error |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Full state | 0.00840 m³/s | +2.9 mm at 9 s | 0.58 mm | 0.469 | 0.321 | — |
+| LQG, model error only | 0.009997 m³/s | +7.4 mm at 25 s | 5.28 mm | 2.77 | 0.000 | 9.0 mm |
+| LQG, upsets allowed | 0.00990 m³/s | +5.4 mm at 17 s | 1.69 mm | 1.39 | 0.091 | 6.4 mm |
+
+2. With the model's error alone the estimate of tank 1 hardly moved: 30 s after the slug it read 0.2499 m while tank 1 stood at 0.2558 m. The pump stayed at 0.010 m³/s, and tank 2 rose 7.4 mm, as if uncontrolled.
+3. With upsets allowed the estimate caught up within 20 s, from 17.3 mm low to 2.6 mm low, and the pump reacted; both levels were within 2 mm from 42 s after the slug.
+4. Full-state feedback and LQG with upsets allowed met the 2 mm requirement 50–60 s after the slug; LQG with the model's error alone did not.
+
+The cost of estimating tank 1 is level deviation: three times the full-state level cost even with upsets allowed. LQG with upsets allowed is accepted for these tanks with only tank 2 measured; LQG with the model's error alone is rejected, because it cannot see water it was not told about. Where tank 1 can be measured, measuring it is better. These are simulation results; the true tank 1 level was used only to score the estimate.
 
 ## Conclusion
 
-Estimated-state control connects a model and one measurement to a controller that needs both levels. Correct update order and actual applied-flow feedback preserve that connection; matched experiments establish its practical cost and accuracy.
+LQG applies the LQR gains to the Kalman filter's estimate, and the two are designed separately: the law cannot tell an estimated state from a measured one.
+
+The estimate knows only what the model, the commands and the readings tell it, so an upset from outside reaches the pump only as fast as the process noise lets the filter believe tank 1 changed.
+
+## Check yourself
+
+1. **At $\hat x^+ = [0.01, 0.005]^T$, what pump flow does the LQG law give?**
+   $q = 0.010 - 0.0787 \cdot 0.01 - 0.0239 \cdot 0.005 = 0.009094$ m³/s.
+2. **Why must the estimator predict with the applied command rather than the requested one?**
+   Only the applied flow entered tank 1; a clipped request would give the model a wrong history of the water in the
+   tank.
+3. **Why did the estimator with the model's error alone miss the slug?**
+   Its small $Q$ says tank 1 can change only as the model predicts, so it treated tank 2's rise as noise and barely
+   corrected tank 1.
 
 ## Reason for the next lesson
 
-The combined controller calculates a command from estimated state, but it
-does not explicitly plan around future shared-resource limits. In the next
-application, two heaters must share one power supply.
-[Model predictive control](../73-mpc/README.md) predicts candidate command
-plans, rejects those that violate constraints and applies the first selected move.
+The LQG law applies one gain at every level and lets the pump limit clip the result: it does not plan around future limits or a shared supply.
+
+[Model predictive control](../73-mpc/README.md) plans the commands over the coming updates within their limits.

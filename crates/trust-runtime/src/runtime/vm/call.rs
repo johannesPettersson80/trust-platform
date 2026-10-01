@@ -49,7 +49,9 @@ pub(super) fn push_call_frame(
     return_pc: usize,
     runtime_instance: Option<InstanceId>,
 ) -> Result<usize, VmTrap> {
-    let pou = module.pou(pou_id).ok_or(VmTrap::MissingPou(pou_id))?;
+    let pou = module
+        .pou(pou_id)
+        .ok_or_else(|| VmTrap::MissingPou(pou_id))?;
     let local_count = super::limits::checked_local_count(pou.local_ref_count)?;
     let frame = VmFrame {
         pou_id,
@@ -209,7 +211,7 @@ fn dispatch_native_vm_call(
             let instance_type_name = runtime
                 .storage
                 .get_instance(instance_id)
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?
                 .type_name
                 .clone();
             let type_key = SmolStr::new(instance_type_name.to_ascii_uppercase());
@@ -253,7 +255,7 @@ fn dispatch_native_vm_call(
             let instance = runtime
                 .storage
                 .get_instance(instance_id)
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?;
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
             let type_key = SmolStr::new(instance.type_name.to_ascii_uppercase());
             let owner_pou_id = module
                 .function_block_ids
@@ -419,7 +421,7 @@ fn execute_native_vm_function_block_call(
             let value = binding
                 .source
                 .read(runtime)
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?;
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
             let (value, cloned) = materialize_borrowed_value(value);
             if cloned {
                 runtime
@@ -478,7 +480,7 @@ fn execute_native_builtin_function_block_call(
             let value = binding
                 .source
                 .read(runtime)
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?;
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
             let (value, cloned) = materialize_borrowed_value(value);
             if cloned {
                 runtime

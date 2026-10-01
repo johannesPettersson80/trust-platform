@@ -1,257 +1,185 @@
 USING Control;
 
-FUNCTION Lesson52RequiredValveDeviation : LREAL
+(* Model-based PI of Lesson 19 for a first-order model with gain K and time constant τ and the chosen response time λ:
+   Kp = τ/(K·λ) and Ki = 1/(K·λ). *)
+FUNCTION ModelBasedKp : LREAL
 VAR_INPUT
-    JacketDeviationDegC : LREAL;
-    UtilityDisturbanceDegC : LREAL;
-    ValveToJacketGain : LREAL;
+    Gain : LREAL;
+    TimeConstantS : LREAL;
+    ResponseTimeS : LREAL;
 END_VAR
-Lesson52RequiredValveDeviation :=
-    (JacketDeviationDegC - UtilityDisturbanceDegC) / ValveToJacketGain;
+ModelBasedKp := TimeConstantS / (Gain * ResponseTimeS);
 END_FUNCTION
 
-FUNCTION Lesson52CommissioningActive : BOOL
+FUNCTION ModelBasedKi : LREAL
 VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
-    ExperimentEnabled : BOOL;
-    InputsValid : BOOL;
-    SafetyAbort : BOOL;
+    Gain : LREAL;
+    ResponseTimeS : LREAL;
 END_VAR
-Lesson52CommissioningActive := ExperimentEnabled AND InputsValid
-    AND (NOT SafetyAbort) AND (ExperimentElapsedSeconds < LREAL#40.0);
+ModelBasedKi := LREAL#1.0 / (Gain * ResponseTimeS);
 END_FUNCTION
 
-FUNCTION Lesson52JacketTestSetpoint : LREAL
+(* At rest the vessel loses 2·(Tv − 20) kW, which the jacket passes on through 10·(Tj − Tv): Tj = Tv + 0.2·(Tv − 20).
+   The heater replaces those losses and the jacket extraction Dj at 2 kW per point. *)
+FUNCTION HoldingJacketC : LREAL
 VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
-    ExperimentEnabled : BOOL;
-    InputsValid : BOOL;
-    SafetyAbort : BOOL;
+    VesselC : LREAL;
 END_VAR
-IF ExperimentEnabled AND InputsValid AND (NOT SafetyAbort)
-    AND (ExperimentElapsedSeconds >= LREAL#10.0)
-    AND (ExperimentElapsedSeconds < LREAL#30.0) THEN
-    Lesson52JacketTestSetpoint := LREAL#75.0;
-ELSE
-    Lesson52JacketTestSetpoint := LREAL#70.0;
-END_IF;
+HoldingJacketC := VesselC + LREAL#0.2 * (VesselC - LREAL#20.0);
 END_FUNCTION
 
-FUNCTION Lesson52UtilityDisturbance : LREAL
+FUNCTION HoldingCommandPct : LREAL
 VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
-    ExperimentEnabled : BOOL;
-    InputsValid : BOOL;
-    SafetyAbort : BOOL;
+    VesselC : LREAL;
+    JacketLoadKw : LREAL;
 END_VAR
-IF ExperimentEnabled AND InputsValid AND (NOT SafetyAbort)
-    AND (ExperimentElapsedSeconds >= LREAL#40.0) THEN
-    Lesson52UtilityDisturbance := LREAL#-10.0;
-ELSE
-    Lesson52UtilityDisturbance := LREAL#0.0;
-END_IF;
+HoldingCommandPct := (LREAL#2.0 * (VesselC - LREAL#20.0) + JacketLoadKw) / LREAL#2.0;
 END_FUNCTION
 
-PROGRAM Main
+(* The single loop, tuned with Lesson 19's rule for the whole vessel: one PI from the vessel temperature straight to
+   heater power, Kp = 2.5 % per °C, Ki = 0.1 % per °C·s, in Auto from 35 °C and 15 %. *)
+FUNCTION_BLOCK VesselPi
+VAR_INPUT
+    VesselSetpointC : LREAL;
+    VesselC : LREAL;
+END_VAR
+VAR_OUTPUT
+    HeaterPct : LREAL := 15.0;
+END_VAR
 VAR
-    DirectController : Control.PID;
-    FastOuterController : Control.PID;
-    FastInnerController : Control.PID;
-    SlowOuterController : Control.PID;
-    SlowInnerController : Control.PID;
-    DirectParameters : Control.PIDParameters;
-    OuterParameters : Control.PIDParameters;
-    FastInnerParameters : Control.PIDParameters;
-    SlowInnerParameters : Control.PIDParameters;
-    DirectState : Control.PIDInitialState;
-    OuterState : Control.PIDInitialState;
-    InnerState : Control.PIDInitialState;
-    DirectInput : Control.PIDInput;
-    FastOuterInput : Control.PIDInput;
-    FastInnerInput : Control.PIDInput;
-    SlowOuterInput : Control.PIDInput;
-    SlowInnerInput : Control.PIDInput;
+    Loop : Control.PID;
+    Parameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#2.5,
+        IntegralGain := LREAL#0.1,
+        DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#1.0,
+        DerivativeSetpointWeight := LREAL#0.0,
+        Bias := LREAL#0.0,
+        OutputMinimum := LREAL#0.0,
+        OutputMaximum := LREAL#100.0,
+        RateMinimum := LREAL#-1000.0,
+        RateMaximum := LREAL#1000.0,
+        TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation
+    );
+    Input : Control.PIDInput;
+    State : Control.PIDInitialState;
     Initialized : BOOL := FALSE;
-    ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    ExperimentElapsed : LREAL := 0.0;
-    InnerCommissioning : BOOL := FALSE;
-    InnerAvailable : BOOL := TRUE;
-    ReactorSetpoint : LREAL := 80.0;
-    JacketTestSetpoint : LREAL := 70.0;
-    UtilityDisturbance : LREAL := 0.0;
-    DirectReactorTemperature : LREAL := 80.0;
-    DirectJacketTemperature : LREAL := 70.0;
-    FastReactorTemperature : LREAL := 80.0;
-    FastJacketTemperature : LREAL := 70.0;
-    SlowReactorTemperature : LREAL := 80.0;
-    SlowJacketTemperature : LREAL := 70.0;
-    DirectValveRequest : LREAL := 50.0;
-    DirectUtilityInput : LREAL := 0.0;
-    FastValveRequest : LREAL := 50.0;
-    FastUtilityInput : LREAL := 0.0;
-    SlowValveRequest : LREAL := 50.0;
-    SlowUtilityInput : LREAL := 0.0;
-    FastJacketSetpoint : LREAL := 70.0;
-    SlowJacketSetpoint : LREAL := 70.0;
-    AutomaticMode : BOOL := TRUE;
 END_VAR
-
+Loop.Configure(Parameters := Parameters);
 IF NOT Initialized THEN
-    DirectParameters.ProportionalGain := LREAL#2.0;
-    DirectParameters.IntegralGain := LREAL#0.20;
-    DirectParameters.DerivativeGain := LREAL#0.0;
-    DirectParameters.ProportionalSetpointWeight := LREAL#1.0;
-    DirectParameters.DerivativeSetpointWeight := LREAL#0.0;
-    DirectParameters.Bias := LREAL#50.0;
-    DirectParameters.OutputMinimum := LREAL#0.0;
-    DirectParameters.OutputMaximum := LREAL#100.0;
-    DirectParameters.RateMinimum := LREAL#-1000.0;
-    DirectParameters.RateMaximum := LREAL#1000.0;
-    DirectParameters.TrackingTime := LREAL#1.0;
-    DirectParameters.AntiWindup := PIDAntiWindup#Combined;
-
-    OuterParameters := DirectParameters;
-    OuterParameters.ProportionalGain := LREAL#1.0;
-    OuterParameters.IntegralGain := LREAL#0.08;
-    OuterParameters.Bias := LREAL#70.0;
-    OuterParameters.OutputMinimum := LREAL#60.0;
-    OuterParameters.OutputMaximum := LREAL#85.0;
-
-    FastInnerParameters := DirectParameters;
-    FastInnerParameters.ProportionalGain := LREAL#2.0;
-    FastInnerParameters.IntegralGain := LREAL#1.0;
-
-    SlowInnerParameters := DirectParameters;
-    SlowInnerParameters.ProportionalGain := LREAL#0.20;
-    SlowInnerParameters.IntegralGain := LREAL#0.02;
-
-    DirectState.Setpoint := ReactorSetpoint;
-    DirectState.ProcessValue := DirectReactorTemperature;
-    DirectState.NominalOutput := LREAL#50.0;
-    DirectState.SaturatedOutput := LREAL#50.0;
-    OuterState.Setpoint := ReactorSetpoint;
-    OuterState.ProcessValue := FastReactorTemperature;
-    OuterState.NominalOutput := LREAL#70.0;
-    OuterState.SaturatedOutput := LREAL#70.0;
-    InnerState.Setpoint := LREAL#70.0;
-    InnerState.ProcessValue := LREAL#70.0;
-    InnerState.NominalOutput := LREAL#50.0;
-    InnerState.SaturatedOutput := LREAL#50.0;
-
-    DirectController.Configure(Parameters := DirectParameters);
-    FastOuterController.Configure(Parameters := OuterParameters);
-    SlowOuterController.Configure(Parameters := OuterParameters);
-    FastInnerController.Configure(Parameters := FastInnerParameters);
-    SlowInnerController.Configure(Parameters := SlowInnerParameters);
-    DirectController.Initialize(State := DirectState);
-    FastOuterController.Initialize(State := OuterState);
-    SlowOuterController.Initialize(State := OuterState);
-    FastInnerController.Initialize(State := InnerState);
-    SlowInnerController.Initialize(State := InnerState);
+    State.Setpoint := LREAL#35.0;
+    State.ProcessValue := LREAL#35.0;
+    State.NominalOutput := LREAL#15.0;
+    State.SaturatedOutput := LREAL#15.0;
+    Loop.Initialize(State := State);
     Initialized := TRUE;
 END_IF;
+Input.Mode := PIDMode#Auto;
+Input.CycleTime := LREAL#0.1;
+Input.Setpoint := VesselSetpointC;
+Input.ProcessValue := VesselC;
+HeaterPct := Loop.Update(Input := Input);
+END_FUNCTION_BLOCK
 
-IF ExperimentEnabled AND (NOT SafetyAbort) AND InputsValid THEN
-    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
-ELSE
-    ExperimentElapsed := LREAL#0.0;
+(* Two jacketed vessels. The first is held by a cascade of two Control.PID blocks that Control Studio commissions: the
+   outer PID turns the vessel error into a jacket setpoint (20–50 °C), the inner PID turns the jacket error into heater
+   power (0–100 %). Each has its own Auto/Manual switch and manual output, and both start in Manual at the resting point,
+   so the inner loop can be tuned, validated and applied with the outer PID in Manual, and then the outer loop through
+   the applied inner loop. The second vessel keeps the single loop. The project test takes 30 kW from both jackets. *)
+PROGRAM Main
+VAR
+    Outer : Control.PID;
+    Inner : Control.PID;
+    OuterParameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#0.5, IntegralGain := LREAL#0.12, DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#1.0, DerivativeSetpointWeight := LREAL#0.0, Bias := LREAL#0.0,
+        OutputMinimum := LREAL#20.0, OutputMaximum := LREAL#50.0,
+        RateMinimum := LREAL#-1000.0, RateMaximum := LREAL#1000.0, TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation);
+    InnerParameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#5.0, IntegralGain := LREAL#10.0, DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#1.0, DerivativeSetpointWeight := LREAL#0.0, Bias := LREAL#0.0,
+        OutputMinimum := LREAL#0.0, OutputMaximum := LREAL#100.0,
+        RateMinimum := LREAL#-1000.0, RateMaximum := LREAL#1000.0, TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation);
+    OuterInput : Control.PIDInput;
+    InnerInput : Control.PIDInput;
+    State : Control.PIDInitialState;
+    Initialized : BOOL := FALSE;
+    (* TRUE selects Auto. *)
+    OuterAuto : BOOL := FALSE;
+    InnerAuto : BOOL := FALSE;
+    OuterManualC : LREAL := 38.0;
+    InnerManualPct : LREAL := 15.0;
+    VesselSetpointC : LREAL := 35.0;
+    VesselC : LREAL := 35.0;
+    JacketC : LREAL := 38.0;
+    JacketSetpointC : LREAL := 38.0;
+    HeaterPct : LREAL := 15.0;
+    JacketLoadKw : LREAL := 0.0;
+    Single : VesselPi;
+    SingleVesselC : LREAL := 35.0;
+    SingleJacketC : LREAL := 38.0;
+    SinglePct : LREAL := 15.0;
+    SingleLoadKw : LREAL := 0.0;
+    (* Control Studio's project test takes 30 kW from both jackets. *)
+    ExperimentEnabled : BOOL := FALSE;
+END_VAR
+
+Outer.Configure(Parameters := OuterParameters);
+Inner.Configure(Parameters := InnerParameters);
+IF NOT Initialized THEN
+    (* Memory-mapped variables start from the %M image; set the resting values explicitly. *)
+    VesselSetpointC := LREAL#35.0;
+    JacketSetpointC := LREAL#38.0;
+    OuterManualC := LREAL#38.0;
+    InnerManualPct := LREAL#15.0;
+    State.Setpoint := VesselSetpointC;
+    State.ProcessValue := VesselC;
+    State.NominalOutput := OuterManualC;
+    State.SaturatedOutput := OuterManualC;
+    Outer.Initialize(State := State);
+    State.Setpoint := JacketSetpointC;
+    State.ProcessValue := JacketC;
+    State.NominalOutput := InnerManualPct;
+    State.SaturatedOutput := InnerManualPct;
+    Inner.Initialize(State := State);
+    Initialized := TRUE;
 END_IF;
-InnerCommissioning := Lesson52CommissioningActive(
-    ExperimentElapsedSeconds := ExperimentElapsed,
-    ExperimentEnabled := ExperimentEnabled,
-    InputsValid := InputsValid,
-    SafetyAbort := SafetyAbort);
-JacketTestSetpoint := Lesson52JacketTestSetpoint(
-    ExperimentElapsedSeconds := ExperimentElapsed,
-    ExperimentEnabled := ExperimentEnabled,
-    InputsValid := InputsValid,
-    SafetyAbort := SafetyAbort);
-UtilityDisturbance := Lesson52UtilityDisturbance(
-    ExperimentElapsedSeconds := ExperimentElapsed,
-    ExperimentEnabled := ExperimentEnabled,
-    InputsValid := InputsValid,
-    SafetyAbort := SafetyAbort);
-
-DirectUtilityInput := UtilityDisturbance;
-FastUtilityInput := UtilityDisturbance;
-SlowUtilityInput := UtilityDisturbance;
-
-DirectInput.Setpoint := ReactorSetpoint;
-DirectInput.ProcessValue := DirectReactorTemperature;
-DirectInput.FeedForward := LREAL#0.0;
-DirectInput.Mode := PIDMode#Auto;
-DirectInput.CycleTime := LREAL#0.1;
-DirectValveRequest := DirectController.Update(Input := DirectInput);
-
-FastOuterInput.Setpoint := ReactorSetpoint;
-FastOuterInput.ProcessValue := FastReactorTemperature;
-FastOuterInput.FeedForward := LREAL#0.0;
-FastOuterInput.CycleTime := LREAL#0.1;
-SlowOuterInput.Setpoint := ReactorSetpoint;
-SlowOuterInput.ProcessValue := SlowReactorTemperature;
-SlowOuterInput.FeedForward := LREAL#0.0;
-SlowOuterInput.CycleTime := LREAL#0.1;
-
-(* Commission the valve-facing loops first. Tracking keeps each inactive outer
-   controller aligned with the jacket setpoint that is actually in authority. *)
-IF InnerCommissioning THEN
-    FastOuterInput.Mode := PIDMode#Track;
-    FastOuterInput.TrackingOutput := JacketTestSetpoint;
-    FastJacketSetpoint := FastOuterController.Update(Input := FastOuterInput);
-    SlowOuterInput.Mode := PIDMode#Track;
-    SlowOuterInput.TrackingOutput := JacketTestSetpoint;
-    SlowJacketSetpoint := SlowOuterController.Update(Input := SlowOuterInput);
-ELSIF NOT InnerAvailable THEN
-    (* Preserve the last achievable secondary setpoint while the inner loop has
-       no valve authority. This prevents hidden outer-loop windup. *)
-    FastOuterInput.Mode := PIDMode#Track;
-    FastOuterInput.Setpoint := FastReactorTemperature;
-    FastOuterInput.TrackingOutput := FastJacketSetpoint;
-    FastOuterController.Update(Input := FastOuterInput);
-    FastJacketSetpoint := FastOuterInput.TrackingOutput;
-    SlowOuterInput.Mode := PIDMode#Track;
-    SlowOuterInput.Setpoint := SlowReactorTemperature;
-    SlowOuterInput.TrackingOutput := SlowJacketSetpoint;
-    SlowOuterController.Update(Input := SlowOuterInput);
-    SlowJacketSetpoint := SlowOuterInput.TrackingOutput;
+IF ExperimentEnabled THEN
+    JacketLoadKw := LREAL#30.0;
 ELSE
-    FastOuterInput.Mode := PIDMode#Auto;
-    FastJacketSetpoint := FastOuterController.Update(Input := FastOuterInput);
-    SlowOuterInput.Mode := PIDMode#Auto;
-    SlowJacketSetpoint := SlowOuterController.Update(Input := SlowOuterInput);
+    JacketLoadKw := LREAL#0.0;
 END_IF;
+SingleLoadKw := JacketLoadKw;
 
-FastInnerInput.Setpoint := FastJacketSetpoint;
-FastInnerInput.ProcessValue := FastJacketTemperature;
-FastInnerInput.FeedForward := LREAL#0.0;
-FastInnerInput.CycleTime := LREAL#0.1;
-SlowInnerInput.Setpoint := SlowJacketSetpoint;
-SlowInnerInput.ProcessValue := SlowJacketTemperature;
-SlowInnerInput.FeedForward := LREAL#0.0;
-SlowInnerInput.CycleTime := LREAL#0.1;
-
-IF InnerAvailable THEN
-    FastInnerInput.Mode := PIDMode#Auto;
-    FastValveRequest := FastInnerController.Update(Input := FastInnerInput);
-    SlowInnerInput.Mode := PIDMode#Auto;
-    SlowValveRequest := SlowInnerController.Update(Input := SlowInnerInput);
+OuterInput.Setpoint := VesselSetpointC;
+OuterInput.ProcessValue := VesselC;
+OuterInput.ManualOutput := OuterManualC;
+OuterInput.TrackingOutput := OuterManualC;
+OuterInput.CycleTime := LREAL#0.1;
+IF OuterAuto THEN
+    OuterInput.Mode := PIDMode#Auto;
 ELSE
-    (* Loss of the secondary loop removes cascade authority without changing
-       the last achievable valve request. *)
-    FastInnerInput.Mode := PIDMode#Track;
-    FastInnerInput.Setpoint := FastJacketTemperature;
-    FastInnerInput.TrackingOutput := FastValveRequest;
-    FastInnerController.Update(Input := FastInnerInput);
-    FastValveRequest := FastInnerInput.TrackingOutput;
-    SlowInnerInput.Mode := PIDMode#Track;
-    SlowInnerInput.Setpoint := SlowJacketTemperature;
-    SlowInnerInput.TrackingOutput := SlowValveRequest;
-    SlowInnerController.Update(Input := SlowInnerInput);
-    SlowValveRequest := SlowInnerInput.TrackingOutput;
+    OuterInput.Mode := PIDMode#Manual;
 END_IF;
-AutomaticMode := TRUE;
+JacketSetpointC := Outer.Update(Input := OuterInput);
+
+InnerInput.Setpoint := JacketSetpointC;
+InnerInput.ProcessValue := JacketC;
+InnerInput.ManualOutput := InnerManualPct;
+InnerInput.TrackingOutput := InnerManualPct;
+InnerInput.CycleTime := LREAL#0.1;
+IF InnerAuto THEN
+    InnerInput.Mode := PIDMode#Auto;
+ELSE
+    InnerInput.Mode := PIDMode#Manual;
+END_IF;
+HeaterPct := Inner.Update(Input := InnerInput);
+
+Single(VesselSetpointC := LREAL#35.0, VesselC := SingleVesselC);
+SinglePct := Single.HeaterPct;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -260,28 +188,18 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.InnerCommissioning AT %MX136.0 : BOOL;
-    P1.InnerAvailable AT %MX136.1 : BOOL;
-    P1.AutomaticMode AT %MX136.2 : BOOL;
-    P1.ExperimentEnabled AT %MX136.3 : BOOL;
-    P1.SafetyAbort AT %MX136.4 : BOOL;
-    P1.InputsValid AT %MX136.5 : BOOL;
-    P1.ReactorSetpoint AT %ML88 : LREAL;
-    P1.JacketTestSetpoint AT %ML96 : LREAL;
-    P1.UtilityDisturbance AT %ML104 : LREAL;
-    P1.FastJacketSetpoint AT %ML112 : LREAL;
-    P1.SlowJacketSetpoint AT %ML120 : LREAL;
-    P1.DirectReactorTemperature AT %IL0 : LREAL;
-    P1.DirectJacketTemperature AT %IL8 : LREAL;
-    P1.FastReactorTemperature AT %IL16 : LREAL;
-    P1.FastJacketTemperature AT %IL24 : LREAL;
-    P1.SlowReactorTemperature AT %IL32 : LREAL;
-    P1.SlowJacketTemperature AT %IL40 : LREAL;
-    P1.DirectValveRequest AT %QL0 : LREAL;
-    P1.DirectUtilityInput AT %QL8 : LREAL;
-    P1.FastValveRequest AT %QL16 : LREAL;
-    P1.FastUtilityInput AT %QL24 : LREAL;
-    P1.SlowValveRequest AT %QL32 : LREAL;
-    P1.SlowUtilityInput AT %QL40 : LREAL;
+    P1.HeaterPct AT %QL0 : LREAL;
+    P1.JacketLoadKw AT %QL8 : LREAL;
+    P1.JacketC AT %IL0 : LREAL;
+    P1.VesselC AT %IL8 : LREAL;
+    P1.SinglePct AT %QL16 : LREAL;
+    P1.SingleLoadKw AT %QL24 : LREAL;
+    P1.SingleJacketC AT %IL16 : LREAL;
+    P1.SingleVesselC AT %IL24 : LREAL;
+    P1.VesselSetpointC AT %ML0 : LREAL;
+    P1.JacketSetpointC AT %ML8 : LREAL;
+    P1.OuterManualC AT %ML16 : LREAL;
+    P1.InnerManualPct AT %ML24 : LREAL;
+    P1.ExperimentEnabled AT %MX32.0 : BOOL;
 END_VAR
 END_CONFIGURATION

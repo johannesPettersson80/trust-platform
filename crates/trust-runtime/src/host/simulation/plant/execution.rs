@@ -154,7 +154,7 @@ impl PlantInstance {
         }
         self.last_substeps = required;
         for (channel, source) in self.config.command_sources.iter().enumerate() {
-            let plc_command = read_numeric(runtime.io(), source)?;
+            let plc_command = source.read(runtime)?;
             self.held_command[channel] =
                 self.config.input_scale[channel] * plc_command + self.config.input_offset[channel];
         }

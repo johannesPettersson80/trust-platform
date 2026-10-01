@@ -1,137 +1,150 @@
 # 14. Identification experiments
 
-You will choose a heater-command step and test duration that allow you to estimate process gain, delay and time constant while respecting temperature and power limits.
+In this lesson, you will plan a step test for the heater: a steady start, a step size and a hold time chosen so that the record reveals the heater's numbers while staying inside its limits. You will then check the plan against the record.
 
 ## The problem
 
-Lesson 13 derived the heater balance:
+Lesson 13 derived the heater's energy balance, $50\,dT/dt = 2u(t-1) - 10(T-20) - D$, and it predicted the measured step to three decimals: a gain of 0.2 °C per %, a time constant of 5 s and a delay of 1 s. But the heat capacity, the loss and the delay were given values. For a real heater the model's numbers are unknown and must be measured.
 
-$$
-C\frac{dT}{dt}=2u(t-1)-10(T-20)-D.
-$$
-
-For this teaching case, C=50 kJ/°C, full heater power is 200 kW, each command percentage point delivers 2 kW, heat loss is H=10 kW/°C toward 20 °C, the delivered heat has a distinct 1 s delay, and the nominal time constant is τ=C/H=5 s. These are supplied engineering quantities for planning. They are not measurements from the experiment you are about to run.
-
-A step that is too small can be hidden by measurement resolution. A step that is too large can move temperature outside the exercise range. A hold that is too short can end before the delayed response and approach are visible. You must balance those risks before changing the manual command.
+A recording reveals them only if the test is planned for it. A step that is too small is lost in the measurement uncertainty, a step that is too large leaves the safe temperature range, and a hold that is too short ends before the response is complete. We will plan a step test that is both safe and informative, and run it.
 
 ## What we need
 
-We need a measured response that reveals the heater's dynamics clearly
-enough to estimate a model. We must choose an input change and observation
-duration that separate the response from noise and existing drift while
-keeping the experiment within its limits.
+We need to:
+
+1. start from a steady temperature, so that the record shows the step's effect alone;
+2. choose a step large enough to stand out from the measurement uncertainty, yet inside the limits; and
+3. hold the step long enough for the record to show the final value.
 
 ## The new idea
 
-An **identification experiment** deliberately changes a process input to obtain
-measurements from which we can estimate a model. Here we use a **step test**:
-change applied heater power once, hold it, and observe how far and how quickly
-temperature moves. PI stays inactive so it does not keep changing that input.
+An **identification experiment** changes the heater's power on purpose, safely and as planned, so that the recorded response reveals the heater's numbers. For this heater it is a **step test**: one held change of the command, from a steady start, with no controller acting.
 
-We first need a steady starting condition. Otherwise an existing temperature
-drift could be mistaken for the effect of our step.
+**In words.** A record shows the heater's numbers only if the test was designed to contain them, so the plan comes before the run. In PLC terms, it is a test sequence with interlocks: preconditions checked before the step, a fixed action for a fixed time, and an abort if a limit is crossed. The plan makes four decisions:
 
-Qualify the baseline before choosing the step. Use a five-second pre-step window, from −5 s through 0 s where zero is the command-step time. Require every valid PV sample to remain within 35±.05 °C, the maximum minus minimum range to be at most .05 °C, and the finite-window slope to be at most .01 °C/s in magnitude. Define that slope as:
+1. **Where to start.** The test starts from a steady state and returns to it: here 35 °C with 75%. The model will describe changes around this operating point and is trusted only near it.
+2. **A steady start.** The model describes the change from a steady state, so any drift already present adds to the response we measure and is mistaken for the heater's answer. The seconds before the step, the **baseline**, must show a steady temperature.
+3. **The step size.** The step must stand out clearly from the measurement uncertainty, yet keep the temperature inside the safe range, here 33–39 °C, and close to the operating point. A bigger step is easier to see; a smaller one is safer and keeps the model local.
+4. **The hold.** The step must be held until the temperature has nearly reached its final value, because the gain is read from that value.
+
+**The formula.** Three rules turn these decisions into numbers: a steady baseline, the predicted change, and the shortest hold.
 
 $$
-\text{window slope}=\frac{T_{last}-T_{first}}{t_{last}-t_{first}}.
+T_{max} - T_{min} \le 0.05\ \text{°C}, \qquad \frac{|T_{last} - T_{first}|}{5\ \text{s}} \le 0.01\ \text{°C/s}, \qquad \Delta T = K\,\Delta u, \qquad t_{hold} \ge L + 3\tau .
 $$
 
-The range checks short-term spread; the slope checks drift. Both are needed. A record from 35.00 °C to 35.06 °C over 5 s has slope .012 °C/s and fails even though its change is small. If the reading is valid and within 33–39 °C but the baseline still drifts, keep the manual command at 75% and wait or reset; do not attribute later motion to the step.
+- $T_{max}$, $T_{min}$, $T_{first}$ and $T_{last}$ are the highest, lowest, first and last temperatures of the 5 s baseline, in °C; their difference is the **range**, the noise spread, and the change per second is the **slope**, the drift;
+- $\Delta u$ is the step, in percentage points, $K$ = 0.2 °C per % the planning gain, and $\Delta T$ the predicted final change, in °C;
+- $L$ = 1 s and $\tau$ = 5 s are the planning delay and time constant, and $t_{hold}$ is the hold, all in seconds.
 
-Choose a positive command step of 5–15 percentage points, staying within 0–100%. The model predicts the final temperature from T_eq=20+.2u when D=0. A 5-point step from 75% predicts 36 °C, a 10-point step predicts 37 °C, and a 15-point step predicts 38 °C. The worked 10-point choice therefore has a predicted steady change of 2 °C. Immediately after its one-second delivery delay, the initial model rate at 35 °C is approximately 2(10)/50=.4 °C/s. The command change corresponds to 20 kW of extra heat. With an assumed measurement-error bound of ±0.05 °C, a 2 °C final change is easy to distinguish; a 5-point change gives only 1 °C and may be safer but less informative.
+The hold rule comes from the previous lesson's response: after the delay, the temperature covers the fraction $1 - e^{-(t-L)/\tau}$ of its final change. Since $1 - e^{-3} = 0.95$, three time constants after the delay give 95%.
 
-Choose a hold of 20–40 s. The worked choice is 30 s: after the 1 s delay, 29 s remain, corresponding to 29/5=5.8 time constants. The nominal model completes more than 99% of its temperature change in that interval. A shorter 20 s hold reaches the delay plus nearly four time constants and uses less exposure. A longer 40 s hold reveals more of the final value but keeps the changed command applied longer. Your selected duration and amplitude must be justified by this risk/information tradeoff.
+**Example: a plan for a 5-point step held 20 s.** Calculated from the planning values, not run in this lesson:
+
+1. **Baseline.** A rise from 35.00 to 35.06 °C over 5 s has a slope of $0.06 / 5 = 0.012$ °C/s and fails. Such a drift matters: 0.01 °C/s through a 20 s hold adds 0.2 °C, 20% of this step's response.
+2. **Step size.** The command becomes $75 + 5 = 80\%$, and $\Delta T = 0.2 \times 5 = 1$ °C, ending at 36 °C: twenty times the ±0.05 °C uncertainty, so clearly visible. Just after the delay the water warms at $2 \times 5 / 50 = 0.2$ °C/s. The largest permitted step, 15 points, would give 3 °C and end near 38 °C: inside the range, but only 1 °C from its edge.
+3. **Hold.** 20 s covers $(20 - 1)/5 = 3.8$ time constants, so $1 - e^{-3.8} = 97.8\%$ of the change. The remaining 2.2% of 1 °C is 0.022 °C, inside the uncertainty, so the record shows the final value.
+4. **Record.** The 5 s baseline, the 20 s hold and one more sample showing the return to 75%: $5 + 20 + 0.1 = 25.1$ s.
+
+**Teaching choice.** This lesson runs a 10-point step held 30 s, inside the program's limits of 5–15 points and 20–40 s.
+
+**The limitation.** The plan rests on planning values for the delay and the time constant. If the real heater were slower, the hold could be too short: with a 10 s time constant, a 30 s hold would cover only $(30 - 1)/10 = 2.9$ time constants, $1 - e^{-2.9} = 94.5\%$ of the change. The record must therefore be checked before it is used.
 
 ## Prediction
 
-Before opening the experiment controls, write down your chosen amplitude and duration and answer:
+Before running, answer these questions for a 10-point step held 30 s:
 
-1. What applied command will result from your chosen 5–15 point increase?
-2. What final PV does T_eq=20+.2u predict for that command?
-3. What is the predicted initial rate after the 1 s delay for a 10-point step?
-4. Does your predicted change exceed the assumed ±0.05 °C measurement uncertainty by enough to identify a direction?
-5. Why does your hold cover the 1 s delay and several 5 s time constants?
-6. What observation would make you reject the record as uninformative even if no hard limit was reached?
+1. What command will the heater receive during the hold?
+2. What final temperature does the planning model predict?
+3. How fast should the temperature rise just after the delay?
+4. What is the shortest hold for 95% of the change, and what share does a 30 s hold reach?
+5. How long is the record?
 
-The predictions are planning calculations. They do not replace the measured PV or establish that the supplied C, H, delay, or τ are true for other equipment.
+| Quantity | Predicted |
+| --- | ---: |
+| Command during the hold | 85% |
+| Final temperature, $20 + 0.2 \times 85$ | 37 °C |
+| Rate after the delay, $2 \times 10 / 50$ | 0.4 °C/s |
+| Shortest hold for 95%, $L + 3\tau$ | 16 s |
+| Share reached in 30 s | 99.7% |
+| Record length | 35.1 s |
 
 ## Implementation
 
-Open `src/Main.st` and identify the experiment's command, duration, measurement-validity and limit inputs.
-
-Write only the concise calculation and checks needed by the existing interface. The planning values `SelectedStepPoints`, `ProposedCommandPct`, and `PredictedFinalC` are `REAL` in `Main.st`; the observed `TemperatureC` PV is `LREAL`, and experiment timestamps come from the Control Studio record. Calculate:
+Open [`src/Main.st`](src/Main.st). It owns the step and checks its plan:
 
 ```st
-ProposedCommandPct := 75.0 + SelectedStepPoints;
-PredictedFinalC := 20.0 + 0.2 * ProposedCommandPct;
+ProposedCommandPct := REAL#75.0 + SelectedStepPoints;
+PredictedFinalC := REAL#20.0 + REAL#0.2 * ProposedCommandPct;
 ```
 
-Use IF and AND, which were introduced in the early lessons, to express the checks:
+It starts the step only from a qualified baseline, with every chosen value inside its limits:
 
-- proposed command is between 0 and 100%;
-- PV is between 33 and 39 °C;
-- baseline range is at most .05 °C;
-- baseline slope magnitude is at most .01 °C/s; and
-- the measurement is valid.
+```st
+StartRejected := NOT (BaselineQualified AND MeasurementValid AND NOT SafetyAbort
+    AND SelectedStepPoints >= REAL#5.0 AND SelectedStepPoints <= REAL#15.0
+    AND HoldSeconds >= REAL#20.0 AND HoldSeconds <= REAL#40.0
+    AND ProposedCommandPct >= REAL#0.0 AND ProposedCommandPct <= REAL#100.0);
+```
 
-Keep the proposed command and measured PV distinct from the actual applied input. The provided interface records the applied command and PV every .1 s; inspect that record to verify which input the heater received. This project owns the open-loop step; it has no PI state or writable disturbance control.
+`BaselineQualified` applies the range and slope rules to the last 51 samples (5 s). The program holds `ProposedCommandPct` for `HoldSeconds`, then returns to 75%. `SafetyAbort` latches on an invalid measurement or a temperature outside 33–39 °C and commands 0%.
 
-The provided baseline collector retains 51 samples, spanning 5 s at the configured
-100 ms period, and publishes range, slope and `BaselineQualified`. It does not
-assume zero range from nominal model values. Review the actual recorded
-timestamps as well. An early confirmation is rejected without moving above 75%;
-disable the request, qualify the baseline, then confirm again.
-
-`SelectedStepPoints` and `HoldSeconds` are bounded `REAL` parameters. Restart,
-inspect and apply their reviewed values while the experiment is disabled,
-then wait for baseline qualification. The prepared 30 s hold returns to 75% on
-normal completion. `SafetyAbort` latches bad quality or PV outside 33–39 °C and
-commands zero. Quality code 1 means good in this simulated interface; other
-codes invalidate the measurement. Valid PV alone does not clear the latch.
+**Exercise.** Calculate `PredictedFinalC` for a 12-point step: $20 + 0.2 \times 87 = 37.4$ °C. Then decide whether `StartRejected` is TRUE for a 16-point step: yes, because 16 is outside 5–15.
 
 ## Experiment in Control Studio
 
-Keep the common hot initial condition:
+1. Stop and restart **Simulator**: the heater holds 35 °C at 75%. In the **truST** side bar, select **Control Studio**.
+2. On **Identify**, choose **Project experiment** from **Method**. **Signals** shows `P1.TemperatureC · Process value (°C)` and `P1.AppliedPowerPct · Applied output (%)`; add `P1.BaselineRangeC · state (°C)`, `P1.BaselineSlopeCPerS · state (°C/s)` and `P1.BaselineQualified · state (1)`.
+3. Expand **Declared experiment settings** and select **Inspect experiment parameters**. Set **Selected Step Points** (5–15) to 10 and **Hold Seconds** (20–40) to 30. Select **Review parameter values**, then **Apply reviewed values**.
+4. Wait until `P1.BaselineQualified` is 1, with the range at most 0.05 °C and the slope at most 0.01 °C/s.
+5. Select **Review project test** and check the declared **35.1 s**: Control Studio plans the record from your applied hold. Answer the predictions, then select **Confirm and start**. The project holds 75% for 5 s, checks the baseline again, applies the step for the hold and returns to 75%.
+6. After the run, hover the step, the first rise, 16 s after the step and the end of the hold.
+7. Right-click the plot and choose **Save recording…**. Repeat the test with **12 points and a 40 s hold**, a **45.1 s** record, and save it too: the next lesson estimates the heater's numbers from it.
 
-- PV = 35 °C;
-- applied manual command = 75%;
-- preceding 1 s command history = 75%;
-- measurement quality code = 1;
-- experiment authority disabled.
-
-The command is bounded by 0–100%. For this exercise, PV has a hard acceptable range of 33–39 °C and the measurement is invalid whenever the interface marks it invalid or stops supplying a usable timestamped value. A normal experiment must begin only after a qualified baseline. A hard safety violation or invalid measurement stops the experiment; it does not automatically restore a command.
-
-1. Stop and restart Simulator. Open **Control Studio → Monitor → Signals**. Confirm measured output 35 °C, applied input 75%, measurement quality code 1, Safety abort 0 and experiment authority 0. The native plant starts with a preceding 1 s input history at 75%.
-2. Open **Test → Experiment settings → Inspect runtime parameters**. Set `SelectedStepPoints` to your chosen 5–15 points and `HoldSeconds` to your chosen 20–40 s. Use **Review values** and **Apply reviewed values**; check the observed values. The worked choice is 10 points/30 s; 12 points/25 s is another permitted choice. Close Experiment settings.
-3. Return to **Monitor → Signals** to check Qualified=1, Range≤0.05 °C and slope magnitude≤0.01 °C/s. These values come from the program's actual 51-sample window. If the baseline drifts, keep 75% and wait or restart; do not start a step from that drift.
-4. Return to **Test**. Set **Maximum duration** to 5 s baseline + your hold + 0.1 s restoration: 35.1 s for the worked 30 s hold, or 30.1 s for 25 s. Review the plan and its 5 s baseline before **Confirm and start**. The recorder first keeps the experiment disabled at 75%; after 5 s the existing project checks qualification again and applies the chosen step. Keep the complete baseline and response together in this native recording.
-5. Treat the observed applied-input step inside the record as response time zero. Compare its actual amplitude and duration with your choice; Proposal and Prediction are planning values, not measured temperature. The five seconds immediately preceding that step must meet the baseline range/slope conditions.
-6. Use **Abort test** if PV leaves 33–39 °C, applied input leaves 0–100%, quality becomes invalid, or timestamps stop advancing. A measurement fault latches Safety abort and commands 0%; valid feedback does not clear it. An ordinary operator abort disables the experiment and restores 75% while measurements remain valid. Stop Simulator if it is unresponsive.
-7. Normal completion restores 75%. Open **Validate → Save result**, then **Saved results → select the revision → Open**. Use Recorded Response, Signals and Samples to inspect baseline, applied step, PV and terminal restoration. Keep the measured record for the next lesson. Restart and reapply your reviewed parameter values before repeating; a fault requires this fresh start and baseline qualification.
+Select **Abort test** if the temperature leaves 33–39 °C or the signals stop updating. At completion, Control Studio shows **Project test completed. Outputs restored.**
 
 ## Evidence and decision
 
-Accept the record as informative only when all of these are true:
+![The planned step: a qualified baseline, a 30 s hold and 99.7% of the change](figures/step-test-record.svg)
 
-- the common hot initial state was confirmed;
-- the five-second baseline passed both range and slope rules;
-- the applied, rather than merely requested, command changed by the selected amount;
-- command and PV samples are timestamped at the .1 s experiment interval;
-- no hard PV, command, validity, or timestamp fault occurred; and
-- the hold contains data after the 1 s delay and long enough to judge the approach.
+The numbered marks answer the predictions with the same numbers. From the two recorded runs:
 
-Then compare the measured direction, delay, rise, and final trend with the prediction. Do not insert the nominal 36, 37, or 38 °C final value into the evidence if the record differs. A record can be safe but uninformative when the PV remains within baseline noise, the command step is not applied, or the hold ends before the delayed response can be distinguished. Record that decision and redesign amplitude or duration rather than silently extending the record after seeing it.
+| Quantity | 10 points, 30 s | 12 points, 40 s |
+| --- | ---: | ---: |
+| Baseline range and slope | 0 °C and 0 °C/s | 0 °C and 0 °C/s |
+| Applied step and hold | 75 → 85%, 30.0 s | 75 → 87%, 40.0 s |
+| First rise after the step | 1.1 s | 1.1 s |
+| Share of the change 16 s after the step | 95.0% | 95.0% |
+| Temperature at the end of the hold | 36.994 °C, 99.7% | 37.399 °C, 99.96% |
+| Record | 35.1 s | 45.1 s |
+
+1. The heater received 85% for exactly 30.0 s, then 75% again.
+2. The temperature reached 36.994 °C, 0.006 °C below the predicted 37 °C: the remaining 0.3%.
+3. It first rose 1.1 s after the step, one delay plus one sample, by 0.04 °C in 0.1 s: 0.4 °C/s.
+4. 16 s after the step, $L + 3\tau$, it had covered 95.0% of the change; at the end of the 30 s hold, 99.7%.
+5. The record lasted 35.1 s, as planned.
+
+The record is informative: the baseline was steady, the step was applied as chosen, and the hold shows both the delay and the final value. The cost is 30 s at a higher temperature. A record can be safe but uninformative, for example after baseline drift or a hold that ends too early; then redesign the test instead of reinterpreting the record. These are simulation results.
 
 ## Conclusion
 
-A useful step test changes one known input from a qualified steady condition.
-The model helps us choose a bounded amplitude and duration; the actual
-applied-command and temperature record provides the data for identification.
+An identification experiment changes one input on purpose, from a checked steady start, with a step that stands out from the measurement uncertainty and a hold of at least $L + 3\tau$, so the record reveals the process's numbers safely.
+
+For this heater, a 10-point step held 30 s gave a clean record: a 1.1 s first rise, 95% of the change after 16 s and 36.994 °C at the end.
+
+## Check yourself
+
+1. **For a heater with $L$ = 2 s and $\tau$ = 8 s, what is the shortest hold for 95% of the change?**
+   $2 + 3 \times 8 = 26$ s.
+2. **Why must the baseline be checked before the step?**
+   Any drift already present adds to the measured response and would be mistaken for the heater's answer to the
+   step.
+3. **Why not use the largest permitted step, 15 points?**
+   It would end near 38 °C, closer to the 39 °C limit, and the model is trusted only near its operating point. A step
+   that is clearly visible, here 10 points, is enough.
 
 ## Reason for the next lesson
 
-We now have an informative applied-command and temperature record, but it
-does not label the model parameters for us.
-[Step-response identification](../23-step-response-identification/README.md)
-uses that record to estimate gain, delay and time constant with uncertainty.
+The record now shows the applied command and the temperature clearly, but it does not yet state the heater's gain, time constant and delay.
+
+[Step-response identification](../23-step-response-identification/README.md) calculates those three numbers from the record.

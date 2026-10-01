@@ -109,20 +109,35 @@ pub(super) fn apply_dint_binary_guard_borrowed(
     };
 
     let value = match op {
-        BinaryOp::Add => Value::DInt(left.checked_add(right).ok_or(RuntimeError::Overflow)?),
-        BinaryOp::Sub => Value::DInt(left.checked_sub(right).ok_or(RuntimeError::Overflow)?),
-        BinaryOp::Mul => Value::DInt(left.checked_mul(right).ok_or(RuntimeError::Overflow)?),
+        BinaryOp::Add => Value::DInt(
+            left.checked_add(right)
+                .ok_or_else(|| RuntimeError::Overflow)?,
+        ),
+        BinaryOp::Sub => Value::DInt(
+            left.checked_sub(right)
+                .ok_or_else(|| RuntimeError::Overflow)?,
+        ),
+        BinaryOp::Mul => Value::DInt(
+            left.checked_mul(right)
+                .ok_or_else(|| RuntimeError::Overflow)?,
+        ),
         BinaryOp::Div => {
             if right == 0 {
                 return Err(RuntimeError::DivisionByZero);
             }
-            Value::DInt(left.checked_div(right).ok_or(RuntimeError::Overflow)?)
+            Value::DInt(
+                left.checked_div(right)
+                    .ok_or_else(|| RuntimeError::Overflow)?,
+            )
         }
         BinaryOp::Mod => {
             if right == 0 {
                 return Err(RuntimeError::ModuloByZero);
             }
-            Value::DInt(left.checked_rem(right).ok_or(RuntimeError::Overflow)?)
+            Value::DInt(
+                left.checked_rem(right)
+                    .ok_or_else(|| RuntimeError::Overflow)?,
+            )
         }
         BinaryOp::Eq => Value::Bool(left == right),
         BinaryOp::Ne => Value::Bool(left != right),

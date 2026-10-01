@@ -1,0 +1,22 @@
+version = 1
+
+[theme]
+style = "industrial"
+accent = "#c2410c"
+
+[layout]
+navigation = "sidebar-left"
+header = true
+header_title = "Heater measurement validity"
+
+[write]
+enabled = false
+allow = []
+
+[[alarm]]
+bind = "P1.TemperatureC"
+high = 39
+low = 33
+deadband = 0.05
+inferred = true
+label = "Temperature"

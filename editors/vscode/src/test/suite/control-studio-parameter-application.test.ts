@@ -74,6 +74,25 @@ suite("Control Studio transfer boundary decoding", () => {
     const client = new RuntimeTransferClient(transferBinding, "program", async () => value);
     assert.deepStrictEqual(await client.status(), value);
   });
+  test("accepts and confirms the further controllers' modes switched with the loop (Specification 35 §17.11)", async () => {
+    const { RuntimeTransferClient } = require("../../controlStudio/runtimeTransfer");
+    const binding = { ...transferBinding, additional_modes: [{ symbol: "P1.OuterManual", manual_value: true }] };
+    const auto = { ...values, "P1.Manual": false, "P1.OuterManual": false };
+    let applied = false, transaction = "";
+    const request = async (operation: string, params: any) => {
+      if (operation === "control.transfer.apply") { applied = true; transaction = params.transaction_id; return { status: "pending", confirmed: false }; }
+      const now = applied ? auto : { ...values, "P1.OuterManual": true };
+      return { program_revision: "program", binding_revision: "binding", status: applied ? "applied" : "idle", reason: null, values: { ...now },
+        transaction: applied ? { id: transaction, program_revision: "program", binding_revision: "binding", status: "applied", reason: null,
+          observed_values: { ...auto }, confirmation: "output-image", initial_values: { ...values, "P1.OuterManual": true },
+          applied_values: { "P1.Ref": 0, "P1.ManualCommand": 0 } } : null };
+    };
+    const client = new RuntimeTransferClient(binding, "program", request);
+    assert.strictEqual((await client.status()).values["P1.OuterManual"], true, "the outer controller's mode is part of the transfer status");
+    const outcome = await client.apply({ "P1.Ref": 0, "P1.ManualCommand": 0 }, false, 0.1);
+    assert.strictEqual(outcome.status, "applied");
+  });
+
   test("rejects malformed optional tracking evidence before using it", async () => {
     const { RuntimeTransferClient } = require("../../controlStudio/runtimeTransfer");
     for (const mutate of [

@@ -37,6 +37,24 @@ suite("Control Studio three-page application projection", () => {
     } finally { restore(state); }
   });
 
+  test("shows Apply's progress while it waits for the process to settle, and keeps Apply available after a cancelled wait", () => {
+    const state = setup();
+    try {
+      const posts: string[] = [];
+      const application = new ThreePageApplication(state.root, kind => { posts.push(kind); }, () => false, message => { state.notice.textContent = message; });
+      application.receive({ status: "verified", stageEvidence: { validationPassed: true } });
+      state.button.click();
+      assert.deepStrictEqual(posts, ["control-studio.application.apply"]);
+      application.receive({ status: "running", activity: "apply-settling", applicationAction: "apply",
+        reason: "Waiting for P1.RoomC to settle at 12 °C ± 0.5 °C (now 10.3 °C)…" });
+      assert.strictEqual(state.notice.textContent, "Waiting for P1.RoomC to settle at 12 °C ± 0.5 °C (now 10.3 °C)…");
+      assert.strictEqual(state.button.textContent, "Applying…");
+      application.receive({ status: "failed", applicationAction: "apply", failure: { nextAction: "reapply" },
+        reason: "Apply cancelled while waiting for the process to settle; nothing was written." });
+      assert.deepStrictEqual([state.button.textContent, state.button.disabled], ["Apply", false], "the validated candidate stays applicable");
+    } finally { restore(state); }
+  });
+
   test("keeps Restore available through edits until a new candidate passes", () => {
     const state = setup();
     try {
@@ -74,6 +92,23 @@ suite("Control Studio three-page application projection", () => {
         restored.receive({ status: "restored", applicationAction: "restore" });
         assert.strictEqual(historical.button.disabled, true, "A historical receipt alone must not authorize a new application");
       } finally { restore(historical); }
+    } finally { restore(state); }
+  });
+
+  test("keeps Apply available when a refusal says Apply again", () => {
+    const state = setup();
+    try {
+      const application = new ThreePageApplication(state.root, () => {}, () => false, message => { state.notice.textContent = message; });
+      application.receive({ status: "verified", stageEvidence: { validationPassed: true } });
+      state.button.click();
+      application.receive({ status: "failed", failure: { cause: "settings", nextAction: "reapply" },
+        reason: "Apply failed: P1.ProcessValue is 20.56 °C, but the settings were validated from 20 °C ± 0.029 °C. Wait for the process to settle there before applying. Next: Apply again." });
+      assert.strictEqual(state.button.textContent, "Apply");
+      assert.strictEqual(state.button.disabled, false, "the validated settings stay applicable once the process has settled");
+      assert.match(state.notice.textContent ?? "", /Wait for the process to settle/);
+      state.button.click();
+      application.receive({ status: "failed", failure: { cause: "settings", nextAction: "retune" }, reason: "Apply failed: parameters changed. Next: Tune again." });
+      assert.strictEqual(state.button.disabled, true, "any other refusal withdraws the validated application");
     } finally { restore(state); }
   });
 

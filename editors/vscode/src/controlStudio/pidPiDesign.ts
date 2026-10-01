@@ -5,7 +5,7 @@ import { tuneController, type TuningMethod, type TuningObjective } from "./tunin
 
 export interface PidPiDesign {
   status: "provisional";
-  candidate: { applied: false; structure: "P" | "PI" | "PD" | "PID"; proportionalGain: number; integralGain: number; derivativeGain: number; backCalculationGain?: number };
+  candidate: { applied: false; structure: "P" | "PI" | "PD" | "PID"; proportionalGain: number; integralGain: number; derivativeGain: number; backCalculationGain?: number; proportionalSetpointWeight?: number; derivativeSetpointWeight?: number; measurementFilterSeconds?: number };
   selectedModel: { revision: string; provenance: string };
   actualSTVerify: true;
   scope: string;
@@ -14,8 +14,9 @@ export interface PidPiDesign {
 /** Converts a supported selected plant into the existing parallel PI tuning service. */
 export function designTypedPiCandidate(value: GeneralModel, options: { method: TuningMethod; objective: TuningObjective } = { method: "SIMC", objective: "balanced" }): PidPiDesign {
   const model = linearTransferModel(value);
+  if (model.kind === "transfer-function" && model.numerator.length === 1 && model.denominator.length === 3) return halfRulePiCandidate(model, options);
   if (model.kind !== "transfer-function" || model.numerator.length !== 1 || model.denominator.length !== 2) {
-    throw new Error("Typed PI tuning requires a selected SISO first-order transfer-function model.");
+    throw new Error("Typed PI tuning requires a selected SISO first- or second-order transfer-function model without zeros.");
   }
   const [a1, a0] = model.denominator;
   if (!(a1 > 0) || a0 < 0 || model.numerator[0] === 0) throw new Error("Typed PI tuning requires a nonzero-gain stable or integrating first-order model.");
@@ -33,6 +34,23 @@ export function designTypedPiCandidate(value: GeneralModel, options: { method: T
     scope: `Provisional typed PI record for the selected ${integrating ? "integrating" : "first-order"} model; actual-ST Verify is required.` };
 }
 
+/** SIMC's half rule: K/((τ₁s+1)(τ₂s+1))·e^(−θs), τ₁ ≥ τ₂, is tuned as a first-order model with τ = τ₁ + τ₂/2 and delay θ + τ₂/2. */
+function halfRulePiCandidate(model: GeneralModel & { kind: "transfer-function" }, options: { method: TuningMethod; objective: TuningObjective }): PidPiDesign {
+  const [a2, a1, a0] = model.denominator;
+  if (!(a2 > 0 && a1 > 0 && a0 > 0) || model.numerator[0] === 0) throw new Error("SIMC's half rule requires a stable second-order model with a nonzero gain.");
+  const sum = a1 / a0, product = a2 / a0, discriminant = sum * sum - 4 * product;
+  if (discriminant < 0) throw new Error("The second-order model has complex poles, so SIMC's half rule does not apply. Choose Automatic or another tuning rule.");
+  const slow = (sum + Math.sqrt(discriminant)) / 2, fast = (sum - Math.sqrt(discriminant)) / 2;
+  const timeConstantSeconds = slow + fast / 2, deadTimeSeconds = model.delaySeconds + fast / 2;
+  const tuning = tuneController({ kind: "first_order_dead_time", gain: Math.abs(model.numerator[0] / a0), timeConstantSeconds, deadTimeSeconds,
+    normalizedError: 0, stable: true }, options);
+  const proportionalGain = Math.sign(model.numerator[0]) * tuning.controller.kp;
+  return { status: "provisional", candidate: { applied: false, structure: "PI", proportionalGain, integralGain: proportionalGain / tuning.controller.tiSeconds!, derivativeGain: 0 },
+    selectedModel: { revision: model.revision, provenance: `declared-${model.source}-${model.validation}` }, actualSTVerify: true,
+    scope: `Provisional typed PI record for the selected second-order model, reduced by SIMC's half rule to τ = ${Number(timeConstantSeconds.toPrecision(4))} s `
+      + `and θ = ${Number(deadTimeSeconds.toPrecision(4))} s; actual-ST Verify is required.` };
+}
+
 export function designTypedProportionalCandidate(model: GeneralModel, proportionalGain: number): PidPiDesign {
   if (!Number.isFinite(proportionalGain)) throw new Error("Typed proportional design requires a finite gain.");
   return { status: "provisional", candidate: { applied: false, structure: "P", proportionalGain, integralGain: 0, derivativeGain: 0 },
@@ -47,8 +65,8 @@ export function designTypedProportionalCandidate(model: GeneralModel, proportion
  */
 export function designTypedDerivativeCandidate(value: GeneralModel, structure: "PD" | "PID", options: { method: TuningMethod; objective: TuningObjective } = { method: "SIMC", objective: "balanced" }): PidPiDesign {
   const model = linearTransferModel(value);
+  if (model.kind !== "transfer-function" || model.denominator.length !== 2) throw new Error("Typed derivative design requires a first-order transfer-function model.");
   const pi = designTypedPiCandidate(model, options);
-  if (model.kind !== "transfer-function") throw new Error("Typed derivative design requires a first-order transfer-function model.");
   if (!(model.denominator[1] > 0)) throw new Error("The constrained derivative design requires a stable first-order model with a finite time constant.");
   const timeConstant = model.denominator[0] / model.denominator[1];
   const derivativeGain = rounded(pi.candidate.proportionalGain * Math.min(Math.max(model.delaySeconds, 0.05 * timeConstant), 0.25 * timeConstant));

@@ -112,7 +112,7 @@ export async function fitMultichannelRecordings(loop: ControlLoopDefinition, run
   const channel = (signal: typeof loop.signals.processVariable) => ({ id: signal.symbol, unit: signal.unit, operatingRange: signal.range });
   const fitted = await fitting.run<IdentifiedStateModelResult>(path.join(__dirname, "generalIdentificationWorker.js"), {
     estimation: runs[0].run, validation: runs[1]?.run, channels: { inputs: inputs.map(input => channel(input.signal)), outputs: outputs.map(output => channel(output.signal)) },
-    maximumNormalizedError: loop.identificationPolicy?.maximumNormalizedError ?? 0.15, maximumOrder: loop.identificationPolicy?.maximumOrder ?? 4, physical: loop.physicalIdentification,
+    maximumNormalizedError: loop.identificationPolicy?.maximumNormalizedError ?? 0.15, maximumOrder: loop.identificationPolicy?.maximumOrder ?? 4,
   });
   if (!fitted || cancelled()) throw new Error("Identification cancelled.");
   return { ...fitted, model: { ...fitted.model, inputs: fitted.model.inputs.map((channel, index) => ({ ...channel, id: inputs[index].modelChannelId })),

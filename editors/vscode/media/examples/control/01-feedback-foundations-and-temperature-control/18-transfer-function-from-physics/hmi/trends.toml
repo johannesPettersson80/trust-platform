@@ -2,5 +2,5 @@ title = "Trends"
 kind = "trend"
 icon = "line-chart"
 order = 50
-duration_s = 600
-signals = ["P1.DifferentialDeviation", "P1.DifferentialLevel", "P1.InletFlow", "P1.InputDeviation", "P1.NonlinearTankLevel", "P1.OperatingFlow", "P1.OperatingLevel", "P1.TransferLevel"]
+duration_s = 60
+signals = ["P1.TemperatureC", "P1.SetpointC", "P1.NoDelayPredictionC", "P1.DelayedModelC", "P1.HeaterPowerPct"]

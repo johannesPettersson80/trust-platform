@@ -1,5 +1,6 @@
 import type { GeneralModel } from "../generalModel";
 import { formatEngineeringNumber } from "../chartContract";
+import { powerOfS } from "../powerNotation";
 
 /** Presentation of the host's selected model; never fits or changes its coefficients. */
 export function renderIdentifiedModel(root: HTMLElement, model: GeneralModel): void {
@@ -12,7 +13,7 @@ export function renderIdentifiedModel(root: HTMLElement, model: GeneralModel): v
     equation.textContent = `G(s) = (${polynomial(model.numerator)}) / (${polynomial(model.denominator)})${model.delaySeconds ? ` · e^(−${number(model.delaySeconds)}s)` : ""}`;
   } else {
     const discrete = model.kind === "discrete-state-space";
-    type.textContent = `${discrete ? "Discrete" : "Continuous"} state-space model${model.inputs.length > 1 || model.outputs.length > 1 ? ` · ${model.inputs.length} inputs, ${model.outputs.length} outputs` : ""}`;
+    type.textContent = `${discrete ? "Discrete" : "Continuous"} state-space model${model.inputs.length > 1 || model.outputs.length > 1 ? ` · ${channelCount(model.inputs.length, "input")}, ${channelCount(model.outputs.length, "output")}` : ""}`;
     const inputOffset = model.operatingPoint?.inputs;
     const outputOffset = model.operatingPoint?.outputs;
     const input = inputOffset?.some(value => value !== 0) ? `(u${discrete ? "[k]" : ""} − ${vector(inputOffset)})` : discrete ? "u[k]" : "u";
@@ -23,6 +24,8 @@ export function renderIdentifiedModel(root: HTMLElement, model: GeneralModel): v
   if (model.validation === "unvalidated") type.textContent += " · Provisional";
   root.querySelector<HTMLElement>("[data-studio-model-result]")!.hidden = false;
 }
+/** "1 input", "2 outputs". */
+export const channelCount = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? "" : "s"}`;
 const number = (value: number) => formatEngineeringNumber(value);
 const matrix = (values: readonly (readonly number[])[]) => `[${values.map(row => row.map(number).join(", ")).join("; ")}]`;
 const vector = (values: readonly number[]) => values.length === 1 ? number(values[0]) : `[${values.map(number).join(", ")}]`;
@@ -30,6 +33,6 @@ function polynomial(values: readonly number[]): string {
   return values.map((value, index) => {
     if (!value) return "";
     const power = values.length - index - 1;
-    return `${value < 0 ? "−" : "+"}${number(Math.abs(value))}${power ? power === 1 ? "s" : `s^${power}` : ""}`;
+    return `${value < 0 ? "−" : "+"}${number(Math.abs(value))}${power ? powerOfS(power) : ""}`;
   }).filter(Boolean).join(" ").replace(/^\+/, "") || "0";
 }

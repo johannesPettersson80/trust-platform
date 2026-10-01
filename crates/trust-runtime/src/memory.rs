@@ -48,7 +48,6 @@ pub struct VariableStorage {
     instance_field_offsets: RwLock<FxHashMap<(InstanceId, SmolStr), Option<usize>>>,
     recursive_instance_field_resolutions:
         RwLock<FxHashMap<(InstanceId, SmolStr), RecursiveInstanceFieldResolution>>,
-    declared_instance_field_offsets: RwLock<FxHashMap<(SmolStr, SmolStr), usize>>,
     next_frame_id: u32,
     next_instance_id: u32,
 }
@@ -65,9 +64,6 @@ impl Clone for VariableStorage {
             ),
             recursive_instance_field_resolutions: RwLock::new(
                 recover_read_lock(self.recursive_instance_field_resolutions.read()).clone(),
-            ),
-            declared_instance_field_offsets: RwLock::new(
-                recover_read_lock(self.declared_instance_field_offsets.read()).clone(),
             ),
             next_frame_id: self.next_frame_id,
             next_instance_id: self.next_instance_id,

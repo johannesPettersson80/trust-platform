@@ -61,59 +61,57 @@ impl DebugAdapter {
         let cycle_interval = wall_interval_for_cycle(cycle_time);
         let stop = Arc::new(AtomicBool::new(false));
         let stop_flag = Arc::clone(&stop);
-        let handle = thread::spawn(move || loop {
-            if stop_flag.load(Ordering::Relaxed) {
-                break;
-            }
-            let cycle_start = Instant::now();
-            let mut runtime = match runtime.lock() {
-                Ok(guard) => guard,
-                Err(poisoned) => poisoned.into_inner(),
-            };
-            let now = runtime.current_time();
-            let mut simulation = match simulation.lock() {
-                Ok(guard) => guard,
-                Err(poisoned) => poisoned.into_inner(),
-            };
-            let cycle_result = if let Some(simulation) = simulation.as_mut() {
-                simulation
-                    .apply_pre_cycle(now, &mut runtime)
-                    .and_then(|()| runtime.execute_cycle())
-                    .and_then(|()| simulation.apply_post_cycle(now, &runtime))
-            } else {
-                runtime.execute_cycle()
-            };
-            match cycle_result {
-                Ok(()) => runtime.advance_time(cycle_time),
-                Err(err) => {
-                    if !matches!(err, RuntimeError::InvalidControlFlow) {
-                        eprintln!("runtime cycle error: {err}");
+        let handle = thread::spawn(move || {
+            let mut pacer = super::cycle_pacing::CyclePacer::new(cycle_interval, Instant::now());
+            loop {
+                if stop_flag.load(Ordering::Relaxed) {
+                    break;
+                }
+                pacer.begin(Instant::now());
+                let mut runtime = match runtime.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                let now = runtime.current_time();
+                let mut simulation = match simulation.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                let cycle_result = if let Some(simulation) = simulation.as_mut() {
+                    simulation
+                        .apply_pre_cycle(now, &mut runtime)
+                        .and_then(|()| runtime.execute_cycle())
+                        .and_then(|()| simulation.apply_post_cycle(now, &runtime))
+                } else {
+                    runtime.execute_cycle()
+                };
+                match cycle_result {
+                    Ok(()) => runtime.advance_time(cycle_time),
+                    Err(err) => {
+                        if !matches!(err, RuntimeError::InvalidControlFlow) {
+                            eprintln!("runtime cycle error: {err}");
+                        }
                     }
                 }
-            }
-            if let (Some((snapshot_sink, seen_ms)), Some(snapshot)) =
-                (&control_snapshot_sink, control_for_cycle.latest_io_snapshot())
-            {
-                if let Ok(mut current) = snapshot_sink.lock() {
-                    *current = Some(snapshot);
-                    seen_ms.store(
-                        std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .map(|duration| duration.as_millis() as u64)
-                            .unwrap_or(0),
-                        Ordering::Relaxed,
-                    );
+                if let (Some((snapshot_sink, seen_ms)), Some(snapshot)) =
+                    (&control_snapshot_sink, control_for_cycle.latest_io_snapshot())
+                {
+                    if let Ok(mut current) = snapshot_sink.lock() {
+                        *current = Some(snapshot);
+                        seen_ms.store(
+                            std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .map(|duration| duration.as_millis() as u64)
+                                .unwrap_or(0),
+                            Ordering::Relaxed,
+                        );
+                    }
                 }
-            }
-            drop(simulation);
-            drop(runtime);
+                drop(simulation);
+                drop(runtime);
 
-            let elapsed = cycle_start.elapsed();
-            if elapsed >= cycle_interval {
-                continue;
+                sleep_until_or_stopped(&stop_flag, pacer.next());
             }
-            let deadline = cycle_start + cycle_interval;
-            sleep_until_or_stopped(&stop_flag, deadline);
         });
         self.runner = Some(DebugRunner {
             stop,

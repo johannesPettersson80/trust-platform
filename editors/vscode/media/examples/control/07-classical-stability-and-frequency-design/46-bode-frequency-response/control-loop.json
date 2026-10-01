@@ -1,134 +1,108 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "topology": "open-loop",
   "id": "control-bode-frequency-response",
-  "name": "Bode frequency response",
-  "revision": "sha256:2a00fcde355a55b767f84b9e15796b5138592d44b6b7ccd7e6d3437961c0a71d",
+  "name": "Frequency response",
   "projectId": "project:control-bode-frequency-response",
   "runtimeId": "simulator",
   "controller": {
     "instance": "P1",
-    "type": "FrequencyProbeBank",
+    "type": "Main",
     "design": "project",
-    "revision": "sha256:curriculum-controller-47",
+    "revision": "sha256:c82814ee337b8db8dfc54607a3f9a151af9a306c4fcc58d2810c9b4c0a61b379",
     "action": "direct",
-    "taskPeriodMs": 10
+    "taskPeriodMs": 100
   },
   "signals": {
     "processVariable": {
-      "symbol": "P1.LowSpeed",
+      "symbol": "P1.TemperatureC",
       "address": "%IL0",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "rpm",
+      "unit": "degC",
       "range": {
-        "minimum": -500,
-        "maximum": 500
+        "minimum": 0,
+        "maximum": 80
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.LowApplied",
+      "symbol": "P1.HeaterCommandPct",
       "address": "%QL0",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "%",
       "range": {
-        "minimum": -100,
+        "minimum": 0,
         "maximum": 100
       }
     },
     "additional": [
       {
-        "id": "resonant-pv",
-        "channel": "resonant",
-        "role": "PV",
-        "symbol": "P1.ResonantSpeed",
-        "address": "%IL8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "rpm",
-        "range": {
-          "minimum": -500,
-          "maximum": 500
-        }
-      },
-      {
-        "id": "resonant-mv",
-        "channel": "resonant",
-        "role": "MV",
-        "symbol": "P1.ResonantApplied",
-        "address": "%QL8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": -100,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "high-pv",
-        "channel": "high",
-        "role": "PV",
-        "symbol": "P1.HighSpeed",
-        "address": "%IL16",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "rpm",
-        "range": {
-          "minimum": -500,
-          "maximum": 500
-        }
-      },
-      {
-        "id": "high-mv",
-        "channel": "high",
-        "role": "MV",
-        "symbol": "P1.HighApplied",
-        "address": "%QL16",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": -100,
-          "maximum": 100
-        }
-      },
-      {
         "id": "experiment-authority",
         "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
-        "address": "%MX96.0",
+        "address": "%MX24.0",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "",
+        "unit": "1",
         "range": {
           "minimum": 0,
           "maximum": 1
+        }
+      },
+      {
+        "id": "model-amplitude-ratio",
+        "channel": "model-amplitude-ratio",
+        "role": "state",
+        "symbol": "P1.ModelAmplitudeRatio",
+        "address": "%ML0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC/%",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "model-phase",
+        "channel": "model-phase",
+        "role": "state",
+        "symbol": "P1.ModelPhaseRad",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad",
+        "range": {
+          "minimum": -4,
+          "maximum": 0
         }
       }
     ]
   },
   "limits": {
-    "outputMinimum": -100,
+    "outputMinimum": 0,
     "outputMaximum": 100
   },
   "observedSampleTiming": {
-    "nominalPeriodMs": 10
+    "nominalPeriodMs": 100
   },
-  "plantId": "flexible_drive_frequency_probe_bank",
+  "plantId": "water-heater",
+  "operatingPoint": "Heater at 35 degC with 75%",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 120.1,
+    "durationSeconds": 159.2,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX96.0",
+      "address": "%MX24.0",
       "iecType": "BOOL",
       "direction": "write"
-    }
-  }
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:1164372407f5649052ca7584c81da600ba811ff7be252bab026bc3ef7c1fc911"
 }

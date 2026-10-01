@@ -1,26 +1,32 @@
 [simulation]
 enabled = true
-seed = 20260828
+seed = 20260829
 time_scale = 1
 max_plant_substeps_per_cycle = 100
 plant_trace_capacity = 2500
 plant_step_ms = 20
 
+# The Lesson 34 axis lifting a weight on a drum: J·dω/dt = u − τL − B·ω, dθ/dt = ω with J = 1 kg·m² and
+# B = 1 N·m·s/rad. Inputs: motor torque (%QL0) and the drum's load torque (%QL8); outputs: angle and velocity.
 [[plants]]
-id = "payload-loaded-servo-positioning-table"
-model = "robot_joint"
-command_sources = ["%QL0"]
+id = "drum-axis"
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
 feedback_targets = ["%IL0", "%IL8"]
 initial_state = [0.0, 0.0]
 
 [plants.parameters]
-inertia_kg_m2 = 1.0
-# Peak gravity coefficient: opposing torque is 4*sin(position) N m.
-gravity_torque_nm = 4.0
-viscous_friction_nm_s_per_rad = 1.0
-coulomb_friction_nm = 0.0
-friction_smoothing_rad_s = 0.01
+a = [[0.0, 1.0], [0.0, -1.0]]
+b = [[0.0, 0.0], [1.0, -1.0]]
+c = [[1.0, 0.0], [0.0, 1.0]]
+d = [[0.0, 0.0], [0.0, 0.0]]
 
-[plants.actuator]
-minimum = -10.0
-maximum = 10.0
+# The angle measurement carries repeatable noise of at most ±0.001 rad.
+[[plants.uncertainties]]
+id = "angle-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "uniform_white"
+minimum = -0.001
+maximum = 0.001

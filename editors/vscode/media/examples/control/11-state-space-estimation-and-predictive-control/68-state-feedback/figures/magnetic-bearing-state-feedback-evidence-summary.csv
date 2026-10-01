@@ -1,7 +1,0 @@
-case,status,settling_s,final_error,peak_applied,applied_travel,load_estimation_error
-bearing_position_only,not_settled,,,1.707410,9.142822,
-bearing_state_feedback,qualified,1.700000,0.000000,1.600000,1.729758,
-bearing_reference,qualified,1.700000,0.000000,1.200000,1.729758,
-motor_without_observer,rejected,,0.166667,3.000000,1.666667,
-motor_nominal_observer,qualified,2.000000,0.000000,3.000000,2.223858,0.000000
-motor_damping_mismatch,model_mismatch_visible,,0.000000,3.000000,2.131626,0.200000

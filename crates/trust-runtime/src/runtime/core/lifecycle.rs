@@ -27,6 +27,7 @@ impl Runtime {
             statement_index: IndexMap::new(),
             source_text_index: IndexMap::new(),
             source_label_index: std::collections::HashMap::new(),
+            vm_statement_locations: rustc_hash::FxHashMap::default(),
             functions: IndexMap::new(),
             function_blocks: IndexMap::new(),
             classes: IndexMap::new(),

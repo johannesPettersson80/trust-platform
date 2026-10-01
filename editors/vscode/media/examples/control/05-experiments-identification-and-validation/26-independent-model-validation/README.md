@@ -1,81 +1,141 @@
 # 18. Model validation
 
-You will test a fixed heater model against unused command and disturbance records, and decide whether its timing, shape, and final-temperature predictions are accurate enough for the next tuning decision.
+In this lesson, you will test the heater model, unchanged, on three new records it has never seen: two command steps and an extra heat loss. You will decide from the prediction errors whether the model is good enough to design a controller with.
 
 ## The problem
 
-A model can fit its identification record and still fail on a different command or disturbance. Final-temperature agreement alone can hide an incorrect delay or rise. Looking at validation data and then changing the model turns validation into fitting.
+Lesson 17 showed what the experiments can tell apart: early samples fix only the ratio of gain to time constant, and a water reference showed that the 5 s lag belongs to the water and the shorter one, about 2 s, to the probe. But every check so far used the record the model was fitted to. A model can fit its own record and still fail on a different command or a disturbance.
+
+We will freeze the model and test it on new records, with requirements set before we look.
 
 ## What we need
 
-We need to establish whether the unchanged model predicts new commands and
-disturbances accurately enough for a tuning decision. Agreement with the
-record used to fit it does not answer that question.
+We need to:
+
+1. keep the model unchanged while it is tested;
+2. measure how far its predictions are from new records; and
+3. decide, against limits set in advance, whether it is good enough for designing the controller.
 
 ## The new idea
 
-**Model validation** checks whether an unchanged model predicts new observations
-well enough for its intended purpose. We keep the fitting record separate:
-otherwise we would only check how well the model reproduces data used to
-choose it. Here the intended purpose is a later controller-tuning decision.
+**Model validation** tests the unchanged model on a new recording it has never seen. If it predicts that recording well enough for our purpose, we can design with it. Here the model is the one fitted to the 12-point step: gain 0.1999 °C per %, delay 1 s, time constant 5 s.
 
-Freeze the learner’s equation and K, τ, and L, including uncertainty, before viewing validation traces. Retain any additional states justified in the model-structure and identifiability lessons. If there is a probe-temperature state, predict that state for comparison with the probe measurement; use an independent water reference for claims about actual water temperature. The single-state physical model from Lesson 13 is:
+**In words.** A model can fit its own record and still fail on a different command or a disturbance, just as a program can pass the test values used while writing it and still fail on site. In PLC terms, validation is the site acceptance test with new test cases. It has four parts:
 
-$$
-x=T-35,\qquad \tau\dot x+x=K v(t-L)-\frac{K}{2}D(t),
-$$
+1. **Freeze the model.** Changing it after seeing the new records would turn validation back into fitting.
+2. **Use new records that test different parts of the model.** Here three records start from the same hot state, 35 °C with 75%: a step up to 90%, a step down to 65%, and an extra 30 kW heat loss at 75%. The steps test the heater's path, including its 1 s delay. The heat loss takes heat from the water directly, so it acts at once, without the heater's delay.
+3. **Score the misses.** At every sample, compare the measurement with the prediction. Two numbers summarize the misses: how large they typically are, and whether they lean to one side. Measurement noise is as often positive as negative and averages out; an error in the model itself does not.
+4. **Decide against limits set in advance.** "Good enough for our purpose" means limits taken from what the design needs, written down before anyone looks at the records.
 
-where v=u−75 is applied-command deviation in points, D is extra heat extraction in kW, K is °C/point, and the known 2 kW/point conversion gives $H=2/K$. D acts on water immediately in this model; it does not pass through the heater command delay. For nominal K=.2 and τ=5, a held 30 kW extraction gives initial rate $-KD/(2\tau)=-0.6$ °C/s when x=0 and v=0.
-
-Use three unused 40 s records from the same hot reset: 75→90% with D=0 (nominal final 38 °C), 75→65% with D=0 (nominal final 33 °C), and D=30 kW introduced while command remains 75% (nominal final 32 °C). Set the existing project variable `TrialKind` to 0, 1 or 2 before each run. These values are illustrative; predictions use your unchanged model parameters and each actual applied-command history.
-
-For each record, calculate predicted temperature using its applied-command history and disturbance history. A **residual** is measured minus predicted temperature: $r_i=T_{measured,i}-T_{predicted,i}$, where i labels a sample. For N samples, the mean residual is their sum divided by N. The root mean square error (RMSE) squares the residuals before averaging, then takes the square root:
+**The formula.** The **residual** of one sample is the measured temperature minus the predicted one:
 
 $$
-\overline r=\frac{1}{N}\sum_{i=1}^{N}r_i,\qquad
-\mathrm{RMSE}=\sqrt{\frac{1}{N}\sum_{i=1}^{N}r_i^2}.
+r_i = T_{measured,i} - T_{predicted,i}.
 $$
 
-Both results have units °C. For residuals +0.1 and −0.1 °C, the mean is zero but RMSE is sqrt((0.01+0.01)/2)=0.1 °C. Positive and negative model errors cannot cancel in RMSE.
+> **Math you need: mean and root mean square.** The **mean** of $N$ numbers is their sum divided by $N$. The **root mean square** squares each number, takes the mean of the squares, then the square root. For residuals +0.1 and −0.1 °C, the mean is 0, but the root mean square is $\sqrt{(0.01 + 0.01)/2} = 0.1$ °C: squaring stops positive and negative errors from cancelling.
 
-Declare requirements before looking: every measured/predicted difference within ±0.2 °C through 40 s, final-10-s RMSE ≤0.1 °C, 10% response-crossing error ≤0.3 s, and 63.2% crossing error ≤1 s when the crossing exists. For each trace, normalize progress as (T−T0)/(Tfinal−T0), using a supported late temperature. This handles rising and falling tests with the same sign convention. Mark the first of three consecutive samples at or beyond 10% and 63.2%; apply the identical rule to the model trace. If the final change or a crossing is unsupported, report that metric as indeterminate. Validation temperature bounds are 31–39 °C, deliberately broad enough for the 32 °C disturbance case; command must remain 0–100%.
+Let $N$ be the number of samples scored. Then
 
-The early 10% crossing includes delay and initial-rise effects; do not call it a pure L measurement. Check final value, residual pattern, onset, 63.2% crossing, and shape separately. A coherent residual sign may suggest gain bias; a delayed residual may suggest L; curvature may suggest τ or extra lag. These are diagnostic patterns, not automatic refits.
+$$
+\bar r = \frac{1}{N}\sum_{i=1}^{N} r_i, \qquad \mathrm{RMSE} = \sqrt{\frac{1}{N}\sum_{i=1}^{N} r_i^2}.
+$$
+
+- $r_i$ is the residual of sample $i$, in °C, and $\sum_{i=1}^{N}$ means: add up the terms for $i = 1, 2, \dots, N$;
+- $\bar r$ is the mean residual, in °C: it shows whether the errors lean to one side;
+- the **RMSE**, root-mean-square error, in °C, measures the size of the errors.
+
+The frozen model predicts a command step $\Delta u$ from the hot state, and an extra loss $D$, as
+
+$$
+T(t) = 35 + K\,\Delta u\left(1 - e^{-(t - L)/\tau}\right) \ \text{for } t \ge L, \qquad T(t) = 35 - K\,\frac{D}{a}\left(1 - e^{-t/\tau}\right).
+$$
+
+- $K$ = 0.1999 °C per %, $L$ = 1 s and $\tau$ = 5 s are the frozen model's numbers;
+- $\Delta u$ is the command step, in percentage points, and $t$ the time since the change, in seconds;
+- $D$ is the extra loss, in kW, and $a$ = 2 kW per % the heater's power per percentage point: a loss of $D$ kW counts like $D/a$ percentage points less heating, but without the delay.
+
+**Example: scoring by hand.** Calculated, with invented measurements:
+
+1. For an extra loss of 10 kW, not one of this lesson's records, the predicted final change is $-0.1999 \times 10/2 = -1.00$ °C, and 5 s after the loss starts the model predicts $35 - 1.00 \times (1 - e^{-1}) = 34.37$ °C.
+2. Suppose the record read 34.42 °C at that moment. The residual is $34.42 - 34.37 = +0.05$ °C: the water is 0.05 °C warmer than predicted.
+3. Suppose four samples give residuals of +0.05, +0.02, −0.01 and +0.06 °C. The mean is $(0.05 + 0.02 - 0.01 + 0.06)/4 = 0.03$ °C. The squares add up to $0.0025 + 0.0004 + 0.0001 + 0.0036 = 0.0066$, so the RMSE is $\sqrt{0.0066/4} = 0.041$ °C.
+4. Against the limits below, these samples pass: the largest residual, 0.06 °C, is inside ±0.2 °C, and the RMSE is below 0.1 °C. Three of the four residuals are positive, and the mean is three-quarters of the RMSE: the misses lean to one side.
+
+**Teaching choice.** The requirements, set before looking: every residual within ±0.2 °C, and an RMSE of at most 0.1 °C, on each record. They are teaching limits chosen from what a controller design for this heater needs.
+
+**The limitation.** Passing shows that the model is good enough for conditions like these, not that it is exact or right everywhere. The limits themselves leave room: a model whose gain is 5% too high predicts a 10-point step's 2 °C rise 0.10 °C too high. Every residual stays inside ±0.2 °C, and over a 40 s record the RMSE is 0.089 °C (calculated), so that model passes too.
 
 ## Prediction
 
-Before opening the records, calculate nominal final temperatures and predict which record is most likely to expose a missing disturbance input. State which model defect would produce each residual pattern; do not claim a residual sign without a mismatch hypothesis. Predict whether the learner’s uncertainty overlaps each requirement.
+Before running, answer these questions:
+
+1. What final temperatures does the frozen model predict for the three records?
+2. Will every residual stay within ±0.2 °C, and the RMSE below 0.1 °C, for the two steps?
+3. Control Studio compares a model with a recorded command step. Can it score the heat-loss record?
+4. If the residuals of a record keep one sign, what does that suggest?
+
+| Record | Predicted final temperature |
+| --- | ---: |
+| Step to 90% | 38.00 °C |
+| Step to 65% | 33.00 °C |
+| 30 kW extra loss | 32.00 °C |
 
 ## Implementation
 
-Keep the first-order model coefficients, revision and uncertainty from the exported Lesson 15 estimation unchanged. Import or recompute that estimation from its original recording with the same Fit settings before viewing any holdout. Do not add prediction logic to `Main.st`: the native simulator supplies the water and measured-probe inputs, while the learner compares the frozen model with recorded data in Control Studio.
+Open [`src/Main.st`](src/Main.st). `TrialKind` selects the record: 0 steps the command to 90%, 1 to 65%, and 2 adds a 30 kW heat loss at 75%. Change it with the simulator stopped; a restart returns to 35 °C with 75%. `WaterTemperatureC` is a reference of the actual water temperature from the simulation, and `DisturbanceKw` the added loss. `SafetyAbort` removes heat and load on an invalid measurement.
 
-For each record, retain the measured PV, applied command, disturbance channel, timestamps and the model revision. Calculate `Residual := MeasuredPV - FrozenModelPV` from the actual command and disturbance history. Use the existing Identify evidence for residuals and validation RMSE. If a crossing or other metric is not available for a record, mark it indeterminate rather than treating an unavailable value as a pass. Do not refit the frozen model on the validation record.
-
-The project setting `TrialKind` selects the trial: 0 selects 75→90%, 1 selects 75→65%, and 2 selects 30 kW extraction with command 75%. Set the initial `TrialKind` value in [src/Main.st](src/Main.st) while stopped, then restart the simulator before each record. Restarting restores 35 °C water/probe state and 75% delayed history. The native simulator owns the delayed heating path, immediate load and probe lag. Main.st reads water at `%IL0` and measured probe temperature at `%IL8`; it does not calculate a frozen-model prediction.
-
-`SafetyAbort` stops heating immediately and latches on invalid measurement. An abort commands zero heating and zero extraction. Normal completion restores 75% heating. After an abort, keep stopped and restart from the full hot reset before clearing the latch and collecting a new trial.
+**Exercise.** Find the `CASE TrialKind OF` block and write down the command and the load of each case. Then calculate the predicted temperature 5 s after the loss starts in case 2: $35 - 3.00 \times (1 - e^{-1}) = 33.10$ °C.
 
 ## Experiment in Control Studio
 
-Keep the first-order model revision, coefficients and uncertainty from Lesson 15 unchanged.
+1. Save the study from the previous step identification: in its project, right-click the plot and choose **Save recording…**.
+2. Open this lesson's project with `TrialKind := 0;` and start **Simulator**. In the **truST** side bar, select **Control Studio**. On **Identify**, choose **Recorded-data fit**, check **Use held-step measurement and search**, set **Model family** to **First order with dead time**, select **Open recording…** and open the saved study. Select **Check recording**, then **Fit plant model**: this restores the frozen model, gain 0.1999, delay 1 s, time constant 5 s.
+3. Choose **Project experiment** from **Method**. **Signals** shows `P1.TemperatureC · Process value (°C)` and `P1.AppliedPowerPct · Applied output (%)`; add `P1.WaterTemperatureC · state (°C)` and `P1.DisturbanceKw · disturbance (kW)`. Answer the predictions, then select **Review project test**, check the **45.1 s** plan (5 s steady start and 40 s record) and select **Confirm and start**.
+4. After the run, choose **Recorded-data fit** again, select **Check recording**, then **Compare with model**. Read **Prediction RMSE** and **Maximum absolute residual** under **Validation step measurements**. The model is not refitted.
+5. Stop the simulator, set `TrialKind := 1;`, restart, and repeat steps 2–4.
+6. Repeat with `TrialKind := 2;`. After **Check recording**, Control Studio reports **Step-response identification requires one nonzero input step.**: the heat-loss record has no command step to compare. Hover the record and compare it with the predicted curve by hand, using the formula above.
+7. At the end of each project test, Control Studio shows **Project test completed. Outputs restored.**
 
-1. Open the Lesson 18 project in the workspace. In **Identify**, import the exported Lesson 15 estimation recording/result. Check the recording, restore the same first-order/FOPDT settings and bounds, then **Fit** the estimation record. Inspect **Parameters and uncertainty** and write down the model revision, coefficients and uncertainty before collecting a holdout. This frozen first-order baseline tests whether its timing and shape are adequate.
-2. Prepare one unused Lesson 18 record at a time. Set `TrialKind` to 0, 1 or 2 in the Lesson 18 [src/Main.st](src/Main.st) while stopped, then restart the simulator. In **Identify**, choose **Record validation** to open **Test**, then **Review test → Confirm and start** with the project-scripted run: 5 s at the hot baseline, then 40 s after activation. Let the run complete, then restore the normal 75% state and restart from the hot reset before the next case.
-3. For the 90% and 65% command holdouts, save the result in **Validate**, return to **Identify**, then **Check recording** and **Fit validation run** to check the distinct recording and evaluate it against the retained Lesson 15 estimation fit. Inspect **Fit**, **Residuals**, **Parameters and uncertainty**, and the displayed validation RMSE. Preserve the original estimation coefficients and model revision; do not change them to improve a holdout.
-4. The 30 kW case is a disturbance observation with no command change. Record and retain its applied command, disturbance and measured PV, then compare it with the frozen model using the recorded histories. The current held-step Identify path requires a distinct command change, so do not claim that this disturbance case passed the held-step fitter; mark unsupported metrics indeterminate and retain it as evidence for the disturbance-model question.
-5. Decide Pass, Fail or Indeterminate separately for each usable record. A failed or unsupported result identifies a limit of the frozen prediction or current evidence route; it does not justify silently refitting the validation record.
+Select **Abort test** to stop early.
 
 ## Evidence and decision
 
-Pass requires every declared criterion for every usable record. Fail identifies an inadequate prediction for the tuning decision; it does not prove the physical plant is wrong. Indeterminate means invalid data, missing crossing, insufficient coverage, or uncertainty prevents a decision. Do not refit using the same validation record. A revised structure or parameter requires a new frozen model and new unused data.
+![The frozen model predicts three new records within a few thousandths of a degree](figures/validation-records.svg)
+
+The numbered marks answer the predictions with the same numbers.
+
+| Record | Final temperature | RMSE | Largest residual | Result |
+| --- | ---: | ---: | ---: | --- |
+| Step to 90% (Control Studio) | 38.00 °C | 0.0019 °C | 0.0021 °C | passes |
+| Step to 65% (Control Studio) | 33.00 °C | 0.0013 °C | 0.0014 °C | passes |
+| 30 kW extra loss (by hand) | 32.00 °C | 0.0014 °C | 0.0015 °C | passes |
+
+1. The three records ended at the predicted 38.00, 33.00 and 32.00 °C.
+2. Both steps stayed far inside the limits: the largest residual was 0.0021 °C against 0.2 °C, and the RMSE 0.0019 °C against 0.1 °C.
+3. No. Control Studio refused the heat-loss record because it has no command step. Scored by hand over the 40 s after the loss started, its mean residual was −0.0013 °C and its RMSE 0.0014 °C.
+4. Each record's residuals kept one sign: on the heat-loss record they were all slightly negative, because the fitted gain, 0.1999, is 0.05% below the heater's 0.2, so the model predicts a slightly smaller drop. The error is real but tiny.
+
+The model is accepted for designing the controller near this operating point. The errors are this small because this simulated heater follows the same energy balance as the model; on real equipment, noise and model error make them larger. These are simulation results.
 
 ## Conclusion
 
-Independent validation tests a frozen model against changed commands and an immediate physical load. Residual magnitude, timing, shape, and final behavior each matter; final agreement alone cannot validate dynamics.
+Model validation keeps the model unchanged and scores it on new records with requirements set in advance. The RMSE measures the size of the errors, the mean residual shows whether they lean to one side, and records with different commands and disturbances test different parts of the model.
+
+For this heater, the model frozen from one step predicted two new steps and an extra heat loss to within 0.002 °C, so it can be used for design.
+
+## Check yourself
+
+1. **Residuals of 0.3, −0.1 and 0.1 °C: what are the mean and the RMSE?**
+   Mean = 0.3/3 = 0.1 °C; RMSE = $\sqrt{(0.09 + 0.01 + 0.01)/3}$ = 0.19 °C.
+2. **Why must the model not be changed after looking at the validation records?**
+   Then the new records would have been used to choose the model, and the test would only show how well the
+   model fits data it was tuned to.
+3. **Why does the heat-loss record start falling without the 1 s delay?**
+   The delay belongs to the heater's power; the extra loss takes heat from the water directly.
 
 ## Reason for the next lesson
 
-The model can now be judged against unused temperature, timing and disturbance observations. When it meets the declared accuracy requirements, we can use it to calculate a controller for a chosen response time; validation itself has not chosen that response or those gains.
+The validated model predicts the heater's temperature for new commands and disturbances, but it does not tell us which PI gains to use.
 
-[Model-based PI tuning](../../06-pid-tuning-methods/30-model-based-pi-tuning/README.md) derives the starting settings from your retained model.
+[Model-based PI tuning](../../06-pid-tuning-methods/30-model-based-pi-tuning/README.md) calculates the gains from the model and the response speed we want.

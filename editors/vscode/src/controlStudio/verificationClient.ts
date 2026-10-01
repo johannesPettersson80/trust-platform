@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "crypto";
 import { evaluateRecordedRun, type RecordedRun, type RunEvaluation, type RunRequirement } from "./runValidation";
+import { canonicalJson } from "./canonicalJson";
 
 export type RuntimeRequest = (operation: string, params: Record<string, unknown>) => Promise<unknown>;
 export interface RuntimeVerificationConnection { source: "simulation"; request: RuntimeRequest }
@@ -39,6 +40,16 @@ export class RuntimeVerificationExecutionError extends Error {
   constructor(reason: string) { super(reason); this.name = "RuntimeVerificationExecutionError"; }
 }
 
+/** The isolated runtime's recording limits, checked before dispatch so the message names the exceeded bound. */
+export function assertRuntimeRecordingBounds(request: Pick<RuntimeVerificationRequest, "step_ms" | "duration_ms" | "observations">): void {
+  const channels = request.observations.length;
+  if (channels > 64) throw new Error(`Validation records ${channels} channels; the runtime records at most 64. Declare fewer additional signals.`);
+  const samples = Math.floor(request.duration_ms / request.step_ms) + 1;
+  if (samples * channels > 250000) {
+    throw new Error(`Validation would record ${samples} samples × ${channels} channels = ${samples * channels} channel samples; the runtime allows 250000. Shorten the run or record fewer signals.`);
+  }
+}
+
 export class RuntimeVerificationClient {
   private generation = 0;
   private active: ActiveVerification | undefined;
@@ -52,6 +63,7 @@ export class RuntimeVerificationClient {
     if (this.disposed || this.busy || this.active) throw new Error("Verification client is disposed or already running.");
     if (this.connection.source !== "simulation") throw new Error("Verify requires isolated simulation.");
     if (requirements.length === 0) throw new Error("Declare at least one run requirement before verification.");
+    assertRuntimeRecordingBounds(input);
     const copiedInput = clone(input); const copiedRequirements = clone(requirements);
     const generation = ++this.generation;
     this.busy = true;
@@ -230,7 +242,7 @@ export class RuntimeVerificationClient {
 
 function validateRun(run: RecordedRun, request: RuntimeVerificationRequest & { execution: "isolated-simulation"; expected_project_revision: string }): void {
   const conditions = run.conditions;
-  if (canonical((conditions as typeof conditions & { feedbackRelay?: unknown }).feedbackRelay ?? null) !== canonical(request.feedback_relay ?? null)) {
+  if (canonicalJson((conditions as typeof conditions & { feedbackRelay?: unknown }).feedbackRelay ?? null) !== canonicalJson(request.feedback_relay ?? null)) {
     throw new Error("Recorded feedback policy differs from the frozen acquisition request.");
   }
   if (request.simulation_override) {
@@ -242,10 +254,10 @@ function validateRun(run: RecordedRun, request: RuntimeVerificationRequest & { e
   }
   if (!text(conditions.programRevision) || !text(conditions.modelRevision) || !text(conditions.parameterSchemaRevision)
       || conditions.durationSeconds !== request.duration_ms / 1000 || conditions.seed !== request.seed
-      || canonical(conditions.initialState) !== canonical(request.initial_values)
-      || canonical(conditions.events) !== canonical(request.events.map(event => ({ atSeconds: event.at_ms / 1000, channel: event.symbol, value: event.value })))
+      || canonicalJson(conditions.initialState) !== canonicalJson(request.initial_values)
+      || canonicalJson(conditions.events) !== canonicalJson(request.events.map(event => ({ atSeconds: event.at_ms / 1000, channel: event.symbol, value: event.value })))
       || JSON.stringify(run.channels) !== JSON.stringify((request.observations as readonly { symbol: string; unit: string }[]).map(channel => ({ id: channel.symbol, unit: channel.unit })))
-      || canonical(run.parameters) !== canonical(Object.fromEntries((request.parameter_overrides ?? []).map(item => [item.symbol, item.value])))) {
+      || canonicalJson(run.parameters) !== canonicalJson(Object.fromEntries((request.parameter_overrides ?? []).map(item => [item.symbol, item.value])))) {
     throw new Error("Recorded run does not match the frozen verification request.");
   }
   const expected = Array.from({ length: request.duration_ms / request.step_ms + 1 }, (_, index) => index * request.step_ms / 1000);
@@ -259,7 +271,6 @@ function record(value: unknown): Record<string, unknown> | undefined { return va
 function text(value: unknown): string | undefined { return typeof value === "string" && value.length > 0 ? value : undefined; }
 function freeze<T>(value: T): T { if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); } return value; }
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
-function canonical(value: unknown): string { return JSON.stringify(value && typeof value === "object" && !Array.isArray(value) ? Object.fromEntries(Object.keys(value).sort().map(key => [key, JSON.parse(canonical((value as Record<string, unknown>)[key]))])) : Array.isArray(value) ? value.map(item => JSON.parse(canonical(item))) : value); }
 function delay(milliseconds: number): Promise<void> { return new Promise(resolve => setTimeout(resolve, milliseconds)); }
 
 /** Worker-local run numbers are namespaced by the confirmed runtime job identity. */

@@ -71,7 +71,10 @@ Keep any results that were obtained; missing checks must not appear as passed.
 
 The table shows the applicable requirements and their measured values, limits,
 units and **Pass**, **Fail** or **Inconclusive** results. Show failed requirements
-directly in their rows. Do not hide a failure in a details panel.
+directly in their rows. Do not hide a failure in a details panel. A row names
+what it measures: an error measured from a reference other than the loop's
+setpoint, such as a planned trajectory, is named after that reference's declared
+signal ("Maximum error from planned angle"), not a steady-state error.
 
 Settling time, overshoot and steady-state error in the layout below are
 examples. The actual table must contain all required checks for the selected

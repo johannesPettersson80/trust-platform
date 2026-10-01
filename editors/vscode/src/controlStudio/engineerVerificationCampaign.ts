@@ -1,14 +1,15 @@
 import { engineerControllerScenarios } from "./engineerControllerScenarios";
-import { createHash } from "crypto";
-import { physicalStateModel } from "./physicalModel";
 import { decodeGeneralModel } from "./generalModel";
 import { engineerEnvelopeScenarios } from "./engineerEnvelopeScenarios";
+import { measuredDisturbanceScenarios } from "./engineerDisturbanceScenarios";
 import { withScenarioEffects, type EngineerScenarioEffect } from "./engineerScenarioEffects";
 import type { ControlLoopDefinition } from "./loopDefinition";
 import type { GeneralModel } from "./generalModel";
 import { engineerVerificationPlan, type EngineerRequirements } from "./engineerVerificationPlan";
 import { decodeRunRequirement, type RunRequirement } from "./runValidation";
 import type { RuntimeVerificationResult } from "./verificationClient";
+import { MainWorkflowError } from "./mainWorkflowFailure";
+import { latestScenarioCheck } from "./scenarioContract";
 export { validEngineerScenarios } from "./scenarioContract";
 import { validEngineerScenarios } from "./scenarioContract";
 export type { EngineerScenario, EngineerScenarioResult } from "./scenarioContract";
@@ -20,17 +21,21 @@ export function engineerVerificationCampaign(loop: ControlLoopDefinition, model:
   const scenarios = loop.verificationScenarios ?? [];
   if (!validEngineerScenarios(scenarios)) throw new Error("Invalid mandatory verification scenario campaign.");
   const parameters = new Set(loop.parameterBinding?.parameters.map(parameter => parameter.symbol));
-  const interaction = [...independentReferenceScenarios(loop, model, task, values), ...engineerEnvelopeScenarios(loop, model, task, values), ...engineerControllerScenarios(loop, model, task, values)];
+  const interaction = [...independentReferenceScenarios(loop, model, task, values), ...measuredDisturbanceScenarios(loop, model, task, values),
+    ...engineerEnvelopeScenarios(loop, model, task, values), ...engineerControllerScenarios(loop, model, task, values)];
   const reserved = new Set(["target-response", ...interaction.map(scenario => scenario.id)]);
   if (scenarios.some(scenario => reserved.has(scenario.id))) throw new Error("A configured scenario duplicates an automatic target/interaction scenario.");
+  // A check after the end of the run cannot be evaluated: name the validation duration it needs.
+  const runSeconds = nominal.request.duration_ms / 1000, latest = latestScenarioCheck(scenarios);
+  if (latest && latest.endSeconds > runSeconds + 1e-9) {
+    throw new MainWorkflowError(`${latest.scenario} checks ${latest.requirement} until ${latest.endSeconds} s, after the ${runSeconds} s validation. `
+      + `Allow a validation duration of at least ${latest.endSeconds} s.`, { cause: "settings", nextAction: "revise-requirements" });
+  }
   return [{ id: "target-response", ...nominal, requirements: loop.controller.onOff ? nominal.requirements.filter(requirement => requirement.kind !== "dwell") : nominal.requirements }, ...interaction, ...scenarios.map(scenario => {
     let scenarioModel = scenario.model ? decodeGeneralModel(scenario.model) : model;
     if (!scenarioModel) throw new Error(`Scenario ${scenario.id} has an invalid supplied model.`);
-    if (scenario.operatingOutputs) {
-      if (!scenarioModel.physical) throw new Error("Declare a physical balance or supply a separate validated model for an operating-range case.");
-      const revision = `sha256:${createHash("sha256").update(JSON.stringify({ model: scenarioModel, outputs: scenario.operatingOutputs })).digest("hex")}`;
-      scenarioModel = physicalStateModel({ ...scenarioModel, revision }, scenarioModel.physical, scenario.operatingOutputs);
-    }
+    // A model is linear about its own operating point: another operating range needs the model validated there.
+    if (scenario.operatingOutputs && !scenario.model) throw new Error(`Scenario ${scenario.id} needs the validated model of its operating range.`);
     const base = scenarioModel === model ? nominal : engineerVerificationPlan(loop, scenarioModel, task, values);
     if (Object.keys(scenario.initialValues).some(symbol => parameters.has(symbol)) || scenario.events.some(event => parameters.has(event.symbol))) {
       throw new Error(`Scenario ${scenario.id} cannot overwrite frozen controller parameters.`);

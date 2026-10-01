@@ -3,4 +3,4 @@ kind = "trend"
 icon = "line-chart"
 order = 50
 duration_s = 600
-signals = ["P1.AppliedTorque", "P1.DrivePosition", "P1.ElapsedSeconds", "P1.NaturalFrequencyHz", "P1.RequestedTorque"]
+signals = ["P1.SlowTemperatureC", "P1.MiddleTemperatureC", "P1.FastTemperatureC", "P1.MiddleCommandPct"]

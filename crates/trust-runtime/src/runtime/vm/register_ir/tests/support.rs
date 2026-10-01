@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
@@ -24,7 +24,7 @@ use super::{
     lower_pou_to_register_ir, next_linear_block_target, normalize_stack_for_block_exit,
     parse_env_bool, parse_tier1_env_bool, parse_tier1_env_usize, prepare_register_file,
     read_bool_register, read_reference_register, read_reference_register_with_counts,
-    read_register_with_counts, register_statement_location, try_execute_pou_with_register_ir,
+    read_register_with_counts, try_execute_pou_with_register_ir,
     try_execute_pou_with_register_ir_with_locals, verify_register_program, BlockTarget,
     RegisterBlock, RegisterBlockExecutionOutcome, RegisterExecutionBuffers,
     RegisterExecutionOutcome, RegisterId, RegisterInstr, RegisterProfileState, RegisterProgram,
@@ -45,7 +45,7 @@ fn vm_module_and_main_pou(source: &str) -> (VmModule, u32) {
 
 fn manual_vm_module(code: Vec<u8>, consts: Vec<Value>, ref_count: usize) -> (VmModule, u32) {
     let pou_id = 1_u32;
-    let mut pou_by_id = HashMap::new();
+    let mut pou_by_id = rustc_hash::FxHashMap::default();
     pou_by_id.insert(
         pou_id,
         VmPouEntry {
@@ -57,7 +57,7 @@ fn manual_vm_module(code: Vec<u8>, consts: Vec<Value>, ref_count: usize) -> (VmM
             primary_instance_owner: None,
         },
     );
-    let mut program_ids = HashMap::new();
+    let mut program_ids = rustc_hash::FxHashMap::default();
     program_ids.insert(SmolStr::new("MAIN"), pou_id);
 
     let refs = (0..ref_count)
@@ -67,8 +67,7 @@ fn manual_vm_module(code: Vec<u8>, consts: Vec<Value>, ref_count: usize) -> (VmM
         })
         .collect();
 
-    (
-        VmModule {
+    let mut module = VmModule {
             code,
             strings: Vec::new(),
             types: TypeTable::default(),
@@ -76,21 +75,22 @@ fn manual_vm_module(code: Vec<u8>, consts: Vec<Value>, ref_count: usize) -> (VmM
             consts,
             pou_by_id,
             program_ids,
-            function_ids: HashMap::new(),
-            function_block_ids: HashMap::new(),
-            class_ids: HashMap::new(),
-            parent_pou_ids: HashMap::new(),
-            interface_type_ids_by_pou: HashMap::new(),
+            function_ids: Default::default(),
+            function_block_ids: Default::default(),
+            class_ids: Default::default(),
+            parent_pou_ids: Default::default(),
+            interface_type_ids_by_pou: Default::default(),
             native_symbol_specs: Vec::new(),
-            pou_params: HashMap::new(),
-            pou_has_return_slot: HashSet::new(),
-            method_table_by_owner: HashMap::new(),
-            ref_types: HashMap::new(),
+            pou_params: Default::default(),
+            pou_has_return_slot: Default::default(),
+            method_table_by_owner: Default::default(),
+            ref_types: Vec::new(),
+            ref_slots: Default::default(),
             debug_map: super::super::debug_map::VmDebugMap::default(),
             instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
-        },
-        pou_id,
-    )
+        };
+    module.reindex_refs();
+    (module, pou_id)
 }
 
 fn emit_u32(code: &mut Vec<u8>, value: u32) {
@@ -882,7 +882,7 @@ fn block_index_from_id_rejects_missing_and_mismatched_blocks() {
 }
 
 #[test]
-fn register_statement_location_resolves_vm_debug_map_entries() {
+fn vm_statement_location_resolves_vm_debug_map_entries_and_follows_new_registrations() {
     let (mut module, pou_id) = manual_vm_module(vec![0x06], Vec::new(), 0);
     module.debug_map.source_by_pc.insert(
         (pou_id, 0),
@@ -898,11 +898,15 @@ fn register_statement_location_resolves_vm_debug_map_entries() {
     runtime.register_source_text(0, "x := 1;\n");
     runtime.register_statement_locations(0, vec![location]);
 
-    assert_eq!(
-        register_statement_location(&runtime, &module, pou_id, 0),
-        Some(location)
-    );
-    assert_eq!(register_statement_location(&runtime, &module, pou_id, 99), None);
+    let resolve = super::super::dispatch::vm_statement_location;
+    assert_eq!(resolve(&mut runtime, &module, pou_id, 0), Some(location));
+    assert_eq!(resolve(&mut runtime, &module, pou_id, 99), None);
+
+    // A later registration replaces a resolution made before it.
+    let replaced = crate::debug::SourceLocation::new(0, 0, 7);
+    runtime.register_source_text(0, "x := 10;\n");
+    runtime.register_statement_locations(0, vec![replaced]);
+    assert_eq!(resolve(&mut runtime, &module, pou_id, 0), Some(replaced));
 }
 
 #[test]

@@ -521,7 +521,9 @@ fn swap_register_bytes(bytes: &mut [u8]) -> Result<(), RuntimeError> {
             "modbus mapped register byte length must be even".into(),
         ));
     }
-    for chunk in bytes.chunks_exact_mut(2) {
+    let (words, remainder) = bytes.as_chunks_mut::<2>();
+    debug_assert!(remainder.is_empty());
+    for chunk in words {
         chunk.swap(0, 1);
     }
     Ok(())

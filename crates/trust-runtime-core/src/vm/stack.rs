@@ -29,7 +29,7 @@ impl OperandStack {
     #[inline]
     /// Pop one operand value.
     pub fn pop(&mut self) -> Result<Value, VmTrap> {
-        self.values.pop().ok_or(VmTrap::StackUnderflow)
+        self.values.pop().ok_or_else(|| VmTrap::StackUnderflow)
     }
 
     #[inline]
@@ -43,7 +43,11 @@ impl OperandStack {
     #[inline]
     /// Duplicate the top operand value.
     pub fn duplicate_top(&mut self) -> Result<(), VmTrap> {
-        let value = self.values.last().cloned().ok_or(VmTrap::StackUnderflow)?;
+        let value = self
+            .values
+            .last()
+            .cloned()
+            .ok_or_else(|| VmTrap::StackUnderflow)?;
         self.push(value)
     }
 

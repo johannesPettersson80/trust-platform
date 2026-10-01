@@ -3,41 +3,37 @@ enabled = true
 seed = 20260829
 time_scale = 1
 max_plant_substeps_per_cycle = 100
-plant_trace_capacity = 2000
+plant_trace_capacity = 1000
 plant_step_ms = 100
 
+# Two copies of the calibrated additive pump, 1 s·dq/dt + q = 0.2·u: flow q in L/min for the command u in % (0–100),
+# at 10 L/min with 50 %. The first follows a carrier step, the second a carrier stop. The flow is measured exactly.
 [[plants]]
-id = "feedback-only-blender"
-name = "Composition-feedback-only blending skid"
-description = "Two-second local mixing and analyser response around 100 L/min base flow and ratio 0.10."
+id = "additive-pump-step"
 model = "state_space"
-command_sources = ["%QL48", "%QL56"]
-feedback_targets = ["%IL48"]
-initial_state = [0.0]
-initial_input = [10.0, 100.0]
-input_offset = [-10.0, -100.0]
-output_offset = [0.10]
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [10.0]
+initial_input = [50.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 50.0 }]
 
 [plants.parameters]
-a = [[-0.5]]
-b = [[0.005, -0.0015]]
+a = [[-1.0]]
+b = [[0.2]]
 c = [[1.0]]
-d = [[0.0, 0.0]]
+d = [[0.0]]
 
 [[plants]]
-id = "ratio-trim-blender"
-name = "Ratio-plus-composition-trim blending skid"
-description = "Equivalent local plant supplied by the ratio station and analyser PI trim."
+id = "additive-pump-stop"
 model = "state_space"
-command_sources = ["%QL64", "%QL72"]
-feedback_targets = ["%IL56"]
-initial_state = [0.0]
-initial_input = [10.0, 100.0]
-input_offset = [-10.0, -100.0]
-output_offset = [0.10]
+command_sources = ["%QL8"]
+feedback_targets = ["%IL8"]
+initial_state = [10.0]
+initial_input = [50.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 50.0 }]
 
 [plants.parameters]
-a = [[-0.5]]
-b = [[0.005, -0.0015]]
+a = [[-1.0]]
+b = [[0.2]]
 c = [[1.0]]
-d = [[0.0, 0.0]]
+d = [[0.0]]

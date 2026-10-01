@@ -1,97 +1,138 @@
-# 55. Feedforward control
+# 62. Feedforward control
 
-You will use a measured heat-load disturbance to calculate an immediate change in heater command. You will explain why feedback is still needed and test feedforward when power delivery is delayed or the load measurement is inaccurate.
+In this lesson, you will calculate the heater command that replaces a measured heat extraction, add it to the PI, and compare PI alone, PI with feedforward and PI with feedforward from a wrong estimate on the same 30 kW extraction.
 
 ## The problem
 
-An extra heat extraction can cool the vessel before ordinary PI sees an
-error. We want to reduce that initial temperature excursion when a separate
-measurement can tell us about the load sooner.
+Lesson 61's trajectory feedforward cut the drum axis's following error from 0.0922 to 0.00099 rad, because the plan said in advance which torque each part of the move would need. Many disturbances are not planned. On the water heater, colder inlet water draws heat from the moment it arrives. It can be measured, as the inlet flow and its temperature drop, yet a PI controller acts only after the water has cooled.
 
-The electric heater has $C=50\ \mathrm{kJ/°C}$, $H=10\ \mathrm{kW/°C}$ to 20 °C, 200 kW at 100%, and a one-second command-to-delivered-power delay. Its balance is
-
-$$
-50\dot T=2u(t-1)-10(T-20)-D,
-$$
-
-where $u$ is applied command in percentage points and positive $D$ is immediate extra heat extraction in kW. PI feedback waits for PV to fall; a measurement of $D$ can increase the command without waiting for temperature error. Delivered heat still arrives one second later.
+We return to the water heater for this reason: its disturbance is easy to measure, and its heat balance says exactly how much heater power replaces it. We will calculate that power from the measured extraction and give it to the heater at once.
 
 ## What we need
 
-We need to begin correcting a measured heat disturbance before it creates
-a large temperature error. The action must account for physical heat demand
-while feedback remains available to correct measurement and model errors.
+We need to:
+
+1. measure the disturbance while it happens;
+2. calculate from the heat balance the heater command that replaces it; and
+3. add that command to the PI's request, with the PI still correcting what the calculation misses.
 
 ## The new idea
 
-**Feedforward control** calculates an action from a measured disturbance or
-reference before output error is needed to trigger it. Here a measured heat
-extraction lets us request replacement power before temperature falls. PI
-still corrects errors in that prediction and the actual delivery remains delayed.
+**Feedforward control** measures a disturbance and acts on it right away, before the temperature has changed, with the command that cancels it. Feedback then corrects whatever the feedforward gets wrong. For the heater, a measured extraction of 30 kW is answered at once with the heater power that replaces it.
 
-Use a measured or calculated estimate of the extra heat-removal rate. For an inlet disturbance at unchanged mass flow, that estimate can come from mass flow times specific heat times the fall in inlet temperature from its nominal value. In this exercise the load estimate is supplied directly. Keep it separate from the simulator’s actual D when checking bias or a sensor fault.
+**In words.** Feedback waits for an error: the water must first cool before the PI adds heat. Colder inlet water, though, can be measured the moment it arrives, as its flow and its temperature drop, and the heat balance says how much heater power replaces the heat it takes. Feedforward sends that power at once. It is the same idea as a sequence that starts a second pump as soon as a large consumer opens, instead of waiting for the pressure to fall. The heater command then has two parts:
 
-At unchanged temperature, each command point supplies 2 kW. A measured 30 kW extraction therefore requires
+1. **The feedforward part** comes from the measured disturbance: each kilowatt taken adds the command that puts a kilowatt back.
+2. **The feedback part** comes from the PI, as before. It removes whatever the feedforward gets wrong: an error in the measurement, an error in the model, or a disturbance nobody measures.
 
-$$
-u_{\mathrm{FF}}=\frac{D_m}{2}=15\ \text{percentage points}.
-$$
+Feedforward cannot do better than the process allows. The heater's power still takes 1 s to arrive, so for that second the water cools whatever the controller does.
 
-Here $D_m$ is the measured estimate in kW, distinct from actual extraction $D$.
-The full request is $u_{\mathrm{PI}}+u_{\mathrm{FF}}$, then limits and tracking
-are applied. At 35 °C with a 30 kW disturbance, total heating must be 180 kW,
-or 90%. With correct feedforward, I can remain at 75%. If the estimate is
-36 kW, feedforward requests 18 points and PI must eventually reduce its
-contribution to 72%. The total is still 90%. The term is a command estimate,
-not applied heat; the one-second delivery delay still permits an initial PV drop.
-
-For a 30 kW step, if no extra power is delivered for the first second, the unavoidable initial drop from 35 °C is
+**The formula.** Dividing the measured heat by the heater's power per point gives the command that replaces it, and that command is added to the PI's request:
 
 $$
-3\left(1-e^{-1/5}\right)=.5438\ ^\circ\mathrm C.
+u_{ff} = \frac{D_m}{a}, \qquad u_r = P + I + u_{ff}.
 $$
 
-An upstream load measurement one second ahead could shift the feedforward request earlier; that is a different timing case and must be identified as a paper comparison. If the load estimate is 36 kW, feedforward is 18 points, a 20% overestimate; PI must trim the residual.
+Let:
+
+- $D_m$ be the measured extraction, in kW;
+- $a$ be the heater power per command point, 2 kW per percentage point;
+- $u_{ff}$ be the feedforward command, in percentage points;
+- $P$ and $I$ be the PI's proportional and integral parts, in percent; and
+- $u_r$ be the complete request, in percent. The output limits act on the complete request.
+
+**Example: a 30 kW extraction on the water heater.** The water stores 50 kJ per °C, each command point delivers 2 kW one second after it is commanded, and the water loses 10 kW per °C above its 20 °C surroundings. With $T$ the water temperature in °C, $u$ the heater command in % and $D$ the extra extraction in kW, its energy balance is
+
+$$
+50\dot T = 2u(t - 1) - 10(T - 20) - D .
+$$
+
+At 35 °C the water loses $10 \times 15 = 150$ kW, which the heater replaces at 75 %. With 30 kW extracted as well, holding 35 °C needs 180 kW: 90 %. Follow the numbers:
+
+1. The feedforward: $u_{ff} = 30/2 = 15$ points, so the request goes from 75 % to 90 % at the next update, exactly the command that holds 35 °C with the extraction.
+2. Could it cancel the extraction perfectly? Around 35 °C and 75 %, with $x = T - 35$ and $v = u - 75$, dividing the balance by 10 gives $5\dot x + x = 0.2\,v(t - 1) - 0.1\,D(t)$. Perfect cancellation would need $0.2\,v(t - 1) = 0.1\,D(t)$ at every instant, so $v(t) = D(t + 1)/2$: the command would have to know the extraction one second before it happens. No controller can do that.
+3. So for 1 s the extra heat is on its way. The water follows $5\dot x + x = -0.1 \times 30 = -3$: it heads for 3 °C below 35 °C with a 5 s time constant, and in that one second falls by $3(1 - e^{-1/5}) = 0.544$ °C.
+4. Then the heat arrives and replaces the extraction, and the deviation dies away with the 5 s time constant. The PI corrects the small error that is left.
+
+**The limitation.** Feedforward does not remove the delivery delay: the 0.544 °C dip belongs to the delay, and only a faster heater could make it smaller. And it is only as good as its measurement and model. If the estimate is 36 kW, 20 % too high, the feedforward requests 18 points and, after the delay, supplies 6 kW too much. Only the integral can remove the resulting error: it lowers the feedback part from 75 % to 72 %, so that $72 + 18 = 90$ % again.
 
 ## Prediction
 
-Predict the immediate 15-point feedforward request, the one-second-delay initial drop of approximately .5438 °C if no upstream lead exists, and the nominal 90% total command. Predict that a 36 kW estimate gives 18 points and requires feedback correction. Predict that invalid load data should disable only feedforward while healthy PV PI continues; invalid PV follows Lesson 28.
+Before running, answer these questions:
+
+1. What command does each heater request at the first update after the extraction starts?
+2. How far does the water fall with exact feedforward, and when?
+3. Does PI alone let the water fall more or less, and why? The exact value needs the run.
+4. With the 36 kW estimate, where do the command and its feedback part end?
+
+| | PI alone | PI + feedforward | PI + feedforward from 36 kW |
+| --- | ---: | ---: | ---: |
+| First command | 75 % | 90 % | 93 % |
+| Dip during the 1 s delay | — | 0.544 °C | 0.544 °C |
+| Final command (feedback part) | 90 % (90 %) | 90 % (75 %) | 90 % (72 %) |
 
 ## Implementation
 
-Read measured estimate $D_m$ with validity and acquisition time. Calculate
-$u_{\mathrm{FF}}=D_m/2$, form the unlimited full PI-plus-feedforward request,
-then limit and track it:
-$I_{next}=I_{trial}+(dt/T_t)(u_{applied}-u_{request})$.
-Write these calculations in ST using separate named variables. The difference
-includes feedforward because the actuator limits the complete request. Keep
-actual extraction, its estimate, feedforward, P, I and requested/applied command distinct.
+Open [`src/Main.st`](src/Main.st). The project holds three copies of the heater at 35 °C, each with `Control.PID` as PI with $K_p$ = 5 %/°C and $K_i$ = 1 %/(°C·s), a faster PI than the heater had before, so feedback alone gets a fair chance; this is a teaching choice. When Control Studio starts the project test, a 30 kW extraction starts on all three. The first runs PI alone. The second receives $u_{ff}$ from the measured extraction through the PID's `FeedForward` input, which adds it before the output limits. The third receives the feedforward from an estimate 20 % too high, 36 kW. Two functions do this lesson's calculations:
 
-When load data becomes invalid or stale while PV is healthy, disable feedforward and preload the integral so $I=u_a-P-u_{\mathrm{FF,new}}$ preserves the current output. Do not restore a nonzero heat command after invalid PV; use Lesson 28's fault path. A measured load has no value if its timestamp is too old to represent the current extraction.
+```st
+LoadFeedforwardPct := MeasuredLoadKw / KwPerPoint;
+UnavoidableDropC := LoadKw / LossKwPerC * (LREAL#1.0 - EXP(-DelayS / TimeConstantS));
+```
+
+**Exercise.** By hand, `LoadFeedforwardPct` gives 15 points for 30 kW and 18 points for 36 kW, and `UnavoidableDropC` with 30 kW, 10 kW per °C, a 5 s time constant and a 1 s delay gives 0.5438 °C. Open [`src/tests.st`](src/tests.st) and run its tests from the **Testing** view to check the same three values.
 
 ## Experiment in Control Studio
 
-Start at SP=PV=35 °C, applied command 75%, integral output 75%, proportional output 0%, command history 75%, $dt=.1$ s, $\beta=1$, filter bypass, and the selected PI gains. Use tracking time 1 s. Declare requirements before comparing PI-only with PI plus feedforward: for a 30 kW step at time 0, minimum PV ≥33 °C and $|error|\le.2$ °C from 30–60 s, with command 0–100%. The calculated final command is a model check, not an additional temperature requirement.
+1. Open this lesson's project and start **Simulator**. The three heaters rest at 35 °C with 75 %. In the **truST** side bar, select **Control Studio**.
+2. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.SetpointC · Setpoint (°C)`, `P1.PiOnlyC · Process value (°C)` and `P1.PiOnlyPct · Applied output (%)`, the PI-alone heater; add `P1.FeedforwardC · state (°C)`, `P1.BiasedC · state (°C)`, `P1.FeedforwardHeaterPct · state (%)` and `P1.BiasedHeaterPct · state (%)`.
+3. Answer the predictions before starting.
+4. Select **Review project test** and check the declared **62.1 s** duration: 2 s at rest, then 60 s with the 30 kW extraction on all three heaters.
+5. Select **Confirm and start**.
+6. After the run, hover the first update after 2 s and each heater's lowest temperature. Then add `P1.FeedbackPct · state (%)` and `P1.BiasedFeedbackPct · state (%)` and hover the end. Control Studio shows **Project test completed. Outputs restored.**
 
-The calculation reuses Lessons 11, 13, 25, 26, 27 and 28: energy balance, PI limits and lifecycle/measurement validity. Use a healthy PV; if PV itself is invalid, Lesson 28's zero-heat handling applies.
-
-1. Reset the hot state and display true/model temperature, PV, $D$, load validity/time, feedforward, P, I, full/requested/applied power and delayed command.
-2. Run PI-only and PI+feedforward as separate 60 s tests. At **Confirm and start** set $D=30$ kW immediately; keep SP=35 °C and all controller settings identical. Record time zero from that action.
-3. Repeat a separate normal biased-load case with $D$ estimate 36 kW, then a load-sensor-invalid case with healthy PV. Keep actual extraction at 30 kW in each case. In the invalid case, make the load sensor invalid at 5 s and keep it invalid until the 60 s end; disable feedforward within one .1 s update. Require the transfer itself to change output by at most .1 percentage point, separately from the next ordinary PI update. In the invalid case verify feedforward off and output continuity; do not call it a PV-fault test.
-4. Stop for temperature outside 0–80 °C, applied command outside 0–100%, invalid PV, invalid clock, or unresponsive monitor. At normal end set $D=0$, disable feedforward, command zero heat, wait for restoration and fully reset before each case.
+Select **Abort test** to stop early. To repeat, stop and restart **Simulator** so all three heaters start at 35 °C again.
 
 ## Evidence and decision
 
-Compare minimum PV, 30–60 s error, final nominal output, first request timing and PI correction. PI-only and PI+FF must start from identical full resets. A feedforward trace cannot claim immediate cancellation when delivery delay is one second; compare its first-second drop with .5438 °C. This calculation assumes that the disturbance begins at an update; additional detection delay would increase the drop.
+![Feedforward answers the measured extraction at once; PI alone waits for the water to cool](figures/feedforward-comparison.svg)
 
-A 36 kW estimate demonstrates calibration uncertainty: the 18-point correction is not automatically correct. An invalid load sensor should cause a controlled transition to feedback-only, while invalid PV requires zero heat and fault recovery. Feedforward qualifies only if the fixed requirement is met and its uncertainty/timing benefit is demonstrated.
+The numbered marks answer the predictions with the same numbers. From Control Studio's recording, times from the start of the extraction:
+
+| | PI alone | PI + feedforward | PI + feedforward from 36 kW |
+| --- | ---: | ---: | ---: |
+| First command | 75 % | 90 % | 93 % |
+| Lowest temperature | 33.75 °C at 4.5 s | 34.456 °C at 1.0 s | 34.456 °C at 1.0 s |
+| Highest temperature | 35.00 °C | 35.10 °C at 9.4 s | 35.32 °C at 7.5 s |
+| Largest error, 30–60 s | 0.028 °C | 0.006 °C | 0.013 °C |
+| Command at 60 s (feedback part) | 90 % (90 %) | 90 % (75 %) | 90 % (72 %) |
+
+1. At the first update, PI alone still requested 75 %; the feedforward heaters requested 90 % and 93 %, the calculated 15 and 18 extra points.
+2. Both feedforward heaters fell by exactly the calculated 0.544 °C, to 34.456 °C at 1.0 s, and no further: the dip is the delivery delay and nothing else.
+3. PI alone fell 2.3 times as far, to 33.75 °C, and later, at 4.5 s, because it had to see the error first.
+4. The 36 kW estimate overheated the water to 35.32 °C before the integral trimmed its feedback part to 72 %; its command ended at 90 %, like the others.
+
+The physics decides the final command; the feedforward decides only how soon it is reached. Every heater was within 0.2 °C of 35 °C from 30 s. The benefit is a dip 2.3 times smaller and over in a second; the cost is a measurement and a model, whose errors the integral must remove. Feedforward is accepted for this heater. These are simulation results.
 
 ## Conclusion
 
-Feedforward uses a measured cause to anticipate heater demand, while PI corrects temperature error and model mismatch. The heater balance fixes the sign and units, and the delivery delay sets a real lower bound on how early the water can respond.
+Feedforward adds $D_m/a$ from a measured disturbance to the feedback request, so the correction starts with the disturbance instead of with the error. It cannot act before the delivery delay, and it is only as good as its measurement and model; the integral removes what it gets wrong.
+
+For the heater, the measured 30 kW extraction was answered with 15 points at once, the water dipped only the 0.544 °C the delay allows, and a 20 % wrong estimate was corrected by the integral.
+
+## Check yourself
+
+1. **A measured extraction of 24 kW with a = 2 kW per point: what feedforward command, and what request from 75 %?**
+   24/2 = 12 points, so the request becomes 87 % at the next update.
+2. **Why can exact feedforward not prevent the 0.544 °C dip?**
+   The heater's power arrives 1 s after it is commanded. Cancelling the extraction exactly would need to know it
+   1 s before it happens.
+3. **The 36 kW estimate ends at 90 %, like the exact one. Why?**
+   Holding 35 °C with the extraction needs 180 kW, 90 %, whatever the estimate. The integral trims the feedback part
+   to 72 % so the total is right.
 
 ## Reason for the next lesson
 
-Feedforward can act from a measured disturbance, but it cannot anticipate an unmeasured one. In a jacketed vessel, the jacket temperature may reveal a heat disturbance before the vessel temperature does. That intermediate measurement provides another way to begin correction earlier.
+Feedforward needs a measurement of the disturbance. A disturbance nobody measures, such as a heat loss through the jacket wall of a jacketed vessel, still reaches the process before feedback reacts.
 
-[Cascade control](../52-cascade/README.md) introduces the jacket’s thermal store and closes an inner loop around its temperature, while an outer loop regulates the vessel.
+[Cascade control](../52-cascade/README.md) closes an inner loop around the vessel's jacket temperature, a measurement that shows that disturbance early.

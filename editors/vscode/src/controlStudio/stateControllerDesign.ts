@@ -128,7 +128,6 @@ export function designStateController(loop: ControlLoopDefinition, model: Genera
       values[parameter.symbol] = realized;
     }));
   };
-  const ratioUnit = (numerator: string, denominator: string) => numerator === denominator ? "1" : `${numerator}/${denominator}`;
   map(definition.gainSymbols, gain, (i, j) => ratioUnit(model.inputs[i].unit, model.states[j].unit));
   map(definition.referenceGainSymbols, referenceGain, (i, j) => ratioUnit(model.inputs[i].unit, model.outputs[controlled[j]].unit));
   if (observer) map(definition.observerGainSymbols!, observer, (i, j) => ratioUnit(model.states[i].unit, model.outputs[j].unit));
@@ -160,6 +159,11 @@ export function stateControllerPoles(loop: ControlLoopDefinition, model: General
   }
   if (poles.some(pole => Math.hypot(pole.real, pole.imaginary) >= 1)) throw new Error("Mapped controller/observer coefficients do not establish strict sampled stability.");
   return poles;
+}
+
+/** The unit of a coefficient that maps a quantity in `denominator` units to one in `numerator` units. */
+export function ratioUnit(numerator: string, denominator: string): string {
+  return numerator === denominator ? "1" : `${numerator}/${denominator}`;
 }
 
 export function sampleModel(model: GeneralStateSpaceModel, period: number) {

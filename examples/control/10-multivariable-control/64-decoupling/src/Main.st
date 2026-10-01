@@ -1,256 +1,134 @@
 USING Control;
 
-FUNCTION Lesson64ControlAuthority : BOOL
+(* The plant input heater i receives behind a static decoupler: u_i = D_ii·v_i + D_ij·v_j from the two controller
+   requests, limited to the heater's 0–100 %. *)
+FUNCTION DecoupledHeaterPct : LREAL
 VAR_INPUT
-    AutomaticMode : BOOL;
-    InputsValid : BOOL;
-    SafetyAbort : BOOL;
+    OwnEntry : LREAL;
+    CrossEntry : LREAL;
+    OwnRequestPct : LREAL;
+    OtherRequestPct : LREAL;
 END_VAR
-(* Preserve the current behavior for the red test: mapped Auto mode alone
-   controls the PID. *)
-Lesson64ControlAuthority := AutomaticMode AND InputsValid AND (NOT SafetyAbort);
+DecoupledHeaterPct := LIMIT(LREAL#0.0, OwnEntry * OwnRequestPct + CrossEntry * OtherRequestPct, LREAL#100.0);
 END_FUNCTION
 
-FUNCTION Lesson64ProportionalGain : LREAL
+(* Where a decoupled controller starts so that the heaters keep their present commands: v = D⁻¹·u, its first row.
+   0.0 when D has no inverse. *)
+FUNCTION StartingRequest1Pct : LREAL
 VAR_INPUT
-    TimeConstantSeconds : LREAL;
-    ProcessGain : LREAL;
-    DesignTimeSeconds : LREAL;
+    D11 : LREAL;
+    D12 : LREAL;
+    D21 : LREAL;
+    D22 : LREAL;
+    Heater1Pct : LREAL;
+    Heater2Pct : LREAL;
 END_VAR
-Lesson64ProportionalGain := TimeConstantSeconds
-    / (ProcessGain * DesignTimeSeconds);
-END_FUNCTION
-
-FUNCTION Lesson64IntegralGain : LREAL
-VAR_INPUT
-    ProportionalGain : LREAL;
-    IntegralTimeSeconds : LREAL;
+VAR
+    Determinant : LREAL;
 END_VAR
-Lesson64IntegralGain := ProportionalGain / IntegralTimeSeconds;
-END_FUNCTION
-
-FUNCTION Lesson64ReviewedOverheadSetpoint : LREAL
-VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
-    ExperimentEnabled : BOOL;
-    InputsValid : BOOL;
-    SafetyAbort : BOOL;
-END_VAR
-IF ExperimentEnabled AND InputsValid AND (NOT SafetyAbort)
-    AND (ExperimentElapsedSeconds >= LREAL#20.0) THEN
-    Lesson64ReviewedOverheadSetpoint := LREAL#2.0;
+Determinant := D11 * D22 - D12 * D21;
+IF ABS(Determinant) > LREAL#1.0E-12 THEN
+    StartingRequest1Pct := (D22 * Heater1Pct - D12 * Heater2Pct) / Determinant;
 ELSE
-    Lesson64ReviewedOverheadSetpoint := LREAL#0.0;
+    StartingRequest1Pct := LREAL#0.0;
 END_IF;
 END_FUNCTION
 
-FUNCTION Lesson64DynamicRefluxRequest : LREAL
-VAR_INPUT
-    OverheadCorrection : LREAL;
-    BottomsCorrection : LREAL;
-    FilteredBottomsCorrection : LREAL;
-END_VAR
-Lesson64DynamicRefluxRequest := OverheadCorrection
-    + LREAL#0.285714285714286 * BottomsCorrection
-    + LREAL#0.214285714285714 * FilteredBottomsCorrection;
-END_FUNCTION
-
-FUNCTION Lesson64DynamicReboilerRequest : LREAL
-VAR_INPUT
-    BottomsCorrection : LREAL;
-    OverheadCorrection : LREAL;
-    FilteredOverheadCorrection : LREAL;
-END_VAR
-Lesson64DynamicReboilerRequest := BottomsCorrection
-    + LREAL#0.321428571428571 * OverheadCorrection
-    + LREAL#0.107142857142857 * FilteredOverheadCorrection;
-END_FUNCTION
-
+(* The coupled vessels of Lesson 69, one Control.PID per vessel and one Auto/Manual switch for both. In Auto the program
+   passes the controllers' requests v through the static decoupler u = D·v that Control Studio designs; in Manual each
+   request goes straight to its heater. The vessels rest at 30 °C, where the heaters hold at 50 %: Control Studio starts
+   the decoupled controllers at v = D⁻¹·u, which must lie inside their 0–100 %. Until a design is applied both are in Manual,
+   with Lesson 71's gains and D the identity. *)
 PROGRAM Main
 VAR
-    OverheadController : Control.PID;
-    BottomsController : Control.PID;
-    StaticDecoupler : Control.StaticDecoupler2x2;
-    DynamicFilter12 : Control.LowPass;
-    DynamicFilter21 : Control.LowPass;
-    OverheadParameters : Control.PIDParameters;
-    BottomsParameters : Control.PIDParameters;
-    InitialState : Control.PIDInitialState;
-    OverheadInput : Control.PIDInput;
-    BottomsInput : Control.PIDInput;
-    DecouplerParameters : Control.StaticDecoupler2x2Parameters;
-    Filter12Parameters : Control.LowPassParameters;
-    Filter21Parameters : Control.LowPassParameters;
-    VirtualCommand : Control.ControlVector2;
-    StaticCommand : Control.ControlVector2;
+    Vessel1 : Control.PID;
+    Vessel2 : Control.PID;
+    Vessel1Parameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#6.75, IntegralGain := LREAL#1.73, DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#1.0, DerivativeSetpointWeight := LREAL#0.0, Bias := LREAL#0.0,
+        OutputMinimum := LREAL#0.0, OutputMaximum := LREAL#100.0,
+        RateMinimum := LREAL#-1000.0, RateMaximum := LREAL#1000.0, TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation);
+    Vessel2Parameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#6.75, IntegralGain := LREAL#1.73, DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#1.0, DerivativeSetpointWeight := LREAL#0.0, Bias := LREAL#0.0,
+        OutputMinimum := LREAL#0.0, OutputMaximum := LREAL#100.0,
+        RateMinimum := LREAL#-1000.0, RateMaximum := LREAL#1000.0, TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation);
+    Vessel1Input : Control.PIDInput;
+    Vessel2Input : Control.PIDInput;
+    State : Control.PIDInitialState;
     Initialized : BOOL := FALSE;
-    ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    ExperimentElapsed : LREAL := 0.0;
-    AutoMode1 : BOOL := TRUE;
-    AutoMode2 : BOOL := TRUE;
-    Architecture : INT := 0;
-    Setpoint1 : LREAL := 0.0;
-    Setpoint2 : LREAL := 0.0;
-    FeedDisturbanceRequested : LREAL := 0.0;
-    ProcessValue1 : LREAL := 0.0;
-    ProcessValue2 : LREAL := 0.0;
-    VirtualOverheadCorrection : LREAL := 0.0;
-    VirtualBottomsCorrection : LREAL := 0.0;
-    FilteredBottomsCorrection : LREAL := 0.0;
-    FilteredOverheadCorrection : LREAL := 0.0;
-    RefluxRequested : LREAL := 0.0;
-    ReboilerRequested : LREAL := 0.0;
-    RefluxApplied : LREAL := 0.0;
-    ReboilerApplied : LREAL := 0.0;
-    FeedDisturbanceApplied : LREAL := 0.0;
-    StaticQualified : BOOL := FALSE;
+    (* TRUE selects Auto for both controllers. *)
+    VesselsAuto : BOOL := FALSE;
+    Vessel1ManualPct : LREAL := 50.0;
+    Vessel2ManualPct : LREAL := 50.0;
+    Vessel1SetpointC : LREAL := 30.0;
+    Vessel2SetpointC : LREAL := 30.0;
+    Vessel1C : LREAL := 30.0;
+    Vessel2C : LREAL := 30.0;
+    Heater1Pct : LREAL := 50.0;
+    Heater2Pct : LREAL := 50.0;
+    Request1Pct : LREAL := 50.0;
+    Request2Pct : LREAL := 50.0;
+    D11 : LREAL := 1.0;
+    D12 : LREAL := 0.0;
+    D21 : LREAL := 0.0;
+    D22 : LREAL := 1.0;
 END_VAR
 
+Vessel1.Configure(Parameters := Vessel1Parameters);
+Vessel2.Configure(Parameters := Vessel2Parameters);
 IF NOT Initialized THEN
-    AutoMode1 := TRUE;
-    AutoMode2 := TRUE;
-    Architecture := 0;
-    // The same diagonal PI settings remain active in all three architectures.
-    OverheadParameters.ProportionalGain := Lesson64ProportionalGain(
-        TimeConstantSeconds := LREAL#20.0,
-        ProcessGain := LREAL#0.8,
-        DesignTimeSeconds := LREAL#15.0);
-    OverheadParameters.IntegralGain := Lesson64IntegralGain(
-        ProportionalGain := OverheadParameters.ProportionalGain,
-        IntegralTimeSeconds := LREAL#20.0);
-    OverheadParameters.ProportionalSetpointWeight := LREAL#1.0;
-    OverheadParameters.OutputMinimum := LREAL#-8.0;
-    OverheadParameters.OutputMaximum := LREAL#8.0;
-    OverheadParameters.RateMinimum := LREAL#-2.0;
-    OverheadParameters.RateMaximum := LREAL#2.0;
-    OverheadParameters.TrackingTime := LREAL#1.0;
-    OverheadParameters.AntiWindup := PIDAntiWindup#Combined;
-    BottomsParameters := OverheadParameters;
-    BottomsParameters.ProportionalGain := Lesson64ProportionalGain(
-        TimeConstantSeconds := LREAL#30.0,
-        ProcessGain := LREAL#0.7,
-        DesignTimeSeconds := LREAL#20.0);
-    BottomsParameters.IntegralGain := Lesson64IntegralGain(
-        ProportionalGain := BottomsParameters.ProportionalGain,
-        IntegralTimeSeconds := LREAL#30.0);
-    InitialState.Setpoint := LREAL#0.0;
-    InitialState.ProcessValue := LREAL#0.0;
-    InitialState.NominalOutput := LREAL#0.0;
-    InitialState.SaturatedOutput := LREAL#0.0;
-    OverheadController.Configure(Parameters := OverheadParameters);
-    OverheadController.Initialize(State := InitialState);
-    BottomsController.Configure(Parameters := BottomsParameters);
-    BottomsController.Initialize(State := InitialState);
-
-    // Row normalization preserves the two direct gains while the inverse cancels steady interaction.
-    DecouplerParameters.GainMatrix.G11 := LREAL#1.0;
-    DecouplerParameters.GainMatrix.G12 := LREAL#-0.5;
-    DecouplerParameters.GainMatrix.G21 := LREAL#-0.428571428571429;
-    DecouplerParameters.GainMatrix.G22 := LREAL#1.0;
-    DecouplerParameters.ActuatorBias.First := LREAL#0.0;
-    DecouplerParameters.ActuatorBias.Second := LREAL#0.0;
-    DecouplerParameters.SingularityTolerance := LREAL#0.001;
-    StaticQualified := StaticDecoupler.Configure(Parameters := DecouplerParameters);
-
-    Filter12Parameters.TimeConstant := LREAL#35.0;
-    Filter12Parameters.Order := FilterOrder#FirstOrder;
-    DynamicFilter12.Configure(Parameters := Filter12Parameters);
-    DynamicFilter12.Initialize(Input := LREAL#0.0);
-    Filter21Parameters.TimeConstant := LREAL#40.0;
-    Filter21Parameters.Order := FilterOrder#FirstOrder;
-    DynamicFilter21.Configure(Parameters := Filter21Parameters);
-    DynamicFilter21.Initialize(Input := LREAL#0.0);
+    (* Memory-mapped variables start from the %M image; set the resting values explicitly. *)
+    Vessel1SetpointC := LREAL#30.0;
+    Vessel2SetpointC := LREAL#30.0;
+    Vessel1ManualPct := LREAL#50.0;
+    Vessel2ManualPct := LREAL#50.0;
+    State.Setpoint := Vessel1SetpointC;
+    State.ProcessValue := Vessel1C;
+    State.NominalOutput := Vessel1ManualPct;
+    State.SaturatedOutput := Vessel1ManualPct;
+    Vessel1.Initialize(State := State);
+    State.Setpoint := Vessel2SetpointC;
+    State.ProcessValue := Vessel2C;
+    State.NominalOutput := Vessel2ManualPct;
+    State.SaturatedOutput := Vessel2ManualPct;
+    Vessel2.Initialize(State := State);
     Initialized := TRUE;
 END_IF;
 
-(* The interactive observation is the qualified nominal dynamic case. Control
-   Studio grants authority for that run. The focused ST tests independently
-   check the configured decoupler and the lesson-owned schedule. *)
-IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
-    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
-    Architecture := 2;
-    Setpoint2 := LREAL#0.0;
-    FeedDisturbanceRequested := LREAL#0.0;
+Vessel1Input.Setpoint := Vessel1SetpointC;
+Vessel1Input.ProcessValue := Vessel1C;
+Vessel1Input.ManualOutput := Vessel1ManualPct;
+Vessel1Input.TrackingOutput := Vessel1ManualPct;
+Vessel1Input.CycleTime := LREAL#0.1;
+IF VesselsAuto THEN
+    Vessel1Input.Mode := PIDMode#Auto;
 ELSE
-    ExperimentElapsed := LREAL#0.0;
-    Architecture := 0;
-    Setpoint1 := LREAL#0.0;
-    Setpoint2 := LREAL#0.0;
-    FeedDisturbanceRequested := LREAL#0.0;
+    Vessel1Input.Mode := PIDMode#Manual;
 END_IF;
-Setpoint1 := Lesson64ReviewedOverheadSetpoint(
-    ExperimentElapsedSeconds := ExperimentElapsed,
-    ExperimentEnabled := ExperimentEnabled,
-    InputsValid := InputsValid,
-    SafetyAbort := SafetyAbort);
+Request1Pct := Vessel1.Update(Input := Vessel1Input);
 
-OverheadInput.Setpoint := Setpoint1;
-OverheadInput.ProcessValue := ProcessValue1;
-OverheadInput.CycleTime := LREAL#0.1;
-BottomsInput.Setpoint := Setpoint2;
-BottomsInput.ProcessValue := ProcessValue2;
-BottomsInput.CycleTime := LREAL#0.1;
-IF Lesson64ControlAuthority(
-    AutomaticMode := AutoMode1,
-    InputsValid := InputsValid,
-    SafetyAbort := SafetyAbort) THEN
-    OverheadInput.Mode := PIDMode#Auto;
+Vessel2Input.Setpoint := Vessel2SetpointC;
+Vessel2Input.ProcessValue := Vessel2C;
+Vessel2Input.ManualOutput := Vessel2ManualPct;
+Vessel2Input.TrackingOutput := Vessel2ManualPct;
+Vessel2Input.CycleTime := LREAL#0.1;
+IF VesselsAuto THEN
+    Vessel2Input.Mode := PIDMode#Auto;
 ELSE
-    OverheadInput.Mode := PIDMode#Manual;
-    OverheadInput.ManualOutput := LREAL#0.0;
+    Vessel2Input.Mode := PIDMode#Manual;
 END_IF;
-IF Lesson64ControlAuthority(
-    AutomaticMode := AutoMode2,
-    InputsValid := InputsValid,
-    SafetyAbort := SafetyAbort) THEN
-    BottomsInput.Mode := PIDMode#Auto;
+Request2Pct := Vessel2.Update(Input := Vessel2Input);
+
+IF VesselsAuto THEN
+    Heater1Pct := DecoupledHeaterPct(OwnEntry := D11, CrossEntry := D12, OwnRequestPct := Request1Pct, OtherRequestPct := Request2Pct);
+    Heater2Pct := DecoupledHeaterPct(OwnEntry := D22, CrossEntry := D21, OwnRequestPct := Request2Pct, OtherRequestPct := Request1Pct);
 ELSE
-    BottomsInput.Mode := PIDMode#Manual;
-    BottomsInput.ManualOutput := LREAL#0.0;
+    Heater1Pct := Request1Pct;
+    Heater2Pct := Request2Pct;
 END_IF;
-VirtualCommand.First := OverheadController.Update(Input := OverheadInput);
-VirtualCommand.Second := BottomsController.Update(Input := BottomsInput);
-VirtualOverheadCorrection := VirtualCommand.First;
-VirtualBottomsCorrection := VirtualCommand.Second;
-
-// Filters update continuously so selecting the dynamic path never starts from stale state.
-FilteredBottomsCorrection := DynamicFilter12.Update(
-    Input := VirtualCommand.Second,
-    CycleTime := LREAL#0.1
-);
-FilteredOverheadCorrection := DynamicFilter21.Update(
-    Input := VirtualCommand.First,
-    CycleTime := LREAL#0.1
-);
-
-IF (Architecture = 1) AND StaticQualified THEN
-    StaticCommand := StaticDecoupler.ToActuators(VirtualCommand := VirtualCommand);
-    RefluxRequested := StaticCommand.First;
-    ReboilerRequested := StaticCommand.Second;
-ELSIF (Architecture = 2) AND StaticQualified THEN
-    // These proper lead-lag ratios cancel the nominal unequal cross-path dynamics.
-    RefluxRequested := Lesson64DynamicRefluxRequest(
-        OverheadCorrection := VirtualCommand.First,
-        BottomsCorrection := VirtualCommand.Second,
-        FilteredBottomsCorrection := FilteredBottomsCorrection);
-    ReboilerRequested := Lesson64DynamicReboilerRequest(
-        BottomsCorrection := VirtualCommand.Second,
-        OverheadCorrection := VirtualCommand.First,
-        FilteredOverheadCorrection := FilteredOverheadCorrection);
-ELSE
-    RefluxRequested := VirtualCommand.First;
-    ReboilerRequested := VirtualCommand.Second;
-END_IF;
-
-RefluxApplied := LIMIT(LREAL#-10.0, RefluxRequested, LREAL#10.0);
-ReboilerApplied := LIMIT(LREAL#-10.0, ReboilerRequested, LREAL#10.0);
-FeedDisturbanceApplied := LIMIT(
-    LREAL#-3.0,
-    FeedDisturbanceRequested,
-    LREAL#3.0
-);
 END_PROGRAM
 
 CONFIGURATION Config
@@ -259,24 +137,13 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.AutoMode1 AT %MX24.0 : BOOL;
-    P1.AutoMode2 AT %MX24.1 : BOOL;
-    P1.Architecture AT %MW16 : INT;
-    P1.Setpoint1 AT %ML32 : LREAL;
-    P1.Setpoint2 AT %ML40 : LREAL;
-    P1.FeedDisturbanceRequested AT %ML48 : LREAL;
-    P1.VirtualOverheadCorrection AT %ML56 : LREAL;
-    P1.VirtualBottomsCorrection AT %ML64 : LREAL;
-    P1.RefluxRequested AT %ML72 : LREAL;
-    P1.ReboilerRequested AT %ML80 : LREAL;
-    P1.StaticQualified AT %MX24.2 : BOOL;
-    P1.ExperimentEnabled AT %MX24.3 : BOOL;
-    P1.SafetyAbort AT %MX24.4 : BOOL;
-    P1.InputsValid AT %MX24.5 : BOOL;
-    P1.RefluxApplied AT %QL0 : LREAL;
-    P1.ReboilerApplied AT %QL8 : LREAL;
-    P1.FeedDisturbanceApplied AT %QL16 : LREAL;
-    P1.ProcessValue1 AT %IL0 : LREAL;
-    P1.ProcessValue2 AT %IL8 : LREAL;
+    P1.Heater1Pct AT %QL0 : LREAL;
+    P1.Heater2Pct AT %QL8 : LREAL;
+    P1.Vessel1C AT %IL0 : LREAL;
+    P1.Vessel2C AT %IL8 : LREAL;
+    P1.Vessel1SetpointC AT %ML0 : LREAL;
+    P1.Vessel2SetpointC AT %ML8 : LREAL;
+    P1.Vessel1ManualPct AT %ML16 : LREAL;
+    P1.Vessel2ManualPct AT %ML24 : LREAL;
 END_VAR
 END_CONFIGURATION

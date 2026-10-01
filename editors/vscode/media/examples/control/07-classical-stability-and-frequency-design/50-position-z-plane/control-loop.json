@@ -1,149 +1,64 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "control-position-z-plane-sampling",
-  "name": "z-plane sampling",
-  "revision": "sha256:0170ae15fb8f252d1d34895d6ddc4b01b3e6e5934e0222cb58f3c3a56edffffb",
+  "name": "Sampled-data stability",
   "projectId": "project:control-position-z-plane-sampling",
   "runtimeId": "simulator",
   "controller": {
     "instance": "P1",
-    "type": "SampledAxisComparison",
+    "type": "Main",
     "design": "project",
-    "revision": "sha256:curriculum-controller-50",
+    "revision": "sha256:b0039bbc82e819f28014584dceda0f9f38134e0ead63d005ff66a31d31bfad65",
     "action": "direct",
-    "taskPeriodMs": 10
+    "taskPeriodMs": 20
   },
   "signals": {
     "setpoint": {
-      "symbol": "P1.PositionSetpoint",
-      "address": "%ML48",
+      "symbol": "P1.TargetRad",
+      "address": "%ML0",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "mm",
+      "unit": "rad",
       "range": {
-        "minimum": -5,
-        "maximum": 5
+        "minimum": -2,
+        "maximum": 2
       }
     },
     "processVariable": {
-      "symbol": "P1.FinePosition",
+      "symbol": "P1.FastAngleRad",
       "address": "%IL0",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "mm",
+      "unit": "rad",
       "range": {
-        "minimum": -5,
-        "maximum": 5
+        "minimum": -2,
+        "maximum": 2
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.FineAppliedForce",
+      "symbol": "P1.FastTorqueNm",
       "address": "%QL0",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "%",
+      "unit": "N·m",
       "range": {
-        "minimum": -100,
-        "maximum": 100
+        "minimum": -20,
+        "maximum": 20
       }
     },
     "additional": [
       {
-        "id": "fine-velocity",
-        "channel": "fine",
+        "id": "slow-angle",
+        "channel": "slow-angle",
         "role": "state",
-        "symbol": "P1.FineVelocity",
-        "address": "%IL8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "mm/s",
-        "range": {
-          "minimum": -100,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "coarse-pv",
-        "channel": "coarse",
-        "role": "PV",
-        "symbol": "P1.CoarsePosition",
+        "symbol": "P1.SlowAngleRad",
         "address": "%IL16",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "mm",
+        "unit": "rad",
         "range": {
-          "minimum": -5,
-          "maximum": 5
-        }
-      },
-      {
-        "id": "coarse-mv",
-        "channel": "coarse",
-        "role": "MV",
-        "symbol": "P1.CoarseAppliedForce",
-        "address": "%QL8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": -100,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "coarse-velocity",
-        "channel": "coarse",
-        "role": "state",
-        "symbol": "P1.CoarseVelocity",
-        "address": "%IL24",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "mm/s",
-        "range": {
-          "minimum": -100,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "corrected-pv",
-        "channel": "corrected",
-        "role": "PV",
-        "symbol": "P1.CorrectedPosition",
-        "address": "%IL32",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "mm",
-        "range": {
-          "minimum": -5,
-          "maximum": 5
-        }
-      },
-      {
-        "id": "corrected-mv",
-        "channel": "corrected",
-        "role": "MV",
-        "symbol": "P1.CorrectedAppliedForce",
-        "address": "%QL16",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": -100,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "corrected-velocity",
-        "channel": "corrected",
-        "role": "state",
-        "symbol": "P1.CorrectedVelocity",
-        "address": "%IL40",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "mm/s",
-        "range": {
-          "minimum": -100,
-          "maximum": 100
+          "minimum": -2,
+          "maximum": 2
         }
       },
       {
@@ -151,36 +66,137 @@
         "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
-        "address": "%MX96.0",
+        "address": "%MX24.0",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "",
+        "unit": "1",
         "range": {
           "minimum": 0,
           "maximum": 1
+        }
+      },
+      {
+        "id": "fast-abort",
+        "channel": "fast-abort",
+        "role": "state",
+        "symbol": "P1.FastAbort",
+        "address": "%MX24.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "slow-torque",
+        "channel": "slow-torque",
+        "role": "state",
+        "symbol": "P1.SlowTorqueNm",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N·m",
+        "range": {
+          "minimum": -20,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "slow-abort",
+        "channel": "slow-abort",
+        "role": "state",
+        "symbol": "P1.SlowAbort",
+        "address": "%MX24.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "fast-velocity",
+        "channel": "fast-velocity",
+        "role": "state",
+        "symbol": "P1.FastVelocityRadS",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad/s",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "slow-pending",
+        "channel": "slow-pending",
+        "role": "state",
+        "symbol": "P1.SlowPendingNm",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N·m",
+        "range": {
+          "minimum": -20,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "slow-velocity",
+        "channel": "slow-velocity",
+        "role": "state",
+        "symbol": "P1.SlowVelocityRadS",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad/s",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "fast-pending",
+        "channel": "fast-pending",
+        "role": "state",
+        "symbol": "P1.FastPendingNm",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N·m",
+        "range": {
+          "minimum": -20,
+          "maximum": 20
         }
       }
     ]
   },
   "limits": {
-    "outputMinimum": -100,
-    "outputMaximum": 100
+    "outputMinimum": -20,
+    "outputMaximum": 20
   },
   "observedSampleTiming": {
-    "nominalPeriodMs": 10
+    "nominalPeriodMs": 20
   },
-  "plantId": "sampled_positioning_axis_three_cases",
+  "plantId": "two-shafts-sampling",
+  "operatingPoint": "Both shafts at rest at 0 rad",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 10.1,
+    "durationSeconds": 12.1,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX96.0",
+      "address": "%MX24.0",
       "iecType": "BOOL",
       "direction": "write"
-    }
-  }
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:bb47827c5d0aa40641b86e27e7c59580f625b9920bd41c045f205e9112d888b3"
 }

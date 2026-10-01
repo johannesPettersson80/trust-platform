@@ -3,63 +3,71 @@ icon = "activity"
 order = 0
 
 [[section]]
-title = "Status"
+title = "Temperatures"
 span = 12
-tier = "status"
+tier = "hero"
 
 [[section.widget]]
-type = "indicator"
-bind = "P1.ExperimentEnabled"
+type = "gauge"
+bind = "P1.SlowTemperatureC"
 inferred_interface = true
-label = "Experiment Enabled"
-span = 2
+label = "Temperature, 0.1 rad/s"
+span = 4
+unit = "°C"
+min = 33
+max = 37
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.MiddleTemperatureC"
+inferred_interface = true
+label = "Temperature, 0.2 rad/s"
+span = 4
+unit = "°C"
+min = 33
+max = 37
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.FastTemperatureC"
+inferred_interface = true
+label = "Temperature, 0.4 rad/s"
+span = 4
+unit = "°C"
+min = 33
+max = 37
 
 [[section]]
-title = "Details"
+title = "Heater commands"
 span = 12
 tier = "detail"
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.AppliedTorque"
+bind = "P1.SlowCommandPct"
 inferred_interface = true
-label = "Applied Torque"
-span = 3
-min = 0
-max = 100
+label = "Command, 0.1 rad/s"
+span = 4
+unit = "%"
+min = 60
+max = 90
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.DrivePosition"
+bind = "P1.MiddleCommandPct"
 inferred_interface = true
-label = "Drive Position"
-span = 3
-min = 0
-max = 100
+label = "Command, 0.2 rad/s"
+span = 4
+unit = "%"
+min = 60
+max = 90
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.ElapsedSeconds"
+bind = "P1.FastCommandPct"
 inferred_interface = true
-label = "Elapsed Seconds"
-span = 3
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.NaturalFrequencyHz"
-inferred_interface = true
-label = "Natural Frequency HZ"
-span = 3
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.RequestedTorque"
-inferred_interface = true
-label = "Requested Torque"
-span = 3
-min = 0
-max = 100
+label = "Command, 0.4 rad/s"
+span = 4
+unit = "%"
+min = 60
+max = 90

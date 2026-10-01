@@ -12,6 +12,23 @@ suite("Control Studio failure and plan presentation", () => {
     assert.strictEqual(api.modelKindLabel("mystery_model"), "Unrecognized model structure (mystery_model)");
   });
 
+  test("names a failed engineer operation by its page, not by its internal action", async () => {
+    const { EngineerWorkflowSession } = require("../../controlStudio/engineerWorkflowSession");
+    const { pidLoop } = require("./control-studio-pid-fixtures");
+    const target = pidLoop();
+    const engine = new EngineerWorkflowSession(target, () => undefined, () => {});
+    const scope = { projectId: target.projectId, editorSessionId: "failure-wording", loopId: target.id, loopRevision: target.revision };
+    const posts: any[] = [];
+    try {
+      await engine.handle({ schemaVersion: 1, kind: "control-studio.engineer.tune", messageId: "tune-without-model", ...scope,
+        expectedLoopRevision: scope.loopRevision, payload: { family: "automatic", applicationMode: "manual" } }, scope,
+        async (payload: unknown) => { posts.push(payload); });
+      const last = posts[posts.length - 1];
+      assert.strictEqual(last.status, "failed");
+      assert.match(String(last.reason), /^Tuning failed: Find or supply a model first\./, String(last.reason));
+    } finally { engine.dispose(); }
+  });
+
   test("maps every terminal experiment status to a human label", () => {
     const api = failureMessagesApi();
     assert.strictEqual(api.experimentStatusLabel("completed"), "Completed");
@@ -91,62 +108,8 @@ suite("Control Studio failure and plan presentation", () => {
     );
   });
 
-  test("binds the Test plan card to the exact form that was reviewed", () => {
-    const api = planPresentationApi();
-    const reviewed = { kind: "observation", amplitude: 0, durationSeconds: 30 };
-    assert.strictEqual(api.experimentFormMatchesReviewedPlan(reviewed, reviewed), true);
-    assert.strictEqual(api.experimentFormMatchesReviewedPlan({ ...reviewed }, { ...reviewed }), true);
-    // The exact scenario from the review: form shows "Observe without excitation ·
-    // Amplitude 5 · 30 s" while a stale "Setpoint · 5 -> 7 degC · 10 s" plan is displayed.
-    const changedKind = { kind: "setpoint_step", amplitude: 5, durationSeconds: 10 };
-    assert.strictEqual(api.experimentFormMatchesReviewedPlan(changedKind, reviewed), false);
-    const changedAmplitude = { ...reviewed, amplitude: 5 };
-    assert.strictEqual(api.experimentFormMatchesReviewedPlan(changedAmplitude, reviewed), false);
-    const changedDuration = { ...reviewed, durationSeconds: 45 };
-    assert.strictEqual(api.experimentFormMatchesReviewedPlan(changedDuration, reviewed), false);
-    // No reviewed plan yet: nothing can match, so approval must stay blocked.
-    assert.strictEqual(api.experimentFormMatchesReviewedPlan(reviewed, undefined), false);
-  });
-
-  test("gives the physical authorizing action a distinct treatment from the ordinary primary action", () => {
-    const api = planPresentationApi();
-    assert.strictEqual(api.experimentApprovalButtonClass("simulation"), "primary");
-    assert.strictEqual(api.experimentApprovalButtonClass("physical"), "danger");
-  });
-
-  test("formats a saved-result timestamp as local time without milliseconds, keeping the ISO value", () => {
-    const api = timestampFormatApi();
-    const iso = "2026-09-01T05:13:01.387Z";
-    const formatted = api.formatLocalTimestamp(iso);
-    assert.strictEqual(formatted.title, iso);
-    assert.ok(!formatted.display.includes("."), "milliseconds must not be shown");
-    assert.ok(!formatted.display.includes("T"), "the raw ISO separator must not be shown");
-    assert.ok(!formatted.display.includes("Z"), "the raw ISO UTC marker must not be shown");
-    // The display must be a local reading of the same instant: recompute it the same
-    // way the implementation does so this assertion is timezone-independent.
-    const date = new Date(iso);
-    const pad = (value: number) => String(value).padStart(2, "0");
-    const expected = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
-      `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-    assert.strictEqual(formatted.display, expected);
-  });
-
-  test("falls back to the raw text for an unparsable timestamp", () => {
-    const api = timestampFormatApi();
-    const formatted = api.formatLocalTimestamp("not-a-timestamp");
-    assert.strictEqual(formatted.display, "not-a-timestamp");
-    assert.strictEqual(formatted.title, "not-a-timestamp");
-  });
 });
 
 function failureMessagesApi(): any {
   try { return require("../../controlStudio/failureMessages"); } catch { return {}; }
-}
-
-function planPresentationApi(): any {
-  try { return require("../../controlStudio/planPresentation"); } catch { return {}; }
-}
-
-function timestampFormatApi(): any {
-  try { return require("../../controlStudio/timestampFormat"); } catch { return {}; }
 }

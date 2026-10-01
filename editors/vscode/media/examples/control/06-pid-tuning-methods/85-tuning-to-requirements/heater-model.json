@@ -1,0 +1,19 @@
+{
+  "kind": "transfer-function",
+  "revision": "water-heater-step-test-lesson-22",
+  "source": "provided",
+  "validation": "validated",
+  "evidence": [
+    "The model Control Studio identified for this heater from its step test: G(s) = 0.2001·e^(−1.0s)/(5.1s + 1), a gain of 0.2001 °C per %, a 1.0 s delay and a 5.1 s time constant about 35 °C and 75 %."
+  ],
+  "delaySeconds": 1,
+  "inputs": [
+    { "id": "P1.AppliedPowerPct", "unit": "%", "operatingRange": { "minimum": 0, "maximum": 100 } }
+  ],
+  "outputs": [
+    { "id": "P1.TemperatureC", "unit": "degC", "operatingRange": { "minimum": 0, "maximum": 80 } }
+  ],
+  "numerator": [0.2001],
+  "denominator": [5.1, 1],
+  "operatingPoint": { "inputs": [75], "outputs": [35] }
+}

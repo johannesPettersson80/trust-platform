@@ -3071,9 +3071,11 @@ scope dependency graph, not by reading the temporary default value of a
 later-declared global. Function-block globals are created as instances and
 accept reviewed aggregate initialization of externally initializable members.
 Class globals are created as instances but reject aggregate initializers at
-the semantic boundary. Interface globals begin as null references. Each global
-records its type, initial value or instance recipe, and retain policy for
-restart.
+the semantic boundary. Arrays of function block or class instances are created
+element by element and apply their element initializers. Interface globals
+begin as null references. Each global records its type, initial value or
+instance recipe, and retain policy for restart; restart re-creates instances,
+including every element of an instance array, from that recipe.
 
 The single-resource runtime stores root/vendor GVL, program-global,
 configuration-global, and resource-global declarations in one effective

@@ -33,7 +33,7 @@ suite("Accepted control course navigation", () => {
     );
   });
 
-  test("catalog and lesson metadata follow the normative 82-lesson source map", () => {
+  test("catalog and lesson metadata follow the normative 89-lesson source map", () => {
     const root = process.env.TRUST_REPOSITORY_ROOT ?? path.resolve(__dirname, "../../../../..");
     const specificationPath = path.join(root, "docs/specs/control-course-teaching-specification.md");
     const specification = fs.readFileSync(specificationPath, "utf8");
@@ -43,7 +43,7 @@ suite("Accepted control course navigation", () => {
       sequence: Number(match[1]), title: match[2],
       project: path.dirname(path.resolve(path.dirname(specificationPath), match[3])),
     }));
-    assert.strictEqual(rows.length, 82);
+    assert.strictEqual(rows.length, 89);
     const catalog = JSON.parse(fs.readFileSync(path.join(root, "examples/catalog.json"), "utf8")) as Array<{id: string; title: string; path: string; description: string}>;
     const outcomes = new Map([...specification.matchAll(/^\| \*\*(\d+)\. .*?\*\* \| (.*?) \|/gm)].map(match => [Number(match[1]), match[2]]));
     const entries = catalog.filter(entry => entry.path.startsWith("control/"));

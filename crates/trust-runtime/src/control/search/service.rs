@@ -168,13 +168,12 @@ impl SearchService {
             if let Some(job) = jobs.lock().unwrap().as_mut() {
                 job.status = if cancel.load(Ordering::SeqCst) {
                     "cancelled"
-                } else if output_exhausted {
-                    "failed"
-                } else if purpose == Purpose::Run
-                    && job
-                        .trials
-                        .first()
-                        .is_some_and(|result| result["status"] != "executed")
+                } else if output_exhausted
+                    || (purpose == Purpose::Run
+                        && job
+                            .trials
+                            .first()
+                            .is_some_and(|result| result["status"] != "executed"))
                 {
                     "failed"
                 } else if job.trials.len() == count {

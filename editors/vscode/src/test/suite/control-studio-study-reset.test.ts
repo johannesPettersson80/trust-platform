@@ -28,10 +28,10 @@ suite("Control Studio study reset", () => {
       sessions.model.selectModel(model);
       await sessions.handle(request, scope, async (_stage, payload) => { events.push(payload); }, true);
       assert.strictEqual(events[0].status, "failed"); assert.strictEqual(sessions.model.selectedModel()?.revision, model.revision);
-      (sessions.engineer as any).busy = "apply";
+      (sessions.engineer as any).state.busy = "apply";
       await sessions.handle({ ...request, messageId: "reset-during-apply" }, scope, async (_stage, payload) => { events.push(payload); });
       assert.strictEqual(events[1].status, "failed"); assert.strictEqual(sessions.model.selectedModel()?.revision, model.revision);
-      (sessions.engineer as any).busy = undefined;
+      (sessions.engineer as any).state.busy = undefined;
       assert.strictEqual(await sessions.handle({ ...request, loopId: "another-loop" }, scope, async () => { throw new Error("Must ignore foreign reset"); }), false);
     } finally { sessions.dispose(); }
   });

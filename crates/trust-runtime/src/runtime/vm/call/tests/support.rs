@@ -1,5 +1,3 @@
-use std::collections::{HashMap, HashSet};
-
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 
@@ -26,7 +24,7 @@ use super::{
 
 fn manual_vm_function_block_module(params: Vec<VmParamMeta>) -> (VmModule, u32) {
     let pou_id = 1_u32;
-    let mut pou_by_id = HashMap::new();
+    let mut pou_by_id = rustc_hash::FxHashMap::default();
     pou_by_id.insert(
         pou_id,
         VmPouEntry {
@@ -38,9 +36,9 @@ fn manual_vm_function_block_module(params: Vec<VmParamMeta>) -> (VmModule, u32) 
             primary_instance_owner: None,
         },
     );
-    let mut function_block_ids = HashMap::new();
+    let mut function_block_ids = rustc_hash::FxHashMap::default();
     function_block_ids.insert(SmolStr::new("FB"), pou_id);
-    let mut pou_params = HashMap::new();
+    let mut pou_params = rustc_hash::FxHashMap::default();
     pou_params.insert(pou_id, params);
     (
         VmModule {
@@ -50,17 +48,18 @@ fn manual_vm_function_block_module(params: Vec<VmParamMeta>) -> (VmModule, u32) 
             refs: Vec::new(),
             consts: Vec::new(),
             pou_by_id,
-            program_ids: HashMap::new(),
-            function_ids: HashMap::new(),
+            program_ids: Default::default(),
+            function_ids: Default::default(),
             function_block_ids,
-            class_ids: HashMap::new(),
-            parent_pou_ids: HashMap::new(),
-            interface_type_ids_by_pou: HashMap::new(),
+            class_ids: Default::default(),
+            parent_pou_ids: Default::default(),
+            interface_type_ids_by_pou: Default::default(),
             native_symbol_specs: Vec::new(),
             pou_params,
-            pou_has_return_slot: HashSet::new(),
-            method_table_by_owner: HashMap::new(),
-            ref_types: HashMap::new(),
+            pou_has_return_slot: Default::default(),
+            method_table_by_owner: Default::default(),
+            ref_types: Vec::new(),
+            ref_slots: Default::default(),
             debug_map: super::super::debug_map::VmDebugMap::default(),
             instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
         },
@@ -74,7 +73,7 @@ fn manual_vm_function_module(
     has_return_slot: bool,
 ) -> (VmModule, u32) {
     let pou_id = 1_u32;
-    let mut pou_by_id = HashMap::new();
+    let mut pou_by_id = rustc_hash::FxHashMap::default();
     pou_by_id.insert(
         pou_id,
         VmPouEntry {
@@ -86,11 +85,11 @@ fn manual_vm_function_module(
             primary_instance_owner: None,
         },
     );
-    let mut function_ids = HashMap::new();
+    let mut function_ids = rustc_hash::FxHashMap::default();
     function_ids.insert(SmolStr::new(name.to_ascii_uppercase()), pou_id);
-    let mut pou_params = HashMap::new();
+    let mut pou_params = rustc_hash::FxHashMap::default();
     pou_params.insert(pou_id, params);
-    let mut pou_has_return_slot = HashSet::new();
+    let mut pou_has_return_slot = rustc_hash::FxHashSet::default();
     if has_return_slot {
         pou_has_return_slot.insert(pou_id);
     }
@@ -102,17 +101,18 @@ fn manual_vm_function_module(
             refs: Vec::new(),
             consts: Vec::new(),
             pou_by_id,
-            program_ids: HashMap::new(),
+            program_ids: Default::default(),
             function_ids,
-            function_block_ids: HashMap::new(),
-            class_ids: HashMap::new(),
-            parent_pou_ids: HashMap::new(),
-            interface_type_ids_by_pou: HashMap::new(),
+            function_block_ids: Default::default(),
+            class_ids: Default::default(),
+            parent_pou_ids: Default::default(),
+            interface_type_ids_by_pou: Default::default(),
             native_symbol_specs: Vec::new(),
             pou_params,
             pou_has_return_slot,
-            method_table_by_owner: HashMap::new(),
-            ref_types: HashMap::new(),
+            method_table_by_owner: Default::default(),
+            ref_types: Vec::new(),
+            ref_slots: Default::default(),
             debug_map: super::super::debug_map::VmDebugMap::default(),
             instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
         },

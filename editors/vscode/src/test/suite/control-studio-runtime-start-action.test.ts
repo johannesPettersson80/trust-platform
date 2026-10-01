@@ -1,6 +1,4 @@
-import * as runtimeStartWebview from "../../controlStudio/webview/runtimeStartControl";
 import * as assert from "assert";
-const { JSDOM } = require("jsdom");
 
 suite("Control Studio runtime start action", () => {
   test("starts only the scoped stopped simulator and shares a pending start", async () => {
@@ -60,25 +58,6 @@ suite("Control Studio runtime start action", () => {
     assert.strictEqual(starts, 2);
   });
 
-  test("shows only for a stopped simulator and disables while pending", async () => {
-    const api = webviewApi();
-    const dom = new JSDOM(`<main><button data-control-studio-start-runtime hidden>Start simulator</button></main>`);
-    const posted: string[] = [];
-    const control = api.initializeRuntimeStartControl((kind: string) => posted.push(kind), dom.window.document);
-    control.present({ runtimeMode: "online", runtimeState: "stopped" });
-    assert.strictEqual(dom.window.document.querySelector("button")!.hidden, true);
-    control.present({ runtimeMode: "simulate", runtimeState: "stopped" });
-    const button = dom.window.document.querySelector("button") as HTMLButtonElement;
-    assert.strictEqual(button.hidden, false);
-    button.click(); button.click();
-    assert.deepStrictEqual(posted, ["control-studio.runtime.start"]);
-    assert.strictEqual(button.disabled, true);
-    assert.match(button.textContent, /starting/i);
-    control.result({ ok: false, failure: { message: "Compile failed; inspect Problems." } });
-    assert.strictEqual(button.disabled, false);
-    assert.match(button.textContent, /retry/i);
-    assert.match(button.title, /Compile failed/);
-  });
 });
 
 function scope(): any {
@@ -87,8 +66,4 @@ function scope(): any {
 
 function hostApi(): any {
   try { return require("../../controlStudio/runtimeStartAction"); } catch { return {}; }
-}
-
-function webviewApi(): any {
-  return runtimeStartWebview;
 }

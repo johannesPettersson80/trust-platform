@@ -197,10 +197,13 @@ temperature gradually instead of copying it instantly.
 For the same heater step, at 6 seconds the predicted water rise is about
 1.264 °C, while this sensor's rise is about 0.883 °C.
 
-In Control Studio we compare the instantaneous-sensor and delayed-sensor
-predictions against the same record. A separate water reference or probe
-calibration is needed to establish that the extra lag really belongs to
-the sensor.
+In Control Studio the student records the heater's step as a project experiment
+with both the probe and a water reference, saves the recording, and fits it with
+**Recorded-data fit** and **Compare additional lag**. With a measurement bound of
+±0.02 °C, read from the record's steady windows, and a delay search up to 4 s, the
+first-order model misses by about 0.14 °C while the two-store model fits within
+0.003 °C, and Control Studio offers **Keep additional-lag model**. The water
+reference shows that the extra lag belongs to the sensor.
 
 The reusable project reads both temperatures from ordinary PLC inputs. The
 native simulation owns the two balances and the one-second transport delay,
@@ -237,9 +240,10 @@ That is **practical ambiguity**: better observations can help.
 lag followed by a two-second sensor lag has the same input-output response
 as those lags in the opposite order, with matched initial conditions and gain.
 
-In Control Studio we compare competing predictions and choose a longer bounded
-experiment or independent measurement that can separate them. More samples
-of the same indistinguishable signal cannot solve every ambiguity.
+In Control Studio the student fits the recorded step with **Compare additional
+lag**: the fit returns two lags but cannot say which belongs to the sensor. The
+water reference, recorded as an independent second measurement, separates them.
+More samples of the same indistinguishable signal cannot solve every ambiguity.
 
 Once parameters are sufficiently established, we test predictions on unused data.
 
@@ -311,8 +315,10 @@ Choosing $\lambda=10$ s halves both.
 A shorter desired response asks for stronger action. Actual delay, uncertainty
 and output limits can prevent that ideal response.
 
-In Control Studio we apply the calculated settings and repeat the same target
-and disturbance tests. The next lesson obtains an alternative candidate from
+In Control Studio the student identifies the heater, enters the calculated gains
+as Manual settings with the requirements, compares the predicted response and
+Control Studio's own SIMC design, validates the actual ST on the target and load
+trials, and applies the gains. The next lesson obtains an alternative candidate from
 a different experiment: relay tuning.
 
 ## 20. Relay tuning
@@ -384,6 +390,43 @@ across the two trials, then command activity among similarly fast candidates.
 
 A failed temperature limit cannot be averaged away by a good result elsewhere.
 If none passes, “none qualifies” is the correct outcome.
+
+The next lesson addresses the cost of this procedure: every changed requirement
+means designing and comparing candidates again by hand.
+
+## 22. Tuning to requirements
+
+**Tuning to requirements** designs the controller for stated requirements and
+checks the design against them on the model before it is validated on the
+actual controller.
+
+The requirements are the target change Δr and the settling time $T_s$, from
+which to the end of the test the output is settled: within the allowed error
+$e_{\max}$ of the target, and moving by no more than the settling band ±b about
+its final value. With a PI the final value is the target, so the tighter band b
+bounds the error at $T_s$. Lesson 19's model rule with the delay L added to the
+response time λ, $K_p=\tau/(K(\lambda+L))$ and $K_i=K_p/\tau$, makes the error
+fall roughly as $\Delta r\,e^{-(t-L)/\lambda}$ after the delay. It is down to b at
+$t=L+\lambda\ln(\Delta r/b)$, so the requirements fix the slowest acceptable
+response time $\lambda_{\max}=(T_s-L)/\ln(\Delta r/b)$. Validate reports the time
+from which the error stays within $e_{\max}$, which the same estimate with
+$e_{\max}$ in place of b predicts. λ is bounded below by $\max(L,\tau/3)$:
+faster responses need gains so large that small model errors make the loop
+oscillate.
+
+Control Studio's Automatic tuning starts from its more robust response
+(λ four times the fastest), predicts it on the validated model and keeps it if
+the prediction meets every requirement; otherwise it tries the balanced (twice
+the fastest) and the faster response. It refuses when even the fastest response
+misses and names what it misses. The lesson uses Lesson 21's heater with three
+requirement sets differing only in the settling time (30 s, 15 s, 5 s): the
+first keeps the more robust response, the second needs the balanced one, and
+the third is refused, as $\lambda_{\max}$ predicts (8.53 s, 4.12 s, 1.18 s against
+the responses' 6.67 s, 3.33 s and 1.67 s). The chosen candidates are validated
+on the actual ST and one is applied. Control Studio designs from the heater model
+saved with the project (`heater-model.json`, $0.2001\,e^{-s}/(5.1s + 1)$), so the
+design is repeatable; identifying the heater again gives slightly different numbers
+on each run, because the measurement noise differs.
 
 The next lesson addresses a more specific issue: reducing the proportional
 command jump from a setpoint change without weakening measurement feedback.

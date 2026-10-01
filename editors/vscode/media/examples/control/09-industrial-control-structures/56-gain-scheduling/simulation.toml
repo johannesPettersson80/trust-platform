@@ -6,68 +6,131 @@ max_plant_substeps_per_cycle = 100
 plant_trace_capacity = 5000
 plant_step_ms = 1000
 
+# Six identical gravity tanks of Lesson 45 (A = 0.5 m², c = 0.020 m^(5/2)/s): fixed and scheduled PI at 0.09, 0.25 and 0.49 m,
+# each starting at rest with its holding inflow c·√h0. Inputs: inflows in m³/s; outputs: levels in m, read within ±0.0005 m.
+
 [[plants]]
-id = "fixed-gravity-tank"
-name = "Fixed-PI gravity-drained tank"
-description = "Nonlinear vented tank used for the conservative fixed high-level PI baseline."
+id = "low-fixed-tank"
 model = "gravity_tank"
-command_sources = ["%QL152"]
-feedback_targets = ["%IL136"]
-initial_state = [0.16]
-initial_input = [0.008]
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [0.09]
+initial_input = [0.006]
 
 [plants.parameters]
 area_m2 = 0.5
-outflow_coefficient_m2_sqrt_m_per_s = 0.020
+outflow_coefficient_m2_sqrt_m_per_s = 0.02
 
 [[plants.uncertainties]]
-id = "fixed-level-sensor-noise"
+id = "low-fixed-level-noise"
 target = "measurement"
 channel = 0
 mode = "add"
-generator = "normal_approx_white"
-standard_deviation = 0.0005
+generator = "uniform_white"
+minimum = -0.0005
+maximum = 0.0005
 
 [[plants]]
-id = "interpolated-gravity-tank"
-name = "Interpolated-PI gravity-drained tank"
-description = "Equivalent nonlinear tank controlled by one atomically scheduled PI."
+id = "low-scheduled-tank"
 model = "gravity_tank"
-command_sources = ["%QL160"]
-feedback_targets = ["%IL144"]
+command_sources = ["%QL8"]
+feedback_targets = ["%IL8"]
+initial_state = [0.09]
+initial_input = [0.006]
+
+[plants.parameters]
+area_m2 = 0.5
+outflow_coefficient_m2_sqrt_m_per_s = 0.02
+
+[[plants.uncertainties]]
+id = "low-scheduled-level-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "uniform_white"
+minimum = -0.0005
+maximum = 0.0005
+
+[[plants]]
+id = "mid-fixed-tank"
+model = "gravity_tank"
+command_sources = ["%QL16"]
+feedback_targets = ["%IL16"]
 initial_state = [0.25]
-initial_input = [0.010]
+initial_input = [0.01]
 
 [plants.parameters]
 area_m2 = 0.5
-outflow_coefficient_m2_sqrt_m_per_s = 0.020
+outflow_coefficient_m2_sqrt_m_per_s = 0.02
 
 [[plants.uncertainties]]
-id = "interpolated-level-sensor-noise"
+id = "mid-fixed-level-noise"
 target = "measurement"
 channel = 0
 mode = "add"
-generator = "normal_approx_white"
-standard_deviation = 0.0005
+generator = "uniform_white"
+minimum = -0.0005
+maximum = 0.0005
 
 [[plants]]
-id = "parallel-gravity-tank"
-name = "Parallel-PI gravity-drained tank"
-description = "Equivalent nonlinear tank controlled by hysteretically selected, externally tracked local PIs."
+id = "mid-scheduled-tank"
 model = "gravity_tank"
-command_sources = ["%QL168"]
-feedback_targets = ["%IL152"]
-initial_state = [0.36]
-initial_input = [0.012]
+command_sources = ["%QL24"]
+feedback_targets = ["%IL24"]
+initial_state = [0.25]
+initial_input = [0.01]
 
 [plants.parameters]
 area_m2 = 0.5
-outflow_coefficient_m2_sqrt_m_per_s = 0.020
+outflow_coefficient_m2_sqrt_m_per_s = 0.02
 
 [[plants.uncertainties]]
-id = "parallel-level-sensor-noise"
+id = "mid-scheduled-level-noise"
 target = "measurement"
 channel = 0
 mode = "add"
-generator = "normal_approx_white"
-standard_deviation = 0.0005
+generator = "uniform_white"
+minimum = -0.0005
+maximum = 0.0005
+
+[[plants]]
+id = "high-fixed-tank"
+model = "gravity_tank"
+command_sources = ["%QL32"]
+feedback_targets = ["%IL32"]
+initial_state = [0.49]
+initial_input = [0.014]
+
+[plants.parameters]
+area_m2 = 0.5
+outflow_coefficient_m2_sqrt_m_per_s = 0.02
+
+[[plants.uncertainties]]
+id = "high-fixed-level-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "uniform_white"
+minimum = -0.0005
+maximum = 0.0005
+
+[[plants]]
+id = "high-scheduled-tank"
+model = "gravity_tank"
+command_sources = ["%QL40"]
+feedback_targets = ["%IL40"]
+initial_state = [0.49]
+initial_input = [0.014]
+
+[plants.parameters]
+area_m2 = 0.5
+outflow_coefficient_m2_sqrt_m_per_s = 0.02
+
+[[plants.uncertainties]]
+id = "high-scheduled-level-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "uniform_white"
+minimum = -0.0005
+maximum = 0.0005

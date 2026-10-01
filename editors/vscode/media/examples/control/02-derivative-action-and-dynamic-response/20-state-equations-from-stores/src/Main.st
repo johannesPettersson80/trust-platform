@@ -1,3 +1,4 @@
+(* The local rates of the two level deviations in m/s, the two rows of x' = Ax + Bv around 0.25 m and 0.010 m³/s. *)
 FUNCTION CascadeUpstreamRate : LREAL
 VAR_INPUT
     StateM : LREAL;
@@ -14,97 +15,116 @@ END_VAR
 CascadeDownstreamRate := LREAL#0.04 * UpstreamStateM - LREAL#0.04 * DownstreamStateM;
 END_FUNCTION
 
+(* The nonlinear balances the model approximates: 0.5·dh1/dt = q − 0.020·√h1 and 0.5·dh2/dt = 0.020·√h1 − 0.020·√h2. *)
+FUNCTION UpstreamLevelRate : LREAL
+VAR_INPUT
+    LevelM : LREAL;
+    InflowM3PerS : LREAL;
+END_VAR
+UpstreamLevelRate := (InflowM3PerS - LREAL#0.020 * SQRT(LevelM)) / LREAL#0.5;
+END_FUNCTION
+
+FUNCTION DownstreamLevelRate : LREAL
+VAR_INPUT
+    UpstreamLevelM : LREAL;
+    DownstreamLevelM : LREAL;
+END_VAR
+DownstreamLevelRate := (LREAL#0.020 * SQRT(UpstreamLevelM) - LREAL#0.020 * SQRT(DownstreamLevelM)) / LREAL#0.5;
+END_FUNCTION
+
+(* The two-tank state-space model. Initialize takes the state from measured levels; each call advances it by one explicit
+   1 s step with the flow deviation applied during that second. Both rates come from the old states before either state
+   is stored. The model levels are 0.25 m plus the states. *)
+FUNCTION_BLOCK CascadeModel
+VAR_INPUT
+    FlowDeviationM3PerS : LREAL;
+END_VAR
+VAR_OUTPUT
+    Tank1M : LREAL := 0.25;
+    Tank2M : LREAL := 0.25;
+    Rate1MPerS : LREAL := 0.0;
+    Rate2MPerS : LREAL := 0.0;
+END_VAR
+VAR
+    State : ARRAY[1..2] OF LREAL;
+END_VAR
+METHOD PUBLIC Initialize
+VAR_INPUT
+    MeasuredTank1M : LREAL;
+    MeasuredTank2M : LREAL;
+END_VAR
+State[1] := MeasuredTank1M - LREAL#0.25;
+State[2] := MeasuredTank2M - LREAL#0.25;
+Tank1M := MeasuredTank1M;
+Tank2M := MeasuredTank2M;
+END_METHOD
+Rate1MPerS := CascadeUpstreamRate(StateM := State[1], FlowDeviationM3PerS := FlowDeviationM3PerS);
+Rate2MPerS := CascadeDownstreamRate(UpstreamStateM := State[1], DownstreamStateM := State[2]);
+State[1] := State[1] + Rate1MPerS;
+State[2] := State[2] + Rate2MPerS;
+Tank1M := LREAL#0.25 + State[1];
+Tank2M := LREAL#0.25 + State[2];
+END_FUNCTION_BLOCK
+
 PROGRAM Main
 VAR
+    (* Two copies of the tank cascade, each with the model beside it. Control Studio's project experiment raises the pump
+       of the first by 0.001 m³/s and lowers the second by 0.001 m³/s for 20 s, then returns both to 0.010 m³/s. *)
+    RaiseModel : CascadeModel;
+    LowerModel : CascadeModel;
+    RaisePumpM3PerS : LREAL := 0.010;
+    RaiseTank1M : LREAL := 0.25;
+    RaiseTank2M : LREAL := 0.25;
+    LowerPumpM3PerS : LREAL := 0.010;
+    LowerTank1M : LREAL := 0.25;
+    LowerTank2M : LREAL := 0.25;
+    RaiseModel1M : LREAL := 0.25;
+    RaiseModel2M : LREAL := 0.25;
+    LowerModel1M : LREAL := 0.25;
+    LowerModel2M : LREAL := 0.25;
+    ElapsedS : LREAL := 0.0;
     ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    ClockValid : BOOL := FALSE;
-    FaultLatched : BOOL := FALSE;
-    InitialConditionValid : BOOL := FALSE;
-    PredictorReady : BOOL := FALSE;
     WasEnabled : BOOL := FALSE;
     ClockPrimed : BOOL := FALSE;
+    ClockValid : BOOL := TRUE;
+    FaultLatched : BOOL := FALSE;
     NowTime : TIME;
     PreviousTime : TIME;
-    StartedAt : TIME;
-    State : ARRAY[1..2] OF LREAL;
-    NextState : ARRAY[1..2] OF LREAL;
-    Model1LevelM : LREAL := 0.25;
-    Model2LevelM : LREAL := 0.25;
-    Derivative1MPerS : LREAL := 0.0;
-    Derivative2MPerS : LREAL := 0.0;
-    ModelError1M : LREAL := 0.0;
-    ModelError2M : LREAL := 0.0;
-    ExperimentElapsedS : LREAL := 0.0;
-    RequestedPumpFlow : LREAL := 0.010;
-    PumpFlow : LREAL := 0.010;
-    FlowDeviationM3PerS : LREAL := 0.0;
-    Tank1Level : LREAL := 0.27;
-    Tank2Level : LREAL := 0.25;
 END_VAR
-
-(* Physical levels are read-only outputs of the coupled nonlinear simulator.
-   These two local model states are a separate one-second Euler prediction. *)
+(* The model advances one second per update, so the clock must show one second (±50 ms) between updates; a wrong
+   interval or a level outside 0.05–0.45 m latches zero flow. *)
 NowTime := TIME();
-ClockValid := ClockPrimed AND ((NowTime - PreviousTime) = T#1s);
-IF SafetyAbort OR NOT InputsValid OR
-   NOT ((Tank1Level >= LREAL#0.05) AND (Tank1Level <= LREAL#0.45)) OR
-   NOT ((Tank2Level >= LREAL#0.05) AND (Tank2Level <= LREAL#0.45)) OR
-   (ClockPrimed AND NOT ClockValid) THEN
+ClockValid := NOT ClockPrimed OR ((NowTime - PreviousTime) >= T#950ms AND (NowTime - PreviousTime) <= T#1050ms);
+IF NOT ClockValid
+    OR RaiseTank1M < LREAL#0.05 OR RaiseTank1M > LREAL#0.45 OR RaiseTank2M < LREAL#0.05 OR RaiseTank2M > LREAL#0.45
+    OR LowerTank1M < LREAL#0.05 OR LowerTank1M > LREAL#0.45 OR LowerTank2M < LREAL#0.05 OR LowerTank2M > LREAL#0.45 THEN
     FaultLatched := TRUE;
 END_IF;
-
-IF WasEnabled AND NOT ExperimentEnabled AND ((NowTime - StartedAt) < T#120s) THEN
-    FaultLatched := TRUE;
-END_IF;
+(* The models start from the measured levels; each later update advances them with the flow deviation of the second that
+   has just passed, so model and measured levels belong to the same instant. *)
 IF ExperimentEnabled AND NOT WasEnabled THEN
-    StartedAt := NowTime;
-    InitialConditionValid := (ABS(Tank1Level - LREAL#0.27) <= LREAL#0.000001) AND
-                             (ABS(Tank2Level - LREAL#0.25) <= LREAL#0.000001);
-    IF NOT InitialConditionValid THEN FaultLatched := TRUE; END_IF;
-    State[1] := Tank1Level - LREAL#0.25;
-    State[2] := Tank2Level - LREAL#0.25;
-    ExperimentElapsedS := LREAL#0.0;
+    RaiseModel.Initialize(MeasuredTank1M := RaiseTank1M, MeasuredTank2M := RaiseTank2M);
+    LowerModel.Initialize(MeasuredTank1M := LowerTank1M, MeasuredTank2M := LowerTank2M);
+    ElapsedS := LREAL#0.0;
 ELSIF ExperimentEnabled AND NOT FaultLatched THEN
-    (* Accept the prediction only after the actual clock confirms one second. *)
-    State[1] := NextState[1];
-    State[2] := NextState[2];
-    ExperimentElapsedS := ExperimentElapsedS + LREAL#1.0;
+    RaiseModel(FlowDeviationM3PerS := RaisePumpM3PerS - LREAL#0.010);
+    LowerModel(FlowDeviationM3PerS := LowerPumpM3PerS - LREAL#0.010);
+    ElapsedS := ElapsedS + LREAL#1.0;
 END_IF;
-
-RequestedPumpFlow := LREAL#0.010;
-IF ExperimentEnabled AND (ExperimentElapsedS < LREAL#20.0) THEN
-    RequestedPumpFlow := RequestedPumpFlow + FlowDeviationM3PerS;
-END_IF;
-IF NOT ((RequestedPumpFlow >= LREAL#0.0) AND (RequestedPumpFlow <= LREAL#0.020)) THEN
-    FaultLatched := TRUE;
+RaisePumpM3PerS := LREAL#0.010;
+LowerPumpM3PerS := LREAL#0.010;
+IF ExperimentEnabled AND ElapsedS < LREAL#19.5 THEN
+    RaisePumpM3PerS := LREAL#0.011;
+    LowerPumpM3PerS := LREAL#0.009;
 END_IF;
 IF FaultLatched THEN
-    PumpFlow := LREAL#0.0;
-ELSE
-    PumpFlow := RequestedPumpFlow;
+    RaisePumpM3PerS := LREAL#0.0;
+    LowerPumpM3PerS := LREAL#0.0;
 END_IF;
-
-Model1LevelM := LREAL#0.25 + State[1];
-Model2LevelM := LREAL#0.25 + State[2];
-ModelError1M := Model1LevelM - Tank1Level;
-ModelError2M := Model2LevelM - Tank2Level;
-PredictorReady := ExperimentEnabled AND NOT FaultLatched;
-IF PredictorReady THEN
-    Derivative1MPerS := CascadeUpstreamRate(StateM := State[1], FlowDeviationM3PerS := PumpFlow - LREAL#0.010);
-    Derivative2MPerS := CascadeDownstreamRate(UpstreamStateM := State[1], DownstreamStateM := State[2]);
-    (* Both next entries use the same old state; never overwrite State[1]
-       before calculating the downstream prediction. The horizon is one second. *)
-    NextState[1] := State[1] + Derivative1MPerS;
-    NextState[2] := State[2] + Derivative2MPerS;
-    IF NOT (((LREAL#0.25 + NextState[1]) >= LREAL#0.05) AND ((LREAL#0.25 + NextState[1]) <= LREAL#0.45)) OR
-       NOT (((LREAL#0.25 + NextState[2]) >= LREAL#0.05) AND ((LREAL#0.25 + NextState[2]) <= LREAL#0.45)) THEN
-        FaultLatched := TRUE;
-        PredictorReady := FALSE;
-        PumpFlow := LREAL#0.0;
-    END_IF;
-END_IF;
+RaiseModel1M := RaiseModel.Tank1M;
+RaiseModel2M := RaiseModel.Tank2M;
+LowerModel1M := LowerModel.Tank1M;
+LowerModel2M := LowerModel.Tank2M;
 WasEnabled := ExperimentEnabled;
 PreviousTime := NowTime;
 ClockPrimed := TRUE;
@@ -116,25 +136,18 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.PumpFlow AT %QL0 : LREAL;
-    P1.Tank1Level AT %IL0 : LREAL;
-    P1.Tank2Level AT %IL8 : LREAL;
-    P1.Model1LevelM AT %ML0 : LREAL;
-    P1.Model2LevelM AT %ML8 : LREAL;
-    P1.Derivative1MPerS AT %ML16 : LREAL;
-    P1.Derivative2MPerS AT %ML24 : LREAL;
-    P1.State[1] AT %ML32 : LREAL;
-    P1.State[2] AT %ML40 : LREAL;
-    P1.ExperimentElapsedS AT %ML48 : LREAL;
-    P1.RequestedPumpFlow AT %ML56 : LREAL;
-    P1.FlowDeviationM3PerS AT %ML72 : LREAL;
-    P1.ExperimentEnabled AT %MX80.0 : BOOL;
-    P1.SafetyAbort AT %MX80.1 : BOOL;
-    P1.ClockValid AT %MX80.3 : BOOL;
-    P1.FaultLatched AT %MX80.4 : BOOL;
-    P1.InitialConditionValid AT %MX80.5 : BOOL;
-    P1.PredictorReady AT %MX80.6 : BOOL;
-    P1.ModelError1M AT %ML88 : LREAL;
-    P1.ModelError2M AT %ML96 : LREAL;
+    P1.RaisePumpM3PerS AT %QL0 : LREAL;
+    P1.RaiseTank1M AT %IL0 : LREAL;
+    P1.RaiseTank2M AT %IL8 : LREAL;
+    P1.LowerPumpM3PerS AT %QL8 : LREAL;
+    P1.LowerTank1M AT %IL16 : LREAL;
+    P1.LowerTank2M AT %IL24 : LREAL;
+    P1.RaiseModel1M AT %ML0 : LREAL;
+    P1.RaiseModel2M AT %ML8 : LREAL;
+    P1.LowerModel1M AT %ML16 : LREAL;
+    P1.LowerModel2M AT %ML24 : LREAL;
+    P1.ExperimentEnabled AT %MX32.0 : BOOL;
+    P1.ClockValid AT %MX32.1 : BOOL;
+    P1.FaultLatched AT %MX32.2 : BOOL;
 END_VAR
 END_CONFIGURATION

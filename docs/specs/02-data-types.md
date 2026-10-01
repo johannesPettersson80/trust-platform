@@ -325,6 +325,18 @@ ARRAY[0..5] OF INT := [2(1, 2, 3)]  // Results in: 1, 2, 3, 1, 2, 3
   a preparation warning.
 - Repetition count zero contributes no values. A negative, non-integer,
   non-constant, cyclic, or overflowing repetition count is an error.
+- An array of function block or class instances holds one independent
+  instance per element (IEC 61131-3 Ed.3 Table 11 feature 5). Each element is
+  called, read, and assigned through its subscript like a scalar instance, and
+  an element's nested instances belong to that element alone.
+- An array of function block instances may be initialized element by element
+  with aggregate initializers, `[(PT := T#100ms), (PT := T#300ms)]`, following
+  the rules above. A repeated element initializer is written either
+  `50((PT := T#100ms))` (Annex A grammar) or `50(PT := T#100ms)` (Table 11
+  feature 5b); both repeat one aggregate initializer (see
+  `docs/IEC_DECISIONS.md`). An array type declared with an initializer gives it
+  to every variable of the type; a variable's own initializer then applies per
+  element. Class elements, like class instances, accept no initializer.
 
 ### 3.5 Structured Data Types (Section 6.4.4.6)
 

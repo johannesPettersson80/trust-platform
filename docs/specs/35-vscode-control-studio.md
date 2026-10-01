@@ -47,11 +47,36 @@ A loop definition MUST identify:
 - for an open-loop experiment, process variable (PV) and manipulated variable
   (MV), with no setpoint binding;
 - the engineering unit and expected range of each signal;
-- direct or reverse action;
+- the controller action: `direct` when the output increases while the
+  measurement is below the setpoint, `reverse` when it increases while the
+  measurement is above it. Setup names the direction, not these words, because
+  instrument practice calls the first reverse acting;
 - controller mode;
 - output and rate limits when configured;
 - task period and observed sample time; and
 - the simulated plant when the loop uses one.
+
+Two loops MAY declare a cascade (29 September 2026): the outer loop states
+`cascade: { role: "outer", partnerLoopId }` and the inner loop the same with
+`role: "inner"`. The outer loop's manipulated variable is the outer controller's
+output, in the inner measurement's unit and range. The inner loop's setpoint is
+the outer controller's manual output, which holds a written value while the
+outer controller is in Manual; the inner declaration's `referenceHold` names the
+outer mode signal, its Manual value and that manual output. Each loop is
+identified, tuned, validated and applied through the ordinary workflow, inner
+loop first:
+
+- the inner loop is validated with the outer controller held in Manual at the
+  target, through `referenceHold`, and is applied only while the outer
+  controller is in Manual: Apply refuses, before waiting or writing, with
+  "Put the outer controller in Manual before applying", and its transfer guards
+  the outer mode, so the runtime also refuses a switch to Auto before the task
+  boundary;
+- the outer loop is identified with the inner loop applied and in Auto, so its
+  model includes the closed inner loop. It is validated on that model only,
+  never on the project's configured plant: that run would start the program
+  from its declared values, with the inner controller in Manual and away from
+  the operating point the outer model was identified around.
 
 When a controller mode signal is bound, the loop definition MAY state whether
 a true value means `Auto` or `Manual`. A legacy binding that omits the polarity
@@ -145,6 +170,22 @@ uses a finite positive `Tt` and writes its reciprocal through the same complete
 parameter record. The law declaration, rather than a parameter name, gives
 that value its tracking meaning. A loop without this adapter can display a
 saturation finding but cannot offer a connected back-calculation candidate.
+
+A PID law MAY also declare `proportionalSetpointWeightSymbol`: one unique bound
+REAL/LREAL record field, dimensionless (`unit: "1"`) and bounded within 0–1,
+holding β in `P = Kp·(β·SP − PV)`. Manual PI and PID settings then require β
+beside the gains, the predicted response uses it, and it is written through the
+same complete parameter record. A calculated candidate is the standard form and
+writes β = 1 unless β is pinned.
+
+A PID law MAY also declare `measurementFilterTimeSymbol`: one unique bound
+REAL/LREAL program setting in seconds, not negative, holding the time Tf of the
+first-order filter on the measurement the controller uses
+(`α = Δt/(Tf + Δt)`; 0 bypasses it). Manual settings require Tf, the predicted
+response and loop frequency response include the filter lag, and Tf is written with
+the gains. A calculated candidate writes Tf = 0 unless Tf is pinned. The program
+restarts the filter from the fresh measurement in Manual and in the Auto-entry scan,
+so the exact Auto-entry check still holds.
 
 A loop which supports the automatic matched anti-windup verification route
 MUST additionally declare `controller.antiWindupVerification`. Its scenario
@@ -482,6 +523,15 @@ do not reconstruct a baseline from nominal values or a qualification flag.
 Retain the baseline duration in the exact plan and reject a maximum
 duration that leaves no sample interval after the baseline.
 
+When the learner chooses how long the project holds its step, the loop names
+that experiment parameter in `holdParameter`: a declared `parameterBinding`
+parameter in seconds under `parameterPurpose: "experiment"`. Review reads the
+applied value from the runtime and records the baseline, every scan of that
+hold and one restoration sample, for example 5 s + 30 s + 0.1 s = 35.1 s.
+`durationSeconds` is then the maximum and must record the longest permitted
+hold. Review refuses a hold that cannot be read, lies outside its declared
+bounds or exceeds that maximum.
+
 An MV pulse writes the requested output at `0 ms` and writes the captured
 baseline at half the planned duration; the return point is part of its runtime
 trajectory and occurs before timeout. An MV step has only its initial requested
@@ -666,7 +716,9 @@ same-run preview and qualification for controller design are separate states.
 The first version supports these model structures:
 
 - static gain;
-- integrating process;
+- integrating process, with its delay: a step fit takes the rate gain from the
+  late slope and the delay from where that ramp, extended back, meets the level
+  before the step;
 - first-order process;
 - first-order plus dead time (FOPDT);
 - second-order process; and
@@ -797,6 +849,9 @@ angular frequency, amplitude, phase, sample interval, applied common scale,
 and peak bound, and MUST reject tones at or above Nyquist. Frequency-response
 estimation MUST retain the input/output spectra, complex response, magnitude,
 phase, segmentation, and magnitude-squared coherence at every requested tone.
+Its plot and table show the tones in ascending frequency with the phase
+unwrapped from the lowest tone: each tone's phase lies within 180° of the
+previous tone's, continuous as on a model's Bode plot.
 A low-coherence tone is retained but disqualifies the response from transfer-
 function fitting. A fitted transfer function MUST be scored on different
 retained tones or a separate excitation run; the fitting tones alone are not
@@ -822,6 +877,15 @@ The first version supports:
 - imported `Control.PID` settings.
 
 Every method MUST state when it is applicable and why it is unavailable.
+Tune shows the predicted response of the candidate and of the current settings
+on the selected model. For `Control.PID` Studio calculates the closed loop
+itself. A law in the program that Studio does not calculate itself, such as a
+switching, state-feedback or other project-owned law or a PID group on its
+multivariable model, is predicted by running the program's actual
+ST with the current and the candidate settings on the selected model in
+isolated simulation, as Validate's model comparison does; nothing is written to
+the running controller. When that simulation is unavailable, the candidate is
+shown with the reason there is no prediction.
 Controller candidates MUST use the exact PI, PD, or PID form, timing,
 derivative filter, weights, limits, tracking, and anti-windup behavior defined
 by Specification 32.
@@ -951,7 +1015,11 @@ ranking function. The comparison MUST produce no candidate when none passes
 mandatory requirements.
 
 For an accepted integrating model, proportional control MUST remain eligible
-because the plant already supplies integral action. PI, PD, and PID remain
+because the plant already supplies integral action. With a resolved positive
+delay L, P uses SIMC's proportional gain `Kp = 1/(Kprime (lambda + L))` with the
+same response choices as PI; Automatic predicts it on the model as it predicts
+PI, the declared input disturbance included, and refuses it with the prediction's
+shortfall. PI, PD, and PID remain
 eligible only when applicable and must justify their additional term through a
 material benefit. For other first-version formula domains, unsupported P, PD,
 or PID candidates are reported as unavailable rather than synthesized from an
@@ -1002,6 +1070,30 @@ Automatic recommendation MUST compare the permitted P, PI, PD, and PID structure
 It MUST choose the simplest candidate that meets the declared requirements. A
 more complex controller may be selected only when simpler applicable designs
 cannot satisfy the declared mandatory requirements with the required evidence.
+
+The Automatic tuning method designs the selected structure to the declared
+requirements. For a formula with a response choice it uses the choice nearest
+the declared one whose predicted response on the selected model stays, from the
+settling-time deadline to the end of the test, within the allowed error of the
+target and within the settling band of its final value; of two equally near
+choices the more robust one is used. When the requirements declare an input
+disturbance, each prediction also covers it: from the operating point with the
+setpoint unchanged, the disturbance added to the plant input at the start must
+leave the output, from the deadline to the end of the test, within the allowed
+error of the target and within the settling band of its final value. When no choice meets them and the model is
+delay-free, first or second order and without zeros, Automatic places the
+closed-loop poles with damping 0.8: first at the decay rate
+max(4, ln(|Δr|/b))/Tₛ, at which the response envelope reaches the settling band
+b from the setpoint change Δr by the settling time Tₛ but never more slowly than
+the 2 % envelope, then 25 % faster at a time, for at most eight placements and
+below the sample-rate limit ωh < 0.2. The controller's own zeros make the
+response faster or less damped than the envelope, so each placement is checked
+by its prediction; the first with non-negative gains whose predicted response
+meets the requirements is used. Otherwise the structure is rejected with the
+deviation of its fastest predicted response, the deadline and the limit it
+misses. Without a model prediction the declared choice is used and
+Validate decides. SIMC or AMIGO selected explicitly calculates its formula
+unchanged.
 
 Tune MUST provide:
 
@@ -1145,8 +1237,44 @@ states for first-output continuity. It is `false` for the later target change:
 that transaction preserves the retained PID state, allows the reviewed target
 response, and still confirms the actual ST state evolution at the task boundary.
 
+A state-feedback law, u = u₀ + N·(r − y₀) − K·(x − x₀) in its identified
+measured coordinates, has no retained state that makes Auto entry bumpless: at
+entry each reference follows its measurement, so the first output moves by the
+law's response to the process's deviation from the validated operating point.
+Apply starts only when every measured output lies within its settling band bⱼ
+of that point. Unless an Auto-entry tolerance is reviewed, the first-output
+continuity check therefore allows, for plant input i, Σⱼ |Kᵢⱼ|·bⱼ + Σₖ |Nᵢₖ|·bₖ,
+where j runs over the model states and k over the controlled outputs. A state
+is a measured output when its column of C selects exactly that output, as in
+identified measured coordinates; bⱼ is that output's settling band. A reviewed
+tolerance replaces this allowance; a model with any other state keeps the exact
+check.
+
 Apply is the user's explicit action on the exact selected target and validated
 candidate. The Validate page owns its confirmation and restore presentation.
+
+Apply starts the candidate from the operating point it was validated at: every
+plant input within the Auto-entry tolerance of that point and every measured
+output within its settling band. An input that differs cannot settle by itself,
+so Apply refuses at once and names it. When only measured outputs are outside
+their bands, Apply waits for them, showing the output, its validated value and
+its current value, and continues without another action once all are inside.
+Nothing is written while it waits. The wait is cancellable and bounded by
+max(60 s, 3 × the test duration); an output that has not settled by then is
+reported with its current value, and the validated candidate stays available.
+An integrating output has no level of its own: it rests wherever its inflow
+balances, and its model does not depend on that level. Apply therefore takes
+its present value as that output's operating point: the plant input must match
+the validated point, the output needs no wait, and the validated step and the
+Auto entry start from the present value.
+
+After the target change, Apply observes the test duration in the runtime's own
+time, from the runtime clock that `control.signals.inspect` reports, not in
+wall-clock time: a runtime that runs behind real time, for example under load
+or on a slower controller, is observed for the full duration. The observation
+is bounded by max(3 × the test duration, the test duration + 60 s) of wall-clock
+time; a runtime that falls further behind is reported and the previous settings
+are restored.
 
 Apply MUST use the existing runtime authorization, audit, revision, and control
 transport. It MUST be atomic and reject a stale controller revision. A
@@ -1358,12 +1486,110 @@ Nested controller fields are enumerated from compiled instance storage and
 metadata. Each task records its name and interval in milliseconds. The UI may
 autodiscover known controller types from this catalog; a variable named PID
 with another compiled type is still a custom controller.
+The catalog also provides `controlSymbols.links`, derived by the compiler front end
+from PROGRAM and FUNCTION_BLOCK bodies: for each `<output> := <instance>.<method>(
+<argument> := <record>)` call, the instance, method, argument, record, assigned
+output and, per record field, every symbol read on the right-hand side of its
+assignments. Setup uses these links to prefill a `Control.PID` loop (its
+`Configure` parameter record and its `Update` setpoint, measurement, manual
+output and output) and to recognise a cascade, where one PID's output is the
+only source of another PID's setpoint. The user confirms every prefilled binding;
+a link is evidence, never a silent choice.
+The catalog also provides `controlSymbols.writes`: every symbol that a PROGRAM or
+FUNCTION_BLOCK body assigns, as absolute paths per compiled instance. Validation
+starts the program from seeded values: the setpoint, manual output, mode,
+parameter record and, through its initialization contract, the PID's state. When
+the program writes one of the loop's seeded values itself, or calls `Initialize`
+on the loop's PID, setup requires the BOOL that marks the program's startup as
+done and declares it as an application state that validation starts TRUE.
+Setup also requires the identification duration; it is never assumed.
+The setup form also sets up an existing switching (ON/OFF) controller: the
+program instance that runs it, its measurement and setpoint, its numeric output
+with the low and high levels it switches between, its Auto/Manual signal and
+manual output, and the three settings Tune designs: the hysteresis in the
+measurement's unit, with its half-band or full-band convention, and the minimum
+ON and OFF times in seconds. Setup also asks for the switched equipment's own
+minimum ON and OFF times, when it has them, for example a compressor's restart
+protection; blank means the equipment has none. They are declared as the output
+channel's actuator dwell limits, and Tune never designs shorter minimum times.
+Its retained switching states are the output latch,
+which starts ON when the output starts at its high level, and optionally a dwell
+timer in seconds, which starts at zero. A switching controller with a BOOL
+output or other retained states uses the step-by-step setup.
+The setup form also sets up an existing state-feedback controller, designed by
+pole placement or LQR: the program instance that runs it, its plant input with
+unit and range, its controlled output with unit, range and setpoint, and one to
+three further measured outputs with unit and range. Each measured output is a
+state of the model: Studio identifies the plant in these measured coordinates,
+first order in each measured output (`identificationPolicy.maximumOrder` 1), so
+every gain belongs to one measured signal. Per measured output the user chooses
+the variable holding its gain, in the plant input's unit per that output's unit,
+and for the controlled output also the variable holding the reference gain. The
+program applies u = u₀ + N·(r − y₀) − Σ Kᵢ·(yᵢ − yᵢ₀) around the operating
+point at which the plant is identified. The Auto/Manual signal, manual output,
+identification step and duration and the startup flag are set as for a PID.
+The setup form also sets up a P, PI or PID law that the program computes
+itself from variables holding its gains, in parallel form: u = Kp·e + I + D with
+I = u₀ + Ki·∫e dt and D = Kd·de/dt, or D = −Kd·dy/dt when the derivative acts on
+the measurement y, where e is the control error in the measurement's unit, the
+integral term I is in the output's unit and time is in seconds. The user
+chooses the program instance that runs it, its measurement, output and
+setpoint, its Auto/Manual signal and manual output, the law, per gain the
+variable holding it with the range Tune may choose from, for PI and PID the
+variable holding the integral term, and for PID the variable in which the
+program keeps the previous error or previous measurement that its derivative is
+taken from, and which of the two it is. Validation starts the integral term at
+the output the loop has when it switches to Auto, with the setpoint at the
+measurement, so the switch is bumpless, and starts the previous value at the
+error of that moment (zero) or at the measurement, so the derivative starts at
+zero. The identification step and duration and the startup flag are set as for
+a PID. The loop is a project-owned controller (`controller.project`) whose
+`parallel-pid` seed names the gain variables of its law: Tune designs its gains
+from the model as for `Control.PID` (§9), offers only the families whose gains
+the program has, and checks the result on the actual ST. A law with reset or
+derivative times, a derivative filter or further retained states uses the
+step-by-step setup.
+The setup form also sets up a law the program computes from coefficient
+variables that Studio has no design formula for, for example MPC weights, a
+ratio, split-range break points, override limits or a gain schedule (§17.8 H,
+I): the program instance that runs it, its measurement, output and setpoint, its
+Auto/Manual signal and manual output, which kind of law it is, one to four
+coefficient variables, each with its unit and the values Tune may try, and up
+to three values the program keeps from scan to scan, for example an integral
+term or a filter state, each with its unit and what validation starts it at:
+zero, the output or the measurement. Tune runs every combination of the
+values, at most 64, on the actual ST against the selected model, keeps the
+combinations that meet every mandatory requirement and uses the one with the
+smallest error after the settling time; of equal errors the first combination
+in the listed order is used. Values of a REAL variable are rounded to the
+nearest REAL. The identification step and duration and the startup flag are set
+as for a PID.
+The state-feedback structure also sets up LQG (§17.8 G), where the program
+estimates the states from the controlled output instead of measuring them: its
+estimator implements a fixed model, `x̂[k+1] = A·x̂[k] + B·u[k] + L·(y[k] −
+C·x̂[k])` in deviations from the model's operating point, and feeds the
+estimates back with the gains `K` and the reference gain `N`. Besides the
+state-feedback fields the form asks for the model file in the project that the
+estimator implements (a state-space model with one input and the controlled
+output as its one output, sampled at the task period), and per model state the
+estimate variable, its gain and its observer gain, as well as the process-noise
+variance of each state and the measurement-noise variance, which set the
+observer's trade-off between trusting the model and trusting the measurement.
+The estimates start at zero, the operating point. Tune designs `K`, `L` and `N`
+by LQG on the selected model, which must be the estimator's model: supply that
+model file on Identify, or identify a model and write its matrices into the
+program and the model file first.
 All three pages remain navigable. Individual operations explain missing data,
 models, adapters or permissions. Experiment ownership never disables an entire
 analysis stage; project-owned excitation still forbids duplicate tool writes.
 
 ### 17.2 Models, controllers and analysis
 
+Control Studio's models are domain-neutral: transfer functions and continuous
+or discrete state-space models. It has no built-in physical families, and it
+never chooses a model structure from signal units or names. A physical plant
+enters as a supplied model, identified from its recordings, or simulated by the
+project's own plant (Specification 33).
 Accept fitted and provided transfer functions, continuous/discrete state-space
 models and configured simulation models with provenance, channel order, units,
 operating range, delay, sample time and validation status. Provided models can
@@ -1516,6 +1742,319 @@ samples remain actual runtime samples, but their evidence MUST remain
 `Incomplete` with the Start-acknowledgement reason; it MUST NOT qualify
 identification as complete evidence.
 
+### 17.8 Competence target — proposed 29 September 2026, confirmed 30 September 2026
+
+This subsection records the proposal that makes the purpose contract's user
+direction of 29 September 2026 concrete. It is not an implementation
+requirement until the user confirms it; the user may change any item. The
+user's message of 29 September 2026, "Remember that maybe we have 2 pids, one
+that feeds the other. We must handle that and all different cases. What about
+mimo and other controllers ?", makes these parts binding: setup and design of a
+cascade, of several independent loops and of multivariable PID groups (RGA
+pairing and decentralized PI, §17.9), and setup of other controllers. On 30
+September 2026 the user confirmed the rest ("all"), as these capabilities, each
+specified in its own subsection before it is built:
+
+- A. gain, phase and delay margins and the peak sensitivity Ms on Tune for
+  every candidate;
+- B. measured-disturbance feedforward designed from the model (static gain and
+  lead/lag);
+- C. a cascade tuned inner loop first, the outer loop through the closed inner
+  loop, validated and applied together with one rollback;
+- D. the static decoupler applied, not only calculated;
+- E. Smith predictor design from the model's delay;
+- F. gain-scheduling design over declared operating points;
+- G. LQG and a program's own PID law with a derivative term in the setup form;
+- H. MPC tuning of horizon and weights;
+- I. ratio, split-range and override structures in the setup form.
+
+- **Setup.** Any compiled truST project can be set up in one form from compiler
+  metadata: single loops, a cascade (one controller's output feeding another's
+  setpoint), several independent loops, multivariable channel groups, state
+  feedback and custom project controllers, with symbolic or addressed signals.
+- **Identification.** First- and second-order, integrating and delayed models and
+  transfer functions up to third order, from step, pulse, relay, PRBS, multisine
+  or recorded data, for SISO and MIMO processes, each with residual and
+  independent-validation reports.
+- **Design and tuning.** `Control.PID` configurations with setpoint weights and
+  derivative filtering; cascades designed inner loop first and the outer loop
+  through the closed inner loop; measured-disturbance feedforward; RGA pairing,
+  decentralized PI and static decoupling; state feedback, LQR/LQG and MPC; gain
+  scheduling.
+- **Every candidate.** Gain, phase and delay margins and peak sensitivity;
+  verification on the actual ST; guarded application of all affected
+  controllers together, with rollback.
+
+### 17.9 PID groups: decentralized PI design
+
+A PID group is two or more `Control.PID` instances tuned, validated and applied
+together because their processes interact: every member's output moves several
+measured outputs. The group contract (`controller.group`) pairs each member's
+input channel with one output channel and shares one Auto/Manual signal, so the
+members change mode together.
+
+**Setup.** The setup form offers **PID group** when the program has two or more
+library PIDs. The user selects the members and, per member, confirms the
+compiled measurement, output, setpoint, manual output and parameter record, as
+for a single loop, plus the shared Auto/Manual signal, the identification step
+of each output and one identification duration. Setup writes one group loop
+whose model channels follow the member order; each member's input channel keeps
+that member's identification step (`experimentStep`).
+
+**Identification.** Identify runs one experiment per member output in one
+recording, stepping each input by its own identification step, and fits one
+multivariable model (§17.2).
+
+**Design.** Tune designs one PI per member from that model:
+
+1. Steady-state gains `K` (outputs × inputs) and the relative gain array
+   `Λ = K ∘ (K⁻¹)ᵀ` are calculated for the members' pairing. A pairing whose
+   diagonal relative gain is not positive, or a singular `K`, is refused, and
+   the pairing with positive diagonal relative gains closest to 1 is named.
+2. Each member's own path `yᵢ/uᵢ` is reduced to a first-order-plus-delay model
+   from the model's step response by the two-point method: with `t₂₈` and `t₆₃`
+   the times at which the response reaches 28.3 % and 63.2 % of its final
+   change, `τ = 1.5·(t₆₃ − t₂₈)` and `θ = t₆₃ − τ`; when `θ` would be negative,
+   `θ = 0` and `τ = t₆₃`.
+3. With the other loops closed, member `i` sees the effective steady-state gain
+   `Kᵢᵢ/λᵢᵢ` (effective open-loop process). SIMC designs the member's PI for
+   that gain and the path's time constant and delay, with the member's own
+   requirements.
+
+The design names, per member, the path model, `λᵢᵢ` and the resulting gains.
+Validate then runs the actual ST of all members against the full multivariable
+model, with every member's requirements, and Apply writes all members in one
+transaction with one rollback; only the group changes (§16). A static decoupler or a centralized
+design (LQR/LQG, MPC) remains a separate controller structure.
+
+### 17.10 Robustness margins on Tune (§17.8 A)
+
+Tune shows beside every candidate whose law it can write as a linear transfer
+function on the selected model its gain margin, phase margin, delay margin and
+peak sensitivity Ms: a `Control.PID`, or a program's P/PI/PD/PID law set up with
+a `parallel-pid` seed, including the candidate's derivative filter and the
+model's delay. With the loop transfer function L(jω) of candidate and model:
+
+- the gain margin is −20·log₁₀|L| in dB where the phase of L crosses −180°;
+- the phase margin is 180° plus the phase of L where |L| = 1;
+- the delay margin is the phase margin in radians divided by that gain-crossover
+  frequency: the extra dead time the loop tolerates before it becomes unstable;
+- Ms is the largest |1/(1 + L(jω))|, the largest factor by which feedback
+  amplifies a disturbance at any frequency.
+
+A margin the loop does not have, because the phase never crosses −180° or the
+loop gain stays below one, is shown as unbounded, and so is the delay margin
+without a gain crossover. The margins are calculated on the model, so they are
+exactly as trustworthy as the model; switching and other nonlinear laws show
+none. A state-feedback law (pole placement or LQR) with one plant input shows
+the margins of its loop broken at the plant input: `L = K·(zI − A)⁻¹·B` on the
+model sampled at the task period, with the gains `K` on the fed-back outputs,
+evaluated up to half the sampling frequency. The delay margin is then the extra
+dead time at the plant input the loop tolerates.
+
+### 17.11 Cascade tuned together (§17.8 C)
+
+The setup form's **Cascade** structure writes one cascade loop for two
+`Control.PID` instances where the outer controller's output is the inner
+controller's setpoint: the inner controller drives the plant input and
+measures the inner measurement; the outer controller measures the outer
+measurement against the outer setpoint. The loop's model has the plant input as
+its one input and the inner and outer measurements as its two outputs.
+
+- **Identify** puts the inner controller in Manual, steps its manual output and
+  fits one model from the plant input to both measurements, first order in each
+  measurement (`identificationPolicy.maximumOrder` 1), so the outer measurement
+  follows the inner one as in the process.
+- **Tune** designs the inner controller first, with Automatic (§9.2), on the
+  path from the plant input to the inner measurement for the inner
+  requirements. It then predicts on the model the closed inner loop's response
+  of the outer measurement to a step of the inner setpoint, reduces that
+  response to first order with delay by the two-point method of §17.9 and
+  designs the outer controller on it, with Automatic, for the outer
+  requirements. Without declared inner requirements the inner loop is
+  designed to settle in a fifth of the outer settling time with the outer
+  settling band scaled to the inner measurement's range, so the outer design's
+  assumption that the inner measurement follows its setpoint holds.
+- **Validate** runs the actual ST of both controllers in Auto from the model's
+  operating point with the outer requirements, including a load at the plant
+  input that both loops reject.
+- **Apply** writes both parameter records and switches both controllers to
+  Auto in one task-boundary transaction (the outer controller's mode is an
+  `additional_modes` member of the transfer): the inner controller starts at the
+  present plant input with its setpoint at the inner measurement, and the outer
+  controller starts with its output at the inner measurement, so neither
+  switch bumps. **Restore previous settings** returns both parameter records
+  and both controllers to Manual in one transaction.
+
+A cascade whose two loops are declared as separate loop files, each with its
+own study, keeps the rules of §3 for those files.
+
+### 17.12 Feedforward from a measured disturbance (§17.8 B)
+
+The setup form's **Feedforward** structure writes one loop for a `Control.PID`
+whose program adds a feedforward from a measured disturbance `d` to the
+controller's `FeedForward` input. The program computes
+
+`FeedForward = K_ff·(z + (T_lead/T_lag)·(d − z))`, where `z` is `d` filtered by
+a first-order lag with time constant `T_lag`,
+
+which is the lead/lag `K_ff·(T_lead·s + 1)/(T_lag·s + 1)` applied to `d`, with
+unit steady-state gain; a program without lead/lag values computes
+`FeedForward = K_ff·d`. Besides the single-loop fields the form asks for the
+measured disturbance (compiled variable, unit and range), the variable Studio
+steps to move the disturbance during identification (in a simulation usually
+the simulated load itself), that step, the program's gain variable `K_ff` and,
+optionally, its lead time, lag time and the filtered disturbance `z` it keeps
+(all three or none). The loop's model has the controller output and the
+measured disturbance as its inputs and the measurement as its output; the
+disturbance is measured, never written by the controller.
+
+- **Identify** puts the controller in Manual, steps its manual output and then
+  the disturbance variable, each in its own interval of one recording (as a PID
+  group's inputs, §17.9), and fits one model from both inputs to the
+  measurement of at most second order (`identificationPolicy.maximumOrder` 2),
+  so that each path can keep its own time constant. The feedforward is designed
+  from both paths' gains and time constants, so the fit must agree with the
+  independent recording within 5 % (`identificationPolicy.maximumNormalizedError`
+  0.05): a first-order fit that shares one time constant between paths that
+  differ is then not accepted.
+- **Tune** designs the PI with Automatic (§9.2) on the path from the controller
+  output to the measurement, for the requirements. It designs the feedforward
+  from the two paths, each reduced to first order with delay by the two-point
+  method of §17.9: `(K_u, τ_u, θ_u)` from the controller output and
+  `(K_d, τ_d, θ_d)` from the disturbance.
+  - `K_ff = −K_d/K_u`: in steady state the feedforward's change of the output
+    cancels the disturbance's effect on the measurement.
+  - `T_lead = τ_u` and `T_lag = τ_d + max(0, θ_d − θ_u)`: the lead cancels the
+    lag of the output's path, the lag reproduces the disturbance's; a delay
+    the disturbance takes longer than the output is approximated as further
+    lag. When `θ_d < θ_u` the disturbance reaches the measurement before any
+    action can; that part of the deviation remains for the feedback.
+
+  Tune shows both path models, the three values and, on the model, the largest
+  deviation of the measurement after a disturbance step of the identification
+  step with the PI alone and with the feedforward. The feedforward acts outside
+  the loop: the margins of §17.10 are those of the PI on the output's path.
+- **Validate** runs the actual ST on the model in the single-loop cases of §10
+  and in a measured-disturbance case: from the operating point with the setpoint
+  unchanged, the disturbance steps by its identification step at the start, and
+  the measurement must be within the error allowance by the settling time.
+- **Apply** writes the PID gains and the feedforward values in one transaction
+  and switches to Auto. The controller's `FeedForward` state starts at `K_ff`
+  times the measured disturbance and `z` at the measured disturbance, so the
+  switch does not bump. **Restore previous settings** returns all of them.
+
+### 17.13 Smith predictor designed from the model (§17.8 E)
+
+The setup form's **Smith predictor** structure writes one loop for a
+`Control.PID` whose program feeds the controller the measurement plus a
+correction, `y + c`, instead of the measurement `y`. The correction is the
+delay-free model's response to how much the controller output `u` changed over
+the model's delay:
+
+`T·dc/dt = K·(u − u_θ) − c`, with `u_θ` the controller output `θ` seconds earlier.
+
+With a correct model `y + c` is the measurement the process would give without
+its delay, so the controller can be tuned as for the process without delay.
+The program keeps the output's history over the delay, filled with the output
+it is applying, before the controller's update, while the controller is not in
+Auto and on its first scan, so that `c` is zero whenever the output has been
+steady and the first Auto update's change of the output enters the history. Besides the single-loop fields,
+whose measurement is the process measurement `y`, the form asks for the
+program's variables for the model gain `K`, time constant `T` and delay `θ`
+(in s), and the correction `c` it keeps.
+
+- **Identify** is as for one loop.
+- **Tune** reduces the model's step response from the controller output to the
+  measurement to first order with delay by the two-point method of §17.9 and
+  writes that gain, time constant and delay into the program's model variables.
+  It designs the PI with Automatic (§9.2) on the model without its delay, for
+  the requirements' settling time less the delay: with a correct model the
+  loop's response is that of the delay-free loop, delayed by `θ`. A settling
+  time no longer than the delay is refused with that reason. Tune shows the
+  model values and the gains.
+- **Validate** runs the actual ST on the selected model in the single-loop
+  cases of §10.
+- **Apply** writes the PID gains and the model values in one transaction and
+  switches to Auto with `c` at zero; **Restore previous settings** returns all
+  of them.
+
+### 17.14 Gain scheduling over declared operating points (§17.8 F)
+
+A process whose gain or speed changes with its operating point is controlled
+with gains that change with it. The setup form's **Gain schedule** structure
+sets up a `Control.PID` whose program sets its proportional and integral gains
+each scan from a schedule table: one pair of gain variables per operating point,
+interpolated between the points by a scheduling variable such as the
+measurement. Besides the single-loop fields, the form asks for two to four
+operating points, each with a name and the program's proportional and integral
+gain variables for that point.
+
+Setup writes one loop per operating point, named after the loop and the point,
+whose parameters are that point's two gain variables (a `parallel-pid` seed,
+§17.1). Each point is identified, tuned, validated and applied on its own:
+
+- **Identify** at the point: bring the process to the operating point in Manual
+  first, then identify, so the model describes the process there.
+- **Tune** designs the point's PI on that model with Automatic (§9.2).
+- **Validate** runs the actual ST with the program's schedule active on that
+  model from its operating point, so the gains the program interpolates as the
+  process moves are the ones validated.
+- **Apply** writes the point's gain variables and switches to Auto; **Restore
+  previous settings** returns them.
+
+### 17.15 Static decoupler applied (§17.8 D)
+
+A PID group (§17.9) can pass its members' outputs through a static decoupler
+in the program: in Auto the program writes the plant inputs `u = D·v`, where
+`v` are the members' `Control.PID` outputs and `D` is a matrix of program
+variables, one per plant input and member; in Manual it writes each member's
+output to its own plant input, `u = v`, so identification and Manual operation
+act on the plant itself. When the program has a decoupler, the setup form's PID
+group structure also asks for its variables `D_ij` (plant input `i`, member
+`j`), whose unit is plant input `i`'s unit per member `j`'s.
+
+- **Identify** is as for a PID group, in Manual.
+- **Tune** calculates the steady-state gains `K` of the group model and
+  `D = K⁻¹·diag(K)`: through the decoupler each member's output moves only its
+  own measurement in steady state, with the gain of its own path. A singular
+  `K` is refused. Each member's PI is designed as in §17.9 on the model seen
+  through the decoupler, whose relative gains are then one. Tune shows `D` and
+  the per-member design.
+- **Validate** runs the actual ST, decoupler included, on the group model with
+  every member's requirements and each setpoint alone, as in §17.9.
+- **Apply** writes the PI gains and `D` in one transaction and switches the
+  group to Auto. Each member's PID starts at its share of the present plant
+  inputs, `v = D⁻¹·u`, so `u = D·v` does not change at the switch. **Restore
+  previous settings** returns all of them and the group to Manual.
+
+### 17.16 Trajectory feedforward designed from the model
+
+Required by the curriculum change the user confirmed on 30 September 2026 (a
+lesson on motion trajectory feedforward). A loop whose program moves its
+reference along a planned trajectory `r(t)` when the setpoint changes, for
+example a motion profile, may add the controller output with which the model
+follows that trajectory: `FeedForward = K_v·ṙ + K_a·r̈`, with the planned rate
+`ṙ` and acceleration `r̈` the program computes, added by `Control.PID`'s
+`FeedForward` input. The project controller's `trajectory-feedforward-pid`
+seed names the PID's three gains, the program's rate gain `K_v` and its
+acceleration gain `K_a`: five distinct bound parameters.
+
+- **Tune** designs the PID for the chosen family as Automatic designs
+  `Control.PID` (§9.2), and the feedforward from the same model. For a model
+  `n/(a·s² + b·s)` of controller output to measurement, an integrator with a
+  lag when `a ≠ 0`, `K_v = b/n` and `K_a = a/n`: the model then follows the
+  trajectory exactly. For torque to angle `1/(s(Js + B))` these are `K_v = B`
+  and `K_a = J`. A model of another form has no trajectory feedforward rule,
+  and Tune says so. A delay is not anticipated; its effect remains for the
+  feedback. The feedforward acts outside the loop, so the margins of §17.10
+  and the Auto-entry allowance of §12 are those of the PID. Tune's predicted
+  response runs the program with the current and the tuned values.
+- **Validate** runs the actual ST in the single-loop cases of §10; the setpoint
+  change starts the program's trajectory.
+- **Apply** writes the PID gains and both feedforward gains in one transaction.
+  The planned rate and acceleration are zero at rest, so the switch does not
+  bump; **Restore previous settings** returns all five values.
 ## Primary Control.PID state adapter
 
 The primary guided PID journey executes the actual library block defined by

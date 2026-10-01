@@ -9,7 +9,7 @@ tier = "hero"
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.PumpFlow"
+bind = "P1.RaisePumpM3PerS"
 inferred_interface = true
 label = "Pump Flow"
 span = 4
@@ -19,7 +19,7 @@ max = 500
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.Tank1Level"
+bind = "P1.RaiseTank1M"
 inferred_interface = true
 label = "Tank1 Level"
 span = 4
@@ -29,7 +29,7 @@ max = 100
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.Tank2Level"
+bind = "P1.RaiseTank2M"
 inferred_interface = true
 label = "Tank2 Level"
 span = 4

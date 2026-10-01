@@ -97,7 +97,7 @@ package "Execution Engine" as backendPkg #LightYellow {
     runtimeDispatch --> vmEnsure
 
     package "Bytecode VM Core\n(runtime/vm/*)" as vmCore #LightCyan {
-        component "dispatch.rs\n(PC loop + op dispatch + debug hook emit)" as vmDispatch
+        component "dispatch.rs\n(PC loop + op dispatch;\ndebug hook only with debug control attached)" as vmDispatch
         component "dispatch_ops.rs\n(opcode math/operand/jump helpers)" as vmDispatchOps
         component "dispatch_refs.rs\n(ref/deref + storage bridge)" as vmDispatchRefs
         component "dispatch_sizeof.rs\n(TYPE_TABLE sizeof helpers)" as vmDispatchSizeOf
@@ -115,7 +115,7 @@ package "Execution Engine" as backendPkg #LightYellow {
     vmDispatch ..> vmDispatchOps
     vmDispatch ..> vmDispatchRefs
     vmDispatch ..> vmDispatchSizeOf
-    vmDispatch ..> runtime : resolve vm debug source labels/offsets
+    vmDispatch ..> runtime : statement location\n(resolved once per (POU, pc), with debug control)
 
     note right of vmDispatchSizeOf
         ST lowering resolves `SIZEOF(...)`
@@ -147,6 +147,7 @@ package "Execution Cycle" as cyclePkg #LightBlue {
         card "8. write_cycle_outputs()" as step8
         card "8a. simulation post-cycle hooks\n(coupling scheduling)" as step8a
         card "9. update_io_health()" as step9
+        card "9a. debug snapshot of the completed cycle\n(debug control attached; stops snapshot at the stop)" as step9a
         card "10. Emit CycleEnd event" as step10
     }
 
@@ -161,7 +162,8 @@ package "Execution Cycle" as cyclePkg #LightBlue {
     step7 --> step8
     step8 --> step8a
     step8a --> step9
-    step9 --> step10
+    step9 --> step9a
+    step9a --> step10
 
     note right of step4
         TaskConfig:

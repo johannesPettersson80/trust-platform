@@ -1,0 +1,86 @@
+{
+  "kind": "continuous-state-space",
+  "revision": "observer-error-l048-l028",
+  "source": "provided",
+  "validation": "validated",
+  "evidence": [
+    "Estimation error e = x − x̂ of the observer x̂' = Ax̂ + Bv + L(y − Cx̂) for Lesson 74's cascade, A = [[−0.04, 0], [0.04, −0.04]] s⁻¹, C = [0, 1], with L = [0.48, 0.28] s⁻¹: e' = (A − LC)e.",
+    "The applied flow enters the plant and the observer alike, so it cancels from the error: B = 0."
+  ],
+  "delaySeconds": 0,
+  "inputs": [
+    {
+      "id": "pump-flow-deviation",
+      "unit": "m3/s",
+      "operatingRange": {
+        "minimum": -0.01,
+        "maximum": 0.01
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "id": "tank-1-estimate-error",
+      "unit": "m",
+      "operatingRange": {
+        "minimum": -0.05,
+        "maximum": 0.05
+      }
+    }
+  ],
+  "states": [
+    {
+      "id": "tank-1-estimate-error",
+      "unit": "m",
+      "operatingRange": {
+        "minimum": -0.05,
+        "maximum": 0.05
+      }
+    },
+    {
+      "id": "tank-2-estimate-error",
+      "unit": "m",
+      "operatingRange": {
+        "minimum": -0.05,
+        "maximum": 0.05
+      }
+    }
+  ],
+  "a": [
+    [
+      -0.04,
+      -0.48
+    ],
+    [
+      0.04,
+      -0.32
+    ]
+  ],
+  "b": [
+    [
+      0
+    ],
+    [
+      0
+    ]
+  ],
+  "c": [
+    [
+      1,
+      0
+    ]
+  ],
+  "d": [
+    [
+      0
+    ]
+  ],
+  "operatingPoint": {
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      0
+    ]
+  }
+}

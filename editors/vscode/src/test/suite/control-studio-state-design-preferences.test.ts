@@ -49,6 +49,26 @@ suite("Control Studio state design preferences", () => {
       assert.strictEqual(q.hasAttribute("aria-invalid"), false);
     } finally { dom.window.close(); }
   });
+  test("shows a state-design error only under the field it concerns and clears it once the design reads", () => {
+    const { JSDOM } = require("jsdom");
+    const dom = new JSDOM('<main><section data-studio-state-design></section></main>');
+    try {
+      const root = dom.window.document.querySelector("main")!;
+      initializeThreePageStateDesign(root, undefined, () => undefined, () => "LQR");
+      const field = (name: string) => root.querySelector(`[data-state-design-field="${name}"]`);
+      const shown = () => [...root.querySelectorAll("[data-state-design-error]")].filter((error: any) => !error.hidden)
+        .map((error: any) => [error.dataset.stateDesignError, error.textContent]);
+      const mode = root.querySelector("[data-state-design-mode]");
+      mode.value = "finite"; mode.dispatchEvent(new dom.window.Event("change"));
+      for (const [name, value] of [["stateWeights", "[[400,0],[0,400]]"], ["inputWeights", "[[40000]]"], ["horizonSteps", "20"]]) {
+        field(name).value = value; field(name).dispatchEvent(new dom.window.Event("input"));
+      }
+      assert.deepStrictEqual(shown(), [["terminalWeights", "Enter the terminal weights matrix."]], "Only the missing terminal weights are named");
+      field("terminalWeights").value = "[[400,0],[0,400]]"; field("terminalWeights").dispatchEvent(new dom.window.Event("input"));
+      assert.deepStrictEqual(shown(), [], "A complete design shows no error");
+    } finally { dom.window.close(); }
+  });
+
   test("shows declared Q and R defaults while preserving blank drafts as explicit edits", () => {
     const { JSDOM } = require("jsdom");
     const dom = new JSDOM('<main><section data-studio-state-design></section></main>');

@@ -1,46 +1,33 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "topology": "open-loop",
   "id": "control-mpc",
-  "name": "Model predictive control",
-  "revision": "sha256:b274fcb6a42416e521e8cf283d9bcee53496f5c1f76e4a2dc6b89af544d69f35",
+  "name": "Two-heater MPC",
   "projectId": "project:control-mpc",
   "runtimeId": "simulator",
   "controller": {
     "instance": "P1",
-    "type": "Three-step receding-horizon finite-grid model-predictive control with explicit PI fallback",
+    "type": "Main",
     "design": "project",
-    "revision": "sha256:curriculum-controller-68",
+    "revision": "sha256:e9dc8c75132792da3c9a676fc4feb3db19430fe9c4d2665d25c780203b4386dd",
     "action": "direct",
-    "taskPeriodMs": 60000,
-    "modeSignal": "%MX241.0",
-    "modeWhenTrue": "Auto"
+    "taskPeriodMs": 1000
   },
   "signals": {
-    "setpoint": {
-      "symbol": "P1.Zone1Setpoint",
-      "address": "%ML16",
-      "iecType": "LREAL",
-      "direction": "read",
-      "unit": "degC",
-      "range": {
-        "minimum": 18,
-        "maximum": 24
-      }
-    },
     "processVariable": {
-      "symbol": "P1.Zone1Temperature",
+      "symbol": "P1.Heater1C",
       "address": "%IL0",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "degC",
       "range": {
-        "minimum": 15,
-        "maximum": 27
+        "minimum": 0,
+        "maximum": 100
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.Zone1HeatRequested",
-      "address": "%ML72",
+      "symbol": "P1.Command1Pct",
+      "address": "%QL0",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "%",
@@ -51,591 +38,199 @@
     },
     "additional": [
       {
-        "id": "experiment-authority",
-        "channel": "experiment-authority",
+        "id": "setpoint-1",
+        "channel": "setpoint-1",
         "role": "state",
-        "symbol": "P1.ExperimentEnabled",
-        "address": "%MX241.0",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "control-enabled",
-        "channel": "control-enabled",
-        "role": "state",
-        "symbol": "P1.Enabled",
-        "address": "%MX240.0",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "mpc-selected",
-        "channel": "mpc-selected",
-        "role": "state",
-        "symbol": "P1.UseMpc",
-        "address": "%MX240.1",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "solver-configuration-valid",
-        "channel": "solver-configuration-valid",
-        "role": "quality",
-        "symbol": "P1.ConfigurationValid",
-        "address": "%MX240.2",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "solver-enumeration-complete",
-        "channel": "solver-enumeration-complete",
-        "role": "quality",
-        "symbol": "P1.SolverComplete",
-        "address": "%MX240.3",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "feasible-sequence-found",
-        "channel": "feasible-sequence-found",
-        "role": "quality",
-        "symbol": "P1.SolverFeasible",
-        "address": "%MX240.4",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "completed-search-infeasible",
-        "channel": "completed-search-infeasible",
-        "role": "quality",
-        "symbol": "P1.Infeasible",
-        "address": "%MX240.5",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "pi-fallback-active",
-        "channel": "pi-fallback-active",
-        "role": "state",
-        "symbol": "P1.FallbackActive",
-        "address": "%MX240.6",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "heating-constraint-active",
-        "channel": "heating-constraint-active",
-        "role": "state",
-        "symbol": "P1.ConstraintActive",
-        "address": "%MX240.7",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "enumerated-sequence-count",
-        "channel": "enumerated-sequence-count",
-        "role": "state",
-        "symbol": "P1.CandidateCount",
-        "address": "%MD0",
-        "iecType": "DINT",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 729
-        }
-      },
-      {
-        "id": "feasible-sequence-count",
-        "channel": "feasible-sequence-count",
-        "role": "state",
-        "symbol": "P1.FeasibleCandidateCount",
-        "address": "%MD4",
-        "iecType": "DINT",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 729
-        }
-      },
-      {
-        "id": "best-finite-grid-objective",
-        "channel": "best-finite-grid-objective",
-        "role": "state",
-        "symbol": "P1.BestObjective",
-        "address": "%ML8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1000000
-        }
-      },
-      {
-        "id": "zone-two-temperature-setpoint",
-        "channel": "zone-two-temperature-setpoint",
-        "role": "SP",
-        "symbol": "P1.Zone2Setpoint",
-        "address": "%ML24",
+        "symbol": "P1.Setpoint1C",
+        "address": "%ML0",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "degC",
-        "range": {
-          "minimum": 18,
-          "maximum": 24
-        }
-      },
-      {
-        "id": "comfort-minimum",
-        "channel": "comfort-minimum",
-        "role": "state",
-        "symbol": "P1.ComfortMinimum",
-        "address": "%ML32",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 18,
-          "maximum": 24
-        }
-      },
-      {
-        "id": "comfort-maximum",
-        "channel": "comfort-maximum",
-        "role": "state",
-        "symbol": "P1.ComfortMaximum",
-        "address": "%ML40",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 19,
-          "maximum": 25
-        }
-      },
-      {
-        "id": "temperature-objective-weight",
-        "channel": "temperature-objective-weight",
-        "role": "state",
-        "symbol": "P1.TemperatureWeight",
-        "address": "%ML48",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0.001,
-          "maximum": 10000
-        }
-      },
-      {
-        "id": "tariff-energy-objective-weight",
-        "channel": "tariff-energy-objective-weight",
-        "role": "state",
-        "symbol": "P1.EnergyWeight",
-        "address": "%ML56",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
         "range": {
           "minimum": 0,
           "maximum": 100
         }
       },
       {
-        "id": "heater-move-objective-weight",
-        "channel": "heater-move-objective-weight",
+        "id": "heater-2",
+        "channel": "heater-2",
         "role": "state",
-        "symbol": "P1.MoveWeight",
-        "address": "%ML64",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "requested-zone-two-heating",
-        "channel": "requested-zone-two-heating",
-        "role": "MV",
-        "symbol": "P1.Zone2HeatRequested",
-        "address": "%ML80",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": 0,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "previous-zone-one-heating",
-        "channel": "previous-zone-one-heating",
-        "role": "state",
-        "symbol": "P1.PreviousZone1Heat",
-        "address": "%ML88",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": 0,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "previous-zone-two-heating",
-        "channel": "previous-zone-two-heating",
-        "role": "state",
-        "symbol": "P1.PreviousZone2Heat",
-        "address": "%ML96",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": 0,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "current-outdoor-temperature",
-        "channel": "current-outdoor-temperature",
-        "role": "disturbance",
-        "symbol": "P1.OutsideCurrent",
-        "address": "%ML104",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": -10,
-          "maximum": 15
-        }
-      },
-      {
-        "id": "current-zone-one-occupancy-gain",
-        "channel": "current-zone-one-occupancy-gain",
-        "role": "disturbance",
-        "symbol": "P1.Occupancy1Current",
-        "address": "%ML112",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 0,
-          "maximum": 4
-        }
-      },
-      {
-        "id": "current-zone-two-occupancy-gain",
-        "channel": "current-zone-two-occupancy-gain",
-        "role": "disturbance",
-        "symbol": "P1.Occupancy2Current",
-        "address": "%ML120",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 0,
-          "maximum": 4
-        }
-      },
-      {
-        "id": "outdoor-forecast-step-one",
-        "channel": "outdoor-forecast-step-one",
-        "role": "disturbance",
-        "symbol": "P1.OutsideForecast1",
-        "address": "%ML128",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": -10,
-          "maximum": 15
-        }
-      },
-      {
-        "id": "outdoor-forecast-step-two",
-        "channel": "outdoor-forecast-step-two",
-        "role": "disturbance",
-        "symbol": "P1.OutsideForecast2",
-        "address": "%ML136",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": -10,
-          "maximum": 15
-        }
-      },
-      {
-        "id": "outdoor-forecast-step-three",
-        "channel": "outdoor-forecast-step-three",
-        "role": "disturbance",
-        "symbol": "P1.OutsideForecast3",
-        "address": "%ML144",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": -10,
-          "maximum": 15
-        }
-      },
-      {
-        "id": "zone-one-occupancy-forecast-step-one",
-        "channel": "zone-one-occupancy-forecast-step-one",
-        "role": "disturbance",
-        "symbol": "P1.Occupancy1Forecast1",
-        "address": "%ML152",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 0,
-          "maximum": 4
-        }
-      },
-      {
-        "id": "zone-one-occupancy-forecast-step-two",
-        "channel": "zone-one-occupancy-forecast-step-two",
-        "role": "disturbance",
-        "symbol": "P1.Occupancy1Forecast2",
-        "address": "%ML160",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 0,
-          "maximum": 4
-        }
-      },
-      {
-        "id": "zone-one-occupancy-forecast-step-three",
-        "channel": "zone-one-occupancy-forecast-step-three",
-        "role": "disturbance",
-        "symbol": "P1.Occupancy1Forecast3",
-        "address": "%ML168",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 0,
-          "maximum": 4
-        }
-      },
-      {
-        "id": "zone-two-occupancy-forecast-step-one",
-        "channel": "zone-two-occupancy-forecast-step-one",
-        "role": "disturbance",
-        "symbol": "P1.Occupancy2Forecast1",
-        "address": "%ML176",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 0,
-          "maximum": 4
-        }
-      },
-      {
-        "id": "zone-two-occupancy-forecast-step-two",
-        "channel": "zone-two-occupancy-forecast-step-two",
-        "role": "disturbance",
-        "symbol": "P1.Occupancy2Forecast2",
-        "address": "%ML184",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 0,
-          "maximum": 4
-        }
-      },
-      {
-        "id": "zone-two-occupancy-forecast-step-three",
-        "channel": "zone-two-occupancy-forecast-step-three",
-        "role": "disturbance",
-        "symbol": "P1.Occupancy2Forecast3",
-        "address": "%ML192",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 0,
-          "maximum": 4
-        }
-      },
-      {
-        "id": "tariff-forecast-step-one",
-        "channel": "tariff-forecast-step-one",
-        "role": "disturbance",
-        "symbol": "P1.TariffForecast1",
-        "address": "%ML200",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 10
-        }
-      },
-      {
-        "id": "tariff-forecast-step-two",
-        "channel": "tariff-forecast-step-two",
-        "role": "disturbance",
-        "symbol": "P1.TariffForecast2",
-        "address": "%ML208",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 10
-        }
-      },
-      {
-        "id": "tariff-forecast-step-three",
-        "channel": "tariff-forecast-step-three",
-        "role": "disturbance",
-        "symbol": "P1.TariffForecast3",
-        "address": "%ML216",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 10
-        }
-      },
-      {
-        "id": "applied-zone-one-heating",
-        "channel": "applied-zone-one-heating",
-        "role": "MV",
-        "symbol": "P1.Zone1HeatApplied",
-        "address": "%QL0",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": 0,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "applied-zone-two-heating",
-        "channel": "applied-zone-two-heating",
-        "role": "MV",
-        "symbol": "P1.Zone2HeatApplied",
-        "address": "%QL8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": 0,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "applied-outdoor-temperature",
-        "channel": "applied-outdoor-temperature",
-        "role": "disturbance",
-        "symbol": "P1.OutsideApplied",
-        "address": "%QL16",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": -10,
-          "maximum": 15
-        }
-      },
-      {
-        "id": "applied-zone-one-occupancy-gain",
-        "channel": "applied-zone-one-occupancy-gain",
-        "role": "disturbance",
-        "symbol": "P1.Occupancy1Applied",
-        "address": "%QL24",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 0,
-          "maximum": 4
-        }
-      },
-      {
-        "id": "applied-zone-two-occupancy-gain",
-        "channel": "applied-zone-two-occupancy-gain",
-        "role": "disturbance",
-        "symbol": "P1.Occupancy2Applied",
-        "address": "%QL32",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 0,
-          "maximum": 4
-        }
-      },
-      {
-        "id": "zone-two-temperature",
-        "channel": "zone-two-temperature",
-        "role": "PV",
-        "symbol": "P1.Zone2Temperature",
+        "symbol": "P1.Heater2C",
         "address": "%IL8",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "degC",
         "range": {
-          "minimum": 15,
-          "maximum": 27
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "setpoint-2",
+        "channel": "setpoint-2",
+        "role": "state",
+        "symbol": "P1.Setpoint2C",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "command-2",
+        "channel": "command-2",
+        "role": "state",
+        "symbol": "P1.Command2Pct",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "supply",
+        "channel": "supply",
+        "role": "state",
+        "symbol": "P1.SupplyPct",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "predicted-1",
+        "channel": "predicted-1",
+        "role": "state",
+        "symbol": "P1.Predicted1C",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "predicted-2",
+        "channel": "predicted-2",
+        "role": "state",
+        "symbol": "P1.Predicted2C",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "rejected-plans",
+        "channel": "rejected-plans",
+        "role": "state",
+        "symbol": "P1.RejectedPlans",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 231
+        }
+      },
+      {
+        "id": "plan-cost",
+        "channel": "plan-cost",
+        "role": "state",
+        "symbol": "P1.PlanCost",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1000
+        }
+      },
+      {
+        "id": "load-2",
+        "channel": "load-2",
+        "role": "state",
+        "symbol": "P1.Load2Kw",
+        "address": "%QL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX56.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "planning-failed",
+        "channel": "planning-failed",
+        "role": "state",
+        "symbol": "P1.PlanningFailed",
+        "address": "%MX56.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "fault-latched",
+        "channel": "fault-latched",
+        "role": "state",
+        "symbol": "P1.FaultLatched",
+        "address": "%MX56.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "clock-valid",
+        "channel": "clock-valid",
+        "role": "state",
+        "symbol": "P1.ClockValid",
+        "address": "%MX56.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
         }
       }
     ]
@@ -645,20 +240,23 @@
     "outputMaximum": 100
   },
   "observedSampleTiming": {
-    "nominalPeriodMs": 60000
+    "nominalPeriodMs": 1000
   },
-  "plantId": "coupled_two_zone_office_thermal_model",
+  "plantId": "heater-1",
+  "operatingPoint": "Both heaters at 28 °C with 40 points each",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 1200.1,
+    "durationSeconds": 124,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX241.0",
+      "address": "%MX56.0",
       "iecType": "BOOL",
       "direction": "write"
-    }
-  }
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:3a419c2368886e77a4088a77eacbfaa3fa75f2c67c8326f421facfc3c0d810d0"
 }

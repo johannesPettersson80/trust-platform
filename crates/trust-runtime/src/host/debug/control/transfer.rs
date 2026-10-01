@@ -9,6 +9,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value as JsonValue};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
+
+/// A transfer staged at the task boundary: the storage to commit, the values it applies, the values found before it (kept in
+/// the transfer record) and the outputs held while it starts.
+type StagedTransfer = (
+    VariableStorage,
+    BTreeMap<String, f64>,
+    JsonValue,
+    BTreeMap<String, f64>,
+);
 #[path = "transfer/tracking.rs"]
 mod tracking;
 
@@ -35,6 +44,10 @@ struct Binding {
     loop_id: String,
     task_name: String,
     mode: Mode,
+    /// Further controllers' modes switched with `mode` at the same task boundary, for example a cascade's outer
+    /// controller: Auto on commissioning, Manual on a Manual transfer.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    additional_modes: Vec<Mode>,
     states: Vec<NumberMember>,
     guards: Vec<NumberMember>,
     output: NumberMember,
@@ -95,6 +108,8 @@ struct Pending {
     committed: bool,
     post_st_verified: bool,
     initial_outputs: BTreeMap<String, f64>,
+    /// Output members as they stood at the task boundary, restored if the first output is rejected.
+    boundary_outputs: BTreeMap<String, f64>,
     applied_values: BTreeMap<String, f64>,
 }
 
@@ -107,7 +122,6 @@ pub(super) struct TransferRegistry {
     used_transactions: BTreeSet<(String, String)>,
     cancelled_before_dispatch: BTreeSet<(String, String)>,
     epoch_revision: Option<String>,
-    output_rejection: Option<String>,
 }
 
 impl TransferRegistry {
@@ -115,7 +129,6 @@ impl TransferRegistry {
         self.used_transactions.clear();
         self.cancelled_before_dispatch.clear();
         self.epoch_revision = None;
-        self.output_rejection = None;
         let Some(pending) = self.pending.take() else {
             return;
         };
@@ -241,13 +254,21 @@ fn check_binding(binding: &Binding, metadata: &RuntimeMetadata) -> Result<(), St
         declared_member(metadata, &member.symbol)?;
         check_owner(binding, metadata, &member.symbol)?;
     }
-    if !symbols.insert(binding.mode.symbol.to_ascii_uppercase()) {
-        return Err("duplicate transfer mode member".into());
+    if binding.additional_modes.len() > 8 {
+        return Err("transfer switches at most 8 additional modes".into());
     }
-    let mode = declared_member(metadata, &binding.mode.symbol)?;
-    check_owner(binding, metadata, &binding.mode.symbol)?;
-    if mode.constant || mode.external || mode.in_out || mode.address.is_some() {
-        return Err("mode must be mutable, nonexternal and unaddressed".into());
+    for mode in std::iter::once(&binding.mode).chain(binding.additional_modes.iter()) {
+        if !symbols.insert(mode.symbol.to_ascii_uppercase()) {
+            return Err("duplicate transfer mode member".into());
+        }
+        if !root(&mode.symbol)?.eq_ignore_ascii_case(program_root) {
+            return Err("transfer members must belong to one compiled program".into());
+        }
+        let variable = declared_member(metadata, &mode.symbol)?;
+        check_owner(binding, metadata, &mode.symbol)?;
+        if variable.constant || variable.external || variable.in_out || variable.address.is_some() {
+            return Err("mode must be mutable, nonexternal and unaddressed".into());
+        }
     }
     let mut state_addresses = Vec::new();
     for member in &binding.states {
@@ -291,11 +312,12 @@ fn number(storage: &VariableStorage, member: &NumberMember) -> Result<f64, Strin
 
 fn observed(binding: &Binding, storage: &VariableStorage) -> Result<JsonValue, String> {
     let mut values = Map::new();
-    let mode = parameters::resolve_path(storage, &binding.mode.symbol)?.value;
-    let Value::Bool(mode) = mode else {
-        return Err("transfer mode must be BOOL".into());
-    };
-    values.insert(binding.mode.symbol.clone(), JsonValue::Bool(mode));
+    for mode in std::iter::once(&binding.mode).chain(binding.additional_modes.iter()) {
+        let Value::Bool(value) = parameters::resolve_path(storage, &mode.symbol)?.value else {
+            return Err("transfer mode must be BOOL".into());
+        };
+        values.insert(mode.symbol.clone(), JsonValue::Bool(value));
+    }
     for member in binding
         .states
         .iter()
@@ -318,12 +340,12 @@ fn same_values(
         return false;
     };
     expected.len() == actual.len()
-        && expected
-            .get(&binding.mode.symbol)
-            .and_then(JsonValue::as_bool)
-            == actual
-                .get(&binding.mode.symbol)
-                .and_then(JsonValue::as_bool)
+        && std::iter::once(&binding.mode)
+            .chain(binding.additional_modes.iter())
+            .all(|mode| {
+                expected.get(&mode.symbol).and_then(JsonValue::as_bool)
+                    == actual.get(&mode.symbol).and_then(JsonValue::as_bool)
+            })
         && binding
             .states
             .iter()
@@ -442,6 +464,8 @@ impl DebugControl {
             .as_ref()
             .ok_or("runtime snapshot unavailable")?;
         let values = observed(&request.binding, &snapshot.storage)?;
+        // The runtime clock of the reported scan lets a client observe durations in runtime time.
+        let runtime_time_ns = snapshot.now.as_nanos();
         if state.transfers.records.len() >= 32
             && !state
                 .transfers
@@ -487,7 +511,7 @@ impl DebugControl {
             })
         });
         Ok(
-            json!({"program_revision":program_revision,"binding_revision":binding_revision,"values":values,"status":record.status.clone(),"reason":record.reason.clone(),"transaction_id":record.transaction_id.clone(),"transaction":transaction,"supported_tracking":["proportional","parallel-pid-v1","declared-state-v1","declared-initialization-formulas"]}),
+            json!({"program_revision":program_revision,"binding_revision":binding_revision,"values":values,"runtime_time_ns":runtime_time_ns,"status":record.status.clone(),"reason":record.reason.clone(),"transaction_id":record.transaction_id.clone(),"transaction":transaction,"supported_tracking":["proportional","parallel-pid-v1","declared-state-v1","declared-initialization-formulas"]}),
         )
     }
 
@@ -609,6 +633,7 @@ impl DebugControl {
             committed: false,
             post_st_verified: false,
             initial_outputs,
+            boundary_outputs: BTreeMap::new(),
             applied_values,
         });
         Ok(json!({"status":"pending","confirmed":false}))
@@ -720,93 +745,124 @@ impl DebugControl {
             return;
         }
         let request = &pending.request;
-        let result =
-            (|| -> Result<(VariableStorage, BTreeMap<String, f64>, JsonValue, BTreeMap<String, f64>), String> {
-                if request.expected_program_revision != state.parameters.program_revision(metadata)
-                {
-                    return Err("program changed before task boundary".into());
-                }
-                let record = state
-                    .transfers
-                    .records
-                    .get(&request.binding.loop_id)
-                    .ok_or("transfer binding unavailable")?;
-                if record.binding_revision != request.expected_binding_revision
-                    || record.program_revision != request.expected_program_revision
-                {
-                    return Err("transfer binding changed before task boundary".into());
-                }
-                check_binding(&request.binding, metadata)?;
-                if has_io_driver && !request.physical_approved {
-                    return Err("attached I/O requires explicit physical review".into());
-                }
-                if !state.forced_vars.is_empty() || !state.forced_io.is_empty() {
-                    return Err("forcing changed before task boundary".into());
-                }
-                let mut current = observed(&request.binding, storage)?;
-                if !same_values(
-                    &request.binding,
-                    &request.expected_values,
-                    &current,
-                    request.tracking.as_ref(),
-                ) {
-                    return Err("transfer values changed before task boundary".into());
-                }
-                for member in &request.binding.states {
-                    check_io_target(&member.symbol, &[IoArea::Memory], storage, io_bindings)?;
-                }
-                check_io_target(&request.binding.mode.symbol, &[], storage, io_bindings)?;
-                let mut held_outputs = BTreeMap::new();
-                for output in std::iter::once(&request.binding.output).chain(request.binding.additional_outputs.iter()) {
-                    check_io_target(&output.symbol, &[IoArea::Output, IoArea::Memory], storage, io_bindings)?;
-                    let measured = request.binding.tracking_outputs.get(&output.symbol);
-                    let held = if let Some(feedback) = measured {
-                        let member = request.binding.guards.iter().find(|member| &member.symbol == feedback).ok_or("applied feedback is missing")?;
-                        tracking::fresh_applied_feedback(member, storage, io_bindings)?
-                    } else if request.tracking.is_some() {
-                        tracking::held_output(output, storage, io_bindings, state.latest_io_snapshot.as_ref())?
-                    } else { number(storage, output)? };
-                    if measured.is_none() { current[&output.symbol] = json!(held); }
-                    held_outputs.insert(output.symbol.clone(), held);
-                }
-                let applied = if let Some(policy) = &request.tracking {
-                    tracking::calculate(
-                        &request.binding,
-                        policy,
-                        &request.values,
+        let result = (|| -> Result<StagedTransfer, String> {
+            if request.expected_program_revision != state.parameters.program_revision(metadata) {
+                return Err("program changed before task boundary".into());
+            }
+            let record = state
+                .transfers
+                .records
+                .get(&request.binding.loop_id)
+                .ok_or("transfer binding unavailable")?;
+            if record.binding_revision != request.expected_binding_revision
+                || record.program_revision != request.expected_program_revision
+            {
+                return Err("transfer binding changed before task boundary".into());
+            }
+            check_binding(&request.binding, metadata)?;
+            if has_io_driver && !request.physical_approved {
+                return Err("attached I/O requires explicit physical review".into());
+            }
+            if !state.forced_vars.is_empty() || !state.forced_io.is_empty() {
+                return Err("forcing changed before task boundary".into());
+            }
+            let mut current = observed(&request.binding, storage)?;
+            if !same_values(
+                &request.binding,
+                &request.expected_values,
+                &current,
+                request.tracking.as_ref(),
+            ) {
+                return Err("transfer values changed before task boundary".into());
+            }
+            for member in &request.binding.states {
+                check_io_target(&member.symbol, &[IoArea::Memory], storage, io_bindings)?;
+            }
+            for mode in std::iter::once(&request.binding.mode)
+                .chain(request.binding.additional_modes.iter())
+            {
+                check_io_target(&mode.symbol, &[], storage, io_bindings)?;
+            }
+            let mut held_outputs = BTreeMap::new();
+            for output in std::iter::once(&request.binding.output)
+                .chain(request.binding.additional_outputs.iter())
+            {
+                check_io_target(
+                    &output.symbol,
+                    &[IoArea::Output, IoArea::Memory],
+                    storage,
+                    io_bindings,
+                )?;
+                let measured = request.binding.tracking_outputs.get(&output.symbol);
+                let held = if let Some(feedback) = measured {
+                    let member = request
+                        .binding
+                        .guards
+                        .iter()
+                        .find(|member| &member.symbol == feedback)
+                        .ok_or("applied feedback is missing")?;
+                    tracking::fresh_applied_feedback(member, storage, io_bindings)?
+                } else if request.tracking.is_some() {
+                    tracking::held_output(
+                        output,
                         storage,
-                        &held_outputs,
-                        request.manual,
+                        io_bindings,
+                        state.latest_io_snapshot.as_ref(),
                     )?
                 } else {
-                    request.values.clone()
+                    number(storage, output)?
                 };
-                let mut staged = storage.clone();
-                let mode_reference = parameters::resolve_path(
-                    &staged,
-                    &request.binding.mode.symbol,
+                if measured.is_none() {
+                    current[&output.symbol] = json!(held);
+                }
+                held_outputs.insert(output.symbol.clone(), held);
+            }
+            let applied = if let Some(policy) = &request.tracking {
+                tracking::calculate(
+                    &request.binding,
+                    policy,
+                    &request.values,
+                    storage,
+                    &held_outputs,
+                    request.manual,
                 )?
-                .reference;
+            } else {
+                request.values.clone()
+            };
+            let mut staged = storage.clone();
+            for mode in std::iter::once(&request.binding.mode)
+                .chain(request.binding.additional_modes.iter())
+            {
+                let mode_reference = parameters::resolve_path(&staged, &mode.symbol)?.reference;
                 if !staged.write_by_ref(
                     mode_reference,
                     Value::Bool(if request.manual {
-                        request.binding.mode.manual_value
+                        mode.manual_value
                     } else {
-                        !request.binding.mode.manual_value
+                        !mode.manual_value
                     }),
                 ) {
                     return Err("transfer mode is not writable".into());
                 }
-                for member in &request.binding.states {
-                    let reference = parameters::resolve_path(&staged, &member.symbol)?.reference;
-                    if !staged.write_by_ref(reference, write_value(member, applied[&member.symbol])?) {
-                        return Err(format!("transfer state {} is not writable", member.symbol));
-                    }
+            }
+            for member in &request.binding.states {
+                let reference = parameters::resolve_path(&staged, &member.symbol)?.reference;
+                if !staged.write_by_ref(reference, write_value(member, applied[&member.symbol])?) {
+                    return Err(format!("transfer state {} is not writable", member.symbol));
                 }
-                Ok((staged, applied, current, held_outputs))
-            })();
+            }
+            Ok((staged, applied, current, held_outputs))
+        })();
         match result {
             Ok((staged, applied, initial, held_outputs)) => {
+                let boundary_outputs = std::iter::once(&request.binding.output)
+                    .chain(request.binding.additional_outputs.iter())
+                    .filter_map(|member| {
+                        number(storage, member)
+                            .ok()
+                            .map(|value| (member.symbol.clone(), value))
+                    })
+                    .collect();
                 *storage = staged;
                 if let Some(record) = state.transfers.records.get_mut(&request.binding.loop_id) {
                     record.initial_values = Some(initial);
@@ -814,6 +870,7 @@ impl DebugControl {
                 }
                 pending.applied_values = applied;
                 pending.initial_outputs = held_outputs;
+                pending.boundary_outputs = boundary_outputs;
                 pending.committed = true;
                 state.transfers.pending = Some(pending);
             }
@@ -826,7 +883,7 @@ impl DebugControl {
         }
     }
 
-    pub(crate) fn confirm_transfer_task(&self, task: &str, storage: &VariableStorage) {
+    pub(crate) fn confirm_transfer_task(&self, task: &str, storage: &mut VariableStorage) {
         let mut state = self.state.0.lock().expect("debug state poisoned");
         let Some(mut pending) = state.transfers.pending.take() else {
             return;
@@ -837,14 +894,19 @@ impl DebugControl {
         }
         let request = &pending.request;
         let verification = (|| -> Result<JsonValue, String> {
-            let mode = parameters::resolve_path(storage, &request.binding.mode.symbol)?.value;
-            let expected_mode = if request.manual {
-                request.binding.mode.manual_value
-            } else {
-                !request.binding.mode.manual_value
-            };
-            if mode != Value::Bool(expected_mode) {
-                return Err("controller changed transfer mode before confirmation".into());
+            for mode in std::iter::once(&request.binding.mode)
+                .chain(request.binding.additional_modes.iter())
+            {
+                let expected_mode = if request.manual {
+                    mode.manual_value
+                } else {
+                    !mode.manual_value
+                };
+                if parameters::resolve_path(storage, &mode.symbol)?.value
+                    != Value::Bool(expected_mode)
+                {
+                    return Err("controller changed transfer mode before confirmation".into());
+                }
             }
             for member in &request.binding.states {
                 let actual = number(storage, member)?;
@@ -934,23 +996,29 @@ impl DebugControl {
                 state.transfers.pending = Some(pending);
             }
             Err(reason) => {
-                state.transfers.output_rejection = Some(reason.clone());
+                // The rejected output is never published: before the output commit, the output members return to
+                // their task-boundary values. The failed transfer is not a runtime fault, so the separately guarded
+                // Manual recovery can run on the next cycle.
+                for member in std::iter::once(&request.binding.output)
+                    .chain(request.binding.additional_outputs.iter())
+                {
+                    let Some(&value) = pending.boundary_outputs.get(&member.symbol) else {
+                        continue;
+                    };
+                    let value = match member.iec_type.as_str() {
+                        "REAL" => Value::Real(value as f32),
+                        _ => Value::LReal(value),
+                    };
+                    if let Ok(resolved) = parameters::resolve_path(storage, &member.symbol) {
+                        storage.write_by_ref(resolved.reference, value);
+                    }
+                }
                 if let Some(record) = state.transfers.records.get_mut(&request.binding.loop_id) {
                     record.status = "failed".into();
                     record.reason = Some(reason);
                 }
             }
         }
-    }
-
-    pub(crate) fn take_transfer_output_rejection(&self) -> Option<String> {
-        self.state
-            .0
-            .lock()
-            .expect("debug state poisoned")
-            .transfers
-            .output_rejection
-            .take()
     }
 
     pub(crate) fn finish_transfer_cycle(&self, storage: &VariableStorage, now: Duration) {

@@ -1,118 +1,86 @@
-FUNCTION Lesson17LocalGain : LREAL
+(* Slope of the gravity outflow q = c·√h at the operating level h0: g = c/(2·√h0), in m²/s. *)
+FUNCTION TangentSlope : LREAL
 VAR_INPUT
-    OutletCoefficient : LREAL;
+    Coefficient : LREAL;
     OperatingLevel : LREAL;
 END_VAR
-Lesson17LocalGain := LREAL#2.0 * SQRT(OperatingLevel) / OutletCoefficient;
+TangentSlope := Coefficient / (LREAL#2.0 * SQRT(OperatingLevel));
 END_FUNCTION
 
-FUNCTION Lesson17TimeConstant : LREAL
+(* One update of the tangent model A·dx/dt = v − g·x, for the level deviation x and the inflow deviation v. *)
+FUNCTION TangentDeviationNext : LREAL
 VAR_INPUT
-    TankArea : LREAL;
-    OutletCoefficient : LREAL;
-    OperatingLevel : LREAL;
+    Deviation : LREAL;
+    InflowDeviation : LREAL;
+    Slope : LREAL;
+    Area : LREAL;
+    CycleTime : LREAL;
 END_VAR
-Lesson17TimeConstant := LREAL#2.0 * TankArea * SQRT(OperatingLevel)
-    / OutletCoefficient;
-END_FUNCTION
-
-FUNCTION Lesson17LocalLevelNext : LREAL
-VAR_INPUT
-    CurrentLevel : LREAL;
-    OperatingLevel : LREAL;
-    FlowDeviation : LREAL;
-    LocalGain : LREAL;
-    TimeConstant : LREAL;
-    ElapsedTime : LREAL;
-END_VAR
-Lesson17LocalLevelNext := CurrentLevel + ElapsedTime
-    * (LocalGain * FlowDeviation - (CurrentLevel - OperatingLevel))
-    / TimeConstant;
-END_FUNCTION
-
-FUNCTION Lesson17NonlinearEquilibrium : LREAL
-VAR_INPUT
-    InletFlow : LREAL;
-    OutletCoefficient : LREAL;
-END_VAR
-Lesson17NonlinearEquilibrium :=
-    (InletFlow / OutletCoefficient) * (InletFlow / OutletCoefficient);
+TangentDeviationNext := Deviation + (InflowDeviation - Slope * Deviation) / Area * CycleTime;
 END_FUNCTION
 
 PROGRAM Main
 VAR
+    (* Two identical tanks of Lesson 45 (A = 0.5 m², c = 0.020 m^(5/2)/s), both operating at h0 = 0.25 m with
+       q0 = 0.010 m³/s. *)
+    TankAreaM2 : LREAL := 0.5;
+    OutletCoefficient : LREAL := 0.020;
+    OperatingLevelM : LREAL := 0.25;
+    OperatingFlowM3S : LREAL := 0.010;
+    TangentSlopeM2S : LREAL := 0.0;
+    SmallInletFlowM3S : LREAL := 0.010;
+    LargeInletFlowM3S : LREAL := 0.010;
+    (* The measured levels, in m. The program only reads them. *)
+    SmallLevelM : LREAL := 0.0;
+    LargeLevelM : LREAL := 0.0;
+    (* The tangent models: deviations from h0, advanced every 1 s update with the inflow deviation applied during
+       that second and started from the measured levels. *)
+    SmallDeviationM : LREAL := 0.0;
+    LargeDeviationM : LREAL := 0.0;
+    SmallTangentLevelM : LREAL := 0.0;
+    LargeTangentLevelM : LREAL := 0.0;
+    AppliedSmallInletM3S : LREAL := 0.010;
+    AppliedLargeInletM3S : LREAL := 0.010;
+    ModelStarted : BOOL := FALSE;
+    (* Control Studio's project experiment: 0.011 m³/s into one tank and 0.015 m³/s into the other while it runs. *)
     ExperimentEnabled : BOOL := FALSE;
-    TankArea : LREAL := 0.5;
-    OutletCoefficient : LREAL := 0.02;
-    OperatingLevel : LREAL := 0.25;
-    OperatingFlow : LREAL := 0.01;
-    SmallFlowDeviation : LREAL := 0.0;
-    LargeFlowDeviation : LREAL := 0.0;
-    SmallInletFlow : LREAL := 0.01;
-    LargeInletFlow : LREAL := 0.01;
-    SmallPhysicalLevel : LREAL := 0.25;
-    LargePhysicalLevel : LREAL := 0.25;
-    SmallLocalLevel : LREAL := 0.25;
-    LargeLocalLevel : LREAL := 0.25;
-    LocalGain : LREAL := 50.0;
-    TimeConstant : LREAL := 25.0;
-    SmallPhysicalEquilibrium : LREAL := 0.25;
-    LargePhysicalEquilibrium : LREAL := 0.25;
+    ExperimentWasEnabled : BOOL := FALSE;
+    Active : BOOL := FALSE;
 END_VAR
 
-TankArea := LREAL#0.5;
-OutletCoefficient := LREAL#0.02;
-OperatingLevel := LREAL#0.25;
-OperatingFlow := LREAL#0.01;
-LocalGain := Lesson17LocalGain(
-    OutletCoefficient := OutletCoefficient,
-    OperatingLevel := OperatingLevel
-);
-TimeConstant := Lesson17TimeConstant(
-    TankArea := TankArea,
-    OutletCoefficient := OutletCoefficient,
-    OperatingLevel := OperatingLevel
-);
-
-IF ExperimentEnabled THEN
-    SmallFlowDeviation := LREAL#0.001;
-    LargeFlowDeviation := LREAL#0.005;
+TangentSlopeM2S := TangentSlope(Coefficient := OutletCoefficient, OperatingLevel := OperatingLevelM);
+IF NOT ModelStarted THEN
+    SmallDeviationM := SmallLevelM - OperatingLevelM;
+    LargeDeviationM := LargeLevelM - OperatingLevelM;
+    ModelStarted := TRUE;
 ELSE
-    SmallFlowDeviation := LREAL#0.0;
-    LargeFlowDeviation := LREAL#0.0;
-    SmallLocalLevel := OperatingLevel;
-    LargeLocalLevel := OperatingLevel;
+    SmallDeviationM := TangentDeviationNext(Deviation := SmallDeviationM, InflowDeviation := AppliedSmallInletM3S - OperatingFlowM3S,
+        Slope := TangentSlopeM2S, Area := TankAreaM2, CycleTime := LREAL#1.0);
+    LargeDeviationM := TangentDeviationNext(Deviation := LargeDeviationM, InflowDeviation := AppliedLargeInletM3S - OperatingFlowM3S,
+        Slope := TangentSlopeM2S, Area := TankAreaM2, CycleTime := LREAL#1.0);
 END_IF;
 
-SmallInletFlow := OperatingFlow + SmallFlowDeviation;
-LargeInletFlow := OperatingFlow + LargeFlowDeviation;
+IF ExperimentEnabled AND NOT ExperimentWasEnabled THEN
+    Active := TRUE;
+    (* Each experiment compares from the levels measured at its step. *)
+    SmallDeviationM := SmallLevelM - OperatingLevelM;
+    LargeDeviationM := LargeLevelM - OperatingLevelM;
+ELSIF NOT ExperimentEnabled THEN
+    Active := FALSE;
+END_IF;
+ExperimentWasEnabled := ExperimentEnabled;
+SmallTangentLevelM := OperatingLevelM + SmallDeviationM;
+LargeTangentLevelM := OperatingLevelM + LargeDeviationM;
 
-(* Both tangent models use the same slope calculated at 0.25 m. Their
-   difference from the nonlinear tanks reveals the local validity limit. *)
-SmallLocalLevel := Lesson17LocalLevelNext(
-    CurrentLevel := SmallLocalLevel,
-    OperatingLevel := OperatingLevel,
-    FlowDeviation := SmallFlowDeviation,
-    LocalGain := LocalGain,
-    TimeConstant := TimeConstant,
-    ElapsedTime := LREAL#0.1
-);
-LargeLocalLevel := Lesson17LocalLevelNext(
-    CurrentLevel := LargeLocalLevel,
-    OperatingLevel := OperatingLevel,
-    FlowDeviation := LargeFlowDeviation,
-    LocalGain := LocalGain,
-    TimeConstant := TimeConstant,
-    ElapsedTime := LREAL#0.1
-);
-SmallPhysicalEquilibrium := Lesson17NonlinearEquilibrium(
-    InletFlow := SmallInletFlow,
-    OutletCoefficient := OutletCoefficient
-);
-LargePhysicalEquilibrium := Lesson17NonlinearEquilibrium(
-    InletFlow := LargeInletFlow,
-    OutletCoefficient := OutletCoefficient
-);
+IF Active THEN
+    SmallInletFlowM3S := LREAL#0.011;
+    LargeInletFlowM3S := LREAL#0.015;
+ELSE
+    SmallInletFlowM3S := LREAL#0.010;
+    LargeInletFlowM3S := LREAL#0.010;
+END_IF;
+AppliedSmallInletM3S := SmallInletFlowM3S;
+AppliedLargeInletM3S := LargeInletFlowM3S;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -121,16 +89,13 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.SmallInletFlow AT %QL0 : LREAL;
-    P1.LargeInletFlow AT %QL8 : LREAL;
-    P1.SmallPhysicalLevel AT %IL0 : LREAL;
-    P1.LargePhysicalLevel AT %IL8 : LREAL;
-    P1.SmallLocalLevel AT %ML0 : LREAL;
-    P1.LargeLocalLevel AT %ML8 : LREAL;
-    P1.LocalGain AT %ML16 : LREAL;
-    P1.TimeConstant AT %ML24 : LREAL;
-    P1.SmallPhysicalEquilibrium AT %ML32 : LREAL;
-    P1.LargePhysicalEquilibrium AT %ML40 : LREAL;
-    P1.ExperimentEnabled AT %MX80.0 : BOOL;
+    P1.SmallInletFlowM3S AT %QL0 : LREAL;
+    P1.LargeInletFlowM3S AT %QL8 : LREAL;
+    P1.SmallLevelM AT %IL0 : LREAL;
+    P1.LargeLevelM AT %IL8 : LREAL;
+    P1.SmallTangentLevelM AT %ML0 : LREAL;
+    P1.LargeTangentLevelM AT %ML8 : LREAL;
+    P1.ExperimentEnabled AT %MX16.0 : BOOL;
+    P1.Active AT %MX16.1 : BOOL;
 END_VAR
 END_CONFIGURATION

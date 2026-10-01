@@ -55,7 +55,7 @@ fn primary_pid_example_starts_manual_with_reference_at_the_measured_process() {
         ),
         SourceFile::with_path(
             "src/main.st",
-            include_str!("../../../examples/control-pid-commissioning/src/main.st"),
+            include_str!("../../../examples/control-pid-commissioning/src/Main.st"),
         ),
     ])
     .build_runtime()
@@ -90,7 +90,7 @@ fn primary_pid_example_manual_mode_controls_the_actual_block() {
         ),
         SourceFile::with_path(
             "src/main.st",
-            include_str!("../../../examples/control-pid-commissioning/src/main.st"),
+            include_str!("../../../examples/control-pid-commissioning/src/Main.st"),
         ),
     ])
     .build_runtime()
@@ -137,7 +137,7 @@ fn primary_pid_example_adopts_the_parameter_record_without_overwriting_it() {
         ),
         SourceFile::with_path(
             "src/main.st",
-            include_str!("../../../examples/control-pid-commissioning/src/main.st"),
+            include_str!("../../../examples/control-pid-commissioning/src/Main.st"),
         ),
     ])
     .build_runtime()

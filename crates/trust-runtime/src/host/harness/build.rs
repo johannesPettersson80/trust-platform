@@ -410,6 +410,10 @@ pub(super) fn build_runtime_from_source_files(
 
     resize_process_image_from_bindings(&mut runtime)?;
     init_function_static_locals(&mut runtime)?;
+    // A cold start latches markers from their initialized variables, not from a zero image.
+    runtime
+        .commit_memory_bindings()
+        .map_err(|err| CompileError::new(err.to_string()))?;
     let _ = runtime.ensure_background_thread_id();
 
     for (idx, locations) in statement_locations.into_iter().enumerate() {
@@ -573,6 +577,27 @@ fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError
             }
             if super::interface_type_name(local.type_id, &registry).is_some() {
                 storage.set_global(key, crate::value::Value::Null);
+                continue;
+            }
+            if let Some(value) = crate::instance::create_instance_array(
+                storage,
+                &registry,
+                &profile,
+                &classes,
+                &function_blocks,
+                &functions,
+                &stdlib,
+                &initializer_catalog,
+                local.type_id,
+            )
+            .map_err(|err| CompileError::new(err.to_string()))?
+            {
+                if local.initializer.is_some() {
+                    return Err(CompileError::new(
+                        "function VAR_STAT instance arrays cannot have initializers",
+                    ));
+                }
+                storage.set_global(key, value);
                 continue;
             }
             let value = crate::harness::initializer::default_value_for_type_id(

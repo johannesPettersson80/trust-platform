@@ -2,12 +2,13 @@ import { loopSignal } from "./loopChannels";
 import type { ControlLoopDefinition } from "./loopDefinition";
 import type { WorkflowResultSample } from "./workflowResult";
 import { identifyMimoStaticGain, relativeGainArray, staticDecoupler } from "./numerics";
+import { oneToOnePairing, type MimoPairingDecision } from "./mimoPairing";
 
 export interface MimoWindow { startSeconds: number; endSeconds: number }
 export interface MimoSettledTrial { inputId: string; baseline: MimoWindow; settled: MimoWindow }
 export interface MimoSettledAnalysisOptions { maximumUnexcitedInputDrift?: number }
 export interface MimoChannelEvidence { id: string; symbol: string; unit: string }
-export interface MimoPairingDecision { inputId: string; outputId: string; relativeGain: number; status: "candidate" | "rejected" }
+export type { MimoPairingDecision } from "./mimoPairing";
 export type RecordedMimoAnalysis =
   | { status: "rejected"; reason: string }
   | { status: "qualified"; inputIds: readonly string[]; outputIds: readonly string[]; inputs: readonly MimoChannelEvidence[]; outputs: readonly MimoChannelEvidence[]; trials: readonly MimoSettledTrial[]; sampleCount: number; gainMatrix: readonly (readonly number[])[]; rga: readonly (readonly number[])[]; decoupler: readonly (readonly number[])[]; decouplerConditionNumber: number; pairing: readonly MimoPairingDecision[]; inputRank: number; inputConditionNumber: number; residualNorm: number };
@@ -33,12 +34,21 @@ export function calculateRecordedMimoAnalysis(loop: ControlLoopDefinition, sampl
     if (values.some(series => series.length === 0 || series.some(value => value === undefined))) return undefined;
     return values.map(series => series.reduce<number>((sum, value) => sum + (value ?? 0), 0) / series.length);
   };
+  // The excited input must hold its level inside each window: a window across the step would average both levels.
+  const spanWindow = (window: MimoWindow, signal: { symbol: string }) => {
+    const values = samples.filter(sample => sample.elapsedSeconds >= window.startSeconds && sample.elapsedSeconds <= window.endSeconds)
+      .map(sample => sampleValue(loop, sample, signal.symbol)).filter((value): value is number => value !== undefined);
+    return values.length ? Math.max(...values) - Math.min(...values) : 0;
+  };
   const inputs: number[][] = [], outputs: number[][] = [], retainedWindows: MimoSettledTrial[] = [], retained = new Set<number>();
   for (const trial of trials) {
     const baselineInputs = meanWindow(trial.baseline, inputSignals), settledInputs = meanWindow(trial.settled, inputSignals);
     const baselineOutputs = meanWindow(trial.baseline, outputSignals), settledOutputs = meanWindow(trial.settled, outputSignals);
     if (!baselineInputs || !settledInputs || !baselineOutputs || !settledOutputs) return { status: "rejected", reason: "insufficient-quality-valid-mimo-samples" };
     const inputDelta = settledInputs.map((value, index) => value - baselineInputs[index]);
+    const excited = inputIds.indexOf(trial.inputId);
+    const step = Math.abs(inputDelta[excited]);
+    if ([trial.baseline, trial.settled].some(window => spanWindow(window, inputSignals[excited]) > 0.01 * step)) return { status: "rejected", reason: "window-straddles-input-change" };
     if (options.maximumUnexcitedInputDrift !== undefined && (!Number.isFinite(options.maximumUnexcitedInputDrift) || options.maximumUnexcitedInputDrift < 0 || inputDelta.some((value, index) => index !== inputIds.indexOf(trial.inputId) && Math.abs(value) > options.maximumUnexcitedInputDrift!))) return { status: "rejected", reason: "unexcited-input-drift" };
     inputs.push(inputDelta); outputs.push(settledOutputs.map((value, index) => value - baselineOutputs[index])); retainedWindows.push(trial);
     samples.forEach((sample, index) => { if (sample.elapsedSeconds >= trial.baseline.startSeconds && sample.elapsedSeconds <= trial.settled.endSeconds) retained.add(index); });
@@ -56,12 +66,6 @@ export function calculateRecordedMimoAnalysis(loop: ControlLoopDefinition, sampl
     decouplerConditionNumber: decoupler.conditionNumber!, pairing: oneToOnePairing(inputIds, outputIds, rga.matrix), inputRank: identified.inputRank!, inputConditionNumber: identified.inputConditionNumber!, residualNorm: identified.residualNorm! };
 }
 
-function oneToOnePairing(inputIds: readonly string[], outputIds: readonly string[], rga: readonly (readonly number[])[]): MimoPairingDecision[] {
-  const permutations = (remaining: number[], prefix: number[]): number[][] => remaining.length ? remaining.flatMap((candidate, index) => permutations([...remaining.slice(0, index), ...remaining.slice(index + 1)], [...prefix, candidate])) : [prefix];
-  const best = permutations(inputIds.map((_id, index) => index), []).sort((left, right) => cost(outputIds.map((_id, row) => rga[row][left[row]])) - cost(outputIds.map((_id, row) => rga[row][right[row]])))[0];
-  return outputIds.map((outputId, row) => { const inputId = inputIds[best[row]], relativeGain = rga[row][best[row]]; return { outputId, inputId, relativeGain, status: relativeGain > 0 ? "candidate" : "rejected" }; });
-}
-function cost(values: readonly number[]): number { return values.reduce((sum, value) => sum + (value > 0 ? Math.abs(value - 1) : 1e9 + Math.abs(value)), 0); }
 function validWindow(window: MimoWindow): boolean { return Number.isFinite(window.startSeconds) && Number.isFinite(window.endSeconds) && window.startSeconds < window.endSeconds; }
 function sampleValue(loop: ControlLoopDefinition, sample: WorkflowResultSample, symbol: string): number | undefined {
   const primaryId = symbol === loop.signals.processVariable.symbol ? "pv" : symbol === loop.signals.manipulatedVariable.symbol ? "mv" : symbol === loop.signals.setpoint?.symbol ? "sp" : undefined;

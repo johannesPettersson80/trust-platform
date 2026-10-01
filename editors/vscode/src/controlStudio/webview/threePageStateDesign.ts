@@ -1,5 +1,5 @@
 import type { StateDesignPreferences, StateDesignDraft } from "../stateDesignPreferences";
-import { parseStateDesignDraft } from "../stateDesignPreferences";
+import { parseStateDesignDraft, StateDesignDraftError } from "../stateDesignPreferences";
 
 type StateDesignField = keyof StateDesignDraft;
 type StateDesignEditor = { read(validate?: boolean): StateDesignPreferences | undefined; draft(): StateDesignDraft; receive(value?: StateDesignPreferences, draft?: StateDesignDraft): void; synchronize(): void };
@@ -17,7 +17,21 @@ export function initializeThreePageStateDesign(root: HTMLElement, current?: Stat
   const preferenceDraft = (value?: StateDesignPreferences): StateDesignDraft => { const draft: StateDesignDraft = {}; if (value?.desiredPoles) draft.desiredPoles = JSON.stringify(value.desiredPoles); if (value?.stateWeights) draft.stateWeights = JSON.stringify(value.stateWeights); if (value?.inputWeights) draft.inputWeights = JSON.stringify(value.inputWeights); if (value?.processNoise) draft.processNoise = JSON.stringify(value.processNoise); if (value?.measurementNoise) draft.measurementNoise = JSON.stringify(value.measurementNoise); if (value?.finiteHorizon) { draft.solverMode = "finite"; draft.horizonSteps = String(value.finiteHorizon.steps); draft.terminalWeights = JSON.stringify(value.finiteHorizon.terminalWeights); } return draft; };
   for (const field of FIELDS) { const label = root.ownerDocument.createElement("label"); label.className = "studio-field"; label.textContent = LABELS[field]; const input = root.ownerDocument.createElement(field === "horizonSteps" ? "input" : "textarea") as HTMLInputElement | HTMLTextAreaElement; input.dataset.stateDesignField = field; if (field === "horizonSteps") { (input as HTMLInputElement).type = "number"; (input as HTMLInputElement).min = "1"; } const error = root.ownerDocument.createElement("span"); error.className = "trust-field__message trust-field__message--error"; error.hidden = true; error.dataset.stateDesignError = field; label.append(input, error); host.append(label); inputs.set(field, input); labels.set(field, label); input.addEventListener("input", () => { input.removeAttribute("aria-invalid"); error.hidden = true; changed?.(safeRead()); }); }
   const draft = (): StateDesignDraft => { const value: StateDesignDraft = { solverMode: mode.value === "finite" ? "finite" : "infinite" }; for (const [field, input] of inputs) value[field] = input.value; return value; };
-  const read = (validate = false): StateDesignPreferences | undefined => { try { return parseStateDesignDraft(draft(), family()); } catch (reason) { if (!validate) return undefined; for (const [field, input] of inputs) if (applicable(field) && input.value.trim()) { input.setAttribute("aria-invalid", "true"); const error = labels.get(field)?.querySelector<HTMLElement>(`[data-state-design-error="${field}"]`); if (error) { error.textContent = reason instanceof Error ? reason.message : `${LABELS[field]} is invalid.`; error.hidden = false; } } throw reason; } };
+  const mark = (field: StateDesignField, message: string, invalid: boolean): void => {
+    const input = inputs.get(field); const error = labels.get(field)?.querySelector<HTMLElement>(`[data-state-design-error="${field}"]`);
+    if (invalid) input?.setAttribute("aria-invalid", "true"); else input?.removeAttribute("aria-invalid");
+    if (error) { error.textContent = message; error.hidden = !invalid; }
+  };
+  // A validating read replaces every earlier message: the error names its own field, or every filled field when it concerns the whole design.
+  const read = (validate = false): StateDesignPreferences | undefined => {
+    if (validate) for (const field of inputs.keys()) mark(field, "", false);
+    try { return parseStateDesignDraft(draft(), family()); } catch (reason) {
+      if (!validate) return undefined;
+      const named = reason instanceof StateDesignDraftError && reason.field && inputs.has(reason.field) ? reason.field : undefined;
+      for (const [field, input] of inputs) if (named ? field === named : applicable(field) && input.value.trim()) mark(field, reason instanceof Error ? reason.message : `${LABELS[field]} is invalid.`, true);
+      throw reason;
+    }
+  };
   const safeRead = (): StateDesignPreferences | undefined => { try { return read(true); } catch { return undefined; } };
   const synchronize = (): void => { modeLabel.hidden = family() === "state-feedback"; for (const [field, label] of labels) label.hidden = !applicable(field) || (["horizonSteps", "terminalWeights"].includes(field) && mode.value !== "finite"); };
   const receive = (value?: StateDesignPreferences, savedDraft?: StateDesignDraft): void => { const next = savedDraft ?? preferenceDraft(value ?? current); mode.value = next.solverMode === "finite" ? "finite" : "infinite"; for (const [field, input] of inputs) input.value = next[field] ?? ""; synchronize(); };

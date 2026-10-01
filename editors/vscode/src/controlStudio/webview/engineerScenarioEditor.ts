@@ -17,7 +17,22 @@ const finite = (value: string): number | undefined => {
 };
 const object = (value: unknown): value is Record<string, any> => !!value && typeof value === "object" && !Array.isArray(value);
 
+/** Event times must fall within the validation run; no limit applies until a positive duration is known. */
+function eventTimeMaximum(context: EngineerScenarioEditorContext): number | undefined {
+  const duration = context.durationSeconds;
+  return typeof duration === "number" && Number.isFinite(duration) && duration > 0 ? duration * 1000 : undefined;
+}
+
+/** Re-applies the current duration to every scenario event time already on the page. */
+export function applyEventTimeLimit(section: HTMLElement, context: EngineerScenarioEditorContext): void {
+  const maximum = eventTimeMaximum(context);
+  for (const input of Array.from(section.querySelectorAll<HTMLInputElement>("[data-engineer-scenario-event-time]"))) {
+    if (maximum === undefined) input.removeAttribute("max"); else input.max = String(maximum);
+  }
+}
+
 export function initEngineerScenarioEditor(section: HTMLElement, context: EngineerScenarioEditorContext = {}): void {
+  const eventTimeLimit = () => { const maximum = eventTimeMaximum(context); return maximum === undefined ? "" : ` max="${maximum}"`; };
   const document = section.ownerDocument;
   const raw = section.querySelector<HTMLTextAreaElement>("[data-engineer-scenarios]");
   const list = section.querySelector<HTMLElement>("[data-engineer-scenario-list]");
@@ -131,7 +146,7 @@ export function initEngineerScenarioEditor(section: HTMLElement, context: Engine
     (Array.isArray(scenario.events) ? scenario.events : []).forEach((event: EventRow, eventIndex: number) => {
       const row = document.createElement("div"); row.className = "workspace-actions";
       let currentAtMs = typeof event.atMs === "number" && Number.isFinite(event.atMs) ? event.atMs : 0;
-      row.append(input("Time (ms)", String(currentAtMs), `type="number" min="0" step="${context.samplePeriodMs ?? 1}" max="${(context.durationSeconds ?? 1) * 1000}" data-engineer-scenario-event-time`, value => update(index, item => { const next = finite(value); if (next !== undefined) { currentAtMs = next; item.events[eventIndex].atMs = next; } })));
+      row.append(input("Time (ms)", String(currentAtMs), `type="number" min="0" step="${context.samplePeriodMs ?? 1}"${eventTimeLimit()} data-engineer-scenario-event-time`, value => update(index, item => { const next = finite(value); if (next !== undefined) { currentAtMs = next; item.events[eventIndex].atMs = next; } })));
       row.append(input("Signal", String(event.symbol ?? ""), `type="text" data-engineer-scenario-event-symbol`, value => update(index, item => { item.events[eventIndex].symbol = value; })));
       let currentEventValue = typeof event.value === "number" && Number.isFinite(event.value) ? event.value : 0;
       row.append(input("Value", String(currentEventValue), `type="number" step="any" data-engineer-scenario-event-value`, value => update(index, item => { const next = finite(value); if (next !== undefined) { currentEventValue = next; item.events[eventIndex].value = next; } })));
@@ -165,9 +180,7 @@ export function initEngineerScenarioEditor(section: HTMLElement, context: Engine
   };
   const button = (label: string, kind: string, action: () => void) => { const control = document.createElement("button"); control.type = "button"; control.className = `trust-button ${kind}`; control.textContent = label; control.addEventListener("click", action); return control; };
   const parsed = read(raw.value || "[]"); if (parsed) { scenarios = parsed; showError(""); render(); }
-  section.querySelector<HTMLInputElement>("[data-engineer-duration]")?.addEventListener("input", () => {
-    for (const input of Array.from(section.querySelectorAll<HTMLInputElement>("[data-engineer-scenario-event-time]"))) input.max = String((context.durationSeconds ?? 1) * 1000);
-  });
+  section.querySelector<HTMLInputElement>("[data-engineer-duration]")?.addEventListener("input", () => applyEventTimeLimit(section, context));
   raw.addEventListener("input", () => { if (syncing) return; const parsed = read(raw.value); if (parsed) { scenarios = parsed; showError(""); render(); } });
   section.querySelector<HTMLButtonElement>("[data-engineer-scenario-add]")?.addEventListener("click", () => {
     const durationSeconds = Number.isFinite(context.durationSeconds) ? context.durationSeconds! : 1;

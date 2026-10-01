@@ -1,26 +1,146 @@
 {
-  "schemaVersion": 1,
-  "topology": "open-loop",
-  "id": "control-lesson-18",
-  "name": "Derive a transfer function from the tank model",
-  "revision": "sha256:2ea51834c1486d78f46db29510a81e47daef603d292fbc6b05ed68f17329fa3d",
-  "projectId": "project:control-lesson-18",
-  "runtimeId": "simulator",
-  "controller": { "instance": "P1", "type": "open_loop_model_comparison", "design": "project", "revision": "sha256:2ea51834c1486d78f46db29510a81e47daef603d292fbc6b05ed68f17329fa3d", "action": "direct", "taskPeriodMs": 100, "modeSignal": "%MX80.0" },
-  "signals": {
-    "processVariable": { "symbol": "P1.NonlinearTankLevel", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "m", "range": { "minimum": 0, "maximum": 1 } },
-    "manipulatedVariable": { "symbol": "P1.InletFlow", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "m3/s", "range": { "minimum": 0, "maximum": 0.02 } },
-    "additional": [
-      { "id": "reference-comparison", "channel": "reference-comparison", "role": "state", "symbol": "P1.TransferLevel", "address": "%ML24", "iecType": "LREAL", "direction": "read", "unit": "m", "range": { "minimum": 0, "maximum": 1 } },
-      { "id": "input-deviation", "channel": "input-deviation", "role": "state", "symbol": "P1.InputDeviation", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "m3/s", "range": { "minimum": 0, "maximum": 0.005 } },
-      { "id": "elapsed-time", "channel": "elapsed-time", "role": "state", "symbol": "P1.ElapsedTime", "address": "%ML8", "iecType": "LREAL", "direction": "read", "unit": "s", "range": { "minimum": 0, "maximum": 100 } },
-      { "id": "differential-level", "channel": "differential-level", "role": "state", "symbol": "P1.DifferentialLevel", "address": "%ML16", "iecType": "LREAL", "direction": "read", "unit": "m", "range": { "minimum": 0, "maximum": 1 } },
-      { "id": "lesson-experiment", "channel": "lesson-experiment", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX80.0", "iecType": "BOOL", "direction": "read", "unit": "", "range": { "minimum": 0, "maximum": 1 } }
-    ]
-  },
-  "limits": { "outputMinimum": 0, "outputMaximum": 0.02 },
-  "observedSampleTiming": { "nominalPeriodMs": 100 },
-  "plantId": "gravity-tank-and-equivalent-local-representations",
-  "operatingPoint": "0.25 m level at 0.010 m3/s inlet flow",
-  "experiment": { "execution": "project-scripted", "kind": "observation", "amplitude": 0, "durationSeconds": 100.1, "seed": 20260829, "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX80.0", "iecType": "BOOL", "direction": "write" } }
+    "schemaVersion": 2,
+    "id": "control-lesson-18",
+    "name": "Laplace transforms",
+    "projectId": "project:control-lesson-18",
+    "runtimeId": "simulator",
+    "controller": {
+        "instance": "P1.Controller",
+        "type": "Control.PID",
+        "design": "project",
+        "revision": "sha256:d9ca424af7bfd569993c82d7ca175bb50afe7e7ecf5aa7f287f45e15359d2933",
+        "action": "direct",
+        "taskPeriodMs": 100
+    },
+    "signals": {
+        "setpoint": {
+            "symbol": "P1.SetpointC",
+            "address": "%ML0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "degC",
+            "range": {
+                "minimum": 0,
+                "maximum": 80
+            }
+        },
+        "processVariable": {
+            "symbol": "P1.TemperatureC",
+            "address": "%IL0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "degC",
+            "range": {
+                "minimum": 0,
+                "maximum": 80
+            }
+        },
+        "manipulatedVariable": {
+            "symbol": "P1.HeaterPowerPct",
+            "address": "%QL0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "%",
+            "range": {
+                "minimum": 0,
+                "maximum": 100
+            }
+        },
+        "additional": [
+            {
+                "id": "no-delay-prediction",
+                "channel": "no-delay-prediction",
+                "role": "state",
+                "symbol": "P1.NoDelayPredictionC",
+                "address": "%ML8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "degC",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 80
+                }
+            },
+            {
+                "id": "delayed-model",
+                "channel": "delayed-model",
+                "role": "state",
+                "symbol": "P1.DelayedModelC",
+                "address": "%ML16",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "degC",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 80
+                }
+            },
+            {
+                "id": "extraction",
+                "channel": "extraction",
+                "role": "disturbance",
+                "symbol": "P1.ExtractionKw",
+                "address": "%QL8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "kW",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 30
+                }
+            },
+            {
+                "id": "experiment-authority",
+                "channel": "experiment-authority",
+                "role": "state",
+                "symbol": "P1.ExperimentEnabled",
+                "address": "%MX24.0",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "1",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            },
+            {
+                "id": "active",
+                "channel": "active",
+                "role": "state",
+                "symbol": "P1.Active",
+                "address": "%MX24.1",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "1",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            }
+        ]
+    },
+    "limits": {
+        "outputMinimum": 0,
+        "outputMaximum": 100
+    },
+    "observedSampleTiming": {
+        "nominalPeriodMs": 100
+    },
+    "plantId": "water-heater",
+    "operatingPoint": "SP 35 degC, PV 35 degC, MV 75%",
+    "experiment": {
+        "execution": "project-scripted",
+        "kind": "observation",
+        "amplitude": 0,
+        "durationSeconds": 32.1,
+        "seed": 20260829,
+        "activation": {
+            "symbol": "P1.ExperimentEnabled",
+            "address": "%MX24.0",
+            "iecType": "BOOL",
+            "direction": "write"
+        },
+        "baselineSeconds": 2
+    },
+    "revision": "sha256:62860cfe5946f73671997fd3545c42f0bcad92d0e8d3648b6617145b9007feaf"
 }

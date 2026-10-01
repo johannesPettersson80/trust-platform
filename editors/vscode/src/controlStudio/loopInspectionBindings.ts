@@ -10,7 +10,7 @@ export function loopInspectionBindings(loop: ControlLoopDefinition): SymbolicIns
     { id: "manipulatedVariable", ...loop.signals.manipulatedVariable },
     ...(loop.signals.actuator ? [{ id: "actuator", ...loop.signals.actuator }] : []),
     ...(loop.signals.additional ?? []),
-  ].map(binding => ({ id: binding.id, address: binding.address, iec_type: binding.iecType }));
+  ].map(binding => ({ id: binding.id, ...(binding.address ? { address: binding.address } : { symbol: binding.symbol }), iec_type: binding.iecType }));
   for (const [name, symbol] of [["controllerMode", loop.controller.modeSignal],
     ["acquisitionMode", loop.parameterBinding?.mode.symbol]] as const) {
     if (!symbol || loopInspectionModeId(loop, bindings, symbol)) continue;

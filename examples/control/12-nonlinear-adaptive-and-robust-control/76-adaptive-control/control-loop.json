@@ -1,46 +1,33 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "topology": "open-loop",
   "id": "control-adaptive-control",
-  "name": "Adaptive control",
-  "revision": "sha256:cb0d43c547627516886cb13e12677609dbce1b46c21c6b7e2bd7ae0220d8f28b",
+  "name": "Adaptive heater tuning",
   "projectId": "project:control-adaptive-control",
   "runtimeId": "simulator",
   "controller": {
     "instance": "P1",
-    "type": "Two-parameter recursive least squares with persistent-excitation, projection, confidence, fallback and recovery supervision",
+    "type": "Main",
     "design": "project",
-    "revision": "sha256:curriculum-controller-71",
+    "revision": "sha256:a0c51581bf94d73b555488709d27bba26bf6bce17d6a4636432be23ed1337877",
     "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": "%MX6.4",
-    "modeWhenTrue": "Auto"
+    "taskPeriodMs": 100
   },
   "signals": {
-    "setpoint": {
-      "symbol": "P1.PressureSetpoint",
-      "address": "%ML8",
+    "processVariable": {
+      "symbol": "P1.AdaptiveC",
+      "address": "%IL8",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "bar",
+      "unit": "degC",
       "range": {
         "minimum": 0,
         "maximum": 80
       }
     },
-    "processVariable": {
-      "symbol": "P1.DiePressure",
-      "address": "%IL0",
-      "iecType": "LREAL",
-      "direction": "read",
-      "unit": "bar",
-      "range": {
-        "minimum": 0,
-        "maximum": 90
-      }
-    },
     "manipulatedVariable": {
-      "symbol": "P1.ScrewSpeedRequested",
-      "address": "%ML128",
+      "symbol": "P1.AdaptivePct",
+      "address": "%QL16",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "%",
@@ -51,332 +38,38 @@
     },
     "additional": [
       {
-        "id": "experiment-authority",
-        "channel": "experiment-authority",
+        "id": "fixed-temperature",
+        "channel": "fixed-temperature",
         "role": "state",
-        "symbol": "P1.ExperimentEnabled",
-        "address": "%MX6.4",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "requested-architecture",
-        "channel": "requested-architecture",
-        "role": "state",
-        "symbol": "P1.RequestedArchitecture",
-        "address": "%MW0",
-        "iecType": "INT",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 2
-        }
-      },
-      {
-        "id": "active-architecture",
-        "channel": "active-architecture",
-        "role": "state",
-        "symbol": "P1.ActiveArchitecture",
-        "address": "%MW2",
-        "iecType": "INT",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 2
-        }
-      },
-      {
-        "id": "resin-grade",
-        "channel": "resin-grade",
-        "role": "disturbance",
-        "symbol": "P1.ResinGrade",
-        "address": "%MW4",
-        "iecType": "INT",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "control-enabled",
-        "channel": "control-enabled",
-        "role": "state",
-        "symbol": "P1.Enabled",
-        "address": "%MX6.0",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "adaptation-requested",
-        "channel": "adaptation-requested",
-        "role": "state",
-        "symbol": "P1.AdaptationRequested",
-        "address": "%MX6.1",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "pressure-data-healthy",
-        "channel": "pressure-data-healthy",
-        "role": "quality",
-        "symbol": "P1.DataHealthy",
-        "address": "%MX6.2",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "identification-probe-enabled",
-        "channel": "identification-probe-enabled",
-        "role": "state",
-        "symbol": "P1.ProbeEnabled",
-        "address": "%MX6.3",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "adaptation-active",
-        "channel": "adaptation-active",
-        "role": "state",
-        "symbol": "P1.AdaptationActive",
-        "address": "%MX7.0",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "estimate-frozen",
-        "channel": "estimate-frozen",
-        "role": "state",
-        "symbol": "P1.EstimateFrozen",
-        "address": "%MX7.1",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "persistent-excitation",
-        "channel": "persistent-excitation",
-        "role": "quality",
-        "symbol": "P1.PersistentExcitation",
-        "address": "%MX7.2",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "estimate-qualified",
-        "channel": "estimate-qualified",
-        "role": "quality",
-        "symbol": "P1.EstimateQualified",
-        "address": "%MX7.3",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "scheduled-fallback-active",
-        "channel": "scheduled-fallback-active",
-        "role": "state",
-        "symbol": "P1.FallbackActive",
-        "address": "%MX7.4",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "projection-active",
-        "channel": "projection-active",
-        "role": "state",
-        "symbol": "P1.ProjectionActive",
-        "address": "%MX7.5",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "output-saturated",
-        "channel": "output-saturated",
-        "role": "state",
-        "symbol": "P1.OutputSaturated",
-        "address": "%MX7.6",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "estimated-process-gain",
-        "channel": "estimated-process-gain",
-        "role": "state",
-        "symbol": "P1.EstimatedGain",
-        "address": "%ML16",
+        "symbol": "P1.FixedC",
+        "address": "%IL0",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "bar/%",
-        "range": {
-          "minimum": 0.5,
-          "maximum": 1.5
-        }
-      },
-      {
-        "id": "estimated-pressure-bias",
-        "channel": "estimated-pressure-bias",
-        "role": "state",
-        "symbol": "P1.EstimatedBias",
-        "address": "%ML24",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "bar",
-        "range": {
-          "minimum": -20,
-          "maximum": 20
-        }
-      },
-      {
-        "id": "covariance-trace",
-        "channel": "covariance-trace",
-        "role": "state",
-        "symbol": "P1.CovarianceTrace",
-        "address": "%ML80",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
+        "unit": "degC",
         "range": {
           "minimum": 0,
-          "maximum": 100
+          "maximum": 80
         }
       },
       {
-        "id": "information-determinant",
-        "channel": "information-determinant",
+        "id": "target",
+        "channel": "target",
         "role": "state",
-        "symbol": "P1.InformationDeterminant",
-        "address": "%ML88",
+        "symbol": "P1.SetpointC",
+        "address": "%ML0",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "1",
+        "unit": "degC",
         "range": {
           "minimum": 0,
-          "maximum": 100
+          "maximum": 80
         }
       },
       {
-        "id": "estimator-innovation",
-        "channel": "estimator-innovation",
+        "id": "fixed-command",
+        "channel": "fixed-command",
         "role": "state",
-        "symbol": "P1.Innovation",
-        "address": "%ML96",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": -2,
-          "maximum": 2
-        }
-      },
-      {
-        "id": "active-proportional-gain",
-        "channel": "active-proportional-gain",
-        "role": "state",
-        "symbol": "P1.ActiveProportionalGain",
-        "address": "%ML104",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%/bar",
-        "range": {
-          "minimum": 0,
-          "maximum": 5
-        }
-      },
-      {
-        "id": "active-integral-gain",
-        "channel": "active-integral-gain",
-        "role": "state",
-        "symbol": "P1.ActiveIntegralGain",
-        "address": "%ML112",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%/(bar*s)",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "identification-probe",
-        "channel": "identification-probe",
-        "role": "state",
-        "symbol": "P1.Probe",
-        "address": "%ML120",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": -10,
-          "maximum": 10
-        }
-      },
-      {
-        "id": "applied-screw-speed",
-        "channel": "applied-screw-speed",
-        "role": "MV",
-        "symbol": "P1.ScrewSpeedApplied",
+        "symbol": "P1.FixedPct",
         "address": "%QL0",
         "iecType": "LREAL",
         "direction": "read",
@@ -384,6 +77,146 @@
         "range": {
           "minimum": 0,
           "maximum": 100
+        }
+      },
+      {
+        "id": "estimate-1",
+        "channel": "estimate-1",
+        "role": "state",
+        "symbol": "P1.Estimate1",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW/degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "estimate-2",
+        "channel": "estimate-2",
+        "role": "state",
+        "symbol": "P1.Estimate2",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW/degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "adaptive-ki",
+        "channel": "adaptive-ki",
+        "role": "state",
+        "symbol": "P1.AdaptiveKi",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%/(degC*s)",
+        "range": {
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "span-1",
+        "channel": "span-1",
+        "role": "state",
+        "symbol": "P1.Span1",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "span-2",
+        "channel": "span-2",
+        "role": "state",
+        "symbol": "P1.Span2",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "accepted-1",
+        "channel": "accepted-1",
+        "role": "state",
+        "symbol": "P1.Accepted1",
+        "address": "%MX56.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "accepted-2",
+        "channel": "accepted-2",
+        "role": "state",
+        "symbol": "P1.Accepted2",
+        "address": "%MX56.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX56.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "fault-latched",
+        "channel": "fault-latched",
+        "role": "state",
+        "symbol": "P1.FaultLatched",
+        "address": "%MX56.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "clock-valid",
+        "channel": "clock-valid",
+        "role": "state",
+        "symbol": "P1.ClockValid",
+        "address": "%MX56.4",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
         }
       }
     ]
@@ -395,18 +228,21 @@
   "observedSampleTiming": {
     "nominalPeriodMs": 100
   },
-  "plantId": "polymer_extruder_continuous_gain_drift",
+  "plantId": "heater-adaptive",
+  "operatingPoint": "Both heaters at 35 °C with 60 points after the heat loss changed to 8 kW/°C",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 120.1,
+    "durationSeconds": 152,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX6.4",
+      "address": "%MX56.0",
       "iecType": "BOOL",
       "direction": "write"
-    }
-  }
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:3fcef48b39cc851e608083864a97d92c013fb2327b7e6f2dcc092d364ee05b72"
 }

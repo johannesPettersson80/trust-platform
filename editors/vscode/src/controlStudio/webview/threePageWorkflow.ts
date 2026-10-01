@@ -231,6 +231,7 @@ if (root) {
     if (payload.channelMapping) channelMapping = payload.channelMapping as typeof channelMapping;
     recovery?.receive(payload);
     controller?.receive(payload);
+    renderRelayCycle(root, loop, payload);
     tuning?.receive(payload);
     renderValidationResults(root, payload);
     if (payload.task && typeof payload.task === "object") task = payload.task as EngineerRequirements;
@@ -267,6 +268,8 @@ if (root) {
         && message.payload.recording.rawSamples.length > 1 && !experiments?.busy) {
         identification.receive("recording", { status: "imported" });
       }
+      const retained = completedExperimentRecording(message);
+      if (retained) analysis.receive("recording", { recording: retained });
       if (!experiments?.busy) operation.synchronize();
     }
     if (message.kind === "control-studio.recording.evidence") experiments?.receive("recording", message.payload);
@@ -308,6 +311,7 @@ import type { EngineerRequirements } from "../engineerVerificationPlan";
 import { bindThreePageHostState, type StudioPage } from "./threePageHostState";
 import { ThreePageOperation, type StudioStart } from "./threePageOperation";
 import { renderValidationResults } from "./threePageResults";
+import { renderRelayCycle } from "./threePageRelayCycle";
 import { ThreePageApplication } from "./threePageApplication";
 import { ThreePageController } from "./threePageController";
 import { bindRecordingOpen } from "./threePageRecording";
@@ -327,4 +331,5 @@ import { ThreePageSuppliedModel } from "./threePageSuppliedModel";
 import { ThreePageExperiments } from "./threePageExperiments";
 import { ThreePageIdentification } from "./threePageIdentification";
 import { initializeThreePageAnalysis, type ThreePageAnalysisTool } from "./threePageAnalysis";
+import { completedExperimentRecording } from "./periodicRecording";
 import { decodeMimoAnalysisResult, initializeThreePageMimoAnalysis } from "./threePageMimoAnalysis";

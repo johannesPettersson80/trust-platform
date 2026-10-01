@@ -1,93 +1,78 @@
-FUNCTION Lesson61RefluxRequest : LREAL
+(* Steady rises for heater changes V1 and V2 from 75 %, in °C: the rows of K = [[9/65, 4/65], [4/65, 9/65]]. *)
+FUNCTION SteadyRise1C : LREAL
 VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
-    ExperimentEnabled : BOOL;
-    InputsValid : BOOL;
-    SafetyAbort : BOOL;
+    V1Pct : LREAL;
+    V2Pct : LREAL;
 END_VAR
-IF ExperimentEnabled AND InputsValid AND (NOT SafetyAbort)
-    AND (ExperimentElapsedSeconds >= LREAL#20.0)
-    AND (ExperimentElapsedSeconds < LREAL#200.0) THEN
-    Lesson61RefluxRequest := LREAL#5.0;
-ELSE
-    Lesson61RefluxRequest := LREAL#0.0;
-END_IF;
+SteadyRise1C := (LREAL#9.0 * V1Pct + LREAL#4.0 * V2Pct) / LREAL#65.0;
 END_FUNCTION
 
-FUNCTION Lesson61ReboilerRequest : LREAL
+FUNCTION SteadyRise2C : LREAL
 VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
-    ExperimentEnabled : BOOL;
-    InputsValid : BOOL;
-    SafetyAbort : BOOL;
+    V1Pct : LREAL;
+    V2Pct : LREAL;
 END_VAR
-IF ExperimentEnabled AND InputsValid AND (NOT SafetyAbort)
-    AND (ExperimentElapsedSeconds >= LREAL#220.0) THEN
-    Lesson61ReboilerRequest := LREAL#5.0;
-ELSE
-    Lesson61ReboilerRequest := LREAL#0.0;
-END_IF;
+SteadyRise2C := (LREAL#4.0 * V1Pct + LREAL#9.0 * V2Pct) / LREAL#65.0;
 END_FUNCTION
 
-FUNCTION Lesson61AppliedInput : LREAL
+(* The two balances, advanced by one explicit step of UpdateS: both rates come from the old temperatures and are
+   calculated before either temperature is stored. The wall flow leaves vessel 1 and enters vessel 2. *)
+FUNCTION_BLOCK CoupledVesselModel
 VAR_INPUT
-    RequestedChange : LREAL;
-    ManualMode : BOOL;
+    Heater1Pct : LREAL;
+    Heater2Pct : LREAL;
+    UpdateS : LREAL := 0.1;
 END_VAR
-IF ManualMode THEN
-    Lesson61AppliedInput := LIMIT(
-        LREAL#-10.0, RequestedChange, LREAL#10.0);
-ELSE
-    Lesson61AppliedInput := LREAL#0.0;
-END_IF;
-END_FUNCTION
+VAR_OUTPUT
+    Vessel1C : LREAL := 35.0;
+    Vessel2C : LREAL := 35.0;
+    TransferKw : LREAL := 0.0;
+END_VAR
+VAR
+    Rate1 : LREAL;
+    Rate2 : LREAL;
+END_VAR
+TransferKw := LREAL#8.0 * (Vessel1C - Vessel2C);
+Rate1 := (LREAL#2.0 * Heater1Pct - LREAL#10.0 * (Vessel1C - LREAL#20.0) - TransferKw) / LREAL#50.0;
+Rate2 := (LREAL#2.0 * Heater2Pct - LREAL#10.0 * (Vessel2C - LREAL#20.0) + TransferKw) / LREAL#50.0;
+Vessel1C := Vessel1C + UpdateS * Rate1;
+Vessel2C := Vessel2C + UpdateS * Rate2;
+END_FUNCTION_BLOCK
 
 PROGRAM Main
 VAR
-    AutoMode : BOOL := FALSE;
+    (* Two vessels coupled through a wall, each with its own heater. No controller acts: each path is measured with the
+       other heater fixed. *)
+    Model : CoupledVesselModel;
+    Heater1Pct : LREAL := 75.0;
+    Heater2Pct : LREAL := 75.0;
+    Vessel1C : LREAL := 35.0;
+    Vessel2C : LREAL := 35.0;
+    (* Control Studio's project experiment raises heater 1 to 80 % for 30 s, returns it to 75 % for 30 s, then raises
+       heater 2 to 80 %. *)
+    ElapsedS : LREAL := 0.0;
+    Model1C : LREAL := 35.0;
+    Model2C : LREAL := 35.0;
+    TransferKw : LREAL := 0.0;
     ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    ExperimentElapsed : LREAL := 0.0;
-    RefluxRequested : LREAL := 0.0;
-    ReboilerRequested : LREAL := 0.0;
-    RefluxApplied : LREAL := 0.0;
-    ReboilerApplied : LREAL := 0.0;
-    OverheadPurityDeviation : LREAL := 0.0;
-    BottomsPurityDeviation : LREAL := 0.0;
 END_VAR
-
-(* One observation contains two independently excited windows separated by a
-   restored baseline. Control Studio grants only Boolean authority. *)
-IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
-    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+(* The model takes the commands of the previous update, so its temperatures belong to the same instant as the
+   measured ones. *)
+Model(Heater1Pct := Heater1Pct, Heater2Pct := Heater2Pct);
+Model1C := Model.Vessel1C;
+Model2C := Model.Vessel2C;
+TransferKw := Model.TransferKw;
+Heater1Pct := LREAL#75.0;
+Heater2Pct := LREAL#75.0;
+IF ExperimentEnabled THEN
+    IF ElapsedS < LREAL#29.95 THEN
+        Heater1Pct := LREAL#80.0;
+    ELSIF ElapsedS >= LREAL#59.95 THEN
+        Heater2Pct := LREAL#80.0;
+    END_IF;
+    ElapsedS := ElapsedS + LREAL#0.1;
 ELSE
-    ExperimentElapsed := LREAL#0.0;
-END_IF;
-AutoMode := FALSE;
-RefluxRequested := Lesson61RefluxRequest(
-    ExperimentElapsedSeconds := ExperimentElapsed,
-    ExperimentEnabled := ExperimentEnabled,
-    InputsValid := InputsValid,
-    SafetyAbort := SafetyAbort);
-ReboilerRequested := Lesson61ReboilerRequest(
-    ExperimentElapsedSeconds := ExperimentElapsed,
-    ExperimentEnabled := ExperimentEnabled,
-    InputsValid := InputsValid,
-    SafetyAbort := SafetyAbort);
-
-// This lesson identifies plant interaction, so no feedback controller is hidden in the test path.
-IF NOT AutoMode THEN
-    // Separate requested and applied values make the experiment's input limits observable.
-    RefluxApplied := Lesson61AppliedInput(
-        RequestedChange := RefluxRequested, ManualMode := TRUE);
-    ReboilerApplied := Lesson61AppliedInput(
-        RequestedChange := ReboilerRequested, ManualMode := TRUE);
-ELSE
-    RefluxApplied := Lesson61AppliedInput(
-        RequestedChange := RefluxRequested, ManualMode := FALSE);
-    ReboilerApplied := Lesson61AppliedInput(
-        RequestedChange := ReboilerRequested, ManualMode := FALSE);
+    ElapsedS := LREAL#0.0;
 END_IF;
 END_PROGRAM
 
@@ -97,15 +82,13 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.RefluxRequested AT %ML0 : LREAL;
-    P1.ReboilerRequested AT %ML8 : LREAL;
-    P1.AutoMode AT %MX16.0 : BOOL;
-    P1.ExperimentEnabled AT %MX16.1 : BOOL;
-    P1.SafetyAbort AT %MX16.2 : BOOL;
-    P1.InputsValid AT %MX16.3 : BOOL;
-    P1.RefluxApplied AT %QL0 : LREAL;
-    P1.ReboilerApplied AT %QL8 : LREAL;
-    P1.OverheadPurityDeviation AT %IL0 : LREAL;
-    P1.BottomsPurityDeviation AT %IL8 : LREAL;
+    P1.Heater1Pct AT %QL0 : LREAL;
+    P1.Heater2Pct AT %QL8 : LREAL;
+    P1.Vessel1C AT %IL0 : LREAL;
+    P1.Vessel2C AT %IL8 : LREAL;
+    P1.Model1C AT %ML0 : LREAL;
+    P1.Model2C AT %ML8 : LREAL;
+    P1.TransferKw AT %ML16 : LREAL;
+    P1.ExperimentEnabled AT %MX24.0 : BOOL;
 END_VAR
 END_CONFIGURATION

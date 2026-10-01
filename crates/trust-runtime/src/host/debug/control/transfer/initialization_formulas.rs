@@ -30,6 +30,17 @@ pub(super) enum Formula {
         output_symbol: String,
         value: f64,
     },
+    /// A measurement times a controller parameter, such as a feedforward state `K_ff·d`.
+    ScaledMeasurement {
+        process_variable: String,
+        gain_symbol: String,
+    },
+    /// Row `row` of `D⁻¹·u`: the output a decoupled group member starts at, from the committed outputs `u`.
+    DecoupledOutput {
+        output_symbols: Vec<String>,
+        matrix_symbols: Vec<Vec<String>>,
+        row: usize,
+    },
 }
 fn guard<'a>(binding: &'a Binding, symbol: &str) -> Result<&'a NumberMember, String> {
     binding
@@ -117,6 +128,56 @@ pub(super) fn validate(binding: &Binding, symbol: &str, formula: &Formula) -> Re
             }
             validate_weight(weight_symbol, weight)?;
         }
+        Formula::ScaledMeasurement {
+            process_variable,
+            gain_symbol,
+        } => {
+            let measurement = guard(binding, process_variable)?;
+            if guard(binding, gain_symbol)?.unit
+                != format!("{}/{}", destination.unit, measurement.unit)
+            {
+                return Err("scaled-measurement initialization units do not agree".into());
+            }
+        }
+        Formula::DecoupledOutput {
+            output_symbols,
+            matrix_symbols,
+            row,
+        } => {
+            let size = output_symbols.len();
+            if size == 0
+                || size > 8
+                || *row >= size
+                || matrix_symbols.len() != size
+                || matrix_symbols.iter().any(|entries| entries.len() != size)
+            {
+                return Err("decoupler matrix must be square over the bound outputs".into());
+            }
+            let outputs = output_symbols
+                .iter()
+                .map(|symbol| {
+                    std::iter::once(&binding.output)
+                        .chain(binding.additional_outputs.iter())
+                        .find(|member| &member.symbol == symbol)
+                        .ok_or_else(|| "decoupled initialization output is not bound".to_string())
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            if destination.unit != outputs[*row].unit {
+                return Err("decoupled initialization units do not agree".into());
+            }
+            for (input, entries) in matrix_symbols.iter().enumerate() {
+                for (member, symbol) in entries.iter().enumerate() {
+                    let expected = if outputs[input].unit == outputs[member].unit {
+                        "1".to_string()
+                    } else {
+                        format!("{}/{}", outputs[input].unit, outputs[member].unit)
+                    };
+                    if guard(binding, symbol)?.unit != expected {
+                        return Err("decoupler entry units do not agree".into());
+                    }
+                }
+            }
+        }
         Formula::NotchHistory {
             process_variable,
             denominator_symbols,
@@ -178,6 +239,37 @@ pub(super) fn calculate(
             weight: fixed,
         } => Ok((weight(weight_symbol, fixed, 0.0)? - 1.0)
             * guard_number(binding, storage, process_variable)?),
+        Formula::ScaledMeasurement {
+            process_variable,
+            gain_symbol,
+        } => Ok(guard_number(binding, storage, gain_symbol)?
+            * guard_number(binding, storage, process_variable)?),
+        Formula::DecoupledOutput {
+            output_symbols,
+            matrix_symbols,
+            row,
+        } => {
+            let mut matrix = matrix_symbols
+                .iter()
+                .map(|entries| {
+                    entries
+                        .iter()
+                        .map(|symbol| guard_number(binding, storage, symbol))
+                        .collect::<Result<Vec<_>, String>>()
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            let mut held = output_symbols
+                .iter()
+                .map(|symbol| {
+                    outputs
+                        .get(symbol)
+                        .copied()
+                        .ok_or_else(|| "initialization output is missing".to_string())
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            solve_decoupler(&mut matrix, &mut held)?;
+            Ok(held[*row])
+        }
         Formula::NotchHistory {
             process_variable,
             denominator_symbols,
@@ -190,5 +282,44 @@ pub(super) fn calculate(
             }
             Ok(guard_number(binding, storage, process_variable)? / denominator)
         }
+    }
+}
+
+/// Solves `D·v = u` in place by Gaussian elimination with partial pivoting; `u` becomes `v`.
+fn solve_decoupler(matrix: &mut [Vec<f64>], values: &mut [f64]) -> Result<(), String> {
+    let size = values.len();
+    let scale = matrix
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |largest, value| largest.max(value.abs()));
+    for column in 0..size {
+        let pivot = (column..size)
+            .max_by(|&left, &right| {
+                matrix[left][column]
+                    .abs()
+                    .total_cmp(&matrix[right][column].abs())
+            })
+            .ok_or("decoupler matrix is empty")?;
+        if !(matrix[pivot][column].abs() > 1e-12 * scale.max(1e-300)) {
+            return Err("decoupler matrix is singular".into());
+        }
+        matrix.swap(column, pivot);
+        values.swap(column, pivot);
+        for row in column + 1..size {
+            let factor = matrix[row][column] / matrix[column][column];
+            for k in column..size {
+                matrix[row][k] -= factor * matrix[column][k];
+            }
+            values[row] -= factor * values[column];
+        }
+    }
+    for row in (0..size).rev() {
+        let sum: f64 = (row + 1..size).map(|k| matrix[row][k] * values[k]).sum();
+        values[row] = (values[row] - sum) / matrix[row][row];
+    }
+    if values.iter().all(|value| value.is_finite()) {
+        Ok(())
+    } else {
+        Err("decoupled initialization is not finite".into())
     }
 }

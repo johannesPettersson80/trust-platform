@@ -172,11 +172,41 @@ impl super::PlantInstance {
             return Ok(());
         }
         let values = &self.queued_feedback;
+        // Program variables are written after the process-image batch, and only when every value converts.
+        let stored_result = self
+            .config
+            .feedback_targets
+            .iter()
+            .zip(values)
+            .filter_map(|(target, value)| match target {
+                super::signal::PlantSignal::Symbol(symbol) => Some((symbol, *value)),
+                super::signal::PlantSignal::Address(_) => None,
+            })
+            .map(|(symbol, value)| {
+                let (reference, current) = super::signal::resolve(runtime, symbol)?;
+                let encoded =
+                    super::numeric_io::encode_storage(&current, value).map_err(|error| {
+                        RuntimeError::SimulationFault(
+                            format!("plant signal {symbol}: {error}").into(),
+                        )
+                    })?;
+                Ok((reference, encoded))
+            })
+            .collect::<Result<Vec<_>, RuntimeError>>();
+        let stored = match stored_result {
+            Ok(stored) => stored,
+            Err(error) => {
+                let fault = self.feedback_fault(error);
+                self.last_fault = Some(fault.to_string());
+                return Err(fault);
+            }
+        };
         let pending_result = self
             .config
             .feedback_targets
             .iter()
             .zip(values)
+            .filter_map(|(target, value)| target.address().map(|address| (address, value)))
             .map(|(address, value)| {
                 super::numeric_io::encode_numeric(runtime.io(), address, *value)
                     .map(|encoded| (address.clone(), encoded))
@@ -211,7 +241,7 @@ impl super::PlantInstance {
             }
         };
         debug_assert_eq!(
-            pending.len(),
+            pending.len() + stored.len(),
             self.config.feedback_targets.len()
                 + self
                     .config
@@ -220,6 +250,15 @@ impl super::PlantInstance {
                     .flatten()
                     .count()
         );
+        for (reference, value) in stored {
+            if !runtime.storage_mut().write_by_ref(reference, value) {
+                let fault = self.feedback_fault(RuntimeError::SimulationFault(
+                    "a symbolic plant feedback target could not be written".into(),
+                ));
+                self.last_fault = Some(fault.to_string());
+                return Err(fault);
+            }
+        }
         self.published_feedback.clone_from(values);
         self.feedback_pending = false;
         Ok(())

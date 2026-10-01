@@ -20,7 +20,7 @@ implemented rather than replaced with an ST-generated analytical answer.
 This specification records the user's agreed consecutive teaching sequence and
 problem-to-solution requirements for the truST control course. It governs the
 next course Markdown revision, using the existing lesson READMEs as the starting
-material under Section 10. Its 1–82 order takes precedence over older lesson
+material under Section 10. Its 1–89 order takes precedence over older lesson
 numbers, earlier proposed sequences and historical acceptance claims, including
 the conflicting progression in
 [Control Engineering Curriculum Architecture](38-control-engineering-curriculum.md).
@@ -28,15 +28,14 @@ Older documents remain as history; their completion claims do not accept the
 lessons specified here.
 
 The numbered entries below are teaching lessons, not existing folder numbers.
-The order shall be presented consecutively from 1 to 82. Existing folder names,
+The order shall be presented consecutively from 1 to 89. Existing folder names,
 code, configuration, metadata and saved results shall not determine the teaching
 sequence. This specification does not rename or modify those files.
 
 The previously separate derivative-on-measurement material belongs within
-**34. PD control**. Its old location is a navigation notice, not another lesson.
-The controller-comparison page remains a reference; controller choices are
-demonstrated in the commissioning and independent-design lessons. Neither page
-adds a numbered lesson to the 82-lesson sequence.
+**35. PD control**; its old navigation notice was deleted on 30 September 2026.
+The former controller-comparison page became **42. Controller families**, the
+Control Studio family-comparison lesson the user approved on 30 September 2026.
 
 Writing this specification authorizes no implementation, configuration,
 metadata, test, build, packaging or release changes. Short ST examples and
@@ -112,74 +111,82 @@ The last column names the following numbered lesson, except at the course end.
 | **18. Model validation** | Assess timing, response shape and final value on independent command and disturbance records. Decide whether the model supports the intended design decision. | A validated model predicts the plant but does not select controller gains for a desired response. | **Model-based PI tuning:** connect the model to a response requirement. |
 | **19. Model-based PI tuning** | Derive starting gains from the validated model and a chosen response time. Retain relevant delay, additional dynamics and uncertainty. | These settings depend on the fitted model. An alternative experimentally derived candidate has not yet been obtained. | **Relay tuning:** obtain a candidate from a bounded oscillation experiment. |
 | **20. Relay tuning** | Produce and measure a repeatable bounded cycle. Explain the approximation and empirical rule used to calculate candidate settings. | Neither model-derived nor relay-derived settings are proven suitable merely because their calculations are complete. | **Tuning comparison:** compare all available candidates under unchanged requirements. |
-| **21. Tuning comparison** | Compare manual, model-based and relay-derived candidates. Assess every requirement before choosing between qualifying settings. Allow none to qualify. | A suitable PI controller can still produce an unnecessarily large proportional command change when the setpoint changes. | **Setpoint weighting:** change the setpoint contribution without reducing the measurement-feedback coefficient. |
-| **22. Setpoint weighting** | Separate setpoint and measurement contributions to P while retaining full error in I. Assess reduced command steps against slower response. | Measurement noise still changes the feedback signal and can cause unnecessary heater-command movement. | **Measurement filtering:** reduce noise sensitivity while assessing added delay. |
-| **23. Measurement filtering** | Derive a filter update and compare noise reduction with delayed detection of real temperature changes. Distinguish raw, filtered and physical values. | Filtering cannot recover changes missed between acquisitions, and incorrect time intervals can corrupt state updates. | **Sampling and timing:** explain acquisition limits and use actual elapsed time. |
-| **24. Sampling and timing** | Explain aliasing, acquisition timestamps, controller intervals and held commands. Scale integral and filter updates correctly and reject unusable timing. | Correct update equations can still produce a bad first command when stored state is initialized incorrectly. | **Controller initialization:** establish state from the actual operating condition. |
-| **25. Controller initialization** | Introduce persistent controller instances, inputs, parameters, outputs and retained state. Initialize integral, filter and timing values deliberately. | Initialization aligns the controller once; subsequent manual output changes can leave its state unsuitable for automatic operation. | **Bumpless transfer:** track the applied output while automatic control is inactive. |
-| **26. Bumpless transfer** | Align the integral with manual output and current proportional action. Assess the transfer-induced command change separately from later temperature response. | Changing gains, limits or filter settings can still mix incompatible values or cause unintended output movement. | **Parameter updates:** apply related settings together and adjust retained state consistently. |
-| **27. Parameter updates** | Validate and apply a complete parameter set at one update boundary. Preserve intended state continuity and distinguish deliberate limit changes from accidental jumps. | Consistent parameters do not make invalid, stale or implausible measurements usable. | **Measurement validity:** define rejection, fallback and deliberate recovery. |
-| **28. Measurement validity** | Detect unusable data, select the defined output response, preserve appropriate state and require fresh measurements before restarting automatic control. | Correct individual mechanisms do not establish that the student can combine them into one complete heater controller. | **Heater commissioning:** independently integrate and assess the complete loop. |
-| **29. Heater commissioning** | Write the ST integration and assess setpoint response, disturbance recovery, startup, transfer, limits, parameter changes and measurement faults. | The next application uses a moving valve whose physical position cannot change as quickly as its requested position. | **Actuator tracking:** account for the actuator's actual movement. |
-| **30. Actuator tracking** | Distinguish requested position, bounded target and measured position. Explain rate-limit windup and correct integral state using actual actuator position. | Stem position alone does not establish delivered flow or heating; the installation's pressure conditions also matter. | **Valve characteristics:** establish the position-to-flow relationship. |
-| **31. Valve characteristics** | Explain and measure how valve position, pressure drop and pipe losses determine flow. Convert flow into heating at stated temperatures. | A steady characteristic cannot explain ignored small requests, holding, breakaway or movement after reversal. | **Valve stiction:** distinguish command deadband from mechanical friction. |
-| **32. Valve stiction** | Diagnose deadband, holding force, breakaway and sticking through command, position, force and flow observations. Separate mechanical problems from tuning problems. | The valve investigation treats position as an observed result; it has not taught how a healthy motor produces and controls that position. | **Position control:** derive motion from torque, inertia and position feedback. |
-| **33. Position control** | Introduce shaft angle, velocity, torque, inertia and friction. Apply proportional position feedback and explain continued motion at zero position error. | Position error alone does not directly oppose existing velocity, so stronger P can still produce overshoot and oscillation. | **PD control:** add velocity-dependent damping. |
-| **34. PD control** | Calculate braking torque from measured velocity. Explain damping, derivative on measurement and setpoint-induced derivative kick. | At rest, D contributes no torque. A constant resisting load requires a remaining P error to produce holding torque. | **PID load rejection:** use integral action to supply holding torque at zero error. |
-| **35. PID load rejection** | Calculate the torque from one explicit constant load. Compare PD steady error with PID recovery and account for torque saturation. | Derivative action depends on velocity information that may be noisy when calculated from sampled angle. | **Derivative filtering:** reduce noise-driven torque while measuring the cost to damping. |
-| **36. Derivative filtering** | Explain noise amplification in a finite-difference velocity estimate. Filter it and assess both torque movement and delayed braking. | Understanding the separate terms does not establish a correctly ordered complete sampled PID update. | **Discrete PID:** combine the terms using consistent timing and retained state. |
-| **37. Discrete PID** | Calculate P, trial I, filtered D, requested output, output limiting and tracking for one update. Identify old and new values explicitly. | A complete-output implementation does not establish equivalence with code written in incremental form. | **Positional and incremental PID:** derive the relationship between the two implementations. |
-| **38. Positional and incremental PID** | Derive output increments from consecutive complete-output equations. Preserve the state and correction terms required for equivalent behavior. | Algebraic equivalence does not establish independent commissioning of the complete servo under load and lifecycle requirements. | **Servo commissioning:** assess the integrated controller on the taught mechanism. |
-| **39. Servo commissioning** | Write and assess positioning, constant-load rejection, torque limits, initialization, transfer and fault recovery on the same shaft. | The next application controls liquid level: actuator flow changes stored volume rather than directly producing shaft torque. | **Volume balance:** derive the dynamics of an accumulating process. |
-| **40. Volume balance** | Derive level rate from inflow, outflow and tank area. Explain why equal flows preserve the current level rather than restore a previous level. | The constant-outflow assumption does not explain passive drainage that increases with water level. | **Gravity outflow:** derive the outlet-flow relationship from physical head. |
-| **41. Gravity outflow** | Derive the square-root flow relationship and combine it with volume storage. Explain level-dependent equilibrium and response speed. | One constant gain and time constant cannot describe the nonlinear tank across all operating levels. | **Linearization:** obtain a useful local model around a stated operating point. |
-| **42. Linearization** | Derive a tangent approximation, local gain and time constant. Quantify errors for small and larger departures from the operating point. | A controller tuned from one local model may respond differently at another level because the local coefficients change. | **Gain scheduling:** adjust tuning using the known operating-level dependence. |
-| **43. Gain scheduling** | Calculate scheduled PI settings from the local tank model. Preserve controller state and compare scheduled and fixed gains across operating levels. | Analysing each new plant/controller combination directly through differential equations remains cumbersome, especially when more dynamics are connected. | **Laplace transforms:** express the familiar dynamic equations in algebraic form. |
-| **44. Laplace transforms** | Transform physical equations, retain initial-condition contributions and connect transfer functions. Solve the simple heater response and present more complicated familiar response expressions. | The student cannot yet read those expressions to explain decay, oscillation or why setpoint and disturbance responses expose different dynamic factors. | **Poles and zeros:** connect denominator and numerator roots to those response features. |
-| **45. Poles and zeros** | Define poles and zeros before using them. Explain decay, growth, oscillation, input-response shape and specific cancellation examples through heater and shaft behavior. | Interpreting a supplied transfer function does not establish the complete internal dynamics after feedback or controller state changes. | **Characteristic equations:** derive the complete connected-loop mode equation. |
-| **46. Characteristic equations** | Derive the equation governing natural modes from plant dynamics and the actual feedback law. Account for feedback signs, controller state and possible cancellation. | Checking one gain choice does not show how pole locations change as a gain is varied. | **Root locus:** trace pole movement and select candidate gains. |
-| **47. Root locus** | Vary one gain while holding the other controller and plant properties fixed. Relate pole movement to damping and response speed. | A plotted gain sweep leaves the complete stable gain interval and its boundary cases unestablished. | **Routh–Hurwitz stability:** calculate the stable interval from polynomial coefficients. |
-| **48. Routh–Hurwitz stability** | Construct and interpret the Routh table. Find a stable gain interval and distinguish stable, marginal and unstable boundary cases. | Natural-mode stability does not quantify the response to a continuing disturbance or command that repeats at different rates. | **Periodic excitation:** produce controlled repeating inputs for that investigation. |
-| **49. Periodic excitation** | Choose a bounded sinusoidal input, operating point, frequency, amplitude and observation duration. Exclude startup transients and retain actual applied signals. | Repeating traces alone do not provide a quantitative measure of attenuation and response lag. | **Frequency response:** calculate and measure amplitude ratio and phase. |
-| **50. Frequency response** | Derive sinusoidal response, introduce complex magnitude and angle, and interpret Bode plots with meaningful units and references. | The plant's open-loop response does not explain how feedback treats physical disturbances and measurement noise differently. | **Sensitivity functions:** derive the distinct closed-loop signal paths. |
-| **51. Sensitivity functions** | Derive sensitivity and complementary sensitivity. Trace disturbances and noise into physical output and controller command, retaining the correct physical input paths. | Identifying an unacceptable frequency tradeoff does not yet provide a controller modification that improves it. | **Loop shaping:** change controller dynamics for a stated response requirement. |
-| **52. Loop shaping** | Derive and implement lead/lag compensation. Assess the complete loop, noise amplification, actuator demand and temperature performance under fixed requirements. | Added phase at one frequency does not establish stability of the complete frequency curve, especially when transport delay is present. | **Nyquist stability:** assess the full connected-loop frequency behavior. |
-| **53. Nyquist stability** | Explain the critical point, directed curve, pole count and encirclements. Determine how delivery delay changes stability and interpret slow growth near the boundary. | A continuous-delay model does not establish stability with sampled measurements, held commands and computation delay. | **Sampled-data stability:** derive and assess the actual discrete timing model. |
-| **54. Sampled-data stability** | Derive held-command state updates and include the pending command. Explain unit-circle stability and separate physical timing from numerical integration errors. | Correct digital timing still leaves feedback waiting for temperature error after a disturbance. A measured disturbance could support earlier action. | **Feedforward control:** calculate corrective command directly from the measured disturbance. |
-| **55. Feedforward control** | Derive a disturbance-based command from physical balance. Combine it with feedback and assess measurement error, limits and delivery delay. | An unmeasured jacket disturbance still reaches the vessel before vessel-temperature feedback can respond adequately. | **Cascade control:** use an intermediate measurement that reveals the disturbance earlier. |
-| **56. Cascade control** | Explain outer and inner loops, their different output quantities, relative response speeds, initialization and tracking. Assess earlier jacket-disturbance correction. | A further production requirement is different: additive flow must follow changing carrier flow. A fixed additive-flow setpoint cannot preserve the required ratio. | **Ratio control:** generate the dependent flow setpoint from measured carrier flow. |
-| **57. Ratio control** | Calculate and regulate an additive-to-carrier ratio. Account for pump lag, invalid measurements, low carrier flow and residual delivery after stopping. | The next vessel requirement needs both heat addition and heat removal; a single positive heating command cannot represent both actions. | **Split-range control:** map a signed thermal demand to heating and cooling actuators. |
-| **58. Split-range control** | Convert net heat demand into appropriately scaled heater and cooler commands. Explain service exclusion, neutral regions and tracking from applied net heat. | Satisfying vessel heat demand can conflict with a separate jacket-temperature constraint. | **Override control:** give the constraint authority over the normal heating request. |
-| **59. Override control** | Select between normal and limiting requests, track inactive controllers and distinguish incompatible requirements from poor tuning. | Respecting constraints does not compensate significant delivery delay in a heater loop; corrective heating may still arrive too late. | **Smith prediction:** account for the known delay within the feedback arrangement. |
-| **60. Smith prediction** | Combine delay-free and delayed model predictions with current measurement correction. Assess model mismatch and transfer to ordinary feedback when prediction is unsuitable. | A working individual structure does not establish which complete arrangement meets the vessel application's performance, constraint and lifecycle requirements. | **Vessel commissioning:** compare and integrate the appropriate taught structures. |
-| **61. Vessel commissioning** | Select and assess suitable single-loop, cascade, split-range or override arrangements. Keep physical assumptions and requirements fixed across candidates. | A single-vessel arrangement does not establish control pairings when each of two actuators affects both controlled temperatures. | **Multivariable process paths:** measure and model all relevant cross effects. |
-| **62. Multivariable process paths** | Derive coupled balances and measure each actuator's effect on each output. Introduce the gain matrix through its scalar physical relationships. | Gains measured with the other command fixed change when the other loop moves its actuator to hold its output. | **Relative gain array:** assess that interaction before selecting pairings. |
-| **63. Relative gain array** | Derive isolated and compensated gains. Explain inverse, transpose and elementwise operations through the physical pairing calculation. | A steady pairing calculation does not establish transient interaction or acceptable simultaneous PI behavior. | **Decentralized PI:** run and assess the paired feedback loops together. |
-| **64. Decentralized PI** | Use separate PI states for paired loops. Assess changed and unchanged outputs under both setpoint directions and disturbance locations. | The unaffected vessel may deviate before its own feedback corrects the coupling effect. | **Static decoupling:** coordinate actuator requests using the cross gains. |
-| **65. Static decoupling** | Derive the virtual-to-physical command map, holding biases and correct tracking through physical limits. Compare steady cancellation and transient costs. | The nominal map may overcorrect or undercorrect when the physical coupling differs from its assumed value. | **Multivariable design selection:** compare arrangements across the stated coupling uncertainty. |
-| **66. Multivariable design selection** | Compare fixed architectures under unchanged requirements and justified uncertainty cases. Separate feasibility, transient performance and evidence coverage. | Steady interaction maps do not fully describe internal storage or determine what fewer actuators and sensors can control and reveal. | **State-space models:** represent the internal dynamics explicitly. |
-| **67. State-space models** | Derive the two-tank state equations from storage balances. Explain states, inputs, outputs and matrix rows through physical quantities and units. | State equations alone do not establish whether one pump can influence both state components independently over time. | **Controllability:** examine direct and propagated actuator influence. |
-| **68. Controllability** | Explain reachable local transient states and the controllability calculation. Distinguish transient reachability from independently maintainable steady setpoints. | Actuator influence does not establish whether the available measurement contains enough information about both states. | **Observability:** examine the information contained in measurement history. |
-| **69. Observability** | Derive how downstream level and its change reveal upstream state. Explain why noisy differentiation can be practically unreliable despite theoretical observability. | Knowing that state information exists does not select the feedback law that should use those states. | **State feedback:** establish the required controller using known states as a reference. |
-| **70. State feedback** | Calculate a pump correction from both level deviations. Derive gains from chosen closed-loop modes and assess actuator limits and local-model validity. | The intended controller requires both states, while the available installation may measure only downstream level. | **State observers:** estimate the missing state from model and measurement. |
-| **71. State observers** | Derive model prediction plus innovation correction. Choose observer gains, preserve update order and assess convergence and noise sensitivity. | Faster observer correction does not provide a principled balance between uncertain prediction and noisy measurement. | **Kalman filtering:** weight those information sources using stated uncertainty. |
-| **72. Kalman filtering** | Define variance and covariance, derive weighting and perform a complete prediction/correction calculation. Compare estimated error with evaluation truth. | Estimation does not determine how much pump effort should be used to reduce the estimated level deviations. | **LQR control:** quantify the tradeoff between state error and control effort. |
-| **73. LQR control** | Derive costs from physical scales. Explain one-step minimization, future cost, backward calculation and the resulting finite-horizon feedback gains. | A full-state design does not establish performance when its states are supplied by a noisy, imperfect estimator. | **LQG control:** connect the estimator and effort-based feedback. |
-| **74. LQG control** | Explain the assumptions behind combining LQR and Kalman filtering. Integrate prediction, correction and control using the previous applied input. | An unconstrained feedback calculation does not explicitly plan around future state limits or a shared actuator-resource budget. | **Model predictive control:** select feasible future command sequences. |
-| **75. Model predictive control** | Predict over a stated horizon, evaluate explicit costs and constraints, apply the first selected command and replan. Distinguish planning failure from insufficient capacity. | Feasible predictions and finite simulations do not establish closed-loop stability over a nonlinear operating region. | **Lyapunov stability:** construct a regional stability argument from the physical dynamics. |
-| **76. Lyapunov stability** | Derive an energy-like function for the nonlinear arm, explain its rate of change and establish a region consistent with actuator limits. | Stability near upright does not remove angle-dependent gravity torque when the application requires tracking or holding a nonzero angle. | **Feedback linearization:** compensate the known nonlinear torque explicitly. |
-| **77. Feedback linearization** | Derive nonlinear compensation from physical forces. Distinguish exact model cancellation from local approximation and assess coefficient error, noise and limits. | Compensation depends on model parameters that may change and may no longer be known accurately. | **Adaptive control:** estimate justified parameter changes and revise control consistently. |
-| **78. Adaptive control** | Derive parameter estimation, state its information requirements and qualify updates before changing tuning. Compare adapted and fixed settings on the same physical condition. | Parameters cannot always be estimated reliably because excitation is insufficient or disturbances confound the calculation. | **Robust control:** design for a justified uncertainty range without requiring its exact current value. |
-| **79. Robust control** | Define bounded model uncertainty, check feasibility and distinguish robust stability from robust performance. Explain finite tests and range-wide bounds. | Plant-model uncertainty bounds do not account for arbitrary communication loss, message reordering or stale remote commands. | **Networked control:** define command acceptance, holding and communication fallback. |
-| **80. Networked control** | Handle sequence, connection identity, command age, clock assumptions, finite holding, local fallback and deliberate remote recovery. | Correctly delivered, fresh data can still contain a faulty measurement or disagreement between sensors. | **Fault-aware control:** select measurements only when the available evidence justifies it. |
-| **81. Fault-aware control** | Distinguish range, age and disagreement faults. Implement justified sensor fallback, state alignment, fault latching and qualified recovery. | Correct mechanisms do not establish an independently justified solution for a complete application with competing requirements and uncertainty. | **Independent design:** combine, compare and defend the necessary taught concepts. |
-| **82. Independent design** | Define requirements, select two suitable designs, calculate feasibility, write their ST integrations and defend the choice using matched performance, uncertainty and recovery evidence. | Untested equipment and operating conditions remain outside the demonstrated result and must be identified explicitly. | **Course complete.** Continue with implementation verification and physical commissioning, not another compulsory theory lesson. |
+| **21. Tuning comparison** | Compare manual, model-based and relay-derived candidates. Assess every requirement before choosing between qualifying settings. Allow none to qualify. | Comparing candidates by hand works for one set of requirements, but every changed requirement means designing and comparing again. | **Tuning to requirements:** state the requirements once and let Control Studio design and verify candidates for them. |
+| **22. Tuning to requirements** | State reference change, error allowance, settling band and settling time once. Control Studio designs PI candidates for them on the validated model, predicts each response, verifies the chosen one on the actual ST and refuses requirements no PI can meet. Explain what each requirement constrains. | A PI that meets the requirements can still make an unnecessarily large proportional command change when the setpoint changes. | **Setpoint weighting:** change the setpoint contribution without reducing the measurement-feedback coefficient. |
+| **23. Setpoint weighting** | Separate setpoint and measurement contributions to P while retaining full error in I. Assess reduced command steps against slower response. | Measurement noise still changes the feedback signal and can cause unnecessary heater-command movement. | **Measurement filtering:** reduce noise sensitivity while assessing added delay. |
+| **24. Measurement filtering** | Derive a filter update and compare noise reduction with delayed detection of real temperature changes. Distinguish raw, filtered and physical values. | Filtering cannot recover changes missed between acquisitions, and incorrect time intervals can corrupt state updates. | **Sampling and timing:** explain acquisition limits and use actual elapsed time. |
+| **25. Sampling and timing** | Explain aliasing, acquisition timestamps, controller intervals and held commands. Scale integral and filter updates correctly and reject unusable timing. | Correct update equations can still produce a bad first command when stored state is initialized incorrectly. | **Controller initialization:** establish state from the actual operating condition. |
+| **26. Controller initialization** | Introduce persistent controller instances, inputs, parameters, outputs and retained state. Initialize integral, filter and timing values deliberately. | Initialization aligns the controller once; subsequent manual output changes can leave its state unsuitable for automatic operation. | **Bumpless transfer:** track the applied output while automatic control is inactive. |
+| **27. Bumpless transfer** | Align the integral with manual output and current proportional action. Assess the transfer-induced command change separately from later temperature response. | Changing gains, limits or filter settings can still mix incompatible values or cause unintended output movement. | **Parameter updates:** apply related settings together and adjust retained state consistently. |
+| **28. Parameter updates** | Validate and apply a complete parameter set at one update boundary. Preserve intended state continuity and distinguish deliberate limit changes from accidental jumps. | Consistent parameters do not make invalid, stale or implausible measurements usable. | **Measurement validity:** define rejection, fallback and deliberate recovery. |
+| **29. Measurement validity** | Detect unusable data, select the defined output response, preserve appropriate state and require fresh measurements before restarting automatic control. | Correct individual mechanisms do not establish that the student can combine them into one complete heater controller. | **Heater commissioning:** independently integrate and assess the complete loop. |
+| **30. Heater commissioning** | Write the ST integration and assess setpoint response, disturbance recovery, startup, transfer, limits, parameter changes and measurement faults. | The next application uses a moving valve whose physical position cannot change as quickly as its requested position. | **Actuator tracking:** account for the actuator's actual movement. |
+| **31. Actuator tracking** | Distinguish requested position, bounded target and measured position. Explain rate-limit windup and correct integral state using actual actuator position. | Stem position alone does not establish delivered flow or heating; the installation's pressure conditions also matter. | **Valve characteristics:** establish the position-to-flow relationship. |
+| **32. Valve characteristics** | Explain and measure how valve position, pressure drop and pipe losses determine flow. Convert flow into heating at stated temperatures. | A steady characteristic cannot explain ignored small requests, holding, breakaway or movement after reversal. | **Valve stiction:** distinguish command deadband from mechanical friction. |
+| **33. Valve stiction** | Diagnose deadband, holding force, breakaway and sticking through command, position, force and flow observations. Separate mechanical problems from tuning problems. | The valve investigation treats position as an observed result; it has not taught how a healthy motor produces and controls that position. | **Position control:** derive motion from torque, inertia and position feedback. |
+| **34. Position control** | Introduce shaft angle, velocity, torque, inertia and friction. Apply proportional position feedback and explain continued motion at zero position error. | Position error alone does not directly oppose existing velocity, so stronger P can still produce overshoot and oscillation. | **PD control:** add velocity-dependent damping. |
+| **35. PD control** | Calculate braking torque from measured velocity. Explain damping, derivative on measurement and setpoint-induced derivative kick. | At rest, D contributes no torque. A constant resisting load requires a remaining P error to produce holding torque. | **PID load rejection:** use integral action to supply holding torque at zero error. |
+| **36. PID load rejection** | Calculate the torque from one explicit constant load. Compare PD steady error with PID recovery and account for torque saturation. | Derivative action depends on velocity information that may be noisy when calculated from sampled angle. | **Derivative filtering:** reduce noise-driven torque while measuring the cost to damping. |
+| **37. Derivative filtering** | Explain noise amplification in a finite-difference velocity estimate. Filter it and assess both torque movement and delayed braking. | Understanding the separate terms does not establish a correctly ordered complete sampled PID update. | **Discrete PID:** combine the terms using consistent timing and retained state. |
+| **38. Discrete PID** | Calculate P, trial I, filtered D, requested output, output limiting and tracking for one update. Identify old and new values explicitly. | A complete-output implementation does not establish equivalence with code written in incremental form. | **Positional and incremental PID:** derive the relationship between the two implementations. |
+| **39. Positional and incremental PID** | Derive output increments from consecutive complete-output equations. Preserve the state and correction terms required for equivalent behavior. | The positional PID written in ST has gains of its own, and Control.PID's tuning workflow does not yet reach a law the program computes itself. | **Your own PID law:** tune the program's own P, PI or PID with Control Studio. |
+| **40. Your own PID law** | Set up the program's own positional PID in Control Studio from its gain variables, integral term and previous measurement. Design its gains to the requirements, verify the actual ST on the model and apply them with the integral term starting from the present output. | A tuned law is not yet an independently commissioned servo under load and lifecycle requirements. | **Servo commissioning:** assess the integrated controller on the taught mechanism. |
+| **41. Servo commissioning** | Write and assess positioning, constant-load rejection, torque limits, initialization, transfer and fault recovery on the same shaft. | The heater needed PI and the shaft PID. A new process needs its controller family chosen from its model and requirements, not from habit. | **Controller families:** compare P, PI, PD and PID on one model against the same requirements. |
+| **42. Controller families** | Let Control Studio design P, PI, PD and PID for the validated heater and shaft models against the same requirements. Explain from each model why P leaves an offset, why PD holds a constant load only with an offset that needs a large gain to shrink, and why the shaft needs derivative damping. Choose the simplest family that meets every requirement. | The next application controls liquid level: actuator flow changes stored volume rather than directly producing shaft torque. | **Volume balance:** derive the dynamics of an accumulating process. |
+| **43. Volume balance** | Derive level rate from inflow, outflow and tank area. Explain why equal flows preserve the current level rather than restore a previous level. | With a pumped outflow the level has no equilibrium of its own: it integrates the flow difference, so a controller must be designed for an integrating process. | **Level control:** identify and control an integrating process. |
+| **44. Level control** | Identify the tank as an integrator with Control Studio. Explain why P holds the level with an offset set by the outflow rather than by the setpoint change, why PI removes it, and why two integrators in the loop make PI overshoot unless its integral is slow. Design both for stated requirements. | Many tanks drain through their outlet by gravity, so the outflow rises with the level and the tank is no longer a pure integrator. | **Gravity outflow:** derive the outlet-flow relationship from physical head. |
+| **45. Gravity outflow** | Derive the square-root flow relationship and combine it with volume storage. Explain level-dependent equilibrium and response speed. | One constant gain and time constant cannot describe the nonlinear tank across all operating levels. | **Linearization:** obtain a useful local model around a stated operating point. |
+| **46. Linearization** | Derive a tangent approximation, local gain and time constant. Quantify errors for small and larger departures from the operating point. | A controller tuned from one local model may respond differently at another level because the local coefficients change. | **Gain scheduling:** adjust tuning using the known operating-level dependence. |
+| **47. Gain scheduling** | Calculate scheduled PI settings from the local tank model. Preserve controller state and compare scheduled and fixed gains across operating levels. | Analysing each new plant/controller combination directly through differential equations remains cumbersome, especially when more dynamics are connected. | **Laplace transforms:** express the familiar dynamic equations in algebraic form. |
+| **48. Laplace transforms** | Transform physical equations, retain initial-condition contributions and connect transfer functions. Solve the simple heater response and present more complicated familiar response expressions. | The student cannot yet read those expressions to explain decay, oscillation or why setpoint and disturbance responses expose different dynamic factors. | **Poles and zeros:** connect denominator and numerator roots to those response features. |
+| **49. Poles and zeros** | Define poles and zeros before using them. Explain decay, growth, oscillation, input-response shape and specific cancellation examples through heater and shaft behavior. | Interpreting a supplied transfer function does not establish the complete internal dynamics after feedback or controller state changes. | **Characteristic equations:** derive the complete connected-loop mode equation. |
+| **50. Characteristic equations** | Derive the equation governing natural modes from plant dynamics and the actual feedback law. Account for feedback signs, controller state and possible cancellation. | Checking one gain choice does not show how pole locations change as a gain is varied. | **Root locus:** trace pole movement and select candidate gains. |
+| **51. Root locus** | Vary one gain while holding the other controller and plant properties fixed. Relate pole movement to damping and response speed. | A plotted gain sweep leaves the complete stable gain interval and its boundary cases unestablished. | **Routh–Hurwitz stability:** calculate the stable interval from polynomial coefficients. |
+| **52. Routh–Hurwitz stability** | Construct and interpret the Routh table. Find a stable gain interval and distinguish stable, marginal and unstable boundary cases. | Natural-mode stability does not quantify the response to a continuing disturbance or command that repeats at different rates. | **Periodic excitation:** produce controlled repeating inputs for that investigation. |
+| **53. Periodic excitation** | Choose a bounded sinusoidal input, operating point, frequency, amplitude and observation duration. Exclude startup transients and retain actual applied signals. | Repeating traces alone do not provide a quantitative measure of attenuation and response lag. | **Frequency response:** calculate and measure amplitude ratio and phase. |
+| **54. Frequency response** | Derive sinusoidal response, introduce complex magnitude and angle, and interpret Bode plots with meaningful units and references. | The plant's open-loop response does not explain how feedback treats physical disturbances and measurement noise differently. | **Sensitivity functions:** derive the distinct closed-loop signal paths. |
+| **55. Sensitivity functions** | Derive sensitivity and complementary sensitivity. Trace disturbances and noise into physical output and controller command, retaining the correct physical input paths. | Identifying an unacceptable frequency tradeoff does not yet provide a controller modification that improves it. | **Loop shaping:** change controller dynamics for a stated response requirement. |
+| **56. Loop shaping** | Derive and implement lead/lag compensation. Assess the complete loop, noise amplification, actuator demand and temperature performance under fixed requirements. | Added phase at one frequency does not establish stability of the complete frequency curve, especially when transport delay is present. | **Nyquist stability:** assess the full connected-loop frequency behavior. |
+| **57. Nyquist stability** | Explain the critical point, directed curve, pole count and encirclements. Determine how delivery delay changes stability and interpret slow growth near the boundary. | The Nyquist curve decides stability for the model, but the real plant differs from its model; the design needs a measure of how far the loop is from instability. | **Robustness margins:** read gain, phase and delay margins and the peak sensitivity. |
+| **58. Robustness margins** | Define gain, phase and delay margin and the peak sensitivity Ms as distances from the critical point. Relate each to a specific model error, a gain change or an extra delay, and verify with Control Studio's margins and a deliberately mismatched plant. | A mechanical resonance can raise the loop gain near crossover and consume the gain margin that a rigid model promised. | **Mechanical resonance:** measure the resonance and remove it from the loop with a notch filter. |
+| **59. Mechanical resonance** | Identify the shaft's flexible-coupling resonance from its frequency response. Explain how its peak reduces the gain margin of the position loop, and restore the margin with a notch filter that Control Studio designs and verifies on the actual ST. | A continuous-delay model does not establish stability with sampled measurements, held commands and computation delay. | **Sampled-data stability:** derive and assess the actual discrete timing model. |
+| **60. Sampled-data stability** | Derive held-command state updates and include the pending command. Explain unit-circle stability and separate physical timing from numerical integration errors. | Correct digital timing still leaves feedback waiting for a following error before it supplies the torque a planned move needs. | **Trajectory feedforward:** calculate torque from the planned motion. |
+| **61. Trajectory feedforward** | Calculate torque from the planned acceleration and velocity of a motion profile and add it to the PID. Compare following errors with feedback alone and with feedforward, and let feedback correct inertia and friction errors. | A disturbance that is measured but not planned, such as heat drawn by colder inlet water, still reaches the heater before feedback reacts. | **Feedforward control:** calculate the corrective command directly from the measured disturbance. |
+| **62. Feedforward control** | Derive a disturbance-based command from physical balance. Combine it with feedback and assess measurement error, limits and delivery delay. | An unmeasured jacket disturbance still reaches the vessel before vessel-temperature feedback can respond adequately. | **Cascade control:** use an intermediate measurement that reveals the disturbance earlier. |
+| **63. Cascade control** | Explain outer and inner loops, their different output quantities, relative response speeds, initialization and tracking. Assess earlier jacket-disturbance correction. | A further production requirement is different: additive flow must follow changing carrier flow. A fixed additive-flow setpoint cannot preserve the required ratio. | **Ratio control:** generate the dependent flow setpoint from measured carrier flow. |
+| **64. Ratio control** | Calculate and regulate an additive-to-carrier ratio. Account for pump lag, invalid measurements, low carrier flow and residual delivery after stopping. | The next vessel requirement needs both heat addition and heat removal; a single positive heating command cannot represent both actions. | **Split-range control:** map a signed thermal demand to heating and cooling actuators. |
+| **65. Split-range control** | Convert net heat demand into appropriately scaled heater and cooler commands. Explain service exclusion, neutral regions and tracking from applied net heat. | Satisfying vessel heat demand can conflict with a separate jacket-temperature constraint. | **Override control:** give the constraint authority over the normal heating request. |
+| **66. Override control** | Select between normal and limiting requests, track inactive controllers and distinguish incompatible requirements from poor tuning. | Respecting constraints does not compensate significant delivery delay in a heater loop; corrective heating may still arrive too late. | **Smith prediction:** account for the known delay within the feedback arrangement. |
+| **67. Smith prediction** | Combine delay-free and delayed model predictions with current measurement correction. Assess model mismatch and transfer to ordinary feedback when prediction is unsuitable. | A working individual structure does not establish which complete arrangement meets the vessel application's performance, constraint and lifecycle requirements. | **Vessel commissioning:** compare and integrate the appropriate taught structures. |
+| **68. Vessel commissioning** | Select and assess suitable single-loop, cascade, split-range or override arrangements. Keep physical assumptions and requirements fixed across candidates. | A single-vessel arrangement does not establish control pairings when each of two actuators affects both controlled temperatures. | **Multivariable process paths:** measure and model all relevant cross effects. |
+| **69. Multivariable process paths** | Derive coupled balances and measure each actuator's effect on each output. Introduce the gain matrix through its scalar physical relationships. | Gains measured with the other command fixed change when the other loop moves its actuator to hold its output. | **Relative gain array:** assess that interaction before selecting pairings. |
+| **70. Relative gain array** | Derive isolated and compensated gains. Explain inverse, transpose and elementwise operations through the physical pairing calculation. | A steady pairing calculation does not establish transient interaction or acceptable simultaneous PI behavior. | **Decentralized PI:** run and assess the paired feedback loops together. |
+| **71. Decentralized PI** | Use separate PI states for paired loops. Assess changed and unchanged outputs under both setpoint directions and disturbance locations. | The unaffected vessel may deviate before its own feedback corrects the coupling effect. | **Static decoupling:** coordinate actuator requests using the cross gains. |
+| **72. Static decoupling** | Derive the virtual-to-physical command map, holding biases and correct tracking through physical limits. Compare steady cancellation and transient costs. | The nominal map may overcorrect or undercorrect when the physical coupling differs from its assumed value. | **Multivariable design selection:** compare arrangements across the stated coupling uncertainty. |
+| **73. Multivariable design selection** | Compare fixed architectures under unchanged requirements and justified uncertainty cases. Separate feasibility, transient performance and evidence coverage. | Steady interaction maps do not fully describe internal storage or determine what fewer actuators and sensors can control and reveal. | **State-space models:** represent the internal dynamics explicitly. |
+| **74. State-space models** | Derive the two-tank state equations from storage balances. Explain states, inputs, outputs and matrix rows through physical quantities and units. | State equations alone do not establish whether one pump can influence both state components independently over time. | **Controllability:** examine direct and propagated actuator influence. |
+| **75. Controllability** | Explain reachable local transient states and the controllability calculation. Distinguish transient reachability from independently maintainable steady setpoints. | Actuator influence does not establish whether the available measurement contains enough information about both states. | **Observability:** examine the information contained in measurement history. |
+| **76. Observability** | Derive how downstream level and its change reveal upstream state. Explain why noisy differentiation can be practically unreliable despite theoretical observability. | Knowing that state information exists does not select the feedback law that should use those states. | **State feedback:** establish the required controller using known states as a reference. |
+| **77. State feedback** | Calculate a pump correction from both level deviations. Derive gains from chosen closed-loop modes and assess actuator limits and local-model validity. | The intended controller requires both states, while the available installation may measure only downstream level. | **State observers:** estimate the missing state from model and measurement. |
+| **78. State observers** | Derive model prediction plus innovation correction. Choose observer gains, preserve update order and assess convergence and noise sensitivity. | Faster observer correction does not provide a principled balance between uncertain prediction and noisy measurement. | **Kalman filtering:** weight those information sources using stated uncertainty. |
+| **79. Kalman filtering** | Define variance and covariance, derive weighting and perform a complete prediction/correction calculation. Compare estimated error with evaluation truth. | Estimation does not determine how much pump effort should be used to reduce the estimated level deviations. | **LQR control:** quantify the tradeoff between state error and control effort. |
+| **80. LQR control** | Derive costs from physical scales. Explain one-step minimization, future cost, backward calculation and the resulting finite-horizon feedback gains. | A full-state design does not establish performance when its states are supplied by a noisy, imperfect estimator. | **LQG control:** connect the estimator and effort-based feedback. |
+| **81. LQG control** | Explain the assumptions behind combining LQR and Kalman filtering. Integrate prediction, correction and control using the previous applied input. | An unconstrained feedback calculation does not explicitly plan around future state limits or a shared actuator-resource budget. | **Model predictive control:** select feasible future command sequences. |
+| **82. Model predictive control** | Predict over a stated horizon, evaluate explicit costs and constraints, apply the first selected command and replan. Distinguish planning failure from insufficient capacity. | Feasible predictions and finite simulations do not establish closed-loop stability over a nonlinear operating region. | **Lyapunov stability:** construct a regional stability argument from the physical dynamics. |
+| **83. Lyapunov stability** | Derive an energy-like function for the nonlinear arm, explain its rate of change and establish a region consistent with actuator limits. | Stability near upright does not remove angle-dependent gravity torque when the application requires tracking or holding a nonzero angle. | **Feedback linearization:** compensate the known nonlinear torque explicitly. |
+| **84. Feedback linearization** | Derive nonlinear compensation from physical forces. Distinguish exact model cancellation from local approximation and assess coefficient error, noise and limits. | Compensation depends on model parameters that may change and may no longer be known accurately. | **Adaptive control:** estimate justified parameter changes and revise control consistently. |
+| **85. Adaptive control** | Derive parameter estimation, state its information requirements and qualify updates before changing tuning. Compare adapted and fixed settings on the same physical condition. | Parameters cannot always be estimated reliably because excitation is insufficient or disturbances confound the calculation. | **Robust control:** design for a justified uncertainty range without requiring its exact current value. |
+| **86. Robust control** | Define bounded model uncertainty, check feasibility and distinguish robust stability from robust performance. Explain finite tests and range-wide bounds. | Plant-model uncertainty bounds do not account for arbitrary communication loss, message reordering or stale remote commands. | **Networked control:** define command acceptance, holding and communication fallback. |
+| **87. Networked control** | Handle sequence, connection identity, command age, clock assumptions, finite holding, local fallback and deliberate remote recovery. | Correctly delivered, fresh data can still contain a faulty measurement or disagreement between sensors. | **Fault-aware control:** select measurements only when the available evidence justifies it. |
+| **88. Fault-aware control** | Distinguish range, age and disagreement faults. Implement justified sensor fallback, state alignment, fault latching and qualified recovery. | Correct mechanisms do not establish an independently justified solution for a complete application with competing requirements and uncertainty. | **Independent design:** combine, compare and defend the necessary taught concepts. |
+| **89. Independent design** | Define requirements, select two suitable designs, calculate feasibility, write their ST integrations and defend the choice using matched performance, uncertainty and recovery evidence. | Untested equipment and operating conditions remain outside the demonstrated result and must be identified explicitly. | **Course complete.** Continue with implementation verification and physical commissioning, not another compulsory theory lesson. |
 
 ## 4. Mandatory lesson structure and language
 
 After the short technical title and a direct opening, every teaching lesson,
 including advanced lessons and assessments, shall use these nine sections in
-this order:
+this order, with **Check yourself** between the conclusion and the reason
+(added by the user on 1 October 2026):
 
 1. The problem
 2. What we need
@@ -189,6 +196,7 @@ this order:
 6. Experiment in Control Studio
 7. Evidence and decision
 8. Conclusion
+   Check yourself
 9. Reason for the next lesson
 
 Each section shall answer its own question directly:
@@ -203,6 +211,7 @@ Each section shall answer its own question directly:
 | Experiment in Control Studio | What exactly does the student do to use the method? |
 | Evidence and decision | What happened, and does it solve the stated problem or meet the requirement? |
 | Conclusion | What have we learned from the explanation and experiment? |
+| Check yourself | Can the student answer three short questions on this lesson's idea, at least one a calculation with the lesson's numbers and one asking why something happened, each followed by its answer? |
 | Reason for the next lesson | What remains unresolved now, and why does that require the next concept? |
 
 The first explanatory sentence of **The new idea** shall give an actual
@@ -211,6 +220,14 @@ how the closed-loop poles move as one controller gain changes.” It shall not
 begin with model coefficients, an instruction to calculate, or an instruction
 to a future author to explain the method. Compound topics define both parts;
 assessments define what the commissioning or design activity establishes.
+
+**The new idea** then explains in four steps, in this order (user, 1 October
+2026, approving lesson 74 as the model): the definition in plain words; **In
+words**, what the idea means without formulas, its parts, a comparison a PLC
+engineer knows and what it means for this plant; **The formula**, the general
+formula with every symbol listed with its meaning and unit; and **Example**,
+the lesson's own plant worked step by step with numbers. A good explanation
+takes precedence over length; no upper word limit applies.
 
 **What we need** states the missing capability, not a parameter list. For root
 locus, we need a way to choose proportional gain for acceptable speed and
@@ -221,6 +238,20 @@ when relocating them, rather than deleting conditions needed to reproduce a run.
 
 These questions govern the actual lesson text, not only its headings. The
 individual concept explanations in Section 11 supply the content to use.
+
+Three further rules were added by the user on 1 October 2026:
+
+- **Math you need.** Where a mathematical tool appears for the first time in
+  the course, a short box before its first use explains it with one small
+  example. The [lesson map](control-course-lesson-map.md) lists where.
+- **One annotated figure.** **Evidence and decision** shows the recorded
+  response of the lesson's run with numbered marks; each number answers the
+  prediction with the same number. The figure is drawn from the run's trace,
+  which the lesson's native test produces from the same project.
+- **The plant in the hardware canvas.** A lesson that introduces a plant first
+  shows it in **Devices & Connections**: the plant, its inputs and outputs, and
+  the program signals they connect to. A lesson that changes the plant (a fault,
+  a scenario event) makes that change there.
 
 Use the clear explanations and physical reasoning of the existing foundational
 READMEs on control-loop elements, ON/OFF control, hysteresis/dwell and
@@ -278,10 +309,10 @@ disclaimers. Nine correct headings alone do not establish pedagogical quality.
   Repeated arithmetic may be delegated to a tool after its meaning is clear;
   unexplained solver output or a long recursion is not a substitute for teaching.
 
-The transition from **44. Laplace transforms** to **45. Poles and zeros** is a
-required explicit review point. Lesson 44 shall establish an actual unresolved
-interpretation problem using the familiar models and responses. Lesson 45 shall
-restate it, define poles and zeros, and use them to answer it. Lesson 46 shall
+The transition from **48. Laplace transforms** to **49. Poles and zeros** is a
+required explicit review point. Lesson 48 shall establish an actual unresolved
+interpretation problem using the familiar models and responses. Lesson 49 shall
+restate it, define poles and zeros, and use them to answer it. Lesson 50 shall
 then add complete connected-loop reasoning rather than repeat the same
 denominator-root exercise.
 
@@ -310,6 +341,12 @@ identification, validation, tuning and comparison. Each activity shall specify:
 - requirements and comparison conditions fixed before viewing results;
 - stopping conditions, the physical consequence of stopping and a full reset;
 - how observations answer the prediction and support the stated decision.
+
+Each lesson ships the loop definitions its Control Studio steps open:
+`control-loop.json`, and `control-loops/*.json` for further loops. A lesson whose
+steps set the loop up with **Configure control loop** ships none, because the
+learner creates it there. Every shipped definition shall validate, and the
+extension's packaged copy shall be identical to it.
 
 An exercise about selecting settings shall give the student a real choice.
 Filtering, damping, compensation and other changes shall be assessed for costs
@@ -368,7 +405,7 @@ the opening of “The new idea” as the answer to “What is [topic]?” Check 
 meaning of those answers directly; a topic-name match or heading check cannot
 establish that they explain the concept.
 
-After individual reviews, read the complete 1–82 sequence in order. Check that
+After individual reviews, read the complete 1–89 sequence in order. Check that
 new terms and operations have prior or local explanations, connected examples
 retain their physical meanings, requirements remain fixed within comparisons,
 and every ordinary transition carries the stated problem forward. Check the
@@ -425,7 +462,7 @@ Identify, fitting and independent validation with project-scripted execution;
 its analysis persistence is covered by the closed shared-state refactor. Use the
 [release-readiness tracker](../internal/testing/checklists/control-platform-release-readiness.md)
 for current per-lesson status; this historical table is not a reason to repeat
-completed implementation. The same inspection found that Lesson 47 contained
+completed implementation. The same inspection found that Lesson 51 contained
 the older carriage/lead-comparison project rather than the specified shaft
 model. Before runnable acceptance, align the project, model, controller,
 stage availability and exact plotting/selection behavior, then verify the
@@ -552,72 +589,77 @@ numbers. Each source must still be checked against its new lesson's requirement.
 | 19. Model-based PI tuning | [model-based-pi-tuning](../../examples/control/06-pid-tuning-methods/30-model-based-pi-tuning/README.md) |
 | 20. Relay tuning | [relay-tuning](../../examples/control/06-pid-tuning-methods/29-relay-tuning/README.md) |
 | 21. Tuning comparison | [tuning-method-comparison](../../examples/control/06-pid-tuning-methods/31-tuning-method-comparison/README.md) |
-| 22. Setpoint weighting | [proportional-setpoint-weighting](../../examples/control/01-feedback-foundations-and-temperature-control/10-proportional-setpoint-weighting/README.md) |
-| 23. Measurement filtering | [measurement-filtering](../../examples/control/01-feedback-foundations-and-temperature-control/11-measurement-filtering/README.md) |
-| 24. Sampling and timing | [elapsed-time-and-sampling](../../examples/control/01-feedback-foundations-and-temperature-control/12-elapsed-time-and-sampling/README.md) |
-| 25. Controller initialization | [controller-mode-initialization](../../examples/control/03-production-quality-digital-pid/39-controller-mode-initialization/README.md) |
-| 26. Bumpless transfer | [bumpless-transfer](../../examples/control/03-production-quality-digital-pid/40-bumpless-transfer/README.md) |
-| 27. Parameter updates | [atomic-parameter-update](../../examples/control/03-production-quality-digital-pid/41-atomic-parameter-update/README.md) |
-| 28. Measurement validity | [invalid-stale-data](../../examples/control/03-production-quality-digital-pid/42-invalid-stale-data/README.md) |
-| 29. Heater commissioning | [water-heater](../../examples/control/14-integrated-capstones/81-water-heater/README.md) |
-| 30. Actuator tracking | [heating-valve-rate-tracking](../../examples/control/01-feedback-foundations-and-temperature-control/08-heating-valve-rate-tracking/README.md) |
-| 31. Valve characteristics | [valve-characterization](../../examples/control/09-industrial-control-structures/58-valve-characterization/README.md) |
-| 32. Valve stiction | [valve-stiction](../../examples/control/09-industrial-control-structures/59-valve-stiction/README.md) |
-| 33. Position control | [proportional-position-stiffness](../../examples/control/02-derivative-action-and-dynamic-response/32-proportional-position-stiffness/README.md) |
-| 34. PD control | [derivative-motion-damping](../../examples/control/02-derivative-action-and-dynamic-response/33-derivative-motion-damping/README.md) |
-| 35. PID load rejection | [servo-pid-holding-torque](../../examples/control/02-derivative-action-and-dynamic-response/34-servo-pid-holding-torque/README.md) |
-| 36. Derivative filtering | [filtered-derivative](../../examples/control/02-derivative-action-and-dynamic-response/36-filtered-derivative/README.md) |
-| 37. Discrete PID | [discrete-integral-derivative](../../examples/control/03-production-quality-digital-pid/37-discrete-integral-derivative/README.md) |
-| 38. Positional and incremental PID | [positional-incremental-pid](../../examples/control/03-production-quality-digital-pid/38-positional-incremental-pid/README.md) |
-| 39. Servo commissioning | [servo](../../examples/control/14-integrated-capstones/82-servo/README.md) |
-| 40. Volume balance | [conservation-and-accumulation](../../examples/control/01-feedback-foundations-and-temperature-control/14-conservation-and-accumulation/README.md) |
-| 41. Gravity outflow | [gravity-tank-nonlinearity](../../examples/control/01-feedback-foundations-and-temperature-control/16-gravity-tank-nonlinearity/README.md) |
-| 42. Linearization | [gravity-tank-linearization](../../examples/control/01-feedback-foundations-and-temperature-control/17-gravity-tank-linearization/README.md) |
-| 43. Gain scheduling | [gain-scheduling](../../examples/control/09-industrial-control-structures/56-gain-scheduling/README.md) |
-| 44. Laplace transforms | [transfer-function-from-physics](../../examples/control/01-feedback-foundations-and-temperature-control/18-transfer-function-from-physics/README.md) |
-| 45. Poles and zeros | [poles-zeros-and-response](../../examples/control/02-derivative-action-and-dynamic-response/19-poles-zeros-and-response/README.md) |
-| 46. Characteristic equations | [characteristic-equation](../../examples/control/07-classical-stability-and-frequency-design/43-characteristic-equation/README.md) |
-| 47. Root locus | [root-locus](../../examples/control/07-classical-stability-and-frequency-design/45-root-locus/README.md) |
-| 48. Routh–Hurwitz stability | [routh-hurwitz](../../examples/control/07-classical-stability-and-frequency-design/44-routh-hurwitz/README.md) |
-| 49. Periodic excitation | [excitation-for-dynamics](../../examples/control/05-experiments-identification-and-validation/22-excitation-for-dynamics/README.md) |
-| 50. Frequency response | [bode-frequency-response](../../examples/control/07-classical-stability-and-frequency-design/46-bode-frequency-response/README.md) |
-| 51. Sensitivity functions | [sensitivity-functions](../../examples/control/07-classical-stability-and-frequency-design/48-sensitivity-functions/README.md) |
-| 52. Loop shaping | [loop-shaping](../../examples/control/07-classical-stability-and-frequency-design/49-loop-shaping/README.md) |
-| 53. Nyquist stability | [nyquist-stability](../../examples/control/07-classical-stability-and-frequency-design/47-nyquist-stability/README.md) |
-| 54. Sampled-data stability | [position-z-plane](../../examples/control/07-classical-stability-and-frequency-design/50-position-z-plane/README.md) |
-| 55. Feedforward control | [feedforward](../../examples/control/09-industrial-control-structures/51-feedforward/README.md) |
-| 56. Cascade control | [cascade](../../examples/control/09-industrial-control-structures/52-cascade/README.md) |
-| 57. Ratio control | [ratio-control](../../examples/control/09-industrial-control-structures/53-ratio-control/README.md) |
-| 58. Split-range control | [split-range](../../examples/control/09-industrial-control-structures/54-split-range/README.md) |
-| 59. Override control | [override-control](../../examples/control/09-industrial-control-structures/55-override-control/README.md) |
-| 60. Smith prediction | [smith-predictor](../../examples/control/09-industrial-control-structures/57-smith-predictor/README.md) |
-| 61. Vessel commissioning | [reactor-control](../../examples/control/14-integrated-capstones/83-reactor-control/README.md) |
-| 62. Multivariable process paths | [mimo-paths](../../examples/control/10-multivariable-control/61-mimo-paths/README.md) |
-| 63. Relative gain array | [relative-gain-array](../../examples/control/10-multivariable-control/62-relative-gain-array/README.md) |
-| 64. Decentralized PI | [decentralized-pi](../../examples/control/10-multivariable-control/63-decentralized-pi/README.md) |
-| 65. Static decoupling | [decoupling](../../examples/control/10-multivariable-control/64-decoupling/README.md) |
-| 66. Multivariable design selection | [robust-mimo-selection](../../examples/control/10-multivariable-control/65-robust-mimo-selection/README.md) |
-| 67. State-space models | [state-equations-from-stores](../../examples/control/02-derivative-action-and-dynamic-response/20-state-equations-from-stores/README.md) |
-| 68. Controllability | [controllability](../../examples/control/11-state-space-estimation-and-predictive-control/66-controllability/README.md) |
-| 69. Observability | [observability](../../examples/control/11-state-space-estimation-and-predictive-control/67-observability/README.md) |
-| 70. State feedback | [state-feedback](../../examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/README.md) |
-| 71. State observers | [state-observer](../../examples/control/11-state-space-estimation-and-predictive-control/70-state-observer/README.md) |
-| 72. Kalman filtering | [kalman-filter](../../examples/control/11-state-space-estimation-and-predictive-control/71-kalman-filter/README.md) |
-| 73. LQR control | [lqr](../../examples/control/11-state-space-estimation-and-predictive-control/69-lqr/README.md) |
-| 74. LQG control | [lqg](../../examples/control/11-state-space-estimation-and-predictive-control/72-lqg/README.md) |
-| 75. Model predictive control | [mpc](../../examples/control/11-state-space-estimation-and-predictive-control/73-mpc/README.md) |
-| 76. Lyapunov stability | [lyapunov-stability](../../examples/control/12-nonlinear-adaptive-and-robust-control/74-lyapunov-stability/README.md) |
-| 77. Feedback linearization | [feedback-linearization](../../examples/control/12-nonlinear-adaptive-and-robust-control/75-feedback-linearization/README.md) |
-| 78. Adaptive control | [adaptive-control](../../examples/control/12-nonlinear-adaptive-and-robust-control/76-adaptive-control/README.md) |
-| 79. Robust control | [robust-control](../../examples/control/12-nonlinear-adaptive-and-robust-control/77-robust-control/README.md) |
-| 80. Networked control | [networked-control](../../examples/control/13-networked-fault-aware-and-diagnostic-control/78-networked-control/README.md) |
-| 81. Fault-aware control | [fault-aware-control](../../examples/control/13-networked-fault-aware-and-diagnostic-control/79-fault-aware-control/README.md) |
-| 82. Independent design | [independent](../../examples/control/14-integrated-capstones/84-independent/README.md) |
+| 22. Tuning to requirements | [tuning-to-requirements](../../examples/control/06-pid-tuning-methods/85-tuning-to-requirements/README.md) |
+| 23. Setpoint weighting | [proportional-setpoint-weighting](../../examples/control/01-feedback-foundations-and-temperature-control/10-proportional-setpoint-weighting/README.md) |
+| 24. Measurement filtering | [measurement-filtering](../../examples/control/01-feedback-foundations-and-temperature-control/11-measurement-filtering/README.md) |
+| 25. Sampling and timing | [elapsed-time-and-sampling](../../examples/control/01-feedback-foundations-and-temperature-control/12-elapsed-time-and-sampling/README.md) |
+| 26. Controller initialization | [controller-mode-initialization](../../examples/control/03-production-quality-digital-pid/39-controller-mode-initialization/README.md) |
+| 27. Bumpless transfer | [bumpless-transfer](../../examples/control/03-production-quality-digital-pid/40-bumpless-transfer/README.md) |
+| 28. Parameter updates | [atomic-parameter-update](../../examples/control/03-production-quality-digital-pid/41-atomic-parameter-update/README.md) |
+| 29. Measurement validity | [invalid-stale-data](../../examples/control/03-production-quality-digital-pid/42-invalid-stale-data/README.md) |
+| 30. Heater commissioning | [water-heater](../../examples/control/14-integrated-capstones/81-water-heater/README.md) |
+| 31. Actuator tracking | [heating-valve-rate-tracking](../../examples/control/01-feedback-foundations-and-temperature-control/08-heating-valve-rate-tracking/README.md) |
+| 32. Valve characteristics | [valve-characterization](../../examples/control/09-industrial-control-structures/58-valve-characterization/README.md) |
+| 33. Valve stiction | [valve-stiction](../../examples/control/09-industrial-control-structures/59-valve-stiction/README.md) |
+| 34. Position control | [proportional-position-stiffness](../../examples/control/02-derivative-action-and-dynamic-response/32-proportional-position-stiffness/README.md) |
+| 35. PD control | [derivative-motion-damping](../../examples/control/02-derivative-action-and-dynamic-response/33-derivative-motion-damping/README.md) |
+| 36. PID load rejection | [servo-pid-holding-torque](../../examples/control/02-derivative-action-and-dynamic-response/34-servo-pid-holding-torque/README.md) |
+| 37. Derivative filtering | [filtered-derivative](../../examples/control/02-derivative-action-and-dynamic-response/36-filtered-derivative/README.md) |
+| 38. Discrete PID | [discrete-integral-derivative](../../examples/control/03-production-quality-digital-pid/37-discrete-integral-derivative/README.md) |
+| 39. Positional and incremental PID | [positional-incremental-pid](../../examples/control/03-production-quality-digital-pid/38-positional-incremental-pid/README.md) |
+| 40. Your own PID law | [own-pid-law](../../examples/control/03-production-quality-digital-pid/86-own-pid-law/README.md) |
+| 41. Servo commissioning | [servo](../../examples/control/14-integrated-capstones/82-servo/README.md) |
+| 42. Controller families | [controller-selection](../../examples/control/04-controller-selection-and-plant-models/27-controller-selection/README.md) |
+| 43. Volume balance | [conservation-and-accumulation](../../examples/control/01-feedback-foundations-and-temperature-control/14-conservation-and-accumulation/README.md) |
+| 44. Level control | [level-control](../../examples/control/01-feedback-foundations-and-temperature-control/87-level-control/README.md) |
+| 45. Gravity outflow | [gravity-tank-nonlinearity](../../examples/control/01-feedback-foundations-and-temperature-control/16-gravity-tank-nonlinearity/README.md) |
+| 46. Linearization | [gravity-tank-linearization](../../examples/control/01-feedback-foundations-and-temperature-control/17-gravity-tank-linearization/README.md) |
+| 47. Gain scheduling | [gain-scheduling](../../examples/control/09-industrial-control-structures/56-gain-scheduling/README.md) |
+| 48. Laplace transforms | [transfer-function-from-physics](../../examples/control/01-feedback-foundations-and-temperature-control/18-transfer-function-from-physics/README.md) |
+| 49. Poles and zeros | [poles-zeros-and-response](../../examples/control/02-derivative-action-and-dynamic-response/19-poles-zeros-and-response/README.md) |
+| 50. Characteristic equations | [characteristic-equation](../../examples/control/07-classical-stability-and-frequency-design/43-characteristic-equation/README.md) |
+| 51. Root locus | [root-locus](../../examples/control/07-classical-stability-and-frequency-design/45-root-locus/README.md) |
+| 52. Routh–Hurwitz stability | [routh-hurwitz](../../examples/control/07-classical-stability-and-frequency-design/44-routh-hurwitz/README.md) |
+| 53. Periodic excitation | [excitation-for-dynamics](../../examples/control/05-experiments-identification-and-validation/22-excitation-for-dynamics/README.md) |
+| 54. Frequency response | [bode-frequency-response](../../examples/control/07-classical-stability-and-frequency-design/46-bode-frequency-response/README.md) |
+| 55. Sensitivity functions | [sensitivity-functions](../../examples/control/07-classical-stability-and-frequency-design/48-sensitivity-functions/README.md) |
+| 56. Loop shaping | [loop-shaping](../../examples/control/07-classical-stability-and-frequency-design/49-loop-shaping/README.md) |
+| 57. Nyquist stability | [nyquist-stability](../../examples/control/07-classical-stability-and-frequency-design/47-nyquist-stability/README.md) |
+| 58. Robustness margins | [robustness-margins](../../examples/control/07-classical-stability-and-frequency-design/88-robustness-margins/README.md) |
+| 59. Mechanical resonance | [mechanical-resonance](../../examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/README.md) |
+| 60. Sampled-data stability | [position-z-plane](../../examples/control/07-classical-stability-and-frequency-design/50-position-z-plane/README.md) |
+| 61. Trajectory feedforward | [trajectory-feedforward](../../examples/control/09-industrial-control-structures/90-trajectory-feedforward/README.md) |
+| 62. Feedforward control | [feedforward](../../examples/control/09-industrial-control-structures/51-feedforward/README.md) |
+| 63. Cascade control | [cascade](../../examples/control/09-industrial-control-structures/52-cascade/README.md) |
+| 64. Ratio control | [ratio-control](../../examples/control/09-industrial-control-structures/53-ratio-control/README.md) |
+| 65. Split-range control | [split-range](../../examples/control/09-industrial-control-structures/54-split-range/README.md) |
+| 66. Override control | [override-control](../../examples/control/09-industrial-control-structures/55-override-control/README.md) |
+| 67. Smith prediction | [smith-predictor](../../examples/control/09-industrial-control-structures/57-smith-predictor/README.md) |
+| 68. Vessel commissioning | [reactor-control](../../examples/control/14-integrated-capstones/83-reactor-control/README.md) |
+| 69. Multivariable process paths | [mimo-paths](../../examples/control/10-multivariable-control/61-mimo-paths/README.md) |
+| 70. Relative gain array | [relative-gain-array](../../examples/control/10-multivariable-control/62-relative-gain-array/README.md) |
+| 71. Decentralized PI | [decentralized-pi](../../examples/control/10-multivariable-control/63-decentralized-pi/README.md) |
+| 72. Static decoupling | [decoupling](../../examples/control/10-multivariable-control/64-decoupling/README.md) |
+| 73. Multivariable design selection | [robust-mimo-selection](../../examples/control/10-multivariable-control/65-robust-mimo-selection/README.md) |
+| 74. State-space models | [state-equations-from-stores](../../examples/control/02-derivative-action-and-dynamic-response/20-state-equations-from-stores/README.md) |
+| 75. Controllability | [controllability](../../examples/control/11-state-space-estimation-and-predictive-control/66-controllability/README.md) |
+| 76. Observability | [observability](../../examples/control/11-state-space-estimation-and-predictive-control/67-observability/README.md) |
+| 77. State feedback | [state-feedback](../../examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/README.md) |
+| 78. State observers | [state-observer](../../examples/control/11-state-space-estimation-and-predictive-control/70-state-observer/README.md) |
+| 79. Kalman filtering | [kalman-filter](../../examples/control/11-state-space-estimation-and-predictive-control/71-kalman-filter/README.md) |
+| 80. LQR control | [lqr](../../examples/control/11-state-space-estimation-and-predictive-control/69-lqr/README.md) |
+| 81. LQG control | [lqg](../../examples/control/11-state-space-estimation-and-predictive-control/72-lqg/README.md) |
+| 82. Model predictive control | [mpc](../../examples/control/11-state-space-estimation-and-predictive-control/73-mpc/README.md) |
+| 83. Lyapunov stability | [lyapunov-stability](../../examples/control/12-nonlinear-adaptive-and-robust-control/74-lyapunov-stability/README.md) |
+| 84. Feedback linearization | [feedback-linearization](../../examples/control/12-nonlinear-adaptive-and-robust-control/75-feedback-linearization/README.md) |
+| 85. Adaptive control | [adaptive-control](../../examples/control/12-nonlinear-adaptive-and-robust-control/76-adaptive-control/README.md) |
+| 86. Robust control | [robust-control](../../examples/control/12-nonlinear-adaptive-and-robust-control/77-robust-control/README.md) |
+| 87. Networked control | [networked-control](../../examples/control/13-networked-fault-aware-and-diagnostic-control/78-networked-control/README.md) |
+| 88. Fault-aware control | [fault-aware-control](../../examples/control/13-networked-fault-aware-and-diagnostic-control/79-fault-aware-control/README.md) |
+| 89. Independent design | [independent](../../examples/control/14-integrated-capstones/84-independent/README.md) |
 
-The remaining two source locations retain their non-lesson roles:
-
-- [controller-selection](../../examples/control/04-controller-selection-and-plant-models/27-controller-selection/README.md) — Controller-comparison reference: reuse as a reference and as support for selection tasks in the assessments; do not add a numbered lesson.
-- [derivative-on-measurement](../../examples/control/02-derivative-action-and-dynamic-response/35-derivative-on-measurement/README.md) — Derivative-on-measurement notice: retain navigation to new lesson 34, PD control; reuse any still-useful explanation there rather than repeat the introduction.
+The derivative-on-measurement notice was deleted on 30 September 2026 with the
+user's approval: derivative on measurement is taught in lesson 35, PD control.
 
 ### 10.5 Known targeted review points
 
@@ -633,14 +675,14 @@ passage has already passed review:
 - **New lesson 15, Step-response identification:** retain the gain and response
   calculations. Make selection of windows, fitting procedure and uncertainty
   understandable and actionable where the current wording is insufficient.
-- **New lessons 44–46:** reuse the heater transform derivation, shaft equations
+- **New lessons 48–50:** reuse the heater transform derivation, shaft equations
   and valid root calculations. Repair the actual causal handoff, define poles
   and zeros before using them, and ensure characteristic equations add complete
   connected-loop reasoning rather than repeat an earlier calculation.
-- **New lesson 73, LQR control:** retain the valid model, weights, first-step
+- **New lesson 80, LQR control:** retain the valid model, weights, first-step
   calculation, horizon and gain results. Add the missing explanatory and worked
   intermediate steps needed to understand future cost and backward recursion.
-- **Assessments 4, 29, 39, 61 and 82:** reuse the taught plants, requirements and
+- **Assessments 4, 30, 41, 68 and 89:** reuse the taught plants, requirements and
   experiment material. Correct only missing independent decisions, integration
   tasks, declared prerequisites or fair comparisons; add no untaught physics.
 - **Changed neighbours throughout the sequence:** repair titles, links and the

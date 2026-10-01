@@ -1,121 +1,106 @@
-FUNCTION Lesson74TorqueRequest : LREAL
+(* The energy function of the upright arm, V = ½Jω² + ½Kp·φ² + G(cos φ − 1), in J, with J = 1 kg·m², Kp = 16 N·m/rad
+   and G = 4 N·m; φ is the angle from upright in rad and ω the speed in rad/s. *)
+FUNCTION ArmEnergyJ : LREAL
 VAR_INPUT
-    AngleError : LREAL;
-    AngularRate : LREAL;
+    AngleRad : LREAL;
+    SpeedRadPerS : LREAL;
 END_VAR
-Lesson74TorqueRequest := -LREAL#4.0 * AngleError
-    - LREAL#2.0 * AngularRate;
+ArmEnergyJ := LREAL#0.5 * SpeedRadPerS * SpeedRadPerS + LREAL#8.0 * AngleRad * AngleRad + LREAL#4.0 * (COS(AngleRad) - LREAL#1.0);
 END_FUNCTION
 
-FUNCTION Lesson74LyapunovValue : LREAL
+(* The tested law: τ = −Kp·φ − Kd·ω with Kp = 16 N·m/rad and Kd = 7 N·m·s/rad. *)
+FUNCTION PdTorqueNm : LREAL
 VAR_INPUT
-    AngleError : LREAL;
-    AngularRate : LREAL;
+    AngleRad : LREAL;
+    SpeedRadPerS : LREAL;
 END_VAR
-Lesson74LyapunovValue := LREAL#0.5 * (
-    (LREAL#4.0 / LREAL#3.0) * AngleError * AngleError
-    + (LREAL#1.0 / LREAL#3.0) * AngleError * AngularRate
-    + (LREAL#1.0 / LREAL#3.0) * AngularRate * AngularRate);
+PdTorqueNm := LREAL#-16.0 * AngleRad - LREAL#7.0 * SpeedRadPerS;
+END_FUNCTION
+
+(* The hold before the release: the same gains toward the start angle, plus −G·sin φ, which cancels gravity, so that the
+   arm comes to rest exactly at the start angle. *)
+FUNCTION HoldTorqueNm : LREAL
+VAR_INPUT
+    AngleRad : LREAL;
+    SpeedRadPerS : LREAL;
+    TargetRad : LREAL;
+END_VAR
+HoldTorqueNm := LREAL#16.0 * (TargetRad - AngleRad) - LREAL#7.0 * SpeedRadPerS - LREAL#4.0 * SIN(AngleRad);
 END_FUNCTION
 
 PROGRAM Main
 VAR
-    Enabled : BOOL := FALSE;
-    AngleSetpoint : LREAL := 3.141592653589793;
-    AbsoluteAngle : LREAL := 3.141592653589793;
-    AngleError : LREAL := 0.0;
-    AngularRate : LREAL := 0.0;
-    TorqueRequested : LREAL := 0.0;
-    TorqueApplied : LREAL := 0.0;
-    TorqueSaturated : BOOL := FALSE;
-    LyapunovValue : LREAL := 0.0;
-    LyapunovDerivative : LREAL := 0.0;
-    PreviousLyapunovValue : LREAL := 0.0;
-    LyapunovDelta : LREAL := 0.0;
-    CertificateLevel : LREAL := 0.025;
-    EvidenceInitialized : BOOL := FALSE;
-    InsideCertifiedSet : BOOL := FALSE;
-    CertificateValid : BOOL := FALSE;
+    (* InitialAngleRad, the start angle from upright, is a Control Studio experiment setting. The project experiment holds
+       the arm at it for 3 s, then releases it to the tested law for 8 s. The joint measures its angle from hanging down:
+       φ = θ − π. InsideCertificate reports V ≤ 0.1 J without saturation, the region where the energy argument holds. An
+       angle beyond 0.3 rad or a speed beyond 2 rad/s from upright, or an update interval outside 20 ms ± 5 ms, latches zero
+       torque. *)
+    InitialAngleRad : LREAL := 0.1;
+    JointAngleRad : LREAL := 3.141592653589793;
+    SpeedRadPerS : LREAL := 0.0;
+    TorqueNm : LREAL := 0.0;
+    RequestedTorqueNm : LREAL := 0.0;
+    AngleRad : LREAL := 0.0;
+    EnergyJ : LREAL := 0.0;
+    ElapsedS : LREAL := 0.0;
+    Updates : DINT := 0;
     ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
+    WasEnabled : BOOL := FALSE;
+    Released : BOOL := FALSE;
+    InsideCertificate : BOOL := FALSE;
+    Saturated : BOOL := FALSE;
+    FaultLatched : BOOL := FALSE;
+    ClockPrimed : BOOL := FALSE;
+    ClockValid : BOOL := TRUE;
+    NowTime : TIME;
+    PreviousTime : TIME;
 END_VAR
-
-(* Control Studio grants only authority. The project owns the certified
-   +0.1-radian recovery; phase-map and outside cases remain retained simulations. *)
-IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
-    Enabled := TRUE;
-    AngleSetpoint := LREAL#3.141592653589793;
-ELSE
-    Enabled := FALSE;
-    AngleSetpoint := LREAL#3.141592653589793;
-    EvidenceInitialized := FALSE;
+AngleRad := JointAngleRad - LREAL#3.141592653589793;
+NowTime := TIME();
+ClockValid := NOT ClockPrimed OR ((NowTime - PreviousTime) >= T#15ms AND (NowTime - PreviousTime) <= T#25ms);
+IF NOT ClockValid OR ABS(AngleRad) > LREAL#0.3 OR ABS(SpeedRadPerS) > LREAL#2.0 THEN
+    FaultLatched := TRUE;
 END_IF;
-
-AngleError := AbsoluteAngle - AngleSetpoint;
-TorqueRequested := Lesson74TorqueRequest(
-    AngleError := AngleError, AngularRate := AngularRate);
-
-IF Enabled THEN
-    TorqueApplied := LIMIT(LREAL#-2.0, TorqueRequested, LREAL#2.0);
-ELSE
-    TorqueApplied := LREAL#0.0;
+IF ExperimentEnabled AND NOT WasEnabled THEN
+    Updates := 0;
+ELSIF ExperimentEnabled THEN
+    Updates := Updates + 1;
 END_IF;
-TorqueSaturated := Enabled AND ABS(TorqueRequested - TorqueApplied) > LREAL#1.0E-12;
-
-// This quadratic value is the local certificate, not a second plant model.
-LyapunovValue := Lesson74LyapunovValue(
-    AngleError := AngleError, AngularRate := AngularRate);
-
-// The sine remainder keeps the derivative tied to the nonlinear plant.
-LyapunovDerivative := -LREAL#0.5 * (
-    AngleError * AngleError + AngularRate * AngularRate
-) + (AngleError / LREAL#6.0 + AngularRate / LREAL#3.0)
-    * (SIN(AngleError) - AngleError);
-
-IF EvidenceInitialized THEN
-    LyapunovDelta := LyapunovValue - PreviousLyapunovValue;
+ElapsedS := DINT_TO_LREAL(Updates) * LREAL#0.02;
+Released := ExperimentEnabled AND Updates >= 150;
+IF ExperimentEnabled AND NOT Released THEN
+    RequestedTorqueNm := HoldTorqueNm(AngleRad := AngleRad, SpeedRadPerS := SpeedRadPerS, TargetRad := InitialAngleRad);
 ELSE
-    LyapunovDelta := LREAL#0.0;
+    RequestedTorqueNm := PdTorqueNm(AngleRad := AngleRad, SpeedRadPerS := SpeedRadPerS);
 END_IF;
-
-InsideCertifiedSet := LyapunovValue <= CertificateLevel;
-CertificateValid := Enabled
-    AND InsideCertifiedSet
-    AND NOT TorqueSaturated
-    AND ((LyapunovValue <= LREAL#1.0E-12)
-        OR (LyapunovDerivative < LREAL#0.0
-            AND ((NOT EvidenceInitialized) OR (LyapunovDelta <= LREAL#1.0E-12))));
-
-// Retain the current value only after all current-sample checks are complete.
-PreviousLyapunovValue := LyapunovValue;
-EvidenceInitialized := TRUE;
+TorqueNm := MIN(MAX(RequestedTorqueNm, LREAL#-20.0), LREAL#20.0);
+Saturated := TorqueNm <> RequestedTorqueNm;
+IF FaultLatched THEN
+    TorqueNm := LREAL#0.0;
+END_IF;
+EnergyJ := ArmEnergyJ(AngleRad := AngleRad, SpeedRadPerS := SpeedRadPerS);
+InsideCertificate := EnergyJ <= LREAL#0.1 AND NOT Saturated;
+WasEnabled := ExperimentEnabled;
+PreviousTime := NowTime;
+ClockPrimed := TRUE;
 END_PROGRAM
 
 CONFIGURATION Config
 RESOURCE Res ON PLC
-    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);
+    TASK MainTask(INTERVAL := T#20ms, PRIORITY := 1);
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.AngleSetpoint AT %ML0 : LREAL;
-    P1.AngleError AT %ML8 : LREAL;
-    P1.TorqueRequested AT %ML16 : LREAL;
-    P1.LyapunovValue AT %ML24 : LREAL;
-    P1.LyapunovDerivative AT %ML32 : LREAL;
-    P1.PreviousLyapunovValue AT %ML40 : LREAL;
-    P1.LyapunovDelta AT %ML48 : LREAL;
-    P1.CertificateLevel AT %ML56 : LREAL;
-    P1.Enabled AT %MX64.0 : BOOL;
-    P1.TorqueSaturated AT %MX64.1 : BOOL;
-    P1.EvidenceInitialized AT %MX64.2 : BOOL;
-    P1.InsideCertifiedSet AT %MX64.3 : BOOL;
-    P1.CertificateValid AT %MX64.4 : BOOL;
-    P1.ExperimentEnabled AT %MX64.5 : BOOL;
-    P1.SafetyAbort AT %MX64.6 : BOOL;
-    P1.InputsValid AT %MX64.7 : BOOL;
-    P1.TorqueApplied AT %QL0 : LREAL;
-    P1.AbsoluteAngle AT %IL0 : LREAL;
-    P1.AngularRate AT %IL8 : LREAL;
+    P1.JointAngleRad AT %IL0 : LREAL;
+    P1.SpeedRadPerS AT %IL8 : LREAL;
+    P1.TorqueNm AT %QL0 : LREAL;
+    P1.AngleRad AT %ML0 : LREAL;
+    P1.EnergyJ AT %ML8 : LREAL;
+    P1.ExperimentEnabled AT %MX24.0 : BOOL;
+    P1.Released AT %MX24.1 : BOOL;
+    P1.InsideCertificate AT %MX24.2 : BOOL;
+    P1.Saturated AT %MX24.3 : BOOL;
+    P1.FaultLatched AT %MX24.4 : BOOL;
+    P1.ClockValid AT %MX24.5 : BOOL;
 END_VAR
 END_CONFIGURATION

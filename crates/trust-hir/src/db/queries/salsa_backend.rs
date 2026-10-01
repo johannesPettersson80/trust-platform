@@ -229,7 +229,7 @@ pub(super) fn expression_index_query(
     Arc::new(ExpressionIndex::from_root(&root))
 }
 
-#[salsa::tracked]
+#[salsa::tracked(returns(copy))]
 pub(super) fn project_has_task_configs_query(
     db: &dyn salsa::Database,
     project: ProjectInputs,
@@ -496,7 +496,7 @@ pub(super) fn diagnostics_query(
     analyze_query(db, project, file_id).diagnostics.clone()
 }
 
-#[salsa::tracked]
+#[salsa::tracked(returns(copy))]
 pub(super) fn type_of_query(
     db: &dyn salsa::Database,
     project: ProjectInputs,

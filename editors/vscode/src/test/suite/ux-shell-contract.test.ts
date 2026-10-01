@@ -715,10 +715,11 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
 
   test("example gallery presents the control curriculum as an ordered learning path", () => {
     const source = ["examples.ts", "examples/galleryWebview.ts", "examples/topics.ts"].map(readSrc).join("\n");
+    assert.doesNotMatch(source, /"\d+ practical lessons"/, "the lesson count comes from the course catalog, not a fixed number");
     for (const visibleContract of [
       "Learning paths",
       "Control engineering",
-      "84 practical lessons",
+      " practical lessons",
       "Starter projects",
       "Explore by topic",
       "PLC tutorials",

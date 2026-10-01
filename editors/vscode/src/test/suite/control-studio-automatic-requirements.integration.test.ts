@@ -29,8 +29,11 @@ suite("Control Studio automatic requirements UI", () => {
       await inner("d.defaultView.__automatic=[];d.defaultView.addEventListener('trust-control-studio-engineer',e=>d.defaultView.__automatic.push(e.detail));d.querySelector('[data-engineer-find]').click();return 'identify';");
       await pollValue("identified model",()=>inner("return JSON.stringify(d.defaultView.__automatic);"),value=>JSON.parse(value).some((item:any)=>['model-ready','failed'].includes(item.status)),50000);
       await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();d.querySelector('[data-studio-requirements]').click();return 'preview defaults';");
-      const initialFields=JSON.parse(await inner("return JSON.stringify([...d.querySelectorAll('[data-studio-requirement]')].map(e=>({key:e.dataset.studioRequirement,value:e.value})));"));
-      assert.ok(initialFields.length>=5 && initialFields.every((field:any)=>field.value!==''),'The optional Requirements editor must be prefilled before the first Tune');
+      const initialFields=JSON.parse(await inner("return JSON.stringify([...d.querySelectorAll('[data-studio-requirement]')].map(e=>({key:e.dataset.studioRequirement,value:e.value,required:e.required,placeholder:e.placeholder})));"));
+      const required=initialFields.filter((field:any)=>field.required);
+      assert.ok(required.length>=5 && required.every((field:any)=>field.value!==''),'The optional Requirements editor must prefill every required field before the first Tune');
+      assert.deepStrictEqual(initialFields.filter((field:any)=>!field.required).map((field:any)=>[field.key,field.value,field.placeholder]),[['constantInputDisturbance','','None'],['transferTolerance','','Automatic']],
+        'no load trial is declared and the Auto-entry tolerance stays blank for the automatic allowance');
       assert.ok(initialFields.every((field:any)=>Number(field.value)===Number(Number(field.value).toPrecision(3))),'Generated values should use readable engineering precision');
       await capture('automatic-requirements-before-tune');
       await inner("[...d.querySelectorAll('[data-trust-compact-editor] button')].find(b=>b.textContent==='Cancel').click();d.querySelector('[data-engineer-tune]').click();return 'tune';");

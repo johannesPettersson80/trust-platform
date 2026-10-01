@@ -12,6 +12,10 @@ type MochaSelectionModule = {
     runner: EventEmitter,
     environment: Readonly<Record<string, string | undefined>>
   ) => boolean;
+  renderedRunFailure?: (
+    environment: Readonly<Record<string, string | undefined>>,
+    passes: number
+  ) => string | undefined;
 };
 
 function loadMochaSelection(): MochaSelectionModule {
@@ -106,5 +110,30 @@ suite("VS Code test selection", () => {
     } finally {
       fs.rmSync(evidenceRoot, { recursive: true, force: true });
     }
+  });
+
+  test("fails a rendered run in which no selected test passed", () => {
+    const selection = loadMochaSelection();
+    assert.strictEqual(
+      typeof selection.renderedRunFailure,
+      "function",
+      "expected the harness to reject a rendered run that passed no test"
+    );
+    const renderedRunFailure = selection.renderedRunFailure!;
+    const rendered = {
+      TRUST_PLANT_RENDERED_TEST: "1",
+      TRUST_VSCODE_TEST_GREP: "^Suite renamed journey$",
+    };
+    assert.match(
+      renderedRunFailure(rendered, 0) ?? "",
+      /\^Suite renamed journey\$/,
+      "a registered title that matches no test, or a skipped test, must fail and name the selection"
+    );
+    assert.strictEqual(renderedRunFailure(rendered, 1), undefined);
+    assert.strictEqual(
+      renderedRunFailure({ TRUST_VSCODE_TEST_GREP: "no match" }, 0),
+      undefined,
+      "an ordinary filtered run keeps its behaviour"
+    );
   });
 });

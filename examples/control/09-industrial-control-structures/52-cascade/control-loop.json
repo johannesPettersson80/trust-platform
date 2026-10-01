@@ -1,45 +1,42 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "control-cascade",
-  "name": "Cascade",
-  "revision": "sha256:9d2ce6db0944f6b3597e865b9128cdfca79cb875d65aa9e67f70210a4f07f22e",
+  "name": "Jacket-loss test",
   "projectId": "project:control-cascade",
   "runtimeId": "simulator",
   "controller": {
     "instance": "P1",
-    "type": "Inner-first cascade commissioning and time-scale separation",
+    "type": "Main",
     "design": "project",
-    "revision": "sha256:curriculum-controller-54",
+    "revision": "sha256:e2fc5c6df6a2e7212e910e015b80f8f7cb6f71362fe080f2120692a5e02fa295",
     "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": "%MX136.2",
-    "modeWhenTrue": "Auto"
+    "taskPeriodMs": 100
   },
   "signals": {
     "setpoint": {
-      "symbol": "P1.ReactorSetpoint",
-      "address": "%ML88",
+      "symbol": "P1.VesselSetpointC",
+      "address": "%ML0",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "degC",
       "range": {
-        "minimum": 60,
-        "maximum": 95
+        "minimum": 0,
+        "maximum": 80
       }
     },
     "processVariable": {
-      "symbol": "P1.DirectReactorTemperature",
-      "address": "%IL0",
+      "symbol": "P1.VesselC",
+      "address": "%IL8",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "degC",
       "range": {
-        "minimum": 60,
-        "maximum": 95
+        "minimum": 0,
+        "maximum": 80
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.DirectValveRequest",
+      "symbol": "P1.HeaterPct",
       "address": "%QL0",
       "iecType": "LREAL",
       "direction": "read",
@@ -51,164 +48,52 @@
     },
     "additional": [
       {
-        "id": "inner-loop-availability-1",
-        "channel": "inner-loop-availability",
-        "role": "quality",
-        "symbol": "P1.InnerAvailable",
-        "address": "%MX136.1",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "inner-commissioning-mode-2",
-        "channel": "inner-commissioning-mode",
+        "id": "single-vessel",
+        "channel": "single-vessel",
         "role": "state",
-        "symbol": "P1.InnerCommissioning",
-        "address": "%MX136.0",
-        "iecType": "BOOL",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 1
-        }
-      },
-      {
-        "id": "heating-utility-disturbance-3",
-        "channel": "heating-utility-disturbance",
-        "role": "disturbance",
-        "symbol": "P1.UtilityDisturbance",
-        "address": "%ML104",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": -15,
-          "maximum": 15
-        }
-      },
-      {
-        "id": "jacket-test-setpoint-4",
-        "channel": "jacket-test-setpoint",
-        "role": "state",
-        "symbol": "P1.JacketTestSetpoint",
-        "address": "%ML96",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 60,
-          "maximum": 85
-        }
-      },
-      {
-        "id": "fast-jacket-setpoint-5",
-        "channel": "fast-jacket-setpoint",
-        "role": "state",
-        "symbol": "P1.FastJacketSetpoint",
-        "address": "%ML112",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 60,
-          "maximum": 85
-        }
-      },
-      {
-        "id": "slow-jacket-setpoint-6",
-        "channel": "slow-jacket-setpoint",
-        "role": "state",
-        "symbol": "P1.SlowJacketSetpoint",
-        "address": "%ML120",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 60,
-          "maximum": 85
-        }
-      },
-      {
-        "id": "direct-jacket-temperature-7",
-        "channel": "direct-jacket-temperature",
-        "role": "state",
-        "symbol": "P1.DirectJacketTemperature",
-        "address": "%IL8",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 45,
-          "maximum": 90
-        }
-      },
-      {
-        "id": "fast-cascade-reactor-temperature-8",
-        "channel": "fast-cascade-reactor-temperature",
-        "role": "state",
-        "symbol": "P1.FastReactorTemperature",
-        "address": "%IL16",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "degC",
-        "range": {
-          "minimum": 60,
-          "maximum": 95
-        }
-      },
-      {
-        "id": "fast-cascade-jacket-temperature-9",
-        "channel": "fast-cascade-jacket-temperature",
-        "role": "state",
-        "symbol": "P1.FastJacketTemperature",
+        "symbol": "P1.SingleVesselC",
         "address": "%IL24",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "degC",
         "range": {
-          "minimum": 45,
-          "maximum": 90
+          "minimum": 0,
+          "maximum": 80
         }
       },
       {
-        "id": "slow-cascade-reactor-temperature-10",
-        "channel": "slow-cascade-reactor-temperature",
+        "id": "jacket",
+        "channel": "jacket",
         "role": "state",
-        "symbol": "P1.SlowReactorTemperature",
-        "address": "%IL32",
+        "symbol": "P1.JacketC",
+        "address": "%IL0",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "degC",
         "range": {
-          "minimum": 60,
-          "maximum": 95
+          "minimum": 0,
+          "maximum": 80
         }
       },
       {
-        "id": "slow-cascade-jacket-temperature-11",
-        "channel": "slow-cascade-jacket-temperature",
+        "id": "single-jacket",
+        "channel": "single-jacket",
         "role": "state",
-        "symbol": "P1.SlowJacketTemperature",
-        "address": "%IL40",
+        "symbol": "P1.SingleJacketC",
+        "address": "%IL16",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "degC",
         "range": {
-          "minimum": 45,
-          "maximum": 90
+          "minimum": 0,
+          "maximum": 80
         }
       },
       {
-        "id": "fast-cascade-valve-request-12",
-        "channel": "fast-cascade-valve-request",
+        "id": "single-command",
+        "channel": "single-command",
         "role": "state",
-        "symbol": "P1.FastValveRequest",
+        "symbol": "P1.SinglePct",
         "address": "%QL16",
         "iecType": "LREAL",
         "direction": "read",
@@ -219,14 +104,28 @@
         }
       },
       {
-        "id": "slow-cascade-valve-request-13",
-        "channel": "slow-cascade-valve-request",
+        "id": "jacket-setpoint",
+        "channel": "jacket-setpoint",
         "role": "state",
-        "symbol": "P1.SlowValveRequest",
-        "address": "%QL32",
+        "symbol": "P1.JacketSetpointC",
+        "address": "%ML8",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "%",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "load",
+        "channel": "load",
+        "role": "disturbance",
+        "symbol": "P1.JacketLoadKw",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
         "range": {
           "minimum": 0,
           "maximum": 100
@@ -237,10 +136,10 @@
         "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
-        "address": "%MX136.3",
+        "address": "%MX32.0",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "",
+        "unit": "1",
         "range": {
           "minimum": 0,
           "maximum": 1
@@ -255,18 +154,21 @@
   "observedSampleTiming": {
     "nominalPeriodMs": 100
   },
-  "plantId": "three_equivalent_jacketed_reactors",
+  "plantId": "two-jacketed-vessels",
+  "operatingPoint": "Two jacketed vessels at 35 degC with the jacket at 38 degC and 15% heater command",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 120.1,
+    "durationSeconds": 62.1,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX136.3",
+      "address": "%MX32.0",
       "iecType": "BOOL",
       "direction": "write"
-    }
-  }
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:1cb2778d7624ceb67804dcd390e885276f7ccc05b55735acd553d409308da145"
 }

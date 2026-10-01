@@ -14,26 +14,29 @@ package "VS Code webview" {
   component "Existing monitor projection\nbounded selected-signal history + current legend values\nscoped readings; gaps and restart boundaries" as readings
   component "Scoped host-state projection\noperation, binding and recovery state\npage navigation does not start work" as projection
   component "Contextual manual tools\nproject experiments, recorded fits, model analysis\nselected through existing methods\nshared model-comparison evidence and saved fit controls" as tools
+  component "Loop setup form\nstructure: PID, cascade, feedforward, Smith predictor, gain schedule, PID group, ON/OFF,\nstate feedback, own P, PI or PID, other law\n(coefficients searched), or identify only\nprefilled from compiled calls; names the first missing item" as setup_form
 }
 
 package "VS Code extension host" {
   component "Panel message boundary\nproject, loop revision and editor session\ndeduplicated requests and current-scope checks" as panel
   component "Compiled binding discovery\nexplicit configured loops, ST instances and PID group members\ncomplete signal/parameter/state mappings, compiled member checks" as bindings
+  component "Loop setup generators\ncompiled catalog: symbols, call links, writes\none loop definition per structure\nwrites control-loops/<name>.json, never overwrites" as setup
   component "Automatic flow coordinator\nIdentify → model review\nexplicit Tune stops at candidate\nexplicit Validate checks model then controller\npause for missing inputs or failure" as flow
-  component "Engineer workflow session\nselected model, candidate and requirements\ninput invalidation and retained outcomes" as engineer
+  component "Engineer workflow session\nrequest guards, input invalidation and recovery\none explicit session state: model, candidate,\nrequirements and retained outcomes" as engineer
+  component "Engineer action owners\nIdentify, Tune, Validate, Apply/confirm,\nRestore and runtime review; each works only\nthrough the session host and its state" as actions
   component "Study Reset\nidle/recovery guard; clear working results\npersist empty draft before refreshing view" as reset
   component "Model and recording owners\nopened or retained recordings\nindependent identification data and selected model" as models
   component "Automatic identification\nfresh applicable bounded acquisition\none live campaign + provisional model fit" as identification
   component "Project experiment and recording lifecycle\nreviewed activation, runtime scan buffers\nterminal restoration and retained raw signals" as experiments
   component "Existing analysis sessions\nselected model / declared controller\nroot locus, exact Routh, frequency and initial-state response\nminimal pole views, state structure and measured MIMO" as analysis
   component "Automatic test criteria\nmodel timescale, recording noise and operating limits\npreserve explicit values; freeze before validation" as automatic_criteria
-  component "Controller adapters and tuning\nexisting Control.PID / declared project / state controllers\nexplicit choices, parameter mapping and pins\nfinite Riccati stages with explicit fixed runtime policy" as tuning
+  component "Controller adapters and tuning\nexisting Control.PID / declared project / state controllers\ncascade: inner first, outer through the closed inner loop\nfeedforward: PI on the output path, K_ff and lead/lag from both paths\nSmith predictor: model K, T, θ from the model; PI on the delay-free model\ndecoupler: D = K⁻¹·diag(K), each PI through it\nAutomatic: response chosen by its predicted requirements\nexplicit choices, parameter mapping and pins\nfinite Riccati stages with explicit fixed runtime policy" as tuning
   component "Independent model check\nfresh live recording; frozen model coefficients\nper-channel agreement and retained qualification\nfailed prediction retained; acceptance remains blocked" as model_check
   component "Verification campaign\nmandatory scenarios, initial states and constraints\nmissing scenarios remain Inconclusive" as campaign
-  component "Selected-model simulation\nCurrent/Tuned prediction\nexplicit model-envelope scenarios" as prediction
+  component "Selected-model simulation\nCurrent/Tuned prediction: Control.PID calculated,\nswitching, state-feedback, project laws and PID groups run as ST on the model\nexplicit model-envelope scenarios" as prediction
   component "Configured-plant validation\nCurrent/Tuned actual ST execution\nnominal campaign has no fitted-model override" as configured_validation
   component "Reviewed application coordinator\nfresh review and single confirmation\nexplicit Apply or Restore only" as application
-  component "Commissioning and recovery\ncoherent parameters/state adoption\nfirst-output observation, monitoring and rollback" as commissioning
+  component "Commissioning and recovery\nwaits (bounded, cancellable) for the validated operating point\ncoherent parameters/state adoption; state-feedback entry allowance\nobserves the test in runtime time; monitoring and rollback" as commissioning
   database "Study and operation persistence\nmodels, recordings, requirements, mappings and pins\nparameter/transfer/isolated-operation identities\nreopen observes current runtime; no write replay" as persistence
 }
 
@@ -81,19 +84,20 @@ engineer <--> models : identical downstream model route
 engineer --> automatic_criteria : fill missing test settings
 automatic_criteria --> models : selected model and original recording
 automatic_criteria --> persistence : values and automatic origin
-engineer --> tuning : candidate and shared test criteria
+engineer --> actions : one owner per requested action
+actions --> tuning : candidate and shared test criteria
 tuning --> workers : existing numerical methods
-engineer --> model_check : explicit Validate for provisional model
+actions --> model_check : explicit Validate for provisional model
 model_check --> identification : acquire independent record; no refit
 model_check --> workers : predict and compare frozen model
 model_check --> persistence : retain qualification and source records
-engineer --> campaign : require model pass; freeze controller scenarios
+actions --> campaign : require model pass; freeze controller scenarios
 campaign --> prediction
 campaign --> configured_validation
 prediction --> isolated : explicit model override
 configured_validation --> isolated : configured plant
 application --> engineer : require current passed candidate
-engineer --> commissioning : exact reviewed target
+actions --> commissioning : exact reviewed target
 commissioning --> transactions : adopt/restore complete binding
 commissioning --> persistence : durable recovery ownership
 isolated --> persistence : retain operation identity and outcomes
@@ -105,6 +109,10 @@ commissioning --> connection
 isolated --> connection
 transactions --> connection
 
+setup_form <--> setup : draft / save or reason
+setup --> bindings : compiled catalog
+setup --> persistence : new loop definitions
+tuning --> prediction : Automatic response check; program-law candidate
 panel --> readings : existing loop monitor snapshots
 readings --> identify : initial response and current values
 

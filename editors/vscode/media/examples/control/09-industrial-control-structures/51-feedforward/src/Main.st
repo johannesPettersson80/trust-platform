@@ -1,187 +1,118 @@
 USING Control;
 
-FUNCTION Lesson51StaticFeedforward : LREAL
+(* Feedforward from a measured heat extraction D_m: each command point delivers KwPerPoint of heat, so replacing D_m
+   takes D_m/KwPerPoint points. *)
+FUNCTION LoadFeedforwardPct : LREAL
 VAR_INPUT
-    HeaterPathGain : LREAL;
-    DisturbancePathGain : LREAL;
-    DisturbanceDeviation : LREAL;
-    SpeedValid : BOOL;
+    MeasuredLoadKw : LREAL;
+    KwPerPoint : LREAL;
 END_VAR
-IF SpeedValid THEN
-    Lesson51StaticFeedforward :=
-        -(DisturbancePathGain / HeaterPathGain) * DisturbanceDeviation;
-ELSE
-    Lesson51StaticFeedforward := LREAL#0.0;
-END_IF;
+LoadFeedforwardPct := MeasuredLoadKw / KwPerPoint;
 END_FUNCTION
 
-FUNCTION Lesson51DynamicFeedforward : LREAL
+(* Until the requested heat arrives, the extraction cools the water as if the heater did nothing: after the delivery
+   delay td the water has fallen by D/H·(1 − e^(−td/τ)), with the loss coefficient H in kW/°C and the time constant τ. *)
+FUNCTION UnavoidableDropC : LREAL
 VAR_INPUT
-    DisturbanceDeviation : LREAL;
-    FilteredDisturbance : LREAL;
-    Scale : LREAL;
-    SpeedValid : BOOL;
+    LoadKw : LREAL;
+    LossKwPerC : LREAL;
+    TimeConstantS : LREAL;
+    DelayS : LREAL;
 END_VAR
-IF SpeedValid THEN
-    Lesson51DynamicFeedforward := Scale *
-        (LREAL#25.0 * DisturbanceDeviation -
-         LREAL#15.0 * FilteredDisturbance);
-ELSE
-    Lesson51DynamicFeedforward := LREAL#0.0;
-END_IF;
-END_FUNCTION
-
-FUNCTION Lesson51ReviewedSpeed : LREAL
-VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
-    ExperimentEnabled : BOOL;
-    InputsValid : BOOL;
-    SafetyAbort : BOOL;
-END_VAR
-IF ExperimentEnabled AND InputsValid AND (NOT SafetyAbort)
-    AND (ExperimentElapsedSeconds >= LREAL#30.0) THEN
-    Lesson51ReviewedSpeed := LREAL#2.0;
-ELSE
-    Lesson51ReviewedSpeed := LREAL#1.0;
-END_IF;
+UnavoidableDropC := LoadKw / LossKwPerC * (LREAL#1.0 - EXP(-DelayS / TimeConstantS));
 END_FUNCTION
 
 PROGRAM Main
 VAR
-    FeedbackController : Control.PID;
-    StaticController : Control.PID;
-    DynamicController : Control.PID;
-    Parameters : Control.PIDParameters;
-    InitialState : Control.PIDInitialState;
-    FeedbackInput : Control.PIDInput;
-    StaticInput : Control.PIDInput;
-    DynamicInput : Control.PIDInput;
-    DisturbanceFilter : Control.LowPass;
-    FilterParameters : Control.LowPassParameters;
+    (* Three copies of the heater, each held at 35 °C by Control.PID as PI, Kp = 5 % per °C and Ki = 1 % per °C·s: the
+       first alone, the second with feedforward from the measured load, the third with feedforward from an estimate
+       20 % too high. *)
+    PiOnlyLoop : Control.PID;
+    FeedforwardLoop : Control.PID;
+    BiasedLoop : Control.PID;
+    Parameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#5.0,
+        IntegralGain := LREAL#1.0,
+        DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#1.0,
+        DerivativeSetpointWeight := LREAL#0.0,
+        Bias := LREAL#0.0,
+        OutputMinimum := LREAL#0.0,
+        OutputMaximum := LREAL#100.0,
+        RateMinimum := LREAL#-1000.0,
+        RateMaximum := LREAL#1000.0,
+        TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation
+    );
+    State : Control.PIDInitialState;
+    PiOnlyInput : Control.PIDInput;
+    FeedforwardInput : Control.PIDInput;
+    BiasedInput : Control.PIDInput;
     Initialized : BOOL := FALSE;
+    PiOnlyC : LREAL := 35.0;
+    PiOnlyPct : LREAL := 75.0;
+    PiOnlyLoadKw : LREAL := 0.0;
+    FeedforwardC : LREAL := 35.0;
+    FeedforwardHeaterPct : LREAL := 75.0;
+    FeedforwardLoadKw : LREAL := 0.0;
+    BiasedC : LREAL := 35.0;
+    BiasedHeaterPct : LREAL := 75.0;
+    BiasedLoadKw : LREAL := 0.0;
+    SetpointC : LREAL := 35.0;
+    (* Control Studio's project experiment starts a 30 kW extraction on all three heaters. *)
+    LoadKw : LREAL := 0.0;
+    FeedforwardPct : LREAL := 0.0;
+    BiasedFeedforwardPct : LREAL := 0.0;
+    (* The feedback part of each feedforward heater's command: command − feedforward. *)
+    FeedbackPct : LREAL := 75.0;
+    BiasedFeedbackPct : LREAL := 75.0;
     ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    ExperimentElapsed : LREAL := 0.0;
-    SpeedValid : BOOL := TRUE;
-    Setpoint : LREAL := 120.0;
-    ActualLineSpeed : LREAL := 1.0;
-    MeasuredLineSpeed : LREAL := 1.0;
-    DynamicFeedforwardScale : LREAL := 1.0;
-    DisturbanceDeviation : LREAL := 0.0;
-    FilteredDisturbance : LREAL := 0.0;
-    StaticFeedforward : LREAL := 0.0;
-    DynamicFeedforward : LREAL := 0.0;
-    FeedbackTemperature : LREAL := 120.0;
-    StaticTemperature : LREAL := 120.0;
-    DynamicTemperature : LREAL := 120.0;
-    FeedbackHeaterRequest : LREAL := 70.0;
-    FeedbackSpeedInput : LREAL := 1.0;
-    StaticHeaterRequest : LREAL := 70.0;
-    StaticSpeedInput : LREAL := 1.0;
-    DynamicHeaterRequest : LREAL := 70.0;
-    DynamicSpeedInput : LREAL := 1.0;
-    AutomaticMode : BOOL := TRUE;
 END_VAR
 
+SetpointC := LREAL#35.0;
+IF ExperimentEnabled THEN
+    LoadKw := LREAL#30.0;
+ELSE
+    LoadKw := LREAL#0.0;
+END_IF;
+PiOnlyLoadKw := LoadKw;
+FeedforwardLoadKw := LoadKw;
+BiasedLoadKw := LoadKw;
+FeedforwardPct := LoadFeedforwardPct(MeasuredLoadKw := LoadKw, KwPerPoint := LREAL#2.0);
+BiasedFeedforwardPct := LoadFeedforwardPct(MeasuredLoadKw := LREAL#1.2 * LoadKw, KwPerPoint := LREAL#2.0);
+
+PiOnlyLoop.Configure(Parameters := Parameters);
+FeedforwardLoop.Configure(Parameters := Parameters);
+BiasedLoop.Configure(Parameters := Parameters);
 IF NOT Initialized THEN
-    Setpoint := LREAL#120.0;
-    ActualLineSpeed := LREAL#1.0;
-    Parameters.ProportionalGain := LREAL#0.8;
-    Parameters.IntegralGain := LREAL#0.08;
-    Parameters.DerivativeGain := LREAL#0.0;
-    Parameters.ProportionalSetpointWeight := LREAL#1.0;
-    Parameters.DerivativeSetpointWeight := LREAL#0.0;
-    Parameters.Bias := LREAL#70.0;
-    Parameters.OutputMinimum := LREAL#0.0;
-    Parameters.OutputMaximum := LREAL#100.0;
-    Parameters.RateMinimum := LREAL#-1000.0;
-    Parameters.RateMaximum := LREAL#1000.0;
-    Parameters.TrackingTime := LREAL#2.0;
-    Parameters.AntiWindup := PIDAntiWindup#Combined;
-
-    InitialState.Setpoint := Setpoint;
-    InitialState.ProcessValue := Setpoint;
-    InitialState.FeedForward := LREAL#0.0;
-    InitialState.NominalOutput := LREAL#70.0;
-    InitialState.SaturatedOutput := LREAL#70.0;
-    FeedbackController.Configure(Parameters := Parameters);
-    StaticController.Configure(Parameters := Parameters);
-    DynamicController.Configure(Parameters := Parameters);
-    FeedbackController.Initialize(State := InitialState);
-    StaticController.Initialize(State := InitialState);
-    DynamicController.Initialize(State := InitialState);
-
-    (* The disturbance-path filter belongs to the feedforward model. The
-       measured oven temperature remains unfiltered and visible. *)
-    FilterParameters.TimeConstant := LREAL#4.0;
-    FilterParameters.Order := FilterOrder#FirstOrder;
-    DisturbanceFilter.Configure(Parameters := FilterParameters);
-    DisturbanceFilter.Initialize(Input := LREAL#0.0);
+    State.Setpoint := SetpointC;
+    State.ProcessValue := SetpointC;
+    State.NominalOutput := LREAL#75.0;
+    State.SaturatedOutput := LREAL#75.0;
+    PiOnlyLoop.Initialize(State := State);
+    FeedforwardLoop.Initialize(State := State);
+    BiasedLoop.Initialize(State := State);
     Initialized := TRUE;
 END_IF;
-
-IF ExperimentEnabled AND (NOT SafetyAbort) AND InputsValid THEN
-    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
-ELSE
-    ExperimentElapsed := LREAL#0.0;
-END_IF;
-ActualLineSpeed := Lesson51ReviewedSpeed(
-    ExperimentElapsedSeconds := ExperimentElapsed,
-    ExperimentEnabled := ExperimentEnabled,
-    InputsValid := InputsValid,
-    SafetyAbort := SafetyAbort);
-MeasuredLineSpeed := ActualLineSpeed;
-
-FeedbackSpeedInput := ActualLineSpeed;
-StaticSpeedInput := ActualLineSpeed;
-DynamicSpeedInput := ActualLineSpeed;
-
-IF SpeedValid THEN
-    DisturbanceDeviation := MeasuredLineSpeed - LREAL#1.0;
-ELSE
-    (* Invalid disturbance data removes feedforward authority while the three
-       ordinary feedback controllers continue to operate. *)
-    DisturbanceDeviation := LREAL#0.0;
-END_IF;
-StaticFeedforward := Lesson51StaticFeedforward(
-    HeaterPathGain := LREAL#2.0,
-    DisturbancePathGain := LREAL#-20.0,
-    DisturbanceDeviation := DisturbanceDeviation,
-    SpeedValid := SpeedValid);
-DynamicFeedforward := Lesson51DynamicFeedforward(
-    DisturbanceDeviation := DisturbanceDeviation,
-    FilteredDisturbance := FilteredDisturbance,
-    Scale := DynamicFeedforwardScale,
-    SpeedValid := SpeedValid);
-(* Use the retained filter state for this command, then advance it for the next
-   controller sample. This preserves the predicted 25-point first action. *)
-FilteredDisturbance := DisturbanceFilter.Update(
-    Input := DisturbanceDeviation,
-    CycleTime := LREAL#0.1
-);
-
-FeedbackInput.Setpoint := Setpoint;
-FeedbackInput.ProcessValue := FeedbackTemperature;
-FeedbackInput.FeedForward := LREAL#0.0;
-FeedbackInput.Mode := PIDMode#Auto;
-FeedbackInput.CycleTime := LREAL#0.1;
-FeedbackHeaterRequest := FeedbackController.Update(Input := FeedbackInput);
-
-StaticInput.Setpoint := Setpoint;
-StaticInput.ProcessValue := StaticTemperature;
-StaticInput.FeedForward := StaticFeedforward;
-StaticInput.Mode := PIDMode#Auto;
-StaticInput.CycleTime := LREAL#0.1;
-StaticHeaterRequest := StaticController.Update(Input := StaticInput);
-
-DynamicInput.Setpoint := Setpoint;
-DynamicInput.ProcessValue := DynamicTemperature;
-DynamicInput.FeedForward := DynamicFeedforward;
-DynamicInput.Mode := PIDMode#Auto;
-DynamicInput.CycleTime := LREAL#0.1;
-DynamicHeaterRequest := DynamicController.Update(Input := DynamicInput);
-AutomaticMode := TRUE;
+PiOnlyInput.Mode := PIDMode#Auto;
+PiOnlyInput.CycleTime := LREAL#0.1;
+PiOnlyInput.Setpoint := SetpointC;
+PiOnlyInput.ProcessValue := PiOnlyC;
+PiOnlyPct := PiOnlyLoop.Update(Input := PiOnlyInput);
+FeedforwardInput.Mode := PIDMode#Auto;
+FeedforwardInput.CycleTime := LREAL#0.1;
+FeedforwardInput.Setpoint := SetpointC;
+FeedforwardInput.ProcessValue := FeedforwardC;
+FeedforwardInput.FeedForward := FeedforwardPct;
+FeedforwardHeaterPct := FeedforwardLoop.Update(Input := FeedforwardInput);
+BiasedInput.Mode := PIDMode#Auto;
+BiasedInput.CycleTime := LREAL#0.1;
+BiasedInput.Setpoint := SetpointC;
+BiasedInput.ProcessValue := BiasedC;
+BiasedInput.FeedForward := BiasedFeedforwardPct;
+BiasedHeaterPct := BiasedLoop.Update(Input := BiasedInput);
+FeedbackPct := FeedforwardHeaterPct - FeedforwardPct;
+BiasedFeedbackPct := BiasedHeaterPct - BiasedFeedforwardPct;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -190,25 +121,21 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.SpeedValid AT %MX136.0 : BOOL;
-    P1.AutomaticMode AT %MX136.1 : BOOL;
-    P1.ExperimentEnabled AT %MX136.2 : BOOL;
-    P1.SafetyAbort AT %MX136.3 : BOOL;
-    P1.InputsValid AT %MX136.4 : BOOL;
-    P1.Setpoint AT %ML88 : LREAL;
-    P1.ActualLineSpeed AT %ML96 : LREAL;
-    P1.MeasuredLineSpeed AT %ML104 : LREAL;
-    P1.DynamicFeedforwardScale AT %ML112 : LREAL;
-    P1.StaticFeedforward AT %ML120 : LREAL;
-    P1.DynamicFeedforward AT %ML128 : LREAL;
-    P1.FeedbackTemperature AT %IL0 : LREAL;
-    P1.StaticTemperature AT %IL8 : LREAL;
-    P1.DynamicTemperature AT %IL16 : LREAL;
-    P1.FeedbackHeaterRequest AT %QL0 : LREAL;
-    P1.FeedbackSpeedInput AT %QL8 : LREAL;
-    P1.StaticHeaterRequest AT %QL16 : LREAL;
-    P1.StaticSpeedInput AT %QL24 : LREAL;
-    P1.DynamicHeaterRequest AT %QL32 : LREAL;
-    P1.DynamicSpeedInput AT %QL40 : LREAL;
+    P1.PiOnlyPct AT %QL0 : LREAL;
+    P1.PiOnlyLoadKw AT %QL8 : LREAL;
+    P1.PiOnlyC AT %IL0 : LREAL;
+    P1.FeedforwardHeaterPct AT %QL16 : LREAL;
+    P1.FeedforwardLoadKw AT %QL24 : LREAL;
+    P1.FeedforwardC AT %IL8 : LREAL;
+    P1.BiasedHeaterPct AT %QL32 : LREAL;
+    P1.BiasedLoadKw AT %QL40 : LREAL;
+    P1.BiasedC AT %IL16 : LREAL;
+    P1.SetpointC AT %ML0 : LREAL;
+    P1.LoadKw AT %ML8 : LREAL;
+    P1.FeedforwardPct AT %ML16 : LREAL;
+    P1.BiasedFeedforwardPct AT %ML24 : LREAL;
+    P1.FeedbackPct AT %ML32 : LREAL;
+    P1.BiasedFeedbackPct AT %ML40 : LREAL;
+    P1.ExperimentEnabled AT %MX48.0 : BOOL;
 END_VAR
 END_CONFIGURATION

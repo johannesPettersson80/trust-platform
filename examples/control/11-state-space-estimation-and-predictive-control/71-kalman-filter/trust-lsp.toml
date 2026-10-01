@@ -1,5 +1,2 @@
 [project]
 include_paths = ["src"]
-
-[dependencies]
-Control = { path = "libraries/control", version = "0.1.0" }

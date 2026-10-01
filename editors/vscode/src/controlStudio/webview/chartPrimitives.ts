@@ -32,14 +32,25 @@ export function axis(
     : axisTickFormatter(values ? linearAxisFractionDigits(values) : undefined);
   const finiteValues = values?.filter((value): value is number => typeof value === "number" && Number.isFinite(value)) ?? [];
   const range = options.fitToData && type === "value" ? liveResponseAxisRange(finiteValues) : undefined;
+  // A fitted axis is padded beyond the data; label its regular ticks, not the padded ends beside them.
   return { type, name, min: range?.minimum ?? null, max: range?.maximum ?? null, nameLocation: "middle", nameGap: 30, nameTextStyle: { color: theme.muted },
-    axisLabel: { color: theme.muted, formatter, hideOverlap: true, margin: 8 },
+    axisLabel: { color: theme.muted, formatter, hideOverlap: true, margin: 8, ...(range ? { showMinLabel: false, showMaxLabel: false } : {}) },
     axisLine: { show: false }, axisTick: { show: false }, splitNumber: 5,
     splitLine: { lineStyle: { color: theme.border, opacity: 0.18 } } };
 }
 
-export function engineeringLine(name: string, yAxisIndex: number, data: (number | null)[][], style: "solid" | "dashed") {
+export function engineeringLine(name: string, yAxisIndex: number, data: (number | null)[][], style: "solid" | "dashed" | "dotted") {
   return { name, type: "line" as const, yAxisIndex, showSymbol: false, lineStyle: { width: 2, type: style }, data };
+}
+
+/** Stroke of the auxiliary signal at a stable position: the colour cycles through the auxiliary
+ * palette and the line style changes after each full cycle, so nine auxiliary signals never look
+ * alike or like the primary traces. */
+export function auxiliaryTraceStyle(theme: Pick<ReturnType<typeof chartTheme>, "auxiliaryOrange" | "auxiliaryPurple" | "auxiliaryYellow">,
+  position: number) {
+  const palette = [theme.auxiliaryOrange, theme.auxiliaryPurple, theme.auxiliaryYellow];
+  const index = Math.max(0, position);
+  return { color: palette[index % palette.length], type: (["solid", "dashed", "dotted"] as const)[Math.floor(index / palette.length) % 3] };
 }
 
 export function pointSeries(name: string, data: number[][], symbol: "circle" | "cross") {

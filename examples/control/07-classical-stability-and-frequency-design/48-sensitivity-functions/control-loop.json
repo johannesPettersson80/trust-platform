@@ -1,121 +1,120 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "control-sensitivity-functions",
   "name": "Sensitivity functions",
-  "revision": "sha256:11c3f47edc62eb7e13939e316024f6d8f437cd26ad93566f4c5272ac626948ed",
   "projectId": "project:control-sensitivity-functions",
   "runtimeId": "simulator",
   "controller": {
-    "instance": "P1",
-    "type": "SensitivityShapingComparison",
+    "instance": "P1.LoadLoop",
+    "type": "Control.PID",
     "design": "project",
-    "revision": "sha256:curriculum-controller-49",
+    "revision": "sha256:585594c61c876727cd2dc0f3a359a72daec3345dca7ce365bf3db738ab8c27dd",
     "action": "direct",
-    "taskPeriodMs": 10
+    "taskPeriodMs": 100
   },
   "signals": {
     "setpoint": {
-      "symbol": "P1.SpeedSetpoint",
+      "symbol": "P1.SetpointC",
       "address": "%ML16",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "rpm",
+      "unit": "degC",
       "range": {
-        "minimum": -20,
-        "maximum": 20
+        "minimum": 0,
+        "maximum": 80
       }
     },
     "processVariable": {
-      "symbol": "P1.BaselineMeasuredSpeed",
+      "symbol": "P1.LoadTemperatureC",
       "address": "%IL0",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "rpm",
+      "unit": "degC",
       "range": {
-        "minimum": -20,
-        "maximum": 20
+        "minimum": 0,
+        "maximum": 80
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.BaselineAppliedTorque",
+      "symbol": "P1.LoadCommandPct",
       "address": "%QL0",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "%",
       "range": {
-        "minimum": -100,
+        "minimum": 0,
         "maximum": 100
       }
     },
     "additional": [
       {
-        "id": "baseline-load",
-        "channel": "baseline",
+        "id": "load",
+        "channel": "load",
         "role": "disturbance",
-        "symbol": "P1.BaselineLoadTorque",
+        "symbol": "P1.LoadKw",
         "address": "%QL8",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": -100,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "shaped-pv",
-        "channel": "shaped",
-        "role": "PV",
-        "symbol": "P1.ShapedMeasuredSpeed",
-        "address": "%IL16",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "rpm",
+        "unit": "kW",
         "range": {
           "minimum": -20,
           "maximum": 20
         }
       },
       {
-        "id": "shaped-mv",
-        "channel": "shaped",
-        "role": "MV",
-        "symbol": "P1.ShapedAppliedTorque",
+        "id": "noise-temperature",
+        "channel": "noise-temperature",
+        "role": "state",
+        "symbol": "P1.NoiseTemperatureC",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "measured-temperature",
+        "channel": "measured-temperature",
+        "role": "state",
+        "symbol": "P1.MeasuredTemperatureC",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "noise-command",
+        "channel": "noise-command",
+        "role": "state",
+        "symbol": "P1.NoiseCommandPct",
         "address": "%QL16",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "%",
         "range": {
-          "minimum": -100,
+          "minimum": 0,
           "maximum": 100
         }
       },
       {
-        "id": "shaped-load",
-        "channel": "shaped",
-        "role": "disturbance",
-        "symbol": "P1.ShapedLoadTorque",
-        "address": "%QL24",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": -100,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "shaped-true-speed",
-        "channel": "shaped",
+        "id": "noise",
+        "channel": "noise",
         "role": "state",
-        "symbol": "P1.ShapedTrueSpeed",
-        "address": "%IL24",
+        "symbol": "P1.NoiseC",
+        "address": "%ML0",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "rpm",
+        "unit": "degC",
         "range": {
-          "minimum": -20,
-          "maximum": 20
+          "minimum": -1,
+          "maximum": 1
         }
       },
       {
@@ -123,36 +122,120 @@
         "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
-        "address": "%MX96.0",
+        "address": "%MX24.0",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "",
+        "unit": "1",
         "range": {
           "minimum": 0,
           "maximum": 1
+        }
+      },
+      {
+        "id": "sensitivity",
+        "channel": "sensitivity",
+        "role": "state",
+        "symbol": "P1.SensitivityAtOmega",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "complementary-sensitivity",
+        "channel": "complementary-sensitivity",
+        "role": "state",
+        "symbol": "P1.ComplementaryAtOmega",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 10
         }
       }
     ]
   },
   "limits": {
-    "outputMinimum": -100,
+    "outputMinimum": 0,
     "outputMaximum": 100
   },
   "observedSampleTiming": {
-    "nominalPeriodMs": 10
+    "nominalPeriodMs": 100
   },
-  "plantId": "precision_motor_sensitivity_pair",
+  "plantId": "two-heaters",
+  "operatingPoint": "Both heaters at 35 degC with 75% under PI control",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 120.1,
+    "durationSeconds": 159.2,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX96.0",
+      "address": "%MX24.0",
       "iecType": "BOOL",
       "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "analysis": {
+    "plant": {
+      "kind": "transfer-function",
+      "numerator": [
+        0.2
+      ],
+      "denominator": [
+        5,
+        1
+      ],
+      "delaySeconds": 1,
+      "inputUnit": "%",
+      "outputUnit": "degC",
+      "revision": "water-heater-lessons-12-29",
+      "source": "provided",
+      "validation": "unvalidated"
+    },
+    "controller": {
+      "numerator": [
+        {
+          "parameter": "Kp"
+        },
+        {
+          "parameter": "Ki"
+        }
+      ],
+      "denominator": [
+        1,
+        0
+      ],
+      "parameters": {
+        "Kp": {
+          "value": 5,
+          "minimum": 0,
+          "maximum": 20,
+          "unit": "%/degC"
+        },
+        "Ki": {
+          "value": 1,
+          "minimum": 1,
+          "maximum": 1,
+          "unit": "%/(degC·s)"
+        }
+      }
+    },
+    "rootLocus": {
+      "parameter": "Kp",
+      "values": [
+        5
+      ],
+      "selectedValue": 5
     }
-  }
+  },
+  "revision": "sha256:328b25b9358d9ebf065f2b3a5ce6ec6e012df8c079f58a4bad4af30436778970"
 }

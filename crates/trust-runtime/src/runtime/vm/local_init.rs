@@ -1,8 +1,8 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use indexmap::IndexMap;
+use rustc_hash::FxHashMap;
 use smol_str::SmolStr;
 use trust_hir::{Type, TypeId};
 
@@ -166,7 +166,7 @@ fn initialize_var_value(
             .classes()
             .get(&class_key)
             .cloned()
-            .ok_or(RuntimeError::TypeMismatch)?;
+            .ok_or_else(|| RuntimeError::TypeMismatch)?;
         let initializer_catalog = runtime.initializer_catalog().clone();
         let (storage, registry, classes, function_blocks, functions, stdlib) =
             runtime.instance_init_context();
@@ -182,6 +182,52 @@ fn initialize_var_value(
             &class_def,
         )?;
         return Ok(Value::Instance(instance_id));
+    }
+    if crate::instance::is_instance_array(local.type_id, runtime.registry()) {
+        let initializer_catalog = runtime.initializer_catalog().clone();
+        let (storage, registry, classes, function_blocks, functions, stdlib) =
+            runtime.instance_init_context();
+        let array = crate::instance::create_instance_array(
+            storage,
+            registry,
+            &profile,
+            classes,
+            function_blocks,
+            functions,
+            stdlib,
+            &initializer_catalog,
+            local.type_id,
+        )?
+        .ok_or_else(|| RuntimeError::TypeMismatch)?;
+        if let Some(expr) = &local.initializer {
+            crate::instance::for_each_element_initializer(
+                &array,
+                expr,
+                &mut |instance_id, entry| {
+                    let type_name = runtime
+                        .storage()
+                        .get_instance(instance_id)
+                        .ok_or_else(|| RuntimeError::NullReference)?
+                        .type_name
+                        .clone();
+                    let fb = runtime
+                        .function_blocks()
+                        .get(&SmolStr::new(type_name.to_ascii_uppercase()))
+                        .cloned()
+                        .ok_or_else(|| RuntimeError::TypeMismatch)?;
+                    apply_fb_instance_initializer_from_vm_frame(
+                        runtime,
+                        plan,
+                        frame,
+                        visible_slots,
+                        instance_id,
+                        &fb,
+                        entry,
+                    )
+                },
+            )?;
+        }
+        return Ok(array);
     }
 
     if let Some(expr) = &local.initializer {
@@ -320,7 +366,7 @@ fn init_failed_debug(
 #[derive(Debug, Default)]
 struct VmLocalInitPlanCacheData {
     module_ptr: Option<usize>,
-    entries: HashMap<u32, Arc<VmPouInitPlan>>,
+    entries: FxHashMap<u32, Arc<VmPouInitPlan>>,
 }
 
 #[derive(Debug, Default)]

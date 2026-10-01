@@ -1,3 +1,4 @@
+import { compactStoredEvidence } from "./studyStorageCompaction";
 import { decodeIndependentModelValidation, type IndependentModelValidation } from "./independentModelValidation";
 import { decodeConnectedIdentificationRecord } from "./connectedIdentificationRecord";
 import { validLoopChannels, type LoopChannels } from "./loopChannels";
@@ -17,6 +18,7 @@ import { engineerRequirements, type EngineerRequirements } from "./engineerVerif
 import { decodeGeneralModel, type GeneralModel } from "./generalModel";
 import { evaluateRecordedRun } from "./runValidation";
 import type { RuntimeVerificationAttempt, RuntimeVerificationResult } from "./verificationClient";
+import { canonicalJson } from "./canonicalJson";
 
 const MAX_CAMPAIGNS = 16;
 const MAX_CAMPAIGN_RUNS = 16;
@@ -81,8 +83,10 @@ export function decodeEngineerStudy(value: unknown): EngineerStudy | undefined {
   const draft = value.draft === undefined ? undefined : decodeEngineerDraft(value.draft);
   if (value.draft !== undefined && !draft) return undefined;
   const scenarioResults = value.scenarioResults === undefined ? undefined : Array.isArray(value.scenarioResults)
-    ? value.scenarioResults.map(entry => record(entry) && text(entry.id) && decodeRuntimeVerificationResult(entry.result)
-      ? { id: entry.id, result: decodeRuntimeVerificationResult(entry.result)! } : undefined) : [undefined];
+    ? value.scenarioResults.map(entry => {
+      const result = record(entry) && text(entry.id) ? decodeRuntimeVerificationResult(entry.result) : undefined;
+      return result ? { id: (entry as Record<string, unknown>).id as string, result } : undefined;
+    }) : [undefined];
   if (scenarioResults && (scenarioResults.length > 64 || scenarioResults.some(entry => !entry)
     || new Set(scenarioResults.map(entry => entry!.id)).size !== scenarioResults.length)) return undefined;
   const tuningPreferences = value.tuningPreferences === undefined ? undefined : controllerTuningPreferences(value.tuningPreferences);
@@ -124,9 +128,9 @@ function decodeModelPrediction(value: unknown): EngineerStudy["modelPrediction"]
   if (!baseline || !candidate || baseline.projectRevision !== candidate.projectRevision) return undefined;
   const a = baseline.run.conditions, b = candidate.run.conditions;
   if (a.modelRevision !== b.modelRevision || a.programRevision !== b.programRevision || a.parameterSchemaRevision !== b.parameterSchemaRevision
-    || a.durationSeconds !== b.durationSeconds || a.seed !== b.seed || canonical(a.sampleTimesSeconds) !== canonical(b.sampleTimesSeconds)
-    || canonical(baseline.run.channels) !== canonical(candidate.run.channels)
-    || canonical(baseline.request.simulation_override ?? null) !== canonical(candidate.request.simulation_override ?? null)) return undefined;
+    || a.durationSeconds !== b.durationSeconds || a.seed !== b.seed || canonicalJson(a.sampleTimesSeconds) !== canonicalJson(b.sampleTimesSeconds)
+    || canonicalJson(baseline.run.channels) !== canonicalJson(candidate.run.channels)
+    || canonicalJson(baseline.request.simulation_override ?? null) !== canonicalJson(candidate.request.simulation_override ?? null)) return undefined;
   return { baseline, candidate };
 }
 
@@ -181,7 +185,7 @@ function decodeRuntimeVerificationResult(value: unknown): RuntimeVerificationRes
   try {
     const evaluation = evaluateRecordedRun(value.run, value.evaluation.specification);
     if (evaluation.run.evidence !== "ST-executed" || !matchesFrozenRequest(value.request, evaluation.run, value.projectRevision) ||
-        canonical(value.evaluation) !== canonical(evaluation)) return undefined;
+        canonicalJson(value.evaluation) !== canonicalJson(evaluation)) return undefined;
     return clone({ projectRevision: value.projectRevision, request: value.request, run: evaluation.run, evaluation });
   } catch { return undefined; }
 }
@@ -196,19 +200,19 @@ function matchesFrozenRequest(request: Record<string, unknown>, run: RuntimeVeri
       !nonnegativeInteger(seed) || durationMs % stepMs !== 0 || durationMs / stepMs + 1 > 12000 ||
       !record(request.initial_values) || !Array.isArray(request.events) || !Array.isArray(request.observations) ||
       run.conditions.durationSeconds !== durationMs / 1000 || run.conditions.seed !== seed ||
-      canonical(run.conditions.sampleTimesSeconds) !== canonical(Array.from({ length: durationMs / stepMs + 1 },
+      canonicalJson(run.conditions.sampleTimesSeconds) !== canonicalJson(Array.from({ length: durationMs / stepMs + 1 },
         (_, index) => index * stepMs / 1000)) ||
-      canonical(run.conditions.initialState) !== canonical(request.initial_values) ||
-      canonical((run.conditions as typeof run.conditions & { feedbackRelay?: unknown }).feedbackRelay ?? null) !== canonical(request.feedback_relay ?? null) ||
-      canonical(run.conditions.events) !== canonical(request.events.map(event => record(event)
+      canonicalJson(run.conditions.initialState) !== canonicalJson(request.initial_values) ||
+      canonicalJson((run.conditions as typeof run.conditions & { feedbackRelay?: unknown }).feedbackRelay ?? null) !== canonicalJson(request.feedback_relay ?? null) ||
+      canonicalJson(run.conditions.events) !== canonicalJson(request.events.map(event => record(event)
         ? { atSeconds: number(event.at_ms) / 1000, channel: event.symbol, value: event.value } : undefined)) ||
-      canonical(run.channels) !== canonical(request.observations.map(observation => record(observation)
+      canonicalJson(run.channels) !== canonicalJson(request.observations.map(observation => record(observation)
         ? { id: observation.symbol, unit: observation.unit } : undefined)) || !matchesSimulationOverride(request.simulation_override, run)) return false;
   const overrides = request.parameter_overrides;
   if (overrides !== undefined && !Array.isArray(overrides)) return false;
   const parameters = Array.isArray(overrides) ? Object.fromEntries(overrides.map(override => record(override)
     ? [override.symbol, override.value] : ["", undefined])) : {};
-  return canonical(run.parameters) === canonical(parameters);
+  return canonicalJson(run.parameters) === canonicalJson(parameters);
 }
 
 function matchesSimulationOverride(value: unknown, run: RuntimeVerificationResult["run"]): boolean {
@@ -223,7 +227,8 @@ function matchesSimulationOverride(value: unknown, run: RuntimeVerificationResul
 }
 
 function withinSerializedLimit(value: unknown): boolean {
-  try { return Buffer.byteLength(JSON.stringify(value), "utf8") <= MAX_ENGINEER_STUDY_BYTES; } catch { return false; }
+  // The bound protects workspace storage, so it applies to the compact form that is actually stored.
+  try { return Buffer.byteLength(JSON.stringify(compactStoredEvidence(value)), "utf8") <= MAX_ENGINEER_STUDY_BYTES; } catch { return false; }
 }
 
 function onlyKeys(value: Record<string, unknown>, allowed: readonly string[]): boolean {
@@ -241,10 +246,6 @@ function jsonEvidence(value: unknown): boolean {
   return record(value) && Object.values(value).every(jsonEvidence);
 }
 
-function canonical(value: unknown): string {
-  return JSON.stringify(Array.isArray(value) ? value.map(item => JSON.parse(canonical(item))) : record(value)
-    ? Object.fromEntries(Object.keys(value).sort().map(key => [key, JSON.parse(canonical(value[key]))])) : value);
-}
 
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === "object" && !Array.isArray(value); }

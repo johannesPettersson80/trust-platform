@@ -1,5 +1,0 @@
-panel,series,point,x,y,x_unit,y_unit
-Worst integrated bending acceleration,Worst IAE,1,0.000000000000,10.075696164265,design index,g s
-Worst integrated bending acceleration,Worst IAE,2,1.000000000000,0.085632408175,design index,g s
-Worst peak bending acceleration,Worst peak,1,0.000000000000,1.678692632114,design index,g
-Worst peak bending acceleration,Worst peak,2,1.000000000000,0.078969785732,design index,g

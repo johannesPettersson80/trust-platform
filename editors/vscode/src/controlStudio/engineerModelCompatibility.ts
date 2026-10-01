@@ -27,7 +27,7 @@ export function assertQualifiedModelResult(loop: ControlLoopDefinition, model: G
 
 function assertModelEvidence(model: GeneralModel): void {
   if (model.evidence.length === 0 || model.validation !== "validated" && !(model.source === "fitted" && model.validation === "unvalidated")) {
-    throw new Error("Select a fitted model with measurement evidence or a validated supplied model before tuning.");
+    throw new Error("The model needs measurement evidence or independent validation before tuning.");
   }
 }
 

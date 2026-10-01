@@ -1,148 +1,45 @@
 (* @trustlsp:runtime-ignore — run these assertions with trust-dev test;
    they are not scheduled PLC instances in the lesson simulator. *)
-TEST_PROGRAM Lesson73PhysicalEquilibriumAndOwnedScheduleAreExplicit
-ASSERT_NEAR(EXPECTED := LREAL#80.0,
-    ACTUAL := Lesson73EquilibriumHeat(
-        IndoorTemperature := LREAL#21.0,
-        OutdoorTemperature := LREAL#5.0),
-    DELTA := LREAL#1.0e-12);
-ASSERT_NEAR(EXPECTED := LREAL#5.0,
-    ACTUAL := Lesson73OutsideTemperature(
-        ExperimentElapsedSeconds := LREAL#300.0),
-    DELTA := LREAL#1.0e-12);
-ASSERT_NEAR(EXPECTED := LREAL#4.0,
-    ACTUAL := Lesson73OutsideTemperature(
-        ExperimentElapsedSeconds := LREAL#360.0),
-    DELTA := LREAL#1.0e-12);
-ASSERT_NEAR(EXPECTED := LREAL#0.0,
-    ACTUAL := Lesson73OccupancyGain(
-        ExperimentElapsedSeconds := LREAL#479.0,
-        EventTimeSeconds := LREAL#480.0,
-        GainAfterEvent := LREAL#2.0),
-    DELTA := LREAL#1.0e-12);
-ASSERT_NEAR(EXPECTED := LREAL#2.0,
-    ACTUAL := Lesson73OccupancyGain(
-        ExperimentElapsedSeconds := LREAL#480.0,
-        EventTimeSeconds := LREAL#480.0,
-        GainAfterEvent := LREAL#2.0),
-    DELTA := LREAL#1.0e-12);
+
+TEST_PROGRAM TheWorkedPlans
+(* Heater 1 at 28 °C, still receiving 40 points, setpoint 31 °C: holding 40 points costs 3·3² = 27; 55 points predicts
+   28, 28.6 and 29.08 °C and costs 9 + 5.76 + 3.6864 + 0.002·15² = 18.8964; 60 points costs 17.0736. *)
+VAR
+    Plan : HeaterPlan;
+END_VAR
+Plan(TemperatureC := LREAL#28.0, PreviousPct := LREAL#40.0, UPct := LREAL#40.0, SetpointC := LREAL#31.0, LoadKw := LREAL#0.0, MoveWeight := LREAL#0.002, MinimumC := LREAL#26.0, MaximumC := LREAL#33.0);
+ASSERT_NEAR(EXPECTED := LREAL#27.0, ACTUAL := Plan.Cost, DELTA := LREAL#1.0e-9);
+Plan(UPct := LREAL#55.0);
+ASSERT_NEAR(EXPECTED := LREAL#28.0, ACTUAL := Plan.FirstC, DELTA := LREAL#1.0e-12);
+ASSERT_NEAR(EXPECTED := LREAL#28.6, ACTUAL := Plan.SecondC, DELTA := LREAL#1.0e-12);
+ASSERT_NEAR(EXPECTED := LREAL#29.08, ACTUAL := Plan.EndC, DELTA := LREAL#1.0e-12);
+ASSERT_NEAR(EXPECTED := LREAL#18.8964, ACTUAL := Plan.Cost, DELTA := LREAL#1.0e-9);
+Plan(UPct := LREAL#60.0);
+ASSERT_NEAR(EXPECTED := LREAL#17.0736, ACTUAL := Plan.Cost, DELTA := LREAL#1.0e-9);
+ASSERT_TRUE(Plan.Feasible);
 END_TEST_PROGRAM
 
-TEST_PROGRAM Lesson73MpcValidEquilibriumSearchesFullGrid
+TEST_PROGRAM TheLimits
+(* Heater 2 at 28 °C with no command predicts 28, 26.4 and 25.12 °C: below 26 °C, so the plan is rejected. A command outside
+   0–100 points is rejected too. *)
 VAR
-    Controller : FiniteGridMpcController;
-    Request : BuildingMpcRequest;
+    Plan : HeaterPlan;
 END_VAR
-Request.Enable := TRUE; Request.UpstreamValid := TRUE;
-Request.Zone1Temperature := LREAL#21.0; Request.Zone2Temperature := LREAL#21.0;
-Request.Zone1Setpoint := LREAL#21.0; Request.Zone2Setpoint := LREAL#21.0;
-Request.ComfortMinimum := LREAL#18.0; Request.ComfortMaximum := LREAL#25.0;
-Request.TemperatureWeight := LREAL#100.0; Request.EnergyWeight := LREAL#0.0; Request.MoveWeight := LREAL#1.0;
-Request.PreviousZone1Heat := LREAL#80.0; Request.PreviousZone2Heat := LREAL#80.0;
-Request.OutsideCurrent := LREAL#5.0; Request.Occupancy1Current := LREAL#0.0; Request.Occupancy2Current := LREAL#0.0;
-Request.Forecast.OutsideTemperature[0] := LREAL#5.0; Request.Forecast.OutsideTemperature[1] := LREAL#5.0; Request.Forecast.OutsideTemperature[2] := LREAL#5.0;
-Request.Forecast.Tariff[0] := LREAL#0.0; Request.Forecast.Tariff[1] := LREAL#0.0; Request.Forecast.Tariff[2] := LREAL#0.0;
-Controller(Request := Request);
-ASSERT_TRUE(IN := Controller.Result.ConfigurationValid AND Controller.Result.SolverComplete AND Controller.Result.SolverFeasible);
-ASSERT_TRUE(IN := Controller.Result.CandidateCount = DINT#729 AND Controller.Result.FeasibleCandidateCount > DINT#0);
-ASSERT_NEAR(EXPECTED := LREAL#80.0, ACTUAL := Controller.Result.FirstZone1Heat, DELTA := LREAL#1.0e-12);
-ASSERT_NEAR(EXPECTED := LREAL#80.0, ACTUAL := Controller.Result.FirstZone2Heat, DELTA := LREAL#1.0e-12);
-ASSERT_TRUE(IN := Controller.Result.FirstZone1Heat >= LREAL#0.0 AND Controller.Result.FirstZone1Heat <= LREAL#100.0);
-ASSERT_TRUE(IN := Controller.Result.FirstZone2Heat >= LREAL#0.0 AND Controller.Result.FirstZone2Heat <= LREAL#100.0);
-ASSERT_TRUE(IN := Controller.Result.FirstZone1Heat + Controller.Result.FirstZone2Heat <= LREAL#170.0);
+Plan(TemperatureC := LREAL#28.0, PreviousPct := LREAL#40.0, UPct := LREAL#0.0, SetpointC := LREAL#28.0, LoadKw := LREAL#0.0, MoveWeight := LREAL#0.002, MinimumC := LREAL#26.0, MaximumC := LREAL#33.0);
+ASSERT_NEAR(EXPECTED := LREAL#25.12, ACTUAL := Plan.EndC, DELTA := LREAL#1.0e-12);
+ASSERT_FALSE(Plan.Feasible);
+Plan(UPct := LREAL#105.0);
+ASSERT_FALSE(Plan.Feasible);
 END_TEST_PROGRAM
 
-TEST_PROGRAM Lesson73MpcChangedStateAndForecastReplansFromEquilibriumMove
+TEST_PROGRAM TheSteadyCommands
+(* At steady state 2u = 10(T − 20) + D: 31 °C needs 55 points; 28 °C needs 40 points, or 55 with 30 kW more taken. *)
 VAR
-    Controller : FiniteGridMpcController;
-    Request : BuildingMpcRequest;
+    Plan : HeaterPlan;
 END_VAR
-Request.Enable := TRUE; Request.UpstreamValid := TRUE;
-Request.Zone1Temperature := LREAL#24.5; Request.Zone2Temperature := LREAL#24.5;
-Request.Zone1Setpoint := LREAL#21.0; Request.Zone2Setpoint := LREAL#21.0;
-Request.ComfortMinimum := LREAL#18.0; Request.ComfortMaximum := LREAL#25.0;
-Request.TemperatureWeight := LREAL#100.0; Request.EnergyWeight := LREAL#0.0; Request.MoveWeight := LREAL#1.0;
-Request.PreviousZone1Heat := LREAL#80.0; Request.PreviousZone2Heat := LREAL#80.0;
-Request.OutsideCurrent := LREAL#15.0; Request.Occupancy1Current := LREAL#0.0; Request.Occupancy2Current := LREAL#0.0;
-Request.Forecast.OutsideTemperature[0] := LREAL#15.0; Request.Forecast.OutsideTemperature[1] := LREAL#15.0; Request.Forecast.OutsideTemperature[2] := LREAL#15.0;
-Request.Forecast.Tariff[0] := LREAL#0.0; Request.Forecast.Tariff[1] := LREAL#0.0; Request.Forecast.Tariff[2] := LREAL#0.0;
-Controller(Request := Request);
-ASSERT_TRUE(IN := Controller.Result.ConfigurationValid AND Controller.Result.SolverComplete AND Controller.Result.SolverFeasible);
-ASSERT_TRUE(IN := Controller.Result.CandidateCount = DINT#729 AND Controller.Result.FeasibleCandidateCount > DINT#0);
-ASSERT_TRUE(IN := Controller.Result.FirstZone1Heat <> LREAL#80.0 AND Controller.Result.FirstZone2Heat <> LREAL#80.0);
-ASSERT_TRUE(IN := Controller.Result.FirstZone1Heat >= LREAL#0.0 AND Controller.Result.FirstZone1Heat <= LREAL#100.0);
-ASSERT_TRUE(IN := Controller.Result.FirstZone2Heat >= LREAL#0.0 AND Controller.Result.FirstZone2Heat <= LREAL#100.0);
-ASSERT_TRUE(IN := Controller.Result.FirstZone1Heat + Controller.Result.FirstZone2Heat <= LREAL#170.0);
-END_TEST_PROGRAM
-
-TEST_PROGRAM Lesson73MpcReportsInfeasibleComfortRequest
-VAR
-    Controller : FiniteGridMpcController;
-    Request : BuildingMpcRequest;
-END_VAR
-Request.Enable := TRUE; Request.UpstreamValid := TRUE;
-Request.Zone1Temperature := LREAL#15.0; Request.Zone2Temperature := LREAL#15.0;
-Request.Zone1Setpoint := LREAL#21.0; Request.Zone2Setpoint := LREAL#21.0;
-Request.ComfortMinimum := LREAL#18.0; Request.ComfortMaximum := LREAL#25.0;
-Request.TemperatureWeight := LREAL#100.0; Request.EnergyWeight := LREAL#0.0; Request.MoveWeight := LREAL#1.0;
-Request.PreviousZone1Heat := LREAL#0.0; Request.PreviousZone2Heat := LREAL#0.0;
-Request.OutsideCurrent := LREAL#-10.0; Request.Occupancy1Current := LREAL#0.0; Request.Occupancy2Current := LREAL#0.0;
-Request.Forecast.OutsideTemperature[0] := LREAL#-10.0; Request.Forecast.OutsideTemperature[1] := LREAL#-10.0; Request.Forecast.OutsideTemperature[2] := LREAL#-10.0;
-Request.Forecast.Tariff[0] := LREAL#0.0; Request.Forecast.Tariff[1] := LREAL#0.0; Request.Forecast.Tariff[2] := LREAL#0.0;
-Controller(Request := Request);
-ASSERT_TRUE(IN := Controller.Result.ConfigurationValid AND Controller.Result.SolverComplete);
-ASSERT_FALSE(IN := Controller.Result.SolverFeasible);
-ASSERT_TRUE(IN := Controller.Result.Infeasible AND Controller.Result.FeasibleCandidateCount = DINT#0);
-END_TEST_PROGRAM
-
-TEST_PROGRAM Lesson73MpcDisabledRequestClearsSolverResult
-VAR
-    Controller : FiniteGridMpcController;
-    Request : BuildingMpcRequest;
-END_VAR
-Request.Enable := TRUE; Request.UpstreamValid := TRUE;
-Request.Zone1Temperature := LREAL#21.0; Request.Zone2Temperature := LREAL#21.0;
-Request.Zone1Setpoint := LREAL#21.0; Request.Zone2Setpoint := LREAL#21.0;
-Request.ComfortMinimum := LREAL#18.0; Request.ComfortMaximum := LREAL#25.0;
-Request.TemperatureWeight := LREAL#100.0; Request.EnergyWeight := LREAL#0.0; Request.MoveWeight := LREAL#1.0;
-Request.PreviousZone1Heat := LREAL#80.0; Request.PreviousZone2Heat := LREAL#80.0;
-Request.OutsideCurrent := LREAL#5.0; Request.Occupancy1Current := LREAL#0.0; Request.Occupancy2Current := LREAL#0.0;
-Request.Forecast.OutsideTemperature[0] := LREAL#5.0; Request.Forecast.OutsideTemperature[1] := LREAL#5.0; Request.Forecast.OutsideTemperature[2] := LREAL#5.0;
-Request.Forecast.Tariff[0] := LREAL#0.0; Request.Forecast.Tariff[1] := LREAL#0.0; Request.Forecast.Tariff[2] := LREAL#0.0;
-Controller(Request := Request);
-ASSERT_TRUE(IN := Controller.Result.ConfigurationValid AND Controller.Result.SolverComplete AND Controller.Result.SolverFeasible);
-Request.Enable := FALSE;
-Controller(Request := Request);
-ASSERT_TRUE(IN := Controller.Result.ConfigurationValid);
-ASSERT_FALSE(IN := Controller.Result.SolverComplete OR Controller.Result.SolverFeasible OR Controller.Result.Infeasible);
-ASSERT_TRUE(IN := Controller.Result.CandidateCount = DINT#0 AND Controller.Result.FeasibleCandidateCount = DINT#0);
-ASSERT_NEAR(EXPECTED := LREAL#0.0, ACTUAL := Controller.Result.FirstZone1Heat, DELTA := LREAL#1.0e-12);
-ASSERT_NEAR(EXPECTED := LREAL#0.0, ACTUAL := Controller.Result.FirstZone2Heat, DELTA := LREAL#1.0e-12);
-END_TEST_PROGRAM
-
-TEST_PROGRAM Lesson73MpcInvalidRequestClearsFreshFeasibleResult
-VAR
-    Controller : FiniteGridMpcController;
-    Request : BuildingMpcRequest;
-END_VAR
-Request.Enable := TRUE; Request.UpstreamValid := TRUE;
-Request.Zone1Temperature := LREAL#21.0; Request.Zone2Temperature := LREAL#21.0;
-Request.Zone1Setpoint := LREAL#21.0; Request.Zone2Setpoint := LREAL#21.0;
-Request.ComfortMinimum := LREAL#18.0; Request.ComfortMaximum := LREAL#25.0;
-Request.TemperatureWeight := LREAL#100.0; Request.EnergyWeight := LREAL#0.0; Request.MoveWeight := LREAL#1.0;
-Request.PreviousZone1Heat := LREAL#80.0; Request.PreviousZone2Heat := LREAL#80.0;
-Request.OutsideCurrent := LREAL#5.0; Request.Occupancy1Current := LREAL#0.0; Request.Occupancy2Current := LREAL#0.0;
-Request.Forecast.OutsideTemperature[0] := LREAL#5.0; Request.Forecast.OutsideTemperature[1] := LREAL#5.0; Request.Forecast.OutsideTemperature[2] := LREAL#5.0;
-Request.Forecast.Tariff[0] := LREAL#0.0; Request.Forecast.Tariff[1] := LREAL#0.0; Request.Forecast.Tariff[2] := LREAL#0.0;
-Controller(Request := Request);
-ASSERT_TRUE(IN := Controller.Result.ConfigurationValid AND Controller.Result.SolverComplete AND Controller.Result.SolverFeasible);
-ASSERT_TRUE(IN := Controller.Result.CandidateCount = DINT#729 AND Controller.Result.FeasibleCandidateCount > DINT#0);
-ASSERT_NEAR(EXPECTED := LREAL#80.0, ACTUAL := Controller.Result.FirstZone1Heat, DELTA := LREAL#1.0e-12);
-ASSERT_NEAR(EXPECTED := LREAL#80.0, ACTUAL := Controller.Result.FirstZone2Heat, DELTA := LREAL#1.0e-12);
-Request.UpstreamValid := FALSE;
-Controller(Request := Request);
-ASSERT_FALSE(IN := Controller.Result.ConfigurationValid OR Controller.Result.SolverComplete OR Controller.Result.SolverFeasible OR Controller.Result.Infeasible);
-ASSERT_TRUE(IN := Controller.Result.CandidateCount = DINT#0 AND Controller.Result.FeasibleCandidateCount = DINT#0);
-ASSERT_NEAR(EXPECTED := LREAL#0.0, ACTUAL := Controller.Result.FirstZone1Heat, DELTA := LREAL#1.0e-12);
-ASSERT_NEAR(EXPECTED := LREAL#0.0, ACTUAL := Controller.Result.FirstZone2Heat, DELTA := LREAL#1.0e-12);
+Plan(TemperatureC := LREAL#31.0, PreviousPct := LREAL#55.0, UPct := LREAL#55.0, SetpointC := LREAL#31.0, LoadKw := LREAL#0.0, MoveWeight := LREAL#0.002, MinimumC := LREAL#26.0, MaximumC := LREAL#33.0);
+ASSERT_NEAR(EXPECTED := LREAL#31.0, ACTUAL := Plan.EndC, DELTA := LREAL#1.0e-12);
+ASSERT_NEAR(EXPECTED := LREAL#0.0, ACTUAL := Plan.Cost, DELTA := LREAL#1.0e-12);
+Plan(TemperatureC := LREAL#28.0, PreviousPct := LREAL#55.0, UPct := LREAL#55.0, SetpointC := LREAL#28.0, LoadKw := LREAL#30.0);
+ASSERT_NEAR(EXPECTED := LREAL#28.0, ACTUAL := Plan.EndC, DELTA := LREAL#1.0e-12);
 END_TEST_PROGRAM

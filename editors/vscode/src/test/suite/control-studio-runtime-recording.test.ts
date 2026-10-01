@@ -2,7 +2,8 @@ import * as assert from "assert";
 import { RuntimeRecordingSession } from "../../controlStudio/runtimeRecording";
 import type { ControlLoopDefinition } from "../../controlStudio/loopDefinition";
 
-function fixture(releaseFails: boolean, sensorQuality: number, change?: (result: any) => unknown, symbolicMode = false, unaddressedMode = false) {
+function fixture(releaseFails: boolean, sensorQuality: number, change?: (result: any) => unknown, symbolicMode = false, unaddressedMode = false,
+  measuredActuator = false) {
   const signal = (symbol: string, address: string, iecType = "LREAL") => ({ symbol, address, iecType,
     direction: "read" as const, unit: "%", range: { minimum: 0, maximum: 100 } });
   const loop: ControlLoopDefinition = {
@@ -14,12 +15,14 @@ function fixture(releaseFails: boolean, sensorQuality: number, change?: (result:
       ] },
     limits: { outputMinimum: 0, outputMaximum: 100 }, observedSampleTiming: { nominalPeriodMs: 10 },
   };
+  if (measuredActuator) loop.signals.actuator = signal("P1.Stem", "%IL8");
   if (symbolicMode) { loop.controller.modeSignal = "P1.Valid"; loop.controller.modeWhenTrue = "Auto"; }
   if (unaddressedMode) { loop.controller.modeSignal = "P1.Manual"; loop.controller.modeWhenTrue = "Manual"; }
   const bindings: { id: string; address?: string; symbol?: string; iec_type: string }[] = [
     { id: "setpoint", address: "%ML0", iec_type: "LREAL" },
     { id: "processVariable", address: "%IL0", iec_type: "LREAL" },
     { id: "manipulatedVariable", address: "%QL0", iec_type: "LREAL" },
+    ...(measuredActuator ? [{ id: "actuator", address: "%IL8", iec_type: "LREAL" }] : []),
     { id: "valid", address: "%MX16.0", iec_type: "BOOL" },
   ];
   if (unaddressedMode) bindings.push({ id: "controllerMode", symbol: "P1.Manual", iec_type: "BOOL" });
@@ -31,7 +34,7 @@ function fixture(releaseFails: boolean, sensorQuality: number, change?: (result:
     }
     const result = { recording_id: "record", loop_revision: loop.revision, program_revision: unaddressedMode ? "program" : undefined, bindings: bindings.map(binding => ({ ...binding })), stop_reason: "stopped",
       samples: [0, 1].map(index => ({ scan: index + 1, runtime_time_ns: index * 10_000_000,
-        captured_at_ms: 1000, values: [1, 0.5, 2, sensorQuality, ...(unaddressedMode ? [1] : [])],
+        captured_at_ms: 1000, values: [1, 0.5, 2, ...(measuredActuator ? [1.5] : []), sensorQuality, ...(unaddressedMode ? [1] : [])],
         forced: bindings.map(() => false), quality: unaddressedMode ? bindings.map(() => "good") : undefined })),
       acquisition: { method: "runtime_scan_buffer", completeness: "complete", observedSampleCount: 2,
         scanRange: { first: 1, last: 2 }, missingScanRanges: [], droppedObservedSamples: 0,
@@ -78,6 +81,15 @@ suite("Control Studio runtime recording client", () => {
       await assert.rejects(fixture(false, 1, raw => { mutate(raw); return raw; }, false, true).stop(),
         /recording|samples|BOOL/i);
     }
+  });
+
+  test("reports a declared actuator's measured position as the applied input and the command as the request", async () => {
+    const sample = (await fixture(false, 1, undefined, false, false, true).stop()).rawSamples?.[0];
+    assert.strictEqual(sample?.appliedMv, 1.5, "the applied input is what the actuator reached");
+    assert.strictEqual(sample?.requestedMv, 2, "the manipulated variable is the requested output");
+    const plain = (await fixture(false, 1).stop()).rawSamples?.[0];
+    assert.strictEqual(plain?.appliedMv, 2, "without actuator feedback the command is the only applied input");
+    assert.strictEqual(plain?.requestedMv, null);
   });
 
   test("retains auxiliary channel values and their declared meaning", async () => {

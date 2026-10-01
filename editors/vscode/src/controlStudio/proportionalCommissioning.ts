@@ -1,3 +1,4 @@
+import { awaitRuntimeDuration, runtimeObservationBoundMs, transferClock } from "./runtimeDuration";
 import { commissioningObservation } from "./commissioningObservation";
 import { transferOutputBasis, transferTargetAllowance } from "./transferActuatorFeedback";
 import type { ParameterOwner } from "./parameterApplication";
@@ -16,7 +17,9 @@ import type { LoopRecording } from "./loopMonitor";
 import { RuntimeRecordingSession } from "./runtimeRecording";
 import { bindRuntimeConnection } from "./runtimeConnection";
 import { RuntimeTransferClient, type TransferStatus } from "./runtimeTransfer";
+import { anchorIntegratingOutputs, assertCommissioningStartingPoint, assertReferenceHeld, awaitCommissioningStartingPoint, withReferenceHoldGuard, type StartingPointWait } from "./commissioningStartingPoint";
 import { proportionalTransferBinding, proportionalTrackingReference, proportionalTracking, roundedTransferValue, transferTolerance } from "./proportionalTransfer";
+import { withRecoveryOutcome } from "./pidCommissioning";
 
 export interface CommissioningResult {
   status: "passed" | "failed" | "cancelled";
@@ -41,6 +44,7 @@ export class ProportionalCommissioning {
   private parameterApplicationAttempted = false;
   private recording: RecordingSession | undefined;
   recoveryConfirmed = true;
+  private clock: (() => Promise<number>) | undefined;
   private constructor(private readonly loop: ControlLoopDefinition, private readonly model: GeneralModel,
     private readonly task: EngineerRequirements, private readonly parameters: ParameterApplicationClient,
     private readonly parameterReview: ParameterReview, private readonly transfer: RuntimeTransferClient,
@@ -48,19 +52,24 @@ export class ProportionalCommissioning {
     private readonly historicalRecovery?: { origin: RecoveryOrigin; candidate: Readonly<Record<string, number>>; transfers: readonly TransferStatus[] }) {}
 
   static async review(loop: ControlLoopDefinition, model: GeneralModel, task: EngineerRequirements,
-    parameters: ParameterApplicationClient, parameterReview: ParameterReview): Promise<ProportionalCommissioning> {
+    parameters: ParameterApplicationClient, parameterReview: ParameterReview, wait?: StartingPointWait): Promise<ProportionalCommissioning> {
     const connection = await bindRuntimeConnection(loop.runtimeId);
     if (connection.source !== "simulation") throw new Error("This commissioning adapter requires the local simulator.");
-    const binding = proportionalTransferBinding(loop);
+    const binding = withReferenceHoldGuard(loop, proportionalTransferBinding(loop));
     const transfer = new RuntimeTransferClient(binding, parameterReview.observed.program_revision, connection.request);
-    const observed = await transfer.status();
-    if (!observed.supported_tracking?.includes("proportional")) throw new Error("The runtime needs task-boundary P tracking support before Auto commissioning.");
+    const first = await transfer.status();
+    if (!first.supported_tracking?.includes("proportional")) throw new Error("The runtime needs task-boundary P tracking support before Auto commissioning.");
+    assertReferenceHeld(loop, first.values);
+    model = anchorIntegratingOutputs(model, first.values, [loop.signals.processVariable.symbol]);
+    const observed = wait ? await awaitCommissioningStartingPoint(loop, model, task, [transferOutputBasis(binding, binding.output).symbol],
+      [loop.signals.processVariable.symbol], () => transfer.status(), wait) : first;
     if (observed.program_revision !== parameterReview.observed.program_revision) throw new Error("The program changed during commissioning review.");
     const result = new ProportionalCommissioning(loop, structuredClone(model), { ...task }, parameters, parameterReview,
       transfer, Number(observed.values[binding.states[0].symbol]));
     result.reviewedMode = observed.values[binding.mode.symbol] as boolean;
     result.checkStartingPoint(observed);
     result.trackingReference(observed, parameterReview.values[proportionalParameter(loop).symbol]);
+    result.clock = transferClock(transfer);
     return result;
   }
 
@@ -243,8 +252,10 @@ export class ProportionalCommissioning {
       const automatic = await this.transfer.status();
       await this.transfer.apply(this.stateValues(automatic, this.target()), false,
         transferTargetAllowance(this.transfer.binding), proportionalTracking(this.loop, this.transfer.binding, false));
-      const until = Date.now() + this.task.durationSeconds * 1000 + this.loop.controller.taskPeriodMs * 2;
-      while (Date.now() < until) { this.checkCancelled(); await new Promise(resolve => setTimeout(resolve, 25)); }
+      // The reviewed duration is observed in the runtime's own time, which may run behind real time.
+      if (!this.clock) throw new Error("The runtime clock is unavailable for observing the reviewed response.");
+      await awaitRuntimeDuration(this.clock, this.task.durationSeconds * 1000 + this.loop.controller.taskPeriodMs * 2,
+        { checkCancelled: () => this.checkCancelled(), boundMs: runtimeObservationBoundMs(this.task.durationSeconds) });
       captured = await this.recording.stop();
       maximumError = assessCommissioningRecording(captured, this.criteria());
       parameters = await this.parameters.status();
@@ -259,9 +270,9 @@ export class ProportionalCommissioning {
       reason = error instanceof Error ? error.message : String(error);
       try {
         await this.recover(); parameters = await this.parameters.status();
-        reason += " Recovery confirmed in Manual; previous gains restored.";
+        reason = withRecoveryOutcome(reason, "Recovery confirmed in Manual; previous gains restored.");
       }
-      catch (recovery) { this.recoveryConfirmed = false; reason += ` Recovery unconfirmed: ${String(recovery)}`; }
+      catch (recovery) { this.recoveryConfirmed = false; reason = withRecoveryOutcome(reason, `Recovery unconfirmed: ${String(recovery)}`); }
     } finally {
       if (!captured && this.recording) {
         try { captured = await this.recording.stop(); }
@@ -329,11 +340,8 @@ export class ProportionalCommissioning {
       Number(observed.values[transferOutputBasis(this.transfer.binding, this.transfer.binding.output).symbol]), gain);
   }
   private checkStartingPoint(observed: TransferStatus): void {
-    const coordinates = [[transferOutputBasis(this.transfer.binding, this.transfer.binding.output).symbol, this.model.operatingPoint?.inputs[0] ?? 0],
-      [this.loop.signals.processVariable.symbol, this.model.operatingPoint?.outputs[0] ?? 0]] as const;
-    if (coordinates.some(([symbol, value]) => Math.abs(Number(observed.values[symbol]) - value) > 1e-6 * Math.max(1, Math.abs(value)))) {
-      throw new Error("The running process does not match the selected verified operating point; verify compatible starting conditions first.");
-    }
+    assertCommissioningStartingPoint(this.loop, this.model, this.task, [transferOutputBasis(this.transfer.binding, this.transfer.binding.output).symbol],
+      [this.loop.signals.processVariable.symbol], observed.values);
   }
   private target(): number { return (this.model.operatingPoint?.outputs[0] ?? 0) + this.task.referenceChange; }
   private checkCancelled(): void { if (this.cancelled) throw new Error("Commissioning cancelled."); }

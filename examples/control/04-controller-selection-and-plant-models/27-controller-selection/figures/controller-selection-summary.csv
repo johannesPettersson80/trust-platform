@@ -1,6 +1,0 @@
-plant,selected_structure,accepted,decision_measure,measured_value,unit
-cold room,ON/OFF,true,tail minimum,1.492437448977,degC
-cold room,ON/OFF,true,tail maximum,2.501743988571,degC
-water heater,PI,true,final-window absolute error,0.015931088426,degC
-buffer tank,P,true,final-window absolute error,0.000000000000,cm
-positioning table,PID,true,final-window absolute error,0.000000000003,rad

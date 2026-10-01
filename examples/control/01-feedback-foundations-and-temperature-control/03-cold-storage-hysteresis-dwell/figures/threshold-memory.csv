@@ -1,5 +1,0 @@
-sample,pv_degC,requested_cooling,applied_cooling,dwell_inhibit,evidence_class
-1,2.60,1,1,0,simulation
-2,2.00,1,1,0,simulation
-3,1.40,0,1,1,simulation
-4,2.00,0,1,1,simulation

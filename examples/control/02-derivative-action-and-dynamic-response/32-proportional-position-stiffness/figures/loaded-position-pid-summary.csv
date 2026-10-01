@@ -1,3 +1,0 @@
-controller,final_mean_absolute_error_rad,final_position_range_rad,final_applied_torque_range_nm,overshoot_rad,decision
-PD,0.164581967615,0.000000000000,0.000000000000,,gravity-load offset remains
-PID,0.002688911604,0.000983672059,0.003316103741,0.000000000000,gravity-load error removed with retained damping

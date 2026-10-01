@@ -1,40 +1,478 @@
 {
-  "schemaVersion": 1,
-  "id": "control-lesson-08",
-  "name": "Follow a valve that cannot move instantly",
-  "revision": "sha256:90d112d9e83339ed32bd11928ca36ad32024cd2c0a9a4cc94f53b5b1e5f73562",
-  "projectId": "project:control-lesson-08",
-  "runtimeId": "simulator",
-  "controller": {
-    "instance": "P1",
-    "type": "parallel_pi_with_rate_tracking",
-    "design": "project",
-    "revision": "sha256:90d112d9e83339ed32bd11928ca36ad32024cd2c0a9a4cc94f53b5b1e5f73562",
-    "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": "%MX128.1"
-  },
-  "signals": {
-    "setpoint": { "symbol": "P1.Setpoint", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 15, "maximum": 60 } },
-    "processVariable": { "symbol": "P1.ProcessValue", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 0, "maximum": 80 } },
-    "manipulatedVariable": { "symbol": "P1.AppliedValvePosition", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-    "additional": [
-      { "id": "requested-position", "channel": "requested-position", "role": "state", "symbol": "P1.RequestedValvePosition", "address": "%ML8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-      { "id": "position-difference", "channel": "position-difference", "role": "state", "symbol": "P1.PositionDifference", "address": "%ML16", "iecType": "LREAL", "direction": "read", "unit": "percentage points", "range": { "minimum": -100, "maximum": 100 } },
-      { "id": "tracking-correction", "channel": "tracking-correction", "role": "state", "symbol": "P1.TrackingCorrection", "address": "%ML80", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": -1000, "maximum": 1000 } },
-      { "id": "lesson-experiment", "channel": "lesson-experiment", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX128.0", "iecType": "BOOL", "direction": "read", "unit": "", "range": { "minimum": 0, "maximum": 1 } }
-    ]
-  },
-  "limits": { "outputMinimum": 0, "outputMaximum": 100, "ratePerSecond": 5 },
-  "observedSampleTiming": { "nominalPeriodMs": 100 },
-  "plantId": "first_order_dead_time",
-  "operatingPoint": "35 degC at 75% valve position",
-  "experiment": {
-    "execution": "project-scripted",
-    "kind": "observation",
-    "amplitude": 0,
-    "durationSeconds": 105.1,
-    "seed": 20260828,
-    "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX128.0", "iecType": "BOOL", "direction": "write" }
-  }
+    "schemaVersion": 2,
+    "id": "control-lesson-08",
+    "name": "Valve actuator tracking",
+    "projectId": "project:control-lesson-08",
+    "runtimeId": "simulator",
+    "controller": {
+        "instance": "P1.Controller",
+        "type": "Control.PID",
+        "design": "pid",
+        "revision": "sha256:210cb0d6b9543f6e17584c95d48f2df66414ee6a0faa70ef67289d75d848b6c6",
+        "action": "direct",
+        "taskPeriodMs": 100,
+        "modeSignal": "P1.AutoMode",
+        "modeWhenTrue": "Auto",
+        "manualOutputSignal": "P1.ManualOutput",
+        "manualOutputAddress": "%ML72",
+        "manualOutputType": "LREAL",
+        "law": {
+            "kind": "pid",
+            "parameterRecordSymbol": "P1.Parameters",
+            "parameterRevisionSymbol": "P1.ParameterRevision",
+            "proportionalGainSymbol": "P1.Parameters.ProportionalGain",
+            "integralGainSymbol": "P1.Parameters.IntegralGain",
+            "derivativeGainSymbol": "P1.Parameters.DerivativeGain",
+            "proportionalSetpointWeightSymbol": "P1.Parameters.ProportionalSetpointWeight",
+            "measurementFilterTimeSymbol": "P1.FilterTimeS"
+        },
+        "pidInitialization": {
+            "kind": "control-pid-v1",
+            "maximumSnapshotAgeMs": 500,
+            "states": [
+                {
+                    "symbol": "P1.Controller.StateValue.Setpoint",
+                    "iec_type": "LREAL",
+                    "unit": "degC",
+                    "minimum": 0,
+                    "maximum": 80,
+                    "initial": {
+                        "source": "model-output",
+                        "index": 0
+                    },
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.SetpointRate",
+                    "iec_type": "LREAL",
+                    "unit": "degC/s",
+                    "minimum": -1000,
+                    "maximum": 1000,
+                    "initial": 0,
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.ProcessValue",
+                    "iec_type": "LREAL",
+                    "unit": "degC",
+                    "minimum": 0,
+                    "maximum": 80,
+                    "initial": {
+                        "source": "model-output",
+                        "index": 0
+                    },
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.ProcessValueRate",
+                    "iec_type": "LREAL",
+                    "unit": "degC/s",
+                    "minimum": -1000,
+                    "maximum": 1000,
+                    "initial": 0,
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.FeedForward",
+                    "iec_type": "LREAL",
+                    "unit": "%",
+                    "minimum": -100,
+                    "maximum": 100,
+                    "initial": 0,
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.NominalOutput",
+                    "iec_type": "LREAL",
+                    "unit": "%",
+                    "minimum": -1000,
+                    "maximum": 1000,
+                    "initial": {
+                        "source": "model-input",
+                        "index": 0
+                    },
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.SaturatedOutput",
+                    "iec_type": "LREAL",
+                    "unit": "%",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "initial": {
+                        "source": "model-input",
+                        "index": 0
+                    },
+                    "postScan": "bounded"
+                }
+            ],
+            "applicationStates": [
+                {
+                    "symbol": "P1.Initialized",
+                    "iec_type": "BOOL",
+                    "unit": "1",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "initial": 1,
+                    "postScan": "unchanged"
+                }
+            ]
+        }
+    },
+    "signals": {
+        "setpoint": {
+            "symbol": "P1.SetpointC",
+            "address": "%ML0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "degC",
+            "range": {
+                "minimum": 0,
+                "maximum": 80
+            }
+        },
+        "processVariable": {
+            "symbol": "P1.TemperatureC",
+            "address": "%IL8",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "degC",
+            "range": {
+                "minimum": 0,
+                "maximum": 80
+            }
+        },
+        "manipulatedVariable": {
+            "symbol": "P1.ValveRequestPct",
+            "address": "%QL0",
+            "iecType": "LREAL",
+            "direction": "write",
+            "unit": "%",
+            "range": {
+                "minimum": 0,
+                "maximum": 100
+            }
+        },
+        "additional": [
+            {
+                "id": "integral",
+                "channel": "integral",
+                "role": "state",
+                "symbol": "P1.IntegralPct",
+                "address": "%ML16",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "%",
+                "range": {
+                    "minimum": -200,
+                    "maximum": 200
+                }
+            },
+            {
+                "id": "nominal-request",
+                "channel": "nominal-request",
+                "role": "state",
+                "symbol": "P1.NominalRequestPct",
+                "address": "%ML32",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "%",
+                "range": {
+                    "minimum": -200,
+                    "maximum": 300
+                }
+            },
+            {
+                "id": "measurement-fault",
+                "channel": "measurement-fault",
+                "role": "state",
+                "symbol": "P1.MeasurementFault",
+                "address": "%MX96.3",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "1",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            }
+        ],
+        "actuator": {
+            "symbol": "P1.StemPositionPct",
+            "address": "%IL16",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "%",
+            "range": {
+                "minimum": 0,
+                "maximum": 100
+            }
+        }
+    },
+    "limits": {
+        "outputMinimum": 0,
+        "outputMaximum": 100
+    },
+    "observedSampleTiming": {
+        "nominalPeriodMs": 100
+    },
+    "plantId": "valve-heater-lesson-30",
+    "experiment": {
+        "execution": "control-studio",
+        "kind": "mv_step",
+        "amplitude": 10,
+        "durationSeconds": 60,
+        "seed": 20260829
+    },
+    "identificationPolicy": {
+        "openLoopPermitted": true,
+        "sustainedHoldPermitted": true,
+        "information": "basic",
+        "maximumNormalizedError": 0.05
+    },
+    "parameterBinding": {
+        "loop_id": "control-lesson-08",
+        "task_name": "MainTask",
+        "parameters": [
+            {
+                "symbol": "P1.Parameters.ProportionalGain",
+                "iec_type": "LREAL",
+                "unit": "%/degC",
+                "convention": "Control.PID ProportionalGain",
+                "minimum": 0,
+                "maximum": 100
+            },
+            {
+                "symbol": "P1.Parameters.IntegralGain",
+                "iec_type": "LREAL",
+                "unit": "%/(degC*s)",
+                "convention": "Control.PID IntegralGain",
+                "minimum": 0,
+                "maximum": 100
+            },
+            {
+                "symbol": "P1.Parameters.DerivativeGain",
+                "iec_type": "LREAL",
+                "unit": "%*s/degC",
+                "convention": "Control.PID DerivativeGain",
+                "minimum": 0,
+                "maximum": 100
+            },
+            {
+                "symbol": "P1.Parameters.ProportionalSetpointWeight",
+                "iec_type": "LREAL",
+                "unit": "1",
+                "convention": "Control.PID ProportionalSetpointWeight",
+                "minimum": 0,
+                "maximum": 1
+            },
+            {
+                "symbol": "P1.Parameters.DerivativeSetpointWeight",
+                "iec_type": "LREAL",
+                "unit": "1",
+                "convention": "Control.PID DerivativeSetpointWeight",
+                "minimum": 0,
+                "maximum": 1
+            },
+            {
+                "symbol": "P1.Parameters.Bias",
+                "iec_type": "LREAL",
+                "unit": "%",
+                "convention": "Control.PID Bias",
+                "minimum": 0,
+                "maximum": 100
+            },
+            {
+                "symbol": "P1.Parameters.OutputMinimum",
+                "iec_type": "LREAL",
+                "unit": "%",
+                "convention": "Control.PID OutputMinimum",
+                "minimum": 0,
+                "maximum": 100
+            },
+            {
+                "symbol": "P1.Parameters.OutputMaximum",
+                "iec_type": "LREAL",
+                "unit": "%",
+                "convention": "Control.PID OutputMaximum",
+                "minimum": 0,
+                "maximum": 100
+            },
+            {
+                "symbol": "P1.Parameters.RateMinimum",
+                "iec_type": "LREAL",
+                "unit": "%/s",
+                "convention": "Control.PID RateMinimum",
+                "minimum": -10000,
+                "maximum": 0
+            },
+            {
+                "symbol": "P1.Parameters.RateMaximum",
+                "iec_type": "LREAL",
+                "unit": "%/s",
+                "convention": "Control.PID RateMaximum",
+                "minimum": 0,
+                "maximum": 10000
+            },
+            {
+                "symbol": "P1.Parameters.TrackingTime",
+                "iec_type": "LREAL",
+                "unit": "s",
+                "convention": "Control.PID TrackingTime",
+                "minimum": 0.001,
+                "maximum": 1000
+            },
+            {
+                "symbol": "P1.FilterTimeS",
+                "iec_type": "LREAL",
+                "unit": "s",
+                "convention": "measurement filter time Tf; 0 bypasses the filter",
+                "minimum": 0,
+                "maximum": 5
+            }
+        ],
+        "mode": {
+            "symbol": "P1.AutoMode",
+            "manual_value": false
+        }
+    },
+    "verificationScenarios": [
+        {
+            "id": "tracked-step",
+            "initialValues": {
+                "P1.SetpointC": 37
+            },
+            "events": [],
+            "requirements": [
+                {
+                    "id": "tracked-peak",
+                    "kind": "overshoot",
+                    "channel": "P1.TemperatureC",
+                    "window": {
+                        "start": 0,
+                        "end": 90
+                    },
+                    "initial": 35,
+                    "target": 37,
+                    "maximum": 0.5
+                },
+                {
+                    "id": "tracked-late-error",
+                    "kind": "error",
+                    "channel": "P1.TemperatureC",
+                    "reference": {
+                        "channel": "P1.SetpointC"
+                    },
+                    "statistic": "maximum",
+                    "maximum": 0.2,
+                    "window": {
+                        "start": 60,
+                        "end": 90
+                    }
+                },
+                {
+                    "id": "tracked-settling",
+                    "kind": "settling",
+                    "channel": "P1.TemperatureC",
+                    "window": {
+                        "start": 0,
+                        "end": 90
+                    },
+                    "target": 37,
+                    "band": 0.1,
+                    "deadlineSeconds": 60,
+                    "holdSeconds": 30
+                },
+                {
+                    "id": "tracked-request",
+                    "kind": "bounds",
+                    "channel": "P1.ValveRequestPct",
+                    "window": {
+                        "start": 0,
+                        "end": 90
+                    },
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                {
+                    "id": "tracked-stem",
+                    "kind": "bounds",
+                    "channel": "P1.StemPositionPct",
+                    "window": {
+                        "start": 0,
+                        "end": 90
+                    },
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                {
+                    "id": "tracked-integral",
+                    "kind": "bounds",
+                    "channel": "P1.IntegralPct",
+                    "window": {
+                        "start": 0,
+                        "end": 90
+                    },
+                    "minimum": -200,
+                    "maximum": 200
+                }
+            ]
+        },
+        {
+            "id": "untracked-step",
+            "initialValues": {
+                "P1.SetpointC": 37,
+                "P1.TrackMeasuredPosition": 0
+            },
+            "events": [],
+            "requirements": [
+                {
+                    "id": "untracked-request",
+                    "kind": "bounds",
+                    "channel": "P1.ValveRequestPct",
+                    "window": {
+                        "start": 0,
+                        "end": 90
+                    },
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                {
+                    "id": "untracked-stem",
+                    "kind": "bounds",
+                    "channel": "P1.StemPositionPct",
+                    "window": {
+                        "start": 0,
+                        "end": 90
+                    },
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                {
+                    "id": "untracked-integral",
+                    "kind": "bounds",
+                    "channel": "P1.IntegralPct",
+                    "window": {
+                        "start": 0,
+                        "end": 90
+                    },
+                    "minimum": -200,
+                    "maximum": 200
+                },
+                {
+                    "id": "untracked-temperature",
+                    "kind": "bounds",
+                    "channel": "P1.TemperatureC",
+                    "window": {
+                        "start": 0,
+                        "end": 90
+                    },
+                    "minimum": 0,
+                    "maximum": 80
+                }
+            ]
+        }
+    ],
+    "operatingPoint": "35°C water temperature at 75% heater command, with no extraction",
+    "revision": "sha256:d61aaa453a27772a2793feef9ce79fc8f3b6e4a498cf66a7a9dcbaaf54a5698b"
 }

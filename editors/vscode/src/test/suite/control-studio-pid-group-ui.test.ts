@@ -47,7 +47,7 @@ suite("Control Studio PID group UI", () => {
     const { loop, payload } = fixture();
     new ThreePageController(root, loop, () => undefined).receive(payload);
     const select = root.querySelector<HTMLSelectElement>("[data-studio-controller]")!;
-    assert.match(select.selectedOptions[0].textContent!, /P1\.Controller.*P1\.Secondary.*paired-PI/);
+    assert.match(select.selectedOptions[0].textContent!, /P1\.Controller.*P1\.Secondary.*Paired PI/);
     assert.strictEqual([...select.options].filter(option => option.dataset.family === "paired-PI").length, 1);
   }));
   test("names each owner and edits only the declared tuning axes while retaining fixed parameters", () => withDom(root => {
@@ -62,13 +62,32 @@ suite("Control Studio PID group UI", () => {
     assert.strictEqual(inputs.length, 4);
     for (const input of inputs) {
       assert.match(input.labels![0].textContent!, /P1\.(?:Controller|Secondary)/);
-      assert.match(input.labels![0].textContent!, /(?:Proportional|Integral) Gain/);
+      assert.match(input.labels![0].textContent!, /(?:Proportional gain \(Kp\)|Integral gain \(Ki\))/, "a member's gains read as a single PID's do");
     }
     const edited = inputs.find(input => input.dataset.studioManualValue === "P1.SecondaryParameters.IntegralGain")!;
     edited.value = "2";
     const read = manual.read();
     assert.deepStrictEqual(read.values, { ...values, "P1.SecondaryParameters.IntegralGain": 2 }, "The full declared record survives editing a single member gain");
   }));
+  test("shows each member's designed gains and its path for a group tuned from its model", () => withDom(root => {
+    const { loop, values, payload } = fixture();
+    loop.controller.project.axes = [];
+    loop.controller.project.seed = { kind: "decentralized-pid", family: "PI" };
+    const decentralized = { members: [
+      { inputId: "u1", outputId: "y1", pathGain: 0.2198, relativeGain: 1.125, effectiveGain: 0.1954, timeConstantSeconds: 7.7, delaySeconds: 0.2 },
+      { inputId: "u2", outputId: "y2", pathGain: 0.2198, relativeGain: 1.125, effectiveGain: 0.1954, timeConstantSeconds: 7.7, delaySeconds: 0.2 }] };
+    renderTunedController(root, loop, { ...payload, design: { decentralized } });
+    const labels = [...root.querySelectorAll("dt")].map(label => label.textContent!);
+    assert.deepStrictEqual(labels.map(label => label.replace(/ · .*/, "")).sort(), ["P1.Controller", "P1.Controller", "P1.Secondary", "P1.Secondary"],
+      "a group designed from its model shows every member's proportional and integral gain");
+    assert.ok(labels.every(label => / · (?:Proportional gain \(Kp\)|Integral gain \(Ki\))$/.test(label)), labels.join(" | "));
+    const rows = [...root.querySelectorAll<HTMLTableRowElement>("[data-studio-decentralized-member]")].map(row => [...row.cells].map(cell => cell.textContent));
+    assert.deepStrictEqual(rows.map(row => row[0]), ["P1.Controller", "P1.Secondary"], "one design row per member, named by its controller");
+    assert.deepStrictEqual(rows[0].slice(1), ["K = 0.2198 °C/%, τ = 7.7 s, θ = 0.2 s", "1.13", "0.1954 °C/%"],
+      "the path gain and the gain with the other loops closed carry the member's output-per-input unit");
+    assert.ok(values);
+  }));
+
   test("identifies the owning PID on each command and feedback mapping row", () => withDom(() => {
     const { loop } = fixture(); let commits = 0;
     const dialog = editControllerChannels(loop, () => { commits += 1; })!;

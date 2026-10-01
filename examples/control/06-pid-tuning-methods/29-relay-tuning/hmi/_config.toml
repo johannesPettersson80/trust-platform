@@ -14,35 +14,9 @@ enabled = false
 allow = []
 
 [[alarm]]
-bind = "P1.ExperimentElapsed"
-high = 60
-low = 0
-deadband = 2
-inferred = true
-label = "Experiment Elapsed"
-
-[[alarm]]
-bind = "P1.QualifiedRelayApplied"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Qualified Relay Applied"
-
-[[alarm]]
-bind = "P1.QualifiedTemperature"
-high = 37
+bind = "P1.TemperatureC"
+high = 39
 low = 33
 deadband = 0.05
 inferred = true
-label = "Qualified Temperature"
-
-
-
-[[alarm]]
-bind = "P1.RelayAmplitude"
-high = 10
-low = 5
-deadband = 2
-inferred = true
-label = "Relay Amplitude"
+label = "Temperature"

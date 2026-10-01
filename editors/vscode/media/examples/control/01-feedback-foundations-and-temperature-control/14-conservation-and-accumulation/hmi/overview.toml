@@ -9,96 +9,52 @@ tier = "hero"
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.InletFlow"
+bind = "P1.LevelM"
 inferred_interface = true
-label = "Inlet Flow"
+label = "Tank level"
 span = 4
-unit = "l/min"
+unit = "m"
 min = 0
-max = 500
+max = 1
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.NetFlow"
+bind = "P1.InletFlowM3S"
 inferred_interface = true
-label = "NET Flow"
+label = "Inlet flow"
 span = 4
-unit = "l/min"
+unit = "m³/s"
 min = 0
-max = 500
+max = 0.02
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.OutletFlow"
+bind = "P1.OutletFlowM3S"
 inferred_interface = true
-label = "Outlet Flow"
+label = "Outlet flow"
 span = 4
-unit = "l/min"
+unit = "m³/s"
 min = 0
-max = 500
+max = 0.02
 
 [[section]]
-title = "Status"
-span = 12
-tier = "status"
-
-[[section.widget]]
-type = "indicator"
-bind = "P1.ExperimentEnabled"
-inferred_interface = true
-label = "Experiment Enabled"
-span = 2
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.NetFlowCommand"
-inferred_interface = true
-label = "NET Flow Command"
-span = 2
-unit = "l/min"
-min = 0
-max = 500
-
-[[section]]
-title = "Details"
+title = "Model"
 span = 12
 tier = "detail"
 
 [[section.widget]]
 type = "gauge"
-bind = "P1.PredictedLevelAfterTenSeconds"
+bind = "P1.ModelLevelM"
 inferred_interface = true
-label = "Predicted Level After TEN Seconds"
+label = "Model level"
 span = 4
-unit = "%"
+unit = "m"
 min = 0
-max = 100
+max = 1
 
 [[section.widget]]
-type = "gauge"
-bind = "P1.PredictedLevelRate"
+type = "indicator"
+bind = "P1.Active"
 inferred_interface = true
-label = "Predicted Level Rate"
-span = 4
-unit = "%"
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.TankArea"
-inferred_interface = true
-label = "Tank Area"
-span = 4
-min = 0
-max = 100
-
-[[section.widget]]
-type = "gauge"
-bind = "P1.TankLevel"
-inferred_interface = true
-label = "Tank Level"
-span = 4
-unit = "%"
-min = 0
-max = 100
+label = "Flow step active"
+span = 2

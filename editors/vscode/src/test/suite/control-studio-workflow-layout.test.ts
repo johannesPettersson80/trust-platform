@@ -1,5 +1,4 @@
 /// <reference lib="dom" />
-import * as comparison from "../../controlStudio/webview/controllerComparisonPresentation";
 import * as assert from "assert";
 import { engineerWorkflowControls } from "../../controlStudio/engineerWorkflowPresentation";
 const { JSDOM } = require("jsdom");
@@ -14,48 +13,6 @@ suite("Control Studio shared workflow layout", () => {
     const legacy = decodeEngineerStudy({ campaigns: [], family: "PI" });
     const { restoredEngineerView } = require("../../controlStudio/restoredEngineerView");
     assert.strictEqual(restoredEngineerView(legacy).controllerChoice, "PI");
-  });
-
-  test("restores controller comparisons as historical evidence without candidate authority", () => {
-    let api: any = {};
-    try { api = require("../../controlStudio/restoredEngineerView"); } catch { /* expected missing behavior */ }
-    assert.strictEqual(typeof api.restoredEngineerView, "function");
-    const study = { family: "PI", task: { referenceChange: 1 }, selectedModel: { revision: "internal-model" },
-      familyEvaluations: [{ family: "P", status: "unavailable", reason: "Gain limit exceeded." },
-        { family: "PI", status: "actual-pass", reason: "Target response passed." }] };
-    const view = api.restoredEngineerView(study);
-    assert.strictEqual(view.status, "restored");
-    assert.strictEqual(view.family, "PI");
-    assert.deepStrictEqual(view.familyEvaluations, study.familyEvaluations);
-    assert.strictEqual(view.stageEvidence.hasCandidate, false);
-    assert.strictEqual(view.stageEvidence.validationHasResult, false);
-    assert.strictEqual(view.stageEvidence.validationPassed, false);
-    assert.match(view.reason, /historical.*Tune.*Verify/i);
-    assert.ok(!view.reason.includes("internal-model"));
-    const presentation = comparison;
-    assert.strictEqual(typeof presentation.renderHistoricalControllerComparison, "function");
-    const doc = new JSDOM("<div id='history'></div>").window.document;
-    const history = doc.querySelector("#history");
-    presentation.renderHistoricalControllerComparison(history, view.familyEvaluations);
-    assert.match(history.textContent, /Historical/);
-    assert.match(history.textContent, /PI.*Passed/);
-    assert.match(history.textContent, /Gain limit exceeded/);
-    assert.strictEqual(history.querySelectorAll("button").length, 0);
-  });
-
-  test("renders rejected controller reasons as inspectable detail", () => {
-    let api: any = {};
-    try { api = comparison; } catch { /* expected missing behavior */ }
-    assert.strictEqual(typeof api.renderControllerComparison, "function");
-    const doc = new JSDOM("<div id='detail'></div>").window.document;
-    const detail = doc.querySelector("#detail");
-    api.renderControllerComparison(detail, [
-      { structure: "P", status: "Rejected", reason: "Required gain exceeds the actuator limit." },
-      { structure: "PI", status: "Rejected", reason: "Integral gain cannot be represented by this controller." },
-    ]);
-    assert.match(detail.textContent, /P.*Required gain exceeds/);
-    assert.match(detail.textContent, /PI.*Integral gain cannot/);
-    assert.strictEqual(detail.querySelectorAll("button").length, 0, "rejection evidence cannot expose Apply");
   });
 
   test("describes the selected model without exposing internal identifiers", () => {

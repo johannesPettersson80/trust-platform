@@ -1,4 +1,0 @@
-plan,baseline_valve_percent,step_pp,duration_s,predicted_final_degC,soft_valve_limit_percent,hard_temperature_limit_degC,review_decision,physical_execution_eligible
-Plan A,60,10,63,55.0,80,58,accepted_simulation,false
-Plan B,60,25,63,62.5,80,58,rejected_temperature_prediction,false
-Plan A bad quality,60,10,63,55.0,80,58,aborted_reason_1,false

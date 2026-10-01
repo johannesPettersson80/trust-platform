@@ -3,25 +3,35 @@ enabled = true
 seed = 20260829
 time_scale = 1
 max_plant_substeps_per_cycle = 100
-plant_trace_capacity = 1600
+plant_trace_capacity = 2400
 plant_step_ms = 100
 
 [[plants]]
-id = "booster-pump-pressure"
-model = "first_order"
-command_sources = ["%QL0"]
-feedback_targets = ["%IL0"]
-initial_state = [6.0]
+id = "heater-lesson-26"
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
+feedback_targets = ["%IL0", "%IL8"]
+# Same water balance as the validated heater; both feedback bindings observe the water.
+initial_state = [0.0]
+initial_input = [0.0, 0.0]
+input_offset = [-75.0, 0.0]
+output_offset = [35.0, 35.0]
 
 [plants.parameters]
-gain = 0.1
-time_constant_s = 2.0
-input_bias = 0.0
-output_bias = 2.0
+a = [[-0.2]]
+b = [[0.04, -0.02]]
+c = [[1.0], [1.0]]
+d = [[0.0, 0.0], [0.0, 0.0]]
+# Heater transport is delayed; extraction acts on the water immediately.
+# Main supplies bounded 0..100% heating and 0..30 kW extraction commands.
+input_delays_s = [1.0, 0.0]
 
-[plants.actuator]
-minimum = 0.0
-maximum = 100.0
-rate_up_per_s = 1000.0
-rate_down_per_s = 1000.0
-initial_applied = 40.0
+# The Lesson 21 heater: its temperature measurement carries repeatable ±0.02 °C noise.
+[[plants.uncertainties]]
+id = "temperature-noise"
+target = "measurement"
+channel = 1
+mode = "add"
+generator = "uniform_white"
+minimum = -0.02
+maximum = 0.02

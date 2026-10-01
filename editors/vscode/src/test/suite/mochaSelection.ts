@@ -31,6 +31,17 @@ export function configuredMochaGrep(
   return configured ? new RegExp(configured) : undefined;
 }
 
+/** A rendered journey whose registered title matches no test, or whose test skips, proves nothing. */
+export function renderedRunFailure(
+  environment: Readonly<Record<string, string | undefined>>,
+  passes: number
+): string | undefined {
+  if (environment.TRUST_PLANT_RENDERED_TEST !== "1" || passes > 0) {
+    return undefined;
+  }
+  return `No test passed for the rendered selection ${environment.TRUST_VSCODE_TEST_GREP?.trim() ?? "(none)"}: its registered title must match a test that runs.`;
+}
+
 export function attachConfiguredMochaEvidence(
   runner: EvidenceRunner,
   environment: Readonly<Record<string, string | undefined>>

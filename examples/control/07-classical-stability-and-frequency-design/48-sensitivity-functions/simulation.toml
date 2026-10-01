@@ -3,55 +3,43 @@ enabled = true
 seed = 20260829
 time_scale = 1
 max_plant_substeps_per_cycle = 100
-plant_trace_capacity = 14000
-plant_step_ms = 10
+plant_trace_capacity = 2000
+plant_step_ms = 100
+
+# Two copies of the heater of Lessons 12–30, 50·dT/dt = 2·u(t − 1) − 10·(T − 20) − D, at rest at 35 °C with 75 %.
+# Inputs: heater command (delivered 1 s later) and heat extraction D in kW; output: the water temperature, read
+# exactly. The first copy receives the heat load, the second the measurement noise (added by the program).
 
 [[plants]]
-id = "baseline-precision-drive"
-name = "Precision motor with proportional speed control"
-description = "Local flexible-drive speed model with separate controller and opposing load torque inputs."
+id = "load-heater"
 model = "state_space"
 command_sources = ["%QL0", "%QL8"]
-feedback_targets = ["%IL0", "%IL8"]
-initial_state = [0.0, 0.0]
+feedback_targets = ["%IL0"]
+initial_state = [15.0]
+initial_input = [75.0, 0.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }, {}]
 
 [plants.parameters]
-a = [[0.0, 1.0], [-1.0, -0.6]]
-b = [[0.0, 0.0], [10.0, -10.0]]
-c = [[1.0, 0.0], [1.0, 0.0]]
-d = [[0.0, 0.0], [0.0, 0.0]]
-
-[[plants.uncertainties]]
-id = "baseline-encoder-interference"
-target = "measurement"
-channel = 0
-mode = "add"
-generator = "sine"
-amplitude = 0.02
-frequency_hz = 1.5915494309
-phase_rad = 0.0
+a = [[-0.2]]
+b = [[0.04, -0.02]]
+c = [[1.0]]
+d = [[0.0, 0.0]]
+input_delays_s = [1.0, 0.0]
 
 [[plants]]
-id = "shaped-precision-drive"
-name = "Precision motor with loop-shaped speed control"
-description = "Equivalent local flexible-drive model used to isolate the controller change."
+id = "noise-heater"
 model = "state_space"
 command_sources = ["%QL16", "%QL24"]
-feedback_targets = ["%IL16", "%IL24"]
-initial_state = [0.0, 0.0]
+feedback_targets = ["%IL8"]
+initial_state = [15.0]
+initial_input = [75.0, 0.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }, {}]
 
 [plants.parameters]
-a = [[0.0, 1.0], [-1.0, -0.6]]
-b = [[0.0, 0.0], [10.0, -10.0]]
-c = [[1.0, 0.0], [1.0, 0.0]]
-d = [[0.0, 0.0], [0.0, 0.0]]
-
-[[plants.uncertainties]]
-id = "shaped-encoder-interference"
-target = "measurement"
-channel = 0
-mode = "add"
-generator = "sine"
-amplitude = 0.02
-frequency_hz = 1.5915494309
-phase_rad = 0.0
+a = [[-0.2]]
+b = [[0.04, -0.02]]
+c = [[1.0]]
+d = [[0.0, 0.0]]
+input_delays_s = [1.0, 0.0]

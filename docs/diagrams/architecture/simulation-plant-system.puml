@@ -37,6 +37,7 @@ component "Scheduler command boundary\nstatus / trace / scoped clear" as schedul
 
 component "PLC program\nControl.PID" as plc
 component "Process image\n%Q command / %I feedback" as io
+component "Program storage\nunaddressed command / read-only feedback variables" as program_storage
 component "SimulationController\npre/post-cycle orchestration" as simulation
 note right of simulation
 Model-structure teaching project: the existing continuous state-space
@@ -80,6 +81,7 @@ scheduler_boundary --> simulation : scheduler-owned access
 device_graph --> plant_handoff : project/runtime/plant/loop identity
 plc --> io : commits command during scan
 io --> simulation : post-cycle held command
+program_storage --> simulation : post-cycle held command (symbolic path)
 simulation --> plant : elapsed simulation time
 events --> plant : due actions before substep
 plant --> actuator : command uncertainty first
@@ -104,6 +106,7 @@ checkpoint --> input_history : same substep rollback boundary
 plant --> numeric : queue complete feedback
 numeric --> simulation : checked encoded batch
 simulation --> io : next pre-cycle atomic publication
+simulation --> program_storage : then symbolic feedback, all values checked first
 io --> plc : next scan reads feedback
 plant --> observability : completed state and fault context
 observability --> plant_operations : honest status + bounded trace

@@ -52,6 +52,10 @@ suite("Control Studio course tools in three pages", () => {
       await capture("routh-regions");
       await inner("d.querySelector('[data-three-page-analysis-table-details] summary').click();return 'details';");
       assert.match(await inner("return d.querySelector('[data-three-page-analysis-table]').textContent;"), /Boundary polynomial/);
+      const layout = JSON.parse(await inner("const view=d.defaultView;const tables=[...d.querySelectorAll('[data-three-page-analysis-table] table')];const touching=[...d.querySelectorAll('[data-three-page-analysis-table] :is(th,td)')].filter(cell=>parseFloat(view.getComputedStyle(cell).paddingRight)<12).map(cell=>cell.textContent);const gaps=tables.slice(1).map((table,index)=>table.getBoundingClientRect().top-tables[index].getBoundingClientRect().bottom);return JSON.stringify({tables:tables.length,touching,gaps});"));
+      assert.ok(layout.tables >= 2, `the details show the Routh table and its boundary polynomials: ${layout.tables}`);
+      assert.deepStrictEqual(layout.touching, [], "every Calculation-details column is separated from the next");
+      assert.ok(layout.gaps.every((gap: number) => gap >= 8), `stacked Calculation-details tables are separated: ${layout.gaps}`);
       await capture("routh-details");
       await reopen(); await choose(inner, "routh");
       assert.match(await inner("return d.querySelector('[data-three-page-analysis-summary]').textContent;"), /Kp = 2/);
@@ -75,7 +79,7 @@ suite("Control Studio course tools in three pages", () => {
         assert.strictEqual(await inner("return String(d.querySelector('[data-three-page-analysis-plot]').checkVisibility());"), "true");
         await capture(`loop-${view}`);
         if (view === "nyquist") assert.match(await inner("return d.querySelector('[data-three-page-analysis-summary]').textContent;"), /stability|stable|unstable/i, "Nyquist must expose the existing stability conclusion or its inconclusive result");
-        if (view === "nyquist") assert.ok(Number(await inner("let count=0;for(const canvas of d.querySelectorAll('[data-three-page-analysis-plot] canvas')){if(!canvas.width||!canvas.height)continue;const ctx=canvas.getContext('2d');if(!ctx)continue;const pixels=ctx.getImageData(Math.floor(canvas.width*.6),Math.floor(canvas.height*.12),Math.floor(canvas.width*.2),Math.floor(canvas.height*.23)).data;for(let i=0;i<pixels.length;i+=4)if(Math.max(pixels[i],pixels[i+1],pixels[i+2])>150&&Math.max(pixels[i],pixels[i+1],pixels[i+2])-Math.min(pixels[i],pixels[i+1],pixels[i+2])>70)count++;}return String(count);")) > 6, "The real-model Nyquist view must show its negative-frequency conjugate branch");
+        if (view === "nyquist") assert.ok(Number(await inner("let count=0;for(const canvas of d.querySelectorAll('[data-three-page-analysis-plot] canvas')){if(!canvas.width||!canvas.height)continue;const ctx=canvas.getContext('2d');if(!ctx)continue;const pixels=ctx.getImageData(Math.floor(canvas.width*.2),Math.floor(canvas.height*.12),Math.floor(canvas.width*.75),Math.floor(canvas.height*.32)).data;for(let i=0;i<pixels.length;i+=4)if(Math.max(pixels[i],pixels[i+1],pixels[i+2])>150&&Math.max(pixels[i],pixels[i+1],pixels[i+2])-Math.min(pixels[i],pixels[i+1],pixels[i+2])>70)count++;}return String(count);")) > 6, "The real-model Nyquist view must show its negative-frequency conjugate branch above the real axis, below the legend");
       }
       assert.strictEqual(Boolean(vscode.debug.activeDebugSession), false, "Analysis must not start a simulator");
     }, { loop: loop => { declared(loop); loop.analysis.controller.numerator = [{ parameter: "Kp" }]; } });

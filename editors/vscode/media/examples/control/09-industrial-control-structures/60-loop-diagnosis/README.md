@@ -1,94 +1,139 @@
 # 10. Loop diagnosis
 
-You will choose a check that separates a tuning problem from a measurement, actuator, capacity, or disturbance problem. Diagnosis comes before changing gains, even when an earlier response test passed.
+In this lesson, you will find out why a requirement failed before changing any gain. You will check the measurement, the heater and its capacity, and see how a sensor that reads 0.3 °C too high fools the controller into holding the water too cold.
 
 ## The problem
 
-PV below SP is a symptom. It can result from a heater already at full power, a restricted command, a stale or biased sensor, an unexpected load, or unsuitable gains. A stale reading is an old measurement presented as current; a sensor bias is a systematic offset from the actual temperature. Increasing gain is useful only when the signal and actuator path are credible and the intended condition is feasible.
+Lesson 9's load trial failed: after colder water removed 30 kW more, the temperature fell to 33.32 °C and was still more than 0.2 °C from 35 °C at 30.4 s, 0.4 s too late. The result does not say why. The controller could be too slow. The measurement could be wrong, so the controller corrects the wrong temperature. The heater could fail to deliver what is commanded, or the load could need more power than the heater has. Changing the gains helps only in the first case.
+
+We will check the measurement, the heater and the capacity in turn, and change a gain only if all three are in order.
 
 ## What we need
 
-We need a check that distinguishes unsuitable gains from measurement,
-actuator or capacity problems. Its possible results must support different
-decisions, so we know whether changing the gains is justified.
+We need to:
+
+1. check that the measured temperature is right;
+2. check that the heater applies what the controller commands and that the water responds;
+3. check that the heater has enough power for the load; and
+4. only then decide whether the controller itself is the problem.
 
 ## The new idea
 
-**Loop diagnosis** identifies the cause of unsatisfactory control using checks
-that distinguish possible explanations. A low temperature alone cannot tell
-us whether to change gains, repair an actuator or investigate a measurement.
+**Loop diagnosis** finds out why a loop performs badly before anyone touches the controller. Is the measurement right? Does the command reach the heater? Does the heater respond? Is the target reachable at all?
 
-For each observation, choose a check whose result would separate those causes:
+**In words.** A loop can perform badly for reasons no controller setting can fix: a wrong measurement, a command that does not reach the heater, a heater that does not respond, or a target beyond the heater's capacity. Diagnosis answers the four questions in order from cause to effect, and for this heater each has a check in the recorded data:
 
-| Observation | Candidate explanation | Discriminating check |
+| Question | Check | Rules out |
 | --- | --- | --- |
-| Request is above applied output | Saturation or another output restriction | Compare the configured output limit with the applied command. |
-| Applied command changes but PV does not | Delivery fault, normal delay, or changed process | Check delivered power and compare timing with the known 1 s delay. |
-| Two sensors disagree | Bias, location, or acquisition-time difference | Compare the same physical quantity at the same time with a verified reference. |
-| Display repeats a value | Steady process or stale sample | Inspect the measurement acquisition time. |
-| Load changes before PV moves | Disturbance | Check event size and available heating capacity. |
+| Is the measurement right? | Compare the sensor with an independent reference of the same water temperature. | A wrong reading |
+| Does the command reach the heater? | Compare the requested power with the applied power. | A limit or a blocked output |
+| Does the heater respond? | Check that the temperature starts to change about 1 s after the power changes, the known delay. | A delivery fault |
+| Is the target reachable? | Calculate the holding power and compare it with 100%. | Missing capacity |
 
-A 100% command is not proof of delivered rated power. A flat display is not proof of a fresh measurement. The acquisition timestamp records when the sensor obtained a reading; refreshing the display does not make an old reading new. If each sensor has ±0.1 °C verified error, their largest permitted disagreement is $0.1-(-0.1)=0.2$ °C. A larger disagreement contradicts at least one assumption but does not identify which instrument is wrong. Maintaining 35 °C normally needs 75% output. Since one output point supplies 2 kW, adding 30 kW requires $30/2=15$ more points: $75+15=90\%$. The 38 °C target alone needs 90%; combining that target with the load would need $90+15=105\%$, beyond the 100% actuator limit. Increasing a gain cannot create that missing capacity.
+In PLC terms, it is the loop check from commissioning: from the sensor through the input, the program and the output to the actuator, one stage at a time. A check is useful only if its result differs between the possible causes.
 
-A useful diagnostic check gives different predictions for the competing causes. Start at the first unexpected event and follow causality forward: did the command change, did the actuator apply it, did delivered heat change after its delay, and did the sensor acquire a new value? If PV changes before the new command, that command is a response to the temperature change. Look for an earlier disturbance or an earlier command whose heating effect was delayed. This ordering keeps a plausible story from becoming an unsupported diagnosis.
+A sensor with a **bias** reads a fixed amount too high or too low. A bias is dangerous because the controller cannot see it: it drives the reading to the setpoint, so the water itself ends up off target by the bias. Two healthy sensors also disagree a little. If each is accurate to ±0.1 °C, one can read 0.1 °C high while the other reads 0.1 °C low, so they may differ by up to $0.1 - (-0.1) = 0.2$ °C. A larger disagreement shows that at least one is wrong, but not which one.
+
+**The formula.** Two relations do the calculations. A sensor that reads $b$ too high makes the water settle at
+
+$$
+T_{water} = SP - b ,
+$$
+
+and holding the water at temperature $T$ needs the command
+
+$$
+u_{hold} = \frac{H\,(T - T_a) + D}{a}.
+$$
+
+- $b$ is the sensor bias, in °C, positive when the sensor reads too high;
+- $H$ is the heat loss, 10 kW per degree Celsius above the surroundings;
+- $T_a$ is the surroundings' temperature, 20 °C;
+- $D$ is the extra heat loss, in kW;
+- $a$ is the heater's power per command point, 2 kW per percentage point;
+- $u_{hold}$ is the holding command, in percent; above 100 % the target is out of reach.
+
+**Example.** For Lesson 9's load trial, $u_{hold} = (10 \times 15 + 30)/2 = 90\%$: below 100 %, so the heater has enough power. If the setpoint were also raised to 38 °C, $u_{hold} = (10 \times 18 + 30)/2 = 105\%$: impossible. No gain can create power the heater does not have.
+
+The same relations predict what a 0.3 °C bias does in a 35 → 38 °C setpoint trial. The controller holds the reading at 38.00 °C, so the water settles at $38.00 - 0.3 = 37.70$ °C, and the holding power is $10 \times 17.7 / 2 = 88.5\%$ instead of 90 %.
 
 ## Prediction
 
-Choose one prior requirement or response feature to investigate. State a primary cause, an alternative cause, and the observation that would distinguish them. Does changing Kp make a 105% steady requirement feasible? Does an unchanged PV alone prove a valid steady state? What evidence would make a gain change reasonable?
+You will run two tests. First, Lesson 9's load trial again, this time with the reference sensor recorded. Then a setpoint trial with a sensor that reads 0.3 °C too high, to see what a measurement fault looks like.
+
+Before running, answer these questions for the setpoint trial with the faulty sensor:
+
+1. Where will the reading settle?
+2. Where will the water itself settle?
+3. At what power will the heater settle?
+4. Will the reading and the reference disagree by more than two healthy sensors may?
+
+Then answer for Lesson 9's failed load trial:
+
+5. Will the reading agree with the reference? Will the heater reach its 100% limit, and is the 30 kW load within its capacity?
+6. If the measurement, the heater and the capacity are all in order, is a gain change justified?
 
 ## Implementation
 
-Write ST assignments for `ErrorC`, `PairedRequestPct - AppliedPowerPct`, and Boolean comparisons indicating positive error and an applied output at its upper limit. Expose the quantities needed for reasoning: error, requested-minus-applied output, active limit, delivered-power feedback if available, and measurement acquisition time. Keep these observations separate; do not compress `AtUpperLimit AND PositiveError` into an unexplained “insufficient capacity” flag. That condition can also occur during a valid transient. Check error 5 °C with request/applied pairs 120/100% and 90/90%: both have positive error, but only the first has an unavailable command. Neither pair alone proves that steady heating capacity is insufficient.
+Open [`src/Main.st`](src/Main.st). It runs Lesson 9's `Control.PID` unchanged, with `TrialKind` selecting the setpoint or the load trial. Besides the measured temperature `TemperatureC`, it reads `WaterTemperatureC`, a reference of the actual water temperature from the simulation, not a calibrated probe, and `AppliedPowerPct`, the power the heater applied one update later. `PairedRequestPct` is the request of that same update, so `UnavailableCommandPct`, the request minus the applied power, shows a real limit rather than one update of delay. `ReferenceDifferenceC` is the reading minus the reference. The sensor bias is not in the program: it is a fault of the simulated plant, which you add in the hardware canvas.
 
-The prepared project executes the same `Control.PID` as Lesson 9, through
-`Configure`, one-time `Initialize` and cyclic `Update`, with unchanged gains and
-`TrialKind` set to `0` for the target or `1` for the load. Select the initial
-value in [Main.st](src/Main.st) before starting a fresh simulator run.
-The channel-0 `set_sensor_bias` event in [simulation.toml](simulation.toml)
-defaults to `value = 0.0`; changing it to `0.3` °C provides the optional
-reference-disagreement check through the native sensor input. The reference is simulation truth, not a calibrated physical sensor.
-Independent acquisition-time and measured delivered-power channels are
-unavailable here: record that limitation rather than infer them from a scan
-clock or an actuator command. A biased repeat does not satisfy the nominal
-measurement assumptions merely because its physical water starts at 35 °C.
-
-The PLC reads measured temperature at `%IL0`, the unbiased simulated reference
-at `%IL16`, and applied heater feedback at `%IL8`. Its actual PID command drives
-`%QL0`; extraction drives `%QL8`. Both temperature channels come from one native
-process state, with the heater's 1 s delay and immediate load path preserved.
-The independent reference is simulation evidence, not a calibrated second probe.
-
-`RequestedPowerPct` observes the unlimited request for this fixed PI setup;
-`PairedRequestPct` retains the preceding request corresponding to the currently
-observed actuator input. Compare the paired value with applied feedback so one
-scan of I/O delay is not mistaken for lost heater capacity. These diagnostics
-own no control output. The complete `Parameters` record remains authoritative.
+**Exercise.** The program's `PositiveError` and `AtUpperLimit` flags are kept separate. Check an error of 5 °C with request/applied 120/100% and with 90/90%. Both have a positive error; only the first has an unavailable command. Neither alone proves missing capacity: the heater also reaches its limit for a while after a large change.
 
 ## Experiment in Control Studio
 
-1. In the Lesson 9 project, use **Validate → Saved results → Open** to inspect each of its two saved responses, then view **Monitor → Response**. Confirm event type, initial 35 °C/75% state, gains, duration and load. These records belong to that project; inspect them there before opening this diagnosis project for a repeat.
-2. In this project, inspect the declared signals in **Monitor → Signals**: measured temperature and simulated reference in °C, requested/applied output and I in percent, and heat load in kW. The simulated reference supports a controlled bias experiment. Delivered-power measurement and sensor acquisition time are unavailable; record those as unresolved checks.
-3. Locate the first departure from the expected trace. Decide whether the measurement changed first, a limit blocked the request, or the physical response simply follows the known delay.
-4. Choose one bounded repeat as your discriminating check. For a reference-disagreement check, keep the chosen `TrialKind` unchanged, set `value = 0.3` in the channel-0 `set_sensor_bias` event in `simulation.toml`, and restart. Predict a 0.3 °C difference against the simulated reference, exceeding the 0.2 °C comparison threshold. In **Test**, use **Review test** for the original 60 s trial, then select **Confirm and start**. Test automatically records the reviewed sequence. After terminal restoration, use **Validate → Save result**. Keep gains unchanged during diagnosis. If both earlier tests passed, identify which recorded evidence supports their measurement and capacity assumptions. Repeat a test only if the chosen observation can resolve an unanswered diagnostic question; keep the Lesson 9 requirements unchanged.
-5. Abort outside 0–80 °C, outside 0–100% applied output, or on unusable measurements. Select **Abort test**, cancel the load, disable heating and confirm 0% output. Stop the simulator if it is unresponsive. Before a repeat, reset PV/SP to 35 °C, P to zero, I and applied output to 75%, and the preceding 1 s command history to 75%.
+1. Open this lesson's project, set `TrialKind := 1;` in `src/Main.st` (Lesson 9's load trial) and start **Simulator**. In the **truST** side bar, select **Control Studio**. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.SetpointC · Setpoint (°C)`, `P1.TemperatureC · Process value (°C)` and `P1.AppliedPowerPct · Applied output (%)`; add `P1.WaterTemperatureC · state (°C)` (the reference), `P1.PairedRequestPct · state (%)`, `P1.UnavailableCommandPct · state (%)` and `P1.DisturbanceKw · disturbance (kW)`.
+2. Answer the predictions. Select **Review project test**, check the declared **60.1 s** duration and select **Confirm and start**; the 30 kW loss starts at once.
+3. After the run, hover the lowest temperature and the end: compare the reading with the reference, and note the highest applied power and the unavailable command.
+4. Now add the sensor fault. Stop the simulator, set `TrialKind := 0;` and start **Simulator** again. In the **truST** side bar, select **Devices & Connections** and select **heater-loop-diagnosis**; **Configure plant** opens. Its **Output 1** is the measured temperature and **Output 2** the reference. Under **OPTIONAL SETTINGS**, select **Edit** next to **Scenarios**. **SCENARIO EVENTS** shows **Event 1**: **Time (s)** 0, **Action** **Set sensor bias**, **Measured quantity** **Output 1**, **Value** 0. Set **Value** to 0.3 and select **Save**. The plant shows **Pending** until the simulator restarts, so stop and start **Simulator**.
+
+   ![The sensor bias set in the plant's scenario events](figures/sensor-bias-in-hardware-canvas.png)
+
+5. In **Control Studio**, select **Review project test**, check the declared **60.1 s** duration and select **Confirm and start**; the setpoint steps to 38 °C.
+6. After the run, hover the end: compare the reading with the reference, and the applied power with the 90% a healthy sensor gives.
+7. At the end of each run, Control Studio shows **Project test completed. Outputs restored.** Finally, set **Value** back to 0 in **Scenarios**, select **Save** and restart **Simulator**, so later runs use a healthy sensor.
+
+Select **Abort test** to stop early. A temperature outside 0–80 °C latches `SafetyAbort`, which removes heat until you restart the simulator.
 
 ## Evidence and decision
 
-Write the chosen cause, alternative, expected observation, observed result, and remaining uncertainty. Timing correlation can support a hypothesis but does not prove it alone. A measured limit and a verified lack of delivered power support an actuator or capacity investigation; a credible measurement and available heating support a later bounded tuning trial. If the check does not discriminate, choose another check before tuning.
+![With a 0.3 °C sensor fault, the controller holds the reading at 38 °C and the water 0.3 °C too cold](figures/sensor-bias-repeat.svg)
 
-A passed test is evidence for the tested condition, not proof that every signal path is healthy. For example, a sensor can be fresh during one run and stale after a communications interruption, or capacity can be adequate without load and insufficient with an unrecorded load. The diagnostic repeat deliberately tests one such boundary while keeping gains fixed, so a later tuning decision has a known operating context.
+The numbered marks answer predictions 1–4. The dashed line is the same trial without the fault.
+
+| Run | Reading at 60 s | Water at 60 s | Heater power at 60 s |
+| --- | ---: | ---: | ---: |
+| Healthy sensor | 38.00 °C | 38.00 °C | 90.0% |
+| Sensor 0.3 °C too high | 38.00 °C | 37.70 °C | 88.5% |
+
+1. The controller held the faulty reading at 38.00 °C, exactly on target.
+2. The water settled at 37.70 °C, 0.3 °C too cold, as the bias predicts.
+3. The heater settled at 88.5% instead of 90%: exactly the power that holds 37.7 °C water.
+4. The reading and the reference were 0.3 °C apart, more than the 0.2 °C two healthy sensors may differ. Only that comparison revealed the fault; the controller's own signals all looked perfect. With the healthy sensor, the reading and the reference agree.
+
+The healthy load trial repeated Lesson 9's run exactly: the same lowest temperature, 33.32 °C at 6.9 s. It answers the checks for Lesson 9's failure:
+
+5. **Measurement.** The reading and the reference agreed at every sample, to 0.00 °C, so the controller saw the true water temperature. **Actuator and capacity.** The applied power rose to 90.0%, the calculated holding power, and never reached 100%; the unavailable command stayed at 0, so no limit blocked the controller, and the heater had enough power for the 30 kW load.
+6. With a credible measurement, no active limit and enough capacity, the slow recovery is a problem of the controller's speed, so a careful gain change is justified. Two checks remain open because this simulation does not measure them: the power the heater actually delivers, and the age of each reading. These are simulation results.
 
 ## Conclusion
 
-A poor trace is not a tuning diagnosis. The signal path and physical evidence determine whether changing a gain is justified.
+A failed requirement is a symptom, not a diagnosis. Checking the measurement, the command delivery and the capacity first shows whether changing a gain can help at all; a biased sensor shows why, because the controller holds its reading perfectly while the process is off target.
 
-For adaptation, use the real `Control.PID` output and explicit sensor/actuator
-bindings, provide a valid timing source, and requalify limits, initialization,
-stop/restart and input-quality handling for that plant. This example rejects
-out-of-range measured temperatures and latches Manual zero heating/extraction;
-the runtime rejects nonfinite typed I/O before ST. Physical sensor freshness,
-reference calibration and site qualification remain application responsibilities.
+For this heater, the measurement, the heater and its capacity are in order, so Lesson 9's slow load recovery comes from the controller itself.
+
+## Check yourself
+
+1. **The water must be held at 36 °C while 40 kW extra is lost. What is the holding power, and is there enough capacity?**
+   (10 × 16 + 40) / 2 = 100%. It is exactly at the limit, with nothing left to correct a further disturbance.
+2. **Why did the controller not notice the sensor reading 0.3 °C too high?**
+   It only sees the reading, and it held the reading on target. Only an independent reference of the same
+   temperature reveals the bias.
+3. **The heater shows 100% and the water is below the setpoint. Does this prove the heater lacks capacity?**
+   No. The heater also runs at its limit for a while after a large change. Calculate the holding power and check
+   whether the heater stays at the limit once the water has settled.
 
 ## Reason for the next lesson
 
-Once measurements are credible, the actuator is available, and the operating condition is feasible, [manual PI tuning](../../06-pid-tuning-methods/28-manual-pi-tuning/README.md) changes one gain at a time against unchanged requirements.
+The measurement is credible, the heater delivers what is commanded and the load is within its capacity, so the slow recovery in Lesson 9 comes from the PI settings. We still have no method for improving them.
+
+[Manual PI tuning](../../06-pid-tuning-methods/28-manual-pi-tuning/README.md) changes one gain at a time, predicts the effect and keeps the change only if the unchanged requirements are met.

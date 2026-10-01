@@ -1,5 +1,0 @@
-case,status,minimum_margin_percent,selector_transitions,maximum_takeover_step_percent
-normal_only,rejected,1.279339,0,0
-untracked_override,rejected,8.202271,2,0.014397
-tracked_override,qualified,11.873671,2,0.107614
-invalid_margin_fallback,unprotected_metrics_ineligible,,,

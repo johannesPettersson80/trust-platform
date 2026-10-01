@@ -56,6 +56,17 @@ suite("Control Studio loop signal directions", () => {
     assert.deepStrictEqual(api.decodeControlLoopDefinition(withoutActivation), { kind: "accepted", loop: withoutActivation });
   });
 
+  test("treats a signal declared without a unit as dimensionless so recordings and requirements accept it", () => {
+    const api = loopApi();
+    const loop = projectScriptedLoop();
+    const scope = { projectId: loop.projectId, runtimeId: loop.runtimeId };
+    const unitless = { ...loop, signals: { ...loop.signals,
+      additional: [loop.signals.additional[0], { ...loop.signals.additional[1], unit: "" }] } };
+    const result = api.validateControlLoopDefinition(unitless, scope);
+    assert.strictEqual(result.kind, "accepted");
+    assert.strictEqual(result.loop.signals.additional[1].unit, "1", "A unitless Boolean or ratio signal is dimensionless");
+  });
+
   test("keeps requiring a Control Studio-driven manipulated variable to stay writable", () => {
     const api = loopApi();
     const loop = controlStudioLoop();

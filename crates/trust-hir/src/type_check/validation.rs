@@ -4,6 +4,23 @@ use super::*;
 use crate::symbols::Symbol;
 
 impl<'a> TypeChecker<'a> {
+    /// Whether `node` reaches a function block's member through an instance from outside it: a field access whose
+    /// receiver is neither THIS nor SUPER.
+    fn is_external_function_block_member(&self, node: &SyntaxNode, symbol: &Symbol) -> bool {
+        node.kind() == SyntaxKind::FieldExpr
+            && node.children().next().is_some_and(|receiver| {
+                !matches!(
+                    receiver.kind(),
+                    SyntaxKind::ThisExpr | SyntaxKind::SuperExpr
+                )
+            })
+            && symbol.parent.is_some_and(|owner| {
+                self.symbols
+                    .get(owner)
+                    .is_some_and(|owner| matches!(owner.kind, SymbolKind::FunctionBlock))
+            })
+    }
+
     fn symbol_is_constant(&self, symbol: &Symbol) -> bool {
         symbol.is_constant
             || matches!(
@@ -170,6 +187,11 @@ impl<'a> TypeChecker<'a> {
             SymbolKind::Parameter {
                 direction: ParamDirection::In,
             } => {
+                // IEC 61131-3 Ed.3 Figure 13 row 2: outside its instance, a function block's input may be assigned
+                // separately and is used by the next call; inside, the POU does not assign its own input.
+                if self.is_external_function_block_member(node, symbol) {
+                    return true;
+                }
                 self.diagnostics.error(
                     DiagnosticCode::InvalidAssignmentTarget,
                     node.text_range(),

@@ -1,183 +1,72 @@
-USING Control;
-
-FUNCTION Lesson75ReviewedSetpoint : LREAL
+(* The PD law with gravity compensation: τ = Kp(r − φ) − Kd·ω − Ĝ·sin φ with Kp = 16 N·m/rad and Kd = 7 N·m·s/rad; φ is
+   the angle from upright, ω the speed, r the target and Ĝ the gravity coefficient the controller assumes, in N·m. *)
+FUNCTION CompensatedTorqueNm : LREAL
 VAR_INPUT
-    ExperimentElapsedSeconds : LREAL;
-    ControlAuthority : BOOL;
+    AngleRad : LREAL;
+    SpeedRadPerS : LREAL;
+    SetpointRad : LREAL;
+    GravityEstimateNm : LREAL;
 END_VAR
-IF NOT ControlAuthority OR (ExperimentElapsedSeconds < LREAL#1.0) THEN
-    Lesson75ReviewedSetpoint := LREAL#0.0;
-ELSIF ExperimentElapsedSeconds < LREAL#11.0 THEN
-    Lesson75ReviewedSetpoint := LREAL#1.2;
-ELSIF ExperimentElapsedSeconds < LREAL#16.0 THEN
-    Lesson75ReviewedSetpoint := LREAL#0.0;
-ELSIF ExperimentElapsedSeconds < LREAL#26.0 THEN
-    Lesson75ReviewedSetpoint := LREAL#-1.2;
-ELSE
-    Lesson75ReviewedSetpoint := LREAL#0.0;
-END_IF;
-END_FUNCTION
-
-FUNCTION Lesson75ScheduledProportionalGain : LREAL
-VAR_INPUT
-    SetpointAngle : LREAL;
-END_VAR
-VAR
-    SchedulingAngle : LREAL;
-END_VAR
-SchedulingAngle := MIN(ABS(SetpointAngle), LREAL#1.2);
-IF SchedulingAngle <= LREAL#0.6 THEN
-    Lesson75ScheduledProportionalGain := LREAL#15.19
-        + (LREAL#16.903457618 - LREAL#15.19)
-            * SchedulingAngle / LREAL#0.6;
-ELSE
-    Lesson75ScheduledProportionalGain := LREAL#16.903457618
-        + (LREAL#21.445270429 - LREAL#16.903457618)
-            * (SchedulingAngle - LREAL#0.6) / LREAL#0.6;
-END_IF;
-END_FUNCTION
-
-FUNCTION Lesson75GravityCompensation : LREAL
-VAR_INPUT
-    EstimatedGravityCoefficient : LREAL;
-    JointAngle : LREAL;
-END_VAR
-Lesson75GravityCompensation := EstimatedGravityCoefficient * SIN(JointAngle);
+CompensatedTorqueNm := LREAL#16.0 * (SetpointRad - AngleRad) - LREAL#7.0 * SpeedRadPerS - GravityEstimateNm * SIN(AngleRad);
 END_FUNCTION
 
 PROGRAM Main
 VAR
-    Enabled : BOOL := FALSE;
-    ControllerMode : INT := 0;
-    ActiveArchitecture : INT := 0;
-    ModelEligible : BOOL := TRUE;
-    FallbackActive : BOOL := FALSE;
-    TorqueSaturated : BOOL := FALSE;
-    ControllerInitialized : BOOL := FALSE;
-    JointSetpoint : LREAL := 0.0;
-    JointAngle : LREAL := 0.0;
-    JointRate : LREAL := 0.0;
-    SchedulingVariable : LREAL := 0.0;
-    FixedProportionalGain : LREAL := 15.19;
-    ScheduledProportionalGain : LREAL := 15.19;
-    ActiveProportionalGain : LREAL := 15.19;
-    EstimatedInertia : LREAL := 1.0;
-    EstimatedGravityCoefficient : LREAL := 9.81;
-    EstimatedViscousCoefficient : LREAL := 0.2;
-    GravityCompensation : LREAL := 0.0;
-    ModelCompensation : LREAL := 0.0;
-    TorqueRequested : LREAL := 0.0;
-    TorqueApplied : LREAL := 0.0;
-    Controller : PID;
-    Parameters : PIDParameters;
-    InitialState : PIDInitialState;
-    Input : PIDInput;
+    (* Lesson 83's upright arm. GravityEstimateNm, the controller's Ĝ, is a Control Studio experiment setting; the arm's
+       own G is 4 N·m. The project experiment sets the target to 0.1 rad and records the peak angle and the largest error
+       from 4 s to 8 s. Outside the experiment the target is upright. The joint measures its angle from hanging down:
+       φ = θ − π. An angle beyond 0.3 rad or a speed beyond 2 rad/s from upright, or an update interval outside
+       20 ms ± 5 ms, latches zero torque. *)
+    GravityEstimateNm : LREAL := 4.0;
+    JointAngleRad : LREAL := 3.141592653589793;
+    SpeedRadPerS : LREAL := 0.0;
+    TorqueNm : LREAL := 0.0;
+    RequestedTorqueNm : LREAL := 0.0;
+    AngleRad : LREAL := 0.0;
+    SetpointRad : LREAL := 0.0;
+    PeakAngleRad : LREAL := 0.0;
+    LateErrorRad : LREAL := 0.0;
+    Updates : DINT := 0;
     ExperimentEnabled : BOOL := FALSE;
-    SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
-    ExperimentElapsed : LREAL := 0.0;
+    WasEnabled : BOOL := FALSE;
+    Saturated : BOOL := FALSE;
+    FaultLatched : BOOL := FALSE;
+    ClockPrimed : BOOL := FALSE;
+    ClockValid : BOOL := TRUE;
+    NowTime : TIME;
+    PreviousTime : TIME;
 END_VAR
-
-(* Control Studio grants only authority. The project owns the scheduled-PID
-   wide-angle trajectory; other architectures and payloads stay native tests. *)
-IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
-    ExperimentElapsed := ExperimentElapsed + LREAL#0.02;
-    Enabled := TRUE;
-    ControllerMode := INT#1;
-    JointSetpoint := Lesson75ReviewedSetpoint(
-        ExperimentElapsedSeconds := ExperimentElapsed,
-        ControlAuthority := TRUE);
-ELSE
-    ExperimentElapsed := LREAL#0.0;
-    Enabled := FALSE;
-    ControllerMode := INT#1;
-    JointSetpoint := LREAL#0.0;
+AngleRad := JointAngleRad - LREAL#3.141592653589793;
+NowTime := TIME();
+ClockValid := NOT ClockPrimed OR ((NowTime - PreviousTime) >= T#15ms AND (NowTime - PreviousTime) <= T#25ms);
+IF NOT ClockValid OR ABS(AngleRad) > LREAL#0.3 OR ABS(SpeedRadPerS) > LREAL#2.0 THEN
+    FaultLatched := TRUE;
 END_IF;
-
-SchedulingVariable := MIN(ABS(JointSetpoint), LREAL#1.2);
-ScheduledProportionalGain := Lesson75ScheduledProportionalGain(
-    SetpointAngle := JointSetpoint);
-
-ModelEligible := (EstimatedInertia >= LREAL#0.5)
-    AND (EstimatedInertia <= LREAL#2.0)
-    AND (EstimatedGravityCoefficient >= LREAL#0.0)
-    AND (EstimatedGravityCoefficient <= LREAL#20.0)
-    AND (EstimatedViscousCoefficient >= LREAL#0.0)
-    AND (EstimatedViscousCoefficient <= LREAL#2.0);
-
-FallbackActive := (ControllerMode = INT#2) AND NOT ModelEligible;
-IF ControllerMode = INT#0 THEN
-    ActiveArchitecture := INT#0;
-ELSIF ControllerMode = INT#1 THEN
-    ActiveArchitecture := INT#1;
-ELSIF ModelEligible THEN
-    ActiveArchitecture := INT#2;
-ELSE
-    ActiveArchitecture := INT#1;
+IF ExperimentEnabled AND NOT WasEnabled THEN
+    Updates := 0;
+    PeakAngleRad := AngleRad;
+    LateErrorRad := LREAL#0.0;
+ELSIF ExperimentEnabled THEN
+    Updates := Updates + 1;
 END_IF;
-
-// The nominal model term is observable even when another architecture is active.
-GravityCompensation := Lesson75GravityCompensation(
-    EstimatedGravityCoefficient := EstimatedGravityCoefficient,
-    JointAngle := JointAngle);
-ModelCompensation := GravityCompensation + EstimatedViscousCoefficient * JointRate;
-
-Parameters.ProportionalSetpointWeight := LREAL#1.0;
-Parameters.DerivativeSetpointWeight := LREAL#0.0;
-Parameters.Bias := LREAL#0.0;
-Parameters.OutputMinimum := LREAL#-100.0;
-Parameters.OutputMaximum := LREAL#100.0;
-Parameters.RateMinimum := LREAL#-5000.0;
-Parameters.RateMaximum := LREAL#5000.0;
-Parameters.TrackingTime := LREAL#0.1;
-Parameters.AntiWindup := PIDAntiWindup#Combined;
-
-IF ActiveArchitecture = INT#0 THEN
-    ActiveProportionalGain := FixedProportionalGain;
-    Parameters.ProportionalGain := ActiveProportionalGain;
-    Parameters.IntegralGain := LREAL#12.0;
-    Parameters.DerivativeGain := LREAL#7.8;
-    Input.FeedForward := LREAL#0.0;
-ELSIF ActiveArchitecture = INT#1 THEN
-    ActiveProportionalGain := ScheduledProportionalGain;
-    Parameters.ProportionalGain := ActiveProportionalGain;
-    Parameters.IntegralGain := LREAL#12.0;
-    Parameters.DerivativeGain := LREAL#7.8;
-    Input.FeedForward := LREAL#0.0;
-ELSE
-    // Keep the nominal 1.2-radian step below the motor limit so model
-    // compensation retains actuator authority instead of starting saturated.
-    ActiveProportionalGain := LREAL#24.0 * EstimatedInertia;
-    Parameters.ProportionalGain := ActiveProportionalGain;
-    Parameters.IntegralGain := LREAL#0.0;
-    Parameters.DerivativeGain := LREAL#8.0 * EstimatedInertia;
-    Input.FeedForward := ModelCompensation;
+SetpointRad := LREAL#0.0;
+IF ExperimentEnabled THEN
+    SetpointRad := LREAL#0.1;
+    PeakAngleRad := MAX(PeakAngleRad, AngleRad);
+    IF Updates >= 200 AND Updates <= 400 THEN
+        LateErrorRad := MAX(LateErrorRad, ABS(SetpointRad - AngleRad));
+    END_IF;
 END_IF;
-Controller.Configure(Parameters := Parameters);
-
-IF NOT ControllerInitialized THEN
-    InitialState.Setpoint := JointSetpoint;
-    InitialState.ProcessValue := JointAngle;
-    InitialState.ProcessValueRate := JointRate;
-    InitialState.FeedForward := Input.FeedForward;
-    InitialState.NominalOutput := LREAL#0.0;
-    InitialState.SaturatedOutput := LREAL#0.0;
-    Controller.Initialize(State := InitialState);
-    ControllerInitialized := TRUE;
+RequestedTorqueNm := CompensatedTorqueNm(AngleRad := AngleRad, SpeedRadPerS := SpeedRadPerS, SetpointRad := SetpointRad,
+    GravityEstimateNm := GravityEstimateNm);
+TorqueNm := MIN(MAX(RequestedTorqueNm, LREAL#-20.0), LREAL#20.0);
+Saturated := TorqueNm <> RequestedTorqueNm;
+IF FaultLatched THEN
+    TorqueNm := LREAL#0.0;
 END_IF;
-
-Input.Setpoint := JointSetpoint;
-Input.ProcessValue := JointAngle;
-Input.CycleTime := LREAL#0.02;
-IF Enabled THEN
-    Input.Mode := PIDMode#Auto;
-ELSE
-    Input.Mode := PIDMode#Manual;
-    Input.ManualOutput := LREAL#0.0;
-END_IF;
-TorqueRequested := Controller.Update(Input := Input);
-TorqueApplied := LIMIT(LREAL#-30.0, TorqueRequested, LREAL#30.0);
-TorqueSaturated := Enabled AND ABS(TorqueRequested - TorqueApplied) > LREAL#1.0E-12;
+WasEnabled := ExperimentEnabled;
+PreviousTime := NowTime;
+ClockPrimed := TRUE;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -186,28 +75,16 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.ControllerMode AT %MW0 : INT;
-    P1.ActiveArchitecture AT %MW2 : INT;
-    P1.Enabled AT %MX4.0 : BOOL;
-    P1.ModelEligible AT %MX4.1 : BOOL;
-    P1.FallbackActive AT %MX4.2 : BOOL;
-    P1.TorqueSaturated AT %MX4.3 : BOOL;
-    P1.ExperimentEnabled AT %MX4.4 : BOOL;
-    P1.SafetyAbort AT %MX4.5 : BOOL;
-    P1.InputsValid AT %MX4.6 : BOOL;
-    P1.JointSetpoint AT %ML8 : LREAL;
-    P1.FixedProportionalGain AT %ML16 : LREAL;
-    P1.ScheduledProportionalGain AT %ML24 : LREAL;
-    P1.ActiveProportionalGain AT %ML32 : LREAL;
-    P1.EstimatedInertia AT %ML40 : LREAL;
-    P1.EstimatedGravityCoefficient AT %ML48 : LREAL;
-    P1.EstimatedViscousCoefficient AT %ML56 : LREAL;
-    P1.GravityCompensation AT %ML64 : LREAL;
-    P1.TorqueRequested AT %ML72 : LREAL;
-    P1.SchedulingVariable AT %ML80 : LREAL;
-    P1.ModelCompensation AT %ML88 : LREAL;
-    P1.TorqueApplied AT %QL0 : LREAL;
-    P1.JointAngle AT %IL0 : LREAL;
-    P1.JointRate AT %IL8 : LREAL;
+    P1.JointAngleRad AT %IL0 : LREAL;
+    P1.SpeedRadPerS AT %IL8 : LREAL;
+    P1.TorqueNm AT %QL0 : LREAL;
+    P1.AngleRad AT %ML0 : LREAL;
+    P1.SetpointRad AT %ML8 : LREAL;
+    P1.PeakAngleRad AT %ML16 : LREAL;
+    P1.LateErrorRad AT %ML24 : LREAL;
+    P1.ExperimentEnabled AT %MX48.0 : BOOL;
+    P1.Saturated AT %MX48.1 : BOOL;
+    P1.FaultLatched AT %MX48.2 : BOOL;
+    P1.ClockValid AT %MX48.3 : BOOL;
 END_VAR
 END_CONFIGURATION

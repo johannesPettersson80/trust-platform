@@ -3,11 +3,11 @@
   "id": "control-discrete-integral-derivative",
   "title": "Discrete PID",
   "level": "Practitioner",
-  "sequence": 37,
-  "equipment": "Encoder-controlled industrial positioning table",
-  "physicalPurpose": "Execute the same continuous PID intent on a sampled controller without allowing discretization, held output, quantization, aliasing, or computation delay to invalidate the design.",
-  "principalTechnique": "Forward Euler, backward Euler, and Tustin digital realization",
-  "objective": "Derive forward-Euler, backward-Euler, and Tustin updates from the same continuous PID terms, then compare what the controller actually does at different update intervals.",
+  "sequence": 38,
+  "equipment": "The Lesson 37 drum axis under Control.PID with the angle filter",
+  "physicalPurpose": "Know exactly which torque each 20 ms controller update produces and which values it keeps.",
+  "principalTechnique": "The ordered discrete PID update: error, P, trial integral, D, request, clamp and tracking",
+  "objective": "Write P, I, filtered D, the limit and tracking as one sampled update in the right order, identify the retained values, and check recorded updates of the running Control.PID against that arithmetic.",
   "prerequisites": [
     "control-servo-filtered-derivative"
   ],
@@ -15,390 +15,311 @@
   "signals": [
     {
       "role": "SP",
-      "name": "Table-position setpoint",
+      "name": "Target angle",
       "unit": "rad",
       "minimum": -2,
       "maximum": 2,
       "resolution": 0.001,
-      "binding": "%ML40"
+      "binding": "%ML0"
     },
     {
       "role": "PV",
-      "name": "Quantized measured position",
+      "name": "Shaft angle",
       "unit": "rad",
-      "minimum": -4,
-      "maximum": 4,
+      "minimum": -2,
+      "maximum": 2,
       "resolution": 0.001,
       "binding": "%IL0"
     },
     {
       "role": "MV",
-      "name": "Held motor-torque request",
-      "unit": "N m",
-      "minimum": -10,
-      "maximum": 10,
-      "resolution": 0.01,
+      "name": "Motor torque",
+      "unit": "N·m",
+      "minimum": -20,
+      "maximum": 20,
+      "resolution": 0.001,
       "binding": "%QL0"
     },
     {
+      "role": "disturbance",
+      "name": "Drum load torque",
+      "unit": "N·m",
+      "minimum": 0,
+      "maximum": 5,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
       "role": "state",
-      "name": "Motor velocity",
+      "name": "Shaft velocity",
       "unit": "rad/s",
-      "minimum": -20,
-      "maximum": 20,
+      "minimum": -10,
+      "maximum": 10,
       "resolution": 0.001,
       "binding": "%IL8"
     },
     {
       "role": "state",
-      "name": "Controller update pulse",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX48.0"
+      "name": "Arrival velocity",
+      "unit": "rad/s",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.001,
+      "binding": "%ML16"
     },
     {
       "role": "state",
-      "name": "Experiment authority",
+      "name": "Safety abort",
       "unit": "1",
       "minimum": 0,
       "maximum": 1,
       "resolution": 1,
-      "binding": "%MX16.1"
+      "binding": "%MX24.0"
     },
     {
-      "role": "disturbance",
-      "name": "Encoder interference",
-      "unit": "rad",
-      "minimum": -0.002,
-      "maximum": 0.002,
+      "role": "state",
+      "name": "RequestNm",
+      "unit": "N·m",
+      "minimum": -100,
+      "maximum": 100,
       "resolution": 0.0001,
-      "binding": "simulation.digital-positioning-table.encoder-interference"
+      "binding": "%ML72"
+    },
+    {
+      "role": "state",
+      "name": "ProportionalNm",
+      "unit": "N·m",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.0001,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "TrialIntegralNm",
+      "unit": "N·m",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.0001,
+      "binding": "%ML56"
+    },
+    {
+      "role": "state",
+      "name": "DerivativeNm",
+      "unit": "N·m",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.0001,
+      "binding": "%ML64"
+    },
+    {
+      "role": "state",
+      "name": "IntegralNm",
+      "unit": "N·m",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.0001,
+      "binding": "%ML80"
+    },
+    {
+      "role": "state",
+      "name": "ExperimentEnabled",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX88.0"
     }
   ],
   "plant": {
-    "modelId": "robot_joint",
-    "executable": "simulation.toml#plants[0]",
+    "modelId": "drum-axis-lesson-35",
+    "executable": "simulation.toml",
     "parameters": [
       {
-        "name": "inertia_kg_m2",
+        "name": "inertia",
         "value": 1,
-        "unit": "kg m2"
+        "unit": "kg·m²"
       },
       {
-        "name": "gravity_torque_nm",
-        "value": 4,
-        "unit": "N m"
-      },
-      {
-        "name": "viscous_friction_nm_s_per_rad",
+        "name": "viscous_friction",
         "value": 1,
-        "unit": "N m s/rad"
+        "unit": "N·m·s/rad"
       },
       {
-        "name": "encoder_quantization",
+        "name": "torque_limit",
+        "value": 20,
+        "unit": "N·m"
+      },
+      {
+        "name": "drum_load",
+        "value": 1.962,
+        "unit": "N·m"
+      },
+      {
+        "name": "angle_noise_bound",
         "value": 0.001,
         "unit": "rad"
-      },
-      {
-        "name": "encoder_interference_frequency",
-        "value": 8,
-        "unit": "Hz"
-      },
-      {
-        "name": "derivative_filter_time_constant",
-        "value": 0.05,
-        "unit": "s"
       }
     ],
-    "sampleTimeSeconds": 0.01,
+    "sampleTimeSeconds": 0.02,
     "initialState": {
-      "positionRad": 0,
-      "velocityRadPerSecond": 0
+      "angleRad": 0,
+      "velocityRadS": 0
     },
-    "seed": 20260828,
+    "seed": 20260829,
     "operatingPoint": {
-      "PV": 0,
-      "MV": 0
+      "Shaft angle": 0,
+      "Motor torque": 0
     },
     "validityRange": [
       {
-        "signal": "Quantized measured position",
-        "minimum": -4,
-        "maximum": 4,
+        "signal": "Shaft angle",
+        "minimum": -2,
+        "maximum": 2,
         "unit": "rad"
       },
       {
-        "signal": "Motor velocity",
+        "signal": "Motor torque",
         "minimum": -20,
         "maximum": 20,
-        "unit": "rad/s"
-      },
-      {
-        "signal": "Held motor-torque request",
-        "minimum": -10,
-        "maximum": 10,
-        "unit": "N m"
+        "unit": "N·m"
       }
     ],
     "simplifications": [
-      "The simulator advances the rigid joint every 10 ms while the controller may update less frequently.",
-      "A deterministic 8 Hz sinusoid and 0.001 rad quantizer isolate sampling effects; they are not a full physical encoder spectrum.",
-      "Controller arithmetic uses LREAL; processor execution-time distribution and missed deadlines are deferred to production timing lessons."
+      "Constant load torque m·g·r from a weight on a drum; rigid shaft with viscous friction.",
+      "Uniform angle measurement noise of at most ±0.001 rad; simulation only."
     ]
   },
   "baseline": {
-    "executableId": "LessonDiscretePID.Tustin",
+    "executableId": "P1",
     "settings": {
-      "methodSelection": 2,
-      "controllerIntervalSeconds": 0.01,
-      "computationDelayUpdates": 0,
-      "proportionalGain": 8,
-      "integralGain": 2,
-      "derivativeGain": 3,
-      "derivativeFilterTimeConstantSeconds": 0.05
+      "angleRad": 0,
+      "controller": "Kp 16, Ki 4, Kd 7, β 1, Tf 0.1 s, Tt 1 s"
     },
-    "limitation": "The fastest Tustin run is not evidence that Euler alternatives, slower updates, quantized measurements, aliased interference, or delayed application remain acceptable."
+    "limitation": "The terms of Lessons 34–37 were added one by one; their order and retained values were not fixed."
   },
   "change": {
-    "executableId": "LessonDiscretePID.SelectedMethodAndInterval",
+    "executableId": "P1",
     "settings": {
-      "methodSelections": [
-        0,
-        1,
-        2
-      ],
-      "controllerIntervalsSeconds": [
-        0.01,
-        0.02,
-        0.1
-      ],
-      "computationDelayUpdates": [
-        0,
-        1
-      ]
+      "example": "e 0.08, P 1.28, I* 1.9684, D −7, u −3.7516 N·m",
+      "step": "0 → 1.5 rad with the drum load",
+      "firstUpdate": "u_r 24.5737 → u_a 20, I 0.21544",
+      "durationSeconds": 7.02
     },
-    "decision": "Accept only a method and interval whose actual update timing, held output, tracking, torque, finite-state, quantization, alias, and delay evidence satisfy the declared requirements."
+    "decision": "The recorded updates of Control.PID follow the positional order exactly; Lesson 39 derives the incremental form."
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Experiment authority",
+    "signal": "Target angle",
     "baseline": 0,
     "amplitude": 0,
-    "durationSeconds": 20.01,
+    "durationSeconds": 7.02,
     "settlingSeconds": 0,
     "disturbances": [
-      "0.002 rad 8 Hz encoder interference",
-      "0.001 rad encoder quantization",
-      "optional one-update computation delay"
+      "Drum load 1.962 N·m coupled with the target step",
+      "Uniform angle noise bounded by ±0.001 rad"
     ],
-    "seed": 20260828,
+    "seed": 20260829,
     "restorationValue": 0
   },
   "acceptance": [
     {
-      "metric": "actual_controller_update_interval_maximum",
-      "signal": "Controller update pulse",
-      "window": "complete 20 s run",
-      "comparator": "<=",
-      "limit": 0.1,
-      "unit": "s",
-      "tolerance": 1e-06,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "held_torque_changes_outside_update",
-      "signal": "Held motor-torque request",
-      "window": "complete 20 s run",
+      "metric": "update_order",
+      "signal": "RequestNm",
+      "window": "every update",
       "comparator": "==",
       "limit": 0,
-      "unit": "N m",
+      "unit": "N·m",
       "tolerance": 1e-09,
       "evidenceClass": "simulation"
     },
     {
-      "metric": "sampled_8_hz_alias_amplitude_at_100_ms",
-      "signal": "Encoder interference",
-      "window": "controller update samples over 20 s",
-      "comparator": ">=",
-      "limit": 0.001,
-      "unit": "rad",
-      "tolerance": 0.0001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "estimated_alias_frequency_minimum",
-      "signal": "Encoder interference",
-      "window": "100 ms controller samples from 5 to 20 s",
-      "comparator": ">=",
-      "limit": 1.9,
-      "unit": "Hz",
-      "tolerance": 1e-06,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "estimated_alias_frequency_maximum",
-      "signal": "Encoder interference",
-      "window": "100 ms controller samples from 5 to 20 s",
-      "comparator": "<=",
-      "limit": 2.1,
-      "unit": "Hz",
-      "tolerance": 1e-06,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "settled_final_position_span",
-      "signal": "Quantized measured position",
-      "window": "final 2 s of each settled candidate",
-      "comparator": "<=",
-      "limit": 0.01,
-      "unit": "rad",
-      "tolerance": 1e-06,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "settled_final_torque_span",
-      "signal": "Held motor-torque request",
-      "window": "final 2 s of each settled candidate",
-      "comparator": "<=",
-      "limit": 0.5,
-      "unit": "N m",
-      "tolerance": 1e-06,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "one_update_delay_first_torque_difference",
-      "signal": "Held motor-torque request",
-      "window": "first two controller updates",
-      "comparator": ">=",
-      "limit": 0.01,
-      "unit": "s",
-      "tolerance": 1e-06,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "finite_bounded_torque_all_candidates",
-      "signal": "Held motor-torque request",
-      "window": "all candidate runs",
-      "comparator": "<=",
-      "limit": 10,
-      "unit": "N m",
-      "tolerance": 1e-06,
+      "metric": "first_update_request",
+      "signal": "RequestNm",
+      "window": "1.02 s",
+      "comparator": "==",
+      "limit": 24.5737,
+      "unit": "N·m",
+      "tolerance": 0.001,
       "evidenceClass": "simulation"
     }
   ],
   "safety": {
     "hardLimits": [
       {
-        "signal": "Quantized measured position",
-        "minimum": -4,
-        "maximum": 4,
+        "signal": "Shaft angle",
+        "minimum": -2,
+        "maximum": 2,
         "unit": "rad"
       },
       {
-        "signal": "Motor velocity",
+        "signal": "Motor torque",
         "minimum": -20,
         "maximum": 20,
-        "unit": "rad/s"
-      },
-      {
-        "signal": "Held motor-torque request",
-        "minimum": -10,
-        "maximum": 10,
-        "unit": "N m"
+        "unit": "N·m"
       }
     ],
     "abortPredicates": [
-      "Controller state, measured position, motor velocity, or torque is nonfinite",
-      "Position, velocity, or torque leaves its declared hard limit",
-      "Actual update interval exceeds the selected interval without a declared jitter or missed-scan case"
+      "The angle leaves ±2 rad or the velocity ±10 rad/s: SafetyAbort holds zero torque until a restart",
+      "A physical-plant target is selected"
     ],
     "safeMv": 0,
-    "restorationMode": "Disable control and command zero torque after supporting the payload",
-    "physicalApprovalRole": "authorised motion-control engineer",
+    "restorationMode": "Control Studio restores the rest state (0 rad, zero torque) after each trial.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
     "simulationOnlyRestrictions": [
-      "Simulated timing and sinusoidal encoder interference do not qualify physical task jitter, processor load, drive latency, encoder spectrum, or machine stability."
+      "This lesson cannot authorise physical excitation or gain application",
+      "Physical use requires independent topology, model, hazard, operating-window, interlock, personnel, abort, rollback, and immediate approval review"
     ]
   },
   "workflowStages": [
-    "Identify",
-    "Tune",
-    "Validate"
+    "Identify"
   ],
   "proof": {
-    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-37--discrete-integral-and-derivative",
-    "nativeTest": "TEST_PROGRAM::Lesson37IntegralAndDerivativeUseElapsedTime",
-    "nativeCommand": "target/debug/trust-dev test --project examples/control/03-production-quality-digital-pid/37-discrete-integral-derivative --filter TEST_PROGRAM::Lesson37IntegralAndDerivativeUseElapsedTime --timeout 15",
+    "specification": "docs/specs/control-course-teaching-specification.md",
+    "nativeTest": "lesson37",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_37_39 lesson37",
     "projectPath": "examples/control/03-production-quality-digital-pid/37-discrete-integral-derivative",
     "runArtifactFields": [
-      "method",
-      "dt",
-      "actualUpdateTime",
-      "SP",
-      "PV",
-      "idealPosition",
-      "quantizationStep",
-      "interferenceFrequency",
-      "T_requested",
-      "T_applied",
-      "updatePulse",
-      "holdDuration",
-      "delayUpdates",
-      "maximumAbsolutePositionError",
-      "overshoot",
-      "settlingQualified",
-      "settlingTime",
-      "finalPositionSpan",
-      "finalTorqueSpan",
-      "torqueTotalVariation",
-      "maximumSampleInterval",
-      "sampleIntervalJitter",
-      "aliasAmplitude",
-      "estimatedAliasFrequency",
-      "boundedStateDisposition",
+      "error",
+      "proportional",
+      "trialIntegral",
+      "derivative",
+      "request",
+      "torque",
+      "integral",
       "evidenceClass"
     ],
     "renderedJourneyId": "control-discrete-integral-derivative"
   },
+  "learning": {
+    "context": "Lesson 37 gave D a filtered speed: with a 0.1 s filter the torque changed by only 20 N·m in total during the loaded hold, instead of 177 N·m. P, the integral, the filtered D, the setpoint weight, the limit and the anti-windup tracking now all act on the shaft, but each was added on its own.\n\nThe controller does not act continuously: every 20 ms it reads the angle, calculates one torque and holds it until the next update. Done in the wrong order, or with the wrong value kept, the same terms give a different torque. We will write all of them as one update.",
+    "reason": "We need to:\n\n1. fix the order in which the terms are calculated at each update;\n2. know which values are kept until the next update and which are recalculated; and\n3. check the running controller against that update.",
+    "theory": [
+      "A **discrete PID** calculates its output once per update, in a fixed order: error, P, a trial integral, filtered D, the request, the limit, and finally the integral correction for the limit.\n\n**In words.** \"Discrete\" means in steps. The controller does not act all the time: every 20 ms it reads the angle, calculates one torque, sends it to the drive and holds it until the next update, just as a PLC task with a fixed cycle reads its inputs, runs its program and writes its outputs. Within one update the controller works through seven steps, each using the results of the steps before:\n\n1. **Error:** how far the shaft is from its target now.\n2. **P:** the proportional part, from that error.\n3. **Trial integral:** the integral kept from the last update plus this update's share, as in Lesson 8.\n4. **Filtered D:** the braking torque from Lesson 37's filtered speed.\n5. **Request:** the sum of P, the trial integral and D.\n6. **Limit:** the drive gets the request, cut to its ±20 N·m.\n7. **Correction:** if the drive got less than was requested, the kept integral is pulled back, Lesson 8's back-calculation; otherwise the trial integral is kept as it is.\n\nThe order matters for the same reason as the order of rungs in a PLC program: a rung that uses a value before another rung has updated it gets the old value. Only three values survive from one update to the next: the integral, the filter's state and the previous filtered angle. Everything else is calculated fresh. In PLC terms, the kept values are the function block's static variables, and the others are temporary variables. Change the order, or keep the wrong value, and the same gains give a different torque.\n\nFor this lesson's shaft, all seven steps run every 20 ms, and the program records each intermediate result so that every update can be checked by hand.\n\n**The formula.** At update $k$:\n\n$$\ne_k = r_k - \\theta_k, \\qquad P_k = K_p e_k ,\n$$\n$$\nI^*_k = I_{k-1} + K_i e_k \\Delta t ,\n$$\n$$\nu_{r,k} = P_k + I^*_k - K_d\\,\\omega_{f,k}, \\qquad u_{a,k} = \\mathrm{clamp}(u_{r,k}, -20, 20),\n$$\n$$\nI_k = I^*_k + \\frac{\\Delta t}{T_t}\\,(u_{a,k} - u_{r,k}).\n$$\n\n- $k$ numbers the updates, and $\\Delta t = 0.02$ s is the time between them;\n- $r_k$ is the target and $\\theta_k$ the measured angle after Lesson 37's filter, in radians, and $e_k$ the error, in radians;\n- $P_k$ is the proportional part, in newton-metres;\n- $I_{k-1}$ is the integral kept from the previous update, and $I^*_k$ the **trial integral**: the kept integral plus this update's area $e_k\\Delta t$ times $K_i$, both in newton-metres;\n- $\\omega_{f,k}$ is the filtered speed, in radians per second;\n- $u_{r,k}$ is the requested and $u_{a,k}$ the applied torque, in newton-metres; clamp cuts the request to the drive's ±20 N·m;\n- $T_t$ is Lesson 8's tracking time, 1 s here; and\n- $I_k$ is the integral kept for the next update, in newton-metres.\n\nThe order carries meaning:\n\n1. The trial integral adds the area $e_k\\Delta t$ of the interval that ends now to the integral kept after the previous correction.\n2. The request needs every term before the clamp can compare it with the limit.\n3. Tracking uses this update's $u_a - u_r$: at the limit it pulls the kept integral back instead of letting it wind up; inside the limits $u_a = u_r$, so $I_k = I^*_k$.\n4. Only $I_k$, the filter state and the previous filtered angle are kept. $P$, $I^*$, $D$ and $u_r$ are recalculated at every update.\n\n**Example: one update of the shaft's controller.** The gains are $K_p = 16$, $K_i = 4$ and $K_d = 7$, teaching values for this simulated axis. At this update the error is 0.08 rad, the kept integral is 1.962 N·m, and the filtered angle has moved from 0.40 to 0.42 rad since the last update. Follow the seven steps:\n\n1. **Error:** $e = 0.08$ rad; the shaft is still short of its target.\n2. **P:** $P = 16 \\times 0.08 = 1.28$ N·m, pushing towards the target.\n3. **Trial integral:** $I^* = 1.962 + 4 \\times 0.08 \\times 0.02 = 1.9684$ N·m; the integral grows a little because an error remains.\n4. **Filtered D:** the filtered speed is $(0.42 - 0.40)/0.02 = 1$ rad/s, so $D = -7 \\times 1 = -7$ N·m, braking the approach.\n5. **Request:** $u_r = 1.28 + 1.9684 - 7 = -3.7516$ N·m; the brake outweighs the push.\n6. **Limit:** $-3.7516$ N·m lies inside ±20 N·m, so the drive gets $u_a = -3.7516$ N·m.\n7. **Correction:** $u_a - u_r = 0$, so $I = I^* = 1.9684$ N·m is kept for the next update.\n\nNow let the shaft approach faster, the filtered angle moving from 0.40 to 0.47 rad, with everything else the same. The filtered speed is $0.07/0.02 = 3.5$ rad/s, so $D = -7 \\times 3.5 = -24.5$ N·m and the request is $1.28 + 1.9684 - 24.5 = -21.2516$ N·m. The drive gets only $-20$ N·m, and the correction is $\\tfrac{0.02}{1} \\times (-20 - (-21.2516)) = +0.0250$ N·m, so the kept integral becomes $1.9684 + 0.0250 = 1.9934$ N·m. Step 7 moves the integral in the direction that brings the next request back towards what the drive can deliver.\n\n**The limitation.** The update fixes what is calculated at each sample, not what happens between samples: the torque is held for 20 ms, and a shaft moving at 1 rad/s turns $1 \\times 0.02 = 0.02$ rad in that time without the controller seeing it. A correct update is not yet a well-tuned controller: the arithmetic can be exact while the gains still give a slow or swinging response."
+    ],
+    "workedPrediction": "The project steps the target from 0 to 1.5 rad with the 1.962 N·m load on the drum. Before running, answer these questions:\n\n1. The first update after the step requests about $P = 16 \\times 1.5 = 24$ N·m. Which torque does the drive get, and what brings the request back inside the limit?\n2. How does tracking change the kept integral at that first update?\n3. Once the request is back inside the limits, what does tracking do to the kept integral, and does the integral still change?\n4. Will the integral have settled at the 1.962 N·m the load needs by the end of the 7 s test?\n\n| First update after the step | Expected |\n| --- | ---: |\n| Requested torque | about 24 N·m |\n| Applied torque | 20 N·m |\n| Tracking correction of the integral | about $0.02 \\times (20 - 24) = -0.08$ N·m |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**; the shaft rests at 0 rad. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.SetpointRad · Setpoint (rad)`, `P1.AngleRad · Process value (rad)` and `P1.TorqueNm · Applied output (N·m)`; add `P1.RequestNm · state (N·m)`, `P1.ProportionalNm · state (N·m)`, `P1.DerivativeNm · state (N·m)`, `P1.TrialIntegralNm · state (N·m)`, `P1.IntegralNm · state (N·m)` and `P1.ErrorRad · state (rad)`.\n3. Answer the predictions. Select **Review project test**, check the declared **7.02 s** duration and select **Confirm and start**; the step comes 1 s later.\n4. After the run, hover consecutive updates after the step and check one of them with the equations. The angle noise depends on when the test starts, so your numbers will differ slightly from the table below; the arithmetic must hold for every update.\n5. At completion, Control Studio shows **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early. To repeat, stop and restart **Simulator**."
+    ],
+    "baseline": "Run Tustin at 10 ms with no added computation delay; retain every base scan and actual controller update timestamp.",
+    "change": "At 20 ms compare forward Euler, backward Euler, and Tustin. Then hold Tustin and continuous parameters fixed while testing 10, 20, and 100 ms, followed by the one-update delay case.",
+    "comparison": "![The request is clipped for six updates while tracking pulls the integral back](figures/discrete-pid-recording.svg)\n\nThe numbered marks answer the predictions with the same numbers. Two updates from the recording:\n\n| Update | $e$ (rad) | $P$ | $I_{k-1}$ | $I^*$ | $D$ | $u_r$ | $u_a$ | $I$ |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n| 1.00 s, first after the step | 1.50095 | 24.0151 | 0.25274 | 0.37282 | 0.5289 | 24.9169 | 20 | 0.27448 |\n| 1.84 s | 0.16044 | 2.5670 | 2.75510 | 2.76793 | −3.7811 | 1.5539 | 1.5539 | 2.76793 |\n\nAll torques are in N·m. At 1.00 s: $I^* = 0.25274 + 4 \\times 1.50095 \\times 0.02 = 0.37282$, $u_r = 24.0151 + 0.37282 + 0.5289 = 24.9169$, the drive got 20, and tracking kept $I = 0.37282 + 0.02 \\times (20 - 24.9169) = 0.27448$.\n\n1. The drive got 20 N·m for six updates, from 1.00 to 1.10 s; P fell as the shaft moved and D braked, and at 1.12 s the request was 18.3 N·m, inside the limit. D was positive at the first update only because the filtered angle moved with the noise.\n2. Tracking pulled the kept integral 0.098 N·m below the trial integral.\n3. At 1.84 s the request was inside the limits, so $u_a = u_r$ and tracking left $I = I^*$. The integral still grew, from 2.75510 to 2.76793 N·m, because the shaft was 0.16 rad short of its target; D braked with −3.78 N·m and P still pushed.\n4. No: the integral overshot to 2.92 N·m at 2.42 s, more than the load needs, and was still 2.25 N·m at 7.02 s, with the shaft 0.020 rad above its target.\n\nAll 302 recorded updates after the step follow the equations to within $10^{-14}$ N·m. The update is correct; the slow final approach is a matter of tuning, not of arithmetic. These are simulation results.",
+    "validation": "![The request is clipped for six updates while tracking pulls the integral back](figures/discrete-pid-recording.svg)\n\nThe numbered marks answer the predictions with the same numbers. Two updates from the recording:\n\n| Update | $e$ (rad) | $P$ | $I_{k-1}$ | $I^*$ | $D$ | $u_r$ | $u_a$ | $I$ |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n| 1.00 s, first after the step | 1.50095 | 24.0151 | 0.25274 | 0.37282 | 0.5289 | 24.9169 | 20 | 0.27448 |\n| 1.84 s | 0.16044 | 2.5670 | 2.75510 | 2.76793 | −3.7811 | 1.5539 | 1.5539 | 2.76793 |\n\nAll torques are in N·m. At 1.00 s: $I^* = 0.25274 + 4 \\times 1.50095 \\times 0.02 = 0.37282$, $u_r = 24.0151 + 0.37282 + 0.5289 = 24.9169$, the drive got 20, and tracking kept $I = 0.37282 + 0.02 \\times (20 - 24.9169) = 0.27448$.\n\n1. The drive got 20 N·m for six updates, from 1.00 to 1.10 s; P fell as the shaft moved and D braked, and at 1.12 s the request was 18.3 N·m, inside the limit. D was positive at the first update only because the filtered angle moved with the noise.\n2. Tracking pulled the kept integral 0.098 N·m below the trial integral.\n3. At 1.84 s the request was inside the limits, so $u_a = u_r$ and tracking left $I = I^*$. The integral still grew, from 2.75510 to 2.76793 N·m, because the shaft was 0.16 rad short of its target; D braked with −3.78 N·m and P still pushed.\n4. No: the integral overshot to 2.92 N·m at 2.42 s, more than the load needs, and was still 2.25 N·m at 7.02 s, with the shaft 0.020 rad above its target.\n\nAll 302 recorded updates after the step follow the equations to within $10^{-14}$ N·m. The update is correct; the slow final approach is a matter of tuning, not of arithmetic. These are simulation results.",
+    "explanation": "A discrete PID calculates the error, P, the trial integral, D and the request; limits the request; and corrects only the kept integral with the difference between applied and requested torque. The order and the choice of kept values are part of the controller: change either and the same gains produce a different torque.\n\nFor this shaft, every recorded update of `Control.PID` matched the hand arithmetic, including the six clipped updates after the step.",
+    "transfer": "This update calculates the whole request every time. Code written in incremental form, which keeps the previous output and adds only a change to it, must be shown to behave the same.\n\n[Positional and incremental PID](../38-positional-incremental-pid/README.md) derives that form and shows when the two agree."
+  },
   "video": {
-    "viewerOutcome": "Calculate and choose a digital controller method and interval while recognizing hold, quantization, aliasing, precision, and computation-delay effects.",
+    "viewerOutcome": "Inspect consecutive updates of the running PID and check one with the discrete order.",
     "requiredVisibleEvidence": [
-      "method and interval selection",
-      "actual update pulses",
-      "held torque",
-      "quantized and ideal position",
-      "10, 20, and 100 ms comparisons",
-      "independently estimated 2 Hz alias from 8 Hz interference",
-      "one-update delay",
-      "simulation evidence label"
+      "the project experiment on Identify",
+      "torque clamped at 20 N·m while the request exceeds it",
+      "P, D and the integrals per update",
+      "Simulation label"
     ],
     "durationClass": "standard",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
     "thumbnailPath": "video/thumbnail.svg",
     "publicationState": "not_started"
-  },
-  "learning": {
-    "context": "The same positioning table runs on a 10 ms plant step while a lesson-specific digital PID updates every 10, 20, or 100 ms and holds torque between updates.",
-    "reason": "The preceding lessons exposed sampling, filtering, actuator, and transmission effects; continuous gains alone cannot specify which samples, coefficients, held values, or delays the computer executes.",
-    "theory": [
-      "Controller sample interval dt is elapsed time in seconds between controller updates. Sampling frequency f_s is updates per second and equals one divided by dt. Nyquist frequency f_N is half the sampling frequency.",
-      "Zero-order hold retains the last calculated torque between controller updates. Quantization step q is the 0.001 rad spacing between encoder values. Computation delay T_delay is one complete controller update when enabled.",
-      "Forward Euler accumulates the previous error and advances the filtered derivative from its previous measurement-rate input. Backward Euler uses current error and current position change. Tustin averages previous and current error and applies the trapezoidal mapping to the filtered derivative.",
-      "Filtered derivative torque T_D is the damping contribution calculated from measurement-rate change through a 0.05 s dynamic filter. The proportional, integral, and derivative torque contributions use identical continuous gains in every candidate.",
-      "Alias frequency f_alias is the lower sampled frequency produced when interference exceeds Nyquist. At 100 ms, 8 Hz interference sampled at 10 Hz appears at 2 Hz. LREAL provides coefficient and state precision but does not restore information lost to sampling or sensor quantization."
-    ],
-    "workedPrediction": "For dt values 0.01, 0.02, and 0.10 s, calculate f_s as 100, 50, and 10 Hz, f_N as 50, 25, and 5 Hz, and 100, 50, and 10 samples per 1 s mechanical velocity time constant. Calculate integral weights 0.02, 0.04, and 0.20; forward derivative coefficients 0.2, 0.4, and 2.0; backward denominators 1.2, 1.4, and 3.0; and Tustin retained-state coefficients 0.818, 0.667, and 0. At dt 0.10 s, the 8 Hz encoder component aliases to 2 Hz and one-update delay is 0.10 s.",
-    "practicalPreparation": [
-      "Bind update pulse, setpoint, measured and ideal position, motor velocity, held requested and applied torque, method, interval, quantization step, interference frequency, and delay state.",
-      "Freeze gains, filter time constant, plant, initial state, noise phase, duration, limits, and seed before comparing methods or intervals."
-    ],
-    "baseline": "Run Tustin at 10 ms with no added computation delay; retain every base scan and actual controller update timestamp.",
-    "change": "At 20 ms compare forward Euler, backward Euler, and Tustin. Then hold Tustin and continuous parameters fixed while testing 10, 20, and 100 ms, followed by the one-update delay case.",
-    "comparison": "Compare position error, overshoot, settling status, torque total variation, update interval and jitter, held-output duration, quantization, sampled interference spectrum, and finite/bounded state on equal axes.",
-    "validation": "Require torque to change only on update pulses, selected intervals to match actual timestamps, measured position to remain on the 0.001 rad grid, and the retained 100 ms samples to independently estimate the dominant alias between 1.9 and 2.1 Hz. A settled case must permanently remain within the PV band and satisfy the final-window PV and torque spans. Require all states and torque to remain finite and bounded; label any unstable or nonsettling response honestly.",
-    "explanation": "The methods approximate the same continuous dynamics with different sample choices. Slower updates lengthen the hold and delay, alter coefficients, reduce the observable frequency range, and can make high-frequency content appear falsely slow.",
-    "transfer": "Select method and interval from plant bandwidth, noise, required phase margin, timing evidence, and numerical range. Lesson 26 uses this digital foundation to compare positional, incremental, and combined production PID forms."
   }
 }

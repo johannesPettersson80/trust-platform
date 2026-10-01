@@ -23,6 +23,33 @@ suite("Control Studio three-page retained MIMO analysis", () => {
     assert.deepStrictEqual(result, { status: "rejected", reason: "insufficient-quality-valid-mimo-samples" });
   });
 
+  test("rejects a window that straddles the command change instead of averaging both levels", () => {
+    const settledAcrossStep = [{ inputId: "u1", baseline: { startSeconds: 0, endSeconds: 4 }, settled: { startSeconds: 3, endSeconds: 9 } }, trials()[1]];
+    assert.deepStrictEqual(calculateRecordedMimoAnalysis(mimoLoop(), samples(), settledAcrossStep, { maximumUnexcitedInputDrift: 0.02 }),
+      { status: "rejected", reason: "window-straddles-input-change" });
+    const baselineAcrossStep = [{ inputId: "u1", baseline: { startSeconds: 2, endSeconds: 6 }, settled: { startSeconds: 7, endSeconds: 9 } }, trials()[1]];
+    assert.deepStrictEqual(calculateRecordedMimoAnalysis(mimoLoop(), samples(), baselineAcrossStep, { maximumUnexcitedInputDrift: 0.02 }),
+      { status: "rejected", reason: "window-straddles-input-change" });
+  });
+
+  test("explains a rejected measured-path analysis in plain words", () => {
+    const { JSDOM } = require("jsdom");
+    const dom = new JSDOM(`<main>${renderThreePageMimoAnalysisTemplate()}</main>`);
+    const original = { window: globalThis.window, document: globalThis.document };
+    Object.assign(globalThis, { window: dom.window, document: dom.window.document });
+    try {
+      const presenter = initializeThreePageMimoAnalysis(dom.window.document.querySelector("main") as HTMLElement);
+      presenter.setSelected(true);
+      presenter.receive({ status: "rejected", reason: "window-straddles-input-change" });
+      const text = dom.window.document.querySelector("[data-three-page-mimo-analysis]")?.textContent ?? "";
+      assert.match(text, /A window contains the input step/);
+      assert.doesNotMatch(text, /window-straddles-input-change/, "no internal reason code is shown");
+    } finally {
+      Object.assign(globalThis, original);
+      dom.window.close();
+    }
+  });
+
   test("rejects duplicate input windows instead of accepting a repeated pairing", () => {
     const duplicate = [...trials(), { inputId: "u1", baseline: { startSeconds: 20, endSeconds: 24 }, settled: { startSeconds: 26, endSeconds: 30 } }];
     assert.deepStrictEqual(calculateRecordedMimoAnalysis(mimoLoop(), samples(), duplicate, { maximumUnexcitedInputDrift: 0.02 }), { status: "rejected", reason: "one-settled-trial-per-input-required" });
@@ -47,6 +74,88 @@ suite("Control Studio three-page retained MIMO analysis", () => {
       assert.strictEqual(disclosure.querySelector("[data-three-page-mimo-analysis-gain]")?.textContent, "", "A failed recalculation must not display the previous matrix as current evidence");
       presenter.clear();
       assert.strictEqual(disclosure.hidden, true);
+    } finally {
+      Object.assign(globalThis, original);
+      dom.window.close();
+    }
+  });
+
+  test("labels the measured channels in the course's unit notation", () => {
+    const { JSDOM } = require("jsdom");
+    const dom = new JSDOM(`<main>${renderThreePageMimoAnalysisTemplate()}</main>`);
+    const original = { window: globalThis.window, document: globalThis.document };
+    Object.assign(globalThis, { window: dom.window, document: dom.window.document });
+    try {
+      const presenter = initializeThreePageMimoAnalysis(dom.window.document.querySelector("main") as HTMLElement);
+      const measured = calculateRecordedMimoAnalysis(mimoLoop(), samples(), trials(), { maximumUnexcitedInputDrift: 0.02 });
+      assert.strictEqual(measured.status, "qualified");
+      if (measured.status !== "qualified") return;
+      presenter.setSelected(true);
+      presenter.receive({ ...measured, inputs: measured.inputs.map(input => ({ ...input, unit: "%" })), outputs: measured.outputs.map(output => ({ ...output, unit: "degC" })) });
+      const summary = dom.window.document.querySelector("[data-three-page-mimo-analysis-summary]")?.textContent ?? "";
+      assert.strictEqual(summary, "u1 (%) · u2 (%) → y1 (°C) · y2 (°C)");
+    } finally {
+      Object.assign(globalThis, original);
+      dom.window.close();
+    }
+  });
+
+  test("shows every entry of one matrix with the same precision, so a relative gain row visibly sums to one", () => {
+    const { JSDOM } = require("jsdom");
+    const dom = new JSDOM(`<main>${renderThreePageMimoAnalysisTemplate()}</main>`);
+    const original = { window: globalThis.window, document: globalThis.document };
+    Object.assign(globalThis, { window: dom.window, document: dom.window.document });
+    try {
+      const presenter = initializeThreePageMimoAnalysis(dom.window.document.querySelector("main") as HTMLElement);
+      const measured = calculateRecordedMimoAnalysis(mimoLoop(), samples(), trials(), { maximumUnexcitedInputDrift: 0.02 });
+      assert.strictEqual(measured.status, "qualified");
+      if (measured.status !== "qualified") return;
+      presenter.setSelected(true);
+      presenter.receive({ ...measured, rga: [[1.2427, -0.2427], [-0.2427, 1.2427]] });
+      const cells = Array.from(dom.window.document.querySelectorAll("[data-three-page-mimo-analysis-rga] tbody td"), cell => (cell as HTMLElement).textContent);
+      assert.deepStrictEqual(cells, ["y1", "1.2427", "-0.2427", "y2", "-0.2427", "1.2427"]);
+    } finally {
+      Object.assign(globalThis, original);
+      dom.window.close();
+    }
+  });
+
+  test("keeps each matrix's shared precision visible, including trailing zeros", () => {
+    const { JSDOM } = require("jsdom");
+    const dom = new JSDOM(`<main>${renderThreePageMimoAnalysisTemplate()}</main>`);
+    const original = { window: globalThis.window, document: globalThis.document };
+    Object.assign(globalThis, { window: dom.window, document: dom.window.document });
+    try {
+      const presenter = initializeThreePageMimoAnalysis(dom.window.document.querySelector("main") as HTMLElement);
+      const measured = calculateRecordedMimoAnalysis(mimoLoop(), samples(), trials(), { maximumUnexcitedInputDrift: 0.02 });
+      assert.strictEqual(measured.status, "qualified");
+      if (measured.status !== "qualified") return;
+      presenter.setSelected(true);
+      presenter.receive({ ...measured, gainMatrix: [[0.138, 0.0607], [0.0611, 0.1376]], decoupler: [[9, -3.97], [-4, 9.03]] });
+      const cells = (selector: string) => Array.from(dom.window.document.querySelectorAll(`${selector} tbody td`), cell => (cell as HTMLElement).textContent);
+      assert.deepStrictEqual(cells("[data-three-page-mimo-analysis-gain]"), ["y1", "0.1380", "0.0607", "y2", "0.0611", "0.1376"]);
+      assert.deepStrictEqual(cells("[data-three-page-mimo-analysis-decoupler]"), ["u1", "9.00", "-3.97", "u2", "-4.00", "9.03"]);
+    } finally {
+      Object.assign(globalThis, original);
+      dom.window.close();
+    }
+  });
+
+  test("states what the measured paths rest on in plain words", () => {
+    const { JSDOM } = require("jsdom");
+    const dom = new JSDOM(`<main>${renderThreePageMimoAnalysisTemplate()}</main>`);
+    const original = { window: globalThis.window, document: globalThis.document };
+    Object.assign(globalThis, { window: dom.window, document: dom.window.document });
+    try {
+      const presenter = initializeThreePageMimoAnalysis(dom.window.document.querySelector("main") as HTMLElement);
+      const measured = calculateRecordedMimoAnalysis(mimoLoop(), samples(), trials(), { maximumUnexcitedInputDrift: 0.02 });
+      assert.strictEqual(measured.status, "qualified");
+      if (measured.status !== "qualified") return;
+      presenter.setSelected(true);
+      presenter.receive(measured);
+      // A qualified fit always has full-rank, well-conditioned input steps; anything else is rejected as poor excitation.
+      assert.strictEqual(dom.window.document.querySelector("[data-three-page-mimo-analysis-status]")?.textContent,
+        `${measured.sampleCount} good samples from 2 independent input steps.`);
     } finally {
       Object.assign(globalThis, original);
       dom.window.close();

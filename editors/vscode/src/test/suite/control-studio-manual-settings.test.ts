@@ -37,6 +37,32 @@ suite("Control Studio manual Tune settings", () => {
       assert.strictEqual(f.root.querySelector<HTMLDetailsElement>("details")!.open, false);
     } finally { f.restore(); }
   });
+  test("shows a dimensionless tuned value without a unit", () => {
+    const lqg = { controller: { instance: "P1", type: "LQG state feedback" }, parameterBinding: { parameters: [
+      { symbol: "P1.K1", iec_type: "LREAL", unit: "m3/s/m", convention: "Gain K1", minimum: -1, maximum: 1 },
+      { symbol: "P1.L1", iec_type: "LREAL", unit: "1", convention: "Estimator gain L1", minimum: -5, maximum: 5 }] } } as any;
+    const f = setup({ status: "candidate", family: "LQG", values: {} }, lqg);
+    try {
+      renderTunedController(f.root, lqg, { status: "candidate", family: "LQG", values: { "P1.K1": 0.07874, "P1.L1": 0.2393 } });
+      assert.strictEqual(f.root.querySelector("[data-studio-parameter='P1.L1']")!.textContent, "0.2393");
+      assert.match(f.root.querySelector("[data-studio-parameter='P1.K1']")!.textContent!, /^0\.0787 \S/);
+    } finally { f.restore(); }
+  });
+
+  test("shows every Riccati stage's gain and cost with one precision per matrix", () => {
+    const f = setup({ status: "candidate", family: "LQR", values: {} });
+    try {
+      renderTunedController(f.root, loop, { status: "candidate", family: "LQR", values: {},
+        design: { horizon: { steps: 2, policy: "repeat-first-finite-gain", gainSequence: [[[0.07841259, 0.02451445]], [[0.01815348, 0.00036036]]],
+          riccatiSequence: [[[1948.2568, 554.3539], [554.3539, 4065.8254]], [[756.1485, 14.4981], [14.4981, 769.2411]], [[400, 0], [0, 400]]] } } });
+      const rows = [...f.root.querySelectorAll("[data-studio-riccati-stage]")].map(row => [...(row as HTMLTableRowElement).cells].map(cell => cell.textContent));
+      assert.deepStrictEqual(rows, [
+        ["0", "[0.0784, 0.0245]", "[1948.3, 554.4]; [554.4, 4065.8]"],
+        ["1", "[0.018153, 0.00036]", "[756.15, 14.5]; [14.5, 769.24]"],
+        ["2", "—", "[400, 0]; [0, 400]"],
+      ], "Equal entries read alike and no entry switches to exponent notation");
+    } finally { f.restore(); }
+  });
   function setup(payload: Record<string, unknown>, definition = loop) {
     const dom = new JSDOM(`<main><div data-studio-tuning-result></div></main>`);
     const previousDocument = (globalThis as any).document;
@@ -48,6 +74,18 @@ suite("Control Studio manual Tune settings", () => {
     controls.render(payload);
     return { dom, root, controls, restore() { (globalThis as any).document = previousDocument; (globalThis as any).window = previousWindow; dom.window.close(); } };
   }
+
+  test("names a project controller's gains in Manual as its Automatic result names them", () => {
+    const definition: any = { controller: { instance: "P1", type: "Main", design: "project", project: { seed: { kind: "trajectory-feedforward-pid", family: "PID",
+      proportionalSymbol: "P1.Kp", integralSymbol: "P1.Ki", derivativeSymbol: "P1.Kd", rateSymbol: "P1.Kv", accelerationSymbol: "P1.Ka" } } },
+      parameterBinding: { parameters: ["P1.Kp", "P1.Ki", "P1.Kd", "P1.Kv", "P1.Ka"].map(symbol => ({ symbol, iec_type: "LREAL", unit: "1",
+        convention: `raw ${symbol}`, minimum: 0, maximum: 100 })) } };
+    const f = setup({ status: "candidate", family: "PID", values: { "P1.Kp": 18, "P1.Ki": 12, "P1.Kd": 7, "P1.Kv": 1, "P1.Ka": 1 } }, definition);
+    try {
+      assert.deepStrictEqual(Array.from(f.root.querySelectorAll("[data-studio-manual-settings] label[for]")).map(label => label.textContent),
+        ["Proportional gain (Kp)", "Integral gain (Ki)", "Derivative gain (Kd)", "Rate feedforward (Kv)", "Acceleration feedforward (Ka)"]);
+    } finally { f.restore(); }
+  });
 
   test("manual PI exposes the declared anti-windup gain and retains its pin", () => {
     const definition = structuredClone(loop);
@@ -135,6 +173,16 @@ suite("Control Studio manual Tune settings", () => {
       const pin = f.root.querySelector<HTMLInputElement>("[data-studio-manual-pin='P1.Parameters.IntegralGain']")!;
       pin.checked = true;
       assert.deepStrictEqual(f.controls.read().pinnedValues, { "P1.Parameters.IntegralGain": 0.500000001 });
+    } finally { f.restore(); }
+  });
+
+  test("names a rejected field as it is labelled, keeping the symbol's case", () => {
+    const f = setup({ status: "candidate", family: "PI", values: {
+      "P1.Parameters.ProportionalGain": 2, "P1.Parameters.IntegralGain": 0.5,
+    } });
+    try {
+      f.root.querySelector<HTMLInputElement>("[data-studio-manual-value='P1.Parameters.ProportionalGain']")!.value = "150";
+      assert.throws(() => f.controls.read(), (error: Error) => error.message === "Enter proportional gain (Kp) between 0 and 100.");
     } finally { f.restore(); }
   });
 });

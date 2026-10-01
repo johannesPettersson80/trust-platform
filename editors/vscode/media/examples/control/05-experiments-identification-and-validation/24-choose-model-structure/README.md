@@ -1,58 +1,79 @@
 # 16. Model structure
 
-You will decide whether the heater model also needs to describe the temperature sensor’s response. You will test whether sensor lag explains a feature that the original model misses.
+In this lesson, you will fit a model with one heat store and a model with two to the same probe recording, and decide which physical parts the heater model must contain. You will then see that the fit alone cannot say which of the two lags belongs to the probe.
 
 ## The problem
 
-The step-response fit assumed one temperature state. If the final value agrees but a repeatable bend remains unexplained, changing its parameters may not describe the missing physics. An extra bend can come from another physical store in the water process or from the measurement probe. Both can make a first-order fit look wrong. Adding a term because it lowers residuals does not identify its physical origin.
+Lesson 15's model, gain 0.1999 °C per %, delay 1 s and time constant 5 s, predicted a new step to 0.0013 °C. Its record came from a measurement that follows the water at once. This project measures the water with a probe that warms up more slowly than the water around it. The probe has its own lag, and Lesson 15's model misses it.
+
+A model can still be made to fit such a record by stretching its numbers, but then the numbers no longer describe the heater. We will fit a one-store and a two-store model to the same recording and keep the structure that the physics and the data support.
 
 ## What we need
 
-We need to decide whether a repeatable prediction error comes from incorrect
-parameter values or a missing physical response. Any additional state must
-explain the observed feature and have a defensible physical meaning.
+We need to:
+
+1. describe the probe's lag with its own physical equation;
+2. compare models with and without that part on the same recording; and
+3. add the part only if the simpler model fails a limit declared before fitting.
 
 ## The new idea
 
-**Model structure** is the choice of physical relationships and stored quantities
-represented in the model. Changing coefficients cannot always explain a missing
-mechanism. Here a probe may warm more slowly than the water, so we give water
-and sensor temperature separate states and compare that prediction with the
-instantaneous-sensor model.
+**Model structure** is which physical parts the model contains. If the sensor itself warms up slowly, the model needs a second store for the sensor, not an extra number to make the curve fit. For this heater, the parts are the delayed heater power, the heat stored in the water and the small amount of heat stored in the probe.
 
-Let $T$ be water temperature and $T_s$ the measured sensor temperature. For a possible sensor thermal response, use
+**In words.** Each part of a model belongs to something physical, and each does one job:
 
-$$
-C_s\frac{dT_s}{dt}=G_s(T-T_s),\qquad \tau_s=\frac{C_s}{G_s}=2\text{ s}.
-$$
+1. **The delay** belongs to the heater's power delivery: power commanded now reaches the water 1 s later. It shifts the response in time without changing its shape.
+2. **The water's store** sets how quickly the water itself approaches its new temperature.
+3. **The probe's store.** A probe is a small body that the water around it must heat. Heat flows into it in proportion to the temperature difference, so it approaches the water temperature gradually. It stores so little heat that the water's own balance is unchanged.
 
-Here Cs is the probe's thermal capacitance in J/°C and Gs is heat conductance from water to probe in W/°C. Illustrative values Cs=5 J/°C and Gs=2.5 W/°C give the 2 s ratio. Probe mass and material properties determine Cs; a separate immersion response can estimate the ratio. Its energy exchange is small compared with the vessel, so it is neglected in the water balance. The water physics is unchanged; the extra state belongs to the measurement. With deviations $x=T-35$, $m=T_s-35$, and applied command deviation $v=u-75$, the supplied process example is
+In PLC terms, the probe acts like the filter on an analog input card: the reading lags the real signal, and a model of the loop must include that filter instead of pretending that the process itself is slower.
 
-$$
-5\dot x+x=0.2v(t-1),\qquad 2\dot m+m=x.
-$$
+If a part is missing, a fit can still imitate its effect by changing the numbers of the parts that are there. Those numbers then describe neither the heater nor the probe: they are **fitting factors**. So the choice between structures is made by a rule declared before fitting. A structure must predict every sample within the measurement bound, because a larger, repeatable error cannot come from the measurement: it shows a missing part. Keep the simpler structure if it meets this limit; add a store only if it has a physical owner and lowers the typical error, its root-mean-square (RMS) value, by more than the bound.
 
-Candidate A predicts $m=x$, an instantaneous sensor. Candidate B predicts the second equation as well. The model must say which signal each state represents; a second process store could produce the same measured shape.
-
-For a held 10-point step after the 1 s transport delay, Candidate A gives $x(t')=2(1-e^{-t'/5})$, where $t'=t-1$. Try $m(t')=2+a e^{-t'/5}+b e^{-t'/2}$ in the sensor equation. Substitution into $2\dot m+m=x=2-2e^{-t'/5}$ gives $3a/5=-2$, so $a=-10/3$ °C. The initial condition m(0)=0 then gives b=4/3 °C. Thus
+**The formula.** Measure from the steady point, 35 °C with 75%. The water keeps the previous lesson's model, and the probe follows the water:
 
 $$
-m(t')=2\left[1-\frac{5e^{-t'/5}-2e^{-t'/2}}{3}\right].
+5\dot x + x = 0.2\,v(t-1), \qquad \tau_s\,\dot m + m = x.
 $$
 
-At 6 s, $t'=5$: $x=1.26424$ °C and $m\approx0.88318$ °C, so the instantaneous-sensor prediction differs by about 0.38106 °C. This is a model calculation, not a recorded result. It shows what a 2 s sensor response could explain; it does not prove the probe has that response.
+- $x$ is the water temperature minus 35 °C, and $m$ the probe temperature minus 35 °C, in °C;
+- $v$ is the heater command minus 75%, in percentage points;
+- $\tau_s$ is the probe's time constant, in seconds;
+- a dot marks a rate of change per second: $\dot m = (x - m)/\tau_s$ says the probe warms in proportion to how far it is below the water.
 
-To distinguish probe lag from a process lag, use a fast independent water reference or a known probe-immersion/step calibration. A curve fit alone cannot assign the extra time constant to water or sensor.
+With $\tau_s$ = 2 s, a probe 1 °C below the water warms at $1/2 = 0.5$ °C/s. **Candidate A** has one store: the measured temperature is the water temperature, $m = x$. **Candidate B** adds the probe's equation: two stores. For a 10-point step, counting $t'$ in seconds from the moment the delayed heat arrives, the water rises as $x = 2(1 - e^{-t'/5})$, and solving the probe's equation for this water curve gives
 
-Use the qualified applied-command record, baseline 35 °C, and learner K, τ, and L from Lesson 15. Retain the first-order fit as Candidate A. Its τ and L may already include part of the probe response, so they are starting estimates for an extended model, not independently known water parameters. Define two candidates before comparison. A residual is measured minus predicted temperature. For this exercise, require absolute residual no greater than 0.2 °C throughout the valid record and final-temperature prediction within 0.1 °C; keep the same fitting window for both candidates. An added state must explain a repeatable feature larger than the measurement uncertainty. The preceding lesson used the sensor error bound to examine parameter consistency. The .2 °C and .1 °C limits here are declared allowances for model-approximation error, not a larger sensor-error claim; keep them fixed for both structures. Candidate A keeps the sensor instantaneous. Candidate B adds a sensor state.
+$$
+m(t') = 2\left[1 - \frac{5e^{-t'/5} - 2e^{-t'/2}}{3}\right].
+$$
+
+**Example: the first seconds of a 10-point step.** Calculated from the two equations:
+
+1. At $t'$ = 0 the probe is at the water temperature, so no heat flows into it yet: $\dot m = (0 - 0)/2 = 0$. It starts to rise only once the water pulls ahead.
+2. At $t'$ = 2 s, 3 s after the step, the water has risen $2(1 - e^{-0.4}) = 0.659$ °C and the probe $2[1 - (5e^{-0.4} - 2e^{-1})/3] = 0.256$ °C: it trails by 0.40 °C, and Candidate A would report 0.659 °C.
+3. At $t'$ = 10 s, 11 s after the step, the water has risen $2(1 - e^{-2}) = 1.729$ °C and the probe $2[1 - (5e^{-2} - 2e^{-5})/3] = 1.558$ °C: it trails by 0.17 °C.
+
+**Teaching choice.** This record's own windows show how repeatable the probe is: its baseline varied by 0 °C and its final window by 0.002 °C, so we declare a bound of ±0.02 °C.
+
+**The limitation.** The fit can show that a second lag is needed, but not which part owns it. Exchanging the two lags, 2 s for the water and 5 s for the probe, leaves the formula for $m$ unchanged: $2[1 - (2e^{-1} - 5e^{-0.4})/(-3)] = 0.256$ °C at $t'$ = 2 s, exactly as before. The record alone cannot say which lag is the probe's.
 
 ## Prediction
 
-Calculate Candidate A and B at 6 s for the 75→85 step. Predict whether an extra lag changes early slope, delay, or late value. Decide whether the existing learner record has enough resolution and duration to distinguish a 0.381 °C difference, using its actual K, τ, L and uncertainty rather than replacing them with the worked values.
+Before running, answer these questions:
+
+1. What do Candidate A, with Lesson 15's numbers, and Candidate B predict 6 s after the 75 → 85% step?
+2. Does the probe mainly change the start of the response, the delay or the final value?
+3. Which candidate will predict every sample within ±0.02 °C?
+4. Fitted to the probe record, will Candidate A's delay and time constant be shorter than, equal to or longer than the water's 1 s and 5 s?
+
+| Rise after the 10-point step | Candidate A | Candidate B |
+| --- | ---: | ---: |
+| 6 s after the step | 1.264 °C | 0.883 °C |
+| Final | 2.000 °C | 2.000 °C |
 
 ## Implementation
 
-Use Identify to compare Candidate A and Candidate B predictions against the qualified applied-command history. Export the saved Lesson 15 result from **Validate → Export result**, then use **Identify → Import recording…** in this project. Inspect the original source, units and samples. Keep the Lesson 15 first-order parameters and uncertainty with Candidate A; importing a recording does not accept a model or load another project’s controller. For the worked second-order case, update old/new $x$ and $m$ states with the supplied input and sample interval. Keep the first-order values with Candidate A and as the starting estimates for Candidate B; do not simply add sensor lag while freezing fitted parameters that may already absorb it. Refit Candidate B on the same identification record using K, water time constant τp, sensor time constant τs and L, holding a parameter fixed only when independent physical evidence establishes it. Extend the explained fit from the preceding lesson with a positive sensor-time search, initially .1–10 s; retain the other stated bounds, investigate active search boundaries and refine the grid. Evaluate both state equations against the measured probe temperature. The .1 s lower search limit is not proof that faster sensor dynamics are absent or identifiable. The 2 s example remains an illustration, not a substitute for the fit. The ST exercise names learner state variables; current `Main.st` exposes `WaterTemperatureC`, `TemperatureC`, and `AppliedPowerPct`, and does not expose a fitted Candidate A/B result. Compute both next states from the previous states before assigning either:
+[src/tests.st](src/tests.st) computes the two-store model with forward-Euler steps (Lesson 13). Both next states are calculated from the previous values before either is stored:
 
 ```st
 NextWaterDeviationC := WaterDeviationC + ElapsedS
@@ -64,50 +85,61 @@ WaterDeviationC := NextWaterDeviationC;
 SensorDeviationC := NextSensorDeviationC;
 ```
 
-For the worked model, initialize both deviations to zero. With a 10-point delayed input and a 0.1 s interval, the first update gives water deviation 0.04 °C and sensor deviation zero; the following update gives 0.0792 °C and 0.002 °C. These are finite-step approximations to the two balances, not measured readings.
+**Exercise.** From zero, with a 10-point delayed input and 0.1 s steps, calculate the first two updates: water 0.04 °C and probe 0, then 0.0792 °C and 0.002 °C. Run the tests from the **Testing** view: the first test checks these updates, the second the 6 s prediction. Then move the water assignment before the probe calculation and predict the first probe value: it becomes 0.002 °C instead of 0, because the probe now uses the new water value. Restore the order.
 
-Open [src/tests.st](src/tests.st) and run **ST: Run All Tests** from the command
-palette. The first calculation executes these two updates; the second checks
-the continuous 6 s prediction above. To see why update order matters, move the
-water assignment before the sensor calculation and predict the first sensor
-value before running again. It becomes 0.002 °C instead of zero because it uses
-the new water value. Restore the original order and rerun. These calculations
-do not drive the heater or replace comparison against recorded measurements.
-
-The native simulation supplies water temperature at `%IL0` and probe temperature at `%IL8`. Its two thermal balances retain the 1 s command delay, 2 s probe response and 35 °C / 75% operating point. `Main.st` reads both temperatures; it does not simulate the probe. Restarting resets both to 35 °C. The model uses deviations internally: command limits −75..25 correspond to physical heating limits 0..100%.
-
-Set `SafetyAbort` to stop heating immediately; its latch also sets on invalid
-measurement. An abort commands zero heating. Normal
-completion restores 75% heating. After an abort, keep stopped and restart from
-the full hot reset before clearing the latch and collecting a new trial.
+The simulated heater has a 2 s probe: the water temperature arrives on `%IL0` and the probe temperature on `%IL8`. `Main.st` applies 85% while `ExperimentEnabled` is TRUE and 75% otherwise. `SafetyAbort` removes heat when the measurement is invalid, below 0 °C or above 80 °C.
 
 ## Experiment in Control Studio
 
-Use the saved Lesson 15 result for this comparison. The runtime can remain
-stopped: importing and fitting the existing record do not require another
-heater experiment. The worked 2 s probe response is a hypothesis to examine,
-not a result the learner must obtain.
+1. Start **Simulator**: the heater holds 35 °C at 75%. In the **truST** side bar, select **Control Studio**.
+2. On **Identify**, choose **Project experiment** from **Method**. **Signals** shows `P1.TemperatureC · Process value (°C)`, the probe, and `P1.AppliedPowerPct · Applied output (%)`; add `P1.WaterTemperatureC · state (°C)`, the water itself.
+3. Answer the predictions. Select **Review project test** and check the **45.1 s** plan: a 5 s steady start, then 85% from 5.1 s to 45.1 s after **Confirm and start**. Select **Confirm and start**. At the end, Control Studio shows **Project test completed. Outputs restored.**
+4. Hover the plot 6 s after the step and compare the probe with the water. Then right-click the plot and choose **Save recording…**.
+5. Choose **Recorded-data fit** from **Method**, check **Use held-step measurement and search**, and set **Model family** to **Compare additional lag**. Select **Open recording…**, open the saved file, and select **Check recording**.
+6. Expand **Measurement and search settings**. Set **Measurement bound ± (°C)** and **Maximum model residual (°C)** to 0.02. Set **Delay maximum (s)** to 4 and **Delay grid step (s)** to 0.2: the first-order fit needs more than the default 2 s, and the coarser step keeps the search within its time budget. Select **Fit plant model**.
+7. Read **Model comparison** and **Parameters and uncertainty**: A is the first-order model, B the model with the additional lag. Select **Keep additional-lag model**. Validation on a new record follows later in the course.
 
-1. In Lesson 15, open the saved result in **Validate** and choose **Export result**. Open this lesson's project and choose **Identify → Import recording…**. Select that JSON file and expand **Recording source**. Confirm the original source, temperature and applied-command units, and estimation record. An export may also contain the later validation recording; the comparison uses the original estimation data. If that prerequisite is missing, finish Lesson 15 first.
-2. Keep **Measure a held step** enabled and select **Compare additional lag**. Open **Measurement and search settings**. Keep the imported baseline/final windows, measurement bound and first-order search settings. Set the additional time-constant range to **0.1–10 s**, with **0.1 s** spacing. Use **0.2 °C** for the peak model-error limit and **0.1 °C** for the final model-error limit. These limits allow model approximation error; they do not replace the separate **±0.05 °C** measurement bound.
-3. Choose **Check recording**, then **Fit estimation run**. If Check rejects the record, follow the named coverage, window or measurement issue before fitting. Candidate A retains the original first-order fit; Candidate B searches the additional-lag model against the same estimation samples.
-4. Use **Fit** to compare the measured temperature and both predictions on the same axes. Switch to **Residuals** to inspect measured minus predicted temperature. Look for a repeatable error pattern, not just a small reduction in the total error. Read the peak and final errors in **Model comparison** against the limits declared in step 2.
-5. Expand **Parameters and uncertainty**. Record each candidate's equation, parameters, consistent ranges and search-boundary warnings. **No consistent candidates** means no searched parameter set explains every sample within the measurement bound. It does not by itself mean the model misses the looser approximation-error limits. A fitted pair of time constants cannot identify which lag belongs to the water or the probe.
-6. If the first-order model meets the limits, choose **Keep first-order model**. If the additional lag is supported, inspect its error improvement and choose **Keep additional-lag model**; without an independent reference, record its physical origin as unresolved. If neither is supported, use **Review settings** and investigate the reported issue. Keep the original error requirements when comparing refinements.
-7. Choose **Save comparison**. To revisit it, open **Validate → Saved results**, select the saved revision and choose **Open**, then return to **Identify**. Keep the equations, uncertainty and your reason for the provisional choice for Lesson 17. Independent validation remains the task of Lesson 18.
+Select **Abort test** to stop the project test early.
 
 ## Evidence and decision
 
-Keep Candidate A when it meets the declared model-error limits. Candidate B is justified when A misses those limits, B meets them, and its repeatable error improvement exceeds the measurement uncertainty. The extra state represents a possible additional physical response; the fit does not establish whether it belongs to the water or the probe. Without an independent reference, report “additional lag observed; physical origin unresolved.” A short or noisy record may be insufficient to justify the extra state.
+![On the same record, two stores follow the probe within 0.0024 °C; one store misses by 0.143 °C](figures/model-structure.svg)
 
-Do not infer precision from the rounded 6 s calculation. Carry uncertainty from K, τ, L, sample interval, sensor noise and final-window choice. A selected structure is still provisional until unused records pass Lesson 18.
+The numbered marks answer the predictions with the same numbers. From Control Studio:
+
+| Quantity | A: one store | B: two stores |
+| --- | ---: | ---: |
+| Gain | 0.1998 °C per % | 0.1998 °C per % |
+| Delay | 2.4 s | 1 s |
+| Time constants | 5.7 s | 5 s and 2 s |
+| Largest residual | 0.143 °C | 0.0024 °C |
+| RMS residual | 0.024 °C | 0.0019 °C |
+| Parameter sets within ±0.02 °C | 0 | 1,174 |
+
+1. 6 s after the step the probe had risen 0.883 °C and the water 1.264 °C, as calculated for B and for A with Lesson 15's numbers.
+2. The start: the probe first rose 2.5 s after the step, the water 1.4 s, and both ended at 37.0 °C.
+3. Only B. A's largest residual was 0.143 °C, seven times the bound, and Control Studio found no first-order parameter set within ±0.02 °C.
+4. Longer: A needed a 2.4 s delay and a 5.7 s time constant to imitate the probe.
+
+B lowered the RMS error by 0.023 °C, more than the bound, and Control Studio reported **The additional lag meets the limits. Its physical origin remains unresolved.** B is kept with **Keep additional-lag model**: its extra store has a physical owner, and its delay and water time constant are the heater's own. The cost is a fourth parameter and an unresolved owner: among the 1,174 parameter sets within the bound, each of B's two time constants ranged from 1.2 to 5.7 s and the delay from 0.6 to 1.4 s. With the default 0.2 °C limit, Control Studio suggests A: enough for a design that needs only 0.2 °C. These are simulation results.
 
 ## Conclusion
 
-Model structure connects a measured feature to a physical state. A sensor response can produce a second lag without changing water dynamics, but the record alone may not distinguish it from a process store. Use the simplest structure that meets evidence and physical provenance requirements.
+Model structure decides which physical parts a model contains. A missing part shows as a repeatable error larger than the measurement uncertainty, and a simpler structure can hide it only by stretching its numbers until they lose their physical meaning. A part is added when its owner is physical and the simpler model fails a limit declared in advance.
+
+For this heater, the probe's 2 s lag is such a part: two stores explained the record within 0.0024 °C with the heater's 1 s delay and 5 s time constant, while one store missed by 0.143 °C.
+
+## Check yourself
+
+1. **A probe with $\tau_s$ = 4 s is 2 °C below the water. How fast does it warm?**
+   $2/4 = 0.5$ °C/s.
+2. **Why did Candidate A fit a 2.4 s delay when the heater's delay is 1 s?**
+   It has no part for the probe, so it imitated the probe's slow start with a longer delay and time constant.
+3. **Why can the fit not tell which lag belongs to the probe?**
+   Exchanging the 5 s and 2 s lags gives exactly the same probe curve, for example 0.883 °C at 6 s both ways.
 
 ## Reason for the next lesson
 
-An additional state can explain a measured lag, but the fitted curve alone may not tell us whether it belongs to the water or the probe, or which parameter values are distinguishable from the record.
+Different numbers can fit the same recording equally well: 1,174 parameter sets stayed within the bound, and the record cannot say which lag is the probe's.
 
-[Identifiability](../25-parameter-identifiability/README.md) uses these same candidates to decide what information the experiment actually supplies.
+[Identifiability](../25-parameter-identifiability/README.md) asks what an experiment can tell apart, and which second measurement separates the two lags.

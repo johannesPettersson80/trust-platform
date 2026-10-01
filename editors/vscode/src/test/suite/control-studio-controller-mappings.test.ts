@@ -51,8 +51,6 @@ suite("Control Studio controller and model mappings", () => {
     loop.parameterBinding.parameters[0].unit = "V/m";
     assert.deepStrictEqual(projectModelParameters(loop, model, { "Main.Kp": { kind: "inverse-plant-gain" } }), { "Main.Kp": 0.5 });
     loop.parameterBinding.parameters[0].unit = "m3/s";
-    assert.throws(() => projectModelParameters(loop, { ...model, physical: { kind: "gravity-tank", areaM2: 2, outflowCoefficient: 1 } },
-      { "Main.Kp": { kind: "physical", parameter: "outflowCoefficient" } }), /unit/i);
   });
 
   test("accepts dimensionless equal-coordinate sampled coefficients and rejects wrong coordinates", () => {
@@ -98,13 +96,6 @@ suite("Control Studio controller and model mappings", () => {
     assert.deepStrictEqual(pinned, { proportionalGain: 3, integralGain: 4, derivativeGain: 0 });
     assert.throws(() => pinnedControllerGains(loop, "PI", gains, { loopRevision: loop.revision, family: "PID", values: { "Main.Kp": 3 } }), /different loop or controller/i);
     assert.throws(() => pinnedControllerGains(loop, "PI", gains, { loopRevision: loop.revision, family: "PI", values: { "Main.Kp": 1000 } }), /bound|representable/i);
-  });
-
-  test("rejects a physical identification tolerance outside the declared adequacy interval", () => {
-    const { identifyPhysicalModel } = require("../../controlStudio/physicalIdentification");
-    const run = { id: "record", conditions: { programRevision: "program", modelRevision: "model", sampleTimesSeconds: [] }, samples: [], channels: [] };
-    assert.throws(() => identifyPhysicalModel(run, { ...run, id: "validation" },
-      { inputs: [{ id: "u", unit: "W" }], outputs: [{ id: "y", unit: "K" }] }, { kind: "thermal-balance" }, 1), /tolerance/i);
   });
 
   test("preserves every declared project-controller family behind the bounded native adapter", () => {

@@ -14,6 +14,25 @@ suite("Control Studio loop definition", () => {
       { ...loop, experiment: { ...experiment, execution: "control-studio", activation: undefined } },
     ]) assert.strictEqual(api.decodeControlLoopDefinition(invalid).kind, "rejected");
   });
+  test("accepts a hold parameter only when the declared maximum can record the longest permitted hold", () => {
+    const api = loopApi();
+    const base = completeLoop();
+    const activation = { symbol: "P1.Run", address: "%MX64.0", iecType: "BOOL", direction: "write" };
+    const hold = { symbol: "P1.HoldSeconds", iec_type: "REAL", unit: "s", convention: "held step duration", minimum: 20, maximum: 40 };
+    const experiment = { execution: "project-scripted", kind: "observation", amplitude: 0, durationSeconds: 45.1, seed: 1,
+      baselineSeconds: 5, holdParameter: "P1.HoldSeconds", activation };
+    const parameterBinding = { loop_id: base.id, task_name: "MainTask", parameters: [hold], mode: { symbol: "P1.Run", manual_value: false } };
+    const loop = { ...base, schemaVersion: 2, controller: { ...base.controller, taskPeriodMs: 100 }, observedSampleTiming: { nominalPeriodMs: 100 },
+      experiment, parameterPurpose: "experiment", parameterBinding };
+    assert.strictEqual(api.decodeControlLoopDefinition(loop).kind, "accepted");
+    for (const [label, invalid] of [
+      ["a 35.1 s maximum cannot record a 40 s hold", { ...loop, experiment: { ...experiment, durationSeconds: 35.1 } }],
+      ["the hold must be a declared parameter", { ...loop, experiment: { ...experiment, holdParameter: "P1.Other" } }],
+      ["the hold is declared in seconds", { ...loop, parameterBinding: { ...parameterBinding, parameters: [{ ...hold, unit: "min" }] } }],
+      ["the hold belongs to the experiment parameters", { ...loop, parameterPurpose: "controller" }],
+      ["only a project-owned test has a hold parameter", { ...loop, experiment: { ...experiment, execution: "control-studio", activation: undefined, baselineSeconds: undefined } }],
+    ] as const) assert.strictEqual(api.decodeControlLoopDefinition(invalid).kind, "rejected", label);
+  });
   test("requires a distinct explicit abort policy on version2 project experiments", () => {
     const api = loopApi();
     const binding = { symbol: "Main.Run", address: "%MX64.0", iecType: "BOOL", direction: "write" };

@@ -23,3 +23,19 @@ export async function attachControlStudio(connection: CdpConnection, port: numbe
     return "";
   }, (value) => value.length > 0, 20000);
 }
+
+/** Attaches to the webview whose document contains the selector. */
+export async function attachWebview(connection: CdpConnection, port: number, selector: string): Promise<string> {
+  return pollValue(`webview with ${selector}`, async () => {
+    for (const target of (await httpJson(port, "/json")).filter((entry: any) => /index\.html/.test(entry.url ?? ""))) {
+      const attached = await connection.send("Target.attachToTarget", { targetId: target.id, flatten: true }).catch(() => undefined);
+      const sessionId = typeof attached?.sessionId === "string" ? attached.sessionId : undefined;
+      if (!sessionId) continue;
+      await connection.send("Runtime.enable", {}, sessionId);
+      const found = await evaluateInWebview(connection, sessionId, `return String(Boolean(d.querySelector(${JSON.stringify(selector)})));`).catch(() => "false");
+      if (found === "true") return sessionId;
+      await connection.send("Target.detachFromTarget", { sessionId }).catch(() => undefined);
+    }
+    return "";
+  }, value => value.length > 0, 20000);
+}

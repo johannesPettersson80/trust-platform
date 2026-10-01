@@ -1,7 +1,7 @@
 //! Shared immutable execution bounds, independent of search/ordinary Test purpose.
 use super::contracts::{Channel, Event};
 use std::collections::{BTreeMap, HashSet};
-pub(super) const MAX_OBSERVATIONS: usize = 32;
+pub(super) const MAX_OBSERVATIONS: usize = 64;
 #[derive(Clone, Debug)]
 pub(super) struct ExecutionSettings {
     pub execution: String,
@@ -23,7 +23,7 @@ impl ExecutionSettings {
         if !(1..=1000).contains(&self.step_ms)
             || self.duration_ms == 0
             || self.duration_ms > 600_000
-            || self.duration_ms % self.step_ms != 0
+            || !self.duration_ms.is_multiple_of(self.step_ms)
             || !(1..=60_000).contains(&self.wall_budget_ms)
             || !(1..=10_000).contains(&self.per_trial_wall_ms)
             || self.per_trial_wall_ms > self.wall_budget_ms
@@ -31,13 +31,22 @@ impl ExecutionSettings {
             return Err("invalid explicit execution time/budget bounds".into());
         }
         let cycles = (self.duration_ms / self.step_ms + 1) * count as u64;
+        let channels = self.observations.len();
+        if channels > MAX_OBSERVATIONS {
+            return Err(format!(
+                "{channels} observed channels exceed the limit of {MAX_OBSERVATIONS}"
+            ));
+        }
+        if cycles * channels as u64 > 250_000 {
+            return Err(format!(
+                "{cycles} samples × {channels} channels exceed the limit of 250000 channel samples"
+            ));
+        }
         if self.seed > 9_007_199_254_740_991
             || self.duration_ms / self.step_ms + 1 > 12_000
             || self.max_total_cycles > 50_000
             || cycles > self.max_total_cycles
             || self.observations.is_empty()
-            || self.observations.len() > MAX_OBSERVATIONS
-            || cycles * self.observations.len() as u64 > 250_000
             || self.initial_values.len() > 64
             || self.events.len() > 1024
         {

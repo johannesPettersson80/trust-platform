@@ -3,282 +3,240 @@
   "id": "control-ratio-control",
   "title": "Ratio control",
   "level": "Advanced",
-  "sequence": 57,
-  "equipment": "liquid blending skid",
-  "physicalPurpose": "Move additive demand with production flow before downstream composition error develops.",
-  "principalTechnique": "Ratio control",
-  "objective": "Make one flow follow another with feedback trim.",
+  "sequence": 64,
+  "equipment": "Two calibrated additive pumps (1 s lag, 0.2 L/min per %), each under a ratio station with Control.PID PI (Kp 10, Ki 10) and R = 0.1: one follows a carrier step 100 → 150 L/min, the other a carrier stop",
+  "physicalPurpose": "Keep the additive flow in the recipe ratio to a changing carrier flow, and stop the additive safely when the carrier stops.",
+  "principalTechnique": "Ratio control q_a,sp = R·q_c with a feedback loop on the additive flow and a guarded stop",
+  "objective": "Set the additive target from the measured carrier flow, tune the pump PI, predict the saturated first request and the steady command, stop the pump in the same update when the carrier falls below 5 L/min, and account for the tail volume.",
   "prerequisites": [
     "control-cascade"
   ],
   "nextLesson": "control-split-range",
   "signals": [
     {
-      "role": "state",
-      "name": "Experiment authority",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX160.1"
-    },
-    {
-      "role": "quality",
-      "name": "Wild-flow validity",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX88.2"
-    },
-    {
-      "role": "state",
-      "name": "Ratio authority",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX88.3"
-    },
-    {
       "role": "SP",
-      "name": "Blend-ratio setpoint",
-      "unit": "1",
-      "minimum": 0.1,
-      "maximum": 0.5,
+      "name": "Additive target, carrier step",
+      "unit": "L/min",
+      "minimum": 0,
+      "maximum": 20,
       "resolution": 0.001,
-      "binding": "%ML120"
-    },
-    {
-      "role": "disturbance",
-      "name": "Actual wild-stream flow",
-      "unit": "L/min",
-      "minimum": 0,
-      "maximum": 160,
-      "resolution": 0.01,
-      "binding": "%ML128"
-    },
-    {
-      "role": "state",
-      "name": "Measured wild-stream flow",
-      "unit": "L/min",
-      "minimum": 0,
-      "maximum": 160,
-      "resolution": 0.01,
-      "binding": "%ML136"
-    },
-    {
-      "role": "state",
-      "name": "Untrimmed ratio demand",
-      "unit": "L/min",
-      "minimum": 0,
-      "maximum": 60,
-      "resolution": 0.01,
-      "binding": "%ML144"
-    },
-    {
-      "role": "state",
-      "name": "Composition feedback trim",
-      "unit": "L/min",
-      "minimum": -30,
-      "maximum": 30,
-      "resolution": 0.01,
-      "binding": "%ML152"
+      "binding": "%ML16"
     },
     {
       "role": "PV",
-      "name": "Feedback-only blend ratio",
-      "unit": "1",
-      "minimum": 0.1,
-      "maximum": 0.5,
+      "name": "Additive flow, carrier step",
+      "unit": "L/min",
+      "minimum": 0,
+      "maximum": 20,
       "resolution": 0.0001,
-      "binding": "%IL48"
-    },
-    {
-      "role": "state",
-      "name": "Ratio-controlled blend ratio",
-      "unit": "1",
-      "minimum": 0.1,
-      "maximum": 0.5,
-      "resolution": 0.0001,
-      "binding": "%IL56"
+      "binding": "%IL0"
     },
     {
       "role": "MV",
-      "name": "Feedback-only additive request",
-      "unit": "L/min",
+      "name": "Pump command, carrier step",
+      "unit": "%",
       "minimum": 0,
-      "maximum": 60,
+      "maximum": 100,
       "resolution": 0.01,
-      "binding": "%QL48"
+      "binding": "%QL0"
     },
     {
       "role": "state",
-      "name": "Ratio-controlled additive request",
+      "name": "Additive-to-carrier ratio, carrier step",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 0.2,
+      "resolution": 1e-05,
+      "binding": "%ML32"
+    },
+    {
+      "role": "disturbance",
+      "name": "Carrier flow, step",
       "unit": "L/min",
       "minimum": 0,
-      "maximum": 60,
+      "maximum": 200,
       "resolution": 0.01,
-      "binding": "%QL64"
+      "binding": "%ML0"
+    },
+    {
+      "role": "disturbance",
+      "name": "Carrier flow, stop",
+      "unit": "L/min",
+      "minimum": 0,
+      "maximum": 200,
+      "resolution": 0.01,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Additive target, carrier stop",
+      "unit": "L/min",
+      "minimum": 0,
+      "maximum": 20,
+      "resolution": 0.001,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "Additive flow, carrier stop",
+      "unit": "L/min",
+      "minimum": 0,
+      "maximum": 20,
+      "resolution": 0.0001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Pump command, carrier stop",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "Tail volume",
+      "unit": "L",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1e-05,
+      "binding": "%ML40"
+    },
+    {
+      "role": "state",
+      "name": "ExperimentEnabled",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX48.0"
+    },
+    {
+      "role": "state",
+      "name": "Ratio evaluated, carrier stop",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX48.1"
+    },
+    {
+      "role": "state",
+      "name": "Ratio evaluated, carrier step",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX48.2"
     }
   ],
   "plant": {
-    "modelId": "two_equivalent_local_blending_skids",
+    "modelId": "two-additive-pumps",
     "executable": "simulation.toml",
     "parameters": [
       {
-        "name": "mixing_analyser_time_constant",
-        "value": 2,
+        "name": "pump_gain",
+        "value": 0.2,
+        "unit": "L/min per %"
+      },
+      {
+        "name": "pump_time_constant",
+        "value": 1,
         "unit": "s"
       },
       {
-        "name": "additive_sensitivity",
-        "value": 0.01,
+        "name": "ratio",
+        "value": 0.1,
         "unit": "1"
       },
       {
-        "name": "wild_flow_sensitivity",
-        "value": -0.003,
-        "unit": "1"
+        "name": "minimum_carrier",
+        "value": 5,
+        "unit": "L/min"
       }
     ],
     "sampleTimeSeconds": 0.1,
     "initialState": {
-      "blendRatio": 0.1,
-      "additiveFlowLMin": 10,
-      "wildFlowLMin": 100
+      "additiveLMin": 10
     },
     "seed": 20260829,
     "operatingPoint": {
-      "Blend-ratio setpoint": 0.1,
-      "Actual wild-stream flow": 100,
-      "Measured wild-stream flow": 100,
-      "Untrimmed ratio demand": 10,
-      "Composition feedback trim": 0,
-      "Feedback-only blend ratio": 0.1,
-      "Ratio-controlled blend ratio": 0.1,
-      "Feedback-only additive request": 10,
-      "Ratio-controlled additive request": 10
+      "Additive flow, carrier step": 10,
+      "Pump command, carrier step": 50
     },
     "validityRange": [
       {
-        "signal": "Actual wild-stream flow",
-        "minimum": 80,
-        "maximum": 130,
+        "signal": "Additive flow, carrier step",
+        "minimum": 0,
+        "maximum": 20,
         "unit": "L/min"
-      },
-      {
-        "signal": "Measured wild-stream flow",
-        "minimum": 10,
-        "maximum": 160,
-        "unit": "L/min"
-      },
-      {
-        "signal": "Feedback-only blend ratio",
-        "minimum": 0.1,
-        "maximum": 0.5,
-        "unit": "1"
-      },
-      {
-        "signal": "Ratio-controlled blend ratio",
-        "minimum": 0.1,
-        "maximum": 0.5,
-        "unit": "1"
       }
     ],
     "simplifications": [
-      "Local material-balance linearisation around 100 L/min wild flow and ratio 0.10",
-      "One two-second state combines mixing transport and analyser lag",
-      "The low-flow case proves authority fallback only and is outside the local composition model",
-      "Two deterministic equivalent plants isolate ratio feedforward from identical PI trim",
-      "Simulation-only I/O and evidence"
+      "Pump: dq/dt + q = 0.2·u with τ = 1 s; flows measured exactly.",
+      "The carrier flow is the measured value the experiment sets; transport delay between the flows is neglected."
     ]
   },
   "baseline": {
-    "executableId": "Blender.CompositionFeedbackOnly",
+    "executableId": "P1",
     "settings": {
-      "kpLMinPerRatio": 50,
-      "kiLMinPerRatioSecond": 10,
-      "initialAdditiveFlowLMin": 10
+      "carrier": "100 L/min",
+      "additive": "10 L/min at 50 %"
     },
-    "limitation": "Downstream composition feedback cannot move additive flow until mixing lag has produced a measured ratio error."
+    "limitation": "A fixed additive flow gives the recipe ratio at only one carrier flow."
   },
   "change": {
-    "executableId": "Blender.RatioPlusTrim",
+    "executableId": "P1",
     "settings": {
-      "ratioSetpoint": 0.1,
-      "minimumWildFlowLMin": 10,
-      "maximumWildFlowLMin": 160,
-      "safeAdditiveFlowLMin": 0,
-      "feedbackTrimKp": 50,
-      "feedbackTrimKi": 10
+      "ratio": 0.1,
+      "controller": "Control.PID PI Kp 10, Ki 10, Tt 0.5 s",
+      "durationSeconds": 60
     },
-    "decision": "Use ratio authority only with valid scaled wild-flow data above the reviewed minimum, and retain analyser PI as bounded trim rather than a substitute for meter validity."
+    "decision": "The additive follows the carrier step within 0.9 s and holds the ratio within ±0.005 through 60 s; the stopped pump gets 0 % in the same update, no ratio is evaluated, and it still delivers 0.175 L, below the 0.20 L limit."
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Experiment authority",
+    "signal": "ExperimentEnabled",
     "baseline": 0,
     "amplitude": 0,
-    "durationSeconds": 90.1,
-    "settlingSeconds": 30,
+    "durationSeconds": 62.1,
+    "settlingSeconds": 0,
     "disturbances": [
-      "Actual and measured wild flow change from 100 to 120 L/min at 30.0 s",
-      "A separate restored run changes only measured wild flow to 125 L/min",
-      "Separate fallback runs invalidate wild-flow quality or request 5 L/min"
+      "Carrier flow 100 → 150 L/min on the first station",
+      "Carrier flow 100 → 0 L/min on the second station"
     ],
     "seed": 20260829,
-    "restorationValue": 0,
-    "activationSignal": "P1.ExperimentEnabled"
+    "restorationValue": 0
   },
   "acceptance": [
     {
-      "metric": "first_scan_ratio_demand",
-      "signal": "Untrimmed ratio demand",
-      "window": "first controller scan after 30.0-s production event",
+      "metric": "ratio_band",
+      "signal": "Additive-to-carrier ratio, carrier step",
+      "window": "10–60 s",
       "comparator": "==",
-      "limit": 12,
-      "unit": "L/min",
-      "tolerance": 0.05,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "nominal_ratio_event_iae_ratio",
-      "signal": "Ratio-controlled blend ratio",
-      "window": "30 through 60 s ratio-plus-trim IAE divided by feedback-only IAE",
-      "comparator": "<",
-      "limit": 0.35,
+      "limit": 0.1,
       "unit": "1",
-      "tolerance": 0.01,
+      "tolerance": 0.005,
       "evidenceClass": "simulation"
     },
     {
-      "metric": "biased_final_mean_absolute_error",
-      "signal": "Ratio-controlled blend ratio",
-      "window": "80 through 90 s after settling qualification in the +5-L/min meter-bias run",
-      "comparator": "<",
-      "limit": 0.002,
-      "unit": "1",
-      "tolerance": 0.0001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "biased_final_trim",
-      "signal": "Composition feedback trim",
-      "window": "80 through 90 s in the +5-L/min meter-bias run",
-      "comparator": "==",
-      "limit": -1.5,
+      "metric": "additive_range",
+      "signal": "Additive flow, carrier step",
+      "window": "complete trial",
+      "comparator": "<=",
+      "limit": 20,
       "unit": "L/min",
-      "tolerance": 0.2,
+      "tolerance": 0,
       "evidenceClass": "simulation"
     },
     {
-      "metric": "safe_fallback_request",
-      "signal": "Ratio-controlled additive request",
-      "window": "all samples after invalid quality or below-minimum wild flow",
-      "comparator": "==",
-      "limit": 0,
-      "unit": "L/min",
+      "metric": "stop_tail",
+      "signal": "Tail volume",
+      "window": "after the stop",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "L",
       "tolerance": 0,
       "evidenceClass": "simulation"
     }
@@ -286,92 +244,53 @@
   "safety": {
     "hardLimits": [
       {
-        "signal": "Feedback-only additive request",
+        "signal": "Additive flow, carrier step",
         "minimum": 0,
-        "maximum": 60,
+        "maximum": 20,
         "unit": "L/min"
       },
       {
-        "signal": "Ratio-controlled additive request",
+        "signal": "Pump command, carrier step",
         "minimum": 0,
-        "maximum": 60,
-        "unit": "L/min"
-      },
-      {
-        "signal": "Feedback-only blend ratio",
-        "minimum": 0.1,
-        "maximum": 0.5,
-        "unit": "1"
-      },
-      {
-        "signal": "Ratio-controlled blend ratio",
-        "minimum": 0.1,
-        "maximum": 0.5,
-        "unit": "1"
+        "maximum": 100,
+        "unit": "%"
       }
     ],
     "abortPredicates": [
-      "Any required signal is nonfinite, stale, forced, badly scaled, or has invalid quality",
-      "Any additive request leaves 0 through 60 L/min",
-      "Blend ratio leaves 0.10 through 0.50 during a qualified local-model run",
-      "Plant identity, ratio authority, or restoration state is lost"
+      "Carrier below 5 L/min: pump command 0 % in the same update, no ratio evaluated, stop latched until restart",
+      "Signals must remain finite and inside the declared ranges"
     ],
     "safeMv": 0,
-    "restorationMode": "Track additive request at zero while ratio authority is unavailable; restore valid 100-L/min wild flow and prove measurements and valve state before returning to automatic ratio control.",
-    "physicalApprovalRole": "authorised blending-skid controls engineer and responsible process operator",
+    "restorationMode": "When the experiment ends, both carriers return to 100 L/min and the stopped station restarts.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
     "simulationOnlyRestrictions": [
-      "No physical dosing valve or production flow is operated",
-      "Low-flow composition traces are not valid evidence for the local model",
-      "Physical ratio control requires reviewed meter scaling, valve rangeability, interlocks, safe state and explicit experiment approval"
+      "This lesson cannot authorise physical dosing",
+      "A zero dose after a stop needs a shut-off valve, not a zero pump command"
     ]
   },
   "workflowStages": [
-    "Monitor",
-    "Test"
+    "Identify"
   ],
   "proof": {
-    "specification": "docs/specs/38-control-engineering-curriculum.md#77-industrial-control-structures",
-    "nativeTest": "TEST_PROGRAM::Lesson53RatioDemandUsesValidFlowAndAbortRemovesAuthority",
-    "nativeCommand": "target/debug/trust-dev test --project examples/control/09-industrial-control-structures/53-ratio-control --filter TEST_PROGRAM::Lesson53RatioDemandUsesValidFlowAndAbortRemovesAuthority --timeout 20",
+    "specification": "docs/specs/control-course-content/55-66-industrial-and-multivariable.md#57-ratio-control",
+    "nativeTest": "lesson57",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_55_57 lesson57",
     "projectPath": "examples/control/09-industrial-control-structures/53-ratio-control",
     "runArtifactFields": [
-      "projectIdentity",
-      "plantIdentities",
-      "controllerIdentities",
-      "evidenceClass",
-      "sampleTime",
-      "seed",
-      "ratioSetpoint",
-      "actualWildFlow",
-      "measuredWildFlow",
-      "wildFlowValidity",
-      "ratioAuthority",
-      "ratioDemand",
-      "compositionTrim",
-      "blendRatios",
-      "requestedAdditiveFlows",
-      "appliedAdditiveFlows",
-      "limits",
-      "abortState",
-      "restorationState",
-      "metricDefinitions",
-      "metrics",
-      "settlingQualification"
+      "additiveFlows",
+      "targets",
+      "commands",
+      "ratio",
+      "tailVolume",
+      "evidenceClass"
     ],
     "renderedJourneyId": "control-ratio-control"
   },
   "video": {
-    "viewerOutcome": "Configure a wild-stream ratio station with analyser trim and explain its scaling, low-flow and measurement-quality boundaries.",
+    "viewerOutcome": "See the additive follow a carrier step in the recipe ratio, and a stopped pump keep delivering a small tail after its zero command.",
     "requiredVisibleEvidence": [
-      "two equivalent blending skids",
-      "actual and measured wild flow",
-      "quality and ratio authority",
-      "ratio setpoint and both measured ratios",
-      "untrimmed demand and PI trim",
-      "requested and applied additive flows",
-      "nominal production event",
-      "+5-L/min meter bias",
-      "low-flow and invalid-quality fallback",
+      "target, additive flow, command and ratio after the carrier step",
+      "additive flow, command and tail after the carrier stop",
       "Simulation label"
     ],
     "durationClass": "standard",
@@ -381,23 +300,20 @@
     "publicationState": "not_started"
   },
   "learning": {
-    "context": "A base-liquid wild stream establishes production rate while a separate additive valve controls the material-flow ratio measured after a two-second mixing and analyser lag.",
-    "reason": "Unlike the nested reactor variables in the preceding cascade lesson, blender quality depends on two flows remaining proportional while one changes independently.",
+    "context": "Lesson 63's cascade, designed by Control Studio, held the jacketed vessel within 0.086 °C of its setpoint through a 30 kW jacket loss, because its outer loop calculated the inner loop's setpoint and the inner loop corrected the jacket early. A new production requirement needs a different relationship. A mixing line doses an additive into a carrier stream at 0.1 L of additive per litre of carrier, and the carrier flow keeps changing. A fixed additive setpoint gives the right mixture at only one carrier flow, and when the carrier stops, the pump may still be delivering additive.\n\nWe will calculate the additive's target from the measured carrier flow and make the pump follow it.",
+    "reason": "We need to:\n\n1. give the additive pump a target that follows the measured carrier flow;\n2. make the pump deliver that target despite its own lag; and\n3. stop dosing when the carrier stops, and know how much additive still enters.",
     "theory": [
-      "Ratio demand is ratio setpoint times valid measured wild flow; analyser PI supplies only bounded additive-flow trim.",
-      "A local material-balance model explains the two input sensitivities and its own invalidity near zero flow.",
-      "Bad quality or wild flow outside 10 through 160 L/min removes ratio authority and tracks the reviewed zero-flow safe request."
+      "**Ratio control** keeps one flow at a fixed proportion of another by giving the dependent flow's controller a target calculated from the measured main flow. On the mixing line, the main flow is the carrier and the dependent flow is the additive: 0.1 L of additive for every litre of carrier, whatever the carrier does.\n\n**In words.** The additive's setpoint is no longer a number an operator types in: the program calculates it every update from the measured carrier flow. When the carrier speeds up, the target rises with it; when the carrier slows down, the target falls. The arrangement has two parts:\n\n1. **The ratio station** multiplies the measured carrier flow by the ratio and writes the result as the additive's setpoint.\n2. **The additive loop**, an ordinary PI, makes the pump deliver that setpoint. It cannot follow at once, because the pump has its own lag.\n\nIn PLC terms the ratio station is a single multiplication in front of a setpoint, like scaling a dosing setpoint from a flow meter. The new part is what happens when the main flow stops: a proportion of nothing has no meaning, so the station needs a stop rule.\n\n**The formula.** The target is the ratio times the measured main flow:\n\n$$\nq_{a,sp} = R\\,q_c .\n$$\n\nLet:\n\n- $q_c$ be the measured carrier flow, in L/min;\n- $q_a$ and $q_{a,sp}$ be the additive flow and its target, in L/min; and\n- $R$ be the required ratio, in litres of additive per litre of carrier.\n\nThe pump delivers $0.2u$ L/min at the command $u$ in %, and reaches a new flow with a 1 s lag: $\\dot q_a + q_a = 0.2\\,u$, so its gain is $K = 0.2$ L/min per % and its time constant $\\tau = 1$ s. Lesson 19's rule with a response time $\\lambda = 0.5$ s, a teaching choice, gives $K_p = \\tau/(K\\lambda) = 10$ % per L/min and $K_i = K_p/\\tau = 10$ % per L/min·s.\n\n**Example: the mixing line.** Follow the numbers:\n\n1. At 100 L/min of carrier, the target is $0.1 \\times 100 = 10$ L/min, which the pump delivers at $10/0.2 = 50$ %. A ratio of 0.1 is not 10 % of the mixture: the additive makes up $10/(100 + 10) = 9.09$ %.\n2. The carrier steps from 100 to 150 L/min. The target jumps at once to $0.1 \\times 150 = 15$ L/min, while the pump still delivers 10: an error of 5 L/min.\n3. The first request is $50 + 10 \\times 5 \\times 0.1 + 10 \\times 5 = 105$ %: the holding 50 %, the integral's first increment and P. The 0–100 % limit cuts it to 100 %.\n4. The flow rises with the pump's 1 s lag, and the ratio stays below 0.1 until it has caught up: the lag, not a wrong target.\n5. The command settles where the pump delivers 15 L/min: $15/0.2 = 75$ %.\n\n**The limitation.** The ratio has no meaning when the carrier stops. Below 5 L/min of carrier, a teaching threshold, the station sets the pump command to 0 % in the same update, evaluates no ratio, and stays stopped until it is restarted. A zero command does not mean zero flow: from 10 L/min the flow decays as $q_a = 10\\,e^{-t}$ L/min and still delivers\n\n$$\n\\int_0^\\infty \\frac{10\\,e^{-t}}{60}\\,dt = \\frac{10}{60} = 0.167\\ \\mathrm{L},\n$$\n\nwhere dividing by 60 turns litres per minute into litres per second. The program sums the tail as $V_{k+1} = V_k + q_{a,k}\\,\\Delta t/60$, with $V_k$ the volume so far in L, $q_{a,k}$ the flow at update $k$ and $\\Delta t = 0.1$ s. Each update counts its whole 0.1 s at the flow it starts with, so the sum comes out slightly above the integral, by at most one update at full flow: $10 \\times 0.1/60 = 0.017$ L.\n\nThe requirements, fixed before the run: ratio within ±0.005 from 10 to 60 s after the carrier step; additive flow within 0–20 L/min; tail after a stop at most 0.20 L."
     ],
-    "workedPrediction": "A 100-to-120-L/min wild-flow step changes untrimmed additive demand from 10 to 12 L/min immediately; a +5-L/min meter bias creates 0.5 L/min excess demand for analyser trim to remove.",
+    "workedPrediction": "Before running, answer these questions:\n\n1. What are the additive target and the first pump command after the carrier step to 150 L/min?\n2. For how long does the ratio stay outside ±0.005 after the step, and why?\n3. What does the pump command do when the carrier stops, and how much additive still enters?\n\n| Quantity | Predicted |\n| --- | ---: |\n| Additive target, before / after the step | 10 / 15 L/min |\n| First request after the step | 105 %, applied as 100 % |\n| Steady command at 150 L/min | 75 % |\n| Tail after a stop from 10 L/min | 0.167 L, up to 0.017 L more |",
     "practicalPreparation": [
-      "Verify Simulation evidence, both plants and controllers, engineering units, meter scaling, quality, ratio authority, limits, sample time and operating point.",
-      "Define event IAE, peak deviation, additive-flow movement, final-window eligibility and fallback status before revealing results."
+      "1. Open this lesson's project and start **Simulator**. First look at the new plant. In the **truST** side bar, select **Devices & Connections**: inside **Simulator**, two boxes marked **SIMULATED PLANT** hold the two pumps. Select **additive-pump-step**; **Configure plant** opens. Under **CONNECTIONS**, **Input 1** is `P1.StepPumpPct` (%QL0), the pump command, and **Output 1** is `P1.StepAdditiveLMin` (%IL0), the measured additive flow. The carrier flow is not a plant here: the project's test supplies it, as a carrier flow meter would. Close the panel with **Cancel**.\n\n   ![The additive pump's connections in the hardware canvas](figures/pump-in-hardware-canvas.png)\n\n2. In the **truST** side bar, select **Control Studio**. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.StepSetpointLMin · Setpoint (L/min)`, `P1.StepAdditiveLMin · Process value (L/min)` and `P1.StepPumpPct · Applied output (%)`; add `P1.MixRatio · state (1)`.\n3. Answer the predictions before starting.\n4. Select **Review project test** and check the declared **62.1 s** duration: 2 s at rest, then 60 s in which the first carrier steps to 150 L/min and the second stops.\n5. Select **Confirm and start**.\n6. After the run, hover the first second after the step. Then show the stopping station, `P1.StopAdditiveLMin`, `P1.StopSetpointLMin`, `P1.StopPumpPct` and `P1.TailL`, and hover 1 s and 5 s after the stop. Control Studio shows **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early. To repeat, stop and restart **Simulator** so both pumps start at 10 L/min again."
     ],
-    "baseline": "Run identical composition PI without ratio demand and retain the downstream error that appears before feedback can respond.",
-    "change": "Add valid measured-wild-flow ratio demand ahead of the same PI trim, then separately introduce meter bias, invalid quality and below-minimum flow.",
-    "comparison": "Hold plant, state, tuning, physical event, timing, limits, seed and metric windows equal while changing only ratio authority or the declared measurement property.",
-    "validation": "Require immediate 12-L/min demand, less than 35 percent of feedback-only event IAE, analyser recovery from modest meter bias, and zero tracked request with no quality claim under invalid or low flow.",
-    "explanation": "Material-flow feedforward acts before mixed product reaches the analyser; feedback repairs modest mismatch but cannot validate a missing, badly scaled or physically singular wild-flow measurement.",
-    "transfer": "Lesson 54 continues with Split-range."
+    "baseline": "A fixed additive flow gives the recipe ratio at only one carrier flow.",
+    "change": "Set the additive's flow setpoint to 0.1 times the measured carrier flow, follow a carrier step, and check the ratio and the tail volume when the carrier pump stops.",
+    "comparison": "![The additive follows the carrier step within a second; after a stop the pump command is 0 %, but additive still flows](figures/ratio-control.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's recording, times from the carrier changes:\n\n| | Carrier 100 → 150 L/min | Carrier 100 → 0 L/min |\n| --- | --- | --- |\n| First command | 100 % | 0 % |\n| Additive flow | 11.78 L/min at 0.2 s, 14.44 at 1 s, then 15.00 | 3.68 L/min at 1 s, 0.067 at 5 s |\n| Ratio | 0.067 at the step; within ±0.005 from 0.9 s to 60 s | not evaluated |\n| Command at 60 s | 75 % | 0 % |\n| Tail volume | — | 0.174 L at 5 s, 0.175 L in all |\n\n1. The target jumped to 15 L/min at the step and the pump command to 100 %, the limited 105 % request; it settled at the calculated 75 %.\n2. The ratio was 0.067 at the step and inside ±0.005 from 0.9 s: the pump's lag, not a wrong target. From 10 s it stayed within 3·10⁻⁷ of 0.1.\n3. The stopped pump got 0 % in the same update and no ratio was calculated, yet it delivered 0.175 L while its flow decayed: the calculated 0.167 L plus the sum's small overestimate, inside the 0.20 L limit.\n\nBoth flows stayed within 0–20 L/min. The benefit is a mixture that stays right while the carrier changes; the cost is a pump loop to tune and a stop rule to qualify. If the dose after a stop had to be zero, the pump would need a shut-off valve: a zero command cannot achieve it. Ratio control is accepted for this line. These are simulation results.",
+    "validation": "![The additive follows the carrier step within a second; after a stop the pump command is 0 %, but additive still flows](figures/ratio-control.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's recording, times from the carrier changes:\n\n| | Carrier 100 → 150 L/min | Carrier 100 → 0 L/min |\n| --- | --- | --- |\n| First command | 100 % | 0 % |\n| Additive flow | 11.78 L/min at 0.2 s, 14.44 at 1 s, then 15.00 | 3.68 L/min at 1 s, 0.067 at 5 s |\n| Ratio | 0.067 at the step; within ±0.005 from 0.9 s to 60 s | not evaluated |\n| Command at 60 s | 75 % | 0 % |\n| Tail volume | — | 0.174 L at 5 s, 0.175 L in all |\n\n1. The target jumped to 15 L/min at the step and the pump command to 100 %, the limited 105 % request; it settled at the calculated 75 %.\n2. The ratio was 0.067 at the step and inside ±0.005 from 0.9 s: the pump's lag, not a wrong target. From 10 s it stayed within 3·10⁻⁷ of 0.1.\n3. The stopped pump got 0 % in the same update and no ratio was calculated, yet it delivered 0.175 L while its flow decayed: the calculated 0.167 L plus the sum's small overestimate, inside the 0.20 L limit.\n\nBoth flows stayed within 0–20 L/min. The benefit is a mixture that stays right while the carrier changes; the cost is a pump loop to tune and a stop rule to qualify. If the dose after a stop had to be zero, the pump would need a shut-off valve: a zero command cannot achieve it. Ratio control is accepted for this line. These are simulation results.",
+    "explanation": "Ratio control turns a measured main flow into the target of a dependent flow, $q_{a,sp} = R\\,q_c$, so the proportion holds while the main flow changes; a separate loop makes the dependent flow follow, with its own lag. The ratio has no meaning when the main flow stops, so a stop rule must take over.\n\nFor the additive pump, the ratio was back within 0.005 of 0.1 after 0.9 s, and a carrier stop left a tail of 0.175 L that the command alone cannot prevent.",
+    "transfer": "Back at the jacketed vessel, another process now delivers heat into the jacket, more than the vessel loses. The vessel needs both heating and cooling, and one positive heater command cannot ask for both.\n\n[Split-range control](../54-split-range/README.md) divides one controller output between a heater and a cooler."
   }
 }

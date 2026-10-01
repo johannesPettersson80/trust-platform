@@ -1,4 +1,0 @@
-derivative_setpoint_weight,first_requested_torque_nm,first_applied_torque_nm,decision
-1.0,79.020000000000,10.000000000000,full derivative kick
-0.5,41.520000000000,10.000000000000,reduced but saturated request
-0.0,4.020000000000,4.020000000000,derivative on measurement selected

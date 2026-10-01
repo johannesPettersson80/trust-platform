@@ -11,9 +11,6 @@ use crate::Runtime;
 #[cfg(test)]
 #[path = "plant/cascade_tests.rs"]
 mod cascade_tests;
-#[cfg(test)]
-#[path = "plant/course_tanks_tests.rs"]
-mod course_tanks_tests;
 #[path = "plant/effects.rs"]
 mod effects;
 #[path = "plant/events.rs"]
@@ -22,6 +19,9 @@ mod events;
 mod execution;
 #[path = "plant/input_history.rs"]
 mod input_history;
+#[cfg(test)]
+#[path = "plant/memory_command_tests.rs"]
+mod memory_command_tests;
 #[path = "plant/model.rs"]
 mod model;
 #[path = "plant/numeric_io.rs"]
@@ -29,12 +29,17 @@ mod numeric_io;
 #[cfg(test)]
 #[path = "plant/resource_tests.rs"]
 mod resource_tests;
+#[path = "plant/signal.rs"]
+mod signal;
 #[path = "plant/state_space_delay.rs"]
 mod state_space_delay;
 #[path = "plant/state_space_parameters.rs"]
 mod state_space_parameters;
 #[path = "plant/status.rs"]
 mod status;
+#[cfg(test)]
+#[path = "plant/symbol_signal_tests.rs"]
+mod symbol_signal_tests;
 #[path = "plant/uncertainty.rs"]
 mod uncertainty;
 #[path = "plant/validation.rs"]
@@ -51,7 +56,6 @@ use model::{
     rk4_gravity_tank_cascade, rk4_robot_joint, rk4_second_order, rk4_state_space, ModelWorkspace,
     PlantModelConfig,
 };
-use numeric_io::read_numeric;
 use status::TraceBuffer;
 use uncertainty::{UncertaintyConfig, UncertaintySection, UncertaintyState};
 use validation::{
@@ -103,8 +107,8 @@ pub struct PlantConfig {
     model: PlantModelConfig,
     discrete_state_space: bool,
     input_delays_nanos: Vec<i64>,
-    command_sources: Vec<IoAddress>,
-    feedback_targets: Vec<IoAddress>,
+    command_sources: Vec<signal::PlantSignal>,
+    feedback_targets: Vec<signal::PlantSignal>,
     actuator_feedback_targets: Vec<Option<IoAddress>>,
     step: Duration,
     initial_state: Vec<f64>,
@@ -119,6 +123,23 @@ pub struct PlantConfig {
     master_seed: u64,
     enabled: bool,
     events: Vec<PlantEventConfig>,
+}
+
+impl PlantConfig {
+    /// Every signal this plant writes: its feedback targets and applied-actuator feedback.
+    fn published_targets(&self) -> Vec<signal::PlantSignal> {
+        self.feedback_targets
+            .iter()
+            .cloned()
+            .chain(
+                self.actuator_feedback_targets
+                    .iter()
+                    .flatten()
+                    .cloned()
+                    .map(signal::PlantSignal::Address),
+            )
+            .collect()
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -334,17 +355,12 @@ pub(super) fn build_config(
     plants.sort_by(|left, right| left.id.as_bytes().cmp(right.id.as_bytes()));
     for (index, plant) in plants.iter().enumerate() {
         if plants[..index].iter().any(|other| {
-            plant
-                .feedback_targets
-                .iter()
-                .chain(plant.actuator_feedback_targets.iter().flatten())
-                .any(|target| {
-                    other
-                        .feedback_targets
-                        .iter()
-                        .chain(other.actuator_feedback_targets.iter().flatten())
-                        .any(|owned| super::addresses_overlap(owned, target))
-                })
+            plant.published_targets().iter().any(|target| {
+                other
+                    .published_targets()
+                    .iter()
+                    .any(|owned| owned.overlaps(target))
+            })
         }) {
             return invalid(format!(
                 "plant '{}' feedback target is already owned by another plant",
@@ -365,11 +381,13 @@ impl PlantSystemConfig {
         self.trace_capacity
     }
 
+    /// Process-image feedback targets; a symbolic target has no address to share with couplings or physics.
     pub(super) fn feedback_targets(&self) -> impl Iterator<Item = (&str, &IoAddress)> {
         self.plants.iter().flat_map(|plant| {
             plant
                 .feedback_targets
                 .iter()
+                .filter_map(signal::PlantSignal::address)
                 .chain(plant.actuator_feedback_targets.iter().flatten())
                 .map(move |target| (plant.id.as_str(), target))
         })
@@ -399,8 +417,19 @@ impl PlantSection {
             return invalid("plant command_sources and feedback_targets must not be empty");
         }
         self.parameters.validate_for_model(&self.model)?;
-        let command_sources = parse_addresses(&self.command_sources, IoArea::Output, "command")?;
-        let feedback_targets = parse_addresses(&self.feedback_targets, IoArea::Input, "feedback")?;
+        // Specification 33 §13.1–§13.2: outputs, program variables in memory, or unaddressed program variables.
+        let command_sources = self
+            .command_sources
+            .iter()
+            .map(|text| {
+                signal::PlantSignal::parse(text, &[IoArea::Output, IoArea::Memory], "command")
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let feedback_targets = self
+            .feedback_targets
+            .iter()
+            .map(|text| signal::PlantSignal::parse(text, &[IoArea::Input], "feedback"))
+            .collect::<Result<Vec<_>, _>>()?;
         let command_count = command_sources.len();
         let actuator_feedback_targets = self.actuator_feedback_targets.unwrap_or_else(|| {
             (0..command_count)
@@ -417,7 +446,7 @@ impl PlantSection {
                     .address
                     .map(|target| {
                         let parsed =
-                            parse_addresses(&[target], IoArea::Input, "actuator feedback")?;
+                            parse_addresses(&[target], &[IoArea::Input], "actuator feedback")?;
                         Ok(parsed[0].clone())
                     })
                     .transpose()
@@ -425,12 +454,19 @@ impl PlantSection {
             .collect::<Result<Vec<_>, RuntimeError>>()?;
         let published = feedback_targets
             .iter()
-            .chain(actuator_feedback_targets.iter().flatten())
+            .cloned()
+            .chain(
+                actuator_feedback_targets
+                    .iter()
+                    .flatten()
+                    .cloned()
+                    .map(signal::PlantSignal::Address),
+            )
             .collect::<Vec<_>>();
         if published.iter().enumerate().any(|(index, target)| {
             published[..index]
                 .iter()
-                .any(|other| super::addresses_overlap(other, target))
+                .any(|other| other.overlaps(target))
         }) {
             return invalid("plant feedback/actuator targets overlap");
         }

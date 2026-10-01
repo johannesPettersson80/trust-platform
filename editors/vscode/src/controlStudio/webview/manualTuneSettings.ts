@@ -1,7 +1,8 @@
+import { seededGainLabels } from "./threePageResults";
 import { decodePidLaw, decodeProportionalLaw } from "../controllerLaw";
 import type { ControlLoopDefinition } from "../loopDefinition";
 import { displayEngineeringUnit } from "../chartContract";
-import { groupSettingSymbols, ownedParameterLabel } from "../controllerGroupPresentation";
+import { groupSettingSymbols, ownedParameterLabel, PID_GAIN_LABELS } from "../controllerGroupPresentation";
 
 export interface ManualTuneSettingsValue {
   values: Record<string, number>;
@@ -30,6 +31,9 @@ export function initializeManualTuneSettings(root: HTMLElement, loop: ControlLoo
       ...(["PI", "PID"].includes(family) ? [pid.integralGainSymbol] : []),
       ...(["PD", "PID"].includes(family) ? [pid.derivativeGainSymbol] : []),
       ...(["PI", "PID"].includes(family) && pid.antiWindup ? [pid.antiWindup.trackingGainSymbol] : []),
+      ...(["PI", "PID"].includes(family) && pid.proportionalSetpointWeightSymbol ? [pid.proportionalSetpointWeightSymbol] : []),
+      ...(["PD", "PID"].includes(family) && pid.derivativeSetpointWeightSymbol ? [pid.derivativeSetpointWeightSymbol] : []),
+      ...(pid.measurementFilterTimeSymbol ? [pid.measurementFilterTimeSymbol] : []),
     ]);
     const proportional = decodeProportionalLaw(loop.controller.law, loop.parameterBinding);
     return proportional ? new Set([proportional.gainSymbol]) : new Set(loop.parameterBinding?.parameters.map(parameter => parameter.symbol) ?? []);
@@ -42,7 +46,10 @@ export function initializeManualTuneSettings(root: HTMLElement, loop: ControlLoo
       const parameter = loop.parameterBinding?.parameters.find(candidate => candidate.symbol === symbol);
       if (!parameter || !Number.isFinite(value) || value < parameter.minimum || value > parameter.maximum) {
         row.value.setAttribute("aria-invalid", "true"); row.value.classList.add("trust-input--error"); row.value.focus();
-        throw new Error(`Enter ${row.value.labels?.[0]?.textContent?.toLowerCase() ?? symbol} between ${parameter?.minimum ?? "the declared minimum"} and ${parameter?.maximum ?? "the declared maximum"}.`);
+        const label = row.value.labels?.[0]?.textContent;
+        // Lower-case only the sentence position, so symbols such as (Kp) or (Tf) keep their case.
+        const name = label ? label.charAt(0).toLowerCase() + label.slice(1) : symbol;
+        throw new Error(`Enter ${name} between ${parameter?.minimum ?? "the declared minimum"} and ${parameter?.maximum ?? "the declared maximum"}.`);
       }
       row.value.removeAttribute("aria-invalid"); row.value.classList.remove("trust-input--error");
       next[symbol] = value;
@@ -69,14 +76,17 @@ export function initializeManualTuneSettings(root: HTMLElement, loop: ControlLoo
         if (!relevant.has(parameter.symbol)) continue;
         const row = document.createElement("div"); row.className = "studio-field studio-manual-setting";
         const label = document.createElement("label"); label.textContent = loop.controller.law?.kind === "pid"
-          ? parameter.symbol === loop.controller.law.proportionalGainSymbol ? "Proportional gain (Kp)"
-            : parameter.symbol === loop.controller.law.integralGainSymbol ? "Integral gain (Ki)"
-              : parameter.symbol === loop.controller.law.derivativeGainSymbol ? "Derivative gain (Kd)" : parameter.convention
-          : parameter.convention || parameter.symbol;
+          ? parameter.symbol === loop.controller.law.proportionalGainSymbol ? PID_GAIN_LABELS.ProportionalGain
+            : parameter.symbol === loop.controller.law.integralGainSymbol ? PID_GAIN_LABELS.IntegralGain
+              : parameter.symbol === loop.controller.law.derivativeGainSymbol ? PID_GAIN_LABELS.DerivativeGain
+                : parameter.symbol === loop.controller.law.proportionalSetpointWeightSymbol ? "Setpoint weight (β)"
+                  : parameter.symbol === loop.controller.law.derivativeSetpointWeightSymbol ? "Derivative setpoint weight (γ)"
+                  : parameter.symbol === loop.controller.law.measurementFilterTimeSymbol ? "Measurement filter time (Tf)" : parameter.convention
+          : seededGainLabels(loop)?.get(parameter.symbol) ?? (parameter.convention || parameter.symbol);
         label.textContent = ownedParameterLabel(loop, parameter.symbol, label.textContent ?? parameter.symbol);
         const input = document.createElement("input"); input.type = "number"; input.step = "any"; input.min = String(parameter.minimum); input.max = String(parameter.maximum); input.value = values[parameter.symbol] === undefined ? "" : String(values[parameter.symbol]); input.className = "trust-input"; input.dataset.studioManualValue = parameter.symbol;
         input.id = `manual-setting-${rows.size}`; label.htmlFor = input.id;
-        const unit = document.createElement("span"); unit.textContent = displayEngineeringUnit(parameter.unit);
+        const unit = document.createElement("span"); unit.textContent = parameter.unit === "1" ? "" : displayEngineeringUnit(parameter.unit);
         const pinLabel = document.createElement("label"); const pin = document.createElement("input"); pin.type = "checkbox"; pin.checked = Number.isFinite(pinnedValues[parameter.symbol]); pin.dataset.studioManualPin = parameter.symbol; pinLabel.append(pin, " Pin");
         input.addEventListener("input", notify); pin.addEventListener("change", notify);
         row.append(label, input, unit, pinLabel); fieldset.append(row); rows.set(parameter.symbol, { value: input, pin });

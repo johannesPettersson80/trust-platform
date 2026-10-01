@@ -12,16 +12,19 @@ impl Runtime {
         locations: Vec<crate::debug::SourceLocation>,
     ) {
         self.statement_index.insert(file_id, locations);
+        self.vm_statement_locations.clear();
     }
 
     /// Register source text used for debug location remapping.
     pub fn register_source_text(&mut self, file_id: u32, text: impl Into<String>) {
         self.source_text_index.insert(file_id, text.into());
+        self.vm_statement_locations.clear();
     }
 
     /// Register a source label alias (path or virtual file label) for a file id.
     pub fn register_source_label(&mut self, file_id: u32, label: impl Into<smol_str::SmolStr>) {
         self.source_label_index.insert(label.into(), file_id);
+        self.vm_statement_locations.clear();
     }
 
     /// Get the statement locations for a file id.

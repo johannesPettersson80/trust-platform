@@ -11,9 +11,15 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 1px s
 .studio-field { display: grid; grid-template-columns: 150px minmax(180px, 1fr); align-items: center; gap: 16px; }
 .studio-controller-row { display: flex; align-items: center; gap: 12px; }
 .studio-controller-row > label { flex: 1; min-width: 0; }
+.studio-field-group { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-left: 166px; }
+.studio-field-group .studio-field { grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
 .studio-field select, .studio-field input { box-sizing: border-box; width: 100%; min-width: 0; color: var(--trust-text); background: var(--trust-input-bg); border: 1px solid var(--trust-input-border); border-radius: 2px; padding: 6px 8px; font: inherit; }
 .studio-field textarea { box-sizing: border-box; width: 100%; min-width: 0; color: var(--trust-text); background: var(--trust-input-bg); border: 1px solid var(--trust-input-border); padding: 6px 8px; font: inherit; resize: vertical; }
 .studio-field select[multiple] { min-height: 32px; max-height: 100px; }
+.studio-group-member { display: grid; gap: 12px; margin: 0; padding: 4px 12px 12px; min-width: 0; border: 1px solid var(--trust-border-subtle); border-radius: 4px; }
+.studio-group-member legend { padding: 0 4px; }
+.studio-group-include { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.studio-group-include input { margin: 0; }
 .studio-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 20px; max-width: 680px; }
 .studio-auxiliary { margin-left: auto; }
 .studio-action-message { margin: 10px 0 0; color: var(--trust-text); }
@@ -26,6 +32,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 1px s
 .studio-response-title { font-size: inherit; font-weight: normal; color: var(--trust-text); margin: 0 0 8px; }
 .studio-chart { width: 100%; height: max(280px, calc(100vh - 340px)); min-width: 0; }
 [data-analysis-selected="true"][data-selected-stage="tune"] .studio-response { display: none; }
+[data-three-page-analysis-table] > table + table { margin-top: 12px; }
 .studio-experiment, .studio-identification { margin-top: 16px; max-width: 680px; }
 .studio-experiment .parameter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-top: 16px; }
 .studio-experiment .parameter-grid input { box-sizing: border-box; }
@@ -36,11 +43,11 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 1px s
 .studio-identification-grid input { color: var(--trust-text); background: var(--trust-input-bg); border: 1px solid var(--trust-input-border); padding: 6px 8px; width: 100%; box-sizing: border-box; font: inherit; }
 .studio-application { margin-top: 16px; }
 .studio-requirements { border-collapse: collapse; width: 100%; text-align: left; }
-.studio-validation-scroll { max-height: min(240px, 30vh); overflow: auto; }
+.studio-validation-scroll { max-height: min(360px, 45vh); overflow: auto; }
 .studio-validation-scroll:has(table[hidden]) { display: none; }
 .studio-requirements th { position: sticky; top: 0; background: var(--trust-canvas); z-index: 1; }
 .studio-requirements th, .studio-requirements td { padding: 6px 16px 6px 0; border-bottom: 1px solid var(--trust-border-subtle); }
-@media(max-width: 650px) { .control-studio { padding: 12px; } .studio-field { grid-template-columns: 1fr; gap: 5px; } .studio-navigation { gap: 0; } .studio-navigation button { padding: 10px 12px; } .studio-auxiliary { margin-left: 0; } .studio-chart { height: 320px; } }
+@media(max-width: 650px) { .control-studio { padding: 12px; } .studio-field { grid-template-columns: 1fr; gap: 5px; } .studio-field-group { margin-left: 0; grid-template-columns: 1fr; } .studio-navigation { gap: 0; } .studio-navigation button { padding: 10px 12px; } .studio-auxiliary { margin-left: 0; } .studio-chart { height: 320px; } }
 [data-binding-draft="true"] [data-studio-model-result], [data-binding-draft="true"] [data-studio-tuning-result], [data-binding-draft="true"] .studio-response, [data-binding-draft="true"] [data-studio-validation-result] { display: none; }
 [data-studio-manual-settings] { border: 0; padding: 0; margin: 0; max-width: 680px; }
 .studio-manual-setting { display: grid; grid-template-columns: 150px 180px 76px 48px; align-items: center; gap: 16px; margin: 8px 0; }
@@ -57,9 +64,11 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 1px s
 .studio-mimo-windows input { box-sizing: border-box; width: 100%; min-width: 0; color: var(--trust-text); background: var(--trust-input-bg); border: 1px solid var(--trust-input-border); border-radius: 2px; padding: 5px 4px; font: inherit; font-size: 0.9em; font-variant-numeric: tabular-nums; }
 .studio-mimo-primary-result { margin-top: 16px; min-width: 0; }
 .studio-mimo-primary-result h3 { margin: 0 0 8px; font-size: inherit; font-weight: 600; }
-.studio-mimo-primary-result table { max-width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.studio-mimo-primary-result th, .studio-mimo-primary-result td { padding: 4px 10px; border-bottom: 1px solid var(--trust-border-subtle); text-align: right; }
-.studio-mimo-primary-result th:first-child, .studio-mimo-primary-result td:first-child { text-align: left; }
+.studio-mimo [data-three-page-mimo-analysis-pairing] { margin-top: 12px; }
+.studio-mimo-primary-result table, .studio-mimo > details table { max-width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.studio-mimo > details table { margin-top: 8px; }
+.studio-mimo-primary-result th, .studio-mimo-primary-result td, .studio-mimo > details th, .studio-mimo > details td { padding: 4px 10px; border-bottom: 1px solid var(--trust-border-subtle); text-align: right; }
+.studio-mimo-primary-result th:first-child, .studio-mimo-primary-result td:first-child, .studio-mimo > details th:first-child, .studio-mimo > details td:first-child { text-align: left; }
 .studio-mimo > details { margin-top: 12px; }
 .studio-mimo > details summary { cursor: pointer; color: var(--trust-accent); }
 .studio-mimo [data-three-page-mimo-analysis-status], .studio-mimo [data-three-page-mimo-analysis-summary] { color: var(--trust-text-muted); margin: 8px 0; overflow-wrap: anywhere; }

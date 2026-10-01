@@ -76,6 +76,36 @@ pub(super) fn apply_globals(
                 storage.set_global(init.name.clone(), Value::Null);
                 continue;
             }
+            if let Some(value) = crate::instance::create_instance_array(
+                storage,
+                &registry,
+                &profile,
+                &classes,
+                &function_blocks,
+                &functions,
+                &stdlib,
+                &initializer_catalog,
+                init.type_id,
+            )
+            .map_err(|err| CompileError::new(err.to_string()))?
+            {
+                if let Some(expr) = &init.initializer {
+                    crate::instance::apply_instance_array_initializer(
+                        storage,
+                        &registry,
+                        &profile,
+                        &stdlib,
+                        &initializer_catalog,
+                        &function_blocks,
+                        None,
+                        &value,
+                        expr,
+                    )
+                    .map_err(|err| CompileError::new(err.to_string()))?;
+                }
+                storage.set_global(init.name.clone(), value);
+                continue;
+            }
             let value = crate::harness::initializer::default_value_for_type_id(
                 storage,
                 &registry,
@@ -94,7 +124,9 @@ pub(super) fn apply_globals(
                 if super::function_block_type_name(init.type_id, &registry).is_some() {
                     continue;
                 }
-                if super::class_type_name(init.type_id, &registry).is_some() {
+                if super::class_type_name(init.type_id, &registry).is_some()
+                    || crate::instance::is_instance_array(init.type_id, &registry)
+                {
                     continue;
                 }
                 let value = crate::harness::initializer::evaluate_initializer(
@@ -170,6 +202,17 @@ pub(super) fn apply_globals(
                 init.retain,
                 crate::GlobalInitValue::Class {
                     type_name: class_name,
+                },
+            );
+            continue;
+        }
+        if crate::instance::is_instance_array(init.type_id, &registry) {
+            runtime.register_global_meta(
+                init.name.clone(),
+                init.type_id,
+                init.retain,
+                crate::GlobalInitValue::InstanceArray {
+                    initializer: init.initializer.clone(),
                 },
             );
             continue;

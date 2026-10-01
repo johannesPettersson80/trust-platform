@@ -48,7 +48,7 @@ fn delivered_dwell_runs_without_hidden_setup() {
         let debug = r.enable_debug();
         let project = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(PROJECT);
         let mut sim = SimulationController::new(
-            SimulationConfig::load(&project.join("simulation.toml")).unwrap(),
+            SimulationConfig::load(project.join("simulation.toml")).unwrap(),
         );
         let mut last = 0.0;
         let mut last_change = None;

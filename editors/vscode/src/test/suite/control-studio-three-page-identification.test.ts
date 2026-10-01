@@ -163,7 +163,7 @@ suite("Control Studio three-page recorded identification", () => {
       const window = { startSeconds: 0, endSeconds: 5, count: 51, mean: 35, minimum: 34.99, maximum: 35.01, range: 0.02, slopePerSecond: 0 };
       const analysis = { baseline: window, final: { ...window, startSeconds: 30, endSeconds: 35, mean: 37 },
         inputChange: 10, stepTimeSeconds: 5, holdEndSeconds: 35, sampleTimeSeconds: 0.1, detectableOnsetSeconds: 1.2,
-        onsetThreshold: 35.15, temperature63: 36.264, settings: { onsetSamples: 3, onsetThreshold: 0.15, measurementBound: 0.05 },
+        onsetThreshold: 35.15, level63: 36.264, settings: { onsetSamples: 3, onsetThreshold: 0.15, measurementBound: 0.05 },
         best: { gain: 0.2, delaySeconds: 1, timeConstantSeconds: 5 },
         consistency: { count: 42, gain: { minimum: 0.19, maximum: 0.21 }, delaySeconds: { minimum: 0.9, maximum: 1.1 }, timeConstantSeconds: { minimum: 4.8, maximum: 5.2 } }, warnings: [] };
       identification.receive("identify", { status: "complete", phase: "validation_required", fit: { stepResponse: analysis },

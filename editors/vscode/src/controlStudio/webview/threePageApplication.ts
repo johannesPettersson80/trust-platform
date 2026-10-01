@@ -51,10 +51,15 @@ export class ThreePageApplication {
         this.notice(restoring ? "Restored" : "Applied");
       } else if (["failed", "recovery-required", "unavailable", "busy"].includes(status)) {
         const restoring = (payload.applicationAction ?? this.action) === "restore";
+        // "Apply again": the validated settings stay applicable, for example once the process has settled.
+        const reapply = (payload.failure as { nextAction?: unknown } | undefined)?.nextAction === "reapply";
         this.active = false;
         if (restoring) this.restoreAvailable = false;
-        else this.applyAvailable = false;
+        else this.applyAvailable = reapply && this.applyAvailable;
         this.notice(String(payload.reason ?? "The operation could not be confirmed."));
+      } else if (status === "running" && typeof payload.reason === "string") {
+        // For example while Apply waits for the process to settle at the validated operating point.
+        this.notice(payload.reason);
       } else if (status === "review" && payload.applicationAction === "restore") {
         this.restoreAvailable = payload.applicationAvailability === "restore" || payload.applicationAvailability === undefined;
         this.action = "restore";

@@ -46,12 +46,12 @@ impl FeedbackRelay {
             || self.center - self.hysteresis <= self.process_minimum
             || self.center + self.hysteresis >= self.process_maximum
             || step == 0
-            || self.start_ms % step != 0
-            || self.restore_ms % step != 0
+            || !self.start_ms.is_multiple_of(step)
+            || !self.restore_ms.is_multiple_of(step)
             || self.start_ms >= self.restore_ms
             || self.restore_ms > duration
-            || self.minimum_high_ms.unwrap_or(0) % step != 0
-            || self.minimum_low_ms.unwrap_or(0) % step != 0
+            || !self.minimum_high_ms.unwrap_or(0).is_multiple_of(step)
+            || !self.minimum_low_ms.unwrap_or(0).is_multiple_of(step)
             || self
                 .minimum_high_ms
                 .unwrap_or(0)

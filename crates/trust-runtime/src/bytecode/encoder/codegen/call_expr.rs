@@ -29,6 +29,17 @@ impl NativeTargetKind {
     }
 }
 
+/// The variable an indexed call selects its instance from, which names the call for validation against the element's
+/// function block.
+fn indexed_call_base_name(expr: &crate::program_model::Expr) -> SmolStr {
+    match expr {
+        crate::program_model::Expr::Name(name) => name.clone(),
+        crate::program_model::Expr::Index { target, .. } => indexed_call_base_name(target),
+        crate::program_model::Expr::Field { field, .. } => field.clone(),
+        _ => SmolStr::default(),
+    }
+}
+
 impl NativeReceiver<'_> {
     fn count(&self) -> usize {
         usize::from(!matches!(self, Self::None))
@@ -149,6 +160,12 @@ impl<'a> BytecodeEncoder<'a> {
                     })
                 }
             }
+            // An element of an instance array: the call runs the element's function block (IEC 61131-3 Ed.3 6.6.3.4.1 e).
+            crate::program_model::Expr::Index { target: array, .. } => Ok(NativeCallTarget {
+                kind: NativeTargetKind::FunctionBlock,
+                name: indexed_call_base_name(array),
+                receiver: NativeReceiver::Expression(target),
+            }),
             _ => Err(BytecodeError::InvalidSection(
                 "unsupported CALL_NATIVE target expression".into(),
             )),

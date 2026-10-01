@@ -91,6 +91,61 @@ pub(super) fn encode_numeric(
     }
 }
 
+/// A program variable's numeric value (Specification 33 §13.1).
+pub(super) fn decode_storage(value: &Value) -> Result<f64, RuntimeError> {
+    let number = match value {
+        Value::Real(value) => f64::from(*value),
+        Value::LReal(value) => *value,
+        Value::SInt(value) => f64::from(*value),
+        Value::Int(value) => f64::from(*value),
+        Value::DInt(value) => f64::from(*value),
+        Value::LInt(value) => exact_i64(*value)?,
+        Value::USInt(value) => f64::from(*value),
+        Value::UInt(value) => f64::from(*value),
+        Value::UDInt(value) => f64::from(*value),
+        Value::ULInt(value) => exact_u64(*value)?,
+        _ => return Err(RuntimeError::TypeMismatch),
+    };
+    if number.is_finite() {
+        Ok(number)
+    } else {
+        Err(RuntimeError::Overflow)
+    }
+}
+
+/// `value` in the type of the program variable currently holding `current`, by the checked conversion rules
+/// (Specification 33 §13.2).
+pub(super) fn encode_storage(current: &Value, value: f64) -> Result<Value, RuntimeError> {
+    if !value.is_finite() {
+        return Err(RuntimeError::Overflow);
+    }
+    Ok(match current {
+        Value::Real(_) => {
+            let narrowed = value as f32;
+            if !narrowed.is_finite() {
+                return Err(RuntimeError::Overflow);
+            }
+            Value::Real(narrowed)
+        }
+        Value::LReal(_) => Value::LReal(value),
+        Value::SInt(_) => Value::SInt(signed(value, i8::MIN as f64, i8::MAX as f64)? as i8),
+        Value::Int(_) => Value::Int(signed(value, i16::MIN as f64, i16::MAX as f64)? as i16),
+        Value::DInt(_) => Value::DInt(signed(value, i32::MIN as f64, i32::MAX as f64)? as i32),
+        Value::LInt(_) => {
+            let rounded = signed(value, -((1_u64 << 63) as f64), (1_u64 << 63) as f64)?;
+            if rounded >= (1_u64 << 63) as f64 {
+                return Err(RuntimeError::Overflow);
+            }
+            Value::LInt(rounded as i64)
+        }
+        Value::USInt(_) => Value::USInt(unsigned(value, 256.0)? as u8),
+        Value::UInt(_) => Value::UInt(unsigned(value, 65_536.0)? as u16),
+        Value::UDInt(_) => Value::UDInt(unsigned(value, 4_294_967_296.0)? as u32),
+        Value::ULInt(_) => Value::ULInt(unsigned(value, 18_446_744_073_709_551_616.0)? as u64),
+        _ => return Err(RuntimeError::TypeMismatch),
+    })
+}
+
 fn signed(value: f64, minimum: f64, maximum: f64) -> Result<f64, RuntimeError> {
     let rounded = value.round_ties_even();
     if rounded < minimum || rounded > maximum {

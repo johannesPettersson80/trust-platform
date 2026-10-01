@@ -58,12 +58,12 @@ suite("Control Studio native PID group", () => {
       assert.strictEqual(campaign.length, 3, "Validate the joint response and each reference independently");
       const results = [];
       for (const scenario of campaign) {
-        const request = configuredPlantRequest(scenario.request);
+        const request = configuredPlantRequest(loop, scenario.request);
         results.push({ id: scenario.id, result: await verification.verify(request, scenario.requirements) });
       }
       assert.strictEqual(campaignStatus(campaign.map(scenario => scenario.id), results), "Pass", JSON.stringify(results.map(item => ({ id: item.id, evaluation: item.result.evaluation }))));
       const initialization = adapter.initialization(model, task, values);
-      assert.strictEqual((await verification.verify(configuredPlantRequest(initialization.request), initialization.requirements)).evaluation.status, "Pass");
+      assert.strictEqual((await verification.verify(configuredPlantRequest(loop, initialization.request), initialization.requirements)).evaluation.status, "Pass");
       assert.deepStrictEqual((await groupParameters.status()).values, before.values, "Tune and Validate must leave the running controllers unchanged");
       const review = await groupParameters.review(values);
       const commissioning = await adapter.commission(model, task, groupParameters, review);

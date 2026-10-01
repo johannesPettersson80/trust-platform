@@ -13,7 +13,7 @@ export async function fitRecordedStateModel(loop: ControlLoopDefinition, runs: r
     estimation: runs[0].run, validation: runs[1]?.run,
     channels: { inputs: [channel(loop.signals.manipulatedVariable)], outputs: [channel(loop.signals.processVariable)] },
     maximumNormalizedError: loop.identificationPolicy?.maximumNormalizedError ?? 0.15,
-    maximumOrder: loop.identificationPolicy?.maximumOrder ?? 4, physical: loop.physicalIdentification,
+    maximumOrder: loop.identificationPolicy?.maximumOrder ?? 4,
   });
   if (!result || cancelled()) throw new Error("Identification cancelled.");
   return result;

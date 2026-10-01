@@ -25,10 +25,17 @@ transfer with its reason.
 
 - `loop_id`, `task_name`;
 - `mode`: symbolic BOOL `symbol` and `manual_value`;
+- optional `additional_modes`: up to 8 further controllers' modes in the same
+  form, for example a cascade's outer controller. They are observed like
+  `mode`, written with it at the same task boundary (Auto when the transfer
+  leaves Manual, Manual for a Manual transfer) and confirmed with it after the
+  first scan;
 - `states`: 1–16 distinct numeric members, each declaring `symbol`, `iec_type`
-  (`REAL` or `LREAL`), `unit`, `minimum`, `maximum`;
+  (`REAL`, `LREAL`, or `BOOL` with unit `1` and bounds 0–1, observed as 0 or
+  1), `unit`, `minimum`, `maximum`;
 - `guards`: 1–16 similarly typed members whose values must remain unchanged,
-  including the verified controller gains and measurements used for alignment;
+  including the verified controller gains and measurements used for alignment,
+  and, for a cascade's inner loop, the outer controller's mode;
 - `output`: similarly typed member identifying the controller output.
 
 All members belong to the same compiled program with exactly the declared task
@@ -39,7 +46,10 @@ ambiguous/overlapping addresses and mismatched IEC types are rejected. Existing
 parameter restrictions remain unchanged.
 
 Status returns `program_revision`, `binding_revision`, `values` for all selected
-members (BOOL mode represented as boolean), and the last transaction outcome.
+members (BOOL mode represented as boolean), `runtime_time_ns`, the runtime clock
+of the committed scan those values come from, and the last transaction outcome.
+A client observes a duration in the runtime's own time from successive
+`runtime_time_ns` values; the clock never goes backwards within one session.
 Program identity includes the runtime session epoch. The returned values are
 observations, not requested values or write authority.
 

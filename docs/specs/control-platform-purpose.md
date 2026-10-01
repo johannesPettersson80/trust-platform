@@ -27,6 +27,33 @@ The value is the connection: learn the principle, inspect the real code, run it
 against a process, measure what happened, improve the design and carry the same
 controller code toward a real application.
 
+### User direction, 29 September 2026
+
+Control Studio is truST's general-purpose identification and tuning software:
+easy to use and highly competent, able to replace difficult tools such as
+MATLAB. It must work on any truST project and control structure, including a
+single loop, two PIDs where one feeds the other, several PIDs, multivariable
+processes and other controller types. It must not hard-code any domain or
+lesson; domain names come from the project. Every example and tutorial teaches
+both the control theory and how to use Control Studio for it. The competence
+target that makes this concrete is proposed in Specification 35 §17.8 and
+becomes binding once the user confirms it.
+
+### User direction, 30 September 2026
+
+The course showcases truST and how it works, and teaches practical and
+theoretical control better than a university course does: from the ground up
+to very advanced topics. Every lesson follows the current Control Studio user
+interface and is short and straight to the point; it explains every new
+control-theory term clearly where it first appears; it builds on the previous
+lesson, except where a standalone lesson serves the course better; and it
+assumes no mathematics beyond basic calculus and basic linear algebra,
+explaining anything beyond that clearly and briefly. The course is reviewed for
+missing topics and for lessons that add no value; additions and deletions are
+proposed to the user before they are made. Control Studio must be competent
+enough to tune every kind of control system the course teaches, in an easy and
+intuitive way.
+
 ## 2. Keep the actual controller in the acceptance path
 
 The primary PID acceptance and demonstration project MUST instantiate and

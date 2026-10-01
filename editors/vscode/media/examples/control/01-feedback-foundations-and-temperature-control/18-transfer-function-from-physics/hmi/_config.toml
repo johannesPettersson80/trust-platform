@@ -7,112 +7,16 @@ accent = "#c2410c"
 [layout]
 navigation = "sidebar-left"
 header = true
-header_title = "P1 HMI"
+header_title = "Laplace transforms"
 
 [write]
 enabled = false
 allow = []
 
 [[alarm]]
-bind = "P1.DifferentialDeviation"
-high = 100
-low = 0
-deadband = 2
+bind = "P1.TemperatureC"
+high = 40
+low = 30
+deadband = 0.05
 inferred = true
-label = "Differential Deviation"
-
-[[alarm]]
-bind = "P1.DifferentialLevel"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Differential Level"
-
-[[alarm]]
-bind = "P1.ElapsedTime"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Elapsed Time"
-
-[[alarm]]
-bind = "P1.ExperimentCycle"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Experiment Cycle"
-
-[[alarm]]
-bind = "P1.Gain"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Gain"
-
-[[alarm]]
-bind = "P1.InletFlow"
-high = 500
-low = 0
-deadband = 10
-inferred = true
-label = "Inlet Flow"
-
-[[alarm]]
-bind = "P1.InputDeviation"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Input Deviation"
-
-[[alarm]]
-bind = "P1.NonlinearTankLevel"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Nonlinear Tank Level"
-
-[[alarm]]
-bind = "P1.OperatingFlow"
-high = 500
-low = 0
-deadband = 10
-inferred = true
-label = "Operating Flow"
-
-[[alarm]]
-bind = "P1.OperatingLevel"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Operating Level"
-
-[[alarm]]
-bind = "P1.TimeConstant"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Time Constant"
-
-[[alarm]]
-bind = "P1.TransferDeviation"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Transfer Deviation"
-
-[[alarm]]
-bind = "P1.TransferLevel"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Transfer Level"
+label = "Temperature"

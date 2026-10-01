@@ -8,6 +8,7 @@ use serde_json::Value as JsonValue;
 use std::time::Duration;
 use trust_hir::TypeId;
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn decode_relay_feedback(
     params: &RelayFeedbackParams,
     snapshot: &IoSnapshot,

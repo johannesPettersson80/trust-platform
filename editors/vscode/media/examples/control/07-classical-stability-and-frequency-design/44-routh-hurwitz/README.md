@@ -1,241 +1,145 @@
-# 48. Routh–Hurwitz stability
+# 52. Routh–Hurwitz stability
 
-Find which proportional gains make a shaft's small position disturbances die
-away. Let Control Studio derive the stable range, then test three gains on the
-actual ST controller and simulated shaft.
+In this lesson, you will find every proportional gain for which the shaft's disturbances die away, from the coefficients of its characteristic equation alone, and test gains on both sides of that range.
 
 ## The problem
 
-[Root locus](../45-root-locus/README.md) showed the poles at selected gains.
-Checking a few points does not prove which values between or beyond them are
-stable. We need the complete stable range, including its boundaries.
+Lesson 51's root locus placed the shaft's poles for every $K_p$ from 0 to 20 N·m/rad, and the test kept $K_p = 16$, within 0.02 rad of the target from 1.46 s. The plot shows the gains we drew. It does not state exactly which gains keep the loop stable, or what happens at the edge of that range.
 
-We use the same physical shaft, with inertia and friction both numerically one.
-This introductory example removes the previous lesson's velocity feedback and
-uses proportional position control alone.
+We will find the stable range from the coefficients of the characteristic equation, without solving for the poles, and test gains on both sides of its edge.
 
 ## What we need
 
-We need a way to derive stability conditions from the characteristic polynomial,
-without solving its roots at every possible gain. We also need to distinguish a
-stable model from a boundary case that merely happens to remain still in one test.
+We need to:
+
+1. decide from the characteristic equation's coefficients whether every pole is on the stable side;
+2. turn that decision into a range of gains; and
+3. know what happens at the edge of the range.
 
 ## The new idea
 
-The **Routh–Hurwitz stability criterion** is a mathematical test for whether a linear control system is stable. It uses the coefficients of the system’s characteristic polynomial without calculating every pole individually.
+**The Routh–Hurwitz test** tells, from the coefficients of the characteristic equation alone, whether every pole is on the stable side, and for which gains.
 
-For this lesson, **stable means asymptotically stable: small disturbances die away**.
+A mode $e^{st}$ dies away when the real part of $s$ is negative, grows when it is positive, and stays when it is zero. A loop is **asymptotically stable** when every pole's real part is strictly negative, so every disturbance dies away. A pole with a positive real part is a **right-half-plane pole**, because it lies to the right of the vertical axis in the root-locus picture.
 
-A pole’s real part determines whether its corresponding natural response decays or grows:
+**In words.** To find the poles you must solve the characteristic equation. That is easy for a second-degree equation with numbers, hard for a third-degree one, and impossible to read off when a gain is still a letter. Stability needs much less than the poles themselves: only whether any of them lies on the right-hand side. The Routh–Hurwitz test answers exactly that, without solving anything:
 
-- **Negative real part:** the response decays.
-- **Positive real part:** the response grows.
-- **Zero real part:** the response does not necessarily decay.
+1. **Arrange the coefficients** of the characteristic equation in a small table of rows.
+2. **Calculate the further rows** from the two rows above each one, by the same cross-multiplication every time.
+3. **Read the signs down the first column.** Every change of sign counts one right-half-plane pole; no change means every pole is on the stable side.
+4. **Leave the gain as a letter**, and the sign conditions become a range of gains.
 
-We arrange the polynomial’s coefficients in a **Routh table** and inspect its first column. When the ordinary nonzero-pivot rules apply, **each sign change down that column indicates one right-half-plane pole—an unstable pole**.
+It works like a plausibility check on a parameter set in a PLC: a few comparisons decide whether the settings are acceptable, without running the machine.
 
-With no poles on the imaginary axis, no sign changes means all poles are in the left half-plane.
+For the shaft, we remove the braking to see the edge of the stable range clearly: under P control alone, the table gives the range of $K_p$ in one line.
 
-Start with a general second-order characteristic equation:
-
-$$
-a_2s^2+a_1s+a_0=0.
-$$
-
-Here:
-
-- $s$ is the complex variable describing the system’s natural responses.
-- $a_2$ is the coefficient of $s^2$.
-- $a_1$ is the coefficient of $s$.
-- $a_0$ is the constant term.
-
-Place alternating coefficients in the first two rows:
+**The formula.** For a characteristic equation $a_n s^n + a_{n-1}s^{n-1} + \dots + a_0 = 0$, write the coefficients alternately into two rows, $[a_n, a_{n-2}, \dots]$ and $[a_{n-1}, a_{n-3}, \dots]$, filling with zeros. Each further row $C$ follows from the two rows above it, $A$ and $B$:
 
 $$
-\begin{array}{c|cc}
-s^2 & a_2 & a_0\\
-s^1 & a_1 & 0
-\end{array}
+C_j = \frac{B_0\,A_{j+1} - A_0\,B_{j+1}}{B_0} .
 $$
 
-The first entry of the next row is calculated from the two rows above:
+Let:
+
+- $a_n \dots a_0$ be the coefficients of the characteristic equation;
+- $A$ and $B$ be the two rows above the new one, with $A_0$ and $B_0$ their first entries; and
+- $C_j$ be entry $j$ of the new row, counted from 0.
+
+The table has $n + 1$ rows. The rule: as long as no entry of the first column is zero, the number of sign changes down it equals the number of right-half-plane poles. For a second-degree equation $a_2s^2 + a_1s + a_0$, the rows are $[a_2, a_0]$, $[a_1, 0]$ and $[a_0, 0]$, so the test reduces to: all three coefficients have the same strict sign.
+
+A zero in the first column needs care. When the last entry is zero, the constant term is zero, so $s = 0$ is a root: a pole at the origin. Its mode $e^{0t} = 1$ neither grows nor dies away; whatever displacement it carries stays. Asymptotic stability excludes it.
+
+**Example 1: the shaft under P control.** Without the braking, $J\ddot\theta + B\dot\theta = K_p\,(r - \theta)$ with $J = 1$ kg·m² and $B = 1$ N·m·s/rad. The characteristic equation is
 
 $$
-\frac{a_1a_0-a_2\cdot0}{a_1}=a_0,
-\qquad a_1\ne0.
+s^2 + s + K_p = 0 .
 $$
 
-The complete table is therefore:
+1. **The rows** are $[1, K_p]$ and $[1, 0]$. The third row starts with $(1 \times K_p - 1 \times 0)/1 = K_p$. The first column is $1, 1, K_p$.
+2. **$K_p = 4$**, Lesson 49's gain: the column is $1, 1, 4$, with no sign change, so no right-half-plane pole. Lesson 49 found the poles $-0.5 \pm j1.936$: the test agrees without solving anything.
+3. **$K_p = -2$**: the column is $1, 1, -2$, with one sign change, so one right-half-plane pole. Indeed $s^2 + s - 2 = (s + 2)(s - 1)$, with the pole $+1$: a deviation grows as $e^{t}$, doubling every $\ln 2 = 0.69$ s.
 
-$$
-\begin{array}{c|cc}
-s^2 & a_2 & a_0\\
-s^1 & a_1 & 0\\
-s^0 & a_0 &
-\end{array}
-$$
+**Example 2: the same shaft under PI control**, where the table needs all its rows. With the error $e = r - \theta$ and $u = K_p e + K_i \int e\,dt$, the integral is one more stored quantity, so the equation is of third degree: $s^3 + s^2 + K_p s + K_i = 0$.
 
-With $a_2>0$, the second-order system is asymptotically stable when:
+1. The rows are $[1, K_p]$ and $[1, K_i]$. The third row starts with $(1 \times K_p - 1 \times K_i)/1 = K_p - K_i$; the fourth with $\big((K_p - K_i)\,K_i - 1 \times 0\big)/(K_p - K_i) = K_i$. The first column is $1, 1, K_p - K_i, K_i$.
+2. $K_p = 4$, $K_i = 2$: the column is $1, 1, 2, 2$, all positive: stable. Solving shows the poles $-0.53$ and $-0.23 \pm j1.92$.
+3. $K_p = 4$, $K_i = 6$: the column is $1, 1, -2, 6$, two sign changes: two right-half-plane poles. Solving shows $0.17 \pm j2.11$, a growing swing.
 
-$$
-\boxed{a_1>0\quad\text{and}\quad a_0>0.}
-$$
+These PI gains are teaching values; the experiment uses P control.
 
-These conditions make every entry in the first column positive.
-
-Our shaft has inertia $J=1\ \mathrm{kg\,m^2}$ and viscous friction $B=1\ \mathrm{N\,m\,s/rad}$. Its motion satisfies:
-
-$$
-J\ddot{\theta}+B\dot{\theta}=u.
-$$
-
-Here $\theta$ is angle, $\dot{\theta}$ is angular velocity, $\ddot{\theta}$ is angular acceleration, and $u$ is applied torque.
-
-The proportional controller commands:
-
-$$
-u=K_p(r-\theta),
-$$
-
-where $r$ is the target angle and $K_p$ has units $\mathrm{N\,m/rad}$.
-
-Substituting the controller into the shaft equation gives:
-
-$$
-J\ddot{\theta}+B\dot{\theta}+K_p\theta=K_pr.
-$$
-
-With $J=B=1$, the characteristic equation is:
-
-$$
-s^2+s+K_p=0.
-$$
-
-Its Routh table is:
-
-$$
-\begin{array}{c|cc}
-s^2 & 1 & K_p\\
-s^1 & 1 & 0\\
-s^0 & K_p &
-\end{array}
-$$
-
-The first column is $1,1,K_p$. Therefore:
-
-$$
-\boxed{K_p>0}
-$$
-
-is the stable gain range for this continuous-time linear model.
-
-| Gain | First-column signs | Result |
-|---|---|---|
-| $K_p=2$ | $+,+,+$ | Stable |
-| $K_p=5$ | $+,+,+$ | Stable |
-| $K_p=-1$ | $+,+,-$ | One unstable pole |
-
-At $K_p=0$, the final entry is zero. Examine this boundary separately:
-
-$$
-s^2+s=s(s+1)=0.
-$$
-
-The poles are $0$ and $-1$. A stationary shaft displaced from its target can remain displaced because the controller applies no correcting torque. Its error does not disappear, so this case is **not asymptotically stable**.
-
-For higher-order systems, the table has more rows. A zero first-column entry or an entire zero row requires special handling; we cannot simply count signs through those cases.
-
-**The criterion tells us which gains give stability. It does not tell us which stable gain produces less oscillation or faster settling.**
+**The limitation.** Stability says that the modes die away, not how fast or how smoothly. A zero entry in the middle of the first column, or a whole zero row, needs extra steps, which Control Studio completes and explains.
 
 ## Prediction
 
-For a 0→0.01 rad target step from rest:
+Before running, answer these questions for a target step from 0 to 0.01 rad, from rest:
 
-| Gain $K_p$ | Routh prediction | Expected shaft behavior |
+1. $K_p = 1$: what does the shaft do, and when is its peak?
+2. $K_p = 0$: what does the shaft do?
+3. $K_p = -1$: what does the shaft do?
+4. For which gains is the loop stable?
+
+| $K_p$ | First column | Expected |
 | ---: | --- | --- |
-| $1$ | First column $1,1,1$; stable | Moves toward the target; oscillation decays. Initial torque is $1\times0.01=0.01$ N·m. |
-| $0$ | Origin pole; boundary | Torque remains zero. Angle stays at zero and the 0.01 rad error remains. |
-| $-1$ | First column $1,1,-1$; one unstable pole | Initial torque is −0.01 N·m, so the shaft moves away from its positive target. |
-
-A finite simulation cannot prove every positive gain works in the sampled,
-limited implementation. The continuous stable interval comes from the
-coefficient inequalities, not from these three trials.
+| 1 | +, +, + | swings to 0.0116 rad at 3.63 s and settles |
+| 0 | +, +, 0 | no torque; the 0.01 rad error stays |
+| −1 | +, +, − | driven away, growing |
 
 ## Implementation
 
-The prepared [ST program](src/Main.st) calculates proportional torque every
-20 ms. The [simulated plant](simulation.toml) integrates the shaft's angle and
-velocity, starting at zero. There is no integral or velocity-feedback term.
+Open [`src/Main.st`](src/Main.st). The program applies $u = K_p\,(r - \theta)$ every 20 ms within ±20 N·m, with the gain set by the `Kp` initializer, 1 N·m/rad. When the project experiment starts, the target steps to 0.01 rad. If the angle reaches ±0.2 rad or the velocity ±2 rad/s, the program latches `SafetyAbort`, returns to Manual and commands zero torque; the shaft then coasts. The program calculates no Routh table: Control Studio calculates it from the model $1/(s\,(s + 1))$ with the controller $K_p$, declared in `control-loop.json`.
 
-`P1.ExperimentEnabled` starts the ST-owned 0.01 rad step. `P1.Kp` is the
-reviewable gain; the configured demonstration range is −1 to 4 N·m/rad.
-That bounded configuration is separate from the mathematical interval $K_p>0$.
-Applied torque is limited to ±20 N·m.
-
-The program latches `SafetyAbort` if angle reaches ±0.2 rad or velocity reaches
-±2 rad/s, or its input/gain checks fail. It then reports Manual and commands
-zero torque. These are controller stop thresholds: the simulated shaft can
-continue coasting under friction after torque is removed. Restart the simulator
-to reset angle, velocity, the latch and source-default gain before each trial.
+**ST practice.** Write a function `SecondOrderStable` with the inputs `A2`, `A1` and `A0` that returns `TRUE` when all three coefficients have the same strict sign. For the shaft, call it with 1, 1 and `Kp`, and check `Kp` = 1 (`TRUE`), 0 (`FALSE`) and −1 (`FALSE`). For a second-order equation this sign rule is exactly the Routh–Hurwitz test.
 
 ## Experiment in Control Studio
 
-1. Open this project and start **Simulator**. Open **Control Studio** for
-   **Routh-Hurwitz stability**. Confirm zero angle, zero torque and Manual mode.
-2. In **Tune**, find **Routh–Hurwitz stability**. Enter `1` in **Parameter value**
-   and click **Calculate Routh–Hurwitz**. Read the polynomial, coefficients,
-   three table rows, first-column signs and stable interval. Expand
-   **How the table is calculated** and match its numerical row calculation to
-   the formula above.
-3. Calculate `0` and `-1` too. Explain the origin-pole message at zero and the
-   one unstable pole at −1. Each calculation leaves the runtime unchanged.
-4. Return to `1` and calculate again. Click **Use selected analysis values**,
-   then **Review candidate**. Check `P1.Kp`, its unit and the reviewed value.
-   Click **Apply reviewed values** and wait for confirmation that the value was
-   observed after ST execution.
-5. In **Test**, leave the maximum duration at **10 s** and click **Review test**.
-   Read the activation and restoration. The prepared ST program owns the
-   0.01 rad step; the observation experiment does not inject another step.
-6. In **Test**, click **Confirm and start**. Test automatically records the
-   reviewed observation. Observe target, angle and applied torque in the
-   response; velocity is also a declared recorded signal. Use **Abort test**
-   if you need to stop early. For the negative-gain trial, expect the program's
-   own threshold to remove torque before the ten-second observation ends.
-7. After Test reaches terminal restoration, confirm Manual and zero applied torque.
-   In **Validate**, click **Save result**. Under **Saved results**, select its
-   revision and click **Open** to inspect the retained response. This saves
-   the response, not the Routh table; recalculate the table when needed.
-8. Stop and restart Simulator for a fresh zero state. Repeat the calculation,
-   review/application and experiment for `0`, then `-1`. Apply each gain
-   **after** the restart, because restart restores the source default `Kp=1`.
+1. Open this lesson's project and start **Simulator**. The shaft rests at 0 rad. In the **truST** side bar, select **Control Studio**.
+2. On **Tune**, choose **Routh–Hurwitz** in **Tuning method**, enter 1 in **Kp (N·m/rad)** and select **Calculate Routh–Hurwitz**. Expand **Calculation details** to see the table and the first-column signs. Repeat with 0 and −1.
+3. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.Setpoint · Setpoint (rad)`, `P1.Angle · Process value (rad)` and `P1.AppliedTorque · Applied output (N·m)`; add `P1.Velocity · state (rad/s)`.
+4. Answer the predictions. Select **Review project test**, check the declared **10 s** duration, and select **Confirm and start**; the target steps to 0.01 rad at once.
+5. After the run, hover the angle's peak and its end value. At completion, Control Studio shows **Project test completed. Outputs restored.**
+6. Stop the simulator, set `Kp := 0.0` in `src/Main.st`, start **Simulator** again and repeat steps 3–5. Then do the same with `Kp := -1.0`.
+
+Select **Abort test** to stop early.
 
 ## Evidence and decision
 
-For each trial, retain the selected gain, Routh signs, boundary interpretation
-and saved response revision. Compare angle, velocity, applied torque and Manual
-state with your prediction.
+![Kp = 1 settles, Kp = 0 never moves, Kp = −1 is driven away](figures/routh-trials.svg)
 
-At $K_p=1$, check that the final automatic-mode angle is within 0.001 rad of
-the 0.01 rad target and that the oscillation is decaying. At zero, explain why
-no motion and zero torque leave the command error uncorrected. At −1, identify
-the growing negative displacement, the change to Manual and zero torque, and
-any subsequent coast. Do not interpret the stopped tail as a stable
-negative-gain closed loop: its controller has been disabled.
+The numbered marks answer predictions 1–3. Control Studio's Routh–Hurwitz results answer prediction 4, with **Stable interval: (0, ∞).** each time:
 
-If observation disagrees with the prediction, first check the applied gain,
-reset state, units, clipping, sample time and stop conditions. The theorem
-applies to the declared continuous linear model.
+| $K_p$ | Rows | First column | Control Studio |
+| ---: | --- | --- | --- |
+| 1 | [1, 1], [1, 0], [1, 0] | +, +, + | no right-half-plane poles; asymptotically stable |
+| 0 | [1, 0], [1, 0], [0, 0] | last entry zero | an origin pole excludes strict stability |
+| −1 | [1, −1], [1, 0], [−1, 0] | +, +, − | one right-half-plane pole |
+
+At 0, **Calculation details** explains that the $s^0$ row is all zero, how the table was completed exactly, and that the origin pole excludes asymptotic stability.
+
+1. $K_p = 1$: the first torque was 0.01 N·m. The angle passed the target, peaked at 0.01167 rad after 3.62 s, as the poles predict, and ended at 0.01003 rad.
+2. $K_p = 0$: angle and torque stayed at 0 for all 10 s; the 0.01 rad error remained.
+3. $K_p = -1$: the first torque was −0.01 N·m. The angle moved away, −0.015 rad after 2 s and −0.147 rad after 5 s. At 5.48 s it passed −0.2 rad, the program removed the torque, and the shaft coasted to −0.33 rad.
+4. The loop is stable exactly for $K_p > 0$.
+
+The coefficients predicted all three: positive gains make the modes die away, zero leaves one that stays, negative gains make one grow. The trials only illustrate this; the range comes from the coefficients, without solving for a single pole. These are simulation results.
 
 ## Conclusion
 
-For this shaft under proportional position control, every positive $K_p$
-makes the continuous model asymptotically stable. Zero is an excluded boundary;
-negative gain produces a growing mode. Control Studio derives that range from
-the polynomial, and the actual ST trials demonstrate the three distinct cases.
+The Routh–Hurwitz test turns stability into sign conditions on the coefficients of the characteristic equation: for $s^2 + s + K_p$, all first-column entries positive means $K_p > 0$. At the edge, $K_p = 0$, a pole at the origin leaves any displacement in place, so the edge is excluded.
+
+For the shaft under P control, every positive gain is stable; $K_p = 1$ settled after one small swing, while $K_p = -1$ drove the shaft away until the abort.
+
+## Check yourself
+
+1. **The braking is put back, so the equation is $s^2 + 8s + K_p = 0$. For which gains is it stable?**
+   The first column is $1, 8, K_p$, so again exactly for $K_p > 0$.
+2. **Why is $K_p = 0$ not counted as stable, although nothing grows?**
+   It has a pole at 0: a displacement neither grows nor dies away. Asymptotic stability needs every mode to die
+   away.
+3. **With $K_p = -1$, how much does a deviation grow in 2 s?**
+   By $e^{0.618 \times 2} = 3.4$ times.
 
 ## Reason for the next lesson
 
-Stability tells us whether natural disturbances die away. It does not tell us
-how strongly the system responds to a continuing periodic command or disturbance.
-[Periodic excitation](../../05-experiments-identification-and-validation/22-excitation-for-dynamics/README.md)
-returns to the heater to investigate that frequency-dependent response.
+Stability tells us that disturbances die away. It does not tell us how strongly the loop answers a command or a disturbance that keeps repeating, at slow and at fast rates.
+
+[Periodic excitation](../../05-experiments-identification-and-validation/22-excitation-for-dynamics/README.md) drives the heater with repeating inputs of known size and rate.

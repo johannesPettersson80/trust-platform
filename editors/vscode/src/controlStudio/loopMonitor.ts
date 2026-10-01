@@ -14,7 +14,8 @@ export type ControlSignalQuality = "good" | "forced" | "uncertain" | "stale" | "
 
 export interface ControlMonitorSignal {
   symbol: string;
-  address: string;
+  /** Absent for a program variable that has no address. */
+  address?: string;
   value: number;
   unit: string;
   quality: ControlSignalQuality;
@@ -324,6 +325,8 @@ export function summarizeLoopHealth(samples: readonly AvailableLoopSample[]): Lo
 }
 
 function readSignal(binding: ControlSignalBinding, state: IoState): ControlMonitorSignal | undefined {
+  // The process image has no entry for a program variable without an address; the symbolic observation reads it.
+  if (binding.address === undefined) return undefined;
   const entry = entries(state).find((candidate) => candidate.address === binding.address);
   if (!entry) return undefined;
   const value = numericIoValue(entry.value);

@@ -1,5 +1,5 @@
 import { pidOperatingState } from "./pidOperatingState";
-import { transferTolerance } from "./proportionalTransfer";
+import { noiseAwareTransferTolerance } from "./proportionalTransfer";
 import { decodePidLaw } from "./controllerLaw";
 import { engineerVerificationPlan, type EngineerRequirements } from "./engineerVerificationPlan";
 import type { GeneralModel } from "./generalModel";
@@ -8,7 +8,7 @@ import { pidInitializationAdapter } from "./pidInitialization";
 
 /** Builds the isolated actual-ST proof for a declared parallel PID Auto-entry state. */
 export function pidInitializationPlan(loop: ControlLoopDefinition, model: GeneralModel,
-  task: EngineerRequirements, values: Readonly<Record<string, number>>) {
+  task: EngineerRequirements, values: Readonly<Record<string, number>>, processNoise?: number) {
   const adapter = pidInitializationAdapter(loop);
   const law = decodePidLaw(loop.controller.law, loop.parameterBinding);
   const binding = loop.parameterBinding;
@@ -31,7 +31,7 @@ export function pidInitializationPlan(loop: ControlLoopDefinition, model: Genera
   const duration = step * 6;
   const transferAt = step * 3;
   const window = { start: 0, end: duration / 1000 };
-  const tolerance = transferTolerance(loop, task.transferTolerance);
+  const tolerance = noiseAwareTransferTolerance(loop, task.transferTolerance, proportionalGain, processNoise);
   const observations = uniqueObservations([...base.request.observations,
     { symbol: binding.mode.symbol, unit: "1" }, { symbol: manual, unit: loop.signals.manipulatedVariable.unit },
     { symbol: adapter.integralState.symbol, unit: adapter.integralState.unit },

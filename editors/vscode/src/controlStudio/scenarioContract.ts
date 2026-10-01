@@ -26,3 +26,13 @@ export function validEngineerScenarios(value: unknown): value is readonly Engine
     && Array.isArray(scenario.requirements) && scenario.requirements.length > 0 && scenario.requirements.length <= 64)
     && new Set(value.map(scenario => scenario.id)).size === value.length;
 }
+
+/** The declared check that ends last, which the validation run must reach. */
+export function latestScenarioCheck(scenarios: readonly EngineerScenario[]): { scenario: string; requirement: string; endSeconds: number } | undefined {
+  let latest: { scenario: string; requirement: string; endSeconds: number } | undefined;
+  for (const scenario of scenarios) for (const requirement of scenario.requirements) {
+    const end = requirement?.window?.end;
+    if (typeof end === "number" && Number.isFinite(end) && (!latest || end > latest.endSeconds)) latest = { scenario: scenario.id, requirement: requirement.id, endSeconds: end };
+  }
+  return latest;
+}

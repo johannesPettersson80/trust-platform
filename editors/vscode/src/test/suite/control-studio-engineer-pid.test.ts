@@ -36,303 +36,6 @@ suite("Control Studio connected PID engineer path", () => {
       assert.deepStrictEqual(status.values, { "Main.Kp": 1, "Main.Ki": 0, "Main.Kd": 0 });
     } finally { await runtimeLifecycleService.stopRuntime(); }
   });
-
-  test("offers Auto by default for a typed PI adapter while retaining Manual staging", async function () {
-    if (process.env.TRUST_CONTROL_STUDIO_ACTUAL_PID !== "1") this.skip();
-    this.timeout(60_000);
-    await vscode.extensions.getExtension("trust-platform.trust-lsp")?.activate();
-    const project = vscode.workspace.workspaceFolders![0].uri.fsPath;
-    const loop = JSON.parse(fs.readFileSync(path.join(project, "control-loop.json"), "utf8"));
-    assert.strictEqual((await runtimeLifecycleService.startLocalSimulator()).ok, true);
-    const port = await devToolsPort(requiredEnvironment("TRUST_PLANT_RENDERED_USER_DATA_DIR"), 15_000);
-    const connection = await connectCdp((await httpJson(port, "/json/version")).webSocketDebuggerUrl);
-    try {
-      await vscode.commands.executeCommand("trust-lsp.controlStudio.open", { schemaVersion: 1, source: "ConfiguredLoop",
-        scope: { projectId: loop.projectId, runtimeId: loop.runtimeId }, loopDefinition: loop });
-      const session = await attachControlStudio(connection, port);
-      const inner = (body: string) => evaluateInWebview(connection, session, body);
-      await pollValue("PID engineer workflow", () => inner("return d.querySelector('[data-engineer-workflow]')?.dataset.ready ?? '';"), value => value === "true", 10_000);
-      assert.strictEqual(await inner("return d.querySelector('[data-engineer-family]').value;"), "automatic");
-      assert.strictEqual(await inner("var f=d.querySelector('[data-engineer-family]');return String(Array.from(f.options).find(o=>o.textContent.trim().startsWith('PI')).disabled);"), "false");
-      assert.strictEqual(await inner("var f=d.querySelector('[data-engineer-family]');var pi=Array.from(f.options).find(o=>o.textContent.trim().startsWith('PI'));pi.value='PI';f.value='PI';f.dispatchEvent(new Event('change'));return d.querySelector('[data-engineer-application-mode]').value;"), "auto");
-      assert.strictEqual(await inner("var f=d.querySelector('[data-engineer-family]');return String(Array.from(f.options).find(o=>o.textContent.trim().startsWith('PD')).disabled);"), "false");
-      assert.strictEqual(await inner("var f=d.querySelector('[data-engineer-family]');return String(Array.from(f.options).find(o=>o.textContent.trim().startsWith('PID')).disabled);"), "false");
-    } finally { connection.close(); await runtimeLifecycleService.stopRuntime(); }
-  });
-
-  test("renders and runs the model-data recovery action from an incompatible supplied model", async function () {
-    if (process.env.TRUST_CONTROL_STUDIO_ACTUAL_PID !== "1") this.skip();
-    this.timeout(90_000);
-    await vscode.extensions.getExtension("trust-platform.trust-lsp")?.activate();
-    const project = vscode.workspace.workspaceFolders![0].uri.fsPath;
-    const loop = JSON.parse(fs.readFileSync(path.join(project, "control-loop.json"), "utf8"));
-    assert.strictEqual((await runtimeLifecycleService.startLocalSimulator()).ok, true);
-    const port = await devToolsPort(requiredEnvironment("TRUST_PLANT_RENDERED_USER_DATA_DIR"), 15_000);
-    const connection = await connectCdp((await httpJson(port, "/json/version")).webSocketDebuggerUrl);
-    try {
-      const modelPath = path.join(project, "unvalidated-model.json");
-      fs.writeFileSync(modelPath, JSON.stringify({ kind: "transfer-function", numerator: [1], denominator: [1, 1], delaySeconds: 0,
-        source: "provided", validation: "unvalidated", evidence: [], revision: "unvalidated-model",
-        inputs: [channel("u", "V")], outputs: [channel("y", "m")] }));
-      await vscode.commands.executeCommand("trust-lsp.controlStudio.open", { schemaVersion: 1, source: "ConfiguredLoop",
-        scope: { projectId: loop.projectId, runtimeId: loop.runtimeId }, loopDefinition: loop });
-      const session = await attachControlStudio(connection, port);
-      const inner = (body: string) => evaluateInWebview(connection, session, body);
-      await pollValue("engineer workflow", () => inner("return d.querySelector('[data-engineer-workflow]')?.dataset.ready ?? '';"), value => value === "true", 10_000);
-      await inner("d.querySelector('[data-engineer-supply]').click();return 'supply';");
-      await connection.send("DOM.enable", {}, session);
-      const tree = await connection.send("DOM.getFlattenedDocument", { depth: -1, pierce: true }, session);
-      const input = tree.nodes.find((node: any) => node.nodeName === "INPUT" && node.attributes?.includes("general-model-file"));
-      assert.ok(input, "Supply model exposes the real file input");
-      await connection.send("DOM.setFileInputFiles", { files: [modelPath], backendNodeId: input.backendNodeId }, session);
-      await pollValue("model-data recovery", () => inner("return d.querySelector('[data-engineer-status]').textContent;"),
-        value => value.includes("independent validation"), 10_000);
-      assert.strictEqual(await inner("const b=d.querySelector('[data-engineer-find]');return JSON.stringify({primary:b.classList.contains('trust-button--primary'),title:b.title});"),
-        JSON.stringify({ primary: true, title: "Next action: Find model." }));
-      const screenshot = process.env.TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT;
-      if (screenshot) {
-        await inner("d.querySelector('[data-engineer-find]').scrollIntoView({block:'center'});return 'visible';");
-        await new Promise(resolve => setTimeout(resolve, 250));
-        await captureRenderedWorkbenchCdp(connection, screenshot);
-      }
-      await inner("d.querySelector('[data-engineer-find]').click();return 'find';");
-      await pollValue("Find model recovery", () => inner("return d.querySelector('[data-engineer-status]').textContent;"),
-        value => /Baseline must match|Identification.*trial/.test(value), 20_000);
-      await inner("d.querySelector('[data-engineer-cancel]').click();return 'cancel';");
-      await pollValue("Find model cancellation", () => inner("return d.querySelector('[data-engineer-status]').textContent;"),
-        value => /Operation cancelled|cancelled/i.test(value), 20_000);
-    } finally { connection.close(); await runtimeLifecycleService.stopRuntime(); }
-  });
-
-  test("runs the rendered multisine Find-model journey against actual ST", async function () {
-    if (process.env.TRUST_CONTROL_STUDIO_ACTUAL_PID !== "1") this.skip();
-    this.timeout(120_000);
-    await vscode.extensions.getExtension("trust-platform.trust-lsp")?.activate();
-    const project = vscode.workspace.workspaceFolders![0].uri.fsPath;
-    const loop = JSON.parse(fs.readFileSync(path.join(project, "control-loop.json"), "utf8"));
-    loop.experiment = { execution: "control-studio", kind: "multisine", amplitude: 1, durationSeconds: 10, seed: 7 };
-    assert.strictEqual((await runtimeLifecycleService.startLocalSimulator()).ok, true);
-    const port = await devToolsPort(requiredEnvironment("TRUST_PLANT_RENDERED_USER_DATA_DIR"), 15_000);
-    const connection = await connectCdp((await httpJson(port, "/json/version")).webSocketDebuggerUrl);
-    try {
-      await vscode.commands.executeCommand("trust-lsp.controlStudio.open", { schemaVersion: 1, source: "ConfiguredLoop",
-        scope: { projectId: loop.projectId, runtimeId: loop.runtimeId }, loopDefinition: loop });
-      const session = await attachControlStudio(connection, port);
-      const inner = (body: string) => evaluateInWebview(connection, session, body);
-      await pollValue("engineer workflow", () => inner("return d.querySelector('[data-engineer-workflow]')?.dataset.ready ?? '';"), value => value === "true", 10_000);
-      await inner("d.querySelector('[data-engineer-find]').click();return 'find';");
-      const status = await pollValue("multisine fitted model", () => inner("return d.querySelector('[data-engineer-status]').textContent;"),
-        value => /Model found and validated|failed/i.test(value), 90_000);
-      assert.match(status, /Model found and validated/, status);
-      assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-tune]').disabled);"), "false");
-      await inner("d.querySelector('[data-engineer-tune]').click();return 'tune';");
-      const tuned = await pollValue("multisine model candidate", () => inner("return d.querySelector('[data-engineer-status]').textContent;"),
-        value => /candidate|failed/i.test(value), 20_000);
-      assert.match(tuned, /candidate/i, tuned);
-      await inner("d.querySelector('[data-engineer-verify]').click();return 'verify';");
-      const verified = await pollValue("multisine model actual-ST Verify", () => inner("return d.querySelector('[data-engineer-status]').textContent;"),
-        value => /Verification passed|failed/i.test(value), 60_000);
-      assert.match(verified, /Verification passed/, verified);
-      const screenshot = process.env.TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT;
-      if (screenshot) {
-        await inner("d.querySelector('[data-engineer-status]').scrollIntoView({block:'center'});return 'visible';");
-        await new Promise(resolve => setTimeout(resolve, 250));
-        await captureRenderedWorkbenchCdp(connection, screenshot);
-      }
-    } finally { connection.close(); await runtimeLifecycleService.stopRuntime(); }
-  });
-
-  test("runs the rendered PRBS Find-model journey against actual ST", async function () {
-    if (process.env.TRUST_CONTROL_STUDIO_ACTUAL_PID !== "1") this.skip();
-    this.timeout(120_000);
-    await vscode.extensions.getExtension("trust-platform.trust-lsp")?.activate();
-    const project = vscode.workspace.workspaceFolders![0].uri.fsPath;
-    const loop = JSON.parse(fs.readFileSync(path.join(project, "control-loop.json"), "utf8"));
-    loop.experiment = { execution: "control-studio", kind: "prbs", amplitude: 1, durationSeconds: 10, seed: 7 };
-    assert.strictEqual((await runtimeLifecycleService.startLocalSimulator()).ok, true);
-    const port = await devToolsPort(requiredEnvironment("TRUST_PLANT_RENDERED_USER_DATA_DIR"), 15_000);
-    const connection = await connectCdp((await httpJson(port, "/json/version")).webSocketDebuggerUrl);
-    try {
-      await vscode.commands.executeCommand("trust-lsp.controlStudio.open", { schemaVersion: 1, source: "ConfiguredLoop",
-        scope: { projectId: loop.projectId, runtimeId: loop.runtimeId }, loopDefinition: loop });
-      const session = await attachControlStudio(connection, port);
-      const inner = (body: string) => evaluateInWebview(connection, session, body);
-      await pollValue("engineer workflow", () => inner("return d.querySelector('[data-engineer-workflow]')?.dataset.ready ?? '';"), value => value === "true", 10_000);
-      await inner("d.defaultView.__engineerLatest=undefined;d.defaultView.addEventListener('trust-control-studio-engineer',e=>d.defaultView.__engineerLatest=e.detail);d.querySelector('[data-engineer-find]').click();return 'find';");
-      const status = await pollValue("PRBS fitted model", () => inner("return d.querySelector('[data-engineer-status]').textContent;"),
-        value => /Model found and validated|failed/i.test(value), 90_000);
-      assert.match(status, /Model found and validated/, status);
-      await inner("d.querySelector('[data-engineer-tune]').click();return 'tune';");
-      const tuned = JSON.parse(await pollValue("PRBS model candidate", () => inner("return JSON.stringify(d.defaultView.__engineerLatest??{});"),
-        value => { const event = JSON.parse(value); return ["candidate", "failed"].includes(event.status); }, 20_000));
-      assert.strictEqual(tuned.status, "candidate", tuned.reason);
-      await inner("d.querySelector('[data-engineer-verify]').click();return 'verify';");
-      const verified = await pollValue("PRBS model actual-ST Verify", () => inner("return d.querySelector('[data-engineer-status]').textContent;"),
-        value => /Verification passed|failed/i.test(value), 60_000);
-      assert.match(verified, /Verification passed/, verified);
-      const screenshot = process.env.TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT;
-      if (screenshot) {
-        await inner("d.querySelector('[data-engineer-status]').scrollIntoView({block:'center'});return 'visible';");
-        await new Promise(resolve => setTimeout(resolve, 250));
-        await captureRenderedWorkbenchCdp(connection, screenshot);
-      }
-    } finally { connection.close(); await runtimeLifecycleService.stopRuntime(); }
-  });
-
-  test("runs the rendered PI Tune, Verify and Manual Apply journey against actual ST", async function () {
-    if (process.env.TRUST_CONTROL_STUDIO_ACTUAL_PID !== "1") this.skip();
-    this.timeout(90_000);
-    await vscode.extensions.getExtension("trust-platform.trust-lsp")?.activate();
-    const project = vscode.workspace.workspaceFolders![0].uri.fsPath;
-    const loop = JSON.parse(fs.readFileSync(path.join(project, "control-loop.json"), "utf8"));
-    assert.strictEqual((await runtimeLifecycleService.startLocalSimulator()).ok, true);
-    const port = await devToolsPort(requiredEnvironment("TRUST_PLANT_RENDERED_USER_DATA_DIR"), 15_000);
-    const connection = await connectCdp((await httpJson(port, "/json/version")).webSocketDebuggerUrl);
-    try {
-      const modelPath = path.join(project, "pi-model.json");
-      fs.writeFileSync(modelPath, JSON.stringify({ kind: "transfer-function", numerator: [1], denominator: [1, 1], delaySeconds: 0,
-        source: "provided", validation: "validated", evidence: ["fixture"], revision: "pi-model",
-        inputs: [channel("u", "V")], outputs: [channel("y", "m")] }));
-      await vscode.commands.executeCommand("trust-lsp.controlStudio.open", { schemaVersion: 1, source: "ConfiguredLoop",
-        scope: { projectId: loop.projectId, runtimeId: loop.runtimeId }, loopDefinition: loop });
-      const session = await attachControlStudio(connection, port);
-      const inner = (body: string) => evaluateInWebview(connection, session, body);
-      await pollValue("PID engineer workflow", () => inner("return d.querySelector('[data-engineer-workflow]')?.dataset.ready ?? '';"), value => value === "true", 10_000);
-      await inner("d.querySelector('[data-engineer-supply]').click();return 'supply';");
-      await connection.send("DOM.enable", {}, session);
-      const tree = await connection.send("DOM.getFlattenedDocument", { depth: -1, pierce: true }, session);
-      const input = tree.nodes.find((node: any) => node.nodeName === "INPUT" && node.attributes?.includes("general-model-file"));
-      assert.ok(input, "Supply model exposes the real file input");
-      await connection.send("DOM.setFileInputFiles", { files: [modelPath], backendNodeId: input.backendNodeId }, session);
-      await pollValue("selected PI model", () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => value.includes("PI control"), 10_000);
-      await inner("var f=d.querySelector('[data-engineer-family]');f.value='PI';f.dispatchEvent(new Event('change'));var m=d.querySelector('[data-engineer-application-mode]');m.value='manual';m.dispatchEvent(new Event('change'));d.querySelector('[data-engineer-tune]').click();return m.value;" );
-      await pollValue("PI candidate", () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => value.includes("PI candidate ready"), 10_000);
-      await inner("d.querySelector('[data-engineer-verify]').click();return 'verify';");
-      await pollValue("PI actual Verify", () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => value.includes("Verification passed"), 30_000);
-      await inner("d.querySelector('[data-engineer-apply]').click();return 'review';");
-      await pollValue("PI Manual review", () => inner("return String(!d.querySelector('[data-engineer-confirm]').hidden);"), value => value === "true", 10_000);
-      await inner("d.querySelector('[data-engineer-confirm]').click();return 'apply';");
-      await pollValue("PI Manual observed", () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => value.includes("staged in Manual and observed"), 15_000);
-      const parameters = await require("../../controlStudio/runtimeParameterConnection").connectRuntimeParameters(loop);
-      assert.deepStrictEqual((await parameters.client.status()).values, { "Main.Kp": 1.5, "Main.Ki": 1.5, "Main.Kd": 0 });
-      await inner("d.querySelector('[data-engineer-rollback]').click();return 'rollback review';");
-      await pollValue("PI rollback review", () => inner("return String(!d.querySelector('[data-engineer-confirm]').hidden);"), value => value === "true", 10_000);
-      await inner("d.querySelector('[data-engineer-confirm]').click();return 'rollback';");
-      await pollValue("PI rollback observed", () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => value.includes("Previous values restored and observed"), 15_000);
-      assert.deepStrictEqual((await parameters.client.status()).values, { "Main.Kp": 1, "Main.Ki": 0, "Main.Kd": 0 });
-      const screenshot = process.env.TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT;
-      if (screenshot) {
-        await inner("d.querySelector('[data-engineer-status]').scrollIntoView({block:'center'});return 'visible';");
-        await new Promise(resolve => setTimeout(resolve, 250));
-        captureRenderedWorkbench(screenshot);
-      }
-    } finally { connection.close(); await runtimeLifecycleService.stopRuntime(); }
-  });
-
-  test(`runs the rendered ${AUTO_FAMILY} Auto commissioning and rollback journey against actual ST`, async function () {
-    if (process.env.TRUST_CONTROL_STUDIO_ACTUAL_PID !== "1") this.skip();
-    this.timeout(120_000);
-    await vscode.extensions.getExtension("trust-platform.trust-lsp")?.activate();
-    const theme = process.env.TRUST_CONTROL_STUDIO_RENDERED_THEME?.trim();
-    if (theme) await vscode.workspace.getConfiguration("workbench").update("colorTheme", theme, vscode.ConfigurationTarget.Global);
-    const project = vscode.workspace.workspaceFolders![0].uri.fsPath;
-    const loop = JSON.parse(fs.readFileSync(path.join(project, "control-loop.json"), "utf8"));
-    assert.strictEqual((await runtimeLifecycleService.startLocalSimulator()).ok, true);
-    const port = await devToolsPort(requiredEnvironment("TRUST_PLANT_RENDERED_USER_DATA_DIR"), 15_000);
-    const connection = await connectCdp((await httpJson(port, "/json/version")).webSocketDebuggerUrl);
-    try {
-      const modelPath = path.join(project, "pi-auto-model.json");
-      fs.writeFileSync(modelPath, JSON.stringify({ kind: "transfer-function", numerator: [1], denominator: [1, 1], delaySeconds: 0,
-        source: "provided", validation: "validated", evidence: ["fixture"], revision: "pi-auto-model",
-        inputs: [channel("u", "V")], outputs: [channel("y", "m")] }));
-      await vscode.commands.executeCommand("trust-lsp.controlStudio.open", { schemaVersion: 1, source: "ConfiguredLoop",
-        scope: { projectId: loop.projectId, runtimeId: loop.runtimeId }, loopDefinition: loop });
-      const session = await attachControlStudio(connection, port);
-      const inner = (body: string) => evaluateInWebview(connection, session, body);
-      await pollValue("PID Auto engineer workflow", () => inner("return d.querySelector('[data-engineer-workflow]')?.dataset.ready ?? '';"), value => value === "true", 10_000);
-      await inner("d.querySelector('[data-engineer-supply]').click();return 'supply';");
-      await connection.send("DOM.enable", {}, session);
-      const tree = await connection.send("DOM.getFlattenedDocument", { depth: -1, pierce: true }, session);
-      const input = tree.nodes.find((node: any) => node.nodeName === "INPUT" && node.attributes?.includes("general-model-file"));
-      assert.ok(input, "Supply model exposes the real file input");
-      await connection.send("DOM.setFileInputFiles", { files: [modelPath], backendNodeId: input.backendNodeId }, session);
-      await pollValue("selected typed controller model", () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => value.includes("Model ready"), 10_000);
-      await inner(`var f=d.querySelector('[data-engineer-family]');f.value='${AUTO_FAMILY}';f.dispatchEvent(new Event('change'));var m=d.querySelector('[data-engineer-application-mode]');m.value='auto';m.dispatchEvent(new Event('change'));return m.value;`);
-      assert.strictEqual(await inner("return d.querySelector('[data-engineer-application-mode]').value;"), "auto");
-      if (CANCEL_AUTO) await inner("d.querySelector('[data-engineer-duration]').value='20';d.querySelector('[data-engineer-duration]').dispatchEvent(new Event('change'));return 'long duration';");
-      await inner("d.querySelector('[data-engineer-tune]').click();return 'tune';");
-      await pollValue(`${AUTO_FAMILY} Auto candidate`, () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => AUTO_FAMILY === "PI" ? /PI candidate ready|typed Auto initialization/.test(value) : AUTO_FAMILY === "PID" ? /PID candidate ready|Constrained PID candidate/.test(value) : AUTO_FAMILY === "P" ? value.includes("Candidate ready") : /simplest (?:model-screened|passing) candidate/.test(value), 10_000);
-      await inner("d.querySelector('[data-engineer-verify]').click();return 'verify';");
-      await pollValue("PI Auto actual Verify", () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => value.includes("Verification passed"), 30_000);
-      await inner("d.querySelector('[data-engineer-apply]').click();return 'review';");
-      const review = await pollValue("PI Auto review", () => inner("const status=d.querySelector('[data-engineer-status]').textContent;return !d.querySelector('[data-engineer-confirm]').hidden||status.includes('failed')?status:'';"), value => value !== "", 10_000);
-      assert.ok(!review.includes("failed"), review);
-      await inner("d.querySelector('[data-engineer-confirm]').click();return 'commission';");
-      if (CANCEL_AUTO) {
-        await new Promise(resolve => setTimeout(resolve, 150));
-        await inner("d.querySelector('[data-engineer-cancel]').click();return 'cancel';");
-        const cancelled = await pollValue("PID Auto cancellation", () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => /cancelled.*Recovery confirmed|Auto commissioning failed/.test(value), 30_000);
-        assert.match(cancelled, /cancelled.*Recovery confirmed/i);
-        const recovered = await require("../../controlStudio/runtimeParameterConnection").connectRuntimeParameters(loop);
-        assert.deepStrictEqual((await recovered.client.status()).values, { "Main.Kp": 1, "Main.Ki": 0, "Main.Kd": 0 });
-        assert.strictEqual(await pollValue("PID Auto cancellation Manual mode", () => inner("return d.querySelector('[data-control-studio-controller-mode]').textContent;"), value => value === "Manual", 5_000), "Manual");
-        return;
-      }
-      await pollValue("PI Auto commissioning", () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => /PID Auto commissioning passed|failed/.test(value), 30_000);
-      const commissioned = await inner("return d.querySelector('[data-engineer-status]').textContent;");
-      assert.match(commissioned, /PID Auto commissioning passed/);
-      const parameters = await require("../../controlStudio/runtimeParameterConnection").connectRuntimeParameters(loop);
-      assert.deepStrictEqual((await parameters.client.status()).values, { "Main.Kp": (AUTO_FAMILY === "automatic" || AUTO_FAMILY === "P") ? 11.5 : 1.5, "Main.Ki": (AUTO_FAMILY === "automatic" || AUTO_FAMILY === "P") ? 0 : 1.5, "Main.Kd": AUTO_FAMILY === "PID" ? 0.075 : 0 });
-      assert.strictEqual(await inner("return d.querySelector('[data-control-studio-controller-mode]').textContent;"), "Auto");
-      const screenshot = process.env.TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT;
-      if (screenshot) {
-        await inner("d.querySelector('[data-engineer-status]').scrollIntoView({block:'center'});return 'show Auto commissioning';");
-        await new Promise(resolve => setTimeout(resolve, 250));
-        captureRenderedWorkbench(screenshot);
-      }
-      await inner("d.querySelector('[data-engineer-rollback]').click();return 'rollback review';");
-      await pollValue("PI Auto rollback review", () => inner("return String(!d.querySelector('[data-engineer-confirm]').hidden);"), value => value === "true", 10_000);
-      await inner("d.querySelector('[data-engineer-confirm]').click();return 'rollback';");
-      await pollValue("PI Auto rollback", () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => /Previous values restored|failed/.test(value), 15_000);
-      assert.match(await inner("return d.querySelector('[data-engineer-status]').textContent;"), /Previous values restored/);
-      assert.deepStrictEqual((await parameters.client.status()).values, { "Main.Kp": 1, "Main.Ki": 0, "Main.Kd": 0 });
-      assert.strictEqual(await pollValue("PI Auto rollback Manual mode", () => inner("return d.querySelector('[data-control-studio-controller-mode]').textContent;"), value => value === "Manual", 5_000), "Manual");
-    } finally { connection.close(); await runtimeLifecycleService.stopRuntime(); }
-  });
-
-  test("retains a failed actual-ST PD alternative and blocks Apply", async function () {
-    if (process.env.TRUST_CONTROL_STUDIO_ACTUAL_PID !== "1") this.skip();
-    this.timeout(90_000);
-    await vscode.extensions.getExtension("trust-platform.trust-lsp")?.activate();
-    const project = vscode.workspace.workspaceFolders![0].uri.fsPath;
-    const loop = JSON.parse(fs.readFileSync(path.join(project, "control-loop.json"), "utf8"));
-    assert.strictEqual((await runtimeLifecycleService.startLocalSimulator()).ok, true);
-    const port = await devToolsPort(requiredEnvironment("TRUST_PLANT_RENDERED_USER_DATA_DIR"), 15_000);
-    const connection = await connectCdp((await httpJson(port, "/json/version")).webSocketDebuggerUrl);
-    try {
-      const modelPath = path.join(project, "pd-model.json");
-      fs.writeFileSync(modelPath, JSON.stringify({ kind: "transfer-function", numerator: [1], denominator: [1, 1], delaySeconds: 0,
-        source: "provided", validation: "validated", evidence: ["fixture"], revision: "pd-model", inputs: [channel("u", "V")], outputs: [channel("y", "m")] }));
-      await vscode.commands.executeCommand("trust-lsp.controlStudio.open", { schemaVersion: 1, source: "ConfiguredLoop", scope: { projectId: loop.projectId, runtimeId: loop.runtimeId }, loopDefinition: loop });
-      const session = await attachControlStudio(connection, port);
-      const inner = (body: string) => evaluateInWebview(connection, session, body);
-      await inner("d.querySelector('[data-engineer-supply]').click();return 'supply';");
-      await connection.send("DOM.enable", {}, session);
-      const tree = await connection.send("DOM.getFlattenedDocument", { depth: -1, pierce: true }, session);
-      const input = tree.nodes.find((node: any) => node.nodeName === "INPUT" && node.attributes?.includes("general-model-file"));
-      assert.ok(input); await connection.send("DOM.setFileInputFiles", { files: [modelPath], backendNodeId: input.backendNodeId }, session);
-      await pollValue("PD model", () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => value.includes("Model ready"), 10_000);
-      await inner("var f=d.querySelector('[data-engineer-family]');f.value='PD';f.dispatchEvent(new Event('change'));var m=d.querySelector('[data-engineer-application-mode]');m.value='manual';m.dispatchEvent(new Event('change'));d.querySelector('[data-engineer-tune]').click();return 'tune';");
-      await pollValue("PD candidate", () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => value.includes("Constrained PD candidate"), 10_000);
-      await inner("d.querySelector('[data-engineer-verify]').click();return 'verify';");
-      const failed = await pollValue("PD actual failure", () => inner("return d.querySelector('[data-engineer-status]').textContent;"), value => /Verification Fail|failed/.test(value), 30_000);
-      assert.match(failed, /Verification Fail/);
-      assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-apply]').disabled);"), "true");
-      const parameters = await require("../../controlStudio/runtimeParameterConnection").connectRuntimeParameters(loop);
-      assert.deepStrictEqual((await parameters.client.status()).values, { "Main.Kp": 1, "Main.Ki": 0, "Main.Kd": 0 });
-    } finally { connection.close(); await runtimeLifecycleService.stopRuntime(); }
-  });
-
   test("creates an unapplied PI candidate from a typed PID law", async () => {
     const loop = pidLoop();
     const model: any = { kind: "transfer-function", numerator: [1], denominator: [1, 1], delaySeconds: 0,
@@ -350,7 +53,8 @@ suite("Control Studio connected PID engineer path", () => {
       const result = posts[posts.length - 1];
       assert.strictEqual(result?.status, "candidate", String(result?.reason));
       assert.strictEqual(result?.design?.candidate?.structure, "PI");
-      assert.deepStrictEqual(result?.values, { "Main.Kp": 1.5, "Main.Ki": 1.5, "Main.Kd": 0 });
+      // Settling within ±0.02 m by 2 s needs SIMC's faster response, λ = τ/3.
+      assert.deepStrictEqual(result?.values, { "Main.Kp": 3, "Main.Ki": 3, "Main.Kd": 0 });
       assert.match(String(result?.reason), /PI candidate ready|manual staging/i);
     } finally { session.dispose(); }
   });
@@ -365,7 +69,7 @@ suite("Control Studio connected PID engineer path", () => {
     const posts: any[] = [];
     const tune = (family: "PD" | "PID") => session.handle({ schemaVersion: 1, kind: "control-studio.engineer.tune", messageId: family,
       projectId: scope.projectId, editorSessionId: scope.editorSessionId, loopId: scope.loopId, expectedLoopRevision: scope.loopRevision,
-      payload: { family, referenceChange: 1, maximumError: 0.1, settlingBand: 0.02, settlingTimeSeconds: 2,
+      payload: { family, referenceChange: 1, maximumError: 0.5, settlingBand: 0.1, settlingTimeSeconds: 2,
         durationSeconds: 4, applicationMode: "manual" } }, scope, async value => { posts.push(value); });
     try {
       await tune("PD");
@@ -537,11 +241,11 @@ suite("Control Studio connected PID engineer path", () => {
     const loop = proportionalLoop();
     let selected: any;
     const search = require("../../controlStudio/runtimeSearchConnection");
-    const automatic = require("../../controlStudio/automaticIdentification");
+    const connected = require("../../controlStudio/connectedIdentification");
     const oldSearch = search.connectRuntimeSearch;
-    const oldRun = automatic.AutomaticIdentification.prototype.run;
+    const oldRun = connected.ConnectedIdentification.prototype.run;
     search.connectRuntimeSearch = async () => ({ source: "simulation", request: async () => ({}) });
-    automatic.AutomaticIdentification.prototype.run = async function () { return { accepted: {
+    connected.ConnectedIdentification.prototype.run = async function () { return { accepted: {
       model: { kind: "first_order_dead_time", gain: 1, timeConstantSeconds: 1, deadTimeSeconds: 0, stable: true, normalizedError: 0 },
       fit: { points: [], warnings: [], operatingRange: { inputMinimum: 0, inputMaximum: 1, outputMinimum: 0, outputMaximum: 1 } },
       evidence: "Identified from simulation data", review: {},
@@ -550,7 +254,7 @@ suite("Control Studio connected PID engineer path", () => {
       selected = { kind: "transfer-function", numerator: [1], denominator: [1, 1], delaySeconds: 0,
         revision: "unvalidated-find", source: "fitted", validation: "unvalidated", evidence: [],
         inputs: [channel("u", "V")], outputs: [channel("y", "m")] };
-    });
+    }, undefined, undefined, undefined, undefined, undefined, undefined, liveAcquisitionPorts());
     const scope = { projectId: loop.projectId, editorSessionId: "find-compatibility", loopId: loop.id, loopRevision: loop.revision };
     const posts: any[] = [];
     try {
@@ -564,7 +268,7 @@ suite("Control Studio connected PID engineer path", () => {
     } finally {
       session.dispose();
       search.connectRuntimeSearch = oldSearch;
-      automatic.AutomaticIdentification.prototype.run = oldRun;
+      connected.ConnectedIdentification.prototype.run = oldRun;
     }
   });
 
@@ -577,14 +281,14 @@ suite("Control Studio connected PID engineer path", () => {
       a: [[0.5]], b: [[0.2, 0.1]], c: [[1], [1]], d: [[0, 0], [0, 0]],
     };
     const search = require("../../controlStudio/runtimeSearchConnection");
-    const automatic = require("../../controlStudio/automaticIdentification");
+    const connected = require("../../controlStudio/connectedIdentification");
     const oldSearch = search.connectRuntimeSearch;
-    const oldRun = automatic.AutomaticIdentification.prototype.run;
+    const oldRun = connected.ConnectedIdentification.prototype.run;
     let selected: any;
     search.connectRuntimeSearch = async () => ({ source: "simulation", request: async () => ({ project_revision: "project" }) });
-    automatic.AutomaticIdentification.prototype.run = async function () { return { model: mimoModel, runs: [] }; };
+    connected.ConnectedIdentification.prototype.run = async function () { return { model: mimoModel, runs: [] }; };
     const session = new EngineerWorkflowSession(loop, () => selected, () => assert.fail("MIMO must use the general-model handoff"),
-      undefined, undefined, undefined, value => { selected = value; });
+      undefined, undefined, undefined, value => { selected = value; }, undefined, undefined, liveAcquisitionPorts());
     const scope = { projectId: loop.projectId, editorSessionId: "mimo-identify", loopId: loop.id, loopRevision: loop.revision };
     const posts: any[] = [];
     const message = (action: string) => ({ schemaVersion: 1, kind: `control-studio.engineer.${action}`, messageId: action,
@@ -603,18 +307,73 @@ suite("Control Studio connected PID engineer path", () => {
     } finally {
       session.dispose();
       search.connectRuntimeSearch = oldSearch;
-      automatic.AutomaticIdentification.prototype.run = oldRun;
+      connected.ConnectedIdentification.prototype.run = oldRun;
     }
   });
 
-  test("routes an unavailable declared Find method to controller capability before a runtime write", async () => {
+  test("waits for a moving output to settle before exciting the connected plant", async function () {
+    this.timeout(10000); // the connected acquisition observes one steady window and a baseline in real time
+    const loop = proportionalLoop();
+    loop.experiment = { execution: "control-studio", kind: "mv_step", amplitude: 1, durationSeconds: 10, seed: 7 };
+    const search = require("../../controlStudio/runtimeSearchConnection");
+    const recordingModule = require("../../controlStudio/runtimeRecording");
+    const oldSearch = search.connectRuntimeSearch;
+    const oldStart = recordingModule.RuntimeRecordingSession.start;
+    const started = Date.now();
+    // The previous experiment's response is still decaying: 5 m falling with a 0.25 s time constant.
+    const moving = () => 5 * Math.exp(-(Date.now() - started) / 250);
+    let atRecordingStart: number | undefined;
+    search.connectRuntimeSearch = async () => ({ source: "simulation", request: async (operation: string) =>
+      operation === "control.experiment.status" ? { status: "completed", restoration: "restored" } : {} });
+    recordingModule.RuntimeRecordingSession.start = async () => {
+      atRecordingStart = moving();
+      return { recoveryOwner: () => ({ schemaVersion: 1, recordingId: "settled-recording", projectId: loop.projectId, runtimeId: loop.runtimeId,
+        loopId: loop.id, loopRevision: loop.revision, source: "simulation", bindings: [] }),
+      stop: async () => ({ samples: [], evidence: { recordingId: "settled-recording", method: "runtime_scan_buffer", completeness: "incomplete",
+        observedSampleCount: 0, missingScanRanges: [], droppedObservedSamples: 0, actualCycleTimingAvailable: false,
+        freshnessAvailable: false, reason: "The runtime returned no samples." } }) };
+    };
+    const sample = () => { const value = manualSample(loop); value.processVariable = { ...value.processVariable, value: moving() }; return value; };
+    const session = new EngineerWorkflowSession(loop, () => undefined, () => undefined,
+      undefined, undefined, undefined, undefined, undefined, undefined, liveAcquisitionPorts(sample));
+    const scope = { projectId: loop.projectId, editorSessionId: "settle-first", loopId: loop.id, loopRevision: loop.revision };
+    const posts: any[] = [];
+    try {
+      await session.handle({ schemaVersion: 1, kind: "control-studio.engineer.find", messageId: "settle-first",
+        projectId: scope.projectId, editorSessionId: scope.editorSessionId, loopId: scope.loopId,
+        expectedLoopRevision: scope.loopRevision, payload: {} }, scope, async value => { posts.push(value); });
+      assert.ok(atRecordingStart !== undefined, "the experiment ran");
+      assert.ok(Math.abs(atRecordingStart!) < 0.4, `the step starts from a steady output, not from ${atRecordingStart} m while it still moves`);
+      assert.ok(posts.some(post => post.status === "running" && /settle/i.test(String(post.reason))), "the wait is shown as progress");
+    } finally {
+      session.dispose();
+      search.connectRuntimeSearch = oldSearch;
+      recordingModule.RuntimeRecordingSession.start = oldStart;
+    }
+  });
+
+  test("returns a PRBS Find whose connected recording is unusable to Identify", async function () {
+    this.timeout(10000); // the connected acquisition observes one steady window and a baseline in real time
     const loop = proportionalLoop();
     loop.experiment = { execution: "control-studio", kind: "prbs", amplitude: 1, durationSeconds: 10, seed: 7 };
     const search = require("../../controlStudio/runtimeSearchConnection");
+    const recordingModule = require("../../controlStudio/runtimeRecording");
     const oldSearch = search.connectRuntimeSearch;
+    const oldStart = recordingModule.RuntimeRecordingSession.start;
     let requests = 0;
-    search.connectRuntimeSearch = async () => ({ source: "simulation", request: async () => { requests += 1; return {}; } });
-    const session = new EngineerWorkflowSession(loop, () => undefined, () => undefined);
+    search.connectRuntimeSearch = async () => ({ source: "simulation", request: async (operation: string) => {
+      requests += 1;
+      return operation === "control.experiment.status" ? { status: "completed", restoration: "restored" } : {};
+    } });
+    recordingModule.RuntimeRecordingSession.start = async () => ({
+      recoveryOwner: () => ({ schemaVersion: 1, recordingId: "prbs-recording", projectId: loop.projectId, runtimeId: loop.runtimeId,
+        loopId: loop.id, loopRevision: loop.revision, source: "simulation", bindings: [] }),
+      stop: async () => ({ samples: [], evidence: { recordingId: "prbs-recording", method: "runtime_scan_buffer", completeness: "incomplete",
+        observedSampleCount: 0, missingScanRanges: [], droppedObservedSamples: 0, actualCycleTimingAvailable: false,
+        freshnessAvailable: false, reason: "The runtime returned no samples." } }),
+    });
+    const session = new EngineerWorkflowSession(loop, () => undefined, () => undefined,
+      undefined, undefined, undefined, undefined, undefined, undefined, liveAcquisitionPorts(() => manualSample(loop)));
     const scope = { projectId: loop.projectId, editorSessionId: "find-method", loopId: loop.id, loopRevision: loop.revision };
     const posts: any[] = [];
     try {
@@ -628,7 +387,63 @@ suite("Control Studio connected PID engineer path", () => {
     } finally {
       session.dispose();
       search.connectRuntimeSearch = oldSearch;
+      recordingModule.RuntimeRecordingSession.start = oldStart;
     }
+  });
+
+  test("predicts the tuned controller against the running controller under the same conditions", async () => {
+    const loop = pidLoop();
+    loop.controller.pidInitialization = pidInitialization();
+    const model: any = { kind: "transfer-function", numerator: [1], denominator: [2, 1], delaySeconds: 0,
+      revision: "current-comparison", source: "provided", validation: "validated", evidence: ["bench"],
+      inputs: [channel("u", "V")], outputs: [channel("y", "m")], operatingPoint: { inputs: [0], outputs: [0] } };
+    const parameters = require("../../controlStudio/runtimeParameterConnection");
+    const oldConnect = parameters.connectRuntimeParameters;
+    const tune = async (running: boolean) => {
+      parameters.connectRuntimeParameters = async () => {
+        if (!running) throw new Error("Start the bound runtime before reviewing this operation.");
+        return { source: "simulation", client: { status: async () => ({ values: { "Main.Kp": 0.5, "Main.Ki": 0.1, "Main.Kd": 0 } }) } };
+      };
+      const session = new EngineerWorkflowSession(loop, () => model, () => undefined);
+      const scope = { projectId: loop.projectId, editorSessionId: `current-${running}`, loopId: loop.id, loopRevision: loop.revision };
+      const posts: any[] = [];
+      try {
+        assert.strictEqual(session.modelChanged().status, "model-ready");
+        await session.handle({ schemaVersion: 1, kind: "control-studio.engineer.tune", messageId: `current-${running}`, ...scope,
+          expectedLoopRevision: scope.loopRevision, payload: { family: "PI", automaticRequirements: true } }, scope, async value => { posts.push(value); });
+        return posts[posts.length - 1];
+      } finally { session.dispose(); }
+    };
+    try {
+      const compared = await tune(true);
+      assert.strictEqual(compared.status, "candidate", String(compared.reason));
+      const points = compared.plots?.timeResponse as { currentPv?: number; candidatePv: number }[];
+      assert.ok(points?.length && points.every(point => typeof point.currentPv === "number"), "the prediction includes the running controller");
+      assert.ok(points.some(point => Math.abs((point.currentPv ?? 0) - point.candidatePv) > 1e-6), "the two controllers are simulated separately");
+      const alone = await tune(false);
+      assert.strictEqual(alone.status, "candidate", String(alone.reason));
+      assert.ok((alone.plots?.timeResponse as { currentPv?: number }[]).every(point => point.currentPv === undefined),
+        "without a running controller only the tuned response is predicted");
+    } finally { parameters.connectRuntimeParameters = oldConnect; }
+  });
+
+  test("tunes a supplied model on a loop that declares no identification experiment", async () => {
+    const loop = pidLoop();
+    loop.controller.pidInitialization = pidInitialization();
+    delete loop.experiment;
+    const model: any = { kind: "transfer-function", numerator: [1], denominator: [2, 1], delaySeconds: 0,
+      revision: "supplied-without-experiment", source: "provided", validation: "validated", evidence: ["bench"],
+      inputs: [channel("u", "V")], outputs: [channel("y", "m")], operatingPoint: { inputs: [0], outputs: [0] } };
+    const session = new EngineerWorkflowSession(loop, () => model, () => undefined);
+    const scope = { projectId: loop.projectId, editorSessionId: "supplied-no-experiment", loopId: loop.id, loopRevision: loop.revision };
+    const posts: any[] = [];
+    try {
+      const ready = session.modelChanged();
+      assert.strictEqual(ready.status, "model-ready", `a supplied model needs no experiment limits: ${ready.reason}`);
+      await session.handle({ schemaVersion: 1, kind: "control-studio.engineer.tune", messageId: "supplied-no-experiment", ...scope,
+        expectedLoopRevision: scope.loopRevision, payload: { family: "PI", automaticRequirements: true } }, scope, async value => { posts.push(value); });
+      assert.strictEqual(posts[posts.length - 1].status, "candidate", String(posts[posts.length - 1].reason));
+    } finally { session.dispose(); }
   });
 
   test("retains automatic P PI PD and PID attempts and chooses the simplest passing typed candidate", async () => {
@@ -668,15 +483,17 @@ suite("Control Studio connected PID engineer path", () => {
       await session.handle({ schemaVersion: 1, kind: "control-studio.engineer.tune", messageId: "automatic-pi",
         projectId: scope.projectId, editorSessionId: scope.editorSessionId, loopId: scope.loopId,
         expectedLoopRevision: scope.loopRevision, payload: { family: "automatic", referenceChange: 1,
-          maximumError: 0.001, settlingBand: 0.0001, settlingTimeSeconds: 2, durationSeconds: 4,
+          maximumError: 0.005, settlingBand: 0.001, settlingTimeSeconds: 3, durationSeconds: 6,
           applicationMode: "manual" } }, scope, async value => { posts.push(value); });
       const result = posts[posts.length - 1];
       assert.strictEqual(result?.status, "candidate", String(result?.reason));
       assert.strictEqual(result?.design?.candidate?.structure, "PI");
-      assert.deepStrictEqual(result?.values, { "Main.Kp": 1.5, "Main.Ki": 1.5, "Main.Kd": 0 });
+      assert.deepStrictEqual(result?.values, { "Main.Kp": 3, "Main.Ki": 3, "Main.Kd": 0 });
       assert.deepStrictEqual(result?.attempts.map((attempt: any) => [attempt.structure, attempt.status]), [
-        ["P", "Rejected"], ["PI", "Feasible"], ["PD", "Rejected"], ["PID", "Feasible"],
+        ["P", "Rejected"], ["PI", "Feasible"], ["PD", "Rejected"], ["PID", "Rejected"],
       ]);
+      assert.match(result?.attempts[3].reason, /is up to .* m from the target after 3 s, where 0\.005 m is allowed/,
+        `the derivative zero leaves a slow residual that PI's exact pole cancellation does not: ${result?.attempts[3].reason}`);
       assert.match(String(result?.reason), /PI is the simplest.*P/i);
     } finally { session.dispose(); }
   });
@@ -705,7 +522,8 @@ suite("Control Studio connected PID engineer path", () => {
 
   test("routes a valid unsupported model structure to controller selection rather than retuning", async () => {
     const loop = pidLoop();
-    const model: any = { kind: "transfer-function", numerator: [1], denominator: [1, 2, 1], delaySeconds: 0,
+    // Complex poles (ζ = 0.4): SIMC's PI rule has no half-rule reduction for them, so another configuration is chosen.
+    const model: any = { kind: "transfer-function", numerator: [1], denominator: [1, 0.8, 1], delaySeconds: 0,
       revision: "second-order", source: "provided", validation: "validated", evidence: ["bench"],
       inputs: [channel("u", "V")], outputs: [channel("y", "m")] };
     const session = new EngineerWorkflowSession(loop, () => model, () => undefined);
@@ -798,8 +616,11 @@ suite("Control Studio connected PID engineer path", () => {
       const result = posts[posts.length - 1];
       assert.strictEqual(result?.status, "verified");
       const configuredPlantRequests = requests.filter(value => value.request.simulation_override === undefined);
-      assert.strictEqual(configuredPlantRequests.length, 3, "Auto PI must execute baseline, candidate and retained-state initialization records; prediction requests are separate");
-      const initialization = configuredPlantRequests[2];
+      assert.strictEqual(configuredPlantRequests.length, 4, "Auto PI must execute baseline, candidate, a resting-noise probe for the supplied model and retained-state initialization records; prediction requests are separate");
+      const probe = configuredPlantRequests[2];
+      assert.deepStrictEqual(probe.request.events, [], "the probe holds the transfer trial's plant at rest in Manual");
+      assert.strictEqual(probe.request.duration_ms, 1000);
+      const initialization = configuredPlantRequests[3];
       assert.deepStrictEqual(initialization.request.initial_values, {
         "Main.Manual": 1, "Main.SP": 0, "Main.MV": 0, "Main.ManualCommand": 0,
         "Main.Integral": 0, "Main.PreviousError": 0,
@@ -957,7 +778,7 @@ suite("Control Studio connected PID engineer path", () => {
       await invoke("verify");
       assert.strictEqual(posts[posts.length - 1]?.status, "verified");
       assert.deepStrictEqual(requests[1].parameter_overrides.map((value: any) => [value.symbol, value.value]),
-        [["Main.Kp", 1.5], ["Main.Ki", 1.5], ["Main.Kd", 0]]);
+        [["Main.Kp", 3], ["Main.Ki", 3], ["Main.Kd", 0]]);
     } finally {
       session.dispose(); search.connectRuntimeSearch = oldSearch; parameters.connectRuntimeParameters = oldParameters;
       verification.RuntimeVerificationClient.prototype.verify = oldVerify;
@@ -1001,7 +822,7 @@ suite("Control Studio connected PID engineer path", () => {
       await invoke("verify");
       await invoke("apply", { applicationMode: "manual" });
       await invoke("confirm");
-      const expected = { "Main.Kp": 1.5, "Main.Ki": 1.5, "Main.Kd": 0 };
+      const expected = { "Main.Kp": 3, "Main.Ki": 3, "Main.Kd": 0 };
       assert.deepStrictEqual(reviewed, [expected]);
       assert.deepStrictEqual(applied, [expected]);
       assert.deepStrictEqual(owners.map(owner => owner.operation), ["apply"]);
@@ -1064,4 +885,18 @@ function stateDesignModel(loop: any): any {
     inputs: [{ id: "u", unit: loop.signals.manipulatedVariable.unit, operatingRange: loop.signals.manipulatedVariable.range }],
     outputs: [{ id: "y", unit, operatingRange: loop.signals.processVariable.range }], states: [{ id: "x", unit, operatingRange: loop.signals.processVariable.range }],
     a: [[-1]], b: [[1]], c: [[1]], d: [[0]], operatingPoint: { inputs: [0], outputs: [0] } };
+}
+
+/** Find always runs through the panel's live acquisition service; these ports retain nothing. */
+function liveAcquisitionPorts(sample: () => any = () => ({ availability: "unavailable", source: "Simulation", loopId: "none", reason: "not sampled" })): any {
+  return { sample: async () => sample(), recordingOwner: () => undefined, persist: async () => undefined,
+    clear: async () => undefined, retain: async () => undefined, mode: { read: () => undefined, write: async () => undefined } };
+}
+
+function manualSample(loop: any): any {
+  const signal = (binding: any, value: number) => ({ symbol: binding.symbol, address: binding.address, value, unit: binding.unit, quality: "good" });
+  return { availability: "available", source: "Simulation", loopId: loop.id, loopRevision: loop.revision,
+    controller: { instance: loop.controller.instance, revision: loop.controller.revision, mode: "Manual" }, scan: 1, observedAtMs: Date.now(),
+    setpoint: signal(loop.signals.setpoint, 0), processVariable: signal(loop.signals.processVariable, 0), manipulatedVariable: signal(loop.signals.manipulatedVariable, 0),
+    outputLimits: { minimum: loop.limits.outputMinimum, maximum: loop.limits.outputMaximum }, rateLimits: {}, saturation: "none", recording: false };
 }

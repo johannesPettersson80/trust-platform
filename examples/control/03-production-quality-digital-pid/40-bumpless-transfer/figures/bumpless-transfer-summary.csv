@@ -1,7 +1,0 @@
-transition,last_applied_percent,first_request_percent,output_step_pp,decision
-tracked external to Auto,60.0,60.000000000000,0.000000000000,accept aligned controller state
-untracked external to Auto,60.0,40.000000000000,20.000000000000,reject stale controller state
-unaligned Auto to Manual,40.0,10.000000000000,30.000000000000,reject unrelated manual command
-aligned Auto to Manual,40.0,40.000000000000,0.000000000000,accept external station alignment
-stale tracking boundary,60.0,40.000000000000,20.000000000000,infeasible because applied-output evidence is stale
-post-transition recovery,,6.266170937976,,finite bounded pressure recovery

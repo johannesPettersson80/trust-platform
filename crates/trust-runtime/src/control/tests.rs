@@ -26,6 +26,7 @@ include!("tests/control_studio_recording.rs");
 
 include!("tests/control_studio_parameters.rs");
 include!("tests/control_studio_transfer.rs");
+include!("tests/control_studio_transfer_formulas.rs");
 
 #[cfg(target_os = "linux")]
 include!("tests/control_studio_search.rs");

@@ -3,7 +3,7 @@
 Part of [the course specification](../control-course-teaching-specification.md).
 These are the explanations to use in the mapped lessons.
 
-## 44. Laplace transforms
+## 48. Laplace transforms
 
 A **Laplace transform** converts a time-dependent signal into another
 representation in which differential equations can be handled algebraically.
@@ -44,7 +44,7 @@ included when comparing with the delayed plant.
 
 Next we learn how features of these expressions explain decay and oscillation.
 
-## 45. Poles and zeros
+## 49. Poles and zeros
 
 **Poles and zeros** are values of the transform variable that reveal important
 features of a model's input-output response.
@@ -80,7 +80,7 @@ In Control Studio we compare these predictions with heater decay and shaft
 motion. A cancelled transfer-function factor may still correspond to internal
 dynamics, so next we derive the complete characteristic equation.
 
-## 46. Characteristic equations
+## 50. Characteristic equations
 
 A **characteristic equation** determines the natural modes of a complete
 linear dynamic system. Its roots tell us which exponential rates can occur
@@ -115,7 +115,7 @@ must remain in the connected equations.
 
 Next we examine how those roots move when a gain changes.
 
-## 47. Root locus
+## 51. Root locus
 
 We need **a way to choose the proportional gain so the shaft reaches its
 target quickly enough without excessive overshoot**.
@@ -187,7 +187,7 @@ controller numerator. The project and design workflow must be aligned and
 visually verified before this lesson is described as runnable. This gap does
 not authorize replacing the intended plot exercise with calculations in ST.
 
-## 48. Routh–Hurwitz stability
+## 52. Routh–Hurwitz stability
 
 **The problem:** root locus checked selected gains. We need to establish the
 complete stable range, including boundaries between those selected gains.
@@ -250,7 +250,7 @@ saturation and sampling are outside the continuous linear proof.
 the boundary is excluded. The next lesson asks how a stable system responds to
 continuing periodic commands or disturbances.
 
-## 49. Periodic excitation
+## 53. Periodic excitation
 
 **Periodic excitation** repeatedly changes a process input at a known rate.
 We use it to investigate how the process responds to changes of different frequencies.
@@ -282,7 +282,7 @@ In Control Studio we apply the bounded input at several frequencies,
 record actual command and temperature, and select settled cycles.
 Next we calculate their amplitude ratio and phase difference.
 
-## 50. Frequency response
+## 54. Frequency response
 
 **Frequency response** describes how a linear system changes the amplitude
 and phase of sinusoidal inputs at different frequencies.
@@ -319,7 +319,7 @@ In Control Studio we measure the previous lesson's cycles and compare them
 with this prediction. Next we determine how feedback changes disturbance
 and measurement-noise responses.
 
-## 51. Sensitivity functions
+## 55. Sensitivity functions
 
 **Sensitivity functions** describe how feedback transmits or suppresses
 different disturbances and inputs.
@@ -355,7 +355,7 @@ In Control Studio we inject physical load and measurement noise separately,
 then inspect physical temperature, measured temperature and command.
 Next we change controller dynamics deliberately to address a chosen tradeoff.
 
-## 52. Loop shaping
+## 56. Loop shaping
 
 **Loop shaping** designs controller dynamics to obtain useful gain and phase
 behavior across frequencies.
@@ -384,11 +384,14 @@ noise-driven actuator movement.
 The complete loop becomes $L=CFG$, so we must recalculate the whole response,
 not judge $F$ alone. The frequency where $|L|=1$ can move too.
 
-In Control Studio we compare the baseline and compensation on the same
-target, disturbance and noise cases. The next lesson checks the complete
+In Control Studio the student designs the lead with **Lead/lag design** on the
+supplied model of the PI loop (`pi-loop-model.json`, $0.2\,e^{-s}/s$): a crossover
+of 0.4082 rad/s and 11.54° of phase give $T_z = 3$ s and $T_p = 2$ s, which the
+program applies at unit gain. The project test then compares the PI alone and the
+3 s and 10 s leads on the same target, disturbance and noise cases. The next lesson checks the complete
 loop's stability rather than relying on improvement at one frequency.
 
-## 53. Nyquist stability
+## 57. Nyquist stability
 
 The Nyquist stability criterion is a mathematical test for whether a feedback loop is stable. A stable loop makes small disturbances die away; an unstable loop can make them grow into increasing oscillations.
 
@@ -417,7 +420,65 @@ For closed-loop stability, we need $Z=0$ and no poles on the stability boundary.
 
 We use it to check whether a proposed controller remains stable with the plant’s dynamics and delay—before trusting that controller on the process.
 
-## 54. Sampled-data stability
+## 58. Robustness margins
+
+**Robustness margins** measure how far the loop's frequency curve $L(j\omega)$
+stays from the critical point −1, each as the size of a model error the loop
+tolerates:
+
+- the **gain margin** GM is the factor by which the loop gain can grow before
+  the curve passes −1: $GM=1/|L(j\omega_{180})|$ at the frequency where its angle
+  is −180°;
+- the **phase margin** PM is the angle between the curve and −1 where $|L|=1$,
+  at the crossover frequency $\omega_c$;
+- the **delay margin** $DM=PM/\omega_c$ (PM in radians) is the extra delay that
+  turns the crossover point onto −1;
+- the **peak sensitivity** $M_s$ is one over the curve's shortest distance to −1;
+  it bounds the other two: $GM\ge M_s/(M_s-1)$ and $PM\ge 2\arcsin(1/(2M_s))$.
+
+With SIMC's PI on the heater, $T_i=\tau$ and the controller's zero cancels the
+heater's lag, so $L(s)=a\,e^{-Ls}/s$ with $a=KK_p/\tau=1/(\lambda+L)$. Then
+$GM=\pi/(2aL)$, $PM=\pi/2-aL$ and $DM=\pi/(2a)-L$: a slower response buys margin.
+For Lesson 22's balanced PI these are about 6.9 (16.8 dB), 77° and 5.9 s.
+Control Studio shows the four margins beside every candidate. Validation on
+deliberately mismatched plants confirms their meaning: the heater with three
+times the gain and with 4 s more delay stays stable; with eight times the gain
+or 7 s more delay, beyond the margins, it oscillates with growing amplitude.
+
+A mechanical resonance can raise the loop gain near crossover and consume the
+gain margin that a rigid model promised.
+
+## 59. Mechanical resonance
+
+A load turned through a flexible coupling adds a **resonance** to the drum axis:
+the load angle follows the motor angle through
+$\omega_r^2/(s^2+2\zeta\omega_r s+\omega_r^2)$, with the **natural frequency**
+$\omega_r$ and the **damping ratio** ζ. At $\omega_r$ this factor has size
+$1/(2\zeta)$ and angle −90°, and above it the angle approaches −180°. With the
+encoder on the load, the resonance multiplies the loop gain there by $1/(2\zeta)$.
+
+The simulated axis resonates at 3 Hz with ζ = 0.05. A multisine torque of seven
+1 N·m tones, each a whole number of periods in 2 s, gives its measured frequency
+response in one recording: at 3 Hz the gain is 10 times the rigid model
+$1/(s(Js+B))$, which identifies ζ = 1/(2·10). Lesson 42's PID has loop gain
+0.386 there on the rigid axis; the resonance lifts it to 3.86 where the loop's
+angle passes −180°, so the gain margin is below 1 and the loop grows into a 3 Hz
+oscillation.
+
+A **notch filter** $N(s)=(s^2+\omega_n^2)/(s^2+(\omega_n/Q)s+\omega_n^2)$ on the
+measurement has gain 0 at $\omega_n$ and 1 at steady state; the **quality factor**
+Q sets its width $\omega_n/Q$. It must attenuate everywhere the resonance lifts
+the loop gain above 1, and a wider notch adds more phase lag at crossover: at the
+rigid loop's crossover, 7.33 rad/s, 24.6° with Q = 1 and 8.7° with Q = 3. The
+program realizes the notch as a digital biquad whose coefficients follow from the
+frequency and Q. Control Studio searches the declared frequencies 0 (off), 2, 3
+and 4 Hz with Q = 1 and 3 on the actual ST: only the 3 Hz, Q = 1 notch meets the
+step requirements; without it, at the wrong frequency or too narrow, the loop
+oscillates. The notched loop is validated and applied.
+
+The continuous design must survive sampling and computation delay.
+
+## 60. Sampled-data stability
 
 **Sampled-data stability** concerns a system whose physical process moves
 continuously while its controller measures and updates at separate times.

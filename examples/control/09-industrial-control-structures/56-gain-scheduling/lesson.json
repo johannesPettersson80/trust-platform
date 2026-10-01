@@ -2,429 +2,287 @@
   "schemaVersion": 4,
   "id": "control-gain-scheduling",
   "title": "Gain scheduling",
-  "level": "Advanced",
-  "sequence": 43,
-  "equipment": "vented water tank",
-  "physicalPurpose": "Hold liquid level consistently while gravity outflow changes plant dynamics across the operating range.",
-  "principalTechnique": "Gain scheduling",
-  "objective": "Switch validated gains across operating points without bumps or chatter.",
+  "level": "Practitioner",
+  "sequence": 47,
+  "equipment": "Six identical gravity-drained tanks of Lesson 45 under fixed and scheduled Control.PID level loops",
+  "physicalPurpose": "Keep the same level response across the working range of a gravity tank by adapting the controller gains to the measured level.",
+  "principalTechnique": "Gain scheduling from the local model: Kp = A/λ, Ki(h) = c/(2λ√h)",
+  "objective": "Calculate scheduled PI settings from the local tank model, change the integral gain while Control.PID runs without disturbing its retained request, and compare fixed and scheduled gains at 0.09, 0.25 and 0.49 m in Control Studio against a declared response requirement.",
   "prerequisites": [
     "control-lesson-17"
   ],
   "nextLesson": "control-lesson-18",
   "signals": [
     {
-      "role": "state",
-      "name": "Experiment authority",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX89.2"
-    },
-    {
-      "role": "quality",
-      "name": "Scheduling availability",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX89.1"
-    },
-    {
-      "role": "SP",
-      "name": "Requested liquid level",
-      "unit": "m",
-      "minimum": 0.05,
-      "maximum": 0.45,
-      "resolution": 0.001,
-      "binding": "%ML216"
-    },
-    {
-      "role": "state",
-      "name": "Filtered scheduling level",
-      "unit": "m",
-      "minimum": 0.05,
-      "maximum": 0.45,
-      "resolution": 0.001,
-      "binding": "%ML224"
-    },
-    {
-      "role": "state",
-      "name": "Interpolation fraction",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 0.001,
-      "binding": "%ML232"
-    },
-    {
-      "role": "state",
-      "name": "Active proportional gain",
-      "unit": "(m3/s)/m",
-      "minimum": 0.099,
-      "maximum": 0.101,
-      "resolution": 0.001,
-      "binding": "%ML240"
-    },
-    {
-      "role": "state",
-      "name": "Active integral gain",
-      "unit": "(m3/s)/(m*s)",
-      "minimum": 0.0028,
-      "maximum": 0.0025,
-      "resolution": 1e-05,
-      "binding": "%ML248"
-    },
-    {
-      "role": "state",
-      "name": "Parallel active region",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 2,
-      "resolution": 1,
-      "binding": "%ML256"
-    },
-    {
-      "role": "state",
-      "name": "Parallel region-transition count",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 4,
-      "resolution": 1,
-      "binding": "%ML264"
-    },
-    {
       "role": "PV",
-      "name": "Fixed-PI liquid level",
+      "name": "Mid-level scheduled tank level",
       "unit": "m",
-      "minimum": 0.05,
-      "maximum": 0.45,
-      "resolution": 0.001,
-      "binding": "%IL136"
-    },
-    {
-      "role": "state",
-      "name": "Interpolated-PI liquid level",
-      "unit": "m",
-      "minimum": 0.05,
-      "maximum": 0.45,
-      "resolution": 0.001,
-      "binding": "%IL144"
-    },
-    {
-      "role": "state",
-      "name": "Parallel-PI liquid level",
-      "unit": "m",
-      "minimum": 0.05,
-      "maximum": 0.45,
-      "resolution": 0.001,
-      "binding": "%IL152"
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 0.0001,
+      "binding": "%IL24"
     },
     {
       "role": "MV",
-      "name": "Fixed-PI pump-flow request",
-      "unit": "m3/s",
+      "name": "Mid-level scheduled inflow",
+      "unit": "m³/s",
       "minimum": 0,
-      "maximum": 0.06,
-      "resolution": 1e-05,
-      "binding": "%QL152"
+      "maximum": 0.02,
+      "resolution": 0.0001,
+      "binding": "%QL24"
     },
     {
       "role": "state",
-      "name": "Interpolated-PI pump-flow request",
-      "unit": "m3/s",
-      "minimum": 0,
-      "maximum": 0.06,
-      "resolution": 1e-05,
-      "binding": "%QL160"
+      "name": "LowFixedChangeM",
+      "unit": "m",
+      "minimum": -0.1,
+      "maximum": 0.1,
+      "resolution": 0.0001,
+      "binding": "%ML0"
     },
     {
       "role": "state",
-      "name": "Parallel-PI pump-flow request",
-      "unit": "m3/s",
+      "name": "MidFixedChangeM",
+      "unit": "m",
+      "minimum": -0.1,
+      "maximum": 0.1,
+      "resolution": 0.0001,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "HighFixedChangeM",
+      "unit": "m",
+      "minimum": -0.1,
+      "maximum": 0.1,
+      "resolution": 0.0001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "LowScheduledChangeM",
+      "unit": "m",
+      "minimum": -0.1,
+      "maximum": 0.1,
+      "resolution": 0.0001,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "MidScheduledChangeM",
+      "unit": "m",
+      "minimum": -0.1,
+      "maximum": 0.1,
+      "resolution": 0.0001,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "HighScheduledChangeM",
+      "unit": "m",
+      "minimum": -0.1,
+      "maximum": 0.1,
+      "resolution": 0.0001,
+      "binding": "%ML40"
+    },
+    {
+      "role": "state",
+      "name": "LowScheduledKi",
+      "unit": "m²/s²",
       "minimum": 0,
-      "maximum": 0.06,
-      "resolution": 1e-05,
-      "binding": "%QL168"
+      "maximum": 0.01,
+      "resolution": 1e-06,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "MidScheduledKi",
+      "unit": "m²/s²",
+      "minimum": 0,
+      "maximum": 0.01,
+      "resolution": 1e-06,
+      "binding": "%ML56"
+    },
+    {
+      "role": "state",
+      "name": "HighScheduledKi",
+      "unit": "m²/s²",
+      "minimum": 0,
+      "maximum": 0.01,
+      "resolution": 1e-06,
+      "binding": "%ML64"
+    },
+    {
+      "role": "state",
+      "name": "ExperimentEnabled",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX72.0"
     }
   ],
   "plant": {
-    "modelId": "three_equivalent_nonlinear_gravity_tanks",
+    "modelId": "six-gravity-tanks",
     "executable": "simulation.toml",
     "parameters": [
       {
         "name": "tank_area",
         "value": 0.5,
-        "unit": "m2"
+        "unit": "m²"
       },
       {
         "name": "outlet_coefficient",
         "value": 0.02,
-        "unit": "m2*sqrt(m)/s"
+        "unit": "m^(5/2)/s"
       },
       {
-        "name": "pump_minimum",
-        "value": 0,
-        "unit": "m3/s"
+        "name": "low_level",
+        "value": 0.09,
+        "unit": "m"
       },
       {
-        "name": "pump_maximum",
-        "value": 0.02,
-        "unit": "m3/s"
+        "name": "mid_level",
+        "value": 0.25,
+        "unit": "m"
       },
       {
-        "name": "level_noise_standard_deviation",
+        "name": "high_level",
+        "value": 0.49,
+        "unit": "m"
+      },
+      {
+        "name": "level_noise_bound",
         "value": 0.0005,
         "unit": "m"
       }
     ],
     "sampleTimeSeconds": 1,
     "initialState": {
-      "levelMetres": 0.16,
-      "pumpFlowCubicMetresPerSecond": 0.008
+      "lowLevelM": 0.09,
+      "midLevelM": 0.25,
+      "highLevelM": 0.49
     },
     "seed": 20260829,
     "operatingPoint": {
-      "Requested liquid level": 0.16,
-      "Fixed-PI liquid level": 0.16,
-      "Interpolated-PI liquid level": 0.25,
-      "Parallel-PI liquid level": 0.36,
-      "Fixed-PI pump-flow request": 0.008,
-      "Interpolated-PI pump-flow request": 0.010,
-      "Parallel-PI pump-flow request": 0.012
+      "Mid-level scheduled tank level": 0.25,
+      "Mid-level scheduled inflow": 0.01
     },
     "validityRange": [
       {
-        "signal": "Requested liquid level",
-        "minimum": 0.05,
-        "maximum": 0.45,
-        "unit": "m"
-      },
-      {
-        "signal": "Fixed-PI liquid level",
-        "minimum": 0.05,
-        "maximum": 0.45,
-        "unit": "m"
-      },
-      {
-        "signal": "Interpolated-PI liquid level",
-        "minimum": 0.05,
-        "maximum": 0.45,
-        "unit": "m"
-      },
-      {
-        "signal": "Parallel-PI liquid level",
-        "minimum": 0.05,
-        "maximum": 0.45,
+        "signal": "Mid-level scheduled tank level",
+        "minimum": 0,
+        "maximum": 1,
         "unit": "m"
       }
     ],
     "simplifications": [
-      "One well-mixed vertical tank with constant area and a fixed gravity outlet",
-      "Ideal pump flow equals the bounded controller request; pump dynamics are deferred",
-      "Local first-order models are valid only near their identified equilibrium levels",
-      "Three equivalent simulated tanks isolate controller architecture",
-      "Simulation-only I/O and evidence; no physical tank is operated"
+      "Identical open tanks draining through fixed openings, q_out = c·√h.",
+      "Uniform level-sensor noise of at most ±0.0005 m; simulation only."
     ]
   },
   "baseline": {
-    "executableId": "GravityTank.FixedHighLevelPI",
+    "executableId": "P1",
     "settings": {
-      "proportionalGain": 0.05,
-      "integralGain": 0.002
+      "fixed": "Kp 0.05, Ki 0.002 (λ = 10 s at 0.25 m)"
     },
-    "limitation": "The conservative high-level integral gain is unnecessarily slow in the low-level region."
+    "limitation": "One integral gain for the whole 0.09–0.49 m range."
   },
   "change": {
-    "executableId": "GravityTank.InterpolatedAndParallelSchedules",
+    "executableId": "P1",
     "settings": {
-      "levelsMetres": [
-        0.16,
-        0.25,
-        0.36
-      ],
-      "proportionalGains": [
-        0.05,
-        0.05,
-        0.05
-      ],
-      "integralGains": [
-        0.0025,
-        0.002,
-        0.0016666667
-      ],
-      "filterSeconds": 2,
-      "hysteresisHalfBandMetres": 0.01
+      "scheduled": "Kp 0.05, Ki = 0.020/(20·√h)",
+      "requirement": "within 0.002 m of a 0.02 m step after 30 s at 0.09, 0.25 and 0.49 m",
+      "durationSeconds": 62.1
     },
-    "decision": "Accept scheduling only when every local model is qualified, constraints remain common, regional performance improves, and both transition architectures are bumpless."
+    "decision": "Fixed gains fail at 0.09 m (48 s); the scheduled loop meets the requirement at all three levels in 23–24 s, so it is adopted for 0.09–0.49 m."
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Experiment authority",
+    "signal": "ExperimentEnabled",
     "baseline": 0,
     "amplitude": 0,
-    "durationSeconds": 420.1,
-    "settlingSeconds": 30,
+    "durationSeconds": 62.1,
+    "settlingSeconds": 0,
     "disturbances": [
-      "Request 0.55 m at 30 s",
-      "Request 0.80 m at 120 s",
-      "Request 0.55 m at 240 s",
-      "Request 0.30 m at 330 s",
-      "Use separate restored boundary holds to test sensor-noise chatter"
+      "Setpoint +0.02 m in all six tanks",
+      "Uniform level noise bounded by ±0.0005 m"
     ],
     "seed": 20260829,
-    "restorationValue": 0,
-    "activationSignal": "P1.ExperimentEnabled"
+    "restorationValue": 0
   },
   "acceptance": [
     {
-      "metric": "interpolated_worst_regional_iae",
-      "signal": "Interpolated-PI liquid level",
-      "window": "worst of four commanded regions from 30 through 420 s",
-      "comparator": "<",
-      "limit": 3.1,
-      "unit": "m*s",
-      "tolerance": 0.0001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "parallel_worst_regional_iae",
-      "signal": "Parallel-PI liquid level",
-      "window": "worst of four commanded regions from 30 through 420 s",
-      "comparator": "<",
-      "limit": 3.1,
-      "unit": "m*s",
-      "tolerance": 0.0001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "parallel_transition_count",
-      "signal": "Parallel region-transition count",
-      "window": "complete 420-s sequence",
-      "comparator": "==",
-      "limit": 4,
-      "unit": "1",
+      "metric": "scheduled_settling",
+      "signal": "LowScheduledChangeM",
+      "window": "30 s after the step",
+      "comparator": "<=",
+      "limit": 0.002,
+      "unit": "m",
       "tolerance": 0,
       "evidenceClass": "simulation"
     },
     {
-      "metric": "parallel_transition_pump_step",
-      "signal": "Parallel-PI pump-flow request",
-      "window": "adjacent samples at each region transition",
-      "comparator": "<=",
-      "limit": 0.0005,
-      "unit": "m3/s",
-      "tolerance": 1e-06,
+      "metric": "fixed_low_settling",
+      "signal": "LowFixedChangeM",
+      "window": "30 s after the step",
+      "comparator": ">",
+      "limit": 0.002,
+      "unit": "m",
+      "tolerance": 0,
       "evidenceClass": "simulation"
     }
   ],
   "safety": {
     "hardLimits": [
       {
-        "signal": "Fixed-PI liquid level",
-        "minimum": 0.2,
-        "maximum": 0.9,
+        "signal": "Mid-level scheduled tank level",
+        "minimum": 0,
+        "maximum": 1,
         "unit": "m"
       },
       {
-        "signal": "Interpolated-PI liquid level",
-        "minimum": 0.2,
-        "maximum": 0.9,
-        "unit": "m"
-      },
-      {
-        "signal": "Parallel-PI liquid level",
-        "minimum": 0.2,
-        "maximum": 0.9,
-        "unit": "m"
-      },
-      {
-        "signal": "Fixed-PI pump-flow request",
+        "signal": "Mid-level scheduled inflow",
         "minimum": 0,
-        "maximum": 0.06,
-        "unit": "m3/s"
-      },
-      {
-        "signal": "Interpolated-PI pump-flow request",
-        "minimum": 0,
-        "maximum": 0.06,
-        "unit": "m3/s"
-      },
-      {
-        "signal": "Parallel-PI pump-flow request",
-        "minimum": 0,
-        "maximum": 0.06,
-        "unit": "m3/s"
+        "maximum": 0.02,
+        "unit": "m³/s"
       }
     ],
     "abortPredicates": [
-      "Any required signal is nonfinite, stale, forced, or invalid",
-      "A tank level leaves 0.20 through 0.90 m",
-      "A pump request leaves 0 through 0.060 m3/s",
-      "The schedule is invalid or clamped during an accepted run",
-      "Parallel selection chatters or exceeds the transition count",
-      "An inactive controller does not track selected pump flow",
-      "Restoration fails"
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
     ],
-    "safeMv": 0,
-    "restorationMode": "Remove scheduling authority, track every controller to zero pump flow, restore the simulated tank, then requalify models and scheduling data.",
-    "physicalApprovalRole": "authorised process-control engineer and responsible tank-system owner",
+    "safeMv": 0.01,
+    "restorationMode": "The experiment's end returns every setpoint to its starting level.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
     "simulationOnlyRestrictions": [
-      "No physical pump or tank is operated",
-      "Simulation model truth is not identified-model or physical-plant evidence",
-      "Physical commissioning requires reviewed topology, protections, limits, restoration and explicit approval"
+      "This lesson cannot authorise physical gain changes",
+      "Physical use requires independent range, overflow, interlock and approval review"
     ]
   },
   "workflowStages": [
-    "Monitor",
-    "Test"
+    "Identify"
   ],
   "proof": {
-    "specification": "docs/specs/38-control-engineering-curriculum.md#77-industrial-control-structures",
-    "nativeTest": "TEST_PROGRAM::Lesson56ScheduleAndAbortAuthorityFollowTheDerivedTankModel",
-    "nativeCommand": "target/debug/trust-dev test --project examples/control/09-industrial-control-structures/56-gain-scheduling --filter TEST_PROGRAM::Lesson56ScheduleAndAbortAuthorityFollowTheDerivedTankModel --timeout 20",
+    "specification": "docs/specs/control-course-teaching-specification.md",
+    "nativeTest": "lesson43",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_43_45 lesson43",
     "projectPath": "examples/control/09-industrial-control-structures/56-gain-scheduling",
     "runArtifactFields": [
-      "projectIdentity",
-      "plantIdentities",
-      "controllerIdentities",
-      "evidenceClass",
-      "sampleTime",
-      "seed",
-      "requestedLevel",
-      "measuredLevels",
-      "pumpRequests",
-      "appliedPumpFlows",
-      "localModels",
-      "modelValidation",
-      "scheduleValidity",
-      "filteredSchedulingLevel",
-      "interpolationFraction",
-      "activeParameters",
-      "parallelRegion",
-      "transitionCount",
-      "limits",
-      "abortState",
-      "restorationState",
-      "metricDefinitions",
-      "metrics",
-      "settlingQualification"
+      "levelChanges",
+      "scheduledIntegralGains",
+      "inflows",
+      "evidenceClass"
     ],
     "renderedJourneyId": "control-gain-scheduling"
   },
   "video": {
-    "viewerOutcome": "Derive local gravity-tank models, configure two scheduling architectures, and validate regional performance and transitions.",
+    "viewerOutcome": "See the fixed PI lag at the low level while the scheduled PI responds alike at every level.",
     "requiredVisibleEvidence": [
-      "three equivalent nonlinear tanks",
-      "requested and measured levels",
-      "requested and applied pump flows",
-      "three local models",
-      "fixed and scheduled tuning",
-      "filtered scheduling level and interpolation",
-      "parallel region and transitions",
-      "regional response plots",
-      "Simulation label and physical boundary"
+      "six step responses on Identify",
+      "the fixed low-level response lagging at 30 s",
+      "the three scheduled responses coinciding",
+      "Simulation label"
     ],
     "durationClass": "standard",
     "scriptPath": "video/script.md",
@@ -433,23 +291,20 @@
     "publicationState": "not_started"
   },
   "learning": {
-    "context": "Three equivalent vented tanks receive bounded inlet-pump flow and drain through a square-root gravity outlet.",
-    "reason": "Unlike Lesson 57's priority change, control authority remains level regulation while plant gain and time constant change with level.",
+    "context": "In Lesson 46 the tangent at 0.25 m gave the tank a gain of 50 s/m² and a time constant of 25 s, but at 0.5625 m the same tank has 75 s/m² and 37.5 s. Gains tuned from the line at one level meet a different tank at another.\n\nThe tank has to work from 0.09 to 0.49 m. Fixed gains do not fit every level, and retuning by hand at each level is no answer. We will set the gains from the level the tank is at.",
+    "reason": "We need to:\n\n1. calculate the PI gains from the local model at any level;\n2. change them with the measured level while the controller runs; and\n3. check whether the fixed gains really fail somewhere in the working range.",
     "theory": [
-      "Mass conservation and square-root outflow produce operating-point-dependent local first-order dynamics.",
-      "A validated requested operating level schedules one atomic parameter record for a retained PI state.",
-      "Parallel local PIs require hysteresis and external tracking."
+      "**Gain scheduling** changes the controller's settings with the operating level, using what we know about how the tank's behaviour changes with level.\n\n**In words.** Lesson 46 showed that the tank is a different first-order process at every level. At a higher level another centimetre adds less drainage, so the same inflow change moves the level further and more slowly. A controller tuned at one level therefore meets a tank that is more sensitive and slower, or less sensitive and faster, somewhere else. Gain scheduling answers this in three steps:\n\n1. **Keep the aim, not the settings.** The design aim stays the same at every level: the level should follow a change with the same response time. The settings are whatever achieves that aim at the present level.\n2. **Calculate the settings from the local model.** The local model gives the tank's gain and time constant at any level, and Lesson 19's model-based rule turns them into PI gains. Done for the measured level at every update, the gains follow the tank as its level moves.\n3. **Change the gains without a bump.** A gain that changes while the controller runs must not make the inflow jump. `Control.PID` runs the incremental form of Lesson 39, so a new gain scales only the changes that follow.\n\nMany PLC programs already switch parameter sets with the operating range, for example a set per product or per speed band. Gain scheduling does the same smoothly, with the settings calculated from a model instead of chosen from a table.\n\nFor this lesson's tank, which must work from 0.09 to 0.49 m, the calculation will show that only one of the two gains has to change.\n\n**The formula.** Lesson 19's rule for a first-order process without delay sets\n\n$$\nK_p = \\frac{\\tau}{K\\lambda}, \\qquad K_i = \\frac{1}{K\\lambda} .\n$$\n\nWith Lesson 46's local model, $K = 1/g$ and $\\tau = A/g$, where $g = c/(2\\sqrt h)$:\n\n$$\nK_p = \\frac{A/g}{\\lambda/g} = \\frac{A}{\\lambda}, \\qquad K_i(h) = \\frac{g(h)}{\\lambda} = \\frac{c}{2\\lambda\\sqrt h} .\n$$\n\nThe slope cancels in $K_p$, so the proportional gain is the same at every level; only the integral gain has to follow the level.\n\n- $A$ is the tank's floor area, 0.5 m², and $c$ the outlet coefficient, 0.020 m$^{5/2}$/s;\n- $h$ is the measured level, in m;\n- $g(h)$ is the outflow curve's slope at that level, in m²/s;\n- $K$ and $\\tau$ are the local gain, in s/m², and time constant, in s;\n- $\\lambda$ is the chosen response time, in s; and\n- $K_p$ is the proportional gain, in m²/s (inflow in m³/s per metre of error), and $K_i$ the integral gain, in m²/s².\n\n**Example: the tank at 0.16 m and at 1.0 m.** With $\\lambda = 10$ s, follow the numbers:\n\n1. **The proportional gain.** $K_p = 0.5/10 = 0.05$ m²/s at every level: each centimetre of error adds 0.0005 m³/s of inflow at once.\n2. **The local model at 0.16 m.** $g = 0.020/(2 \\times 0.4) = 0.025$ m²/s, so $K = 40$ s/m² and $\\tau = 0.5/0.025 = 20$ s. The rule gives $K_p = 20/(40 \\times 10) = 0.05$ m²/s, as in step 1, and $K_i = 1/(40 \\times 10) = 0.0025$ m²/s², which is $g/\\lambda = 0.025/10$.\n3. **The local model at 1.0 m,** above this lesson's range but where Lesson 45 ran the tank. $g = 0.020/(2 \\times 1) = 0.010$ m²/s, so $K = 100$ s/m² and $\\tau = 50$ s. Again $K_p = 50/(100 \\times 10) = 0.05$ m²/s, but $K_i = 0.010/10 = 0.001$ m²/s².\n4. **Why only $K_i$ changes.** From 0.16 to 1.0 m the tank becomes 2.5 times as sensitive and 2.5 times as slow. The two effects cancel in $K_p$, and $K_i$ falls by the same factor 2.5, from 0.0025 to 0.001 m²/s².\n5. **During a step.** A 0.02 m setpoint step at 0.16 m raises the level towards 0.18 m. The program recalculates $K_i$ from the measured level at every update, and at 0.18 m it is $0.020/(2 \\times 10 \\times \\sqrt{0.18}) = 0.00236$ m²/s². The incremental form takes each new value smoothly.\n\n**Teaching choices:** six equal tanks, a fixed and a scheduled controller at each of 0.09, 0.25 and 0.49 m, all stepped together; the fixed controller uses the 0.25 m design, $K_i = 0.002$ m²/s².\n\n**The limitation.** A schedule is only as good as the model behind it, and it costs a calculation and a test at every level. Where the tank stays near the design level the gain hardly moves: at 0.27 m the schedule gives $0.020/(2 \\times 10 \\times \\sqrt{0.27}) = 0.00193$ m²/s², less than 4 % from 0.002. Scheduling on a measurement also passes its noise into the gain: ±0.0005 m at 0.09 m moves $K_i$ by about $\\tfrac12 \\times 0.0005/0.09 = 0.3$ %, small here but worth checking for a noisier signal."
     ],
-    "workedPrediction": "At 0.30, 0.55 and 0.80 m, equilibrium flows are 0.02739, 0.03708 and 0.04472 m3/s and local time constants are 21.91, 29.66 and 35.78 s.",
+    "workedPrediction": "At each level the setpoint rises by 0.02 m, and the level must be within 0.002 m of the new setpoint 30 s after the step, three response times, and stay there. Before running, answer these questions:\n\n1. What are $K_p$ and $K_i$ at 0.09, 0.25 and 0.49 m?\n2. The fixed controller uses the 0.25 m value everywhere. At which level is it too slow, and why?\n3. What should the scheduled responses look like at the three levels?\n\n| Level | $g = c/(2\\sqrt h)$ | $K_i = g/\\lambda$ |\n| --- | ---: | ---: |\n| 0.09 m | 0.0333 m²/s | 0.00333 m²/s² |\n| 0.25 m | 0.0200 m²/s | 0.00200 m²/s² |\n| 0.49 m | 0.0143 m²/s | 0.00143 m²/s² |\n| every level | $K_p = A/\\lambda$ | 0.05 m²/s |",
     "practicalPreparation": [
-      "Verify Simulation evidence, identities, SI units, model envelope, validity, quality, timing, limits and restoration.",
-      "Define regional IAE, settling, pump travel, transition count and transition-step validity before results."
+      "1. Open this lesson's project and start **Simulator**; the six tanks rest at their levels. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method**. In **Signals**, select the six level changes, from `P1.LowFixedChangeM · state (m)` to `P1.HighScheduledChangeM · state (m)`.\n3. Answer the predictions. Select **Review project test**, check the declared **62.1 s** duration and select **Confirm and start**; the step comes 2 s later.\n4. After the run, hover the curves at 32 s, 30 s after the step.\n5. At completion, Control Studio shows **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early. To repeat, stop and restart **Simulator**."
     ],
     "baseline": "Run the conservative high-level PI through the complete low-middle-high-middle-low sequence.",
     "change": "Use either atomically interpolated local parameters in one PI or hysteretically select three externally tracked local PIs.",
-    "comparison": "Hold nonlinear equations, initial state, requests, constraints, timing, seed and windows equal while changing only controller architecture.",
-    "validation": "Require bounded signals, better worst-region IAE than fixed PI, exactly four parallel transitions, no chatter and no transition step above 0.0005 m3/s.",
-    "explanation": "Square-root outflow changes local dynamics; scheduling matches integral action while atomic updates or tracking preserve continuity.",
-    "transfer": "Lesson 57 continues with Smith predictor."
+    "comparison": "![The fixed gain is too slow at 0.09 m; the scheduled gain meets the requirement at every level](figures/gain-scheduling-recording.svg)\n\nThe numbered marks answer the predictions with the same numbers. From the recording, the level change after the 0.02 m step:\n\n| Level | Fixed $K_i$ = 0.002 | Scheduled $K_i$ |\n| --- | --- | --- |\n| 0.09 m | 0.0168 m at 30 s; within 0.002 m only after 48 s: **fails** | $K_i$ 0.00334 → 0.00301; within 0.002 m after 24 s |\n| 0.25 m | within 0.002 m after 21 s | $K_i$ 0.00200 → 0.00193; after 24 s |\n| 0.49 m | within 0.002 m after 19 s; 0.001 m overshoot | $K_i$ 0.00143 → 0.00140; after 23 s |\n\n1. At rest the scheduled controllers used 0.00334, 0.00200 and 0.00143 m²/s², the predicted values, all with $K_p = 0.05$ m²/s.\n2. The fixed controller was too slow at 0.09 m: still 0.0032 m short after 30 s, and within 0.002 m only after 48 s. There the tank drains faster than the 0.25 m design assumes, so the integral is too small. At 0.49 m the fixed integral is too large, and the level overshot by 0.001 m.\n3. The scheduled responses looked alike at all three levels: within 0.002 m after 23–24 s. Its gain followed the measured level through the step without a jump in the inflow.\n\nScheduling costs one square root per update and a test at every level; the fixed design fails at the low end of the range, so we adopt the scheduled controller for 0.09 to 0.49 m. These are simulation results, not a physical qualification.",
+    "validation": "![The fixed gain is too slow at 0.09 m; the scheduled gain meets the requirement at every level](figures/gain-scheduling-recording.svg)\n\nThe numbered marks answer the predictions with the same numbers. From the recording, the level change after the 0.02 m step:\n\n| Level | Fixed $K_i$ = 0.002 | Scheduled $K_i$ |\n| --- | --- | --- |\n| 0.09 m | 0.0168 m at 30 s; within 0.002 m only after 48 s: **fails** | $K_i$ 0.00334 → 0.00301; within 0.002 m after 24 s |\n| 0.25 m | within 0.002 m after 21 s | $K_i$ 0.00200 → 0.00193; after 24 s |\n| 0.49 m | within 0.002 m after 19 s; 0.001 m overshoot | $K_i$ 0.00143 → 0.00140; after 23 s |\n\n1. At rest the scheduled controllers used 0.00334, 0.00200 and 0.00143 m²/s², the predicted values, all with $K_p = 0.05$ m²/s.\n2. The fixed controller was too slow at 0.09 m: still 0.0032 m short after 30 s, and within 0.002 m only after 48 s. There the tank drains faster than the 0.25 m design assumes, so the integral is too small. At 0.49 m the fixed integral is too large, and the level overshot by 0.001 m.\n3. The scheduled responses looked alike at all three levels: within 0.002 m after 23–24 s. Its gain followed the measured level through the step without a jump in the inflow.\n\nScheduling costs one square root per update and a test at every level; the fixed design fails at the low end of the range, so we adopt the scheduled controller for 0.09 to 0.49 m. These are simulation results, not a physical qualification.",
+    "explanation": "The local model gives the gains for every level: $K_p = A/\\lambda$ stays, and $K_i = c/(2\\lambda\\sqrt h)$ follows the measured level. Because `Control.PID` runs the incremental form, the gain can change while the controller runs.\n\nFor this tank, the fixed 0.25 m design failed at 0.09 m, and the scheduled gains met the requirement at all three levels within 24 s.",
+    "transfer": "Every new plant and controller in this course has meant deriving and solving differential equations again, and that is becoming cumbersome as more parts are connected.\n\n[Laplace transforms](../../01-feedback-foundations-and-temperature-control/18-transfer-function-from-physics/README.md) turn those differential equations into algebra."
   }
 }

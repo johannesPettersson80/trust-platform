@@ -3,7 +3,6 @@ use std::time::Instant;
 
 use smol_str::SmolStr;
 
-use crate::debug::DebugHook;
 use crate::error::RuntimeError;
 use crate::memory::InstanceId;
 use crate::program_model::{BinaryOp, UnaryOp};
@@ -284,13 +283,15 @@ pub(super) fn execute_pou_stack_with_locals(
         }
         super::budget::consume_instruction_budget(budget, 1)?;
 
-        if let Some(location) = vm_statement_location(runtime, module, frame_pou_id, pc) {
-            let storage = &runtime.storage;
-            let current_time = runtime.current_time;
-            if let Some(debug) = runtime.debug.as_mut() {
-                let call_depth = depth_offset.saturating_add(frames.len().saturating_sub(1) as u32);
-                debug.refresh_snapshot_from_storage(storage, current_time);
-                debug.on_statement(Some(&location), call_depth);
+        if runtime.debug.is_some() {
+            if let Some(location) = vm_statement_location(runtime, module, frame_pou_id, pc) {
+                let storage = &runtime.storage;
+                let current_time = runtime.current_time;
+                if let Some(debug) = runtime.debug.as_mut() {
+                    let call_depth =
+                        depth_offset.saturating_add(frames.len().saturating_sub(1) as u32);
+                    debug.on_vm_statement(Some(&location), call_depth, storage, current_time);
+                }
             }
         }
         instruction_count = instruction_count.saturating_add(1);
@@ -386,7 +387,7 @@ pub(super) fn execute_pou_stack_with_locals(
                     .consts
                     .get(const_idx as usize)
                     .cloned()
-                    .ok_or(VmTrap::InvalidConstIndex(const_idx))
+                    .ok_or_else(|| VmTrap::InvalidConstIndex(const_idx))
                     .map_err(VmTrap::into_runtime_error)?;
                 operand_stack
                     .push(value)
@@ -658,14 +659,22 @@ fn should_check_stack_deadline(instruction_count: usize) -> bool {
     instruction_count == 0 || instruction_count.is_multiple_of(STACK_DEADLINE_CHECK_STRIDE)
 }
 
-fn vm_statement_location(
-    runtime: &Runtime,
+/// The statement location that begins at `pc`, resolved once per module and source registration.
+pub(super) fn vm_statement_location(
+    runtime: &mut Runtime,
     module: &VmModule,
     pou_id: u32,
     pc: usize,
 ) -> Option<crate::debug::SourceLocation> {
-    let source = module.debug_map.source_by_pc.get(&(pou_id, pc as u32))?;
-    runtime.resolve_vm_debug_location(source.file.as_str(), source.line, source.column)
+    let key = (pou_id, pc as u32);
+    if let Some(location) = runtime.vm_statement_locations.get(&key) {
+        return *location;
+    }
+    let location = module.debug_map.source_by_pc.get(&key).and_then(|source| {
+        runtime.resolve_vm_debug_location(source.file.as_str(), source.line, source.column)
+    });
+    runtime.vm_statement_locations.insert(key, location);
+    location
 }
 
 fn decode_partial_access(operand: u32) -> Result<PartialAccess, RuntimeError> {

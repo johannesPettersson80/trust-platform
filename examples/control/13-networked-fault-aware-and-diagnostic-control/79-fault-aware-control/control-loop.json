@@ -1,44 +1,33 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "topology": "open-loop",
   "id": "control-fault-aware-control",
-  "name": "Fault-aware control",
-  "revision": "sha256:47e256c1a10669a3dd2d7daea1658d91c48aa13f69f4f8db2d77560c196d123a",
+  "name": "Fault-aware heater PI",
   "projectId": "project:control-fault-aware-control",
   "runtimeId": "simulator",
   "controller": {
     "instance": "P1",
-    "type": "Multirate freshness, analytical redundancy, fault isolation, degradation, watchdog, and supervised recovery",
+    "type": "Main",
     "design": "project",
-    "revision": "sha256:curriculum-controller-74",
+    "revision": "sha256:4afa9360d04c40895fa60ad1cbeb27598d8460cfac070d44ef8005865e899879",
     "action": "direct",
     "taskPeriodMs": 100
   },
   "signals": {
-    "setpoint": {
-      "symbol": "P1.Setpoint",
-      "address": "%ML40",
-      "iecType": "LREAL",
-      "direction": "read",
-      "unit": "bar",
-      "range": {
-        "minimum": 5,
-        "maximum": 8
-      }
-    },
     "processVariable": {
-      "symbol": "P1.NaivePressureA",
-      "address": "%IL0",
+      "symbol": "P1.RestoredC",
+      "address": "%IL40",
       "iecType": "LREAL",
       "direction": "read",
-      "unit": "bar",
+      "unit": "degC",
       "range": {
         "minimum": 0,
-        "maximum": 12
+        "maximum": 80
       }
     },
     "manipulatedVariable": {
-      "symbol": "P1.NaiveRequested",
-      "address": "%ML152",
+      "symbol": "P1.RestoredPct",
+      "address": "%QL40",
       "iecType": "LREAL",
       "direction": "read",
       "unit": "%",
@@ -49,150 +38,248 @@
     },
     "additional": [
       {
-        "id": "protected-pressure-transmitter-a",
-        "channel": "protected-pressure-transmitter-a",
-        "role": "PV",
-        "symbol": "P1.PressureARaw",
+        "id": "target",
+        "channel": "target",
+        "role": "state",
+        "symbol": "P1.SetpointC",
+        "address": "%ML0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "stale",
+        "channel": "stale",
+        "role": "state",
+        "symbol": "P1.StaleC",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "range",
+        "channel": "range",
+        "role": "state",
+        "symbol": "P1.RangeC",
         "address": "%IL8",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "bar",
+        "unit": "degC",
         "range": {
           "minimum": 0,
-          "maximum": 12
+          "maximum": 80
         }
       },
       {
-        "id": "protected-pressure-transmitter-b",
-        "channel": "protected-pressure-transmitter-b",
-        "role": "PV",
-        "symbol": "P1.PressureBRaw",
+        "id": "disagreement",
+        "channel": "disagreement",
+        "role": "state",
+        "symbol": "P1.DisagreementC",
         "address": "%IL16",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "bar",
+        "unit": "degC",
         "range": {
           "minimum": 0,
-          "maximum": 12
+          "maximum": 80
         }
       },
       {
-        "id": "selected-protected-pressure",
-        "channel": "selected-protected-pressure",
+        "id": "short",
+        "channel": "short",
         "role": "state",
-        "symbol": "P1.SelectedPressure",
-        "address": "%ML144",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "bar",
-        "range": {
-          "minimum": 0,
-          "maximum": 12
-        }
-      },
-      {
-        "id": "predicted-header-pressure",
-        "channel": "predicted-header-pressure",
-        "role": "state",
-        "symbol": "P1.PredictedPressure",
-        "address": "%ML120",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "bar",
-        "range": {
-          "minimum": 0,
-          "maximum": 12
-        }
-      },
-      {
-        "id": "pressure-transmitter-discrepancy",
-        "channel": "pressure-transmitter-discrepancy",
-        "role": "state",
-        "symbol": "P1.PressureDiscrepancy",
-        "address": "%ML112",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "bar",
-        "range": {
-          "minimum": 0,
-          "maximum": 12
-        }
-      },
-      {
-        "id": "pressure-a-model-residual",
-        "channel": "pressure-a-model-residual",
-        "role": "state",
-        "symbol": "P1.PressureAResidual",
-        "address": "%ML96",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "bar",
-        "range": {
-          "minimum": 0,
-          "maximum": 12
-        }
-      },
-      {
-        "id": "pressure-b-model-residual",
-        "channel": "pressure-b-model-residual",
-        "role": "state",
-        "symbol": "P1.PressureBResidual",
-        "address": "%ML104",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "bar",
-        "range": {
-          "minimum": 0,
-          "maximum": 12
-        }
-      },
-      {
-        "id": "conservative-suction-level",
-        "channel": "conservative-suction-level",
-        "role": "state",
-        "symbol": "P1.ConservativeLevel",
-        "address": "%ML128",
-        "iecType": "LREAL",
-        "direction": "read",
-        "unit": "%",
-        "range": {
-          "minimum": 0,
-          "maximum": 100
-        }
-      },
-      {
-        "id": "drive-speed-feedback",
-        "channel": "drive-speed-feedback",
-        "role": "state",
-        "symbol": "P1.DriveFeedbackRaw",
+        "symbol": "P1.ShortC",
         "address": "%IL24",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "%",
+        "unit": "degC",
         "range": {
           "minimum": 0,
-          "maximum": 100
+          "maximum": 80
         }
       },
       {
-        "id": "actuator-tracking-residual",
-        "channel": "actuator-tracking-residual",
+        "id": "both",
+        "channel": "both",
         "role": "state",
-        "symbol": "P1.ActuatorTrackingResidual",
-        "address": "%ML136",
+        "symbol": "P1.BothC",
+        "address": "%IL32",
         "iecType": "LREAL",
         "direction": "read",
-        "unit": "pp",
+        "unit": "degC",
         "range": {
           "minimum": 0,
-          "maximum": 100
+          "maximum": 80
         }
       },
       {
-        "id": "naive-applied-pump-speed",
-        "channel": "naive-applied-pump-speed",
-        "role": "MV",
-        "symbol": "P1.NaiveApplied",
+        "id": "stale-selected",
+        "channel": "stale-selected",
+        "role": "state",
+        "symbol": "P1.StaleSelectedC",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "stale-source",
+        "channel": "stale-source",
+        "role": "state",
+        "symbol": "P1.StaleSource",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "range-source",
+        "channel": "range-source",
+        "role": "state",
+        "symbol": "P1.RangeSource",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "both-source",
+        "channel": "both-source",
+        "role": "state",
+        "symbol": "P1.BothSource",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "disagreement-timer",
+        "channel": "disagreement-timer",
+        "role": "state",
+        "symbol": "P1.DisagreementTimerS",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "short-timer",
+        "channel": "short-timer",
+        "role": "state",
+        "symbol": "P1.ShortTimerS",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "disagreement-fault",
+        "channel": "disagreement-fault",
+        "role": "state",
+        "symbol": "P1.DisagreementFault",
+        "address": "%MX96.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "both-fault",
+        "channel": "both-fault",
+        "role": "state",
+        "symbol": "P1.BothFault",
+        "address": "%MX96.4",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "restored-fault",
+        "channel": "restored-fault",
+        "role": "state",
+        "symbol": "P1.RestoredFault",
+        "address": "%MX96.5",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "restored-qualified",
+        "channel": "restored-qualified",
+        "role": "state",
+        "symbol": "P1.RestoredQualified",
+        "address": "%MX96.6",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "restored-agreeing",
+        "channel": "restored-agreeing",
+        "role": "state",
+        "symbol": "P1.RestoredAgreeing",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "command-stale",
+        "channel": "command-stale",
+        "role": "state",
+        "symbol": "P1.StalePct",
         "address": "%QL0",
         "iecType": "LREAL",
         "direction": "read",
@@ -203,11 +290,11 @@
         }
       },
       {
-        "id": "protected-requested-pump-speed",
-        "channel": "protected-requested-pump-speed",
-        "role": "MV",
-        "symbol": "P1.ProtectedRequested",
-        "address": "%ML160",
+        "id": "command-disagreement",
+        "channel": "command-disagreement",
+        "role": "state",
+        "symbol": "P1.DisagreementPct",
+        "address": "%QL16",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "%",
@@ -217,17 +304,87 @@
         }
       },
       {
-        "id": "protected-applied-pump-speed",
-        "channel": "protected-applied-pump-speed",
-        "role": "MV",
-        "symbol": "P1.ProtectedApplied",
-        "address": "%QL8",
+        "id": "command-both",
+        "channel": "command-both",
+        "role": "state",
+        "symbol": "P1.BothPct",
+        "address": "%QL32",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
           "maximum": 100
+        }
+      },
+      {
+        "id": "largest-jump",
+        "channel": "largest-jump",
+        "role": "state",
+        "symbol": "P1.LargestJumpPct",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "passed",
+        "channel": "passed",
+        "role": "state",
+        "symbol": "P1.Passed",
+        "address": "%ML72",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 6
+        }
+      },
+      {
+        "id": "highest-peak",
+        "channel": "highest-peak",
+        "role": "state",
+        "symbol": "P1.HighestPeakC",
+        "address": "%ML80",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "largest-step-error",
+        "channel": "largest-step-error",
+        "role": "state",
+        "symbol": "P1.LargestStepErrorC",
+        "address": "%ML88",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 5
+        }
+      },
+      {
+        "id": "started-at-rest",
+        "channel": "started-at-rest",
+        "role": "state",
+        "symbol": "P1.StartedAtRest",
+        "address": "%MX96.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
         }
       },
       {
@@ -235,41 +392,27 @@
         "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
-        "address": "%MX82.5",
+        "address": "%MX96.0",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "",
+        "unit": "1",
         "range": {
           "minimum": 0,
           "maximum": 1
         }
       },
       {
-        "id": "operating-mode",
-        "channel": "operating-mode",
+        "id": "clock-fault",
+        "channel": "clock-fault",
         "role": "state",
-        "symbol": "P1.OperatingMode",
-        "address": "%MW76",
-        "iecType": "INT",
+        "symbol": "P1.ClockFault",
+        "address": "%MX96.2",
+        "iecType": "BOOL",
         "direction": "read",
         "unit": "1",
         "range": {
           "minimum": 0,
-          "maximum": 2
-        }
-      },
-      {
-        "id": "fault-code",
-        "channel": "fault-code",
-        "role": "state",
-        "symbol": "P1.FaultCode",
-        "address": "%MW78",
-        "iecType": "INT",
-        "direction": "read",
-        "unit": "1",
-        "range": {
-          "minimum": 0,
-          "maximum": 6
+          "maximum": 1
         }
       }
     ]
@@ -281,18 +424,40 @@
   "observedSampleTiming": {
     "nominalPeriodMs": 100
   },
-  "plantId": "multirate_redundant_pumping_station",
+  "plantId": "restored",
+  "operatingPoint": "Six heaters at 35 °C with 75 %, each measured by two agreeing sensors",
   "experiment": {
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 28.1,
+    "durationSeconds": 64,
     "seed": 20260829,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX82.5",
+      "address": "%MX96.0",
       "iecType": "BOOL",
       "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "parameterPurpose": "experiment",
+  "parameterBinding": {
+    "loop_id": "control-fault-aware-control",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "P1.AutoRequestTime",
+        "iec_type": "LREAL",
+        "unit": "s",
+        "convention": "When the restored case's operator requests Auto again, in seconds after the start; read at the start",
+        "minimum": 0,
+        "maximum": 60
+      }
+    ],
+    "mode": {
+      "symbol": "P1.ExperimentEnabled",
+      "manual_value": false
     }
-  }
+  },
+  "revision": "sha256:aca535eee3e1283ecdcf151869bcb4fc6523f28c421ad496aa7d0a4021c0c415"
 }

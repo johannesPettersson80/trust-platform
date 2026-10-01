@@ -7,136 +7,16 @@ accent = "#c2410c"
 [layout]
 navigation = "sidebar-left"
 header = true
-header_title = "P1 HMI"
+header_title = "Linearization"
 
 [write]
 enabled = false
 allow = []
 
 [[alarm]]
-bind = "P1.LargeFlowDeviation"
-high = 500
-low = 0
-deadband = 10
+bind = "P1.LargeLevelM"
+high = 0.9
+low = 0.1
+deadband = 0.005
 inferred = true
-label = "Large Flow Deviation"
-
-[[alarm]]
-bind = "P1.LargeInletFlow"
-high = 500
-low = 0
-deadband = 10
-inferred = true
-label = "Large Inlet Flow"
-
-[[alarm]]
-bind = "P1.LargeLocalLevel"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Large Local Level"
-
-[[alarm]]
-bind = "P1.LargePhysicalEquilibrium"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Large Physical Equilibrium"
-
-[[alarm]]
-bind = "P1.LargePhysicalLevel"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Large Physical Level"
-
-[[alarm]]
-bind = "P1.LocalGain"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Local Gain"
-
-[[alarm]]
-bind = "P1.OperatingFlow"
-high = 500
-low = 0
-deadband = 10
-inferred = true
-label = "Operating Flow"
-
-[[alarm]]
-bind = "P1.OperatingLevel"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Operating Level"
-
-[[alarm]]
-bind = "P1.OutletCoefficient"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Outlet Coefficient"
-
-[[alarm]]
-bind = "P1.SmallFlowDeviation"
-high = 500
-low = 0
-deadband = 10
-inferred = true
-label = "Small Flow Deviation"
-
-[[alarm]]
-bind = "P1.SmallInletFlow"
-high = 500
-low = 0
-deadband = 10
-inferred = true
-label = "Small Inlet Flow"
-
-[[alarm]]
-bind = "P1.SmallLocalLevel"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Small Local Level"
-
-[[alarm]]
-bind = "P1.SmallPhysicalEquilibrium"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Small Physical Equilibrium"
-
-[[alarm]]
-bind = "P1.SmallPhysicalLevel"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Small Physical Level"
-
-[[alarm]]
-bind = "P1.TankArea"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Tank Area"
-
-[[alarm]]
-bind = "P1.TimeConstant"
-high = 100
-low = 0
-deadband = 2
-inferred = true
-label = "Time Constant"
+label = "Large-step tank level"

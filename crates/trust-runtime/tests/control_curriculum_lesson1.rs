@@ -81,7 +81,7 @@ fn run_case(wait_scans: i64, initialize_validity: bool) -> Vec<[f64; 5]> {
         .unwrap();
     let debug = runtime.enable_debug();
     let config = SimulationConfig::load(
-        &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join(PROJECT)
             .join("simulation.toml"),
     )
@@ -131,7 +131,7 @@ fn run_case(wait_scans: i64, initialize_validity: bool) -> Vec<[f64; 5]> {
                 assert_eq!(door, 1.0, "door must open during the enabled experiment");
                 assert_eq!(surroundings, 6.0);
             }
-            if elapsed < 599 || elapsed > 901 {
+            if !(599..=901).contains(&elapsed) {
                 assert_eq!(door, 0.0);
             }
             rows.push([elapsed as f64 * 0.1, pv, command, door, surroundings]);

@@ -3,7 +3,7 @@
 Part of [the course specification](../control-course-teaching-specification.md).
 These are the explanations to use in the mapped lessons.
 
-## 22. Setpoint weighting
+## 23. Setpoint weighting
 
 **Setpoint weighting** changes how strongly the proportional term responds to
 the target while retaining its response to the measured value.
@@ -32,7 +32,7 @@ In Control Studio we compare both weights on separate target and disturbance
 trials. We judge reduced command jump against slower target response.
 Measurement noise still affects the feedback term, motivating filtering.
 
-## 23. Measurement filtering
+## 24. Measurement filtering
 
 A **measurement filter** reduces rapid fluctuations in a measured signal.
 We use it when sensor noise causes unnecessary controller output movement.
@@ -66,7 +66,7 @@ In Control Studio we compare bypass and filtering with the same noise, then
 a real heat disturbance. We inspect command activity and temperature recovery.
 Next we examine whether measurements are acquired often enough in the first place.
 
-## 24. Sampling and timing
+## 25. Sampling and timing
 
 **Sampling** measures a signal at separate instants instead of continuously.
 The controller then calculates an output that is usually held until its next update.
@@ -97,7 +97,7 @@ measurement information from incorrect elapsed-time arithmetic.
 We must also initialize the stored state and time baseline correctly before
 the first automatic calculation.
 
-## 25. Controller initialization
+## 26. Controller initialization
 
 **Controller initialization** sets the stored values needed for the first
 automatic calculation to agree with the current operating condition.
@@ -127,7 +127,7 @@ In Control Studio we compare unaligned and correctly initialized starts.
 We inspect the first command as well as temperature. Later manual changes
 require ongoing alignment, which is the purpose of bumpless transfer.
 
-## 26. Bumpless transfer
+## 27. Bumpless transfer
 
 **Bumpless transfer** changes control ownership without an unintended jump
 in the actuator command.
@@ -157,7 +157,7 @@ In Control Studio we change manual power, return to automatic and inspect
 the command around the transfer. Temperature recovery is assessed separately.
 Next we handle another source of unintended jumps: changes to controller parameters.
 
-## 27. Parameter updates
+## 28. Parameter updates
 
 A **parameter update** changes the settings used by a running controller.
 An **atomic update** adopts one complete validated set at a single update
@@ -185,7 +185,7 @@ In Control Studio we apply valid and invalid updates and inspect the active
 revision, contributions and applied output. Correct parameters still cannot
 make an invalid or stale measurement usable.
 
-## 28. Measurement validity
+## 29. Measurement validity
 
 **Measurement validity** means deciding whether a reading is suitable for
 the control calculation.
@@ -216,7 +216,7 @@ In Control Studio we test invalid values and stale acquisition separately,
 then inspect the recovery sequence. Next we verify these mechanisms in the
 complete heater controller.
 
-## 29. Heater commissioning
+## 30. Heater commissioning
 
 **Heater commissioning** checks the integrated controller against both
 temperature-performance and operating-state requirements.
@@ -246,7 +246,7 @@ This is a simulation commissioning exercise, not physical equipment approval.
 The next application replaces electric power with hot-water flow through
 a valve whose motion introduces another actuator limitation.
 
-## 30. Actuator tracking
+## 31. Actuator tracking
 
 **Actuator tracking** uses what an actuator has actually achieved to keep
 controller state consistent with it.
@@ -282,7 +282,7 @@ In Control Studio we compare target tracking with measured-position tracking,
 observing stem, flow, integral and temperature. Next we establish how position
 and pressure determine the delivered flow.
 
-## 31. Valve characteristics
+## 32. Valve characteristics
 
 A **valve characteristic** describes how valve opening relates to flow.
 The installed relationship also depends on pressure drop across the valve.
@@ -314,7 +314,7 @@ In Control Studio we wait for stem and flow to settle, record position,
 pressure and flow, then compare the two pressure arrangements.
 Next we investigate commands that fail to move the stem normally.
 
-## 32. Valve stiction
+## 33. Valve stiction
 
 **Stiction** is static friction that holds an actuator still until the driving
 force exceeds a breakaway threshold.

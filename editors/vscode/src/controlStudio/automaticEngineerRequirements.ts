@@ -7,6 +7,8 @@ import { recordingFingerprint } from "./independentModelValidation";
 import type { ControlLoopDefinition } from "./loopDefinition";
 import type { ControllerTuningPreferences } from "./controllerTuningPreferences";
 import type { IdentificationCampaignRecord } from "./automaticIdentification";
+import { formatEngineeringNumber } from "./chartContract";
+import { displayEngineeringUnit } from "./unitDisplay";
 
 /** Draft test criteria; the existing tuner and independent native validation still decide feasibility. */
 export function automaticEngineerRequirements(loop: ControlLoopDefinition, model: GeneralModel,
@@ -27,9 +29,11 @@ export function automaticEngineerRequirements(loop: ControlLoopDefinition, model
     } else delete supplied[name as keyof EngineerRequirements];
   }
   const channels = connectedModelChannels(loop, model);
-  // A complete declared task requires no generated policy, even for models without a useful automatic timescale.
+  // A complete declared task requires no generated policy, even for models without a useful automatic timescale. The page
+  // declares no response choice, so it is filled as for generated criteria: the same requirements give the same design.
   if (!previous?.fields.length && channels.outputs.length === 1) {
-    try { return engineerRequirements(supplied as Record<string, unknown>); } catch { /* Fill only absent fields below. */ }
+    try { return engineerRequirements({ ...supplied, tuningObjective: supplied.tuningObjective ?? "robust" } as Record<string, unknown>); }
+    catch { /* Fill only absent fields below. */ }
   }
   const record = campaigns.flatMap(campaign => campaign.runs).find(item => model.evidence.includes(recordingFingerprint(item.run)));
   const inputs = channels.inputs.map((input, i) => model.operatingPoint?.inputs[i] ?? recordedValues(record, input.signal.symbol)[0]);
@@ -73,9 +77,15 @@ export function automaticEngineerRequirements(loop: ControlLoopDefinition, model
     input.actuator.rateUpPerS ? headroom[i].up / input.actuator.rateUpPerS : 0,
     input.actuator.rateDownPerS ? headroom[i].down / input.actuator.rateDownPerS : 0,
   ]));
-  const channelRequirements = Object.fromEntries(channels.outputs.map((output, i) => {
-    const id = model.outputs[i].id, suffix = channels.outputs.length > 1 ? `:${id}` : "";
-    const declared = supplied.channelRequirements?.[id] ?? (i === 0 ? supplied : {});
+  // Requirements belong to controlled outputs, those with a reference; an auxiliary measured output gets none. The
+  // process variable, or else the first controlled output, supplies the top-level task.
+  const indexed = channels.outputs.map((output, i) => ({ output, i }));
+  const referenced = indexed.filter(item => item.output.reference);
+  const controlled = referenced.length ? referenced : indexed;
+  const primary = controlled.find(item => item.output.signal.symbol === loop.signals.processVariable.symbol) ?? controlled[0];
+  const channelRequirements = Object.fromEntries(controlled.map(({ output, i }) => {
+    const id = model.outputs[i].id, suffix = controlled.length > 1 ? `:${id}` : "";
+    const declared = supplied.channelRequirements?.[id] ?? (i === primary.i ? supplied : {});
     const configured = output.requirements;
     const values = { ...configured, ...declared };
     const ys = recordedValues(record, output.signal.symbol), operating = outputs[i]!;
@@ -96,7 +106,11 @@ export function automaticEngineerRequirements(loop: ControlLoopDefinition, model
     const noise = baselineNoise(record, channels.inputs.map(input => input.applied?.symbol ?? input.signal.symbol), output.signal.symbol);
     if (values.referenceChange === undefined && (!(excursion > 1e-9) || excursion < 20 * noise)) throw new Error(`The recorded range or signal noise prevents an automatic test change for ${output.signal.symbol}. Review its limits or identification recording.`);
     const change = pick(values.referenceChange, direction * excursion, `referenceChange${suffix}`);
-    if (!change || operating + change < minimum - 1e-8 || operating + change > maximum + 1e-8) throw new Error(`The test change for ${output.signal.symbol} exceeds the model's operating range.`);
+    if (!change || operating + change < minimum - 1e-8 || operating + change > maximum + 1e-8) {
+      const unit = displayEngineeringUnit(output.signal.unit), room = Math.max(maximum - operating, operating - minimum);
+      throw new Error(`The test change of ${formatEngineeringNumber(change)} ${unit} for ${output.signal.symbol} leaves the range the model was identified in (${formatEngineeringNumber(minimum)}–${formatEngineeringNumber(maximum)} ${unit}). `
+        + `Identify with a larger step, or choose a change of at most ${formatEngineeringNumber(room)} ${unit}.`);
+    }
     const band = pick(values.settlingBand, Math.max(noise, Math.min(Math.abs(change) * .02,
       typeof values.maximumError === "number" ? values.maximumError / 2 : Infinity)), `settlingBand${suffix}`);
     const error = pick(values.maximumError, Math.max(2 * band, Math.abs(change) * .04), `maximumError${suffix}`);
@@ -108,8 +122,8 @@ export function automaticEngineerRequirements(loop: ControlLoopDefinition, model
   if (duration > Math.min(600, 11999 * period)) throw new Error("The model needs a longer validation window than this runtime supports. Review the model and test duration.");
   const tuningObjective = supplied.tuningObjective ?? "robust";
   if (supplied.tuningObjective === undefined) fields.push("tuningObjective");
-  return engineerRequirements({ ...supplied, ...channelRequirements[model.outputs[0].id], durationSeconds: duration, tuningObjective,
-    ...(channels.outputs.length > 1 ? { channelRequirements } : {}),
+  return engineerRequirements({ ...supplied, ...channelRequirements[model.outputs[primary.i].id], durationSeconds: duration, tuningObjective,
+    ...(controlled.length > 1 ? { channelRequirements } : {}),
     ...(fields.length ? { automaticCriteria: { modelRevision: model.revision, fields } } : {}) });
 }
 

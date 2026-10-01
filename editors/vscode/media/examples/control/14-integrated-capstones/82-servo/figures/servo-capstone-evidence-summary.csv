@@ -1,5 +1,0 @@
-architecture,settling_s,overshoot_percent,final_error_rad,verdict
-P,not-settled,,0.211340594,reject-no-settling
-PD,2.900000000,24.918954733,0.214285714,reject-load-offset
-filtered-PID,4.460000000,31.420670484,0.010022441,selected-unapplied
-delayed-PID,7.400000000,62.433524398,0.008003330,reject-digital-response

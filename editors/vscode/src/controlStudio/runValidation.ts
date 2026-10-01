@@ -1,3 +1,5 @@
+import { canonicalJson } from "./canonicalJson";
+
 /** Generic observed-run acceptance, independent of controller structure and transport. */
 export type RunEvidence = "model-predicted" | "ST-executed" | "physical-recorded";
 export type RequirementStatus = "Pass" | "Fail" | "Inconclusive";
@@ -30,7 +32,8 @@ export type RunRequirement = RequirementBase & (
   | { kind: "dwell"; threshold: number; state: "high" | "low"; minimumSeconds: number }
   | { kind: "rate"; maximum: number; direction?: "up" | "down" }
   | { kind: "saturation"; minimum: number; maximum: number; maximumSeconds: number }
-  | { kind: "switching"; threshold: number; maximum: number });
+  | { kind: "switching"; threshold: number; maximum: number }
+  | { kind: "activity"; maximum?: number });
 export interface RunRequirementResult {
   id: string; kind: RunRequirement["kind"]; status: RequirementStatus;
   value?: number; limit?: number; unit: string; reason: string;
@@ -62,9 +65,9 @@ export function evaluateRecordedRun(input: unknown, requirements: readonly unkno
 export function compareRecordedRuns(currentInput: unknown, candidateInput: unknown, requirements: readonly unknown[], objective?: string): RunComparison {
   const current = evaluateRecordedRun(currentInput, requirements);
   const candidate = evaluateRecordedRun(candidateInput, requirements);
-  if (current.run.evidence !== candidate.run.evidence || canonical(current.run.conditions) !== canonical(candidate.run.conditions)
-      || canonical(current.run.channels) !== canonical(candidate.run.channels)
-      || canonical(Object.keys(current.run.parameters).sort()) !== canonical(Object.keys(candidate.run.parameters).sort())) {
+  if (current.run.evidence !== candidate.run.evidence || canonicalJson(current.run.conditions) !== canonicalJson(candidate.run.conditions)
+      || canonicalJson(current.run.channels) !== canonicalJson(candidate.run.channels)
+      || canonicalJson(Object.keys(current.run.parameters).sort()) !== canonicalJson(Object.keys(candidate.run.parameters).sort())) {
     return { status: "Inconclusive", current, candidate, reason: "Evidence class, channel/parameter identities or immutable experiment conditions differ." };
   }
   const result: RunComparison = { status: aggregate([current.status, candidate.status]), current, candidate,
@@ -86,12 +89,14 @@ export function evaluateObservedRequirement(run: Pick<RecordedRun, "channels" | 
   let unit = channel.unit;
   if (["settling", "saturation", "dwell"].includes(requirement.kind)) unit = "s";
   if (requirement.kind === "switching") unit = "count";
+  // Movement of a percentage command is a percentage-point change.
+  if (requirement.kind === "activity" && unit === "%") unit = "pp";
   if (requirement.kind === "rate") unit += "/s";
   const declaredLimit = requirement.kind === "settling" ? requirement.deadlineSeconds
     : requirement.kind === "saturation" ? requirement.maximumSeconds
     : requirement.kind === "levels" ? requirement.tolerance : requirement.kind === "dwell" ? requirement.minimumSeconds
     : requirement.kind === "bounds" || requirement.kind === "state-bounds" ? 0 : requirement.maximum;
-  const base = { id: requirement.id, kind: requirement.kind, unit, limit: declaredLimit };
+  const base = { id: requirement.id, kind: requirement.kind, unit, ...(declaredLimit === undefined ? {} : { limit: declaredLimit }) };
   const expected = run.conditions.sampleTimesSeconds.filter(t => t >= requirement.window.start && t <= requirement.window.end);
   const samples = run.samples.filter(s => s.timeSeconds >= requirement.window.start && s.timeSeconds <= requirement.window.end);
   const referenceChannel = requirement.kind === "error" && typeof requirement.reference !== "number" ? requirement.reference.channel : undefined;
@@ -141,6 +146,12 @@ export function evaluateObservedRequirement(run: Pick<RecordedRun, "channels" | 
     case "switching":
       value = values.slice(1).filter((v, i) => Math.abs(v - values[i]) > requirement.threshold).length;
       limit = requirement.maximum; break;
+    case "activity": {
+      const movement = values.slice(1).reduce((sum, v, i) => sum + Math.abs(v - values[i]), 0);
+      if (requirement.maximum === undefined) return { ...base, status: finite(movement) ? "Pass" : "Inconclusive", value: movement,
+        reason: finite(movement) ? "Measured total command movement." : "The calculated measurement is nonfinite." };
+      value = movement; limit = requirement.maximum; break;
+    }
     case "saturation":
       value = values.slice(0, -1).reduce((sum, v, i) => sum + (v <= requirement.minimum || v >= requirement.maximum
         ? samples[i + 1].timeSeconds - samples[i].timeSeconds : 0), 0);
@@ -170,7 +181,8 @@ function decodeRun(value: unknown): RecordedRun {
       || !c.sampleTimesSeconds.every((t, i, all) => finite(t) && t >= 0 && (i === 0 || t > all[i - 1]))
       || !Array.isArray(c.events) || !c.events.every(e => record(e) && finite(e.atSeconds) && e.atSeconds >= 0 && e.atSeconds <= (c.durationSeconds as number)
         && text(e.channel) && finite(e.value))) throw new Error("Invalid immutable experiment conditions.");
-  if (value.channels.length === 0 || value.channels.length > 32 || !value.channels.every(c => record(c) && text(c.id) && text(c.unit))
+  // The isolated run's channel maximum (control-studio-controller-bindings).
+  if (value.channels.length === 0 || value.channels.length > 64 || !value.channels.every(c => record(c) && text(c.id) && text(c.unit))
       || new Set(value.channels.map(c => c.id)).size !== value.channels.length
       || value.samples.length > 12000 || !value.samples.every(s => record(s) && finite(s.timeSeconds) && Number.isSafeInteger(s.sequence) && record(s.values))) {
     throw new Error("Invalid run channels or sample structure.");
@@ -194,6 +206,7 @@ export function decodeRunRequirement(value: unknown, run: Pick<RecordedRun, "cha
     case "dwell": valid = finite(value.threshold) && ["high", "low"].includes(String(value.state)) && nonnegative(value.minimumSeconds); break;
     case "rate": valid = nonnegative(value.maximum) && (value.direction === undefined || value.direction === "up" || value.direction === "down"); break;
     case "switching": valid = nonnegative(value.threshold) && nonnegative(value.maximum) && Number.isSafeInteger(value.maximum); break;
+    case "activity": valid = value.maximum === undefined || nonnegative(value.maximum); break;
     case "saturation": valid = finite(value.minimum) && finite(value.maximum) && value.minimum < value.maximum && nonnegative(value.maximumSeconds); break;
     case "settling": valid = finite(value.target) && nonnegative(value.band) && finite(value.holdSeconds) && value.holdSeconds > 0
       && value.holdSeconds <= value.window.end - value.window.start && nonnegative(value.deadlineSeconds)
@@ -210,5 +223,3 @@ function text(value: unknown): value is string { return typeof value === "string
 function finite(value: unknown): value is number { return typeof value === "number" && Number.isFinite(value); }
 function numbers(value: unknown): value is Record<string, number> { return record(value) && Object.entries(value).every(([k, v]) => text(k) && finite(v)); }
 function clone(value: unknown): unknown { return Array.isArray(value) ? Object.freeze(value.map(clone)) : record(value) ? Object.freeze(Object.fromEntries(Object.entries(value).map(([k, v]) => [k, clone(v)]))) : value; }
-function canonical(value: unknown): string { return JSON.stringify(Array.isArray(value) ? value.map(v => JSON.parse(canonical(v))) : record(value)
-  ? Object.fromEntries(Object.keys(value).sort().map(k => [k, JSON.parse(canonical(value[k]))])) : value); }

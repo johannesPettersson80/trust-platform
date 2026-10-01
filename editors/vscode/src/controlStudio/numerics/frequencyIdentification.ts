@@ -156,14 +156,28 @@ function primitiveTaps(order: number): readonly number[] {
 }
 
 function coefficient(values: readonly number[], start: number, length: number, dt: number, frequency: number): Complex {
-  let real = 0;
-  let imaginary = 0;
+  // Least-squares fit of k + a·cos θ + b·sin θ over the segment, returned as a − jb like a DFT bin. Unlike a plain DFT
+  // it stays exact for a sine about any operating point when the segment does not hold a whole number of periods;
+  // over whole periods both agree.
+  let n = 0, c = 0, s = 0, cc = 0, ss = 0, cs = 0, x = 0, xc = 0, xs = 0;
   for (let offset = 0; offset < length; offset += 1) {
     const angle = frequency * (start + offset) * dt;
-    real += values[start + offset] * Math.cos(angle);
-    imaginary -= values[start + offset] * Math.sin(angle);
+    const cos = Math.cos(angle); const sin = Math.sin(angle); const value = values[start + offset];
+    n += 1; c += cos; s += sin; cc += cos * cos; ss += sin * sin; cs += cos * sin; x += value; xc += value * cos; xs += value * sin;
   }
-  return { real: 2 * real / length, imaginary: 2 * imaginary / length };
+  const matrix = [[n, c, s], [c, cc, cs], [s, cs, ss]];
+  const determinant = det3(matrix);
+  if (!Number.isFinite(determinant) || Math.abs(determinant) <= 1e-12 * n * n * n) return { real: 0, imaginary: 0 };
+  const replace = (column: number, vector: number[]) => matrix.map((row, index) => row.map((entry, j) => j === column ? vector[index] : entry));
+  const right = [x, xc, xs];
+  const a = det3(replace(1, right)) / determinant;
+  const b = det3(replace(2, right)) / determinant;
+  return { real: a, imaginary: -b };
+}
+
+function det3(m: readonly (readonly number[])[]): number {
+  return m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+    + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
 }
 
 function complexResidual(point: FrequencyResponsePoint, gain: number, tau: number): number {

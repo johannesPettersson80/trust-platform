@@ -1,203 +1,218 @@
 USING Control;
 
-FUNCTION Lesson77ReviewedGust : LREAL
+(* The command that holds a heater's temperature: in the steady state the heater's power 2·u kW equals the heat loss
+   H·(T − 20) plus the extraction D, so u = [H·(T − 20) + D]/2 points. *)
+FUNCTION HoldingCommandPct : LREAL
 VAR_INPUT
-    ScanCount : DINT;
-    ControlAuthority : BOOL;
+    LossKwPerC : LREAL;
+    TemperatureC : LREAL;
+    ExtractionKw : LREAL;
 END_VAR
-IF ControlAuthority AND (ScanCount >= DINT#250) AND (ScanCount < DINT#300) THEN
-    Lesson77ReviewedGust := LREAL#0.10;
-ELSE
-    Lesson77ReviewedGust := LREAL#0.0;
-END_IF;
+HoldingCommandPct := (LossKwPerC * (TemperatureC - LREAL#20.0) + ExtractionKw) / LREAL#2.0;
 END_FUNCTION
 
-FUNCTION Lesson77NominalRequest : LREAL
+(* W(ω), the bound on the relative model error |δ(jω)| of every heater of the grid against the reference heater with
+   H = 10 kW/°C and L = 0.8 s: 2/√(64 + 2500·ω²) from the heat loss and min(0.4·ω, 2) from the extra delay. *)
+FUNCTION ModelErrorBound : LREAL
 VAR_INPUT
-    Bending : LREAL;
+    OmegaRadS : LREAL;
 END_VAR
-Lesson77NominalRequest := LREAL#-40.0 * Bending;
+ModelErrorBound := LREAL#2.0 / SQRT(LREAL#64.0 + LREAL#2500.0 * OmegaRadS * OmegaRadS)
+    + MIN(LREAL#0.4 * OmegaRadS, LREAL#2.0);
 END_FUNCTION
 
-FUNCTION Lesson77RobustRequest : LREAL
+(* |δ(jω)|, the relative model error of the heater with heat loss H and delay L against the reference heater:
+   1 + δ = (50s + 10)/(50s + H)·e^(−(L − 0.8)s). *)
+FUNCTION RelativeModelError : LREAL
 VAR_INPUT
-    FilteredBending : LREAL;
-    PreviousFilteredBending : LREAL;
+    OmegaRadS : LREAL;
+    LossKwPerC : LREAL;
+    DelayS : LREAL;
 END_VAR
-Lesson77RobustRequest := LREAL#-10.0 * FilteredBending
-    - LREAL#3.0 * (FilteredBending - PreviousFilteredBending) / LREAL#0.02;
+VAR
+    Denominator : LREAL;
+    RatioReal : LREAL;
+    RatioImag : LREAL;
+    Shift : LREAL;
+END_VAR
+Denominator := LossKwPerC * LossKwPerC + LREAL#2500.0 * OmegaRadS * OmegaRadS;
+RatioReal := (LREAL#10.0 * LossKwPerC + LREAL#2500.0 * OmegaRadS * OmegaRadS) / Denominator;
+RatioImag := LREAL#50.0 * OmegaRadS * (LossKwPerC - LREAL#10.0) / Denominator;
+Shift := (DelayS - LREAL#0.8) * OmegaRadS;
+RelativeModelError := SQRT((RatioReal * COS(Shift) + RatioImag * SIN(Shift) - LREAL#1.0) ** LREAL#2.0
+    + (RatioImag * COS(Shift) - RatioReal * SIN(Shift)) ** LREAL#2.0);
+END_FUNCTION
+
+(* |T0(jω)| = |L|/|1 + L| with L = C·G0, the PI C = Kp + Ki/s on the reference heater G0 = 0.2·e^(−0.8s)/(5s + 1). *)
+FUNCTION ComplementaryMagnitude : LREAL
+VAR_INPUT
+    OmegaRadS : LREAL;
+    Kp : LREAL;
+    Ki : LREAL;
+END_VAR
+VAR
+    Denominator : LREAL;
+    PlantReal : LREAL;
+    PlantImag : LREAL;
+    LoopReal : LREAL;
+    LoopImag : LREAL;
+END_VAR
+Denominator := LREAL#1.0 + LREAL#25.0 * OmegaRadS * OmegaRadS;
+PlantReal := LREAL#0.2 * (COS(LREAL#0.8 * OmegaRadS) - LREAL#5.0 * OmegaRadS * SIN(LREAL#0.8 * OmegaRadS)) / Denominator;
+PlantImag := LREAL#-0.2 * (SIN(LREAL#0.8 * OmegaRadS) + LREAL#5.0 * OmegaRadS * COS(LREAL#0.8 * OmegaRadS)) / Denominator;
+(* C(jω) = Kp − j·Ki/ω. *)
+LoopReal := Kp * PlantReal + Ki / OmegaRadS * PlantImag;
+LoopImag := Kp * PlantImag - Ki / OmegaRadS * PlantReal;
+ComplementaryMagnitude := SQRT(LoopReal * LoopReal + LoopImag * LoopImag)
+    / SQRT((LREAL#1.0 + LoopReal) * (LREAL#1.0 + LoopReal) + LoopImag * LoopImag);
+END_FUNCTION
+
+FUNCTION SamePidParameters : BOOL
+VAR_INPUT
+    Left : Control.PIDParameters;
+    Right : Control.PIDParameters;
+END_VAR
+SamePidParameters :=
+    Left.ProportionalGain = Right.ProportionalGain
+    AND Left.IntegralGain = Right.IntegralGain
+    AND Left.DerivativeGain = Right.DerivativeGain
+    AND Left.ProportionalSetpointWeight = Right.ProportionalSetpointWeight
+    AND Left.DerivativeSetpointWeight = Right.DerivativeSetpointWeight
+    AND Left.Bias = Right.Bias
+    AND Left.OutputMinimum = Right.OutputMinimum
+    AND Left.OutputMaximum = Right.OutputMaximum
+    AND Left.RateMinimum = Right.RateMinimum
+    AND Left.RateMaximum = Right.RateMaximum
+    AND Left.TrackingTime = Right.TrackingTime
+    AND Left.AntiWindup = Right.AntiWindup;
 END_FUNCTION
 
 PROGRAM Main
 VAR
-    NominalController : Control.PID;
-    RobustMeasurementFilter : Control.LowPass;
-    RobustController : Control.PID;
-    NominalParameters : Control.PIDParameters;
-    RobustFilterParameters : Control.LowPassParameters;
-    RobustParameters : Control.PIDParameters;
-    NominalInitialState : Control.PIDInitialState;
-    RobustInitialState : Control.PIDInitialState;
-    NominalInput : Control.PIDInput;
-    RobustInput : Control.PIDInput;
+    Controller : Control.PID;
+    (* The nominal heater of the range, 10 kW/°C with 1.0 s delivery delay. Control Studio validates the gains on the corner
+       heaters of the range and applies them; the defaults are candidate A, Kp = 2.5 %/°C and Ki = 0.5 %/(°C·s). *)
+    Parameters : Control.PIDParameters := (
+        ProportionalGain := LREAL#2.5,
+        IntegralGain := LREAL#0.5,
+        DerivativeGain := LREAL#0.0,
+        ProportionalSetpointWeight := LREAL#1.0,
+        DerivativeSetpointWeight := LREAL#0.0,
+        Bias := LREAL#0.0,
+        OutputMinimum := LREAL#0.0,
+        OutputMaximum := LREAL#100.0,
+        RateMinimum := LREAL#-10000.0,
+        RateMaximum := LREAL#10000.0,
+        TrackingTime := LREAL#1.0,
+        AntiWindup := PIDAntiWindup#BackCalculation
+    );
+    ConfiguredParameters : Control.PIDParameters;
+    ParameterRevision : DINT := 0;
+    InitialState : Control.PIDInitialState;
+    ObservedState : Control.PIDInitialState;
+    Input : Control.PIDInput;
     Initialized : BOOL := FALSE;
-    ControllerEnabled : BOOL := FALSE;
-    DataHealthy : BOOL := TRUE;
-    NominalSaturated : BOOL := FALSE;
-    RobustSaturated : BOOL := FALSE;
-    ScanCount : DINT := 0;
-    ElapsedTime : LREAL := 0.0;
-    Setpoint : LREAL := 0.0;
-    GustLoad : LREAL := 0.0;
-    NominalBending : LREAL := 0.0;
-    RobustBending : LREAL := 0.0;
-    FilteredRobustBending : LREAL := 0.0;
-    LastFilteredBending : LREAL := 0.0;
-    NominalRequested : LREAL := 0.0;
-    RobustRequested : LREAL := 0.0;
-    NominalApplied : LREAL := 0.0;
-    RobustApplied : LREAL := 0.0;
-    NominalGust : LREAL := 0.0;
-    RobustGust : LREAL := 0.0;
-    ExperimentEnabled : BOOL := FALSE;
+    AutoMode : BOOL := FALSE;
+    ManualOutput : LREAL := 75.0;
     SafetyAbort : BOOL := FALSE;
-    InputsValid : BOOL := TRUE;
+    DataUsable : BOOL := FALSE;
+    SetpointC : LREAL := 35.0;
+    DisturbanceKw : LREAL := 0.0;
+    WaterInputC : LREAL := 35.0;
+    WaterTemperatureC : LREAL := 35.0;
+    TemperatureC : LREAL := 35.0;
+    SafeProcessValueC : LREAL := 35.0;
+    AppliedPowerPct : LREAL := 75.0;
+    RequestedPowerPct : LREAL := 75.0;
+    ErrorC : LREAL := 0.0;
+    ProportionalPct : LREAL := 0.0;
+    IntegralPct : LREAL := 75.0;
 END_VAR
 
+(* Both feedback bindings observe the heated water. DisturbanceKw is a heat extraction in kW. *)
+WaterTemperatureC := WaterInputC;
+DataUsable := TemperatureC >= LREAL#0.0 AND TemperatureC <= LREAL#80.0;
+IF DataUsable THEN
+    SafeProcessValueC := TemperatureC;
+ELSE
+    SafetyAbort := TRUE;
+END_IF;
+
+(* Control Studio's Apply replaces this complete record at the task boundary; the
+   program copies it into the actual controller and never overwrites it cyclically. *)
+IF NOT Initialized OR NOT SamePidParameters(Left := Parameters, Right := ConfiguredParameters) THEN
+    ConfiguredParameters := Parameters;
+    ParameterRevision := ParameterRevision + 1;
+END_IF;
+Controller.Configure(Parameters := Parameters);
+
 IF NOT Initialized THEN
-    NominalParameters.ProportionalGain := LREAL#40.0;
-    NominalParameters.IntegralGain := LREAL#0.0;
-    NominalParameters.DerivativeGain := LREAL#0.0;
-    NominalParameters.ProportionalSetpointWeight := LREAL#1.0;
-    NominalParameters.DerivativeSetpointWeight := LREAL#0.0;
-    NominalParameters.Bias := LREAL#0.0;
-    NominalParameters.OutputMinimum := LREAL#-15.0;
-    NominalParameters.OutputMaximum := LREAL#15.0;
-    NominalParameters.RateMinimum := LREAL#-1000.0;
-    NominalParameters.RateMaximum := LREAL#1000.0;
-    NominalParameters.TrackingTime := LREAL#0.1;
-    NominalParameters.AntiWindup := PIDAntiWindup#Combined;
-    NominalController.Configure(Parameters := NominalParameters);
-
-    RobustFilterParameters.TimeConstant := LREAL#0.05;
-    RobustFilterParameters.Order := FilterOrder#FirstOrder;
-    RobustMeasurementFilter.Configure(Parameters := RobustFilterParameters);
-    RobustMeasurementFilter.Initialize(Input := RobustBending);
-
-    RobustParameters.ProportionalGain := LREAL#10.0;
-    RobustParameters.IntegralGain := LREAL#0.0;
-    RobustParameters.DerivativeGain := LREAL#3.0;
-    RobustParameters.ProportionalSetpointWeight := LREAL#1.0;
-    RobustParameters.DerivativeSetpointWeight := LREAL#0.0;
-    RobustParameters.Bias := LREAL#0.0;
-    RobustParameters.OutputMinimum := LREAL#-15.0;
-    RobustParameters.OutputMaximum := LREAL#15.0;
-    RobustParameters.RateMinimum := LREAL#-1000.0;
-    RobustParameters.RateMaximum := LREAL#1000.0;
-    RobustParameters.TrackingTime := LREAL#0.1;
-    RobustParameters.AntiWindup := PIDAntiWindup#Combined;
-    RobustController.Configure(Parameters := RobustParameters);
-
-    NominalInitialState.Setpoint := Setpoint;
-    NominalInitialState.ProcessValue := NominalBending;
-    NominalInitialState.ProcessValueRate := LREAL#0.0;
-    NominalInitialState.NominalOutput := LREAL#0.0;
-    NominalInitialState.SaturatedOutput := LREAL#0.0;
-    NominalController.Initialize(State := NominalInitialState);
-
-    RobustInitialState.Setpoint := Setpoint;
-    RobustInitialState.ProcessValue := RobustBending;
-    RobustInitialState.ProcessValueRate := LREAL#0.0;
-    RobustInitialState.NominalOutput := LREAL#0.0;
-    RobustInitialState.SaturatedOutput := LREAL#0.0;
-    RobustController.Initialize(State := RobustInitialState);
-    LastFilteredBending := RobustBending;
+    (* Common hot reset: the heater already holds 35 °C with 75 % output, so the
+       controller's retained output starts at the holding command. *)
+    ManualOutput := LREAL#75.0;
+    IF NOT AutoMode THEN
+        SetpointC := SafeProcessValueC;
+    END_IF;
+    InitialState.Setpoint := SetpointC;
+    InitialState.ProcessValue := SafeProcessValueC;
+    InitialState.NominalOutput := ManualOutput;
+    InitialState.SaturatedOutput := ManualOutput;
+    InitialState.SetpointRate := LREAL#0.0;
+    InitialState.ProcessValueRate := LREAL#0.0;
+    InitialState.FeedForward := LREAL#0.0;
+    Controller.Initialize(State := InitialState);
     Initialized := TRUE;
 END_IF;
 
-(* Control Studio grants only authority. The project owns the nominal gust
-   record; uncertainty-grid and quality cases remain native tests. *)
-IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
-    ControllerEnabled := TRUE;
-    DataHealthy := TRUE;
-    GustLoad := Lesson77ReviewedGust(
-        ScanCount := ScanCount, ControlAuthority := TRUE);
-    ScanCount := ScanCount + DINT#1;
-    ElapsedTime := ElapsedTime + LREAL#0.02;
+Input.Setpoint := SetpointC;
+Input.ProcessValue := SafeProcessValueC;
+Input.CycleTime := LREAL#0.1;
+Input.FeedForward := LREAL#0.0;
+Input.TrackingOutput := ManualOutput;
+IF SafetyAbort THEN
+    (* An abort or invalid measurement removes heat and the test load until a full restart. *)
+    Input.Mode := PIDMode#Manual;
+    Input.ManualOutput := LREAL#0.0;
+    DisturbanceKw := LREAL#0.0;
+ELSIF AutoMode AND Parameters.ProportionalGain > LREAL#0.0 AND Parameters.IntegralGain > LREAL#0.0 THEN
+    Input.Mode := PIDMode#Auto;
+    Input.ManualOutput := ManualOutput;
 ELSE
-    ControllerEnabled := FALSE;
-    DataHealthy := TRUE;
-    GustLoad := LREAL#0.0;
-    ScanCount := DINT#0;
-    ElapsedTime := LREAL#0.0;
+    Input.Mode := PIDMode#Manual;
+    Input.ManualOutput := ManualOutput;
 END_IF;
-NominalGust := GustLoad;
-RobustGust := GustLoad;
+ErrorC := SetpointC - SafeProcessValueC;
+AppliedPowerPct := Controller.Update(Input := Input);
 
-FilteredRobustBending := RobustMeasurementFilter.Update(
-    Input := RobustBending,
-    CycleTime := LREAL#0.02
-);
-
-// Expose controller requests separately from the physically limited outputs.
-NominalRequested := Lesson77NominalRequest(Bending := NominalBending);
-RobustRequested := Lesson77RobustRequest(
-    FilteredBending := FilteredRobustBending,
-    PreviousFilteredBending := LastFilteredBending);
-
-NominalInput.Setpoint := Setpoint;
-NominalInput.ProcessValue := NominalBending;
-NominalInput.FeedForward := LREAL#0.0;
-NominalInput.CycleTime := LREAL#0.02;
-RobustInput.Setpoint := Setpoint;
-RobustInput.ProcessValue := FilteredRobustBending;
-RobustInput.FeedForward := LREAL#0.0;
-RobustInput.CycleTime := LREAL#0.02;
-
-IF ControllerEnabled AND DataHealthy THEN
-    NominalInput.Mode := PIDMode#Auto;
-    RobustInput.Mode := PIDMode#Auto;
+(* Diagnostics come from the actual controller state; the PI equations live in Control.PID. *)
+ObservedState := Controller.GetState();
+RequestedPowerPct := ObservedState.NominalOutput;
+IF Input.Mode = PIDMode#Auto THEN
+    ProportionalPct := Parameters.ProportionalGain * ErrorC;
 ELSE
-    // Invalid bending data cannot command a safety-relevant surface.
-    NominalInput.Mode := PIDMode#Manual;
-    NominalInput.ManualOutput := LREAL#0.0;
-    RobustInput.Mode := PIDMode#Manual;
-    RobustInput.ManualOutput := LREAL#0.0;
+    ProportionalPct := LREAL#0.0;
 END_IF;
+IntegralPct := RequestedPowerPct - ProportionalPct;
 
-NominalApplied := NominalController.Update(Input := NominalInput);
-RobustApplied := RobustController.Update(Input := RobustInput);
-NominalSaturated := ControllerEnabled AND DataHealthy
-    AND (ABS(NominalRequested - NominalApplied) > LREAL#0.000000001);
-RobustSaturated := ControllerEnabled AND DataHealthy
-    AND (ABS(RobustRequested - RobustApplied) > LREAL#0.000000001);
-
-LastFilteredBending := FilteredRobustBending;
 END_PROGRAM
 
 CONFIGURATION Config
 RESOURCE Res ON PLC
-    TASK MainTask(INTERVAL := T#20ms, PRIORITY := 1);
+    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.ControllerEnabled AT %MX64.0 : BOOL;
-    P1.DataHealthy AT %MX64.1 : BOOL;
-    P1.ExperimentEnabled AT %MX64.2 : BOOL;
-    P1.SafetyAbort AT %MX64.3 : BOOL;
-    P1.InputsValid AT %MX64.4 : BOOL;
-    P1.NominalSaturated AT %MX65.0 : BOOL;
-    P1.RobustSaturated AT %MX65.1 : BOOL;
-    P1.NominalRequested AT %ML72 : LREAL;
-    P1.RobustRequested AT %ML80 : LREAL;
-    P1.FilteredRobustBending AT %ML88 : LREAL;
-    P1.GustLoad AT %ML96 : LREAL;
-    P1.ElapsedTime AT %ML104 : LREAL;
-    P1.NominalApplied AT %QL0 : LREAL;
-    P1.NominalGust AT %QL8 : LREAL;
-    P1.RobustApplied AT %QL16 : LREAL;
-    P1.RobustGust AT %QL24 : LREAL;
-    P1.NominalBending AT %IL0 : LREAL;
-    P1.RobustBending AT %IL8 : LREAL;
+    P1.SafetyAbort AT %MX96.3 : BOOL;
+    P1.DataUsable AT %MX96.2 : BOOL;
+    P1.AppliedPowerPct AT %QL0 : LREAL;
+    P1.DisturbanceKw AT %QL8 : LREAL;
+    P1.WaterInputC AT %IL0 : LREAL;
+    P1.TemperatureC AT %IL8 : LREAL;
+    P1.SetpointC AT %ML0 : LREAL;
+    P1.IntegralPct AT %ML16 : LREAL;
+    P1.RequestedPowerPct AT %ML32 : LREAL;
+    P1.WaterTemperatureC AT %ML48 : LREAL;
+    P1.ProportionalPct AT %ML56 : LREAL;
+    P1.ManualOutput AT %ML72 : LREAL;
 END_VAR
 END_CONFIGURATION
