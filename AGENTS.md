@@ -27,6 +27,39 @@ repo-local `.codex/skills/**`, not in tool-private memory.
   When creating a branch in a new worktree or checkout, always copy them
   manually.
 
+## Control Platform Purpose Checkpoint (mandatory)
+
+- Before new or resumed PID, simulated-plant, Control Studio, or control-course
+  work, read [Control Platform Purpose and Acceptance Contract](docs/specs/control-platform-purpose.md)
+  and the owning detailed specifications listed there.
+- For a control-related destination checkout, manually copy this contract from
+  the canonical agent-file checkout alongside the agent files, verify it matches,
+  and read the destination copy. Keep the canonical contract and working copy
+  synchronized when the user changes the shared purpose.
+- Record the contract's Start and Finish checkpoints in the active checklist or
+  task record. State which of the four parts the task advances and the actual
+  controller, project, plant and evidence needed for its acceptance.
+- The primary PID demonstration and acceptance journey must execute the existing
+  `Control.PID`. A handwritten P fixture or aggregate test count cannot establish
+  that goal. Other controller techniques retain their explicitly stated scope.
+- Course examples must meet the contract's runnable, reusable production-example
+  criteria; teaching snippets and simulation results must not be mislabelled as
+  deployment or physical qualification.
+- If this checkout lacks the referenced control specifications or implementation,
+  recover the existing feature worktree and checkpoint before editing. Do not
+  recreate existing components merely because they are absent from `main`.
+
+- For control-platform release readiness, use
+  `docs/internal/testing/checklists/control-platform-release-readiness.md` in the
+  recovered implementation checkout as the release-level tracker.
+- Self-review every required UI/UX screenshot for visual polish (stunning), ease
+  of use, self-explanatory/explorable interaction and shared truST consistency,
+  across all included surfaces. Record each image's verdict and resolve defects.
+- Complete development, agent testing of the entire tutorial/platform and all
+  required image reviews before requesting the user's final whole-course
+  walkthrough. Only the user can accept that walkthrough; an explicitly
+  requested early preview is not final acceptance.
+
 ## Test-First Development Rule (non-negotiable)
 
 - Apply test-first development to every behavior-changing code task: new
