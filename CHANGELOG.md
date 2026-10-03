@@ -75,7 +75,8 @@ Target release: `v0.24.70`
 - Security: update `rustls` to 0.23.45 (RUSTSEC-2026-0285, TLS 1.3 handshake messages accepted
   across encryption levels) and `salsa` to 0.28.5 (RUSTSEC-2026-0308, use-after-free in interned
   values and cached query results). The two queries whose results salsa now returns by reference
-  are read by value, unchanged in behaviour.
+  are read by value, unchanged in behaviour. The VS Code extension's `brace-expansion` (2.1.7,
+  5.0.12) and `js-yaml` (4.3.2) move past two high-severity CPU denial-of-service advisories.
 - Security: `GET /api/io/config` answered without the web authentication in the runtime's own
   web server, and every I/O configuration read returned driver credentials such as an MQTT
   password. The read now needs the Viewer role in every server mode, and passwords, tokens,
