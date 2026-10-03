@@ -4465,7 +4465,19 @@ role below the route requirement returns `forbidden`; absent authority returns
 error text, use `application/json`, and return HTTP 403 and 401 respectively.
 The accepted token value is forwarded to control dispatch. A server-owned
 internal control token is used only when the web request supplied no token; it
-must not replace an explicit token. The `X-Trust-Ide-Session` header name is
+must not replace an explicit token.
+
+The I/O configuration routes follow the same contract in every web server mode.
+`GET /api/io/config` requires Viewer and is an observation projection, not a
+credential retrieval surface: every driver parameter whose key is secret-valued
+(`password`, `auth_token`, `token`, `secret`, `client_secret`, `credential`,
+`credentials` and `private_key`, matched ASCII-case-insensitively at any depth)
+is replaced with the marker `<redacted>` before serialization. `POST
+/api/io/config` requires Engineer; a secret-valued parameter that arrives as
+`<redacted>` keeps the value stored for the driver at the same position with the
+same name, so saving a configuration as it was read never erases or replaces a
+credential. A marker with no stored value to keep is refused as an invalid
+configuration, and nothing is written. The `X-Trust-Ide-Session` header name is
 also ASCII-case-insensitive and its value is preserved exactly.
 
 Every state-changing API route applies the following POST admission rules

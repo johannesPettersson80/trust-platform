@@ -48,7 +48,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.69`
+Target release: `v0.24.70`
 
 ### Added
 
@@ -72,6 +72,11 @@ Target release: `v0.24.69`
 
 ### Fixed
 
+- Security: `GET /api/io/config` answered without the web authentication in the runtime's own
+  web server, and every I/O configuration read returned driver credentials such as an MQTT
+  password. The read now needs the Viewer role in every server mode, and passwords, tokens,
+  secrets and private keys come back as `<redacted>`; saving a configuration as it was read
+  keeps the stored credential (specification 11, §6.9.7).
 - Resolve symbolic MQTT tag mappings when a project is launched in the VS Code
   simulator, so mapped outputs connect and publish instead of leaving the
   debugger with an empty process image.

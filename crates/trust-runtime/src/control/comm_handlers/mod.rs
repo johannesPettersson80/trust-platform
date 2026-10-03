@@ -131,19 +131,7 @@ fn sanitize_readonly_comm_audit_details(params: &serde_json::Value) -> serde_jso
 fn redact_readonly_secrets(value: &mut serde_json::Value) {
     match value {
         serde_json::Value::Object(object) => {
-            object.retain(|key, _| {
-                !matches!(
-                    key.to_ascii_lowercase().as_str(),
-                    "password"
-                        | "auth_token"
-                        | "token"
-                        | "credential"
-                        | "credentials"
-                        | "secret"
-                        | "client_secret"
-                        | "private_key"
-                )
-            });
+            object.retain(|key, _| !crate::security::is_secret_param_key(key));
             for child in object.values_mut() {
                 redact_readonly_secrets(child);
             }

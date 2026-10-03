@@ -124,10 +124,7 @@ pub(super) fn handle_get_io_config(
 
     if target_runtime == local_runtime {
         let response = match load_io_config(ctx.bundle_root) {
-            Ok(config) => json_response(
-                200,
-                serde_json::to_value(config).unwrap_or_else(|_| json!({})),
-            ),
+            Ok(config) => json_response(200, redacted_io_config(&config)),
             Err(error) => json_response(
                 500,
                 json!({

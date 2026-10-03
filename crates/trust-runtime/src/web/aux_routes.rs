@@ -355,8 +355,19 @@ pub(super) fn handle_aux_route(
         return AuxRouteOutcome::Handled;
     }
     if *method == Method::Get && url == "/api/io/config" {
+        // A read of the configuration passes the web authentication (spec 11, §6.9.7).
+        if let Err(error) = check_auth(
+            &request,
+            ctx.auth_mode,
+            ctx.auth_token,
+            ctx.pairing,
+            AccessRole::Viewer,
+        ) {
+            let _ = request.respond(auth_error_response(error));
+            return AuxRouteOutcome::Handled;
+        }
         let body = match load_io_config(ctx.bundle_root) {
-            Ok(config) => serde_json::to_string(&config).unwrap_or_else(|_| "{}".to_string()),
+            Ok(config) => redacted_io_config(&config).to_string(),
             Err(err) => json!({ "error": err.to_string() }).to_string(),
         };
         let response = Response::from_string(body)

@@ -65,7 +65,13 @@ pub(super) fn start_test_server_config_ui(
 
 pub(super) fn wait_for_server(base: &str) {
     for _ in 0..80 {
-        if ureq::get(&format!("{base}/api/io/config")).call().is_ok() {
+        // Any answer, a refusal for a missing token included, means the server is listening.
+        let answer = ureq::get(&format!("{base}/api/io/config"))
+            .config()
+            .http_status_as_error(false)
+            .build()
+            .call();
+        if answer.is_ok() {
             return;
         }
         thread::sleep(Duration::from_millis(25));

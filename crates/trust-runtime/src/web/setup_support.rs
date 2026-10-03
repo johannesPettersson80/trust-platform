@@ -180,6 +180,102 @@ pub(super) fn load_io_config(
     })
 }
 
+/// The marker that stands for a stored secret in an I/O configuration answer (spec 11, §6.9.7).
+pub(super) const SECRET_MARKER: &str = "<redacted>";
+
+/// The I/O configuration as a read route answers it: every secret-valued parameter, at any depth,
+/// replaced with the marker (spec 11, §6.9.7).
+pub(super) fn redacted_io_config(config: &IoConfigResponse) -> serde_json::Value {
+    let mut value = serde_json::to_value(config).unwrap_or_else(|_| json!({}));
+    for part in ["params", "drivers"] {
+        if let Some(params) = value.get_mut(part) {
+            redact_secrets(params);
+        }
+    }
+    value
+}
+
+fn redact_secrets(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(object) => {
+            for (key, child) in object.iter_mut() {
+                if crate::security::is_secret_param_key(key) {
+                    *child = json!(SECRET_MARKER);
+                } else {
+                    redact_secrets(child);
+                }
+            }
+        }
+        serde_json::Value::Array(values) => values.iter_mut().for_each(redact_secrets),
+        _ => {}
+    }
+}
+
+/// Puts back the stored value of every secret parameter that comes back as the marker, from the
+/// driver at the same position with the same name; a marker with nothing stored is refused
+/// (spec 11, §6.9.7).
+fn keep_stored_secrets(
+    payload: &mut IoConfigRequest,
+    stored: Option<&IoConfigResponse>,
+) -> Result<(), RuntimeError> {
+    if let Some(drivers) = payload.drivers.as_mut() {
+        let kept = stored
+            .map(|config| config.drivers.as_slice())
+            .unwrap_or(&[]);
+        for (index, driver) in drivers.iter_mut().enumerate() {
+            let same = kept
+                .get(index)
+                .filter(|stored| stored.name == driver.name)
+                .map(|stored| &stored.params);
+            if let Some(params) = driver.params.as_mut() {
+                restore_secrets(params, same)?;
+            }
+        }
+    }
+    if let Some(params) = payload.params.as_mut() {
+        let same = stored
+            .filter(|config| payload.driver.as_deref() == Some(config.driver.as_str()))
+            .map(|config| &config.params);
+        restore_secrets(params, same)?;
+    }
+    Ok(())
+}
+
+fn restore_secrets(
+    value: &mut serde_json::Value,
+    stored: Option<&serde_json::Value>,
+) -> Result<(), RuntimeError> {
+    match value {
+        serde_json::Value::Object(object) => {
+            for (key, child) in object.iter_mut() {
+                let kept = stored.and_then(|stored| stored.get(key));
+                if child.as_str() == Some(SECRET_MARKER)
+                    && crate::security::is_secret_param_key(key)
+                {
+                    *child = kept
+                        .filter(|kept| kept.as_str() != Some(SECRET_MARKER))
+                        .cloned()
+                        .ok_or_else(|| {
+                            RuntimeError::InvalidConfig(
+                                format!("'{key}' is {SECRET_MARKER} but no value is stored for it")
+                                    .into(),
+                            )
+                        })?;
+                } else {
+                    restore_secrets(child, kept)?;
+                }
+            }
+        }
+        serde_json::Value::Array(values) => {
+            for (index, child) in values.iter_mut().enumerate() {
+                restore_secrets(child, stored.and_then(|stored| stored.get(index)))?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 pub(super) fn save_io_config(
     bundle_root: &Option<PathBuf>,
     payload: &IoConfigRequest,
@@ -196,7 +292,9 @@ pub(super) fn save_io_config(
         return Ok("✓ Using system I/O config. Restart the runtime to apply.".to_string());
     }
 
-    let drivers = driver_configs_from_payload(payload)?;
+    let mut payload = payload.clone();
+    keep_stored_secrets(&mut payload, load_io_config(bundle_root).ok().as_ref())?;
+    let drivers = driver_configs_from_payload(&payload)?;
     let safe_state = payload.safe_state.clone().unwrap_or_default();
     let io_text = render_io_toml(drivers, safe_state);
     crate::config::validate_io_toml_text(&io_text)?;
