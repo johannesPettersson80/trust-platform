@@ -38,7 +38,7 @@ rowan = "0.16"
 text-size = "1.1"
 
 # Semantic analysis
-salsa = "0.26"
+salsa = "0.28"
 
 # LSP
 tower-lsp = "0.20"

@@ -72,6 +72,10 @@ Target release: `v0.24.70`
 
 ### Fixed
 
+- Security: update `rustls` to 0.23.45 (RUSTSEC-2026-0285, TLS 1.3 handshake messages accepted
+  across encryption levels) and `salsa` to 0.28.5 (RUSTSEC-2026-0308, use-after-free in interned
+  values and cached query results). The two queries whose results salsa now returns by reference
+  are read by value, unchanged in behaviour.
 - Security: `GET /api/io/config` answered without the web authentication in the runtime's own
   web server, and every I/O configuration read returned driver credentials such as an MQTT
   password. The read now needs the Viewer role in every server mode, and passwords, tokens,
