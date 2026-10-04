@@ -98,16 +98,32 @@ pub(in crate::db) fn check_global_external_links_with_project(
     diagnostics: &mut DiagnosticBuilder,
     file_id: FileId,
 ) {
+    // Collision ranges belong to the file that declares them. Report a collision at a
+    // declaration in this file, or else at the first reference to the name here; a file
+    // that neither declares nor references the name does not get it.
     for collision in symbols.import_collisions() {
-        let diagnostic = Diagnostic::error(
+        let is_local = |file: Option<FileId>| file.is_none_or(|file| file == file_id);
+        let existing_local = is_local(collision.existing_file);
+        let range = if is_local(collision.duplicate_file) {
+            collision.duplicate_range
+        } else if existing_local {
+            collision.existing_range
+        } else if let Some(range) = first_reference_range(root, collision.name.as_str()) {
+            range
+        } else {
+            continue;
+        };
+        let mut diagnostic = Diagnostic::error(
             DiagnosticCode::DuplicateDeclaration,
-            collision.duplicate_range,
+            range,
             format!("duplicate imported declaration of '{}'", collision.name),
-        )
-        .with_related(
-            collision.existing_range,
-            "previously imported or declared here",
         );
+        if existing_local && range != collision.existing_range {
+            diagnostic = diagnostic.with_related(
+                collision.existing_range,
+                "previously imported or declared here",
+            );
+        }
         diagnostics.add(diagnostic);
     }
 
@@ -233,4 +249,19 @@ pub(in crate::db) fn check_global_external_links_with_project(
             }
         }
     }
+}
+
+/// Range of the first identifier in `root` that refers to `name` (a name or type reference).
+fn first_reference_range(root: &SyntaxNode, name: &str) -> Option<TextRange> {
+    root.descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+        .find(|token| {
+            token.kind() == SyntaxKind::Ident
+                && token.text().eq_ignore_ascii_case(name)
+                && token
+                    .parent_ancestors()
+                    .take(3)
+                    .any(|node| matches!(node.kind(), SyntaxKind::NameRef | SyntaxKind::TypeRef))
+        })
+        .map(|token| token.text_range())
 }

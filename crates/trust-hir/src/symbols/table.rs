@@ -334,13 +334,15 @@ impl SymbolTable {
     pub fn record_import_collision(
         &mut self,
         name: SmolStr,
-        existing_range: TextRange,
-        duplicate_range: TextRange,
+        existing: (TextRange, Option<FileId>),
+        duplicate: (TextRange, Option<FileId>),
     ) {
         self.import_collisions.push(ImportCollision {
             name,
-            existing_range,
-            duplicate_range,
+            existing_range: existing.0,
+            duplicate_range: duplicate.0,
+            existing_file: existing.1,
+            duplicate_file: duplicate.1,
         });
     }
 

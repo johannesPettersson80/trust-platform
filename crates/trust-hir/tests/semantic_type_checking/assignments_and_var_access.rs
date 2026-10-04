@@ -664,6 +664,84 @@ END_PROGRAM
     );
 }
 
+fn duplicate_ranges(db: &Database, file: FileId) -> Vec<(usize, usize)> {
+    db.diagnostics(file)
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::DuplicateDeclaration)
+        .map(|diagnostic| {
+            (
+                usize::from(diagnostic.range.start()),
+                usize::from(diagnostic.range.end()),
+            )
+        })
+        .collect()
+}
+
+fn text_range_of(source: &str, needle: &str) -> (usize, usize) {
+    let start = source.find(needle).expect("needle in source");
+    (start, start + needle.len())
+}
+
+const SHARED_INT: &str = "\nVAR_GLOBAL\n    Shared : INT;\nEND_VAR\n";
+const SHARED_DINT: &str =
+    "\n(* declared again, at another offset *)\nVAR_GLOBAL\n    Shared : DINT;\nEND_VAR\n";
+const SHARED_USER: &str =
+    "\nPROGRAM Main\nVAR\n    x : DINT;\nEND_VAR\nx := Shared;\nEND_PROGRAM\n";
+
+#[test]
+fn test_cross_file_global_import_collision_is_reported_at_the_use_in_a_third_file() {
+    let mut db = Database::new();
+    db.set_source_text(FileId(0), SHARED_INT.to_string());
+    db.set_source_text(FileId(1), SHARED_DINT.to_string());
+    db.set_source_text(FileId(2), SHARED_USER.to_string());
+
+    let use_range = text_range_of(SHARED_USER, "Shared;");
+    assert_eq!(
+        duplicate_ranges(&db, FileId(2)),
+        vec![(use_range.0, use_range.0 + "Shared".len())],
+        "the collision must point at the reference in this file, not at an offset of another file"
+    );
+}
+
+#[test]
+fn test_cross_file_global_import_collision_is_reported_at_the_local_declaration() {
+    let mut db = Database::new();
+    db.set_source_text(FileId(0), SHARED_INT.to_string());
+    db.set_source_text(FileId(1), SHARED_DINT.to_string());
+    db.set_source_text(FileId(2), SHARED_USER.to_string());
+
+    let local = text_range_of(SHARED_INT, "Shared");
+    let ranges = duplicate_ranges(&db, FileId(0));
+    assert!(
+        !ranges.is_empty(),
+        "expected the collision in the declaring file"
+    );
+    assert!(
+        ranges.iter().all(|range| *range == local),
+        "expected the collision at this file's own declaration {local:?}, got {ranges:?}"
+    );
+}
+
+#[test]
+fn test_collision_inside_another_file_does_not_leak_into_unrelated_files() {
+    let declaring = "\nTYPE J1939 : STRUCT a : INT; END_STRUCT END_TYPE\nVAR_GLOBAL\n    J1939 : J1939;\nEND_VAR\n";
+    let unrelated =
+        "\nFUNCTION_BLOCK Other\nVAR\n    x : INT;\nEND_VAR\nx := 1;\nEND_FUNCTION_BLOCK\n";
+    let mut db = Database::new();
+    db.set_source_text(FileId(0), declaring.to_string());
+    db.set_source_text(FileId(1), unrelated.to_string());
+
+    assert!(
+        !duplicate_ranges(&db, FileId(0)).is_empty(),
+        "the declaring file still reports its own duplicate"
+    );
+    assert_eq!(
+        duplicate_ranges(&db, FileId(1)),
+        Vec::<(usize, usize)>::new(),
+        "a file that neither declares nor references the name must not get the collision"
+    );
+}
+
 #[test]
 fn test_var_config_type_mismatch() {
     check_has_error(
