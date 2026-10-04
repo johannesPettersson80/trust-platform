@@ -53,6 +53,9 @@ impl OopReference {
 pub struct SymbolTable {
     /// All symbols indexed by ID.
     symbols: FxHashMap<SymbolId, Symbol>,
+    /// Symbol IDs in insertion order. IDs are handed out increasingly and symbols are
+    /// never removed, so this is ID order, without sorting.
+    order: Vec<SymbolId>,
     /// All scopes.
     scopes: Vec<Scope>,
     /// Current scope ID during collection.
@@ -101,6 +104,7 @@ impl SymbolTable {
     pub fn new() -> Self {
         let mut table = Self {
             symbols: FxHashMap::default(),
+            order: Vec::new(),
             scopes: Vec::new(),
             current_scope: ScopeId::GLOBAL,
             global_names: FxHashMap::default(),
@@ -290,6 +294,7 @@ impl SymbolTable {
         }
 
         self.symbols.insert(id, symbol);
+        self.order.push(id);
         id
     }
 
@@ -308,6 +313,7 @@ impl SymbolTable {
         }
 
         self.symbols.insert(id, symbol);
+        self.order.push(id);
         id
     }
 
@@ -693,6 +699,11 @@ impl SymbolTable {
     /// Returns an iterator over all symbols.
     pub fn iter(&self) -> impl Iterator<Item = &Symbol> {
         self.symbols.values()
+    }
+
+    /// Iterates over all symbols in ID order.
+    pub fn iter_in_id_order(&self) -> impl Iterator<Item = &Symbol> {
+        self.order.iter().filter_map(|id| self.symbols.get(id))
     }
 
     /// Returns the number of symbols.

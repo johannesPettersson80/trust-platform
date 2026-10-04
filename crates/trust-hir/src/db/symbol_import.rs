@@ -74,14 +74,11 @@ impl<'a> SymbolImporter<'a> {
     pub(super) fn import_table(&mut self, source_file: FileId, source: &SymbolTable) {
         let mut namespace_targets = self.take_namespace_targets();
 
-        let mut parent_map: FxHashMap<SymbolId, Option<SymbolId>> = FxHashMap::default();
-        // References, not clones: only the symbols that are actually imported are cloned.
-        let mut source_symbols: Vec<&Symbol> = source.iter().collect();
-        source_symbols.sort_unstable_by_key(|sym| sym.id.0);
-        parent_map.reserve(source_symbols.len());
-        for symbol in &source_symbols {
-            parent_map.insert(symbol.id, symbol.parent);
-        }
+        // References in ID order (no clone, no sort); only imported symbols are cloned.
+        // Parents are looked up in `source` directly instead of a copied parent map.
+        let source_symbols: Vec<&Symbol> = source.iter_in_id_order().collect();
+        let parent_of =
+            |id: SymbolId| -> Option<SymbolId> { source.get(id).and_then(|s| s.parent) };
 
         let mut root_cache: FxHashMap<SymbolId, SymbolId> = FxHashMap::default();
         let mut root_for = |id: SymbolId| -> SymbolId {
@@ -89,7 +86,7 @@ impl<'a> SymbolImporter<'a> {
                 return *root;
             }
             let mut current = id;
-            while let Some(parent) = parent_map.get(&current).copied().flatten() {
+            while let Some(parent) = parent_of(current) {
                 current = parent;
             }
             root_cache.insert(id, current);
@@ -163,7 +160,7 @@ impl<'a> SymbolImporter<'a> {
         }
 
         for (old_id, new_id) in id_map.iter() {
-            let old_parent = parent_map.get(old_id).copied().flatten();
+            let old_parent = parent_of(*old_id);
             if let Some(new_parent) = old_parent.and_then(|pid| id_map.get(&pid).copied()) {
                 if let Some(symbol) = self.target.get_mut(*new_id) {
                     symbol.parent = Some(new_parent);
@@ -201,7 +198,7 @@ impl<'a> SymbolImporter<'a> {
         }
 
         for (old_id, new_id) in id_map.iter() {
-            if parent_map.get(old_id).copied().flatten().is_none() {
+            if parent_of(*old_id).is_none() {
                 if let Some(symbol) = self.target.get(*new_id) {
                     self.define_imported_symbol_in_scope(
                         ScopeId::GLOBAL,
