@@ -113,7 +113,7 @@ impl<'a> BytecodeEncoder<'a> {
                     }
                     crate::program_model::CaseLabel::Range(lower, upper) => {
                         code.push(0x11);
-                        if !self.emit_const_value(&Value::LInt(*lower), code)? {
+                        if !self.emit_const_value(lower, code)? {
                             code.truncate(code_start);
                             debug_entries.truncate(debug_start);
                             return Ok(false);
@@ -121,7 +121,7 @@ impl<'a> BytecodeEncoder<'a> {
                         code.push(0x55);
                         let skip_range = self.emit_jump_placeholder(code, 0x04);
                         code.push(0x11);
-                        if !self.emit_const_value(&Value::LInt(*upper), code)? {
+                        if !self.emit_const_value(upper, code)? {
                             code.truncate(code_start);
                             debug_entries.truncate(debug_start);
                             return Ok(false);

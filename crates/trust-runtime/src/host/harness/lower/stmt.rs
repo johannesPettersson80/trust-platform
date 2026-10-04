@@ -387,8 +387,8 @@ fn lower_case_label(
         return Ok(vec![CaseLabel::Single(value)]);
     }
     if exprs.len() == 2 {
-        let lower = const_case_label_int(&exprs[0], selector_type, ctx)?;
-        let upper = const_case_label_int(&exprs[1], selector_type, ctx)?;
+        let lower = const_case_label_bound(&exprs[0], selector_type, ctx)?;
+        let upper = const_case_label_bound(&exprs[1], selector_type, ctx)?;
         return Ok(vec![CaseLabel::Range(lower, upper)]);
     }
     Err(CompileError::new("invalid CASE label"))
@@ -406,29 +406,28 @@ fn const_case_label_value(
     ctx.eval_compile_time_const_expr(&expr)
 }
 
-fn const_case_label_int(
+/// A CASE range bound: an integer, bit-string or enumeration constant in the selector's
+/// type, so that it compares with the selector like a single label does.
+fn const_case_label_bound(
     node: &SyntaxNode,
     selector_type: Option<TypeId>,
     ctx: &mut LoweringContext<'_>,
-) -> Result<i64, CompileError> {
-    match const_case_label_value(node, selector_type, ctx)? {
-        Value::SInt(v) => Ok(v as i64),
-        Value::Int(v) => Ok(v as i64),
-        Value::DInt(v) => Ok(v as i64),
-        Value::LInt(v) => Ok(v),
-        Value::USInt(v) => Ok(v as i64),
-        Value::UInt(v) => Ok(v as i64),
-        Value::UDInt(v) => Ok(v as i64),
-        Value::ULInt(v) => {
-            Ok(i64::try_from(v).map_err(|_| CompileError::new("integer constant out of range"))?)
-        }
-        Value::Byte(v) => Ok(v as i64),
-        Value::Word(v) => Ok(v as i64),
-        Value::DWord(v) => Ok(v as i64),
-        Value::LWord(v) => {
-            Ok(i64::try_from(v).map_err(|_| CompileError::new("integer constant out of range"))?)
-        }
-        Value::Enum(enum_value) => Ok(enum_value.numeric_value()),
+) -> Result<Value, CompileError> {
+    let value = const_case_label_value(node, selector_type, ctx)?;
+    match value {
+        Value::SInt(_)
+        | Value::Int(_)
+        | Value::DInt(_)
+        | Value::LInt(_)
+        | Value::USInt(_)
+        | Value::UInt(_)
+        | Value::UDInt(_)
+        | Value::ULInt(_)
+        | Value::Byte(_)
+        | Value::Word(_)
+        | Value::DWord(_)
+        | Value::LWord(_)
+        | Value::Enum(_) => Ok(value),
         _ => Err(CompileError::new("expected integer constant")),
     }
 }
