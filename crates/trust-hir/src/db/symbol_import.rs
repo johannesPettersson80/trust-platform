@@ -34,6 +34,11 @@ pub(super) struct SymbolImporter<'a> {
     sources: &'a FxHashMap<FileId, Arc<SymbolTable>>,
     type_map: FxHashMap<(FileId, TypeId), TypeId>,
     importing: FxHashSet<(FileId, TypeId)>,
+    /// Namespace path -> namespace symbol in `target`. Built once from the target and
+    /// kept up to date as namespaces are imported, instead of rescanning the (growing)
+    /// target for every imported table, which made one merge quadratic in the number of
+    /// project files.
+    namespace_targets: Option<FxHashMap<Vec<SmolStr>, SymbolId>>,
 }
 
 impl<'a> SymbolImporter<'a> {
@@ -46,23 +51,34 @@ impl<'a> SymbolImporter<'a> {
             sources,
             type_map: FxHashMap::default(),
             importing: FxHashSet::default(),
+            namespace_targets: None,
         }
     }
 
-    pub(super) fn import_table(&mut self, source_file: FileId, source: &SymbolTable) {
-        let mut namespace_targets: FxHashMap<Vec<SmolStr>, SymbolId> = FxHashMap::default();
+    fn take_namespace_targets(&mut self) -> FxHashMap<Vec<SmolStr>, SymbolId> {
+        if let Some(targets) = self.namespace_targets.take() {
+            return targets;
+        }
+        let mut targets: FxHashMap<Vec<SmolStr>, SymbolId> = FxHashMap::default();
         for symbol in self.target.iter() {
             if !matches!(symbol.kind, SymbolKind::Namespace) {
                 continue;
             }
             if let Some(path) = Self::namespace_path(self.target, symbol.id) {
-                namespace_targets.insert(path, symbol.id);
+                targets.insert(path, symbol.id);
             }
         }
+        targets
+    }
+
+    pub(super) fn import_table(&mut self, source_file: FileId, source: &SymbolTable) {
+        let mut namespace_targets = self.take_namespace_targets();
 
         let mut parent_map: FxHashMap<SymbolId, Option<SymbolId>> = FxHashMap::default();
-        let mut source_symbols: Vec<Symbol> = source.iter().cloned().collect();
-        source_symbols.sort_by_key(|sym| sym.id.0);
+        // References, not clones: only the symbols that are actually imported are cloned.
+        let mut source_symbols: Vec<&Symbol> = source.iter().collect();
+        source_symbols.sort_unstable_by_key(|sym| sym.id.0);
+        parent_map.reserve(source_symbols.len());
         for symbol in &source_symbols {
             parent_map.insert(symbol.id, symbol.parent);
         }
@@ -108,7 +124,7 @@ impl<'a> SymbolImporter<'a> {
         }
 
         let mut id_map: FxHashMap<SymbolId, SymbolId> = FxHashMap::default();
-        for symbol in source_symbols {
+        for symbol in source_symbols.iter().copied() {
             let root_id = root_for(symbol.id);
             if !importable_roots.contains(&root_id) {
                 continue;
@@ -285,6 +301,7 @@ impl<'a> SymbolImporter<'a> {
                 }
             }
         }
+        self.namespace_targets = Some(namespace_targets);
     }
 
     fn define_imported_symbol_in_scope(
