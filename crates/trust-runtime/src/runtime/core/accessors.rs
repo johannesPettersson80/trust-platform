@@ -91,6 +91,12 @@ impl Runtime {
         &self.stdlib
     }
 
+    /// Set the rules of the type conversion functions (before compiling sources: the
+    /// initializers are evaluated with them).
+    pub fn set_conversion_profile(&mut self, profile: crate::stdlib::conversions::ConversionProfile) {
+        self.stdlib = std::mem::take(&mut self.stdlib).with_conversion_profile(profile);
+    }
+
     pub(crate) fn instance_init_context(&mut self) -> InstanceInitContext<'_> {
         (
             &mut self.storage,

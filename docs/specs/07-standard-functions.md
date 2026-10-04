@@ -160,6 +160,48 @@ Implementer extension note:
   remain implementer-specific. When provided, they shall follow the external
   literal representation rules in 6.3.3.
 
+
+### 2.6 Vendor Extension Conversions
+
+truST also accepts these conversions, which IEC 61131-3 Tables 22-27 do not list but
+CODESYS and TwinCAT projects use. They follow the truST conversion rules above (no
+wrapping or saturation):
+
+| Function | Result |
+|----------|--------|
+| `REAL_TO_BYTE`, `REAL_TO_WORD`, `REAL_TO_LWORD`, `LREAL_TO_BYTE`, `LREAL_TO_WORD`, `LREAL_TO_DWORD` | The number converted like `REAL_TO_<unsigned>` of the target width (`USINT`, `UINT`, `UDINT`, `ULINT`): round to nearest, ties to even; a value outside the target range or a non-finite value returns `RuntimeError::Overflow`. `REAL_TO_DWORD` and `LREAL_TO_LWORD` remain the Table 25 binary transfers. |
+| `<ANY_INT>_TO_BOOL`, `<ANY_REAL>_TO_BOOL`, `BYTE/WORD/DWORD/LWORD_TO_BOOL`, `TO_BOOL` | `TRUE` when the value is not zero. A non-finite `REAL`/`LREAL` returns `RuntimeError::Overflow`. |
+| `BOOL_TO_REAL`, `BOOL_TO_LREAL` | `1.0` for `TRUE`, `0.0` for `FALSE`. |
+
+Examples: `REAL_TO_BYTE(200.4) = BYTE#200`, `REAL_TO_BYTE(256.0)` returns
+`RuntimeError::Overflow`, `BYTE_TO_BOOL(2#1101_0101) = TRUE`, `INT_TO_BOOL(0) = FALSE`.
+
+
+### 2.7 CODESYS Conversion Profile
+
+A compile session can select the CODESYS conversion profile
+(`CompileSession::with_conversion_profile(ConversionProfile::Codesys)`, `trust-harness`
+`load` with `"vendor_profile": "codesys"`). The conversion functions then follow the CODESYS
+Development System rules instead of the IEC rules and truST policies above; the default
+(`iec`) is unchanged:
+
+| Conversion | `iec` (default) | `codesys` |
+|------------|-----------------|-----------|
+| `REAL`/`LREAL` to an integer or bit string | round to nearest, ties to even | round half away from zero (`.1`-`.4` down, `.5`-`.9` up): `REAL_TO_INT(2.5) = 3`, `REAL_TO_INT(-1.5) = -2` |
+| a value outside the target range (integer narrowing, signed/unsigned change, `REAL` to integer) | `RuntimeError::Overflow` | the low-order bits of the target width, two's complement: `DINT_TO_SINT(128) = -128`, `INT_TO_UINT(-1) = 65535`, `REAL_TO_BYTE(300.0) = 44` |
+| `REAL_TO_DWORD`, `LREAL_TO_LWORD` | Table 25 binary transfer | the number: `REAL_TO_DWORD(3.7) = 4` |
+| `BYTE/WORD/DWORD/LWORD` to `REAL`/`LREAL` | `DWORD_TO_REAL`, `LWORD_TO_LREAL` binary transfers | the number: `DWORD_TO_REAL(5) = 5.0` |
+
+A non-finite `REAL`/`LREAL` source still returns `RuntimeError::Overflow`, and conversions
+whose CODESYS result is "undefined, target system-dependent" keep the low-order bits. The
+profile changes conversion functions only; arithmetic overflow is unchanged.
+
+References: CODESYS Development System,
+[REAL_TO / LREAL_TO](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_operator_real_to.html)
+and [integer conversions](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_operator_convert_integer.html)
+("If the number to be converted exceeds the range limit, then the first bytes of the number are
+ignored").
+
 ### 2.6 BCD Conversions (Table 22)
 
 | Function | Description |

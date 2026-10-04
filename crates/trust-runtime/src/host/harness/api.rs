@@ -14,6 +14,7 @@ pub struct CompileSession {
     label_errors: bool,
     extra_program_instances: Vec<SmolStr>,
     instrumentation_errors: Vec<String>,
+    conversion_profile: crate::stdlib::conversions::ConversionProfile,
 }
 
 impl CompileSession {
@@ -26,6 +27,7 @@ impl CompileSession {
             label_errors: false,
             extra_program_instances: Vec::new(),
             instrumentation_errors,
+            conversion_profile: Default::default(),
         }
     }
 
@@ -38,6 +40,7 @@ impl CompileSession {
             label_errors,
             extra_program_instances: Vec::new(),
             instrumentation_errors,
+            conversion_profile: Default::default(),
         }
     }
 
@@ -61,6 +64,20 @@ impl CompileSession {
         self
     }
 
+    /// Use the given conversion rules (docs/specs/07-standard-functions.md 2.7).
+    pub fn with_conversion_profile(
+        mut self,
+        profile: crate::stdlib::conversions::ConversionProfile,
+    ) -> Self {
+        self.conversion_profile = profile;
+        self
+    }
+
+    /// The conversion rules of the session.
+    pub fn conversion_profile(&self) -> crate::stdlib::conversions::ConversionProfile {
+        self.conversion_profile
+    }
+
     /// Access the registered sources.
     pub fn sources(&self) -> &[SourceFile] {
         &self.sources
@@ -73,6 +90,7 @@ impl CompileSession {
             &self.sources,
             self.label_errors,
             &self.extra_program_instances,
+            self.conversion_profile,
         )
     }
 
@@ -83,6 +101,7 @@ impl CompileSession {
             &self.sources,
             self.label_errors,
             &self.extra_program_instances,
+            self.conversion_profile,
         )
     }
 

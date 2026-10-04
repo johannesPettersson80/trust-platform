@@ -620,3 +620,37 @@ fn trust_harness_cli_protocol_selection_overrides_environment_and_rejects_bad_ar
     assert!(responses.is_empty());
     assert!(stderr.contains("unsupported protocol version '3'"));
 }
+
+// docs/guides/TRUST_HARNESS_PROTOCOL.md: `load` selects a vendor conversion profile.
+#[test]
+fn trust_harness_load_selects_the_codesys_conversion_profile() {
+    let program = r#"
+PROGRAM Main
+VAR
+    half : REAL := 2.5;
+    rounded : INT;
+END_VAR
+rounded := REAL_TO_INT(half);
+END_PROGRAM
+"#;
+    let (responses, stderr) = run_harness(&[
+        json!({"cmd": "load", "source": program, "vendor_profile": "codesys"}),
+        json!({"cmd": "snapshot", "watch": ["rounded"]}),
+        json!({"cmd": "load", "source": program}),
+        json!({"cmd": "snapshot", "watch": ["rounded"]}),
+        json!({"cmd": "load", "source": program, "vendor_profile": "nonesuch"}),
+    ]);
+
+    assert_eq!(responses.len(), 5, "stderr was:\n{stderr}");
+    assert_eq!(
+        responses[1]["data"]["values"]["rounded"],
+        json!({"status": "ok", "value": {"type": "INT", "value": 3}})
+    );
+    // without the field a load uses the IEC rules (ties to even)
+    assert_eq!(
+        responses[3]["data"]["values"]["rounded"],
+        json!({"status": "ok", "value": {"type": "INT", "value": 2}})
+    );
+    assert_eq!(responses[4]["ok"], json!(false));
+    assert_eq!(responses[4]["error"]["kind"], json!("invalid_argument"));
+}

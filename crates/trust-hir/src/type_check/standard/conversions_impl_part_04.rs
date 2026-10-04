@@ -155,6 +155,25 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             return true;
         }
 
+        // vendor extensions outside IEC Tables 22-27 (docs/specs/07-standard-functions.md
+        // 2.6): REAL/LREAL to a bit string of another width, numbers and bit strings to
+        // BOOL, BOOL to REAL/LREAL
+        let bit_string = |ty: TypeId| {
+            matches!(
+                ty,
+                TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
+            )
+        };
+        if matches!(src, TypeId::REAL | TypeId::LREAL) && bit_string(dst) {
+            return true;
+        }
+        if dst == TypeId::BOOL && (self.is_numeric_type(src) || bit_string(src)) {
+            return true;
+        }
+        if src == TypeId::BOOL && matches!(dst, TypeId::REAL | TypeId::LREAL) {
+            return true;
+        }
+
         if matches!(src, TypeId::LTIME) && dst == TypeId::TIME {
             return true;
         }

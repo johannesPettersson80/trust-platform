@@ -100,6 +100,10 @@ pub(super) fn is_conversion_allowed(src: TypeId, dst: TypeId) -> bool {
         return true;
     }
 
+    if is_vendor_extension_conversion(src, dst) {
+        return true;
+    }
+
     if src == TypeId::LTIME && dst == TypeId::TIME {
         return true;
     }
@@ -248,4 +252,23 @@ pub(super) fn value_type_id(value: &Value) -> Option<TypeId> {
         Value::WChar(_) => Some(TypeId::WCHAR),
         _ => None,
     }
+}
+
+/// Vendor-extension conversions outside IEC Tables 22-27 (docs/specs/07-standard-functions.md
+/// 2.6): REAL/LREAL to a bit string of another width (a numeric conversion), numbers and bit
+/// strings to BOOL, and BOOL to REAL/LREAL.
+pub(super) fn is_vendor_extension_conversion(src: TypeId, dst: TypeId) -> bool {
+    let real = matches!(src, TypeId::REAL | TypeId::LREAL);
+    let bits = matches!(
+        dst,
+        TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
+    );
+    (real && bits)
+        || (dst == TypeId::BOOL
+            && (is_numeric_type(src)
+                || matches!(
+                    src,
+                    TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
+                )))
+        || (src == TypeId::BOOL && matches!(dst, TypeId::REAL | TypeId::LREAL))
 }

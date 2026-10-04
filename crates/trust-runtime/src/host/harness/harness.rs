@@ -51,6 +51,20 @@ impl TestHarness {
         })
     }
 
+    /// Creates a new test harness from a compile session (sources and options such as the
+    /// conversion profile).
+    pub fn from_session(session: CompileSession) -> Result<Self, CompileError> {
+        let mut runtime = session.build_runtime()?;
+        let bytecode = build_runtime_aligned_bytecode(&runtime, session.sources())?;
+        runtime
+            .apply_bytecode_bytes(&bytecode, None)
+            .map_err(|err| CompileError::new(err.to_string()))?;
+        Ok(Self {
+            runtime,
+            cycle_count: 0,
+        })
+    }
+
     /// Creates a new test harness from multiple source files.
     pub fn from_sources(sources: &[&str]) -> Result<Self, CompileError> {
         let source_files = sources.iter().copied().map(SourceFile::new).collect();
@@ -209,7 +223,10 @@ impl TestHarness {
         let current_time = self.runtime.current_time();
         let cycle_count = self.cycle_count;
 
-        let mut rebuilt = TestHarness::from_sources(sources)?;
+        let session =
+            CompileSession::from_sources(sources.iter().copied().map(SourceFile::new).collect())
+                .with_conversion_profile(self.runtime.stdlib().conversion_profile());
+        let mut rebuilt = TestHarness::from_session(session)?;
         if let Some(control) = debug {
             rebuilt.runtime.set_debug_control(control);
         }

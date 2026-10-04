@@ -4,7 +4,12 @@ use trust_hir::TypeId;
 
 use super::numeric::{signed_int_from_i64, unsigned_int_from_u64};
 
-pub(super) fn convert_to_bit_string(value: &Value, dst: TypeId) -> Result<Value, RuntimeError> {
+pub(super) fn convert_to_bit_string(
+    value: &Value,
+    dst: TypeId,
+    profile: super::ConversionProfile,
+) -> Result<Value, RuntimeError> {
+    let iec = profile == super::ConversionProfile::Iec;
     match value {
         Value::Byte(v) => bit_string_from_u64(*v as u64, dst),
         Value::Word(v) => bit_string_from_u64(*v as u64, dst),
@@ -20,8 +25,27 @@ pub(super) fn convert_to_bit_string(value: &Value, dst: TypeId) -> Result<Value,
         Value::UInt(v) => unsigned_to_bit_string(*v as u64, dst),
         Value::UDInt(v) => unsigned_to_bit_string(*v as u64, dst),
         Value::ULInt(v) => unsigned_to_bit_string(*v, dst),
-        Value::Real(v) if dst == TypeId::DWORD => Ok(Value::DWord(v.to_bits())),
-        Value::LReal(v) if dst == TypeId::LWORD => Ok(Value::LWord(v.to_bits())),
+        // IEC Table 25 binary transfers; CODESYS converts the number (section 2.7)
+        Value::Real(v) if iec && dst == TypeId::DWORD => Ok(Value::DWord(v.to_bits())),
+        Value::LReal(v) if iec && dst == TypeId::LWORD => Ok(Value::LWord(v.to_bits())),
+        // vendor extension: other widths convert the number, like REAL_TO_<unsigned> of
+        // the target width
+        Value::Real(_) | Value::LReal(_) => {
+            let unsigned = match dst {
+                TypeId::BYTE => TypeId::USINT,
+                TypeId::WORD => TypeId::UINT,
+                TypeId::DWORD => TypeId::UDINT,
+                TypeId::LWORD => TypeId::ULINT,
+                _ => return Err(RuntimeError::TypeMismatch),
+            };
+            let int = super::numeric::convert_to_int(
+                value,
+                unsigned,
+                super::ConversionMode::Round,
+                profile,
+            )?;
+            convert_to_bit_string(&int, dst, profile)
+        }
         Value::Time(duration) if dst == TypeId::DWORD => {
             let millis = duration.as_millis();
             let millis = u32::try_from(millis).map_err(|_| RuntimeError::Overflow)?;

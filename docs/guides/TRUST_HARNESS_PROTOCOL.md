@@ -100,6 +100,15 @@ Multi-source load:
 `load` performs an initial cycle and fails if that first cycle reports runtime
 errors.
 
+`load` accepts an optional `vendor_profile` that selects the conversion rules of the
+loaded program: `"iec"` (the default when the field is absent) or `"codesys"`
+(docs/specs/07-standard-functions.md section 2.7). Any other value is an
+`invalid_argument` error. `reload` keeps the profile of the loaded program.
+
+```json
+{"cmd":"load","sources":["PROGRAM Main\nEND_PROGRAM\n"],"vendor_profile":"codesys"}
+```
+
 `reload` uses the same `source` / `sources` parameters.
 
 `sources` must contain at least one source. When both `source` and `sources`

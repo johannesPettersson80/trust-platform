@@ -22,6 +22,7 @@ pub(super) fn build_runtime_from_source_files(
     sources: &[SourceFile],
     label_errors: bool,
     extra_program_instances: &[SmolStr],
+    conversion_profile: crate::stdlib::conversions::ConversionProfile,
 ) -> Result<Runtime, CompileError> {
     let mut parses = Vec::with_capacity(sources.len());
     let mut parse_errors = Vec::new();
@@ -84,6 +85,7 @@ pub(super) fn build_runtime_from_source_files(
         .collect::<Vec<_>>();
 
     let mut runtime = Runtime::new();
+    runtime.set_conversion_profile(conversion_profile);
     let profile = runtime.profile();
     let mut statement_locations: Vec<Vec<SourceLocation>> = vec![Vec::new(); sources.len()];
     let syntaxes = parses
@@ -622,8 +624,14 @@ pub(super) fn build_bytecode_module_from_source_files(
     sources: &[SourceFile],
     label_errors: bool,
     extra_program_instances: &[SmolStr],
+    conversion_profile: crate::stdlib::conversions::ConversionProfile,
 ) -> Result<crate::bytecode::BytecodeModule, CompileError> {
-    let runtime = build_runtime_from_source_files(sources, label_errors, extra_program_instances)?;
+    let runtime = build_runtime_from_source_files(
+        sources,
+        label_errors,
+        extra_program_instances,
+        conversion_profile,
+    )?;
     build_bytecode_module_from_runtime_and_sources(&runtime, sources)
 }
 

@@ -1,5 +1,5 @@
 use trust_runtime::error::RuntimeError;
-use trust_runtime::stdlib::conversions::is_conversion_name;
+use trust_runtime::stdlib::conversions::{is_conversion_name, ConversionProfile};
 use trust_runtime::stdlib::{StandardLibrary, StdParams};
 use trust_runtime::value::{
     DateTimeValue, DateValue, Duration, LDateTimeValue, LTimeOfDayValue, TimeOfDayValue, Value,
@@ -539,4 +539,139 @@ fn standard_library_lookup_and_parameter_metadata_are_case_insensitive() {
         }
         other => panic!("expected variadic metadata, got {other:?}"),
     }
+}
+
+// docs/specs/07-standard-functions.md 2.6 (vendor extensions): REAL/LREAL to a bit string
+// converts the number like REAL/LREAL to the unsigned integer of the target width (ties to
+// even, out of range is an overflow); numbers and bit strings to BOOL give value <> 0;
+// BOOL to REAL/LREAL gives 0.0 or 1.0.
+#[test]
+fn vendor_extension_conversions_follow_numeric_rules() {
+    let lib = library();
+
+    assert_eq!(
+        lib.call("REAL_TO_BYTE", &[Value::Real(200.4)]),
+        Ok(Value::Byte(200))
+    );
+    assert_eq!(
+        lib.call("REAL_TO_BYTE", &[Value::Real(2.5)]),
+        Ok(Value::Byte(2))
+    );
+    assert_eq!(
+        lib.call("REAL_TO_BYTE", &[Value::Real(256.0)]),
+        Err(RuntimeError::Overflow)
+    );
+    assert_eq!(
+        lib.call("REAL_TO_WORD", &[Value::Real(-1.0)]),
+        Err(RuntimeError::Overflow)
+    );
+    assert_eq!(
+        lib.call("REAL_TO_LWORD", &[Value::Real(1.0e10)]),
+        Ok(Value::LWord(10_000_000_000))
+    );
+    assert_eq!(
+        lib.call("LREAL_TO_WORD", &[Value::LReal(65535.2)]),
+        Ok(Value::Word(65535))
+    );
+    assert_eq!(
+        lib.call("LREAL_TO_DWORD", &[Value::LReal(70000.6)]),
+        Ok(Value::DWord(70001))
+    );
+
+    for (name, arg, expected) in [
+        ("INT_TO_BOOL", Value::Int(0), false),
+        ("INT_TO_BOOL", Value::Int(-3), true),
+        ("UDINT_TO_BOOL", Value::UDInt(7), true),
+        ("BYTE_TO_BOOL", Value::Byte(0b1101_0101), true),
+        ("LWORD_TO_BOOL", Value::LWord(0), false),
+        ("REAL_TO_BOOL", Value::Real(0.0), false),
+        ("LREAL_TO_BOOL", Value::LReal(0.987_654_321), true),
+        ("TO_BOOL", Value::DInt(2), true),
+    ] {
+        assert_eq!(lib.call(name, &[arg]), Ok(Value::Bool(expected)), "{name}");
+    }
+    assert_eq!(
+        lib.call("BOOL_TO_REAL", &[Value::Bool(true)]),
+        Ok(Value::Real(1.0))
+    );
+    assert_eq!(
+        lib.call("BOOL_TO_LREAL", &[Value::Bool(false)]),
+        Ok(Value::LReal(0.0))
+    );
+    assert_eq!(
+        lib.call("REAL_TO_BOOL", &[Value::Real(f32::NAN)]),
+        Err(RuntimeError::Overflow)
+    );
+}
+
+// docs/specs/07-standard-functions.md 2.7: the CODESYS conversion profile rounds half away
+// from zero, keeps the low-order bits of the target width instead of an overflow, and
+// converts REAL/LREAL to and from DWORD/LWORD as numbers.
+#[test]
+fn codesys_profile_rounds_half_away_truncates_and_converts_bit_strings_numerically() {
+    let lib = StandardLibrary::new().with_conversion_profile(ConversionProfile::Codesys);
+    assert_eq!(lib.conversion_profile(), ConversionProfile::Codesys);
+
+    for (input, expected) in [
+        (1.5, Value::Int(2)),
+        (2.5, Value::Int(3)),
+        (-1.5, Value::Int(-2)),
+        (-2.5, Value::Int(-3)),
+        (1.4, Value::Int(1)),
+    ] {
+        assert_eq!(
+            lib.call("LREAL_TO_INT", &[Value::LReal(input)]),
+            Ok(expected),
+            "{input}"
+        );
+    }
+    for (name, arg, expected) in [
+        ("DINT_TO_SINT", Value::DInt(128), Value::SInt(-128)),
+        ("INT_TO_UINT", Value::Int(-1), Value::UInt(65535)),
+        ("UINT_TO_INT", Value::UInt(65535), Value::Int(-1)),
+        ("DINT_TO_BYTE", Value::DInt(300), Value::Byte(44)),
+        ("DWORD_TO_INT", Value::DWord(0xFFFF_FFFF), Value::Int(-1)),
+        (
+            "ULINT_TO_LINT",
+            Value::ULInt(1 << 63),
+            Value::LInt(i64::MIN),
+        ),
+        ("REAL_TO_BYTE", Value::Real(300.0), Value::Byte(44)),
+        ("REAL_TO_USINT", Value::Real(-1.0), Value::USInt(255)),
+        ("REAL_TO_DWORD", Value::Real(3.7), Value::DWord(4)),
+        (
+            "LREAL_TO_LWORD",
+            Value::LReal(1.0e10),
+            Value::LWord(10_000_000_000),
+        ),
+        ("DWORD_TO_REAL", Value::DWord(5), Value::Real(5.0)),
+        ("LWORD_TO_LREAL", Value::LWord(7), Value::LReal(7.0)),
+    ] {
+        assert_eq!(lib.call(name, &[arg]), Ok(expected), "{name}");
+    }
+    // a non-finite value has no number to keep bits of
+    assert_eq!(
+        lib.call("REAL_TO_INT", &[Value::Real(f32::NAN)]),
+        Err(RuntimeError::Overflow)
+    );
+    // the default profile keeps the IEC rules
+    let iec = StandardLibrary::new();
+    assert_eq!(iec.conversion_profile(), ConversionProfile::Iec);
+    assert_eq!(
+        iec.call("DINT_TO_SINT", &[Value::DInt(128)]),
+        Err(RuntimeError::Overflow)
+    );
+    assert_eq!(
+        iec.call("REAL_TO_DWORD", &[Value::Real(1.0)]),
+        Ok(Value::DWord(1.0f32.to_bits()))
+    );
+    assert_eq!(
+        ConversionProfile::from_vendor_profile(" CODESYS "),
+        Some(ConversionProfile::Codesys)
+    );
+    assert_eq!(
+        ConversionProfile::from_vendor_profile("iec"),
+        Some(ConversionProfile::Iec)
+    );
+    assert_eq!(ConversionProfile::from_vendor_profile("siemens"), None);
 }
