@@ -393,20 +393,17 @@ pub(super) fn analyze_query(
         project_files: project_files.as_ref(),
         catalog: catalog.as_ref(),
     };
-    let const_roots: Vec<SyntaxNode> = project_roots_from_inputs(db, &project_source_inputs)
-        .into_iter()
-        .map(|(_, project_root)| project_root)
-        .collect();
-    let project_consts = project_const_exprs_for(
-        project_const_index_query(db, project),
-        &project_roots_by_file(db, &project_source_inputs),
-    );
+    let project_roots = project_roots_by_file(db, &project_source_inputs);
+    let project_consts =
+        project_const_exprs_for(project_const_index_query(db, project), &project_roots);
     let (mut symbols, mut diagnostics, pending_types) =
         SymbolCollector::with_project_types(&provider)
             .collect_for_project_with_consts(&root, &project_consts);
     merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
+    let config_inits =
+        project_nodes_for(project_config_init_index_query(db, project), &project_roots);
     let (checked_symbols, access_config_diagnostics) =
-        SymbolCollector::validate_project_after_merge(symbols, &root, &const_roots);
+        SymbolCollector::validate_project_after_merge(symbols, &root, &config_inits);
     symbols = checked_symbols;
     diagnostics.extend(access_config_diagnostics);
 
@@ -638,6 +635,48 @@ pub(super) fn project_const_index_query(
         }
     }
     Arc::new(index)
+}
+
+/// Positions of the project's `ConfigInit` nodes (VAR_CONFIG entries) in file-id and
+/// document order: `check_at_bindings` needs them for every file, and finding them
+/// means walking every project syntax tree.
+#[salsa::tracked(returns(ref))]
+pub(super) fn project_config_init_index_query(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+) -> Arc<Vec<(FileId, TextRange)>> {
+    let mut ordered: Vec<(FileId, SourceInput)> = project.files(db).to_vec();
+    ordered.sort_by_key(|(id, _)| id.0);
+    let mut index = Vec::new();
+    for (file_id, input) in ordered {
+        cancellation_checkpoint(db);
+        let root = SyntaxNode::new_root(parse_green(db, input).clone());
+        for node in super::collector::config_inits_of(std::slice::from_ref(&root)) {
+            index.push((file_id, node.text_range()));
+        }
+    }
+    Arc::new(index)
+}
+
+/// The `ConfigInit` nodes at the positions of `index`.
+fn project_nodes_for(
+    index: &[(FileId, TextRange)],
+    roots: &FxHashMap<FileId, SyntaxNode>,
+) -> Vec<SyntaxNode> {
+    index
+        .iter()
+        .filter_map(|(file_id, range)| {
+            let root = roots.get(file_id)?;
+            let start = match root.covering_element(*range) {
+                rowan::NodeOrToken::Node(node) => Some(node),
+                rowan::NodeOrToken::Token(token) => token.parent(),
+            };
+            start
+                .into_iter()
+                .flat_map(|node| node.ancestors())
+                .find(|node| node.kind() == SyntaxKind::ConfigInit && node.text_range() == *range)
+        })
+        .collect()
 }
 
 fn project_roots_by_file(
