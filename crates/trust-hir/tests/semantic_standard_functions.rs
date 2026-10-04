@@ -68,6 +68,45 @@ END_PROGRAM
 }
 
 #[test]
+// docs/specs/07-standard-functions.md 2.6: vendor-extension conversions that IEC Tables
+// 22-27 do not list (REAL/LREAL to a bit string of another width, numbers and bit strings to
+// BOOL, BOOL to REAL/LREAL), used by CODESYS and TwinCAT projects
+fn test_vendor_extension_conversions_are_accepted() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+VAR
+    i: INT;
+    ud: UDINT;
+    r: REAL;
+    lr: LREAL;
+    b: BYTE;
+    w: WORD;
+    dw: DWORD;
+    lw: LWORD;
+    x: BOOL;
+END_VAR
+b := REAL_TO_BYTE(r);
+w := REAL_TO_WORD(r);
+lw := REAL_TO_LWORD(r);
+b := LREAL_TO_BYTE(lr);
+w := LREAL_TO_WORD(lr);
+dw := LREAL_TO_DWORD(lr);
+x := INT_TO_BOOL(i);
+x := UDINT_TO_BOOL(ud);
+x := BYTE_TO_BOOL(b);
+x := LWORD_TO_BOOL(lw);
+x := REAL_TO_BOOL(r);
+x := LREAL_TO_BOOL(lr);
+x := TO_BOOL(i);
+r := BOOL_TO_REAL(x);
+lr := BOOL_TO_LREAL(x);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
 fn test_typed_conversion_accepts_positional_outer_named_inner_call() {
     check_no_errors(
         r#"

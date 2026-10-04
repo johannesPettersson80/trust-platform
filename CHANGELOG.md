@@ -6,6 +6,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Vendor-extension conversions used by CODESYS and TwinCAT projects compile and run
+  (docs/specs/07-standard-functions.md 2.6): `REAL/LREAL_TO_BYTE/WORD/LWORD`,
+  `LREAL_TO_DWORD` (numeric, like `REAL_TO_<unsigned>` of the width), `<number or bit
+  string>_TO_BOOL` and `TO_BOOL` (value <> 0), `BOOL_TO_REAL/LREAL`. They were rejected with
+  "cannot convert 'REAL' to 'BYTE'". The IEC conversions are unchanged.
 - Runtime CASE ranges (`1..5:`) match unsigned integer and bit-string selectors.
   Range bounds were compared as `LINT`, so a `USINT`, `UDINT`, `BYTE` or `WORD`
   selector aborted the cycle with `TypeMismatch` (bytecode VM) or
