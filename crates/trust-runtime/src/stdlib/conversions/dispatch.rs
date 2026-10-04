@@ -5,7 +5,7 @@ use trust_hir::TypeId;
 
 use super::bcd::{from_bcd, to_bcd};
 use super::bitstring::convert_to_bit_string;
-use super::numeric::{convert_to_int, convert_to_real};
+use super::numeric::{convert_to_bool, convert_to_int, convert_to_real};
 use super::spec::ConversionSpec;
 use super::string::{convert_to_char, convert_to_string};
 use super::time::{convert_to_date, convert_to_dt, convert_to_time, convert_to_tod};
@@ -99,7 +99,7 @@ fn convert_value(value: &Value, dst: TypeId, mode: ConversionMode) -> Result<Val
         TypeId::DT | TypeId::LDT => convert_to_dt(value, dst),
         TypeId::STRING | TypeId::WSTRING => convert_to_string(value, dst),
         TypeId::CHAR | TypeId::WCHAR => convert_to_char(value, dst),
-        TypeId::BOOL => Err(RuntimeError::TypeMismatch),
+        TypeId::BOOL => convert_to_bool(value),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }

@@ -160,6 +160,22 @@ Implementer extension note:
   remain implementer-specific. When provided, they shall follow the external
   literal representation rules in 6.3.3.
 
+
+### 2.6 Vendor Extension Conversions
+
+truST also accepts these conversions, which IEC 61131-3 Tables 22-27 do not list but
+CODESYS and TwinCAT projects use. They follow the truST conversion rules above (no
+wrapping or saturation):
+
+| Function | Result |
+|----------|--------|
+| `REAL_TO_BYTE`, `REAL_TO_WORD`, `REAL_TO_LWORD`, `LREAL_TO_BYTE`, `LREAL_TO_WORD`, `LREAL_TO_DWORD` | The number converted like `REAL_TO_<unsigned>` of the target width (`USINT`, `UINT`, `UDINT`, `ULINT`): round to nearest, ties to even; a value outside the target range or a non-finite value returns `RuntimeError::Overflow`. `REAL_TO_DWORD` and `LREAL_TO_LWORD` remain the Table 25 binary transfers. |
+| `<ANY_INT>_TO_BOOL`, `<ANY_REAL>_TO_BOOL`, `BYTE/WORD/DWORD/LWORD_TO_BOOL`, `TO_BOOL` | `TRUE` when the value is not zero. A non-finite `REAL`/`LREAL` returns `RuntimeError::Overflow`. |
+| `BOOL_TO_REAL`, `BOOL_TO_LREAL` | `1.0` for `TRUE`, `0.0` for `FALSE`. |
+
+Examples: `REAL_TO_BYTE(200.4) = BYTE#200`, `REAL_TO_BYTE(256.0)` returns
+`RuntimeError::Overflow`, `BYTE_TO_BOOL(2#1101_0101) = TRUE`, `INT_TO_BOOL(0) = FALSE`.
+
 ### 2.6 BCD Conversions (Table 22)
 
 | Function | Description |

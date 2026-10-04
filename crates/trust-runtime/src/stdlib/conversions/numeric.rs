@@ -49,6 +49,8 @@ pub(super) fn convert_to_real(value: &Value, dst: TypeId) -> Result<Value, Runti
         Value::LWord(v) if dst == TypeId::LREAL => finite_real_result(f64::from_bits(*v), dst),
         Value::Real(v) => finite_real_result(*v as f64, dst),
         Value::LReal(v) => finite_real_result(*v, dst),
+        // vendor extension: BOOL_TO_REAL / BOOL_TO_LREAL
+        Value::Bool(v) => finite_real_result(if *v { 1.0 } else { 0.0 }, dst),
         Value::SInt(v) => finite_real_result(*v as f64, dst),
         Value::Int(v) => finite_real_result(*v as f64, dst),
         Value::DInt(v) => finite_real_result(*v as f64, dst),
@@ -147,4 +149,29 @@ pub(super) fn unsigned_int_from_u64(value: u64, dst: TypeId) -> Result<Value, Ru
         }
         _ => Err(RuntimeError::TypeMismatch),
     }
+}
+
+/// Vendor extension `<number or bit string>_TO_BOOL`: TRUE when the value is not zero; a
+/// non-finite REAL/LREAL is an overflow like in the other conversions from REAL.
+pub(super) fn convert_to_bool(value: &Value) -> Result<Value, RuntimeError> {
+    let nonzero = match value {
+        Value::Bool(v) => *v,
+        Value::SInt(v) => *v != 0,
+        Value::Int(v) => *v != 0,
+        Value::DInt(v) => *v != 0,
+        Value::LInt(v) => *v != 0,
+        Value::USInt(v) => *v != 0,
+        Value::UInt(v) => *v != 0,
+        Value::UDInt(v) => *v != 0,
+        Value::ULInt(v) => *v != 0,
+        Value::Byte(v) => *v != 0,
+        Value::Word(v) => *v != 0,
+        Value::DWord(v) => *v != 0,
+        Value::LWord(v) => *v != 0,
+        Value::Real(v) if v.is_finite() => *v != 0.0,
+        Value::LReal(v) if v.is_finite() => *v != 0.0,
+        Value::Real(_) | Value::LReal(_) => return Err(RuntimeError::Overflow),
+        _ => return Err(RuntimeError::TypeMismatch),
+    };
+    Ok(Value::Bool(nonzero))
 }

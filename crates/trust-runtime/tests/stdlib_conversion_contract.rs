@@ -540,3 +540,66 @@ fn standard_library_lookup_and_parameter_metadata_are_case_insensitive() {
         other => panic!("expected variadic metadata, got {other:?}"),
     }
 }
+
+// docs/specs/07-standard-functions.md 2.6 (vendor extensions): REAL/LREAL to a bit string
+// converts the number like REAL/LREAL to the unsigned integer of the target width (ties to
+// even, out of range is an overflow); numbers and bit strings to BOOL give value <> 0;
+// BOOL to REAL/LREAL gives 0.0 or 1.0.
+#[test]
+fn vendor_extension_conversions_follow_numeric_rules() {
+    let lib = library();
+
+    assert_eq!(
+        lib.call("REAL_TO_BYTE", &[Value::Real(200.4)]),
+        Ok(Value::Byte(200))
+    );
+    assert_eq!(
+        lib.call("REAL_TO_BYTE", &[Value::Real(2.5)]),
+        Ok(Value::Byte(2))
+    );
+    assert_eq!(
+        lib.call("REAL_TO_BYTE", &[Value::Real(256.0)]),
+        Err(RuntimeError::Overflow)
+    );
+    assert_eq!(
+        lib.call("REAL_TO_WORD", &[Value::Real(-1.0)]),
+        Err(RuntimeError::Overflow)
+    );
+    assert_eq!(
+        lib.call("REAL_TO_LWORD", &[Value::Real(1.0e10)]),
+        Ok(Value::LWord(10_000_000_000))
+    );
+    assert_eq!(
+        lib.call("LREAL_TO_WORD", &[Value::LReal(65535.2)]),
+        Ok(Value::Word(65535))
+    );
+    assert_eq!(
+        lib.call("LREAL_TO_DWORD", &[Value::LReal(70000.6)]),
+        Ok(Value::DWord(70001))
+    );
+
+    for (name, arg, expected) in [
+        ("INT_TO_BOOL", Value::Int(0), false),
+        ("INT_TO_BOOL", Value::Int(-3), true),
+        ("UDINT_TO_BOOL", Value::UDInt(7), true),
+        ("BYTE_TO_BOOL", Value::Byte(0b1101_0101), true),
+        ("LWORD_TO_BOOL", Value::LWord(0), false),
+        ("REAL_TO_BOOL", Value::Real(0.0), false),
+        ("LREAL_TO_BOOL", Value::LReal(0.987_654_321), true),
+        ("TO_BOOL", Value::DInt(2), true),
+    ] {
+        assert_eq!(lib.call(name, &[arg]), Ok(Value::Bool(expected)), "{name}");
+    }
+    assert_eq!(
+        lib.call("BOOL_TO_REAL", &[Value::Bool(true)]),
+        Ok(Value::Real(1.0))
+    );
+    assert_eq!(
+        lib.call("BOOL_TO_LREAL", &[Value::Bool(false)]),
+        Ok(Value::LReal(0.0))
+    );
+    assert_eq!(
+        lib.call("REAL_TO_BOOL", &[Value::Real(f32::NAN)]),
+        Err(RuntimeError::Overflow)
+    );
+}
