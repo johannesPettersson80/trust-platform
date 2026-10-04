@@ -28,6 +28,20 @@ Run ST tests with stable machine-readable JSON summary output:
 trust-dev test --project <project-folder> --ci --output json
 ```
 
+Report the language server's diagnostics for every source file, as the editor shows
+them (same `trust-lsp.toml`: include paths, libraries, vendor profile,
+`[diagnostics]` toggles and severity overrides):
+
+```bash
+trust-lsp check --project <project-folder>                  # path:line:col: severity[code]: message
+trust-lsp check --project <project-folder> --format json    # machine-readable
+trust-lsp check --project <project-folder> --deny-warnings  # warnings fail the job too
+```
+
+`--file PATH` (repeatable) limits the report to some files while the whole project is
+still analyzed. Exit status: `0` no errors, `1` errors (or warnings with
+`--deny-warnings`), `2` usage or I/O problem.
+
 Generate markdown docs for API review artifacts:
 
 ```bash

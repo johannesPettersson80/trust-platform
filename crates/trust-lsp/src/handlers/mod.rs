@@ -23,7 +23,9 @@ pub use commands::{
 };
 #[cfg(test)]
 pub(crate) use diagnostics::document_diagnostic;
-pub(crate) use diagnostics::{document_diagnostic_result, workspace_diagnostic};
+pub(crate) use diagnostics::{
+    collect_diagnostics_with_ticket, document_diagnostic_result, workspace_diagnostic,
+};
 #[cfg(test)]
 pub(crate) use features::completion_with_ticket_for_tests;
 #[cfg(test)]
@@ -46,7 +48,7 @@ pub use workspace::{
     will_rename_files,
 };
 
-#[cfg(test)]
+// also used by `trust-lsp check` (crate::check)
 pub use workspace::index_workspace;
 
 #[cfg(test)]

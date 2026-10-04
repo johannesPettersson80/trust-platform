@@ -1039,6 +1039,19 @@ truST tooling behavior and do not alter IEC 61131-3 language semantics.
 
 ---
 
+#### 7.7 Command-line check (`trust-lsp check`)
+
+`trust-lsp check [--project DIR] [--format text|json] [--file PATH]... [--deny-warnings]`
+runs without an LSP client. It loads `DIR` as a workspace folder exactly as
+`initialize`/`initialized` do (`ProjectConfig::load`, `index_workspace`) and reports, per
+indexed file, the result of the same `collect_diagnostics_with_ticket` path that answers
+`textDocument/diagnostic`, so CI output and editor diagnostics agree. Text output is
+`path:line:column: severity[code]: message` (one-based; columns in UTF-16 code units as in
+LSP), sorted by path and position, with a summary on stderr. JSON output is one object:
+`version`, `project`, `files`, `errors`, `warnings`, `diagnostics[]` (`path`, `line`,
+`column`, `endLine`, `endColumn`, `severity`, `code`, `message`). Exit status `0` without
+errors, `1` with errors (or warnings under `--deny-warnings`), `2` on usage or I/O errors.
+
 ### 8. Runtime & Debugger
 
 The workspace includes a runtime and debug adapter used for executing and testing ST programs.
