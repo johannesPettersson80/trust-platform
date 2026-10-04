@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Untyped integer literals are contextualized to bit-string targets: `b := 16#FF`,
+  `w := 65535`, `d AND 1`, `d = 0` and `CASE b OF 16#FF:` are accepted for
+  `BYTE`/`WORD`/`DWORD`/`LWORD` when the value is representable, as they already
+  were for integer targets and bit-string initializers. `BOOL` stays strict.
+  Runtime CASE labels are evaluated in the selector type, so an untyped label
+  matches a bit-string selector.
 - Specify runtime clock dispatch name/error identity and deterministic LSP
   diagnostic-override collision precedence, including canonical-key priority
   and alias-only lexical ordering.

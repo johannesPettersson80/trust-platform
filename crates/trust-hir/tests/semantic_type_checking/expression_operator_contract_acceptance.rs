@@ -166,3 +166,18 @@ END_PROGRAM
 "#,
     );
 }
+
+#[test]
+fn expression_operator_accepts_contextual_untyped_integer_bit_string_assignment() {
+    check_no_errors("PROGRAM P\nVAR b : BYTE; w : WORD; d : DWORD; l : LWORD; END_VAR\nb := 16#FF; b := 255; w := 16#FFFF; d := 16#FFFF_FFFF; l := 0;\nEND_PROGRAM");
+}
+
+#[test]
+fn expression_operator_accepts_contextual_untyped_integer_bit_string_operands() {
+    check_no_errors("PROGRAM P\nVAR d : DWORD; b : BYTE; r : BOOL; END_VAR\nd := d AND 1; d := 16#80 OR d; b := b XOR 16#0F; r := d = 0; r := 16#FF <> b;\nEND_PROGRAM");
+}
+
+#[test]
+fn expression_operator_accepts_contextual_untyped_integer_bit_string_case_and_return() {
+    check_no_errors("FUNCTION F : WORD\nVAR_INPUT b : BYTE; END_VAR\nCASE b OF 0: F := 1; 16#FF: RETURN 16#FFFF; END_CASE\nEND_FUNCTION");
+}

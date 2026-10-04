@@ -263,7 +263,7 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         let rhs_type = self.check_expression(rhs_node);
 
         let op = BinaryOp::from_node(node);
-        let (lhs_type, rhs_type) = if op.is_comparison() || op.is_arithmetic() {
+        let (lhs_type, rhs_type) = if op.is_comparison() || op.is_arithmetic() || op.is_logical() {
             self.contextual_numeric_operand_types(lhs_type, lhs_node, rhs_type, rhs_node)
         } else {
             (lhs_type, rhs_type)
