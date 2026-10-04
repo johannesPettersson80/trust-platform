@@ -36,8 +36,16 @@ impl RetainSnapshot {
 #[derive(Debug, Clone)]
 pub(crate) enum GlobalInitValue {
     Value(Value),
-    FunctionBlock { type_name: SmolStr },
-    Class { type_name: SmolStr },
+    FunctionBlock {
+        type_name: SmolStr,
+    },
+    Class {
+        type_name: SmolStr,
+    },
+    /// An array of function block or class instances, created anew on restart.
+    InstanceArray {
+        type_id: trust_hir::TypeId,
+    },
 }
 
 #[derive(Debug, Clone)]

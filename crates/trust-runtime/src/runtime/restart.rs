@@ -128,6 +128,21 @@ impl Runtime {
                     )?;
                     storage.set_global(name.clone(), Value::Instance(instance_id));
                 }
+                GlobalInitValue::InstanceArray { type_id } => {
+                    let array = crate::instance::create_instance_array(
+                        &mut storage,
+                        &self.registry,
+                        &self.profile,
+                        &self.classes,
+                        &self.function_blocks,
+                        &self.functions,
+                        &self.stdlib,
+                        &self.initializer_catalog,
+                        type_id,
+                    )?
+                    .ok_or(error::RuntimeError::TypeMismatch)?;
+                    storage.set_global(name.clone(), array);
+                }
                 GlobalInitValue::Class { type_name } => {
                     let key = SmolStr::new(type_name.to_ascii_uppercase());
                     let class_def = self

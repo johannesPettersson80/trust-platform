@@ -575,6 +575,27 @@ fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError
                 storage.set_global(key, crate::value::Value::Null);
                 continue;
             }
+            if let Some(array) = crate::instance::create_instance_array(
+                storage,
+                &registry,
+                &profile,
+                &classes,
+                &function_blocks,
+                &functions,
+                &stdlib,
+                &initializer_catalog,
+                local.type_id,
+            )
+            .map_err(|err| CompileError::new(format!("default value error for '{key}': {err}")))?
+            {
+                if local.initializer.is_some() {
+                    return Err(CompileError::new(
+                        "function VAR_STAT function block arrays cannot have initializers",
+                    ));
+                }
+                storage.set_global(key, array);
+                continue;
+            }
             let value = crate::harness::initializer::default_value_for_type_id(
                 storage,
                 &registry,
@@ -593,6 +614,7 @@ fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError
         for local in &function.static_locals {
             if super::function_block_type_name(local.type_id, &registry).is_some()
                 || super::class_type_name(local.type_id, &registry).is_some()
+                || crate::instance::instance_array_parts(local.type_id, &registry).is_some()
             {
                 continue;
             }

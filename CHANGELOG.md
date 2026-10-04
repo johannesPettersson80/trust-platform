@@ -6,6 +6,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Arrays of function block and class instances (`timers : ARRAY[1..50] OF TON`,
+  docs/specs/02-data-types.md §3.4) run in the runtime: each element is its own
+  instance in globals, program and function block variables, function and method
+  locals and `VAR_STAT`, through array type aliases and in multidimensional arrays;
+  `timers[i](IN := x)`, `timers[i].Q` and `accs[i].Method()` work, and a cold restart
+  creates the instances anew. They failed the build with "default value error: type
+  mismatch" (globals) or "init failed for P.a: type mismatch", function locals read as
+  zero, and an indexed call was rejected as an "unsupported CALL_NATIVE target
+  expression". Initializers of such arrays (`[50(PT := T#100ms)]`) are still rejected.
 - Specify runtime clock dispatch name/error identity and deterministic LSP
   diagnostic-override collision precedence, including canonical-key priority
   and alias-only lexical ordering.

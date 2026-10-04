@@ -149,6 +149,23 @@ impl<'a> BytecodeEncoder<'a> {
                     })
                 }
             }
+            // an element of an array of function block instances: `timers[i](IN := x)`
+            crate::program_model::Expr::Index { .. } => {
+                let mut root = target;
+                while let crate::program_model::Expr::Index { target: inner, .. } = root {
+                    root = inner;
+                }
+                let name = match root {
+                    crate::program_model::Expr::Name(name) => name.clone(),
+                    crate::program_model::Expr::Field { field, .. } => field.clone(),
+                    _ => SmolStr::default(),
+                };
+                Ok(NativeCallTarget {
+                    kind: NativeTargetKind::FunctionBlock,
+                    name,
+                    receiver: NativeReceiver::Expression(target),
+                })
+            }
             _ => Err(BytecodeError::InvalidSection(
                 "unsupported CALL_NATIVE target expression".into(),
             )),

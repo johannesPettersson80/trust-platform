@@ -117,6 +117,109 @@ pub fn create_fb_instance(
     Ok(instance_id)
 }
 
+/// Create the instances of an array of function blocks or classes
+/// (`ARRAY[1..50] OF TON`), one per element and in element order, and return the
+/// array of instance references. `None` when the type is not such an array (also through
+/// aliases and for arrays of arrays).
+#[allow(clippy::too_many_arguments)]
+pub fn create_instance_array(
+    storage: &mut VariableStorage,
+    registry: &TypeRegistry,
+    profile: &DateTimeProfile,
+    classes: &IndexMap<SmolStr, ClassDef>,
+    function_blocks: &IndexMap<SmolStr, FunctionBlockDef>,
+    functions: &IndexMap<SmolStr, FunctionDef>,
+    stdlib: &StandardLibrary,
+    initializer_catalog: &InitializerCatalog,
+    type_id: trust_hir::TypeId,
+) -> Result<Option<Value>, RuntimeError> {
+    let Some((element, dimensions)) = instance_array_parts(type_id, registry) else {
+        return Ok(None);
+    };
+    let total = dimensions.iter().try_fold(1usize, |acc, (lower, upper)| {
+        let len = usize::try_from(upper - lower + 1).map_err(|_| RuntimeError::TypeMismatch)?;
+        acc.checked_mul(len).ok_or(RuntimeError::TypeMismatch)
+    })?;
+    let mut elements = Vec::with_capacity(total);
+    for _ in 0..total {
+        let value = if let Some(fb_name) = function_block_type_name(element, registry) {
+            let key = SmolStr::new(fb_name.to_ascii_uppercase());
+            let fb = function_blocks
+                .get(&key)
+                .ok_or_else(|| RuntimeError::UndefinedFunctionBlock(fb_name.clone()))?;
+            Value::Instance(create_fb_instance(
+                storage,
+                registry,
+                profile,
+                classes,
+                function_blocks,
+                functions,
+                stdlib,
+                initializer_catalog,
+                fb,
+            )?)
+        } else if let Some(class_name) = class_type_name(element, registry) {
+            let key = SmolStr::new(class_name.to_ascii_uppercase());
+            let class_def = classes.get(&key).ok_or(RuntimeError::TypeMismatch)?;
+            Value::Instance(create_class_instance(
+                storage,
+                registry,
+                profile,
+                classes,
+                function_blocks,
+                functions,
+                stdlib,
+                initializer_catalog,
+                class_def,
+            )?)
+        } else {
+            create_instance_array(
+                storage,
+                registry,
+                profile,
+                classes,
+                function_blocks,
+                functions,
+                stdlib,
+                initializer_catalog,
+                element,
+            )?
+            .ok_or(RuntimeError::TypeMismatch)?
+        };
+        elements.push(value);
+    }
+    Ok(Some(Value::Array(Box::new(
+        crate::value::ArrayValue::from_canonical_parts(elements, dimensions),
+    ))))
+}
+
+/// The element type and dimensions of an array whose elements are function block or
+/// class instances (possibly nested arrays of them).
+pub(crate) fn instance_array_parts(
+    type_id: trust_hir::TypeId,
+    registry: &TypeRegistry,
+) -> Option<(trust_hir::TypeId, Vec<(i64, i64)>)> {
+    match registry.get(type_id)? {
+        Type::Alias { target, .. } => instance_array_parts(*target, registry),
+        Type::Array {
+            element,
+            dimensions,
+        } => {
+            if dimensions
+                .iter()
+                .any(trust_hir::types::ArrayDimensionExt::is_wildcard)
+            {
+                return None;
+            }
+            let instances = function_block_type_name(*element, registry).is_some()
+                || class_type_name(*element, registry).is_some()
+                || instance_array_parts(*element, registry).is_some();
+            instances.then(|| (*element, dimensions.clone()))
+        }
+        _ => None,
+    }
+}
+
 /// Create and initialize a program instance.
 #[allow(clippy::too_many_arguments)]
 pub fn create_program_instance(
@@ -314,6 +417,22 @@ fn init_var_defaults(
         if var.external {
             continue;
         }
+        if let Some(array) = create_instance_array(
+            storage,
+            registry,
+            profile,
+            classes,
+            function_blocks,
+            functions,
+            stdlib,
+            initializer_catalog,
+            var.type_id,
+        )
+        .map_err(|err| init_failed(owner, &var.name, err))?
+        {
+            storage.set_instance_var(instance_id, var.name.clone(), array);
+            continue;
+        }
         let value = crate::harness::initializer::default_value_for_type_id(
             storage,
             registry,
@@ -355,7 +474,9 @@ fn init_var_defaults(
             }
             continue;
         }
-        if class_type_name(var.type_id, registry).is_some() {
+        if class_type_name(var.type_id, registry).is_some()
+            || instance_array_parts(var.type_id, registry).is_some()
+        {
             if var.initializer.is_some() {
                 return Err(RuntimeError::TypeMismatch);
             }
@@ -439,6 +560,25 @@ fn init_method_static_defaults(
                 storage.set_instance_var(instance_id, key, Value::Instance(nested_id));
                 continue;
             }
+            if let Some(array) = create_instance_array(
+                storage,
+                registry,
+                profile,
+                classes,
+                function_blocks,
+                functions,
+                stdlib,
+                initializer_catalog,
+                local.type_id,
+            )
+            .map_err(|err| init_failed(owner, &local.name, err))?
+            {
+                if local.initializer.is_some() {
+                    return Err(RuntimeError::TypeMismatch);
+                }
+                storage.set_instance_var(instance_id, key, array);
+                continue;
+            }
             let value = crate::harness::initializer::default_value_for_type_id(
                 storage,
                 registry,
@@ -484,7 +624,9 @@ fn init_method_static_defaults(
                 }
                 continue;
             }
-            if class_type_name(local.type_id, registry).is_some() {
+            if class_type_name(local.type_id, registry).is_some()
+                || instance_array_parts(local.type_id, registry).is_some()
+            {
                 continue;
             }
             let Some(expr) = &local.initializer else {

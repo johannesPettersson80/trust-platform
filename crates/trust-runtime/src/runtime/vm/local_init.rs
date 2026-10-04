@@ -183,6 +183,26 @@ fn initialize_var_value(
         )?;
         return Ok(Value::Instance(instance_id));
     }
+    if crate::instance::instance_array_parts(local.type_id, runtime.registry()).is_some() {
+        if local.initializer.is_some() {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        let initializer_catalog = runtime.initializer_catalog().clone();
+        let (storage, registry, classes, function_blocks, functions, stdlib) =
+            runtime.instance_init_context();
+        return crate::instance::create_instance_array(
+            storage,
+            registry,
+            &profile,
+            classes,
+            function_blocks,
+            functions,
+            stdlib,
+            &initializer_catalog,
+            local.type_id,
+        )?
+        .ok_or(RuntimeError::TypeMismatch);
+    }
 
     if let Some(expr) = &local.initializer {
         return evaluate_initializer_from_vm_frame(

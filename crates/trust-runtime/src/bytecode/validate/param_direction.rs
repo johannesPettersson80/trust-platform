@@ -221,6 +221,10 @@ fn pou_id_for_function_block_type(types: &TypeTable, type_id: u32, depth: usize)
         TypeData::Alias { target_type_id } => {
             pou_id_for_function_block_type(types, *target_type_id, depth + 1)
         }
+        // the call target of `timers[i](...)` is named by the array variable
+        TypeData::Array { elem_type_id, .. } => {
+            pou_id_for_function_block_type(types, *elem_type_id, depth + 1)
+        }
         _ => None,
     }
 }

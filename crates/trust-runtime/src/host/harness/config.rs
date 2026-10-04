@@ -1,7 +1,10 @@
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 
-use crate::instance::{apply_fb_instance_initializer, create_class_instance, create_fb_instance};
+use crate::instance::{
+    apply_fb_instance_initializer, create_class_instance, create_fb_instance,
+    create_instance_array, instance_array_parts,
+};
 use crate::task::ProgramDef;
 use crate::value::Value;
 use crate::Runtime;
