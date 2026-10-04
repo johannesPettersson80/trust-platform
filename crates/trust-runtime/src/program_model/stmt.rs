@@ -20,7 +20,8 @@ pub enum StmtResult {
 #[derive(Debug, Clone)]
 pub enum CaseLabel {
     Single(Value),
-    Range(i64, i64),
+    /// Inclusive range; both bounds are constants of the selector's type.
+    Range(Value, Value),
 }
 
 /// Statement node.

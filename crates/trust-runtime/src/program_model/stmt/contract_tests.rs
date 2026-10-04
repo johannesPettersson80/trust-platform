@@ -115,13 +115,16 @@ fn statement_result_variants_preserve_control_flow_payloads_when_cloned() {
 #[test]
 fn case_labels_preserve_single_values_and_inclusive_range_endpoints() {
     let single = CaseLabel::Single(Value::String("Mode".into()));
-    let range = CaseLabel::Range(-3, 7);
+    let range = CaseLabel::Range(Value::Int(-3), Value::Int(7));
 
     assert!(matches!(
         single.clone(),
         CaseLabel::Single(Value::String(value)) if value == "Mode"
     ));
-    assert!(matches!(range.clone(), CaseLabel::Range(-3, 7)));
+    assert!(matches!(
+        range.clone(),
+        CaseLabel::Range(Value::Int(-3), Value::Int(7))
+    ));
 }
 
 #[test]
@@ -171,7 +174,10 @@ fn case_statement_preserves_branch_and_label_order_without_normalizing_ranges() 
         selector: Expr::Name("selector".into()),
         branches: vec![
             (
-                vec![CaseLabel::Single(Value::Int(5)), CaseLabel::Range(9, 3)],
+                vec![
+                    CaseLabel::Single(Value::Int(5)),
+                    CaseLabel::Range(Value::Int(9), Value::Int(3)),
+                ],
                 vec![Stmt::Exit { location: None }],
             ),
             (
@@ -199,7 +205,10 @@ fn case_statement_preserves_branch_and_label_order_without_normalizing_ranges() 
         &branches[0].0[0],
         CaseLabel::Single(Value::Int(5))
     ));
-    assert!(matches!(&branches[0].0[1], CaseLabel::Range(9, 3)));
+    assert!(matches!(
+        &branches[0].0[1],
+        CaseLabel::Range(Value::Int(9), Value::Int(3))
+    ));
     assert!(matches!(
         &branches[1].0[0],
         CaseLabel::Single(Value::Int(1))
