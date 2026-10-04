@@ -321,8 +321,16 @@ fn local_name_range_index_is_exact_and_excludes_imported_symbols() {
 #[test]
 fn import_collisions_retain_order_names_and_ranges() {
     let mut table = SymbolTable::new();
-    table.record_import_collision(SmolStr::new("A"), range(1, 2), range(3, 4));
-    table.record_import_collision(SmolStr::new("B"), range(5, 6), range(7, 8));
+    table.record_import_collision(
+        SmolStr::new("A"),
+        (range(1, 2), None),
+        (range(3, 4), Some(FileId(1))),
+    );
+    table.record_import_collision(
+        SmolStr::new("B"),
+        (range(5, 6), None),
+        (range(7, 8), Some(FileId(2))),
+    );
 
     assert_eq!(table.import_collisions().len(), 2);
     assert_eq!(table.import_collisions()[0].name, "A");

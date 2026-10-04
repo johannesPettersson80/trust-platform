@@ -104,15 +104,11 @@ impl<'a> SymbolImporter<'a> {
             }
             if let Some(existing_id) = self.target.lookup(symbol.name.as_str()) {
                 if should_report_import_name_collision(&symbol.kind) {
-                    let existing_range = self
-                        .target
-                        .get(existing_id)
-                        .map(|existing| existing.range)
-                        .unwrap_or_else(|| TextRange::empty(0.into()));
+                    let existing = self.collision_side(existing_id);
                     self.target.record_import_collision(
                         symbol.name.clone(),
-                        existing_range,
-                        symbol.range,
+                        existing,
+                        (symbol.range, Some(source_file)),
                     );
                 }
                 continue;
@@ -364,13 +360,21 @@ impl<'a> SymbolImporter<'a> {
         if !should_report_import_name_collision(&duplicate.kind) {
             return;
         }
-        let existing_range = self
-            .target
-            .get(existing_id)
-            .map(|existing| existing.range)
-            .unwrap_or_else(|| TextRange::empty(0.into()));
+        let duplicate = (
+            duplicate.range,
+            duplicate.origin.map(|origin| origin.file_id),
+        );
+        let existing = self.collision_side(existing_id);
         self.target
-            .record_import_collision(name.clone(), existing_range, duplicate.range);
+            .record_import_collision(name.clone(), existing, duplicate);
+    }
+
+    /// Range and file (`None` = the target's own file) of a symbol in the target table.
+    fn collision_side(&self, id: SymbolId) -> (TextRange, Option<FileId>) {
+        self.target.get(id).map_or_else(
+            || (TextRange::empty(0.into()), None),
+            |symbol| (symbol.range, symbol.origin.map(|origin| origin.file_id)),
+        )
     }
 
     fn namespace_path(table: &SymbolTable, symbol_id: SymbolId) -> Option<Vec<SmolStr>> {

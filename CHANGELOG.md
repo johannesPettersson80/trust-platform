@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Project-import name collisions (`duplicate imported declaration`) are reported
+  at a declaration in the file itself, or else at the first reference to the name
+  in that file. They were reported in every project file at the offset of the
+  declaring file, so one duplicate showed up once per file at unrelated text.
 - Untyped integer literals are contextualized to bit-string targets: `b := 16#FF`,
   `w := 65535`, `d AND 1`, `d = 0` and `CASE b OF 16#FF:` are accepted for
   `BYTE`/`WORD`/`DWORD`/`LWORD` when the value is representable, as they already
