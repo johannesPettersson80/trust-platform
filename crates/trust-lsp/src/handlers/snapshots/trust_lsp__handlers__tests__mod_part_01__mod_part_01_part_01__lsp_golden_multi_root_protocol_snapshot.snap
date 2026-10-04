@@ -92,15 +92,15 @@ expression: output
               "spec": "docs/specs/09-semantic-rules.md"
             }
           },
-          "message": "unused variable 'typed'",
+          "message": "unused variable 'y'",
           "range": {
             "end": {
-              "character": 9,
-              "line": 39
+              "character": 5,
+              "line": 38
             },
             "start": {
               "character": 4,
-              "line": 39
+              "line": 38
             }
           },
           "severity": 2,
@@ -115,11 +115,11 @@ expression: output
               "range": {
                 "end": {
                   "character": 0,
-                  "line": 41
+                  "line": 40
                 },
                 "start": {
                   "character": 4,
-                  "line": 39
+                  "line": 38
                 }
               }
             }
@@ -138,12 +138,12 @@ expression: output
               "newText": " {attribute 'oot' := 'value'}",
               "range": {
                 "end": {
-                  "character": 17,
-                  "line": 39
+                  "character": 11,
+                  "line": 38
                 },
                 "start": {
-                  "character": 17,
-                  "line": 39
+                  "character": 11,
+                  "line": 38
                 }
               }
             }
@@ -161,19 +161,19 @@ expression: output
         "arguments": [
           "file:///workspace/golden/alpha/Main.st",
           {
-            "character": 6,
-            "line": 26
+            "character": 9,
+            "line": 13
           },
           [
             {
               "range": {
                 "end": {
-                  "character": 26,
-                  "line": 29
+                  "character": 3,
+                  "line": 17
                 },
                 "start": {
-                  "character": 22,
-                  "line": 29
+                  "character": 0,
+                  "line": 17
                 }
               },
               "uri": "file:///workspace/golden/alpha/Main.st"
@@ -185,12 +185,12 @@ expression: output
       },
       "range": {
         "end": {
-          "character": 10,
-          "line": 26
+          "character": 12,
+          "line": 13
         },
         "start": {
-          "character": 6,
-          "line": 26
+          "character": 9,
+          "line": 13
         }
       }
     },
@@ -237,19 +237,19 @@ expression: output
         "arguments": [
           "file:///workspace/golden/alpha/Main.st",
           {
-            "character": 9,
-            "line": 13
+            "character": 6,
+            "line": 26
           },
           [
             {
               "range": {
                 "end": {
-                  "character": 3,
-                  "line": 17
+                  "character": 26,
+                  "line": 29
                 },
                 "start": {
-                  "character": 0,
-                  "line": 17
+                  "character": 22,
+                  "line": 29
                 }
               },
               "uri": "file:///workspace/golden/alpha/Main.st"
@@ -261,12 +261,12 @@ expression: output
       },
       "range": {
         "end": {
-          "character": 12,
-          "line": 13
+          "character": 10,
+          "line": 26
         },
         "start": {
-          "character": 9,
-          "line": 13
+          "character": 6,
+          "line": 26
         }
       }
     }
@@ -551,28 +551,6 @@ expression: output
             "spec": "docs/specs/09-semantic-rules.md"
           }
         },
-        "message": "unused program 'Main'",
-        "range": {
-          "end": {
-            "character": 12,
-            "line": 35
-          },
-          "start": {
-            "character": 8,
-            "line": 35
-          }
-        },
-        "severity": 2,
-        "source": "truST"
-      },
-      {
-        "code": "W009",
-        "data": {
-          "explain": {
-            "iec": "Tooling quality lint (non-IEC)",
-            "spec": "docs/specs/09-semantic-rules.md"
-          }
-        },
         "message": "unused function 'Foo'",
         "range": {
           "end": {
@@ -588,22 +566,22 @@ expression: output
         "source": "truST"
       },
       {
-        "code": "W001",
+        "code": "W009",
         "data": {
           "explain": {
-            "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
+            "iec": "Tooling quality lint (non-IEC)",
             "spec": "docs/specs/09-semantic-rules.md"
           }
         },
-        "message": "unused variable 'typed'",
+        "message": "unused program 'Main'",
         "range": {
           "end": {
-            "character": 9,
-            "line": 39
+            "character": 12,
+            "line": 35
           },
           "start": {
-            "character": 4,
-            "line": 39
+            "character": 8,
+            "line": 35
           }
         },
         "severity": 2,
@@ -626,6 +604,28 @@ expression: output
           "start": {
             "character": 4,
             "line": 38
+          }
+        },
+        "severity": 2,
+        "source": "truST"
+      },
+      {
+        "code": "W001",
+        "data": {
+          "explain": {
+            "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
+            "spec": "docs/specs/09-semantic-rules.md"
+          }
+        },
+        "message": "unused variable 'typed'",
+        "range": {
+          "end": {
+            "character": 9,
+            "line": 39
+          },
+          "start": {
+            "character": 4,
+            "line": 39
           }
         },
         "severity": 2,
@@ -729,68 +729,51 @@ expression: output
       "location": {
         "range": {
           "end": {
-            "character": 12,
-            "line": 35
+            "character": 18,
+            "line": 1
           },
           "start": {
-            "character": 8,
-            "line": 35
+            "character": 14,
+            "line": 1
           }
         },
         "uri": "file:///workspace/golden/alpha/Main.st"
       },
-      "name": "Main (PROGRAM)"
+      "name": "Conf (CONFIGURATION)"
     },
     {
-      "kind": 5,
+      "kind": 23,
+      "location": {
+        "range": {
+          "end": {
+            "character": 10,
+            "line": 7
+          },
+          "start": {
+            "character": 5,
+            "line": 7
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "MyInt (TYPE (ALIAS))"
+    },
+    {
+      "kind": 3,
       "location": {
         "range": {
           "end": {
             "character": 13,
-            "line": 29
-          },
-          "start": {
-            "character": 6,
-            "line": 29
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Derived"
-    },
-    {
-      "kind": 5,
-      "location": {
-        "range": {
-          "end": {
-            "character": 10,
-            "line": 26
-          },
-          "start": {
-            "character": 6,
-            "line": 26
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Base"
-    },
-    {
-      "kind": 11,
-      "location": {
-        "range": {
-          "end": {
-            "character": 15,
-            "line": 21
+            "line": 12
           },
           "start": {
             "character": 10,
-            "line": 21
+            "line": 12
           }
         },
         "uri": "file:///workspace/golden/alpha/Main.st"
       },
-      "name": "IFace"
+      "name": "Lib"
     },
     {
       "containerName": "Lib",
@@ -811,55 +794,72 @@ expression: output
       "name": "Foo"
     },
     {
-      "kind": 3,
+      "kind": 11,
+      "location": {
+        "range": {
+          "end": {
+            "character": 15,
+            "line": 21
+          },
+          "start": {
+            "character": 10,
+            "line": 21
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "IFace"
+    },
+    {
+      "kind": 5,
+      "location": {
+        "range": {
+          "end": {
+            "character": 10,
+            "line": 26
+          },
+          "start": {
+            "character": 6,
+            "line": 26
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Base"
+    },
+    {
+      "kind": 5,
       "location": {
         "range": {
           "end": {
             "character": 13,
-            "line": 12
+            "line": 29
           },
           "start": {
-            "character": 10,
-            "line": 12
+            "character": 6,
+            "line": 29
           }
         },
         "uri": "file:///workspace/golden/alpha/Main.st"
       },
-      "name": "Lib"
-    },
-    {
-      "kind": 23,
-      "location": {
-        "range": {
-          "end": {
-            "character": 10,
-            "line": 7
-          },
-          "start": {
-            "character": 5,
-            "line": 7
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "MyInt (TYPE (ALIAS))"
+      "name": "Derived"
     },
     {
       "kind": 2,
       "location": {
         "range": {
           "end": {
-            "character": 18,
-            "line": 1
+            "character": 12,
+            "line": 35
           },
           "start": {
-            "character": 14,
-            "line": 1
+            "character": 8,
+            "line": 35
           }
         },
         "uri": "file:///workspace/golden/alpha/Main.st"
       },
-      "name": "Conf (CONFIGURATION)"
+      "name": "Main (PROGRAM)"
     }
   ],
   "executeCommandProjectInfo": {
@@ -2103,28 +2103,6 @@ expression: output
                 "spec": "docs/specs/09-semantic-rules.md"
               }
             },
-            "message": "unused program 'Main'",
-            "range": {
-              "end": {
-                "character": 12,
-                "line": 35
-              },
-              "start": {
-                "character": 8,
-                "line": 35
-              }
-            },
-            "severity": 2,
-            "source": "truST"
-          },
-          {
-            "code": "W009",
-            "data": {
-              "explain": {
-                "iec": "Tooling quality lint (non-IEC)",
-                "spec": "docs/specs/09-semantic-rules.md"
-              }
-            },
             "message": "unused function 'Foo'",
             "range": {
               "end": {
@@ -2140,22 +2118,22 @@ expression: output
             "source": "truST"
           },
           {
-            "code": "W001",
+            "code": "W009",
             "data": {
               "explain": {
-                "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
+                "iec": "Tooling quality lint (non-IEC)",
                 "spec": "docs/specs/09-semantic-rules.md"
               }
             },
-            "message": "unused variable 'typed'",
+            "message": "unused program 'Main'",
             "range": {
               "end": {
-                "character": 9,
-                "line": 39
+                "character": 12,
+                "line": 35
               },
               "start": {
-                "character": 4,
-                "line": 39
+                "character": 8,
+                "line": 35
               }
             },
             "severity": 2,
@@ -2178,6 +2156,28 @@ expression: output
               "start": {
                 "character": 4,
                 "line": 38
+              }
+            },
+            "severity": 2,
+            "source": "truST"
+          },
+          {
+            "code": "W001",
+            "data": {
+              "explain": {
+                "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
+                "spec": "docs/specs/09-semantic-rules.md"
+              }
+            },
+            "message": "unused variable 'typed'",
+            "range": {
+              "end": {
+                "character": 9,
+                "line": 39
+              },
+              "start": {
+                "character": 4,
+                "line": 39
               }
             },
             "severity": 2,
