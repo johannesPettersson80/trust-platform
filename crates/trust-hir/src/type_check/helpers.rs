@@ -48,6 +48,10 @@ impl<'a> TypeChecker<'a> {
             Type::UInt => u16::try_from(value).is_ok(),
             Type::UDInt => u32::try_from(value).is_ok(),
             Type::ULInt => value >= 0,
+            Type::Byte => u8::try_from(value).is_ok(),
+            Type::Word => u16::try_from(value).is_ok(),
+            Type::DWord => u32::try_from(value).is_ok(),
+            Type::LWord => value >= 0,
             _ => false,
         }
     }

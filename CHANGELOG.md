@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Untyped integer literals are contextualized to bit-string targets: `b := 16#FF`,
+  `w := 65535`, `d AND 1`, `d = 0` and `CASE b OF 16#FF:` are accepted for
+  `BYTE`/`WORD`/`DWORD`/`LWORD` when the value is representable, as they already
+  were for integer targets and bit-string initializers. `BOOL` stays strict.
+  Runtime CASE labels are evaluated in the selector type, so an untyped label
+  matches a bit-string selector.
 - `trust-lsp check [--project DIR] [--format text|json] [--file PATH]... [--deny-warnings]` prints the diagnostics the
   editor shows for every source file of a project, without an LSP client (docs/specs/14-lsp.md §7.7): the project is
   loaded from `trust-lsp.toml` exactly as the language server loads a workspace folder, paths are relative to the

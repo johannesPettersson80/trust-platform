@@ -399,7 +399,7 @@ fn const_case_label_value(
     selector_type: Option<TypeId>,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<Value, CompileError> {
-    let mut expr = lower_expr(node, ctx)?;
+    let mut expr = lower_expr_with_context(node, ctx, selector_type)?;
     if let Some(type_id) = selector_type {
         expr = resolve_initializer_enum_variant(node, expr, type_id, ctx)?;
     }

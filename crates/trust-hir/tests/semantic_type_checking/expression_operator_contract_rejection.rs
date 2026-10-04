@@ -220,3 +220,31 @@ fn expression_operator_rejects_unlisted_or_swapped_temporal_arithmetic() {
         "unlisted temporal arithmetic lacked operator rejection: {missing_operator_rejections:?}"
     );
 }
+
+#[test]
+fn expression_operator_rejects_out_of_range_contextual_bit_string_literal() {
+    check_has_error(
+        "PROGRAM P\nVAR b : BYTE; END_VAR\nb := 256;\nEND_PROGRAM",
+        DiagnosticCode::IncompatibleAssignment,
+    );
+    check_has_error(
+        "PROGRAM P\nVAR b : BYTE; END_VAR\nb := -1;\nEND_PROGRAM",
+        DiagnosticCode::IncompatibleAssignment,
+    );
+}
+
+#[test]
+fn expression_operator_keeps_bool_strict_for_untyped_integer_literals() {
+    check_has_error(
+        "PROGRAM P\nVAR x : BOOL; END_VAR\nx := 1;\nEND_PROGRAM",
+        DiagnosticCode::IncompatibleAssignment,
+    );
+}
+
+#[test]
+fn expression_operator_rejects_typed_integer_in_bit_string_operation() {
+    check_has_error(
+        "PROGRAM P\nVAR d : DWORD; END_VAR\nd := d AND UDINT#1;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
+}
