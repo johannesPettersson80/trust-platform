@@ -151,6 +151,9 @@ fn display_path(root: &Path, uri: &Url) -> String {
     let path = uri
         .to_file_path()
         .unwrap_or_else(|_| PathBuf::from(uri.path()));
+    // `root` is canonical; on Windows that is the verbatim form (`\\?\C:\...`), which a
+    // path from a file URI never has, so canonicalize this side too before stripping.
+    let path = path.canonicalize().unwrap_or(path);
     path.strip_prefix(root)
         .unwrap_or(&path)
         .to_string_lossy()
