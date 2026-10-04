@@ -399,7 +399,18 @@ pub(super) fn analyze_query(
     let (mut symbols, mut diagnostics, pending_types) =
         SymbolCollector::with_project_types(&provider)
             .collect_for_project_with_consts(&root, &project_consts);
-    merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
+    // The merge is a deterministic function of the local table and the other files'
+    // tables. When this file's table equals the one merged_project_symbols_query started
+    // from (the usual case: the two collection paths agree), its result is this merge's
+    // result too, and it has been computed already for project_used_symbols_query.
+    if project_tables
+        .get(&file_id)
+        .is_some_and(|table| **table == symbols)
+    {
+        symbols = (**merged_project_symbols_query(db, project, file_id)).clone();
+    } else {
+        merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
+    }
     let config_inits =
         project_nodes_for(project_config_init_index_query(db, project), &project_roots);
     let (checked_symbols, access_config_diagnostics) =
