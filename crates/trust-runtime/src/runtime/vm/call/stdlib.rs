@@ -33,8 +33,13 @@ pub(super) fn dispatch_native_stdlib_call(
     }
     if let Some(conversion_spec) = conversion_spec {
         let value = bind_conversion_value(runtime, frame, args)?;
-        return conversions::call_conversion_spec(conversion_spec, std::slice::from_ref(&value))
-            .map_err(VmTrap::Runtime);
+        let profile = runtime.stdlib().conversion_profile();
+        return conversions::call_conversion_spec(
+            conversion_spec,
+            std::slice::from_ref(&value),
+            profile,
+        )
+        .map_err(VmTrap::Runtime);
     }
     if let Some(entry) = runtime.stdlib().get(normalized_target_name.as_str()) {
         let params = entry.params.clone();

@@ -10,6 +10,7 @@ use trust_runtime::harness::{
     decode_json_value, encode_json_value, BoundaryEntry, BoundaryError, HarnessAutomation,
     HarnessAutomationError,
 };
+use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::RestartMode;
 
 #[derive(Debug, Deserialize)]
@@ -27,6 +28,7 @@ struct Request {
     max_cycles: Option<u64>,
     address: Option<String>,
     mode: Option<String>,
+    vendor_profile: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -116,6 +118,16 @@ fn dispatch_request(
 }
 
 fn handle_load(request: Request, harness: &mut HarnessAutomation) -> anyhow::Result<JsonValue> {
+    // each load chooses its conversion rules; without the field, the IEC rules
+    let profile = match request.vendor_profile.as_deref() {
+        None => ConversionProfile::Iec,
+        Some(name) => ConversionProfile::from_vendor_profile(name).ok_or_else(|| {
+            anyhow::Error::from(HarnessAutomationError::InvalidArgument(format!(
+                "unknown vendor_profile '{name}' (supported: codesys, iec)"
+            )))
+        })?,
+    };
+    harness.set_conversion_profile(profile);
     let summary = harness
         .load_sources(&source_list(&request)?)
         .map_err(anyhow::Error::from)?;

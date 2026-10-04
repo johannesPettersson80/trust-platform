@@ -267,6 +267,31 @@ Examples: `REAL_TO_BYTE(200.4) = BYTE#200`, `REAL_TO_BYTE(256.0)` returns
 `BYTE/WORD/DWORD/LWORD_TO_BOOL` are the IEC Table 24 conversions of section 2.2,
 not extensions.
 
+### 2.10 CODESYS Conversion Profile
+
+A compile session can select the CODESYS conversion profile
+(`CompileSession::with_conversion_profile(ConversionProfile::Codesys)`, `trust-harness`
+`load` with `"vendor_profile": "codesys"`). The conversion functions then follow the CODESYS
+Development System rules instead of the IEC rules and truST policies above; the default
+(`iec`) is unchanged:
+
+| Conversion | `iec` (default) | `codesys` |
+|------------|-----------------|-----------|
+| `REAL`/`LREAL` to an integer or bit string | round to nearest, ties to even | round half away from zero (`.1`-`.4` down, `.5`-`.9` up): `REAL_TO_INT(2.5) = 3`, `REAL_TO_INT(-1.5) = -2` |
+| a value outside the target range (integer narrowing, signed/unsigned change, `REAL` to integer) | `RuntimeError::Overflow` | the low-order bits of the target width, two's complement: `DINT_TO_SINT(128) = -128`, `INT_TO_UINT(-1) = 65535`, `REAL_TO_BYTE(300.0) = 44` |
+| `REAL_TO_DWORD`, `LREAL_TO_LWORD` | Table 25 binary transfer | the number: `REAL_TO_DWORD(3.7) = 4` |
+| `BYTE/WORD/DWORD/LWORD` to `REAL`/`LREAL` | `DWORD_TO_REAL`, `LWORD_TO_LREAL` binary transfers | the number: `DWORD_TO_REAL(5) = 5.0` |
+
+A non-finite `REAL`/`LREAL` source still returns `RuntimeError::Overflow`, and conversions
+whose CODESYS result is "undefined, target system-dependent" keep the low-order bits. The
+profile changes conversion functions only; arithmetic overflow is unchanged.
+
+References: CODESYS Development System,
+[REAL_TO / LREAL_TO](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_operator_real_to.html)
+and [integer conversions](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_operator_convert_integer.html)
+("If the number to be converted exceeds the range limit, then the first bytes of the number are
+ignored").
+
 ## 3. Numerical Functions (Table 28)
 
 ### Basic Arithmetic

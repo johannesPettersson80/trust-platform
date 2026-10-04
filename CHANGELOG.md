@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- CODESYS conversion profile (docs/specs/07-standard-functions.md 2.7):
+  `CompileSession::with_conversion_profile(ConversionProfile::Codesys)`,
+  `TestHarness::from_session` and `trust-harness` `load` with `"vendor_profile": "codesys"`
+  make the conversion functions round half away from zero, keep the low-order bits of the
+  target width instead of an overflow, and convert REAL/LREAL to and from DWORD/LWORD as
+  numbers. The default IEC rules are unchanged.
 - Vendor-extension conversions used by CODESYS and TwinCAT projects compile and run
   (docs/specs/07-standard-functions.md 2.9): `REAL/LREAL_TO_BYTE/WORD/LWORD`,
   `LREAL_TO_DWORD` (numeric, like `REAL_TO_<unsigned>` of the width), `<number>_TO_BOOL`

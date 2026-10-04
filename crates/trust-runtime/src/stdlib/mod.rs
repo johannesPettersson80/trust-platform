@@ -52,6 +52,7 @@ pub struct StdFunction {
 #[derive(Debug, Default, Clone)]
 pub struct StandardLibrary {
     functions: IndexMap<SmolStr, StdFunction>,
+    conversion_profile: conversions::ConversionProfile,
 }
 
 impl StandardLibrary {
@@ -60,6 +61,7 @@ impl StandardLibrary {
     pub fn new() -> Self {
         let mut lib = Self {
             functions: IndexMap::new(),
+            conversion_profile: conversions::ConversionProfile::default(),
         };
         assertions::register(&mut lib);
         numeric::register(&mut lib);
@@ -71,6 +73,19 @@ impl StandardLibrary {
         validate::register(&mut lib);
         conversions::register(&mut lib);
         lib
+    }
+
+    /// The same library with the given conversion rules.
+    #[must_use]
+    pub fn with_conversion_profile(mut self, profile: conversions::ConversionProfile) -> Self {
+        self.conversion_profile = profile;
+        self
+    }
+
+    /// The rules the conversion functions follow.
+    #[must_use]
+    pub fn conversion_profile(&self) -> conversions::ConversionProfile {
+        self.conversion_profile
     }
 
     /// Register a standard function by name.
@@ -142,7 +157,8 @@ impl StandardLibrary {
         if let Some(entry) = self.functions.get(&key) {
             return (entry.func)(args);
         }
-        if let Some(result) = conversions::call_conversion(&key, args) {
+        if let Some(result) = conversions::call_conversion_with(&key, args, self.conversion_profile)
+        {
             return result;
         }
         Err(RuntimeError::UndefinedFunction(name.into()))
