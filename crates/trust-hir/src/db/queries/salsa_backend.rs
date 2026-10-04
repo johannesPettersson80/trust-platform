@@ -313,12 +313,14 @@ pub(super) fn project_symbol_tables_query(
         .iter()
         .map(|(_, input)| SyntaxNode::new_root(parse_green(db, *input).clone()))
         .collect();
+    // Walk the project roots for constants once, not once per file.
+    let project_consts = SymbolCollector::project_const_exprs(&const_roots);
     let mut project_tables: FxHashMap<FileId, Arc<SymbolTable>> = FxHashMap::default();
     for (file_id, input) in files.iter().copied() {
         cancellation_checkpoint(db);
         let root = SyntaxNode::new_root(parse_green(db, input).clone());
         let (symbols, _) = SymbolCollector::with_project_types(&provider)
-            .collect_with_project_const_roots(&root, &const_roots);
+            .collect_with_project_consts(&root, &project_consts);
         project_tables.insert(file_id, Arc::new(symbols));
     }
     Arc::new(project_tables)
@@ -391,16 +393,28 @@ pub(super) fn analyze_query(
         project_files: project_files.as_ref(),
         catalog: catalog.as_ref(),
     };
-    let const_roots: Vec<SyntaxNode> = project_roots_from_inputs(db, &project_source_inputs)
-        .into_iter()
-        .map(|(_, project_root)| project_root)
-        .collect();
+    let project_roots = project_roots_by_file(db, &project_source_inputs);
+    let project_consts =
+        project_const_exprs_for(project_const_index_query(db, project), &project_roots);
     let (mut symbols, mut diagnostics, pending_types) =
         SymbolCollector::with_project_types(&provider)
-            .collect_for_project_with_const_roots(&root, &const_roots);
-    merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
+            .collect_for_project_with_consts(&root, &project_consts);
+    // The merge is a deterministic function of the local table and the other files'
+    // tables. When this file's table equals the one merged_project_symbols_query started
+    // from (the usual case: the two collection paths agree), its result is this merge's
+    // result too, and it has been computed already for project_used_symbols_query.
+    if project_tables
+        .get(&file_id)
+        .is_some_and(|table| **table == symbols)
+    {
+        symbols = (**merged_project_symbols_query(db, project, file_id)).clone();
+    } else {
+        merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
+    }
+    let config_inits =
+        project_nodes_for(project_config_init_index_query(db, project), &project_roots);
     let (checked_symbols, access_config_diagnostics) =
-        SymbolCollector::validate_project_after_merge(symbols, &root, &const_roots);
+        SymbolCollector::validate_project_after_merge(symbols, &root, &config_inits);
     symbols = checked_symbols;
     diagnostics.extend(access_config_diagnostics);
 
@@ -601,6 +615,112 @@ fn collect_project_state(
         project_source_inputs,
         project_tables,
     })
+}
+
+/// A project constant declaration: (key, file, kind and range of its expression).
+pub(super) type ProjectConstEntry = ((Option<SmolStr>, SmolStr), FileId, SyntaxKind, TextRange);
+
+/// Where the project's constant declarations are: (key, file, kind and range of the
+/// expression), first declaration in file-id order wins (the order `analyze_query` used
+/// when it precollected all project roots itself). Positions, not syntax nodes, because
+/// salsa results must be `Send`; `project_const_exprs_for` turns them back into nodes.
+#[salsa::tracked(returns(ref))]
+pub(super) fn project_const_index_query(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+) -> Arc<Vec<ProjectConstEntry>> {
+    let mut ordered: Vec<(FileId, SourceInput)> = project.files(db).to_vec();
+    ordered.sort_by_key(|(id, _)| id.0);
+    let mut seen: FxHashSet<(Option<SmolStr>, SmolStr)> = FxHashSet::default();
+    let mut index = Vec::new();
+    for (file_id, input) in ordered {
+        cancellation_checkpoint(db);
+        let root = SyntaxNode::new_root(parse_green(db, input).clone());
+        let consts = SymbolCollector::project_const_exprs(std::slice::from_ref(&root));
+        let mut entries: Vec<_> = consts.into_iter().collect();
+        entries.sort_by_key(|(_, expr)| expr.text_range().start());
+        for (key, expr) in entries {
+            if seen.insert(key.clone()) {
+                index.push((key, file_id, expr.kind(), expr.text_range()));
+            }
+        }
+    }
+    Arc::new(index)
+}
+
+/// Positions of the project's `ConfigInit` nodes (VAR_CONFIG entries) in file-id and
+/// document order: `check_at_bindings` needs them for every file, and finding them
+/// means walking every project syntax tree.
+#[salsa::tracked(returns(ref))]
+pub(super) fn project_config_init_index_query(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+) -> Arc<Vec<(FileId, TextRange)>> {
+    let mut ordered: Vec<(FileId, SourceInput)> = project.files(db).to_vec();
+    ordered.sort_by_key(|(id, _)| id.0);
+    let mut index = Vec::new();
+    for (file_id, input) in ordered {
+        cancellation_checkpoint(db);
+        let root = SyntaxNode::new_root(parse_green(db, input).clone());
+        for node in super::collector::config_inits_of(std::slice::from_ref(&root)) {
+            index.push((file_id, node.text_range()));
+        }
+    }
+    Arc::new(index)
+}
+
+/// The `ConfigInit` nodes at the positions of `index`.
+fn project_nodes_for(
+    index: &[(FileId, TextRange)],
+    roots: &FxHashMap<FileId, SyntaxNode>,
+) -> Vec<SyntaxNode> {
+    index
+        .iter()
+        .filter_map(|(file_id, range)| {
+            let root = roots.get(file_id)?;
+            let start = match root.covering_element(*range) {
+                rowan::NodeOrToken::Node(node) => Some(node),
+                rowan::NodeOrToken::Token(token) => token.parent(),
+            };
+            start
+                .into_iter()
+                .flat_map(|node| node.ancestors())
+                .find(|node| node.kind() == SyntaxKind::ConfigInit && node.text_range() == *range)
+        })
+        .collect()
+}
+
+fn project_roots_by_file(
+    db: &dyn salsa::Database,
+    source_inputs: &FxHashMap<FileId, SourceInput>,
+) -> FxHashMap<FileId, SyntaxNode> {
+    project_roots_from_inputs(db, source_inputs)
+        .into_iter()
+        .collect()
+}
+
+fn project_const_exprs_for(
+    index: &[ProjectConstEntry],
+    roots: &FxHashMap<FileId, SyntaxNode>,
+) -> super::collector::ProjectConstExprs {
+    let mut consts = super::collector::ProjectConstExprs::default();
+    for (key, file_id, kind, range) in index {
+        let Some(root) = roots.get(file_id) else {
+            continue;
+        };
+        let start = match root.covering_element(*range) {
+            rowan::NodeOrToken::Node(node) => Some(node),
+            rowan::NodeOrToken::Token(token) => token.parent(),
+        };
+        let found = start
+            .into_iter()
+            .flat_map(|node| node.ancestors())
+            .find(|node| node.kind() == *kind && node.text_range() == *range);
+        if let Some(expr) = found {
+            consts.entry(key.clone()).or_insert(expr);
+        }
+    }
+    consts
 }
 
 fn has_global_variables(symbols: &SymbolTable) -> bool {

@@ -51,8 +51,10 @@ impl OopReference {
 /// The symbol table containing all symbols and scopes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SymbolTable {
-    /// All symbols indexed by ID.
-    symbols: FxHashMap<SymbolId, Symbol>,
+    /// All symbols, indexed by ID: IDs are handed out densely from 0 and symbols are
+    /// never removed, so `symbols[id]` is the symbol with that ID (and iteration is in
+    /// ID order).
+    symbols: Vec<Symbol>,
     /// All scopes.
     scopes: Vec<Scope>,
     /// Current scope ID during collection.
@@ -100,7 +102,7 @@ impl SymbolTable {
     #[must_use]
     pub fn new() -> Self {
         let mut table = Self {
-            symbols: FxHashMap::default(),
+            symbols: Vec::new(),
             scopes: Vec::new(),
             current_scope: ScopeId::GLOBAL,
             global_names: FxHashMap::default(),
@@ -289,7 +291,8 @@ impl SymbolTable {
             scope.define(name, id);
         }
 
-        self.symbols.insert(id, symbol);
+        debug_assert_eq!(id.0 as usize, self.symbols.len());
+        self.symbols.push(symbol);
         id
     }
 
@@ -307,7 +310,8 @@ impl SymbolTable {
             self.global_names.entry(key).or_insert(id);
         }
 
-        self.symbols.insert(id, symbol);
+        debug_assert_eq!(id.0 as usize, self.symbols.len());
+        self.symbols.push(symbol);
         id
     }
 
@@ -353,12 +357,12 @@ impl SymbolTable {
     /// Gets a symbol by ID.
     #[must_use]
     pub fn get(&self, id: SymbolId) -> Option<&Symbol> {
-        self.symbols.get(&id)
+        self.symbols.get(id.0 as usize)
     }
 
     /// Gets a mutable reference to a symbol by ID.
     pub fn get_mut(&mut self, id: SymbolId) -> Option<&mut Symbol> {
-        self.symbols.get_mut(&id)
+        self.symbols.get_mut(id.0 as usize)
     }
 
     /// Looks up a symbol by name in the global scope.
@@ -380,7 +384,7 @@ impl SymbolTable {
                 return None;
             }
             let mut next = None;
-            for sym in self.symbols.values() {
+            for sym in self.symbols.iter() {
                 if sym.parent == Some(current) && sym.name.eq_ignore_ascii_case(part.as_str()) {
                     next = Some(sym.id);
                     break;
@@ -408,7 +412,7 @@ impl SymbolTable {
             return Some(*id);
         }
         self.symbols
-            .values()
+            .iter()
             .find(|sym| sym.name.as_str().eq_ignore_ascii_case(name))
             .map(|sym| sym.id)
     }
@@ -419,7 +423,7 @@ impl SymbolTable {
         let mut matched = None;
         for symbol in self
             .symbols
-            .values()
+            .iter()
             .filter(|symbol| symbol.name.as_str().eq_ignore_ascii_case(name))
         {
             if matched.is_some_and(|existing| existing != symbol.id) {
@@ -690,9 +694,14 @@ impl SymbolTable {
         self.const_values.get(&key).copied()
     }
 
-    /// Returns an iterator over all symbols.
+    /// Returns an iterator over all symbols, in ID order.
     pub fn iter(&self) -> impl Iterator<Item = &Symbol> {
-        self.symbols.values()
+        self.symbols.iter()
+    }
+
+    /// Iterates over all symbols in ID order.
+    pub fn iter_in_id_order(&self) -> impl Iterator<Item = &Symbol> {
+        self.symbols.iter()
     }
 
     /// Returns the number of symbols.
@@ -773,7 +782,7 @@ impl SymbolTable {
         let mut entries = Vec::new();
         let mut source_symbols: Vec<&Symbol> = self
             .symbols
-            .values()
+            .iter()
             .filter(|symbol| !symbol.range.is_empty())
             .collect();
         source_symbols.sort_by_key(|symbol| symbol.id.0);
@@ -891,7 +900,7 @@ impl SymbolTable {
                 break;
             }
 
-            for sym in self.symbols.values() {
+            for sym in self.symbols.iter() {
                 if sym.parent == Some(symbol_id) && sym.name.eq_ignore_ascii_case(member_name) {
                     return Some(sym.id);
                 }

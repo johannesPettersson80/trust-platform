@@ -530,7 +530,9 @@ impl SymbolCollector<'_> {
         }
     }
 
-    pub(super) fn check_at_bindings(&mut self, roots: &[SyntaxNode]) {
+    /// `config_inits`: the `ConfigInit` nodes of the project, in project order (see
+    /// `config_inits_of`).
+    pub(super) fn check_at_bindings(&mut self, config_inits: &[SyntaxNode]) {
         let mut wildcard_vars = FxHashSet::default();
 
         for symbol in self.table.iter() {
@@ -563,10 +565,7 @@ impl SymbolCollector<'_> {
         }
 
         let mut configured = FxHashSet::default();
-        for config_init in roots.iter().flat_map(|root| {
-            root.descendants()
-                .filter(|n| n.kind() == SyntaxKind::ConfigInit)
-        }) {
+        for config_init in config_inits {
             let Some(access_path) = config_init
                 .children()
                 .find(|n| n.kind() == SyntaxKind::AccessPath)
@@ -578,7 +577,7 @@ impl SymbolCollector<'_> {
                     lookup_program_instance(&self.program_instances, parsed.root.as_str())
                 {
                     if program_instance.is_ambiguous() {
-                        if let Some(address) = config_init_direct_address(&config_init) {
+                        if let Some(address) = config_init_direct_address(config_init) {
                             if direct_address_has_wildcard(&address) {
                                 self.diagnostics.error(
                                     DiagnosticCode::InvalidOperation,
@@ -607,7 +606,7 @@ impl SymbolCollector<'_> {
                 continue;
             };
 
-            if let Some(address) = config_init_direct_address(&config_init) {
+            if let Some(address) = config_init_direct_address(config_init) {
                 if direct_address_has_wildcard(&address) {
                     self.diagnostics.error(
                         DiagnosticCode::InvalidOperation,
