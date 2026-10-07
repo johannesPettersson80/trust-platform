@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Editor and project diagnostics are faster on large projects: a file's analysis no longer rescans every project
+  file for global constants and `VAR_CONFIG` entries, reuses the project symbol merge it already computed, and imports
+  other files' symbols without re-indexing the whole table per import (measured on a 400-file project: diagnostics after
+  an edit in 0.14 s instead of 1.8 s). The reported diagnostics are the same; symbol-table walks now run in declaration
+  order, so lists built from them, such as unused-symbol warnings, quick fixes and the runtime web IDE's symbol
+  search, follow the declaration order, and the errors for incomplete addresses without a `VAR_CONFIG` mapping are
+  listed in declaration order (they followed hash order). `scripts/perf/project_scaling.py` measures project-size
+  scaling over LSP.
 - Control course: all 89 lessons follow the lesson template and the lesson map (`docs/specs/control-course-lesson-template.md`,
   `docs/specs/control-course-lesson-map.md`). Each lesson starts from the previous lesson's result and explains its new
   idea in four steps: a plain definition, what it means in words (with a comparison a PLC engineer knows), the formula

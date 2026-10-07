@@ -534,6 +534,8 @@ impl SymbolCollector<'_> {
     /// `config_inits_of`).
     pub(super) fn check_at_bindings(&mut self, config_inits: &[SyntaxNode]) {
         let mut wildcard_vars = FxHashSet::default();
+        // Declaration order, so the missing mappings are reported in a stable order.
+        let mut wildcard_order = Vec::new();
 
         for symbol in self.table.iter() {
             if symbol.origin.is_some() {
@@ -559,8 +561,8 @@ impl SymbolCollector<'_> {
                 );
             }
 
-            if symbol.parent.is_some() {
-                wildcard_vars.insert(symbol.id);
+            if symbol.parent.is_some() && wildcard_vars.insert(symbol.id) {
+                wildcard_order.push(symbol.id);
             }
         }
 
@@ -619,7 +621,7 @@ impl SymbolCollector<'_> {
             }
         }
 
-        for symbol_id in wildcard_vars {
+        for symbol_id in wildcard_order {
             if configured.contains(&symbol_id) {
                 continue;
             }
