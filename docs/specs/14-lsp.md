@@ -1047,10 +1047,14 @@ runs without an LSP client. It loads `DIR` as a workspace folder exactly as
 indexed file, the result of the same `collect_diagnostics_with_ticket` path that answers
 `textDocument/diagnostic`, so CI output and editor diagnostics agree. Text output is
 `path:line:column: severity[code]: message` (one-based; columns in UTF-16 code units as in
-LSP), sorted by path and position, with a summary on stderr. JSON output is one object:
-`version`, `project`, `files`, `errors`, `warnings`, `diagnostics[]` (`path`, `line`,
-`column`, `endLine`, `endColumn`, `severity`, `code`, `message`). Exit status `0` without
-errors, `1` with errors (or warnings under `--deny-warnings`), `2` on usage or I/O errors.
+LSP), sorted by path and position, with a summary on stderr. `path` is relative to `DIR`
+and written as the platform writes paths (`src\Main.st` on Windows). JSON output is one
+object: `version`, `project`, `files`, `errors`, `warnings`, `diagnostics[]` (`path`,
+`line`, `column`, `endLine`, `endColumn`, `severity`, `code`, `message`). A `--file` that
+is not one of the project's indexed source files, or a project without source files, is a
+usage error: nothing is checked and the command names the file or directory. Exit status
+`0` without errors, `1` with errors (or warnings under `--deny-warnings`), `2` on usage or
+I/O errors.
 
 ### 8. Runtime & Debugger
 

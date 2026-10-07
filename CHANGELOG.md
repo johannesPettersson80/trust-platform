@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- `trust-lsp check [--project DIR] [--format text|json] [--file PATH]... [--deny-warnings]` prints the diagnostics the
+  editor shows for every source file of a project, without an LSP client (docs/specs/14-lsp.md §7.7): the project is
+  loaded from `trust-lsp.toml` exactly as the language server loads a workspace folder, paths are relative to the
+  project in the platform's form, and the exit status is 0 without errors, 1 with errors (or warnings under
+  `--deny-warnings`) and 2 for a usage or I/O problem, including a `--file` that is not one of the project's source
+  files.
 - Editor and project diagnostics are faster on large projects: a file's analysis no longer rescans every project
   file for global constants and `VAR_CONFIG` entries, reuses the project symbol merge it already computed, and imports
   other files' symbols without re-indexing the whole table per import (measured on a 400-file project: diagnostics after

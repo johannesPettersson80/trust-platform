@@ -154,10 +154,33 @@ fn display_path(root: &Path, uri: &Url) -> String {
     // `root` is canonical; on Windows that is the verbatim form (`\\?\C:\...`), which a
     // path from a file URI never has, so canonicalize this side too before stripping.
     let path = path.canonicalize().unwrap_or(path);
-    path.strip_prefix(root)
-        .unwrap_or(&path)
-        .to_string_lossy()
-        .replace('\\', "/")
+    native_path(path.strip_prefix(root).unwrap_or(&path))
+}
+
+/// A path as the platform writes it: native separators, and on Windows without the
+/// verbatim prefix (`\\?\`) that canonicalization adds.
+fn native_path(path: &Path) -> String {
+    let text = path.display().to_string();
+    if cfg!(windows) {
+        strip_verbatim_prefix(&text)
+    } else {
+        text
+    }
+}
+
+/// `\\?\C:\dir` is `C:\dir` and `\\?\UNC\server\share` is `\\server\share`; other verbatim
+/// paths have no plain form and are kept.
+fn strip_verbatim_prefix(text: &str) -> String {
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{rest}");
+    }
+    if let Some(rest) = text.strip_prefix(r"\\?\") {
+        let bytes = rest.as_bytes();
+        if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+            return rest.to_string();
+        }
+    }
+    text.to_string()
 }
 
 fn to_item(root: &Path, uri: &Url, diagnostic: &Diagnostic) -> Item {
@@ -176,42 +199,48 @@ fn to_item(root: &Path, uri: &Url, diagnostic: &Diagnostic) -> Item {
 
 /// Runs `trust-lsp check` with the arguments after `check`; returns the exit status.
 pub async fn run(args: &[String]) -> i32 {
+    run_with_output(args, &mut std::io::stdout(), &mut std::io::stderr()).await
+}
+
+/// `run`, writing the report to `out` and messages to `err`.
+async fn run_with_output(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> i32 {
+    match check(args, out, err).await {
+        Ok(status) => status,
+        Err(message) => {
+            // nothing more can be reported when stderr itself fails
+            let _ = writeln!(err, "trust-lsp check: {message}");
+            2
+        }
+    }
+}
+
+/// The check itself; `Err` is a usage or I/O problem (exit status 2).
+async fn check(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> Result<i32, String> {
     let options = match parse_args(args) {
         Ok(options) => options,
-        Err(message) => {
-            if message.is_empty() {
-                print!("{USAGE}");
-                return 0;
-            }
-            eprintln!("trust-lsp check: {message}\n\n{USAGE}");
-            return 2;
+        Err(message) if message.is_empty() => {
+            write!(out, "{USAGE}").map_err(|error| format!("write output: {error}"))?;
+            return Ok(0);
         }
+        Err(message) => return Err(format!("{message}\n\n{USAGE}")),
     };
-    let root = match options.project.canonicalize() {
-        Ok(root) => root,
-        Err(error) => {
-            eprintln!("trust-lsp check: {}: {error}", options.project.display());
-            return 2;
-        }
-    };
-    let Ok(root_uri) = Url::from_directory_path(&root) else {
-        eprintln!("trust-lsp check: {}: not a directory path", root.display());
-        return 2;
-    };
-    let mut only: Vec<PathBuf> = Vec::new();
+    let root = options
+        .project
+        .canonicalize()
+        .map_err(|error| format!("{}: {error}", options.project.display()))?;
+    let root_uri = Url::from_directory_path(&root)
+        .map_err(|()| format!("{}: not a directory path", native_path(&root)))?;
+    let mut only: Vec<(PathBuf, &PathBuf)> = Vec::new();
     for file in &options.files {
         let path = if file.is_absolute() {
             file.clone()
         } else {
             root.join(file)
         };
-        match path.canonicalize() {
-            Ok(path) => only.push(path),
-            Err(error) => {
-                eprintln!("trust-lsp check: {}: {error}", file.display());
-                return 2;
-            }
-        }
+        let path = path
+            .canonicalize()
+            .map_err(|error| format!("{}: {error}", file.display()))?;
+        only.push((path, file));
     }
 
     let (client, _service) = silent_client();
@@ -222,15 +251,40 @@ pub async fn run(args: &[String]) -> i32 {
 
     let mut documents = state.documents();
     documents.sort_by(|a, b| a.uri.as_str().cmp(b.uri.as_str()));
+    if documents.is_empty() {
+        return Err(format!(
+            "no source files found in {} (see include_paths in trust-lsp.toml)",
+            native_path(&root)
+        ));
+    }
+    let document_paths: Vec<Option<PathBuf>> = documents
+        .iter()
+        .map(|doc| {
+            doc.uri
+                .to_file_path()
+                .ok()
+                .map(|path| path.canonicalize().unwrap_or(path))
+        })
+        .collect();
+    // A requested file the project does not contain would otherwise pass unchecked.
+    for (path, file) in &only {
+        if !document_paths.iter().flatten().any(|known| known == path) {
+            return Err(format!(
+                "{}: not a source file of the project in {}",
+                file.display(),
+                native_path(&root)
+            ));
+        }
+    }
+
     let mut items = Vec::new();
     let mut checked = 0usize;
-    for doc in &documents {
+    for (doc, path) in documents.iter().zip(&document_paths) {
         if !only.is_empty() {
-            let Ok(path) = doc.uri.to_file_path() else {
+            let Some(path) = path else {
                 continue;
             };
-            let path = path.canonicalize().unwrap_or(path);
-            if !only.contains(&path) {
+            if !only.iter().any(|(wanted, _)| wanted == path) {
                 continue;
             }
         }
@@ -251,8 +305,6 @@ pub async fn run(args: &[String]) -> i32 {
     let errors = items.iter().filter(|i| i.severity == "error").count();
     let warnings = items.iter().filter(|i| i.severity == "warning").count();
 
-    let stdout = std::io::stdout();
-    let mut out = stdout.lock();
     let written = match options.format {
         Format::Text => {
             let mut result = Ok(());
@@ -270,10 +322,12 @@ pub async fn run(args: &[String]) -> i32 {
                     )
                 });
             }
-            eprintln!(
-                "trust-lsp check: {errors} error(s), {warnings} warning(s) in {checked} file(s)"
-            );
-            result
+            result.and_then(|()| {
+                writeln!(
+                    err,
+                    "trust-lsp check: {errors} error(s), {warnings} warning(s) in {checked} file(s)"
+                )
+            })
         }
         Format::Json => {
             let diagnostics: Vec<_> = items
@@ -293,7 +347,7 @@ pub async fn run(args: &[String]) -> i32 {
                 .collect();
             let payload = json!({
                 "version": 1,
-                "project": root.display().to_string(),
+                "project": native_path(&root),
                 "files": checked,
                 "errors": errors,
                 "warnings": warnings,
@@ -302,14 +356,11 @@ pub async fn run(args: &[String]) -> i32 {
             writeln!(out, "{payload}")
         }
     };
-    if let Err(error) = written {
-        eprintln!("trust-lsp check: write output: {error}");
-        return 2;
-    }
+    written.map_err(|error| format!("write output: {error}"))?;
     if errors > 0 || (options.deny_warnings && warnings > 0) {
-        1
+        Ok(1)
     } else {
-        0
+        Ok(0)
     }
 }
 
@@ -348,41 +399,183 @@ mod tests {
         assert!(parse_args(&args(&["--project"])).is_err());
     }
 
+    /// A two-file project in a fresh temporary directory, removed on drop.
+    struct Project(PathBuf);
+
+    impl Project {
+        fn new(name: &str) -> Self {
+            let root =
+                std::env::temp_dir().join(format!("trust-lsp-check-{name}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&root);
+            std::fs::create_dir_all(root.join("src")).expect("src dir");
+            std::fs::write(
+                root.join("trust-lsp.toml"),
+                "[project]\ninclude_paths = [\"src\"]\n",
+            )
+            .expect("config");
+            std::fs::write(
+                root.join("src/Types.st"),
+                "TYPE Point : STRUCT x : INT; END_STRUCT END_TYPE\n",
+            )
+            .expect("types");
+            std::fs::write(
+                root.join("src/Main.st"),
+                "PROGRAM Main\nVAR p : Point; END_VAR\np.x := missing;\nEND_PROGRAM\n",
+            )
+            .expect("main");
+            Self(root)
+        }
+
+        fn root(&self) -> &str {
+            self.0.to_str().expect("utf-8 path")
+        }
+    }
+
+    impl Drop for Project {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    async fn check_output(arguments: &[&str]) -> (i32, String, String) {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let status = run_with_output(&args(arguments), &mut out, &mut err).await;
+        (
+            status,
+            String::from_utf8(out).expect("utf-8 stdout"),
+            String::from_utf8(err).expect("utf-8 stderr"),
+        )
+    }
+
     #[tokio::test]
     async fn reports_project_diagnostics() {
-        let root = std::env::temp_dir().join(format!("trust-lsp-check-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
-        struct Cleanup(PathBuf);
-        impl Drop for Cleanup {
-            fn drop(&mut self) {
-                let _ = std::fs::remove_dir_all(&self.0);
-            }
-        }
-        let _cleanup = Cleanup(root.clone());
-        std::fs::create_dir_all(root.join("src")).expect("src dir");
-        std::fs::write(
-            root.join("trust-lsp.toml"),
-            "[project]\ninclude_paths = [\"src\"]\n",
-        )
-        .expect("config");
-        std::fs::write(
-            root.join("src/Types.st"),
-            "TYPE Point : STRUCT x : INT; END_STRUCT END_TYPE\n",
-        )
-        .expect("types");
-        std::fs::write(
-            root.join("src/Main.st"),
-            "PROGRAM Main\nVAR p : Point; END_VAR\np.x := missing;\nEND_PROGRAM\n",
-        )
-        .expect("main");
-        let status = run(&args(&[
-            "--project",
-            root.to_str().expect("utf-8 path"),
-            "--format",
-            "json",
-        ]))
-        .await;
-        // `missing` is undefined; `Point` comes from the other file and must resolve.
+        let project = Project::new("json");
+        let (status, out, err) =
+            check_output(&["--project", project.root(), "--format", "json"]).await;
+        // `missing` is undefined; `Point` comes from the other file and resolves.
+        assert_eq!(status, 1, "stderr: {err}");
+        let payload: serde_json::Value = serde_json::from_str(&out).expect("one JSON object");
+        let main = native_path(&Path::new("src").join("Main.st"));
+        assert_eq!(payload["files"], 2);
+        assert_eq!(payload["errors"], 1);
+        assert_eq!(payload["warnings"], 1);
+        assert_eq!(
+            payload["diagnostics"],
+            json!([
+                {
+                    "path": main,
+                    "line": 1,
+                    "column": 9,
+                    "endLine": 1,
+                    "endColumn": 13,
+                    "severity": "warning",
+                    "code": "W009",
+                    "message": "unused program 'Main'",
+                },
+                {
+                    // the editor's range of the name includes the space before it
+                    "path": main,
+                    "line": 3,
+                    "column": 7,
+                    "endLine": 3,
+                    "endColumn": 15,
+                    "severity": "error",
+                    "code": "E101",
+                    "message": "undefined identifier 'missing'",
+                },
+            ])
+        );
+        assert_eq!(err, "");
+    }
+
+    #[tokio::test]
+    async fn text_output_lists_each_diagnostic_and_a_summary() {
+        let project = Project::new("text");
+        let (status, out, err) = check_output(&["--project", project.root()]).await;
+        let main = native_path(&Path::new("src").join("Main.st"));
         assert_eq!(status, 1);
+        assert_eq!(
+            out,
+            format!(
+                "{main}:1:9: warning[W009]: unused program 'Main'\n\
+                 {main}:3:7: error[E101]: undefined identifier 'missing'\n"
+            )
+        );
+        assert_eq!(
+            err,
+            "trust-lsp check: 1 error(s), 1 warning(s) in 2 file(s)\n"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_file_outside_the_project_is_a_usage_error() {
+        let project = Project::new("outside");
+        let outside =
+            std::env::temp_dir().join(format!("trust-lsp-check-outside-{}.st", std::process::id()));
+        std::fs::write(&outside, "PROGRAM Elsewhere\nEND_PROGRAM\n").expect("outside file");
+        let outside_text = outside.to_str().expect("utf-8 path").to_string();
+        let (status, out, err) =
+            check_output(&["--project", project.root(), "--file", &outside_text]).await;
+        let _ = std::fs::remove_file(&outside);
+        assert_eq!(status, 2);
+        assert_eq!(out, "");
+        assert!(
+            err.starts_with(&format!(
+                "trust-lsp check: {outside_text}: not a source file of the project in "
+            )),
+            "stderr: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn file_filter_reports_only_the_named_project_file() {
+        let project = Project::new("filter");
+        let (status, out, err) =
+            check_output(&["--project", project.root(), "--file", "src/Types.st"]).await;
+        assert_eq!(status, 0);
+        assert_eq!(out, "");
+        assert_eq!(
+            err,
+            "trust-lsp check: 0 error(s), 0 warning(s) in 1 file(s)\n"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_project_without_source_files_is_a_usage_error() {
+        let root =
+            std::env::temp_dir().join(format!("trust-lsp-check-empty-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("empty project");
+        let (status, out, err) =
+            check_output(&["--project", root.to_str().expect("utf-8 path")]).await;
+        let _ = std::fs::remove_dir_all(&root);
+        assert_eq!(status, 2);
+        assert_eq!(out, "");
+        assert!(
+            err.starts_with("trust-lsp check: no source files found in "),
+            "stderr: {err}"
+        );
+    }
+
+    #[test]
+    fn windows_paths_are_shown_without_the_verbatim_prefix() {
+        assert_eq!(
+            strip_verbatim_prefix(r"\\?\C:\work\plant"),
+            r"C:\work\plant"
+        );
+        assert_eq!(
+            strip_verbatim_prefix(r"\\?\UNC\server\share\plant"),
+            r"\\server\share\plant"
+        );
+        assert_eq!(
+            strip_verbatim_prefix(r"\\?\Volume{0}\plant"),
+            r"\\?\Volume{0}\plant"
+        );
+        assert_eq!(strip_verbatim_prefix(r"src\Main.st"), r"src\Main.st");
+        assert_eq!(
+            native_path(&Path::new("src").join("Main.st")),
+            Path::new("src").join("Main.st").display().to_string()
+        );
     }
 }

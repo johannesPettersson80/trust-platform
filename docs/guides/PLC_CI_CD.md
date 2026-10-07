@@ -39,8 +39,11 @@ trust-lsp check --project <project-folder> --deny-warnings  # warnings fail the 
 ```
 
 `--file PATH` (repeatable) limits the report to some files while the whole project is
-still analyzed. Exit status: `0` no errors, `1` errors (or warnings with
-`--deny-warnings`), `2` usage or I/O problem.
+still analyzed; a file that is not one of the project's source files is reported as a
+usage error instead of passing unchecked. Paths are printed relative to the project, in
+the platform's form (`src\Main.st` on Windows). Exit status: `0` no errors, `1` errors
+(or warnings with `--deny-warnings`), `2` usage or I/O problem (including a project
+without source files).
 
 Generate markdown docs for API review artifacts:
 
