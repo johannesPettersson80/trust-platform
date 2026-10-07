@@ -714,7 +714,7 @@ END_PROGRAM
     );
 }
 
-fn duplicate_ranges(db: &Database, file: FileId) -> Vec<(usize, usize)> {
+pub(crate) fn duplicate_ranges(db: &Database, file: FileId) -> Vec<(usize, usize)> {
     db.diagnostics(file)
         .iter()
         .filter(|diagnostic| diagnostic.code == DiagnosticCode::DuplicateDeclaration)
@@ -727,7 +727,7 @@ fn duplicate_ranges(db: &Database, file: FileId) -> Vec<(usize, usize)> {
         .collect()
 }
 
-fn text_range_of(source: &str, needle: &str) -> (usize, usize) {
+pub(crate) fn text_range_of(source: &str, needle: &str) -> (usize, usize) {
     let start = source.find(needle).expect("needle in source");
     (start, start + needle.len())
 }

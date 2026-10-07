@@ -10,6 +10,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   at a declaration in the file itself, or else at the first reference to the name
   in that file. They were reported in every project file at the offset of the
   declaring file, so one duplicate showed up once per file at unrelated text.
+  A global or POU that reuses the name of a standard function block (`TON`,
+  `R_TRIG`, ...) is reported at its own declaration and at the uses of the name in
+  other files, with a message naming the standard function block, instead of at the
+  start of every other file and with a "previously declared here" link to nowhere.
 - Untyped integer literals are contextualized to bit-string targets: `b := 16#FF`,
   `w := 65535`, `d AND 1`, `d = 0` and `CASE b OF 16#FF:` are accepted for
   `BYTE`/`WORD`/`DWORD`/`LWORD` when the value is representable, as they already

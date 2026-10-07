@@ -54,6 +54,8 @@ mod reference_contract_acceptance;
 mod reference_contract_rejection;
 #[path = "semantic_type_checking/sizeof_semantics.rs"]
 mod sizeof_semantics;
+#[path = "semantic_type_checking/standard_block_collisions.rs"]
+mod standard_block_collisions;
 #[path = "semantic_type_checking/string_index_contract.rs"]
 mod string_index_contract;
 #[path = "semantic_type_checking/struct_initializers.rs"]

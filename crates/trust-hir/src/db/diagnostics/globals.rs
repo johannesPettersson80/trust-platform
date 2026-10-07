@@ -103,7 +103,11 @@ pub(in crate::db) fn check_global_external_links_with_project(
     // that neither declares nor references the name does not get it.
     for collision in symbols.import_collisions() {
         let is_local = |file: Option<FileId>| file.is_none_or(|file| file == file_id);
-        let existing_local = is_local(collision.existing_file);
+        // A standard function block (`TON`, `R_TRIG`, ...) is in every table without a
+        // source location (an empty range): it is declared in no file, so the collision
+        // belongs where the other declaration is or where the name is used.
+        let standard = collision.existing_file.is_none() && collision.existing_range.is_empty();
+        let existing_local = !standard && is_local(collision.existing_file);
         let range = if is_local(collision.duplicate_file) {
             collision.duplicate_range
         } else if existing_local {
@@ -113,11 +117,16 @@ pub(in crate::db) fn check_global_external_links_with_project(
         } else {
             continue;
         };
-        let mut diagnostic = Diagnostic::error(
-            DiagnosticCode::DuplicateDeclaration,
-            range,
-            format!("duplicate imported declaration of '{}'", collision.name),
-        );
+        let message = if standard {
+            format!(
+                "duplicate imported declaration of '{}', the name of a standard function block",
+                collision.name
+            )
+        } else {
+            format!("duplicate imported declaration of '{}'", collision.name)
+        };
+        let mut diagnostic =
+            Diagnostic::error(DiagnosticCode::DuplicateDeclaration, range, message);
         if existing_local && range != collision.existing_range {
             diagnostic = diagnostic.with_related(
                 collision.existing_range,
