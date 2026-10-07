@@ -10,6 +10,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   Range bounds were compared as `LINT`, so a `USINT`, `UDINT`, `BYTE` or `WORD`
   selector aborted the cycle with `TypeMismatch` (bytecode VM) or
   `CaseSelectorType` (interpreter). Bounds are now constants of the selector type.
+  A character string label keeps its full text: it is not cut to the length of a
+  `STRING[n]`/`WSTRING[n]` selector, so a longer label never matches.
 - Project-import name collisions (`duplicate imported declaration`) are reported
   at a declaration in the file itself, or else at the first reference to the name
   in that file. They were reported in every project file at the offset of the

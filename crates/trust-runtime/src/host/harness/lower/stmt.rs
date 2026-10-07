@@ -399,11 +399,30 @@ fn const_case_label_value(
     selector_type: Option<TypeId>,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<Value, CompileError> {
-    let mut expr = lower_expr_with_context(node, ctx, selector_type)?;
+    let context = case_label_context(selector_type, ctx);
+    let mut expr = lower_expr_with_context(node, ctx, context)?;
     if let Some(type_id) = selector_type {
         expr = resolve_initializer_enum_variant(node, expr, type_id, ctx)?;
     }
     ctx.eval_compile_time_const_expr(&expr)
+}
+
+/// The type a CASE label is lowered in: the selector's type, so that an untyped literal
+/// takes it like an operand of `=` does. A character string label keeps its length: in
+/// the selector's `STRING[n]`/`WSTRING[n]` it would be cut to `n` characters, and a label
+/// longer than the selector could hold would match the value it starts with.
+fn case_label_context(selector_type: Option<TypeId>, ctx: &LoweringContext<'_>) -> Option<TypeId> {
+    let selector = selector_type?;
+    let mut current = selector;
+    for _ in 0..32 {
+        match ctx.registry.get(current) {
+            Some(Type::Alias { target, .. }) => current = *target,
+            Some(Type::String { .. }) => return Some(TypeId::STRING),
+            Some(Type::WString { .. }) => return Some(TypeId::WSTRING),
+            _ => break,
+        }
+    }
+    Some(selector)
 }
 
 /// A CASE range bound: an integer, bit-string or enumeration constant in the selector's
