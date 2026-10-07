@@ -1,9 +1,9 @@
 /// The conversion rules a project selects with `vendor_profile` in the `[project]` table of
 /// its manifest (`trust-lsp.toml`), as the language server reads it
-/// (docs/specs/07-standard-functions.md 2.10): the CODESYS rules for `codesys`, the IEC rules
-/// for the other vendor profiles, for `iec` and without a manifest or `vendor_profile`. A
-/// value that is not a vendor profile is an error, so a misspelled profile cannot silently
-/// run the project under other conversion rules.
+/// (docs/specs/07-standard-functions.md 2.10): the CODESYS rules for `codesys`, `beckhoff`
+/// and `twincat`, the IEC rules for `siemens`, `mitsubishi`, `gxworks3`, `iec` and without a
+/// manifest or `vendor_profile`. A value that is not a vendor profile is an error, so a
+/// misspelled profile cannot silently run the project under other conversion rules.
 pub fn project_conversion_profile(
     project_root: &Path,
 ) -> anyhow::Result<crate::stdlib::conversions::ConversionProfile> {

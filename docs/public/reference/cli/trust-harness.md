@@ -14,7 +14,7 @@ JSON requests from `stdin` and writes newline-delimited JSON responses to
 - `--protocol-version 1|2` selects the response protocol (default 2).
 - `--project DIR` uses the conversion rules of that project's `trust-lsp.toml`
   `vendor_profile` for every `load` that does not name its own `vendor_profile`
-  (`codesys` selects the CODESYS rules; see
+  (`codesys`, `beckhoff` and `twincat` select the CODESYS rules; see
   [Vendor Profiles](../config/vendor-profiles.md)). The sources are still sent with
   `load`.
 

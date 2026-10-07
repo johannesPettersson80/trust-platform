@@ -39,16 +39,15 @@ pub const VENDOR_PROFILES: [&str; 7] = [
 ];
 
 impl ConversionProfile {
-    /// The conversion rules of a `vendor_profile` name (trimmed, any case): `codesys`
-    /// selects the CODESYS rules, `iec` and the vendor profiles without conversion rules of
-    /// their own select the IEC rules; `None` for a name that is not in [`VENDOR_PROFILES`].
+    /// The conversion rules of a `vendor_profile` name (trimmed, any case): `codesys`,
+    /// `beckhoff` and `twincat` (TwinCAT is built on CODESYS) select the CODESYS rules;
+    /// `iec`, `siemens`, `mitsubishi` and `gxworks3` select the IEC rules; `None` for a name
+    /// that is not in [`VENDOR_PROFILES`].
     #[must_use]
     pub fn from_vendor_profile(name: &str) -> Option<Self> {
         match name.trim().to_ascii_lowercase().as_str() {
-            "codesys" => Some(Self::Codesys),
-            "iec" | "beckhoff" | "twincat" | "siemens" | "mitsubishi" | "gxworks3" => {
-                Some(Self::Iec)
-            }
+            "codesys" | "beckhoff" | "twincat" => Some(Self::Codesys),
+            "iec" | "siemens" | "mitsubishi" | "gxworks3" => Some(Self::Iec),
             _ => None,
         }
     }

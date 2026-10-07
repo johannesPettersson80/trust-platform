@@ -45,6 +45,8 @@ fn project_runtime_uses_the_conversion_rules_of_the_project_vendor_profile() {
 
     for (name, vendor_profile, expected) in [
         ("codesys", "codesys", ConversionProfile::Codesys),
+        ("beckhoff", "beckhoff", ConversionProfile::Codesys),
+        ("twincat", "twincat", ConversionProfile::Codesys),
         ("siemens", "siemens", ConversionProfile::Iec),
     ] {
         let root = vendor_profile_project(name, vendor_profile);

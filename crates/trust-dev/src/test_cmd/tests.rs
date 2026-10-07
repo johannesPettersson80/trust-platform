@@ -853,20 +853,30 @@ fn run_test_uses_the_conversion_rules_of_the_project_vendor_profile() {
 TEST_PROGRAM RoundsHalfAwayFromZero
 ASSERT_EQUAL(INT#3, REAL_TO_INT(REAL#2.5));
 ASSERT_EQUAL(SINT#-128, DINT_TO_SINT(DINT#128));
+ASSERT_EQUAL(TRUE, BYTE_TO_BOOL(BYTE#2#1101_0100));
 END_TEST_PROGRAM
 "#,
     )
     .expect("write test source");
 
-    std::fs::write(
-        project.join("trust-lsp.toml"),
-        "[project]\nvendor_profile = \"codesys\"\n",
-    )
-    .expect("write trust-lsp.toml");
-    let payload =
-        run_test_json(Some(project.clone()), None, false, 0).expect("CODESYS project tests run");
-    assert_eq!(payload["summary"]["total"], 1, "{payload}");
-    assert_eq!(payload["summary"]["passed"], 1, "{payload}");
+    // TwinCAT is built on CODESYS: beckhoff and twincat select the CODESYS rules too
+    for vendor_profile in ["codesys", "beckhoff", "twincat"] {
+        std::fs::write(
+            project.join("trust-lsp.toml"),
+            format!("[project]\nvendor_profile = \"{vendor_profile}\"\n"),
+        )
+        .expect("write trust-lsp.toml");
+        let payload = run_test_json(Some(project.clone()), None, false, 0)
+            .expect("CODESYS-rules project tests run");
+        assert_eq!(
+            payload["summary"]["total"], 1,
+            "{vendor_profile}: {payload}"
+        );
+        assert_eq!(
+            payload["summary"]["passed"], 1,
+            "{vendor_profile}: {payload}"
+        );
+    }
 
     std::fs::write(
         project.join("trust-lsp.toml"),

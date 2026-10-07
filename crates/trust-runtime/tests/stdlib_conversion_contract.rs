@@ -704,7 +704,7 @@ fn codesys_profile_rounds_half_away_truncates_and_converts_bit_strings_numerical
 }
 
 // docs/specs/07-standard-functions.md 2.10: the `vendor_profile` names of trust-lsp.toml
-// select the conversion rules; only `codesys` has rules of its own.
+// select the conversion rules; `codesys`, `beckhoff` and `twincat` select the CODESYS rules.
 #[test]
 fn vendor_profile_names_select_the_conversion_rules() {
     assert_eq!(
@@ -712,7 +712,7 @@ fn vendor_profile_names_select_the_conversion_rules() {
         Some(ConversionProfile::Codesys)
     );
     for name in VENDOR_PROFILES {
-        let expected = if name == "codesys" {
+        let expected = if matches!(name, "codesys" | "beckhoff" | "twincat") {
             ConversionProfile::Codesys
         } else {
             ConversionProfile::Iec

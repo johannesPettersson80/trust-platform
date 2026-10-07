@@ -108,9 +108,9 @@ Multi-source load:
 errors.
 
 `load` accepts an optional `vendor_profile` that selects the conversion rules of the
-loaded program (docs/specs/07-standard-functions.md section 2.10): `"codesys"` for the
-CODESYS rules, or `"iec"` or another vendor profile of `trust-lsp.toml` (`beckhoff`,
-`twincat`, `siemens`, `mitsubishi`, `gxworks3`) for the IEC rules. Any other value is an
+loaded program (docs/specs/07-standard-functions.md section 2.10): `"codesys"`,
+`"beckhoff"` or `"twincat"` for the CODESYS rules, or `"iec"`, `"siemens"`,
+`"mitsubishi"` or `"gxworks3"` for the IEC rules. Any other value is an
 `invalid_argument` error. Without the field, a load uses the rules of the project given
 with `--project DIR` at startup, and otherwise the IEC rules. `reload` keeps the rules of
 the loaded program.

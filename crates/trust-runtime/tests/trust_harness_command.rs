@@ -719,7 +719,7 @@ END_PROGRAM
     assert_eq!(rounded(&responses[3]), int(2), "the load's own IEC rules");
     assert_eq!(rounded(&responses[5]), int(2), "siemens has the IEC rules");
 
-    let iec_project = VendorProject::new("twincat", "TwinCAT");
+    let iec_project = VendorProject::new("mitsubishi", "mitsubishi");
     let (responses, stderr) = run_harness_with_args(
         &[&format!("--project={}", iec_project.path())],
         &[
@@ -728,7 +728,52 @@ END_PROGRAM
         ],
     );
     assert_eq!(responses.len(), 2, "stderr was:\n{stderr}");
-    assert_eq!(rounded(&responses[1]), int(2));
+    assert_eq!(
+        rounded(&responses[1]),
+        int(2),
+        "mitsubishi has the IEC rules"
+    );
+}
+
+// docs/specs/07-standard-functions.md 2.10: Beckhoff and TwinCAT projects (TwinCAT is
+// built on CODESYS) run with the CODESYS conversion rules.
+#[test]
+fn trust_harness_beckhoff_and_twincat_projects_run_with_the_codesys_rules() {
+    let program = r#"
+PROGRAM Main
+VAR
+    status : BYTE := 2#1101_0100;
+    wide : DINT := 128;
+    flagged : BOOL;
+    narrow : SINT;
+END_VAR
+flagged := BYTE_TO_BOOL(status);
+narrow := DINT_TO_SINT(wide);
+END_PROGRAM
+"#;
+    for (name, vendor_profile) in [("beckhoff", "beckhoff"), ("twincat", " TwinCAT ")] {
+        let project = VendorProject::new(name, vendor_profile);
+        let (responses, stderr) = run_harness_with_args(
+            &["--project", project.path()],
+            &[
+                json!({"cmd": "load", "source": program}),
+                json!({"cmd": "snapshot", "watch": ["flagged", "narrow"]}),
+            ],
+        );
+        assert_eq!(responses.len(), 2, "{name}: stderr was:\n{stderr}");
+        assert_eq!(responses[0]["ok"], json!(true), "{name}: {}", responses[0]);
+        let values = &responses[1]["data"]["values"];
+        assert_eq!(
+            values["flagged"],
+            json!({"status": "ok", "value": {"type": "BOOL", "value": true}}),
+            "{name}: BYTE_TO_BOOL of a non-zero byte whose rightmost bit is 0"
+        );
+        assert_eq!(
+            values["narrow"],
+            json!({"status": "ok", "value": {"type": "SINT", "value": -128}}),
+            "{name}: DINT_TO_SINT(128) keeps the low-order bits"
+        );
+    }
 }
 
 #[test]

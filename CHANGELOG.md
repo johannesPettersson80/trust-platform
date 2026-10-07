@@ -6,16 +6,17 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-- CODESYS conversion profile (docs/specs/07-standard-functions.md 2.10): a project with
-  `vendor_profile = "codesys"` in `trust-lsp.toml` runs its conversion functions with the
-  CODESYS rules: they round half away from zero, keep the low-order bits of the target width
+- CODESYS conversion profile (docs/specs/07-standard-functions.md 2.10): a project whose
+  `trust-lsp.toml` sets `vendor_profile` to `codesys`, `beckhoff` or `twincat` (TwinCAT is
+  built on CODESYS) runs its conversion functions with the CODESYS rules: they round half away from zero, keep the low-order bits of the target width
   instead of an overflow, convert REAL/LREAL to and from DWORD/LWORD as numbers, and make a
   bit string `TRUE` when it is not zero. `trust-runtime build`/`check`/`run`, `trust-dev
   test`, debug sessions and `trust-harness --project DIR` follow the project's setting; a
   `trust-harness` `load` may name its own `"vendor_profile"`, and the Rust API has
-  `CompileSession::with_conversion_profile` and `TestHarness::from_session`. Every other
-  vendor profile keeps the IEC rules, which stay the default. Projects that already set
-  `vendor_profile = "codesys"` for editing now also run with these rules. An unknown
+  `CompileSession::with_conversion_profile` and `TestHarness::from_session`. `siemens`,
+  `mitsubishi` and `gxworks3` keep the IEC rules, which stay the default. Projects that
+  already set one of the three CODESYS-family profiles for editing now also run with these
+  rules. An unknown
   `vendor_profile` is refused by these tools and reported by the language server as `C006`.
   The CODESYS rules that conflict with IEC 61131-3 are recorded as DEV-023 to DEV-025.
 - Vendor-extension conversions used by CODESYS and TwinCAT projects compile and run

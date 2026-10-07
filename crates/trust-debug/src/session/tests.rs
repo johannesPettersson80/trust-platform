@@ -351,7 +351,18 @@ END_PROGRAM
             profile_after_reload("codesys").unwrap(),
             ConversionProfile::Codesys
         );
-        assert_eq!(profile_after_reload("twincat").unwrap(), ConversionProfile::Iec);
+        assert_eq!(
+            profile_after_reload("twincat").unwrap(),
+            ConversionProfile::Codesys
+        );
+        assert_eq!(
+            profile_after_reload("beckhoff").unwrap(),
+            ConversionProfile::Codesys
+        );
+        assert_eq!(
+            profile_after_reload("mitsubishi").unwrap(),
+            ConversionProfile::Iec
+        );
         let error = profile_after_reload("codesis").unwrap_err();
         assert!(
             error.to_string().contains("unknown vendor_profile 'codesis'"),

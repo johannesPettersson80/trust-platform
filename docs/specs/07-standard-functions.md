@@ -275,8 +275,8 @@ see `docs/public/reference/config/vendor-profiles.md`):
 
 | `vendor_profile` | Conversion rules |
 |------------------|------------------|
-| `codesys` | CODESYS rules (this section) |
-| absent, `iec`, `beckhoff`, `twincat`, `siemens`, `mitsubishi`, `gxworks3` | IEC rules and truST policies (sections 2.1 to 2.9) |
+| `codesys`, `beckhoff`, `twincat` | CODESYS rules (this section); TwinCAT is built on CODESYS |
+| absent, `iec`, `siemens`, `mitsubishi`, `gxworks3` | IEC rules and truST policies (sections 2.1 to 2.9) |
 | any other value | refused: the project is not built, run or tested, and the language server reports `C006` |
 
 Every tool that executes a project's code applies the project's rules: `trust-runtime

@@ -382,6 +382,21 @@ fn project_conversion_profile_follows_the_manifest_vendor_profile() {
         ),
         (
             "trust-lsp.toml",
+            "[project]\nvendor_profile = \"beckhoff\"\n",
+            ConversionProfile::Codesys,
+        ),
+        (
+            "trust-lsp.toml",
+            "[project]\nvendor_profile = \"TwinCAT\"\n",
+            ConversionProfile::Codesys,
+        ),
+        (
+            "trust-lsp.toml",
+            "[project]\nvendor_profile = \"gxworks3\"\n",
+            ConversionProfile::Iec,
+        ),
+        (
+            "trust-lsp.toml",
             "[project]\ninclude_paths = [\"src\"]\n",
             ConversionProfile::Iec,
         ),
