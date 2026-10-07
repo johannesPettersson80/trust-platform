@@ -600,3 +600,224 @@ END_CONFIGURATION
     assert_eq!(harness.get_output("Total"), Some(Value::DInt(1)));
     assert_eq!(harness.get_output("Mine"), Some(Value::DInt(100)));
 }
+
+const COUNTER: &str = r#"
+FUNCTION_BLOCK Counter
+VAR_INPUT
+    inc : INT;
+END_VAR
+VAR_OUTPUT
+    total : INT;
+END_VAR
+total := total + inc;
+END_FUNCTION_BLOCK
+"#;
+
+/// Instance arrays declared as a project global outside a configuration, in a program, in a
+/// function block and of a standard edge detector, called in the same cycle.
+fn globals_locals_and_edge_detectors() -> String {
+    format!(
+        "{COUNTER}
+FUNCTION_BLOCK Bank
+VAR
+    counters : ARRAY[1..2] OF Counter;
+END_VAR
+VAR_OUTPUT
+    sum : INT;
+END_VAR
+counters[1](inc := 100);
+counters[2](inc := 1000);
+sum := counters[1].total + counters[2].total;
+END_FUNCTION_BLOCK
+
+VAR_GLOBAL
+    g : ARRAY[1..2] OF Counter;
+END_VAR
+
+PROGRAM Main
+VAR
+    local : ARRAY[0..2] OF Counter;
+    edges : ARRAY[1..2] OF R_TRIG;
+    bank : Bank;
+    i : INT;
+    g1 : INT;
+    g2 : INT;
+    l2 : INT;
+    edge : BOOL;
+    banked : INT;
+END_VAR
+g[1](inc := 1);
+g[2](inc := 10);
+FOR i := 0 TO 2 DO
+    local[i](inc := i + 1);
+END_FOR
+edges[2](CLK := TRUE);
+bank();
+g1 := g[1].total;
+g2 := g[2].total;
+l2 := local[2].total;
+edge := edges[2].Q;
+banked := bank.sum;
+END_PROGRAM
+"
+    )
+}
+
+#[test]
+fn project_global_program_function_block_and_edge_detector_arrays_keep_separate_state() {
+    let mut harness = run(&globals_locals_and_edge_detectors(), 1);
+    assert_eq!(harness.get_output("g1"), Some(Value::Int(1)));
+    assert_eq!(harness.get_output("g2"), Some(Value::Int(10)));
+    assert_eq!(harness.get_output("l2"), Some(Value::Int(3)));
+    assert_eq!(harness.get_output("edge"), Some(Value::Bool(true)));
+    assert_eq!(harness.get_output("banked"), Some(Value::Int(1100)));
+
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "cycle errors: {:?}", cycle.errors);
+    assert_eq!(harness.get_output("g1"), Some(Value::Int(2)));
+    assert_eq!(harness.get_output("g2"), Some(Value::Int(20)));
+    assert_eq!(harness.get_output("l2"), Some(Value::Int(6)));
+    assert_eq!(harness.get_output("edge"), Some(Value::Bool(false)));
+    assert_eq!(harness.get_output("banked"), Some(Value::Int(2200)));
+}
+
+#[test]
+fn a_cold_restart_recreates_project_global_instance_arrays() {
+    let mut harness = run(&globals_locals_and_edge_detectors(), 2);
+    assert_eq!(harness.get_output("g2"), Some(Value::Int(20)));
+    harness
+        .restart(trust_runtime::RestartMode::Cold)
+        .expect("cold restart");
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "cycle errors: {:?}", cycle.errors);
+    assert_eq!(harness.get_output("g1"), Some(Value::Int(1)));
+    assert_eq!(harness.get_output("g2"), Some(Value::Int(10)));
+    assert_eq!(harness.get_output("l2"), Some(Value::Int(3)));
+    assert_eq!(harness.get_output("banked"), Some(Value::Int(1100)));
+}
+
+#[test]
+fn instance_arrays_in_functions_methods_classes_and_multidimensional_arrays() {
+    let source = format!(
+        "{COUNTER}
+CLASS Acc
+VAR
+    n : INT;
+END_VAR
+METHOD PUBLIC Add : INT
+VAR_INPUT
+    x : INT;
+END_VAR
+n := n + x;
+Add := n;
+END_METHOD
+END_CLASS
+
+TYPE Pair : ARRAY[1..2] OF Counter; END_TYPE
+
+FUNCTION Twice : INT
+VAR_INPUT
+    x : INT;
+END_VAR
+VAR
+    tmp : ARRAY[1..2] OF Counter;
+END_VAR
+tmp[1](inc := x);
+tmp[2](inc := tmp[1].total);
+Twice := tmp[1].total + tmp[2].total;
+END_FUNCTION
+
+FUNCTION_BLOCK Holder
+VAR
+    accs : ARRAY[1..3] OF Acc;
+END_VAR
+METHOD PUBLIC Feed : INT
+VAR
+    scratch : ARRAY[1..2] OF Counter;
+END_VAR
+scratch[2](inc := 5);
+Feed := accs[2].Add(x := scratch[2].total);
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    grid : ARRAY[1..2, 1..3] OF Counter;
+    pair : Pair;
+    holder : Holder;
+    doubled : INT;
+    fed : INT;
+    corner : INT;
+    second : INT;
+END_VAR
+doubled := Twice(x := 4);
+fed := holder.Feed();
+grid[2, 3](inc := 7);
+grid[1, 1](inc := 1);
+corner := grid[2, 3].total;
+pair[2](inc := 9);
+second := pair[2].total;
+END_PROGRAM
+"
+    );
+    let mut harness = run(&source, 1);
+    // function and method locals are new instances on every call
+    assert_eq!(harness.get_output("doubled"), Some(Value::Int(8)));
+    assert_eq!(harness.get_output("fed"), Some(Value::Int(5)));
+    // a multidimensional array and an array type
+    assert_eq!(harness.get_output("corner"), Some(Value::Int(7)));
+    assert_eq!(harness.get_output("second"), Some(Value::Int(9)));
+
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "cycle errors: {:?}", cycle.errors);
+    assert_eq!(harness.get_output("doubled"), Some(Value::Int(8)));
+    // the class instance in the function block's array keeps its state
+    assert_eq!(harness.get_output("fed"), Some(Value::Int(10)));
+    assert_eq!(harness.get_output("corner"), Some(Value::Int(14)));
+    assert_eq!(harness.get_output("second"), Some(Value::Int(18)));
+}
+
+#[test]
+fn instance_arrays_in_static_variables_keep_their_state() {
+    let source = format!(
+        "{COUNTER}
+FUNCTION Tally : INT
+VAR_INPUT
+    x : INT;
+END_VAR
+VAR_STAT
+    kept : ARRAY[1..2] OF Counter;
+END_VAR
+kept[2](inc := x);
+Tally := kept[2].total;
+END_FUNCTION
+
+FUNCTION_BLOCK Owner
+METHOD PUBLIC Advance : INT
+VAR_STAT
+    kept : ARRAY[1..2] OF Counter;
+END_VAR
+kept[1](inc := 3);
+Advance := kept[1].total;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    owner : Owner;
+    tallied : INT;
+    stepped : INT;
+END_VAR
+tallied := Tally(x := 2);
+stepped := owner.Advance();
+END_PROGRAM
+"
+    );
+    let mut harness = run(&source, 1);
+    assert_eq!(harness.get_output("tallied"), Some(Value::Int(2)));
+    assert_eq!(harness.get_output("stepped"), Some(Value::Int(3)));
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "cycle errors: {:?}", cycle.errors);
+    assert_eq!(harness.get_output("tallied"), Some(Value::Int(4)));
+    assert_eq!(harness.get_output("stepped"), Some(Value::Int(6)));
+}
