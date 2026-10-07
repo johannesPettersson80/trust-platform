@@ -651,3 +651,112 @@ END_PROGRAM
     assert_eq!(responses[4]["ok"], json!(false));
     assert_eq!(responses[4]["error"]["kind"], json!("invalid_argument"));
 }
+
+/// A project folder whose `trust-lsp.toml` sets `vendor_profile`, removed on drop.
+struct VendorProject(std::path::PathBuf);
+
+impl VendorProject {
+    fn new(name: &str, vendor_profile: &str) -> Self {
+        let root = std::env::temp_dir().join(format!(
+            "trust-harness-project-{name}-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("project folder");
+        std::fs::write(
+            root.join("trust-lsp.toml"),
+            format!("[project]\nvendor_profile = \"{vendor_profile}\"\n"),
+        )
+        .expect("write trust-lsp.toml");
+        Self(root)
+    }
+
+    fn path(&self) -> &str {
+        self.0.to_str().expect("utf-8 path")
+    }
+}
+
+impl Drop for VendorProject {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+// docs/specs/07-standard-functions.md 2.10 and docs/guides/TRUST_HARNESS_PROTOCOL.md:
+// `--project DIR` gives every load the conversion rules of that project's vendor_profile,
+// and a load's own `vendor_profile` takes precedence.
+#[test]
+fn trust_harness_project_selects_the_conversion_rules_of_its_vendor_profile() {
+    let program = r#"
+PROGRAM Main
+VAR
+    half : REAL := 2.5;
+    rounded : INT;
+END_VAR
+rounded := REAL_TO_INT(half);
+END_PROGRAM
+"#;
+    let project = VendorProject::new("codesys", "codesys");
+    let rounded = |response: &JsonValue| response["data"]["values"]["rounded"].clone();
+    let (responses, stderr) = run_harness_with_args(
+        &["--project", project.path()],
+        &[
+            json!({"cmd": "load", "source": program}),
+            json!({"cmd": "snapshot", "watch": ["rounded"]}),
+            json!({"cmd": "load", "source": program, "vendor_profile": "iec"}),
+            json!({"cmd": "snapshot", "watch": ["rounded"]}),
+            json!({"cmd": "load", "source": program, "vendor_profile": "siemens"}),
+            json!({"cmd": "snapshot", "watch": ["rounded"]}),
+        ],
+    );
+    assert_eq!(responses.len(), 6, "stderr was:\n{stderr}");
+    let int = |value: i64| json!({"status": "ok", "value": {"type": "INT", "value": value}});
+    assert_eq!(
+        rounded(&responses[1]),
+        int(3),
+        "the project's CODESYS rules"
+    );
+    assert_eq!(rounded(&responses[3]), int(2), "the load's own IEC rules");
+    assert_eq!(rounded(&responses[5]), int(2), "siemens has the IEC rules");
+
+    let iec_project = VendorProject::new("twincat", "TwinCAT");
+    let (responses, stderr) = run_harness_with_args(
+        &[&format!("--project={}", iec_project.path())],
+        &[
+            json!({"cmd": "load", "source": program}),
+            json!({"cmd": "snapshot", "watch": ["rounded"]}),
+        ],
+    );
+    assert_eq!(responses.len(), 2, "stderr was:\n{stderr}");
+    assert_eq!(rounded(&responses[1]), int(2));
+}
+
+#[test]
+fn trust_harness_refuses_a_project_with_an_unknown_vendor_profile() {
+    let project = VendorProject::new("unknown", "codesis");
+    let (status, responses, stderr) = run_harness_lines(&["--project", project.path()], &[], &[]);
+    assert!(!status.success(), "startup must fail");
+    assert!(responses.is_empty());
+    assert!(
+        stderr.contains("unknown vendor_profile 'codesis'")
+            && stderr.contains(
+                "(supported: beckhoff, codesys, gxworks3, iec, mitsubishi, siemens, twincat)"
+            ),
+        "stderr was:\n{stderr}"
+    );
+
+    let missing = std::env::temp_dir().join(format!(
+        "trust-harness-project-missing-{}",
+        std::process::id()
+    ));
+    let (status, _, stderr) = run_harness_lines(
+        &["--project", missing.to_str().expect("utf-8 path")],
+        &[],
+        &[],
+    );
+    assert!(!status.success(), "startup must fail");
+    assert!(
+        stderr.contains("project folder not found"),
+        "stderr was:\n{stderr}"
+    );
+}

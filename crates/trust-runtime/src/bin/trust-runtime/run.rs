@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use serde_json::json;
 use smol_str::SmolStr;
 use trust_runtime::bundle::{detect_bundle_path, is_bundle_not_found};
+use trust_runtime::bundle_builder::project_conversion_profile;
 use trust_runtime::bytecode::BytecodeModule;
 use trust_runtime::config::{RuntimeBundle, WebAuthMode, WebConfig};
 use trust_runtime::control::{
@@ -30,6 +31,7 @@ use trust_runtime::settings::{
     BaseSettings, DiscoverySettings, MeshSettings, OpcUaSettings, RuntimeSettings,
     SimulationSettings, WebSettings,
 };
+use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::value::Duration;
 use trust_runtime::web::start_web_server;
 use trust_runtime::{RestartMode, Runtime};
@@ -47,5 +49,9 @@ include!("run/util.rs");
 #[cfg(test)]
 #[path = "run/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "run/conversion_profile_tests.rs"]
+mod conversion_profile_tests;
 
 include!("run/logging.rs");

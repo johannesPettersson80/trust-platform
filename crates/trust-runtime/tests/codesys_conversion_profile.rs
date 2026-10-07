@@ -2,7 +2,7 @@ use trust_runtime::harness::{CompileSession, TestHarness};
 use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::value::Value;
 
-// docs/specs/07-standard-functions.md 2.7: a compile session with the CODESYS conversion
+// docs/specs/07-standard-functions.md 2.10: a compile session with the CODESYS conversion
 // profile uses it in the bytecode VM, and a reload keeps it.
 const SOURCE: &str = r#"
 PROGRAM Main
@@ -10,6 +10,8 @@ VAR
     half : REAL := 2.5;
     level : DINT := 200;
     raw : DWORD := 16#0000_0005;
+    status : BYTE := 16#80;
+    flagged : BOOL;
     rounded : INT;
     narrowed : SINT;
     scaled : REAL;
@@ -19,6 +21,7 @@ rounded := REAL_TO_INT(half);
 narrowed := DINT_TO_SINT(level);
 scaled := DWORD_TO_REAL(raw) * 2.0;
 packed := REAL_TO_DWORD(half);
+flagged := BYTE_TO_BOOL(status AND BYTE#16#80);
 END_PROGRAM
 "#;
 
@@ -33,6 +36,7 @@ fn codesys_conversion_profile_applies_to_program_code_and_survives_reload() {
     assert_eq!(harness.get_output("narrowed"), Some(Value::SInt(-56)));
     assert_eq!(harness.get_output("scaled"), Some(Value::Real(10.0)));
     assert_eq!(harness.get_output("packed"), Some(Value::DWord(3)));
+    assert_eq!(harness.get_output("flagged"), Some(Value::Bool(true)));
 
     harness.reload_sources(&[SOURCE]).unwrap();
     harness.cycle();

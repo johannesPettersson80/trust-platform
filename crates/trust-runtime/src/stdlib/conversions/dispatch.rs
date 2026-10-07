@@ -112,7 +112,7 @@ fn convert_value(
         TypeId::DT | TypeId::LDT => convert_to_dt(value, dst),
         TypeId::STRING | TypeId::WSTRING => convert_to_string(value, dst),
         TypeId::CHAR | TypeId::WCHAR => convert_to_char(value, dst),
-        TypeId::BOOL => convert_to_bool(value),
+        TypeId::BOOL => convert_to_bool(value, profile),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }

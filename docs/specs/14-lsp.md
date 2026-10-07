@@ -797,8 +797,13 @@ Configuration diagnostics use a stable `C` namespace:
 - `C003`: a configured numeric bound was outside its documented domain, or
   the throttle tuple was incoherent, and normalization fell back to a safe
   documented value or tuple;
-- `C004`: an unknown workspace visibility fell back to `public`; and
-- `C005`: a diagnostic severity override has a blank code or unknown severity and was ignored.
+- `C004`: an unknown workspace visibility fell back to `public`;
+- `C005`: a diagnostic severity override has a blank code or unknown severity and was ignored; and
+- `C006`: the `vendor_profile` is not one of `beckhoff`, `codesys`, `gxworks3`, `iec`,
+  `mitsubishi`, `siemens` or `twincat`. The server keeps its defaults for it, while the
+  tools that run the project (`trust-runtime`, `trust-dev test`, debug sessions,
+  `trust-harness --project`) refuse it because it selects the conversion rules
+  (docs/specs/07-standard-functions.md section 2.10).
 
 Configuration filename precedence is `trust-lsp.toml`, then
 `.trust-lsp.toml`, then `trustlsp.toml`. An absent file produces the documented

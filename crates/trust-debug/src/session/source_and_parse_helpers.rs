@@ -187,6 +187,35 @@ fn apply_project_ads_config(
     Ok(())
 }
 
+/// The conversion rules of the debugged project's `vendor_profile`
+/// (docs/specs/07-standard-functions.md 2.10), so a debug session computes what
+/// `trust-runtime run` computes. The project is found like its io.toml and runtime.toml, or
+/// else as the program's folder or its parent when that holds the project manifest.
+fn project_conversion_profile_for(
+    program_path: &str,
+    options: &SourceOptions,
+) -> Result<ConversionProfile, CompileError> {
+    let root = match resolve_project_root_for_config(program_path, options)? {
+        Some(root) => Some(root),
+        None => {
+            // the program's folder and its parent
+            let entry_path = canonicalize_lossy(Path::new(program_path));
+            entry_path
+                .ancestors()
+                .skip(1)
+                .take(2)
+                .find(|candidate| find_project_manifest(candidate).is_some())
+                .map(Path::to_path_buf)
+        }
+    };
+    match root {
+        Some(root) => {
+            project_conversion_profile(&root).map_err(|error| CompileError::new(error.to_string()))
+        }
+        None => Ok(ConversionProfile::Iec),
+    }
+}
+
 fn resolve_project_root_for_config(
     program_path: &str,
     options: &SourceOptions,

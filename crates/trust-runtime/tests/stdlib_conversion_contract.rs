@@ -1,5 +1,5 @@
 use trust_runtime::error::RuntimeError;
-use trust_runtime::stdlib::conversions::{is_conversion_name, ConversionProfile};
+use trust_runtime::stdlib::conversions::{is_conversion_name, ConversionProfile, VENDOR_PROFILES};
 use trust_runtime::stdlib::{StandardLibrary, StdParams};
 use trust_runtime::value::{
     DateTimeValue, DateValue, Duration, LDateTimeValue, LTimeOfDayValue, TimeOfDayValue, Value,
@@ -630,9 +630,10 @@ fn bit_string_to_bool_transfers_the_rightmost_bit() {
     }
 }
 
-// docs/specs/07-standard-functions.md 2.7: the CODESYS conversion profile rounds half away
-// from zero, keeps the low-order bits of the target width instead of an overflow, and
-// converts REAL/LREAL to and from DWORD/LWORD as numbers.
+// docs/specs/07-standard-functions.md 2.10: the CODESYS conversion profile rounds half away
+// from zero, keeps the low-order bits of the target width instead of an overflow, converts
+// REAL/LREAL to and from DWORD/LWORD as numbers, and tests a bit string for zero when
+// converting it to BOOL.
 #[test]
 fn codesys_profile_rounds_half_away_truncates_and_converts_bit_strings_numerically() {
     let lib = StandardLibrary::new().with_conversion_profile(ConversionProfile::Codesys);
@@ -672,6 +673,11 @@ fn codesys_profile_rounds_half_away_truncates_and_converts_bit_strings_numerical
         ),
         ("DWORD_TO_REAL", Value::DWord(5), Value::Real(5.0)),
         ("LWORD_TO_LREAL", Value::LWord(7), Value::LReal(7.0)),
+        ("BYTE_TO_BOOL", Value::Byte(0x80), Value::Bool(true)),
+        ("WORD_TO_BOOL", Value::Word(0x0002), Value::Bool(true)),
+        ("DWORD_TO_BOOL", Value::DWord(0), Value::Bool(false)),
+        ("LWORD_TO_BOOL", Value::LWord(1 << 40), Value::Bool(true)),
+        ("TO_BOOL", Value::Byte(0xFE), Value::Bool(true)),
     ] {
         assert_eq!(lib.call(name, &[arg]), Ok(expected), "{name}");
     }
@@ -692,12 +698,43 @@ fn codesys_profile_rounds_half_away_truncates_and_converts_bit_strings_numerical
         Ok(Value::DWord(1.0f32.to_bits()))
     );
     assert_eq!(
+        iec.call("BYTE_TO_BOOL", &[Value::Byte(0x80)]),
+        Ok(Value::Bool(false))
+    );
+}
+
+// docs/specs/07-standard-functions.md 2.10: the `vendor_profile` names of trust-lsp.toml
+// select the conversion rules; only `codesys` has rules of its own.
+#[test]
+fn vendor_profile_names_select_the_conversion_rules() {
+    assert_eq!(
         ConversionProfile::from_vendor_profile(" CODESYS "),
         Some(ConversionProfile::Codesys)
     );
-    assert_eq!(
-        ConversionProfile::from_vendor_profile("iec"),
-        Some(ConversionProfile::Iec)
-    );
-    assert_eq!(ConversionProfile::from_vendor_profile("siemens"), None);
+    for name in VENDOR_PROFILES {
+        let expected = if name == "codesys" {
+            ConversionProfile::Codesys
+        } else {
+            ConversionProfile::Iec
+        };
+        assert_eq!(
+            ConversionProfile::from_vendor_profile(name),
+            Some(expected),
+            "{name}"
+        );
+        assert_eq!(
+            ConversionProfile::from_vendor_profile(&name.to_ascii_uppercase()),
+            Some(expected),
+            "{name}"
+        );
+    }
+    for unknown in ["codesis", "codesys3", "", "vendor"] {
+        assert_eq!(
+            ConversionProfile::from_vendor_profile(unknown),
+            None,
+            "{unknown}"
+        );
+    }
+    assert_eq!(ConversionProfile::Iec.name(), "iec");
+    assert_eq!(ConversionProfile::Codesys.name(), "codesys");
 }

@@ -64,7 +64,7 @@ impl CompileSession {
         self
     }
 
-    /// Use the given conversion rules (docs/specs/07-standard-functions.md 2.7).
+    /// Use the given conversion rules (docs/specs/07-standard-functions.md 2.10).
     pub fn with_conversion_profile(
         mut self,
         profile: crate::stdlib::conversions::ConversionProfile,

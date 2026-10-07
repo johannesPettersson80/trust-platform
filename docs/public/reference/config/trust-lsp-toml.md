@@ -22,6 +22,7 @@ ignored:
 | `C003` | A numeric bound is outside its documented domain, or the throttle tuple is incoherent. | Correct the bound or throttle ordering, or remove the keys to use safe defaults. |
 | `C004` | Workspace visibility is unknown. | Use `public`, `private`, or `hidden`. |
 | `C005` | A severity override has a blank code or unknown severity. | Use a real diagnostic code and a supported severity. |
+| `C006` | The `vendor_profile` is unknown; `trust-runtime`, `trust-dev test` and `trust-harness --project` refuse to run the project with it. | Use a profile listed in [Vendor Profiles](vendor-profiles.md) or `iec`. |
 
 ## Minimal Example
 

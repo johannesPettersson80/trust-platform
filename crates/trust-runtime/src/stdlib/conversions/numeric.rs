@@ -14,7 +14,8 @@ pub(super) fn convert_to_int(
     profile: ConversionProfile,
 ) -> Result<Value, RuntimeError> {
     if profile == ConversionProfile::Codesys {
-        // CODESYS keeps the low-order bits of the target width (section 2.7)
+        // CODESYS keeps the low-order bits of the target width
+        // (docs/specs/07-standard-functions.md 2.10)
         let int = match value {
             Value::SInt(v) => Some(*v as i128),
             Value::Int(v) => Some(*v as i128),
@@ -65,7 +66,7 @@ pub(super) fn convert_to_real(
     profile: ConversionProfile,
 ) -> Result<Value, RuntimeError> {
     match value {
-        // CODESYS converts the number of a bit string (section 2.7)
+        // CODESYS converts the number of a bit string (docs/specs/07-standard-functions.md 2.10)
         Value::Byte(v) if profile == ConversionProfile::Codesys => {
             finite_real_result(*v as f64, dst)
         }
@@ -216,16 +217,30 @@ pub(super) fn unsigned_int_from_u64(value: u64, dst: TypeId) -> Result<Value, Ru
 }
 
 /// `<source>_TO_BOOL`. A bit string transfers its rightmost bit (IEC 61131-3 Ed.3 Table 24
-/// rows 4, 8, 12 and 16). For a number, a truST extension (docs/specs/07-standard-functions.md
-/// 2.9): TRUE when the value is not zero; a non-finite REAL/LREAL is an overflow like in the
-/// other conversions from REAL.
-pub(super) fn convert_to_bool(value: &Value) -> Result<Value, RuntimeError> {
+/// rows 4, 8, 12 and 16); the CODESYS profile tests it for zero instead
+/// (docs/specs/07-standard-functions.md 2.10). For a number, a truST extension (2.9): TRUE
+/// when the value is not zero; a non-finite REAL/LREAL is an overflow like in the other
+/// conversions from REAL.
+pub(super) fn convert_to_bool(
+    value: &Value,
+    profile: ConversionProfile,
+) -> Result<Value, RuntimeError> {
+    let bits = match value {
+        Value::Byte(v) => Some(u64::from(*v)),
+        Value::Word(v) => Some(u64::from(*v)),
+        Value::DWord(v) => Some(u64::from(*v)),
+        Value::LWord(v) => Some(*v),
+        _ => None,
+    };
+    if let Some(bits) = bits {
+        let mask = match profile {
+            ConversionProfile::Iec => 1,
+            ConversionProfile::Codesys => u64::MAX,
+        };
+        return Ok(Value::Bool(bits & mask != 0));
+    }
     let result = match value {
         Value::Bool(v) => *v,
-        Value::Byte(v) => v & 1 != 0,
-        Value::Word(v) => v & 1 != 0,
-        Value::DWord(v) => v & 1 != 0,
-        Value::LWord(v) => v & 1 != 0,
         Value::SInt(v) => *v != 0,
         Value::Int(v) => *v != 0,
         Value::DInt(v) => *v != 0,

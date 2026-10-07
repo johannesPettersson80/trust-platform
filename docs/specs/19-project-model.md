@@ -30,7 +30,11 @@ project/
 
 ## 3. Separation of Concerns
 
-- `trust-lsp.toml` defines authoring and semantic context
+- `trust-lsp.toml` defines authoring and semantic context; its `[project]
+  vendor_profile` also selects the conversion rules with which every tool that
+  runs the project executes it (`trust-runtime build`/`check`/`run`,
+  `trust-dev test`, debug sessions, `trust-harness --project`; see
+  `docs/specs/07-standard-functions.md` section 2.10)
 - `runtime.toml` defines execution and exposed control surfaces
 - `io.toml` defines physical or simulated I/O backends
 - `simulation.toml` defines deterministic plant simulation behavior
