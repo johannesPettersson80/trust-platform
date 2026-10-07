@@ -49,7 +49,7 @@ pub(super) fn convert_to_real(value: &Value, dst: TypeId) -> Result<Value, Runti
         Value::LWord(v) if dst == TypeId::LREAL => finite_real_result(f64::from_bits(*v), dst),
         Value::Real(v) => finite_real_result(*v as f64, dst),
         Value::LReal(v) => finite_real_result(*v, dst),
-        // vendor extension: BOOL_TO_REAL / BOOL_TO_LREAL
+        // vendor extension (docs/specs/07-standard-functions.md 2.9): BOOL_TO_REAL / BOOL_TO_LREAL
         Value::Bool(v) => finite_real_result(if *v { 1.0 } else { 0.0 }, dst),
         Value::SInt(v) => finite_real_result(*v as f64, dst),
         Value::Int(v) => finite_real_result(*v as f64, dst),
@@ -151,11 +151,17 @@ pub(super) fn unsigned_int_from_u64(value: u64, dst: TypeId) -> Result<Value, Ru
     }
 }
 
-/// Vendor extension `<number or bit string>_TO_BOOL`: TRUE when the value is not zero; a
-/// non-finite REAL/LREAL is an overflow like in the other conversions from REAL.
+/// `<source>_TO_BOOL`. A bit string transfers its rightmost bit (IEC 61131-3 Ed.3 Table 24
+/// rows 4, 8, 12 and 16). For a number, a truST extension (docs/specs/07-standard-functions.md
+/// 2.9): TRUE when the value is not zero; a non-finite REAL/LREAL is an overflow like in the
+/// other conversions from REAL.
 pub(super) fn convert_to_bool(value: &Value) -> Result<Value, RuntimeError> {
-    let nonzero = match value {
+    let result = match value {
         Value::Bool(v) => *v,
+        Value::Byte(v) => v & 1 != 0,
+        Value::Word(v) => v & 1 != 0,
+        Value::DWord(v) => v & 1 != 0,
+        Value::LWord(v) => v & 1 != 0,
         Value::SInt(v) => *v != 0,
         Value::Int(v) => *v != 0,
         Value::DInt(v) => *v != 0,
@@ -164,14 +170,10 @@ pub(super) fn convert_to_bool(value: &Value) -> Result<Value, RuntimeError> {
         Value::UInt(v) => *v != 0,
         Value::UDInt(v) => *v != 0,
         Value::ULInt(v) => *v != 0,
-        Value::Byte(v) => *v != 0,
-        Value::Word(v) => *v != 0,
-        Value::DWord(v) => *v != 0,
-        Value::LWord(v) => *v != 0,
         Value::Real(v) if v.is_finite() => *v != 0.0,
         Value::LReal(v) if v.is_finite() => *v != 0.0,
         Value::Real(_) | Value::LReal(_) => return Err(RuntimeError::Overflow),
         _ => return Err(RuntimeError::TypeMismatch),
     };
-    Ok(Value::Bool(nonzero))
+    Ok(Value::Bool(result))
 }

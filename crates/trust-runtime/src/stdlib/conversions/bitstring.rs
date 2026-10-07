@@ -22,8 +22,8 @@ pub(super) fn convert_to_bit_string(value: &Value, dst: TypeId) -> Result<Value,
         Value::ULInt(v) => unsigned_to_bit_string(*v, dst),
         Value::Real(v) if dst == TypeId::DWORD => Ok(Value::DWord(v.to_bits())),
         Value::LReal(v) if dst == TypeId::LWORD => Ok(Value::LWord(v.to_bits())),
-        // vendor extension: other widths convert the number, like REAL_TO_<unsigned> of
-        // the target width
+        // vendor extension (docs/specs/07-standard-functions.md 2.9): other widths convert
+        // the number, like REAL_TO_<unsigned> of the target width
         Value::Real(_) | Value::LReal(_) => {
             let unsigned = match dst {
                 TypeId::BYTE => TypeId::USINT,

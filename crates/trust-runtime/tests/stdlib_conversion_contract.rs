@@ -541,10 +541,10 @@ fn standard_library_lookup_and_parameter_metadata_are_case_insensitive() {
     }
 }
 
-// docs/specs/07-standard-functions.md 2.6 (vendor extensions): REAL/LREAL to a bit string
+// docs/specs/07-standard-functions.md 2.9 (vendor extensions): REAL/LREAL to a bit string
 // converts the number like REAL/LREAL to the unsigned integer of the target width (ties to
-// even, out of range is an overflow); numbers and bit strings to BOOL give value <> 0;
-// BOOL to REAL/LREAL gives 0.0 or 1.0.
+// even, out of range is an overflow); numbers to BOOL give value <> 0; BOOL to REAL/LREAL
+// gives 0.0 or 1.0.
 #[test]
 fn vendor_extension_conversions_follow_numeric_rules() {
     let lib = library();
@@ -582,8 +582,7 @@ fn vendor_extension_conversions_follow_numeric_rules() {
         ("INT_TO_BOOL", Value::Int(0), false),
         ("INT_TO_BOOL", Value::Int(-3), true),
         ("UDINT_TO_BOOL", Value::UDInt(7), true),
-        ("BYTE_TO_BOOL", Value::Byte(0b1101_0101), true),
-        ("LWORD_TO_BOOL", Value::LWord(0), false),
+        ("UINT_TO_BOOL", Value::UInt(2), true),
         ("REAL_TO_BOOL", Value::Real(0.0), false),
         ("LREAL_TO_BOOL", Value::LReal(0.987_654_321), true),
         ("TO_BOOL", Value::DInt(2), true),
@@ -602,4 +601,31 @@ fn vendor_extension_conversions_follow_numeric_rules() {
         lib.call("REAL_TO_BOOL", &[Value::Real(f32::NAN)]),
         Err(RuntimeError::Overflow)
     );
+}
+
+// IEC 61131-3 Ed.3 Table 24 rows 4, 8, 12 and 16 (docs/specs/07-standard-functions.md 2.2):
+// a bit string to BOOL is the "binary transfer of the rightmost bit into the target", also
+// through the overloaded TO_BOOL.
+#[test]
+fn bit_string_to_bool_transfers_the_rightmost_bit() {
+    let lib = library();
+    for (name, arg, expected) in [
+        ("BYTE_TO_BOOL", Value::Byte(0b1101_0100), false),
+        ("BYTE_TO_BOOL", Value::Byte(0b0000_0001), true),
+        ("WORD_TO_BOOL", Value::Word(0x8000), false),
+        ("WORD_TO_BOOL", Value::Word(0x0003), true),
+        ("DWORD_TO_BOOL", Value::DWord(0xFFFF_FFFE), false),
+        ("DWORD_TO_BOOL", Value::DWord(0x8000_0001), true),
+        ("LWORD_TO_BOOL", Value::LWord(1 << 40), false),
+        ("LWORD_TO_BOOL", Value::LWord(u64::MAX), true),
+        ("LWORD_TO_BOOL", Value::LWord(0), false),
+        ("TO_BOOL", Value::Byte(0xFE), false),
+        ("TO_BOOL", Value::Word(0x0101), true),
+    ] {
+        assert_eq!(
+            lib.call(name, std::slice::from_ref(&arg)),
+            Ok(Value::Bool(expected)),
+            "{name}({arg:?})"
+        );
+    }
 }

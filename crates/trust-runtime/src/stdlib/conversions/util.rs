@@ -100,6 +100,16 @@ pub(super) fn is_conversion_allowed(src: TypeId, dst: TypeId) -> bool {
         return true;
     }
 
+    // IEC Table 24 rows 4, 8, 12 and 16: the rightmost bit of a bit string
+    if dst == TypeId::BOOL
+        && matches!(
+            src,
+            TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
+        )
+    {
+        return true;
+    }
+
     if is_vendor_extension_conversion(src, dst) {
         return true;
     }
@@ -255,8 +265,8 @@ pub(super) fn value_type_id(value: &Value) -> Option<TypeId> {
 }
 
 /// Vendor-extension conversions outside IEC Tables 22-27 (docs/specs/07-standard-functions.md
-/// 2.6): REAL/LREAL to a bit string of another width (a numeric conversion), numbers and bit
-/// strings to BOOL, and BOOL to REAL/LREAL.
+/// 2.9): REAL/LREAL to a bit string of another width (a numeric conversion), numbers to BOOL,
+/// and BOOL to REAL/LREAL.
 pub(super) fn is_vendor_extension_conversion(src: TypeId, dst: TypeId) -> bool {
     let real = matches!(src, TypeId::REAL | TypeId::LREAL);
     let bits = matches!(
@@ -264,11 +274,6 @@ pub(super) fn is_vendor_extension_conversion(src: TypeId, dst: TypeId) -> bool {
         TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
     );
     (real && bits)
-        || (dst == TypeId::BOOL
-            && (is_numeric_type(src)
-                || matches!(
-                    src,
-                    TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
-                )))
+        || (dst == TypeId::BOOL && is_numeric_type(src))
         || (src == TypeId::BOOL && matches!(dst, TypeId::REAL | TypeId::LREAL))
 }

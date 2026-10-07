@@ -52,6 +52,8 @@ helpers.
 - [x] WORD <-> DWORD
 - [x] WORD <-> LWORD
 - [x] DWORD <-> LWORD
+- [x] LWORD_TO_BOOL, DWORD_TO_BOOL, WORD_TO_BOOL, BYTE_TO_BOOL (rightmost bit)
+- [ ] BOOL_TO_LWORD, BOOL_TO_DWORD, BOOL_TO_WORD, BOOL_TO_BYTE
 
 ## Table 25 - Data Type Conversion of Bit and Numeric Types
 - [x] LWORD_TO_LREAL
@@ -130,6 +132,11 @@ helpers.
 - [x] USINT_TO_DWORD
 - [x] USINT_TO_WORD
 - [x] USINT_TO_BYTE
+
+## Vendor Extension Conversions (docs/specs/07-standard-functions.md 2.9)
+- [x] REAL_TO_BYTE, REAL_TO_WORD, REAL_TO_LWORD, LREAL_TO_BYTE, LREAL_TO_WORD, LREAL_TO_DWORD
+- [x] <ANY_INT>_TO_BOOL, <ANY_REAL>_TO_BOOL, TO_BOOL of a number
+- [x] BOOL_TO_REAL, BOOL_TO_LREAL
 
 ## Table 26 - Data Type Conversion of Date and Time Types
 - [x] LTIME_TO_TIME

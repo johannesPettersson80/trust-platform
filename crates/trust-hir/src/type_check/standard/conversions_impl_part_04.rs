@@ -155,19 +155,23 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             return true;
         }
 
-        // vendor extensions outside IEC Tables 22-27 (docs/specs/07-standard-functions.md
-        // 2.6): REAL/LREAL to a bit string of another width, numbers and bit strings to
-        // BOOL, BOOL to REAL/LREAL
         let bit_string = |ty: TypeId| {
             matches!(
                 ty,
                 TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
             )
         };
+        // IEC Table 24 rows 4, 8, 12 and 16: the rightmost bit of a bit string
+        if dst == TypeId::BOOL && bit_string(src) {
+            return true;
+        }
+        // vendor extensions outside IEC Tables 22-27 (docs/specs/07-standard-functions.md
+        // 2.9): REAL/LREAL to a bit string of another width, numbers to BOOL, BOOL to
+        // REAL/LREAL
         if matches!(src, TypeId::REAL | TypeId::LREAL) && bit_string(dst) {
             return true;
         }
-        if dst == TypeId::BOOL && (self.is_numeric_type(src) || bit_string(src)) {
+        if dst == TypeId::BOOL && self.is_numeric_type(src) {
             return true;
         }
         if src == TypeId::BOOL && matches!(dst, TypeId::REAL | TypeId::LREAL) {

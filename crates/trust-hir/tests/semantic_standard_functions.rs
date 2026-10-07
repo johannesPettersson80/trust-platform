@@ -68,9 +68,10 @@ END_PROGRAM
 }
 
 #[test]
-// docs/specs/07-standard-functions.md 2.6: vendor-extension conversions that IEC Tables
-// 22-27 do not list (REAL/LREAL to a bit string of another width, numbers and bit strings to
-// BOOL, BOOL to REAL/LREAL), used by CODESYS and TwinCAT projects
+// docs/specs/07-standard-functions.md 2.9: vendor-extension conversions that IEC Tables
+// 22-27 do not list (REAL/LREAL to a bit string of another width, numbers to BOOL, BOOL to
+// REAL/LREAL), used by CODESYS and TwinCAT projects; and 2.2: the IEC Table 24 bit string
+// to BOOL conversions
 fn test_vendor_extension_conversions_are_accepted() {
     check_no_errors(
         r#"
