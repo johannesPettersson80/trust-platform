@@ -82,12 +82,24 @@ fn lower_literal_with_context(
         Value::LReal(signed)
     } else if let Some(value) = int_literal {
         let value = if saw_sign { value * sign } else { value };
-        if has_typed_prefix {
+        let boolean_context = match typed_prefix.as_deref() {
+            Some(prefix) => prefix == "BOOL",
+            None => expected_type.is_some_and(|type_id| resolves_to_bool(type_id, ctx.registry)),
+        };
+        if boolean_context && matches!(value, 0 | 1) {
+            // IEC 61131-3 Ed.3 6.3.2 and Table 5 features 7 and 9: the integer literals 0
+            // and 1 (also as `BOOL#0`/`BOOL#1`) represent Boolean data.
+            Value::Bool(value == 1)
+        } else if has_typed_prefix {
             Value::LInt(value)
         } else {
-            let value = i32::try_from(value)
-                .map_err(|_| CompileError::new("integer literal out of range"))?;
-            Value::DInt(value)
+            match i32::try_from(value) {
+                Ok(value) => Value::DInt(value),
+                // A contextual literal beyond DINT (`16#FFFF_FFFF` for a DWORD) takes the
+                // range of its expected type, checked when it is coerced below.
+                Err(_) if expected_type.is_some() => Value::LInt(value),
+                Err(_) => return Err(CompileError::new("integer literal out of range")),
+            }
         }
     } else if ident_literal.is_some() {
         Value::Null
@@ -122,6 +134,21 @@ fn lower_literal_with_context(
     }
 
     Ok(Expr::Literal(value))
+}
+
+/// Whether `type_id` is BOOL or an alias of it.
+fn resolves_to_bool(type_id: TypeId, registry: &TypeRegistry) -> bool {
+    let mut current = type_id;
+    for _ in 0..32 {
+        if current == TypeId::BOOL {
+            return true;
+        }
+        match registry.get(current) {
+            Some(Type::Alias { target, .. }) => current = *target,
+            _ => return false,
+        }
+    }
+    false
 }
 
 fn parse_int_literal(text: &str) -> Result<i64, CompileError> {

@@ -21,6 +21,7 @@ use super::super::{
 
 include!("expr/lowering.rs");
 include!("expr/literals.rs");
+include!("expr/initializers.rs");
 include!("expr/call_context.rs");
 include!("expr/storage_context.rs");
 include!("expr/operators.rs");

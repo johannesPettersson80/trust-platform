@@ -9,7 +9,7 @@ use crate::program_model::InitializerCatalog;
 use crate::value::DateTimeProfile;
 
 use super::super::lower::{
-    const_int_from_node, lower_expr, parse_subrange, resolve_initializer_enum_variant,
+    const_int_from_node, lower_initializer_expr, parse_subrange, resolve_initializer_enum_variant,
 };
 use super::super::types::CompileError;
 use super::super::util::{
@@ -225,9 +225,10 @@ fn lower_type_decl_node(
                 let Some(type_id) = last_type_id else {
                     continue;
                 };
-                let expr = lower_expr(&child, &mut ctx).and_then(|lowered| {
-                    resolve_initializer_enum_variant(&child, lowered, type_id, &ctx)
-                })?;
+                let expr =
+                    lower_initializer_expr(&child, &mut ctx, type_id).and_then(|lowered| {
+                        resolve_initializer_enum_variant(&child, lowered, type_id, &ctx)
+                    })?;
                 let initializer_id = initializer_catalog.insert(expr);
                 initializer_catalog.set_type_default(type_id, initializer_id);
             }
@@ -266,7 +267,7 @@ fn lower_struct_def(
             .initializer
             .as_ref()
             .map(|expr| {
-                lower_expr(expr, ctx)
+                lower_initializer_expr(expr, ctx, type_id)
                     .and_then(|lowered| {
                         resolve_initializer_enum_variant(expr, lowered, type_id, ctx)
                     })

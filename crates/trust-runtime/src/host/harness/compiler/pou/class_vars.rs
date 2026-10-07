@@ -28,7 +28,7 @@ fn lower_class_var_blocks(
                 .initializer
                 .as_ref()
                 .map(|expr| {
-                    lower_expr(expr, ctx).and_then(|lowered| {
+                    lower_initializer_expr(expr, ctx, type_id).and_then(|lowered| {
                         resolve_initializer_enum_variant(expr, lowered, type_id, ctx)
                     })
                 })

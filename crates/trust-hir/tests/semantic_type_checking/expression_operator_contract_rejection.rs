@@ -234,10 +234,26 @@ fn expression_operator_rejects_out_of_range_contextual_bit_string_literal() {
 }
 
 #[test]
-fn expression_operator_keeps_bool_strict_for_untyped_integer_literals() {
+fn expression_operator_rejects_bool_integer_literals_other_than_zero_and_one() {
+    // IEC 61131-3 Ed.3 6.3.2: only the integer literals 0 and 1 represent Boolean data;
+    // another value, a typed integer and an expression of literals stay errors.
+    for value in ["2", "-1", "INT#1", "1 + 0", "16#2"] {
+        check_has_error(
+            &format!("PROGRAM P\nVAR x : BOOL; END_VAR\nx := {value};\nEND_PROGRAM"),
+            DiagnosticCode::IncompatibleAssignment,
+        );
+    }
     check_has_error(
-        "PROGRAM P\nVAR x : BOOL; END_VAR\nx := 1;\nEND_PROGRAM",
-        DiagnosticCode::IncompatibleAssignment,
+        "TYPE S : STRUCT f : BOOL := 2; END_STRUCT END_TYPE",
+        DiagnosticCode::TypeMismatch,
+    );
+    check_has_error(
+        "TYPE S : STRUCT f : BOOL := INT#1; END_STRUCT END_TYPE",
+        DiagnosticCode::TypeMismatch,
+    );
+    check_has_error(
+        "PROGRAM P\nVAR flags : ARRAY[1..2] OF BOOL := [1, 2]; END_VAR\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
     );
 }
 

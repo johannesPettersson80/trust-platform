@@ -341,8 +341,8 @@ TYPE
         flag : BOOL;
     END_UNION;
     Wrapped : STRUCT
-        inner : Inner := (flag := 1, ref := NULL);
-        choice : Choice := (flag := 1);
+        inner : Inner := (flag := 2, ref := NULL);
+        choice : Choice := (flag := 2);
     END_STRUCT;
 END_TYPE
 "#;
