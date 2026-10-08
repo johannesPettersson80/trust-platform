@@ -166,5 +166,3 @@ docs/internal/testing/evidence/*
 !docs/internal/references/PLCopenMotion/
 conformance/reports/*
 !conformance/reports/.gitkeep
-AGENTS.md
-CLAUDE.md
