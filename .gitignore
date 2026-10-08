@@ -34,7 +34,6 @@ scripts/captures/playwright-report/
 
 # Local tooling caches
 .claude/
-.codex/skills/
 .venv/
 __pycache__/
 .claude-plugin/
