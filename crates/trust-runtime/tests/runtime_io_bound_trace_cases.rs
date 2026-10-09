@@ -7,7 +7,11 @@ use std::time::{Duration, Instant};
 #[path = "support/modbus.rs"]
 mod modbus_support;
 
-use modbus_support::{start_gated_modbus_server, ModbusTestState};
+#[path = "support/gated_modbus.rs"]
+mod gated_modbus;
+
+use gated_modbus::start_gated_modbus_server;
+use modbus_support::ModbusTestState;
 use trust_runtime::io::{IoDriver, ModbusTcpDriver};
 use verification_cases::{
     run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
