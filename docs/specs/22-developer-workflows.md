@@ -286,6 +286,15 @@ the runtime Web UI source tree so browser-visible runtime changes cannot bypass
 their registered Playwright journeys. Its pull-request and push path filters
 must remain identical.
 
+### Release-candidate discovery parity
+
+The exact-SHA prepare command includes the existing MP-001 test-discovery and
+snapshot inventory check. It runs after the native workspace suite, under the
+same target lease and compiler environment, so discovery reuses the built test
+binaries. It does not rerun test bodies. Adding or moving a handler test updates
+its checked-in discovery baseline alongside the test. A failed or missing parity
+command prevents a passing release-candidate artifact.
+
 ### Release-candidate build parallelism
 
 Release validation uses Cargo's normal build-job configuration on the builder. The guard

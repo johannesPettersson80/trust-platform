@@ -117,3 +117,5 @@ handlers::tests::mod_part_01::mod_part_01_part_01::lsp_golden_multi_root_protoco
 handlers::tests::mod_part_02::lsp_code_action_namespace_disambiguation_non_call: test
 handlers::tests::rename_trace_cases::editor_rename_local_trace_cases: test
 handlers::tests::rename_trace_cases::editor_rename_project_trace_cases: test
+handlers::tests::workspace_deletion::deleting_a_project_directory_removes_its_imports_before_the_next_scaffold: test
+handlers::tests::workspace_deletion::reindex_removes_missing_sources_without_dropping_budget_skipped_live_files: test

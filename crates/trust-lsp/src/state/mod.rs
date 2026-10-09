@@ -108,7 +108,7 @@ impl RequestLimiter {
 /// The server state.
 pub struct ServerState {
     /// Known documents (open + indexed).
-    documents: RwLock<FxHashMap<Url, Document>>,
+    documents: RwLock<FxHashMap<Url, documents::DocumentEntry>>,
     /// Cached semantic tokens for delta responses.
     semantic_tokens: RwLock<FxHashMap<Url, SemanticTokensCache>>,
     /// Cached diagnostics for pull requests.

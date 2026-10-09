@@ -44,6 +44,7 @@ BASE_REQUIRED_COMMANDS = (
     "remote_clippy",
     "remote_reclaim_before_test_all",
     "remote_test_all",
+    "remote_mp001_parity",
     "remote_clean_after",
 )
 MARKETPLACE_TARGETS = (

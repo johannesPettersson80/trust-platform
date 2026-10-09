@@ -1,11 +1,40 @@
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 use tower_lsp::lsp_types::Url;
 
 use crate::config::ProjectConfig;
-use trust_hir::{db::FileId, SourceKey};
+use trust_hir::{db::FileId, Project, SourceDatabase, SourceKey};
 
 use super::path::{canonicalize_path, path_to_uri, source_key_for_uri, uri_to_path};
 use super::{Document, ServerState};
+
+/// Text is evictable; the URI-to-source registration survives until deletion.
+pub(super) enum DocumentEntry {
+    Resident(Document),
+    Evicted(FileId),
+}
+
+impl DocumentEntry {
+    fn file_id(&self) -> FileId {
+        match self {
+            Self::Resident(doc) => doc.file_id,
+            Self::Evicted(id) => *id,
+        }
+    }
+
+    fn resident(&self) -> Option<&Document> {
+        match self {
+            Self::Resident(doc) => Some(doc),
+            Self::Evicted(_) => None,
+        }
+    }
+
+    fn resident_mut(&mut self) -> Option<&mut Document> {
+        match self {
+            Self::Resident(doc) => Some(doc),
+            Self::Evicted(_) => None,
+        }
+    }
+}
 
 pub(super) fn open_document(
     state: &ServerState,
@@ -18,20 +47,14 @@ pub(super) fn open_document(
     let mut docs = state.documents.write();
     let key = docs
         .get(&uri)
-        .and_then(|doc| project.key_for_file_id(doc.file_id).cloned())
+        .and_then(|entry| project.key_for_file_id(entry.file_id()).cloned())
         .unwrap_or_else(|| source_key_for_uri(&uri));
     let file_id = project.set_source_text(key, content.clone());
     let access = next_document_access(state);
-    if let Some(doc) = docs.get_mut(&uri) {
-        doc.version = version;
-        doc.content = content;
-        doc.is_open = true;
-        doc.file_id = file_id;
-        touch_document(doc, access);
-    } else {
-        let doc = Document::new(uri.clone(), version, content, file_id, true, access);
-        docs.insert(uri, doc);
-    }
+    docs.insert(
+        uri.clone(),
+        DocumentEntry::Resident(Document::new(uri, version, content, file_id, true, access)),
+    );
 
     drop(docs);
     drop(project);
@@ -61,6 +84,7 @@ fn index_document_impl(
     let mut docs = state.documents.write();
     if docs
         .get(&uri)
+        .and_then(DocumentEntry::resident)
         .is_some_and(|doc| doc.is_open || doc.content == content)
     {
         return None;
@@ -72,22 +96,14 @@ fn index_document_impl(
     }
     let key = docs
         .get(&uri)
-        .and_then(|doc| project.key_for_file_id(doc.file_id).cloned())
+        .and_then(|entry| project.key_for_file_id(entry.file_id()).cloned())
         .unwrap_or_else(|| source_key_for_uri(&uri));
     let file_id = project.set_source_text(key, content.clone());
     let access = next_document_access(state);
-    if let Some(doc) = docs.get_mut(&uri) {
-        doc.version = 0;
-        doc.content = content;
-        doc.is_open = false;
-        doc.file_id = file_id;
-        touch_document(doc, access);
-    } else {
-        docs.insert(
-            uri.clone(),
-            Document::new(uri, 0, content, file_id, false, access),
-        );
-    }
+    docs.insert(
+        uri.clone(),
+        DocumentEntry::Resident(Document::new(uri, 0, content, file_id, false, access)),
+    );
     drop(docs);
     drop(project);
     if enforce_budget_after_index {
@@ -100,7 +116,11 @@ fn index_document_impl(
 pub(super) fn update_document(state: &ServerState, uri: &Url, version: i32, content: String) {
     let mut project = state.project.write();
     let mut docs = state.documents.write();
-    let Some(doc) = docs.get_mut(uri).filter(|doc| doc.is_open) else {
+    let Some(doc) = docs
+        .get_mut(uri)
+        .and_then(DocumentEntry::resident_mut)
+        .filter(|doc| doc.is_open)
+    else {
         return;
     };
     let key = project
@@ -121,7 +141,7 @@ pub(super) fn update_document(state: &ServerState, uri: &Url, version: i32, cont
 pub(super) fn close_document(state: &ServerState, uri: &Url) {
     let mut project = state.project.write();
     let mut docs = state.documents.write();
-    let Some(doc) = docs.get_mut(uri) else {
+    let Some(doc) = docs.get_mut(uri).and_then(DocumentEntry::resident_mut) else {
         return;
     };
     state.cancel_semantic_requests();
@@ -154,16 +174,16 @@ pub(super) fn remove_document(state: &ServerState, uri: &Url) -> Option<FileId> 
     let mut docs = state.documents.write();
     let key = docs
         .get(uri)
-        .and_then(|doc| project.key_for_file_id(doc.file_id).cloned())
+        .and_then(|entry| project.key_for_file_id(entry.file_id()).cloned())
         .unwrap_or_else(|| source_key_for_uri(uri));
     // Eviction can remove the document text while retaining the semantic source.
     let file_id = project.remove_source(&key)?;
     let uris = docs
         .iter()
-        .filter(|(_, doc)| doc.file_id == file_id)
+        .filter(|(_, entry)| entry.file_id() == file_id)
         .map(|(uri, _)| uri.clone())
         .collect::<Vec<_>>();
-    docs.retain(|_, doc| doc.file_id != file_id);
+    docs.retain(|_, entry| entry.file_id() != file_id);
     drop(docs);
     drop(project);
     state.cancel_semantic_requests();
@@ -178,18 +198,26 @@ pub(super) fn remove_document(state: &ServerState, uri: &Url) -> Option<FileId> 
 pub(super) fn rename_document(state: &ServerState, old_uri: &Url, new_uri: &Url) -> Option<FileId> {
     let mut project = state.project.write();
     let mut docs = state.documents.write();
-    let mut doc = docs.remove(old_uri)?;
+    let entry = docs.remove(old_uri)?;
+    let old_id = entry.file_id();
     let old_key = project
-        .key_for_file_id(doc.file_id)
+        .key_for_file_id(old_id)
         .cloned()
         .unwrap_or_else(|| source_key_for_uri(old_uri));
+    let content = project.database().source_text(old_id).to_string();
     let new_key = source_key_for_uri(new_uri);
     project.remove_source(&old_key);
     project.remove_source(&new_key);
-    let file_id = project.set_source_text(new_key, doc.content.clone());
-    doc.uri = new_uri.clone();
-    doc.file_id = file_id;
-    docs.insert(new_uri.clone(), doc);
+    let file_id = project.set_source_text(new_key, content);
+    let entry = match entry {
+        DocumentEntry::Resident(mut doc) => {
+            doc.uri = new_uri.clone();
+            doc.file_id = file_id;
+            DocumentEntry::Resident(doc)
+        }
+        DocumentEntry::Evicted(_) => DocumentEntry::Evicted(file_id),
+    };
+    docs.insert(new_uri.clone(), entry);
     drop(docs);
     drop(project);
     state.semantic_tokens.write().remove(old_uri);
@@ -211,66 +239,91 @@ pub(super) fn remove_document_tree(state: &ServerState, uri: &Url) -> usize {
     let Some(path) = uri_to_path(uri) else {
         return usize::from(remove_document(state, uri).is_some());
     };
-    // After removal the full path cannot be canonicalized. Resolve a surviving
-    // ancestor so aliases such as macOS /var -> /private/var retain their identity.
-    let path = path
+    // Registered URI membership remains authoritative if an alias itself vanished.
+    let canonical = path
         .ancestors()
-        .find(|ancestor| ancestor.exists())
-        .and_then(|ancestor| {
-            path.strip_prefix(ancestor)
-                .ok()
-                .map(|tail| canonicalize_path(ancestor.to_path_buf()).join(tail))
+        .find_map(|ancestor| {
+            ancestor.canonicalize().ok().and_then(|_| {
+                path.strip_prefix(ancestor)
+                    .ok()
+                    .map(|tail| canonicalize_path(ancestor.to_path_buf()).join(tail))
+            })
         })
-        .unwrap_or(path);
-    remove_sources_matching(
-        state,
-        |key, _, _| matches!(key, SourceKey::Path(source) if source.starts_with(&path)),
-    )
-}
-
-pub(super) fn reconcile_missing_documents(state: &ServerState, config: &ProjectConfig) -> usize {
-    let roots = config
-        .indexing_roots()
-        .into_iter()
-        .map(canonicalize_path)
-        .collect::<Vec<_>>();
-    remove_sources_matching(state, |key, file_id, open_ids| {
-        let SourceKey::Path(path) = key else {
-            return false;
-        };
-        roots.iter().any(|root| path.starts_with(root))
-            && !open_ids.contains(&file_id)
-            && path_is_missing(path)
+        .unwrap_or_else(|| path.clone());
+    let deleted_path_is_missing = path_is_missing(&path);
+    remove_sources(state, |project, docs| {
+        let mut ids = docs
+            .iter()
+            .filter(|(uri, _)| uri_to_path(uri).is_some_and(|source| source.starts_with(&path)))
+            .map(|(_, entry)| entry.file_id())
+            .collect::<FxHashSet<_>>();
+        // A live replacement alias must not redirect the old deletion event to
+        // unrelated sources, including open unsaved files under its new target.
+        if deleted_path_is_missing {
+            ids.extend(project.sources().iter().filter_map(|(key, id)| {
+                matches!(key, SourceKey::Path(source) if source.starts_with(&canonical))
+                    .then_some(id)
+            }));
+        }
+        ids
     })
 }
 
-fn remove_sources_matching(
+pub(super) fn reconcile_missing_documents(state: &ServerState, config: &ProjectConfig) -> usize {
+    let registered_roots = config.indexing_roots();
+    let canonical_roots = registered_roots
+        .iter()
+        .cloned()
+        .map(canonicalize_path)
+        .collect::<Vec<_>>();
+    remove_sources(state, |project, docs| {
+        let open_ids = docs
+            .values()
+            .filter_map(DocumentEntry::resident)
+            .filter(|doc| doc.is_open)
+            .map(|doc| doc.file_id)
+            .collect::<FxHashSet<_>>();
+        let mut ids = docs.iter().filter_map(|(uri, entry)| {
+            let path = uri_to_path(uri)?;
+            let in_scope = registered_roots.iter().any(|root| path.starts_with(root))
+                || matches!(project.key_for_file_id(entry.file_id()), Some(SourceKey::Path(source))
+                    if canonical_roots.iter().any(|root| source.starts_with(root)));
+            (in_scope && path_is_missing(&path)).then_some(entry.file_id())
+        }).collect::<FxHashSet<_>>();
+        ids.extend(project.sources().iter().filter_map(|(key, id)| {
+            let SourceKey::Path(path) = key else {
+                return None;
+            };
+            (canonical_roots.iter().any(|root| path.starts_with(root)) && path_is_missing(path))
+                .then_some(id)
+        }));
+        ids.retain(|id| !open_ids.contains(id));
+        ids
+    })
+}
+
+fn remove_sources(
     state: &ServerState,
-    predicate: impl Fn(&SourceKey, FileId, &FxHashSet<FileId>) -> bool,
+    select: impl FnOnce(&Project, &FxHashMap<Url, DocumentEntry>) -> FxHashSet<FileId>,
 ) -> usize {
     let mut project = state.project.write();
     let mut docs = state.documents.write();
-    let open_ids = docs
-        .values()
-        .filter(|doc| doc.is_open)
-        .map(|doc| doc.file_id)
-        .collect::<FxHashSet<_>>();
+    let ids = select(&project, &docs);
     let removed = project
         .sources()
         .iter()
-        .filter(|(key, file_id)| predicate(key, *file_id, &open_ids))
+        .filter(|(_, file_id)| ids.contains(file_id))
         .map(|(key, file_id)| (key.clone(), file_id))
         .collect::<Vec<_>>();
     if removed.is_empty() {
         return 0;
     }
-    let ids = removed.iter().map(|(_, id)| *id).collect::<FxHashSet<_>>();
     let uris = docs
         .iter()
-        .filter(|(_, doc)| ids.contains(&doc.file_id))
+        .filter(|(_, entry)| ids.contains(&entry.file_id()))
         .map(|(uri, _)| uri.clone())
         .collect::<Vec<_>>();
-    docs.retain(|_, doc| !ids.contains(&doc.file_id));
+    docs.retain(|_, entry| !ids.contains(&entry.file_id()));
     for (key, _) in &removed {
         project.remove_source(key);
     }
@@ -286,11 +339,22 @@ fn remove_sources_matching(
 }
 
 pub(super) fn get_document(state: &ServerState, uri: &Url) -> Option<Document> {
-    state.documents.read().get(uri).cloned()
+    state
+        .documents
+        .read()
+        .get(uri)
+        .and_then(DocumentEntry::resident)
+        .cloned()
 }
 
 pub(super) fn documents(state: &ServerState) -> Vec<Document> {
-    state.documents.read().values().cloned().collect()
+    state
+        .documents
+        .read()
+        .values()
+        .filter_map(DocumentEntry::resident)
+        .cloned()
+        .collect()
 }
 
 pub(super) fn ensure_document(state: &ServerState, uri: &Url) -> Option<Document> {
@@ -320,6 +384,7 @@ pub(super) fn document_for_file_id(state: &ServerState, file_id: FileId) -> Opti
         .documents
         .read()
         .values()
+        .filter_map(DocumentEntry::resident)
         .find(|doc| doc.file_id == file_id)
         .cloned()
 }
@@ -385,7 +450,10 @@ fn enforce_memory_budget(state: &ServerState) {
     let mut candidates = Vec::new();
     {
         let docs = state.documents.read();
-        for (uri, doc) in docs.iter() {
+        for (uri, entry) in docs.iter() {
+            let Some(doc) = entry.resident() else {
+                continue;
+            };
             if doc.is_open {
                 continue;
             }
@@ -414,14 +482,15 @@ fn enforce_memory_budget(state: &ServerState) {
 
 fn evict_document_text(state: &ServerState, uri: &Url) {
     let mut docs = state.documents.write();
-    if docs.get(uri).is_some_and(|doc| !doc.is_open) {
-        docs.remove(uri);
+    if let Some(entry) = docs.get_mut(uri) {
+        if entry.resident().is_none_or(|doc| doc.is_open) {
+            return;
+        }
+        *entry = DocumentEntry::Evicted(entry.file_id());
         drop(docs);
         state.semantic_tokens.write().remove(uri);
         state.diagnostics.write().remove(uri);
-        // Intentionally keep the salsa project source. Memory-budget eviction
-        // drops cached document text only; semantic availability is restored
-        // from the already-indexed project source until an actual delete event
-        // calls `remove_document`.
+        // Keep the URI and FileId alongside the semantic source. Filesystem
+        // canonicalization cannot recover that identity after an alias disappears.
     }
 }

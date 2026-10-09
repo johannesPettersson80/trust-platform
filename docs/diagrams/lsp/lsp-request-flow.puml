@@ -549,7 +549,7 @@ note right of client
     • trust-hir/src/db/queries.rs - Database
 
     **ServerState (state.rs):**
-    documents: RwLock<FxHashMap<Url, Document>>
+    documents: RwLock<FxHashMap<Url, DocumentEntry>>
     project: RwLock<Project>
     workspace_folders: RwLock<Vec<Url>>
     document_generation: AtomicU64
@@ -572,6 +572,9 @@ note right of handlers
     Reindex reconciles sources proven missing
     on disk, preserving open unsaved buffers
     and budget-truncated live sources.
+    Text eviction retains URI and FileId membership.
+    Deletion uses registered identity even after
+    a symlink alias disappears or changes target.
     Lifecycle writes lock Project then documents
     through the complete membership transition.
 end note

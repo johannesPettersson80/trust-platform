@@ -160,6 +160,18 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn("remote_test_all", commands)
         self.assertIn("just test-all", commands["remote_test_all"])
 
+    def test_mp001_discovery_parity_is_required_after_native_tests(self) -> None:
+        commands = dict(candidate_prepare.remote_validation_commands(
+            vscode_changed=False, remote_target="/tmp/trust-target",
+        ))
+        self.assertIn("remote_mp001_parity", guard.BASE_REQUIRED_COMMANDS)
+        self.assertIn("bash scripts/check_mp001_split_parity.sh --verify", commands["remote_mp001_parity"])
+        self.assertIn("CARGO_TARGET_DIR=/tmp/trust-target", commands["remote_mp001_parity"])
+        self.assertIn("scripts/with_cargo_target_lease.sh", commands["remote_mp001_parity"])
+        order = list(commands)
+        self.assertLess(order.index("remote_test_all"), order.index("remote_mp001_parity"))
+        self.assertLess(order.index("remote_mp001_parity"), order.index("remote_clean_after"))
+
     def test_remote_validation_runs_required_cross_target_warning_gate_before_clippy(self) -> None:
         commands = candidate_prepare.remote_validation_commands(
             vscode_changed=False, remote_target="/tmp/trust-target"
@@ -264,6 +276,7 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             "remote_architecture_safety",
             "remote_clippy",
             "remote_test_all",
+            "remote_mp001_parity",
         )
         for command_id in leased_ids:
             self.assertIn(

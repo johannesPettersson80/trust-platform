@@ -183,6 +183,10 @@ def remote_validation_commands(
                 "remote_test_all",
                 leased(f"{target_env} just test-all"),
             ),
+            (
+                "remote_mp001_parity",
+                leased(f"{target_env} bash scripts/check_mp001_split_parity.sh --verify"),
+            ),
             ("remote_clean_after", 'test -z "$(git status --porcelain=v1 --untracked-files=all)"'),
         ]
     )

@@ -1025,9 +1025,12 @@ not a change to IEC 61131-3 Ed.3 §6.5.2.2 duplicate-declaration rules):
 
 - watcher subscriptions include directory deletions, not only ST/configuration
   filenames; a deleted directory removes its indexed descendant sources, including sources
-  whose closed document text was evicted from memory; a surviving canonical
-  ancestor preserves source identity through path aliases after deletion, and
-  sibling paths are unaffected;
+  whose closed document text was evicted from memory; eviction drops cached text
+  but retains the registered URI and stable file identity until membership is
+  removed. Deletion uses that identity even when the path or its symlink alias
+  no longer exists or has changed target. Directory removal matches registered
+  URI descendants as well as canonical source descendants; sibling sources are
+  unaffected;
 - a workspace reindex reconciles sources proven missing on disk even when the
   collected file list is empty or the indexing budget truncates the pass; absence
   from that collected list alone is not evidence of deletion;
