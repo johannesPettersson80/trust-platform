@@ -228,6 +228,11 @@ fn keep_stored_secrets(
                 .filter(|stored| stored.name == driver.name)
                 .map(|stored| &stored.params);
             if let Some(params) = driver.params.as_mut() {
+                io_secret_context::check(
+                    &driver.name,
+                    &json_to_toml(params),
+                    same.map(json_to_toml).as_ref(),
+                )?;
                 restore_secrets(params, same)?;
             }
         }
@@ -236,6 +241,11 @@ fn keep_stored_secrets(
         let same = stored
             .filter(|config| payload.driver.as_deref() == Some(config.driver.as_str()))
             .map(|config| &config.params);
+        io_secret_context::check(
+            payload.driver.as_deref().unwrap_or(""),
+            &json_to_toml(params),
+            same.map(json_to_toml).as_ref(),
+        )?;
         restore_secrets(params, same)?;
     }
     Ok(())

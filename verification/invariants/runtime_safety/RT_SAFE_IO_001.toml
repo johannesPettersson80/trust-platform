@@ -51,4 +51,4 @@ rationale = "A delayed Modbus write remains on the worker while write_outputs re
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
 state = "covered"
-rationale = "The committed current-contract proof pair covers delayed loopback Modbus read and write handoff bounds; non-Modbus and hardware-lab latency evidence remain open."
+rationale = "The native real-peer cases prove read/write scan completion while protocol replies remain withheld. Elapsed shared-host time is diagnostic only; non-Modbus and target-qualified latency evidence remain open."

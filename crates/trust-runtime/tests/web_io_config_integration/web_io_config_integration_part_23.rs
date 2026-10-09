@@ -217,3 +217,69 @@ fn standalone_config_text_read_and_write_preserve_stored_credentials() {
     assert!(saved.contains("trust/io/edited"));
     let _ = std::fs::remove_dir_all(project);
 }
+
+#[test]
+fn io_config_save_refuses_redirecting_a_retained_mqtt_password() {
+    let (project, base, token) = token_server("io-config-redirect", AccessRole::Engineer);
+    let (_, body) = read_config(&base, Some(&token));
+    let mut loaded: Value = serde_json::from_str(&body).unwrap();
+    loaded["drivers"][0]["params"]["broker"] = json!("attacker.invalid:1883");
+    loaded["drivers"][0]["params"]["allow_insecure_remote"] = json!(true);
+    let mut response = ureq::post(&format!("{base}/api/io/config"))
+        .config()
+        .http_status_as_error(false)
+        .build()
+        .header("Content-Type", "application/json")
+        .header("X-Trust-Token", &token)
+        .send(json!({"drivers": loaded["drivers"], "use_system_io": false}).to_string())
+        .unwrap();
+    let body = response.body_mut().read_to_string().unwrap();
+    assert!(body.starts_with("error:"), "{body}");
+    assert!(!body.contains("s3cret-mqtt"), "{body}");
+    assert_eq!(
+        std::fs::read_to_string(project.join("io.toml")).unwrap(),
+        MQTT_IO_TOML
+    );
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
+fn config_text_save_refuses_redirecting_a_retained_mqtt_password() {
+    let project = make_project("config-text-redirect");
+    std::fs::write(
+        project.join("runtime.toml"),
+        super::web_io_config_integration_part_21::runtime_toml("runtime-a", "test", ""),
+    )
+    .unwrap();
+    std::fs::write(project.join("io.toml"), MQTT_IO_TOML).unwrap();
+    let base = start_test_server_config_ui(
+        control_state_named(source_fixture(), "runtime-a"),
+        project.clone(),
+    );
+    let mut response = ureq::get(&format!(
+        "{base}/api/config-ui/io/config?runtime_id=runtime-a"
+    ))
+    .call()
+    .unwrap();
+    let loaded: Value =
+        serde_json::from_str(&response.body_mut().read_to_string().unwrap()).unwrap();
+    let edited = loaded["text"]
+        .as_str()
+        .unwrap()
+        .replace("127.0.0.1:1883", "127.0.0.1:1884");
+    let mut response = ureq::post(&format!("{base}/api/config-ui/io/config"))
+        .config().http_status_as_error(false).build()
+        .header("Content-Type", "application/json")
+        .send(json!({"runtime_id":"runtime-a", "text":edited, "expected_revision":loaded["revision"]}).to_string()).unwrap();
+    assert!(!response.status().is_success());
+    assert!(!response
+        .body_mut()
+        .read_to_string()
+        .unwrap()
+        .contains("s3cret-mqtt"));
+    assert_eq!(
+        std::fs::read_to_string(project.join("io.toml")).unwrap(),
+        MQTT_IO_TOML
+    );
+    let _ = std::fs::remove_dir_all(project);
+}

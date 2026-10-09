@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 #[path = "support/modbus.rs"]
 mod modbus_support;
 
-use modbus_support::{start_delayed_modbus_server, ModbusTestState};
+use modbus_support::{start_gated_modbus_server, ModbusTestState};
 use trust_runtime::io::{IoDriver, ModbusTcpDriver};
 use verification_cases::{
     run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
@@ -16,7 +16,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_RUNTIME_IO_BOUND_TRACE_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_SAFE_IO_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:5651bab7a19964e2f3e037947628d2fd32c8b6a737fea523b53a5ba0aead009b";
+    "sha256:3f7be52d2cee2f095a11f999ff036eb9fa64e20eb34aa1a8b332028352da86df";
 
 #[test]
 fn runtime_io_bound_trace_cases() {
@@ -55,54 +55,78 @@ fn run_io_case(case: &CaseRecord, probe: &mut IoBoundProbe) -> Result<CaseExecut
         .and_then(|trace| trace.first())
         .ok_or_else(|| format!("{} requires one trace step", case.id))?;
     let operation = required_string(&step.stimulus, "operation")?;
-    let delay_ms = required_u64(&step.stimulus, "delay_ms")?;
-    let bound_ms = required_u64(&step.stimulus, "bound_ms")?;
+    let completion_timeout_ms = required_u64(&step.stimulus, "completion_timeout_ms")?;
+    let transport_timeout_ms = required_u64(&step.stimulus, "transport_timeout_ms")?;
+    if completion_timeout_ms >= transport_timeout_ms {
+        return Err("harness completion timeout must precede transport timeout".into());
+    }
     let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
         vec![0x1122],
         vec![0u16; 1],
     )));
-    let addr = start_delayed_modbus_server(state, Duration::from_millis(delay_ms));
+    let peer = start_gated_modbus_server(state);
     let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
-    ))
-    .map_err(|error| format!("invalid Modbus fixture parameters: {error}"))?;
+        "address = \"{}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = {transport_timeout_ms}\non_error = \"warn\"\n", peer.addr
+    )).map_err(|error| format!("invalid Modbus fixture parameters: {error}"))?;
     let mut driver = ModbusTcpDriver::from_params(&params)
         .map_err(|error| format!("Modbus fixture setup failed: {error}"))?;
-
-    let started = Instant::now();
-    match operation {
-        "read_inputs" => driver
-            .read_inputs(&mut [0u8; 2])
-            .map_err(|error| format!("read_inputs failed: {error}"))?,
-        "write_outputs" => driver
-            .write_outputs(&[0x12, 0x34])
-            .map_err(|error| format!("write_outputs failed: {error}"))?,
-        other => return Err(format!("unreviewed I/O operation {other}")),
+    let operation = operation.to_owned();
+    let worker_operation = operation.clone();
+    let (completed_tx, completed_rx) = std::sync::mpsc::channel();
+    let scan = std::thread::spawn(move || {
+        let started = Instant::now();
+        let result = match worker_operation.as_str() {
+            "read_inputs" => driver.read_inputs(&mut [0u8; 2]),
+            "write_outputs" => driver.write_outputs(&[0x12, 0x34]),
+            _ => panic!("unreviewed I/O operation"),
+        };
+        // Retain the driver until after the peer request is observed, so Drop cannot
+        // stop a worker that has not yet been scheduled.
+        let _ = completed_tx.send((driver, result, started.elapsed()));
+    });
+    let deadline = Instant::now() + Duration::from_millis(completion_timeout_ms);
+    let received = peer.wait_for_request(deadline.saturating_duration_since(Instant::now()));
+    let completed = completed_rx.recv_timeout(deadline.saturating_duration_since(Instant::now()));
+    let scan_completed = completed.is_ok();
+    // No reply has been released on either path. Cleanup releases it even after failure.
+    let observed = match (received, completed) {
+        (Ok(()), Ok((driver, result, elapsed))) => {
+            let degraded = matches!(
+                driver.health(),
+                trust_runtime::io::IoDriverHealth::Degraded { .. }
+            );
+            probe.target = Some(serde_json::json!({
+                "operation": operation,
+                "elapsed_us": elapsed.as_micros(),
+                "returned_before_response": result.is_ok() && degraded,
+            }));
+            result.map_err(|error| error.to_string()).and_then(|()| {
+                if degraded {
+                    Ok(())
+                } else {
+                    Err("pending handoff did not report degraded health".into())
+                }
+            })
+        }
+        (Err(error), _) => Err(error),
+        (_, Err(error)) => Err(format!(
+            "scan did not return while response was withheld: {error}"
+        )),
+    };
+    drop(peer);
+    // A real internal deadlock must fail the finite assertion, not hang cleanup.
+    // Successful callbacks have already sent their result and can be joined.
+    if scan_completed {
+        let _ = scan.join();
     }
-    let elapsed = started.elapsed();
-    let passed = elapsed < Duration::from_millis(bound_ms);
-    probe.target = Some(serde_json::json!({
-        "bound_ms": bound_ms,
-        "elapsed_us": elapsed.as_micros(),
-        "operation": operation,
-        "within_bound": passed,
-    }));
     Ok(CaseExecution {
-        result: if passed {
+        result: if observed.is_ok() {
             CaseResult::Passed
         } else {
             CaseResult::Failed
         },
-        observed_error: (!passed)
-            .then(|| format!("{operation} took {elapsed:?}, exceeding the {bound_ms} ms bound")),
-        observed_status: Some(
-            if passed {
-                "scan_handoff_bounded"
-            } else {
-                "scan_handoff_blocked"
-            }
-            .to_string(),
-        ),
+        observed_error: observed.err(),
+        observed_status: Some("scan_handoff_before_protocol_response".into()),
     })
 }
 

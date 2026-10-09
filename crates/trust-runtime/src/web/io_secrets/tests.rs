@@ -3,7 +3,7 @@ use super::*;
 const IO: &str = r#"# Keep this comment
 [[io.drivers]]
 name = "mqtt"
-params = { broker = "127.0.0.1:1883", password = "secret-value", topic_in = "a", topic_out = "b" } # Keep this too
+params = { broker = "127.0.0.1:1883", username = "plant", password = "secret-value", topic_in = "a", topic_out = "b" } # Keep this too
 "#;
 
 #[test]
@@ -73,4 +73,17 @@ fn malformed_io_errors_never_echo_source_credentials() {
 #[test]
 fn valid_replacement_can_repair_malformed_storage_without_markers() {
     assert!(restore(IO, "invalid stored TOML").is_ok());
+}
+
+#[test]
+fn text_restore_rejects_redirecting_retained_password() {
+    for driver in ["mqtt", "mqtt-tcp"] {
+        let stored = IO.replace("name = \"mqtt\"", &format!("driver = \"{driver}\""));
+        let edited = redact(&stored)
+            .unwrap()
+            .replace("127.0.0.1:1883", "127.0.0.1:1884");
+        let error = restore(&edited, &stored).unwrap_err().to_string();
+        assert!(!error.contains("secret-value"));
+        assert!(restore(&edited.replace(SECRET_MARKER, "replacement"), &stored).is_ok());
+    }
 }

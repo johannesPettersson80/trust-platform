@@ -301,8 +301,20 @@ label = "Speed Final"
 "#,
     );
 
-    let (revision_after_churn, label_after_churn) =
-        wait_for_schema_revision(state.as_ref(), 1, Duration::from_secs(10));
+    // Intermediate valid/fallback descriptors may already have advanced revision 1.
+    // Wait for the final requested content, not merely any earlier watcher activity.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let (revision_after_churn, label_after_churn) = loop {
+        let current = hmi_schema_revision_and_speed_label(state.as_ref());
+        if current.0 >= 1 && current.1 == "Speed Final" {
+            break current;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "final descriptor not observed: {current:?}"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    };
     assert!(revision_after_churn >= 1);
     assert_eq!(label_after_churn, "Speed Final");
 
@@ -354,4 +366,3 @@ END_PROGRAM
         "inferred descriptor should include at least one page"
     );
 }
-

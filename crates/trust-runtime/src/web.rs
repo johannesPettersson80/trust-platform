@@ -79,6 +79,7 @@ mod request_dispatch;
 pub mod pairing {
     pub use crate::security::pairing::*;
 }
+mod io_secret_context;
 mod io_secrets;
 mod runtime_cloud_dispatch;
 mod runtime_cloud_helpers;

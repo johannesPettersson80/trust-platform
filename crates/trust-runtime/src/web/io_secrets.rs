@@ -1,6 +1,7 @@
 //! Credential-safe I/O text editing. Stored text stays private and owns revision identity.
 
 use super::{RuntimeError, SECRET_MARKER};
+use serde::{de::IntoDeserializer, Deserialize};
 use toml_edit::{DocumentMut, Item};
 
 pub(super) fn is_io_config(path: &std::path::Path) -> bool {
@@ -58,7 +59,13 @@ fn transform_io(
     let same = stored.filter(|stored| {
         io.get("driver").and_then(Item::as_str) == stored.get("driver").and_then(Item::as_str)
     });
+    let name = io
+        .get("driver")
+        .and_then(Item::as_str)
+        .unwrap_or("")
+        .to_owned();
     if let Some(params) = io.get_mut("params") {
+        check_context(&name, params, same.and_then(|io| io.get("params")), restore)?;
         transform(params, same.and_then(|io| io.get("params")), restore)?;
     }
     if let Some(drivers) = io.get_mut("drivers") {
@@ -68,7 +75,14 @@ fn transform_io(
             let same = stored
                 .and_then(|drivers| drivers.get(index))
                 .filter(|stored| driver_name(driver) == driver_name(stored));
+            let name = driver_name(driver).unwrap_or("").to_owned();
             if let Some(params) = driver.get_mut("params") {
+                check_context(
+                    &name,
+                    params,
+                    same.and_then(|driver| driver.get("params")),
+                    restore,
+                )?;
                 transform(
                     params,
                     same.and_then(|driver| driver.get("params")),
@@ -79,6 +93,26 @@ fn transform_io(
         }
     }
     Ok(())
+}
+
+fn check_context(
+    name: &str,
+    requested: &Item,
+    stored: Option<&Item>,
+    restoring: bool,
+) -> Result<(), RuntimeError> {
+    if !restoring {
+        return Ok(());
+    }
+    let value = |item: &Item| {
+        let value = item.clone().into_value().map_err(|_| invalid_io_config())?;
+        toml::Value::deserialize(value.into_deserializer()).map_err(|_| invalid_io_config())
+    };
+    super::io_secret_context::check(
+        name,
+        &value(requested)?,
+        stored.map(value).transpose()?.as_ref(),
+    )
 }
 
 fn transform(item: &mut Item, stored: Option<&Item>, restore: bool) -> Result<(), RuntimeError> {

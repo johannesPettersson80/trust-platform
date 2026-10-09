@@ -534,6 +534,14 @@ projected through the existing `IoDriverHealth` surface rather than a parallel
 status model. Output handoff is level/latest-value semantics for `%Q`, not an
 edge or pulse delivery guarantee.
 
+The native Modbus worker regression proves causal independence from a protocol
+response: a real peer receives a request, withholds its reply, and the scan call
+returns under its configured policy before that reply is released. Its finite
+harness timeout is shorter than the transport timeout, so waiting for transport
+timeout cannot satisfy the assertion. Elapsed wall time is diagnostic evidence;
+it does not certify a hard latency bound on an unqualified shared operating
+system. Target-specific timing qualification remains separate.
+
 ##### Modbus default-fault and deadline integrity
 
 The Modbus background worker uses a fixed scan-side deadline for input refresh
@@ -4479,6 +4487,20 @@ same name, so saving a configuration as it was read never erases or replaces a
 credential. A marker with no stored value to keep is refused as an invalid
 configuration, and nothing is written. A stored secret literally equal to the
 marker is still an existing value and must survive a read/save round trip.
+
+Restoration also binds a retained credential to its authentication destination.
+For `mqtt` and `mqtt-tcp`, the requested and stored configurations must have the
+same parsed broker host/port, TLS mode, CA/client-authentication material and
+trimmed TLS file paths, ALPN, username, client ID and effective
+`allow_insecure_remote` policy. The driver's parser owns defaults and validation.
+Topic, mapping and timing edits may retain the password. A changed authentication
+context requires explicit replacement credentials; a marker is refused before
+writing any file. For other drivers, any retained marker requires the complete
+submitted parameter object to equal the stored redacted projection. Comparing
+two redacted projections is insufficient, because an explicitly replaced opaque
+credential container can itself change the destination. Invalid context errors
+are generic and never echo credentials. Configuration comparison does not freeze
+external DNS or changes to certificate material at an unchanged path.
 
 The same projection and restoration apply to `/api/ide/io/config`,
 `/api/runtime-cloud/io/config`, `/api/config-ui/io/config` and generic IDE file
