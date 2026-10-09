@@ -839,3 +839,65 @@ fn timeout_message_pluralization() {
     assert_eq!(timeout_message(1), "test timed out after 1 second");
     assert_eq!(timeout_message(5), "test timed out after 5 seconds");
 }
+
+// docs/specs/07-standard-functions.md 2.10: ST tests run with the conversion rules of the
+// project's vendor_profile, as `trust-runtime run` does.
+#[test]
+fn run_test_uses_the_conversion_rules_of_the_project_vendor_profile() {
+    let project = unique_temp_dir("vendor-profile-test-project");
+    let sources = project.join("src");
+    std::fs::create_dir_all(&sources).expect("create src dir");
+    std::fs::write(
+        sources.join("tests.st"),
+        r#"
+TEST_PROGRAM RoundsHalfAwayFromZero
+ASSERT_EQUAL(INT#3, REAL_TO_INT(REAL#2.5));
+ASSERT_EQUAL(SINT#-128, DINT_TO_SINT(DINT#128));
+ASSERT_EQUAL(TRUE, BYTE_TO_BOOL(BYTE#2#1101_0100));
+END_TEST_PROGRAM
+"#,
+    )
+    .expect("write test source");
+
+    // TwinCAT is built on CODESYS: beckhoff and twincat select the CODESYS rules too
+    for vendor_profile in ["codesys", "beckhoff", "twincat"] {
+        std::fs::write(
+            project.join("trust-lsp.toml"),
+            format!("[project]\nvendor_profile = \"{vendor_profile}\"\n"),
+        )
+        .expect("write trust-lsp.toml");
+        let payload = run_test_json(Some(project.clone()), None, false, 0)
+            .expect("CODESYS-rules project tests run");
+        assert_eq!(
+            payload["summary"]["total"], 1,
+            "{vendor_profile}: {payload}"
+        );
+        assert_eq!(
+            payload["summary"]["passed"], 1,
+            "{vendor_profile}: {payload}"
+        );
+    }
+
+    std::fs::write(
+        project.join("trust-lsp.toml"),
+        "[project]\nvendor_profile = \"siemens\"\n",
+    )
+    .expect("rewrite trust-lsp.toml");
+    let payload =
+        run_test_json(Some(project.clone()), None, false, 0).expect("IEC project tests run");
+    assert_eq!(payload["summary"]["failed"], 1, "{payload}");
+
+    std::fs::write(
+        project.join("trust-lsp.toml"),
+        "[project]\nvendor_profile = \"codesis\"\n",
+    )
+    .expect("rewrite trust-lsp.toml");
+    let error =
+        run_test_json(Some(project.clone()), None, false, 0).expect_err("unknown vendor profile");
+    assert!(
+        format!("{error:#}").contains("unknown vendor_profile 'codesis'"),
+        "{error:#}"
+    );
+
+    let _ = std::fs::remove_dir_all(project);
+}

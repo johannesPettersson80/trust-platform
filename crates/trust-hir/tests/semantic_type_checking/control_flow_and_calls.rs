@@ -816,7 +816,7 @@ fn test_standard_bistable_function_block_type_error() {
         r#"
 PROGRAM Test
     VAR rs : RS; q1 : BOOL; END_VAR
-    rs(S := 1, R1 := FALSE, Q1 => q1);
+    rs(S := INT#1, R1 := FALSE, Q1 => q1);
 END_PROGRAM
 "#,
         DiagnosticCode::InvalidArgumentType,

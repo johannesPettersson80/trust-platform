@@ -158,7 +158,8 @@ fn compile_bundle_sources(
         );
     }
 
-    let session = CompileSession::from_sources(sources);
+    let session = CompileSession::from_sources(sources)
+        .with_conversion_profile(project_conversion_profile(bundle_root)?);
     let bytes = session.build_bytecode_bytes()?;
     Ok(CompiledBundleSources {
         bytes,

@@ -797,8 +797,13 @@ Configuration diagnostics use a stable `C` namespace:
 - `C003`: a configured numeric bound was outside its documented domain, or
   the throttle tuple was incoherent, and normalization fell back to a safe
   documented value or tuple;
-- `C004`: an unknown workspace visibility fell back to `public`; and
-- `C005`: a diagnostic severity override has a blank code or unknown severity and was ignored.
+- `C004`: an unknown workspace visibility fell back to `public`;
+- `C005`: a diagnostic severity override has a blank code or unknown severity and was ignored; and
+- `C006`: the `vendor_profile` is not one of `beckhoff`, `codesys`, `gxworks3`, `iec`,
+  `mitsubishi`, `siemens` or `twincat`. The server keeps its defaults for it, while the
+  tools that run the project (`trust-runtime`, `trust-dev test`, debug sessions,
+  `trust-harness --project`) refuse it because it selects the conversion rules
+  (docs/specs/07-standard-functions.md section 2.10).
 
 Configuration filename precedence is `trust-lsp.toml`, then
 `.trust-lsp.toml`, then `trustlsp.toml`. An absent file produces the documented
@@ -1038,6 +1043,23 @@ are managed by document lifecycle operations. These state-management rules are
 truST tooling behavior and do not alter IEC 61131-3 language semantics.
 
 ---
+
+#### 7.7 Command-line check (`trust-lsp check`)
+
+`trust-lsp check [--project DIR] [--format text|json] [--file PATH]... [--deny-warnings]`
+runs without an LSP client. It loads `DIR` as a workspace folder exactly as
+`initialize`/`initialized` do (`ProjectConfig::load`, `index_workspace`) and reports, per
+indexed file, the result of the same `collect_diagnostics_with_ticket` path that answers
+`textDocument/diagnostic`, so CI output and editor diagnostics agree. Text output is
+`path:line:column: severity[code]: message` (one-based; columns in UTF-16 code units as in
+LSP), sorted by path and position, with a summary on stderr. `path` is relative to `DIR`
+and written as the platform writes paths (`src\Main.st` on Windows). JSON output is one
+object: `version`, `project`, `files`, `errors`, `warnings`, `diagnostics[]` (`path`,
+`line`, `column`, `endLine`, `endColumn`, `severity`, `code`, `message`). A `--file` that
+is not one of the project's indexed source files, or a project without source files, is a
+usage error: nothing is checked and the command names the file or directory. Exit status
+`0` without errors, `1` with errors (or warnings under `--deny-warnings`), `2` on usage or
+I/O errors.
 
 ### 8. Runtime & Debugger
 

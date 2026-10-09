@@ -166,3 +166,60 @@ END_PROGRAM
 "#,
     );
 }
+
+#[test]
+fn expression_operator_accepts_contextual_untyped_integer_bit_string_assignment() {
+    check_no_errors("PROGRAM P\nVAR b : BYTE; w : WORD; d : DWORD; l : LWORD; END_VAR\nb := 16#FF; b := 255; w := 16#FFFF; d := 16#FFFF_FFFF; l := 0;\nEND_PROGRAM");
+}
+
+#[test]
+fn expression_operator_accepts_contextual_untyped_integer_bit_string_operands() {
+    check_no_errors("PROGRAM P\nVAR d : DWORD; b : BYTE; r : BOOL; END_VAR\nd := d AND 1; d := 16#80 OR d; b := b XOR 16#0F; r := d = 0; r := 16#FF <> b;\nEND_PROGRAM");
+}
+
+#[test]
+fn expression_operator_accepts_contextual_untyped_integer_bit_string_case_and_return() {
+    check_no_errors("FUNCTION F : WORD\nVAR_INPUT b : BYTE; END_VAR\nCASE b OF 0: F := 1; 16#FF: RETURN 16#FFFF; END_CASE\nEND_FUNCTION");
+}
+
+#[test]
+fn expression_operator_accepts_integer_literals_zero_and_one_as_bool() {
+    // IEC 61131-3 Ed.3 6.3.2 and Table 5 features 7 and 9: "Boolean data shall be
+    // represented by integer literals with the value zero (0) or one (1), or the keywords
+    // FALSE or TRUE".
+    let source = r#"
+FUNCTION Pass : BOOL
+VAR_INPUT
+    flag : BOOL;
+END_VAR
+Pass := 1;
+Pass := flag;
+END_FUNCTION
+
+TYPE Flags :
+STRUCT
+    active : BOOL := 1;
+    inactive : BOOL := 0;
+END_STRUCT
+END_TYPE
+
+PROGRAM P
+VAR
+    x : BOOL;
+    same : BOOL;
+    list : ARRAY[1..2] OF BOOL := [1, 0];
+    typed : BOOL := BOOL#1;
+END_VAR
+x := 1;
+x := 0;
+x := BOOL#1;
+same := x = 1;
+same := 0 <> x;
+x := x AND 1;
+x := Pass(flag := 1);
+END_PROGRAM
+"#;
+    let parse = trust_syntax::parser::parse(source);
+    assert!(parse.ok(), "{:?}", parse.errors());
+    check_no_errors(source);
+}

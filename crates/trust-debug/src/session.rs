@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use glob::glob;
 
 use trust_hir::{db::FileId, SourceKey, SourceRegistry};
+use trust_runtime::bundle_builder::{find_project_manifest, project_conversion_profile};
 use trust_runtime::config::IoConfig;
 use trust_runtime::control::SourceFile as ControlSourceFile;
 use trust_runtime::debug::{DebugBreakpoint, DebugControl, HitCondition, LogFragment};
@@ -16,6 +17,7 @@ use trust_runtime::harness::{
 use trust_runtime::io::IoDriverRegistry;
 use trust_runtime::scheduler::SimulationSpeed;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
+use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::{Runtime, RuntimeMetadata};
 
 use crate::protocol::{
@@ -241,7 +243,8 @@ impl DebugSession {
             .iter()
             .map(|(path, text)| HarnessSourceFile::with_path(path.clone(), text.clone()))
             .collect::<Vec<_>>();
-        let compile = CompileSession::from_sources(source_files);
+        let profile = project_conversion_profile_for(&path, &self.source_options)?;
+        let compile = CompileSession::from_sources(source_files).with_conversion_profile(profile);
         let mut runtime = compile.build_runtime()?;
         let physical_io = apply_project_io_config(&mut runtime, &path, &self.source_options)?;
         apply_project_ads_config(&mut runtime, &path, &self.source_options)?;

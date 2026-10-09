@@ -22,6 +22,17 @@ pub(super) struct DeferredInitializer {
     list: SyntaxNode,
 }
 
+/// The `ConfigInit` nodes (VAR_CONFIG entries) of `roots`, in root and document order.
+pub(crate) fn config_inits_of(roots: &[SyntaxNode]) -> Vec<SyntaxNode> {
+    roots
+        .iter()
+        .flat_map(|root| {
+            root.descendants()
+                .filter(|n| n.kind() == SyntaxKind::ConfigInit)
+        })
+        .collect()
+}
+
 pub(super) struct SymbolCollector<'a> {
     table: SymbolTable,
     diagnostics: DiagnosticBuilder,
@@ -113,10 +124,13 @@ impl<'a> SymbolCollector<'a> {
         self.collect(root)
     }
 
+    /// `config_inits`: the project's `ConfigInit` nodes in project order (`config_inits_of`
+    /// over the project's configuration roots); `deferred`: the initialisers that
+    /// `collect_for_project_with_constants` left to the check after the merge.
     pub(crate) fn validate_project_after_merge(
         table: SymbolTable,
         root: &SyntaxNode,
-        project_roots: &[SyntaxNode],
+        config_inits: &[SyntaxNode],
         deferred: Vec<DeferredInitializer>,
     ) -> (SymbolTable, Vec<Diagnostic>) {
         let mut collector = Self::build(None);
@@ -126,7 +140,7 @@ impl<'a> SymbolCollector<'a> {
         }
         collector.check_variable_initializer_constant_expressions(root);
         collector.phase_access_and_config(root);
-        collector.phase_var_validation_with_config_roots(root, project_roots);
+        collector.phase_var_validation_with_config_inits(root, config_inits);
         (collector.table, collector.diagnostics.finish())
     }
 
@@ -153,13 +167,16 @@ impl<'a> SymbolCollector<'a> {
     }
 
     fn phase_var_validation(&mut self, root: &SyntaxNode) {
-        self.phase_var_validation_with_config_roots(root, std::slice::from_ref(root));
+        self.phase_var_validation_with_config_inits(
+            root,
+            &config_inits_of(std::slice::from_ref(root)),
+        );
     }
 
-    fn phase_var_validation_with_config_roots(
+    fn phase_var_validation_with_config_inits(
         &mut self,
         root: &SyntaxNode,
-        config_roots: &[SyntaxNode],
+        config_inits: &[SyntaxNode],
     ) {
         self.check_var_block_modifiers(root);
         self.check_edge_declarations(root);
@@ -167,7 +184,7 @@ impl<'a> SymbolCollector<'a> {
         self.check_member_access_declarations(root);
         self.check_overlap_variable_initializers(root);
         self.check_by_value_type_cycles();
-        self.check_at_bindings(config_roots);
+        self.check_at_bindings(config_inits);
     }
 
     fn phase_constants(&mut self) {

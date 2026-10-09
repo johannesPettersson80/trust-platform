@@ -11,7 +11,9 @@ use anyhow::Context;
 use serde_json::{json, Value as JsonValue};
 use smol_str::SmolStr;
 use trust_runtime::bundle::detect_bundle_path;
-use trust_runtime::bundle_builder::{collect_project_source_files, resolve_sources_root};
+use trust_runtime::bundle_builder::{
+    collect_project_source_files, project_conversion_profile, resolve_sources_root,
+};
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::CompileSession;
 use trust_runtime::Runtime;
@@ -162,8 +164,10 @@ fn compile_test_runtime(project_root: &Path, tests: &[DiscoveredTest]) -> anyhow
         .filter(|case| matches!(case.kind, TestKind::Program))
         .map(|case| case.name.clone())
         .collect::<BTreeSet<_>>();
+    // the conversion rules of the project's vendor_profile, as `trust-runtime run` uses them
     let session = CompileSession::from_sources(compile_sources)
-        .with_extra_program_instances(extra_program_instances);
+        .with_extra_program_instances(extra_program_instances)
+        .with_conversion_profile(project_conversion_profile(project_root)?);
     let mut runtime = session.build_runtime()?;
     let bytecode = session.build_bytecode_bytes()?;
     runtime

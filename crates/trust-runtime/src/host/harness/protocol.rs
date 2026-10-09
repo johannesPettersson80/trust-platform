@@ -23,6 +23,7 @@ const MAX_DURATION_MILLIS: i64 = i64::MAX / 1_000_000;
 #[derive(Default)]
 pub struct HarnessAutomation {
     harness: Option<TestHarness>,
+    conversion_profile: crate::stdlib::conversions::ConversionProfile,
 }
 
 /// Basic harness state summary.
@@ -119,6 +120,14 @@ impl HarnessAutomation {
         Self::default()
     }
 
+    /// Use the given conversion rules for the following loads and reloads.
+    pub fn set_conversion_profile(
+        &mut self,
+        profile: crate::stdlib::conversions::ConversionProfile,
+    ) {
+        self.conversion_profile = profile;
+    }
+
     /// Return whether a harness is currently loaded.
     #[must_use]
     pub fn is_loaded(&self) -> bool {
@@ -131,7 +140,15 @@ impl HarnessAutomation {
         source_texts: &[String],
     ) -> Result<HarnessLoadSummary, HarnessAutomationError> {
         let source_refs = validate_sources(source_texts)?;
-        let mut harness = TestHarness::from_sources(&source_refs)
+        let session = super::CompileSession::from_sources(
+            source_refs
+                .iter()
+                .copied()
+                .map(super::SourceFile::new)
+                .collect(),
+        )
+        .with_conversion_profile(self.conversion_profile);
+        let mut harness = TestHarness::from_session(session)
             .map_err(|error| HarnessAutomationError::Compile(error.to_string()))?;
         let cycle = harness.cycle();
         if !cycle.errors.is_empty() {

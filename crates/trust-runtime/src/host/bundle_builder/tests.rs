@@ -352,3 +352,113 @@ fn resolve_sources_root_rejects_legacy_sources_directory() {
 
     fs::remove_dir_all(root).ok();
 }
+
+// docs/specs/07-standard-functions.md 2.10: a project selects its conversion rules with the
+// manifest's `vendor_profile`, read from the same file names as the language server.
+#[test]
+fn project_conversion_profile_follows_the_manifest_vendor_profile() {
+    use crate::stdlib::conversions::ConversionProfile;
+
+    let root = temp_dir("trust-runtime-vendor-profile");
+    assert_eq!(
+        project_conversion_profile(&root).expect("no manifest"),
+        ConversionProfile::Iec
+    );
+    for (file, contents, expected) in [
+        (
+            "trust-lsp.toml",
+            "[project]\nvendor_profile = \"codesys\"\n",
+            ConversionProfile::Codesys,
+        ),
+        (
+            ".trust-lsp.toml",
+            "[project]\nvendor_profile = \" CoDeSys \"\ninclude_paths = [\"src\"]\n",
+            ConversionProfile::Codesys,
+        ),
+        (
+            "trustlsp.toml",
+            "[project]\nvendor_profile = \"siemens\"\n",
+            ConversionProfile::Iec,
+        ),
+        (
+            "trust-lsp.toml",
+            "[project]\nvendor_profile = \"beckhoff\"\n",
+            ConversionProfile::Codesys,
+        ),
+        (
+            "trust-lsp.toml",
+            "[project]\nvendor_profile = \"TwinCAT\"\n",
+            ConversionProfile::Codesys,
+        ),
+        (
+            "trust-lsp.toml",
+            "[project]\nvendor_profile = \"gxworks3\"\n",
+            ConversionProfile::Iec,
+        ),
+        (
+            "trust-lsp.toml",
+            "[project]\ninclude_paths = [\"src\"]\n",
+            ConversionProfile::Iec,
+        ),
+        (
+            "trust-lsp.toml",
+            "[project]\nvendor_profile = \"  \"\n",
+            ConversionProfile::Iec,
+        ),
+    ] {
+        for name in DEPENDENCY_MANIFEST_FILES {
+            let _ = fs::remove_file(root.join(name));
+        }
+        write_file(&root.join(file), contents);
+        assert_eq!(
+            project_conversion_profile(&root).expect("valid manifest"),
+            expected,
+            "{file}: {contents}"
+        );
+    }
+
+    for name in DEPENDENCY_MANIFEST_FILES {
+        let _ = fs::remove_file(root.join(name));
+    }
+    write_file(
+        &root.join("trust-lsp.toml"),
+        "[project]\nvendor_profile = \"codesis\"\n",
+    );
+    let error = project_conversion_profile(&root)
+        .expect_err("unknown vendor profile")
+        .to_string();
+    assert!(
+        error.starts_with("unknown vendor_profile 'codesis' in ")
+            && error.ends_with(
+                "trust-lsp.toml (supported: beckhoff, codesys, gxworks3, iec, mitsubishi, siemens, twincat)"
+            ),
+        "{error}"
+    );
+    assert_eq!(
+        find_project_manifest(&root),
+        Some(root.join("trust-lsp.toml"))
+    );
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn bundle_build_and_check_refuse_an_unknown_vendor_profile() {
+    let root = temp_dir("trust-runtime-vendor-profile-build");
+    write_file(&root.join("src/main.st"), "PROGRAM Main\nEND_PROGRAM\n");
+    write_file(
+        &root.join("trust-lsp.toml"),
+        "[project]\nvendor_profile = \"codesys\"\n",
+    );
+    check_program_stbc(&root, None).expect("codesys project checks");
+    write_file(
+        &root.join("trust-lsp.toml"),
+        "[project]\nvendor_profile = \"codesis\"\n",
+    );
+    let error = check_program_stbc(&root, None)
+        .expect_err("unknown vendor profile")
+        .to_string();
+    assert!(error.contains("unknown vendor_profile 'codesis'"), "{error}");
+    assert!(build_program_stbc(&root, None).is_err());
+    assert!(!root.join("program.stbc").exists());
+    let _ = fs::remove_dir_all(root);
+}

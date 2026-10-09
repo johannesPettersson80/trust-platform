@@ -318,6 +318,59 @@ END_PROGRAM
         assert_eq!(updated[0].line, Some(6));
     }
 
+    // docs/specs/07-standard-functions.md 2.10: a debug session runs the program with the
+    // conversion rules of its project's vendor_profile, as `trust-runtime run` does.
+    #[test]
+    fn session_reload_uses_the_conversion_rules_of_the_project_vendor_profile() {
+        use trust_runtime::stdlib::conversions::ConversionProfile;
+
+        let root = temp_project_root("vendor_profile");
+        let path = root.join("main.st");
+        std::fs::write(&path, "PROGRAM Main\nVAR\n    x : INT;\nEND_VAR\nx := INT#1;\nEND_PROGRAM\n")
+            .unwrap();
+        let profile_after_reload = |vendor_profile: &str| {
+            std::fs::write(
+                root.join("trust-lsp.toml"),
+                format!("[project]\nvendor_profile = \"{vendor_profile}\"\n"),
+            )
+            .unwrap();
+            let mut session = DebugSession::new(Runtime::new());
+            session
+                .reload_program(Some(path.to_string_lossy().as_ref()))
+                .map(|_| {
+                    session
+                        .runtime_handle()
+                        .lock()
+                        .unwrap()
+                        .stdlib()
+                        .conversion_profile()
+                })
+        };
+
+        assert_eq!(
+            profile_after_reload("codesys").unwrap(),
+            ConversionProfile::Codesys
+        );
+        assert_eq!(
+            profile_after_reload("twincat").unwrap(),
+            ConversionProfile::Codesys
+        );
+        assert_eq!(
+            profile_after_reload("beckhoff").unwrap(),
+            ConversionProfile::Codesys
+        );
+        assert_eq!(
+            profile_after_reload("mitsubishi").unwrap(),
+            ConversionProfile::Iec
+        );
+        let error = profile_after_reload("codesis").unwrap_err();
+        assert!(
+            error.to_string().contains("unknown vendor_profile 'codesis'"),
+            "{error}"
+        );
+        let _ = std::fs::remove_dir_all(root);
+    }
+
     #[test]
     fn session_reload_clears_breakpoints_without_requests() {
         let path = temp_source_path("reload_clear");

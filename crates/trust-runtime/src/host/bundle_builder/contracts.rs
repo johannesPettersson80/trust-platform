@@ -73,6 +73,15 @@ struct DependencyManifestFile {
     package: PackageSection,
     #[serde(default)]
     dependencies: BTreeMap<String, ManifestDependencyEntry>,
+    #[serde(default)]
+    project: ManifestProjectSection,
+}
+
+/// The `[project]` keys of the manifest that the runtime reads (the language server reads
+/// the others).
+#[derive(Debug, Default, Deserialize)]
+struct ManifestProjectSection {
+    vendor_profile: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]

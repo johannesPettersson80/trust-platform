@@ -426,3 +426,43 @@ END_PROGRAM
     let _ = std::fs::remove_dir_all(valid_project);
     let _ = std::fs::remove_dir_all(invalid_project);
 }
+
+// docs/specs/07-standard-functions.md 2.10: the project's vendor_profile selects its
+// conversion rules, so a name that is not a vendor profile fails the check instead of
+// running the project under other rules than intended.
+#[test]
+fn check_reports_an_unknown_vendor_profile() {
+    let project = unique_temp_dir("check-vendor-profile");
+    write_project_fixture(&project, "PROGRAM Main\nEND_PROGRAM\n");
+    std::fs::write(
+        project.join("trust-lsp.toml"),
+        "[project]\nvendor_profile = \"codesys\"\n",
+    )
+    .expect("write trust-lsp.toml");
+    let output = run_check(&project);
+    assert!(
+        output.status.success(),
+        "codesys is a vendor profile: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+
+    std::fs::write(
+        project.join("trust-lsp.toml"),
+        "[project]\nvendor_profile = \"codesis\"\n",
+    )
+    .expect("write trust-lsp.toml");
+    let output = run_check(&project);
+    assert_eq!(output.status.code(), Some(11));
+    let payload = json_stdout(&output);
+    assert_eq!(payload["ok"], false);
+    assert_eq!(payload["issues"][0]["code"], "compile");
+    let message = payload["issues"][0]["message"].as_str().unwrap_or_default();
+    assert!(
+        message.contains("unknown vendor_profile 'codesis'")
+            && message.contains(
+                "supported: beckhoff, codesys, gxworks3, iec, mitsubishi, siemens, twincat"
+            ),
+        "{message}"
+    );
+    let _ = std::fs::remove_dir_all(project);
+}

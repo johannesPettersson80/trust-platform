@@ -1,6 +1,8 @@
 use super::*;
 use crate::db::diagnostics::is_expression_kind;
-use crate::db::queries::collector::const_utils::{scope_chain_for_node, ConstEvalError};
+use crate::db::queries::collector::const_utils::{
+    parse_int_literal, scope_chain_for_node, ConstEvalError,
+};
 use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
 
 impl SymbolCollector<'_> {
@@ -550,7 +552,9 @@ impl SymbolCollector<'_> {
             return;
         };
         match target {
-            Type::Bool if self.literal_is_integer(expr) => {
+            Type::Bool
+                if self.literal_is_integer(expr) && !self.literal_is_boolean_integer(expr) =>
+            {
                 self.diagnostics.error(
                     DiagnosticCode::TypeMismatch,
                     expr.text_range(),
@@ -582,6 +586,40 @@ impl SymbolCollector<'_> {
                 .descendants_with_tokens()
                 .filter_map(|element| element.into_token())
                 .any(|token| token.kind() == SyntaxKind::IntLiteral)
+    }
+
+    /// IEC 61131-3 Ed.3 6.3.2 and Table 5 features 7 and 9: the integer literals 0 and 1,
+    /// untyped or with the `BOOL#` prefix, represent Boolean data.
+    fn literal_is_boolean_integer(&self, expr: &SyntaxNode) -> bool {
+        if expr.kind() != SyntaxKind::Literal {
+            return false;
+        }
+        let mut value = None;
+        let mut negative = false;
+        for token in expr
+            .descendants_with_tokens()
+            .filter_map(|element| element.into_token())
+        {
+            match token.kind() {
+                SyntaxKind::TypedLiteralPrefix
+                    if !token
+                        .text()
+                        .trim_end_matches('#')
+                        .eq_ignore_ascii_case("BOOL") =>
+                {
+                    return false;
+                }
+                SyntaxKind::Minus => negative = true,
+                SyntaxKind::IntLiteral => value = parse_int_literal(token.text()),
+                _ => {}
+            }
+        }
+        let value = if negative {
+            value.map(|value| -value)
+        } else {
+            value
+        };
+        matches!(value, Some(0 | 1))
     }
 
     fn literal_is_null(&self, expr: &SyntaxNode) -> bool {

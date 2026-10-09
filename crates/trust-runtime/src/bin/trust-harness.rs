@@ -6,10 +6,12 @@ use std::io::{self, BufRead, Write};
 use anyhow::{anyhow, Context};
 use serde::Deserialize;
 use serde_json::{json, Map, Value as JsonValue};
+use trust_runtime::bundle_builder::project_conversion_profile;
 use trust_runtime::harness::{
     decode_json_value, encode_json_value, BoundaryEntry, BoundaryError, HarnessAutomation,
     HarnessAutomationError,
 };
+use trust_runtime::stdlib::conversions::{ConversionProfile, VENDOR_PROFILES};
 use trust_runtime::RestartMode;
 
 #[derive(Debug, Deserialize)]
@@ -27,6 +29,7 @@ struct Request {
     max_cycles: Option<u64>,
     address: Option<String>,
     mode: Option<String>,
+    vendor_profile: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -45,7 +48,17 @@ impl ProtocolVersion {
 }
 
 fn main() -> anyhow::Result<()> {
-    let protocol = parse_protocol_version()?;
+    let options = parse_command_line()?;
+    let protocol = options.protocol;
+    // `--project DIR`: the conversion rules of that project's vendor_profile, for every
+    // load that does not name its own
+    let default_profile = match &options.project {
+        Some(project) if !project.is_dir() => {
+            return Err(anyhow!("project folder not found: {}", project.display()));
+        }
+        Some(project) => project_conversion_profile(project)?,
+        None => ConversionProfile::Iec,
+    };
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut out = stdout.lock();
@@ -58,7 +71,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         let response = match serde_json::from_str::<Request>(&line) {
-            Ok(request) => handle_request(request, &mut harness, protocol),
+            Ok(request) => handle_request(request, &mut harness, protocol, default_profile),
             Err(err) => with_protocol(
                 error_response("invalid_request", format!("invalid request: {err}"), None),
                 protocol,
@@ -76,8 +89,9 @@ fn handle_request(
     request: Request,
     harness: &mut HarnessAutomation,
     protocol: ProtocolVersion,
+    default_profile: ConversionProfile,
 ) -> JsonValue {
-    let response = match dispatch_request(request, harness, protocol) {
+    let response = match dispatch_request(request, harness, protocol, default_profile) {
         Ok(data) => json!({
             "ok": true,
             "protocol_version": protocol.number(),
@@ -95,9 +109,10 @@ fn dispatch_request(
     request: Request,
     harness: &mut HarnessAutomation,
     protocol: ProtocolVersion,
+    default_profile: ConversionProfile,
 ) -> anyhow::Result<JsonValue> {
     match request.cmd.as_str() {
-        "load" => handle_load(request, harness),
+        "load" => handle_load(request, harness, default_profile),
         "reload" => handle_reload(request, harness),
         "cycle" => handle_cycle(request, harness, protocol),
         "set_input" => handle_set_input(request, harness),
@@ -115,7 +130,23 @@ fn dispatch_request(
     }
 }
 
-fn handle_load(request: Request, harness: &mut HarnessAutomation) -> anyhow::Result<JsonValue> {
+fn handle_load(
+    request: Request,
+    harness: &mut HarnessAutomation,
+    default_profile: ConversionProfile,
+) -> anyhow::Result<JsonValue> {
+    // each load chooses its conversion rules; without the field, those of the `--project`
+    // given at startup, or else the IEC rules
+    let profile = match request.vendor_profile.as_deref() {
+        None => default_profile,
+        Some(name) => ConversionProfile::from_vendor_profile(name).ok_or_else(|| {
+            anyhow::Error::from(HarnessAutomationError::InvalidArgument(format!(
+                "unknown vendor_profile '{name}' (supported: {})",
+                VENDOR_PROFILES.join(", ")
+            )))
+        })?,
+    };
+    harness.set_conversion_profile(profile);
     let summary = harness
         .load_sources(&source_list(&request)?)
         .map_err(anyhow::Error::from)?;
@@ -375,27 +406,47 @@ fn parse_restart_mode(mode: &str) -> anyhow::Result<RestartMode> {
     }
 }
 
-fn parse_protocol_version() -> anyhow::Result<ProtocolVersion> {
+struct CommandLine {
+    protocol: ProtocolVersion,
+    project: Option<std::path::PathBuf>,
+}
+
+fn parse_command_line() -> anyhow::Result<CommandLine> {
     let mut value = env::var("TRUST_HARNESS_PROTOCOL_VERSION").ok();
-    let mut args = env::args().skip(1);
+    let mut project = None;
+    let mut args = env::args_os().skip(1);
     while let Some(arg) = args.next() {
+        if arg == "--project" {
+            let folder = args
+                .next()
+                .ok_or_else(|| anyhow!("--project requires a project folder"))?;
+            project = Some(std::path::PathBuf::from(folder));
+            continue;
+        }
+        let arg = arg
+            .into_string()
+            .map_err(|arg| anyhow!("unsupported argument '{}'", arg.to_string_lossy()))?;
         if arg == "--protocol-version" {
             value = Some(
                 args.next()
+                    .and_then(|value| value.into_string().ok())
                     .ok_or_else(|| anyhow!("--protocol-version requires 1 or 2"))?,
             );
         } else if let Some(version) = arg.strip_prefix("--protocol-version=") {
             value = Some(version.to_string());
+        } else if let Some(folder) = arg.strip_prefix("--project=") {
+            project = Some(std::path::PathBuf::from(folder));
         } else {
             return Err(anyhow!("unsupported argument '{arg}'"));
         }
     }
 
-    match value.as_deref().unwrap_or("2") {
-        "1" => Ok(ProtocolVersion::V1),
-        "2" => Ok(ProtocolVersion::V2),
-        other => Err(anyhow!("unsupported protocol version '{other}'")),
-    }
+    let protocol = match value.as_deref().unwrap_or("2") {
+        "1" => ProtocolVersion::V1,
+        "2" => ProtocolVersion::V2,
+        other => return Err(anyhow!("unsupported protocol version '{other}'")),
+    };
+    Ok(CommandLine { protocol, project })
 }
 
 fn encode_watch_values(

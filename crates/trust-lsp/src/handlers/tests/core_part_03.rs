@@ -388,6 +388,68 @@ W999 = "fatal"
 }
 
 #[test]
+pub(super) fn lsp_config_diagnostics_report_unknown_vendor_profile() {
+    let state = ServerState::new();
+    let root_uri = tower_lsp::lsp_types::Url::parse("file:///workspace/").unwrap();
+    state.set_workspace_folders(vec![root_uri]);
+    let uri = tower_lsp::lsp_types::Url::parse("file:///workspace/trust-lsp.toml").unwrap();
+    let vendor_profile_issues = |config: &str| {
+        state.open_document(uri.clone(), 1, config.to_string());
+        let params = tower_lsp::lsp_types::DocumentDiagnosticParams {
+            text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri: uri.clone() },
+            identifier: None,
+            previous_result_id: None,
+            work_done_progress_params: Default::default(),
+            partial_result_params: Default::default(),
+        };
+        let tower_lsp::lsp_types::DocumentDiagnosticReportResult::Report(
+            tower_lsp::lsp_types::DocumentDiagnosticReport::Full(full),
+        ) = document_diagnostic(&state, params)
+        else {
+            panic!("expected full diagnostic report");
+        };
+        full.full_document_diagnostic_report
+            .items
+            .into_iter()
+            .filter(|diagnostic| {
+                matches!(
+                    diagnostic.code.as_ref(),
+                    Some(tower_lsp::lsp_types::NumberOrString::String(code)) if code == "C006"
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+
+    for accepted in ["codesys", " TwinCAT ", "siemens", "iec"] {
+        let issues =
+            vendor_profile_issues(&format!("[project]\nvendor_profile = \"{accepted}\"\n"));
+        assert!(issues.is_empty(), "{accepted}: {issues:?}");
+    }
+
+    let config = "[project]\nvendor_profile = \"codesis\"\n";
+    let issues = vendor_profile_issues(config);
+    assert_eq!(issues.len(), 1, "{issues:?}");
+    assert_eq!(
+        issues[0].severity,
+        Some(tower_lsp::lsp_types::DiagnosticSeverity::WARNING)
+    );
+    assert!(
+        issues[0]
+            .message
+            .starts_with("unknown vendor_profile 'codesis' (supported: beckhoff, codesys,"),
+        "{issues:?}"
+    );
+    let line = config
+        .lines()
+        .nth(issues[0].range.start.line as usize)
+        .expect("diagnostic line");
+    assert_eq!(
+        &line[issues[0].range.start.character as usize..issues[0].range.end.character as usize],
+        "codesis"
+    );
+}
+
+#[test]
 pub(super) fn lsp_config_diagnostics_report_upper_eviction_bound_normalization() {
     let config = r#"
 [indexing]

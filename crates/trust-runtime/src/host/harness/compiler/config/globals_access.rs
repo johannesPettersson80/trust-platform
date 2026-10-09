@@ -15,7 +15,7 @@ fn lower_global_var_block(
             .initializer
             .as_ref()
             .map(|expr| {
-                lower_expr(expr, ctx).and_then(|lowered| {
+                lower_initializer_expr(expr, ctx, type_id).and_then(|lowered| {
                     resolve_initializer_enum_variant(expr, lowered, type_id, ctx)
                 })
             })
@@ -147,7 +147,7 @@ fn lower_var_config_block(
         let initializer = config_init
             .children()
             .find(|child| is_expression_kind(child.kind()))
-            .map(|expr| lower_expr(&expr, ctx))
+            .map(|expr| lower_initializer_expr(&expr, ctx, type_id))
             .transpose()?;
         let address = config_init_address(&config_init)?;
         inits.push(ConfigInit {

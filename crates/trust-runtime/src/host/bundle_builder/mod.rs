@@ -11,6 +11,7 @@ use crate::harness::{CompileSession, SourceFile};
 include!("contracts.rs");
 include!("build.rs");
 include!("deps.rs");
+include!("profile.rs");
 
 #[cfg(test)]
 mod tests {

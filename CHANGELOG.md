@@ -790,6 +790,67 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   array elements; a value whose program stops scanning or whose connection drops turns stale with its age. The page
   data and the stream need the Viewer role. The HMI ships the Inter font (SIL Open Font License).
 
+- CODESYS conversion profile (docs/specs/07-standard-functions.md 2.10): a project whose
+  `trust-lsp.toml` sets `vendor_profile` to `codesys`, `beckhoff` or `twincat` (TwinCAT is
+  built on CODESYS) runs its conversion functions with the CODESYS rules: they round half away from zero, keep the low-order bits of the target width
+  instead of an overflow, convert REAL/LREAL to and from DWORD/LWORD as numbers, and make a
+  bit string `TRUE` when it is not zero. `trust-runtime build`/`check`/`run`, `trust-dev
+  test`, debug sessions and `trust-harness --project DIR` follow the project's setting; a
+  `trust-harness` `load` may name its own `"vendor_profile"`, and the Rust API has
+  `CompileSession::with_conversion_profile` and `TestHarness::from_session`. `siemens`,
+  `mitsubishi` and `gxworks3` keep the IEC rules, which stay the default. Projects that
+  already set one of the three CODESYS-family profiles for editing now also run with these
+  rules. An unknown
+  `vendor_profile` is refused by these tools and reported by the language server as `C006`.
+  The CODESYS rules that conflict with IEC 61131-3 are recorded as DEV-023 to DEV-025.
+- Vendor-extension conversions used by CODESYS and TwinCAT projects compile and run
+  (docs/specs/07-standard-functions.md 2.9): `REAL/LREAL_TO_BYTE/WORD/LWORD`,
+  `LREAL_TO_DWORD` (numeric, like `REAL_TO_<unsigned>` of the width), `<number>_TO_BOOL`
+  and `TO_BOOL` of a number (value <> 0), `BOOL_TO_REAL/LREAL`. They were rejected with
+  "cannot convert 'REAL' to 'BYTE'". The IEC conversions are unchanged.
+- `BYTE_TO_BOOL`, `WORD_TO_BOOL`, `DWORD_TO_BOOL` and `LWORD_TO_BOOL` (and `TO_BOOL` of a
+  bit string) are available and transfer the rightmost bit, as IEC 61131-3 Table 24
+  specifies: `BYTE_TO_BOOL(16#80) = FALSE`, `BYTE_TO_BOOL(16#81) = TRUE`.
+- Runtime CASE ranges (`1..5:`) match unsigned integer and bit-string selectors.
+  Range bounds were compared as `LINT`, so a `USINT`, `UDINT`, `BYTE` or `WORD`
+  selector aborted the cycle with `TypeMismatch` (bytecode VM) or
+  `CaseSelectorType` (interpreter). Bounds are now constants of the selector type.
+  A character string label keeps its full text: it is not cut to the length of a
+  `STRING[n]`/`WSTRING[n]` selector, so a longer label never matches.
+- Project-import name collisions (`duplicate imported declaration`) are reported
+  at a declaration in the file itself, or else at the first reference to the name
+  in that file. They were reported in every project file at the offset of the
+  declaring file, so one duplicate showed up once per file at unrelated text.
+  A global or POU that reuses the name of a standard function block (`TON`,
+  `R_TRIG`, ...) is reported at its own declaration and at the uses of the name in
+  other files, with a message naming the standard function block, instead of at the
+  start of every other file and with a "previously declared here" link to nowhere.
+- Untyped integer literals are contextualized to bit-string targets: `b := 16#FF`,
+  `w := 65535`, `d AND 1`, `d = 0` and `CASE b OF 16#FF:` are accepted for
+  `BYTE`/`WORD`/`DWORD`/`LWORD` when the value is representable, as they already
+  were for integer targets and bit-string initializers. The runtime gives such a literal
+  the full range of its target, also in declarations and array and structure initializers,
+  so `d := 16#FFFF_FFFF` and `d : DWORD := 16#FFFF_FFFF` no longer fail to compile with
+  "integer literal out of range". Runtime CASE labels are evaluated in the selector type,
+  so an untyped label matches a bit-string selector.
+- The integer literals `0` and `1` are Boolean values where a `BOOL` is expected, as IEC
+  61131-3 §6.3.2 specifies: `x := 1`, `F(flag := 1)`, `x = 1`, `x AND 1`, a structure or
+  array default such as `active : BOOL := 1` and `BOOL#1` are accepted and run, while
+  `x := 2`, `x := INT#1` and `x := 1 + 0` stay errors.
+- `trust-lsp check [--project DIR] [--format text|json] [--file PATH]... [--deny-warnings]` prints the diagnostics the
+  editor shows for every source file of a project, without an LSP client (docs/specs/14-lsp.md §7.7): the project is
+  loaded from `trust-lsp.toml` exactly as the language server loads a workspace folder, paths are relative to the
+  project in the platform's form, and the exit status is 0 without errors, 1 with errors (or warnings under
+  `--deny-warnings`) and 2 for a usage or I/O problem, including a `--file` that is not one of the project's source
+  files.
+- Editor and project diagnostics are faster on large projects: a file's analysis no longer rescans every project
+  file for global constants and `VAR_CONFIG` entries, reuses the project symbol merge it already computed, and imports
+  other files' symbols without re-indexing the whole table per import (measured on a 400-file project: diagnostics after
+  an edit in 0.14 s instead of 1.8 s). The reported diagnostics are the same; symbol-table walks now run in declaration
+  order, so lists built from them, such as unused-symbol warnings, quick fixes and the runtime web IDE's symbol
+  search, follow the declaration order, and the errors for incomplete addresses without a `VAR_CONFIG` mapping are
+  listed in declaration order (they followed hash order). `scripts/perf/project_scaling.py` measures project-size
+  scaling over LSP.
 - Control course: all 89 lessons follow the lesson template and the lesson map (`docs/specs/control-course-lesson-template.md`,
   `docs/specs/control-course-lesson-map.md`). Each lesson starts from the previous lesson's result and explains its new
   idea in four steps: a plain definition, what it means in words (with a comparison a PLC engineer knows), the formula

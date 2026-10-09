@@ -108,14 +108,17 @@ pub(crate) fn exec_stmt(
                             _ => return Err(RuntimeError::CaseSelectorType),
                         },
                         CaseLabel::Range(lower, upper) => {
-                            let selector_int = match &selector_value {
-                                Value::SInt(v) => *v as i64,
-                                Value::Int(v) => *v as i64,
-                                Value::DInt(v) => *v as i64,
-                                Value::LInt(v) => *v,
-                                _ => return Err(RuntimeError::CaseSelectorType),
-                            };
-                            selector_int >= *lower && selector_int <= *upper
+                            let compare =
+                                |op, bound: &Value| match crate::program_model::apply_binary(
+                                    op,
+                                    selector_value.clone(),
+                                    bound.clone(),
+                                    &ctx.profile,
+                                )? {
+                                    Value::Bool(result) => Ok(result),
+                                    _ => Err(RuntimeError::CaseSelectorType),
+                                };
+                            compare(BinaryOp::Ge, lower)? && compare(BinaryOp::Le, upper)?
                         }
                     };
                     if matches {

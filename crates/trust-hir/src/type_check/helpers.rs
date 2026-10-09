@@ -48,6 +48,13 @@ impl<'a> TypeChecker<'a> {
             Type::UInt => u16::try_from(value).is_ok(),
             Type::UDInt => u32::try_from(value).is_ok(),
             Type::ULInt => value >= 0,
+            Type::Byte => u8::try_from(value).is_ok(),
+            Type::Word => u16::try_from(value).is_ok(),
+            Type::DWord => u32::try_from(value).is_ok(),
+            Type::LWord => value >= 0,
+            // IEC 61131-3 Ed.3 6.3.2 and Table 5 feature 7: Boolean data is represented by
+            // the integer literals 0 and 1 (a literal, not an expression of literals).
+            Type::Bool => expr.kind() == SyntaxKind::Literal && matches!(value, 0 | 1),
             _ => false,
         }
     }

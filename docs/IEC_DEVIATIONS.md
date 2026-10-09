@@ -15,6 +15,95 @@ this log. IEC-permitted interpretation choices belong in
 `docs/IEC_DECISIONS.md`. Existing entries are not classification precedent;
 re-check them against this rule when touched.
 
+## 2026-10-07 - CODESYS conversion profile: rounding of ties
+
+- ID: DEV-023
+- Area: Type conversion functions under the CODESYS conversion profile
+  (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.2.5.2, Table 22
+  footnote: "Conversion from type REAL or LREAL to SINT, INT, DINT or LINT
+  shall round according to the convention of IEC 60559, according to which,
+  if the two nearest integers are equally near, the result shall be the
+  nearest even integer" (`REAL_TO_INT(2.5)` is 2, `REAL_TO_INT(-1.5)` is -2).
+  Section 6.6.2.5.3 and Table 23 apply the same rounding to every conversion
+  from a floating point number to an integer type.
+- truST behavior and conflict:
+  - The default conversion rules round ties to even, as required.
+  - Under the CODESYS conversion profile, selected by `vendor_profile`
+    `codesys`, `beckhoff` or `twincat` in the project manifest or by a
+    `trust-harness` request, the rounding conversions from `REAL`/`LREAL` to
+    integer and bit-string types round ties away from zero:
+    `REAL_TO_INT(2.5)` is 3 and `REAL_TO_INT(-2.5)` is -3.
+  - Rounding ties away from zero contradicts the required IEC 60559
+    ties-to-even rounding.
+- Impact:
+  - A project using the CODESYS profile (a CODESYS, Beckhoff or TwinCAT
+    project) computes CODESYS results for ties; the same source gives
+    different results under the default rules and on a strictly conforming
+    IEC 61131-3 implementation.
+- Mitigation:
+  - The profile applies only to projects whose `vendor_profile` is
+    `codesys`, `beckhoff` or `twincat`, and to conversion functions only; the
+    default rules are unchanged.
+  - `TRUNC_*` truncation is the same under both rules; portable source can
+    state the rounding it needs explicitly.
+  - Specified in `docs/specs/07-standard-functions.md` section 2.10.
+
+## 2026-10-07 - CODESYS conversion profile: numeric REAL and DWORD/LWORD conversions
+
+- ID: DEV-024
+- Area: Type conversion functions under the CODESYS conversion profile
+  (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.2.5.5, rule 1 ("Data
+  type conversion is done as binary transfer") and Table 25 rows 1, 2, 43 and
+  44: `LWORD_TO_LREAL`, `DWORD_TO_REAL`, `LREAL_TO_LWORD` and `REAL_TO_DWORD`
+  are binary transfers of the bit pattern.
+- truST behavior and conflict:
+  - The default conversion rules transfer the bit pattern, as required.
+  - Under the CODESYS conversion profile these four functions convert the
+    numeric value instead: `REAL_TO_DWORD(3.7)` is `DWORD#4` and
+    `DWORD_TO_REAL(DWORD#5)` is `5.0`, where the binary transfers give
+    `DWORD#16#406CCCCD` and about `7.0E-45`.
+  - Converting the value instead of transferring the bit pattern contradicts
+    the binary transfer that rule 1 and Table 25 require.
+- Impact:
+  - Code that moves floating point bit patterns through these functions, for
+    example to pack a `REAL` into a fieldbus word, gets other values under the
+    CODESYS profile.
+- Mitigation:
+  - The profile applies only to projects whose `vendor_profile` is
+    `codesys`, `beckhoff` or `twincat`; the default rules keep the binary
+    transfers.
+  - Specified in `docs/specs/07-standard-functions.md` section 2.10.
+
+## 2026-10-07 - CODESYS conversion profile: bit string to BOOL
+
+- ID: DEV-025
+- Area: Type conversion functions under the CODESYS conversion profile
+  (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.2.5.4 and Table 24
+  rows 4, 8, 12 and 16: `LWORD_TO_BOOL`, `DWORD_TO_BOOL`, `WORD_TO_BOOL` and
+  `BYTE_TO_BOOL` are a "binary transfer of the rightmost bit into the target".
+- truST behavior and conflict:
+  - The default conversion rules transfer the rightmost bit, as required:
+    `BYTE_TO_BOOL(16#80)` is `FALSE`.
+  - Under the CODESYS conversion profile these functions, and the overloaded
+    `TO_BOOL` of a bit string, return `TRUE` when the value is not zero:
+    `BYTE_TO_BOOL(16#80)` is `TRUE`.
+  - Testing the whole value instead of transferring the rightmost bit
+    contradicts Table 24.
+- Impact:
+  - A bit string whose rightmost bit is 0 but which is not zero converts to
+    `TRUE` under the CODESYS profile and to `FALSE` under the default rules and
+    on a strictly conforming IEC 61131-3 implementation.
+- Mitigation:
+  - The profile applies only to projects whose `vendor_profile` is
+    `codesys`, `beckhoff` or `twincat`; the default rules keep the IEC
+    conversion.
+  - Portable source can compare with zero (`b <> 0`) or select a bit
+    explicitly (`b.0`).
+  - Specified in `docs/specs/07-standard-functions.md` section 2.10.
+
 ## 2026-07-30 - Value-bearing RETURN statement
 
 - ID: DEV-022

@@ -144,7 +144,7 @@ VAR
     flag : BOOL;
 END_VAR
     speadValue := 1;
-    flag := 1;
+    flag := speedValue;
 END_PROGRAM
 "#;
     let state = ServerState::new();

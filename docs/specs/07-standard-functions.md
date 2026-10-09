@@ -109,12 +109,22 @@ Binary transfer between BYTE/WORD/DWORD/LWORD. If the target is wider, the right
 - `WORD_TO_BYTE`, `WORD_TO_DWORD`, `WORD_TO_LWORD`
 - `DWORD_TO_BYTE`, `DWORD_TO_WORD`, `DWORD_TO_LWORD`
 - `LWORD_TO_BYTE`, `LWORD_TO_WORD`, `LWORD_TO_DWORD`
+- `BYTE_TO_BOOL`, `WORD_TO_BOOL`, `DWORD_TO_BOOL`, `LWORD_TO_BOOL`: binary transfer
+  of the rightmost bit into the target (Table 24 rows 4, 8, 12 and 16), so
+  `BYTE_TO_BOOL(2#1101_0100) = FALSE` and `WORD_TO_BOOL(16#0003) = TRUE`. The
+  overloaded `TO_BOOL` of a bit string does the same.
 
 ### 2.3 Bit/Numeric Conversions (Table 25)
 
 Binary transfer between bit strings and numeric types as listed in Table 25:
-- Bit to numeric: `BYTE/WORD/DWORD/LWORD` to `SINT/INT/DINT/LINT/USINT/UINT/UDINT/ULINT/REAL/LREAL`
-- Numeric to bit: `SINT/INT/DINT/LINT/USINT/UINT/UDINT/ULINT/REAL/LREAL` to `BYTE/WORD/DWORD/LWORD`
+- Bit to numeric: `BYTE/WORD/DWORD/LWORD` to `SINT/INT/DINT/LINT/USINT/UINT/UDINT/ULINT`,
+  `DWORD_TO_REAL` and `LWORD_TO_LREAL`
+- Numeric to bit: `SINT/INT/DINT/LINT/USINT/UINT/UDINT/ULINT` to `BYTE/WORD/DWORD/LWORD`,
+  `REAL_TO_DWORD` and `LREAL_TO_LWORD`
+- `BOOL` to `SINT/INT/DINT/LINT/USINT/UINT/UDINT/ULINT` results in 0 or 1
+
+`REAL`/`LREAL` to a bit string of another width and `BOOL` to `REAL`/`LREAL` are
+not in Table 25; truST provides them as the extensions of section 2.9.
 
 ### 2.4 Date and Time Conversions (Table 26)
 
@@ -159,6 +169,7 @@ Implementer extension note:
 - Other conversions involving STRING/WSTRING (for example, numeric to string)
   remain implementer-specific. When provided, they shall follow the external
   literal representation rules in 6.3.3.
+
 
 ### 2.6 BCD Conversions (Table 22)
 
@@ -212,7 +223,8 @@ The following requirements bind runtime execution of IEC 61131-3 Tables
 - Integer narrowing and signed-to-unsigned conversion are checked numeric
   conversions. Bit-string transfers are different: widening zero-extends and
   narrowing preserves the rightmost destination-width bits. Bit-string to a
-  signed integer sign-extends from the destination width.
+  signed integer sign-extends from the destination width, and bit-string to
+  `BOOL` keeps the rightmost bit.
 - `REAL_TO_DWORD`, `DWORD_TO_REAL`, `LREAL_TO_LWORD`, and
   `LWORD_TO_LREAL` are exact binary transfers for finite values. A transferred
   NaN or infinity is rejected as `RuntimeError::Overflow`.
@@ -237,6 +249,74 @@ The following requirements bind runtime execution of IEC 61131-3 Tables
   and a non-negative `TOD`. Long-to-short conversion floors sub-millisecond
   instants consistently. `TIME_TO_DWORD` counts whole milliseconds and rejects
   negative or greater-than-`u32::MAX` values.
+
+### 2.9 Vendor Extension Conversions
+
+truST also accepts these conversions, which IEC 61131-3 Tables 22-27 do not list but
+CODESYS and TwinCAT projects use. They follow the truST conversion rules above (no
+wrapping or saturation):
+
+| Function | Result |
+|----------|--------|
+| `REAL_TO_BYTE`, `REAL_TO_WORD`, `REAL_TO_LWORD`, `LREAL_TO_BYTE`, `LREAL_TO_WORD`, `LREAL_TO_DWORD` | The number converted like `REAL_TO_<unsigned>` of the target width (`USINT`, `UINT`, `UDINT`, `ULINT`): round to nearest, ties to even; a value outside the target range or a non-finite value returns `RuntimeError::Overflow`. `REAL_TO_DWORD` and `LREAL_TO_LWORD` remain the Table 25 binary transfers. |
+| `<ANY_INT>_TO_BOOL`, `<ANY_REAL>_TO_BOOL`, and `TO_BOOL` of such a value | `TRUE` when the value is not zero. A non-finite `REAL`/`LREAL` returns `RuntimeError::Overflow`. |
+| `BOOL_TO_REAL`, `BOOL_TO_LREAL` | `1.0` for `TRUE`, `0.0` for `FALSE`. |
+
+Examples: `REAL_TO_BYTE(200.4) = BYTE#200`, `REAL_TO_BYTE(256.0)` returns
+`RuntimeError::Overflow`, `INT_TO_BOOL(-3) = TRUE`, `INT_TO_BOOL(0) = FALSE`.
+`BYTE/WORD/DWORD/LWORD_TO_BOOL` are the IEC Table 24 conversions of section 2.2,
+not extensions.
+
+### 2.10 CODESYS Conversion Profile
+
+A project selects the conversion rules with the `vendor_profile` of its manifest, the
+same setting the language server reads (`[project] vendor_profile` in `trust-lsp.toml`,
+see `docs/public/reference/config/vendor-profiles.md`):
+
+| `vendor_profile` | Conversion rules |
+|------------------|------------------|
+| `codesys`, `beckhoff`, `twincat` | CODESYS rules (this section); TwinCAT is built on CODESYS |
+| absent, `iec`, `siemens`, `mitsubishi`, `gxworks3` | IEC rules and truST policies (sections 2.1 to 2.9) |
+| any other value | refused: the project is not built, run or tested, and the language server reports `C006` |
+
+Every tool that executes a project's code applies the project's rules: `trust-runtime
+build`, `check` and `run` (from a project folder or a `runtime.toml` folder), `trust-dev
+test`, debug sessions (whose project folder holds the manifest, `io.toml` or
+`runtime.toml`), and `trust-harness` started with `--project DIR`. A `trust-harness`
+`load` request may name `"vendor_profile"` itself, which takes precedence over
+`--project`; without either it uses the IEC rules. In the Rust API the rules are
+`CompileSession::with_conversion_profile` and `TestHarness::from_session`. Editor
+diagnostics do not depend on the conversion rules: the type checker accepts the same
+conversions under both. A running runtime keeps the rules it started with; an online
+change does not switch them.
+
+Under the CODESYS rules the conversion functions follow the CODESYS Development System
+instead of the IEC rules and truST policies above:
+
+| Conversion | `iec` (default) | `codesys` |
+|------------|-----------------|-----------|
+| `REAL`/`LREAL` to an integer or bit string | round to nearest, ties to even | round half away from zero (`.1`-`.4` down, `.5`-`.9` up): `REAL_TO_INT(2.5) = 3`, `REAL_TO_INT(-1.5) = -2` |
+| a value outside the target range (integer narrowing, signed/unsigned change, `REAL` to integer) | `RuntimeError::Overflow` | the low-order bits of the target width, two's complement: `DINT_TO_SINT(128) = -128`, `INT_TO_UINT(-1) = 65535`, `REAL_TO_BYTE(300.0) = 44` |
+| `REAL_TO_DWORD`, `LREAL_TO_LWORD` | Table 25 binary transfer | the number: `REAL_TO_DWORD(3.7) = 4` |
+| `DWORD_TO_REAL`, `LWORD_TO_LREAL` | Table 25 binary transfer | the number: `DWORD_TO_REAL(5) = 5.0` |
+| `BYTE/WORD/DWORD/LWORD_TO_BOOL` (and `TO_BOOL` of a bit string) | Table 24: the rightmost bit | `TRUE` when the value is not zero: `BYTE_TO_BOOL(16#80) = TRUE` |
+
+A non-finite `REAL`/`LREAL` source still returns `RuntimeError::Overflow`, and conversions
+whose CODESYS result is "undefined, target system-dependent" keep the low-order bits. The
+profile changes conversion functions only; arithmetic overflow, implicit conversions and
+the set of available conversions are unchanged.
+
+The out-of-range results are implementer-specific under IEC 61131-3 Ed.3 6.6.2.5.3 and
+Table 23. Three CODESYS rules conflict with normative IEC requirements and are recorded in
+`docs/IEC_DEVIATIONS.md`: the rounding of ties (DEV-023), the numeric `REAL`/`LREAL` and
+`DWORD`/`LWORD` conversions (DEV-024) and the bit string to `BOOL` test (DEV-025).
+
+References: CODESYS Development System,
+[REAL_TO / LREAL_TO](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_operator_real_to.html)
+and [integer conversions](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_operator_convert_integer.html)
+("If the number to be converted exceeds the range limit, then the first bytes of the number are
+ignored"); for `TO_BOOL`, the CODESYS-based
+[ABB Automation Builder documentation](https://en.help.plc.abb.com/to_bool_conversions.html).
 
 ## 3. Numerical Functions (Table 28)
 

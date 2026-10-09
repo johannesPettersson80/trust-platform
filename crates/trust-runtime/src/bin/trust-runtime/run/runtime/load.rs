@@ -8,7 +8,8 @@ fn load_runtime(
     if let Some(project_path) = project {
         let bundle = RuntimeBundle::load(&project_path)?;
         let sources = load_project_bundle_sources(bundle.root.as_path())?;
-        let runtime = compile_runtime_from_sources(&sources)?;
+        let profile = project_conversion_profile(bundle.root.as_path())?;
+        let runtime = compile_runtime_from_sources(&sources, profile)?;
         return Ok(LoadedRuntime {
             bundle: Some(bundle),
             runtime,
@@ -25,7 +26,8 @@ fn load_runtime(
                 .unwrap_or_else(|| PathBuf::from("."))
         });
         let sources = load_sources(&runtime_root)?;
-        let runtime = compile_runtime_from_sources(&sources)?;
+        let profile = project_conversion_profile(&runtime_root)?;
+        let runtime = compile_runtime_from_sources(&sources, profile)?;
         return Ok(LoadedRuntime {
             bundle: None,
             runtime,
@@ -43,7 +45,7 @@ fn load_runtime(
         text: "PROGRAM Main\nEND_PROGRAM\n".to_string(),
     };
     let sources = SourceRegistry::new(vec![bootstrap_source]);
-    let runtime = compile_runtime_from_sources(&sources)?;
+    let runtime = compile_runtime_from_sources(&sources, ConversionProfile::Iec)?;
 
     Ok(LoadedRuntime {
         bundle: None,
@@ -53,7 +55,12 @@ fn load_runtime(
     })
 }
 
-fn compile_runtime_from_sources(sources: &SourceRegistry) -> anyhow::Result<Runtime> {
+/// Compiles the project's sources with the conversion rules of its `vendor_profile`
+/// (docs/specs/07-standard-functions.md 2.10).
+fn compile_runtime_from_sources(
+    sources: &SourceRegistry,
+    profile: ConversionProfile,
+) -> anyhow::Result<Runtime> {
     let session = CompileSession::from_sources(
         sources
             .files()
@@ -65,7 +72,8 @@ fn compile_runtime_from_sources(sources: &SourceRegistry) -> anyhow::Result<Runt
                 )
             })
             .collect(),
-    );
+    )
+    .with_conversion_profile(profile);
     let mut runtime = session.build_runtime()?;
     let bytecode = session.build_bytecode_bytes()?;
     runtime
