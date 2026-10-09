@@ -1207,13 +1207,43 @@ Event tasks are modeled by tracking the previous value of the SINGLE variable:
 
 ```
 event_due = single_prev == FALSE && single_now == TRUE
+elapsed = saturating_sub(current_time, last_run)
 periodic_due = interval > 0 && single_now == FALSE &&
-               (current_time - last_run) >= interval
+               elapsed >= interval
+
+if periodic_due:
+    n = elapsed / interval
+    due_at = saturating_add(last_run, interval)
+    missed_intervals = n - 1
+    overrun_count = saturating_add(overrun_count, missed_intervals)
+    last_run = saturating_add(last_run, saturating_mul(n, interval))
 ```
 
 New task scheduling state records the supplied current logical time as
 `last_run`, clears the saved `SINGLE` sample to `FALSE`, and starts missed
-interval accounting at zero.
+interval accounting at zero. Registration therefore supplies the initial
+periodic baseline. After each periodic activation, `last_run` is the latest
+nominal deadline accounted for, not the sample time. A late sample does not
+move later deadlines. The task is selected in the first cycle sampled at or
+after its deadline and executes in the normal priority order, subject to the
+existing fault/STOP policy. If a sample spans `n > 1` complete intervals, emit
+one activation with `due_at` equal to the first pending deadline, count
+`n - 1` intervals as missed, and advance the baseline to that first deadline
+plus `n - 1` intervals. Missed activations are never replayed. Time arithmetic
+uses saturating signed nanoseconds; cumulative missed-interval accounting also
+saturates. Backward samples do not move the baseline or create overruns, and
+event activations do not change the periodic baseline or counters.
+
+**Planned correction:** this nominal-deadline rule is to be implemented by
+[specification 34 Scope A, A1](34-runtime-portability.md#131-first-implementation-scopes).
+The current code uses the sampled-time baseline until then. This is the
+periodic scheduling correction under IEC 61131-3 Ed.3 §6.8.2(b), with truST's
+missed-interval accounting defined in
+[specification 11](11-runtime-engine.md#task-readiness-and-overrun-accounting).
+For a baseline of 0 ms, a 25 ms task sampled every 10 ms shall run at 30, 50,
+80 and 100 ms, preserving nominal deadlines 25, 50, 75 and 100 ms. With this
+fixed sampling grid and no skipped cycles, sampling lateness is less than one
+10 ms cycle; this is not a bound on OS delays or task completion under load.
 
 The SINGLE input must resolve to a BOOL variable; if it is missing or non-BOOL, task execution
 fails with a runtime error.
