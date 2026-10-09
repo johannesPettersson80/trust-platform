@@ -47,7 +47,7 @@ authorize retries for this release candidate.
 | Isolated portable native behavior | `cargo +1.95.0 test --locked -p trust-runtime-core --no-default-features --test portable_foundations` | Runs ordered-map/no_std branch without workspace std feature unification |
 | Portable library feature edges | `cargo +1.95.0 tree --locked -p trust-runtime-core --no-default-features --target TARGET -e features,no-dev` | No claim from dev-dependency feature edges |
 | Diagram rendering and drift | `scripts/render_diagrams.sh`; `python3 scripts/check_diagram_drift.py` | Exact renderer prerequisites/cache before freeze; compare tracked output, no unrecorded source mutation |
-| Windows LSP dependency compile and path hygiene | `scripts/check_test_path_hygiene.sh`; `cargo check -p trust-lsp --tests --target x86_64-pc-windows-gnu` | Supplement only commands not covered by prepare; no duplicate LSP native tests or Clippy |
+| Windows LSP dependency compile and path hygiene | `scripts/check_test_path_hygiene.sh`; `env -u CC -u CXX cargo check -p trust-lsp --tests --target x86_64-pc-windows-gnu` | Supplement only commands not covered by prepare; no duplicate LSP native tests or Clippy |
 | Remaining pre-push contracts | `python3 scripts/check_iec_log_paths.py`; `python3 -m unittest scripts.tests.test_diagram_workflow -v`; `scripts/runtime_mesh_tls_stability_gate.sh --iterations 8` | Same frozen candidate; eight stability iterations are one planned suite, not corrective retries |
 | Agent routing contract | `python3 -m unittest scripts.verification.skill_routing_tests -v` | Covers the amended rulebook assertion and existing skill routing |
 | Native Windows/macOS and remaining CI workflows | Current-head GitHub jobs after push | Cross-compilation does not replace these jobs |
@@ -84,3 +84,45 @@ the reviewer. Review input digests before this record was appended:
 
 - This command map: `15568640f7fa932c48809122b4c32a6e252cd525afc7f1227838e34947dff9b5`.
 - `scripts/verification/skill_routing_tests.py`: `c631f5a2d6b9d18b57a3d191bfc876221d159b471bf9270954e63b65948a945f`.
+
+
+## First integration batch and prepared corrections
+
+Candidate `9e5a5896ff7de49855cf6db13f2b607aa3af0d00` failed its first integration
+batch. The supplemental ledger records 14 passing steps and one Windows LSP
+compile setup failure: the orchestration exported native `CC=cc` / `CXX=c++`
+into a cross build. Its corrected command explicitly unsets both variables;
+the guard already separates its native and cross environments. The same earlier
+#129 correction is retained in `pr129-remediation-run5/windows-command-correction.json`.
+
+The exact-SHA guard passed its required stages through Clippy, including 519
+VS Code tests, then `just test-all` reported 6,555 native tests passed, one
+fixture setup failure and ten ignored tests before stopping. The unsupported
+Git-marker fixture bound a Unix socket beneath a long mounted-target TMPDIR,
+exceeding the platform socket pathname limit before its product assertion.
+Later workspace suites, discovery parity and the guard's final clean check
+were unrun. The separate supplemental clean check had passed. No automatic
+rerun occurred, and this candidate is not push-ready.
+
+The prepared native correction uses an actual FIFO special file in a deliberately
+long project directory. Specification 22 rejects every unsupported filesystem
+object through one generic branch; the existing rejection assertion remains.
+The test verifies creation status and FIFO type before that assertion, and removes
+its task-owned fixture. It is Unix-only and uses the POSIX `mkfifo` utility,
+listed in the [Open Group utilities specification](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/contents.html).
+The Linux builder provides `/usr/bin/mkfifo`; native macOS remains a CI gate.
+This introduces no dependency, unsafe block, global environment/CWD mutation or
+shortened assertion. All other temporary/build outputs keep the selected storage.
+
+Raw first-batch guard artifact/logs and the supplement ledger are preserved under
+`/home/johannes/projects/.artifacts/runtime-portability-a1-integration/run-1/`.
+After independent correction review and local commit, the proposed follow-up is
+one new exact-SHA `prepare`, the corrected Windows LSP supplemental command,
+and the skill-creator `quick_validate.py` check for the amended release skill.
+Unchanged portable-core and diagram source evidence remains the first-batch proof;
+full native tests and guard stages rerun because the test source changes the SHA.
+This follow-up is prepared only and requires explicit integration authorization.
+After batch completion, the canonical release skill and this candidate both clarify
+native-only compiler overrides, explicit unsetting for cross checks, and reading
+prior failure-ledger command corrections before freezing. This is included in the
+complete correction before the next review/commit; no running candidate was changed.

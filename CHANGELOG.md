@@ -6,6 +6,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Keep the unsupported Git-marker regression executable with long temporary
+  directory paths on Unix hosts.
+
 - Bind release validation capacity checks to the selected generated-target filesystem;
   support the mounted builder volume with the same leases, ownership checks and
   80 GiB minimum, avoiding root-disk exhaustion during cold workspace tests.

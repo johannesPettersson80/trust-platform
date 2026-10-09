@@ -9,15 +9,15 @@ it does not create additional product requirements. Existing closed extraction b
 
 | Field | Recorded state |
 |---|---|
-| Updated | A1 release integration after PR #129 merged; implementation scope evidence remains historical run 3. |
+| Updated | A1 release integration batch 1 failed; fixture and cross-environment corrections prepared for review, no rerun authorized. Historical scope run 3 remains accepted. |
 | Plan | Specification 34 v0.10; SHA-256 recorded below. A2 is separately committed and A3 is undergoing review corrections in other worktrees. |
 | Checkout | Release candidate: `/home/johannes/projects/trust-platform-portability-a1-integration`, branch `integrate/runtime-portability-a1`, rebased onto main `ecbcb08ddd12360d057c8e25b6502b9f9d6772c3`. Original A1 and A2 worktrees and evidence are preserved. Canonical rules come from `/home/johannes/projects/trust-platform`, manually copied and byte-verified. |
-| Working tree | Integration preparation. Upstream security, LSP lifecycle, cross-platform fixes, dependency versions and mounted-volume release tooling are retained. Canonical rules match upstream. No A3 changes are included. |
+| Working tree | Preparing corrections after candidate `9e5a5896f` failed integration batch 1. Upstream security, LSP lifecycle, cross-platform fixes, dependency versions and mounted-volume release tooling are retained. Canonical rules match upstream. No A3 changes are included. |
 | Authorization | User authorized agents to continue integration, push and merge using the lessons from #129. Implementation/review precede each consolidated batch; collect every reachable failure before correction, and never retry automatically. A failed integration batch needs applicable integration retry authorization; A3-specific approval does not apply. |
 | Scheduling amendment | SCHED-05 passed historical A1 run 3, including 25 ms / 10 ms with 40 activations and zero overruns. A4 fixture execution remains later work. |
 | Active scope | A1 release integration, then A2 in a separate candidate. No A4 work. |
 | Last accepted implementation gate | Historical A1 run 3; the rebased candidate requires its own exact-SHA release guard and current-head CI. |
-| Next action | Independent full-diff review, commit the finalized candidate, then one consolidated exact-SHA guard plus uncovered portable/diagram checks on the builder. Wait for #129 version 0.24.70 release closure before merging a new version. Push only after passing evidence; merge only through check-merge with all current checks/reviews satisfied; verify tag, release assets and Marketplace. |
+| Next action | Independently review the fixture/environment corrections, commit the new candidate and request explicit integration follow-up authorization before another guard or test run. Wait for #129 version 0.24.70 release closure before merging a new version. Push only after passing evidence; merge only through check-merge with all current checks/reviews satisfied; verify tag, release assets and Marketplace. |
 | Extraction baseline | Rust 1.95.0, edition 2021, resolver 2; floating-stable CI is a separate compatibility lane. Broad modernization remains U. |
 | Hardware | NUCLEO-F401RE USB enumeration previously confirmed. No firmware link, execution or physical qualification is claimed by A1. |
 | Open execution records | Runs 1/2 retained as failed historical evidence. Run 3 accepted; release integration command map is in `docs/notes/runtime-portability/a1-release-integration.md`. |

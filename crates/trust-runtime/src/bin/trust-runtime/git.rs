@@ -189,21 +189,27 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn git_init_rejects_unsupported_git_filesystem_object() {
-        use std::os::unix::net::UnixListener;
+        use std::os::unix::fs::FileTypeExt;
 
-        let root = temp_dir("socket-marker");
-        let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-        let short_socket = root
-            .parent()
-            .expect("test directory has a parent")
-            .join(format!("tg-socket-{}-{sequence}", std::process::id()));
-        let listener = UnixListener::bind(&short_socket).expect("create short Unix socket");
-        std::fs::rename(&short_socket, root.join(".git")).expect("move socket to .git marker");
+        let fixture = temp_dir("unsupported-marker");
+        // A FIFO exercises the generic unsupported-object contract without the
+        // unrelated AF_UNIX pathname limit, even under a long builder TMPDIR.
+        let root = fixture.join("long-project-".repeat(10));
+        std::fs::create_dir(&root).expect("create long project directory");
+        let marker = root.join(".git");
+        let status = Command::new("mkfifo")
+            .arg(&marker)
+            .status()
+            .expect("run POSIX mkfifo");
+        assert!(status.success(), "create FIFO .git marker: {status}");
+        assert!(std::fs::symlink_metadata(&marker)
+            .expect("read FIFO metadata")
+            .file_type()
+            .is_fifo());
 
-        let error = git_init(&root).expect_err("socket .git marker must fail");
+        let error = git_init(&root).expect_err("FIFO .git marker must fail");
         assert!(error.to_string().contains("unsupported file type"));
 
-        drop(listener);
-        let _ = std::fs::remove_dir_all(root);
+        std::fs::remove_dir_all(fixture).expect("remove FIFO fixture");
     }
 }

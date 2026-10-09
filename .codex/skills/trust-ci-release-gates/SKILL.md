@@ -33,6 +33,9 @@ record, map each required job to its command, toolchain, targets/features, evide
 Distinguish the pinned/MSRV compiler from floating CI stable; record the actual versions used. Keep
 native Windows/macOS proof separate from Linux cross-compilation. Review new tests and their imports,
 feature gates and registrations as part of the full diff before spending the batch.
+For a related candidate, read the preceding failure ledger and its corrected commands,
+including compiler environment, temporary-path and platform prerequisites; carry those
+corrections into the new command map before freezing.
 
 Choose the release path before scheduling commands. If an exact-SHA guard is required, commit only
 when authorized, then use `prepare` for the checks it already runs. Do not run `just test-all` once
@@ -169,7 +172,10 @@ that the intended issues are closed after the merge.
   - `CARGO_INCREMENTAL=0`;
   - `RUSTC_WRAPPER` and `CARGO_BUILD_RUSTC_WRAPPER` set to `/usr/bin/env`;
   - `scripts/compiler_passthrough.sh` installed on `PATH` as `sccache`;
-  - `CC=cc` and `CXX=c++`;
+  - `CC=cc` and `CXX=c++` for native builds only;
+  - cross-compilation commands use `env -u CC -u CXX` so native overrides cannot
+    select a host compiler for the target; reuse the guard's separate native and
+    cross-target environments in supplemental commands;
   - honor the builder's Cargo job configuration for cold `just test-all`; do not force one job;
   - `TMPDIR` inside the task's own target.
 
