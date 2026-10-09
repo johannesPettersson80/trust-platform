@@ -209,9 +209,10 @@ export async function activate(context: vscode.ExtensionContext) {
   const clientOptions: LanguageClientOptions = {
     documentSelector: [{ scheme: "file", language: "structured-text" }],
     synchronize: {
-      fileEvents: vscode.workspace.createFileSystemWatcher(
-        "**/*.{st,ST,pou,POU}"
-      ),
+      fileEvents: [
+        vscode.workspace.createFileSystemWatcher("**/*.{st,ST,pou,POU}"),
+        vscode.workspace.createFileSystemWatcher("**/*", true, true, false),
+      ],
     },
     middleware: {
       handleDiagnostics(uri, diagnostics, next) {

@@ -31,6 +31,11 @@ use super::refresh::{refresh_diagnostics, refresh_semantic_tokens};
 pub async fn register_file_watchers(client: &Client) {
     let mut watchers = Vec::new();
     watchers.push(json!({ "globPattern": "**/*.{st,ST,pou,POU}" }));
+    // Clients may report a recursive removal only for its parent directory.
+    watchers.push(json!({
+        "globPattern": "**/*",
+        "kind": tower_lsp::lsp_types::WatchKind::Delete,
+    }));
     for name in CONFIG_FILES {
         watchers.push(json!({ "globPattern": format!("**/{name}") }));
     }
@@ -335,6 +340,7 @@ async fn index_workspace_root(
     root_uri: &Url,
     seen: &mut FxHashSet<PathBuf>,
 ) -> IndexSummary {
+    state.reconcile_missing_documents(config);
     let mut files = Vec::new();
     collect_workspace_files(config, &mut files);
     files.sort();

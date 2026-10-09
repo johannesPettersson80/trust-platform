@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Remove deleted project sources from the language server consistently across
+  directory notifications, reindexing and concurrent document close/index operations,
+  preventing stale duplicate declarations when creating a new project.
+
 - Protect I/O credentials in IDE, configuration-text and remote proxy reads;
   preserve stored secrets (including a literal `<redacted>`) on unchanged saves,
   and prevent generic IDE symlink/rename aliases from bypassing redaction.

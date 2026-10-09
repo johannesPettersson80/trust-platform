@@ -567,8 +567,13 @@ end note
 note right of handlers
     Workspace file-watch integration
     via didChangeWatchedFiles.
-    index_workspace skips already
-    tracked files (incremental).
+    Deleted directories remove descendant
+    document and Project membership.
+    Reindex reconciles sources proven missing
+    on disk, preserving open unsaved buffers
+    and budget-truncated live sources.
+    Lifecycle writes lock Project then documents
+    through the complete membership transition.
 end note
 
 @enduml

@@ -1020,6 +1020,25 @@ Document state follows these fail-closed rules:
 - configuration-scoped file-ID projection includes path sources under that
   configuration's indexing roots and excludes sources outside them.
 
+Disk deletion and indexing share one source-membership contract (tooling behavior,
+not a change to IEC 61131-3 Ed.3 §6.5.2.2 duplicate-declaration rules):
+
+- watcher subscriptions include directory deletions, not only ST/configuration
+  filenames; a deleted directory removes its indexed descendant sources, including sources
+  whose closed document text was evicted from memory; a surviving canonical
+  ancestor preserves source identity through path aliases after deletion, and
+  sibling paths are unaffected;
+- a workspace reindex reconciles sources proven missing on disk even when the
+  collected file list is empty or the indexing budget truncates the pass; absence
+  from that collected list alone is not evidence of deletion;
+- a reindex preserves open unsaved buffers and sources whose disk state cannot
+  be determined, and never replaces an open buffer with cached disk contents;
+- document and semantic-project membership transitions commit together under a
+  consistent lock order; a close racing deletion cannot leave an orphan source;
+- a disk indexing result cannot reintroduce a file already deleted before that
+  result commits. Reusing a POU name in a new scaffold after deleting its old
+  project therefore does not import the deleted declaration.
+
 Every committed project-text mutation advances the document generation once
 and clears both call-hierarchy caches. No-op lifecycle notifications do neither.
 Call-hierarchy reads return owned snapshots, so caller mutation cannot alter a

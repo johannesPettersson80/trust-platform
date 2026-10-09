@@ -13,14 +13,15 @@ pub(super) fn open_document(
     version: i32,
     content: String,
 ) -> FileId {
-    let key = source_key_for_uri(&uri);
-    let file_id = {
-        let mut project = state.project.write();
-        project.set_source_text(key, content.clone())
-    };
-
-    let access = next_document_access(state);
+    // Membership transitions always lock Project before documents.
+    let mut project = state.project.write();
     let mut docs = state.documents.write();
+    let key = docs
+        .get(&uri)
+        .and_then(|doc| project.key_for_file_id(doc.file_id).cloned())
+        .unwrap_or_else(|| source_key_for_uri(&uri));
+    let file_id = project.set_source_text(key, content.clone());
+    let access = next_document_access(state);
     if let Some(doc) = docs.get_mut(&uri) {
         doc.version = version;
         doc.content = content;
@@ -32,6 +33,8 @@ pub(super) fn open_document(
         docs.insert(uri, doc);
     }
 
+    drop(docs);
+    drop(project);
     invalidate_project_caches(state);
     file_id
 }
@@ -54,45 +57,39 @@ fn index_document_impl(
     content: String,
     enforce_budget_after_index: bool,
 ) -> Option<FileId> {
-    if let Some(doc) = state.documents.read().get(&uri) {
-        if !doc.is_open && doc.content == content {
-            return None;
-        }
-    }
-    if state
-        .documents
-        .read()
+    let mut project = state.project.write();
+    let mut docs = state.documents.write();
+    if docs
         .get(&uri)
-        .map(|doc| doc.is_open)
-        .unwrap_or(false)
+        .is_some_and(|doc| doc.is_open || doc.content == content)
     {
         return None;
     }
-
-    let key = source_key_for_uri(&uri);
-    let file_id = {
-        let mut project = state.project.write();
-        project.set_source_text(key.clone(), content.clone())
-    };
-
-    let access = next_document_access(state);
-    {
-        let mut docs = state.documents.write();
-        if let Some(doc) = docs.get_mut(&uri) {
-            if doc.is_open {
-                return None;
-            }
-            doc.version = 0;
-            doc.content = content;
-            doc.is_open = false;
-            doc.file_id = file_id;
-            touch_document(doc, access);
-        } else {
-            let doc = Document::new(uri.clone(), 0, content, file_id, false, access);
-            docs.insert(uri, doc);
-        }
+    // The content may have been read before a delete notification acquired these
+    // locks. Do not resurrect a disk source after that deletion has committed.
+    if uri_to_path(&uri).is_some_and(|path| path_is_missing(&path)) {
+        return None;
     }
-
+    let key = docs
+        .get(&uri)
+        .and_then(|doc| project.key_for_file_id(doc.file_id).cloned())
+        .unwrap_or_else(|| source_key_for_uri(&uri));
+    let file_id = project.set_source_text(key, content.clone());
+    let access = next_document_access(state);
+    if let Some(doc) = docs.get_mut(&uri) {
+        doc.version = 0;
+        doc.content = content;
+        doc.is_open = false;
+        doc.file_id = file_id;
+        touch_document(doc, access);
+    } else {
+        docs.insert(
+            uri.clone(),
+            Document::new(uri, 0, content, file_id, false, access),
+        );
+    }
+    drop(docs);
+    drop(project);
     if enforce_budget_after_index {
         enforce_memory_budget(state);
     }
@@ -101,12 +98,15 @@ fn index_document_impl(
 }
 
 pub(super) fn update_document(state: &ServerState, uri: &Url, version: i32, content: String) {
-    let key = source_key_for_uri(uri);
     let mut project = state.project.write();
     let mut docs = state.documents.write();
     let Some(doc) = docs.get_mut(uri).filter(|doc| doc.is_open) else {
         return;
     };
+    let key = project
+        .key_for_file_id(doc.file_id)
+        .cloned()
+        .unwrap_or_else(|| source_key_for_uri(uri));
     let file_id = project.set_source_text(key, content.clone());
     let access = next_document_access(state);
     doc.version = version;
@@ -119,75 +119,170 @@ pub(super) fn update_document(state: &ServerState, uri: &Url, version: i32, cont
 }
 
 pub(super) fn close_document(state: &ServerState, uri: &Url) {
-    if !state.documents.read().contains_key(uri) {
+    let mut project = state.project.write();
+    let mut docs = state.documents.write();
+    let Some(doc) = docs.get_mut(uri) else {
         return;
-    }
+    };
     state.cancel_semantic_requests();
-
-    if let Some(path) = uri_to_path(uri) {
-        if let Ok(content) = std::fs::read_to_string(&path) {
-            let key = source_key_for_uri(uri);
-            let file_id = {
-                let mut project = state.project.write();
-                project.set_source_text(key, content.clone())
-            };
-            let access = next_document_access(state);
-            if let Some(doc) = state.documents.write().get_mut(uri) {
-                doc.version = 0;
-                doc.content = content;
-                doc.is_open = false;
-                doc.file_id = file_id;
-                touch_document(doc, access);
-            }
-            state.semantic_tokens.write().remove(uri);
-            state.diagnostics.write().remove(uri);
-            invalidate_project_caches(state);
-            enforce_memory_budget(state);
-            return;
-        }
-    }
-
-    let key = source_key_for_uri(uri);
-    if state.documents.write().remove(uri).is_some() {
-        state.semantic_tokens.write().remove(uri);
-        state.diagnostics.write().remove(uri);
-        let mut project = state.project.write();
+    let key = project
+        .key_for_file_id(doc.file_id)
+        .cloned()
+        .unwrap_or_else(|| source_key_for_uri(uri));
+    // Read and commit while holding the membership locks, so deletion cannot
+    // interleave between restoring disk text and closing the document entry.
+    if let Some(content) = uri_to_path(uri).and_then(|path| std::fs::read_to_string(path).ok()) {
+        doc.file_id = project.set_source_text(key, content.clone());
+        doc.version = 0;
+        doc.content = content;
+        doc.is_open = false;
+        touch_document(doc, next_document_access(state));
+    } else {
+        docs.remove(uri);
         project.remove_source(&key);
-        invalidate_project_caches(state);
     }
-
+    drop(docs);
+    drop(project);
+    state.semantic_tokens.write().remove(uri);
+    state.diagnostics.write().remove(uri);
+    invalidate_project_caches(state);
     enforce_memory_budget(state);
 }
 
 pub(super) fn remove_document(state: &ServerState, uri: &Url) -> Option<FileId> {
-    let key = source_key_for_uri(uri);
-    let doc = state.documents.write().remove(uri)?;
-    state.semantic_tokens.write().remove(uri);
-    state.diagnostics.write().remove(uri);
     let mut project = state.project.write();
-    project.remove_source(&key);
+    let mut docs = state.documents.write();
+    let key = docs
+        .get(uri)
+        .and_then(|doc| project.key_for_file_id(doc.file_id).cloned())
+        .unwrap_or_else(|| source_key_for_uri(uri));
+    // Eviction can remove the document text while retaining the semantic source.
+    let file_id = project.remove_source(&key)?;
+    let uris = docs
+        .iter()
+        .filter(|(_, doc)| doc.file_id == file_id)
+        .map(|(uri, _)| uri.clone())
+        .collect::<Vec<_>>();
+    docs.retain(|_, doc| doc.file_id != file_id);
+    drop(docs);
+    drop(project);
+    state.cancel_semantic_requests();
+    for uri in uris {
+        state.semantic_tokens.write().remove(&uri);
+        state.diagnostics.write().remove(&uri);
+    }
     invalidate_project_caches(state);
-    Some(doc.file_id)
+    Some(file_id)
 }
 
 pub(super) fn rename_document(state: &ServerState, old_uri: &Url, new_uri: &Url) -> Option<FileId> {
+    let mut project = state.project.write();
     let mut docs = state.documents.write();
     let mut doc = docs.remove(old_uri)?;
-    state.semantic_tokens.write().remove(old_uri);
-    state.diagnostics.write().remove(old_uri);
-
-    let old_key = source_key_for_uri(old_uri);
+    let old_key = project
+        .key_for_file_id(doc.file_id)
+        .cloned()
+        .unwrap_or_else(|| source_key_for_uri(old_uri));
     let new_key = source_key_for_uri(new_uri);
-    let mut project = state.project.write();
     project.remove_source(&old_key);
     project.remove_source(&new_key);
     let file_id = project.set_source_text(new_key, doc.content.clone());
-
     doc.uri = new_uri.clone();
     doc.file_id = file_id;
     docs.insert(new_uri.clone(), doc);
+    drop(docs);
+    drop(project);
+    state.semantic_tokens.write().remove(old_uri);
+    state.diagnostics.write().remove(old_uri);
     invalidate_project_caches(state);
     Some(file_id)
+}
+
+fn path_is_missing(path: &std::path::Path) -> bool {
+    std::fs::metadata(path).is_err_and(|error| {
+        matches!(
+            error.kind(),
+            std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+        )
+    })
+}
+
+pub(super) fn remove_document_tree(state: &ServerState, uri: &Url) -> usize {
+    let Some(path) = uri_to_path(uri) else {
+        return usize::from(remove_document(state, uri).is_some());
+    };
+    // After removal the full path cannot be canonicalized. Resolve a surviving
+    // ancestor so aliases such as macOS /var -> /private/var retain their identity.
+    let path = path
+        .ancestors()
+        .find(|ancestor| ancestor.exists())
+        .and_then(|ancestor| {
+            path.strip_prefix(ancestor)
+                .ok()
+                .map(|tail| canonicalize_path(ancestor.to_path_buf()).join(tail))
+        })
+        .unwrap_or(path);
+    remove_sources_matching(
+        state,
+        |key, _, _| matches!(key, SourceKey::Path(source) if source.starts_with(&path)),
+    )
+}
+
+pub(super) fn reconcile_missing_documents(state: &ServerState, config: &ProjectConfig) -> usize {
+    let roots = config
+        .indexing_roots()
+        .into_iter()
+        .map(canonicalize_path)
+        .collect::<Vec<_>>();
+    remove_sources_matching(state, |key, file_id, open_ids| {
+        let SourceKey::Path(path) = key else {
+            return false;
+        };
+        roots.iter().any(|root| path.starts_with(root))
+            && !open_ids.contains(&file_id)
+            && path_is_missing(path)
+    })
+}
+
+fn remove_sources_matching(
+    state: &ServerState,
+    predicate: impl Fn(&SourceKey, FileId, &FxHashSet<FileId>) -> bool,
+) -> usize {
+    let mut project = state.project.write();
+    let mut docs = state.documents.write();
+    let open_ids = docs
+        .values()
+        .filter(|doc| doc.is_open)
+        .map(|doc| doc.file_id)
+        .collect::<FxHashSet<_>>();
+    let removed = project
+        .sources()
+        .iter()
+        .filter(|(key, file_id)| predicate(key, *file_id, &open_ids))
+        .map(|(key, file_id)| (key.clone(), file_id))
+        .collect::<Vec<_>>();
+    if removed.is_empty() {
+        return 0;
+    }
+    let ids = removed.iter().map(|(_, id)| *id).collect::<FxHashSet<_>>();
+    let uris = docs
+        .iter()
+        .filter(|(_, doc)| ids.contains(&doc.file_id))
+        .map(|(uri, _)| uri.clone())
+        .collect::<Vec<_>>();
+    docs.retain(|_, doc| !ids.contains(&doc.file_id));
+    for (key, _) in &removed {
+        project.remove_source(key);
+    }
+    drop(docs);
+    drop(project);
+    state.cancel_semantic_requests();
+    for uri in uris {
+        state.semantic_tokens.write().remove(&uri);
+        state.diagnostics.write().remove(&uri);
+    }
+    invalidate_project_caches(state);
+    removed.len()
 }
 
 pub(super) fn get_document(state: &ServerState, uri: &Url) -> Option<Document> {
@@ -318,7 +413,10 @@ fn enforce_memory_budget(state: &ServerState) {
 }
 
 fn evict_document_text(state: &ServerState, uri: &Url) {
-    if state.documents.write().remove(uri).is_some() {
+    let mut docs = state.documents.write();
+    if docs.get(uri).is_some_and(|doc| !doc.is_open) {
+        docs.remove(uri);
+        drop(docs);
         state.semantic_tokens.write().remove(uri);
         state.diagnostics.write().remove(uri);
         // Intentionally keep the salsa project source. Memory-budget eviction

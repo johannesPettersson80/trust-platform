@@ -263,6 +263,9 @@ pub async fn did_change_watched_files(
         let Some(path) = uri_to_path(&change.uri) else {
             continue;
         };
+        if change.typ == FileChangeType::DELETED {
+            removed += state.remove_document_tree(&change.uri);
+        }
         if is_config_file(&path) {
             config_changed = true;
             continue;
@@ -297,9 +300,6 @@ pub async fn did_change_watched_files(
                         .or_insert_with(|| IndexCache::load_or_default(&dir));
                     cache.remove_path(&path);
                     dirty_cache_dirs.insert(dir);
-                }
-                if state.remove_document(&change.uri).is_some() {
-                    removed += 1;
                 }
             }
             _ => {}
@@ -337,4 +337,3 @@ pub async fn did_change_watched_files(
         refresh_diagnostics(client, state).await;
     }
 }
-

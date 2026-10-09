@@ -538,19 +538,19 @@ fn file_uri(path: &Path) -> Url {
     Url::from_file_path(path).expect("absolute path URI")
 }
 
-struct TempTree {
+pub(super) struct TempTree {
     path: PathBuf,
 }
 
 impl TempTree {
-    fn new(prefix: &str) -> Self {
+    pub(super) fn new(prefix: &str) -> Self {
         let sequence = TEMP_SEQUENCE.fetch_add(1, AtomicOrdering::Relaxed);
         let path = std::env::temp_dir().join(format!("{prefix}-{}-{sequence}", std::process::id()));
         fs::create_dir_all(&path).expect("create temp tree");
         Self { path }
     }
 
-    fn path(&self) -> &Path {
+    pub(super) fn path(&self) -> &Path {
         &self.path
     }
 }
