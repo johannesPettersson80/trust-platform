@@ -1,0 +1,9 @@
+Independent read-only closeout audit by /root/a1_readonly_review.
+All 206 then-indexed artifacts hash-match. Run-5 manifest, 275 records and run-6 manifest, 307
+records match the recorded digests; native totals 224/70/142/219/3863 and run-6 counts
+31+4 match raw logs. Fixture 6,164 bytes/hash 0a09a719... is not ignored. Exactly six
+doc/index files differ from the run-6 freeze; no Rust or generated fixture changes.
+
+One finding: stale current-tense statements in historical preparation/closeout
+sections. Root corrected them to past checkpoints and retained the original run
+history. No further overclaim found. No builds/tests/validators were executed.

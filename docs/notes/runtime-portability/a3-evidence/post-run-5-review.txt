@@ -1,0 +1,10 @@
+Independent read-only correction review by /root/a1_readonly_review.
+Canonical AGENTS and all 19 skill files match. Three reviewed files are listed in
+run-6-review-input-manifest.json; original inputs are retained in
+run-6-reviewed-source.tar.gz. Sorted path/NUL/raw-content/NUL SHA256:
+faed520bb75358064a5c6c141948dd54719b0c448136f5ce58619d49fa771076
+
+Explicit BOOL and DINT fixtures address actual failures. Source partial-alias
+coverage remains; whole-WORD configuration is admitted. Lowered partial config
+covers Byte1 roundtrip and producer/consumer Byte2 rejection. Spec12 separates
+source admission from wire capability. No actionable findings. No execution.

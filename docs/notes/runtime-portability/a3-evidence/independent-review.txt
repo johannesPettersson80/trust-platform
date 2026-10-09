@@ -1,0 +1,7 @@
+A3 independent read-only review before run 1
+
+Semantic reviewer /root/a2_readonly_review traced producer/lifecycle and core admission. Corrections: frame metadata/type agreement, dense slots, scoped static lexical identity, alias/global collision, static frontier validation. Final targeted review found no remaining blocker in inspected corrections/wire changes; no compilation or whole-tree correctness claim.
+
+Compile/API and batch reviewer /root/a1_readonly_review found missing host reexports for InitializerBodyKind and InitializationTrigger, fixed before batch. Final inspected source/batch had no unresolved concrete blocker. No builds, tests, formatters or validators run by reviewers.
+
+Final review is source inspection, not test evidence. Source manifest identifies the completed pre-format candidate; batch formatting and discovery refresh are captured by a separate frozen manifest.

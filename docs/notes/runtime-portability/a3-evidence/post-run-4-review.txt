@@ -1,0 +1,13 @@
+Independent read-only review by /root/a1_readonly_review. Canonical rules verified.
+Reviewed corrections: staging-write CFG provenance and native targets, optional
+owner, canonical recipe contexts, reachable stdlib templates, strict path prefixes,
+structured diagnostics, stable disassembly, grouped producer state, action indexes,
+shared partial access/opcodes/helpers and new source/portable regressions.
+
+Findings corrected before validation: late SIZEOF type discovery, the edge-test
+field spelling and missing canonical-link rejection regressions. Final inspection
+found no further actionable issue; no builds/tests/formatters/validators ran.
+
+The exact source set is run-5-review-input-manifest.json; original bytes are in
+run-5-reviewed-source.tar.gz. Identity algorithm and digest are in
+run-5-review-identity.txt. Batch formatting has its own later frozen manifest.

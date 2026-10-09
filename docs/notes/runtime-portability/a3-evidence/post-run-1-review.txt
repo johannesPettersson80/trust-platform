@@ -1,0 +1,11 @@
+Independent post-run-1 correction review
+
+Seven-file identity (sorted path/NUL/content/NUL SHA-256):
+416c5f2d886eab157fff2a6e11148b0c424da6a5a111ed8d6b0cc67cf0b02e5e
+
+Reviewer found no actionable finding in the seven corrections compared with frozen
+run-1 source. Version binding/imports address compiler diagnostics. Node limits
+use matching integer domains. Direct-I/O checks remain inside the unit-returning
+budget closure. Reference-stack helper preserves moved opcode branches/errors.
+Canonical instructions matched. No edits or validation ran; compilation, native
+assertions and architecture acceptance remain unverified.

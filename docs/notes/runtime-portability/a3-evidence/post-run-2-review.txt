@@ -1,0 +1,3 @@
+Run-2 correction independent read-only review: no actionable findings.
+Four-file sorted path/NUL/content/NUL SHA-256: f2342ac7ff2b875546e4f17ca089064f1b5325852fa793069708226877e2333f
+Compiler facade visibility, unused import and escaped diagram labels only. No partial-access or core changes. No compilation, tests or rendering performed.

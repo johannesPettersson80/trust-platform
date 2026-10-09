@@ -1,0 +1,3 @@
+[gate-progress state=started phase=A3-freeze-source target=scena-rust-builder pid=647292 elapsed=0.0s timeout=5400s command='python3 /home/johannes/.cache/trust-portability-a3-setup-run-4/freeze-source.py']
+Frozen 231 source/deletion records after formatting and digest refresh
+[gate-progress state=finished phase=A3-freeze-source target=scena-rust-builder pid=647292 elapsed=0.3s timeout=5400s command='python3 /home/johannes/.cache/trust-portability-a3-setup-run-4/freeze-source.py' status=0]

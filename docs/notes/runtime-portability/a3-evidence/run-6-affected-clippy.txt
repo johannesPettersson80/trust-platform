@@ -1,0 +1,8 @@
+[gate-progress state=started phase=A3-affected-clippy target=scena-rust-builder pid=787276 elapsed=0.0s timeout=5400s command='cargo clippy --locked -p trust-runtime-core -p trust-runtime --all-targets --all-features -- -D warnings']
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-runtime-core)
+    Checking trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-ads-core)
+    Checking trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-ads-server)
+    Checking trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-runtime)
+[gate-progress state=running phase=A3-affected-clippy target=scena-rust-builder pid=787276 elapsed=30.0s timeout=5400s command='cargo clippy --locked -p trust-runtime-core -p trust-runtime --all-targets --all-features -- -D warnings']
+    Finished `dev` profile [unoptimized] target(s) in 39.75s
+[gate-progress state=finished phase=A3-affected-clippy target=scena-rust-builder pid=787276 elapsed=40.3s timeout=5400s command='cargo clippy --locked -p trust-runtime-core -p trust-runtime --all-targets --all-features -- -D warnings' status=0]

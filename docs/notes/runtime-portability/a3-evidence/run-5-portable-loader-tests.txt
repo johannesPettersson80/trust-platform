@@ -1,0 +1,122 @@
+[gate-progress state=started phase=A3-portable-loader-tests target=scena-rust-builder pid=766292 elapsed=0.0s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features --test bytecode_container --test bytecode_decode_resource_bounds --test bytecode_sections --test bytecode_portable_load --test bytecode_validation_budget --test bytecode_validation_scale --test bytecode_source_free --test io_address -- --nocapture --test-threads=1']
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-runtime-core)
+    Finished `test` profile [unoptimized] target(s) in 2.06s
+     Running tests/bytecode_container.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a3/debug/deps/bytecode_container-e3e96f808555ff53)
+
+running 11 tests
+test checksum_validation ... ok
+test declared_header_alignment_and_table_boundary_are_checked ... ok
+test duplicate_standard_section_ids_are_rejected ... ok
+test encoder_rejects_section_count_before_serializing_payloads ... ok
+test header_validation ... ok
+test section_end_beyond_32_bit_address_space_is_rejected ... ok
+test section_payloads_cannot_alias_header_or_section_table ... ok
+test section_table_validation ... ok
+test truncated_reference_owner_field_is_rejected ... ok
+test unsupported_reference_location_tag_is_rejected ... ok
+test version_gate ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/bytecode_decode_resource_bounds.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a3/debug/deps/bytecode_decode_resource_bounds-fd1c8e6f6ad86681)
+
+running 8 tests
+test allocation_pressure_from_declared_counts_fails_before_reservation ... ok
+test fixed_section_entry_counts_must_fit_before_allocation ... ok
+test nested_pou_counts_must_fit_before_allocation ... ok
+test nested_reference_counts_must_fit_before_allocation ... ok
+test nested_resource_counts_must_fit_before_allocation ... ok
+test nested_type_counts_must_fit_before_allocation ... ok
+test string_table_count_must_fit_section_before_allocation ... ok
+test type_table_count_must_fit_offset_table_before_allocation ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bytecode_portable_load.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a3/debug/deps/bytecode_portable_load-7ed4bc2837558cf0)
+
+running 7 tests
+test decoded_container_is_not_semantically_validated_by_parsing ... ok
+test jump_overflow_and_non_instruction_targets_are_rejected ... ok
+test legacy_1_0_and_1_1_serialization_preserve_their_byte_layouts ... ok
+test overflowing_pou_extent_is_rejected_before_slicing ... ok
+test saved_container_materializes_task_metadata_without_host_or_hir ... ok
+test section_borrow_outlives_the_temporary_view ... ok
+test validated_marker_rejects_struct_built_container_bypasses ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bytecode_sections.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a3/debug/deps/bytecode_sections-b0290a0d69d80c40)
+
+running 11 tests
+test const_pool_decode ... ok
+test debug_map_decode ... ok
+test debug_string_table_decode ... ok
+test io_map_decode ... ok
+test pou_index_decode ... ok
+test ref_table_decode ... ok
+test resource_meta_decode ... ok
+test string_table_decode ... ok
+test string_table_padding ... ok
+test type_table_decode ... ok
+test var_meta_decode ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bytecode_source_free.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a3/debug/deps/bytecode_source_free-2e555768d70b8853)
+
+running 14 tests
+test callable_default_identity_survives_the_wire_round_trip ... ok
+test callable_defaults_reject_foreign_context_and_inconsistent_identity ... ok
+test construction_decoder_rejects_truncated_records_and_unknown_discriminants ... ok
+test initializer_bodies_have_disjoint_ranges_and_private_results ... ok
+test legacy_instruction_stream_rejects_default_value_opcode ... ok
+test legacy_unknown_extension_ids_do_not_acquire_two_point_zero_meaning ... ok
+test on_demand_default_has_typed_result_and_no_runtime_owner ... ok
+test portable_consumer_rejects_both_legacy_versions ... ok
+test recipe_visibility_does_not_admit_a_callers_frame_or_static_aliases ... ok
+test source_free_construction_rejects_unknown_or_noncanonical_primitives ... ok
+test source_free_empty_resource_round_trips_with_mandatory_tables ... ok
+test source_free_reserved_flags_and_future_versions_reject ... ok
+test two_point_zero_requires_each_construction_section_even_when_empty ... ok
+test typed_initializer_opcodes_are_not_ordinary_pou_instructions ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bytecode_validation_budget.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a3/debug/deps/bytecode_validation_budget-9370f6b365158cfc)
+
+running 12 tests
+test branch_diamonds_do_not_confuse_linear_analysis_with_runtime_depth ... ok
+test conditional_errors_keep_fallthrough_first_lifo_order ... ok
+test deep_linear_body_does_not_retain_a_stack_per_instruction ... ok
+test exact_accounted_limits_pass_and_one_less_fails ... ok
+test legacy_call_keeps_structural_error_precedence ... ok
+test many_deep_branch_entries_exhaust_the_aggregate_budget ... ok
+test multiple_pous_share_one_work_budget ... ok
+test nested_type_metadata_consumes_the_shared_work_budget ... ok
+test struct_built_type_discriminant_must_match_its_payload ... ok
+test unchanged_loop_terminates_analysis_and_growing_backedge_rejects ... ok
+test unreachable_malformed_instruction_is_still_decoded ... ok
+test widening_loop_reaches_a_fixed_point ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+     Running tests/bytecode_validation_scale.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a3/debug/deps/bytecode_validation_scale-55d1d1d8e3eabdea)
+
+running 4 tests
+test compound_local_range_errors_follow_documented_partition_precedence ... ok
+test default_budget_admits_maximum_instruction_and_reference_fixture ... ok
+test diagnostic_length_does_not_replace_the_actual_rejection_with_a_budget_error ... ok
+test increasing_pou_density_does_not_multiply_metadata_scan_work ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.89s
+
+     Running tests/io_address.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a3/debug/deps/io_address-b79372021fa4a86f)
+
+running 3 tests
+test direct_addresses_preserve_area_width_bit_and_hierarchical_components ... ok
+test flat_extents_preserve_width_and_separate_hierarchical_storage ... ok
+test malformed_direct_addresses_reject_without_panicking ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[gate-progress state=finished phase=A3-portable-loader-tests target=scena-rust-builder pid=766292 elapsed=7.4s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features --test bytecode_container --test bytecode_decode_resource_bounds --test bytecode_sections --test bytecode_portable_load --test bytecode_validation_budget --test bytecode_validation_scale --test bytecode_source_free --test io_address -- --nocapture --test-threads=1' status=0]
