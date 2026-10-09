@@ -21,11 +21,12 @@ rendering.
 
 Two limits:
 - It has no GPU, so final WebGL or WebGPU visual proof needs real hardware.
-- It has no GitHub push credentials, so it fetches and validates only. It pushes only when the user
-  explicitly asks.
+- It has no GitHub push credentials, so it fetches and validates only. Authorized pushes use the
+  local checkout.
 
-The local Raspberry Pi is too slow for broad gates. Run cheap, narrow checks there only, such as
-formatting or one small crate's tests.
+Use the local Raspberry Pi for editing, git and lightweight inspection. Every Cargo, just and npm
+build/test runs through SSH on the builder. Follow AGENTS.md's implementation-first batch cadence;
+this skill does not authorize intermediate checks or retries.
 
 ## Getting the code there
 
@@ -76,11 +77,16 @@ Run this preflight before broad gates:
 ssh trust-builder 'df -hT /home/johannes /tmp && du -xhd1 "$HOME/projects" 2>/dev/null | sort -h | tail -20 && du -xhd1 "$HOME/.cache" 2>/dev/null | sort -h | tail -20'
 ```
 
-- **Free-space floors on `/home/johannes`**:
-  - about 25 GB for `just clippy`, `just test`, `npm test` or a focused runtime gate;
-  - 80 GB on the selected target filesystem for a cold exact-candidate `just test-all`, or for large native-dependency changes (ADS,
-    OPC UA/OpenSSL, EtherCAT, WebGPU). The release guard enforces this floor.
-  - Report the real free space; do not invent higher thresholds.
+- Also inspect `df` for the selected target and task `TMPDIR`; the example above only covers the
+  home filesystem and `/tmp`. Confirm the intended volume is mounted before using it.
+- **Capacity**:
+  - allow about 25 GB for Clippy, tests or npm output on the filesystem holding that output;
+  - the release guard requires 80 GiB on the selected target filesystem for cold `just test-all`;
+  - inspect active task-owned builds and coordinate overlapping large runs on the same filesystem.
+    A target lease protects against deletion, not disk consumption by other targets;
+  - record actual free space and known concurrent growth. If headroom is insufficient, postpone the
+    new run or use an approved target root with capacity. Do not lower guard thresholds or delete
+    another session's outputs to make a preflight pass.
 - **Cleaning up**: delete only generated outputs, never a source worktree. Examples are an isolated
   copy's `target/`, `fuzz/target/` and `~/.cache/sccache`. Use the idle-target script for shared
   targets.
@@ -93,7 +99,8 @@ ssh trust-builder 'df -hT /home/johannes /tmp && du -xhd1 "$HOME/projects" 2>/de
   1. stop the gate's leftover processes by PID;
   2. rerun the preflight;
   3. clean up;
-  4. rerun, and report the failure as an infrastructure failure.
+  4. retain the failure ledger; run again only within the user's current retry authorization.
+  Report the original failure as infrastructure failure, not a failed behavior assertion.
 
 ## Running tests there
 
@@ -107,7 +114,10 @@ ssh trust-builder 'df -hT /home/johannes /tmp && du -xhd1 "$HOME/projects" 2>/de
   - `ST_LSP_TEST_SERVER=<path>/trust-lsp` reuses a built language server.
 - **Killing processes**: kill by PID or by your own process group, never with `pkill -f` or
   `killall`.
-- **CPU contention**: never run two timing-sensitive suites at once on the builder.
+- **CPU contention**: never run two timing-sensitive suites at once on the builder. Check active
+  workloads and available memory before choosing build parallelism; honor the builder's Cargo job
+  configuration unless the task needs a documented override. More Cargo jobs do not speed up a
+  single-threaded test, so inspect the active phase before attributing a delay to CPU limits.
 
 ## CI parity
 

@@ -42,13 +42,16 @@ assertions directly shows that a specification or test is missing.
    - `missing_test`
    - `behavior_defect`
    - `external_manual`
-4. Write the assertion together with the change. Compile and run the focused test as you go
-   (AGENTS.md, "Check as you go"). The full round runs once, at the end.
-5. For a bug fix, when practical, record the focused test failing on its assertion before the fix,
-   and the same test passing after. These are not that evidence: a compile, harness, dependency,
-   registration or timeout failure. Never claim a run that did not happen.
-6. For a refactor, keep behavior-lock tests that pass both before and after, with no change in
-   behaviour.
+4. Write necessary assertions alongside the complete implementation. Before the batch, review
+   test imports/traits, feature and target gates, fixture registration, and the affected production
+   path. For lifecycle changes, trace relevant transitions and alternate callers rather than
+   testing only the reported happy path. Include native regressions plus required UI wiring proof.
+5. Freeze implementation and test sources, then execute the deduplicated validation batch under
+   AGENTS.md. Include required compile/lint and behavior checks with the intended toolchains.
+   A source review cannot certify that a new test compiles. Do not run per-edit or red/green loops.
+6. Preserve existing behavior-lock assertions for refactors. For bug fixes, retain any existing
+   pre-fix failure evidence; do not invent it or launch an extra baseline run without authorization.
+   Compile, harness, dependency, registration and timeout failures are not failed behavior assertions.
 7. Report:
    - the specification sections;
    - the test paths and names;
@@ -58,7 +61,7 @@ assertions directly shows that a specification or test is missing.
 ## By scenario
 
 - **bug fix**: clarify the specification if needed, then write the regression assertion, make the
-  fix, run the focused test, and finish with the final round.
+  fix, and include the regression in the final consolidated batch.
 - **refactor**: use behavior-lock tests. Split large test files by capability and keep test names
   stable where possible.
 - **malformed input**: assert a stable rejection, and assert that nothing was partly applied.
@@ -83,8 +86,8 @@ assertions directly shows that a specification or test is missing.
 - **CI-only regression**: this is a failure seen only in a platform compile or warning lane.
   - Keep the failed CI command and its log as the baseline.
   - Add a focused gate with the same target and flags.
-  - After the fix, run the same cross-target command until it passes. Host-only tests do not close
-    it.
+  - Include that command in the authorized consolidated batch. Retain failures and follow the
+    current retry authorization; do not loop until green. Host-only tests do not close it.
 
 ## PLC verification program
 

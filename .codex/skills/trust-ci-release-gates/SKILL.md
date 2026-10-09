@@ -26,12 +26,27 @@ ship.
   to the same version.
 - **Docs**: keep tutorials, examples, specifications and coverage documents in line with what ships.
 
+## Plan the final validation
+
+Before implementation is frozen, read the current workflows and guard scripts. In the existing task
+record, map each required job to its command, toolchain, targets/features, evidence and prerequisites.
+Distinguish the pinned/MSRV compiler from floating CI stable; record the actual versions used. Keep
+native Windows/macOS proof separate from Linux cross-compilation. Review new tests and their imports,
+feature gates and registrations as part of the full diff before spending the batch.
+
+Choose the release path before scheduling commands. If an exact-SHA guard is required, commit only
+when authorized, then use `prepare` for the checks it already runs. Do not run `just test-all` once
+before the commit and again inside prepare merely to satisfy two descriptions of the same gate.
+Required scope batches remain distinct when explicitly authorized; their evidence cannot substitute
+for the exact-SHA artifact. A commit, rebase or source change requires evidence for the new candidate.
+
 ## Before a push
 
-1. List every required GitHub job and its exact command shape from `.github/workflows/`. A host
+1. Confirm the required job/command map against `.github/workflows/` and the guard. A host
    `just clippy` or `just test-all` is not cross-platform parity.
-2. On the builder, run `just fmt`, `just clippy` and `just test-all`. Then run the gates for the
-   areas you touched:
+2. The following checks must pass on the builder in the authorized batch. Count commands covered
+   by `prepare` once; add only required checks it does not cover:
+   `just fmt`, `just clippy`, `just test-all`, and applicable area checks below:
    - **`trust-lsp` tests or dependency/config resolution**: `./scripts/prepush_ci_gate.sh`. It
      includes the test-path hygiene check and the Windows GNU check of trust-lsp's tests.
    - **Runtime networking, mesh or TLS**:
@@ -77,6 +92,7 @@ These pushes go through the guard in this skill's `scripts/`:
      - `bash scripts/supply_chain_gate.sh` and `bash scripts/architecture_safety_gate.sh`;
      - the cross-target warnings;
      - `just test-all` on the builder;
+     - MP-001 discovery/snapshot parity, reusing the native test binaries;
      - the capture lifecycle, when it applies.
    - Planner and catalog records are advisory.
    - Any commit, base movement or dirty checkout invalidates the artifact.
@@ -87,8 +103,12 @@ These pushes go through the guard in this skill's `scripts/`:
 3. **Wait for every required check.** If any check fails, collect the whole failure set and every
    failed job log before editing:
    `release_candidate_guard.py collect-failures --pr <number> --wait`.
-   - Fix the complete list in one batch, check with focused tests, refreeze, and prepare a new
-     candidate.
+   - Keep the source frozen while results are being collected. Within an authorized batch,
+     continue independent checks when safe; record dependent checks as unrun when prerequisites
+     fail. Do not bypass a guard's failure or alter its control flow ad hoc.
+   - Fix the complete known set, including defects in new tests, and review the full correction.
+     Refreeze and run the consolidated correction batch only under the user's current authorization.
+     Do not automatically rerun, or ask again when that authorization already exists.
    - Never push corrections from partial results.
 4. **Merge** only with `release_candidate_guard.py check-merge --pr <number> --execute`.
 5. **Release a version change.**
@@ -103,14 +123,26 @@ These pushes go through the guard in this skill's `scripts/`:
      - the assets and checksums;
      - the Marketplace version for darwin-arm64, darwin-x64, linux-arm64, linux-x64 and win32-x64.
    - If the main version guard expired only because the Release run was still going, wait for that
-     run and rerun the failed main jobs on the same SHA. Never create another tag.
+     run, then rerun the failed main jobs on the same SHA only under the current retry
+     authorization. Never create another tag.
 6. **Clean up.** `verify-release` then runs `audit-post-merge`.
    - Remove only the exact clean targets it lists.
    - Fetch with prune, and rerun the audit until it reports `clean`.
    - The handoff is incomplete while candidate branches, worktrees or unique commits remain.
 
-Stop and report the full blocker list after a second failed candidate, or after two hours without
-merge readiness.
+After a second failed candidate, or two hours without merge readiness, report the complete blocker
+list, elapsed time and next action. Continue only within the current scope and retry authorization;
+this report is not a new permission gate when the user already authorized continued corrections.
+
+Use precise readiness claims:
+
+- **Scope verified**: the scope's required evidence passes for its recorded source identity.
+- **Guard passed / push-ready**: the required exact-SHA artifact passes and push prerequisites hold.
+- **Merge-ready**: current-head required GitHub checks and reviews pass and `check-merge` allows it.
+- **Released**: `verify-release` confirms the tag, workflow, assets and Marketplace requirements.
+
+A passing earlier scope or old-head CI cannot establish a later state. Report the active stage,
+actual elapsed time and remaining stages; do not describe unpushed corrections as GitHub results.
 
 In PR text, `Closes`, `Fixes` and `Resolves` close an issue on merge; `Addresses` does not. Check
 that the intended issues are closed after the merge.
