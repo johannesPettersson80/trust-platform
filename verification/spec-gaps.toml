@@ -1041,3 +1041,23 @@ resolution_status = "closed"
 resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
 closeout_evidence = ["EVID_RELEASE_VERSION_CHAIN_GAP_CLOSEOUT_20260717"]
 last_reviewed = "2026-07-17"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_PERIODIC_DEADLINE_26D9F65F"
+title = "Periodic readiness must preserve nominal deadlines instead of sampled execution times"
+area = "runtime_safety"
+risk = "safety_critical"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "conflicting_sources"
+blocking_question = "Spec 11 previously advanced last_run to sampled now, contradicting periodic interval scheduling in spec 10 and IEC 6.8.2(b)."
+affected_invariants = ["RT_PERIODIC_DEADLINE_001"]
+affected_tests = ["TEST_PERIODIC_LATE_SAMPLES_001", "TEST_PERIODIC_NON_MULTIPLE_001"]
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_A1_PERIODIC_DEADLINE_CLOSEOUT_20261009"]
+last_reviewed = "2026-10-09"
+native_discovery_ids = ["DISC_1CDD5F04E9FCF5088094", "DISC_EAB1B860AA3426D9F65F", "DISC_EEE14687FD1E507B0C9E", "DISC_5BF2D096CF2C1B72FC06"]
+resolution_note = "Specs 10/11/34 adopt nominal deadlines. Registered host assertions passed A1 run 3; closeout links the raw native log and frozen snapshot. This closes the written-contract conflict, not hardware qualification or formal producer-proof promotion. Core discovery IDs remain source-discovery references rather than registry test identifiers."

@@ -1185,6 +1185,32 @@ limitations = ["The association is limited to the named stimulus and assertion p
 last_reviewed = "2026-07-18"
 
 [[mappings]]
+id = "ANOM_MAP_PERIODIC_DEADLINE_F5088094"
+class_id = "watchdog"
+discovery_id = "DISC_1CDD5F04E9FCF5088094"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/tasks.rs"
+name = "periodic_task_keeps_its_interval_when_cycles_start_late"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "Injected logical samples preserve nominal periodic deadlines without accumulating phase drift or inventing missed intervals."
+limitations = ["Native assertions passed A1 run 3; see docs/notes/runtime-portability/a1-evidence/run-3-runtime-tests.txt. Logical-time samples do not establish physical timing or independent watchdog behavior."]
+last_reviewed = "2026-10-09"
+
+[[mappings]]
+id = "ANOM_MAP_PERIODIC_DEADLINE_26D9F65F"
+class_id = "watchdog"
+discovery_id = "DISC_EAB1B860AA3426D9F65F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/tasks.rs"
+name = "periodic_task_non_multiple_interval_preserves_nominal_deadlines"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "Injected logical samples preserve nominal periodic deadlines without accumulating phase drift or inventing missed intervals."
+limitations = ["Native assertions passed A1 run 3; see docs/notes/runtime-portability/a1-evidence/run-3-runtime-tests.txt. Logical-time samples do not establish physical timing or independent watchdog behavior."]
+last_reviewed = "2026-10-09"
+
+[[mappings]]
 id = "ANOM_MAP_SLOW_DEVICE_REVIEW_DCF6125A"
 class_id = "slow_device"
 discovery_id = "DISC_50F0CBE7F09ADCF6125A"

@@ -109,6 +109,7 @@ docs/internal/architecture/*
 docs/internal/testing/*
 !docs/internal/testing/checklists/
 docs/internal/testing/checklists/*
+!docs/internal/testing/checklists/runtime-portability-implementation-checklist.md
 !docs/internal/testing/checklists/hmi-complete-implementation-checklist.md
 !docs/internal/testing/checklists/web-ide-full-implementation-checklist.md
 !docs/internal/testing/checklists/ld-specification-detailed-checklist.md

@@ -1,0 +1,30 @@
+schema_version = 1
+id = "RT_PERIODIC_DEADLINE_001"
+title = "Periodic activations preserve the registration deadline grid"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-10-09"
+claim = "Late samples advance the periodic baseline by whole intervals, with one activation and counted dropped misses; they do not shift later nominal deadlines."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime-core/src/task/readiness.rs", "crates/trust-runtime/tests/tasks.rs"]
+tests = ["TEST_PERIODIC_LATE_SAMPLES_001", "TEST_PERIODIC_NON_MULTIPLE_001"]
+gates = ["pr"]
+evidence_refs = ["EVID_A1_PERIODIC_DEADLINE_CLOSEOUT_20261009"]
+spec_gap_refs = []
+missing = ["formal_producer_proof_registration", "physical_timer_qualification"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "covered"
+rationale = "Mapped native logical-time assertions executed in A1 run 3. This association does not establish a formal proof level or physical timer qualification."

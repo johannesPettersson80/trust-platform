@@ -1,0 +1,63 @@
+scena-rust-builder
+/home/johannes/projects/trust-platform-portability-a1
+2026-10-09T08:52:29Z
+9a15065725c17da2c912055f1509368d3fd01d6c
+rustc 1.95.0 (59807616e 2026-04-14)
+binary: rustc
+commit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860
+commit-date: 2026-04-14
+host: x86_64-unknown-linux-gnu
+release: 1.95.0
+LLVM version: 22.1.2
+cargo 1.95.0 (f2d3ce0bd 2026-03-21)
+cargo-deny 0.19.9
+cargo-audit 0.22.2
+riscv32imac-unknown-none-elf
+thumbv7em-none-eabihf
+x86_64-pc-windows-gnu
+x86_64-unknown-linux-gnu
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1       301G  252G   37G  88% /
+RUSTFLAGS=-Dwarnings
+CARGO_BUILD_JOBS=2
+CARGO_INCREMENTAL=0
+CARGO_PROFILE_DEV_DEBUG=0
+CARGO_PROFILE_TEST_DEBUG=0
+11e3b754d7abea6c054f7eaff541710d0b3857752f631eb6e15baf7ca17d9939  Cargo.lock
+9a8912f9e2a23387dc9445362098d5890bd539d5ff8c9b73bf1be89e55ab1356  docs/specs/34-runtime-portability.md
+debug_assertions
+panic="abort"
+target_abi="eabihf"
+target_arch="arm"
+target_endian="little"
+target_env=""
+target_has_atomic="16"
+target_has_atomic="32"
+target_has_atomic="8"
+target_has_atomic="ptr"
+target_os="none"
+target_pointer_width="32"
+target_vendor="unknown"
+59395f5264e38973eabc13169177a62a6224238de7e8afdc19a7109949d4f126  /home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/thumbv7em-none-eabihf/lib/libcompiler_builtins-bbc9955573378e8c.rlib
+eedc42c69218d51a9d4bccc0e6267b703c44de2c073dcd9ac52b7d64d26b2d30  /home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/thumbv7em-none-eabihf/lib/libcore-0147d103acb464ac.rlib
+debug_assertions
+panic="abort"
+target_abi=""
+target_arch="riscv32"
+target_endian="little"
+target_env=""
+target_feature="a"
+target_feature="c"
+target_feature="m"
+target_feature="zaamo"
+target_feature="zalrsc"
+target_feature="zca"
+target_has_atomic="16"
+target_has_atomic="32"
+target_has_atomic="8"
+target_has_atomic="ptr"
+target_os="none"
+target_pointer_width="32"
+target_vendor="unknown"
+af3889bce79acf279b029e7f12aed12d9ab16f38dc8728cb735b68b0190785cc  /home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/riscv32imac-unknown-none-elf/lib/libcompiler_builtins-8517152f85ce41d9.rlib
+ce1a47de67f477fc9597d567ba6dad5d66593a8b7f9ce951241b798584cfcdd6  /home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/riscv32imac-unknown-none-elf/lib/libcore-7f7390f1bc9ffaff.rlib

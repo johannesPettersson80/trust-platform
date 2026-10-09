@@ -8,11 +8,13 @@
 **Source recheck:** `main` at `9a15065725c17da2c912055f1509368d3fd01d6c`, 9 October 2026; the reviewed runtime/core sources, workspace manifests/lockfile, specifications, and native CI workflow are unchanged from the original baseline.  
 **Scope:** A shared Rust execution engine for Linux, Windows, macOS, the NUCLEO-F401RE reference board, and one required ESP32 target, with separately scoped dependency/toolchain modernization and target qualification.
 
-**Revision basis:** This version moves the dependency-free periodic-task phase correction to the start of A1 as a separately reviewed source change sharing A1's existing batch. A1 establishes the corrected scheduling baseline; A4 integrates it into the compiler-free fixture and saved oracle. Specifications 10/11 and the scheduling arithmetic remain unchanged; current code still uses sampled-time baselines until implementation. The four-scope cadence, separate modernization, loader, STBC and numeric decisions remain. No implementation, dependency upgrade, build, or hardware qualification is asserted by this plan. [D01–D07]
+**Revision basis:** This version moves the dependency-free periodic-task phase correction to the start of A1 as a separately reviewed source change sharing A1's existing batch. A1 establishes the corrected scheduling baseline; A4 integrates it into the compiler-free fixture and saved oracle. Specifications 10/11 and the scheduling arithmetic remain unchanged; the reviewed pre-A1 code uses sampled-time baselines; implementation status is recorded below. The four-scope cadence, separate modernization, loader, STBC and numeric decisions remain. A1 source status and validation evidence are recorded separately below; later milestones are not completion claims. [D01–D07]
 
 **Requirement status:** This is the canonical implementation plan. “Shall” defines required behavior for the stated future profile, not behavior already implemented. Existing identifiers are retained. Specifications 11/12 distinguish current hosted/STBC 1.1 behavior from planned migration. Scope authorization and validation follow AGENTS.md; a milestone description is not authorization or evidence that it passed.
 
 ## 1. Decision and scope
+
+**A1 source status:** The A1 branch implements nominal-deadline readiness, explicit std/no_std collection features, shared libm primitives and target value-slot guards. Its checklist records review and validation separately; none of this establishes compiler-free loading, firmware fit or qualified hardware execution. All later scopes remain pending.
 
 truST shall retain one shared Rust implementation of its PLC execution semantics and its STBC bytecode instruction set. Different processors shall receive different compiled firmware binaries, not independently maintained VMs.
 
