@@ -87,3 +87,16 @@ fn text_restore_rejects_redirecting_retained_password() {
         assert!(restore(&edited.replace(SECRET_MARKER, "replacement"), &stored).is_ok());
     }
 }
+
+#[test]
+fn omitted_parameter_tables_remain_absent_in_both_configuration_forms() {
+    for text in [
+        "[io]\ndriver = \"loopback\"\n",
+        "[[io.drivers]]\nname = \"loopback\"\n",
+        "[[io.drivers]]\nname = \"mqtt\"\nparams = { broker = \"localhost:1883\", username = \"plant\", password = \"private-value\" }\n[[io.drivers]]\nname = \"loopback\"\n",
+    ] {
+        let projected = redact(text).unwrap();
+        assert_eq!(restore(&projected, text).unwrap(), text);
+        assert_eq!(restore(text, "").unwrap(), text);
+    }
+}

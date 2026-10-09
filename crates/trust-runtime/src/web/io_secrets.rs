@@ -49,10 +49,11 @@ fn transform_io(
     stored: Option<&Item>,
     restore: bool,
 ) -> Result<(), RuntimeError> {
-    if document.get("io").is_none() {
-        return Ok(());
-    }
-    let Some(io) = document.get_mut("io") else {
+    // Item::get_mut inserts absent keys; inspect optional fields without synthesizing Item::None.
+    let Some(io) = document
+        .as_table_like_mut()
+        .and_then(|table| table.get_mut("io"))
+    else {
         return Ok(());
     };
     let stored = stored.and_then(|document| document.get("io"));
@@ -64,11 +65,17 @@ fn transform_io(
         .and_then(Item::as_str)
         .unwrap_or("")
         .to_owned();
-    if let Some(params) = io.get_mut("params") {
+    if let Some(params) = io
+        .as_table_like_mut()
+        .and_then(|table| table.get_mut("params"))
+    {
         check_context(&name, params, same.and_then(|io| io.get("params")), restore)?;
         transform(params, same.and_then(|io| io.get("params")), restore)?;
     }
-    if let Some(drivers) = io.get_mut("drivers") {
+    if let Some(drivers) = io
+        .as_table_like_mut()
+        .and_then(|table| table.get_mut("drivers"))
+    {
         let stored = stored.and_then(|io| io.get("drivers"));
         let mut index = 0;
         while let Some(driver) = drivers.get_mut(index) {
@@ -76,7 +83,10 @@ fn transform_io(
                 .and_then(|drivers| drivers.get(index))
                 .filter(|stored| driver_name(driver) == driver_name(stored));
             let name = driver_name(driver).unwrap_or("").to_owned();
-            if let Some(params) = driver.get_mut("params") {
+            if let Some(params) = driver
+                .as_table_like_mut()
+                .and_then(|table| table.get_mut("params"))
+            {
                 check_context(
                     &name,
                     params,
