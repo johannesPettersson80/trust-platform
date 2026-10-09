@@ -878,6 +878,8 @@ M4H and M4 may proceed in parallel once their prerequisites are met. Existing te
 
 Extraction, value-layout optimization, and intentional behavioral changes shall remain separate reviewable slices with the repository's dependency/architecture checks. The separation of compilation from execution is established in other runtime designs, but their published sizes are not truST targets or estimates. [E22]
 
+Main carries Salsa 0.28.5 and rustls 0.23.45, including the required transitive dependencies, from the security update that resolved RUSTSEC-2026-0308 and RUSTSEC-2026-0285. A1 pins those exact versions, preserves the extraction compiler/edition/resolver and the existing query semantics, and ran the affected analysis and TLS regressions in its batch. This exception does not authorize broad modernization.
+
 M0U uses the same cadence in its own scope. Scope A selects and freezes the existing compiler and the minimum portable dependency graph; it does not raise MSRV, migrate editions/resolvers, update Node/npm, or run MOD-06's modernization matrix. Broad package updates remain required work for the combined plan. Keep their ledger visible without making them hidden M2A prerequisites.
 
 ### 13.1 First implementation scopes
