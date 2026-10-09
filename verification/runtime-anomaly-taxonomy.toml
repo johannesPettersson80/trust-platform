@@ -13,10 +13,10 @@ outcome = "written_contract_present"
 source_ref = "SPEC_RUNTIME_ENGINE_001"
 source_path = "docs/specs/11-runtime-engine.md"
 required_text = [
-  "dynamic allocation in hot path",
-  "No heap allocation during execution",
+  "Allocation-free control paths are an acceptance requirement for the bounded",
+  "profiles in specification 34, including fault/first-use paths",
 ]
-rationale = "The active normative runtime-engine contract already excludes dynamic allocation from the scan hot path and heap allocation from execution. Allocation-failure and OOM testing outside that scope remains unmapped test debt and does not make this written scan-cycle policy absent."
+rationale = "The runtime-engine contract defines allocation-free control paths as acceptance requirements for specification 34 bounded profiles, including fault and first-use paths. This is not a claim that every current hosted path is allocation-free; outside-profile allocation and OOM testing remains separate test debt."
 
 [spec_gap_reviews.restart_timebase]
 outcome = "resolved_source"

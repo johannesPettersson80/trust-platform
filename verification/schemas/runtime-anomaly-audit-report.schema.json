@@ -210,8 +210,8 @@
         "source_path": { "const": "docs/specs/11-runtime-engine.md" },
         "required_text": {
           "const": [
-            "dynamic allocation in hot path",
-            "No heap allocation during execution"
+            "Allocation-free control paths are an acceptance requirement for the bounded",
+            "profiles in specification 34, including fault/first-use paths"
           ]
         },
         "rationale": { "type": "string", "minLength": 1 }
