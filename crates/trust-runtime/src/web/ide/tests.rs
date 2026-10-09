@@ -573,3 +573,90 @@ fn fs_audit_log_tracks_mutating_operations() {
 
     let _ = std::fs::remove_dir_all(project);
 }
+
+#[test]
+fn io_text_edits_preserve_secrets_and_reject_stale_versions_and_aliases() {
+    let project = project_dir("io-secret-edit");
+    let original = "# comment\n[io]\ndriver = \"mqtt\"\n[io.params]\nbroker = \"localhost:1883\"\npassword = \"stored-secret\"\n";
+    write_source(&project, "io.toml", original);
+    let state = WebIdeState::new(Some(project.clone()));
+    let session = state.create_session(IdeRole::Editor).unwrap();
+    let snapshot = state.open_source(&session.token, "io.toml").unwrap();
+    assert!(!snapshot.content.contains("stored-secret"));
+    assert!(snapshot.content.contains("<redacted>"));
+    state
+        .apply_source(
+            &session.token,
+            "io.toml",
+            snapshot.version,
+            snapshot.content.replace("localhost", "127.0.0.1"),
+            true,
+        )
+        .unwrap();
+    let stored = std::fs::read_to_string(project.join("io.toml")).unwrap();
+    assert!(stored.contains("stored-secret"));
+    assert!(stored.contains("127.0.0.1"));
+    assert!(stored.contains("# comment"));
+    let snapshot = state.open_source(&session.token, "io.toml").unwrap();
+    write_source(
+        &project,
+        "io.toml",
+        &stored.replace("stored-secret", "rotated-secret"),
+    );
+    let err = state
+        .apply_source(
+            &session.token,
+            "io.toml",
+            snapshot.version,
+            snapshot.content,
+            true,
+        )
+        .unwrap_err();
+    assert_eq!(err.kind(), IdeErrorKind::Conflict);
+    let err = state
+        .rename_entry(&session.token, "io.toml", "public.st", true)
+        .unwrap_err();
+    assert_eq!(err.kind(), IdeErrorKind::Forbidden);
+    std::fs::remove_file(project.join("io.toml")).unwrap();
+    let err = state
+        .create_entry(
+            &session.token,
+            "io.toml",
+            false,
+            Some(original.replace("stored-secret", "<redacted>")),
+            true,
+        )
+        .unwrap_err();
+    assert_eq!(err.kind(), IdeErrorKind::InvalidInput);
+    assert!(!project.join("io.toml").exists());
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[cfg(unix)]
+#[test]
+fn io_credentials_cannot_be_read_or_formatted_through_a_symlink() {
+    let project = project_dir("io-secret-symlink");
+    write_source(
+        &project,
+        "io.toml",
+        "[io]\ndriver = \"mqtt\"\n[io.params]\npassword = \"stored-secret\"\n",
+    );
+    std::os::unix::fs::symlink(project.join("io.toml"), project.join("alias.st")).unwrap();
+    let state = WebIdeState::new(Some(project.clone()));
+    let session = state.create_session(IdeRole::Viewer).unwrap();
+    assert_eq!(
+        state
+            .open_source(&session.token, "alias.st")
+            .unwrap_err()
+            .kind(),
+        IdeErrorKind::Forbidden
+    );
+    assert_eq!(
+        state
+            .format_source(&session.token, "alias.st", None)
+            .unwrap_err()
+            .kind(),
+        IdeErrorKind::Forbidden
+    );
+    let _ = std::fs::remove_dir_all(project);
+}

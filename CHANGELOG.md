@@ -6,6 +6,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Protect I/O credentials in IDE, configuration-text and remote proxy reads;
+  preserve stored secrets (including a literal `<redacted>`) on unchanged saves,
+  and prevent generic IDE symlink/rename aliases from bypassing redaction.
+- Use the Rust 1.95-compatible atomic update API without deprecated calls on
+  current stable Rust, and update concurrently to remove the shell-quote
+  command-injection advisory.
+
 - Specify runtime clock dispatch name/error identity and deterministic LSP
   diagnostic-override collision precedence, including canonical-key priority
   and alias-only lexical ordering.

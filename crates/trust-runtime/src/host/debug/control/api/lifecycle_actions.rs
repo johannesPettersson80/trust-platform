@@ -52,11 +52,11 @@ impl DebugControl {
 
     pub(super) fn record_watchdog_pause(&self, elapsed: std::time::Duration) {
         let nanos = u64::try_from(elapsed.as_nanos()).unwrap_or(u64::MAX);
-        let _ = self.watchdog_pause_nanos.fetch_update(
-            Ordering::Relaxed,
-            Ordering::Relaxed,
-            |current| Some(current.saturating_add(nanos)),
-        );
+        let _ =
+            self.watchdog_pause_nanos
+                .try_update(Ordering::Relaxed, Ordering::Relaxed, |current| {
+                    Some(current.saturating_add(nanos))
+                });
     }
 
     /// Apply a requested control action.
@@ -277,5 +277,4 @@ impl DebugControl {
     pub fn step_out_thread(&self, thread_id: u32) {
         let _ = self.apply_action(ControlAction::StepOut(Some(thread_id)));
     }
-
 }

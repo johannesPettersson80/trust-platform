@@ -4477,7 +4477,25 @@ is replaced with the marker `<redacted>` before serialization. `POST
 `<redacted>` keeps the value stored for the driver at the same position with the
 same name, so saving a configuration as it was read never erases or replaces a
 credential. A marker with no stored value to keep is refused as an invalid
-configuration, and nothing is written. The `X-Trust-Ide-Session` header name is
+configuration, and nothing is written. A stored secret literally equal to the
+marker is still an existing value and must survive a read/save round trip.
+
+The same projection and restoration apply to `/api/ide/io/config`,
+`/api/runtime-cloud/io/config`, `/api/config-ui/io/config` and generic IDE file
+access to `io.toml`, in both runtime and standalone IDE modes. Text editing
+preserves unrelated fields and comments outside opaque redacted secret containers. Revision tokens and IDE versions
+are based on the original stored text, so even a secret-only concurrent change
+causes a stale-write conflict. Invalid configuration responses must not echo
+source snippets containing credentials. A proxy must project successful remote
+I/O responses and must not forward arbitrary remote error text.
+
+The generic IDE cannot rename `io.toml` to another filename or follow a final
+symbolic link; these restrictions prevent aliases from bypassing the credential
+projection. Directory moves retaining the `io.toml` filename remain supported.
+Creating a new I/O file validates its configuration and refuses a marker without
+a stored value. These rules do not remove the authenticated I/O read/save flow.
+
+The `X-Trust-Ide-Session` header name is
 also ASCII-case-insensitive and its value is preserved exactly.
 
 Every state-changing API route applies the following POST admission rules

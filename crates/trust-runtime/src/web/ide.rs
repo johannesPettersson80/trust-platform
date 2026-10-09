@@ -444,6 +444,14 @@ impl WebIdeState {
     fn resolve_workspace_path(&self, normalized: &str) -> Result<PathBuf, IdeError> {
         let root = self.workspace_root()?;
         let joined = root.join(normalized);
+        if std::fs::symlink_metadata(&joined)
+            .is_ok_and(|metadata| metadata.file_type().is_symlink())
+        {
+            return Err(IdeError::new(
+                IdeErrorKind::Forbidden,
+                "symbolic-link workspace files are not allowed",
+            ));
+        }
         let canonical_root = root.canonicalize().unwrap_or(root.clone());
         let canonical_parent = closest_existing_parent(joined.parent(), &canonical_root)?;
         if !canonical_parent.starts_with(&canonical_root) {

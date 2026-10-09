@@ -272,20 +272,14 @@ pub(crate) fn fetch_runtime_inline_values(
     let mut instances_ref = None;
     for scope in scopes {
         match scope.name.trim().to_ascii_lowercase().as_str() {
-            "locals" => {
-                if locals_ref.replace(scope.variables_reference).is_some() {
-                    return None;
-                }
+            "locals" if locals_ref.replace(scope.variables_reference).is_some() => {
+                return None;
             }
-            "globals" => {
-                if globals_ref.replace(scope.variables_reference).is_some() {
-                    return None;
-                }
+            "globals" if globals_ref.replace(scope.variables_reference).is_some() => {
+                return None;
             }
-            "retain" => {
-                if retain_ref.replace(scope.variables_reference).is_some() {
-                    return None;
-                }
+            "retain" if retain_ref.replace(scope.variables_reference).is_some() => {
+                return None;
             }
             "instances" if instances_ref.replace(scope.variables_reference).is_some() => {
                 return None;

@@ -78,7 +78,7 @@ impl MySqlDocumentSink {
         let ssl_cipher: Option<(String, String)> = connection
             .query_first("SHOW SESSION STATUS LIKE 'Ssl_cipher'")
             .map_err(|error| mysql_error("inspect TLS session", error))?;
-        if !ssl_cipher.is_some_and(|(_, cipher)| !cipher.is_empty()) {
+        if ssl_cipher.is_none_or(|(_, cipher)| cipher.is_empty()) {
             return Err(PersistenceError::Commit(
                 "MySQL connection did not negotiate TLS".to_string(),
             ));

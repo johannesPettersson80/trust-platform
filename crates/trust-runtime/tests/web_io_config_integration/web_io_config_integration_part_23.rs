@@ -129,3 +129,91 @@ fn io_config_save_refuses_the_marker_without_a_stored_secret() {
     assert!(!project.join("io.toml").exists(), "nothing is written");
     let _ = std::fs::remove_dir_all(project);
 }
+
+#[test]
+fn viewer_ide_io_and_generic_file_reads_redact_credentials() {
+    let (project, base, token) = token_server("ide-io-credentials", AccessRole::Viewer);
+    let mut response = ureq::post(&format!("{base}/api/ide/session"))
+        .header("X-Trust-Token", &token)
+        .header("Content-Type", "application/json")
+        .send("{\"role\":\"viewer\"}")
+        .expect("viewer session");
+    let session: Value =
+        serde_json::from_str(&response.body_mut().read_to_string().unwrap()).unwrap();
+    let session = session["result"]["token"].as_str().expect("session token");
+    for route in ["/api/ide/io/config", "/api/ide/file?path=io.toml"] {
+        let mut response = ureq::get(&format!("{base}{route}"))
+            .header("X-Trust-Token", &token)
+            .header("X-Trust-Ide-Session", session)
+            .call()
+            .expect("viewer read");
+        let body = response.body_mut().read_to_string().unwrap();
+        assert!(body.contains("<redacted>"), "{route}: {body}");
+        assert!(!body.contains("s3cret-mqtt"), "{route}: {body}");
+    }
+    std::fs::write(
+        project.join("io.toml"),
+        "[io]\npassword = 's3cret-mqtt' invalid",
+    )
+    .unwrap();
+    let (_, body) = read_config(&base, Some(&token));
+    assert!(!body.contains("s3cret-mqtt"), "malformed config: {body}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
+fn io_json_save_preserves_a_stored_literal_marker() {
+    let (project, base, token) = token_server("io-literal-marker", AccessRole::Engineer);
+    std::fs::write(
+        project.join("io.toml"),
+        MQTT_IO_TOML.replace("s3cret-mqtt", "<redacted>"),
+    )
+    .unwrap();
+    let (_, body) = read_config(&base, Some(&token));
+    let loaded: Value = serde_json::from_str(&body).unwrap();
+    let mut response = ureq::post(&format!("{base}/api/io/config"))
+        .header("Content-Type", "application/json")
+        .header("X-Trust-Token", &token)
+        .send(json!({ "drivers": loaded["drivers"], "use_system_io": false }).to_string())
+        .expect("literal marker round trip");
+    assert!(response
+        .body_mut()
+        .read_to_string()
+        .unwrap()
+        .contains("I/O config saved"));
+    let stored = std::fs::read_to_string(project.join("io.toml")).unwrap();
+    assert!(stored.contains("<redacted>"));
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
+fn standalone_config_text_read_and_write_preserve_stored_credentials() {
+    let project = make_project("standalone-io-secrets");
+    let runtime = super::web_io_config_integration_part_21::runtime_toml("runtime-a", "test", "");
+    std::fs::write(project.join("runtime.toml"), runtime).unwrap();
+    std::fs::write(project.join("io.toml"), MQTT_IO_TOML).unwrap();
+    let state = control_state_named(source_fixture(), "runtime-a");
+    let base = start_test_server_config_ui(state, project.clone());
+    let mut response = ureq::get(&format!(
+        "{base}/api/config-ui/io/config?runtime_id=runtime-a"
+    ))
+    .call()
+    .expect("read standalone io");
+    let body = response.body_mut().read_to_string().unwrap();
+    assert!(!body.contains("s3cret-mqtt"), "{body}");
+    let loaded: Value = serde_json::from_str(&body).unwrap();
+    let edited = loaded["text"]
+        .as_str()
+        .unwrap()
+        .replace("trust/io/in", "trust/io/edited");
+    let mut response = ureq::post(&format!("{base}/api/config-ui/io/config"))
+        .header("Content-Type", "application/json")
+        .send(json!({ "runtime_id": "runtime-a", "text": edited, "expected_revision": loaded["revision"] }).to_string())
+        .expect("save standalone io");
+    let result = response.body_mut().read_to_string().unwrap();
+    assert!(result.contains("io.toml saved"), "{result}");
+    let saved = std::fs::read_to_string(project.join("io.toml")).unwrap();
+    assert!(saved.contains("s3cret-mqtt"));
+    assert!(saved.contains("trust/io/edited"));
+    let _ = std::fs::remove_dir_all(project);
+}

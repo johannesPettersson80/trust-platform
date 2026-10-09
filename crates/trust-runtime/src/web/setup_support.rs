@@ -160,7 +160,7 @@ pub(super) fn load_io_config(
     let project_root = default_bundle_root(bundle_root);
     let project_io = project_root.join("io.toml");
     if project_io.is_file() {
-        let config = IoConfig::load(&project_io)?;
+        let config = IoConfig::load(&project_io).map_err(|_| io_secrets::invalid_io_config())?;
         return Ok(io_config_to_response(config, "project", false));
     }
     if let Some(system) = load_system_io_config().ok().flatten() {
@@ -252,15 +252,12 @@ fn restore_secrets(
                 if child.as_str() == Some(SECRET_MARKER)
                     && crate::security::is_secret_param_key(key)
                 {
-                    *child = kept
-                        .filter(|kept| kept.as_str() != Some(SECRET_MARKER))
-                        .cloned()
-                        .ok_or_else(|| {
-                            RuntimeError::InvalidConfig(
-                                format!("'{key}' is {SECRET_MARKER} but no value is stored for it")
-                                    .into(),
-                            )
-                        })?;
+                    *child = kept.cloned().ok_or_else(|| {
+                        RuntimeError::InvalidConfig(
+                            format!("'{key}' is {SECRET_MARKER} but no value is stored for it")
+                                .into(),
+                        )
+                    })?;
                 } else {
                     restore_secrets(child, kept)?;
                 }
@@ -297,7 +294,7 @@ pub(super) fn save_io_config(
     let drivers = driver_configs_from_payload(&payload)?;
     let safe_state = payload.safe_state.clone().unwrap_or_default();
     let io_text = render_io_toml(drivers, safe_state);
-    crate::config::validate_io_toml_text(&io_text)?;
+    crate::config::validate_io_toml_text(&io_text).map_err(|_| io_secrets::invalid_io_config())?;
     std::fs::write(&io_path, io_text).map_err(|err| {
         RuntimeError::ControlError(format!("failed to write io.toml: {err}").into())
     })?;
@@ -461,7 +458,7 @@ pub(super) fn read_source_file(bundle_root: &Path, name: &str) -> Result<String,
     let requested = requested
         .canonicalize()
         .map_err(|err| RuntimeError::InvalidConfig(format!("source not found: {err}").into()))?;
-    if !requested.starts_with(&sources_dir) {
+    if !requested.starts_with(&sources_dir) || io_secrets::is_io_config(&requested) {
         return Err(RuntimeError::InvalidConfig("invalid source path".into()));
     }
     std::fs::read_to_string(&requested)
@@ -482,7 +479,7 @@ pub(super) fn read_hmi_asset_file(project_root: &Path, name: &str) -> Result<Str
     let requested = requested
         .canonicalize()
         .map_err(|err| RuntimeError::InvalidConfig(format!("hmi asset not found: {err}").into()))?;
-    if !requested.starts_with(&hmi_dir) {
+    if !requested.starts_with(&hmi_dir) || io_secrets::is_io_config(&requested) {
         return Err(RuntimeError::InvalidConfig("invalid hmi asset path".into()));
     }
     std::fs::read_to_string(&requested).map_err(|err| {

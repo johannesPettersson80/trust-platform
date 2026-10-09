@@ -1,7 +1,7 @@
 use super::*;
 use std::path::Path;
 
-fn runtime_toml(runtime_id: &str, host_group: &str, links: &str) -> String {
+pub(super) fn runtime_toml(runtime_id: &str, host_group: &str, links: &str) -> String {
     format!(
         r#"
 [bundle]

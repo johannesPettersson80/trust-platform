@@ -460,3 +460,29 @@ fn setup_apply_system_selection_removes_existing_project_io() {
     assert!(!fixture.root.join("io.toml").exists());
     assert!(fixture.root.join("runtime.toml").is_file());
 }
+
+#[test]
+fn legacy_source_route_cannot_read_an_io_configuration() {
+    let fixture = TempProject::new("io-source-boundary");
+    fixture.write(
+        "src/io.toml",
+        "[io]\ndriver = 'mqtt'\n[io.params]\npassword = 'stored-secret'\n",
+    );
+    assert!(read_source_file(&fixture.root, "io.toml").is_err());
+}
+
+#[cfg(unix)]
+#[test]
+fn source_and_hmi_aliases_cannot_read_io_configuration() {
+    let fixture = TempProject::new("io-source-alias");
+    for directory in ["src", "hmi"] {
+        fixture.write(
+            &format!("{directory}/io.toml"),
+            "[io]\ndriver = 'mqtt'\n[io.params]\npassword = 'stored-secret'\n",
+        );
+    }
+    std::os::unix::fs::symlink("io.toml", fixture.root.join("src/alias.st")).unwrap();
+    std::os::unix::fs::symlink("io.toml", fixture.root.join("hmi/alias.svg")).unwrap();
+    assert!(read_source_file(&fixture.root, "alias.st").is_err());
+    assert!(read_hmi_asset_file(&fixture.root, "alias.svg").is_err());
+}

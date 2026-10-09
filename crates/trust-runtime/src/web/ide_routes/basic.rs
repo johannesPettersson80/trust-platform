@@ -190,11 +190,10 @@ pub(super) fn handle_basic_route(
         };
         match load_io_config(&target_root) {
             Ok(config) => {
-                let response =
-                    Response::from_string(json!({ "ok": true, "result": config }).to_string())
-                        .with_header(
-                            Header::from_bytes("Content-Type", "application/json").unwrap(),
-                        );
+                let response = Response::from_string(
+                    json!({ "ok": true, "result": redacted_io_config(&config) }).to_string(),
+                )
+                .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
                 let _ = request.respond(response);
             }
             Err(error) => {

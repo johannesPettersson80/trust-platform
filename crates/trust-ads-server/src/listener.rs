@@ -317,7 +317,7 @@ fn try_reserve_subscription(
     if max_total_subscriptions == 0 {
         return SubscriptionReservation::Rejected;
     }
-    let result = total_subscriptions.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
+    let result = total_subscriptions.try_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
         (current < max_total_subscriptions).then_some(current + 1)
     });
     if result.is_ok() {
