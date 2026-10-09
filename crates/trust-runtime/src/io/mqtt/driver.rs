@@ -56,6 +56,20 @@ impl MqttIoDriver {
         Ok(())
     }
 
+    /// Uses the same effective endpoint and authentication settings as connection setup.
+    pub(crate) fn same_credential_context(
+        requested: &toml::Value,
+        stored: &toml::Value,
+    ) -> Result<bool, RuntimeError> {
+        let requested = MqttIoConfig::from_params(requested)?;
+        let stored = MqttIoConfig::from_params(stored)?;
+        Ok(requested.endpoint == stored.endpoint
+            && requested.tls == stored.tls
+            && requested.username == stored.username
+            && requested.client_id == stored.client_id
+            && requested.allow_insecure_remote == stored.allow_insecure_remote)
+    }
+
     fn set_degraded(&mut self, message: impl AsRef<str>) {
         self.health = IoDriverHealth::Degraded {
             error: SmolStr::new(message.as_ref()),

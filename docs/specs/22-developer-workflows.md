@@ -286,6 +286,41 @@ the runtime Web UI source tree so browser-visible runtime changes cannot bypass
 their registered Playwright journeys. Its pull-request and push path filters
 must remain identical.
 
+### Release-candidate discovery parity
+
+The exact-SHA prepare command includes the existing MP-001 test-discovery and
+snapshot inventory check. It runs after the native workspace suite, under the
+same target lease and compiler environment, so discovery reuses the built test
+binaries. It does not rerun test bodies. Adding or moving a handler test updates
+its checked-in discovery baseline alongside the test. A failed or missing parity
+command prevents a passing release-candidate artifact.
+
+### Release-candidate build parallelism
+
+Release validation uses Cargo's normal build-job configuration on the builder. The guard
+must not replace an inherited `CARGO_BUILD_JOBS` value or a configured `[build].jobs` limit
+with a hardcoded single-job setting. When the environment is unset, Cargo resolves its
+configuration normally. Build concurrency is an infrastructure resource choice, not a
+change to the selected tests or their assertions. The 80 GiB disk preflight, target lease,
+uncached compilation and target reclamation requirements remain in force.
+
+### Release-candidate target storage
+
+The guard requires at least 80 GiB free on the filesystem that will contain its
+selected generated target, before compilation starts. It reports that filesystem,
+`$HOME` and `/tmp`; moving a target to a mounted volume does not lower the threshold.
+Approved targets are strict descendants of the home Cargo-target cache, `/tmp`, or
+`/mnt/HC_Volume_107089260/builder-storage/cargo-targets`. The volume must actually
+be mounted. Target paths cannot traverse `.` or `..`, alias another path through
+symlinks, or name an existing target/parent owned by another user. The shared
+external lease and idle-only reclamation apply to all approved roots, and policy
+is rechecked after acquiring the lease.
+
+A target migration holds both path leases, copies only the task-owned generated
+target, and verifies file bytes and symlink destinations before removing the
+original through the idle-target helper. Source checkouts, unrelated targets and
+validation evidence are not migration cleanup targets.
+
 ### Post-merge release-candidate cleanup audit
 
 The post-merge audit is read-only. It binds the reviewed candidate SHA, branch,

@@ -6,6 +6,25 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Bind release validation capacity checks to the selected generated-target filesystem;
+  support the mounted builder volume with the same leases, ownership checks and
+  80 GiB minimum, avoiding root-disk exhaustion during cold workspace tests.
+
+- Remove deleted project sources from the language server consistently across
+  directory notifications, reindexing and concurrent document close/index operations,
+  preventing stale duplicate declarations when creating a new project. Retain
+  registered file identity after text eviction so deletion and rename also work
+  through filesystem aliases on macOS and Windows.
+
+- Protect I/O credentials in IDE, configuration-text and remote proxy reads;
+  preserve stored secrets (including a literal `<redacted>`) on unchanged saves,
+  and prevent generic IDE symlink/rename aliases from bypassing redaction.
+  Retained MQTT passwords are bound to their broker and authentication context;
+  changing that context requires explicit replacement credentials.
+- Use the Rust 1.95-compatible atomic update API without deprecated calls on
+  current stable Rust, and update concurrently to remove the shell-quote
+  command-injection advisory.
+
 - Specify runtime clock dispatch name/error identity and deterministic LSP
   diagnostic-override collision precedence, including canonical-key priority
   and alias-only lexical ordering.
@@ -48,7 +67,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.69`
+Target release: `v0.24.70`
 
 ### Added
 
@@ -72,6 +91,16 @@ Target release: `v0.24.69`
 
 ### Fixed
 
+- Security: update `rustls` to 0.23.45 (RUSTSEC-2026-0285, TLS 1.3 handshake messages accepted
+  across encryption levels) and `salsa` to 0.28.5 (RUSTSEC-2026-0308, use-after-free in interned
+  values and cached query results). The two queries whose results salsa now returns by reference
+  are read by value, unchanged in behaviour. The VS Code extension's `brace-expansion` (2.1.7,
+  5.0.12) and `js-yaml` (4.3.2) move past two high-severity CPU denial-of-service advisories.
+- Security: `GET /api/io/config` answered without the web authentication in the runtime's own
+  web server, and every I/O configuration read returned driver credentials such as an MQTT
+  password. The read now needs the Viewer role in every server mode, and passwords, tokens,
+  secrets and private keys come back as `<redacted>`; saving a configuration as it was read
+  keeps the stored credential (specification 11, §6.9.7).
 - Resolve symbolic MQTT tag mappings when a project is launched in the VS Code
   simulator, so mapped outputs connect and publish instead of leaving the
   debugger with an empty process image.
@@ -1003,6 +1032,8 @@ Target release: `v0.24.69`
   digital-twin or trust-twin runtime path.
 
 ### Changed
+
+- Let release validation honor the builder's configured Cargo job limit instead of forcing a single concurrent build job.
 
 - vscode/docs: documented the shipped product contract for the truST sidebar,
   Live Values, Devices & Connections, examples, libraries, HMI, and visual

@@ -335,6 +335,16 @@ pub(super) fn atomic_write_text(path: &Path, text: &str) -> Result<(), RuntimeEr
     })
 }
 
+pub(super) fn write_io_config_file(
+    path: &Path,
+    text: &str,
+    expected_revision: Option<&str>,
+) -> Result<String, RuntimeError> {
+    let stored = fs::read_to_string(path).unwrap_or_default();
+    let restored = io_secrets::restore(text, &stored)?;
+    write_config_file(path, &restored, expected_revision, |_| Ok(()))
+}
+
 pub(super) fn write_config_file(
     path: &Path,
     text: &str,
@@ -397,7 +407,7 @@ pub(super) fn load_project_io_config_response(
 ) -> Result<IoConfigResponse, RuntimeError> {
     let io_path = runtime_root.join("io.toml");
     if io_path.is_file() {
-        let config = IoConfig::load(&io_path)?;
+        let config = IoConfig::load(&io_path).map_err(|_| io_secrets::invalid_io_config())?;
         return Ok(io_config_to_response(config, "project", false));
     }
     Ok(IoConfigResponse {

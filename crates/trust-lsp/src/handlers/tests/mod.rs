@@ -79,3 +79,5 @@ mod trace_support;
 
 mod mod_part_01;
 mod mod_part_02;
+
+mod workspace_deletion;

@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct BrokerEndpoint {
     host: SmolStr,
     port: u16,
@@ -7,6 +7,7 @@ struct BrokerEndpoint {
 #[derive(Debug, Clone)]
 struct MqttIoConfig {
     endpoint: BrokerEndpoint,
+    allow_insecure_remote: bool,
     client_id: SmolStr,
     topic_in: SmolStr,
     topic_out: SmolStr,
@@ -23,8 +24,10 @@ struct MqttIoConfig {
     sparkplug: Option<SparkplugConfig>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct MqttTlsConfig {
+    ca_path: String,
+    client_auth_paths: Option<(String, String)>,
     ca: Vec<u8>,
     client_auth: Option<(Vec<u8>, Vec<u8>)>,
     alpn: Option<Vec<String>>,
@@ -130,6 +133,7 @@ impl MqttIoConfig {
 
         Ok(Self {
             endpoint,
+            allow_insecure_remote,
             client_id,
             topic_in,
             topic_out,
@@ -224,6 +228,12 @@ fn parse_tls_config(
         .transpose()?;
 
     Ok(Some(MqttTlsConfig {
+        ca_path: ca_path.trim().to_owned(),
+        client_auth_paths: params
+            .tls_client_cert_path
+            .as_deref()
+            .zip(params.tls_client_key_path.as_deref())
+            .map(|(cert, key)| (cert.trim().to_owned(), key.trim().to_owned())),
         ca,
         client_auth,
         alpn,

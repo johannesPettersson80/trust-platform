@@ -74,6 +74,14 @@ fn handle_modbus_request(
     stream: &mut TcpStream,
     state: &Arc<Mutex<ModbusTestState>>,
 ) -> Result<(), ()> {
+    handle_modbus_request_before_response(stream, state, || Ok(()))
+}
+
+pub(super) fn handle_modbus_request_before_response(
+    stream: &mut TcpStream,
+    state: &Arc<Mutex<ModbusTestState>>,
+    before_response: impl FnOnce() -> Result<(), ()>,
+) -> Result<(), ()> {
     let mut header = [0u8; 6];
     stream.read_exact(&mut header).map_err(|_| ())?;
     let tx = u16::from_be_bytes([header[0], header[1]]);
@@ -90,6 +98,7 @@ fn handle_modbus_request(
         let mut guard = state.lock().expect("modbus state lock");
         guard.functions.push(function);
     }
+    before_response()?;
     let response = match function {
         0x01 | 0x02 => handle_read_bits(function, pdu, state),
         0x03 | 0x04 => handle_read_registers(function, pdu, state),

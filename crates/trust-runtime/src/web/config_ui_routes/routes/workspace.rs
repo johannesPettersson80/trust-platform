@@ -256,7 +256,7 @@ pub(in crate::web::config_ui_routes) fn handle_workspace_routes(
                 "ok": true,
                 "runtime_id": runtime.runtime_id,
                 "path": path.display().to_string(),
-                "text": text,
+                "text": io_secrets::redact(&text)?,
                 "revision": text_revision(text.as_str()),
             }))
         }) {
@@ -301,11 +301,10 @@ pub(in crate::web::config_ui_routes) fn handle_workspace_routes(
                 payload.runtime_id.as_deref(),
                 ctx.control_state,
             )?;
-            write_config_file(
+            write_io_config_file(
                 runtime.root.join("io.toml").as_path(),
                 payload.text.as_str(),
                 payload.expected_revision.as_deref(),
-                crate::config::validate_io_toml_text,
             )
             .map(|revision| {
                 json!({

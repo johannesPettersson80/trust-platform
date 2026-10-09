@@ -266,9 +266,9 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "aws-lc-rs"
-version = "1.16.3"
+version = "1.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ec6fb3fe69024a75fa7e1bfb48aa6cf59706a101658ea01bfd33b2b248a038f"
+checksum = "b281d307588d634de920874890732659e2e7672f72b5e10e81badc1a8a83621e"
 dependencies = [
  "aws-lc-sys",
  "zeroize",
@@ -276,14 +276,15 @@ dependencies = [
 
 [[package]]
 name = "aws-lc-sys"
-version = "0.40.0"
+version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f50037ee5e1e41e7b8f9d161680a725bd1626cb6f8c7e901f91f942850852fe7"
+checksum = "9bff6c3b54fad79a2e60b8102caf565819711497c1f5f092f49508e2f5c31b27"
 dependencies = [
  "cc",
  "cmake",
  "dunce",
  "fs_extra",
+ "pkg-config",
 ]
 
 [[package]]
@@ -1903,8 +1904,6 @@ version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
 dependencies = [
- "allocator-api2",
- "equivalent",
  "foldhash 0.1.5",
 ]
 
@@ -1925,16 +1924,9 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f467dd6dccf739c208452f8014c75c18bb8301b050ad1cfb27153803edb0f51"
 dependencies = [
+ "allocator-api2",
+ "equivalent",
  "foldhash 0.2.0",
-]
-
-[[package]]
-name = "hashlink"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7382cf6263419f2d8df38c55d7da83da5c18aef87fc7a7fc1fb1e344edfe14c1"
-dependencies = [
- "hashbrown 0.15.5",
 ]
 
 [[package]]
@@ -2301,12 +2293,9 @@ dependencies = [
 
 [[package]]
 name = "intrusive-collections"
-version = "0.9.7"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "189d0897e4cbe8c75efedf3502c18c887b05046e59d28404d4d8e46cbc4d1e86"
-dependencies = [
- "memoffset",
-]
+checksum = "4275b20e6057cd7733fd8df8a5a31701e4fe44497dad0f3fa0e1c4fb971506be"
 
 [[package]]
 name = "inventory"
@@ -2836,7 +2825,7 @@ dependencies = [
  "named_pipe",
  "pem",
  "percent-encoding 2.3.2",
- "rustls 0.23.40",
+ "rustls 0.23.45",
  "rustls-pemfile 2.2.0",
  "socket2 0.6.3",
  "twox-hash",
@@ -4252,7 +4241,7 @@ dependencies = [
  "bitflags 2.11.1",
  "fallible-iterator 0.3.0",
  "fallible-streaming-iterator",
- "hashlink 0.12.1",
+ "hashlink",
  "libsqlite3-sys",
  "smallvec",
  "sqlite-wasm-rs",
@@ -4319,9 +4308,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.40"
+version = "0.23.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef86cd5876211988985292b91c96a8f2d298df24e75989a43a3c73f2d4d8168b"
+checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
 dependencies = [
  "aws-lc-rs",
  "log",
@@ -4362,9 +4351,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.13"
+version = "0.103.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61c429a8649f110dddef65e2a5ad240f747e85f7758a6bccc7e5777bd33f756e"
+checksum = "f3c3cf1d8b1e7d4927e2d154c3fcb02979afb9939629c62cd9048d4f07b60ac2"
 dependencies = [
  "aws-lc-rs",
  "ring 0.17.14",
@@ -4401,15 +4390,15 @@ dependencies = [
 
 [[package]]
 name = "salsa"
-version = "0.26.1"
+version = "0.28.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a07bc2a7df3f8e2306434a172a694d44d14fda738d08aad5f2f7f747d2f06fdc"
+checksum = "27d2e6e19e39591cd99c01ac4141544b4d012cfd0831348629b8187fa9fe6d34"
 dependencies = [
  "boxcar",
  "crossbeam-queue",
  "crossbeam-utils",
- "hashbrown 0.15.5",
- "hashlink 0.10.0",
+ "hashbrown 0.17.0",
+ "hashlink",
  "indexmap 2.14.0",
  "intrusive-collections",
  "inventory",
@@ -4422,24 +4411,24 @@ dependencies = [
  "smallvec",
  "thin-vec",
  "tracing",
+ "typeid",
 ]
 
 [[package]]
 name = "salsa-macro-rules"
-version = "0.26.1"
+version = "0.28.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec256ece77895f4a8d624cecc133dd798c7961a861439740b1c7410a613ee7ba"
+checksum = "baf90a551c38f25ed8489111d3d5827aa18e1b85963f5e6a298505b1d1e2cb7e"
 
 [[package]]
 name = "salsa-macros"
-version = "0.26.1"
+version = "0.28.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "978e5d5c9533ce19b6a58ad91024e1d136f6eec83c4ba98b5ce94c87986c41d8"
+checksum = "69dd77f86ec10e72e314f4ddf7c44c8d349e73cdff1aad524ba9668603fb0549"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.117",
- "synstructure",
+ "syn 3.0.6",
 ]
 
 [[package]]
@@ -5084,6 +5073,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "syn"
+version = "3.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8593e8e72159ed2257d083c7a454a85cbf854f37a0966d8d483aff8c8a3ebcee"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
 name = "synstructure"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5650,7 +5650,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.24.69"
+version = "0.24.70"
 dependencies = [
  "serde",
  "serde_json",
@@ -5659,14 +5659,14 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.24.69"
+version = "0.24.70"
 dependencies = [
  "trust-ads-core",
 ]
 
 [[package]]
 name = "trust-debug"
-version = "0.24.69"
+version = "0.24.70"
 dependencies = [
  "glob",
  "indexmap 2.14.0",
@@ -5681,7 +5681,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.24.69"
+version = "0.24.70"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5700,7 +5700,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.24.69"
+version = "0.24.70"
 dependencies = [
  "boxcar",
  "insta",
@@ -5719,7 +5719,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.24.69"
+version = "0.24.70"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -5732,7 +5732,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.24.69"
+version = "0.24.70"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -5762,7 +5762,7 @@ dependencies = [
 
 [[package]]
 name = "trust-plcopen"
-version = "0.24.69"
+version = "0.24.70"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -5774,7 +5774,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.24.69"
+version = "0.24.70"
 dependencies = [
  "ads",
  "anyhow",
@@ -5814,7 +5814,7 @@ dependencies = [
  "rusqlite",
  "rustc-hash 2.1.2",
  "rustix 1.1.4",
- "rustls 0.23.40",
+ "rustls 0.23.45",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -5848,7 +5848,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.69"
+version = "0.24.70"
 dependencies = [
  "indexmap 2.14.0",
  "rustc-hash 2.1.2",
@@ -5860,7 +5860,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.24.69"
+version = "0.24.70"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -5872,14 +5872,14 @@ dependencies = [
 
 [[package]]
 name = "trust-tcads-native"
-version = "0.24.69"
+version = "0.24.70"
 dependencies = [
  "libloading",
 ]
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.24.69"
+version = "0.24.70"
 dependencies = [
  "rowan",
  "serde",
@@ -6047,7 +6047,7 @@ dependencies = [
  "flate2",
  "log",
  "percent-encoding 2.3.2",
- "rustls 0.23.40",
+ "rustls 0.23.45",
  "rustls-pki-types",
  "ureq-proto",
  "utf8-zero",
@@ -6176,7 +6176,7 @@ checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
 
 [[package]]
 name = "verification-cases"
-version = "0.24.69"
+version = "0.24.70"
 dependencies = [
  "serde",
  "serde_json",
@@ -6947,7 +6947,7 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "xtask"
-version = "0.24.69"
+version = "0.24.70"
 dependencies = [
  "anyhow",
  "proc-macro2",

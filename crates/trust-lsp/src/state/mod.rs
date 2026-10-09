@@ -108,7 +108,7 @@ impl RequestLimiter {
 /// The server state.
 pub struct ServerState {
     /// Known documents (open + indexed).
-    documents: RwLock<FxHashMap<Url, Document>>,
+    documents: RwLock<FxHashMap<Url, documents::DocumentEntry>>,
     /// Cached semantic tokens for delta responses.
     semantic_tokens: RwLock<FxHashMap<Url, SemanticTokensCache>>,
     /// Cached diagnostics for pull requests.
@@ -360,6 +360,16 @@ impl ServerState {
         documents::remove_document(self, uri)
     }
 
+    /// Removes semantic sources at or below an explicitly deleted URI.
+    pub fn remove_document_tree(&self, uri: &Url) -> usize {
+        documents::remove_document_tree(self, uri)
+    }
+
+    /// Drops missing closed disk sources without inferring deletion from an index budget.
+    pub fn reconcile_missing_documents(&self, config: &ProjectConfig) -> usize {
+        documents::reconcile_missing_documents(self, config)
+    }
+
     /// Renames a document while preserving its open state and content.
     pub fn rename_document(&self, old_uri: &Url, new_uri: &Url) -> Option<FileId> {
         documents::rename_document(self, old_uri, new_uri)
@@ -545,6 +555,9 @@ fn now_millis() -> u64 {
         .unwrap_or_default()
         .as_millis() as u64
 }
+
+#[cfg(test)]
+mod document_membership_tests;
 
 #[cfg(test)]
 #[path = "state_contract_tests.rs"]

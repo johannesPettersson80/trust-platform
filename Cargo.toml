@@ -22,7 +22,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.24.69"
+version = "0.24.70"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/johannesPettersson80/trust-platform"
@@ -38,7 +38,7 @@ rowan = "0.16"
 text-size = "1.1"
 
 # Semantic analysis
-salsa = "0.26"
+salsa = "0.28"
 
 # LSP
 tower-lsp = "0.20"

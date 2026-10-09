@@ -199,7 +199,7 @@ impl Database {
             return LEGACY_UNKNOWN_TYPE_ID;
         };
 
-        salsa::Cancelled::catch(|| salsa_backend::type_of_query(&db, project, file_id, expr_id))
+        salsa::Cancelled::catch(|| *salsa_backend::type_of_query(&db, project, file_id, expr_id))
             .unwrap_or(LEGACY_UNKNOWN_TYPE_ID)
     }
 

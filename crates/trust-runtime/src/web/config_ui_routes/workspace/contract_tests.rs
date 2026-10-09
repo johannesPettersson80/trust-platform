@@ -425,3 +425,25 @@ fn project_state_revision_changes_with_exact_runtime_text() {
     assert_eq!(first["runtimes"][0]["runtime_id"], "line");
     assert_ne!(first["revision"], second["revision"]);
 }
+
+#[test]
+fn io_text_write_restores_secrets_and_uses_raw_disk_revision() {
+    let fixture = TempWorkspace::new("io-secret-revision");
+    let path = fixture.root.join("io.toml");
+    let original = "# retained\n[io]\ndriver = \"mqtt\"\n[io.params]\nbroker = \"localhost:1883\"\nusername = \"plant\"\npassword = \"secret-value\"\ntopic_in = \"before\"\n";
+    std::fs::write(&path, original).unwrap();
+    let revision = text_revision(original);
+    let edited = io_secrets::redact(original)
+        .unwrap()
+        .replace("before", "after");
+    write_io_config_file(&path, &edited, Some(&revision)).unwrap();
+    let saved = std::fs::read_to_string(&path).unwrap();
+    assert!(saved.contains("secret-value"));
+    assert!(saved.contains("# retained"));
+    assert!(saved.contains("after"));
+    let revision = text_revision(&saved);
+    std::fs::write(&path, saved.replace("secret-value", "rotated-secret")).unwrap();
+    let error = write_io_config_file(&path, &edited, Some(&revision)).unwrap_err();
+    assert!(error.to_string().contains("conflict:"));
+    assert!(!error.to_string().contains("rotated-secret"));
+}

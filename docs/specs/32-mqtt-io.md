@@ -81,6 +81,17 @@ not by itself prove a broker handshake.
 Username and password are an all-or-nothing pair. Secrets must not appear in
 connector reports, audit details, discovery results, or diagnostics.
 
+A redacted web or IDE configuration edit may retain a stored MQTT password only
+when its authentication context is unchanged. The same MQTT parser used for
+connection setup supplies the effective host/port, TLS material and trimmed
+CA/client-certificate/key paths, ALPN, username, client ID and insecure-remote
+policy for this comparison, including defaults. This applies to both `mqtt`
+and `mqtt-tcp`. Topic, mapping and timing edits do not change that context.
+Changing it requires explicit replacement credentials, and a rejected edit
+writes nothing. Specification 11 §6.9.7 defines the shared JSON/text/IDE save
+contract, literal-marker handling and credential-safe errors. This comparison
+does not freeze external DNS or file contents at an unchanged TLS path.
+
 ## 4. Exchange modes and fallback selection
 
 MQTT supports three explicit exchange forms:

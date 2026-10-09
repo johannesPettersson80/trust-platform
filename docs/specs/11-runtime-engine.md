@@ -534,6 +534,14 @@ projected through the existing `IoDriverHealth` surface rather than a parallel
 status model. Output handoff is level/latest-value semantics for `%Q`, not an
 edge or pulse delivery guarantee.
 
+The native Modbus worker regression proves causal independence from a protocol
+response: a real peer receives a request, withholds its reply, and the scan call
+returns under its configured policy before that reply is released. Its finite
+harness timeout is shorter than the transport timeout, so waiting for transport
+timeout cannot satisfy the assertion. Elapsed wall time is diagnostic evidence;
+it does not certify a hard latency bound on an unqualified shared operating
+system. Target-specific timing qualification remains separate.
+
 ##### Modbus default-fault and deadline integrity
 
 The Modbus background worker uses a fixed scan-side deadline for input refresh
@@ -4465,7 +4473,51 @@ role below the route requirement returns `forbidden`; absent authority returns
 error text, use `application/json`, and return HTTP 403 and 401 respectively.
 The accepted token value is forwarded to control dispatch. A server-owned
 internal control token is used only when the web request supplied no token; it
-must not replace an explicit token. The `X-Trust-Ide-Session` header name is
+must not replace an explicit token.
+
+The I/O configuration routes follow the same contract in every web server mode.
+`GET /api/io/config` requires Viewer and is an observation projection, not a
+credential retrieval surface: every driver parameter whose key is secret-valued
+(`password`, `auth_token`, `token`, `secret`, `client_secret`, `credential`,
+`credentials` and `private_key`, matched ASCII-case-insensitively at any depth)
+is replaced with the marker `<redacted>` before serialization. `POST
+/api/io/config` requires Engineer; a secret-valued parameter that arrives as
+`<redacted>` keeps the value stored for the driver at the same position with the
+same name, so saving a configuration as it was read never erases or replaces a
+credential. A marker with no stored value to keep is refused as an invalid
+configuration, and nothing is written. A stored secret literally equal to the
+marker is still an existing value and must survive a read/save round trip.
+
+Restoration also binds a retained credential to its authentication destination.
+For `mqtt` and `mqtt-tcp`, the requested and stored configurations must have the
+same parsed broker host/port, TLS mode, CA/client-authentication material and
+trimmed TLS file paths, ALPN, username, client ID and effective
+`allow_insecure_remote` policy. The driver's parser owns defaults and validation.
+Topic, mapping and timing edits may retain the password. A changed authentication
+context requires explicit replacement credentials; a marker is refused before
+writing any file. For other drivers, any retained marker requires the complete
+submitted parameter object to equal the stored redacted projection. Comparing
+two redacted projections is insufficient, because an explicitly replaced opaque
+credential container can itself change the destination. Invalid context errors
+are generic and never echo credentials. Configuration comparison does not freeze
+external DNS or changes to certificate material at an unchanged path.
+
+The same projection and restoration apply to `/api/ide/io/config`,
+`/api/runtime-cloud/io/config`, `/api/config-ui/io/config` and generic IDE file
+access to `io.toml`, in both runtime and standalone IDE modes. Text editing
+preserves unrelated fields and comments outside opaque redacted secret containers. Revision tokens and IDE versions
+are based on the original stored text, so even a secret-only concurrent change
+causes a stale-write conflict. Invalid configuration responses must not echo
+source snippets containing credentials. A proxy must project successful remote
+I/O responses and must not forward arbitrary remote error text.
+
+The generic IDE cannot rename `io.toml` to another filename or follow a final
+symbolic link; these restrictions prevent aliases from bypassing the credential
+projection. Directory moves retaining the `io.toml` filename remain supported.
+Creating a new I/O file validates its configuration and refuses a marker without
+a stored value. These rules do not remove the authenticated I/O read/save flow.
+
+The `X-Trust-Ide-Session` header name is
 also ASCII-case-insensitive and its value is preserved exactly.
 
 Every state-changing API route applies the following POST admission rules

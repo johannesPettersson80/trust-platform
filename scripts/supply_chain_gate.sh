@@ -2,6 +2,7 @@
 set -euo pipefail
 
 python3 scripts/check_dependency_exceptions.py
+python3 -m unittest scripts.tests.test_cargo_target_lease
 python3 -m unittest discover \
   -s .codex/skills/trust-ci-release-gates/scripts \
   -p 'release_candidate_*_tests.py'

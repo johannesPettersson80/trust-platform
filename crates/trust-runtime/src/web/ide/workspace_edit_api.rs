@@ -46,9 +46,16 @@ impl WebIdeState {
         }
         entry.opened_by.insert(session_token.to_string());
 
+        let content = if super::super::io_secrets::is_io_config(&source_path) {
+            super::super::io_secrets::redact(&disk_content).map_err(|_| {
+                IdeError::new(IdeErrorKind::InvalidInput, "invalid I/O configuration")
+            })?
+        } else {
+            disk_content
+        };
         Ok(IdeFileSnapshot {
             path: normalized,
-            content: disk_content,
+            content,
             version: entry.version,
             read_only: !matches!(role, IdeRole::Editor),
         })
@@ -118,6 +125,16 @@ impl WebIdeState {
                 return Err(IdeError::conflict(entry.version));
             }
 
+            let content = if super::super::io_secrets::is_io_config(&source_path) {
+                super::super::io_secrets::restore(&content, &entry.content).map_err(|_| {
+                    IdeError::new(
+                        IdeErrorKind::InvalidInput,
+                        "invalid I/O configuration or missing stored secret",
+                    )
+                })?
+            } else {
+                content
+            };
             std::fs::write(&source_path, &content).map_err(|err| {
                 IdeError::new(IdeErrorKind::Internal, format!("write failed: {err}"))
             })?;

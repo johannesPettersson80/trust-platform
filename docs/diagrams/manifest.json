@@ -19,6 +19,6 @@
   "docs/diagrams/debug/debug-step-sequence.puml": "425cfe934e8cf514d6ea12a951a1cddb8a141df14008ad04bc65e5b79b277e66",
   "docs/diagrams/debug/debug-threads.puml": "4fed9498216aba135cca3439ac2efd5e92dbe58f77fb56307a670447a4775859",
   "docs/diagrams/hir/hir-semantics.puml": "9d4b51b2ecdb6ee674ef8087b57c06fcb96b3733804017261ec562ab6c84f284",
-  "docs/diagrams/lsp/lsp-request-flow.puml": "6e01ac808f17c89bcf23d6bfab99f53b4de892672ff307e25d002435497358cd",
+  "docs/diagrams/lsp/lsp-request-flow.puml": "4c6952358f178504623c1a607e04214cbc3a497dccf2a3f2d7cd85b0e48e1eae",
   "docs/diagrams/syntax/syntax-pipeline.puml": "6cd48f7f6c7b61b6164589441f0bd11bef30a1a4fd5cb0f4103f5bdcc2086b48"
 }

@@ -116,7 +116,7 @@ pub(in crate::web::config_ui_routes) fn handle_runtime_cloud_routes(
             let runtime = resolve_runtime_target(&workspace, target.as_deref(), ctx.control_state)?;
             load_project_io_config_response(runtime.root.as_path())
         }) {
-            Ok(io) => json_response(200, serde_json::to_value(io).unwrap_or_else(|_| json!({}))),
+            Ok(io) => json_response(200, redacted_io_config(&io)),
             Err(error) => structured_error_response(
                 400,
                 "io_read_failed",
@@ -206,7 +206,7 @@ pub(in crate::web::config_ui_routes) fn handle_runtime_cloud_routes(
             let runtime = resolve_runtime_target(&workspace, None, ctx.control_state)?;
             load_project_io_config_response(runtime.root.as_path())
         }) {
-            Ok(io) => json_response(200, serde_json::to_value(io).unwrap_or_else(|_| json!({}))),
+            Ok(io) => json_response(200, redacted_io_config(&io)),
             Err(error) => structured_error_response(
                 400,
                 "io_read_failed",

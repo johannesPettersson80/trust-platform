@@ -471,7 +471,7 @@ pub(super) fn analyze_query(
     check_unreachable_statements(&root, &mut builder);
     check_cyclomatic_complexity(&root, &mut builder);
     check_nondeterminism(&symbols, &mut builder);
-    if has_global_variables(&symbols) && project_has_task_configs_query(db, project) {
+    if has_global_variables(&symbols) && *project_has_task_configs_query(db, project) {
         let project_roots = project_roots_from_inputs(db, &project_source_inputs);
         check_shared_global_task_hazards(&symbols, &project_roots, file_id, &mut builder);
     }

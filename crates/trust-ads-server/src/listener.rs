@@ -317,7 +317,7 @@ fn try_reserve_subscription(
     if max_total_subscriptions == 0 {
         return SubscriptionReservation::Rejected;
     }
-    let result = total_subscriptions.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
+    let result = total_subscriptions.try_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
         (current < max_total_subscriptions).then_some(current + 1)
     });
     if result.is_ok() {
@@ -967,7 +967,7 @@ mod tests {
             response.header.error_code,
             AdsErrorCode::AccessDenied.value()
         );
-        assert!(response.payload.is_empty());
+        assert_eq!(response.payload, Vec::<u8>::new());
         server.shutdown();
     }
 
@@ -1006,7 +1006,7 @@ mod tests {
             response.header.error_code,
             AdsErrorCode::ServiceNotSupported.value()
         );
-        assert!(response.payload.is_empty());
+        assert_eq!(response.payload, Vec::<u8>::new());
         server.shutdown();
     }
 
