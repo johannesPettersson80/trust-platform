@@ -25,13 +25,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   current stable Rust, and update concurrently to remove the shell-quote
   command-injection advisory.
 
-- Specify the periodic scheduling correction planned for spec 34 Scope A (A1):
-  keep nominal deadlines when a task interval is not a multiple of the resource
-  cycle. With exact 10 ms samples, the current 25 ms task runs every 30 ms;
-  the corrected rule runs it at 30, 50, 80 and 100 ms and averages 25 ms,
-  while missed activations remain dropped and counted. Implementation and
-  validation are pending Scope A; these numbers describe the scheduling rule,
-  not a measured hosted-runner result.
+- Preserve nominal periodic-task deadlines when the task interval is not a
+  multiple of the resource cycle. For exact 10 ms samples, a 25 ms task now
+  activates at 30, 50, 80 and 100 ms instead of every 30 ms; missed activations
+  remain dropped and counted. These describe the logical scheduling rule,
+  not measured hosted wake timing.
 - Specify runtime clock dispatch name/error identity and deterministic LSP
   diagnostic-override collision precedence, including canonical-key priority
   and alias-only lexical ordering.

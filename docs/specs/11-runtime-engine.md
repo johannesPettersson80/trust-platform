@@ -74,7 +74,7 @@ The runtime scheduler uses a `Clock` for time and pacing. Thread creation and mu
 | `sleep_until` | Paces resource cycles in real threads |
 | `wake` | Allows clean shutdown of resource threads |
 
-Notably absent: file I/O (bytecode loaded at init), networking (handled separately via I/O abstraction), explicit mutex APIs (runtime uses `RwLock`/`Mutex` internally), dynamic allocation in hot path.
+The clock interface excludes file I/O (bytecode loaded at init), networking (handled separately via I/O abstraction), and explicit mutex APIs (runtime uses `RwLock`/`Mutex` internally). Control-path allocation requirements are profile-specific, as described in §6.1 and specification 34; this interface does not establish allocation-free hosted execution.
 
 ### 5. Clock Implementations
 
@@ -245,11 +245,11 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 
 ##### Task readiness and overrun accounting
 
-**Planned correction:** the nominal-deadline rule below is to be implemented by
+**A1 implementation:** the nominal-deadline rule below is implemented in source under
 [specification 34 Scope A, A1](34-runtime-portability.md#131-first-implementation-scopes)
-before its first validation batch and accepted scheduler baseline. The current code uses the
-sampled-time baseline until then; these amended requirements are not a claim of
-an already implemented or validated fix. IEC 61131-3 Ed.3 §6.8.2(b) requires
+before its first validation batch and accepted scheduler baseline. The pre-A1 code used the
+sampled-time baseline; validation status remains in the portability checklist.
+Source implementation is not validation evidence. IEC 61131-3 Ed.3 §6.8.2(b) requires
 periodic scheduling at the specified interval; §6.8.2 permits implementation-specific
 interval resolution and execution later than the scheduled instant.
 
@@ -295,7 +295,7 @@ For a task registered at 0 ms with a 25 ms interval and samples exactly every
 10 ms, nominal deadlines 25, 50, 75 and 100 ms produce activations at 30, 50,
 80 and 100 ms. The periodic baseline becomes 25, 50, 75 and 100 ms respectively;
 no interval is missed. This preserves the configured mean period instead of
-the current sampled-time implementation's 30 ms period. The sampling lateness
+the pre-A1 sampled-time implementation's 30 ms period. The sampling lateness
 bound applies to this fixed-grid case; actual task start and completion also
 depend on load, priority and platform delays.
 
@@ -307,16 +307,16 @@ deterministic scheduler order. In the reviewed combined case, the initial
 zero-time tick executes neither program, the tick at 10 ms executes the
 10 ms periodic program and one rising-edge event activation, and the tick at
 20 ms executes only the periodic program after the event input falls. These
-exact-deadline observations are unchanged by the planned baseline correction.
+exact-deadline observations are unchanged by the baseline correction.
 
 A backward manual-clock sample does not replay periodic work or create an
 overrun. A later sample that reaches the next deadline resumes from the
 unchanged periodic baseline. A forward jump spanning multiple complete
 intervals executes the periodic program once and records the remaining
 intervals as missed, as defined by the readiness contract above. Under the
-planned correction, a 10 ms task first sampled at 35 ms reports due time 10 ms,
+nominal-deadline rule, a 10 ms task first sampled at 35 ms reports due time 10 ms,
 one activation and two missed intervals, advances its baseline to 30 ms, and
-is next due at 40 ms. The current sampled-time implementation instead advances
+is next due at 40 ms. The pre-A1 sampled-time implementation instead advanced
 that baseline to 35 ms and is next due at 45 ms.
 
 If due task execution returns an error, the tick returns that typed error and

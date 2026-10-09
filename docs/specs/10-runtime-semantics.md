@@ -1234,9 +1234,10 @@ uses saturating signed nanoseconds; cumulative missed-interval accounting also
 saturates. Backward samples do not move the baseline or create overruns, and
 event activations do not change the periodic baseline or counters.
 
-**Planned correction:** this nominal-deadline rule is to be implemented by
+**A1 implementation:** this nominal-deadline rule is implemented in source under
 [specification 34 Scope A, A1](34-runtime-portability.md#131-first-implementation-scopes).
-The current code uses the sampled-time baseline until then. This is the
+The pre-A1 code used the sampled-time baseline. Validation status is recorded in
+the portability implementation checklist; implementation is not test evidence. This is the
 periodic scheduling correction under IEC 61131-3 Ed.3 §6.8.2(b), with truST's
 missed-interval accounting defined in
 [specification 11](11-runtime-engine.md#task-readiness-and-overrun-accounting).

@@ -42,7 +42,13 @@ pub fn evaluate_task_readiness(
             Some(existing) if existing.as_nanos() <= due_time.as_nanos() => existing,
             _ => due_time,
         });
-        state.last_run = now;
+        // The last deadline passed, not the sample: a late sample does not move the next ones.
+        state.last_run = Duration::from_nanos(
+            state
+                .last_run
+                .as_nanos()
+                .saturating_add(intervals.saturating_mul(interval_nanos)),
+        );
     }
     state.last_single = single_now;
 

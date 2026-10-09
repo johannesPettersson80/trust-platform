@@ -71,7 +71,11 @@ mod tests {
         assert_eq!(readiness.due_at, Some(Duration::from_millis(10)));
         assert_eq!(readiness.missed_intervals, 2);
         assert_eq!(state.overrun_count, 2);
-        assert_eq!(state.last_run, Duration::from_millis(35));
+        assert_eq!(
+            state.last_run,
+            Duration::from_millis(30),
+            "the last deadline passed"
+        );
 
         let mut disabled = TaskState {
             last_single: false,
@@ -189,7 +193,11 @@ mod tests {
         assert_eq!(resumed.due_at, Some(Duration::from_millis(10)));
         assert_eq!(resumed.missed_intervals, 4);
         assert_eq!(state.overrun_count, 4);
-        assert_eq!(state.last_run, Duration::from_millis(55));
+        assert_eq!(
+            state.last_run,
+            Duration::from_millis(50),
+            "the last deadline passed"
+        );
 
         let mut saturating = TaskState {
             last_single: false,
@@ -205,6 +213,62 @@ mod tests {
         assert_eq!(saturated.due_at, Some(Duration::from_millis(10)));
         assert_eq!(saturated.missed_intervals, 2);
         assert_eq!(saturating.overrun_count, u64::MAX);
-        assert_eq!(saturating.last_run, Duration::from_millis(35));
+        assert_eq!(saturating.last_run, Duration::from_millis(30));
+    }
+
+    /// IEC 61131-3 Ed.3 section 6.8.2 b: a sample taken late does not move the following
+    /// deadlines, so a sample that comes less late after its deadline than the last one still
+    /// finds the task due.
+    #[test]
+    fn task_readiness_keeps_its_deadlines_when_samples_come_late() {
+        let interval = Duration::from_millis(100);
+        let at = |ms: i64, us: i64| Duration::from_nanos(ms * 1_000_000 + us * 1_000);
+        let mut state = TaskState::new(Duration::ZERO);
+
+        let first = evaluate_task_readiness(&mut state, interval, false, at(100, 70));
+        assert_eq!(first.due_at, Some(Duration::from_millis(100)));
+        assert_eq!(
+            state.last_run,
+            Duration::from_millis(100),
+            "the deadline, not the sample"
+        );
+
+        let between = evaluate_task_readiness(&mut state, interval, false, at(150, 20));
+        assert_eq!(between.due_at, None);
+
+        let second = evaluate_task_readiness(&mut state, interval, false, at(200, 20));
+        assert_eq!(
+            second.due_at,
+            Some(Duration::from_millis(200)),
+            "not one base cycle later"
+        );
+        assert_eq!(second.missed_intervals, 0);
+        assert_eq!(state.last_run, Duration::from_millis(200));
+        assert_eq!(state.overrun_count, 0);
+    }
+
+    #[test]
+    fn task_readiness_non_multiple_interval_preserves_nominal_deadlines() {
+        let mut state = TaskState::new(Duration::ZERO);
+        let interval = Duration::from_millis(25);
+        for (sample, due, baseline) in [
+            (10, None, 0),
+            (20, None, 0),
+            (30, Some(25), 25),
+            (40, None, 25),
+            (50, Some(50), 50),
+            (60, None, 50),
+            (70, None, 50),
+            (80, Some(75), 75),
+            (90, None, 75),
+            (100, Some(100), 100),
+        ] {
+            let ready =
+                evaluate_task_readiness(&mut state, interval, false, Duration::from_millis(sample));
+            assert_eq!(ready.due_at, due.map(Duration::from_millis), "at {sample}");
+            assert_eq!(state.last_run, Duration::from_millis(baseline));
+            assert_eq!(ready.missed_intervals, 0);
+            assert_eq!(state.overrun_count, 0);
+        }
     }
 }
