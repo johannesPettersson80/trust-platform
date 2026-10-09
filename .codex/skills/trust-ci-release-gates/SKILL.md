@@ -1,225 +1,168 @@
 ---
 name: trust-ci-release-gates
-description: CI and release-gate hardening workflow for truST, including exact pre-push parity, cross-platform test harnesses, and artifact-based release gating.
+description: Prepares and ships truST changes - changelog and version updates, CI parity, pre-push checks, the exact-SHA release-candidate guard, merge, tag and release verification. Use for commit or push preparation, version bumps, CI workflow or gate-script changes, release candidates, merges, tags, GitHub releases and VS Code Marketplace checks.
 ---
 
-# trust-ci-release-gates
+# Changes, CI and releases
 
-Use this skill when updating CI workflows, release-gate checks, cross-platform test stability, or local pre-push verification scripts.
-Use `trust-test-authoring` first for the written-specification, native-test, and
-red-green/behavior-lock route. Planner, catalog, invariant, and evidence tools
-are nonblocking maintenance reports; they cannot create product work or reject
-an otherwise valid specification-and-test change. This skill owns CI parity,
-gate wiring, artifact evidence, and release enforcement.
+**Hard rule (AGENTS.md): all logic is in Rust.** Logic is anything whose result is stored, sent to
+a runtime or PLC, or decides an engineering or operator outcome. TypeScript only presents (drawing,
+layout, mouse interaction, view state) and forwards requests to Rust. Never add logic in
+TypeScript. Existing TypeScript logic is debt to move into Rust, not to extend.
 
-## Test-first rule
+Before a push, read the diff for this: a change that adds or grows logic in TypeScript does not
+ship.
 
-- For every new gate/validator behavior, bug fix, or intentional behavior change, add the smallest focused self-test or fixture first and run it to the expected behavior assertion failure.
-- Implement only the minimum change, then rerun the same focused test until green. Harness, dependency, registration, timeout, and unrelated failures do not count as red evidence.
-- Preserve the red and green commands/results. Release and broad CI gates do not replace this focused loop.
+## Changelog and versions
 
-## Core workflow
+- **Changelog**: user-visible changes get an entry in `CHANGELOG.md` under `## [Unreleased]`, in
+  `### Added`, `### Changed` or `### Fixed`. User-visible means runtime behaviour, CLI flags and
+  output, the standard library, tutorials and docs, and test harness behaviour. Purely internal
+  changes need no entry.
+- **Version**: a release-notable change bumps `[workspace.package].version` in `Cargo.toml`, unless
+  the user says not to.
+- **VS Code versions**: when the version changes, or when the extension's behaviour changes, set
+  `editors/vscode/package.json` and the root version entries of `editors/vscode/package-lock.json`
+  to the same version.
+- **Docs**: keep tutorials, examples, specifications and coverage documents in line with what ships.
 
-Before candidate preparation, enumerate the required GitHub jobs and their exact commands from the
-current workflows. Do not treat a broad host command as a substitute for a platform-specific job.
-For every runtime candidate, preparation must run and record
-`./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross` before Clippy;
-the guard must list `remote_cross_target_warnings` as a required artifact command. If the command is
-missing, skipped, or fails, the candidate cannot be pushed.
-Every candidate must also run `bash scripts/supply_chain_gate.sh` as
-`remote_supply_chain` before Clippy. CI must call that same script rather than
-duplicating its commands. Advisory and yanked-package data are live inputs: a
-passing older artifact cannot substitute for this exact-candidate check.
-Every candidate must run `bash scripts/architecture_safety_gate.sh` as
-`remote_architecture_safety` before Clippy. The GitHub Architecture Safety job
-must call the same script, including its AST safety checks and full-map
-architecture doctor. `verification_report_gate --strict --smoke`, Clippy, and
-`just test-all` do not substitute for this command.
-When Docs Captures paths are present in the candidate diff, preparation must also run and record
-`python3 -m unittest scripts.tests.test_capture_lifecycle -v` as
-`remote_docs_capture_lifecycle`. Do not infer coverage from the VS Code npm suite.
+## Before a push
 
-### Release-candidate state machine
+1. List every required GitHub job and its exact command shape from `.github/workflows/`. A host
+   `just clippy` or `just test-all` is not cross-platform parity.
+2. On the builder, run `just fmt`, `just clippy` and `just test-all`. Then run the gates for the
+   areas you touched:
+   - **`trust-lsp` tests or dependency/config resolution**: `./scripts/prepush_ci_gate.sh`. It
+     includes the test-path hygiene check and the Windows GNU check of trust-lsp's tests.
+   - **Runtime networking, mesh or TLS**:
+     `RUSTFLAGS=-Dwarnings cargo check -p trust-runtime --all-targets` and
+     `./scripts/runtime_mesh_tls_stability_gate.sh --iterations 8`.
+   - **Runtime CI contracts** (`crates/trust-runtime/tests/ci_cicd_contract.rs` or
+     `tests/fixtures/ci/**`):
+     `cargo test -p trust-runtime --test ci_cicd_contract --test config_schema_command --test registry_command`.
+   - **Any `trust-runtime` change**:
+     `./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross`.
+   - **Docs Captures paths** (`editors/vscode/**`, `scripts/captures/**`, capture assets or the
+     capture workflow): `python3 -m unittest scripts.tests.test_capture_lifecycle -v`. The VS Code
+     `npm test` does not replace it.
+   - **VS Code**: `npm run lint && npm run compile && npm test` in `editors/vscode`.
+   - **Module splits, large-file waivers or `xtask/config/full_map_policy.json`**:
+     `cargo run -p xtask -- architecture-doctor --full-map`.
+3. Check the push transport once, before the first push:
+   - Record `git remote get-url origin`, `git remote get-url --push origin` and
+     `gh auth status --hostname github.com`. Never print credentials.
+   - An HTTPS OAuth token without the `workflow` scope cannot push `.github/workflows/**`. In that
+     case, set the SSH push URL:
+     `git config remote.origin.pushurl git@github.com:johannesPettersson80/trust-platform.git`.
+   - Prove the SSH push URL works:
+     `git ls-remote --exit-code "$(git remote get-url --push origin)" HEAD`.
 
-For integration, release, `main`, or any branch whose workspace version differs from
-`origin/main`, use the guard bundled with this skill. Do not replace these states with serial
-push-and-repair attempts.
+## Release candidates
 
-1. Freeze one clean candidate and prepare its exact-SHA artifact:
+These pushes go through the guard in this skill's `scripts/`:
+- integration, release and `main` pushes;
+- any branch whose workspace version differs from `origin/main`.
+
+1. **Prepare.** Freeze one clean candidate and prepare its exact-SHA artifact in a clean builder
+   worktree:
 
    ```bash
    python3 .codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py \
      prepare --remote-worktree '<clean exact-SHA trust-builder worktree>'
    ```
 
-   Preparation records complete-diff planning and catalog staleness as advisory
-   maintenance. Its strict report command runs only the report-boundary smoke;
-   failed artifact output labels those maintenance records `ADVISORY`, never
-   `FAILED`; only required candidate-integrity commands receive the `FAILED`
-   label.
-   exhaustive recursive verification-tooling self-tests remain scheduled/manual
-   maintenance. Required acceptance remains bootstrap parity, a clean exact
-   candidate and base, diff integrity, the strict smoke, a successful
-   trust-builder `just test-all` on the frozen candidate, the applicable native
-   product gates, and final remote broad gates. The guard records this as
-   `remote_test_all`; it never runs a full suite on the invoking workstation.
-   Any commit, base
-   movement, missing required command, or dirty checkout invalidates the artifact.
-2. Push the frozen candidate once. The installed pre-push hook rejects a release-sensitive push
-   without a passing artifact for the exact head and current base.
-3. Wait for every required GitHub check. Before editing after a red candidate, collect the whole
-   failure set and all failed job logs:
+   - It records the required commands:
+     - parity of `AGENTS.md` and `.codex/skills/` with the primary checkout;
+     - a clean candidate and base, and diff integrity;
+     - `bash scripts/supply_chain_gate.sh` and `bash scripts/architecture_safety_gate.sh`;
+     - the cross-target warnings;
+     - `just test-all` on the builder;
+     - the capture lifecycle, when it applies.
+   - Planner and catalog records are advisory.
+   - Any commit, base movement or dirty checkout invalidates the artifact.
+   - It needs 80 GiB free under `$HOME` on the builder.
+2. **Push once.** The shared pre-push hook (`scripts/pre-push`, which `git config core.hooksPath`
+   points at) rejects a release-sensitive push that has no passing artifact for the exact head and
+   base. Never bypass it.
+3. **Wait for every required check.** If any check fails, collect the whole failure set and every
+   failed job log before editing:
+   `release_candidate_guard.py collect-failures --pr <number> --wait`.
+   - Fix the complete list in one batch, check with focused tests, refreeze, and prepare a new
+     candidate.
+   - Never push corrections from partial results.
+4. **Merge** only with `release_candidate_guard.py check-merge --pr <number> --execute`.
+5. **Release a version change.**
+   - Wait for main CI.
+   - Push the annotated tag `v<version>` from the same main SHA.
+   - Run
+     `release_candidate_guard.py verify-release --candidate-head <reviewed-head> --branch <candidate-branch>`.
+     It checks:
+     - the tag;
+     - the Release workflow;
+     - GitHub Latest;
+     - the assets and checksums;
+     - the Marketplace version for darwin-arm64, darwin-x64, linux-arm64, linux-x64 and win32-x64.
+   - If the main version guard expired only because the Release run was still going, wait for that
+     run and rerun the failed main jobs on the same SHA. Never create another tag.
+6. **Clean up.** `verify-release` then runs `audit-post-merge`.
+   - Remove only the exact clean targets it lists.
+   - Fetch with prune, and rerun the audit until it reports `clean`.
+   - The handoff is incomplete while candidate branches, worktrees or unique commits remain.
 
-   ```bash
-   python3 .codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py \
-     collect-failures --pr '<number>' --wait
-   ```
+Stop and report the full blocker list after a second failed candidate, or after two hours without
+merge readiness.
 
-   Do not issue a corrective push from partial CI results. Repair one complete failure ledger,
-   return to focused tests, refreeze, and prepare one new candidate.
-4. Merge only through `check-merge --pr <number> --execute`; it requires the validated exact head,
-   a clean merge state, and every check green.
-5. After main CI and the annotated tag/Release workflow, run `verify-release --candidate-head
-   <reviewed-head> --branch <candidate-branch>`; completion requires
-   the final main SHA, annotated tag, successful Release workflow, GitHub Latest, verified assets
-   and checksums, and the expected VS Code Marketplace target versions.
-6. `verify-release` then runs `audit-post-merge` with that exact candidate head and branch. The
-   audit must fail closed when the candidate is not contained by current main, a candidate
-   worktree is dirty, or a named candidate branch no longer points at the exact reviewed head. It
-   must report clean candidate worktrees, prunable candidate worktree registrations, and exact
-   local/remote branches as explicit cleanup targets without deleting them. Remove only those
-   reviewed targets, fetch/prune, and rerun the audit until it reports no stale candidate state. A
-   release handoff is incomplete without this final clean result.
+In PR text, `Closes`, `Fixes` and `Resolves` close an issue on merge; `Addresses` does not. Check
+that the intended issues are closed after the merge.
 
-Stop after a second red candidate or two elapsed hours without merge readiness. Report the full
-blocker ledger and obtain a new decision instead of continuing an unbounded push/wait/fix loop.
+## Changing CI or gate scripts
 
-1. Preflight the repository transport before the first push:
-   - Record `git remote get-url origin`, `git remote get-url --push origin`, and
-     `gh auth status --hostname github.com` without exposing credentials.
-   - A GitHub HTTPS OAuth token without the `workflow` scope cannot push changes under
-     `.github/workflows/**`. Keep fetches on the configured HTTPS origin, set an authenticated SSH
-     push URL when needed, and prove it first with
-     `git ls-remote --exit-code "$(git remote get-url --push origin)" HEAD`.
-   - Treat a rejected push as a missed preflight, not as the authentication test.
-2. Keep local and CI guardrails aligned:
-   - local: `./scripts/prepush_ci_gate.sh`
-   - CI: `.github/workflows/ci.yml` gates
-   - Before calling proof CI-equivalent, match the workflow's exact Rust toolchain and command.
-     If CI floats on `stable`, refresh `stable` immediately before final validation and record
-     `rustc +stable -Vv`; do not rely on an older builder `stable`.
-   - Run the full CI Clippy shape when Clippy is required:
-     `cargo clippy --all-targets --all-features -- -D warnings`.
-3. Preserve required pre-push checks for `trust-lsp`:
-   - `./scripts/check_test_path_hygiene.sh`
-   - `cargo fmt --all --check`
-   - `cargo clippy -p trust-hir -p trust-lsp -- -D warnings`
-   - `cargo test -p trust-lsp --bin trust-lsp`
-   - `cargo check -p trust-lsp --tests --target x86_64-pc-windows-gnu`
-4. Preserve required runtime reliability checks when mesh/TLS/runtime networking is touched:
-   - `RUSTFLAGS=-Dwarnings cargo check -p trust-runtime --all-targets`
-   - `./scripts/runtime_mesh_tls_stability_gate.sh --iterations 8`
-5. Preserve CI contract stability for `trust-runtime`:
-   - `cargo test -p trust-runtime --test ci_cicd_contract`
-   - `cargo test -p trust-runtime --test config_schema_command`
-   - `cargo test -p trust-runtime --test registry_command`
-   - On Windows CI, prefer deterministic execution for this suite (`-- --test-threads=1`) when validating matrix reliability.
-   - Keep CI fixtures cross-platform (`crates/trust-runtime/tests/fixtures/ci/**`):
-     - No hardcoded `unix://` endpoints in shared fixtures.
-     - Prefer `tcp://127.0.0.1:0` for parser/validation-only CI contracts.
-   - Ensure fixture temp dirs are collision-proof under parallel tests (avoid timestamp-only IDs).
-   - In bash with `set -u`, avoid expanding empty arrays (`"${arr[@]}"`); prefer branch-local command functions.
-6. When adding new CI gates, ensure release gate aggregation still matches:
-   - `.github/workflows/ci.yml`
-   - `scripts/generate_release_gate_report.py`
-   - For module splits, large-file waiver changes, or `xtask/config/full_map_policy.json` edits,
-     run `cargo run -p xtask -- architecture-doctor --full-map` before push.
-7. Keep generated docs captures as candidate evidence:
-   - Relevant capture, VS Code, tutorial, and docs-asset paths must trigger `Docs Captures` on
-     `pull_request` as well as on `main`, with identical path filters.
-   - The capture/validation job must have read-only contents permission on pull requests.
-   - Put refresh-branch and PR creation in a separate write-enabled job that never runs for
-     `pull_request` events.
-   - Require the relevant release PR's capture run to pass on the exact candidate SHA before merge.
-8. Preserve version/release evidence gate on `main`/`master`:
-   - Keep `.github/workflows/ci.yml` job `version-release-guard`.
-   - Keep `scripts/check_version_release_evidence.py` in sync with release workflow triggers.
-   - Gate requirement: when `[workspace.package].version` changes, require matching `vX.Y.Z` tag, successful `.github/workflows/release.yml` run for that tag, and a published GitHub release.
-   - Size the guard's completion budget above the slowest cold release-matrix path with margin.
-   - If the guard expires only while the matching Release run is still healthy, wait for that run
-     to finish and rerun failed main jobs on the same SHA. Do not create another version or tag.
-9. For VS Code extension CI changes, validate Linux headless setup (`xvfb`) remains intact.
-10. Keep gate scripts fail-fast, deterministic, and shellcheck-friendly (`set -euo pipefail`).
+- **Shared scripts**: local runs and CI call the same scripts: `scripts/prepush_ci_gate.sh`,
+  `scripts/supply_chain_gate.sh` and `scripts/architecture_safety_gate.sh`. Do not copy their
+  commands into workflows.
+- **New gates**: a new gate also updates `scripts/generate_release_gate_report.py`.
+- **Version guard**: keep the `version-release-guard` job in `.github/workflows/ci.yml` and
+  `scripts/check_version_release_evidence.py` in line with the release workflow's triggers. Give it a
+  time budget above the slowest cold release path.
+- **Docs Captures**:
+  - it runs on pull requests with the same path filters as on `main`;
+  - its validation job has read-only contents permission;
+  - the job that writes the refresh branch never runs for pull requests.
+- **Exact-candidate disk bounds**:
+  - `CARGO_INCREMENTAL=0`;
+  - `RUSTC_WRAPPER` and `CARGO_BUILD_RUSTC_WRAPPER` set to `/usr/bin/env`;
+  - `scripts/compiler_passthrough.sh` installed on `PATH` as `sccache`;
+  - `CC=cc` and `CXX=c++`;
+  - `CARGO_BUILD_JOBS=1` for the cold `just test-all`;
+  - `TMPDIR` inside the task's own target.
 
-## Path/Test hygiene rule
+  Between Clippy and `just test-all`, reclaim only that validated target, through
+  `scripts/remove_cargo_target_if_idle.sh`.
+- **Script style**: gate scripts fail fast and pass shellcheck (`set -euo pipefail`). With `set -u`,
+  do not expand arrays that may be empty.
+- **Regression tests for gate tooling**: name the focused test so that
+  `scripts/check_regression_test_first.py` finds it (`test_*.py`, `tests.py`, or a `test` or `tests`
+  directory). When it proves an existing failing command, add a `Regression-test-first:` line to the
+  commit or PR.
+- **Verification report**: pull requests and candidates run
+  `scripts/verification_report_gate.py --strict --smoke`. The exhaustive verification tooling runs
+  only in the scheduled workflow.
+- **Missing tools**: after fixing a missing tool in one workflow, search `.github/workflows/` for the
+  same tool, because `ci.yml` and `release.yml` drift apart.
+- **VS Code CI**: keep `xvfb` in the VS Code CI job.
 
-Prevent known Windows-only regressions in `trust-lsp` tests:
+## Cross-platform test hygiene
 
-- Do not serialize git paths in TOML fixtures via raw `to_string_lossy()` backslash output.
-- Do not compare dependency source paths by direct raw `PathBuf` equality in workspace symbol tests.
-- Keep normalization helpers in place in test files when cross-platform path handling is needed.
-
-## Cross-platform harness rule
-
-- Decode child-process streams with an explicit encoding and non-throwing error policy; also make
-  writes safe for strict Windows console encodings. Self-test invalid bytes and non-ASCII output.
-- Make reader failures visible and ensure they cannot stop pipe draining while the child runs.
-- In raw HTTP/TCP test servers, consume complete headers and any declared request body before
-  replying or closing so Windows cannot turn unread request data into a reset.
-
-## Validation
-
-- In trust-platform checkouts on a Raspberry Pi or other slow local host, do not run broad local Rust/runtime gates as the default proof path.
-- Use the remote builder for full validation first, especially `just test-all`.
-- Ask before starting expensive local commands such as workspace `cargo test`, `cargo test -p trust-runtime ...`, local `just test`, local `just clippy`, or local `just test-all`.
-- When the user explicitly requires local full-suite proof before a new release
-  candidate, run local `just test-all` after the strict smoke and before any
-  remote validation; the release-candidate guard enforces and records it.
-- Run required project gates with full Rust gates on the remote builder:
-  - `just fmt`
-  - `just clippy`
-  - `just test-all`
-  - `cd editors/vscode && npm run lint && npm run compile`
-- Keep exact-candidate disk use bounded: set `CARGO_INCREMENTAL=0` and set both
-  `RUSTC_WRAPPER` and `CARGO_BUILD_RUSTC_WRAPPER` to the pass-through
-  `/usr/bin/env` wrapper for the candidate's Rust-producing VS Code, Clippy, and
-  test commands. An empty value does not override the repository Cargo config;
-  the explicit pass-through matches uncached CI behavior. Cargo can still
-  propagate the repository-configured `sccache` name into native build scripts,
-  so install the skill's reviewed `compiler_passthrough.sh` as a task-owned
-  executable named `sccache` and prepend it to `PATH`. That pass-through must
-  cover both Rust and native compiler invocations without writing cache
-  artifacts. Pin `CC=cc` and
-  `CXX=c++` as the native compiler identities. Set
-  `CARGO_BUILD_JOBS=1` for the cold `just test-all` run to bound concurrent
-  linker space, and set `TMPDIR` to a directory inside the validated task-owned
-  target so a constrained system `/tmp` cannot interrupt the proof.
-  Reclaim only that validated `CARGO_TARGET_DIR` between Clippy and
-  `just test-all`. Never apply that cleanup to a repository, home directory,
-  shared cache, unrelated target, or unresolved path.
-  Every Cargo-producing exact-candidate command must run through
-  `scripts/with_cargo_target_lease.sh`; reclamation must use
-  `scripts/remove_cargo_target_if_idle.sh`. Never use a direct or globbed
-  `rm -rf` for a target on the shared builder. A leased target returns exit 75
-  from cleanup and must be left intact.
-- Before creating the exact-candidate target, fail closed unless the builder has
-  at least 80 GiB available under `$HOME`. Report both `$HOME` and `/tmp`
-  filesystem state in that preflight. The floor must be enforced by the
-  release-candidate guard, not left as a remembered manual step.
-- Use `scripts/verification_report_gate.py --strict --smoke` for pull requests
-  and exact-candidate preparation. Run the exhaustive recursive verification
-  tooling and its historical self-tests only from the scheduled/manual
-  maintenance workflow; they are not native product proof.
-- Execute workflow-specific local checks where possible:
-  - workflow lint/check
-  - script smoke runs
-  - artifact existence checks
-- For bug fixes, additionally name focused tests so `scripts/check_regression_test_first.py` recognizes them
-  (`test_*.py`, `tests.py`, or a `test`/`tests` directory), then run the guard with the candidate
-  base and head. When proving an existing failing command, put a non-empty
-  `Regression-test-first:` marker in the commit or PR body.
-- For runtime-impacting gates, also verify on the remote builder unless the user explicitly approves local execution:
-  - `cargo test -p trust-runtime --test api_smoke`
-  - `cargo test -p trust-runtime --test debug_control`
-  - `cargo test -p trust-runtime --test complete_program`
-  - `cargo test -p trust-runtime --test runtime_reliability`
+- **Fixtures**:
+  - never hardcode a `unix://` endpoint in a shared fixture; use `tcp://127.0.0.1:0`;
+  - never write raw `to_string_lossy()` paths into TOML fixtures, because Windows backslashes break
+    them;
+  - compare paths through the normalization helpers;
+  - make temporary directories collision-proof, not timestamp-based.
+- **Windows**: run `ci_cicd_contract` with `-- --test-threads=1`.
+- **Child processes**: decode their output with an explicit encoding and a non-throwing error policy.
+  Keep draining pipes even when a reader fails.
+- **Raw HTTP/TCP test servers**: read the whole request before replying or closing. Otherwise Windows
+  turns the unread data into a reset.
+- **Sockets**: call `set_nonblocking(false)` on every stream accepted from a nonblocking listener.
+  Windows inherits the flag; Linux does not.
