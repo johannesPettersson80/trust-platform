@@ -180,7 +180,8 @@ impl super::PlantInstance {
             .zip(values)
             .filter_map(|(target, value)| match target {
                 super::signal::PlantSignal::Symbol(symbol) => Some((symbol, *value)),
-                super::signal::PlantSignal::Address(_) => None,
+                super::signal::PlantSignal::Address(_)
+                | super::signal::PlantSignal::Controller(_) => None,
             })
             .map(|(symbol, value)| {
                 let (reference, current) = super::signal::resolve(runtime, symbol)?;
@@ -195,6 +196,28 @@ impl super::PlantInstance {
             .collect::<Result<Vec<_>, RuntimeError>>();
         let stored = match stored_result {
             Ok(stored) => stored,
+            Err(error) => {
+                let fault = self.feedback_fault(error);
+                self.last_fault = Some(fault.to_string());
+                return Err(fault);
+            }
+        };
+        // Control.PID measurements (`pid:`) are given after every other target is written.
+        let controllers_result = self
+            .config
+            .feedback_targets
+            .iter()
+            .zip(values)
+            .filter_map(|(target, value)| match target {
+                super::signal::PlantSignal::Controller(path) => Some((path, *value)),
+                _ => None,
+            })
+            .map(|(path, value)| {
+                super::signal::controller_instance(runtime, path).map(|instance| (instance, value))
+            })
+            .collect::<Result<Vec<_>, RuntimeError>>();
+        let controllers = match controllers_result {
+            Ok(controllers) => controllers,
             Err(error) => {
                 let fault = self.feedback_fault(error);
                 self.last_fault = Some(fault.to_string());
@@ -241,7 +264,7 @@ impl super::PlantInstance {
             }
         };
         debug_assert_eq!(
-            pending.len() + stored.len(),
+            pending.len() + stored.len() + controllers.len(),
             self.config.feedback_targets.len()
                 + self
                     .config
@@ -258,6 +281,9 @@ impl super::PlantInstance {
                 self.last_fault = Some(fault.to_string());
                 return Err(fault);
             }
+        }
+        for (instance, value) in controllers {
+            runtime.set_controller_measurement(instance, value);
         }
         self.published_feedback.clone_from(values);
         self.feedback_pending = false;

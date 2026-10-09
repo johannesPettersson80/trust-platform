@@ -20,7 +20,6 @@ No.
 
 - VS Code is the primary engineering workflow
 - Browser IDE exists at `/ide`
-- Browser HMI exists at `/hmi`
 - CLI, harness, and agent workflows also exist
 
 Start here:
@@ -31,8 +30,8 @@ Start here:
 
 ## Is Browser IDE the same thing as GitHub Pages docs?
 
-No. The docs site is documentation only. Browser IDE and HMI are served by a
-running `trust-runtime`.
+No. The docs site is documentation only. Browser IDE is served by a running
+`trust-runtime`.
 
 ## Can I use truST without internet access?
 
@@ -50,7 +49,6 @@ macOS are commonly used for tooling.
 truST combines:
 
 - IEC 61131-3 Structured Text support
-- a browser-based operator HMI at `/hmi`
 - an agent-ready JSON-RPC API
 - open-source licensing under MIT and Apache-2.0
 
@@ -63,10 +61,6 @@ See:
 ## Where do I start if I inherited a project?
 
 Go to [Maintain An Existing Project](start/maintain-an-existing-project.md).
-
-## Where do I start if I only have an HMI URL?
-
-Go to [Operate In Browser HMI](start/operate-in-browser.md).
 
 ## Where do I start if I want CI or agent automation?
 

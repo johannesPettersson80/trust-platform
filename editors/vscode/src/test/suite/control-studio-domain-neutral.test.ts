@@ -7,7 +7,7 @@ function heaterLoop() {
   return identifyLoopDefinition({
     symbols: [{ symbol: "P1.HeaterW", type: "LREAL", address: "%QL0" }, { symbol: "P1.TemperatureC", type: "LREAL", address: "%IL0" }],
     controllers: [{ instance: "P1", type: "Main", tasks: [{ name: "MainTask", intervalMs: 100 }] }], links: [],
-  }, { projectId: "project:neutral", runtimeId: "runtime-1", name: "Heater", experimentDurationSeconds: 60,
+  }, { projectId: "project:neutral", runtimeId: "runtime-1", name: "Heater", experimentStep: 200, experimentDurationSeconds: 60,
     manipulatedVariable: { symbol: "P1.HeaterW", unit: "W", minimum: 0, maximum: 2000 },
     processVariable: { symbol: "P1.TemperatureC", unit: "degC", minimum: 0, maximum: 100 } });
 }

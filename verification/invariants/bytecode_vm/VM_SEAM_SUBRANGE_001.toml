@@ -13,7 +13,6 @@ source_refs = ["crates/trust-runtime-core/src/value/types.rs"]
 tests = [
   "TEST_VM_SUBRANGE_ASSIGNMENT_REJECTION_001",
   "TEST_VM_SUBRANGE_FB_INPUT_REJECTION_001",
-  "TEST_VM_SUBRANGE_HMI_WRITE_REJECTION_001",
   "TEST_VM_SUBRANGE_REF_WRITE_REJECTION_001",
   "TEST_VM_SUBRANGE_RETAIN_RELOAD_REJECTION_001",
   "TEST_VM_SUBRANGE_BOUNDS_TRANSACTION_001",
@@ -83,7 +82,7 @@ rationale = "The mapped runtime and VM policy tests cover both inclusive bounds.
 [[coverage.cells]]
 dimension = "above_max"
 state = "covered"
-rationale = "Mapped runtime tests cover assignment, FB parameter copy-in, dynamic-reference, HMI/control, and retain-reload writes above the declared maximum without claiming a stable error identifier."
+rationale = "Mapped runtime tests cover assignment, FB parameter copy-in, dynamic-reference, and retain-reload writes above the declared maximum without claiming a stable error identifier."
 
 [[coverage.cells]]
 dimension = "below_min"

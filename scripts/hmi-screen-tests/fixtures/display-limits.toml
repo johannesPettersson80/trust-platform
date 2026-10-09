@@ -1,0 +1,74 @@
+format = 1
+title = "Level operating range"
+hidden = true
+
+[[object]]
+id = "heading"
+type = "text"
+at = [64, 48]
+size = [900, 48]
+text = "Level operating range"
+variant = "heading"
+
+[[object]]
+id = "bar"
+type = "bar"
+at = [80, 140]
+size = [120, 360]
+label = "Level"
+unit = "m"
+decimals = 2
+min = 0
+max = 3
+limits = { low-low = 0.2, low = 0.5, high = 2.4, high-high = 2.8 }
+[object.bind]
+value = "Tank.Level"
+
+[[object]]
+id = "gauge"
+type = "gauge"
+at = [320, 140]
+size = [320, 320]
+min = 0
+max = 3
+limits = { low-low = 0.2, low = 0.5, high = 2.4, high-high = 2.8 }
+[object.bind]
+value = "Tank.Level"
+
+[[object]]
+id = "horizontal"
+type = "bar"
+variant = "horizontal"
+at = [744, 150]
+size = [620, 100]
+label = "Level"
+min = 0
+max = 3
+limits = { low-low = 0.2, low = 0.5, high = 2.4, high-high = 2.8 }
+[object.bind]
+value = "Tank.Level"
+
+[[object]]
+id = "split"
+type = "split-bar"
+at = [860, 350]
+size = [240, 360]
+label = "Level / Setpoint"
+unit = "m"
+decimals = 2
+min = 0
+max = 3
+limits = { low-low = 0.2, low = 0.5, high = 2.4, high-high = 2.8 }
+[object.bind]
+first = "Tank.Level"
+second = "Tank.Setpoint"
+request = "Tank.Setpoint"
+
+[[object]]
+id = "reading"
+type = "value"
+at = [336, 528]
+size = [280, 96]
+label = "Level"
+[object.bind]
+value = "Tank.Level"

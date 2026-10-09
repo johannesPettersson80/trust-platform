@@ -42,8 +42,17 @@ Show these elements, in this order:
 5. **Identify plant**, **Open recording…** and **Reset** buttons on one
    row, with a small **Limits…** entry. Identify plant remains the primary action
    with the same label after a result. Use the Tune tab to change pages.
-6. The identified **model type and plant-model equation**, once available.
-7. The **response plot**.
+6. The identified **model type and plant-model equation**, once available, with
+   one plain line of its key numbers and units (for example "Gain 0.21 °C per %,
+   time constant 75 min, delay 12 s").
+7. The **response plot**. Its traces are named by role (Measurement, Output), with
+   the symbol on hover; without data it shows one line instead of empty axes.
+
+Simplification, 8 October 2026: the user asked for a design that serves both a
+beginner control engineer and a professor ("do what you think is best, think from a
+users experience"). The rules of [Specification 35 B9.9](35-vscode-control-studio.md#b99-simple-by-default-complete-one-click-away)
+apply to this page and take precedence over earlier wording here.
+
 
 Do not add other permanent controls, headings, descriptive paragraphs or
 information panels to this page.

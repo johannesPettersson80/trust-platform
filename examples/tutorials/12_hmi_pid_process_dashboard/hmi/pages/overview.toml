@@ -1,0 +1,186 @@
+format = 1
+title = "Overview"
+
+[[object]]
+id = "heading"
+type = "text"
+variant = "heading"
+at = [40, 32]
+size = [800, 40]
+text = "Feed tank to product tank"
+
+[[object]]
+id = "mode"
+type = "text"
+variant = "body"
+at = [40, 80]
+size = [800, 32]
+text = "Mode"
+
+[object.bind]
+text = "P1.ModeText"
+
+[[object]]
+id = "feed"
+type = "bar"
+at = [40, 128]
+size = [80, 300]
+label = "Feed"
+unit = "%"
+decimals = 0
+min = 0
+max = 100
+
+[object.bind]
+value = "P1.FeedLevelPct"
+
+[[object]]
+id = "product"
+type = "bar"
+at = [140, 128]
+size = [80, 300]
+label = "Product"
+unit = "%"
+decimals = 0
+min = 0
+max = 100
+
+[object.bind]
+value = "P1.ProductLevelPct"
+
+[[object]]
+id = "flow"
+type = "value"
+at = [260, 128]
+size = [260, 96]
+label = "Total flow"
+unit = "m³/h"
+decimals = 1
+
+[object.bind]
+value = "P1.TotalFlowM3h"
+
+[[object]]
+id = "flow-sp"
+type = "value"
+at = [540, 128]
+size = [260, 96]
+label = "Flow setpoint"
+unit = "m³/h"
+decimals = 1
+
+[object.bind]
+value = "P1.FlowSetpointM3h"
+
+[[object]]
+id = "pressure"
+type = "value"
+at = [260, 240]
+size = [260, 96]
+label = "Pressure"
+unit = "bar"
+decimals = 2
+
+[object.bind]
+value = "P1.PressureBar"
+
+[[object]]
+id = "pressure-sp"
+type = "value"
+at = [540, 240]
+size = [260, 96]
+label = "Pressure setpoint"
+unit = "bar"
+decimals = 2
+
+[object.bind]
+value = "P1.PressureSetpointBar"
+
+[[object]]
+id = "pump"
+tag = "P-1"
+type = "pump"
+at = [820, 140]
+size = [128, 108]
+
+[object.bind]
+running = "P1.PumpRunning"
+
+[[object]]
+id = "valve"
+tag = "FV-1"
+type = "control-valve"
+at = [968, 140]
+size = [128, 108]
+
+[object.bind]
+position = "P1.ValvePosition"
+
+[[object]]
+id = "bypass"
+tag = "XV-2"
+type = "valve"
+at = [1116, 140]
+size = [128, 108]
+
+[object.bind]
+open = "P1.BypassOpen"
+
+[[object]]
+id = "high-pressure"
+type = "status"
+variant = "alarm"
+at = [260, 360]
+size = [260, 48]
+label = "High pressure"
+
+[object.bind]
+state = "P1.HighPressureAlarm"
+
+[[object]]
+id = "low-feed"
+type = "status"
+variant = "alarm"
+at = [540, 360]
+size = [260, 48]
+label = "Low feed"
+
+[object.bind]
+state = "P1.LowFeedAlarm"
+
+[[object]]
+id = "high-product"
+type = "status"
+variant = "alarm"
+at = [820, 360]
+size = [260, 48]
+label = "High product"
+
+[object.bind]
+state = "P1.HighProductAlarm"
+
+[[object]]
+id = "message"
+type = "text"
+variant = "body"
+at = [260, 424]
+size = [1000, 32]
+text = "Alarm"
+
+[object.bind]
+text = "P1.AlarmMessage"
+
+[[object]]
+id = "pressures"
+type = "trend"
+at = [40, 472]
+size = [1220, 176]
+label = "Pressure"
+unit = "bar"
+min = 0
+max = 6
+span = 120
+
+[object.bind]
+Pressure = "P1.PressureBar"
+Setpoint = "P1.PressureSetpointBar"

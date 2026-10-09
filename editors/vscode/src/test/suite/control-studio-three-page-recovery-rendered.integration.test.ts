@@ -52,7 +52,8 @@ suite("Control Studio three-page recovery rendered projection", () => {
       await pollValue("recovery action cleared", () => inner("return String(!d.querySelector('[data-studio-recovery-action]'));"), value => value === "true", 10000);
       assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-find]').disabled);"), "false");
       await inner(hostUpdate({ status: "review", applicationAction: "apply", reason: "Normal reviewed Apply." }));
-      assert.strictEqual(await inner("return String(d.querySelectorAll('[data-studio-application] button').length);"), "1");
+      assert.strictEqual(await inner("return String(Array.from(d.querySelectorAll('[data-studio-application] button')).filter(button=>!button.hidden).length);"), "1");
+      assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-keep]').hidden);"), "true", "Keep in project waits for a successful Apply");
       assert.strictEqual(await inner("return String(!d.querySelector('[data-studio-recovery-action]'));"), "true");
     }, "resolved-apply-review");
   });

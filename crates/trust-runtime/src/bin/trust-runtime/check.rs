@@ -94,6 +94,14 @@ fn build_check_response(project_root: &Path, sources_root: Option<&Path>) -> Che
             resolved_dependencies = layout.resolved_dependencies;
             match check_program_stbc(project_root, sources_root) {
                 Ok(report) => {
+                    if let Some(problem) = resource_problem(project_root, &report.resources) {
+                        issues.push(issue(
+                            "error",
+                            problem,
+                            "config.resource",
+                            Some(project_root.join("runtime.toml")),
+                        ));
+                    }
                     bytecode_size = Some(report.bytecode_size);
                     sources = paths_to_strings(report.sources);
                     dependency_roots = paths_to_strings(report.dependency_roots);
@@ -139,6 +147,24 @@ fn build_check_response(project_root: &Path, sources_root: Option<&Path>) -> Che
         resolved_dependencies,
         bytecode_size,
     }
+}
+
+/// The runtime runs the configuration's resource that runtime.toml names, else a legacy
+/// placeholder; a name the program lacks stops it at start, so the check reports it now.
+fn resource_problem(project_root: &Path, resources: &[String]) -> Option<String> {
+    let config =
+        trust_runtime::config::RuntimeConfig::load(project_root.join("runtime.toml")).ok()?;
+    let name = config.resource_name.as_str();
+    let legacy = resources.len() == 1 && resources[0].eq_ignore_ascii_case("RESOURCE");
+    if legacy
+        || resources
+            .iter()
+            .any(|resource| resource.eq_ignore_ascii_case(name))
+    {
+        return None;
+    }
+    let declared: Vec<&str> = resources.iter().map(String::as_str).collect();
+    Some(crate::run::resource_mismatch(name, &declared))
 }
 
 fn config_issues(project_root: &Path) -> Vec<CheckIssue> {

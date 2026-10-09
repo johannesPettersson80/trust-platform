@@ -27,31 +27,35 @@ impl RuntimeToml {
             realtime,
             openot,
             observability,
-            hmi_persistence,
             ads,
             ads_server,
             opcua_client,
             opcua,
         } = self.runtime;
-        let (execution_backend, execution_backend_source) =
-            match execution_backend.as_deref().map(str::trim) {
-                Some(value) if !value.is_empty() => {
-                    if value.eq_ignore_ascii_case("interpreter") {
-                        return Err(RuntimeError::InvalidConfig(
+        let (execution_backend, execution_backend_source) = match execution_backend
+            .as_deref()
+            .map(str::trim)
+        {
+            Some(value) if !value.is_empty() => {
+                if value.eq_ignore_ascii_case("interpreter") {
+                    return Err(RuntimeError::InvalidConfig(
                             "runtime.execution_backend='interpreter' is no longer supported for production runtimes; use 'vm'"
                                 .into(),
                         ));
-                    }
-                    let backend = ExecutionBackend::parse(value)?;
-                    (backend, ExecutionBackendSource::Config)
                 }
-                Some(_) => {
-                    return Err(RuntimeError::InvalidConfig(
-                        "runtime.execution_backend must not be empty".into(),
-                    ));
-                }
-                None => (ExecutionBackend::BytecodeVm, ExecutionBackendSource::Default),
-            };
+                let backend = ExecutionBackend::parse(value)?;
+                (backend, ExecutionBackendSource::Config)
+            }
+            Some(_) => {
+                return Err(RuntimeError::InvalidConfig(
+                    "runtime.execution_backend must not be empty".into(),
+                ));
+            }
+            None => (
+                ExecutionBackend::BytecodeVm,
+                ExecutionBackendSource::Default,
+            ),
+        };
 
         let parsed_control = parse_control(&control)?;
         let parsed_retain_mode = parse_retain_mode(&retain)?;
@@ -72,7 +76,6 @@ impl RuntimeToml {
         let parsed_realtime = parse_realtime_section(realtime)?;
         let parsed_openot = parse_openot_section(openot)?;
         let observability = parse_observability_section(observability)?;
-        let hmi_persistence = parse_hmi_persistence_section(hmi_persistence)?;
         let ads = parse_ads_section(ads)?;
         let ads_server = parse_ads_server_section(ads_server)?;
         let opcua_client = parse_opcua_client_section(opcua_client)?;
@@ -117,7 +120,6 @@ impl RuntimeToml {
             realtime: parsed_realtime.config,
             openot: parsed_openot.config,
             observability,
-            hmi_persistence,
             ads,
             ads_server,
             opcua_client,

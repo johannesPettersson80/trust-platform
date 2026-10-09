@@ -56,8 +56,6 @@ Do not post exploit details publicly before coordination.
 
 - Browser IDE in larger teams: confirm how your team will coordinate file
   ownership, reviews, and concurrent edits.
-- Browser HMI for production-facing operator use: confirm your auth model,
-  alarm handling, and write-enable procedure before live rollout.
 - runtime-cloud and multi-runtime federation: test network partitions, auth,
   retries, and recovery behavior on your site topology.
 - visual editors outside the documented statechart/editor flows: compare the

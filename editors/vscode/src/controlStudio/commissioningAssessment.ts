@@ -1,6 +1,8 @@
 import { assessCommissioningObservation, type CommissioningObservation } from "./commissioningObservation";
 import { decodeRunRequirement, evaluateObservedRequirement, type RunRequirement } from "./runValidation";
 import type { LoopRecording } from "./loopMonitor";
+import { largest } from "./sampleStatistics";
+import { medianSpacing } from "./evenSampling";
 
 export interface CommissioningCriteria {
   target: number; durationSeconds: number; settlingTimeSeconds: number; maximumError: number;
@@ -18,15 +20,19 @@ export function assessCommissioningRecording(recording: LoopRecording, criteria:
   if (first < 0) throw new Error("The recorded controller never adopted the reviewed Auto target.");
   const start = samples[first].elapsedSeconds;
   const response = samples.slice(first);
-  if (response[response.length - 1].elapsedSeconds - start < criteria.durationSeconds - criteria.taskPeriodMs / 1000) throw new Error("The recorded response does not cover the reviewed duration.");
+  // A long observation is recorded at a record period (A4.2): its samples are one record period apart, not one task period.
+  const period = criteria.taskPeriodMs / 1000;
+  const spacing = response.length > 1 ? Math.max(period, medianSpacing(response.map(sample => sample.elapsedSeconds))) : period;
+  if (response[response.length - 1].elapsedSeconds - start < criteria.durationSeconds - spacing) throw new Error("The recorded response does not cover the reviewed duration.");
   if (response.some(sample => sample.controllerMode !== "Auto" || sample.sp !== criteria.target || sample.pv === null || sample.appliedMv === null
     || sample.pv < criteria.processRange.minimum || sample.pv > criteria.processRange.maximum
     || sample.appliedMv < criteria.outputLimits.minimum || sample.appliedMv > criteria.outputLimits.maximum)) throw new Error("The commissioned loop violated mode, reference or signal bounds.");
   const settled = response.filter(sample => sample.elapsedSeconds - start >= criteria.settlingTimeSeconds);
   if (!settled.length) throw new Error("The response deadline was not recorded.");
-  const error = Math.max(...settled.map(sample => Math.abs(criteria.target - sample.pv!)));
+  const error = largest(settled.map(sample => Math.abs(criteria.target - sample.pv!)));
   if (error > criteria.maximumError) throw new Error(`Commissioning target error ${error} exceeds ${criteria.maximumError}.`);
-  if (criteria.observed) assessCommissioningObservation(response, criteria.observed);
+  if (criteria.observed) assessCommissioningObservation(response, criteria.observed,
+    { durationSeconds: criteria.durationSeconds, recordEvery: Math.round(spacing / period) });
   if (criteria.switching) {
     const switching = criteria.switching;
     const observed = { channels: [{ id: "MV", unit: samples[first].units.mv }],

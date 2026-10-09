@@ -699,24 +699,6 @@ fn lesson20_startup_design_uses_the_relay_rule_and_inhibits_invalid_cycles() {
     }
 }
 
-#[test]
-fn lesson20_hmi_only_binds_signals_of_the_executed_heater_relay() {
-    let (runtime, _) = setup("06-pid-tuning-methods/29-relay-tuning");
-    let project = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/control/06-pid-tuning-methods/29-relay-tuning");
-    let descriptor = trust_runtime::hmi::load_hmi_dir(&project).unwrap();
-    let diagnostics = trust_runtime::hmi::validate_hmi_bindings(
-        "Res",
-        &runtime.metadata_snapshot(),
-        None,
-        &descriptor,
-    );
-    assert!(
-        diagnostics.is_empty(),
-        "The relay HMI must bind the executed one-heater project: {diagnostics:?}"
-    );
-}
-
 /// The heater PI of Lessons 21 and 22 runs the actual `Control.PID` with the gains Control Studio applies.
 fn executes_the_pi_control_studio_applies(project: &str, kp: f64, ki: f64) {
     let (mut runtime, mut simulation) = setup(project);

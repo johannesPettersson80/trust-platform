@@ -135,28 +135,48 @@ target = "%IX0.0"
 }
 
 #[test]
-fn simulation_contract_seed_and_positive_time_scale_round_trip() {
+fn simulation_contract_seed_and_time_scale_round_trip_within_one_to_one_hundred() {
     let config = load_text(
         r#"
 [simulation]
 enabled = true
 seed = 18446744073709551615
-time_scale = 4294967295
+time_scale = 100
 "#,
     );
     assert!(config.enabled);
     assert_eq!(config.seed, u64::MAX);
-    assert_eq!(config.time_scale, u32::MAX);
+    assert_eq!(config.time_scale, 100);
 
-    assert_error_contains(
-        load_text_result(
-            r#"
-[simulation]
-time_scale = 0
-"#,
-        ),
-        "simulation.time_scale must be >= 1",
+    assert_eq!(
+        load_text("[simulation]\ntime_scale = 1\n").time_scale,
+        1,
+        "the lowest permitted speed is accepted"
     );
+    for (text, expected) in [
+        (
+            "[simulation]\ntime_scale = 0\n",
+            "simulation.time_scale must be >= 1 and <= 100",
+        ),
+        (
+            "[simulation]\ntime_scale = 101\n",
+            "simulation.time_scale must be >= 1 and <= 100",
+        ),
+        (
+            "[simulation]\ntime_scale = 4294967295\n",
+            "simulation.time_scale must be >= 1 and <= 100",
+        ),
+        (
+            "[simulation]\ntime_scale = -1\n",
+            "simulation.time_scale must be >= 1 and <= 100",
+        ),
+        (
+            "[simulation]\ntime_scale = 2.5\n",
+            "simulation.time_scale must be a whole number >= 1 and <= 100",
+        ),
+    ] {
+        assert_error_contains(load_text_result(text), expected);
+    }
 }
 
 #[test]

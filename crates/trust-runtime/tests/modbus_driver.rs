@@ -983,3 +983,36 @@ fn modbus_exception_is_not_reported_as_generic_transport() {
         other => panic!("expected Modbus address/exception error, got {other}"),
     }
 }
+
+/// Specification 42, §4 item 9: after an exception reply the driver's own words name the server,
+/// its unit and the exception by its name in the Modbus application protocol.
+#[test]
+fn modbus_detail_names_the_server_unit_and_its_last_exception() {
+    let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
+        vec![0u16; 1],
+        vec![],
+    )));
+    let addr = start_modbus_server(state, 1);
+    let params: toml::Value = toml::from_str(&format!(
+        "address = \"{addr}\"\nunit_id = 7\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
+    ))
+    .expect("params");
+    let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
+    let _ = driver.write_outputs(&[0x12, 0x34]);
+    let expected = format!("{addr} unit 7, exception 02 illegal data address");
+    let deadline = Instant::now() + StdDuration::from_millis(500);
+    loop {
+        let detail = driver
+            .detail()
+            .map(|text| text.to_string())
+            .unwrap_or_default();
+        if detail == expected {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "detail {detail:?}, expected {expected:?}"
+        );
+        thread::sleep(StdDuration::from_millis(5));
+    }
+}

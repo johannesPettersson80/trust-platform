@@ -28,12 +28,6 @@ const starters = [
     surface: "Live Values",
   },
   {
-    directory: "hmi-starter",
-    firstAction: "Open HMI",
-    expected: "Tank level",
-    surface: "HMI",
-  },
-  {
     directory: "plcopen-motion-single-axis",
     firstAction: "Start",
     expected: "simulator",

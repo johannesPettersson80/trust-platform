@@ -30,6 +30,8 @@ use trust_runtime::Runtime;
 
 #[path = "lifecycle_contract_tests.rs"]
 mod lifecycle_contract_tests;
+#[path = "simulation_speed_tests.rs"]
+mod simulation_speed_tests;
 #[path = "tests_part_01.rs"]
 mod tests_part_01;
 #[path = "tests_part_02.rs"]

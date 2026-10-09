@@ -47,11 +47,14 @@ suite("Control Studio per-output requirements", () => {
         referenceChange: 5, maximumError: 1, settlingBand: 0.2, settlingTimeSeconds: 8, durationSeconds: 16,
       }, () => undefined);
       const fields = [...document.querySelectorAll<HTMLInputElement>("[data-studio-requirement]")];
-      assert.strictEqual(fields.filter(field => field.dataset.studioSignal === "P1.PV").length, 4);
-      assert.strictEqual(fields.filter(field => field.dataset.studioSignal === "P1.PV2").length, 4);
+      // Each output has its own settling time, overshoot, steady-state error and test setpoint change rows (specification 35, B9.9).
+      assert.strictEqual(fields.filter(field => field.dataset.studioSignal === "P1.PV").length, 5);
+      assert.strictEqual(fields.filter(field => field.dataset.studioSignal === "P1.PV2").length, 5);
       assert.ok(fields.filter(field => !["durationSeconds", "transferTolerance", "constantInputDisturbance"].includes(field.dataset.studioRequirement ?? "")).every(field => field.dataset.studioSignal === "P1.PV" || field.dataset.studioSignal === "P1.PV2"),
         "every per-output requirement names its own output");
-      assert.match(document.body.textContent ?? "", /P1\.PV2/);
+      // The role and unit are the visible text; the symbol is the hover text (specification 35, B9.9).
+      assert.ok(document.querySelector('span[title="P1.PV2"]'), "the second output's symbol is its hover text");
+      assert.match(document.querySelector('span[title="P1.PV2"]')?.textContent ?? "", /Measurement 2 \(bar\)/);
       assert.match(document.body.textContent ?? "", /bar/);
       assert.strictEqual(document.querySelector<HTMLInputElement>("[data-studio-requirement='referenceChange:output-2']")?.value, "", "second output starts blank");
     } finally {

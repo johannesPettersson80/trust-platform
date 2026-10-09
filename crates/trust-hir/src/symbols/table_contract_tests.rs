@@ -877,3 +877,28 @@ fn iteration_and_length_include_every_retained_symbol_identity() {
     assert!(ids.contains(&second));
     assert_eq!(table.lookup("DUPLICATE"), Some(first));
 }
+
+#[test]
+fn declaration_type_snapshot_preserves_alias_and_structure_member_identity() {
+    let mut table = SymbolTable::new();
+    let alias = table.register_type(
+        "Pressure",
+        Type::Alias {
+            name: "Pressure".into(),
+            target: TypeId::LREAL,
+        },
+    );
+    let structure = table.register_struct_type(
+        "Settings",
+        vec![StructField {
+            name: "Limit".into(),
+            type_id: alias,
+            address: None,
+            default_initializer: None,
+        }],
+    );
+    let snapshot = table.declaration_types();
+    assert_eq!(snapshot.lookup("Pressure"), Some(alias));
+    assert_eq!(snapshot.get(structure), table.type_by_id(structure));
+    assert_eq!(snapshot.get(TypeId::BOOL), table.type_by_id(TypeId::BOOL));
+}

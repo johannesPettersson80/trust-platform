@@ -116,7 +116,10 @@ pub(super) fn fresh_applied_feedback(
     }
     let value = number(storage, member)?;
     if value < member.minimum || value > member.maximum {
-        return Err("applied actuator feedback exceeds its reviewed range".into());
+        return Err(format!(
+            "applied actuator feedback {} = {value} is outside its reviewed range [{}, {}]",
+            member.symbol, member.minimum, member.maximum
+        ));
     }
     Ok(value)
 }
@@ -128,13 +131,17 @@ pub(super) fn held_output(
     snapshot: Option<&crate::io::IoSnapshot>,
 ) -> Result<f64, String> {
     let reference = parameters::resolve_path(storage, &output.symbol)?.reference;
-    let mapped = io_bindings
-        .iter()
-        .find(|entry| match &entry.target {
-            IoTarget::Name(name) => name.eq_ignore_ascii_case(&output.symbol),
-            IoTarget::Reference(value) => value == &reference,
-        })
-        .ok_or("automatic tracking needs a mapped committed output")?;
+    let mapped = io_bindings.iter().find(|entry| match &entry.target {
+        IoTarget::Name(name) => name.eq_ignore_ascii_case(&output.symbol),
+        IoTarget::Reference(value) => value == &reference,
+    });
+    // An output the program hands on in its own code, such as a PID's output that drives a heater
+    // block owning the I/O, holds what the last scan left at the task boundary: the value that
+    // scan drove the plant with (specification 35, §17.1). A mapped one holds what the last I/O
+    // commit sent.
+    let Some(mapped) = mapped else {
+        return reviewed_image(output, number(storage, output)?);
+    };
     let value = snapshot
         .and_then(|snapshot| super::super::recording::snapshot_value(snapshot, &mapped.address))
         .ok_or("committed output snapshot unavailable")?;
@@ -144,8 +151,22 @@ pub(super) fn held_output(
         ("BOOL", Value::Bool(value)) => f64::from(u8::from(*value)),
         _ => return Err("committed output IEC type mismatch".into()),
     };
-    if !number.is_finite() || number < output.minimum || number > output.maximum {
-        return Err("committed output is outside the reviewed range".into());
+    reviewed_image(output, number)
+}
+
+/// A committed output's value: a finite number inside its reviewed range (A5.3, E6.6).
+fn reviewed_image(output: &NumberMember, number: f64) -> Result<f64, String> {
+    if !number.is_finite() {
+        return Err(format!(
+            "committed output {} has bad quality: not a finite number",
+            output.symbol
+        ));
+    }
+    if number < output.minimum || number > output.maximum {
+        return Err(format!(
+            "committed output {} = {number} is outside its reviewed range [{}, {}]",
+            output.symbol, output.minimum, output.maximum
+        ));
     }
     Ok(number)
 }
@@ -570,9 +591,13 @@ fn validate_declared_states(
             != binding.states.len()
         || values.contains_key(&policy.reference_symbol)
         || values.contains_key(&policy.manual_command_symbol)
-        || bounded.len() > values.len()
+        // A bounded state is an initialized one, or the manual output the program sets from the
+        // output in Auto, so Manual takes over where the loop is (specification 35, §17.1).
+        || bounded.len() > values.len() + 1
         || bounded.iter().collect::<HashSet<_>>().len() != bounded.len()
-        || bounded.iter().any(|symbol| !values.contains_key(symbol))
+        || bounded
+            .iter()
+            .any(|symbol| !values.contains_key(symbol) && symbol != &policy.manual_command_symbol)
         || policy.gain_symbol.is_some()
         || policy.proportional_gain_symbol.is_some()
         || policy.integral_gain_symbol.is_some()

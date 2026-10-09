@@ -1,7 +1,7 @@
 #[test]
 fn symbolic_inspection_is_pending_until_a_coherent_actual_scan() {
     let source="PROGRAM Main VAR PV : LREAL; MV : LREAL; Gate : BOOL := TRUE; END_VAR PV := PV + 1.0; MV := 2.0 * PV; END_PROGRAM";
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let mut harness = TestHarness::from_source(source).unwrap();
     state.debug = harness.runtime_mut().enable_debug();
     harness.cycle();
@@ -61,7 +61,7 @@ fn control_recording_empty_result_does_not_claim_actual_cycle_timing() {
 
 const SYMBOLIC_SOURCE:&str="PROGRAM Main VAR PV : LREAL; MV : LREAL; Gate : BOOL := TRUE; END_VAR PV := PV + 1.0; MV := 2.0 * PV; END_PROGRAM";
 fn symbolic_fixture() -> (TestHarness, ControlState, serde_json::Value, String) {
-    let mut state = hmi_test_state(SYMBOLIC_SOURCE);
+    let mut state = control_test_state(SYMBOLIC_SOURCE);
     let mut harness = TestHarness::from_source(SYMBOLIC_SOURCE).unwrap();
     state.debug = harness.runtime_mut().enable_debug();
     harness.cycle();
@@ -225,14 +225,44 @@ fn symbolic_recording_bytecode_reload_invalidates_program_guard() {
 }
 
 #[test]
-fn symbolic_integer_process_signals_are_inspected_and_recorded_without_wrappers(){
+fn symbolic_integer_process_signals_are_inspected_and_recorded_without_wrappers() {
     let source="PROGRAM Main VAR Count : DINT := 41; UnsignedCount : UDINT := 10; END_VAR Count := Count + 1; UnsignedCount := UnsignedCount + 1; END_PROGRAM";
-    let mut state=hmi_test_state(source);let mut harness=TestHarness::from_source(source).unwrap();state.debug=harness.runtime_mut().enable_debug();harness.cycle();*state.metadata.lock().unwrap()=harness.runtime().metadata_snapshot();state.debug.refresh_snapshot_from_storage(harness.runtime().storage(),harness.runtime().current_time());
-    let bindings=json!([{"id":"count","symbol":"Main.Count","iec_type":"DINT"},{"id":"unsigned","symbol":"Main.UnsignedCount","iec_type":"UDINT"}]);
-    let first=handle_request_value(json!({"id":8730,"type":"control.signals.inspect","params":{"loop_revision":"integer-loop","bindings":bindings}}),&state,None);assert!(first.ok,"numeric reading must not inherit floating-point gain-write restriction: {:?}",first.error);
-    harness.advance_time(crate::value::Duration::from_millis(20));harness.cycle();
-    let inspected=handle_request_value(json!({"id":8731,"type":"control.signals.inspect","params":{"loop_revision":"integer-loop","bindings":bindings}}),&state,None).result.unwrap();assert_eq!(inspected["values"],json!([43.0,12.0]));
-    let start=handle_request_value(json!({"id":8732,"type":"control.recording.start","params":{"recording_id":"integer-record","loop_revision":"integer-loop","program_revision":inspected["program_revision"],"bindings":bindings,"maximum_samples":2,"maximum_duration_ms":10000}}),&state,None);assert!(start.ok,"{:?}",start.error);
-    for _ in 0..2{harness.advance_time(crate::value::Duration::from_millis(20));harness.cycle();}
-    let recorded=handle_request_value(json!({"id":8733,"type":"control.recording.stop","params":{"recording_id":"integer-record","loop_revision":"integer-loop"}}),&state,None).result.unwrap();assert_eq!(recorded["samples"][0]["values"],json!([44.0,13.0]));assert_eq!(recorded["samples"][1]["values"],json!([45.0,14.0]));assert_eq!(recorded["acquisition"]["completeness"],"complete");
+    let mut state = control_test_state(source);
+    let mut harness = TestHarness::from_source(source).unwrap();
+    state.debug = harness.runtime_mut().enable_debug();
+    harness.cycle();
+    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
+    state.debug.refresh_snapshot_from_storage(
+        harness.runtime().storage(),
+        harness.runtime().current_time(),
+    );
+    let bindings = json!([{"id":"count","symbol":"Main.Count","iec_type":"DINT"},{"id":"unsigned","symbol":"Main.UnsignedCount","iec_type":"UDINT"}]);
+    let first = handle_request_value(
+        json!({"id":8730,"type":"control.signals.inspect","params":{"loop_revision":"integer-loop","bindings":bindings}}),
+        &state,
+        None,
+    );
+    assert!(
+        first.ok,
+        "numeric reading must not inherit floating-point gain-write restriction: {:?}",
+        first.error
+    );
+    harness.advance_time(crate::value::Duration::from_millis(20));
+    harness.cycle();
+    let inspected=handle_request_value(json!({"id":8731,"type":"control.signals.inspect","params":{"loop_revision":"integer-loop","bindings":bindings}}),&state,None).result.unwrap();
+    assert_eq!(inspected["values"], json!([43.0, 12.0]));
+    let start = handle_request_value(
+        json!({"id":8732,"type":"control.recording.start","params":{"recording_id":"integer-record","loop_revision":"integer-loop","program_revision":inspected["program_revision"],"bindings":bindings,"maximum_samples":2,"maximum_duration_ms":10000}}),
+        &state,
+        None,
+    );
+    assert!(start.ok, "{:?}", start.error);
+    for _ in 0..2 {
+        harness.advance_time(crate::value::Duration::from_millis(20));
+        harness.cycle();
+    }
+    let recorded=handle_request_value(json!({"id":8733,"type":"control.recording.stop","params":{"recording_id":"integer-record","loop_revision":"integer-loop"}}),&state,None).result.unwrap();
+    assert_eq!(recorded["samples"][0]["values"], json!([44.0, 13.0]));
+    assert_eq!(recorded["samples"][1]["values"], json!([45.0, 14.0]));
+    assert_eq!(recorded["acquisition"]["completeness"], "complete");
 }

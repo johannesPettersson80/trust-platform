@@ -1,5 +1,5 @@
 site_name: truST Documentation
-site_description: Free, open-source IEC 61131-3 Structured Text IDE and runtime. VS Code extension, browser HMI, JSON-RPC API. Runs on Linux, including PREEMPT_RT soft-real-time deployments, macOS, Windows, and Raspberry Pi.
+site_description: Free, open-source IEC 61131-3 Structured Text IDE and runtime. VS Code extension, browser IDE, JSON-RPC API. Runs on Linux, including PREEMPT_RT soft-real-time deployments, macOS, Windows, and Raspberry Pi.
 site_url: https://johannespettersson80.github.io/trust-platform/
 repo_url: https://github.com/johannesPettersson80/trust-platform
 repo_name: trust-platform
@@ -116,6 +116,8 @@ nav:
           - Control Studio: operate/control-studio.md
           - Control System Engineering: develop/control-system-engineering.md
           - Test And Debug Examples: examples/test-and-debug.md
+      - Operator Screens:
+          - HMI Builder: develop/hmi-builder.md
       - Visual Programming:
           - Overview: develop/visual-editors/index.md
           - Ladder: develop/visual-editors/ladder.md
@@ -124,10 +126,6 @@ nav:
           - Statechart: develop/visual-editors/statechart.md
           - Companion ST: develop/visual-editors/companion-st.md
           - Visual Editor Examples: examples/visual-editors.md
-      - HMI Programming:
-          - HMI Authoring: develop/hmi-authoring.md
-          - HMI Examples: examples/hmi.md
-          - Browser HMI Preview: start/operate-in-browser.md
       - I/O And Hardware While Programming:
           - Driver Matrix: connect/devices-and-fieldbus/driver-matrix.md
           - I/O Binding: connect/devices-and-fieldbus/io-binding.md
@@ -166,6 +164,11 @@ nav:
           - OSCAT OOP: develop/libraries/oscat-oop.md
           - PLCopen Motion: develop/libraries/plcopen-motion.md
           - PLCopen Motion OOP: develop/libraries/plcopen-motion-oop.md
+          - Control: develop/libraries/control.md
+          - Alarm: develop/libraries/alarm.md
+          - HMI: develop/libraries/hmi.md
+          - Comm: develop/libraries/comm.md
+          - Plant: develop/libraries/plant.md
           - Libraries And Motion Examples: examples/libraries-and-motion.md
       - Migration While Programming:
           - Migration Overview: migrate/index.md
@@ -189,7 +192,6 @@ nav:
       - Supervision: operate/supervision.md
       - PREEMPT_RT: operate/preempt-rt.md
       - Deploy And Rollback: operate/deploy-rollback.md
-      - HMI (Preview & Browser): operate/hmi-and-web-ui.md
       - Errors And Recovery: operate/errors-and-recovery.md
       - Operator Guide: operate/operator-guide.md
       - Daily Checks: operate/operator-daily-checks.md
@@ -231,7 +233,6 @@ nav:
           - ads.toml: reference/config/ads-toml.md
           - simulation.toml: reference/config/simulation-toml.md
           - trust-lsp.toml: reference/config/trust-lsp-toml.md
-          - hmi/: reference/config/hmi-directory.md
           - Runtime Cloud Profiles: reference/config/runtime-cloud.md
           - Vendor Profiles: reference/config/vendor-profiles.md
       - Agent API:

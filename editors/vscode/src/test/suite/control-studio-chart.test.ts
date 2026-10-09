@@ -760,6 +760,29 @@ suite("Control Studio chart contract", () => {
     assert.strictEqual(engineeringPlotMessageEvidence(evidence!).phaseMarginDegrees, "unbounded", "infinity survives the message as unbounded");
   });
 
+  test("predicts a slow process over hours at every controller period and keeps at most 5,000 evenly spaced points (A7, A4.5)", () => {
+    // A 75 min time constant over a 4 h test at a 100 ms task: 144,000 periods, more than the old 10,000-period cap.
+    const model = { kind: "first_order" as const, gain: 0.2, timeConstantSeconds: 4500, stable: true, normalizedError: 0.01 };
+    const parameters: ControlPidParameters = {
+      proportionalGain: 20, integralGain: 0.01, derivativeGain: 0,
+      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
+      outputMinimum: -100, outputMaximum: 100, rateMinimum: -1e9, rateMaximum: 1e9,
+      trackingTime: 1, antiWindup: "BackCalculation",
+    };
+    const candidate = candidateFromControlPid(parameters, "Constrained comparison");
+    const evidence = buildEngineeringPlotEvidence(model, candidate, candidate, undefined,
+      { cycleTimeSeconds: 0.1, durationSeconds: 14400, referenceChange: 1 });
+    const points = evidence.timeResponse;
+    assert.ok(points.length <= 5001, `at most 5,000 points after the start: ${points.length}`);
+    assert.ok(Math.abs(points[points.length - 1].timeSeconds - 14400) < 1e-6, "the last period is kept");
+    const spacing = points[1].timeSeconds - points[0].timeSeconds;
+    assert.ok(points.every((point, index) => index === 0 || Math.abs(point.timeSeconds - points[index - 1].timeSeconds - spacing) < 1e-6
+      || index === points.length - 1), "the kept periods are evenly spaced");
+    assert.ok(Math.abs(points[points.length - 1].candidatePv - 1) < 0.02, `the integral action reaches the target: ${points[points.length - 1].candidatePv}`);
+    assert.strictEqual(evidence.uncertainty.points.length === 0 || evidence.uncertainty.points.length === points.length, true,
+      "the uncertainty band has one point per kept period");
+  });
+
   test("keeps direct engineering evidence serializable for a compatible saved result", () => {
     const model = { kind: "first_order" as const, gain: 1, timeConstantSeconds: 2, stable: true, normalizedError: 0.01 };
     const parameters: ControlPidParameters = {

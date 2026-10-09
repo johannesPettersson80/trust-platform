@@ -1,0 +1,10 @@
+format = 1
+block = "Comm.Link"
+faceplate = "link"
+symbol = "network-link"
+
+[fields]
+LinkFailed = "LinkFailed.Active"
+
+[bind]
+out-of-service = "Disabled"

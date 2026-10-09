@@ -245,6 +245,104 @@ function positiveInterval(value: number, halfWidth: number): ParameterInterval {
 
 function span(values: readonly number[]): number { return Math.max(...values) - Math.min(...values); }
 function mean(values: readonly number[]): number { return values.reduce((sum, value) => sum + value, 0) / values.length; }
+
+/** Smallest response a fit accepts, as a multiple of the measured noise. */
+export const MINIMUM_RESPONSE_TO_NOISE_RATIO = 20;
+/** Smallest fraction of its fitted final change a held step must reach to be accepted (A10.3, N2.3). */
+export const MINIMUM_REACHED_FRACTION = 0.63;
+
+/** The sign a plant gain must have for the controller action. "direct" (increase the output while the measurement is below the
+ * setpoint, heating) needs a positive gain; "reverse" (increase the output while the measurement is above the setpoint, cooling)
+ * needs a negative gain. */
+export function requiredGainSign(action: "direct" | "reverse"): 1 | -1 {
+  return action === "reverse" ? -1 : 1;
+}
+
+/** The refusal when a gain's sign contradicts the controller action (B3.9, N6.3); undefined when they agree. */
+export function gainSignContradiction(gain: number, unit: string, action: "direct" | "reverse"): string | undefined {
+  if (!Number.isFinite(gain) || gain === 0 || Math.sign(gain) === requiredGainSign(action)) return undefined;
+  // Engineer-facing text states the direction in plain words, never as the stored action names.
+  const response = gain > 0 ? "rises" : "falls";
+  const setup = action === "reverse"
+    ? "increase the output while the measurement is above the setpoint"
+    : "increase the output while the measurement is below the setpoint";
+  return `The identified gain is ${engineeringText(gain)}${unit ? ` ${unit}` : ""} (the measurement ${response} when the output rises), but the loop is set up to ${setup}. Check the measured output, the plant input and the controller action in the loop setup.`;
+}
+
+/** RMS noise of a steady baseline: root of half the mean squared first difference of its measured outputs. Zero with fewer than three samples. */
+export function baselineNoiseRms(outputs: readonly number[]): number {
+  if (outputs.length < 3) return 0;
+  const differences = outputs.slice(1).map((value, index) => value - outputs[index]);
+  return Math.sqrt(differences.reduce((sum, value) => sum + value * value, 0) / differences.length / 2);
+}
+
+/** The refusal for a response too small against the measured noise, or undefined when it is large enough or the noise is unknown. */
+export function noiseRefusal(responseSize: number, noiseRms: number, unit: string, excitation: "step" | "excitation"): string | undefined {
+  if (!(noiseRms > 0) || !(responseSize < MINIMUM_RESPONSE_TO_NOISE_RATIO * noiseRms)) return undefined;
+  const suffix = unit ? ` ${unit}` : "";
+  return `The response (${engineeringText(responseSize)}${suffix}) is smaller than ${MINIMUM_RESPONSE_TO_NOISE_RATIO} times the measured noise (${engineeringText(noiseRms)}${suffix} RMS). Permit a larger ${excitation} in Limits…, or choose another method.`;
+}
+
+/** The refusal for a held step that has not reached the required fraction of its fitted final change (A10.3). */
+export function partialResponseRefusal(fraction: number, holdSoFarSeconds: number, delaySeconds: number, timeConstantSeconds: number): string {
+  return `The response reached ${Math.round(fraction * 100)} % of its fitted final change in ${minutesText(holdSoFarSeconds)} min; hold the step for about ${minutesText(delaySeconds + 3 * timeConstantSeconds)} min (Limits… → maximum duration).`;
+}
+
+/** Fraction of its fitted final change that a held response reached: the measured mean over its last 5 % of samples, less the baseline, over the change (A10.3). */
+export function reachedFraction(measured: readonly number[], baseline: number, finalChange: number): number {
+  const tail = measured.slice(-Math.max(1, Math.ceil(measured.length * 0.05)));
+  return (mean(tail) - baseline) / finalChange;
+}
+
+/** The shape of a held-input model whose unit-gain response is simulated on the recorded sample times. */
+export type HeldShape =
+  | { kind: "static_gain" }
+  | { kind: "integrating"; delaySeconds: number }
+  | { kind: "first_order"; timeConstantSeconds: number; delaySeconds: number };
+
+/** Unit-gain response to input deviations recorded at `times`, each held until the next sample (A4.3). A dynamic form advances by
+ * exact per-interval discretization, a = exp(-dt / tau), and reads its delayed input at t - L from the recorded history: the latest
+ * deviation at or before that time, zero before the first sample. A static gain responds at its own sample time. */
+export function heldUnitResponse(times: readonly number[], deviations: readonly number[], shape: HeldShape): number[] {
+  const delayed = delayedDeviations(times, deviations, shape.kind === "static_gain" ? 0 : shape.delaySeconds);
+  if (shape.kind === "static_gain") return delayed;
+  const response = new Array<number>(times.length).fill(0);
+  for (let k = 1; k < times.length; k += 1) {
+    const dt = times[k] - times[k - 1];
+    response[k] = shape.kind === "integrating"
+      ? response[k - 1] + dt * delayed[k - 1]
+      : Math.exp(-dt / shape.timeConstantSeconds) * response[k - 1] + (1 - Math.exp(-dt / shape.timeConstantSeconds)) * delayed[k - 1];
+  }
+  return response;
+}
+
+/** Least-squares gain of a unit response against measured outputs above their baseline (N2.2), with the squared error it leaves. */
+export function leastSquaresGain(measured: readonly number[], baseline: number, response: readonly number[]): { gain: number; squaredError: number } {
+  let numerator = 0, denominator = 0;
+  measured.forEach((value, k) => { numerator += (value - baseline) * response[k]; denominator += response[k] * response[k]; });
+  const gain = denominator > Number.EPSILON ? numerator / denominator : Number.NaN;
+  return { gain, squaredError: measured.reduce((sum, value, k) => sum + (value - baseline - gain * response[k]) ** 2, 0) };
+}
+
+const TIME_TOLERANCE = 1e-9;
+
+function delayedDeviations(times: readonly number[], deviations: readonly number[], delaySeconds: number): number[] {
+  const values = new Array<number>(times.length).fill(0);
+  let latest = -1;
+  for (let k = 0; k < times.length; k += 1) {
+    while (latest + 1 < times.length && times[latest + 1] <= times[k] - delaySeconds + TIME_TOLERANCE) latest += 1;
+    values[k] = latest >= 0 ? deviations[latest] : 0;
+  }
+  return values;
+}
+
+function engineeringText(value: number): string {
+  return Number(value.toPrecision(3)).toString().replace("-", "−");
+}
+
+function minutesText(seconds: number): string {
+  return String(Number((seconds / 60).toPrecision(2)));
+}
 function complexity(kind: LowOrderModelKind): number {
   return ({ static_gain: 1, integrating: 1, first_order: 2, first_order_dead_time: 3,
     second_order: 3, second_order_dead_time: 4 })[kind];

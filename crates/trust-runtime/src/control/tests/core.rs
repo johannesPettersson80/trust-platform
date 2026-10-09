@@ -8,7 +8,7 @@ END_VAR
 run := NOT run;
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let project_root = std::env::temp_dir().join("trust-breakpoints-project-relative");
     state.project_root = Some(project_root.clone());
     state.sources = SourceRegistry::new(vec![SourceFile {
@@ -48,7 +48,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     let requests = vec![
         json!({"id": 1, "type": "status"}),
         json!({"id": 2, "type": "io.list"}),
@@ -99,7 +99,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
 
     let simulated = handle_request_value(
         json!({"id": 51, "type": "comm.test", "params": { "protocol": "simulated", "params": {} }}),
@@ -209,9 +209,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-schema");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
 
     let response = handle_request_value(
         json!({"id": 44, "type": "comm.schema", "params": { "protocol": "mqtt" }}),
@@ -330,7 +330,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({"id": 144, "type": "comm.schema", "params": { "protocol": "opcua" }}),
@@ -390,9 +390,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-runtime-file");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("runtime.toml"),
         &crate::bundle_template::render_runtime_toml(&SmolStr::new("comm-runtime"), 10),
@@ -462,7 +462,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -515,9 +515,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-dry-run");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("runtime.toml"),
         &crate::bundle_template::render_runtime_toml(&SmolStr::new("comm-dry-run"), 10),
@@ -785,9 +785,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-write");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -864,9 +864,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-safe-state-only");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -927,9 +927,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-ethercat-bootstrap");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("runtime.toml"),
         &crate::bundle_template::render_runtime_toml(&SmolStr::new("line-a"), 10),
@@ -1033,9 +1033,9 @@ END_PROGRAM
         ("empty-drivers", "[io]\ndrivers = []\n"),
         ("comment-only", "# created by first-run setup\n"),
     ] {
-        let mut state = hmi_test_state(source);
+        let mut state = control_test_state(source);
         let root = temp_dir(&format!("comm-apply-{case}"));
-        set_hmi_project_root(&mut state, &root);
+        set_project_root(&mut state, &root);
         write_file(&root.join("io.toml"), initial);
 
         let response = handle_request_value(
@@ -1090,9 +1090,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-remove-last");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -1225,9 +1225,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-disable-preserves-driver");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -1329,9 +1329,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-remove-one");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -1398,9 +1398,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-edit-idempotent");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -1496,9 +1496,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-edit-requires-instance");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -1578,9 +1578,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-cross-protocol-instance");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -1692,9 +1692,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-secret");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
 
     let blocked = handle_request_value(
         json!({
@@ -1773,9 +1773,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-audit");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     let (audit_tx, audit_rx) = std::sync::mpsc::channel();
     state.audit_tx = Some(audit_tx);
 
@@ -2590,7 +2590,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response =
         handle_request_value(json!({"id": 43, "type": "comm.capabilities"}), &state, None);
@@ -2693,7 +2693,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let schema = handle_request_value(json!({"id": 45, "type": "comm.schema"}), &state, None);
     assert!(schema.ok, "comm.schema failed: {:?}", schema.error);
@@ -2859,7 +2859,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state_with_ads_status(source, connected_ads_status());
+    let mut state = control_test_state_with_ads_status(source, connected_ads_status());
     let project_root = temp_dir("fleet-topology");
     write_file(
         &project_root.join("io.toml"),
@@ -2880,7 +2880,7 @@ END_PROGRAM
 	params = { broker = "mqtt://broker.local:1883", topic_in = "trust/io/in", topic_out = "trust/io/out", password = "mqtt-secret", tls = true }
 	"#,
     );
-    set_hmi_project_root(&mut state, &project_root);
+    set_project_root(&mut state, &project_root);
     *state.ads_client_config.lock().expect("ads client config") = Some(test_ads_client_config());
     let now_ns = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -3219,7 +3219,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let demo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/network_canvas_demo")
         .canonicalize()
@@ -3263,7 +3263,7 @@ params = { adapter = "eth1", timeout_ms = 250, cycle_warn_ms = 5, on_error = "fa
         settings.opcua.enabled = true;
         settings.opcua.listen = SmolStr::new("127.0.0.1:4840");
     }
-    set_hmi_project_root(&mut state, &project_root);
+    set_project_root(&mut state, &project_root);
 
     let response = handle_request_value(json!({"id": 48, "type": "fleet.topology"}), &state, None);
     assert!(response.ok, "fleet.topology failed: {:?}", response.error);
@@ -3391,7 +3391,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     {
         let mut settings = state.settings.lock().expect("settings lock");
         settings.web.enabled = true;
@@ -3456,7 +3456,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3546,7 +3546,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     let mut params = ads_import_symbols_params();
     params
         .get_mut("snapshot")
@@ -3582,7 +3582,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3620,7 +3620,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     for kind in [
         "ads.discover",
@@ -3654,7 +3654,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3684,7 +3684,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3713,7 +3713,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3742,7 +3742,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let start = handle_request_value(
         json!({
@@ -3799,7 +3799,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3841,7 +3841,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3880,7 +3880,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3909,7 +3909,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3940,7 +3940,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3971,7 +3971,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -4010,7 +4010,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(json!({"id": 42, "type": "ads.status"}), &state, None);
 
@@ -4048,7 +4048,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -4089,7 +4089,7 @@ END_PROGRAM
 #[cfg(feature = "ads-server")]
 #[test]
 fn ads_server_status_control_request_returns_server_surface() {
-    let state = hmi_test_state(ads_server_runtime_source());
+    let state = control_test_state(ads_server_runtime_source());
     *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
     let response =
@@ -4126,7 +4126,7 @@ fn ads_server_status_control_request_returns_server_surface() {
 #[cfg(feature = "ads-server")]
 #[test]
 fn ads_server_symbols_control_request_returns_exposed_snapshot() {
-    let state = hmi_test_state(ads_server_runtime_source());
+    let state = control_test_state(ads_server_runtime_source());
     *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
     let response = handle_request_value(
@@ -4159,7 +4159,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -4195,7 +4195,7 @@ END_PROGRAM
 #[cfg(feature = "ads-server")]
 #[test]
 fn ads_server_doctor_control_request_returns_server_report_without_external_proof() {
-    let state = hmi_test_state(ads_server_runtime_source());
+    let state = control_test_state(ads_server_runtime_source());
     *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
     let response = handle_request_value(
@@ -4234,7 +4234,7 @@ fn ads_server_doctor_control_request_returns_server_report_without_external_proo
 #[cfg(feature = "ads-server")]
 #[test]
 fn ads_server_status_rejects_external_claim_without_live_server_evidence() {
-    let state = hmi_test_state(ads_server_runtime_source());
+    let state = control_test_state(ads_server_runtime_source());
     *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
     let doctor = handle_request_value(
@@ -4282,7 +4282,9 @@ fn ads_server_status_rejects_external_claim_without_live_server_evidence() {
             .and_then(serde_json::Value::as_bool),
         Some(false)
     );
-    assert!(result.get("external_client_kind").is_some_and(serde_json::Value::is_null));
+    assert!(result
+        .get("external_client_kind")
+        .is_some_and(serde_json::Value::is_null));
     assert_eq!(
         result
             .get("production_ready")
@@ -4325,7 +4327,7 @@ fn ads_server_status_rejects_external_claim_without_live_server_evidence() {
 #[cfg(feature = "ads-server")]
 #[test]
 fn ads_server_doctor_start_and_status_use_job_poll_surface() {
-    let state = hmi_test_state(ads_server_runtime_source());
+    let state = control_test_state(ads_server_runtime_source());
     *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
     let start = handle_request_value(
@@ -4400,7 +4402,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let pause = handle_request_value(json!({"id": 1, "type": "pause"}), &state, None);
     assert!(pause.ok, "pause should succeed: {:?}", pause.error);
@@ -4452,7 +4454,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     let output = crate::io::IoAddress::parse("%QX0.0").expect("output address");
     *state.io_snapshot.lock().expect("snapshot lock") = Some(crate::io::IoSnapshot {
         scan: Some(7),
@@ -4559,7 +4561,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     for (id, address) in [
         (50, "%IB16777216"),
@@ -4598,7 +4600,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     for (id, address) in [
         (60, "%IB16777216"),
@@ -4637,7 +4639,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let status = handle_request_value(json!({"id": 30, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
@@ -4672,7 +4674,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let status = handle_request_value(json!({"id": 31, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
@@ -4715,7 +4717,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     {
         let mut settings = state.settings.lock().expect("settings lock");
@@ -4938,7 +4940,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     state
         .io_health
         .lock()
@@ -4992,7 +4994,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let unknown = handle_request_value(
         json!({
@@ -5097,7 +5099,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     let response = handle_request_value(
         json!({
             "id": 22,
@@ -5124,7 +5126,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -5167,7 +5169,7 @@ fn status_and_config_get_surface_realtime_defaults() {
 PROGRAM Main
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let status = handle_request_value(json!({"id": 26, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
@@ -5218,7 +5220,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let invalid_line = handle_request_line("{invalid-json", &state, None)
         .expect("invalid request should still return response line");
@@ -5268,7 +5270,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     state.auth_token = Arc::new(Mutex::new(Some(SmolStr::new("admin-token"))));
     state.control_requires_auth = true;
     let pairing_path = pairing_file("matrix");
@@ -5359,25 +5361,6 @@ END_PROGRAM
         .as_deref()
         .is_some_and(|msg| msg.contains("requires role engineer")));
 
-    let operator_hmi_write = handle_request_value(
-        json!({
-            "id": 531,
-            "type": "hmi.write",
-            "auth": operator_token,
-            "params": { "id": "resource/RESOURCE/program/Main/field/run", "value": false }
-        }),
-        &state,
-        None,
-    );
-    assert!(
-        !operator_hmi_write.ok,
-        "operator must not write HMI targets"
-    );
-    assert!(operator_hmi_write
-        .error
-        .as_deref()
-        .is_some_and(|msg| msg.contains("requires role engineer")));
-
     let engineer_write = handle_request_value(
         json!({
             "id": 54,
@@ -5389,25 +5372,6 @@ END_PROGRAM
         None,
     );
     assert!(engineer_write.ok, "engineer should write I/O");
-
-    let engineer_hmi_write = handle_request_value(
-        json!({
-            "id": 541,
-            "type": "hmi.write",
-            "auth": engineer_token,
-            "params": { "id": "resource/RESOURCE/program/Main/field/run", "value": false }
-        }),
-        &state,
-        None,
-    );
-    assert!(
-        !engineer_hmi_write.ok,
-        "engineer write should still be gated by read-only defaults"
-    );
-    assert_eq!(
-        engineer_hmi_write.error.as_deref(),
-        Some("hmi.write disabled in read-only mode")
-    );
 
     let engineer_pair_start = handle_request_value(
         json!({"id": 55, "type": "pair.start", "auth": engineer_token}),
@@ -5464,7 +5428,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let remote_client = Some("127.0.0.1:55001");
     let status = handle_request_value(json!({"id": 901, "type": "status"}), &state, remote_client);
@@ -5495,7 +5459,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let status = handle_request_value(json!({"id": 903, "type": "status"}), &state, Some("unix"));
     assert!(status.ok, "local Unix control should read status");
@@ -5539,7 +5503,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let pairing_path = pairing_file("unix-viewer-token");
     let store = Arc::new(PairingStore::load(pairing_path.clone()));
     state.pairing = Some(store.clone());
@@ -5598,7 +5562,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let history_path = temp_history_path("historian");
     let hook_path = temp_history_path("hook");
     let historian = HistorianService::new(

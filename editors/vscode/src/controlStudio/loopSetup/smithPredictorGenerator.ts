@@ -1,8 +1,8 @@
 import type { ControlLoopDefinition } from "../loopDefinition";
 import type { SmithPidSeed } from "../smithPredictorDesign";
 import { PID_TYPE, type CompiledCatalog } from "./compiledCatalog";
-import { binding, compiled, identificationDuration, loopId, measurementBinding, realType, withRevision, type MeasuredSignal } from "./loopBindings";
-import { pidParameters, pidStates, startupState } from "./pidBindings";
+import { binding, compiled, explicitExperiment, loopId, measurementBinding, realType, withRevision, type MeasuredSignal } from "./loopBindings";
+import { pidParameters, pidStates, startupState, manualOutputTracking } from "./pidBindings";
 import type { ModeChoice, SignalChoice } from "./pidLoopGenerator";
 
 /** A `Control.PID` fed the measurement plus a Smith predictor's correction the program computes (Specification 35 §17.13). */
@@ -51,6 +51,7 @@ export function smithPredictorLoopDefinition(catalog: CompiledCatalog, draft: Sm
       instance: draft.instance, type: "Control.PID", design: "project", revision: "sha256:unverified", action: draft.action,
       taskPeriodMs: period, modeSignal: draft.mode.symbol, modeWhenTrue: draft.mode.whenTrue,
       manualOutputSignal: manual.symbol, manualOutputType: realType(manual), ...(manual.address ? { manualOutputAddress: manual.address } : {}),
+      ...manualOutputTracking(catalog, draft.instance, manual.symbol),
       project: {
         family: "Smith", convention: "project-owned-native-controller",
         initialization: { kind: "declared-state-v1", states }, seed,
@@ -65,8 +66,7 @@ export function smithPredictorLoopDefinition(catalog: CompiledCatalog, draft: Sm
     },
     limits: { outputMinimum: mv.minimum, outputMaximum: mv.maximum },
     observedSampleTiming: { nominalPeriodMs: period },
-    experiment: { execution: "control-studio", kind: "mv_step", amplitude: draft.experimentStep ?? (mv.maximum - mv.minimum) / 10,
-      durationSeconds: identificationDuration(draft.name, draft.experimentDurationSeconds), seed: 1 },
+    ...explicitExperiment(draft.name, { execution: "control-studio", kind: "mv_step" }, draft.experimentStep, draft.experimentDurationSeconds),
     parameterBinding: {
       loop_id: id, task_name: task.name,
       mode: { symbol: draft.mode.symbol, manual_value: draft.mode.whenTrue === "Manual" },

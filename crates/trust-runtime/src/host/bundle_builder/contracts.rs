@@ -28,6 +28,8 @@ pub struct BundleCheckReport {
     pub dependency_roots: Vec<PathBuf>,
     /// Resolved dependency names in deterministic order.
     pub resolved_dependencies: Vec<String>,
+    /// The names of the resources the program's configuration declares.
+    pub resources: Vec<String>,
 }
 
 /// Project layout summary without building bytecode.

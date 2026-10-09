@@ -15,6 +15,7 @@ import { materializeBoundParameters } from "./parameterBinding";
 import { PROJECT_CONTROLLER_FAMILIES, type ControllerFamily } from "./controllerFamilies";
 import { selectedModelAnalysis } from "./selectedModelAnalysis";
 import { calculateDeclaredRouth } from "./routhHurwitz";
+import { ISOLATED_SIMULATION_SCAN_LIMIT, SEARCH_WALL_TIME_LIMIT_MS } from "./controlStudioLimits";
 
 
 export interface ProjectControllerBinding {
@@ -51,8 +52,8 @@ export function decodeProjectController(value: unknown, binding?: ParameterBindi
     || !(PROJECT_CONTROLLER_FAMILIES as readonly unknown[]).includes(value.family) || !decodeControllerInitialization(value.initialization)
     || !Array.isArray(value.axes) || value.axes.length > 8
     || !Number.isInteger(value.maximumCandidates) || (value.maximumCandidates as number) < 1 || (value.maximumCandidates as number) > 64
-    || !Number.isInteger(value.maximumCycles) || (value.maximumCycles as number) < 1 || (value.maximumCycles as number) > 50000
-    || !Number.isInteger(value.wallBudgetMs) || (value.wallBudgetMs as number) < 1 || (value.wallBudgetMs as number) > 60000
+    || !Number.isInteger(value.maximumCycles) || (value.maximumCycles as number) < 1 || (value.maximumCycles as number) > ISOLATED_SIMULATION_SCAN_LIMIT
+    || !Number.isInteger(value.wallBudgetMs) || (value.wallBudgetMs as number) < 1 || (value.wallBudgetMs as number) > SEARCH_WALL_TIME_LIMIT_MS
     || !record(value.objective) || typeof value.objective.requirementId !== "string" || !value.objective.requirementId
     || !["minimize", "maximize"].includes(String(value.objective.direction))) return undefined;
   if (value.components !== undefined && !validProjectComponents(value.components, binding)) return undefined;

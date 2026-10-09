@@ -25,7 +25,7 @@ const draft = { ...scope, name: "Cold room", action: "reverse", instance: "P1",
   manipulatedVariable: { symbol: "P1.CompressorPct", unit: "%", minimum: 0, maximum: 100 },
   setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualPct",
   hysteresis: "P1.HysteresisC", bandConvention: "half-band", minimumOn: "P1.MinimumOnS", minimumOff: "P1.MinimumOffS",
-  latch: "P1.CoolingOn", dwellTimer: "P1.DwellS", experimentDurationSeconds: 120 };
+  latch: "P1.CoolingOn", dwellTimer: "P1.DwellS", experimentStep: 100, experimentDurationSeconds: 120 };
 
 suite("Control Studio ON/OFF setup", () => {
   test("offers the instances that can hold switching logic and every REAL setting", () => {

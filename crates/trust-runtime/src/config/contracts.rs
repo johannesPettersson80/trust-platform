@@ -26,7 +26,6 @@ pub struct RuntimeConfig {
     pub realtime: LinuxRtConfig,
     pub openot: OpenOtTelemetryConfig,
     pub observability: HistorianConfig,
-    pub hmi_persistence: HmiPersistenceConfig,
     pub ads: AdsRuntimeConfig,
     pub ads_server: AdsServerRuntimeConfig,
     pub opcua_client: OpcUaClientRuntimeConfig,
@@ -58,6 +57,8 @@ pub struct WebConfig {
     pub listen: SmolStr,
     pub auth: WebAuthMode,
     pub tls: bool,
+    /// HMI users, session times and write policy (`[runtime.web.hmi]`, specification 39, §12.8).
+    pub hmi: crate::hmi::access::config::HmiAccessConfig,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

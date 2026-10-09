@@ -33,28 +33,33 @@ if (root) {
     operation.synchronize();
     experiments?.setSelectedMethod(acquisitionMethod.value === "project");
     identification.setSelectedMethod(acquisitionMethod.value === "recorded-fit");
-    if (["supplied-model", "project", "recorded-fit"].includes(acquisitionMethod.value)) { operation.notice("model", ""); return; }
+    // The stage renders consult the shared gate, so a Method change cannot re-enable a blocked action; its reason stays visible.
+    const block = operation.stageBlock();
+    if (["supplied-model", "project", "recorded-fit"].includes(acquisitionMethod.value)) { operation.notice("model", block ?? ""); return; }
     const issue = methodIssue();
-    operation.notice("model", issue ?? "");
+    operation.notice("model", issue ?? block ?? "");
     if (!issue && loop && limits?.durationSeconds !== undefined) post("control-studio.engineer.invalidate", { acquisitionSettings: { ...acquisitionPreferences(loop, acquisitionMethod.value as AcquisitionSettings["method"], limits), ...(reference?.signalId ? { setpointSignalId: reference.signalId } : {}) } });
   });
   let limits = loop ? initialExperimentLimits(loop) : undefined;
   let task: Partial<EngineerRequirements> = loop?.channels?.outputs[0]?.requirements ?? {};
   let scenarioDefinitions = loop?.verificationScenarios ?? [];
-  let waitingForRequirements = false;
+  // The plant-mapping gate and an in-progress simulator start both block the stage actions through the shared gate.
+  let bindingsBlock: string | undefined;
+  let startingExperiment = false;
   let waitingForLimits = false;
-  root.querySelector<HTMLButtonElement>("[data-studio-requirements]")!.addEventListener("click", () => {
+  // Done saves the requirements; only the editor that a paused Tune opens resumes that start. Cancel and manual edits never do.
+  const editRequirements = (resumeTune?: () => void): void => {
     if (!loop) return;
     editControlRequirements({ ...loop, channels: channelMapping }, task, next => {
       const { scenarioDefinitions: scenarios, ...requirements } = next as EngineerRequirements & { scenarioDefinitions?: typeof scenarioDefinitions };
       task = requirements;
       if (scenarios) scenarioDefinitions = scenarios;
       post("control-studio.engineer.invalidate", next as unknown as Record<string, unknown>);
-      if (waitingForRequirements) { waitingForRequirements = false; start("tune"); }
     }, { scenarioDefinitions: scenarioDefinitions as unknown as Record<string, unknown>[], processSymbol: loop.signals.processVariable.symbol,
       setpointSymbol: loop.signals.setpoint?.symbol, samplePeriodMs: loop.controller.taskPeriodMs,
-      durationSeconds: task.durationSeconds ?? 0, processMinimum: loop.signals.processVariable.range.minimum, processMaximum: loop.signals.processVariable.range.maximum });
-  });
+      durationSeconds: task.durationSeconds ?? 0, processMinimum: loop.signals.processVariable.range.minimum, processMaximum: loop.signals.processVariable.range.maximum }, resumeTune);
+  };
+  root.querySelector<HTMLButtonElement>("[data-studio-requirements]")!.addEventListener("click", () => editRequirements());
   root.querySelector<HTMLButtonElement>("[data-studio-limits]")!.addEventListener("click", () => {
     if (!loop || !limits) return;
     editExperimentLimits(loop, limits, next => {
@@ -78,28 +83,41 @@ if (root) {
     if (persist) persistView();
     window.dispatchEvent(new CustomEvent("trust-control-studio-three-page", { detail: { page } }));
   };
+  /** Performs the typed next action of a failure on its own page (Specification 35 A11.2); it never starts work. */
+  const runNextAction = (kind: string, page: Page): void => {
+    switch (kind) {
+      case "connect-runtime":
+      case "open-loop-setup": post("control-studio.host-command", { command: kind }); return;
+      case "open-limits": root.querySelector<HTMLButtonElement>("[data-studio-limits]")!.click(); return;
+      case "open-requirements": root.querySelector<HTMLButtonElement>("[data-studio-requirements]")!.click(); return;
+      case "open-channels": root.querySelector<HTMLButtonElement>("[data-engineer-channels]")?.click(); return;
+      case "choose-method": root.querySelector<HTMLSelectElement>(page === "model" ? "[data-engineer-acquisition-method]" : "[data-engineer-tuning-method]")?.focus(); return;
+      case "identify": select("model", true); root.querySelector<HTMLButtonElement>("[data-engineer-find]")?.focus(); return;
+      case "tune": select("tune", true); root.querySelector<HTMLButtonElement>("[data-engineer-tune]")?.focus(); return;
+      case "validate": select("verify", true); root.querySelector<HTMLButtonElement>("[data-engineer-verify]")?.focus(); return;
+      case "restore": {
+        const apply = root.querySelector<HTMLButtonElement>("[data-engineer-apply]");
+        if (apply?.textContent === "Restore previous settings") apply.click();
+        return;
+      }
+      default: return;
+    }
+  };
   const operation = new ThreePageOperation(root, post, select, field => {
-    if (field === "requirements") {
-      waitingForRequirements = true;
-      root.querySelector<HTMLButtonElement>("[data-studio-requirements]")!.click();
-    }
+    if (field === "requirements") editRequirements(() => start("tune"));
     if (field === "limits") { waitingForLimits = true; root.querySelector<HTMLButtonElement>("[data-studio-limits]")!.click(); }
-  });
-  root.querySelector("[data-studio-reset-chart]")?.addEventListener("click", () => {
-    if (experiments?.busy || startingExperiment || application.active || recovery?.active) {
-      operation.notice("model", "Finish or abort the current operation before resetting the study."); return;
-    }
-    operation.reset();
-  });
+  }, () => bindingsBlock ?? (startingExperiment ? "Starting simulator…" : undefined), runNextAction);
+  const resetButton = root.querySelector<HTMLButtonElement>("[data-studio-reset-chart]");
+  if (resetButton) operation.bindReset(resetButton, () => Boolean(experiments?.busy || startingExperiment || application.active || recovery?.active));
   const tuning = loop ? new ThreePageTuning(root, loop, post, () => controller?.selectedFamily ?? "automatic", () => controller?.choice ?? "automatic") : undefined;
-  const application = new ThreePageApplication(root, post, () => operation.busy, message => operation.notice("verify", message));
+  const application = new ThreePageApplication(root, post, () => operation.busy, message => operation.notice("verify", message),
+    failure => operation.failure("verify", failure));
   recovery = new ThreePageRecovery(root, post, () => operation.busy || application.active);
   const suppliedModel = new ThreePageSuppliedModel(root, post, () => operation.busy || application.active || recovery?.active === true,
     message => operation.notice("model", message));
-  const experiments = loop?.experiment?.execution === "project-scripted" ? new ThreePageExperiments(root, loop, post) : undefined;
-  let startingExperiment = false;
+  const experiments = loop?.experiment?.execution === "project-scripted" ? new ThreePageExperiments(root, loop, post, () => operation.stageBlock()) : undefined;
   let mimoRecordingId: string | undefined;
-  const identification = new ThreePageIdentification(root, post, () => root.querySelector<HTMLButtonElement>("[data-identify-import]")!.click());
+  const identification = new ThreePageIdentification(root, post, () => root.querySelector<HTMLButtonElement>("[data-identify-import]")!.click(), () => operation.stageBlock());
   const analysis = initializeThreePageAnalysis(root, post);
   const mimoAnalysis = initializeThreePageMimoAnalysis(root);
   const configureMimoRecording = (recording: Record<string, unknown> | undefined): void => {
@@ -114,49 +132,64 @@ if (root) {
   };
   analysis.setAvailable({ declared: loop?.analysis });
   const tuningMethod = root.querySelector<HTMLSelectElement>("[data-engineer-tuning-method]")!;
-  const analysisLabels = { "root-locus": "Root locus", routh: "Routh–Hurwitz", poles: "Poles and zeros", frequency: "Frequency response", "periodic-frequency": "Measured frequency response", feedback: "Loop response", "lead-lag": "Lead/lag design", response: "Initial-state response", "state-structure": "Controllability and observability", rga: "Relative gain array", "measured-mimo": "Measured MIMO paths" };
-  for (const [tool, label] of Object.entries(analysisLabels)) {
-    const option = root.ownerDocument.createElement("option"); option.value = `analysis:${tool}`; option.textContent = label; tuningMethod.append(option);
-  }
+  // The Tuning method select holds tuning methods only; the analysis tools open from Analyze… on the Tune row.
+  const analysisLabels: Record<string, string> = { "root-locus": "Root locus", routh: "Routh–Hurwitz stability", poles: "Pole-zero map", frequency: "Bode (frequency response)",
+    "periodic-frequency": "Measured frequency response", feedback: "Nyquist and loop response", "lead-lag": "Lead/lag design", response: "Initial-state response",
+    "state-structure": "Controllability and observability", rga: "Relative gain array", "measured-mimo": "Measured MIMO paths" };
+  /** The analysis tool shown in place of the tuning result, or undefined while tuning. */
+  let analysisChoice: string | undefined;
+  const measuredMimoAvailable = (): boolean => Boolean(mimoRecordingId && loop?.channels && loop.channels.inputs.length >= 2);
+  const availableAnalysis = (): string[] => [...analysis.availableTools(), ...(measuredMimoAvailable() ? ["measured-mimo"] : [])];
+  const chooseAnalysis = (tool: string): void => {
+    analysisChoice = tool;
+    analysis.setTool(tool === "measured-mimo" ? undefined : tool as ThreePageAnalysisTool);
+    mimoAnalysis.setSelected(tool === "measured-mimo");
+    synchronizeTools();
+  };
+  /** Close returns the page to the tuning result. */
+  const closeAnalysis = (): void => {
+    analysisChoice = undefined;
+    analysis.setTool(undefined); mimoAnalysis.setSelected(false);
+    tuning?.refresh();
+    operation.synchronize(); synchronizeTools();
+  };
+  const analysisChooser = new ThreePageAnalysisChooser(root, { labels: analysisLabels, tools: availableAnalysis,
+    choose: tool => chooseAnalysis(tool), close: () => closeAnalysis() });
   const synchronizeTools = () => {
-    const available = analysis.availableTools();
-    for (const option of Array.from(tuningMethod.options)) if (option.value.startsWith("analysis:")) {
-      const tool = option.value.slice(9);
-      const measuredMimoAvailable = tool === "measured-mimo" && Boolean(mimoRecordingId && loop?.channels && loop.channels.inputs.length >= 2);
-      option.hidden = option.disabled = tool === "measured-mimo" ? !measuredMimoAvailable : !available.includes(tool as ThreePageAnalysisTool);
-    }
-    const selected = tuningMethod.value.startsWith("analysis:");
-    const measuredMimoSelected = tuningMethod.value === "analysis:measured-mimo";
+    const tools = availableAnalysis();
+    if (analysisChoice !== undefined && !tools.includes(analysisChoice)) analysisChoice = undefined;
+    const selected = analysisChoice !== undefined;
+    const measuredMimoSelected = analysisChoice === "measured-mimo";
+    analysisChooser.synchronize(selected);
     root.querySelector<HTMLElement>('[data-studio-message="tune"]')!.hidden = selected;
     mimoAnalysis.setSelected(measuredMimoSelected);
     if (selected) {
-      const button = root.querySelector<HTMLButtonElement>("[data-engineer-tune]")!;
-      button.textContent = analysis.actionLabel() ?? "Analysis ready"; button.disabled = !analysis.actionLabel();
-      if (measuredMimoSelected) { button.textContent = mimoAnalysis.actionLabel(); button.disabled = false; }
       root.querySelector<HTMLElement>("[data-studio-tuning-result]")!.hidden = true;
+      const button = root.querySelector<HTMLButtonElement>("[data-engineer-tune]")!;
+      // While a run is busy the button keeps its Abort label; otherwise it names the chosen analysis and waits for the gates.
+      if (!operation.busy) {
+        const label = measuredMimoSelected ? mimoAnalysis.actionLabel() : analysis.actionLabel();
+        button.textContent = label ?? "Analysis ready";
+        button.disabled = !label || operation.stageBlock() !== undefined;
+      }
     }
     root.dataset.analysisSelected = String(selected);
     experiments?.setSelectedMethod(acquisitionMethod.value === "project");
     identification.setSelectedMethod(acquisitionMethod.value === "recorded-fit");
     if (experiments?.busy || startingExperiment) {
-      for (const control of Array.from(root.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLSelectElement>("input,select,[data-engineer-tune],[data-engineer-verify],[data-engineer-apply],[data-identify-import],[data-studio-limits],[data-studio-requirements]"))) control.disabled = true;
+      for (const control of [...runLockedControls(root), ...Array.from(root.querySelectorAll<HTMLButtonElement>("[data-engineer-tune],[data-engineer-verify],[data-engineer-apply]"))]) control.disabled = true;
     }
     if (startingExperiment) root.querySelector<HTMLButtonElement>("[data-engineer-find]")!.disabled = true;
     recovery?.synchronize();
   };
-  tuningMethod.addEventListener("change", () => {
-    analysis.setTool(tuningMethod.value.startsWith("analysis:") ? tuningMethod.value.slice(9) as ThreePageAnalysisTool : undefined);
-    operation.synchronize(); synchronizeTools();
-  });
+  tuningMethod.addEventListener("change", () => { operation.synchronize(); synchronizeTools(); });
   synchronizeTools();
   window.addEventListener("trust-control-studio-identification-open-recording", () => root.querySelector<HTMLButtonElement>("[data-identify-import]")!.click());
   window.addEventListener("trust-control-studio-identification-method-required", () => { acquisitionMethod.value = "recorded-fit"; synchronizeTools(); });
   window.addEventListener("trust-control-studio-identification-presentation", event => {
-    const { presentation, model } = (event as CustomEvent<{ presentation?: { equation: string }; model?: { kind: string } }>).detail;
+    const { presentation, model } = (event as CustomEvent<{ presentation?: IdentifiedModelPresentation; model?: { kind: string } }>).detail;
     if (!presentation) return;
-    root.querySelector<HTMLElement>("[data-studio-model-type]")!.textContent = model?.kind ? modelKindLabel(model.kind) : "Plant model";
-    root.querySelector<HTMLElement>("[data-studio-model-equation]")!.textContent = presentation.equation;
-    root.querySelector<HTMLElement>("[data-studio-model-result]")!.hidden = false;
+    renderModelPresentation(root, presentation, model?.kind ? modelKindLabel(model.kind) : "Plant model", decodeGeneralModel(model));
     window.dispatchEvent(new CustomEvent("trust-control-studio-engineer", { detail: { identificationPresentation: presentation } }));
   });
   let recordingJson: string | undefined;
@@ -165,15 +198,15 @@ if (root) {
     operation.start("recording", { json: recordingJson, ...(bindings?.recordingSelection ? { recordingSelection: bindings.recordingSelection } : {}),
       task, family: controller?.choice, applicationMode: "auto", tuningPreferences: tuning?.preferences(), pinnedValues: tuning?.pinnedValues() });
   };
-  const bindings = loop && controller ? new ThreePageBindings(root, loop, controller, post, (page, message) => operation.notice(page, message), () => { operation.synchronize(); application.synchronize(); recovery?.synchronize(); }, identifyRecording) : undefined;
+  const bindings = loop && controller ? new ThreePageBindings(root, loop, controller, post, (page, message) => operation.notice(page, message), (valid, reason) => { bindingsBlock = valid ? undefined : reason; operation.synchronize(); application.synchronize(); recovery?.synchronize(); }, identifyRecording) : undefined;
   bindRecordingOpen(root, () => operation.busy || application.active || recovery?.active === true || bindings?.canRun === false,
     json => { if (identification.isSelected) identification.openRecording(json); else { recordingJson = json; identifyRecording(); } },
     message => operation.notice("model", message));
   const start = (from: StudioStart) => {
     if (recovery?.active) return;
     if (application.active) { application.abort(); return; }
-    if (from === "tune" && !operation.busy && tuningMethod.value === "analysis:measured-mimo") { mimoAnalysis.run(); return; }
-    if (from === "tune" && !operation.busy && analysis.choice()) { analysis.run(); synchronizeTools(); return; }
+    if (from === "tune" && !operation.busy && analysisChoice === "measured-mimo") { mimoAnalysis.run(); return; }
+    if (from === "tune" && !operation.busy && analysisChoice !== undefined) { analysis.run(); synchronizeTools(); return; }
     if (from === "find" && !operation.busy && suppliedModel.selected) { suppliedModel.open(); return; }
     if (from === "find" && !operation.busy && identification.isSelected) { identification.primaryAction(); return; }
     if (experiments?.isSelected && (experiments.busy || from === "find")) {
@@ -214,6 +247,18 @@ if (root) {
   }
   select("model", false);
   bindThreePageHostState(root, (stage, payload) => {
+    // A manual-tuning preview is a prediction: it draws the plot and never counts as a finished Tune, so Validate stays locked.
+    // Its refusal names the reason in the Tune area. The analysis presenter never sees these messages.
+    if (stage === "tune" && payload.status === "preview") {
+      operation.notice("tune", typeof payload.reason === "string" ? payload.reason : "");
+      synchronizeTools();
+      return;
+    }
+    if (stage === "tune" && payload.status === "failed") {
+      operation.failure("tune", studioFailureOf(payload) ?? { message: "The predicted response is unavailable.", nextAction: { kind: "none", label: "" } });
+      synchronizeTools();
+      return;
+    }
     analysis.receive(stage, payload);
     if (stage !== "engineer" && stage !== "flow" && stage !== "bindings") {
       suppliedModel.receive(stage, payload);
@@ -290,11 +335,13 @@ if (root) {
     if (message.kind === "control-studio.runtime.start.result" && startingExperiment) {
       startingExperiment = false;
       const result = message.result as { ok: boolean; failure?: { message: string } };
-      operation.synchronize(); operation.notice("model", result.ok ? "" : result.failure?.message ?? "The simulator could not start.");
+      operation.synchronize();
+      if (result.ok) operation.notice("model", "");
+      else operation.failure("model", studioFailureOf(result as Record<string, unknown>) ?? { message: "The simulator could not start.", nextAction: { kind: "none", label: "" } });
       if (result.ok) experiments?.primaryAction();
     }
     synchronizeTools();
-  });
+  }, () => operation.modelArrived());
   root.dataset.ready = "true";
   post("control-studio.ready");
 }
@@ -317,6 +364,7 @@ import { ThreePageController } from "./threePageController";
 import { bindRecordingOpen } from "./threePageRecording";
 import { ThreePageTuning } from "./threePageTuning";
 import { ThreePageBindings } from "./threePageBindings";
+import { runLockedControls } from "./runLock";
 
 import { initializeMultiSelect } from "../../webview/multiSelect";
 
@@ -333,3 +381,8 @@ import { ThreePageIdentification } from "./threePageIdentification";
 import { initializeThreePageAnalysis, type ThreePageAnalysisTool } from "./threePageAnalysis";
 import { completedExperimentRecording } from "./periodicRecording";
 import { decodeMimoAnalysisResult, initializeThreePageMimoAnalysis } from "./threePageMimoAnalysis";
+import { renderModelPresentation } from "./threePageModel";
+import { studioFailureOf } from "./studioFailure";
+import { ThreePageAnalysisChooser } from "./threePageAnalysisChooser";
+import { decodeGeneralModel } from "../generalModel";
+import type { IdentifiedModelPresentation } from "../identification";

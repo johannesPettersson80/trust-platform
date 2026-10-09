@@ -1,9 +1,10 @@
 //! Bounded selections captured coherently from the runtime's scan publisher.
 use super::recording::{numeric, overlap, snapshot_value};
-use super::{DebugControl, ForcedVar, ForcedVarTarget};
+use super::{DebugControl, ForcedVar};
 use crate::io::{IoAddress, IoSnapshot};
-use crate::memory::{InstanceId, VariableStorage};
+use crate::memory::VariableStorage;
 use crate::runtime::RuntimeMetadata;
+use crate::value::{Value, ValueRef};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use std::collections::HashSet;
@@ -20,12 +21,28 @@ pub struct SignalBinding {
 #[derive(Debug, Clone)]
 pub(super) enum Target {
     Address(IoAddress),
+    /// A program variable by its path (Specification 35, control signal reads): a member of an
+    /// instance or one it inherits (`EXTENDS`), a structure field below it, read through the
+    /// storage reference the path resolved to when the selection was made.
     Symbol {
         path: String,
-        id: InstanceId,
-        member: String,
+        reference: ValueRef,
     },
 }
+
+/// Whether a value is of a channel's declared type: its elementary type name, or for an
+/// enumeration the enumeration's name, with or without its namespace on either side; an
+/// enumeration is read as its numeric value.
+pub(super) fn of_declared_type(value: &Value, iec_type: &str) -> bool {
+    match value {
+        Value::Enum(value) => {
+            let last = |name: &str| name.rsplit('.').next().unwrap_or(name).to_ascii_uppercase();
+            last(value.type_name()) == last(iec_type)
+        }
+        _ => crate::debug::dap::value_type_name(value).as_deref() == Some(iec_type),
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Quality {
@@ -86,10 +103,7 @@ pub(super) fn resolve_bindings(
                 }
                 let value =
                     snapshot_value(snapshot, &address).ok_or("addressed signal unavailable")?;
-                if numeric(value).is_none()
-                    || crate::debug::dap::value_type_name(value).as_deref()
-                        != Some(binding.iec_type.as_str())
-                {
+                if numeric(value).is_none() || !of_declared_type(value, &binding.iec_type) {
                     return Err("addressed signal type mismatch".into());
                 }
                 addresses.push(address.clone());
@@ -99,23 +113,21 @@ pub(super) fn resolve_bindings(
                 if path.len() > 256 {
                     return Err("symbolic member path exceeds supported length".into());
                 }
-                let (id, member, value) = super::parameters::resolve(
+                let resolved = super::symbol_path::resolve(
                     storage.ok_or("current symbolic storage unavailable")?,
                     path,
                 )?;
-                if !selectors.insert((id, member.to_ascii_uppercase())) {
+                if !selectors.insert(resolved.reference.clone()) {
                     return Err("duplicate symbolic target".into());
                 }
-                if numeric(&value).is_none()
-                    || crate::debug::dap::value_type_name(&value).as_deref()
-                        != Some(binding.iec_type.as_str())
+                if numeric(&resolved.value).is_none()
+                    || !of_declared_type(&resolved.value, &binding.iec_type)
                 {
                     return Err("symbolic signal type mismatch".into());
                 }
                 Target::Symbol {
                     path: path.clone(),
-                    id,
-                    member,
+                    reference: resolved.reference,
                 }
             }
             _ => return Err("each channel requires exactly one address or symbol selector".into()),
@@ -142,34 +154,52 @@ pub(super) fn capture_values(
                 snapshot_value(snapshot, address).cloned(),
                 snapshot.forced.iter().any(|other| overlap(address, other)),
             ),
-            Target::Symbol { path, id, member } => {
+            Target::Symbol { path, reference } => {
+                // Resolved again each scan: a reloaded program that moved the variable reads
+                // as missing rather than as another variable's value.
                 let value = storage
-                    .and_then(|s| super::parameters::resolve(s, path).ok())
-                    .filter(|(actual_id, actual_member, _)| {
-                        actual_id == id && actual_member.eq_ignore_ascii_case(member)
+                    .and_then(|s| super::symbol_path::resolve(s, path).ok())
+                    .filter(|resolved| resolved.reference == *reference)
+                    .map(|resolved| resolved.value);
+                let forced = storage.is_some_and(|storage| {
+                    forced_vars.iter().any(|force| {
+                        super::symbol_path::forced_holds(storage, &force.target, reference)
                     })
-                    .map(|(_, _, value)| value);
-                let forced=forced_vars.iter().any(|force|matches!(&force.target,ForcedVarTarget::Instance(actual_id,actual_member) if actual_id==id&&actual_member.eq_ignore_ascii_case(member)))
-                ||snapshot.inputs.iter().chain(&snapshot.outputs).chain(&snapshot.memory).filter(|entry|entry.name.as_ref().is_some_and(|name|name.eq_ignore_ascii_case(path))).any(|entry|snapshot.forced.iter().any(|address|overlap(&entry.address,address)));
+                }) || snapshot
+                    .inputs
+                    .iter()
+                    .chain(&snapshot.outputs)
+                    .chain(&snapshot.memory)
+                    .filter(|entry| {
+                        entry
+                            .name
+                            .as_ref()
+                            .is_some_and(|name| name.eq_ignore_ascii_case(path))
+                    })
+                    .any(|entry| {
+                        snapshot
+                            .forced
+                            .iter()
+                            .any(|address| overlap(&entry.address, address))
+                    });
                 (value, forced)
             }
         };
         let (number, quality) = match value {
             None => (None, Quality::Missing),
-            Some(value) => match numeric(&value).filter(|_| {
-                crate::debug::dap::value_type_name(&value).as_deref()
-                    == Some(binding.iec_type.as_str())
-            }) {
-                Some(number) => (
-                    Some(number),
-                    if forced {
-                        Quality::Forced
-                    } else {
-                        Quality::Good
-                    },
-                ),
-                None => (None, Quality::Bad),
-            },
+            Some(value) => {
+                match numeric(&value).filter(|_| of_declared_type(&value, &binding.iec_type)) {
+                    Some(number) => (
+                        Some(number),
+                        if forced {
+                            Quality::Forced
+                        } else {
+                            Quality::Good
+                        },
+                    ),
+                    None => (None, Quality::Bad),
+                }
+            }
         };
         captured.values.push(number);
         captured.forced.push(forced);

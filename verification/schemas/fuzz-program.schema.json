@@ -35,14 +35,14 @@
     "surfaces": {
       "type": "array",
       "items": { "$ref": "#/$defs/surface" },
-      "minItems": 8,
-      "maxItems": 8
+      "minItems": 7,
+      "maxItems": 7
     },
     "targets": {
       "type": "array",
       "items": { "$ref": "#/$defs/target" },
-      "minItems": 17,
-      "maxItems": 17
+      "minItems": 16,
+      "maxItems": 16
     }
   },
   "additionalProperties": false,
@@ -55,8 +55,7 @@
         "bytecode_container_instructions",
         "protocol_payloads",
         "config_files",
-        "lsp_incremental_edits",
-        "hmi_schema_payloads"
+        "lsp_incremental_edits"
       ]
     },
     "area": {
@@ -66,8 +65,7 @@
         "bytecode_vm",
         "protocols",
         "runtime_safety",
-        "editor_safety",
-        "hmi_ui"
+        "editor_safety"
       ]
     },
     "tier": {

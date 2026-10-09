@@ -5,6 +5,8 @@ mod execution_plan;
 mod execution_settings;
 mod feedback_relay;
 mod limits;
+mod process_inputs;
+mod record_period;
 mod run_contracts;
 mod run_handlers;
 mod service;
@@ -13,6 +15,7 @@ mod worker;
 mod worker_checkpoint;
 mod workload;
 use super::{ControlResponse, ControlState};
+pub(crate) use record_period::bounded_mean;
 use serde_json::{json, Value};
 pub use service::SearchService;
 pub fn worker_stdio() -> Result<(), String> {
@@ -73,6 +76,9 @@ pub(super) fn dispatch(
         Err(reason) => ControlResponse::error_with_code(id, reason, "invalid_search_request"),
     })
 }
+#[cfg(test)]
+mod limit_contract_tests;
+
 #[cfg(test)]
 mod tests {
     #[cfg(not(target_os = "linux"))]

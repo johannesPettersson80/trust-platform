@@ -34,6 +34,7 @@ fn bundle_with_backend(
                 listen: smol_str::SmolStr::new("127.0.0.1:8080"),
                 auth: trust_runtime::config::WebAuthMode::Local,
                 tls: false,
+                hmi: trust_runtime::hmi::access::config::HmiAccessConfig::default(),
             },
             tls: trust_runtime::config::TlsConfig {
                 mode: trust_runtime::config::TlsMode::Disabled,
@@ -71,7 +72,6 @@ fn bundle_with_backend(
             realtime: trust_runtime::linux_rt::LinuxRtConfig::default(),
             openot: trust_runtime::config::OpenOtTelemetryConfig::default(),
             observability: trust_runtime::historian::HistorianConfig::default(),
-            hmi_persistence: trust_runtime::hmi::HmiPersistenceConfig::default(),
             ads: trust_runtime::config::AdsRuntimeConfig::default(),
             ads_server: trust_runtime::ads::server::AdsServerRuntimeConfig::default(),
             opcua_client: trust_runtime::config::OpcUaClientRuntimeConfig::default(),
@@ -972,6 +972,28 @@ fn simulation_plan_rejects_zero_cli_scale() {
 }
 
 #[test]
+fn launch_time_scale_accepts_one_to_one_hundred_and_names_the_range_otherwise() {
+    assert!(super::validate_runtime_launch_options("cold", 1).is_ok());
+    assert!(super::validate_runtime_launch_options("cold", 100).is_ok());
+    for scale in [0_u32, 101] {
+        let error = super::validate_runtime_launch_options("cold", scale)
+            .expect_err("an out-of-range --time-scale must fail the launch");
+        assert!(
+            error
+                .to_string()
+                .contains("--time-scale must be >= 1 and <= 100"),
+            "{error}"
+        );
+    }
+    let error = super::build_simulation_plan(None, false, 101)
+        .err()
+        .expect("an out-of-range --time-scale must fail the simulation plan");
+    assert!(error
+        .to_string()
+        .contains("--time-scale must be >= 1 and <= 100"));
+}
+
+#[test]
 fn simulation_plan_preserves_project_model_when_cli_enables_it() {
     let mut bundle =
         bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
@@ -1049,4 +1071,29 @@ fn assert_enum_variant(value: &Value, expected: &str) {
         panic!("expected enum value, got {value:?}");
     };
     assert_eq!(value.variant_name().as_str(), expected);
+}
+
+/// Specification 39, §12.7: every HMI command is logged, whatever the log level.
+#[test]
+fn hmi_command_audit_records_are_logged_at_info() {
+    let event = |kind: &str| trust_runtime::control::ControlAuditEvent {
+        event_id: smol_str::SmolStr::new("e"),
+        timestamp_ms: 0,
+        request_id: 1,
+        request_type: smol_str::SmolStr::new(kind),
+        correlation_id: None,
+        ok: true,
+        error: None,
+        auth_present: true,
+        client: None,
+        details: None,
+    };
+    assert_eq!(
+        super::audit_log_level(&event("hmi.command")),
+        super::LogLevel::Info
+    );
+    assert_eq!(
+        super::audit_log_level(&event("status")),
+        super::LogLevel::Debug
+    );
 }

@@ -51,6 +51,7 @@ pub(crate) fn init_locals(
                     stdlib,
                     ctx.initializer_catalog
                         .unwrap_or(&crate::program_model::InitializerCatalog::default()),
+                    function_blocks,
                     ctx.current_instance,
                     instance_id,
                     fb,
@@ -158,6 +159,7 @@ pub(crate) fn init_locals_in_frame(
                     stdlib,
                     ctx.initializer_catalog
                         .unwrap_or(&crate::program_model::InitializerCatalog::default()),
+                    function_blocks,
                     ctx.current_instance,
                     instance_id,
                     fb,

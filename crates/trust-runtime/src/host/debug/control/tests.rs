@@ -139,6 +139,7 @@ fn nested_control_pid_parameter_transaction_adopts_and_rejects_post_st_write() {
                 }),
             &metadata,
             false,
+            false,
         )
         .expect("stage nested parameter transaction");
     assert_eq!(apply["status"], "pending");
@@ -158,7 +159,7 @@ fn nested_control_pid_parameter_transaction_adopts_and_rejects_post_st_write() {
     assert_eq!(sibling, crate::value::Value::LReal(0.0));
     control.confirm_parameters(
         "MainTask",
-        &task_storage,
+        &mut task_storage,
         crate::value::Duration::from_millis(200),
     );
     let adopted = control
@@ -186,6 +187,7 @@ fn nested_control_pid_parameter_transaction_adopts_and_rejects_post_st_write() {
             }),
             &metadata,
             false,
+            false,
         )
         .expect("stage second nested parameter transaction");
     control.commit_parameters("MainTask", &mut task_storage, &metadata, false, &[]);
@@ -198,7 +200,7 @@ fn nested_control_pid_parameter_transaction_adopts_and_rejects_post_st_write() {
     assert!(task_storage.write_by_ref(reference, crate::value::Value::LReal(2.5)));
     control.confirm_parameters(
         "MainTask",
-        &task_storage,
+        &mut task_storage,
         crate::value::Duration::from_millis(300),
     );
     let rejected = control
@@ -285,6 +287,7 @@ fn nested_control_pid_transfer_transaction_adopts_state_at_task_boundary() {
                 "tracking": null
             }),
             &metadata,
+            false,
         )
         .expect("stage nested transfer transaction");
     let mut task_storage = runtime.storage().clone();

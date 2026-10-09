@@ -22,7 +22,6 @@ card says what hardware (if any) it needs. Pick one, choose a destination folder
 | --- | --- | --- |
 | **Empty simulator** | No hardware | A minimal runnable project — press **Start** to simulate immediately. |
 | **Conveyor demo** | No hardware | A small, realistic program with live values to watch it run. |
-| **HMI starter** | No hardware | Ships an HMI descriptor so **Open HMI** works out of the box. |
 | **TwinCAT ADS** | Requires TwinCAT | Starter for a Beckhoff TwinCAT (ADS) device — runs in the simulator; wire the real PLC in Devices & Connections. |
 | **Raspberry Pi (EtherCAT / GPIO)** | Requires Raspberry Pi | Starter for a Raspberry Pi field-IO target — runs in the simulator; wire real I/O in Devices & Connections. |
 | **PLCopen Motion single axis** | No hardware | Portable single-axis motion starter using the bundled PLCopen Motion library. |

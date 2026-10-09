@@ -1,0 +1,11 @@
+format = 1
+title = "Heating sequence"
+block = "HeatingSequence"
+faceplate = "plant-sequence"
+symbol = "value"
+
+[bind]
+value = "StateText"
+
+[program]
+position = "controllers"

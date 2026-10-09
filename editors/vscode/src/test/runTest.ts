@@ -12,8 +12,8 @@ function cargoExecutable(repoRoot: string): string {
   return "cargo";
 }
 
-function buildRustPackage(repoRoot: string, packageName: string): void {
-  execFileSync(cargoExecutable(repoRoot), ["build", "-p", packageName], {
+function buildRustPackages(repoRoot: string, packages: string[]): void {
+  execFileSync(cargoExecutable(repoRoot), ["build", ...packages.flatMap(name => ["-p", name])], {
     cwd: repoRoot,
     stdio: "inherit",
   });
@@ -56,22 +56,24 @@ async function main(): Promise<void> {
   const defaultServerPath = cargoDebugBinary(repoRoot, defaultServerName);
   const configured = process.env.ST_LSP_TEST_SERVER?.trim();
   const serverPath =
-    configured && fs.existsSync(configured) ? configured : defaultServerPath;
+    configured || defaultServerPath;
   const runtimeName =
     process.platform === "win32" ? "trust-runtime.exe" : "trust-runtime";
   const runtimePath = cargoDebugBinary(repoRoot, runtimeName);
   const devName = process.platform === "win32" ? "trust-dev.exe" : "trust-dev";
   const devPath = cargoDebugBinary(repoRoot, devName);
 
-  if (!configured) {
-    buildRustPackage(repoRoot, "trust-lsp");
-  } else if (!fs.existsSync(serverPath)) {
-    throw new Error(`ST_LSP_TEST_SERVER not found at ${serverPath}`);
+  const debugPath = cargoDebugBinary(repoRoot, process.platform === "win32" ? "trust-debug.exe" : "trust-debug");
+  if (process.env.TRUST_VSCODE_REUSE_NATIVE_BINARIES === "1") {
+    // Explicit caller-owned reuse after a frozen native build. Never silently fall back to a
+    // rebuild, or proceed with a missing binary from a different validation copy.
+    for (const binary of [serverPath, runtimePath, devPath, debugPath]) {
+      if (!fs.existsSync(binary) || !fs.statSync(binary).isFile()) throw new Error(`Prebuilt test binary not found: ${binary}`);
+    }
+  } else {
+    if (configured && !fs.existsSync(serverPath)) throw new Error(`ST_LSP_TEST_SERVER not found at ${serverPath}`);
+    buildRustPackages(repoRoot, [...(!configured ? ["trust-lsp"] : []), "trust-runtime", "trust-dev", "trust-debug"]);
   }
-
-  buildRustPackage(repoRoot, "trust-runtime");
-  buildRustPackage(repoRoot, "trust-dev");
-  buildRustPackage(repoRoot, "trust-debug");
 
   const extensionTestsEnv: NodeJS.ProcessEnv = {
     ST_LSP_TEST_SERVER: serverPath,
@@ -97,12 +99,21 @@ async function main(): Promise<void> {
     }
   }
 
+  // A saved workspace lets integration suites add/remove isolated fixture roots without
+  // triggering the interactive conversion from a single-folder window to a workspace.
+  const workspaceFile = path.join(userDataDir, "suite.code-workspace");
+  fs.mkdirSync(userDataDir, { recursive: true });
+  fs.writeFileSync(workspaceFile, JSON.stringify({ folders: [{ path: workspacePath }] }));
+  // Generated fixtures live on /tmp, where Linux trash may be unavailable. Keep Undo
+  // deterministic in this disposable test profile without changing the user's settings.
+  fs.mkdirSync(path.join(userDataDir, "User"), { recursive: true });
+  fs.writeFileSync(path.join(userDataDir, "User", "settings.json"), JSON.stringify({ "files.enableTrash": false }));
   try {
     await runTests({
       extensionDevelopmentPath,
       extensionTestsPath,
       launchArgs: [
-        workspacePath,
+        workspaceFile,
         "--user-data-dir",
         userDataDir,
         "--extensions-dir",
@@ -119,8 +130,10 @@ async function main(): Promise<void> {
   const fixture = (name: string) => path.join(extensionDevelopmentPath, "src", "test", "fixtures", name);
   // Journeys that wait for their own switch and need their own project: the test file names the switch it waits for.
   const gatedJourneys: Record<string, { fixture?: string; env: Record<string, string> }> = {
-    "Control Studio isolated anti-windup actual-ST workflow runs matched untracked and tracked saturation-return records against the same ST source":
-      { fixture: fixture("control-studio-anti-windup"), env: { TRUST_CONTROL_STUDIO_ACTUAL_ANTI_WINDUP: "1" } },
+    "HMI agent proposal rendered explores existing navigation inferred faceplates and alarm equipment without runtime access":
+      { fixture: path.join(repoRoot, "examples", "hmi_equipment"), env: { TRUST_HMI_EXPLORATION_RENDERED: "1" } },
+    "HMI agent proposal rendered reviews HMI themes and high contrast and applies through the visible builder action":
+      { fixture: path.join(repoRoot, "examples", "hmi_tank_level"), env: { TRUST_HMI_PROPOSAL_RENDERED: "1" } },
     "Control Studio automatic requirements UI prefills an older saved model that has no tuning task": { env: { TRUST_AUTOMATIC_REQUIREMENTS_LEGACY: "1" } },
     "Control Studio automatic requirements UI identifies, tunes without a form, retains editable defaults and validates their frozen criteria":
       { env: { TRUST_AUTOMATIC_REQUIREMENTS: "1" } },
@@ -128,7 +141,7 @@ async function main(): Promise<void> {
       { fixture: fixture("control-studio-pid"), env: { TRUST_CONTROL_STUDIO_ACTUAL_PID: "1" } },
     "Control Studio connected live identification continues plotting current runtime samples after Reset": { env: { TRUST_IDENTIFY_LIVE: "1" } },
     "Control Studio connected live identification shows the connected plant evolving during Identify instead of returning a completed isolated trial": { env: { TRUST_IDENTIFY_LIVE: "1" } },
-    "Control Studio connected live identification closing a live experiment restores the plant before reopening": { env: { TRUST_IDENTIFY_LIVE: "1" } },
+    "Control Studio connected live identification closing a live experiment leaves it running in the runtime and reopening follows it until the plant is restored": { env: { TRUST_IDENTIFY_LIVE: "1" } },
     // The process rests mid-range, so each method's excitation stays inside the output range.
     "Control Studio identification continuity runs each selected method in the same study and reacquires after reopening":
       { fixture: fixture("control-studio-continuity"), env: { TRUST_IDENTIFY_CONTINUOUS: "1" } },
@@ -146,6 +159,23 @@ async function main(): Promise<void> {
     "Control Studio three-page workflow executes the project-owned sequence and retains its restored native recording":
       { fixture: path.join(repoRoot, "examples", "control", "01-feedback-foundations-and-temperature-control", "01-cold-storage-loop-anatomy"),
         env: { TRUST_CONTROL_STUDIO_PROJECT_NATIVE: "1" } },
+    "Control Studio speed equivalence records the same scans at time scale 1 and 10":
+      { fixture: path.join(repoRoot, "examples", "control", "01-feedback-foundations-and-temperature-control", "05-water-heater-pi"),
+        env: { TRUST_CONTROL_STUDIO_SPEED_EQUIVALENCE: "1" } },
+    // The room heating acceptance takes hours, so it is listed only when the runner itself is asked for it.
+    ...(process.env.TRUST_CONTROL_STUDIO_ROOM_HEATING === "1"
+      ? {
+          "Control Studio room heating acceptance identifies tunes validates applies restores and keeps TIC101 on the attached room heating runtime":
+            { fixture: path.join(repoRoot, "examples", "room_heating"), env: { TRUST_CONTROL_STUDIO_ROOM_HEATING: "1" } },
+        }
+      : {}),
+    // The D5 protocol matrix runs 32 combinations against four runtime starts, so it too is listed only on request.
+    ...(process.env.TRUST_CONTROL_STUDIO_PROTOCOL_MATRIX === "1"
+      ? {
+          "Control Studio runtime protocol matrix exercises the runtime protocol directly against trust-runtime for every D5 combination":
+            { fixture: path.join(repoRoot, "examples", "control-pid-commissioning"), env: { TRUST_CONTROL_STUDIO_PROTOCOL_MATRIX: "1" } },
+        }
+      : {}),
   };
   const renderedTestFullTitles = [
     "Rendered example open recovery CPEX-009 retries the same copied destination from the real notification",
@@ -211,6 +241,10 @@ async function main(): Promise<void> {
     "Rendered cascaded gravity tank editor offers coupled tank dynamics with two level states and feedback ports",
     ...Object.keys(gatedJourneys),
   ];
+  // Normally the first failing journey ends the run. TRUST_VSCODE_RENDERED_CONTINUE=1 runs every journey and names each failure
+  // at the end, so one failure does not hide the next.
+  const continueAfterFailure = process.env.TRUST_VSCODE_RENDERED_CONTINUE === "1";
+  const renderedFailures: string[] = [];
   for (const renderedTestFullTitle of renderedTestFullTitles) {
     if (configuredTestGrep && !new RegExp(configuredTestGrep).test(renderedTestFullTitle)) continue;
     const renderedRunDir = fs.mkdtempSync(
@@ -237,6 +271,9 @@ async function main(): Promise<void> {
         renderedWorkspacePath,
         { recursive: true }
       );
+      fs.mkdirSync(path.join(renderedUserDataDir, "User"), { recursive: true });
+      fs.writeFileSync(path.join(renderedUserDataDir, "User", "settings.json"),
+        JSON.stringify({ "files.enableTrash": false }));
       if (studioCase) {
         const settingsFile = path.join(renderedWorkspacePath, ".vscode", "settings.json");
         fs.mkdirSync(path.dirname(settingsFile), { recursive: true });
@@ -259,7 +296,7 @@ async function main(): Promise<void> {
         extensionTestsPath,
         launchArgs: [
           renderedWorkspacePath,
-          ...(studioCase ? ["--window-size=1600,1000"] : []),
+          ...((studioCase || renderedTestFullTitle.startsWith("HMI agent")) ? ["--window-size=1600,1000"] : []),
           "--user-data-dir",
           renderedUserDataDir,
           "--extensions-dir",
@@ -292,9 +329,16 @@ async function main(): Promise<void> {
           TRUST_VSCODE_TEST_GREP: `^${renderedTestFullTitle}$`,
         },
       });
+    } catch (error) {
+      if (!continueAfterFailure) throw error;
+      renderedFailures.push(renderedTestFullTitle);
+      console.error(`Rendered journey failed: ${renderedTestFullTitle}`);
     } finally {
       removeTestTempDirectory(renderedRunDir);
     }
+  }
+  if (renderedFailures.length) {
+    throw new Error(`${renderedFailures.length} rendered journey(s) failed:\n${renderedFailures.join("\n")}`);
   }
 }
 

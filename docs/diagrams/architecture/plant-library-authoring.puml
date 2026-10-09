@@ -1,0 +1,53 @@
+@startuml
+skinparam componentStyle rectangle
+title Plant equipment authoring with explicit source generation (specification 39, §10, §21.3, §21.9)
+actor Engineer
+component "HMI canvas and inspector\nTag, hardware status, key settings" as Editor
+component "HIR declaration index\nTypes, members, initialisers and defaults" as Declarations
+component "Component definitions (hmi/pairs)\nSymbol, panel, settings, terminals, dependencies" as Components
+artifact "Library hmi/\npanels, pairs, symbols" as Library
+component "My equipment (language server)\nOwn blocks: plain device + automatic panel,\nor the Plant base's definition" as Own
+component "Create PLC code\nOne declaration + one call per device;\na PID loop as ordinary code around Control.PID" as Generate
+component "Create HMI\nDeclared devices not on a page" as Propose
+component "Runtime page writer\nOne page format" as Writer
+component "Version-checked WorkspaceEdit" as Edit
+artifact "HMI pages / panels / screen.toml" as Pages
+artifact "plant.toml\nBlock, settings, signals, dependencies" as Design
+artifact "PLC source\nCustomer code + checksum-marked regions\n(declarations, retained declarations, calls)" as Source
+component "Explicit Build and Deploy\nFiles sent as written" as Build
+Engineer --> Editor
+Editor --> Declarations : inspect without compilation or PLC execution
+Editor --> Components
+Library --> Components : a project file of the same name wins
+Declarations --> Own : own blocks, members, BOOL methods
+Own --> Editor : listed under My equipment
+Editor --> Edit : first placement: pair + panel; picture: definition + placed objects
+Editor --> Pages : drawing edits
+Editor --> Edit : inspector change: plant.toml + regions of a generated device
+Source --> Declarations : parsed declarations, including unsaved source
+Engineer --> Generate : explicit button
+Pages --> Generate : shown devices (block + instance)
+Design --> Generate
+Components --> Generate : terminals, dependencies, call order
+Declarations --> Generate : declared and hand-written instances
+Generate --> Edit : declarations and calls; USING for loop code; loop write rules for runtime.toml
+Engineer --> Propose : explicit button
+Declarations --> Propose
+Components --> Propose : definition by type or nearest base
+Propose --> Writer
+Writer --> Edit : new views only
+Edit --> Pages
+Edit --> Design
+Edit --> Source
+Source --> Build : separate deliberate action
+note bottom of Editor
+Settings show the declaration's initial value, else the block's default;
+a new device shows the plant.toml choice. No probes or preview scans.
+end note
+note bottom of Generate
+A region changed by hand is refused with its line; a renamed one is
+accepted. Hand-declared instances are reused, never redeclared.
+No helper variables, identities or registration, except a loop's own
+variables beside its PID (TIC101_Setpoint, TIC101_Parameters). Idempotent.
+end note
+@enduml

@@ -1,0 +1,136 @@
+[bundle]
+version = 1
+
+[resource]
+name = "MainRes"
+cycle_interval_ms = 10
+
+[runtime.control]
+endpoint = "unix:///tmp/trust-runtime.sock"
+mode = "production"
+debug_enabled = true
+
+[runtime.web]
+enabled = true
+listen = "127.0.0.1:8080"
+auth = "local"
+tls = false
+
+[runtime.tls]
+mode = "disabled"
+require_remote = false
+
+[runtime.discovery]
+enabled = false
+service_name = "truST"
+advertise = false
+interfaces = []
+
+[runtime.mesh]
+enabled = false
+listen = "0.0.0.0:5200"
+tls = false
+publish = []
+
+[runtime.observability]
+enabled = false
+sample_interval_ms = 1000
+mode = "all"
+include = []
+history_path = "history/historian.jsonl"
+max_entries = 20000
+prometheus_enabled = true
+prometheus_path = "/metrics"
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "file"
+path = "retain.bin"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"
+
+[[runtime.web.hmi.write]]
+path = "Main.FanSpeed"
+role = "engineer"
+
+[[runtime.web.hmi.write]]
+path = "Simulation.WindowOpening"
+role = "engineer"
+min = 0.0
+max = 100.0
+
+[[runtime.web.hmi.write]]
+path = "Simulation.LowWater"
+role = "engineer"
+
+[[runtime.web.hmi.write]]
+path = "Simulation.PumpOverload"
+role = "engineer"
+
+[[runtime.web.hmi.write]]
+path = "Simulation.FanFault"
+role = "engineer"
+
+[[runtime.web.hmi.write]]
+path = "Simulation.PositionerFault"
+role = "engineer"
+
+[[runtime.web.hmi.write]]
+path = "Simulation.TankSensorFault"
+role = "engineer"
+
+[[runtime.web.hmi.write]]
+path = "Simulation.RoomSensorFault"
+role = "engineer"
+
+[[runtime.web.hmi.user]]
+name = "operator"
+role = "operator"
+password = "pbkdf2-sha256:600000:6dq-PcFjBWBvv3hVq07wgg:weRsCiXjb27K_GfqMTRz87mfSiul19XEOcT0dDO0Wkw"
+
+[[runtime.web.hmi.user]]
+name = "engineer"
+role = "engineer"
+password = "pbkdf2-sha256:600000:LJi94nq_qzsXhGLIOowaiw:K13u-nOCvqIxPY3E6Y01hPiB79eaoAgiaC2zxoZtbSY"
+
+
+[[runtime.web.hmi.write]]
+path = "Main.TIC101_Manual"
+role = "operator"
+
+[[runtime.web.hmi.write]]
+path = "Main.TIC101_Setpoint"
+role = "operator"
+min = 0.0
+max = 100.0
+
+[[runtime.web.hmi.write]]
+path = "Main.TIC101_ManualOutput"
+role = "operator"
+min = 0.0
+max = 100.0
+
+[[runtime.web.hmi.write]]
+path = "Main.TIC102_Manual"
+role = "operator"
+
+[[runtime.web.hmi.write]]
+path = "Main.TIC102_Setpoint"
+role = "operator"
+min = 0.0
+max = 50.0
+
+[[runtime.web.hmi.write]]
+path = "Main.TIC102_ManualOutput"
+role = "operator"
+min = 0.0
+max = 100.0

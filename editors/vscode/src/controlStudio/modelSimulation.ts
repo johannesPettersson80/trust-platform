@@ -136,14 +136,16 @@ function validateBinding(binding: SelectedModelSimulationBinding): void {
   if (!Number.isInteger(binding.stepMs) || binding.stepMs < 1 || binding.stepMs > 1000) throw new Error("Simulation step must be a whole millisecond from 1 to 1000.");
   // Specification 33 §13.1–§13.2: a plant is commanded by an output or by a program variable in memory, such as the
   // inner setpoint a cascade's outer controller writes, and feeds back to inputs; either end may instead be a program
-  // variable without an address, named by its symbolic path.
+  // variable without an address, named by its symbolic path. A feedback may also be the measurement a library PID
+  // receives, `pid:<instance>` (§13.2), never a command.
   const symbol = (text: string) => /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(text);
   for (const [kind, addresses, prefixes, names] of [
     ["command", binding.commandSources, ["%Q", "%M"], "%Q output or %M memory"],
     ["feedback", binding.feedbackTargets, ["%I"], "%I input"],
   ] as const) {
-    if (addresses.length === 0 || addresses.some(address => typeof address !== "string"
-      || (address.startsWith("%") ? !prefixes.some(prefix => address.startsWith(prefix)) : !symbol(address)))) {
+    const valid = (address: string) => address.startsWith("%") ? prefixes.some(prefix => address.startsWith(prefix))
+      : kind === "feedback" && address.startsWith("pid:") ? symbol(address.slice(4)) : symbol(address);
+    if (addresses.length === 0 || addresses.some(address => typeof address !== "string" || !valid(address))) {
       throw new Error(`Ordered ${kind} bindings must use ${names} signals or program variables.`);
     }
   }

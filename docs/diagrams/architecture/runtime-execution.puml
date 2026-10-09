@@ -14,7 +14,7 @@ title truST Runtime: Bytecode, Scheduler, and Simulation Engine
 ' ============================================================
 package "Runtime Core" as runtimeCore #LightGreen {
 
-    class "Runtime" as runtime <<runtime/core.rs:22-44>> {
+    class "Runtime" as runtime <<runtime/core.rs:38-102>> {
         resource_name: SmolStr
         execution_backend: ExecutionBackend
         profile: DateTimeProfile
@@ -22,6 +22,8 @@ package "Runtime Core" as runtimeCore #LightGreen {
         registry: TypeRegistry
         initializer_catalog: program_model::InitializerCatalog
         ads: AdsSubsystem
+        opcua_client: OpcUaClientSubsystem
+        links: LinkSubsystem
         io: IoSubsystem
         access: AccessMap
         stdlib: StandardLibrary
@@ -48,6 +50,7 @@ package "Runtime Core" as runtimeCore #LightGreen {
         --
         +new() → Runtime
         +execute_cycle() → Result<()>
+        +simulated_target() → bool
         +apply_bytecode_metadata()
         +apply_bytecode_module()
         +apply_online_change_bytes()
@@ -68,6 +71,7 @@ package "Runtime Core" as runtimeCore #LightGreen {
     component "trust-runtime-core::task::config\nportable task metadata" as coreTaskConfig
     component "trust-runtime-core::task::state\nlogical baseline + overrun state" as coreTaskState
     component "trust-runtime-core::task::readiness\nevent/periodic readiness decision" as coreTaskReadiness
+    component "Target fact: Runtime::simulated_target()\n(runtime/core/accessors.rs)\nsimulation enabled AND all I/O simulation-only\nAND no ADS or OPC UA client connection" as targetFact
     runtime ..> runtimeOnlineChange : hot-reload contract owner
     runtimeOnlineChange --> runtimeRestart : prepare before bytecode replacement
     runtimeOnlineChange --> runtimeRetainSnapshot : validate against prepared storage
@@ -87,6 +91,7 @@ package "Runtime Core" as runtimeCore #LightGreen {
     runtime --> coreTaskState : stores scheduling state
     runtime --> coreTaskReadiness : evaluates each cycle
     coreTaskReadiness --> coreTaskState : updates exact state transition
+    runtime --> targetFact : the one target fact for every live write
 }
 
 package "Execution Engine" as backendPkg #LightYellow {
@@ -134,7 +139,7 @@ package "Execution Engine" as backendPkg #LightYellow {
 ' ============================================================
 package "Execution Cycle" as cyclePkg #LightBlue {
 
-    rectangle "execute_cycle() (cycle.rs:18-91)" as cycleFlow #Wheat {
+    rectangle "execute_cycle() (cycle.rs:17-105)" as cycleFlow #Wheat {
         card "1. Apply debug var writes" as step1
         card "2. Emit CycleStart event" as step2
         card "2a. simulation pre-cycle hooks\n(disturbances + delayed effects)" as step2a
@@ -181,6 +186,10 @@ package "Execution Cycle" as cyclePkg #LightBlue {
         • map inputs → storage
         • ADS cache → generated globals
           + _quality values
+        • OPC UA client cache → bound globals
+        • driver health snapshot
+        • link states → every Comm.Link block
+          (spec 42; drivers, ADS, OPC UA client)
     end note
 
     note right of step8
@@ -189,6 +198,9 @@ package "Execution Cycle" as cyclePkg #LightBlue {
         • apply forced values (IO + vars)
         • generated globals → ADS write queue
         • drivers write outputs
+        • debug feature: publish the completed scan with
+          the target fact; the scan observer advances the
+          runtime experiment executor once per task execution
     end note
 
     note right of step9
@@ -214,10 +226,19 @@ package "Execution Cycle" as cyclePkg #LightBlue {
     note right of step6
         execute_task():
         • emits TaskStart event
+        • commits pending parameter and transfer writes
+          at this task boundary, before the task runs:
+          physical_target = !simulated_target();
+          a physical target needs the request's approval
         • runs programs + FB refs
         • dispatches directly to the VM path
         • emits TaskEnd event
         • task → DAP thread id
+    end note
+
+    note right of step7
+        execute_background_programs():
+        • the same boundary commit, for the $background task
     end note
 
     note right of step6a
@@ -226,6 +247,43 @@ package "Execution Cycle" as cyclePkg #LightBlue {
         • apply safe state via IoSubsystem
     end note
 }
+
+' ============================================================
+' SCHEDULER + PROCESS TIME
+' ============================================================
+package "Scheduler and Process Time" as schedulerPkg #LightBlue {
+    rectangle "Resource loop (scheduler/runner_loop.rs)" as resourceLoop #Wheat {
+        card "1. Apply pause, resume and restart\n(pause and resume restart the schedule)" as loopCommands
+        card "2. begin_cycle(wall time, cycle interval)\n→ slot with the cycle's process time" as loopBegin
+        card "3. set_current_time(process time), then\nexecute_cycle() between the simulation\npre-cycle and post-cycle hooks" as loopExecute
+        card "4. finish_cycle(slot)\nsleep until the next due instant" as loopFinish
+    }
+
+    rectangle "Cycle timing (scheduler/cycle_timing.rs)" as cycleTiming #Wheat {
+        card "Without simulation\nprocess time = wall clock\n(a late cycle counts as an overrun)" as wallTime
+        card "With simulation\none exact step per executed cycle;\nnever read from the wall clock" as simStep
+    }
+
+    rectangle "Simulation speed (scheduler/simulation_clock.rs)" as simSpeedPkg #Wheat {
+        card "SimulationSpeed\nshared time_scale 1..100\nset by config.set simulation.time_scale" as speedCard
+        card "Pace = cycle interval / time_scale\na late cycle still advances simulation time\nby exactly one interval" as paceCard
+        card "AchievedSpeedWindow\nsimulation span / wall span over the\nlast 5 s, reported after 1 s of wall time" as achievedCard
+    }
+
+    loopCommands --> loopBegin
+    loopBegin --> loopExecute
+    loopExecute --> loopFinish
+    loopBegin --> cycleTiming : begin_cycle(wall time, cycle interval)
+    speedCard --> paceCard : speed in force
+    paceCard --> loopFinish : next due instant
+    simStep --> achievedCard : simulation time per wall time
+}
+
+note right of simStep
+The resource loop sets process time with set_current_time()
+before each cycle. A zero cycle interval reads the scaled wall
+clock instead of stepping.
+end note
 
 ' ============================================================
 ' LIFECYCLE (START/STOP)
@@ -299,9 +357,9 @@ package "Lifecycle" as lifecyclePkg #LightGray {
 }
 
 ' ============================================================
-' CONTROL + HMI CONTRACT
+' CONTROL + WEB CONTRACT
 ' ============================================================
-package "Control + HMI Contract" as hmiPkg #Lavender {
+package "Control + Web Contract" as controlWebPkg #Lavender {
     rectangle "Bounded Web Dispatch (web/request_dispatch.rs)" as webDispatch #Wheat {
         card "accept loop\n(request admission only)" as webAccept
         card "read lane\n4 workers + 32 queued" as webReadLane
@@ -309,28 +367,16 @@ package "Control + HMI Contract" as hmiPkg #Lavender {
         card "saturation response\n503 + Retry-After + server_busy" as webBusy
     }
 
-    rectangle "Control API (control/transport.rs + control/* handlers)" as hmiControl #Wheat {
-        card "control/hmi_runtime_ports.rs\n(narrow runtime read/write port)" as hmiRuntimePort
-        card "hmi.schema.get\n(read-only schema from metadata)" as hmiSchema
-        card "load customization\n(@hmi + hmi.toml)" as hmiCustomize
-        card "merge precedence:\ndefaults < annotation < file" as hmiMerge
-        card "emit schema:\ntheme + responsive + export + pages/widgets" as hmiEmit
-        card "hmi.values.get\n(typed values + quality + timestamp)" as hmiValues
-        card "hmi.trends.get\n(sample buffers + downsample)" as hmiTrends
-        card "hmi.alarms.get / hmi.alarm.ack\n(raise -> ack -> clear + history)" as hmiAlarms
-        card "HMI persistence\n(JSONL append + bounded restart window)" as hmiPersistence
-        card "historian.query / historian.alerts\n(persistent samples + alert transitions)" as hmiHistorian
-        card "hmi.write\n(explicit allowlist + authz,\nqueued writes; no force semantics)" as hmiWrite
+    rectangle "Control API (control/transport.rs + control/* handlers)" as controlApi #Wheat {
+        card "historian.query / historian.alerts\n(persistent samples + alert transitions)" as controlHistorian
+        card "status (status_handlers.rs)\nsimulation_time_scale,\nsimulation_achieved_time_scale" as statusCard
+        card "config.set simulation.time_scale\n(config_handlers_set.rs)\nrefused without simulation; next cycle" as configSpeedCard
+        card "live-write handlers: experiment, transfer,\nparameter, controller (control/*_handlers.rs)\nthe latest scan's target fact decides; a source\nlabel must agree; no write before the first scan" as liveWriteCard
     }
 
-    rectangle "Web HMI (/hmi)" as hmiWeb #Wheat {
-        card "GET /hmi, /hmi/app.js, /hmi/styles.css,\n/hmi/modules/hmi-*.js" as hmiRoute
-        card "sidebar navigation:\ndashboard/trend/alarm/table/process" as hmiNav
-        card "poll POST /api/control every 500 ms\n(values/trends/alarms)" as hmiPoll
-        card "status badges:\nconnection + freshness" as hmiStatus
-        card "GET /hmi/export.json\n(standalone assets + routes + schema config)" as hmiExport
-        card "GET /metrics\n(Prometheus scrape, auth-gated)" as hmiMetrics
-        card "transport:\nHTTP (local) or HTTPS (runtime.web.tls=true)" as hmiTransport
+    rectangle "Web Server (web/*)" as webServerRoutes #Wheat {
+        card "GET /metrics\n(Prometheus scrape, auth-gated)" as webMetrics
+        card "transport:\nHTTP (local) or HTTPS (runtime.web.tls=true)" as webTransport
     }
 
     rectangle "Web IDE Preview (/ide)" as ideWeb #Wheat {
@@ -350,30 +396,6 @@ package "Control + HMI Contract" as hmiPkg #Lavender {
         card "render.rs:\npanel/prompt presentation" as tuiRender
     }
 
-    hmiRuntimePort --> hmiSchema
-    hmiRuntimePort --> hmiValues
-    hmiRuntimePort --> hmiWrite
-    hmiSchema --> hmiCustomize
-    hmiCustomize --> hmiMerge
-    hmiMerge --> hmiEmit
-    hmiEmit --> hmiValues
-    hmiValues --> hmiTrends
-    hmiValues --> hmiAlarms
-    hmiValues --> hmiPersistence
-    hmiTrends --> hmiPersistence
-    hmiAlarms --> hmiPersistence
-    hmiValues --> hmiHistorian
-    hmiValues --> hmiWrite
-    hmiAlarms --> hmiWrite
-    hmiRoute --> hmiPoll
-    hmiRoute --> hmiNav
-    hmiRoute --> hmiTransport
-    hmiRoute --> hmiMetrics
-    hmiPoll --> hmiStatus
-    hmiPoll ..> hmiValues : request values
-    hmiPoll ..> hmiTrends : request trends
-    hmiPoll ..> hmiAlarms : request alarms
-    hmiRoute --> hmiExport
     ideRoute --> ideCaps
     ideCaps --> ideSession
     ideSession --> ideFiles
@@ -381,9 +403,8 @@ package "Control + HMI Contract" as hmiPkg #Lavender {
     ideOpen --> ideWrite
     webAccept --> webReadLane
     webAccept --> webBodyLane
-    webReadLane --> hmiRoute
+    webReadLane --> webMetrics
     webReadLane --> ideRoute
-    webBodyLane --> hmiRoute
     webBodyLane --> ideRoute
     webReadLane --> webBusy : full
     webBodyLane --> webBusy : full
@@ -402,7 +423,7 @@ package "Control + HMI Contract" as hmiPkg #Lavender {
         • source scope limited to sources/**/*.st
     end note
 
-    note right of hmiWeb
+    note right of webServerRoutes
         web transport boundary:
         • accept loop + HTTP lifecycle in web/server.rs
         • bounded admission/workers in web/request_dispatch.rs
@@ -925,8 +946,12 @@ runtime --> cyclePkg : execute_cycle()
 runtime --> stdlibPkg
 runtime --> ioPkg
 runtime --> bcApply
-runtime --> hmiControl
-hmiControl --> hmiWeb
+runtime --> controlApi
+schedulerPkg --> runtime : resource loop drives each cycle
+achievedCard --> statusCard : achieved speed in metrics
+configSpeedCard --> speedCard : set; applies from the next cycle
+targetFact --> step6 : physical_target for task-boundary commits
+targetFact ..> liveWriteCard : latest published scan's fact
 
 evalCtx --> stmtPkg : executes
 evalCtx --> exprPkg : evaluates
@@ -938,8 +963,10 @@ evalCtx --> varStorage : reads/writes
 
 legend right
     **Key Files:**
-    • runtime/core.rs:22 - Runtime struct
-    • runtime/cycle.rs:18 - execute_cycle()
+    • runtime/core.rs:38 - Runtime struct
+    • runtime/cycle.rs:17 - execute_cycle()
+    • scheduler/cycle_timing.rs - process time per cycle
+    • scheduler/simulation_clock.rs - simulation and achieved speed
     • memory.rs:63 - VariableStorage
     • eval/stmt.rs:30 - Stmt enum
     • eval/expr/ast.rs:6 - Expr enum
@@ -952,6 +979,8 @@ legend right
     3. Production execution dispatches directly into the VM after module materialization
     4. Bytecode VM is the only production execution backend
     5. helper_eval handles debug/tooling/build-helper paths
+    6. Process time: wall clock, or in simulation one exact cycle
+       interval per executed cycle, paced at time_scale
 
     **Memory Areas:**
     • Globals - Program-wide variables

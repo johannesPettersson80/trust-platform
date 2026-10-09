@@ -106,16 +106,24 @@ suite("Control Studio bounded step response", () => {
     assert.strictEqual(workflow.acceptedModel, undefined);
   });
 
-  test("rejects a drifting final window and invalid hold samples without deleting the source record", () => {
+  test("keeps a drifting final window as a reported partial response and rejects invalid hold samples without deleting the source record", () => {
     for (const defect of ["drift", "quality"]) {
       const workflow = new IdentificationWorkflow(), data = record();
       if (defect === "drift") data.forEach(sample => { if (sample.timeSeconds >= 35) sample.output += .03 * (sample.timeSeconds - 35); });
       else data[100].quality = "bad";
       const before = JSON.stringify(data);
       const qualification = (workflow.qualify as Function)(data, [], "Simulation", "fopdt", "estimation", settings);
-      assert.strictEqual(qualification.suitable, false, `${defect} must prevent bounded step qualification`);
+      if (defect === "drift") {
+        // Only the baseline must be steady (numerical annex N2.4); the final window need only lie inside the held step (N2.6).
+        // A final window that is still moving is a partial response (A10.3): it is reported as unsteady, and its bounds do not apply (N2.4).
+        assert.strictEqual(qualification.suitable, true, "a drifting final window must not refuse the bounded step");
+        assert.ok(qualification.stepResponse.final.range > settings.maximumWindowRange, "the drifting final window stays reported as unsteady");
+        assert.doesNotThrow(() => workflow.fit(), "a partial response with a moving final window is still fitted (A10.3)");
+      } else {
+        assert.strictEqual(qualification.suitable, false, `${defect} must prevent bounded step qualification`);
+        assert.throws(() => workflow.fit());
+      }
       assert.strictEqual(JSON.stringify(data), before);
-      assert.throws(() => workflow.fit());
     }
   });
 

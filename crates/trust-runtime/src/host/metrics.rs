@@ -2,7 +2,7 @@
 
 #![allow(missing_docs)]
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::time::Instant;
 
 use smol_str::SmolStr;
@@ -209,6 +209,9 @@ pub struct RuntimeMetrics {
     profile_calls: HashMap<SmolStr, CallProfileEntry>,
     pub faults: u64,
     pub overruns: u64,
+    /// Achieved simulation speed of each simulated resource, keyed by the resource's source id (specification 33,
+    /// §6.1 item 3).
+    simulation_achieved: BTreeMap<u64, f64>,
 }
 
 impl RuntimeMetrics {
@@ -224,7 +227,26 @@ impl RuntimeMetrics {
             profile_calls: HashMap::new(),
             faults: 0,
             overruns: 0,
+            simulation_achieved: BTreeMap::new(),
         }
+    }
+
+    /// Records the achieved simulation speed of one resource; `None` clears it until the next measurement.
+    pub fn set_simulation_achieved_time_scale(&mut self, source: u64, achieved: Option<f64>) {
+        match achieved {
+            Some(value) => {
+                self.simulation_achieved.insert(source, value);
+            }
+            None => {
+                self.simulation_achieved.remove(&source);
+            }
+        }
+    }
+
+    /// The achieved simulation speed: the lowest over the resources that have measured one, or `None` when none has.
+    #[must_use]
+    pub fn simulation_achieved_time_scale(&self) -> Option<f64> {
+        self.simulation_achieved.values().copied().reduce(f64::min)
     }
 
     #[must_use]
@@ -352,6 +374,7 @@ impl RuntimeMetrics {
             cycle_percentiles: self.cycle_window.snapshot(),
             faults: self.faults,
             overruns: self.overruns,
+            simulation_achieved_time_scale: self.simulation_achieved_time_scale(),
             tasks,
             profiling: ProfilingSnapshot {
                 enabled: self.profiling_enabled,
@@ -386,6 +409,8 @@ pub struct RuntimeMetricsSnapshot {
     pub cycle_percentiles: CyclePercentilesSnapshot,
     pub faults: u64,
     pub overruns: u64,
+    /// The lowest achieved simulation speed, or `None` before one is measured.
+    pub simulation_achieved_time_scale: Option<f64>,
     pub tasks: Vec<TaskStatsSnapshot>,
     pub profiling: ProfilingSnapshot,
 }

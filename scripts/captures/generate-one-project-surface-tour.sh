@@ -42,9 +42,6 @@ surface_scene \
 surface_scene \
   "${ROOT_DIR}/docs/public/assets/images/browser/ide-tutorial-loaded.png" \
   "${WORK}/scenes/04-browser-ide.png"
-surface_scene \
-  "${ROOT_DIR}/docs/public/assets/images/browser/hmi-home.png" \
-  "${WORK}/scenes/05-hmi.png"
 
 mapfile -t SCENES < <(find "${WORK}/scenes" -maxdepth 1 -type f -name "*.png" | sort)
 

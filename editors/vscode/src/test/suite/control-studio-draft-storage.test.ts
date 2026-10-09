@@ -1,12 +1,16 @@
 import * as assert from "assert";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import { storeEngineerDraft, restoreEngineerDraft, restoreWorkflowDraft } from "../../controlStudio/engineerDraftStorage";
 import type { ControlLoopDefinition } from "../../controlStudio/loopDefinition";
-import type { EngineerStudy } from "../../controlStudio/engineerStudyPersistence";
-import type { ExtensionContext } from "vscode";
+import { decodeEngineerStudy, type EngineerStudy } from "../../controlStudio/engineerStudyPersistence";
 import { IdentificationWorkflow, type IdentificationSample } from "../../controlStudio/identification";
 import { createWorkflowResult } from "../../controlStudio/workflowResult";
 import { buildWorkflowDraftSnapshot, buildWorkflowResultSnapshot } from "../../controlStudio/workflowResultSnapshot";
 import { evaluateRecordedRun } from "../../controlStudio/runValidation";
+import { openProjectStudy, studyDirectory, updateProjectStudy } from "../../controlStudio/studyStore";
+import { STUDY_STORAGE_LIMIT_BYTES } from "../../controlStudio/controlStudioLimits";
 
 suite("Control Studio automatic draft storage", () => {
   const loop = { projectId: "project", runtimeId: "sim", id: "loop", revision: "sha256:loop-v1" } as ControlLoopDefinition;
@@ -45,12 +49,18 @@ suite("Control Studio automatic draft storage", () => {
       engineerStudy: currentStudy, identificationStudy: identification,
       evidence: { observation: "Observed", model: "Not evaluated" }, conclusion: "Draft workflow." }, "2026-09-12T12:00:00.000Z");
   }
-  function storage(write?: () => Promise<void>) {
-    const entries = new Map<string, unknown>();
-    return { entries, context: { workspaceState: {
-      get: (key: string) => entries.get(key),
-      update: async (key: string, value: unknown) => { await write?.(); entries.set(key, value); },
-    } } as unknown as Pick<ExtensionContext, "workspaceState"> };
+  /** Opens a fresh project study for the loop; every draft test stores into a temporary project folder. */
+  async function openStudy(): Promise<string> {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "control-studio-draft-"));
+    await openProjectStudy(root, loop);
+    return root;
+  }
+  function directoryBytes(directory: string): number {
+    if (!fs.existsSync(directory)) return 0;
+    return fs.readdirSync(directory, { withFileTypes: true }).reduce((sum, entry) => {
+      const file = path.join(directory, entry.name);
+      return sum + (entry.isDirectory() ? directoryBytes(file) : fs.statSync(file).size);
+    }, 0);
   }
   function verificationResult(id: string): any {
     const channels = Array.from({ length: 27 }, (_, i) => ({ id: `P1.Controller.StateValue.Channel${String(i).padStart(2, "0")}`, unit: "degC" }));
@@ -68,132 +78,120 @@ suite("Control Studio automatic draft storage", () => {
   }
   test("retains a realistic 60-second multi-scenario study within the storage bound", async function () {
     this.timeout(120_000);
-    const { context, entries } = storage();
+    const root = await openStudy();
     const evidence = { campaigns: [], scenarioResults: Array.from({ length: 8 }, (_, i) => verificationResult(`scenario-${i}`)) } as unknown as EngineerStudy;
-    await storeEngineerDraft(context, loop, evidence);
-    const stored = Buffer.byteLength(JSON.stringify([...entries.values()][0]), "utf8");
-    assert.ok(stored < 16 * 1024 * 1024, `Autosave must stay within workspace storage bounds; stored ${stored} bytes`);
-    assert.deepStrictEqual(restoreEngineerDraft(context, loop), evidence, "Reopening restores exactly the saved evidence");
+    await storeEngineerDraft(loop, evidence);
+    const directory = studyDirectory(root, loop.id);
+    const stored = directoryBytes(directory);
+    assert.ok(stored < STUDY_STORAGE_LIMIT_BYTES, `The study must stay within the storage bound; stored ${stored} bytes`);
+    assert.ok(fs.readdirSync(path.join(directory, "recordings")).length >= 8, "each scenario run is stored as its own recording file");
+    assert.deepStrictEqual(restoreEngineerDraft(loop), evidence, "Reopening restores exactly the saved evidence");
   });
+  test("checks each recorded result once and shares it with later snapshots and saves (A10.7)", async function () {
+    this.timeout(120_000);
+    await openStudy();
+    const evidence = { campaigns: [], scenarioResults: Array.from({ length: 8 }, (_, i) => verificationResult(`scenario-${i}`)) } as unknown as EngineerStudy;
+    const started = performance.now();
+    const first = decodeEngineerStudy(evidence)!;
+    const firstMs = performance.now() - started;
+    const result = first.scenarioResults![0].result;
+    assert.ok(Object.isFrozen(result) && Object.isFrozen(result.run.samples[0]), "a checked result is immutable");
+    assert.strictEqual(result.evaluation.run, result.run, "the evaluation shares its run");
+    const again = performance.now();
+    const second = decodeEngineerStudy(first)!;
+    const fromSource = decodeEngineerStudy(evidence)!;
+    const repeatedMs = performance.now() - again;
+    await storeEngineerDraft(loop, first, workflowDraft(first));
+    const restored = restoreEngineerDraft(loop)!;
+    for (const study of [second, fromSource, restored]) {
+      assert.strictEqual(study.scenarioResults![0].result, result, "later snapshots and saves share the checked result");
+    }
+    assert.deepStrictEqual(restored, evidence, "the shared result is the evidence that was recorded");
+    assert.throws(() => { (result.evaluation as { status: string }).status = "Pass"; }, TypeError);
+    // Decoding a snapshot of checked results again copies only what is not shared.
+    assert.ok(repeatedMs < firstMs / 4, `two repeated snapshots took ${repeatedMs.toFixed(0)} ms; the first check of eight long runs ${firstMs.toFixed(0)} ms`);
+  });
+
   test("restores edited settings and task without adding runtime approval", async () => {
-    const { context } = storage();
-    await storeEngineerDraft(context, loop, study);
-    const restored = restoreEngineerDraft(context, loop)!;
+    await openStudy();
+    await storeEngineerDraft(loop, study);
+    const restored = restoreEngineerDraft(loop)!;
     assert.deepStrictEqual(restored, study);
     assert.ok(!("review" in restored) && !("verifiedInputs" in restored));
     restored.task!.referenceChange = 99;
-    assert.strictEqual(restoreEngineerDraft(context, loop)!.task!.referenceChange, 1);
+    assert.strictEqual(restoreEngineerDraft(loop)!.task!.referenceChange, 1);
   });
-  test("latest queued edits are available during close and reopen", async () => {
-    let release!: () => void;
-    const barrier = new Promise<void>(resolve => { release = resolve; });
-    const { context } = storage(() => barrier);
-    const first = storeEngineerDraft(context, loop, study);
-    const latest = { ...study, controllerChoice: "PID" as const };
-    const second = storeEngineerDraft(context, loop, latest);
-    assert.strictEqual(restoreEngineerDraft(context, loop)?.controllerChoice, "PID");
-    release(); await Promise.all([first, second]);
-    assert.strictEqual(restoreEngineerDraft(context, loop)?.controllerChoice, "PID");
+  test("latest queued edits are available before and after their writes finish", async () => {
+    await openStudy();
+    const first = storeEngineerDraft(loop, study);
+    const second = storeEngineerDraft(loop, { ...study, controllerChoice: "PID" as const });
+    assert.strictEqual(restoreEngineerDraft(loop)?.controllerChoice, "PID");
+    await Promise.all([first, second]);
+    assert.strictEqual(restoreEngineerDraft(loop)?.controllerChoice, "PID");
   });
   test("changed loop revisions cannot reuse old parameter pins", async () => {
-    const { context, entries } = storage();
-    await storeEngineerDraft(context, loop, study);
-    assert.strictEqual(restoreEngineerDraft(context, { ...loop, revision: "loop-v2" }), undefined);
-    assert.strictEqual(entries.size, 1, "different-loop evidence must remain stored");
+    const root = await openStudy();
+    await storeEngineerDraft(loop, study);
+    assert.strictEqual(restoreEngineerDraft({ ...loop, revision: "loop-v2" } as ControlLoopDefinition), undefined);
+    const document = JSON.parse(fs.readFileSync(path.join(studyDirectory(root, loop.id), "study.json"), "utf8"));
+    assert.strictEqual(document.state.draft.loopRevision, loop.revision, "different-loop evidence must remain stored");
   });
   test("an empty current study supersedes old saved state during and after queued writes", async () => {
-    let release!: () => void;
-    const barrier = new Promise<void>(resolve => { release = resolve; });
-    let delayed = false;
-    const { context } = storage(() => delayed ? barrier : Promise.resolve());
-    await storeEngineerDraft(context, loop, study);
-    delayed = true;
-    const obsolete = storeEngineerDraft(context, loop, { ...study, controllerChoice: "PID" });
-    const empty = storeEngineerDraft(context, loop, undefined);
-    try {
-      assert.deepStrictEqual(restoreEngineerDraft(context, loop) ?? study, { campaigns: [] },
-        "an empty current draft must hide a queued old draft and prevent fallback to an older saved result");
-    } finally { release(); await Promise.all([obsolete, empty]); }
-    assert.deepStrictEqual(restoreEngineerDraft(context, loop) ?? study, { campaigns: [] },
+    await openStudy();
+    await storeEngineerDraft(loop, study);
+    const obsolete = storeEngineerDraft(loop, { ...study, controllerChoice: "PID" as const });
+    const empty = storeEngineerDraft(loop, undefined);
+    assert.deepStrictEqual(restoreEngineerDraft(loop) ?? study, { campaigns: [] },
+      "an empty current draft must hide a queued old draft and prevent fallback to an older saved result");
+    await Promise.all([obsolete, empty]);
+    assert.deepStrictEqual(restoreEngineerDraft(loop) ?? study, { campaigns: [] },
       "reopening after persistence must not resurrect a superseded study");
   });
 
   test("round-trips a complete workflow draft with raw recording and identification state", async () => {
-    const { context } = storage();
+    await openStudy();
     const workflow = workflowDraft();
-    await storeEngineerDraft(context, loop, draftStudy, workflow);
-    const restored = restoreWorkflowDraft(context, loop)!;
+    await storeEngineerDraft(loop, draftStudy, workflow);
+    const restored = restoreWorkflowDraft(loop)!;
     assert.deepStrictEqual(restored, workflow);
-    assert.deepStrictEqual(restoreEngineerDraft(context, loop), draftStudy);
+    assert.deepStrictEqual(restoreEngineerDraft(loop), draftStudy);
     (restored.recording.rawSamples as any)[0].pv = 99;
-    assert.strictEqual(restoreWorkflowDraft(context, loop)!.recording.rawSamples[0].pv, 3);
+    assert.strictEqual(restoreWorkflowDraft(loop)!.recording.rawSamples[0].pv, 3);
   });
 
   test("an explicit full empty workflow supersedes an older accepted draft", async () => {
-    const { context } = storage();
-    await storeEngineerDraft(context, loop, draftStudy, workflowDraft());
+    await openStudy();
+    await storeEngineerDraft(loop, draftStudy, workflowDraft());
     const empty = workflowDraft(draftStudy, undefined);
-    await storeEngineerDraft(context, loop, { campaigns: [] }, empty);
-    assert.deepStrictEqual(restoreWorkflowDraft(context, loop), empty);
-    assert.deepStrictEqual(restoreEngineerDraft(context, loop), { campaigns: [] });
+    await storeEngineerDraft(loop, { campaigns: [] }, empty);
+    assert.deepStrictEqual(restoreWorkflowDraft(loop), empty);
+    assert.deepStrictEqual(restoreEngineerDraft(loop), { campaigns: [] });
   });
 
-  test("latest full workflow is visible from pending storage before queued writes finish", async () => {
-    let release!: () => void;
-    let started!: () => void;
-    const writingStarted = new Promise<void>(resolve => { started = resolve; });
-    let blocked = true;
-    const { context } = storage(() => {
-      if (!blocked) return Promise.resolve();
-      blocked = false; started(); return new Promise<void>(resolve => { release = resolve; });
-    });
-    const first = storeEngineerDraft(context, loop, draftStudy, workflowDraft());
-    await writingStarted;
+  test("latest full workflow is visible before queued writes finish", async () => {
+    await openStudy();
+    const first = storeEngineerDraft(loop, draftStudy, workflowDraft());
     const latest = workflowDraft({ ...draftStudy, controllerChoice: "PID" });
-    const second = storeEngineerDraft(context, loop, latest.engineerStudy!, latest);
-    assert.strictEqual(restoreWorkflowDraft(context, loop)!.engineerStudy?.controllerChoice, "PID");
-    release(); await Promise.all([first, second]);
-    assert.strictEqual(restoreWorkflowDraft(context, loop)!.engineerStudy?.controllerChoice, "PID");
+    const second = storeEngineerDraft(loop, latest.engineerStudy!, latest);
+    assert.strictEqual(restoreWorkflowDraft(loop)!.engineerStudy?.controllerChoice, "PID");
+    await Promise.all([first, second]);
+    assert.strictEqual(restoreWorkflowDraft(loop)!.engineerStudy?.controllerChoice, "PID");
   });
 
   test("rejects malformed, mismatched, or shared-study workflow drafts", async () => {
-    const { context, entries } = storage();
+    await openStudy();
     const workflow = workflowDraft();
-    await storeEngineerDraft(context, loop, draftStudy, workflow);
+    await storeEngineerDraft(loop, draftStudy, workflow);
     for (const invalid of [
       { ...workflow, projectId: "other-project" },
       { ...workflow, loop: { ...workflow.loop, revision: "other-revision" } },
       { ...workflow, engineerStudy: { campaigns: [], controllerChoice: "PID" } },
       { ...workflow, recording: { ...workflow.recording, rawSamples: [{ bad: true }] } },
     ]) {
-      await assert.rejects(() => storeEngineerDraft(context, loop, draftStudy, invalid as any));
-      assert.deepStrictEqual(restoreWorkflowDraft(context, loop), workflow);
+      await assert.rejects(() => storeEngineerDraft(loop, draftStudy, invalid as any));
+      assert.deepStrictEqual(restoreWorkflowDraft(loop), workflow);
     }
-    entries.set("trust.controlStudio.draft.project.sim.loop", { loopRevision: loop.revision, study: draftStudy, workflow: { malformed: true } });
-    assert.throws(() => restoreWorkflowDraft(context, loop), /draft|decode|invalid/i);
-  });
-
-  test("sync draft snapshot preserves the async result snapshot contract", async () => {
-    const { context } = storage();
-    const state: any = { source: "Simulation", excludedIntervals: [], engineerStudy: draftStudy, identificationStudy: identificationStudy(),
-      recording: undefined, previousResult: workflowDraft() };
-    const sync = buildWorkflowDraftSnapshot(workflowLoop, state);
-    const asyncResult = await buildWorkflowResultSnapshot({ extension: { packageJSON: { version: "0.24.65" } } } as any, workflowLoop, state);
-    assert.deepStrictEqual({ ...sync, createdAt: "" }, { ...asyncResult, createdAt: "" });
-  });
-
-  test("a new native recording cannot inherit an imported recording's plant metadata", () => {
-    const previous = workflowDraft();
-    previous.plant = { source: "Simulation", id: "foreign-plant", configurationRevision: "sha256:foreign",
-      model: "first_order_dead_time", configuration: { gain: 10 }, uncertainties: [], scheduledEvents: [], actuator: "0..100%", validityRange: "20..40 C" };
-    previous.recording.provenance = { schemaVersion: 1, resultId: "foreign-result", resultRevision: 1,
-      createdAt: previous.createdAt, projectId: "foreign-project", source: "Simulation", loop: previous.loop,
-      controller: previous.controller, software: previous.software, units: previous.units, plant: previous.plant };
-    const native = identificationStudy().current.recording.data;
-    const result = buildWorkflowDraftSnapshot(workflowLoop, { previousResult: previous, source: "Simulation", excludedIntervals: [],
-      recording: { samples: [], rawSamples: native.rawSamples, evidence: native.acquisition }, engineerStudy: draftStudy });
-    assert.strictEqual(result.plant, undefined, "unknown current metadata must not be borrowed from another acquisition");
-    assert.strictEqual(result.recording.provenance, undefined);
-    assert.deepStrictEqual(result.recording.rawSamples, native.rawSamples);
+    await updateProjectStudy(loop, "draft", { loopRevision: loop.revision, study: draftStudy, workflow: { malformed: true } });
+    assert.throws(() => restoreWorkflowDraft(loop), /draft|decode|invalid/i);
   });
 });

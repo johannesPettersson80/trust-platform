@@ -1,7 +1,7 @@
 #[test]
 fn plant_save_round_trips_optional_name_and_description() {
     let root = temp_dir("plant-metadata-save-v1");
-    let mut state = hmi_test_state(
+    let mut state = control_test_state(
         "PROGRAM Main\nVAR\n  command AT %QW0 : UINT;\n  process AT %IW0 : UINT;\nEND_VAR\nEND_PROGRAM",
     );
     state.project_root = Some(root.clone());
@@ -50,11 +50,15 @@ fn plant_save_round_trips_optional_name_and_description() {
         .and_then(|plants| plants.first())
         .expect("saved plant descriptor");
     assert_eq!(
-        descriptor.get("display_name").and_then(serde_json::Value::as_str),
+        descriptor
+            .get("display_name")
+            .and_then(serde_json::Value::as_str),
         Some("Training tank")
     );
     assert_eq!(
-        descriptor.get("description").and_then(serde_json::Value::as_str),
+        descriptor
+            .get("description")
+            .and_then(serde_json::Value::as_str),
         Some("Slow level process for controller training")
     );
     let saved = fs::read_to_string(root.join("simulation.toml")).expect("saved simulation.toml");

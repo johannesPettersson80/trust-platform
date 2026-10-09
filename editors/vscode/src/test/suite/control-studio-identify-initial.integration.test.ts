@@ -34,8 +34,9 @@ suite("Control Studio Identify initial readings", () => {
       assert.strictEqual(await inner("return String(d.querySelector('.studio-response').checkVisibility());"), "true", "Identify must show the response plot before an identification result exists");
       assert.strictEqual(await inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), "2", "Plot the selected plant input and measured output");
       const description = await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');");
-      assert.match(description, /P1\.ProcessValue.*20.*°C/);
-      assert.match(description, /P1\.ManipulatedValue.*0.*%/);
+      // Signals are named by their role, with the symbol on hover (B9.9).
+      assert.match(description, /Measurement: 20 °C/);
+      assert.match(description, /Output: 0 %/);
       assert.strictEqual(await inner("return String(d.querySelector('[data-studio-model-result]').hidden);"), "true", "No invented model before identification");
       for (const [theme, name] of [["Default Dark Modern", "dark"], ["Default Light Modern", "light"], ["Default High Contrast", "contrast"]]) {
         await vscode.workspace.getConfiguration("workbench").update("colorTheme", theme, vscode.ConfigurationTarget.Global);

@@ -1,13 +1,12 @@
 # Project Model
 
 A truST project is a source tree plus a small set of config files that define
-authoring, runtime, I/O, simulation, and HMI behavior.
+authoring, runtime, I/O, and simulation behavior.
 
 | Term | Meaning |
 | --- | --- |
 | `ST` | Structured Text source. |
 | `LSP` | Language Server Protocol/editor configuration. |
-| `HMI` | Browser operator pages under `hmi/`. |
 | `.stbc` | Compiled Structured Text bytecode bundle. |
 
 ## Project Files
@@ -19,7 +18,6 @@ project/
   runtime.toml
   io.toml
   simulation.toml
-  hmi/
   program.stbc
 ```
 
@@ -32,7 +30,6 @@ project/
 | `runtime.toml` | execution, control, discovery, mesh, runtime-cloud policy |
 | `io.toml` | driver selection and safe-state I/O behavior |
 | `simulation.toml` | deterministic virtual coupling and fault injection |
-| `hmi/` | declarative operator pages and process graphics |
 | `program.stbc` | compiled bytecode artifact |
 
 ## Reuse Model
@@ -51,7 +48,6 @@ root just because it is convenient.
 - `runtime.toml` is about executing and exposing the runtime
 - `io.toml` is about physical or simulated I/O backends
 - `simulation.toml` is about deterministic virtual plant behavior
-- `hmi/` is about operator-facing presentation
 
 This separation is important because it lets you change one dimension without
 rewriting the others. For example, you can swap an I/O backend or turn on
@@ -63,7 +59,7 @@ simulation without changing the source tree layout.
 2. build into `program.stbc`
 3. validate config + bundle
 4. run/reload the runtime
-5. optionally drive HMI, tests, or harness scenarios against the same project
+5. optionally drive tests or harness scenarios against the same project
 
 ## Good Practice
 

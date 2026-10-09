@@ -10,7 +10,7 @@ export async function exerciseAcquisitionReview(inner: EvaluateWebview, click: C
   await inner("const m=d.querySelector('[data-engineer-acquisition-method]');m.value='relay';m.dispatchEvent(new Event('change'));d.querySelector('[data-engineer-relay-direction]').value='';return 'missing relay direction';");
   await click("[data-engineer-inspector-close=settings]");
   await click("[data-engineer-find]");
-  await pollValue("identification control recovery", () => inner("return d.defaultView.__defaultLatest?.failure?.nextAction??'';"), value => value === "configure-acquisition", 10000);
+  await pollValue("identification control recovery", () => inner("return d.defaultView.__defaultLatest?.failure?.nextAction?.kind??'';"), value => value === "open-limits", 10000);
   await capture("acquisition-review-needed");
   await click("[data-engineer-configure-acquisition]");
   assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-options]').open);"), "true");

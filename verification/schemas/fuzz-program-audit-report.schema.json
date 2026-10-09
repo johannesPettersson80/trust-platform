@@ -56,14 +56,14 @@
     "targets": {
       "type": "array",
       "items": { "$ref": "#/$defs/target" },
-      "minItems": 17,
-      "maxItems": 17
+      "minItems": 16,
+      "maxItems": 16
     },
     "surfaces": {
       "type": "array",
       "items": { "$ref": "#/$defs/surface" },
-      "minItems": 8,
-      "maxItems": 8
+      "minItems": 7,
+      "maxItems": 7
     },
     "gap_rows": {
       "type": "array",
@@ -203,8 +203,7 @@
         "bytecode_container_instructions",
         "protocol_payloads",
         "config_files",
-        "lsp_incremental_edits",
-        "hmi_schema_payloads"
+        "lsp_incremental_edits"
       ]
     },
     "area": {
@@ -214,8 +213,7 @@
         "bytecode_vm",
         "protocols",
         "runtime_safety",
-        "editor_safety",
-        "hmi_ui"
+        "editor_safety"
       ]
     },
     "target_id": {
@@ -227,7 +225,6 @@
         "FUZZ_TARGET_BYTECODE_CONTAINER",
         "FUZZ_TARGET_RUNTIME_CONFIG",
         "FUZZ_TARGET_LSP_INCREMENTAL",
-        "FUZZ_TARGET_HMI_PAYLOADS",
         "FUZZ_TARGET_ADS_AMS_FRAME",
         "FUZZ_TARGET_ADS_BOUNDARY_NOOP",
         "FUZZ_TARGET_ADS_COMMAND_DISPATCH",
@@ -393,10 +390,10 @@
         "by_additional_tier"
       ],
       "properties": {
-        "inventory_targets": { "const": 17 },
-        "cargo_fuzz_targets": { "const": 11 },
+        "inventory_targets": { "const": 16 },
+        "cargo_fuzz_targets": { "const": 10 },
         "bounded_rust_smokes": { "const": 6 },
-        "required_surfaces": { "const": 8 },
+        "required_surfaces": { "const": 7 },
         "gap_surfaces": { "const": 0 },
         "by_surface_state": { "$ref": "#/$defs/count_map_surface_state" },
         "by_primary_tier": { "$ref": "#/$defs/count_map_tier" },

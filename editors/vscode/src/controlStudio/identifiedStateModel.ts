@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { solveLeastSquares } from "./numerics";
+import { evenlySampled } from "./evenSampling";
 import type { GeneralStateSpaceModel, ModelChannel } from "./generalModel";
 import type { RecordedRun } from "./runValidation";
 
@@ -36,16 +37,22 @@ export function identifyStateModel(estimation: RecordedRun, validation: Recorded
     || !Array.isArray(comparisonRecord.conditions.sampleTimesSeconds) || comparisonRecord.conditions.sampleTimesSeconds.length < 2) {
     throw new Error("Identification requires complete sample timing for both independent records.");
   }
-  const sampleTime = estimation.conditions.sampleTimesSeconds[1] - estimation.conditions.sampleTimesSeconds[0];
+  // A live plant's samples carry the times its task actually ran; both records are compared on the estimation's even grid.
+  // Plant outputs are interpolated between scans and inputs are held (A4.3).
+  const linear = channels.outputs.map(channel => channel.id);
+  const evenly = (run: RecordedRun, step?: number) => {
+    try { return evenlySampled(run.samples, step, { linear }); } catch { throw new Error("Identification samples have gaps or inconsistent timing."); }
+  };
+  if (estimation.samples.length < 30 || comparisonRecord.samples.length < 30) throw new Error("Identification requires complete sample coverage.");
+  const sampleTime = evenly(estimation).step;
   if (!Number.isFinite(sampleTime) || sampleTime <= 0) throw new Error("Identification requires a positive sample interval.");
-  const read = (run: RecordedRun) => {
-    if (run.samples.length < 30 || run.samples.length !== run.conditions.sampleTimesSeconds.length) throw new Error("Identification requires complete sample coverage.");
+  const read = (run: RecordedRun, samples = evenly(run, sampleTime).samples) => {
+    // The resampled grid may hold a different number of points than the raw scans; gaps and missing scans are refused by evenlySampled.
+    if (run.samples.length < 30) throw new Error("Identification requires complete sample coverage.");
     for (const channel of [...channels.inputs, ...channels.outputs]) {
       if (!run.channels.some(item => item.id === channel.id && item.unit === channel.unit)) throw new Error(`Missing identification channel ${channel.id} or incompatible unit.`);
     }
-    return run.samples.map((sample, index) => {
-      if (Math.abs(sample.timeSeconds - index * sampleTime) > Math.max(1e-9, sampleTime * 1e-6)
-        || index > 0 && sample.sequence !== run.samples[index - 1].sequence + 1) throw new Error("Identification samples have gaps or inconsistent timing.");
+    return samples.map(sample => {
       return [...channels.inputs, ...channels.outputs].map(channel => {
         const value = sample.values[channel.id];
         if (value?.quality !== "good" || value.value === null || !Number.isFinite(value.value)) throw new Error(`Unqualified identification data on ${channel.id}.`);
@@ -53,7 +60,8 @@ export function identifyStateModel(estimation: RecordedRun, validation: Recorded
       });
     });
   };
-  const train = read(estimation), heldOut = read(comparisonRecord);
+  const comparisonSamples = evenly(comparisonRecord, sampleTime).samples;
+  const train = read(estimation), heldOut = read(comparisonRecord, comparisonSamples);
   const m = channels.inputs.length, p = channels.outputs.length;
   const origin = train[0];
   const centered = (rows: number[][]) => rows.map(row => row.map((value, index) => value - origin[index]));
@@ -96,7 +104,7 @@ export function identifyStateModel(estimation: RecordedRun, validation: Recorded
       errors.forEach((_, output) => {
         const measured = v[k + 1][m + output] + origin[m + output];
         const predicted = state[output] + origin[m + output];
-        predictions[output].push({ timeSeconds: comparisonRecord.samples[k + 1].timeSeconds, measured, predicted, residual: measured - predicted });
+        predictions[output].push({ timeSeconds: comparisonSamples[k + 1].timeSeconds, measured, predicted, residual: measured - predicted });
         errors[output] += (state[output] - v[k + 1][m + output]) ** 2;
       });
     }

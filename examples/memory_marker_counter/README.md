@@ -91,3 +91,7 @@ Repeat Step 3 and confirm `%MW0` jumps by 5 each cycle.
   - fix: start runtime or verify endpoint in `trust-lsp.toml`.
 - Values not updating:
   - fix: confirm cycle is running and writes are applied (not staged only).
+
+## Screen
+
+`hmi/pages/overview.toml` shows this example's values. It opens in the HMI Builder in VS Code; press **Live** while the simulator runs to see the values move. To open it in a browser, enable `[runtime.web]` in `runtime.toml`; the runtime then serves it at `/hmi`.

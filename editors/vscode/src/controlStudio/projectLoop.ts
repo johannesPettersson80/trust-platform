@@ -40,7 +40,7 @@ export async function controlStudioRequestForWorkspace(
   return selected?.resolution ?? { kind: "cancelled" };
 }
 
-async function controlStudioRequestsForFolder(
+export async function controlStudioRequestsForFolder(
   folder: vscode.WorkspaceFolder,
   selectedRuntimeId: string
 ): Promise<ProjectControlLoopResolution[]> {

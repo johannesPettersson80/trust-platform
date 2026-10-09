@@ -27,11 +27,11 @@ function withTuning(check: (root: HTMLElement, tuning: ThreePageTuning, posts: a
 }
 
 suite("Control Studio shipped Tune interaction", () => {
-  test("manual PI settings retain precise values, units and pins without submitting derivative settings", () => {
+  test("manual PI settings retain precise values and units, keep automatic pins for the next run, and submit no derivative settings", () => {
     withTuning((root, tuning) => {
       assert.strictEqual(root.querySelectorAll("[data-studio-manual-value]").length, 2);
       assert.strictEqual(root.querySelector<HTMLInputElement>("[data-studio-manual-value='Main.Kp']")!.value, "1.23456789");
-      assert.strictEqual(root.querySelector<HTMLInputElement>("[data-studio-manual-pin='Main.Ki']")!.checked, true);
+      assert.strictEqual(root.querySelector("[data-studio-manual-pin]"), null, "manual settings have no Pin checkboxes");
       assert.deepStrictEqual(tuning.preferences(true), { method: "manual", values: { "Main.Kp": 1.23456789, "Main.Ki": 0.25 } });
       assert.deepStrictEqual(tuning.pinnedValues(), { "Main.Ki": 0.25 });
       assert.match(root.textContent ?? "", /V\/m/);

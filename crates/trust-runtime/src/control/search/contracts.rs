@@ -75,6 +75,8 @@ impl Request {
             max_total_cycles: self.max_total_cycles,
             wall_budget_ms: self.wall_budget_ms,
             per_trial_wall_ms: self.per_trial_wall_ms,
+            // Search trials keep every grid point; only an isolated run may average them.
+            record_every: 1,
             initial_values: self.initial_values.clone(),
             events: self.events.clone(),
             observations: self.observations.clone(),

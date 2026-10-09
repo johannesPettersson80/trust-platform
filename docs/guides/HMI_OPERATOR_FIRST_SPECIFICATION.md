@@ -1,3 +1,8 @@
+> **Historical V4 reference.** For the replacement HMI Builder, the user-approved
+> `docs/specs/hmi-component-catalogue.md` and `trust-plant-library.md`, with their
+> linked CAT/PL checklists, supersede conflicting V4 authoring rules. Preserve this
+> file as legacy evidence; do not reintroduce its five-page/scaffolding workflow.
+
 # Operator-First HMI Specification (V4)
 
 Status: Active

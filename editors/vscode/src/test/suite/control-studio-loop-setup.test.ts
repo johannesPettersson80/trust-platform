@@ -1,4 +1,7 @@
 import * as assert from "assert";
+import * as fs from "fs";
+import * as path from "path";
+import { pidParameters } from "../../controlStudio/loopSetup/pidBindings";
 import { validateControlLoopDefinition } from "../../controlStudio/loopDefinition";
 import { libraryPidInitialization } from "../../controlStudio/libraryPidInitialization";
 import { cascade, cascadeTogetherDraft, pidSymbols, scope, TASK } from "./control-studio-cascade-fixtures";
@@ -30,13 +33,28 @@ const singleLoop = {
 };
 
 suite("Control Studio loop setup from compiled facts", () => {
+  test("the bounds setup declares for a Control.PID record admit every value the Plant library's PID pair starts it with", () => {
+    const pair = path.resolve(__dirname, "../../../../../libraries/plant/hmi/pairs/plant-pid.toml");
+    const initial = new Map([...fs.readFileSync(pair, "utf8").matchAll(/^"\{instance\}_Parameters\.(\w+)" = (-?[0-9.eE+-]+)$/gm)]
+      .map(match => [match[1], Number(match[2])] as const));
+    assert.ok(initial.has("RateMinimum") && initial.has("RateMaximum"), `the pair sets the rate limits: ${[...initial.keys()]}`);
+    const signal = (symbol: string, unit: string) => ({ symbol, unit, minimum: 0, maximum: 100 });
+    for (const parameter of pidParameters("P1.Parameters", signal("P1.PV", "°C"), signal("P1.MV", "%"))) {
+      const field = parameter.symbol.split(".").pop()!, value = initial.get(field);
+      if (value === undefined) continue;
+      assert.ok(value >= parameter.minimum && value <= parameter.maximum,
+        `${field} starts at ${value}, inside the declared ${parameter.minimum}..${parameter.maximum}, so Validate can carry it`);
+    }
+  });
+
   test("prefills each library PID from its compiled calls without guessing from names", () => {
     const api = setup();
     assert.strictEqual(typeof api.pidCandidates, "function", "setup must read the compiled catalog");
     assert.deepStrictEqual(api.pidCandidates(singleLoop), [{
       instance: "P1.Controller", task: { name: "MainTask", intervalMs: 100 }, parameterRecord: "P1.Parameters",
       output: "P1.AppliedPowerPct", setpoint: "P1.SetpointC", processValue: "P1.SafeProcessValueC", manualOutput: "P1.ManualOutput",
-    }]);
+      ownMeasurement: "P1.Controller.StateValue.ProcessValue",
+    }], "the PID's own measurement is the value its Update received");
   });
 
   test("generates a Control.PID loop that the existing tuning and application contracts accept", () => {
@@ -73,7 +91,7 @@ suite("Control Studio loop setup from compiled facts", () => {
       ...scope, name: "Outer", instance: "P1.Controller", action: "direct", parameterRecord: "P1.Parameters",
       processVariable: { symbol: "P1.TemperatureC", unit: "degC", minimum: 0, maximum: 80 },
       manipulatedVariable: { symbol: "P1.AppliedPowerPct", unit: "degC", minimum: 20, maximum: 80 },
-      setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualOutput", experimentDurationSeconds: 30,
+      setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualOutput", experimentStep: 6, experimentDurationSeconds: 30,
     });
     const bias = loop.parameterBinding.parameters.find((parameter: any) => parameter.symbol === "P1.Parameters.Bias");
     assert.deepStrictEqual([bias.minimum, bias.maximum], [-60, 60], "the bias may shift the output by at most its span either way");
@@ -94,16 +112,17 @@ suite("Control Studio loop setup from compiled facts", () => {
     assert.strictEqual(single.structure, "pid");
     assert.deepStrictEqual(single.pids.map((pid: any) => pid.instance), ["P1.Controller"]);
     assert.deepStrictEqual(single.addressedReal, ["P1.AppliedPowerPct", "P1.ManualOutput", "P1.SetpointC", "P1.TemperatureC"],
-      "identification writes the manual output through the process image");
+      "the REAL/LREAL signals with an I/O address");
     assert.deepStrictEqual(single.signals, ["P1.AppliedPowerPct", "P1.ManualOutput", "P1.SafeProcessValueC", "P1.SetpointC", "P1.TemperatureC"],
       "outputs and setpoints may be program variables without an address; the PID's own records and states are not signals");
-    assert.deepStrictEqual(single.measurements, ["P1.TemperatureC"],
-      "a simulated plant writes inputs and program variables the program only reads; it computes P1.SafeProcessValueC itself");
+    assert.deepStrictEqual(single.measurements, ["P1.Controller.StateValue.ProcessValue", "P1.TemperatureC"],
+      "a simulated plant writes inputs and program variables the program only reads, and gives the PID its own measurement; "
+      + "the program computes P1.SafeProcessValueC itself");
     assert.deepStrictEqual(single.booleans, ["P1.AutoMode"]);
     assert.deepStrictEqual(single.records, ["P1.Parameters"]);
     assert.deepStrictEqual(single.prefill, { instance: "P1.Controller", parameterRecord: "P1.Parameters", manipulatedVariable: "P1.AppliedPowerPct",
-      setpoint: "P1.SetpointC", manualOutput: "P1.ManualOutput", computed: { processValue: "P1.SafeProcessValueC" } },
-      "a computed measurement link is not prefilled, but named so that the form can say why");
+      setpoint: "P1.SetpointC", processValue: "P1.Controller.StateValue.ProcessValue", manualOutput: "P1.ManualOutput" },
+      "the PID's own measurement is prefilled: what its Update received, whatever the program computed it from");
     const pair = api.setupFormModel(cascade);
     assert.strictEqual(pair.structure, "cascade");
     assert.deepStrictEqual(pair.cascade, { outer: "P1.Outer", inner: "P1.Inner" });
@@ -137,7 +156,7 @@ suite("Control Studio loop setup from compiled facts", () => {
       processVariable: { symbol: "P1.TemperatureC", unit: "degC", minimum: 0, maximum: 80 },
       manipulatedVariable: { symbol: "P1.AppliedPowerPct", unit: "%", minimum: 0, maximum: 100 },
       setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualOutput", startupFlag: "P1.Initialized",
-      experimentDurationSeconds: 60,
+      experimentStep: 10, experimentDurationSeconds: 60,
     });
     assert.strictEqual(validateControlLoopDefinition(loop, scope).kind, "accepted");
     assert.doesNotThrow(() => libraryPidInitialization(loop));
@@ -165,7 +184,7 @@ suite("Control Studio loop setup from compiled facts", () => {
     const inner = api.pidLoopDefinition(cascade, { ...scope, name: "Vessel temperature · inner loop", instance: "P1.Inner", action: "direct",
       parameterRecord: "P1.InnerParameters", processVariable: { symbol: "P1.JacketC", unit: "degC", minimum: 0, maximum: 90 },
       manipulatedVariable: { symbol: "P1.HeaterPct", unit: "%", minimum: 0, maximum: 100 }, setpoint: { symbol: "P1.OuterManual" },
-      mode: { symbol: "P1.InnerAuto", whenTrue: "Auto" }, manualOutput: "P1.InnerManual", experimentDurationSeconds: 3 });
+      mode: { symbol: "P1.InnerAuto", whenTrue: "Auto" }, manualOutput: "P1.InnerManual", experimentStep: 10, experimentDurationSeconds: 3 });
     inner.cascade = { role: "inner", partnerLoopId: "loop:vessel-temperature-outer",
       referenceHold: { modeSymbol: "P1.OuterAuto", manualValue: false, manualOutputSymbol: "P1.OuterManual" } };
     assert.deepStrictEqual(inner.cascade.referenceHold, { modeSymbol: "P1.OuterAuto", manualValue: false, manualOutputSymbol: "P1.OuterManual" },
@@ -188,9 +207,9 @@ suite("Control Studio loop setup from compiled facts", () => {
       ? { ...link, fields: { ...link.fields, ManualOutput: ["P1.OuterManual"] } } : link) };
     assert.deepStrictEqual(api.setupFormModel(addressedCascade).prefills, [
       { instance: "P1.Inner", parameterRecord: "P1.InnerParameters", manipulatedVariable: "P1.HeaterPct", setpoint: "P1.JacketSetpointC",
-        processValue: "P1.JacketC", manualOutput: "P1.InnerManual" },
+        processValue: "P1.Inner.StateValue.ProcessValue", manualOutput: "P1.InnerManual" },
       { instance: "P1.Outer", parameterRecord: "P1.OuterParameters", manipulatedVariable: "P1.JacketSetpointC", setpoint: "P1.VesselSetpointC",
-        processValue: "P1.VesselC", manualOutput: "P1.OuterManual" },
+        processValue: "P1.Outer.StateValue.ProcessValue", manualOutput: "P1.OuterManual" },
     ], "each controller's record, signals and manual output come from its own Configure and Update calls");
   });
 
@@ -201,14 +220,16 @@ suite("Control Studio loop setup from compiled facts", () => {
     assert.deepStrictEqual(api.cascadePairs(api.pidCandidates(singleLoop)), []);
   });
 
-  test("leaves the identification duration to the engineer instead of assuming a process speed", () => {
+  test("sets up a loop without an identification step or duration, leaving them to Identify and Limits (B1.3)", () => {
     const api = setup();
     const draft = { ...scope, name: "Heater temperature", instance: "P1.Controller", action: "direct", parameterRecord: "P1.Parameters",
       processVariable: { symbol: "P1.TemperatureC", unit: "degC", minimum: 0, maximum: 80 },
       manipulatedVariable: { symbol: "P1.AppliedPowerPct", unit: "%", minimum: 0, maximum: 100 },
       setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualOutput" };
-    assert.throws(() => api.pidLoopDefinition(singleLoop, draft), /identification duration/i);
-    assert.throws(() => api.cascadeLoopDefinition(cascade, { ...cascadeTogetherDraft(), experimentDurationSeconds: undefined }), /identification duration/i);
+    assert.strictEqual(api.pidLoopDefinition(singleLoop, draft).experiment, undefined, "setup writes no experiment values the engineer did not set");
+    // cascadeTogetherDraft() supplies both values, and explicitExperiment accepts only both or neither: clear both.
+    assert.strictEqual(api.cascadeLoopDefinition(cascade, { ...cascadeTogetherDraft(), experimentStep: undefined, experimentDurationSeconds: undefined })
+      .experiment, undefined);
     assert.throws(() => api.identifyLoopDefinition(singleLoop, { ...scope, name: "Plant",
       manipulatedVariable: { symbol: "P1.AppliedPowerPct", unit: "%", minimum: 0, maximum: 100 },
       processVariable: { symbol: "P1.TemperatureC", unit: "degC", minimum: 0, maximum: 80 } }), /identification duration/i);

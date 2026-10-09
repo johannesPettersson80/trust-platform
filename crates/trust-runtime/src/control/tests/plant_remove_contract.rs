@@ -39,7 +39,7 @@ plant = "oven"
 kind = "reset_plant"
 "#;
     write_file(&root.join("simulation.toml"), original);
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let read = handle_request_value(
         json!({
@@ -80,15 +80,24 @@ kind = "reset_plant"
     assert!(saved.contains("# retained heading"));
     assert!(saved.contains("# keep this plant and its event"));
     let document: toml::Value = toml::from_str(&saved).expect("valid saved TOML");
-    let plants = document.get("plants").and_then(toml::Value::as_array).unwrap();
+    let plants = document
+        .get("plants")
+        .and_then(toml::Value::as_array)
+        .unwrap();
     assert_eq!(plants.len(), 1);
-    assert_eq!(plants[0].get("id").and_then(toml::Value::as_str), Some("oven"));
+    assert_eq!(
+        plants[0].get("id").and_then(toml::Value::as_str),
+        Some("oven")
+    );
     let events = document
         .get("plant_events")
         .and_then(toml::Value::as_array)
         .expect("remaining plant events");
     assert_eq!(events.len(), 1);
-    assert_eq!(events[0].get("plant").and_then(toml::Value::as_str), Some("oven"));
+    assert_eq!(
+        events[0].get("plant").and_then(toml::Value::as_str),
+        Some("oven")
+    );
     assert_eq!(
         fs::read_dir(&root)
             .unwrap()
@@ -118,7 +127,7 @@ gain = 1.0
 time_constant_s = 5.0
 "#;
     write_file(&root.join("simulation.toml"), original);
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let read = handle_request_value(
         json!({
@@ -133,7 +142,13 @@ time_constant_s = 5.0
     .expect("read result");
 
     for (request_id, operation_id, revision, plant_id, expected_code) in [
-        (6611, "stale-remove", json!("sha256:stale"), "tank", "revision_conflict"),
+        (
+            6611,
+            "stale-remove",
+            json!("sha256:stale"),
+            "tank",
+            "revision_conflict",
+        ),
         (
             6612,
             "missing-remove",
@@ -160,7 +175,10 @@ time_constant_s = 5.0
         );
         assert!(!response.ok, "{operation_id} must fail");
         assert_eq!(response.error_code.as_deref(), Some(expected_code));
-        assert_eq!(fs::read_to_string(root.join("simulation.toml")).unwrap(), original);
+        assert_eq!(
+            fs::read_to_string(root.join("simulation.toml")).unwrap(),
+            original
+        );
     }
 
     fs::remove_dir_all(root).expect("remove plant-remove failures fixture");

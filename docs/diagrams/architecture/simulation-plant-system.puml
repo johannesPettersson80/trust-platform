@@ -34,10 +34,14 @@ component "trust-runtime plant serve\nstopped-project producer" as offline_trans
 component "Shared plant handler\nPlantHandlerContext" as plant_operations
 component "PlantControlService\nrevision + idempotency" as plant_service
 component "Scheduler command boundary\nstatus / trace / scoped clear" as scheduler_boundary
+component "config.set\nsimulation.time_scale\nrefused without simulation" as config_speed
+component "Control status\nsimulation_time_scale +\nsimulation_achieved_time_scale" as status_speed
+component "RuntimeMetrics\nper-resource achieved speed" as metrics_speed
 
 component "PLC program\nControl.PID" as plc
 component "Process image\n%Q command / %I feedback" as io
 component "Program storage\nunaddressed command / read-only feedback variables" as program_storage
+component "Controller measurement\npid:<instance> feedback, given to that\nControl.PID's Update as Input.ProcessValue" as controller_measurement
 component "SimulationController\npre/post-cycle orchestration" as simulation
 note right of simulation
 Model-structure teaching project: the existing continuous state-space
@@ -60,6 +64,20 @@ package "PlantSystem" {
   component "Model-validity bounds\ninput + state + output" as validity
   component "Preallocated checkpoint\nfailed-substep rollback" as checkpoint
 }
+
+package "Simulation time (spec 33 §6.1)" as simTime {
+  component "Resource loop\nrunner_loop.rs: each cycle paced at\ncycle interval / time_scale; pause, resume\nand a speed change restart the schedule" as sim_loop
+  component "CycleTiming\ncycle_timing.rs: one exact step per\nexecuted cycle; wall clock without simulation" as sim_timing
+  component "SimulationSpeed\nshared time_scale 1..100\nnew speed applies from the next cycle" as sim_speed
+  component "AchievedSpeedWindow\nsimulation span / wall span over the\nlast 5 s, reported after 1 s of wall time" as sim_achieved
+  component "VS Code simulator\ntrust-debug SimulatorClock\nsame pacing and achieved-speed rules" as vscode_sim
+}
+
+note right of sim_timing
+Simulation time is the runtime's process time while simulation
+is enabled. Wall-clock time and CPU duration do not enter plant
+equations. A zero cycle interval reads the scaled wall clock.
+end note
 
 safety --> simulation : permits nonphysical drivers only
 plant_contract --> device_graph : typed topology state
@@ -107,9 +125,22 @@ plant --> numeric : queue complete feedback
 numeric --> simulation : checked encoded batch
 simulation --> io : next pre-cycle atomic publication
 simulation --> program_storage : then symbolic feedback, all values checked first
+simulation --> controller_measurement : held for the scan; cleared with the plant
+controller_measurement --> plc : the PID's Update receives it; program variables unchanged
 io --> plc : next scan reads feedback
 plant --> observability : completed state and fault context
 observability --> plant_operations : honest status + bounded trace
+live_transport --> config_speed : config.set request
+config_speed --> sim_speed : set on the running resource\nfrom the next cycle; never moves time
+sim_speed --> sim_loop : speed in force before each cycle
+sim_loop --> sim_timing : begin_cycle(wall time, cycle interval)
+sim_loop --> simulation : pre-cycle and post-cycle hooks
+sim_timing --> simulation : process time of the executed cycle
+sim_timing --> sim_achieved : simulation time per wall time
+sim_achieved --> metrics_speed : achieved speed published
+metrics_speed --> status_speed : read by control status
+live_transport --> status_speed : status request
+vscode_sim ..> sim_timing : same rules
 
 note right of plant_contract
 Transport-independent contract.

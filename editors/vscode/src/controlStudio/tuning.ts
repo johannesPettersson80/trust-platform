@@ -1,4 +1,5 @@
 import type { IdentifiedModel } from "./identification";
+import { gainSignContradiction, requiredGainSign } from "./numerics/identification";
 
 export interface FrequencyPoint { frequencyRadPerSecond: number; magnitudeDb: number; phaseDegrees: number }
 export interface FrequencyResult { points: readonly FrequencyPoint[]; gainMarginDb: number; phaseMarginDegrees: number }
@@ -12,20 +13,6 @@ export interface TuningResult {
   objective: TuningObjective;
   convention: "Parallel Control.PID";
   closedLoopTimeSeconds?: number;
-}
-
-export interface TuningAttempt {
-  method: TuningMethod;
-  status: "Feasible" | "Unavailable";
-  result?: TuningResult;
-  reason?: string;
-}
-
-export interface QualifiedTuningComparison {
-  applied: false;
-  objective: TuningObjective;
-  model: IdentifiedModel;
-  attempts: readonly TuningAttempt[];
 }
 
 export interface TuningMethodDescription {
@@ -55,23 +42,26 @@ export function describeTuningMethod(
   method: TuningMethod,
   objective: TuningObjective,
   plantInputUnit: string,
-  plantOutputUnit: string
+  plantOutputUnit: string,
+  action: "direct" | "reverse"
 ): TuningMethodDescription {
   const title = method === "SIMC" ? "SIMC PI (Skogestad 2003)" : "AMIGO PI (Åström and Hägglund 2004)";
   const integrating = model.kind === "integrating";
+  // N6.1 and N6.4: the formulas run on gain magnitudes; s multiplies Kp and Kd by the action's sign.
+  const sign = "s = +1 when the output increases while the measurement is below the setpoint, and -1 when the output increases while the measurement is above the setpoint; the formulas use gain magnitudes.";
   const assumptions = method === "SIMC" && integrating
-    ? ["Accepted monotone integrating model with positive rate gain and resolved positive effective delay.",
-      "The response choice selects lambda; limits and acceptance requirements do not change."]
+    ? ["Accepted monotone integrating model with resolved positive effective delay and a nonzero rate gain: a positive rate gain suits a loop that increases the output while the measurement is below the setpoint; a negative rate gain suits a loop that increases the output while the measurement is above the setpoint.",
+      "The response choice selects lambda; limits and acceptance requirements do not change.", sign]
     : method === "SIMC"
-      ? ["Accepted stable monotone positive-gain first-order or FOPDT model.",
-      "The response choice selects lambda; limits and acceptance requirements do not change."]
-    : ["Accepted stable monotone positive-gain FOPDT model with resolved positive dead time.",
-      "The qualified domain is 0 < L/T <= 1; Response changes ranking, not the published coefficients."];
+      ? ["Accepted stable monotone model: a positive-gain first-order or FOPDT model suits a loop that increases the output while the measurement is below the setpoint; a negative-gain model suits a loop that increases the output while the measurement is above the setpoint.",
+      "The response choice selects lambda; limits and acceptance requirements do not change.", sign]
+    : ["Accepted stable monotone model with resolved positive dead time: a positive-gain FOPDT model suits a loop that increases the output while the measurement is below the setpoint; a negative-gain model suits a loop that increases the output while the measurement is above the setpoint.",
+      "The qualified domain is 0 < L/T <= 1; Response changes ranking, not the published coefficients.", sign];
   const equations = method === "SIMC" && integrating
-    ? ["Kp = 1 / (Kprime (lambda + L))", "Ti = 4 (lambda + L)", "Ki = Kp / Ti", "Kd = 0"]
+    ? ["Kp = s / (|Kprime| (lambda + L))", "Ti = 4 (lambda + L)", "Ki = Kp / Ti", "Kd = 0"]
     : method === "SIMC"
-      ? ["Kp = T / (K (lambda + L))", "Ti = min(T, 4 (lambda + L))", "Ki = Kp / Ti", "Kd = 0"]
-    : ["Kp = 0.15/K + (0.35 - LT/(L+T)^2) T/(KL)",
+      ? ["Kp = s T / (|K| (lambda + L))", "Ti = min(T, 4 (lambda + L))", "Ki = Kp / Ti", "Kd = 0"]
+    : ["Kp = s (0.15/|K| + (0.35 - LT/(L+T)^2) T/(|K| L))",
       "Ti = 0.35L + 13LT^2/(T^2 + 12LT + 7L^2)", "Ki = Kp / Ti", "Kd = 0"];
   const units = {
     plantGain: integrating
@@ -84,7 +74,8 @@ export function describeTuningMethod(
   const base = { method, title, applied: false as const, convention: "Parallel Control.PID" as const,
     assumptions, equations, units };
   try {
-    const result = tuneController(model, { method, objective });
+    // The same gain unit as Identify's refusal, so both messages read alike (recordedModelIdentification.ts checkGainSign).
+    const result = tuneController(model, { method, objective, action, unit: `${plantOutputUnit}/${plantInputUnit}${integrating ? "/s" : ""}` });
     const ti = result.controller.tiSeconds!;
     const inputs: Array<{ name: string; value: number | string; unit: string }> = [
       { name: integrating ? "Kprime" : "K", value: model.gain, unit: units.plantGain },
@@ -120,38 +111,42 @@ export function frequencyResponse(_model: IdentifiedModel): FrequencyResult {
 
 export function tuneController(
   model: IdentifiedModel,
-  options: { method: TuningMethod; objective: TuningObjective }
+  options: { method: TuningMethod; objective: TuningObjective; action: "direct" | "reverse"; unit?: string }
 ): TuningResult {
-  validateTuningModel(model, options.method);
+  validateTuningModel(model, options);
   const integrating = model.kind === "integrating";
   if (!integrating && model.kind !== "first_order" && model.kind !== "first_order_dead_time") {
     throw new Error(`${options.method} PI tuning requires a stable first-order model.`);
   }
   const delay = model.deadTimeSeconds ?? 0;
-  let kp: number;
+  // N5.1: the formulas run on the gain magnitude; N6.4 then gives Kp the sign of the action.
+  const gain = Math.abs(model.gain);
+  let kpMagnitude: number;
   let tiSeconds: number;
   let closedLoopTimeSeconds: number | undefined;
   if (options.method === "SIMC") {
     const tau = model.timeConstantSeconds;
     const fastest = integrating ? delay : Math.max(delay, tau! / 3);
     closedLoopTimeSeconds = fastest * (options.objective === "fast" ? 1 : options.objective === "balanced" ? 2 : 4);
-    kp = integrating
-      ? 1 / (model.gain * (closedLoopTimeSeconds + delay))
-      : tau! / (model.gain * (closedLoopTimeSeconds + delay));
+    kpMagnitude = integrating
+      ? 1 / (gain * (closedLoopTimeSeconds + delay))
+      : tau! / (gain * (closedLoopTimeSeconds + delay));
     tiSeconds = integrating
       ? 4 * (closedLoopTimeSeconds + delay)
       : Math.min(tau!, 4 * (closedLoopTimeSeconds + delay));
   } else {
     const tau = model.timeConstantSeconds!;
     const sum = delay + tau;
-    kp = 0.15 / model.gain
-      + (0.35 - delay * tau / (sum * sum)) * tau / (model.gain * delay);
+    kpMagnitude = 0.15 / gain
+      + (0.35 - delay * tau / (sum * sum)) * tau / (gain * delay);
     tiSeconds = 0.35 * delay
       + 13 * delay * tau * tau / (tau * tau + 12 * delay * tau + 7 * delay * delay);
   }
-  if (![kp, tiSeconds].every((value) => Number.isFinite(value) && value > 0)) {
+  if (![kpMagnitude, tiSeconds].every((value) => Number.isFinite(value) && value > 0)) {
     throw new Error("The model does not yield finite positive PI settings.");
   }
+  // N6.4: Kp = s_a |Kp|. Ki = Kp / Ti then takes the same sign, because Ti > 0.
+  const kp = requiredGainSign(options.action) * kpMagnitude;
   return {
     applied: false,
     controller: { structure: "PI", kp: rounded(kp), tiSeconds: rounded(tiSeconds) },
@@ -163,31 +158,17 @@ export function tuneController(
   };
 }
 
-/** Runs every qualified formula adapter against one unchanged accepted model. */
-export function compareQualifiedTunings(
-  model: IdentifiedModel,
-  objective: TuningObjective
-): QualifiedTuningComparison {
-  const attempts = (["SIMC", "AMIGO"] as const).map((method): TuningAttempt => {
-    try {
-      return { method, status: "Feasible", result: tuneController(model, { method, objective }) };
-    } catch (error) {
-      return { method, status: "Unavailable",
-        reason: error instanceof Error ? error.message : String(error) };
-    }
-  });
-  return { applied: false, objective, model: { ...model }, attempts };
-}
-
 function loopFrequency(model: IdentifiedModel, kp: number, tiSeconds: number): FrequencyResult {
   validateModel(model);
   const baseTau = model.timeConstantSeconds ?? model.secondTimeConstantSeconds ??
     Math.max(model.deadTimeSeconds ?? 0, 1);
+  // The phase starts at 0 degrees when the plant and controller gains share a sign (K Kp > 0), at -180 degrees otherwise.
+  const startPhase = Math.sign(model.gain) * Math.sign(kp) < 0 ? -180 : 0;
   const points: FrequencyPoint[] = [];
   for (let index = 0; index < 80; index += 1) {
     const frequency = (1e-3 / baseTau) * Math.pow(1e6, index / 79);
     let magnitude = Math.abs(model.gain);
-    let phase = model.gain < 0 ? -180 : 0;
+    let phase = startPhase;
     if (model.kind === "integrating") {
       magnitude /= frequency;
       phase -= 90;
@@ -197,7 +178,7 @@ function loopFrequency(model: IdentifiedModel, kp: number, tiSeconds: number): F
     }
     phase -= frequency * (model.deadTimeSeconds ?? 0) * 180 / Math.PI;
     if (Number.isFinite(tiSeconds)) {
-      magnitude *= kp * Math.sqrt(1 + 1 / (frequency * tiSeconds) ** 2);
+      magnitude *= Math.abs(kp) * Math.sqrt(1 + 1 / (frequency * tiSeconds) ** 2);
       phase -= Math.atan(1 / (frequency * tiSeconds)) * 180 / Math.PI;
     }
     points.push({ frequencyRadPerSecond: frequency, magnitudeDb: 20 * Math.log10(magnitude), phaseDegrees: phase });
@@ -221,9 +202,12 @@ function validateModel(model: IdentifiedModel): void {
   }
 }
 
-function validateTuningModel(model: IdentifiedModel, method: TuningMethod): void {
+function validateTuningModel(model: IdentifiedModel, options: { method: TuningMethod; action: "direct" | "reverse"; unit?: string }): void {
+  const method = options.method;
   validateModel(model);
-  if (model.gain <= 0) throw new Error(`${method} PI tuning requires a finite positive gain.`);
+  // N6.3: a gain whose sign contradicts the controller action is refused with the same reason Identify gives.
+  const contradiction = gainSignContradiction(model.gain, options.unit ?? "", options.action);
+  if (contradiction) throw new Error(contradiction);
   if (!Number.isFinite(model.normalizedError) || model.normalizedError > 0.25) {
     throw new Error(`${method} PI tuning requires accepted model error no greater than 0.25.`);
   }

@@ -17,7 +17,6 @@ The canonical public navigation is the docs-site examples section:
 - `docs/public/examples/index.md`
 - `docs/public/examples/tutorials.md`
 - `docs/public/examples/test-and-debug.md`
-- `docs/public/examples/hmi.md`
 - `docs/public/examples/connectivity.md`
 - `docs/public/examples/runtime-cloud.md`
 - `docs/public/examples/visual-editors.md`
@@ -55,9 +54,11 @@ code /path/to/trust-platform
 | Category | Start Here | What You Learn | Typical Time |
 |---|---|---|---|
 | Control engineering | `examples/control/README.md` | feedback, modelling, PID, loop engineering, digital control, and modern control | 25-45 min per lesson |
-| Tutorials | `examples/tutorials/README.md` | language basics, testing, bootstrap, deploy, networking, simulation, safety, HMI, CI/CD, observability | 60-360 min |
+| Tutorials | `examples/tutorials/README.md` | language basics, testing, bootstrap, deploy, networking, simulation, safety, CI/CD, observability | 60-360 min |
 | Test and debug | `examples/memory_marker_counter/README.md` | runtime/process-image mental model and debugger confirmation | 20-30 min |
-| HMI | `examples/tutorials/12_hmi_pid_process_dashboard/README.md` | HMI pages, bindings, live refresh | 35-55 min |
+| HMI | `examples/hmi_tank_level/README.md` | screens built in the HMI Builder: live values, setpoint, trend, alarms, Live mode, deploy and roll back | 30-45 min |
+| HMI | `examples/hmi_equipment/README.md` | the Equipment library's pump, control valve, tank and PID loop, each opening its shipped faceplate | 20-30 min |
+| HMI | `examples/room_heating/README.md` | a room heating built in the HMI Builder: tank and room PID loops written by Create PLC code and set up in Control Studio, start/stop sequence, protections, alarms, settings and three languages | 45-60 min |
 | Connectivity | `examples/communication/README.md` | Modbus/TCP, MQTT, OPC UA, EtherCAT, GPIO, multi-driver | 120-220 min |
 | Runtime cloud | `examples/runtime_cloud/README.md` | profiles, preflight/dispatch, federation allowlists | 30-60 min |
 | Visual editors | `examples/ladder/README.md`, `examples/statecharts/README.md`, `examples/blockly/README.md` | visual authoring surfaces tied to companion ST | 15-45 min |
@@ -95,9 +96,8 @@ goal; keep the two aligned at the category level.
 14. `examples/tutorials/16_secure_remote_access/README.md`
 15. `examples/tutorials/15_multi_plc_discovery_mesh/README.md`
 16. `examples/runtime_cloud/README.md`
-17. `examples/tutorials/20_hmi_write_enablement/README.md`
-18. `examples/tutorials/21_ci_cd_project_pipeline/README.md`
-19. `examples/tutorials/22_neovim_zed_workflow/README.md`
+17. `examples/tutorials/21_ci_cd_project_pipeline/README.md`
+18. `examples/tutorials/22_neovim_zed_workflow/README.md`
 19. `examples/tutorials/23_observability_historian_prometheus/README.md`
 20. Choose specialization:
    - Interop: `examples/plcopen_xml_st_complete/README.md`

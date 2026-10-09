@@ -1,4 +1,5 @@
 import { pidOperatingState } from "./pidOperatingState";
+import { measuredPid, plantFeedbackTarget } from "./pidMeasurement";
 import { decodeAutomaticTestCriteria, type AutomaticTestCriteria } from "./automaticTestCriteria";
 import { libraryPidInitialization } from "./libraryPidInitialization";
 import { initializationValues } from "./controllerInitialState";
@@ -10,7 +11,9 @@ import type { ControlLoopDefinition } from "./loopDefinition";
 import type { ParameterBinding } from "./parameterBinding";
 import { materializeSelectedModelSimulation } from "./modelSimulation";
 import type { RuntimeVerificationRequest } from "./verificationClient";
+import { isolatedRecordEvery } from "./isolatedRunSampling";
 import type { RunRequirement } from "./runValidation";
+import { ISOLATED_SIMULATION_DURATION_LIMIT_MS, ISOLATED_SIMULATION_SAMPLE_LIMIT, ISOLATED_SIMULATION_SCAN_LIMIT, ISOLATED_SIMULATION_WALL_TIME_LIMIT_MS, MAXIMUM_EXPERIMENT_DURATION_MS, recordPeriodExecutions } from "./controlStudioLimits";
 
 export interface EngineerRequirements {
   automaticCriteria?: AutomaticTestCriteria;
@@ -21,6 +24,8 @@ export interface EngineerRequirements {
   maximumError: number;
   settlingBand: number;
   settlingTimeSeconds: number;
+  /** Percent of the setpoint change; absent declares no overshoot limit (Specification 35 B4.3). */
+  maximumOvershootPercent?: number;
   durationSeconds: number;
   transferTolerance?: number;
   tuningMethod?: "SIMC" | "AMIGO";
@@ -28,12 +33,15 @@ export interface EngineerRequirements {
   channelRequirements?: Readonly<Record<string, ChannelRequirements>>;
 }
 
+/** The largest declared overshoot limit, in percent of the setpoint change. */
+export const MAXIMUM_OVERSHOOT_PERCENT = 1000;
+
 export function engineerRequirements(value: Record<string, unknown>): EngineerRequirements {
   const keys = ["referenceChange", "maximumError", "settlingBand", "settlingTimeSeconds", "durationSeconds"] as const;
   if (!keys.every(key => typeof value[key] === "number" && Number.isFinite(value[key]))) throw new Error("Enter finite task requirements.");
   const result = Object.fromEntries(keys.map(key => [key, value[key]])) as unknown as EngineerRequirements;
   if (!result.referenceChange || result.settlingBand <= 0 || result.maximumError <= result.settlingBand
-      || result.settlingTimeSeconds <= 0 || result.durationSeconds <= result.settlingTimeSeconds || result.durationSeconds > 600) {
+      || result.settlingTimeSeconds <= 0 || result.durationSeconds <= result.settlingTimeSeconds || result.durationSeconds > MAXIMUM_EXPERIMENT_DURATION_MS / 1_000) {
     throw new Error("Use a nonzero target change, positive response time, a smaller settling allowance than the error limit, and a longer test duration.");
   }
   if (value.transferTolerance !== undefined) {
@@ -50,6 +58,8 @@ export function engineerRequirements(value: Record<string, unknown>): EngineerRe
     if (value.tuningObjective !== "balanced" && value.tuningObjective !== "robust" && value.tuningObjective !== "fast") throw new Error("Choose a supported tuning objective.");
     result.tuningObjective = value.tuningObjective;
   }
+  const maximumOvershootPercent = decodeMaximumOvershootPercent(value.maximumOvershootPercent, "Maximum overshoot");
+  if (maximumOvershootPercent !== undefined) result.maximumOvershootPercent = maximumOvershootPercent;
   for (const key of ["constantInputDisturbance", "measurementNoiseBand", "gainUncertaintyFraction"] as const) {
     if (value[key] === undefined) continue;
     const bound = value[key];
@@ -77,7 +87,18 @@ function decodeChannelRequirements(value: unknown): Record<string, ChannelRequir
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const entries = Object.entries(value);
   if (entries.length === 0 || entries.length > 16 || entries.some(([key, requirement]) => !key.trim() || !validChannelRequirements(requirement))) return undefined;
+  // An output's own limit is named by that output, so an invalid one says where it is.
+  for (const [key, requirement] of entries) decodeMaximumOvershootPercent(requirement.maximumOvershootPercent, `Maximum overshoot for ${key}`);
   return Object.fromEntries(entries) as Record<string, ChannelRequirements>;
+}
+
+/** A declared overshoot limit in percent of the setpoint change; a blank value declares no limit (Specification 35 B4.3). */
+function decodeMaximumOvershootPercent(value: unknown, label: string): number | undefined {
+  if (value === undefined || value === null || typeof value === "string" && value.trim() === "") return undefined;
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || value > MAXIMUM_OVERSHOOT_PERCENT) {
+    throw new Error(`${label} must be blank for no limit, or a finite value above 0 and at most ${MAXIMUM_OVERSHOOT_PERCENT} % of the setpoint change.`);
+  }
+  return value;
 }
 
 /** Uses an explicitly declared existing P law; variable names never imply control semantics. */
@@ -117,16 +138,24 @@ export function engineerVerificationPlan(
   if (!Number.isInteger(step) || step < 1 || step > 1000) throw new Error("This runtime adapter requires a whole-millisecond task period from 1 to 1000.");
   const duration = Math.ceil(task.durationSeconds * 1000 / step) * step;
   const settled = responseDeadlineSeconds(task.settlingTimeSeconds, step);
-  if (duration > 600000 || settled >= duration / 1000 || duration / step + 1 > 12000) throw new Error("Choose a run of at most 12000 samples with observations after the response deadline.");
+  // A long run is recorded with a record period, so its samples fit the run's sample and channel-sample limits (A7, A4.2;
+  // verificationClient.ts isolatedRecordEvery). Only its duration and its scans per job are bounded here.
+  if (duration > ISOLATED_SIMULATION_DURATION_LIMIT_MS || settled >= duration / 1000) {
+    throw new Error("Choose a validation of at most 24 h that runs past the response deadline.");
+  }
+  if (duration / step + 1 > ISOLATED_SIMULATION_SCAN_LIMIT) {
+    throw new Error(`Validation would execute ${duration / step + 1} scans; the runtime executes at most ${ISOLATED_SIMULATION_SCAN_LIMIT} per run. Shorten the test duration.`);
+  }
   const states = model.kind === "transfer-function" ? model.denominator.length - 1 : model.states.length;
   const initialInputs = channels.inputs.map((input, index) => {
     const origin = model.operatingPoint?.inputs[index] ?? 0;
     return input.actuator.kind === "on-off" && origin !== input.actuator.maximum ? input.actuator.minimum : origin;
   });
   const materialized = materializeSelectedModelSimulation(model, {
-    // A signal without an address is the program variable itself (Specification 33 §13.1–§13.2).
+    // A signal without an address is the program variable itself (Specification 33 §13.1–§13.2); a PID's own measurement is
+    // given to that PID as what its Update receives, whatever the program computes it from.
     plantId: "selected-model", commandSources: channels.inputs.map(input => input.signal.address ?? input.signal.symbol),
-    feedbackTargets: channels.outputs.map(output => output.signal.address ?? output.signal.symbol), actuatorFeedbackTargets: channels.inputs.map(input => input.applied?.address && !channels.outputs.some(output => output.signal.address === input.applied!.address) ? input.applied.address : null), initialState: initialModelState ?? channels.initialState ?? Array<number>(states).fill(0),
+    feedbackTargets: channels.outputs.map(output => plantFeedbackTarget(loop, output.signal)), actuatorFeedbackTargets: channels.inputs.map(input => input.applied?.address && !channels.outputs.some(output => output.signal.address === input.applied!.address) ? input.applied.address : null), initialState: initialModelState ?? channels.initialState ?? Array<number>(states).fill(0),
     initialInput: initialInputs.map((value, index) => value - (model.operatingPoint?.inputs[index] ?? 0)),
     initialDelayedInput: initialInputs[0] - (model.operatingPoint?.inputs[0] ?? 0), stepMs: step,
     actuators: channels.inputs.map(input => input.actuator),
@@ -138,7 +167,6 @@ export function engineerVerificationPlan(
     output.reference ? [output.signal, output.reference] : [output.signal]), ...(loop.signals.additional ?? [])];
   const observations = [...new Map([...primary, ...binding.parameters, ...(initialization?.states ?? [])].map(signal =>
     [signal.symbol, { symbol: signal.symbol, unit: signal.unit }])).values()];
-  if ((duration / step + 1) * observations.length > 250000) throw new Error("Verification exceeds the native channel-sample budget; shorten the duration or increase the task period.");
   if (observations.length > 64) throw new Error("Verification supports at most 64 observed channels, including parameters.");
   for (const parameter of binding.parameters) {
     const value = values[parameter.symbol];
@@ -154,8 +182,10 @@ export function engineerVerificationPlan(
     // Further controllers switched with the loop, such as a cascade's outer one, run in Auto too (Specification 35 §17.11).
     ...Object.fromEntries((loop.controller.project?.additionalModes ?? []).map(mode => [mode.symbol, Number(!mode.manualValue)])),
   };
+  // A PID's own measurement is both one of its states and the observed measurement: the model gives it to the PID.
   if (initialization?.states.some(state => binding.parameters.some(parameter => parameter.symbol === state.symbol)
-    || [...channels.inputs.map(input => input.signal), ...channels.outputs.flatMap(output => output.reference ? [output.signal, output.reference] : [output.signal])].some(signal => signal.symbol === state.symbol) || state.symbol === binding.mode.symbol)) {
+    || [...channels.inputs.map(input => input.signal), ...channels.outputs.flatMap(output => output.reference ? [output.signal, output.reference] : [output.signal])]
+      .some(signal => signal.symbol === state.symbol && measuredPid(loop, signal.symbol) === undefined) || state.symbol === binding.mode.symbol)) {
     throw new Error("Controller initial states cannot overlap parameters, observed process channels or mode ownership.");
   }
   for (const [index, input] of channels.inputs.entries()) initialValues[input.signal.symbol] = initialInputs[index];
@@ -186,6 +216,12 @@ export function engineerVerificationPlan(
         target, band: required.maximumError, deadlineSeconds: deadline, holdSeconds: window.end - deadline, window },
       { id: `${prefix}target-error`, kind: "error", channel: output.signal.symbol, reference: { channel: output.reference.symbol },
         statistic: "maximum", maximum: required.maximumError, window: { start: deadline, end: window.end } });
+      // A declared overshoot limit bounds the peak of this setpoint step, in output units. A run that applies no step declares none.
+      const overshootPercent = (required as ChannelRequirements & Pick<EngineerRequirements, "maximumOvershootPercent">).maximumOvershootPercent;
+      if (overshootPercent !== undefined && required.referenceChange !== 0) {
+        requirements.push({ id: `${prefix}overshoot`, kind: "overshoot", channel: output.signal.symbol, window,
+          initial: model.operatingPoint?.outputs[index] ?? 0, target, maximum: overshootPercent / 100 * Math.abs(required.referenceChange) });
+      }
     }
     requirements.push({ id: `${prefix}process-bounds`, kind: "bounds", channel: output.signal.symbol, window,
       minimum: Math.max(output.signal.range.minimum, model.outputs[index].operatingRange.minimum),
@@ -232,12 +268,17 @@ export function engineerVerificationPlan(
   const condition = (requirement: RunRequirement) => JSON.stringify(Object.entries(requirement).filter(([key]) => key !== "id")
     .sort(([left], [right]) => left.localeCompare(right)));
   const unique = requirements.filter((requirement, index) => requirements.findIndex(other => condition(other) === condition(requirement)) === index);
+  const request: RuntimeVerificationRequest = { step_ms: step, duration_ms: duration, seed: loop.experiment?.seed ?? 1,
+    max_total_cycles: duration / step + 1, wall_budget_ms: ISOLATED_SIMULATION_WALL_TIME_LIMIT_MS,
+    initial_values: initialValues,
+    events: [], observations, simulation_override: materialized.simulation_override,
+    parameter_overrides: binding.parameters.map(parameter => ({ ...parameter, value: values[parameter.symbol] })),
+  };
+  // The controller runs at every execution; the run is recorded at a record period that follows the process (A4.2). An ON/OFF
+  // output's levels and dwell times are checked at every execution, so its run keeps them all.
+  const every = Math.max(isolatedRecordEvery(request), loop.controller.onOff ? 1
+    : recordPeriodExecutions(duration, step, ISOLATED_SIMULATION_SAMPLE_LIMIT, task.settlingTimeSeconds));
   return { coordinates: materialized.stateCoordinateDescription,
-    request: { step_ms: step, duration_ms: duration, seed: loop.experiment?.seed ?? 1,
-      max_total_cycles: duration / step + 1, wall_budget_ms: 10000,
-      initial_values: initialValues,
-      events: [], observations, simulation_override: materialized.simulation_override,
-      parameter_overrides: binding.parameters.map(parameter => ({ ...parameter, value: values[parameter.symbol] })),
-    }, requirements: unique,
+    request: every > 1 ? { ...request, record_every: every } : request, requirements: unique,
   };
 }

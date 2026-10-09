@@ -18,6 +18,7 @@ pub(super) fn start_test_server_with_options_and_profile(
         listen: SmolStr::new(listen.clone()),
         auth,
         tls: false,
+        hmi: Default::default(),
     };
     let _server = start_web_server(&config, state, discovery, pairing, Some(project_root), None)
         .expect("start web server");
@@ -37,6 +38,7 @@ pub(super) fn start_test_server_config_ui(
         listen: SmolStr::new(listen.clone()),
         auth: WebAuthMode::Local,
         tls: false,
+        hmi: Default::default(),
     };
     let _server = trust_runtime::web::start_web_server_with_mode(
         &config,

@@ -71,7 +71,7 @@ function familyGains(loop: ControlLoopDefinition, model: GeneralModel, task: Eng
     try { return { ...designSimpleProportionalController(model, { ...task, constantInputDisturbance: task.constantInputDisturbance ?? 0,
       maximumSteadyError: task.maximumError - task.settlingBand, proportionalGainBounds: { minimum: parameter.minimum, maximum: parameter.maximum } }).candidate,
       integralGain: 0, derivativeGain: 0 }; }
-    catch { return poleMatchedPid(model, "P", task, loop.controller.taskPeriodMs).candidate; }
+    catch { return poleMatchedPid(model, "P", task, loop.controller.taskPeriodMs, loop.controller.action).candidate; }
   // A program's PI/PD/PID is designed to the requirements as Automatic designs Control.PID (Specification 35 §9.2).
   })() : designPidToRequirements(loop, model, family as "PI" | "PD" | "PID", task).candidate;
   return { [seed.proportionalSymbol]: candidate.proportionalGain, ...(seed.integralSymbol ? { [seed.integralSymbol]: candidate.integralGain } : {}),
@@ -96,7 +96,7 @@ export function decentralizedGroupDesign(loop: ControlLoopDefinition, model: Gen
   const members = loop.controller.group?.members;
   if (!members?.length) throw new Error("A decentralized PI seed needs the loop's PID group members.");
   return designDecentralizedPi(model, members.map(member => ({ inputId: member.inputChannelId, outputId: member.outputChannelId })),
-    task.tuningObjective ?? "balanced");
+    task.tuningObjective ?? "balanced", loop.controller.action);
 }
 
 function decentralizedSeed(loop: ControlLoopDefinition, model: GeneralModel, task: EngineerRequirements): Record<string, number> {

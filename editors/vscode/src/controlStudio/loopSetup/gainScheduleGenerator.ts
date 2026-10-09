@@ -1,7 +1,7 @@
 import type { ControlLoopDefinition } from "../loopDefinition";
 import { PID_TYPE, type CompiledCatalog } from "./compiledCatalog";
-import { binding, compiled, identificationDuration, loopId, measurementBinding, realType, withRevision, type MeasuredSignal } from "./loopBindings";
-import { pidStates, startupState } from "./pidBindings";
+import { binding, compiled, explicitExperiment, loopId, measurementBinding, realType, withRevision, type MeasuredSignal } from "./loopBindings";
+import { pidStates, startupState, manualOutputTracking } from "./pidBindings";
 import type { ModeChoice, SignalChoice } from "./pidLoopGenerator";
 
 /** A `Control.PID` whose program interpolates its gains from a schedule table over operating points (Specification 35 §17.14). */
@@ -14,6 +14,12 @@ export interface GainScheduleDraft {
   points: readonly { name: string; proportionalGain: string; integralGain: string }[];
   experimentStep?: number; experimentDurationSeconds?: number; startupFlag?: string;
 }
+
+/**
+ * The magnitude bound of each scheduled gain. Its range is symmetric about zero, so a loop whose measurement falls as its
+ * output rises (N6.3) has negative gains within it.
+ */
+const SCHEDULED_GAIN_MAGNITUDE = 1e6;
 
 /** One loop per operating point: identified, tuned, validated and applied there, with the program's schedule active. */
 export function gainScheduleLoopDefinitions(catalog: CompiledCatalog, draft: GainScheduleDraft): ControlLoopDefinition[] {
@@ -30,7 +36,8 @@ export function gainScheduleLoopDefinitions(catalog: CompiledCatalog, draft: Gai
   const setpoint: MeasuredSignal = { symbol: draft.setpoint.symbol, unit: draft.setpoint.unit ?? pv.unit,
     minimum: draft.setpoint.minimum ?? pv.minimum, maximum: draft.setpoint.maximum ?? pv.maximum };
   const manual = compiled(catalog, draft.manualOutput);
-  const gain = (symbol: string, unit: string, convention: string) => ({ symbol, iec_type: realType(compiled(catalog, symbol)), unit, convention, minimum: 0, maximum: 1e6 });
+  const gain = (symbol: string, unit: string, convention: string) => ({ symbol, iec_type: realType(compiled(catalog, symbol)), unit, convention,
+    minimum: -SCHEDULED_GAIN_MAGNITUDE, maximum: SCHEDULED_GAIN_MAGNITUDE });
   return draft.points.map(point => {
     const name = `${draft.name} · ${point.name.trim()}`, id = loopId(`${draft.name} ${point.name}`);
     return withRevision({
@@ -40,6 +47,7 @@ export function gainScheduleLoopDefinitions(catalog: CompiledCatalog, draft: Gai
         instance: draft.instance, type: "Control.PID", design: "project", revision: "sha256:unverified", action: draft.action,
         taskPeriodMs: period, modeSignal: draft.mode.symbol, modeWhenTrue: draft.mode.whenTrue,
         manualOutputSignal: manual.symbol, manualOutputType: realType(manual), ...(manual.address ? { manualOutputAddress: manual.address } : {}),
+        ...manualOutputTracking(catalog, draft.instance, manual.symbol),
         project: {
           family: "gain-scheduled", convention: "project-owned-native-controller",
           initialization: { kind: "declared-state-v1", states: [...pidStates(draft.instance, pv, mv, 0), ...(draft.startupFlag ? [startupState(draft.startupFlag)] : [])] },
@@ -55,8 +63,7 @@ export function gainScheduleLoopDefinitions(catalog: CompiledCatalog, draft: Gai
       },
       limits: { outputMinimum: mv.minimum, outputMaximum: mv.maximum },
       observedSampleTiming: { nominalPeriodMs: period },
-      experiment: { execution: "control-studio", kind: "mv_step", amplitude: draft.experimentStep ?? span / 10,
-        durationSeconds: identificationDuration(name, draft.experimentDurationSeconds), seed: 1 },
+      ...explicitExperiment(name, { execution: "control-studio", kind: "mv_step" }, draft.experimentStep, draft.experimentDurationSeconds),
       parameterBinding: {
         loop_id: id, task_name: task.name, mode: { symbol: draft.mode.symbol, manual_value: draft.mode.whenTrue === "Manual" },
         parameters: [gain(point.proportionalGain, `${mv.unit}/${pv.unit}`, `Scheduled proportional gain at ${point.name.trim()}`),

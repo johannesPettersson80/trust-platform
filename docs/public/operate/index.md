@@ -7,7 +7,6 @@
 | install or supervise a target host | [Install On Target](install-on-target.md) / [Supervision](supervision.md) |
 | run on Linux PREEMPT_RT | [PREEMPT_RT](preempt-rt.md) |
 | ship or roll back a bundle | [Deploy And Rollback](deploy-rollback.md) |
-| operate Browser HMI | [HMI And Web UI](hmi-and-web-ui.md) |
 | follow the operator workflow | [Operator Guide](operator-guide.md) |
 | run daily operator checks | [Operator Daily Checks](operator-daily-checks.md) |
 | respond to alarms | [Operator Alarm Handbook](operator-alarm-handbook.md) |

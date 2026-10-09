@@ -6,6 +6,7 @@ import { stepResponseSettingsProblem, type StepResponseAnalysis, type StepRespon
 import type { IdentificationModelSelection, IdentifiedModelPresentation } from "../identification";
 import type { IdentificationFormDraft } from "../identificationFormDraft";
 import type { SensorLagComparison, StructureChoice } from "../sensorLagComparison";
+import { plainReason } from "./studioFailure";
 
 export type ThreePageIdentificationPost = (kind: string, payload?: Record<string, unknown>) => void;
 type IdentificationStage = "initial" | "imported" | "qualified" | "validation_required" | "acceptance_required" | "accepted" | "failed";
@@ -36,7 +37,9 @@ export class ThreePageIdentification {
   private readonly openValidationRecording?: () => void;
 
   constructor(private readonly root: HTMLElement, private readonly post: ThreePageIdentificationPost,
-    openValidationRecording?: () => void) {
+    openValidationRecording?: () => void,
+    /** The shared stage gate; Identify stays disabled while any page gate reports a block. */
+    private readonly blocked: () => string | undefined = () => undefined) {
     const section = root.querySelector<HTMLElement>("[data-three-page-identification]");
     if (!section) throw new Error("The recorded identification workspace is missing.");
     this.section = section;
@@ -356,14 +359,14 @@ export class ThreePageIdentification {
   private renderPrimaryButton(button: HTMLButtonElement): void {
     if (!this.selectedMethod) return;
     button.textContent = this.primaryActionLabel;
-    button.disabled = this.stage === "accepted" || (this.stage === "acceptance_required" && !this.acceptanceReady);
+    button.disabled = this.stage === "accepted" || (this.stage === "acceptance_required" && !this.acceptanceReady) || this.blocked() !== undefined;
   }
 
 
 }
 
 function record(value: unknown): value is Record<string, any> { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
-function text(value: unknown): string | undefined { return typeof value === "string" && value.length > 0 ? value : undefined; }
+function text(value: unknown): string | undefined { return typeof value === "string" && value.length > 0 ? plainReason(value) : undefined; }
 
 function isSensorLagComparison(value: unknown): value is SensorLagComparison {
   return record(value) && record(value.candidateA) && record(value.candidateB) && record(value.requirements) &&

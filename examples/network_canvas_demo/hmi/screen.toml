@@ -1,0 +1,14 @@
+format = 1
+size = [1280, 664]
+theme = "dark"
+symbols = "flat"
+
+[top_bar]
+title = "Conveyor line"
+clock = true
+alarms = false
+user = false
+page_title = false
+
+[navigation]
+style = "none"

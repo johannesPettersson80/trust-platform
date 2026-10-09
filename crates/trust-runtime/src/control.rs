@@ -36,9 +36,8 @@ use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::mpsc::{RecvTimeoutError, Sender};
+use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 
 use crate::config::ControlMode;
 use crate::debug::{DebugControl, DebugVariableHandles};
@@ -54,10 +53,8 @@ use crate::security::{pairing::PairingStore, AccessRole};
 use crate::settings::RuntimeSettings;
 use crate::value::Value;
 use crate::RestartMode;
-use notify::{Event, RecursiveMode, Watcher};
 use serde_json::json;
 use smol_str::SmolStr;
-use tracing::warn;
 
 pub use self::ads_handlers::AdsDoctorJobStore;
 use self::audit::{record_audit, ControlAuditRecord};
@@ -68,16 +65,6 @@ pub use self::plant_service::PlantControlService;
 use self::policy::{is_debug_request, required_role_for_control_request};
 pub(crate) use self::types::ControlResponse;
 use self::types::*;
-
-const HMI_DESCRIPTOR_WATCH_DEBOUNCE: Duration = Duration::from_millis(250);
-
-fn hmi_descriptor_watch_startup_timeout() -> Duration {
-    if cfg!(test) {
-        Duration::from_secs(10)
-    } else {
-        Duration::from_secs(1)
-    }
-}
 
 fn control_event_time_now() -> crate::value::Duration {
     let timestamp_ms = std::time::SystemTime::now()
@@ -261,9 +248,6 @@ pub struct ControlState {
     pub io_health: Arc<Mutex<Vec<IoDriverStatus>>>,
     pub debug_enabled: Arc<AtomicBool>,
     pub debug_variables: Arc<Mutex<DebugVariableHandles>>,
-    pub hmi_live: Arc<Mutex<crate::hmi::HmiLiveState>>,
-    pub hmi_persistence: Option<Arc<crate::hmi::HmiPersistenceService>>,
-    pub hmi_descriptor: Arc<Mutex<HmiRuntimeDescriptor>>,
     pub historian: Option<Arc<crate::historian::HistorianService>>,
     pub pairing: Option<Arc<PairingStore>>,
     pub ads_doctor_jobs: Arc<Mutex<AdsDoctorJobStore>>,
@@ -272,6 +256,15 @@ pub struct ControlState {
     pub ads_server_config: Arc<Mutex<Option<crate::ads::server::AdsServerRuntimeConfig>>>,
     #[cfg(feature = "ads-server")]
     pub ads_server_runtime: Arc<Mutex<Option<crate::ads::server::AdsServerRuntime>>>,
+}
+
+impl ControlState {
+    /// Connects the experiments to this state's debug control, so that every published scan advances the active experiment
+    /// (Specification 35, A3.5). The debug handle must be the runtime's own.
+    pub fn connect_experiments(&self) {
+        self.debug
+            .set_scan_observer(self.experiments.scan_observer());
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -384,24 +377,6 @@ fn canonical_path_eq(left: &Path, right: &Path) -> bool {
     std::fs::canonicalize(left).is_ok_and(|canonical| canonical == right)
 }
 
-#[derive(Debug, Clone)]
-pub struct HmiRuntimeDescriptor {
-    pub customization: crate::hmi::HmiCustomization,
-    pub schema_revision: u64,
-    pub last_error: Option<String>,
-}
-
-impl HmiRuntimeDescriptor {
-    #[must_use]
-    pub fn from_sources(project_root: Option<&Path>, sources: &SourceRegistry) -> Self {
-        Self {
-            customization: hmi_handlers::load_hmi_customization_from_sources(project_root, sources),
-            schema_revision: 0,
-            last_error: None,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct ControlServer {
     endpoint: ControlEndpoint,
@@ -426,116 +401,6 @@ impl ControlServer {
     pub fn state(&self) -> Arc<ControlState> {
         self.state.clone()
     }
-}
-
-pub fn spawn_hmi_descriptor_watcher(state: Arc<ControlState>) {
-    let Some(project_root) = state.project_root.clone() else {
-        return;
-    };
-    let project_root_for_thread = project_root.clone();
-    let state_for_thread = state.clone();
-    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(), String>>();
-    std::thread::spawn(move || {
-        let (tx, rx) = std::sync::mpsc::channel::<notify::Result<Event>>();
-        let mut watcher = match notify::recommended_watcher(move |result| {
-            if tx.send(result).is_err() {
-                warn!("hmi watcher event channel closed");
-            }
-        }) {
-            Ok(watcher) => watcher,
-            Err(err) => {
-                if ready_tx.send(Err(err.to_string())).is_err() {
-                    warn!("hmi watcher ready channel closed after init failure");
-                }
-                warn!("hmi watcher init failed: {err}");
-                return;
-            }
-        };
-
-        if let Err(err) = watcher.watch(project_root_for_thread.as_path(), RecursiveMode::Recursive)
-        {
-            if ready_tx.send(Err(err.to_string())).is_err() {
-                warn!("hmi watcher ready channel closed after watch failure");
-            }
-            warn!(
-                "hmi watcher failed to watch '{}': {err}",
-                project_root_for_thread.display()
-            );
-            return;
-        }
-        if ready_tx.send(Ok(())).is_err() {
-            warn!("hmi watcher ready channel closed after startup");
-        }
-
-        loop {
-            let mut should_reload = match rx.recv() {
-                Ok(Ok(event)) => hmi_handlers::hmi_event_matches_descriptor(
-                    &event,
-                    project_root_for_thread.as_path(),
-                ),
-                Ok(Err(err)) => {
-                    warn!("hmi watcher event error: {err}");
-                    false
-                }
-                Err(_) => break,
-            };
-            if !should_reload {
-                continue;
-            }
-
-            let mut deadline = Instant::now() + HMI_DESCRIPTOR_WATCH_DEBOUNCE;
-            loop {
-                let now = Instant::now();
-                let Some(timeout) = deadline.checked_duration_since(now) else {
-                    break;
-                };
-                match rx.recv_timeout(timeout) {
-                    Ok(Ok(event)) => {
-                        if hmi_handlers::hmi_event_matches_descriptor(
-                            &event,
-                            project_root_for_thread.as_path(),
-                        ) {
-                            should_reload = true;
-                            deadline = Instant::now() + HMI_DESCRIPTOR_WATCH_DEBOUNCE;
-                        }
-                    }
-                    Ok(Err(err)) => {
-                        warn!("hmi watcher event error: {err}");
-                    }
-                    Err(RecvTimeoutError::Timeout) => break,
-                    Err(RecvTimeoutError::Disconnected) => return,
-                }
-            }
-
-            if !should_reload {
-                continue;
-            }
-
-            if let Err(err) = hmi_handlers::reload_hmi_descriptor_state(&state_for_thread) {
-                warn!("hmi descriptor reload failed: {err}");
-            }
-        }
-    });
-    match ready_rx.recv_timeout(hmi_descriptor_watch_startup_timeout()) {
-        Ok(Ok(())) => {}
-        Ok(Err(err)) => warn!("hmi watcher startup failed: {err}"),
-        Err(RecvTimeoutError::Timeout) => {
-            warn!(
-                "hmi watcher startup timed out for '{}'",
-                project_root.display()
-            );
-        }
-        Err(RecvTimeoutError::Disconnected) => {
-            warn!(
-                "hmi watcher startup channel disconnected for '{}'",
-                project_root.display()
-            );
-        }
-    }
-}
-
-pub(crate) fn hmi_asset_project_root_port(state: &ControlState) -> Option<PathBuf> {
-    state.project_root.clone()
 }
 
 pub(crate) fn runtime_resource_name_port(state: &ControlState) -> SmolStr {
@@ -835,9 +700,6 @@ fn access_capabilities_json(role: AccessRole) -> serde_json::Value {
             "write": engineer,
             "force": engineer,
             "release": engineer,
-        },
-        "hmi": {
-            "write": engineer,
         },
         "reason": denied_reason,
     })

@@ -668,7 +668,6 @@ following fail-closed product contract:
 | OPC UA client points | A configured `Float`/`REAL` or `Double`/`LREAL` sample is non-finite | Mark the point faulted and retain the previous PLC value, as specified below. |
 | ADS client/server points | A scalar or array `REAL`/`LREAL` value is non-finite | Reject before cache acceptance, write queuing, or PLC storage mutation, as specified below. |
 | Runtime mesh subscription | Numeric conversion to the configured `REAL`/`LREAL` target is non-finite | Reject before queuing or applying the local update; retain the previous PLC value. |
-| `hmi.write` | Text or numeric input for a declared `REAL`/`LREAL` target is non-finite or overflows the declared width | Return a failed response with `error_code = "runtime_non_finite_value"` before queuing the write or changing PLC storage. |
 | Managed local debug write/force | Input for a declared `REAL`/`LREAL` address is non-finite or overflows the declared width | Return a failed DAP response and preserve both value and force state, as specified in 6.9.1. |
 | File-backed retain save/load | A scalar, array element, or structure field is non-finite | Reject the complete save or load transaction, as specified in 6.7. |
 | `simulation.toml` coupling threshold | The configured threshold is non-finite | Reject the configuration before activation, as specified in 6.9.2. |
@@ -2380,54 +2379,12 @@ or a live runtime control connection.
 The role and transport rules in section 6.9.4 govern these handlers. A pairing
 token retains its stored role; an unauthenticated network connection receives
 Viewer authority; and a local mode-0600 Unix socket without configured
-authentication may receive Admin authority. Sufficient role permits a request
-to reach its handler but does not override a configured HMI read-only posture.
+authentication may receive Admin authority.
 
-###### Runtime HMI descriptor, live-state, and control contract
+###### Runtime HMI
 
-The runtime HMI schema is the authority for every exposed widget and process
-binding. A schema row has a stable widget ID and path, declared type, current
-quality, writable flag, and any configured display, unit, range, alarm, or
-layout metadata. Descriptor overrides may change presentation without changing
-the stable identity of an unchanged binding. Unknown paths, unknown widgets,
-type mismatches, and invalid limits are reported as binding errors; they are not
-silently dropped or coerced.
-
-HMI values are read directly from the runtime snapshot and preserve the
-declared runtime type, timestamp, and quality. The in-process read and write
-ports use the same typed contract as the JSON control surface but do not
-serialize and parse an intermediate JSON request. A write is admitted only
-when all of the following are true:
-
-- HMI writes are enabled and the runtime is not in HMI read-only mode;
-- the target resolves by stable widget ID, canonical path, or configured alias;
-- the resolved target is in the explicit write allowlist and the schema marks
-  it writable; and
-- the value passes the same declared-type, subrange, bounded-string, and finite
-  floating-point checks as other runtime writes.
-
-An admitted write is queued for the cycle boundary and audited through the HMI
-policy path. A rejected write queues nothing and leaves runtime storage
-unchanged. The queue-processing work remains bounded by the configured cycle
-budget.
-
-Descriptor updates are atomic at the schema boundary. A valid descriptor or
-scaffold reset increments the schema revision and becomes visible without a
-runtime restart. Rapid successive file changes must not deadlock the watcher.
-An unreadable or invalid descriptor retains the last good schema and exposes
-the validation failure instead of publishing a partial schema. When descriptor
-files are absent, the runtime may publish the deterministic inferred layout.
-
-The live event stream emits changed values only, includes stable widget IDs and
-the active schema revision, and deduplicates identical alarm payloads. Trend
-downsampling preserves the requested time window and its first, last, minimum,
-and maximum bounds. Alarm state uses the configured alarm label and follows the
-ordered lifecycle raise, acknowledge, clear, and history retention. A configured
-deadband requires the value to re-enter the clear window before the alarm
-clears. When HMI persistence is configured, restart restores only the bounded
-trend window and alarm history owned by that configuration; it does not expand
-the configured per-series limit. HMI control failures use a structured error
-payload with a stable code; clients do not need to parse diagnostic prose.
+Runtime HMI pages, values, commands, and alarms are specified in
+`docs/specs/39-hmi-builder.md`.
 
 ###### Runtime control audit and debug projection
 
@@ -3745,9 +3702,8 @@ not prove compilation, runtime binding, or live PLC communication.
 
 Once that generated source is compiled into a runtime, its point and quality
 declarations are ordinary first-class globals. Their declared type and enum
-variant remain available through HMI schema/values, the HMI binding catalog,
-control evaluation, debugger globals, historian capture, and the supported
-OPC UA scalar/enum projection. This cross-surface rule requires runtime metadata
+variant remain available through control evaluation, debugger globals,
+historian capture, and the supported OPC UA scalar/enum projection. This cross-surface rule requires runtime metadata
 and snapshot evidence; source-text presence alone is not proof.
 
 ##### 6.8.1b Runtime benchmark measurement and output contract
@@ -4358,7 +4314,7 @@ plant fidelity.
 
 Runtime control uses the ordered role hierarchy `viewer < operator < engineer <
 admin`; a higher role includes lower-role permissions. Authorization is checked
-before dispatch, so a denied request must not change runtime, debug, I/O, HMI,
+before dispatch, so a denied request must not change runtime, debug, I/O,
 configuration, pairing, or connector state.
 
 A role denial returns the stable wire error code `insufficient_role` together
@@ -4399,7 +4355,7 @@ reject. Other operations receive no injected field.
 
 Successful status responses whose result is an object include access
 capabilities for the authenticated role. Viewer and Operator cannot write,
-force, release, or write HMI values; Engineer and Admin can. A denied role
+force, or release values; Engineer and Admin can. A denied role
 includes a stable human-facing reason beginning with the capitalized role,
 while Engineer and Admin use JSON `null`. Non-object or absent results are not
 rewritten.
@@ -4420,9 +4376,9 @@ The explicit operation matrix is:
 
 | Minimum role | Operations |
 |---|---|
-| Viewer | `status`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `fleet.topology`, `io.list`, `io.read`, HMI schema/value/trend/alarm/descriptor reads, historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced` |
-| Operator | `pause`, `resume`, `restart`, `hmi.alarm.ack`, `pair.claim` |
-| Engineer | step operations, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `debug.evaluate`, HMI write/descriptor/scaffold mutation, communication apply/test, ADS server doctor actions |
+| Viewer | `status`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `fleet.topology`, `io.list`, `io.read`, `hmi.read` (specification 39, §11), historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced` |
+| Operator | `pause`, `resume`, `restart`, `pair.claim` |
+| Engineer | step operations, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `debug.evaluate`, communication apply/test, ADS server doctor actions |
 | Admin | `shutdown`, `bytecode.reload`, ADS route add/remove, pairing start/list/revoke, and security/exposure configuration listed below |
 
 Parameter-sensitive operations retain these boundaries:
@@ -4717,10 +4673,7 @@ selected, and invokes system setup only when explicitly requested.
 
 Source listing inspects the direct `src/` directory, includes regular `.st`
 files case-insensitively, and sorts names. Source reads canonicalize both the
-`src/` root and requested path and reject traversal or symbolic escape. HMI
-asset reads apply the same containment rule under `hmi/` and admit only a
-regular file with lowercase `.svg`; another extension, directory, traversal,
-or symbolic escape rejects.
+`src/` root and requested path and reject traversal or symbolic escape.
 
 #### 6.11 Bytecode Format (Overview)
 
@@ -5157,18 +5110,6 @@ operation. A serialized pending request carries no live-process ownership; on
 recovery, the same request ID and sequence may be resumed once for
 reconciliation and then becomes subject to the ordinary completed-result
 deduplication rule.
-
-HMI customization (implementer-specific):
-- `hmi.schema.get` returns `theme`, `pages`, and widget-level layout metadata (`page`, `group`, `order`, `unit`, bounds) in addition to stable widget IDs.
-- Project-level `hmi.toml` supports:
-  - `[theme]` (`style`, optional `accent`)
-  - `[write]` (`enabled`, `allow`) for explicit writable-target allowlists.
-  - `[[pages]]` (`id`, `title`, `order`)
-  - `[widgets.\"<path>\"]` overrides for label/unit/bounds/widget/page/group/order.
-- ST-level `@hmi(...)` annotations on variable declarations support `label`, `unit`, `min`, `max`, `widget`, `page`, `group`, and `order`.
-- Merge precedence is deterministic: defaults < ST annotations < `hmi.toml` overrides.
-- Theme fallback is deterministic: unknown/missing theme values fall back to built-in `classic`.
-- `hmi.write` remains disabled unless `[write].enabled = true`, and writes are accepted only for explicit allowlist matches (`id` or `path`) with control authz enforcement.
 
 Operational UX and pairing flow are documented internally.
 

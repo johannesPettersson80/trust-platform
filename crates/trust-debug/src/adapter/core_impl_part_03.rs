@@ -59,40 +59,41 @@ impl DebugAdapter {
             .map(|server| server.io_snapshot_sink());
         let cycle_time = cycle_time_hint(self.session.metadata());
         let cycle_interval = wall_interval_for_cycle(cycle_time);
+        let speed = self.session.simulation_speed();
+        // The achieved speed is reported for a simulated target only (specification 33, §6.1 item 3).
+        let achieved_sink = if self.session.simulation_facts().enabled {
+            self.control_server
+                .as_ref()
+                .map(|server| server.metrics_sink())
+        } else {
+            None
+        };
         let stop = Arc::new(AtomicBool::new(false));
         let stop_flag = Arc::clone(&stop);
         let handle = thread::spawn(move || {
-            let mut pacer = super::cycle_pacing::CyclePacer::new(cycle_interval, Instant::now());
+            let mut clock = super::cycle_pacing::SimulatorClock::new(
+                cycle_interval,
+                speed.get(),
+                achieved_sink,
+                Instant::now(),
+            );
             loop {
                 if stop_flag.load(Ordering::Relaxed) {
                     break;
                 }
-                pacer.begin(Instant::now());
+                let started = Instant::now();
+                let paused = control_for_cycle.mode() == DebugMode::Paused;
+                clock.begin(started, speed.get(), paused);
                 let mut runtime = match runtime.lock() {
                     Ok(guard) => guard,
                     Err(poisoned) => poisoned.into_inner(),
                 };
-                let now = runtime.current_time();
+                clock.record_cycle(started, runtime.current_time().as_nanos());
                 let mut simulation = match simulation.lock() {
                     Ok(guard) => guard,
                     Err(poisoned) => poisoned.into_inner(),
                 };
-                let cycle_result = if let Some(simulation) = simulation.as_mut() {
-                    simulation
-                        .apply_pre_cycle(now, &mut runtime)
-                        .and_then(|()| runtime.execute_cycle())
-                        .and_then(|()| simulation.apply_post_cycle(now, &runtime))
-                } else {
-                    runtime.execute_cycle()
-                };
-                match cycle_result {
-                    Ok(()) => runtime.advance_time(cycle_time),
-                    Err(err) => {
-                        if !matches!(err, RuntimeError::InvalidControlFlow) {
-                            eprintln!("runtime cycle error: {err}");
-                        }
-                    }
-                }
+                execute_simulator_cycle(&mut runtime, &mut simulation, cycle_time);
                 if let (Some((snapshot_sink, seen_ms)), Some(snapshot)) =
                     (&control_snapshot_sink, control_for_cycle.latest_io_snapshot())
                 {
@@ -110,7 +111,7 @@ impl DebugAdapter {
                 drop(simulation);
                 drop(runtime);
 
-                sleep_until_or_stopped(&stop_flag, pacer.next());
+                sleep_until_or_stopped(&stop_flag, clock.next());
             }
         });
         self.runner = Some(DebugRunner {
@@ -124,6 +125,14 @@ impl DebugAdapter {
     pub(super) fn stop_runner(&mut self) {
         if let Some(runner) = self.runner.take() {
             runner.stop();
+        }
+    }
+
+    /// Reports the simulation facts of the program that was just loaded to the control server (specification 35,
+    /// A2.4). A reload can attach or detach a physical driver.
+    pub(super) fn sync_control_simulation(&self) {
+        if let Some(server) = self.control_server.as_ref() {
+            server.refresh_simulation(self.session.simulation_facts());
         }
     }
 

@@ -383,9 +383,9 @@ to both paths.
 ## 8. Apply, recovery and continuous use
 
 The task-boundary mode/reference/state protocol is specified in
-[guarded controller transfer](../control-studio-controller-transfer.md).
+[guarded controller transfer](../control-studio-runtime-protocol.md#e6-transfers).
 The connected P operator sequence is specified in
-[Auto commissioning](../control-studio-auto-commissioning.md).
+[Auto commissioning](../35-vscode-control-studio.md#c13-connected-p-commissioning-proportional-only-adapter).
 
 Apply reviews the exact target, current/candidate settings or ST change,
 required mode, evidence and restoration policy. Parameters commit coherently at

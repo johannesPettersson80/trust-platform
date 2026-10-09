@@ -7,6 +7,7 @@ mod controller;
 mod debug;
 mod experiment;
 mod fleet;
+mod hmi;
 mod io;
 mod plant;
 mod program;
@@ -21,6 +22,7 @@ pub(super) fn dispatch(request: &ControlRequest, state: &ControlState) -> Option
         .or_else(|| comm::dispatch(request, state))
         .or_else(|| fleet::dispatch(request, state))
         .or_else(|| io::dispatch(request, state))
+        .or_else(|| hmi::dispatch(request, state))
         .or_else(|| plant::dispatch(request, state))
         .or_else(|| experiment::dispatch(request, state))
         .or_else(|| debug::dispatch(request, state))

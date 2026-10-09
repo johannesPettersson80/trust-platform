@@ -1,0 +1,718 @@
+format = 1
+title = "Conditions"
+size = [800, 548]
+pinnable = true
+settings = true
+
+[fields.Healthy]
+accepts = ["boolean"]
+
+[fields.Text]
+accepts = ["text"]
+
+[fields.BypassActive]
+accepts = ["boolean"]
+
+[fields.State1]
+accepts = ["boolean"]
+
+[fields.Bypassed1]
+accepts = ["boolean"]
+
+[fields.Text1]
+accepts = ["text"]
+
+[fields.State2]
+accepts = ["boolean"]
+
+[fields.Bypassed2]
+accepts = ["boolean"]
+
+[fields.Text2]
+accepts = ["text"]
+
+[fields.State3]
+accepts = ["boolean"]
+
+[fields.Bypassed3]
+accepts = ["boolean"]
+
+[fields.Text3]
+accepts = ["text"]
+
+[fields.State4]
+accepts = ["boolean"]
+
+[fields.Bypassed4]
+accepts = ["boolean"]
+
+[fields.Text4]
+accepts = ["text"]
+
+[fields.State5]
+accepts = ["boolean"]
+
+[fields.Bypassed5]
+accepts = ["boolean"]
+
+[fields.Text5]
+accepts = ["text"]
+
+[fields.State6]
+accepts = ["boolean"]
+
+[fields.Bypassed6]
+accepts = ["boolean"]
+
+[fields.Text6]
+accepts = ["text"]
+
+[fields.State7]
+accepts = ["boolean"]
+
+[fields.Bypassed7]
+accepts = ["boolean"]
+
+[fields.Text7]
+accepts = ["text"]
+
+[fields.State8]
+accepts = ["boolean"]
+
+[fields.Bypassed8]
+accepts = ["boolean"]
+
+[fields.Text8]
+accepts = ["text"]
+
+[fields.Used1]
+accepts = ["boolean"]
+
+[fields.Used2]
+accepts = ["boolean"]
+
+[fields.Used3]
+accepts = ["boolean"]
+
+[fields.Used4]
+accepts = ["boolean"]
+
+[fields.Used5]
+accepts = ["boolean"]
+
+[fields.Used6]
+accepts = ["boolean"]
+
+[fields.Used7]
+accepts = ["boolean"]
+
+[fields.Used8]
+accepts = ["boolean"]
+
+[[object]]
+id = "healthy"
+type = "status"
+label = "All healthy"
+at = [24, 24]
+size = [368, 40]
+
+[object.bind]
+state = "$Healthy"
+
+[[object]]
+id = "bypass"
+type = "status"
+label = "Bypass active"
+variant = "alarm"
+at = [408, 24]
+size = [368, 40]
+
+[object.bind]
+state = "$BypassActive"
+
+[[object]]
+id = "first-out"
+type = "text"
+variant = "caption"
+at = [24, 80]
+size = [752, 28]
+
+[object.bind]
+text = "$Text"
+
+[[object]]
+id = "text-1"
+type = "text"
+variant = "body"
+at = [24, 124]
+size = [188, 36]
+
+[object.bind]
+visible = "$Used1"
+text = "$Text1"
+
+[[object]]
+id = "condition-1"
+type = "status"
+label = "Healthy"
+at = [228, 124]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used1"
+state = "$State1"
+
+[[object]]
+id = "bypassed-1"
+type = "status"
+label = "Bypassed"
+variant = "alarm"
+at = [369, 124]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used1"
+state = "$Bypassed1"
+
+[[object]]
+id = "bypass-1"
+type = "button"
+text = "Bypass"
+role = "engineer"
+at = [510, 124]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "Bypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 1
+
+[object.bind]
+visible = "$Used1"
+
+[[object]]
+id = "unbypass-1"
+type = "button"
+text = "End bypass"
+role = "engineer"
+at = [651, 124]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "RemoveBypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 1
+
+[object.bind]
+visible = "$Used1"
+
+[[object]]
+id = "text-2"
+type = "text"
+variant = "body"
+at = [24, 176]
+size = [188, 36]
+
+[object.bind]
+visible = "$Used2"
+text = "$Text2"
+
+[[object]]
+id = "condition-2"
+type = "status"
+label = "Healthy"
+at = [228, 176]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used2"
+state = "$State2"
+
+[[object]]
+id = "bypassed-2"
+type = "status"
+label = "Bypassed"
+variant = "alarm"
+at = [369, 176]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used2"
+state = "$Bypassed2"
+
+[[object]]
+id = "bypass-2"
+type = "button"
+text = "Bypass"
+role = "engineer"
+at = [510, 176]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "Bypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 2
+
+[object.bind]
+visible = "$Used2"
+
+[[object]]
+id = "unbypass-2"
+type = "button"
+text = "End bypass"
+role = "engineer"
+at = [651, 176]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "RemoveBypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 2
+
+[object.bind]
+visible = "$Used2"
+
+[[object]]
+id = "text-3"
+type = "text"
+variant = "body"
+at = [24, 228]
+size = [188, 36]
+
+[object.bind]
+visible = "$Used3"
+text = "$Text3"
+
+[[object]]
+id = "condition-3"
+type = "status"
+label = "Healthy"
+at = [228, 228]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used3"
+state = "$State3"
+
+[[object]]
+id = "bypassed-3"
+type = "status"
+label = "Bypassed"
+variant = "alarm"
+at = [369, 228]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used3"
+state = "$Bypassed3"
+
+[[object]]
+id = "bypass-3"
+type = "button"
+text = "Bypass"
+role = "engineer"
+at = [510, 228]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "Bypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 3
+
+[object.bind]
+visible = "$Used3"
+
+[[object]]
+id = "unbypass-3"
+type = "button"
+text = "End bypass"
+role = "engineer"
+at = [651, 228]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "RemoveBypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 3
+
+[object.bind]
+visible = "$Used3"
+
+[[object]]
+id = "text-4"
+type = "text"
+variant = "body"
+at = [24, 280]
+size = [188, 36]
+
+[object.bind]
+visible = "$Used4"
+text = "$Text4"
+
+[[object]]
+id = "condition-4"
+type = "status"
+label = "Healthy"
+at = [228, 280]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used4"
+state = "$State4"
+
+[[object]]
+id = "bypassed-4"
+type = "status"
+label = "Bypassed"
+variant = "alarm"
+at = [369, 280]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used4"
+state = "$Bypassed4"
+
+[[object]]
+id = "bypass-4"
+type = "button"
+text = "Bypass"
+role = "engineer"
+at = [510, 280]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "Bypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 4
+
+[object.bind]
+visible = "$Used4"
+
+[[object]]
+id = "unbypass-4"
+type = "button"
+text = "End bypass"
+role = "engineer"
+at = [651, 280]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "RemoveBypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 4
+
+[object.bind]
+visible = "$Used4"
+
+[[object]]
+id = "text-5"
+type = "text"
+variant = "body"
+at = [24, 332]
+size = [188, 36]
+
+[object.bind]
+visible = "$Used5"
+text = "$Text5"
+
+[[object]]
+id = "condition-5"
+type = "status"
+label = "Healthy"
+at = [228, 332]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used5"
+state = "$State5"
+
+[[object]]
+id = "bypassed-5"
+type = "status"
+label = "Bypassed"
+variant = "alarm"
+at = [369, 332]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used5"
+state = "$Bypassed5"
+
+[[object]]
+id = "bypass-5"
+type = "button"
+text = "Bypass"
+role = "engineer"
+at = [510, 332]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "Bypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 5
+
+[object.bind]
+visible = "$Used5"
+
+[[object]]
+id = "unbypass-5"
+type = "button"
+text = "End bypass"
+role = "engineer"
+at = [651, 332]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "RemoveBypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 5
+
+[object.bind]
+visible = "$Used5"
+
+[[object]]
+id = "text-6"
+type = "text"
+variant = "body"
+at = [24, 384]
+size = [188, 36]
+
+[object.bind]
+visible = "$Used6"
+text = "$Text6"
+
+[[object]]
+id = "condition-6"
+type = "status"
+label = "Healthy"
+at = [228, 384]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used6"
+state = "$State6"
+
+[[object]]
+id = "bypassed-6"
+type = "status"
+label = "Bypassed"
+variant = "alarm"
+at = [369, 384]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used6"
+state = "$Bypassed6"
+
+[[object]]
+id = "bypass-6"
+type = "button"
+text = "Bypass"
+role = "engineer"
+at = [510, 384]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "Bypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 6
+
+[object.bind]
+visible = "$Used6"
+
+[[object]]
+id = "unbypass-6"
+type = "button"
+text = "End bypass"
+role = "engineer"
+at = [651, 384]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "RemoveBypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 6
+
+[object.bind]
+visible = "$Used6"
+
+[[object]]
+id = "text-7"
+type = "text"
+variant = "body"
+at = [24, 436]
+size = [188, 36]
+
+[object.bind]
+visible = "$Used7"
+text = "$Text7"
+
+[[object]]
+id = "condition-7"
+type = "status"
+label = "Healthy"
+at = [228, 436]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used7"
+state = "$State7"
+
+[[object]]
+id = "bypassed-7"
+type = "status"
+label = "Bypassed"
+variant = "alarm"
+at = [369, 436]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used7"
+state = "$Bypassed7"
+
+[[object]]
+id = "bypass-7"
+type = "button"
+text = "Bypass"
+role = "engineer"
+at = [510, 436]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "Bypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 7
+
+[object.bind]
+visible = "$Used7"
+
+[[object]]
+id = "unbypass-7"
+type = "button"
+text = "End bypass"
+role = "engineer"
+at = [651, 436]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "RemoveBypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 7
+
+[object.bind]
+visible = "$Used7"
+
+[[object]]
+id = "text-8"
+type = "text"
+variant = "body"
+at = [24, 488]
+size = [188, 36]
+
+[object.bind]
+visible = "$Used8"
+text = "$Text8"
+
+[[object]]
+id = "condition-8"
+type = "status"
+label = "Healthy"
+at = [228, 488]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used8"
+state = "$State8"
+
+[[object]]
+id = "bypassed-8"
+type = "status"
+label = "Bypassed"
+variant = "alarm"
+at = [369, 488]
+size = [125, 36]
+
+[object.bind]
+visible = "$Used8"
+state = "$Bypassed8"
+
+[[object]]
+id = "bypass-8"
+type = "button"
+text = "Bypass"
+role = "engineer"
+at = [510, 488]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "Bypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 8
+
+[object.bind]
+visible = "$Used8"
+
+[[object]]
+id = "unbypass-8"
+type = "button"
+text = "End bypass"
+role = "engineer"
+at = [651, 488]
+size = [125, 36]
+
+[object.command]
+interface = "Plant.IBypass"
+method = "RemoveBypass"
+instance = "$instance"
+
+[object.command.arguments]
+Index = 8
+
+[object.bind]
+visible = "$Used8"
+

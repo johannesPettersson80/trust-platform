@@ -9,7 +9,11 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 /// FUNCTION_BLOCK body, reports the record's field sources: every symbol read on the right-hand
 /// side of an assignment to `<record>.<field>` in the same body. Local names are prefixed with each
 /// compiled instance of that POU, so a cascade appears as the outer call's output among the inner
-/// call's `Setpoint` sources. No name or role is guessed; unresolved shapes are simply not reported.
+/// call's `Setpoint` sources. A call also reports what its code shape states: `guardedBy`, the BOOL
+/// of an enclosing `IF NOT <flag> THEN` (a controller initialized once at startup); `mode`, the BOOL
+/// an `IF` tests to set `<record>.Mode` and the mode it chooses while TRUE; and `copiesOfOutput`,
+/// the variables assigned the call's output unchanged (a manual output that follows the output).
+/// No name or role is guessed; unresolved shapes are simply not reported.
 pub(super) fn facts(sources: &[&str], instances: &[(String, String)]) -> ControlFacts {
     let roots = sources
         .iter()
@@ -87,10 +91,18 @@ fn program_configuration(node: &SyntaxNode) -> Option<(String, String)> {
             SyntaxKind::QualifiedName | SyntaxKind::TypeRef
         )
     })?;
-    Some((
-        instance.text().to_string().trim().to_string(),
-        kind.text().to_string().trim().to_string(),
-    ))
+    Some((code_text(&instance), code_text(&kind)))
+}
+
+/// A node's text without its trivia. The parser keeps the comments and whitespace that precede a
+/// token inside the innermost node started before it, so the node of a name written after a
+/// comment (`(* note *) Level`, a first statement after `THEN`) holds that comment too.
+pub(super) fn code_text(node: &SyntaxNode) -> String {
+    node.descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+        .filter(|token| !token.kind().is_trivia())
+        .map(|token| token.text().to_string())
+        .collect()
 }
 
 /// A POU name qualified by its enclosing namespaces, matching compiled type names.
@@ -109,7 +121,7 @@ fn qualified_pou_name(pou: &SyntaxNode) -> Option<String> {
 fn direct_name(node: &SyntaxNode) -> Option<String> {
     node.children()
         .find(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::QualifiedName))
-        .map(|name| name.text().to_string().trim().to_string())
+        .map(|name| code_text(&name))
 }
 
 /// Calls, record-field assignments and assignment targets of one POU body, in local names.
@@ -118,6 +130,11 @@ struct PouBody {
     calls: Vec<Call>,
     fields: BTreeMap<(String, String), BTreeSet<String>>,
     writes: BTreeSet<String>,
+    /// `<target> := <source>` assignments of one variable to another.
+    copies: Vec<(String, String)>,
+    /// By upper-case record: the BOOL an `IF` tests to set `<record>.Mode`, and the mode it
+    /// chooses while that BOOL is TRUE.
+    modes: BTreeMap<String, (String, &'static str)>,
 }
 
 struct Call {
@@ -126,6 +143,8 @@ struct Call {
     argument: String,
     record: String,
     output: Option<String>,
+    /// The BOOL whose FALSE value the call needs: it stands in the THEN branch of `IF NOT <flag>`.
+    guard: Option<String>,
 }
 
 impl PouBody {
@@ -142,7 +161,7 @@ impl PouBody {
                 owner
                     .children()
                     .filter(|child| child.kind() == SyntaxKind::Name)
-                    .map(|name| name.text().to_string().trim().to_ascii_uppercase())
+                    .map(|name| code_text(&name).to_ascii_uppercase())
                     .collect::<Vec<_>>()
             })
             .collect();
@@ -151,6 +170,8 @@ impl PouBody {
             calls: Vec::new(),
             fields: BTreeMap::new(),
             writes: BTreeSet::new(),
+            copies: Vec::new(),
+            modes: BTreeMap::new(),
         };
         // Nested METHOD/ACTION bodies have their own scope; only the POU body is read.
         for node in pou
@@ -159,8 +180,16 @@ impl PouBody {
         {
             match node.kind() {
                 SyntaxKind::CallExpr => {
-                    if let Some(call) = controller_call(&node) {
+                    if let Some(mut call) = controller_call(&node) {
+                        call.guard = negated_guard(&node, pou);
                         body.calls.push(call);
+                    }
+                }
+                SyntaxKind::IfStmt => {
+                    if let Some((record, symbol, mode)) = mode_choice(&node) {
+                        body.modes
+                            .entry(record.to_ascii_uppercase())
+                            .or_insert((symbol, mode));
                     }
                 }
                 SyntaxKind::AssignStmt => {
@@ -169,6 +198,11 @@ impl PouBody {
                         continue;
                     };
                     body.writes.extend(symbol_path(&target));
+                    if let (Some(target), Some(source)) =
+                        (symbol_path(&target), symbol_path(&value))
+                    {
+                        body.copies.push((target, source));
+                    }
                     if target.kind() != SyntaxKind::FieldExpr {
                         continue;
                     }
@@ -199,14 +233,33 @@ impl PouBody {
                         fields.insert(field.clone(), json!(paths));
                     }
                 }
-                json!({
+                let mut link = json!({
                     "instance": self.path(instance, &call.instance),
                     "method": call.method,
                     "argument": call.argument,
                     "record": self.path(instance, &call.record),
                     "output": call.output.as_ref().map(|output| self.path(instance, output)),
                     "fields": fields,
-                })
+                });
+                if let Some(guard) = &call.guard {
+                    link["guardedBy"] = json!(self.path(instance, guard));
+                }
+                if let Some((symbol, mode)) = self.modes.get(&call.record.to_ascii_uppercase()) {
+                    link["mode"] =
+                        json!({ "symbol": self.path(instance, symbol), "whenTrue": mode });
+                }
+                if let Some(output) = &call.output {
+                    let copies = self
+                        .copies
+                        .iter()
+                        .filter(|(_, source)| source.eq_ignore_ascii_case(output))
+                        .map(|(target, _)| self.path(instance, target))
+                        .collect::<Vec<_>>();
+                    if !copies.is_empty() {
+                        link["copiesOfOutput"] = json!(copies);
+                    }
+                }
+                link
             })
             .collect()
     }
@@ -257,10 +310,7 @@ fn controller_call(call: &SyntaxNode) -> Option<Call> {
             let value = arg
                 .children()
                 .find(|child| child.kind() != SyntaxKind::Name)?;
-            Some((
-                name.text().to_string().trim().to_string(),
-                symbol_path(&value)?,
-            ))
+            Some((code_text(&name), symbol_path(&value)?))
         })?;
     let output = call
         .parent()
@@ -275,7 +325,101 @@ fn controller_call(call: &SyntaxNode) -> Option<Call> {
         argument,
         record,
         output,
+        guard: None,
     })
+}
+
+/// The BOOL whose FALSE value `call` needs: the nearest enclosing `IF` has the call in its THEN
+/// branch and tests `NOT <flag>`.
+fn negated_guard(call: &SyntaxNode, pou: &SyntaxNode) -> Option<String> {
+    let mut child = call.clone();
+    for ancestor in call.ancestors().skip(1) {
+        if ancestor == *pou {
+            return None;
+        }
+        if ancestor.kind() == SyntaxKind::IfStmt {
+            let condition = ancestor.children().next()?;
+            if child == condition
+                || matches!(
+                    child.kind(),
+                    SyntaxKind::ElsifBranch | SyntaxKind::ElseBranch
+                )
+                || condition.kind() != SyntaxKind::UnaryExpr
+                || !is_not(&condition)
+            {
+                return None;
+            }
+            return symbol_path(&condition.children().next()?);
+        }
+        child = ancestor;
+    }
+    None
+}
+
+/// `IF <condition> THEN <record>.Mode := <type>#Auto|Manual; …`: the record, the BOOL the condition
+/// starts with and the mode chosen while that BOOL is TRUE. `IF AutoMode THEN … Auto` and
+/// `IF Manual OR NOT Good THEN … Manual` both name their Auto/Manual signal.
+fn mode_choice(if_stmt: &SyntaxNode) -> Option<(String, String, &'static str)> {
+    let condition = if_stmt.children().next()?;
+    let (symbol, negated) = leading_symbol(&condition)?;
+    // The THEN branch's statements are the IF's own children; ELSIF and ELSE are branch nodes.
+    let (record, mode) = if_stmt
+        .children()
+        .skip(1)
+        .filter(|node| node.kind() == SyntaxKind::AssignStmt)
+        .find_map(|assign| {
+            let mut parts = assign.children();
+            let (target, value) = (parts.next()?, parts.next()?);
+            if target.kind() != SyntaxKind::FieldExpr
+                || !field_name(&target)?.eq_ignore_ascii_case("Mode")
+            {
+                return None;
+            }
+            Some((field_base(&target)?, mode_literal(&value)?))
+        })?;
+    let chosen = match (mode, negated) {
+        ("Auto", true) => "Manual",
+        ("Manual", true) => "Auto",
+        (mode, false) => mode,
+        _ => return None,
+    };
+    Some((record, symbol, chosen))
+}
+
+/// `Auto` or `Manual` of an enumeration value such as `PIDMode#Manual`.
+fn mode_literal(value: &SyntaxNode) -> Option<&'static str> {
+    let text = code_text(value);
+    let word = text.rsplit('#').next()?;
+    if word.eq_ignore_ascii_case("Auto") {
+        Some("Auto")
+    } else if word.eq_ignore_ascii_case("Manual") {
+        Some("Manual")
+    } else {
+        None
+    }
+}
+
+/// The variable a condition starts with, and whether it is negated: `A`, `NOT A`, `A OR B`.
+fn leading_symbol(condition: &SyntaxNode) -> Option<(String, bool)> {
+    if let Some(path) = symbol_path(condition) {
+        return Some((path, false));
+    }
+    match condition.kind() {
+        SyntaxKind::UnaryExpr if is_not(condition) => {
+            let (symbol, negated) = leading_symbol(&condition.children().next()?)?;
+            Some((symbol, !negated))
+        }
+        SyntaxKind::BinaryExpr | SyntaxKind::ParenExpr => {
+            leading_symbol(&condition.children().next()?)
+        }
+        _ => None,
+    }
+}
+
+fn is_not(node: &SyntaxNode) -> bool {
+    node.children_with_tokens()
+        .filter_map(|element| element.into_token())
+        .any(|token| token.kind() == SyntaxKind::KwNot)
 }
 
 fn field_base_node(field: &SyntaxNode) -> Option<SyntaxNode> {
@@ -291,13 +435,13 @@ fn field_name(field: &SyntaxNode) -> Option<String> {
         .children()
         .filter(|child| child.kind() == SyntaxKind::Name)
         .last()
-        .map(|name| name.text().to_string().trim().to_string())
+        .map(|name| code_text(&name))
 }
 
 /// The dotted path of a plain variable or field reference; other expressions have none.
 fn symbol_path(node: &SyntaxNode) -> Option<String> {
     match node.kind() {
-        SyntaxKind::NameRef => Some(node.text().to_string().trim().to_string()),
+        SyntaxKind::NameRef => Some(code_text(node)),
         SyntaxKind::FieldExpr => Some(format!(
             "{}.{}",
             symbol_path(&field_base_node(node)?)?,
@@ -500,7 +644,11 @@ END_CONFIGURATION
 
     #[test]
     fn reports_every_symbol_each_instance_assigns_and_its_controller_initialization() {
-        const SOURCE: &str = r#"
+        const SOURCE: &str = r#"USING Plant;
+USING Alarm;
+USING Equipment;
+USING Control;
+
 PROGRAM Main
 VAR
     Loop : Control.PID;
@@ -531,9 +679,165 @@ END_PROGRAM
             found.links[0],
             json!({
                 "instance": "P1.Loop", "method": "Initialize", "argument": "State", "record": "P1.State",
-                "output": null, "fields": { "Setpoint": ["P1.ManualC"] }
+                "output": null, "fields": { "Setpoint": ["P1.ManualC"] }, "guardedBy": "P1.Initialized"
             }),
-            "a program that initializes its controller replaces the controller state validation starts from"
+            "a program that initializes its controller replaces the controller state validation starts from, \
+             and the flag it tests marks that startup as done"
+        );
+    }
+
+    /// The loop Create PLC code writes (specification 39 §10.2), with its region markers and its
+    /// comments after THEN and ELSE: the parser keeps a comment inside the node of the name it
+    /// precedes, so names are read without it.
+    const GENERATED_LOOP: &str = r#"USING Control;
+USING Plant;
+
+PROGRAM Main
+VAR
+    (* truST plant: declarations sha256:0 *)
+    EH101 : Plant.FB_Heater;
+    TIC101 : Control.PID;
+    TIC101_Input : Control.PIDInput;
+    TIC101_Start : Control.PIDInitialState;
+    TIC101_Initialized : BOOL;
+    TT101 : Plant.FB_TemperatureInput;
+    (* end of truST plant declarations *)
+END_VAR
+VAR RETAIN
+    (* truST plant: retained declarations sha256:0 *)
+    TIC101_Parameters : Control.PIDParameters;
+    TIC101_Manual : BOOL := TRUE;
+    TIC101_Setpoint : LREAL;
+    TIC101_ManualOutput : LREAL;
+    TIC101_Output : LREAL;
+    (* end of truST plant retained declarations *)
+END_VAR
+    (* truST plant: calls sha256:0 *)
+    (* A PID loop: Control.PID holds its measurement at its setpoint. *)
+    TIC101.Configure(Parameters := TIC101_Parameters);
+    TIC101_Input.Setpoint := TIC101_Setpoint;
+    TIC101_Input.ManualOutput := TIC101_ManualOutput;
+    IF TT101.GetQuality() = E_Quality#Good THEN
+        TIC101_Input.ProcessValue := TT101.GetValue();
+        IF NOT TIC101_Initialized THEN
+            (* It starts from the measurement and the output as they are: no bump. *)
+            TIC101_Start.Setpoint := TIC101_Setpoint;
+            TIC101_Start.NominalOutput := TIC101_Output;
+            TIC101.Initialize(State := TIC101_Start);
+            TIC101_Initialized := TRUE;
+        END_IF;
+        IF TIC101_Manual THEN
+            TIC101_Input.Mode := PIDMode#Manual;
+        ELSE
+            TIC101_Input.Mode := PIDMode#Auto;
+        END_IF;
+    ELSE
+        (* A bad measurement holds the output; the loop starts again from the next good one. *)
+        TIC101_Input.Mode := PIDMode#Manual;
+        TIC101_Initialized := FALSE;
+    END_IF;
+    TIC101_Output := TIC101.Update(Input := TIC101_Input);
+    IF TIC101_Input.Mode = PIDMode#Auto THEN
+        (* Manual takes over from the output as it is. *)
+        TIC101_ManualOutput := TIC101_Output;
+    END_IF;
+    EH101.AutoPower := TIC101_Output;
+    (* end of truST plant calls *)
+END_PROGRAM
+"#;
+
+    #[test]
+    fn reports_the_startup_flag_mode_signal_and_output_copies_of_a_generated_loop() {
+        let found = links(&[GENERATED_LOOP], &instances(&[("Main", "Main")]));
+        let call = |method: &str| {
+            found
+                .iter()
+                .find(|link| link["method"] == method)
+                .cloned()
+                .unwrap_or_default()
+        };
+        assert_eq!(call("Configure")["record"], json!("Main.TIC101_Parameters"));
+        assert_eq!(
+            call("Initialize")["guardedBy"],
+            json!("Main.TIC101_Initialized"),
+            "the flag tested in IF NOT … around Initialize is the startup-done flag"
+        );
+        let update = call("Update");
+        assert_eq!(update["output"], json!("Main.TIC101_Output"));
+        assert_eq!(
+            update["fields"]["Setpoint"],
+            json!(["Main.TIC101_Setpoint"])
+        );
+        assert_eq!(
+            update["fields"]["ManualOutput"],
+            json!(["Main.TIC101_ManualOutput"])
+        );
+        assert_eq!(
+            call("Initialize")["fields"]["Setpoint"],
+            json!(["Main.TIC101_Setpoint"]),
+            "a field assigned after a comment belongs to its own record"
+        );
+        let writes = facts(&[GENERATED_LOOP], &instances(&[("Main", "Main")])).writes;
+        assert!(
+            writes.contains("Main.TIC101_ManualOutput")
+                && !writes.contains("Main.TIC101_Parameters")
+                && writes.iter().all(|write| write.starts_with("Main.")),
+            "every assigned name is a declared one, the first of each region too: {writes:?}"
+        );
+        assert_eq!(
+            update["mode"],
+            json!({ "symbol": "Main.TIC101_Manual", "whenTrue": "Manual" }),
+            "IF TIC101_Manual THEN Mode := Manual: TIC101_Manual is the Auto/Manual signal, TRUE in Manual"
+        );
+        assert_eq!(
+            update["copiesOfOutput"],
+            json!(["Main.TIC101_Start.NominalOutput", "Main.TIC101_ManualOutput", "Main.EH101.AutoPower"]),
+            "in source order: the start state, the manual output that follows the output, and the actuator"
+        );
+        assert!(call("Configure").get("guardedBy").is_none() && update.get("guardedBy").is_none());
+    }
+
+    #[test]
+    fn a_mode_signal_true_in_auto_and_a_negated_one_name_the_mode_they_choose() {
+        const SOURCE: &str = r#"
+PROGRAM Main
+VAR
+    Loop : Control.PID;
+    Request : Control.PIDInput;
+    Other : Control.PID;
+    OtherRequest : Control.PIDInput;
+    AutoMode : BOOL;
+    Hand : BOOL;
+    Output : LREAL;
+    OtherOutput : LREAL;
+END_VAR
+IF AutoMode THEN
+    Request.Mode := PIDMode#Auto;
+ELSE
+    Request.Mode := PIDMode#Manual;
+END_IF;
+Output := Loop.Update(Input := Request);
+IF NOT Hand THEN
+    OtherRequest.Mode := PIDMode#Auto;
+END_IF;
+OtherOutput := Other.Update(Input := OtherRequest);
+END_PROGRAM
+"#;
+        let found = links(&[SOURCE], &instances(&[("P1", "Main")]));
+        assert_eq!(
+            found[0]["mode"],
+            json!({ "symbol": "P1.AutoMode", "whenTrue": "Auto" })
+        );
+        assert_eq!(
+            found[1]["mode"],
+            json!({ "symbol": "P1.Hand", "whenTrue": "Manual" }),
+            "NOT Hand chooses Auto, so Hand TRUE means Manual"
+        );
+        assert!(
+            found
+                .iter()
+                .all(|link| link.get("copiesOfOutput").is_none()),
+            "no variable takes either output unchanged"
         );
     }
 

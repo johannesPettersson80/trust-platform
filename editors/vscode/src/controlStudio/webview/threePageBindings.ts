@@ -21,7 +21,7 @@ export class ThreePageBindings {
   constructor(private readonly root: HTMLElement, private readonly loop: ControlLoopDefinition,
     private readonly controller: ThreePageController, private readonly post: StudioPost,
     private readonly notice: (page: "model" | "tune", message: string) => void,
-    private readonly refreshGate: (valid: boolean) => void = () => undefined,
+    private readonly refreshGate: (valid: boolean, reason?: string) => void = () => undefined,
     private readonly recordingChanged: (selection: RecordingSignalSelection) => void = () => undefined) {
     this.controllerSelect = root.querySelector<HTMLSelectElement>("[data-studio-controller]")!;
     this.inputs = root.querySelector<HTMLSelectElement>("[data-studio-inputs]")!;
@@ -38,6 +38,8 @@ export class ThreePageBindings {
     this.controllerSelect.addEventListener("focus", () => { if (!this.targets.length) this.post("control-studio.binding.list"); });
   }
   get canRun(): boolean { return !this.pending && !this.invalid; }
+  /** Why the mapping cannot run yet, as the notice shows it; undefined when it can. */
+  get blockReason(): string | undefined { return this.canRun ? undefined : this.problem || "Wait for the selected controller binding."; }
   get recordingSelection(): RecordingSignalSelection | undefined {
     return this.recording ? { inputs: this.selectedValues(this.inputs), outputs: this.selectedValues(this.outputs) } : undefined;
   }
@@ -81,7 +83,7 @@ export class ThreePageBindings {
     this.synchronize();
   }
   synchronize(): void {
-    this.refreshGate(this.canRun);
+    this.refreshGate(this.canRun, this.blockReason);
     const current = this.controllerSelect.value;
     const matches = this.mappingMatches();
     const currentTarget = matches.find(item => item.loopId === this.loop.id);

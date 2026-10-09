@@ -1,0 +1,31 @@
+format = 1
+title = "Trends"
+order = 1
+icon = "trend"
+
+[[object]]
+id = "trend-1"
+type = "trend"
+at = [40, 40]
+size = [1560, 420]
+label = "Tank"
+span = 1800
+
+[object.bind]
+"EH101 power output" = "Main.EH101.PowerOutput"
+"TIC101 setpoint" = "Main.TIC101_Setpoint"
+TT101 = "Main.TT101.Value"
+
+[[object]]
+id = "trend-2"
+type = "trend"
+at = [40, 500]
+size = [1560, 420]
+label = "Room"
+span = 1800
+
+[object.bind]
+"TIC102 setpoint" = "Main.TIC102_Setpoint"
+TT102 = "Main.TT102.Value"
+"TV101 position" = "Main.TV101.Position"
+"Window opening" = "Simulation.WindowOpening"

@@ -67,12 +67,6 @@ title = "LSP incremental edits"
 area = "editor_safety"
 rationale = "Protocol-level edit sequences need generated range, encoding, and lifecycle variation beyond lower-level HIR edit cycles."
 
-[[surfaces]]
-id = "hmi_schema_payloads"
-title = "HMI schema payloads"
-area = "hmi_ui"
-rationale = "HMI schema and value payloads need generated malformed shapes without implying browser or authorization behavior."
-
 [[targets]]
 id = "FUZZ_TARGET_SYNTAX_PARSE"
 target_kind = "cargo_fuzz"
@@ -238,29 +232,6 @@ last_reviewed = "2026-07-17"
 surface_id = "lsp_incremental_edits"
 strength = "direct"
 rationale = "The target sends generated UTF-16 positions and replacement text through the production LSP document-edit implementation."
-
-[[targets]]
-id = "FUZZ_TARGET_HMI_PAYLOADS"
-target_kind = "cargo_fuzz"
-name = "hmi_payloads"
-path = "fuzz/fuzz_targets/hmi_payloads.rs"
-manifest_path = "fuzz/Cargo.toml"
-command = "cd fuzz && cargo fuzz run hmi_payloads"
-owner = "trust-runtime"
-primary_tier = "manual_extended"
-additional_tiers = []
-enforcement_status = "manual_only"
-execution_basis_ids = []
-corpus_path = "fuzz/corpus/hmi_payloads"
-artifact_path = "fuzz/artifacts/hmi_payloads"
-corpus_storage = "machine_local_ignored"
-artifact_storage = "machine_local_ignored"
-last_reviewed = "2026-07-17"
-
-[[targets.surface_associations]]
-surface_id = "hmi_schema_payloads"
-strength = "direct"
-rationale = "The target sends generated JSON values through the production HMI schema, values, and alarms event-state parsers."
 
 [[targets]]
 id = "FUZZ_TARGET_ADS_AMS_FRAME"

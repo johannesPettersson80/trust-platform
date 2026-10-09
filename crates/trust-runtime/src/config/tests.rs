@@ -178,13 +178,6 @@ fn runtime_schema_rejects_blank_explicit_paths() {
             ),
         ),
         (
-            "runtime.hmi_persistence.history_path",
-            format!(
-                "{}\n[runtime.hmi_persistence]\nhistory_path = \"   \"\n",
-                runtime_toml()
-            ),
-        ),
-        (
             "runtime.observability.history_path",
             format!(
                 "{}\n[runtime.observability]\nhistory_path = \"   \"\n",
@@ -820,31 +813,18 @@ fn runtime_schema_rejects_prometheus_path_without_leading_slash() {
 }
 
 #[test]
-fn runtime_schema_accepts_hmi_persistence_section() {
+fn runtime_schema_rejects_the_removed_hmi_persistence_section() {
+    // Specification 39, decision 12: the legacy HMI and its history settings are removed.
     let text = format!(
         "{}\n[runtime.hmi_persistence]\nenabled = true\nhistory_path = \"history/hmi.jsonl\"\nmax_entries = 128\n",
         runtime_toml()
     );
-    let config = parse_runtime_toml_from_text(&text, "runtime.toml")
-        .expect("hmi persistence config should parse");
-    assert!(config.hmi_persistence.enabled);
-    assert_eq!(
-        config.hmi_persistence.history_path,
-        std::path::PathBuf::from("history/hmi.jsonl")
+    let err = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect_err("the removed hmi_persistence section must not parse");
+    assert!(
+        err.to_string().contains("hmi_persistence"),
+        "the error must name the removed section, got: {err}"
     );
-    assert_eq!(config.hmi_persistence.max_entries, 128);
-}
-
-#[test]
-fn runtime_schema_rejects_empty_hmi_persistence_window() {
-    let text = format!(
-        "{}\n[runtime.hmi_persistence]\nenabled = true\nmax_entries = 0\n",
-        runtime_toml()
-    );
-    let err = validate_runtime_toml_text(&text).expect_err("max_entries should fail");
-    assert!(err
-        .to_string()
-        .contains("runtime.hmi_persistence.max_entries must be >= 1"));
 }
 
 #[test]
@@ -1495,5 +1475,35 @@ fn runtime_config_load_defaults_execution_backend_source_when_omitted() {
     assert_eq!(
         runtime.execution_backend_source,
         crate::execution_backend::ExecutionBackendSource::Default
+    );
+}
+
+/// Specification 39, §12.8: users, session times and the write policy come from
+/// `[runtime.web.hmi]`; a bad entry is refused with its key.
+#[test]
+fn runtime_schema_reads_the_hmi_access_section() {
+    let hash = crate::hmi::access::password::hash_password("secret", 10_000, b"0123456789abcdef");
+    let section = format!(
+        "\n[runtime.web.hmi]\nidle_minutes = 5\n\n[[runtime.web.hmi.user]]\nname = \"anna\"\nrole = \"operator\"\npassword = \"{hash}\"\n\n[[runtime.web.hmi.write]]\npath = \"Loop.Setpoint\"\nrole = \"operator\"\nmax = 120.0\n"
+    );
+    let text = runtime_toml().replace(
+        "tls = false\n\n[runtime.discovery]",
+        &format!("tls = false\n{section}\n[runtime.discovery]"),
+    );
+    assert!(
+        text.contains("[runtime.web.hmi]"),
+        "the section is in the file"
+    );
+    let config = parse_runtime_toml_from_text(&text, "runtime.toml").expect("valid");
+    assert_eq!(config.web.hmi.idle, std::time::Duration::from_secs(300));
+    assert_eq!(config.web.hmi.users.len(), 1);
+    assert_eq!(config.web.hmi.write.len(), 1);
+    assert_eq!(config.web.hmi.write[0].max, Some(120.0));
+
+    let bad = text.replace("role = \"operator\"\nmax", "role = \"viewer\"\nmax");
+    let error = parse_runtime_toml_from_text(&bad, "runtime.toml").expect_err("refused");
+    assert!(
+        error.to_string().contains("runtime.web.hmi.write"),
+        "{error}"
     );
 }

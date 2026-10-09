@@ -1,6 +1,6 @@
 import type { ControlLoopDefinition } from "../loopDefinition";
 import type { CompiledCatalog } from "./compiledCatalog";
-import { binding, measurementBinding, compiled, identificationDuration, loopId, realType, withRevision, type MeasuredSignal } from "./loopBindings";
+import { binding, measurementBinding, compiled, explicitExperiment, loopId, realType, withRevision, type MeasuredSignal } from "./loopBindings";
 import { startupState } from "./pidBindings";
 import type { ModeChoice, SignalChoice } from "./pidLoopGenerator";
 
@@ -21,7 +21,7 @@ export interface OnOffLoopDraft {
   /** The switched equipment's own minimum ON and OFF times, for example a compressor's restart protection. */
   equipmentMinimumOnSeconds?: number;
   equipmentMinimumOffSeconds?: number;
-  experimentDurationSeconds?: number;
+  experimentStep?: number; experimentDurationSeconds?: number;
   startupFlag?: string;
 }
 
@@ -73,8 +73,7 @@ export function onOffLoopDefinition(catalog: CompiledCatalog, draft: OnOffLoopDr
     limits: { outputMinimum: mv.minimum, outputMaximum: mv.maximum },
     observedSampleTiming: { nominalPeriodMs: period },
     // Identification switches between the two levels, as the actuator does in operation.
-    experiment: { execution: "control-studio", kind: "mv_step", amplitude: mv.maximum - mv.minimum,
-      durationSeconds: identificationDuration(draft.name, draft.experimentDurationSeconds), seed: 1 },
+    ...explicitExperiment(draft.name, { execution: "control-studio", kind: "mv_step" }, draft.experimentStep, draft.experimentDurationSeconds),
     parameterBinding: {
       loop_id: id, task_name: task.name, mode: { symbol: draft.mode.symbol, manual_value: draft.mode.whenTrue === "Manual" },
       parameters: [

@@ -8,6 +8,7 @@ import type { GeneralModel } from "./generalModel";
 import type { RuntimeVerificationClient, RuntimeVerificationResult } from "./verificationClient";
 import type { RunRequirement } from "./runValidation";
 import { generatePrbs, generateMultisine } from "./numerics";
+import { ISOLATED_SIMULATION_CHANNEL_LIMIT, ISOLATED_SIMULATION_SCAN_LIMIT, ISOLATED_SIMULATION_WALL_TIME_LIMIT_MS, MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS } from "./controlStudioLimits";
 
 /** Excites independent channels and records every cross-response in each frozen run. */
 export async function acquireMultichannelModel(loop: ControlLoopDefinition, runtime: RuntimeVerificationClient, fitting: BoundedAnalysisJob,
@@ -26,14 +27,15 @@ export async function acquireMultichannelModel(loop: ControlLoopDefinition, runt
   const observed = [...new Map([...inputs.map(input => input.signal), ...outputs.map(output => output.signal), ...references]
     .map(signal => [signal.symbol, { symbol: signal.symbol, unit: signal.unit }])).values()];
   const step = loop.controller.taskPeriodMs;
-  const duration = Math.ceil(Math.max(2, loop.experiment?.durationSeconds ?? 30) * 1000 / step) * step;
-  if (!Number.isInteger(step) || step < 1 || step > 1000 || duration > 600000 || duration / step + 1 > 12000
-    || observed.length > 16 || (duration / step + 1) * observed.length > 250000) throw new Error("Multichannel acquisition exceeds the declared native time/channel budget.");
+  const duration = Math.ceil(Math.max(MINIMUM_EXPERIMENT_DURATION_MS / 1_000, loop.experiment?.durationSeconds ?? 30) * 1000 / step) * step;
+  // The runs are recorded with a record period (A4.2; verificationClient.ts), so only their duration, scans and channels are bounded (A7).
+  if (!Number.isInteger(step) || step < 1 || step > 1000 || duration > MAXIMUM_EXPERIMENT_DURATION_MS || duration / step + 1 > ISOLATED_SIMULATION_SCAN_LIMIT
+    || observed.length > ISOLATED_SIMULATION_CHANNEL_LIMIT) throw new Error("Multichannel acquisition exceeds the declared native time/channel budget.");
   const bounds = (end: number) => multichannelAcquisitionBounds(loop, end);
   if (cancelled()) throw new Error("Identification cancelled.");
   await progress("Reading all channel operating points in isolated ST before planning independent excitation.");
   const baseline = await runtime.verify({ step_ms: step, duration_ms: step * 3, seed: loop.experiment?.seed ?? 1,
-    max_total_cycles: 4, wall_budget_ms: 10000, initial_values: {}, events: [], observations: observed }, bounds(step * 3 / 1000));
+    max_total_cycles: 4, wall_budget_ms: ISOLATED_SIMULATION_WALL_TIME_LIMIT_MS, initial_values: {}, events: [], observations: observed }, bounds(step * 3 / 1000));
   retain(baseline);
   if (baseline.evaluation.status !== "Pass") throw new Error("Multichannel baseline has missing observations or violated bounds.");
   const first = baseline.run.samples[0];
@@ -94,7 +96,7 @@ export async function acquireMultichannelModel(loop: ControlLoopDefinition, runt
     events.sort((left, right) => left.at_ms - right.at_ms || left.symbol.localeCompare(right.symbol));
     await progress(`${trial === 0 ? "Identification" : "Independent validation"}: ${closedLoop ? "closed-loop reference" : "Manual-input"} multichannel excitation; recording all cross-responses.`);
     const result = await runtime.verify({ step_ms: step, duration_ms: duration, seed: (loop.experiment?.seed ?? 1) + trial,
-      max_total_cycles: duration / step + 1, wall_budget_ms: 10000, initial_values: initialValues, events, observations: observed }, bounds(duration / 1000));
+      max_total_cycles: duration / step + 1, wall_budget_ms: ISOLATED_SIMULATION_WALL_TIME_LIMIT_MS, initial_values: initialValues, events, observations: observed }, bounds(duration / 1000));
     runs.push(result); retain(result);
     if (result.projectRevision !== baseline.projectRevision || result.evaluation.status !== "Pass") throw new Error("Multichannel acquisition changed revision or violated its bounds.");
   }

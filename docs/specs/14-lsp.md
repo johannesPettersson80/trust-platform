@@ -256,7 +256,11 @@ Recommended warning groups:
 - `W005` implicit conversion
 - `W008` cyclomatic complexity quality lint
 - `W009` unused POU quality lint
-- `W010`/`W011` non-deterministic time/date and direct-I/O usage
+- `W010`/`W011` non-deterministic time/date and direct-I/O usage; `W011` concerns a direct
+  `%I`/`%Q` address declared in reusable code (a function block, function, method or class),
+  where it ties every use to one channel and to the I/O image's timing. A program's or
+  configuration's I/O list is the normal place for addresses and does not warn (refined on
+  7 October 2026, when every entry of a plant's I/O list was warned of).
 - `W012` shared global access across scheduled tasks
 - `W013`/`W014` numeric hazard lints
 
@@ -386,16 +390,12 @@ change IEC 61131-3 program semantics.
   Runtime settings accept the documented nested and top-level forms without
   merging unrelated keys.
 
-##### 6.6.2 HMI command and descriptor diagnostics
+##### 6.6.2 Binding catalogue command
 
-- HMI commands reject malformed argument shapes and invalid styles before
-  filesystem mutation. Valid initialization and binding requests return the
-  deterministic scaffold and external binding catalogue.
-- HMI TOML diagnostics use open-buffer content, accept valid pages, and report
-  invalid widget, type, property, and binding data without requiring a
-  successful runtime compile.
-- Near-match suggestions rank the closest valid binding first and suppress
-  low-confidence noise.
+- `trust-lsp.hmiBindings` rejects malformed argument shapes. A valid request
+  returns the deterministic external binding catalogue of process-image and
+  control symbols.
+- HMI page validation is specified in `docs/specs/39-hmi-builder.md`.
 
 ##### 6.6.3 URI and virtual-document handling
 

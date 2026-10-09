@@ -26,6 +26,7 @@ import { proportionalInitializationPlan } from "./proportionalTransfer";
 import { PidCommissioning } from "./pidCommissioning";
 import { ProportionalCommissioning, type CommissioningResult } from "./proportionalCommissioning";
 import type { ParameterApplicationClient, ParameterReview } from "./parameterApplication";
+import type { CommissioningProfile } from "./commissioningProfile";
 
 export interface ControllerGains { parameters?: Readonly<Record<string, number>>; proportionalGain?: number; integralGain?: number; derivativeGain?: number; backCalculationGain?: number; proportionalSetpointWeight?: number; derivativeSetpointWeight?: number; measurementFilterSeconds?: number }
 export interface ControllerAdapter {
@@ -38,8 +39,11 @@ export interface ControllerAdapter {
   recover(model: GeneralModel, task: EngineerRequirements, client: ParameterApplicationClient, review: ParameterReview, report: CommissioningResult): Promise<PidCommissioning | ProportionalCommissioning>;
   initialization(model: GeneralModel, task: EngineerRequirements, values: Record<string, number>, processNoise?: number): ReturnType<typeof proportionalInitializationPlan>;
   /** With `wait`, the review waits (bounded, cancellable) until the process rests at the validated operating point. */
+  /** `processNoise` is the measured output's noise as single executions see it, which sets the Auto-entry allowance (A6.4). */
   commission(model: GeneralModel, task: EngineerRequirements, client: ParameterApplicationClient, review: ParameterReview,
-    wait?: StartingPointWait): Promise<PidCommissioning | ProportionalCommissioning>;
+    wait?: StartingPointWait, processNoise?: number): Promise<PidCommissioning | ProportionalCommissioning>;
+  /** A declared controller's commissioning profile, whose Auto entry a restore reuses (A6.2); the built-in PID and P laws have none. */
+  declaredProfile?(model: GeneralModel, values: Readonly<Record<string, number>>): CommissioningProfile;
 }
 
 /** One owner for actual ST conventions throughout Tune, Verify and Apply. */
@@ -79,10 +83,10 @@ export function controllerAdapter(loop: ControlLoopDefinition): ControllerAdapte
     assertRecoveryNeeded: report => PidCommissioning.assertRecoveryNeeded(loop, report),
     recover: (model, task, client, review, report) => PidCommissioning.reviewRecovery(loop, model, task, client, review, report),
     initialization: (model, task, values, processNoise) => pidInitializationPlan(loop, model, task, values, processNoise),
-    commission: (model, task, client, review, wait) => PidCommissioning.review(loop, model, task, client, review, undefined, wait),
+    commission: (model, task, client, review, wait, noise) => PidCommissioning.review(loop, model, task, client, review, undefined, wait, noise),
     };
   }
-  const parameter = proportionalParameter(loop);
+  const parameter = namedProportionalParameter(loop);
   return {
     transferBinding: () => proportionalTransferBinding(loop),
     recoveryTracking: () => proportionalTracking(loop, proportionalTransferBinding(loop), false),
@@ -98,7 +102,7 @@ export function controllerAdapter(loop: ControlLoopDefinition): ControllerAdapte
     assertRecoveryNeeded: report => ProportionalCommissioning.assertRecoveryNeeded(loop, report),
     recover: (model, task, client, review, report) => ProportionalCommissioning.reviewRecovery(loop, model, task, client, review, report),
     initialization: (model, task, values) => proportionalInitializationPlan(loop, model, task, values),
-    commission: (model, task, client, review, wait) => ProportionalCommissioning.review(loop, model, task, client, review, wait),
+    commission: (model, task, client, review, wait, noise) => ProportionalCommissioning.review(loop, model, task, client, review, wait, noise),
   };
 }
 
@@ -108,7 +112,7 @@ export function tuneTypedController(loop: ControlLoopDefinition, model: GeneralM
   const adapter = controllerAdapter(loop);
   if (!adapter.families.includes(family)) throw new Error(`The bound ST adapter cannot realize ${family}.`);
   if (applicationMode === "auto") adapter.checkInitialization();
-  const method = { method: task?.tuningMethod ?? "SIMC" as const, objective: task?.tuningObjective ?? "balanced" as const };
+  const method = { method: task?.tuningMethod ?? "SIMC" as const, objective: task?.tuningObjective ?? "balanced" as const, action: loop.controller.action };
   const design = task ? designPidToRequirements(loop, model, family, task)
     : family === "PI" ? designTypedPiCandidate(model, method) : designTypedDerivativeCandidate(model, family, method);
   const law = decodePidLaw(loop.controller.law, loop.parameterBinding);
@@ -124,6 +128,12 @@ export function tuneTypedController(loop: ControlLoopDefinition, model: GeneralM
     : design.candidate;
   const retained: PidPiDesign = candidate === design.candidate ? design : { ...design, candidate: { ...design.candidate, ...candidate } };
   return { design: retained, values: adapter.materialize(retained.candidate, {}) };
+}
+
+/** Loops that reach the proportional fallback must declare a proportional law or analysis; any other refusal names the controller type. */
+function namedProportionalParameter(loop: ControlLoopDefinition): ReturnType<typeof proportionalParameter> {
+  try { return proportionalParameter(loop); }
+  catch (error) { throw new Error(`Controller type ${loop.controller.type} is not a recognised ST adapter. ${error instanceof Error ? error.message : String(error)}`); }
 }
 
 function applyPidPins(loop: ControlLoopDefinition, family: "PI" | "PD" | "PID",
@@ -173,7 +183,8 @@ function mappedControllerAdapter(loop: ControlLoopDefinition, families: readonly
       if (!model) throw new Error("Restore the commissioning model before recovery.");
       PidCommissioning.assertRecoveryNeeded(loop, report, profile(model));
     },
-    commission: (model, task, client, review, wait) => PidCommissioning.review(loop, model, task, client, review, profile(model, review.values), wait),
+    commission: (model, task, client, review, wait, noise) => PidCommissioning.review(loop, model, task, client, review, profile(model, review.values), wait, noise),
     recover: (model, task, client, review, report) => PidCommissioning.reviewRecovery(loop, model, task, client, review, report, profile(model)),
+    declaredProfile: profile,
   };
 }

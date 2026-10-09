@@ -146,13 +146,13 @@ suite("Control gallery model", () => {
     test("topic selection stays in the bundled gallery and Read guide is the external action", () => {
       assert.strictEqual(typeof exampleTopicAction, "function");
       if (!exampleTopicAction) return;
-      assert.deepStrictEqual(exampleTopicAction("hmi"), {
+      assert.deepStrictEqual(exampleTopicAction("connectivity"), {
         type: "browseExamples",
-        topicId: "hmi",
+        topicId: "connectivity",
       });
-      assert.deepStrictEqual(exampleTopicAction("read-guide:hmi"), {
+      assert.deepStrictEqual(exampleTopicAction("read-guide:connectivity"), {
         type: "openExamplesDocumentation",
-        topicId: "hmi",
+        topicId: "connectivity",
       });
     });
 

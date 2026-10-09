@@ -49,6 +49,21 @@ fn subcommand_suggestion_ignores_global_flags() {
     );
 }
 
+/// Specification 39, decision 12: legacy init/update/reset actions remain removed;
+/// the new HMI namespace exposes check/test instead.
+#[test]
+fn removed_hmi_command_is_rejected() {
+    for action in ["init", "update", "reset"] {
+        let output = run_runtime(&["hmi", action]);
+        assert!(!output.status.success(), "`hmi {action}` must fail");
+        assert!(
+            stderr(&output).contains(&format!("unrecognized subcommand '{action}'")),
+            "unexpected stderr for `hmi {action}`:\n{}",
+            stderr(&output)
+        );
+    }
+}
+
 #[test]
 fn distant_unknown_command_is_not_given_a_misleading_suggestion() {
     let output = run_runtime(&["definitely-not-a-command"]);

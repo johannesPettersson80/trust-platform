@@ -3,6 +3,7 @@ import { healthColor, roleWord } from "./nodes";
 import { protocolColor, protocolName } from "./protocolMeta";
 import { t, tint } from "./theme";
 import { healthStatusLabel } from "./statusPresentation";
+import { simulationSpeedText, type SimulationSpeed } from "../../controlStudio/runtimeTarget";
 import { buildParams, Field, valuesFor } from "./SchemaFields";
 import { browseAction } from "./browseActions";
 import {
@@ -76,11 +77,24 @@ function normalizedConfiguredDetail(detail: string): string {
     .trim();
 }
 
-function runtimeModeLabel(mode: string): string {
+/** The simulator's speed as its runtime node carries it; undefined until the canvas data supplies it. */
+function simulationSpeedFromNode(d: Record<string, unknown>): SimulationSpeed | undefined {
+  const configured = d.simulationTimeScale;
+  if (typeof configured !== "number" || !Number.isFinite(configured) || configured < 1) return undefined;
+  const achieved = d.simulationAchievedTimeScale;
+  return typeof achieved === "number" && Number.isFinite(achieved) && achieved > 0
+    ? { configured, achieved }
+    : { configured };
+}
+
+function runtimeModeLabel(mode: string, speed?: SimulationSpeed): string {
   switch (mode.trim().toLowerCase()) {
     case "simulate":
-    case "simulator":
-      return "Simulator";
+    case "simulator": {
+      // A simulation that runs off real time says so (specification 35, B9.2): "Simulation ×10".
+      const text = speed ? simulationSpeedText(speed) : "";
+      return text ? `Simulation ${text}` : "Simulator";
+    }
     case "managed":
       return "Managed";
     case "remote":
@@ -653,7 +667,7 @@ function SummaryView({
         rows.push(["State", stateSummary(str(d.lifecycleState) || health, str(d.detail))]);
         rows.push(["Run target", d.runTarget === true ? "Selected" : "Not selected"]);
         {
-          const mode = runtimeModeLabel(str(d.mode));
+          const mode = runtimeModeLabel(str(d.mode), simulationSpeedFromNode(d));
           if (mode) {
             rows.push(["Mode", mode]);
           }

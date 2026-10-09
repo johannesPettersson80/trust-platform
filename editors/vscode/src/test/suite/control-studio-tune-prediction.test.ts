@@ -17,7 +17,7 @@ function coldRoomLoop() {
     manipulatedVariable: { symbol: "P1.CompressorPct", unit: "%", minimum: 0, maximum: 100 }, mode: { symbol: "P1.AutoMode", whenTrue: "Auto" },
     manualOutput: "P1.ManualPct", hysteresis: "P1.HysteresisC", bandConvention: "half-band", minimumOn: "P1.MinimumOnS",
     minimumOff: "P1.MinimumOffS", latch: "P1.CoolingOn", equipmentMinimumOnSeconds: 20, equipmentMinimumOffSeconds: 20,
-    experimentDurationSeconds: 300 });
+    experimentStep: 100, experimentDurationSeconds: 300 });
 }
 
 suite("Control Studio Tune prediction for laws in the program", () => {

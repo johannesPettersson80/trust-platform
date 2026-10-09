@@ -51,6 +51,9 @@ impl Runtime {
         if let Some(debug) = &self.debug {
             debug.invalidate_control_program();
         }
+        if let Some(exchange) = self.hmi_exchange() {
+            exchange.methods.invalidate();
+        }
         self.vm_module = None;
         self.vm_statement_locations.clear();
         self.vm_local_init_plan_cache.invalidate_all();
@@ -73,6 +76,8 @@ impl Runtime {
         self.apply_bytecode_metadata(&metadata, resource_name)?;
         self.vm_module = Some(vm_module);
         self.vm_statement_locations.clear();
+        // A new program has new instances; a plant publishes its controller measurements again.
+        self.clear_controller_measurements();
         Ok(())
     }
 
@@ -147,9 +152,7 @@ impl Runtime {
 fn legacy_placeholder_resource(
     metadata: &crate::bytecode::BytecodeMetadata,
 ) -> Option<&crate::bytecode::ResourceMetadata> {
-    let resource = metadata.resources.first()?;
-    (metadata.resources.len() == 1 && resource.name.eq_ignore_ascii_case("RESOURCE"))
-        .then_some(resource)
+    metadata.legacy_placeholder()
 }
 
 #[cfg(test)]

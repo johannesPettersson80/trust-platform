@@ -5,6 +5,7 @@ import * as vscode from "vscode";
 import { attachControlStudio } from "./control-studio-rendered-harness";
 import { recordingArchive } from "./control-studio-recording-flow.test";
 import { captureRenderedWorkbenchCdp, connectCdp, devToolsPort, evaluateInWebview, httpJson, pollValue, requiredEnvironment } from "./plant-rendered-harness";
+import { formatDurationSeconds } from "../../controlStudio/webview/durationField";
 
 suite("Control Studio three-page workflow", () => {
   test("calculates response, pole views and lead-lag designs through the visible model tools", async function () {
@@ -20,8 +21,8 @@ suite("Control Studio three-page workflow", () => {
       await pollValue("supplied model ready", () => inner("return d.querySelector('[data-studio-model-equation]')?.textContent??'';"), value => value.length > 0, 10000);
       await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();d.defaultView.__toolEvents=[];d.defaultView.addEventListener('message',e=>{if(e.data.kind==='control-studio.engineering.result')d.defaultView.__toolEvents.push(e.data);});return 'tools';");
       const choose = async (tool: string) => {
-        assert.strictEqual(await inner(`const option=d.querySelector('[data-engineer-tuning-method] option[value="analysis:${tool}"]');return String(!!option&&!option.disabled&&!option.hidden);`), "true", `${tool} must be reachable`);
-        await inner(`const method=d.querySelector('[data-engineer-tuning-method]');method.value='analysis:${tool}';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));d.defaultView.__toolEvents=[];return 'selected';`);
+        assert.strictEqual(await inner(`d.querySelector('[data-studio-analyze]').click();const option=d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool="${tool}"]');return String(!!option&&!option.disabled&&!option.hidden);`), "true", `${tool} must be reachable`);
+        await inner(`d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool="${tool}"]').click();d.defaultView.__toolEvents=[];return 'selected';`);
       };
       const calculate = async (field: string) => {
         await inner("d.querySelector('[data-engineer-tune]').click();return 'calculate';");
@@ -72,6 +73,7 @@ suite("Control Studio three-page workflow", () => {
       const terminal = completed.find((message: any) => message.phase === "terminal")?.payload;
       assert.strictEqual(terminal?.status, "completed", JSON.stringify(completed));
       assert.strictEqual(terminal?.restoration, "restored", JSON.stringify(terminal));
+      assert.ok(terminal.recording, `The terminal result carries the kept recording: ${JSON.stringify(terminal).slice(0, 800)}`);
       assert.ok(terminal.recording.rawSamples.length >= 10, "Retain runtime-scan data from the project sequence");
       await pollValue("native measured project response", () => inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), value => Number(value) >= 2, 10000);
       assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-acquisition-method]').disabled);"), "false", "Finishing restoration must unlock method selection");
@@ -123,8 +125,8 @@ suite("Control Studio three-page workflow", () => {
     this.timeout(60000);
     await withStudio(async inner => {
       await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();return 'tune';");
-      assert.strictEqual(await inner("return String(!!d.querySelector('[data-engineer-tuning-method] option[value=\"analysis:root-locus\"]'));"), "true", "The existing tuning method selector exposes the declared root locus");
-      await inner("const method=d.querySelector('[data-engineer-tuning-method]');method.value='analysis:root-locus';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'root locus';");
+      assert.strictEqual(await inner("d.querySelector('[data-studio-analyze]').click();return String(!!d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool=\"root-locus\"]'));"), "true", "The Analyze list exposes the declared root locus");
+      await inner("d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool=\"root-locus\"]').click();return 'root locus';");
       assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-tune]').disabled);"), "false", "Read-only declared analysis does not require a tuned candidate");
       await inner("d.defaultView.__analysisMessages=[];d.defaultView.addEventListener('message',event=>{if(event.data.kind==='control-studio.engineering.result')d.defaultView.__analysisMessages.push(event.data);});d.querySelector('[data-engineer-tune]').click();return 'calculate';");
       const messages = await pollValue("root locus host result", () => inner("return JSON.stringify(d.defaultView.__analysisMessages);"), value => JSON.parse(value).some((message: any) => message.stage === "declared-root"), 10000);
@@ -175,7 +177,7 @@ suite("Control Studio three-page workflow", () => {
       await inner("d.querySelector('[data-engineer-stage-tab=verify]').click();return 'validate';");
       await inner(hostUpdate({ status: "failed", reason: "The load-change run was interrupted.", requiredScenarios: ["target-response", "load-change"],
         scenarioResults: [{ id: "target-response", result: { evaluation: { status: "Pass", requirements: [{id:"settling",kind:"settling",status:"Pass",value:4,limit:5,unit:"s"}], specification: [{id:"settling",kind:"settling",channel:"P1.ProcessValue"}] } } }] }));
-      assert.strictEqual(await inner("return String(d.querySelector('.studio-response').getBoundingClientRect().height===0);"), "true", "A missing response does not reserve an empty chart above the action");
+      assert.strictEqual(await inner("const empty=d.querySelector('[data-studio-chart-empty]');return String(!!empty&&!empty.hidden&&['Start the runtime to see live values','Waiting for the first samples'].includes(empty.textContent)&&d.querySelector('[data-control-studio-chart]').dataset.seriesCount==='0');"), "true", "A missing response shows one line in the plot area instead of empty axes");
       const table = await inner("return d.querySelector('[data-studio-validation-result]').textContent;");
       assert.match(table, /Maximum settling time/);
       assert.match(table, /load change/i);
@@ -203,12 +205,12 @@ suite("Control Studio three-page workflow", () => {
       assert.strictEqual(await inner("return String(d.querySelectorAll('[data-studio-manual-value]').length);"), "2", "Manual PI shows only its relevant settings");
       assert.strictEqual(await inner("return d.querySelector('[data-studio-manual-value]').value;"), "1.23456789012345");
       assert.ok((await inner("return d.querySelector('[data-studio-tuning-result]').textContent;")).includes("Proportional gain (Kp)"));
-      await inner("const input=d.querySelector('[data-studio-manual-value]');input.value='2.123456789';input.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));const pin=d.querySelector('[data-studio-manual-pin]');pin.checked=true;pin.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'pinned';");
+      await inner("const input=d.querySelector('[data-studio-manual-value]');input.value='2.123456789';input.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));return 'edited';");
       await inner("const method=d.querySelector('[data-engineer-tuning-method]');method.value='automatic';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'automatic';");
       assert.strictEqual(await inner("return String(d.querySelectorAll('[data-studio-manual-value]').length);"), "0", "Automatic results stay plain and compact");
       await inner("const method=d.querySelector('[data-engineer-tuning-method]');method.value='manual';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'manual again';");
       assert.strictEqual(await inner("return d.querySelector('[data-studio-manual-value]').value;"), "2.123456789");
-      assert.strictEqual(await inner("return String(d.querySelector('[data-studio-manual-pin]').checked);"), "true");
+      assert.strictEqual(await inner("return String(!!d.querySelector('[data-studio-manual-pin]'));"), "false", "Manual settings have no Pin checkboxes");
       await inner("const input=d.querySelector('[data-studio-manual-value]');input.value='';input.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));d.querySelector('[data-engineer-tune]').click();return 'incomplete';");
       assert.strictEqual(await inner("return d.querySelector('[data-studio-manual-value]').getAttribute('aria-invalid');"), "true");
       assert.strictEqual(await inner("return d.querySelector('[data-studio-three-page]').dataset.busy??'false';"), "false", "An incomplete manual value does not start Tune");
@@ -378,7 +380,8 @@ suite("Control Studio three-page workflow", () => {
       assert.strictEqual(await inner("d.querySelector('[data-engineer-apply]').click();return d.querySelector('[data-engineer-apply]').textContent;"), "Applying…");
       const messages = JSON.parse(await pollValue("unverified application rejection", () => inner("return JSON.stringify(d.defaultView.__application);"), text => JSON.parse(text).some((event: {status:string}) => event.status === "failed"), 10000));
       assert.ok(messages.some((event: {status:string}) => event.status === "failed"));
-      assert.strictEqual(await inner("return String(d.querySelectorAll('[data-studio-application] button').length);"), "1");
+      assert.strictEqual(await inner("return String(Array.from(d.querySelectorAll('[data-studio-application] button')).filter(button=>!button.hidden).length);"), "1");
+      assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-keep]').hidden);"), "true", "Keep in project waits for a successful Apply");
       assert.strictEqual(await inner("return d.querySelector('[data-engineer-apply]').textContent;"), "Apply");
       assert.ok(!(await inner("return d.querySelector('[data-studio-message=verify]').textContent;")).includes("Applied"));
     });
@@ -411,7 +414,7 @@ suite("Control Studio three-page workflow", () => {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();
     // Identifying again waits, bounded, for the plant to settle after the first experiment.
     this.timeout(240000);
-    await withStudio(async (inner, reopen) => {
+    await withStudio(async (inner, reopen, capture) => {
       await inner("d.querySelector('[data-engineer-stage-tab=model]').click();d.defaultView.__studioEvents=[];d.defaultView.addEventListener('trust-control-studio-engineer',event=>d.defaultView.__studioEvents.push(event.detail));d.querySelector('[data-engineer-find]').click();return 'started';");
       assert.strictEqual(await inner("return d.querySelector('[data-engineer-find]').textContent;"), "Abort", "Identify starts the operation and offers Abort");
       const finished = JSON.parse(await pollValue("native identification result", () => inner("return JSON.stringify(d.defaultView.__studioEvents);"), text => JSON.parse(text).some((event: {status: string}) => ["model-ready", "failed", "paused"].includes(event.status)), 60000));
@@ -435,8 +438,9 @@ suite("Control Studio three-page workflow", () => {
       assert.ok(!terminalEvents.some((event: any) => event.status === "paused"), "Completed trial cleanup must not overwrite the model-ready result");
       await reopen();
       await inner("d.querySelector('[data-engineer-stage-tab=model]').click();d.defaultView.__studioEvents=[];d.defaultView.addEventListener('trust-control-studio-engineer',event=>d.defaultView.__studioEvents.push(event.detail));return 'reopened';");
+      await capture("reopened-identification");
       assert.strictEqual(await inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), "3", "Reopening preserves the actual experiment input and model comparison");
-      await inner("d.querySelector('[data-studio-reset-chart]').click();return 'reset';");
+      await inner("d.querySelector('[data-studio-reset-chart]').click();Array.from(d.querySelectorAll('.studio-reset-confirm button')).find(b=>b.textContent==='Reset study').click();return 'reset';");
       await pollValue("reset study", () => inner("return String(d?.querySelector('[data-studio-three-page]')?.dataset.hostReady === 'true' && d?.querySelector('[data-studio-model-result]')?.hidden === true);").catch(() => "loading"), value => value === "true", 15000);
       assert.strictEqual(await inner("return d.querySelector('[data-studio-model-equation]').textContent;"), "", "Reset clears the model equation");
       // Reset clears the recorded experiment and its model comparison, then resumes live observation (Identify spec).
@@ -506,15 +510,16 @@ suite("Control Studio three-page workflow", () => {
       await pollValue("three-page handlers", () => inner("return d.querySelector('[data-studio-three-page]')?.dataset.hostReady;"), value => value === "true", 10000);
       await inner("d.querySelector('[data-studio-limits]').click();return 'opened';");
       assert.strictEqual(await inner("return String(!!d.querySelector('dialog[open]'));"), "true", "Limits opens the compact editor without navigating away");
-      assert.strictEqual(await inner("return d.querySelector('[data-studio-limit=durationSeconds]').value;"), String(loop.experiment.durationSeconds));
+      // Durations show in their largest fitting unit, and a plain number still means seconds (Tune page spec).
+      assert.strictEqual(await inner("return d.querySelector('[data-studio-limit=durationSeconds]').value;"), formatDurationSeconds(loop.experiment.durationSeconds));
       await inner("const input=d.querySelector('[data-studio-limit=durationSeconds]');input.value='12';input.dispatchEvent(new Event('input',{bubbles:true}));d.querySelector('[data-studio-editor-cancel]').click();return 'cancelled';");
       assert.strictEqual(await inner("return String(!!d.querySelector('dialog[open]'));"), "false");
       await inner("d.querySelector('[data-studio-limits]').click();return 'opened again';");
-      assert.strictEqual(await inner("return d.querySelector('[data-studio-limit=durationSeconds]').value;"), String(loop.experiment.durationSeconds), "Cancel preserves the prior duration");
+      assert.strictEqual(await inner("return d.querySelector('[data-studio-limit=durationSeconds]').value;"), formatDurationSeconds(loop.experiment.durationSeconds), "Cancel preserves the prior duration");
       await inner("const input=d.querySelector('[data-studio-limit=durationSeconds]');input.value='12';input.dispatchEvent(new Event('input',{bubbles:true}));d.querySelector('[data-studio-editor-done]').click();return 'saved';");
       assert.strictEqual(await inner("return String(!!d.querySelector('dialog[open]'));"), "false");
       await inner("d.querySelector('[data-studio-limits]').click();return 'reopened';");
-      assert.strictEqual(await inner("return d.querySelector('[data-studio-limit=durationSeconds]').value;"), "12", "Done retains the edited duration");
+      assert.strictEqual(await inner("return d.querySelector('[data-studio-limit=durationSeconds]').value;"), "12 s", "Done retains the edited duration");
       await captureRenderedWorkbenchCdp(connection, requiredEnvironment("TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT").replace(/\.png$/, "-limits.png"));
     } finally {
       connection.close();
@@ -592,6 +597,9 @@ export async function withStudio(exercise: (inner: (body: string) => Promise<str
   assert.strictEqual(decoded.kind, "accepted", `The rendered fixture must be valid before opening: ${JSON.stringify(decoded)}`);
   const validated = require("../../controlStudio/loopDefinition").validateControlLoopDefinition(loop, { projectId: loop.projectId, runtimeId: loop.runtimeId });
   assert.strictEqual(validated.kind, "accepted", `The rendered fixture bindings must be valid: ${JSON.stringify(validated)}`);
+  // A study is kept in the project beside its loop (A8.3), so the fixture's own loop is saved into the project like any other.
+  fs.mkdirSync(path.join(project, "control-loops"), { recursive: true });
+  fs.writeFileSync(path.join(project, "control-loops", `${loop.id.replace(/[^a-z0-9-]+/gi, "-")}.json`), `${JSON.stringify(loop, null, 2)}\n`);
   await vscode.extensions.getExtension("trust-platform.trust-lsp")?.activate();
   const port = await devToolsPort(requiredEnvironment("TRUST_PLANT_RENDERED_USER_DATA_DIR"), 15000);
   const connection = await connectCdp((await httpJson(port, "/json/version")).webSocketDebuggerUrl);

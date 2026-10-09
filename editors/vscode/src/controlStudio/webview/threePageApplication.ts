@@ -1,19 +1,33 @@
 import type { StudioPost } from "./threePageOperation";
+import { runLockedControls } from "./runLock";
+import { studioFailureOf, type StudioFailure } from "./studioFailure";
 
-/** The host owns review, writes and receipts; this class only presents their progress. */
+/** The host owns review, writes and receipts; this class only presents their progress. After an Apply, Keep in project is the
+ * next action: the applied values become the project's, so a restart or a new download keeps them (Specification 35 §17.17). */
 export class ThreePageApplication {
   active = false;
   private action: "apply" | "restore" = "apply";
   private applyAvailable = false;
   private restoreAvailable = false;
+  private keepAvailable = false;
+  private keeping = false;
   private readonly button: HTMLButtonElement;
+  private readonly keep: HTMLButtonElement | null;
   constructor(private readonly root: HTMLElement, private readonly post: StudioPost,
-    private readonly operationBusy: () => boolean, private readonly notice: (message: string) => void) {
+    private readonly operationBusy: () => boolean, private readonly notice: (message: string) => void,
+    /** Shows a failure with its typed next action in the Validate page's action area. */
+    private readonly fail: (failure: StudioFailure) => void = failure => notice(failure.message)) {
     this.button = root.querySelector<HTMLButtonElement>("[data-engineer-apply]")!;
     this.button.addEventListener("click", () => {
-      if (this.active || !this.available() || this.operationBusy()) return;
+      if (this.active || this.keeping || !this.available() || this.operationBusy()) return;
       this.active = true; this.notice(""); this.render();
       this.post(`control-studio.application.${this.action}`);
+    });
+    this.keep = root.querySelector<HTMLButtonElement>("[data-engineer-keep]");
+    this.keep?.addEventListener("click", () => {
+      if (this.active || this.keeping || !this.keepAvailable || this.operationBusy()) return;
+      this.keeping = true; this.notice(""); this.render();
+      this.post("control-studio.application.keep");
     });
   }
   abort(): void {
@@ -22,6 +36,13 @@ export class ThreePageApplication {
   }
   receive(payload: Record<string, unknown>): void {
     const status = String(payload.status);
+    if (payload.applicationAction === "keep") {
+      this.keeping = false;
+      if (status === "kept") this.keepAvailable = false;
+      if (typeof payload.reason === "string") this.notice(payload.reason);
+      this.render();
+      return;
+    }
     const observedAvailability = payload.applicationAvailability;
     if (observedAvailability === "restore") this.restoreAvailable = true;
     if (observedAvailability === "unavailable") {
@@ -32,6 +53,8 @@ export class ThreePageApplication {
       this.applyAvailable = payload.stageEvidence && typeof payload.stageEvidence === "object"
         ? (payload.stageEvidence as Record<string, unknown>).validationPassed === true
         : true;
+      // A newly validated candidate makes Apply the next action again.
+      if (this.applyAvailable) this.keepAvailable = false;
     }
     if (payload.flowStage && status === "running" || status === "edited" || status === "candidate") {
       this.applyAvailable = false;
@@ -47,16 +70,18 @@ export class ThreePageApplication {
         this.active = false;
         this.applyAvailable = false;
         this.restoreAvailable = !restoring;
+        this.keepAvailable = !restoring;
         this.action = restoring ? "apply" : "restore";
-        this.notice(restoring ? "Restored" : "Applied");
+        this.notice(restoring ? "Restored" : "Applied. Keep in project to make these values the project's.");
       } else if (["failed", "recovery-required", "unavailable", "busy"].includes(status)) {
         const restoring = (payload.applicationAction ?? this.action) === "restore";
-        // "Apply again": the validated settings stay applicable, for example once the process has settled.
-        const reapply = (payload.failure as { nextAction?: unknown } | undefined)?.nextAction === "reapply";
+        const failure = studioFailureOf(payload);
+        // A "validate" next action keeps the validated settings applicable, for example once the process has settled.
+        const reapply = failure?.nextAction.kind === "validate";
         this.active = false;
         if (restoring) this.restoreAvailable = false;
         else this.applyAvailable = reapply && this.applyAvailable;
-        this.notice(String(payload.reason ?? "The operation could not be confirmed."));
+        if (failure) this.fail(failure); else this.notice("The operation could not be confirmed.");
       } else if (status === "running" && typeof payload.reason === "string") {
         // For example while Apply waits for the process to settle at the validated operating point.
         this.notice(payload.reason);
@@ -73,9 +98,18 @@ export class ThreePageApplication {
   private render(): void {
     this.button.textContent = this.active ? this.action === "restore" ? "Restoring…" : "Applying…"
       : this.action === "restore" ? "Restore previous settings" : "Apply";
-    this.button.disabled = this.active || this.operationBusy() || !this.available();
+    this.button.disabled = this.active || this.keeping || this.operationBusy() || !this.available();
+    // One primary action: Keep in project once the values are applied, else Apply.
+    const keepNext = this.keepAvailable || this.keeping;
+    this.button.classList.toggle("trust-button--primary", !keepNext);
+    if (this.keep) {
+      this.keep.hidden = !keepNext;
+      this.keep.classList.toggle("trust-button--primary", keepNext);
+      this.keep.textContent = this.keeping ? "Keeping…" : "Keep in project";
+      this.keep.disabled = this.keeping || this.active || this.operationBusy();
+    }
     if (!this.active) return;
-    for (const control of Array.from(this.root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>("select,input,[data-studio-limits],[data-studio-requirements],[data-identify-import]"))) control.disabled = true;
+    for (const control of runLockedControls(this.root)) control.disabled = true;
     for (const button of Array.from(this.root.querySelectorAll<HTMLButtonElement>("[data-engineer-find],[data-engineer-tune],[data-engineer-verify]"))) { button.textContent = "Abort"; button.disabled = false; }
   }
 }

@@ -14,7 +14,7 @@ END_PROGRAM
 static NEXT_PATH: AtomicU64 = AtomicU64::new(1);
 
 fn state() -> ControlState {
-    crate::control::tests::hmi_test_state(SOURCE)
+    crate::control::tests::control_test_state(SOURCE)
 }
 
 fn request(auth: Option<&str>) -> ControlRequest {

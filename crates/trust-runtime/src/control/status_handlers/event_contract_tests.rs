@@ -13,7 +13,7 @@ END_PROGRAM
 "#;
 
 fn state() -> ControlState {
-    crate::control::tests::hmi_test_state(SOURCE)
+    crate::control::tests::control_test_state(SOURCE)
 }
 
 fn time(ms: i64) -> Duration {

@@ -98,7 +98,9 @@ suite("Control Studio validation summary", () => {
   });
 
   test("names an error measured from another reference after that reference, not a steady-state error", () => {
+    // A loop always declares its manipulated variable (ControlLoopDefinition.signals), so the fixture declares one too.
     const loop = { signals: { setpoint: { symbol: "P1.SetpointRad" }, processVariable: { symbol: "P1.AngleRad" },
+      manipulatedVariable: { symbol: "P1.ValvePct", address: "%QW0", iecType: "REAL", direction: "write", unit: "%", range: { minimum: 0, maximum: 100 } },
       additional: [{ id: "planned-angle", role: "state", symbol: "P1.ReferenceRad" }] }, verificationScenarios: [{ id: "planned-move" }] };
     const dom = new JSDOM(`<main><table data-studio-validation-result hidden><thead></thead><tbody></tbody></table></main>`);
     const previousDocument = (globalThis as any).document, previousWindow = (globalThis as any).window;
@@ -112,7 +114,7 @@ suite("Control Studio validation summary", () => {
         { id: "target-response", result: { evaluation: evaluation([...performance, ...integrity("")]) } },
         { id: "planned-move", result: { evaluation: evaluation([...following, ...integrity("")]) } }] });
       const rows = [...root.querySelectorAll("tbody tr")].map((row: any) => row.cells[0].textContent);
-      assert.ok(rows.includes("Maximum error from planned angle · P1.AngleRad · planned move"), JSON.stringify(rows));
+      assert.ok(rows.includes("Maximum error from planned angle · Measurement · planned move"), JSON.stringify(rows));
       assert.ok(rows.includes("Maximum steady-state error · P1.TemperatureC"), "the task's own error check keeps its name");
     } finally { (globalThis as any).document = previousDocument; (globalThis as any).window = previousWindow; dom.window.close(); }
   });

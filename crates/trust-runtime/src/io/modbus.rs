@@ -216,6 +216,8 @@ pub struct ModbusTcpDriver {
     transaction_id: u16,
     stream: Option<TcpStream>,
     health: IoDriverHealth,
+    /// The code of the last reply that was an exception, until an exchange succeeds.
+    last_exception: Option<u8>,
     worker: Option<ModbusWorker>,
 }
 
@@ -244,6 +246,7 @@ impl ModbusTcpDriver {
             transaction_id: 1,
             stream: None,
             health: IoDriverHealth::Ok,
+            last_exception: None,
             worker,
         }
     }
@@ -514,6 +517,7 @@ impl ModbusTcpDriver {
     }
 
     fn handle_error(&mut self, err: RuntimeError) -> Result<(), RuntimeError> {
+        self.last_exception = exception_code(&err);
         let message = SmolStr::new(err.to_string());
         match self.on_error {
             IoDriverErrorPolicy::Fault => {
@@ -535,6 +539,42 @@ impl ModbusTcpDriver {
 
     fn mark_ok(&mut self) {
         self.health = IoDriverHealth::Ok;
+        self.last_exception = None;
+    }
+
+    /// The server and unit it reads and its last exception reply (specification 42, §4 item 9).
+    fn describe(&self) -> SmolStr {
+        let exception = self
+            .last_exception
+            .map(|code| format!(", exception {code:02X} {}", exception_name(code)))
+            .unwrap_or_default();
+        SmolStr::new(format!("{} unit {}{exception}", self.address, self.unit_id))
+    }
+}
+
+/// The exception code of an exception reply, as `ensure_modbus_response` reports it.
+fn exception_code(err: &RuntimeError) -> Option<u8> {
+    match err {
+        RuntimeError::IoAddress(message) => message
+            .strip_prefix("modbus exception code ")
+            .and_then(|code| code.parse().ok()),
+        _ => None,
+    }
+}
+
+/// An exception code's name in the Modbus application protocol (V1.1b3, section 7).
+fn exception_name(code: u8) -> &'static str {
+    match code {
+        1 => "illegal function",
+        2 => "illegal data address",
+        3 => "illegal data value",
+        4 => "server device failure",
+        5 => "acknowledge",
+        6 => "server device busy",
+        8 => "memory parity error",
+        10 => "gateway path unavailable",
+        11 => "gateway target device failed to respond",
+        _ => "unknown exception",
     }
 }
 
@@ -646,5 +686,25 @@ impl IoDriver for ModbusTcpDriver {
             return worker.health();
         }
         self.health.clone()
+    }
+
+    fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
+        // Points fill their own bytes; a block fills the image from its start.
+        if self.input_points.is_empty() {
+            return std::iter::once(0..usize::MAX).collect();
+        }
+        crate::io::joined_bytes(
+            self.input_points
+                .iter()
+                .map(|point| point.image_offset..point.image_offset + point.data_type.image_len())
+                .collect(),
+        )
+    }
+
+    fn detail(&self) -> Option<SmolStr> {
+        if let Some(worker) = &self.worker {
+            return worker.detail();
+        }
+        Some(self.describe())
     }
 }

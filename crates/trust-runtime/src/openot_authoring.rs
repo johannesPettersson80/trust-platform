@@ -33,7 +33,9 @@ mod validation;
 
 pub use definition::definition_json_from_sources;
 use instrumentation::instrument_source_text;
-use validation::{collect_authoring_model, validate_authoring_sources};
+use validation::prepare_authoring_sources;
+#[cfg(test)]
+use validation::validate_authoring_sources;
 
 /// Instrument source files that contain OpenOT declaration attributes.
 ///
@@ -49,23 +51,18 @@ pub fn instrument_source_files(sources: &[SourceFile]) -> Vec<SourceFile> {
 /// Fallible OpenOT instrumentation for compile paths that must surface the
 /// validation error instead of returning a lossy source rewrite.
 pub fn try_instrument_source_files(sources: &[SourceFile]) -> Result<Vec<SourceFile>, String> {
-    let validation_errors = validate_authoring_sources(sources);
+    let (model, validation_errors) = prepare_authoring_sources(sources);
     if !validation_errors.is_empty() {
         return Err(validation_errors.join("; "));
     }
-    Ok(instrument_source_files_unchecked(sources))
-}
-
-fn instrument_source_files_unchecked(sources: &[SourceFile]) -> Vec<SourceFile> {
-    let model = collect_authoring_model(sources);
-    sources
+    Ok(sources
         .iter()
         .enumerate()
         .map(|(idx, source)| SourceFile {
             path: source.path.clone(),
             text: instrument_source_text(&source.text, &model.files[idx].programs),
         })
-        .collect()
+        .collect())
 }
 
 fn source_files_with_openot_authoring_error(

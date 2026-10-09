@@ -2,8 +2,8 @@
 fn controller_transfer_scaled_measurement_formula_multiplies_the_fresh_measurement_by_the_gain() {
     // A feedforward state starts at K_ff times the measured disturbance (Specification 35 §17.12).
     let source = "PROGRAM Main VAR Manual : BOOL := TRUE; SP : LREAL := 10.0; PV : LREAL := 10.0; ManualCommand : LREAL := 2.0; MV AT %QL0 : LREAL; Load : LREAL := 30.0; Kff : LREAL := 0.5; FeedState : LREAL := 0.0; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := ManualCommand; END_IF; END_PROGRAM";
-    let mut state = hmi_test_state(source);
-    let mut harness = TestHarness::from_source(source).unwrap();
+    let mut state = simulated_control_state(source);
+    let mut harness = simulated_harness(source);
     state.debug = harness.runtime_mut().enable_debug();
     assert!(harness.cycle().errors.is_empty());
     *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
@@ -75,8 +75,8 @@ fn controller_transfer_decoupled_output_formula_starts_each_member_at_its_share_
 ) {
     // A decoupled group member starts at row j of D⁻¹·u (Specification 35 §17.15).
     let source = "PROGRAM Main VAR Manual : BOOL := TRUE; SP : LREAL := 35.0; PV : LREAL := 35.0; ManualOne : LREAL := 50.0; ManualTwo : LREAL := 50.0; HeaterOne AT %QL0 : LREAL; HeaterTwo AT %QL8 : LREAL; D11 : LREAL := 1.0; D12 : LREAL := -0.5; D21 : LREAL := -0.5; D22 : LREAL := 1.0; RequestOne : LREAL := 0.0; RequestTwo : LREAL := 0.0; END_VAR HeaterOne := ManualOne; HeaterTwo := ManualTwo; END_PROGRAM";
-    let mut state = hmi_test_state(source);
-    let mut harness = TestHarness::from_source(source).unwrap();
+    let mut state = simulated_control_state(source);
+    let mut harness = simulated_harness(source);
     state.debug = harness.runtime_mut().enable_debug();
     assert!(harness.cycle().errors.is_empty());
     *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();

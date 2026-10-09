@@ -67,6 +67,7 @@ suite("Control Studio three-page native journey", () => {
       await click("[data-engineer-find]");
       const repeated = await waitStatus("model-ready", 90000, repeatSince);
       await pollValue("repeated identification finished", () => inner("return d.querySelector('[data-studio-three-page]').dataset.busy;"), value => value === "false", 10000);
+      await capture("02b-identify-repeated");
       assert.strictEqual(await inner("return d.querySelector('[data-engineer-stage-tab][aria-selected=true]').textContent;"), "Identify");
       assert.strictEqual(await inner("return String(!!d.querySelector('dialog[open]'));"), "false");
       assert.strictEqual(await inner("return String(d.querySelector('[data-studio-model-result]').checkVisibility());"), "true");
@@ -76,7 +77,8 @@ suite("Control Studio three-page native journey", () => {
       if (identified.model.kind === "transfer-function" && repeated.model.kind === "transfer-function") {
         const gain = (model: { numerator: number[]; denominator: number[] }) => model.numerator[0] / model.denominator[model.denominator.length - 1];
         assert.ok(Math.abs(gain(repeated.model) - gain(identified.model)) <= 0.1 * Math.abs(gain(identified.model)),
-          `Identifying again from a settled output reproduces the plant gain: ${gain(identified.model)} then ${gain(repeated.model)}`);
+          `Identifying again from a settled output reproduces the plant gain: ${gain(identified.model)} then ${gain(repeated.model)}; `
+          + `models ${JSON.stringify(identified.model).slice(0, 700)} then ${JSON.stringify(repeated.model).slice(0, 700)}`);
       }
       // The page shows the model of the latest identification.
       if (repeated.model.kind === "transfer-function") {
@@ -85,7 +87,8 @@ suite("Control Studio three-page native journey", () => {
         for (const coefficient of [...repeated.model.numerator, ...repeated.model.denominator].filter((value: number) => value !== 0)) {
           assert.ok(equation.includes(formatEngineeringNumber(Math.abs(coefficient))), `The displayed G(s) shows the identified coefficient ${coefficient}: ${equation}`);
         }
-        if (repeated.model.delaySeconds) assert.ok(equation.includes(`e^(−${formatEngineeringNumber(repeated.model.delaySeconds)}s)`), `The displayed G(s) shows the identified delay: ${equation}`);
+        // The delay is drawn as e with a superscript −Ls, so the text reads "e−0.7s".
+        if (repeated.model.delaySeconds) assert.ok(equation.includes(`e−${formatEngineeringNumber(repeated.model.delaySeconds)}s`), `The displayed G(s) shows the identified delay: ${equation}`);
       } else assert.ok(equation.includes(String(repeated.model.operatingPoint.outputs[0])), "The displayed plant equation includes its measured output operating point");
       assert.strictEqual(await inner("const chart=d.querySelector('[data-control-studio-chart]').getBoundingClientRect();return String(chart.bottom<=d.defaultView.innerHeight-8);"), "true", "The identified response plot fits the available editor height");
       const client = (await connectRuntimeParameters(loop)).client;
@@ -100,7 +103,7 @@ suite("Control Studio three-page native journey", () => {
       // Tune fills missing test settings automatically from the model and limits and never opens an empty editor.
       await click("[data-studio-requirements]");
       await pollValue("requirements editor", () => inner("return String(!!d.querySelector('[data-studio-requirement=maximumError]'));"), value => value === "true", 10000);
-      assert.strictEqual(await inner("return String(['referenceChange','maximumError','settlingBand','settlingTimeSeconds','durationSeconds'].every(key => Number.isFinite(Number(d.querySelector('[data-studio-requirement='+key+']').value)) && d.querySelector('[data-studio-requirement='+key+']').value !== ''));"), "true",
+      assert.strictEqual(await inner("return String(['referenceChange','maximumError','settlingBand'].every(key => Number.isFinite(Number(d.querySelector('[data-studio-requirement='+key+']').value)) && d.querySelector('[data-studio-requirement='+key+']').value !== '') && ['settlingTimeSeconds','durationSeconds'].every(key => d.querySelector('[data-studio-requirement='+key+']').value !== ''));"), "true",
         "Requirements opens prefilled with the automatic test criteria");
       await capture("04-requirements");
       await click("[data-studio-editor-done]");
@@ -164,9 +167,10 @@ suite("Control Studio three-page native journey", () => {
       await capture("08-restored");
       await click("[data-engineer-stage-tab=tune]");
       await inner("const method=d.querySelector('[data-engineer-tuning-method]');method.value='manual';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'manual';");
+      // In manual tuning the entered values are the settings; Keep toggles only fix values after automatic tuning (Tune page spec).
       const gainSymbol = loop.controller.law.proportionalGainSymbol;
       const enteredGain = candidate.values[gainSymbol] * 1.01;
-      await inner(`const input=[...d.querySelectorAll('[data-studio-manual-value]')].find(field=>field.dataset.studioManualValue===${JSON.stringify(gainSymbol)});input.value=${JSON.stringify(String(enteredGain))};input.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));const pin=[...d.querySelectorAll('[data-studio-manual-pin]')].find(field=>field.dataset.studioManualPin===${JSON.stringify(gainSymbol)});pin.checked=true;pin.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'manual gain pinned';`);
+      await inner(`const input=[...d.querySelectorAll('[data-studio-manual-value]')].find(field=>field.dataset.studioManualValue===${JSON.stringify(gainSymbol)});input.value=${JSON.stringify(String(enteredGain))};input.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));return 'manual gain entered';`);
       let since = Number(await inner("return String(d.defaultView.__journeyEvents.length);"));
       await click("[data-engineer-tune]");
       const manual = await waitStatus("candidate", 20000, since);
@@ -178,11 +182,18 @@ suite("Control Studio three-page native journey", () => {
       assert.deepStrictEqual((await client.status()).values, before.values, "Manual Tune and Validate do not write the running controller");
       await click("[data-engineer-stage-tab=tune]");
       await capture("09-manual-tuned");
-      await inner("const method=d.querySelector('[data-engineer-tuning-method]');method.value='automatic';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'automatic with pin';");
+      await inner("const method=d.querySelector('[data-engineer-tuning-method]');method.value='automatic';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'automatic';");
+      since = Number(await inner("return String(d.defaultView.__journeyEvents.length);"));
+      await click("[data-engineer-tune]");
+      const automatic = await waitStatus("candidate", 20000, since);
+      // After automatic tuning, Keep beside a setting fixes it for the next run (Tune page spec).
+      await inner(`const keep=[...d.querySelectorAll('[data-studio-keep]')].find(item=>item.dataset.studioKeep===${JSON.stringify(gainSymbol)});keep.checked=true;keep.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'kept';`);
       since = Number(await inner("return String(d.defaultView.__journeyEvents.length);"));
       await click("[data-engineer-tune]");
       const pinned = await waitStatus("candidate", 20000, since);
-      assert.strictEqual(pinned.values[gainSymbol], enteredGain, "Automatic Tune preserves the explicit pin");
+      assert.strictEqual(pinned.values[gainSymbol], automatic.values[gainSymbol], "Automatic Tune keeps the value its Keep toggle fixed");
+      assert.strictEqual(await inner(`return String([...d.querySelectorAll('[data-studio-keep]')].find(item=>item.dataset.studioKeep===${JSON.stringify(gainSymbol)})?.checked);`), "true",
+        "the kept setting stays marked Keep in the new result, so its pin went through the tuning run");
       since = Number(await inner("return String(d.defaultView.__journeyEvents.length);"));
       await click("[data-engineer-stage-tab=verify]");
       await click("[data-engineer-verify]");

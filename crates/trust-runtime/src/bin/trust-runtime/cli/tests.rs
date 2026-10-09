@@ -13,6 +13,15 @@ mod tests {
     }
 
     #[test]
+    fn parse_hmi_password_with_its_default_iterations() {
+        let cli = Cli::parse_from(["trust-runtime", "hmi-password"]);
+        match cli.command.expect("command") {
+            Command::HmiPassword { iterations } => assert_eq!(iterations, 600_000),
+            other => panic!("expected hmi-password, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn parse_validate_ci_flag() {
         let cli = Cli::parse_from(["trust-runtime", "validate", "--project", "project", "--ci"]);
         match cli.command.expect("command") {
@@ -1232,78 +1241,6 @@ mod tests {
         ])
         .expect_err("interpreter backend should be rejected by CLI");
         assert!(err.to_string().contains("invalid value 'interpreter'"));
-    }
-
-    #[test]
-    fn parse_hmi_init_command() {
-        let cli = Cli::parse_from([
-            "trust-runtime",
-            "hmi",
-            "--project",
-            "project",
-            "init",
-            "--style",
-            "classic",
-        ]);
-        match cli.command.expect("command") {
-            Command::Hmi { project, action } => {
-                assert_eq!(project, Some(PathBuf::from("project")));
-                match action {
-                    HmiAction::Init { style, force } => {
-                        assert_eq!(style, HmiStyleArg::Classic);
-                        assert!(!force);
-                    }
-                    other => panic!("expected hmi init action, got {other:?}"),
-                }
-            }
-            other => panic!("expected hmi command, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parse_hmi_update_command() {
-        let cli = Cli::parse_from([
-            "trust-runtime",
-            "hmi",
-            "--project",
-            "project",
-            "update",
-            "--style",
-            "mint",
-        ]);
-        match cli.command.expect("command") {
-            Command::Hmi { project, action } => {
-                assert_eq!(project, Some(PathBuf::from("project")));
-                match action {
-                    HmiAction::Update { style } => assert_eq!(style, HmiStyleArg::Mint),
-                    other => panic!("expected hmi update action, got {other:?}"),
-                }
-            }
-            other => panic!("expected hmi command, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parse_hmi_reset_command() {
-        let cli = Cli::parse_from([
-            "trust-runtime",
-            "hmi",
-            "--project",
-            "project",
-            "reset",
-            "--style",
-            "industrial",
-        ]);
-        match cli.command.expect("command") {
-            Command::Hmi { project, action } => {
-                assert_eq!(project, Some(PathBuf::from("project")));
-                match action {
-                    HmiAction::Reset { style } => assert_eq!(style, HmiStyleArg::Industrial),
-                    other => panic!("expected hmi reset action, got {other:?}"),
-                }
-            }
-            other => panic!("expected hmi command, got {other:?}"),
-        }
     }
 
     #[test]

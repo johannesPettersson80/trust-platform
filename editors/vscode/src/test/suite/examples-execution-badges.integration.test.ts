@@ -25,7 +25,7 @@ if (process.env.TRUST_PLANT_RENDERED_TEST === "1") {
         );
         await pollValue(
           "all starter cards",
-          () => inner("return String(['empty-simulator','conveyor','hmi-starter','plcopen-motion-single-axis','twincat-ads','raspberry-pi'].every(id=>[...d.querySelectorAll('[data-example-id]')].some(x=>x.dataset.exampleId===id)));"),
+          () => inner("return String(['empty-simulator','conveyor','plcopen-motion-single-axis','twincat-ads','raspberry-pi'].every(id=>[...d.querySelectorAll('[data-example-id]')].some(x=>x.dataset.exampleId===id)));"),
           (value) => value === "true",
           10_000
         );
@@ -33,17 +33,16 @@ if (process.env.TRUST_PLANT_RENDERED_TEST === "1") {
         const cards = JSON.parse(await inner(`return JSON.stringify(${JSON.stringify([
           "empty-simulator",
           "conveyor",
-          "hmi-starter",
           "plcopen-motion-single-axis",
           "twincat-ads",
           "raspberry-pi",
         ])}.map(id=>{const c=d.querySelector('[data-example-id="'+id+'"]');return {id,text:c?.textContent||'',badges:[...c?.querySelectorAll('.badge')||[]].map(x=>x.textContent||'')}}));`)) as Array<{ id: string; text: string; badges: string[] }>;
-        assert.strictEqual(cards.length, 6);
+        assert.strictEqual(cards.length, 5);
         assert.ok(cards.every((card) => card.text.includes("Runs in simulator")),
           "every non-control starter must visibly identify its runnable simulator default");
 
         const byId = new Map(cards.map((card) => [card.id, card]));
-        for (const id of ["empty-simulator", "conveyor", "hmi-starter", "plcopen-motion-single-axis"]) {
+        for (const id of ["empty-simulator", "conveyor", "plcopen-motion-single-axis"]) {
           assert.ok(byId.get(id)?.text.includes("No hardware needed"), `${id} hardware badge`);
         }
         assert.ok(byId.get("twincat-ads")?.text.includes("Hardware optional: TwinCAT"));

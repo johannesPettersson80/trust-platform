@@ -7,6 +7,14 @@ struct Identity {
     recording_id: String,
     loop_revision: String,
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StatusRequest {
+    recording_id: String,
+    loop_revision: String,
+    #[serde(default)]
+    from_sample: Option<usize>,
+}
 
 pub(super) fn dispatch(
     id: u64,
@@ -16,7 +24,10 @@ pub(super) fn dispatch(
 ) -> Option<ControlResponse> {
     if !matches!(
         operation,
-        "control.recording.start" | "control.recording.stop" | "control.recording.release"
+        "control.recording.start"
+            | "control.recording.stop"
+            | "control.recording.release"
+            | "control.recording.status"
     ) {
         return None;
     }
@@ -30,10 +41,30 @@ pub(super) fn dispatch(
                 .metadata
                 .lock()
                 .map_err(|_| "runtime metadata unavailable")?;
+            // A task recording samples a task the program runs; another would record nothing.
+            if let Some(task) = spec.task.as_deref() {
+                if !metadata
+                    .tasks()
+                    .iter()
+                    .any(|configured| configured.name.eq_ignore_ascii_case(task))
+                {
+                    return Err(format!("The program runs no task named {task}."));
+                }
+            }
             state
                 .debug
                 .start_io_recording_for_program(spec, &metadata)?;
             return Ok(json!({"recording_id": identity, "status": "recording"}));
+        }
+        if operation == "control.recording.status" {
+            let request: StatusRequest =
+                serde_json::from_value(params).map_err(|error| error.to_string())?;
+            return serde_json::to_value(state.debug.io_recording_status(
+                &request.recording_id,
+                &request.loop_revision,
+                request.from_sample,
+            )?)
+            .map_err(|error| error.to_string());
         }
         let identity: Identity =
             serde_json::from_value(params).map_err(|error| error.to_string())?;

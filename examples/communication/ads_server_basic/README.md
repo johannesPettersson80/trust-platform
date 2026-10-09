@@ -155,7 +155,7 @@ For the production gate, use TwinCAT from a Windows engineering station:
    the runtime audit logs an `ads.server.write` event.
 
 For a quick live-value check in TwinCAT XAE, open the Target Browser, select
-`truST-ADS -> 851 -> global.Setpoint`, and use the Target Browser value preview.
+`CommRes -> 851 -> global.Setpoint` (the runtime's resource name), and use the Target Browser value preview.
 Scope View is not required for ADS server validation; it adds a separate Scope
 Server recording workflow and should be treated as optional interop, not the
 primary proof path.
@@ -592,3 +592,7 @@ for a `SUMUP_READWRITE` response-layout proof; it should set
 the truST runtime is running, and the command bit was not left permanently true.
 
 Plain ADS is cleartext and route-based. Keep it on a trusted OT segment.
+
+## Screen
+
+`hmi/pages/overview.toml` shows this example's values. It opens in the HMI Builder in VS Code; press **Live** while the simulator runs to see the values move. To open it in a browser, enable `[runtime.web]` in `runtime.toml`; the runtime then serves it at `/hmi`.

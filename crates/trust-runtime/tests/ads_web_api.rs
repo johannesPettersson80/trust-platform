@@ -10,7 +10,7 @@ use indexmap::IndexMap;
 use serde_json::json;
 use smol_str::SmolStr;
 use trust_runtime::config::{ControlMode, WebAuthMode, WebConfig};
-use trust_runtime::control::{ControlState, HmiRuntimeDescriptor, SourceFile, SourceRegistry};
+use trust_runtime::control::{ControlState, SourceFile, SourceRegistry};
 use trust_runtime::debug::{DebugSnapshot, DebugVariableHandles};
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
@@ -406,6 +406,11 @@ END_PROGRAM
                     let _ = respond_to
                         .send(Err(RuntimeError::ControlError(SmolStr::new("unsupported"))));
                 }
+                ResourceCommand::MeshCatalogue { respond_to, .. } => {
+                    let _ = respond_to.send(Err(
+                        "mesh catalogue unavailable in ADS test fixture".to_owned()
+                    ));
+                }
                 ResourceCommand::MeshSnapshot { respond_to, .. } => {
                     let _ = respond_to.send(IndexMap::new());
                 }
@@ -458,9 +463,6 @@ END_PROGRAM
         path: "main.st".into(),
         text: source.to_string(),
     }]);
-    let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
-        None, &sources,
-    )));
 
     Arc::new(ControlState {
         debug,
@@ -495,9 +497,6 @@ END_PROGRAM
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
-        hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
-        hmi_persistence: None,
-        hmi_descriptor,
         historian: None,
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(
@@ -547,6 +546,7 @@ fn start_test_server(state: Arc<ControlState>) -> String {
             listen: SmolStr::new(listen.clone()),
             auth: WebAuthMode::Local,
             tls: false,
+            hmi: Default::default(),
         };
         if start_web_server(&config, Arc::clone(&state), None, None, None, None).is_ok() {
             let base = format!("http://{listen}");

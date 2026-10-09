@@ -37,6 +37,12 @@ fn collect_sources(
     if !candidates.iter().any(|candidate| candidate == &entry_path) {
         candidates.push(entry_path.clone());
     }
+    // The project's local package dependencies, as `trust-runtime build` resolves them.
+    let dependency_roots = trust_runtime::bundle_builder::dependency_source_roots(&root)
+        .map_err(|error| CompileError::new(format!("{error:#}")))?;
+    for dependency_root in dependency_roots {
+        candidates.extend(expand_globs(&dependency_root, &normalize_globs(&["**/*".to_owned()]))?);
+    }
 
     let (excluded_files, excluded_dirs) = resolve_excludes(&root, &exclude_globs)?;
 
@@ -83,17 +89,19 @@ fn collect_sources(
     Ok(sources)
 }
 
+/// Attaches the program's I/O drivers. Returns whether a physical driver is attached, which makes the target physical
+/// (specification 35, A2.4).
 fn apply_project_io_config(
     runtime: &mut Runtime,
     program_path: &str,
     options: &SourceOptions,
-) -> Result<(), CompileError> {
+) -> Result<bool, CompileError> {
     let Some(project_root) = resolve_project_root_for_config(program_path, options)? else {
-        return Ok(());
+        return Ok(false);
     };
     let io_path = project_root.join("io.toml");
     if !io_path.is_file() {
-        return Ok(());
+        return Ok(false);
     }
 
     let io = IoConfig::load(&io_path)
@@ -101,6 +109,9 @@ fn apply_project_io_config(
     runtime.clear_io_drivers();
     runtime.set_io_safe_state(io.safe_state);
     let drivers = io.drivers;
+    let physical_io = drivers
+        .iter()
+        .any(|driver| driver.enabled && !trust_runtime::io::is_nonphysical_driver(driver.name.as_str()));
     let registry = IoDriverRegistry::default_registry();
     for driver in &drivers {
         if !driver.enabled {
@@ -114,8 +125,9 @@ fn apply_project_io_config(
         }
     }
     trust_runtime::io::annotate_io_binding_sources(runtime.io_mut(), &drivers);
-    Ok(())
+    Ok(physical_io)
 }
+
 
 #[cfg(feature = "ads-wire")]
 fn apply_project_ads_config(

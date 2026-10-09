@@ -38,6 +38,7 @@ pub(super) fn apply_globals(
                         &profile,
                         &stdlib,
                         &initializer_catalog,
+                        &function_blocks,
                         None,
                         instance_id,
                         fb,
@@ -148,6 +149,9 @@ pub(super) fn apply_globals(
     let mut wildcards = Vec::new();
     let mut bindings = Vec::new();
     for init in globals {
+        if init.constant {
+            runtime.register_constant_global(init.name.clone());
+        }
         if let Some(address) = init.address.as_ref() {
             let parsed = crate::io::IoAddress::parse(address)
                 .map_err(|err| CompileError::new(format!("invalid I/O address: {err}")))?;

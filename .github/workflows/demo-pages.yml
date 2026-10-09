@@ -14,7 +14,6 @@ on:
       - "docs/README.md"
       - "examples/README.md"
       - "examples/**/README.md"
-      - "examples/tutorials/12_hmi_pid_process_dashboard/hmi/**"
       - "examples/ladder/*.mp4"
       - "examples/statecharts/*.mp4"
       - "examples/blockly/*.mp4"

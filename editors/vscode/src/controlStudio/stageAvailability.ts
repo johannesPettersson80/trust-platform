@@ -25,10 +25,6 @@ const STATUS_LABEL: Record<ControlStudioStageStatus, string> = {
   failed: "Failed",
 };
 
-export function controlStudioStageStatusLabel(status: ControlStudioStageStatus): string {
-  return STATUS_LABEL[status];
-}
-
 export interface ControlStudioStageEvidence {
   /** False when no loop is bound yet, so Monitor and Test cannot be used. */
   readonly loopBound?: boolean;
@@ -83,23 +79,4 @@ function stageStatus(stage: ControlStudioStageId, evidence: ControlStudioStageEv
       return exhaustive;
     }
   }
-}
-
-export interface AutomaticTuneAvailability {
-  /** False when Automatic Tune must be demoted to a secondary action. */
-  readonly primary: boolean;
-  readonly reason: string;
-}
-
-const AUTOMATIC_TUNE_PRIMARY_REASON = "Build a complete tuning plan.";
-const AUTOMATIC_TUNE_LESSON_REASON =
-  "The project owns excitation. Review the experiment and controller adapter before automatic tuning.";
-
-/** Project-owned excitation requires review before composing an automatic plan. */
-export function controlStudioAutomaticTuneAvailability(
-  execution: ControlStudioExecutionMode
-): AutomaticTuneAvailability {
-  return execution === "project-scripted"
-    ? { primary: false, reason: AUTOMATIC_TUNE_LESSON_REASON }
-    : { primary: true, reason: AUTOMATIC_TUNE_PRIMARY_REASON };
 }

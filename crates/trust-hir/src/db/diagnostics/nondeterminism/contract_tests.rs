@@ -231,17 +231,17 @@ fn memory_other_and_malformed_addresses_are_not_external_io() {
 }
 
 #[test]
-fn direct_input_and_output_declarations_warn_independently() {
+fn direct_input_and_output_declarations_in_reusable_code_warn_independently() {
     let found = warnings(
         r#"
-PROGRAM Main
+FUNCTION_BLOCK Station
 VAR
     InputBit AT %IX0.0 : BOOL;
     InputWord AT %IW2 : WORD;
     OutputBit AT %QX0.0 : BOOL;
     OutputWord AT %QW2 : WORD;
 END_VAR
-END_PROGRAM
+END_FUNCTION_BLOCK
 "#,
         DiagnosticCode::NondeterministicIo,
     );
@@ -266,6 +266,24 @@ END_PROGRAM
 }
 
 #[test]
+fn a_programs_io_list_does_not_warn() {
+    let found = warnings(
+        r#"
+PROGRAM Main
+VAR
+    LowWater AT %IX0.0 : BOOL;
+    Temperature AT %IL8 : LREAL;
+    PumpRun AT %QX0.1 : BOOL;
+END_VAR
+END_PROGRAM
+"#,
+        DiagnosticCode::NondeterministicIo,
+    );
+
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
 fn direct_memory_storage_does_not_receive_io_warning() {
     let found = warnings(
         r#"
@@ -285,11 +303,11 @@ END_PROGRAM
 #[test]
 fn one_declaration_can_report_time_value_and_external_io_hazards() {
     let source = r#"
-PROGRAM Main
+FUNCTION_BLOCK Clock
 VAR
     ExternalClock AT %QD0 : DT;
 END_VAR
-END_PROGRAM
+END_FUNCTION_BLOCK
 "#;
     let time = warnings(source, DiagnosticCode::NondeterministicTimeDate);
     let io = warnings(source, DiagnosticCode::NondeterministicIo);

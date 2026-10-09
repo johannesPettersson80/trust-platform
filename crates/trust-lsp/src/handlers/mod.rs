@@ -17,10 +17,9 @@ mod workspace;
 
 #[cfg(test)]
 pub(crate) use commands::namespace_move_workspace_edit;
-pub use commands::{
-    execute_command, HMI_BINDINGS_COMMAND, HMI_INIT_COMMAND, MOVE_NAMESPACE_COMMAND,
-    PROJECT_INFO_COMMAND,
-};
+#[cfg(test)]
+pub(crate) use commands::PROJECT_INFO_COMMAND;
+pub use commands::{execute_command, execute_read_command, EXECUTE_COMMANDS};
 #[cfg(test)]
 pub(crate) use diagnostics::document_diagnostic;
 pub(crate) use diagnostics::{document_diagnostic_result, workspace_diagnostic};

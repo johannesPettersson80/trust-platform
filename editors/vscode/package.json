@@ -1,9 +1,9 @@
 {
   "name": "trust-lsp",
   "displayName": "truST",
-  "description": "truST \u2014 IEC 61131-3 Structured Text language support",
+  "description": "truST — IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.24.65",
+  "version": "0.24.66",
   "publisher": "trust-platform",
   "license": "MIT OR Apache-2.0",
   "engines": {
@@ -31,6 +31,9 @@
     "onLanguage:structured-text",
     "onDebug:structured-text",
     "onCommand:trust-lsp.newProject",
+    "onCommand:trust-lsp.simulation.speed",
+    "onCommand:trust-lsp.hmiBuilder.open",
+    "onCommand:trust-lsp.hmiBuilder.newScreen",
     "onCommand:trust-lsp.openSettings",
     "onCommand:trust-lsp.visual.newDiagram",
     "onCommand:trust-lsp.plcopen.import",
@@ -40,9 +43,6 @@
     "onCommand:trust-lsp.controlStudio.open",
     "onCommand:trust-lsp.controlStudio.configure",
     "onCommand:trust-lsp.libraries.open",
-    "onCommand:trust-lsp.hmi.openPreview",
-    "onCommand:trust-lsp.hmi.refreshFromDescriptor",
-    "onCommand:trust-lsp.hmi.init",
     "onCommand:trust-lsp.debug.reload",
     "onCommand:trust-lsp.moveNamespace.ui",
     "onLanguageModelTool:trust_lsp_request",
@@ -82,17 +82,6 @@
     "onLanguageModelTool:trust_get_formatting_edits",
     "onLanguageModelTool:trust_get_code_actions",
     "onLanguageModelTool:trust_get_project_info",
-    "onLanguageModelTool:trust_hmi_get_bindings",
-    "onLanguageModelTool:trust_hmi_get_layout",
-    "onLanguageModelTool:trust_hmi_apply_patch",
-    "onLanguageModelTool:trust_hmi_plan_intent",
-    "onLanguageModelTool:trust_hmi_trace_capture",
-    "onLanguageModelTool:trust_hmi_generate_candidates",
-    "onLanguageModelTool:trust_hmi_validate",
-    "onLanguageModelTool:trust_hmi_preview_snapshot",
-    "onLanguageModelTool:trust_hmi_run_journey",
-    "onLanguageModelTool:trust_hmi_explain_widget",
-    "onLanguageModelTool:trust_hmi_init",
     "onLanguageModelTool:trust_workspace_rename_file",
     "onLanguageModelTool:trust_update_settings",
     "onLanguageModelTool:trust_read_telemetry",
@@ -116,7 +105,16 @@
     "onCustomEditor:trust-lsp.statechartEditor",
     "onCustomEditor:trust-lsp.blockly.editor",
     "onCustomEditor:trust-lsp.sfc.editor",
-    "onCommand:trust-lsp.visual.syncCompanionSt"
+    "onCommand:trust-lsp.visual.syncCompanionSt",
+    "onLanguageModelTool:hmi_get_context",
+    "onLanguageModelTool:hmi_browse_library",
+    "onLanguageModelTool:hmi_inspect_page",
+    "onLanguageModelTool:hmi_compose_page",
+    "onLanguageModelTool:hmi_edit_draft",
+    "onLanguageModelTool:hmi_validate_draft",
+    "onLanguageModelTool:hmi_render_draft",
+    "onLanguageModelTool:hmi_preview_states",
+    "onLanguageModelTool:hmi_apply_draft"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -311,14 +309,6 @@
           "default": true,
           "title": "Open visual logic editors automatically",
           "description": "Automatically open .ladder.json, .statechart.json, .sfc.json, and .blockly.json files with their visual editors."
-        },
-        "trust.hmi.refreshIntervalMs": {
-          "type": "number",
-          "default": 500,
-          "minimum": 100,
-          "title": "HMI refresh interval",
-          "description": "Polling interval for the HMI preview panel value refresh (milliseconds).",
-          "scope": "resource"
         }
       }
     },
@@ -931,447 +921,6 @@
               "type": "array",
               "items": {},
               "description": "Optional arguments array for the command"
-            }
-          }
-        }
-      },
-      {
-        "name": "trust_hmi_get_bindings",
-        "displayName": "ST HMI Bindings",
-        "toolReferenceName": "stHmiGetBindings",
-        "canBeReferencedInPrompt": true,
-        "icon": "$(symbol-field)",
-        "userDescription": "Return available HMI binding points with type and write metadata.",
-        "modelDescription": "Returns all external-facing PLC binding points (program/global) with canonical bind paths, data types, qualifier metadata, writability, and constraints via trust-lsp.hmiBindings.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "rootPath": {
-              "type": "string",
-              "description": "Optional workspace root path/URI to scope lookup."
-            },
-            "filePath": {
-              "type": "string",
-              "description": "Optional file path/URI used to resolve workspace scope."
-            }
-          }
-        }
-      },
-      {
-        "name": "trust_hmi_get_layout",
-        "displayName": "ST HMI Layout",
-        "toolReferenceName": "stHmiGetLayout",
-        "canBeReferencedInPrompt": true,
-        "icon": "$(layout)",
-        "userDescription": "Read hmi/ descriptor files.",
-        "modelDescription": "Reads all TOML files under hmi/ and returns config/pages/file content. Returns { exists: false } when no hmi/ directory exists.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "rootPath": {
-              "type": "string",
-              "description": "Optional workspace root path/URI to scope file reads."
-            }
-          }
-        }
-      },
-      {
-        "name": "trust_hmi_apply_patch",
-        "displayName": "ST HMI Patch",
-        "toolReferenceName": "stHmiApplyPatch",
-        "canBeReferencedInPrompt": true,
-        "icon": "$(diff)",
-        "userDescription": "Apply typed patch operations to hmi/*.toml files.",
-        "modelDescription": "Applies typed patch operations to hmi TOML descriptor files with dry_run support and conflict reporting; writes only changed files and triggers descriptor refresh.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "dry_run": {
-              "type": "boolean",
-              "description": "Validate operations without writing files."
-            },
-            "rootPath": {
-              "type": "string",
-              "description": "Optional workspace root path/URI."
-            },
-            "operations": {
-              "type": "array",
-              "description": "Patch operations on descriptor pointers under /files/<name>.toml[/content].",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "op": {
-                    "type": "string",
-                    "enum": [
-                      "add",
-                      "remove",
-                      "replace",
-                      "move"
-                    ]
-                  },
-                  "path": {
-                    "type": "string",
-                    "description": "JSON pointer path."
-                  },
-                  "from": {
-                    "type": "string",
-                    "description": "Source JSON pointer for move."
-                  },
-                  "value": {
-                    "description": "String TOML content for add/replace."
-                  }
-                },
-                "required": [
-                  "op",
-                  "path"
-                ]
-              }
-            }
-          },
-          "required": [
-            "operations"
-          ]
-        }
-      },
-      {
-        "name": "trust_hmi_plan_intent",
-        "displayName": "ST HMI Intent Plan",
-        "toolReferenceName": "stHmiPlanIntent",
-        "canBeReferencedInPrompt": true,
-        "icon": "$(target)",
-        "userDescription": "Generate or update hmi/_intent.toml from operator goals and constraints.",
-        "modelDescription": "Creates a deterministic hmi/_intent.toml artifact with goals, personas, KPIs, priorities, and constraints for the HMI intent-to-evidence loop. Supports dry_run preview without file writes.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "rootPath": {
-              "type": "string",
-              "description": "Optional workspace root path/URI."
-            },
-            "dry_run": {
-              "type": "boolean",
-              "description": "Render intent content without writing hmi/_intent.toml."
-            },
-            "summary": {
-              "type": "string",
-              "description": "Single-sentence operator intent summary."
-            },
-            "goals": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "Ordered operator goals."
-            },
-            "personas": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "Operator personas for layout/flow decisions."
-            },
-            "kpis": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "KPIs used to evaluate dashboard effectiveness."
-            },
-            "priorities": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "Priority order (for example safety, alarm salience, action latency)."
-            },
-            "constraints": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "Safety/operational constraints that must hold."
-            }
-          }
-        }
-      },
-      {
-        "name": "trust_hmi_trace_capture",
-        "displayName": "ST HMI Trace Capture",
-        "toolReferenceName": "stHmiTraceCapture",
-        "canBeReferencedInPrompt": true,
-        "icon": "$(pulse)",
-        "userDescription": "Capture API-level runtime traces for selected HMI widget IDs and scenarios.",
-        "modelDescription": "Captures runtime traces at the API/event layer using hmi.schema.get and hmi.values.get for a chosen scenario and writes deterministic evidence artifacts under hmi/_evidence/<run>/trace-<scenario>.json.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "rootPath": {
-              "type": "string",
-              "description": "Optional workspace root path/URI."
-            },
-            "dry_run": {
-              "type": "boolean",
-              "description": "Capture and return trace payload without writing evidence files."
-            },
-            "run_id": {
-              "type": "string",
-              "description": "Optional existing evidence run id (YYYY-MM-DDTHH-MM-SSZ)."
-            },
-            "scenario": {
-              "type": "string",
-              "description": "Scenario label (for example startup, normal, fault, recovery)."
-            },
-            "ids": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "Optional widget IDs to sample. Defaults to first schema widgets."
-            },
-            "samples": {
-              "type": "number",
-              "description": "Number of samples to capture (1-50)."
-            },
-            "sample_interval_ms": {
-              "type": "number",
-              "description": "Delay between samples in milliseconds (10-5000)."
-            }
-          }
-        }
-      },
-      {
-        "name": "trust_hmi_generate_candidates",
-        "displayName": "ST HMI Generate Candidates",
-        "toolReferenceName": "stHmiGenerateCandidates",
-        "canBeReferencedInPrompt": true,
-        "icon": "$(sparkle)",
-        "userDescription": "Generate deterministic layout candidates ranked by readability, latency, and alarm salience.",
-        "modelDescription": "Generates deterministic HMI candidate layouts by reusing scaffold-style strategy parameters (grouping, density, widget bias), ranks them by objective metrics, and can persist candidates.json evidence.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "rootPath": {
-              "type": "string",
-              "description": "Optional workspace root path/URI."
-            },
-            "dry_run": {
-              "type": "boolean",
-              "description": "Generate candidates without writing hmi/_evidence artifacts."
-            },
-            "run_id": {
-              "type": "string",
-              "description": "Optional existing evidence run id (YYYY-MM-DDTHH-MM-SSZ)."
-            },
-            "candidate_count": {
-              "type": "number",
-              "description": "How many ranked candidates to return."
-            }
-          }
-        }
-      },
-      {
-        "name": "trust_hmi_validate",
-        "displayName": "ST HMI Validate",
-        "toolReferenceName": "stHmiValidate",
-        "canBeReferencedInPrompt": true,
-        "icon": "$(verified-filled)",
-        "userDescription": "Validate HMI descriptor, emit lock/evidence artifacts, and optionally prune evidence runs.",
-        "modelDescription": "Runs HMI validation checks (descriptor diagnostics, write-policy guardrails, poll budget checks, and binding coverage), emits deterministic hmi/_lock.json, and stores validation evidence under hmi/_evidence/<timestamp>/ with optional bounded retention pruning.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "rootPath": {
-              "type": "string",
-              "description": "Optional workspace root path/URI."
-            },
-            "dry_run": {
-              "type": "boolean",
-              "description": "Run checks without writing _lock.json or evidence files."
-            },
-            "prune": {
-              "type": "boolean",
-              "description": "When true, prune oldest hmi/_evidence runs after writing current evidence."
-            },
-            "retain_runs": {
-              "type": "number",
-              "description": "Maximum number of newest evidence runs to retain when prune=true. Defaults to 10."
-            }
-          }
-        }
-      },
-      {
-        "name": "trust_hmi_preview_snapshot",
-        "displayName": "ST HMI Preview Snapshot",
-        "toolReferenceName": "stHmiPreviewSnapshot",
-        "canBeReferencedInPrompt": true,
-        "icon": "$(device-camera)",
-        "userDescription": "Render deterministic desktop/tablet/mobile snapshot artifacts for a candidate layout.",
-        "modelDescription": "Renders deterministic SVG snapshot artifacts for desktop/tablet/mobile viewports for a selected candidate layout and stores them under hmi/_evidence/<run>/screenshots/.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "rootPath": {
-              "type": "string",
-              "description": "Optional workspace root path/URI."
-            },
-            "dry_run": {
-              "type": "boolean",
-              "description": "Compute snapshots and hashes without writing files."
-            },
-            "run_id": {
-              "type": "string",
-              "description": "Optional existing evidence run id (YYYY-MM-DDTHH-MM-SSZ)."
-            },
-            "candidate_id": {
-              "type": "string",
-              "description": "Optional candidate id. Defaults to highest-ranked candidate."
-            },
-            "viewports": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "desktop",
-                  "tablet",
-                  "mobile"
-                ]
-              },
-              "description": "Subset of viewport snapshots to render."
-            }
-          }
-        }
-      },
-      {
-        "name": "trust_hmi_run_journey",
-        "displayName": "ST HMI Run Journey",
-        "toolReferenceName": "stHmiRunJourney",
-        "canBeReferencedInPrompt": true,
-        "icon": "$(play)",
-        "userDescription": "Execute scripted API/event-level operator journeys and record metrics.",
-        "modelDescription": "Runs API/event-level journey scripts (read_values, wait, write) without requiring a browser, captures timing and pass/fail metrics, and writes journeys evidence under hmi/_evidence/<run>/journeys.json.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "rootPath": {
-              "type": "string",
-              "description": "Optional workspace root path/URI."
-            },
-            "dry_run": {
-              "type": "boolean",
-              "description": "Execute journey logic without writing journeys.json."
-            },
-            "run_id": {
-              "type": "string",
-              "description": "Optional existing evidence run id (YYYY-MM-DDTHH-MM-SSZ)."
-            },
-            "scenario": {
-              "type": "string",
-              "description": "Scenario label for evidence grouping."
-            },
-            "journeys": {
-              "type": "array",
-              "description": "Optional journey definitions; defaults to API read-values smoke journey.",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "type": "string"
-                  },
-                  "title": {
-                    "type": "string"
-                  },
-                  "max_duration_ms": {
-                    "type": "number"
-                  },
-                  "steps": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "action": {
-                          "type": "string",
-                          "enum": [
-                            "read_values",
-                            "wait",
-                            "write"
-                          ]
-                        },
-                        "ids": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "duration_ms": {
-                          "type": "number"
-                        },
-                        "widget_id": {
-                          "type": "string"
-                        },
-                        "value": {},
-                        "expect_error_code": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "action"
-                      ]
-                    }
-                  }
-                },
-                "required": [
-                  "id"
-                ]
-              }
-            }
-          }
-        }
-      },
-      {
-        "name": "trust_hmi_explain_widget",
-        "displayName": "ST HMI Explain Widget",
-        "toolReferenceName": "stHmiExplainWidget",
-        "canBeReferencedInPrompt": true,
-        "icon": "$(info)",
-        "userDescription": "Explain widget provenance from bind path to type, write policy, and contract metadata.",
-        "modelDescription": "Explains a widget's provenance path and guardrails: canonical ID, PLC symbol path/type, write-policy allowlist state, and endpoint-level contract context.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "rootPath": {
-              "type": "string",
-              "description": "Optional workspace root path/URI."
-            },
-            "widget_id": {
-              "type": "string",
-              "description": "Canonical widget ID to explain."
-            },
-            "path": {
-              "type": "string",
-              "description": "Bind/source path fallback when widget_id is not provided."
-            }
-          }
-        }
-      },
-      {
-        "name": "trust_hmi_init",
-        "displayName": "ST HMI Init",
-        "toolReferenceName": "stHmiInit",
-        "canBeReferencedInPrompt": true,
-        "icon": "$(dashboard)",
-        "userDescription": "Generate an HMI scaffold from PLC sources.",
-        "modelDescription": "Auto-generates an hmi/ directory from the current PLC workspace by executing trust-lsp.hmiInit over workspace/executeCommand. Use this first when a user asks to create an HMI.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "style": {
-              "type": "string",
-              "enum": [
-                "industrial",
-                "classic",
-                "mint"
-              ],
-              "description": "Optional HMI theme style. Defaults to industrial."
             }
           }
         }
@@ -2150,6 +1699,2874 @@
           "type": "object",
           "properties": {}
         }
+      },
+      {
+        "name": "hmi_get_context",
+        "displayName": "HMI Project Context",
+        "toolReferenceName": "hmi_get_context",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(preview)",
+        "userDescription": "Inspect the HMI project screen, current page revisions, compiled equipment variables and library metadata before designing. Read-only. Unsaved ST is explicitly refused until supported.",
+        "modelDescription": "Read the connected project using saved files and unsaved editor buffers. Returns typed variables, page metadata, current editor selection, revisions and provenance. Compilation failures are explicitly partial, never an empty usable program. No runtime or source mutation.",
+        "inputSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "workspaceId": {
+              "type": "string",
+              "description": "ID returned by context or workspace-selection error. May be omitted with one open workspace."
+            },
+            "input": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "sections": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "enum": [
+                      "screen",
+                      "texts",
+                      "languages",
+                      "variables",
+                      "alarms",
+                      "catalogue",
+                      "symbols",
+                      "formats",
+                      "faceplates",
+                      "pages",
+                      "topology",
+                      "remoteCatalogue",
+                      "simulatorSessions"
+                    ]
+                  }
+                },
+                "file": {
+                  "type": "string",
+                  "pattern": "^hmi/pages/[A-Za-z0-9_-]+\\.toml$"
+                },
+                "cursor": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "limit": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                }
+              },
+              "required": []
+            }
+          },
+          "required": [
+            "contractVersion",
+            "input"
+          ]
+        }
+      },
+      {
+        "name": "hmi_browse_library",
+        "displayName": "HMI Component Library",
+        "toolReferenceName": "hmi_browse_library",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(preview)",
+        "userDescription": "Browse HMI components with visual contact sheets and typed binding information. Discover compositionPatterns with an empty query; query an exact pattern ID (process-overview, equipment-detail, multi-unit, investigation, settings) for its synthetic image and normal builder reference model. Replace Example paths with inspected project bindings; reference images are not visual approval or deployable drafts.",
+        "modelDescription": "Search real HMI components and receive labelled PNG contact sheets plus their binding requirements, ports and default sizes. Synthetic design samples only. Defaults to 12 definitions; follow nextCursor for more. Any unpictured custom components are listed explicitly. Inspect the images before choosing components. Discover compositionPatterns with an empty query; query an exact pattern ID (process-overview, equipment-detail, multi-unit, investigation, settings) for its synthetic image and normal builder reference model. Replace Example paths with inspected project bindings; reference images are not visual approval or deployable drafts.",
+        "inputSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "workspaceId": {
+              "type": "string",
+              "description": "ID returned by context or workspace-selection error. May be omitted with one open workspace."
+            },
+            "input": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "type": "string"
+                },
+                "cursor": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "limit": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100,
+                  "default": 12
+                },
+                "theme": {
+                  "enum": [
+                    "dark",
+                    "light"
+                  ]
+                },
+                "category": {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                "state": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "description": "Synthetic component state to render; unsupported objects are explicitly listed."
+                }
+              },
+              "required": []
+            }
+          },
+          "required": [
+            "contractVersion",
+            "input"
+          ]
+        }
+      },
+      {
+        "name": "hmi_inspect_page",
+        "displayName": "HMI Inspect Page",
+        "toolReferenceName": "hmi_inspect_page",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(preview)",
+        "userDescription": "Read a current HMI page including unsaved editor text. Inspect all objects or selected IDs, their pipes and connected neighbours. Read-only; use before proposing changes.",
+        "modelDescription": "Read a current HMI page including unsaved editor text. Inspect all objects or selected IDs, their pipes and connected neighbours. Read-only; use before proposing changes.",
+        "inputSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "workspaceId": {
+              "type": "string",
+              "description": "ID returned by context or workspace-selection error. May be omitted with one open workspace."
+            },
+            "input": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "description": "Project-relative hmi/pages, hmi/popups or hmi/panels TOML path"
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "region": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "Inspect the rotated design boxes overlapping this rectangle. Use region or ids, never both.",
+                  "properties": {
+                    "x": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "y": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "width": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "height": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y",
+                    "width",
+                    "height"
+                  ]
+                },
+                "draftId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "revision": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "file"
+              ],
+              "dependencies": {
+                "draftId": [
+                  "revision"
+                ],
+                "revision": [
+                  "draftId"
+                ]
+              }
+            }
+          },
+          "required": [
+            "contractVersion",
+            "input"
+          ]
+        }
+      },
+      {
+        "name": "hmi_compose_page",
+        "displayName": "HMI Compose Draft",
+        "toolReferenceName": "hmi_compose_page",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(preview)",
+        "userDescription": "Compose an isolated editable page proposal from catalogue components and supplied bindings. Does not modify source files. Render, inspect and validate the result before application.",
+        "modelDescription": "Compose an isolated editable page proposal from catalogue components and supplied bindings. Does not modify source files. Render, inspect and validate the result before application. Each item has id/type, optional region and bind map. Example: {\"id\":\"tank\",\"type\":\"tank\",\"region\":\"process\",\"min\":0,\"max\":3,\"bind\":{\"level\":{\"path\":\"Main.Level\",\"direction\":\"read\"}}}. No source file is changed. To refine an existing page, call with only file and sourceFile set to that page path, then use hmi_edit_draft. Its unsaved customer edits are the baseline and remain untouched until application.",
+        "inputSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "workspaceId": {
+              "type": "string"
+            },
+            "input": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "file": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "pattern": {
+                      "enum": [
+                        "process-overview",
+                        "equipment-detail",
+                        "multi-unit",
+                        "investigation",
+                        "settings"
+                      ]
+                    },
+                    "items": {
+                      "type": "array",
+                      "maxItems": 500,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+                          },
+                          "type": {
+                            "type": "string",
+                            "description": "Exact component type from hmi_browse_library."
+                          },
+                          "size": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 8
+                            },
+                            "minItems": 2,
+                            "maxItems": 2
+                          },
+                          "rotation": {
+                            "enum": [
+                              0,
+                              90,
+                              180,
+                              270
+                            ]
+                          },
+                          "bind": {
+                            "type": "object",
+                            "description": "Map component properties to typed bindings. Example: {\"level\":{\"path\":\"Main.Level\",\"direction\":\"read\"}}. Use bind, not bindings; path, not source.",
+                            "additionalProperties": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "path": {
+                                  "type": "string",
+                                  "description": "Exact PLC path returned by hmi_get_context, e.g. Main.Level."
+                                },
+                                "direction": {
+                                  "enum": [
+                                    "read",
+                                    "write",
+                                    "read-write"
+                                  ]
+                                },
+                                "unit": {
+                                  "type": "string"
+                                },
+                                "range": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "minItems": 2,
+                                  "maxItems": 2
+                                }
+                              },
+                              "required": [
+                                "path",
+                                "direction"
+                              ]
+                            }
+                          },
+                          "tag": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "unit": {
+                            "type": "string"
+                          },
+                          "variant": {
+                            "type": "string"
+                          },
+                          "confirm": {
+                            "type": "string"
+                          },
+                          "attach": {
+                            "type": "string"
+                          },
+                          "group": {
+                            "type": "string"
+                          },
+                          "image": {
+                            "type": "string"
+                          },
+                          "faceplate": {
+                            "type": "string"
+                          },
+                          "instance": {
+                            "type": "string"
+                          },
+                          "min": {
+                            "type": "number"
+                          },
+                          "max": {
+                            "type": "number"
+                          },
+                          "span": {
+                            "type": "number"
+                          },
+                          "gap": {
+                            "type": "number"
+                          },
+                          "pulse": {
+                            "type": "number"
+                          },
+                          "timeout": {
+                            "type": "number"
+                          },
+                          "decimals": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "limits": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "low-low": {
+                                "type": "number"
+                              },
+                              "low": {
+                                "type": "number"
+                              },
+                              "high": {
+                                "type": "number"
+                              },
+                              "high-high": {
+                                "type": "number"
+                              }
+                            }
+                          },
+                          "role": {
+                            "enum": [
+                              "operator",
+                              "engineer"
+                            ]
+                          },
+                          "action": {
+                            "enum": [
+                              "set",
+                              "reset",
+                              "toggle"
+                            ]
+                          },
+                          "expect": {
+                            "type": [
+                              "boolean",
+                              "number",
+                              "string"
+                            ]
+                          },
+                          "options": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "locked": {
+                            "type": "boolean"
+                          },
+                          "arrange": {
+                            "enum": [
+                              "row",
+                              "column",
+                              "grid"
+                            ]
+                          },
+                          "click": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "region": {
+                            "enum": [
+                              "process",
+                              "measurements",
+                              "trends",
+                              "alarms",
+                              "controls"
+                            ]
+                          },
+                          "pinnedAt": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4096,
+                              "multipleOf": 8
+                            },
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "description": "Keep this object at its supplied position and size. Other objects avoid it; coordinates are on the 8-pixel grid."
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "type"
+                        ]
+                      }
+                    },
+                    "connections": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "from": {
+                            "type": "string"
+                          },
+                          "to": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "from",
+                          "to"
+                        ]
+                      }
+                    },
+                    "sourceFile": {
+                      "type": "string",
+                      "description": "Existing project-relative HMI page to copy into a draft, including its unsaved text. Set file to the same path to refine it, or a new path to duplicate it."
+                    },
+                    "key": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "description": "Unique creation request key. Reuse it only when retrying the same proposal; use a new key for a new proposal."
+                    },
+                    "layout": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "description": "Explicit design regions, spacing and fill order. Regions must fit below the heading within page margins and may not overlap. Impossible constraints fail instead of shrinking content.",
+                      "properties": {
+                        "regions": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "process": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "x": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                },
+                                "y": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                },
+                                "width": {
+                                  "type": "integer",
+                                  "minimum": 8,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                },
+                                "height": {
+                                  "type": "integer",
+                                  "minimum": 8,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y",
+                                "width",
+                                "height"
+                              ]
+                            },
+                            "measurements": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "x": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                },
+                                "y": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                },
+                                "width": {
+                                  "type": "integer",
+                                  "minimum": 8,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                },
+                                "height": {
+                                  "type": "integer",
+                                  "minimum": 8,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y",
+                                "width",
+                                "height"
+                              ]
+                            },
+                            "trends": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "x": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                },
+                                "y": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                },
+                                "width": {
+                                  "type": "integer",
+                                  "minimum": 8,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                },
+                                "height": {
+                                  "type": "integer",
+                                  "minimum": 8,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y",
+                                "width",
+                                "height"
+                              ]
+                            },
+                            "alarms": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "x": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                },
+                                "y": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                },
+                                "width": {
+                                  "type": "integer",
+                                  "minimum": 8,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                },
+                                "height": {
+                                  "type": "integer",
+                                  "minimum": 8,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y",
+                                "width",
+                                "height"
+                              ]
+                            },
+                            "controls": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "x": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                },
+                                "y": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                },
+                                "width": {
+                                  "type": "integer",
+                                  "minimum": 8,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                },
+                                "height": {
+                                  "type": "integer",
+                                  "minimum": 8,
+                                  "maximum": 4096,
+                                  "multipleOf": 8
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y",
+                                "width",
+                                "height"
+                              ]
+                            }
+                          }
+                        },
+                        "gap": {
+                          "type": "integer",
+                          "minimum": 8,
+                          "maximum": 128,
+                          "multipleOf": 8
+                        },
+                        "flow": {
+                          "enum": [
+                            "horizontal",
+                            "vertical"
+                          ]
+                        },
+                        "padding": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 128,
+                          "multipleOf": 8
+                        },
+                        "equalSize": {
+                          "enum": [
+                            "width",
+                            "height",
+                            "both"
+                          ]
+                        }
+                      }
+                    },
+                    "operatorTask": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000,
+                      "description": "The operator task this screen should support; shown with its provenance in proposal review."
+                    },
+                    "rationale": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000,
+                      "description": "Explain the proposed hierarchy and layout choices."
+                    },
+                    "assumptions": {
+                      "type": "array",
+                      "maxItems": 12,
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "description": "Explicit assumptions for the customer to review; never invent process connectivity."
+                    }
+                  },
+                  "required": [
+                    "file",
+                    "key"
+                  ],
+                  "oneOf": [
+                    {
+                      "required": [
+                        "sourceFile"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "items"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "pattern"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "layout"
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "required": [
+                        "title",
+                        "pattern",
+                        "items"
+                      ],
+                      "not": {
+                        "required": [
+                          "sourceFile"
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "key",
+                    "pages"
+                  ],
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "description": "Unique creation request key. Reuse it only when retrying the same proposal; use a new key for a new proposal."
+                    },
+                    "operatorTask": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000,
+                      "description": "The operator task this screen should support; shown with its provenance in proposal review."
+                    },
+                    "rationale": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000,
+                      "description": "Explain the proposed hierarchy and layout choices."
+                    },
+                    "assumptions": {
+                      "type": "array",
+                      "maxItems": 12,
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "description": "Explicit assumptions for the customer to review; never invent process connectivity."
+                    },
+                    "pages": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 32,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "file": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "pattern": {
+                            "enum": [
+                              "process-overview",
+                              "equipment-detail",
+                              "multi-unit",
+                              "investigation",
+                              "settings"
+                            ]
+                          },
+                          "items": {
+                            "type": "array",
+                            "maxItems": 500,
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "description": "Exact component type from hmi_browse_library."
+                                },
+                                "size": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": 8
+                                  },
+                                  "minItems": 2,
+                                  "maxItems": 2
+                                },
+                                "rotation": {
+                                  "enum": [
+                                    0,
+                                    90,
+                                    180,
+                                    270
+                                  ]
+                                },
+                                "bind": {
+                                  "type": "object",
+                                  "description": "Map component properties to typed bindings. Example: {\"level\":{\"path\":\"Main.Level\",\"direction\":\"read\"}}. Use bind, not bindings; path, not source.",
+                                  "additionalProperties": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "path": {
+                                        "type": "string",
+                                        "description": "Exact PLC path returned by hmi_get_context, e.g. Main.Level."
+                                      },
+                                      "direction": {
+                                        "enum": [
+                                          "read",
+                                          "write",
+                                          "read-write"
+                                        ]
+                                      },
+                                      "unit": {
+                                        "type": "string"
+                                      },
+                                      "range": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "number"
+                                        },
+                                        "minItems": 2,
+                                        "maxItems": 2
+                                      }
+                                    },
+                                    "required": [
+                                      "path",
+                                      "direction"
+                                    ]
+                                  }
+                                },
+                                "tag": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "text": {
+                                  "type": "string"
+                                },
+                                "unit": {
+                                  "type": "string"
+                                },
+                                "variant": {
+                                  "type": "string"
+                                },
+                                "confirm": {
+                                  "type": "string"
+                                },
+                                "attach": {
+                                  "type": "string"
+                                },
+                                "group": {
+                                  "type": "string"
+                                },
+                                "image": {
+                                  "type": "string"
+                                },
+                                "faceplate": {
+                                  "type": "string"
+                                },
+                                "instance": {
+                                  "type": "string"
+                                },
+                                "min": {
+                                  "type": "number"
+                                },
+                                "max": {
+                                  "type": "number"
+                                },
+                                "span": {
+                                  "type": "number"
+                                },
+                                "gap": {
+                                  "type": "number"
+                                },
+                                "pulse": {
+                                  "type": "number"
+                                },
+                                "timeout": {
+                                  "type": "number"
+                                },
+                                "decimals": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "limits": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "low-low": {
+                                      "type": "number"
+                                    },
+                                    "low": {
+                                      "type": "number"
+                                    },
+                                    "high": {
+                                      "type": "number"
+                                    },
+                                    "high-high": {
+                                      "type": "number"
+                                    }
+                                  }
+                                },
+                                "role": {
+                                  "enum": [
+                                    "operator",
+                                    "engineer"
+                                  ]
+                                },
+                                "action": {
+                                  "enum": [
+                                    "set",
+                                    "reset",
+                                    "toggle"
+                                  ]
+                                },
+                                "expect": {
+                                  "type": [
+                                    "boolean",
+                                    "number",
+                                    "string"
+                                  ]
+                                },
+                                "options": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "locked": {
+                                  "type": "boolean"
+                                },
+                                "arrange": {
+                                  "enum": [
+                                    "row",
+                                    "column",
+                                    "grid"
+                                  ]
+                                },
+                                "click": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  }
+                                },
+                                "region": {
+                                  "enum": [
+                                    "process",
+                                    "measurements",
+                                    "trends",
+                                    "alarms",
+                                    "controls"
+                                  ]
+                                },
+                                "pinnedAt": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 4096,
+                                    "multipleOf": 8
+                                  },
+                                  "minItems": 2,
+                                  "maxItems": 2,
+                                  "description": "Keep this object at its supplied position and size. Other objects avoid it; coordinates are on the 8-pixel grid."
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "type"
+                              ]
+                            }
+                          },
+                          "connections": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "from": {
+                                  "type": "string"
+                                },
+                                "to": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "from",
+                                "to"
+                              ]
+                            }
+                          },
+                          "sourceFile": {
+                            "type": "string",
+                            "description": "Existing project-relative HMI page to copy into a draft, including its unsaved text. Set file to the same path to refine it, or a new path to duplicate it."
+                          },
+                          "layout": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "description": "Explicit design regions, spacing and fill order. Regions must fit below the heading within page margins and may not overlap. Impossible constraints fail instead of shrinking content.",
+                            "properties": {
+                              "regions": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "process": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "x": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      },
+                                      "y": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      },
+                                      "width": {
+                                        "type": "integer",
+                                        "minimum": 8,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      },
+                                      "height": {
+                                        "type": "integer",
+                                        "minimum": 8,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "width",
+                                      "height"
+                                    ]
+                                  },
+                                  "measurements": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "x": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      },
+                                      "y": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      },
+                                      "width": {
+                                        "type": "integer",
+                                        "minimum": 8,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      },
+                                      "height": {
+                                        "type": "integer",
+                                        "minimum": 8,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "width",
+                                      "height"
+                                    ]
+                                  },
+                                  "trends": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "x": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      },
+                                      "y": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      },
+                                      "width": {
+                                        "type": "integer",
+                                        "minimum": 8,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      },
+                                      "height": {
+                                        "type": "integer",
+                                        "minimum": 8,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "width",
+                                      "height"
+                                    ]
+                                  },
+                                  "alarms": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "x": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      },
+                                      "y": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      },
+                                      "width": {
+                                        "type": "integer",
+                                        "minimum": 8,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      },
+                                      "height": {
+                                        "type": "integer",
+                                        "minimum": 8,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "width",
+                                      "height"
+                                    ]
+                                  },
+                                  "controls": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "x": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      },
+                                      "y": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      },
+                                      "width": {
+                                        "type": "integer",
+                                        "minimum": 8,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      },
+                                      "height": {
+                                        "type": "integer",
+                                        "minimum": 8,
+                                        "maximum": 4096,
+                                        "multipleOf": 8
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "width",
+                                      "height"
+                                    ]
+                                  }
+                                }
+                              },
+                              "gap": {
+                                "type": "integer",
+                                "minimum": 8,
+                                "maximum": 128,
+                                "multipleOf": 8
+                              },
+                              "flow": {
+                                "enum": [
+                                  "horizontal",
+                                  "vertical"
+                                ]
+                              },
+                              "padding": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 128,
+                                "multipleOf": 8
+                              },
+                              "equalSize": {
+                                "enum": [
+                                  "width",
+                                  "height",
+                                  "both"
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "file"
+                        ],
+                        "oneOf": [
+                          {
+                            "required": [
+                              "sourceFile"
+                            ],
+                            "not": {
+                              "anyOf": [
+                                {
+                                  "required": [
+                                    "items"
+                                  ]
+                                },
+                                {
+                                  "required": [
+                                    "pattern"
+                                  ]
+                                },
+                                {
+                                  "required": [
+                                    "layout"
+                                  ]
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "required": [
+                              "title",
+                              "pattern",
+                              "items"
+                            ],
+                            "not": {
+                              "required": [
+                                "sourceFile"
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "required": [
+            "contractVersion",
+            "input"
+          ]
+        }
+      },
+      {
+        "name": "hmi_edit_draft",
+        "displayName": "HMI Edit Draft",
+        "toolReferenceName": "hmi_edit_draft",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(preview)",
+        "userDescription": "Apply semantic edits to an isolated draft, preserving unrelated objects. Requires its current revision and a unique request key. Never changes project files.",
+        "modelDescription": "Apply semantic edits to an isolated draft, preserving unrelated objects. Requires its current revision and a unique request key. Never changes project files. Operations have explicit schemas. To shorten a label use {\"op\":\"update\",\"id\":\"reading\",\"properties\":{\"label\":\"Temp.\"}}; to widen a card use {\"op\":\"resize\",\"id\":\"reading\",\"size\":[280,64]}. Reuse the same key only to retry the exact same request.",
+        "inputSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "workspaceId": {
+              "type": "string"
+            },
+            "input": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "draftId": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "string"
+                },
+                "operations": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 500,
+                  "items": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Move selected objects by [dx,dy] pixels.",
+                        "properties": {
+                          "op": {
+                            "const": "move"
+                          },
+                          "ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "minItems": 1,
+                            "uniqueItems": true
+                          },
+                          "delta": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer"
+                            },
+                            "minItems": 2,
+                            "maxItems": 2
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "ids",
+                          "delta"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Set [width,height]; keeps binding and identity.",
+                        "properties": {
+                          "op": {
+                            "const": "resize"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "size": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 8
+                            },
+                            "minItems": 2,
+                            "maxItems": 2
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "id",
+                          "size"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Change properties: {\"op\":\"update\",\"id\":\"temperature\",\"properties\":{\"label\":\"Temp.\"}}. Use properties, not changes.",
+                        "properties": {
+                          "op": {
+                            "const": "update"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "properties": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "tag": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "text": {
+                                "type": "string"
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "variant": {
+                                "type": "string"
+                              },
+                              "confirm": {
+                                "type": "string"
+                              },
+                              "attach": {
+                                "type": "string"
+                              },
+                              "group": {
+                                "type": "string"
+                              },
+                              "image": {
+                                "type": "string"
+                              },
+                              "faceplate": {
+                                "type": "string"
+                              },
+                              "instance": {
+                                "type": "string"
+                              },
+                              "min": {
+                                "type": "number"
+                              },
+                              "max": {
+                                "type": "number"
+                              },
+                              "span": {
+                                "type": "number"
+                              },
+                              "gap": {
+                                "type": "number"
+                              },
+                              "pulse": {
+                                "type": "number"
+                              },
+                              "timeout": {
+                                "type": "number"
+                              },
+                              "decimals": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "limits": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "low-low": {
+                                    "type": "number"
+                                  },
+                                  "low": {
+                                    "type": "number"
+                                  },
+                                  "high": {
+                                    "type": "number"
+                                  },
+                                  "high-high": {
+                                    "type": "number"
+                                  }
+                                }
+                              },
+                              "role": {
+                                "enum": [
+                                  "operator",
+                                  "engineer"
+                                ]
+                              },
+                              "action": {
+                                "enum": [
+                                  "set",
+                                  "reset",
+                                  "toggle"
+                                ]
+                              },
+                              "expect": {
+                                "type": [
+                                  "boolean",
+                                  "number",
+                                  "string"
+                                ]
+                              },
+                              "options": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "locked": {
+                                "type": "boolean"
+                              },
+                              "arrange": {
+                                "enum": [
+                                  "row",
+                                  "column",
+                                  "grid"
+                                ]
+                              },
+                              "click": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "id",
+                          "properties"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Add one catalogue object at an explicit position.",
+                        "properties": {
+                          "op": {
+                            "const": "add"
+                          },
+                          "object": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+                              },
+                              "type": {
+                                "type": "string",
+                                "description": "Exact component type from hmi_browse_library."
+                              },
+                              "size": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": 8
+                                },
+                                "minItems": 2,
+                                "maxItems": 2
+                              },
+                              "rotation": {
+                                "enum": [
+                                  0,
+                                  90,
+                                  180,
+                                  270
+                                ]
+                              },
+                              "bind": {
+                                "type": "object",
+                                "description": "Map component properties to typed bindings. Example: {\"level\":{\"path\":\"Main.Level\",\"direction\":\"read\"}}. Use bind, not bindings; path, not source.",
+                                "additionalProperties": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "path": {
+                                      "type": "string",
+                                      "description": "Exact PLC path returned by hmi_get_context, e.g. Main.Level."
+                                    },
+                                    "direction": {
+                                      "enum": [
+                                        "read",
+                                        "write",
+                                        "read-write"
+                                      ]
+                                    },
+                                    "unit": {
+                                      "type": "string"
+                                    },
+                                    "range": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "number"
+                                      },
+                                      "minItems": 2,
+                                      "maxItems": 2
+                                    }
+                                  },
+                                  "required": [
+                                    "path",
+                                    "direction"
+                                  ]
+                                }
+                              },
+                              "tag": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "text": {
+                                "type": "string"
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "variant": {
+                                "type": "string"
+                              },
+                              "confirm": {
+                                "type": "string"
+                              },
+                              "attach": {
+                                "type": "string"
+                              },
+                              "group": {
+                                "type": "string"
+                              },
+                              "image": {
+                                "type": "string"
+                              },
+                              "faceplate": {
+                                "type": "string"
+                              },
+                              "instance": {
+                                "type": "string"
+                              },
+                              "min": {
+                                "type": "number"
+                              },
+                              "max": {
+                                "type": "number"
+                              },
+                              "span": {
+                                "type": "number"
+                              },
+                              "gap": {
+                                "type": "number"
+                              },
+                              "pulse": {
+                                "type": "number"
+                              },
+                              "timeout": {
+                                "type": "number"
+                              },
+                              "decimals": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "limits": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "low-low": {
+                                    "type": "number"
+                                  },
+                                  "low": {
+                                    "type": "number"
+                                  },
+                                  "high": {
+                                    "type": "number"
+                                  },
+                                  "high-high": {
+                                    "type": "number"
+                                  }
+                                }
+                              },
+                              "role": {
+                                "enum": [
+                                  "operator",
+                                  "engineer"
+                                ]
+                              },
+                              "action": {
+                                "enum": [
+                                  "set",
+                                  "reset",
+                                  "toggle"
+                                ]
+                              },
+                              "expect": {
+                                "type": [
+                                  "boolean",
+                                  "number",
+                                  "string"
+                                ]
+                              },
+                              "options": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "locked": {
+                                "type": "boolean"
+                              },
+                              "arrange": {
+                                "enum": [
+                                  "row",
+                                  "column",
+                                  "grid"
+                                ]
+                              },
+                              "click": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              },
+                              "at": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer"
+                                },
+                                "minItems": 2,
+                                "maxItems": 2
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "type",
+                              "at",
+                              "size"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "object"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Dependent pipes/attachments require explicit removeDependents:true.",
+                        "properties": {
+                          "op": {
+                            "const": "remove"
+                          },
+                          "ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "minItems": 1,
+                            "uniqueItems": true
+                          },
+                          "removeDependents": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "ids"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Clone objects and their internal pipes with new unique IDs.",
+                        "properties": {
+                          "op": {
+                            "const": "duplicate"
+                          },
+                          "ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "minItems": 1,
+                            "uniqueItems": true
+                          },
+                          "newIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "minItems": 1,
+                            "uniqueItems": true
+                          },
+                          "delta": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer"
+                            },
+                            "minItems": 2,
+                            "maxItems": 2
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "ids",
+                          "newIds",
+                          "delta"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Align selected objects using editor geometry.",
+                        "properties": {
+                          "op": {
+                            "const": "align"
+                          },
+                          "ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "minItems": 1,
+                            "uniqueItems": true
+                          },
+                          "edge": {
+                            "enum": [
+                              "left",
+                              "centre",
+                              "right",
+                              "top",
+                              "middle",
+                              "bottom"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "ids",
+                          "edge"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Distribute selected objects with equal gaps.",
+                        "properties": {
+                          "op": {
+                            "const": "distribute"
+                          },
+                          "ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "minItems": 1,
+                            "uniqueItems": true
+                          },
+                          "axis": {
+                            "enum": [
+                              "horizontal",
+                              "vertical"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "ids",
+                          "axis"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Set a named group.",
+                        "properties": {
+                          "op": {
+                            "const": "group"
+                          },
+                          "ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "minItems": 1,
+                            "uniqueItems": true
+                          },
+                          "group": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "ids",
+                          "group"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Remove grouping.",
+                        "properties": {
+                          "op": {
+                            "const": "ungroup"
+                          },
+                          "ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "minItems": 1,
+                            "uniqueItems": true
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "ids"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Bind a known component property to an exact PLC path.",
+                        "properties": {
+                          "op": {
+                            "const": "bind"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "property": {
+                            "type": "string"
+                          },
+                          "binding": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "description": "Exact PLC path returned by hmi_get_context, e.g. Main.Level."
+                              },
+                              "direction": {
+                                "enum": [
+                                  "read",
+                                  "write",
+                                  "read-write"
+                                ]
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "range": {
+                                "type": "array",
+                                "items": {
+                                  "type": "number"
+                                },
+                                "minItems": 2,
+                                "maxItems": 2
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "direction"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "id",
+                          "property",
+                          "binding"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Remove a named binding; validation will report unresolved displays.",
+                        "properties": {
+                          "op": {
+                            "const": "unbind"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "property": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "id",
+                          "property"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Connect discovered object.port endpoints; do not infer physical topology.",
+                        "properties": {
+                          "op": {
+                            "const": "connect"
+                          },
+                          "from": {
+                            "type": "string"
+                          },
+                          "to": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "from",
+                          "to"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Remove this explicit connection.",
+                        "properties": {
+                          "op": {
+                            "const": "disconnect"
+                          },
+                          "from": {
+                            "type": "string"
+                          },
+                          "to": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "from",
+                          "to"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Change z-order without changing geometry.",
+                        "properties": {
+                          "op": {
+                            "const": "reorder"
+                          },
+                          "ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "minItems": 1,
+                            "uniqueItems": true
+                          },
+                          "position": {
+                            "enum": [
+                              "front",
+                              "back"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "ids",
+                          "position"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "op": {
+                            "const": "equal-size"
+                          },
+                          "ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "minItems": 1,
+                            "uniqueItems": true
+                          },
+                          "reference": {
+                            "type": "string"
+                          },
+                          "axis": {
+                            "enum": [
+                              "width",
+                              "height",
+                              "both"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "ids",
+                          "reference",
+                          "axis"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "op": {
+                            "const": "arrange"
+                          },
+                          "ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "minItems": 1,
+                            "uniqueItems": true
+                          },
+                          "region": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "x": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "multipleOf": 8
+                              },
+                              "y": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "multipleOf": 8
+                              },
+                              "width": {
+                                "type": "integer",
+                                "minimum": 8,
+                                "multipleOf": 8
+                              },
+                              "height": {
+                                "type": "integer",
+                                "minimum": 8,
+                                "multipleOf": 8
+                              }
+                            },
+                            "required": [
+                              "x",
+                              "y",
+                              "width",
+                              "height"
+                            ]
+                          },
+                          "pinnedIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "maxItems": 500,
+                            "uniqueItems": true
+                          },
+                          "gap": {
+                            "type": "integer",
+                            "minimum": 8,
+                            "maximum": 128,
+                            "multipleOf": 8
+                          },
+                          "flow": {
+                            "enum": [
+                              "horizontal",
+                              "vertical"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "ids",
+                          "region"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "op": {
+                            "const": "reroute"
+                          },
+                          "from": {
+                            "type": "string"
+                          },
+                          "to": {
+                            "type": "string"
+                          },
+                          "waypoints": {
+                            "type": "array",
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "type": "integer"
+                              },
+                              "minItems": 2,
+                              "maxItems": 2
+                            },
+                            "maxItems": 64
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "from",
+                          "to",
+                          "waypoints"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "op": {
+                            "const": "reconnect"
+                          },
+                          "from": {
+                            "type": "string"
+                          },
+                          "to": {
+                            "type": "string"
+                          },
+                          "newFrom": {
+                            "type": "string"
+                          },
+                          "newTo": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "from",
+                          "to",
+                          "newFrom",
+                          "newTo"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "op",
+                          "properties"
+                        ],
+                        "properties": {
+                          "op": {
+                            "const": "page"
+                          },
+                          "properties": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "minProperties": 1,
+                            "properties": {
+                              "title": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              },
+                              "order": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "icon": {
+                                "type": "string",
+                                "maxLength": 100
+                              },
+                              "group": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "hidden": {
+                                "type": "boolean"
+                              },
+                              "incomplete": {
+                                "type": "boolean"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                "key": {
+                  "type": "string"
+                },
+                "file": {
+                  "type": "string"
+                },
+                "allowUnresolved": {
+                  "type": "boolean",
+                  "description": "Keep unresolved process-first bindings in the private draft. Validation still reports errors and normal apply remains disabled."
+                }
+              },
+              "required": [
+                "draftId",
+                "revision",
+                "key",
+                "operations"
+              ]
+            }
+          },
+          "required": [
+            "contractVersion",
+            "input"
+          ]
+        }
+      },
+      {
+        "name": "hmi_validate_draft",
+        "displayName": "HMI Validate Draft",
+        "toolReferenceName": "hmi_validate_draft",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(preview)",
+        "userDescription": "Check native file format and PLC bindings plus current visual warnings. A valid binding result does not establish good visual design.",
+        "modelDescription": "Check native file format and PLC bindings plus current visual warnings. A valid binding result does not establish good visual design.",
+        "inputSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "workspaceId": {
+              "type": "string"
+            },
+            "input": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "draftId": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "string"
+                },
+                "viewports": {
+                  "type": "array",
+                  "maxItems": 3,
+                  "description": "Available HMI content areas, excluding editor/browser chrome. Fit-scale geometry is a review aid, not physical-panel proof.",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                      },
+                      "width": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4096
+                      },
+                      "height": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4096
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "width",
+                      "height"
+                    ]
+                  }
+                },
+                "proposeProgram": {
+                  "type": "boolean",
+                  "description": "Return separate native PLC edit proposals without applying them. Recompile and create a fresh HMI proposal after accepting PLC edits."
+                }
+              },
+              "required": [
+                "draftId",
+                "revision"
+              ]
+            }
+          },
+          "required": [
+            "contractVersion",
+            "input"
+          ]
+        }
+      },
+      {
+        "name": "hmi_render_draft",
+        "displayName": "HMI Render Draft",
+        "toolReferenceName": "hmi_render_draft",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(preview)",
+        "userDescription": "Return a real PNG of the exact draft revision using the shared HMI drawing, plus object bounds. Synthetic design values only. Inspect the image before accepting the page.",
+        "modelDescription": "Return a real PNG of the exact draft revision using the shared HMI drawing, plus object bounds. Synthetic design values only. Inspect the image before accepting the page.",
+        "inputSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "workspaceId": {
+              "type": "string"
+            },
+            "input": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "draftId": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "string"
+                },
+                "theme": {
+                  "enum": [
+                    "dark",
+                    "light"
+                  ]
+                },
+                "file": {
+                  "type": "string"
+                },
+                "crop": {
+                  "description": "Optional native-pixel detail, returned with the whole page. Select existing object IDs or an in-page rectangle.",
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "minItems": 1,
+                          "maxItems": 500
+                        }
+                      },
+                      "required": [
+                        "ids"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "y": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "width": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "height": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y",
+                        "width",
+                        "height"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "language": {
+                  "type": "string",
+                  "description": "A language tag declared by the project; translations use unsaved editor text."
+                },
+                "viewport": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "width",
+                    "height"
+                  ],
+                  "properties": {
+                    "width": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 4096
+                    },
+                    "height": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 4096
+                    }
+                  }
+                }
+              },
+              "required": [
+                "draftId",
+                "revision"
+              ]
+            }
+          },
+          "required": [
+            "contractVersion",
+            "input"
+          ]
+        }
+      },
+      {
+        "name": "hmi_preview_states",
+        "displayName": "HMI Preview States",
+        "toolReferenceName": "hmi_preview_states",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(preview)",
+        "userDescription": "Return synthetic images for selected states such as sample, stale and unknown. No equipment commands. Unsupported object states are listed explicitly.",
+        "modelDescription": "Render labelled synthetic preview states without runtime writes. Explicit mode simulator requires a named, user-connected local simulator session and matching deployed draft pages; it may send the supplied bounded HMI commands with actual outcomes and readback. Never starts, deploys, falls back to, or writes a physical target.",
+        "inputSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "workspaceId": {
+              "type": "string"
+            },
+            "input": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "draftId": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "string"
+                    },
+                    "states": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 12,
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "theme": {
+                      "enum": [
+                        "dark",
+                        "light"
+                      ]
+                    },
+                    "file": {
+                      "type": "string"
+                    },
+                    "language": {
+                      "type": "string",
+                      "description": "A language tag declared by the project; translations use unsaved editor text."
+                    },
+                    "viewport": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "width",
+                        "height"
+                      ],
+                      "properties": {
+                        "width": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4096
+                        },
+                        "height": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4096
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "draftId",
+                    "revision",
+                    "states"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "draftId",
+                    "revision",
+                    "mode",
+                    "sessionId",
+                    "steps"
+                  ],
+                  "properties": {
+                    "draftId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "revision": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "mode": {
+                      "const": "simulator"
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "steps": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 12,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "page"
+                        ],
+                        "properties": {
+                          "page": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]+$"
+                          },
+                          "object": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "action": {
+                            "enum": [
+                              "write",
+                              "set",
+                              "reset",
+                              "toggle",
+                              "pulse"
+                            ]
+                          },
+                          "value": {
+                            "type": [
+                              "boolean",
+                              "number",
+                              "string"
+                            ]
+                          },
+                          "path": {
+                            "type": "string",
+                            "maxLength": 1000
+                          },
+                          "expect": {
+                            "type": [
+                              "boolean",
+                              "number",
+                              "string"
+                            ]
+                          }
+                        },
+                        "dependencies": {
+                          "object": [
+                            "action"
+                          ],
+                          "action": [
+                            "object"
+                          ],
+                          "value": [
+                            "object"
+                          ],
+                          "expect": [
+                            "path"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "required": [
+            "contractVersion",
+            "input"
+          ]
+        }
+      },
+      {
+        "name": "hmi_apply_draft",
+        "displayName": "HMI Review or Apply Draft",
+        "toolReferenceName": "hmi_apply_draft",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(preview)",
+        "userDescription": "Review, apply or discard a named draft. Engineering validation is required before applying. Deployment and equipment operation are separate.",
+        "modelDescription": "Review, apply or discard a named draft. Engineering validation is required before applying. Deployment and equipment operation are separate.",
+        "inputSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "workspaceId": {
+              "type": "string"
+            },
+            "input": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "draftId": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "string"
+                },
+                "action": {
+                  "enum": [
+                    "review",
+                    "apply",
+                    "discard"
+                  ]
+                },
+                "save": {
+                  "type": "boolean"
+                },
+                "visualReview": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "reviewer",
+                    "verdict",
+                    "issues"
+                  ],
+                  "properties": {
+                    "reviewer": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "verdict": {
+                      "enum": [
+                        "accepted",
+                        "needs-repair"
+                      ]
+                    },
+                    "issues": {
+                      "type": "array",
+                      "maxItems": 100,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "file",
+                          "objects",
+                          "message"
+                        ],
+                        "properties": {
+                          "file": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "objects": {
+                            "type": "array",
+                            "maxItems": 500,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "maxLength": 200
+                            }
+                          },
+                          "message": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 2000
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "allowIncomplete": {
+                  "type": "boolean",
+                  "description": "Explicitly apply a design marked incomplete. Native bundle validation rejects deployment until the marker is cleared and checks pass."
+                },
+                "explore": {
+                  "type": "boolean",
+                  "description": "Include an interactive, network-free synthetic navigation preview in the review. Commands and login remain disabled."
+                }
+              },
+              "required": [
+                "draftId",
+                "revision",
+                "action"
+              ]
+            }
+          },
+          "required": [
+            "contractVersion",
+            "input"
+          ]
+        }
       }
     ],
     "customEditors": [
@@ -2195,6 +4612,31 @@
           }
         ],
         "priority": "default"
+      },
+      {
+        "viewType": "trust-lsp.hmiBuilder",
+        "displayName": "HMI Builder",
+        "selector": [
+          {
+            "filenamePattern": "**/hmi/pages/*.toml"
+          },
+          {
+            "filenamePattern": "**/hmi/screen.toml"
+          },
+          {
+            "filenamePattern": "**/hmi/panels/*.toml"
+          },
+          {
+            "filenamePattern": "**/hmi/popups/*.toml"
+          },
+          {
+            "filenamePattern": "**/hmi/symbols/*.toml"
+          },
+          {
+            "filenamePattern": "**/hmi/pid/*.toml"
+          }
+        ],
+        "priority": "default"
       }
     ],
     "viewsContainers": {
@@ -2224,8 +4666,68 @@
     ],
     "commands": [
       {
+        "command": "trust-lsp.hmiBuilder.newPage",
+        "title": "New HMI Page",
+        "category": "truST"
+      },
+      {
+        "command": "trust-lsp.hmiBuilder.newPanel",
+        "title": "New HMI Panel",
+        "category": "truST"
+      },
+      {
+        "command": "trust-lsp.simulation.speed",
+        "title": "Simulation Speed…",
+        "category": "truST"
+      },
+      {
         "command": "trust-lsp.newProject",
         "title": "Create Project",
+        "category": "truST"
+      },
+      {
+        "command": "trust-lsp.hmiBuilder.open",
+        "title": "Open HMI",
+        "category": "truST"
+      },
+      {
+        "command": "trust-lsp.hmiBuilder.newScreen",
+        "title": "New HMI Screen",
+        "category": "truST"
+      },
+      {
+        "command": "trust-lsp.hmiBuilder.importSymbol",
+        "title": "HMI: Import Symbol",
+        "category": "truST"
+      },
+      {
+        "command": "trust-lsp.hmiBuilder.addUser",
+        "title": "HMI: Add User",
+        "category": "truST"
+      },
+      {
+        "command": "trust-lsp.hmiBuilder.generateProcessScreen",
+        "title": "Generate Process Screen from P&ID",
+        "category": "truST"
+      },
+      {
+        "command": "trust-lsp.hmiBuilder.createPlcCode",
+        "title": "Create PLC code",
+        "category": "truST HMI"
+      },
+      {
+        "command": "trust-lsp.hmiBuilder.addMissingVariables",
+        "title": "Add Missing Variables to Program",
+        "category": "truST"
+      },
+      {
+        "command": "trust-lsp.hmiBuilder.createPagesFromProgram",
+        "title": "Create HMI",
+        "category": "truST"
+      },
+      {
+        "command": "trust-lsp.hmiBuilder.createSettingsPage",
+        "title": "Create HMI Settings Page",
         "category": "truST"
       },
       {
@@ -2306,22 +4808,6 @@
         "category": "truST"
       },
       {
-        "command": "trust-lsp.hmi.openPreview",
-        "title": "Open HMI",
-        "category": "truST",
-        "icon": "$(preview)"
-      },
-      {
-        "command": "trust-lsp.hmi.refreshFromDescriptor",
-        "title": "Refresh HMI Descriptor",
-        "category": "truST"
-      },
-      {
-        "command": "trust-lsp.hmi.init",
-        "title": "Initialize HMI Descriptor",
-        "category": "truST"
-      },
-      {
         "command": "trust-lsp.debug.reload",
         "title": "Update Running Simulation",
         "category": "truST"
@@ -2390,11 +4876,44 @@
       },
       {
         "command": "trust-lsp.controlStudio.exportRecording",
-        "title": "Save recording\u2026",
+        "title": "Save recording…",
         "category": "Control Studio"
+      },
+      {
+        "command": "trust-lsp.hmiBuilder.connectAgent",
+        "title": "HMI: Connect Agent Tools",
+        "category": "truST"
+      },
+      {
+        "command": "trust-lsp.hmiBuilder.connectSimulator",
+        "title": "truST: Connect Named HMI Simulator Journey"
       }
     ],
     "menus": {
+      "explorer/context": [
+        {
+          "command": "trust-lsp.hmiBuilder.newPage",
+          "group": "trust-hmi@1",
+          "when": "explorerResourceIsFolder"
+        },
+        {
+          "command": "trust-lsp.hmiBuilder.newPanel",
+          "group": "trust-hmi@2",
+          "when": "explorerResourceIsFolder"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "trust-lsp.hmiBuilder.addMissingVariables",
+          "when": "activeCustomEditorId == 'trust-lsp.hmiBuilder'",
+          "group": "1_hmi"
+        },
+        {
+          "command": "trust-lsp.hmiBuilder.generateProcessScreen",
+          "when": "activeCustomEditorId == 'trust-lsp.hmiBuilder' && resourcePath =~ /[\\\\/]hmi[\\\\/]pid[\\\\/]/",
+          "group": "1_hmi"
+        }
+      ],
       "commandPalette": [
         {
           "command": "trust-lsp.debug.openIoPanel",
@@ -2422,14 +4941,6 @@
         },
         {
           "command": "trust-lsp.test.runOne",
-          "when": "false"
-        },
-        {
-          "command": "trust-lsp.hmi.init",
-          "when": "false"
-        },
-        {
-          "command": "trust-lsp.hmi.refreshFromDescriptor",
           "when": "false"
         }
       ],
@@ -2593,6 +5104,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
+    "build:libraries": "node ./scripts/build-libraries.js",
     "build:examples": "node ./scripts/build-examples.js",
     "build:panel": "node ./scripts/build-io-panel.js",
     "build:statechart": "node ./scripts/build-statechart-webview.js",
@@ -2601,17 +5113,22 @@
     "build:sfc": "node ./scripts/build-sfc-webview.js",
     "build:network-canvas": "node ./scripts/build-network-canvas-webview.js",
     "build:control-studio": "node ./scripts/build-control-studio-webview.js",
+    "build:hmi-drawing": "node ./scripts/build-hmi-drawing.js",
+    "build:hmi-builder": "node ./scripts/build-hmi-builder-webview.js",
     "clean:out": "node -e \"require('fs').rmSync('out', { recursive: true, force: true })\"",
     "typecheck:webview": "tsc -p ./tsconfig.webview.json",
     "check:canvas-geometry": "node ./scripts/network-canvas-overlap-check.js --require-browser",
-    "compile": "npm run build:examples && npm run build:panel && npm run build:statechart && npm run build:blockly && npm run build:ladder && npm run build:sfc && npm run build:network-canvas && npm run build:control-studio && npm run clean:out && tsc -p ./ && npm run typecheck:webview",
+    "compile": "npm run build:libraries && npm run build:examples && npm run build:panel && npm run build:statechart && npm run build:blockly && npm run build:ladder && npm run build:sfc && npm run build:network-canvas && npm run build:control-studio && npm run build:hmi-builder && npm run clean:out && tsc -p ./ && npm run typecheck:webview",
     "watch": "concurrently \"node ./scripts/watch-io-panel.js\" \"node ./scripts/build-statechart-webview.js --watch\" \"node ./scripts/build-blockly-webview.js --watch\" \"node ./scripts/build-ladder-webview.js --watch\" \"node ./scripts/build-sfc-webview.js --watch\"",
     "lint": "eslint src --ext ts,tsx",
+    "format:hmi": "prettier --write \"src/hmiBuilder/**/*.{ts,tsx,css}\" \"src/networkCanvas/equipment*.ts\" \"src/networkCanvas/webview/EquipmentConnections.tsx\" \"src/test/suite/hmi*.ts\"",
+    "format:hmi:check": "prettier --check \"src/hmiBuilder/**/*.{ts,tsx,css}\" \"src/networkCanvas/equipment*.ts\" \"src/networkCanvas/webview/EquipmentConnections.tsx\" \"src/test/suite/hmi*.ts\"",
     "test": "npm run compile && npm run check:canvas-geometry && node ./out/test/runTest.js"
   },
   "dependencies": {
     "@vscode/codicons": "^0.0.44",
     "@xyflow/react": "^12.10.1",
+    "ajv": "6.14.0",
     "blockly": "^11.1.1",
     "clsx": "^2.1.1",
     "echarts": "6.1.0",
@@ -2622,7 +5139,8 @@
     "ml-matrix": "6.15.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "vscode-languageclient": "^9.0.1"
+    "vscode-languageclient": "^9.0.1",
+    "ws": "8.21.1"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -2636,12 +5154,14 @@
     "concurrently": "^9.2.4",
     "esbuild": "^0.28.1",
     "eslint": "^10.0.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "mocha": "^11.7.6",
-    "typescript": "^5.9.3",
-    "ws": "8.21.1"
+    "prettier": "^3.9.9",
+    "typescript": "^5.9.3"
   },
   "overrides": {
     "diff": "8.0.3",
-    "serialize-javascript": "7.0.5"
+    "serialize-javascript": "7.0.5",
+    "shell-quote": "1.11.0"
   }
 }

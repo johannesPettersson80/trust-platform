@@ -28,6 +28,7 @@ fn param_binding() {
                 direction: ParamDirection::In,
                 address: None,
                 default: None,
+                retain: crate::RetainPolicy::Unspecified,
             },
             Param {
                 name: "b".into(),
@@ -35,6 +36,7 @@ fn param_binding() {
                 direction: ParamDirection::Out,
                 address: None,
                 default: None,
+                retain: crate::RetainPolicy::Unspecified,
             },
             Param {
                 name: "c".into(),
@@ -42,6 +44,7 @@ fn param_binding() {
                 direction: ParamDirection::InOut,
                 address: None,
                 default: None,
+                retain: crate::RetainPolicy::Unspecified,
             },
         ],
         locals: Vec::new(),

@@ -1,0 +1,100 @@
+format = 1
+title = "Overview"
+
+[[object]]
+id = "heading"
+type = "text"
+variant = "heading"
+at = [40, 32]
+size = [800, 40]
+text = "Pump P1"
+
+[[object]]
+id = "speed-raw"
+type = "value"
+at = [40, 104]
+size = [280, 104]
+label = "Speed, raw"
+unit = "counts"
+
+[object.bind]
+value = "P1.SpeedRaw"
+
+[[object]]
+id = "speed-set"
+type = "gauge"
+at = [360, 104]
+size = [200, 200]
+label = "Speed setpoint"
+unit = "rpm"
+decimals = 0
+min = 0
+max = 3600
+
+[object.bind]
+value = "P1.SpeedSet"
+
+[[object]]
+id = "pump"
+tag = "P1"
+type = "pump"
+at = [40, 232]
+size = [128, 108]
+
+[object.bind]
+running = "P1.Status.Running"
+
+[[object]]
+id = "start"
+type = "status"
+at = [184, 232]
+size = [168, 48]
+label = "Start command"
+
+[object.bind]
+state = "P1.StartCmd"
+
+[[object]]
+id = "halt"
+type = "status"
+at = [184, 296]
+size = [168, 48]
+label = "Halt request"
+
+[object.bind]
+state = "P1.HaltReq"
+
+[[object]]
+id = "command"
+type = "table"
+at = [600, 104]
+size = [320, 200]
+label = "Pump command"
+
+[object.bind]
+value = "P1.Cmd"
+
+[[object]]
+id = "status"
+type = "table"
+at = [940, 104]
+size = [300, 200]
+label = "Pump status"
+
+[object.bind]
+value = "P1.Status"
+
+[[object]]
+id = "speeds"
+type = "trend"
+at = [40, 372]
+size = [1200, 260]
+label = "Speed"
+unit = "rpm"
+min = 0
+max = 3600
+span = 120
+
+[object.bind]
+Setpoint = "P1.SpeedSet"
+Actual = "P1.Status.ActualSpeed"

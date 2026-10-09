@@ -1,5 +1,6 @@
 import type { ControlLoopDefinition } from "./loopDefinition";
 import { loopSignal } from "./loopChannels";
+import { MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS } from "./controlStudioLimits";
 
 export interface AcquisitionSettings {
   method: "configured" | "automatic" | "mv_step" | "mv_pulse" | "setpoint_step" | "relay" | "prbs" | "multisine";
@@ -18,7 +19,8 @@ export function acquisitionSettings(value: unknown): AcquisitionSettings | undef
   const settings = value as AcquisitionSettings;
   if (!["configured", "automatic", "mv_step", "mv_pulse", "setpoint_step", "relay", "prbs", "multisine"].includes(settings.method)
     || settings.setpointSignalId !== undefined && (typeof settings.setpointSignalId !== "string" || !settings.setpointSignalId || settings.setpointSignalId.length > 256)
-    || !Number.isFinite(settings.durationSeconds) || settings.durationSeconds < 2 || settings.durationSeconds > 600
+    || !Number.isFinite(settings.durationSeconds) || settings.durationSeconds < MINIMUM_EXPERIMENT_DURATION_MS / 1_000
+    || settings.durationSeconds > MAXIMUM_EXPERIMENT_DURATION_MS / 1_000
     || !Number.isFinite(settings.amplitude) || typeof settings.reuseRecordings !== "boolean"
     || settings.relayDirection !== undefined && settings.relayDirection !== "positive" && settings.relayDirection !== "negative"
     || settings.method === "relay" && !settings.relayDirection

@@ -1,6 +1,6 @@
 import { MainWorkflowError } from "./mainWorkflowFailure";
 import { manualControllerCandidate } from "./manualControllerCandidate";
-import { poleMatchedPid } from "./pidTaskDesign";
+import { plantGainActionRefusal, poleMatchedPid } from "./pidTaskDesign";
 import type { ProjectControllerDesign } from "./projectController";
 import { designOnOffController, type OnOffControllerDesign } from "./onOffController";
 import { designStateController, stateControllerPoles, type StateControllerDesign, type StateControllerFamily } from "./stateControllerDesign";
@@ -22,6 +22,7 @@ import { displayEngineeringUnit } from "./unitDisplay";
 import { selectedModelAnalysis } from "./selectedModelAnalysis";
 import { calculateDeclaredRouth } from "./routhHurwitz";
 import type { StateDesignPreferences } from "./stateDesignPreferences";
+import { requiredGainSign } from "./numerics/identification";
 
 export type ControllerDesign = SimpleProportionalDesign | ManualProportionalDesign | PidPiDesign | StateControllerDesign | OnOffControllerDesign | ProjectControllerDesign;
 export interface ControllerTuningResult {
@@ -102,6 +103,8 @@ export function tuneControllerAdapter(loop: ControlLoopDefinition, model: Genera
   const requested = options.proportionalGain;
   if (gainMode === "manual" && (typeof requested !== "number" || !Number.isFinite(requested))) throw new Error("Enter a finite manual proportional gain.");
   const realized = parameter.iec_type === "REAL" ? Math.fround(requested as number) : requested as number;
+  // The bounds check the magnitude only, so a manual gain must still carry the sign the controller action needs (N6.3).
+  if (gainMode === "manual" && realized !== 0 && Math.sign(realized) !== requiredGainSign(loop.controller.action)) throw new Error(proportionalSignRequirement(loop.controller.action));
   // A delayed integrator keeps P eligible (Specification 35 §9.2): SIMC's gain, predicted like PI, load included.
   const integrator = delayedIntegrator(model);
   if (gainMode === "automatic" && integrator && pid) {
@@ -118,10 +121,13 @@ export function tuneControllerAdapter(loop: ControlLoopDefinition, model: Genera
     catch (error) {
       // A different formula cannot remove an explicitly established gain limit.
       if (error instanceof Error && /gain bounds|proportional gain is outside/i.test(error.message)) throw error;
-      try { return poleMatchedPid(model, "P", task, loop.controller.taskPeriodMs); }
+      try { return poleMatchedPid(model, "P", task, loop.controller.taskPeriodMs, loop.controller.action); }
       catch (placement) { throw delayedProportionalUnavailable(loop, model, task) ?? placement; }
     }
   })();
+  // N6.3 for the P law: a gain whose sign contradicts the action is refused, whichever formula produced it.
+  const contradiction = plantGainActionRefusal(model, loop.controller.action);
+  if (contradiction) throw new Error(contradiction);
   const pinned = options.pinnedValues && Object.keys(options.pinnedValues).length
     ? applyProportionalPin(loop, design.candidate.proportionalGain, options.pinnedValues)
     : design.candidate.proportionalGain;
@@ -154,9 +160,16 @@ function delayedProportionalUnavailable(loop: ControlLoopDefinition, model: Gene
   const needed = Math.max(0, ...offsets.map(offset => (offset / allowance - 1) / gain));
   const pv = displayEngineeringUnit(loop.signals.processVariable.unit), mv = displayEngineeringUnit(loop.signals.manipulatedVariable.unit);
   const shown = (value: number) => formatEngineeringNumber(Number(value.toPrecision(4)));
+  // |Kp| must reach the needed magnitude with the action's sign, so that K·Kp > 0 (N5.9, N6.5).
+  const bound = requiredGainSign(loop.controller.action) > 0 ? `Kp ≥ ${shown(needed)}` : `Kp ≤ -${shown(needed)}`;
   return new MainWorkflowError(`P is unavailable for a model with a transport delay: Control Studio has no P design rule for it. `
-    + `P also settles with the offset Δr/(1 + K·Kp), which stays within ${shown(allowance)} ${pv} only with Kp ≥ ${shown(needed)} ${mv}/${pv}.`,
+    + `P also settles with the offset Δr/(1 + K·Kp), which stays within ${shown(allowance)} ${pv} only with ${bound} ${mv}/${pv}.`,
     { cause: "controller-capability", nextAction: "choose-controller" });
+}
+
+/** The sign a proportional gain must have for the controller action, in plain words (N6.3). */
+function proportionalSignRequirement(action: "direct" | "reverse"): string {
+  return `The proportional gain must be ${requiredGainSign(action) > 0 ? "positive" : "negative"} for this controller action.`;
 }
 
 function applyProportionalPin(loop: ControlLoopDefinition, proposed: number, pins: Readonly<Record<string, number>>): number {
@@ -164,8 +177,9 @@ function applyProportionalPin(loop: ControlLoopDefinition, proposed: number, pin
   const entries = Object.entries(pins);
   if (entries.some(([symbol]) => symbol !== parameter.symbol)) throw new Error("Pinned settings contain a parameter outside the selected P adapter.");
   const value = pins[parameter.symbol];
-  if (value === undefined || !Number.isFinite(value) || value < parameter.minimum || value > parameter.maximum
+  if (value === undefined || !Number.isFinite(value) || Math.abs(value) < parameter.minimum || Math.abs(value) > parameter.maximum
     || parameter.iec_type === "REAL" && Math.fround(value) !== value) throw new Error("Pinned proportional gain is outside its declared representable bounds.");
+  if (value !== 0 && Math.sign(value) !== requiredGainSign(loop.controller.action)) throw new Error(proportionalSignRequirement(loop.controller.action));
   return value === proposed ? proposed : value;
 }
 

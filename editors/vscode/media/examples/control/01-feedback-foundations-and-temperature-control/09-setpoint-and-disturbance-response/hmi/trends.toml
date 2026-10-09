@@ -1,6 +1,0 @@
-title = "Trends"
-kind = "trend"
-icon = "line-chart"
-order = 50
-duration_s = 600
-signals = ["P1.AppliedValvePosition", "P1.CycleTime", "P1.Error", "P1.ExperimentCycle", "P1.ExperimentPhase", "P1.HeatLossEquivalent", "P1.IntegralCorrection", "P1.Setpoint"]

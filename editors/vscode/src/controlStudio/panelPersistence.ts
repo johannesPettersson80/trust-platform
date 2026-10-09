@@ -10,6 +10,7 @@ import { decodeControlExperimentRecovery, type ControlExperimentPlan, type Contr
 import type { RecordingRecoveryOwner } from "./runtimeRecording";
 import type { PendingManualApplicationOwner } from "./engineerWorkflowSession";
 import type { MimoAnalysisSnapshot } from "./mimoAnalysisSession";
+import { projectStudyState, updateProjectStudy } from "./studyStore";
 
 /** Reuses workspace persistence for the one currently owned isolated operation. */
 const isolatedOwnerWrites = new Map<string, Promise<void>>();
@@ -88,11 +89,10 @@ export function selectedIntervals(endSeconds: number, excluded: readonly Exclude
 }
 
 export function restoreWorkflowResultHistory(
-  context: vscode.ExtensionContext,
   loop: ControlLoopDefinition | undefined
 ): { history: ControlStudioWorkflowResult[]; unavailableReason?: string } {
   if (!loop) return { history: [] };
-  const decoded = decodeWorkflowResultHistoryState(context.workspaceState.get(workflowResultStorageKey(loop)));
+  const decoded = decodeWorkflowResultHistoryState(projectStudyState(loop).history);
   return {
     ...decoded,
     history: decoded.history.filter((result) => result.projectId === loop.projectId && result.loop.id === loop.id),
@@ -137,13 +137,14 @@ export function experimentRecoveryStorageKey(loop: ControlLoopDefinition): strin
   return `trust.controlStudio.experiment.${loop.projectId}.${loop.id}`;
 }
 
-export async function storeMimoAnalysis(context: vscode.ExtensionContext, loop: ControlLoopDefinition, snapshot: MimoAnalysisSnapshot): Promise<void> {
+/** MIMO analysis is an analysis of the loop's study, so it is kept in the project study (A8.1). */
+export async function storeMimoAnalysis(loop: ControlLoopDefinition, snapshot: MimoAnalysisSnapshot): Promise<void> {
   if (JSON.stringify(snapshot).length > 4 * 1024 * 1024 || !record(snapshot) || !record(snapshot.result)) throw new Error("MIMO analysis evidence is invalid or exceeds its storage bound.");
-  await context.workspaceState.update(mimoAnalysisStorageKey(loop), { loopRevision: loop.revision, snapshot: structuredClone(snapshot) });
+  await updateProjectStudy(loop, "mimo", { loopRevision: loop.revision, snapshot: structuredClone(snapshot) });
 }
 
-export function restoreMimoAnalysis(context: vscode.ExtensionContext | { workspaceState: { get(key: string): unknown } }, loop: ControlLoopDefinition): MimoAnalysisSnapshot | undefined {
-  const value = context.workspaceState.get(mimoAnalysisStorageKey(loop));
+export function restoreMimoAnalysis(loop: ControlLoopDefinition): MimoAnalysisSnapshot | undefined {
+  const value: unknown = projectStudyState(loop).mimo;
   if (value === undefined) return undefined;
   if (!record(value) || value.loopRevision !== loop.revision || !record(value.snapshot)) return undefined;
   return value.snapshot as unknown as MimoAnalysisSnapshot;
@@ -151,28 +152,6 @@ export function restoreMimoAnalysis(context: vscode.ExtensionContext | { workspa
 
 export function mimoAnalysisStorageKey(loop: ControlLoopDefinition): string {
   return `trust.controlStudio.mimo-analysis.${loop.projectId}.${loop.id}`;
-}
-
-/** A host-lifetime recording owner is scoped to one exact loop and contains no credential or samples. */
-export function restoreRecordingRecovery(context: vscode.ExtensionContext | { workspaceState: { get(key: string): unknown } },
-  loop: ControlLoopDefinition): RecordingRecoveryOwner | undefined {
-  return decodeRecordingRecovery(context.workspaceState.get(recordingRecoveryStorageKey(loop)), loop);
-}
-
-export async function storeRecordingRecovery(context: vscode.ExtensionContext | { workspaceState: { update(key: string, value: unknown): PromiseLike<void> } },
-  loop: ControlLoopDefinition, owner: RecordingRecoveryOwner): Promise<void> {
-  const decoded = decodeRecordingRecovery(owner, loop);
-  if (!decoded) throw new Error("Recording recovery owner is invalid or outside the active loop scope.");
-  await context.workspaceState.update(recordingRecoveryStorageKey(loop), decoded);
-}
-
-export async function clearRecordingRecovery(context: vscode.ExtensionContext | { workspaceState: { update(key: string, value: unknown): PromiseLike<void> } },
-  loop: ControlLoopDefinition): Promise<void> {
-  await context.workspaceState.update(recordingRecoveryStorageKey(loop), undefined);
-}
-
-export function recordingRecoveryStorageKey(loop: ControlLoopDefinition): string {
-  return `trust.controlStudio.recording.${loop.projectId}.${loop.id}`;
 }
 
 /** A host-lifetime Manual owner is written before acknowledgement and has no review capability or client. */
@@ -251,22 +230,6 @@ function decodeManualApplicationRecoveryOwner(value: unknown, loop: ControlLoopD
       || !validValues(review.values) || !validValues(review.requested)) return undefined;
   }
   return structuredClone(value) as unknown as ManualApplicationRecoveryOwner;
-}
-
-function decodeRecordingRecovery(value: unknown, loop: ControlLoopDefinition): RecordingRecoveryOwner | undefined {
-  if (!record(value) || value.schemaVersion !== 1 || !text(value.recordingId) || value.projectId !== loop.projectId ||
-      value.runtimeId !== loop.runtimeId || value.loopId !== loop.id || value.loopRevision !== loop.revision ||
-      (value.source !== "Simulation" && value.source !== "Physical") ||
-      !(value.programRevision === undefined || text(value.programRevision)) || !Array.isArray(value.bindings) ||
-      !(value.startAcknowledgementUnconfirmed === undefined || value.startAcknowledgementUnconfirmed === true) ||
-      value.bindings.length === 0 || value.bindings.length > 32 || !value.bindings.every(recordingBinding)) return undefined;
-  return structuredClone(value) as unknown as RecordingRecoveryOwner;
-}
-
-function recordingBinding(value: unknown): boolean {
-  return record(value) && text(value.id) && text(value.iec_type) &&
-    (value.address === undefined || text(value.address)) && (value.symbol === undefined || text(value.symbol)) &&
-    !(value.address === undefined && value.symbol === undefined);
 }
 
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === "object" && !Array.isArray(value); }

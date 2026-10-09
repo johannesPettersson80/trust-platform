@@ -30,6 +30,7 @@ const VIEWER: &[&str] = &[
     "control.recording.start",
     "control.recording.stop",
     "control.recording.release",
+    "control.recording.status",
     "connectors.status",
     "debug.breakpoint_locations",
     "debug.scopes",
@@ -44,13 +45,9 @@ const VIEWER: &[&str] = &[
     "health",
     "historian.alerts",
     "historian.query",
-    "hmi.alarms.get",
-    "hmi.descriptor.get",
-    "hmi.schema.get",
-    "hmi.trends.get",
-    "hmi.values.get",
     "io.list",
     "io.read",
+    "hmi.read",
     "plant.capabilities",
     "plant.read",
     "plant.status",
@@ -61,7 +58,6 @@ const VIEWER: &[&str] = &[
 ];
 
 const OPERATOR: &[&str] = &[
-    "hmi.alarm.ack",
     "pair.claim",
     "pause",
     "plant.trace.clear",
@@ -79,6 +75,7 @@ const ENGINEER: &[&str] = &[
     "comm.apply",
     "comm.test",
     "control.experiment.abort",
+    "control.experiment.finish",
     "control.experiment.start",
     "control.pid.apply",
     "control.parameters.apply",
@@ -93,9 +90,6 @@ const ENGINEER: &[&str] = &[
     "control.pid.rollback",
     "debug.evaluate",
     "eval",
-    "hmi.descriptor.update",
-    "hmi.scaffold.reset",
-    "hmi.write",
     "io.force",
     "io.unforce",
     "io.write",
@@ -222,6 +216,24 @@ fn complete_registry_is_the_disjoint_union_of_reviewed_policy_groups() {
     assert_eq!(actual.len(), OPERATION_POLICIES.len());
 }
 
+/// Specification 39, decision 12: the legacy HMI and its control operations are removed.
+#[test]
+fn removed_legacy_hmi_operations_are_not_registered() {
+    for kind in [
+        "hmi.alarm.ack",
+        "hmi.alarms.get",
+        "hmi.descriptor.get",
+        "hmi.descriptor.update",
+        "hmi.scaffold.reset",
+        "hmi.schema.get",
+        "hmi.trends.get",
+        "hmi.values.get",
+        "hmi.write",
+    ] {
+        assert!(operation_policy(kind).is_none(), "kind={kind}");
+    }
+}
+
 #[test]
 fn lookup_accepts_only_exact_lowercase_wire_tokens() {
     for policy in OPERATION_POLICIES {
@@ -245,13 +257,7 @@ fn debug_surface_set_is_exact_and_non_debug_mutations_stay_out() {
     for policy in OPERATION_POLICIES {
         assert_eq!(is_debug_request(policy.kind), actual.contains(policy.kind));
     }
-    for kind in [
-        "io.force",
-        "io.write",
-        "hmi.write",
-        "config.set",
-        "bytecode.reload",
-    ] {
+    for kind in ["io.force", "io.write", "config.set", "bytecode.reload"] {
         assert!(!is_debug_request(kind), "kind={kind}");
     }
 }

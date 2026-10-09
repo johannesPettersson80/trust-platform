@@ -190,7 +190,6 @@ pub(super) fn handle_config_get(id: u64, state: &ControlState) -> ControlRespons
             "observability.prometheus_enabled": observability.as_ref().map(|cfg| cfg.prometheus_enabled),
             "observability.prometheus_path": observability.as_ref().map(|cfg| cfg.prometheus_path.to_string()),
             "observability.alerts": observability_alerts,
-            "hmi.read_only": true,
         }),
     )
 }

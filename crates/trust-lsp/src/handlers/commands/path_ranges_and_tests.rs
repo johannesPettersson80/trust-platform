@@ -379,25 +379,59 @@ END_PROGRAM
         assert_eq!(from_wrapper, from_context);
     }
 
+    /// Specification 39: the legacy `trust-lsp.hmiInit` command is removed (decision 12); the HMI
+    /// Builder's file commands are offered (§17.3).
     #[test]
-    fn hmi_init_command_with_mock_context_generates_scaffold() {
-        let root = temp_dir("trustlsp-hmi-init");
+    fn advertised_commands_are_exactly_the_supported_set() {
+        assert_eq!(
+            EXECUTE_COMMANDS,
+            &[
+                "trust-lsp.moveNamespace",
+                "trust-lsp.projectInfo",
+                "trust-lsp.hmiBindings",
+                "trust-lsp.hmiFileParse",
+                "trust-lsp.hmiFileFormat",
+                "trust-lsp.hmiFileCheck",
+                "trust-lsp.hmiCatalogue",
+                "trust-lsp.hmiBundle",
+                "trust-lsp.hmiTexts",
+                "trust-lsp.hmiFaceplates",
+                "trust-lsp.hmiFaceplateInstances",
+                "trust-lsp.hmiPlacedFaceplates",
+                "trust-lsp.hmiAddMissingVariables",
+                "trust-lsp.hmiEquipment",
+                "trust-lsp.hmiOwnEquipment",
+                "trust-lsp.hmiScreensProgram",
+                "trust-lsp.hmiProposePage",
+                "trust-lsp.hmiProposeSettingsPage",
+                "trust-lsp.hmiRenameInstance",
+                "trust-lsp.controlKeepParameters",
+            ]
+        );
+    }
+
+    /// Specification 39, §7.1: the picker names a configured program instance by the type its
+    /// configuration declares, not by the instance name compiled storage gives it.
+    #[test]
+    fn hmi_bindings_variable_tree_names_a_configured_program_by_its_type() {
+        let root = temp_dir("trustlsp-hmi-program-type");
         let src_dir = root.join("src");
         std::fs::create_dir_all(&src_dir).expect("create src dir");
-        let source_path = src_dir.join("pump.st");
         let source = r#"
-PROGRAM PumpStation
-VAR_INPUT
-    speed_setpoint : REAL;
-END_VAR
-VAR_OUTPUT
-    speed : REAL;
-    running : BOOL;
+PROGRAM Main
+VAR
+    Level : REAL;
 END_VAR
 END_PROGRAM
-"#;
-        std::fs::write(&source_path, source).expect("write source");
 
+CONFIGURATION Plant
+RESOURCE Cpu ON PLC
+    TASK Fast (INTERVAL := T#100ms, PRIORITY := 1);
+    PROGRAM P1 WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#;
+        std::fs::write(src_dir.join("main.st"), source).expect("write source");
         let root_uri = Url::from_directory_path(&root).expect("root uri");
         let context = MockContext {
             workspace_configs: vec![(
@@ -407,29 +441,18 @@ END_PROGRAM
             workspace_folders: vec![root_uri],
             ..MockContext::default()
         };
-
-        let result = hmi_init_value_with_context(&context, vec![json!({ "style": "mint" })])
-            .expect("hmi init response");
+        let result =
+            hmi_bindings_value_with_context(&context, Vec::new()).expect("hmi bindings response");
+        let p1 = result["variables"]
+            .as_array()
+            .and_then(|roots| roots.iter().find(|node| node["name"] == "P1"))
+            .unwrap_or_else(|| panic!("P1 in the variable tree: {result}"));
         assert_eq!(
-            result.get("ok").and_then(Value::as_bool),
-            Some(true),
-            "unexpected hmi bindings response: {result}",
+            (p1["kind"].as_str(), p1["type"].as_str()),
+            (Some("program"), Some("Main")),
+            "{p1}"
         );
-        assert_eq!(result.get("style").and_then(Value::as_str), Some("mint"));
-        assert!(root.join("hmi").join("_config.toml").is_file());
-        assert!(root.join("hmi").join("overview.toml").is_file());
-
-        std::fs::remove_dir_all(root).expect("remove temp dir");
-    }
-
-    #[test]
-    fn hmi_init_command_rejects_invalid_style() {
-        let context = MockContext::default();
-        let result = hmi_init_value_with_context(&context, vec![json!({ "style": "retro" })])
-            .expect("hmi init response");
-        assert_eq!(result.get("ok").and_then(Value::as_bool), Some(false));
-        let error = result.get("error").and_then(Value::as_str).unwrap_or("");
-        assert!(error.contains("invalid style"));
+        assert_eq!(p1["children"][0]["path"], "P1.Level", "{p1}");
     }
 
     #[test]
@@ -478,56 +501,111 @@ END_PROGRAM
             Some(HMI_BINDINGS_COMMAND)
         );
 
-        let programs = result
-            .get("programs")
-            .and_then(Value::as_array)
-            .expect("programs");
-        let pump = programs
+        // Control Studio and Network Canvas read these two parts.
+        let process_image = result.get("processImage").expect("processImage");
+        for part in ["commands", "feedbacks", "memory"] {
+            assert!(
+                process_image.get(part).and_then(Value::as_array).is_some(),
+                "processImage.{part}: {result}"
+            );
+        }
+        assert!(result.get("controlSymbols").is_some(), "{result}");
+        // Specification 39, decision 12: the legacy HMI binding catalogue is removed.
+        assert!(result.get("programs").is_none(), "{result}");
+        assert!(result.get("globals").is_none(), "{result}");
+        // Specification 39, §7.1: the variable tree of the compiled program for the picker.
+        let station = result["variables"]
+            .as_array()
+            .and_then(|roots| roots.iter().find(|root| root["name"] == "PumpStation"))
+            .unwrap_or_else(|| panic!("PumpStation in the variable tree: {result}"));
+        assert_eq!(station["kind"], "program");
+        let members = station["children"]
+            .as_array()
+            .expect("program members")
             .iter()
-            .find(|entry| entry.get("name").and_then(Value::as_str) == Some("PumpStation"))
-            .expect("PumpStation program");
-        let variables = pump
-            .get("variables")
-            .and_then(Value::as_array)
-            .expect("program variables");
-
-        assert!(variables.iter().any(|variable| {
-            variable.get("name").and_then(Value::as_str) == Some("speed_setpoint")
-                && variable.get("path").and_then(Value::as_str)
-                    == Some("PumpStation.speed_setpoint")
-                && variable.get("type").and_then(Value::as_str) == Some("REAL")
-                && variable.get("qualifier").and_then(Value::as_str) == Some("VAR_INPUT")
-                && variable.get("writable").and_then(Value::as_bool) == Some(true)
-        }));
-        assert!(variables.iter().any(|variable| {
-            variable.get("name").and_then(Value::as_str) == Some("speed")
-                && variable.get("path").and_then(Value::as_str) == Some("PumpStation.speed")
-                && variable.get("qualifier").and_then(Value::as_str) == Some("VAR_OUTPUT")
-                && variable.get("writable").and_then(Value::as_bool) == Some(false)
-        }));
-        assert!(variables.iter().any(|variable| {
-            variable.get("name").and_then(Value::as_str) == Some("mode")
-                && variable.get("type").and_then(Value::as_str) == Some("MODE")
-                && variable
-                    .get("enum_values")
-                    .and_then(Value::as_array)
-                    .is_some_and(|values| {
-                        values.iter().any(|value| value.as_str() == Some("OFF"))
-                            && values.iter().any(|value| value.as_str() == Some("AUTO"))
-                    })
-        }));
-        assert!(!variables.iter().any(|variable| {
-            variable.get("name").and_then(Value::as_str) == Some("internal_counter")
-        }));
-        assert!(pump
-            .get("file")
-            .and_then(Value::as_str)
-            .is_some_and(|path| path.ends_with("pump.st")));
-
-        assert!(result.get("globals").and_then(Value::as_array).is_some());
+            .map(|member| {
+                (
+                    member["name"].as_str().unwrap_or_default(),
+                    member["type"].as_str().unwrap_or_default(),
+                    member["path"].as_str().unwrap_or_default(),
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            members,
+            vec![
+                ("speed_setpoint", "REAL", "PumpStation.speed_setpoint"),
+                ("speed", "REAL", "PumpStation.speed"),
+                ("mode", "MODE", "PumpStation.mode"),
+                ("internal_counter", "DINT", "PumpStation.internal_counter"),
+            ]
+        );
 
         std::fs::remove_dir_all(root).expect("remove temp dir");
     }
+
+    /// Specification 39, §7.6: the editor's binding checks, each problem on its line.
+    #[test]
+    fn hmi_file_check_reports_problems_on_their_lines() {
+        let root = temp_dir("trustlsp-hmi-check");
+        std::fs::create_dir_all(root.join("src")).expect("create src dir");
+        std::fs::write(
+            root.join("src/main.st"),
+            "PROGRAM Main\nVAR\n    Level : REAL;\n    Run : BOOL;\nEND_VAR\nEND_PROGRAM\n",
+        )
+        .expect("write source");
+        let root_uri = Url::from_directory_path(&root).expect("root uri");
+        let context = MockContext {
+            workspace_configs: vec![(
+                root_uri.clone(),
+                test_project_config(root.to_string_lossy().as_ref(), "x86_64"),
+            )],
+            workspace_folders: vec![root_uri],
+            ..MockContext::default()
+        };
+        let text = "format = 1\ntitle = \"Checks\"\n\n[[object]]\nid = \"level\"\ntype = \"bar\"\nat = [0, 0]\nsize = [80, 40]\n\n[object.bind]\nvalue = \"Main.Run\"\n\n[[object]]\nid = \"dial\"\ntype = \"dial\"\nat = [0, 60]\nsize = [80, 40]\n";
+
+        let result = hmi_checks::check_value_with_context(
+            &context,
+            vec![json!({ "text": text, "file": "hmi/pages/checks.toml" })],
+        );
+        assert_eq!(result["ok"], true, "{result}");
+        let problems = result["problems"].as_array().expect("problems");
+        assert_eq!(problems.len(), 2, "{result}");
+        assert_eq!(
+            (
+                &problems[0]["object"],
+                &problems[0]["property"],
+                &problems[0]["line"]
+            ),
+            (&json!("level"), &json!("value"), &json!(11))
+        );
+        assert!(problems[0]["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("Main.Run")));
+        assert_eq!(
+            (&problems[1]["object"], &problems[1]["line"]),
+            (&json!("dial"), &json!(15))
+        );
+
+        let broken = hmi_checks::check_value_with_context(
+            &context,
+            vec![json!({ "text": "format = 1\ntitle = 3\n" })],
+        );
+        assert_eq!(broken["ok"], false, "{broken}");
+        assert_eq!(broken["errors"][0]["line"], 2);
+
+        std::fs::remove_dir_all(root).expect("remove temp dir");
+    }
+
+    include!("hmi_check_tests.rs");
+    include!("hmi_placed_tests.rs");
+    include!("hmi_symbol_tests.rs");
+    include!("hmi_program_edit_tests.rs");
+    include!("hmi_page_proposal_tests.rs");
+
+    include!("hmi_rename_tests.rs");
+    include!("control_evidence_tests.rs");
 
     #[test]
     fn hmi_bindings_excludes_runtime_ignored_lesson_tests() {
@@ -900,4 +978,7 @@ END_CONFIGURATION
 
         std::fs::remove_dir_all(root).expect("remove temp dir");
     }
+
+    include!("hmi_alarm_texts_tests.rs");
+    include!("hmi_unsaved_sources_tests.rs");
 }

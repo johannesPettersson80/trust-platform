@@ -3,7 +3,7 @@ pub struct ResourceRunner<C: Clock + Clone> {
     runtime: Runtime,
     clock: C,
     cycle_interval: Duration,
-    time_scale: u32,
+    timing: CycleTiming,
     restart_signal: Option<Arc<Mutex<Option<crate::RestartMode>>>>,
     start_gate: Option<Arc<StartGate>>,
     command_rx: Option<std::sync::mpsc::Receiver<ResourceCommand>>,
@@ -18,7 +18,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             runtime,
             clock,
             cycle_interval,
-            time_scale: 1,
+            timing: CycleTiming::wall_clock(),
             restart_signal: None,
             start_gate: None,
             command_rx: None,
@@ -41,10 +41,17 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         self
     }
 
-    /// Apply simulation time acceleration (`>= 1`).
+    /// Run on simulation time at the shared `speed` (specification 33, §6.1). Each executed cycle advances
+    /// simulation time by one cycle interval, and cycles are paced at the cycle interval divided by the speed.
+    /// With `metrics`, the achieved speed is reported to control.status. Without this, process time follows the
+    /// wall clock.
     #[must_use]
-    pub fn with_time_scale(mut self, scale: u32) -> Self {
-        self.time_scale = scale.max(1);
+    pub fn with_simulation_speed(
+        mut self,
+        speed: SimulationSpeed,
+        metrics: Option<Arc<Mutex<crate::metrics::RuntimeMetrics>>>,
+    ) -> Self {
+        self.timing = CycleTiming::simulated(speed, metrics);
         self
     }
 
@@ -79,8 +86,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
     /// Restart the runtime while preserving the runner's live clock baseline.
     pub fn restart(&mut self, mode: crate::RestartMode) -> Result<(), RuntimeError> {
         self.runtime.restart(mode)?;
-        let now = scaled_time(self.clock.now(), self.time_scale);
-        self.runtime.reset_task_timing(now);
+        self.continue_after_restart();
         Ok(())
     }
 
@@ -90,9 +96,28 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         mode: crate::RestartMode,
     ) -> Result<(), RuntimeError> {
         self.runtime.restart_with_retain_store(mode)?;
-        let now = scaled_time(self.clock.now(), self.time_scale);
-        self.runtime.reset_task_timing(now);
+        self.continue_after_restart();
         Ok(())
+    }
+
+    /// Continues process time after a restart, from the last simulation time in simulation (specification 33,
+    /// §6.1 item 4), and restarts the simulation schedule.
+    fn continue_after_restart(&mut self) {
+        let now = self.timing.restart_time(self.clock.now());
+        self.runtime.reset_task_timing(now);
+        self.timing.restart_schedule();
+    }
+
+    /// The simulation snapshot for plant status. Its configured speed is the live speed.
+    pub(crate) fn simulation_snapshot(
+        &self,
+    ) -> Option<crate::simulation::SimulationRuntimeSnapshot> {
+        let simulation = self.simulation.as_ref()?;
+        let mut snapshot = simulation.runtime_snapshot_for(&self.runtime);
+        if let Some(speed) = self.timing.simulation_speed() {
+            snapshot.status.time_scale = speed.get();
+        }
+        Some(snapshot)
     }
 
     /// Execute one cycle using the current clock time.
@@ -120,9 +145,15 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         let state = Arc::new(Mutex::new(ResourceState::Boot));
         let last_error = Arc::new(Mutex::new(None));
         let clock = self.clock.clone();
+        let simulation_speed = self.timing.simulation_speed();
         let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
         let mut runner = self;
         runner.command_rx = Some(cmd_rx);
+        let hmi = runner.runtime.hmi_exchange().unwrap_or_else(|| {
+            let exchange = Arc::new(crate::hmi::exchange::HmiExchange::new());
+            runner.runtime.set_hmi_exchange(exchange.clone());
+            exchange
+        });
 
         let stop_thread = stop.clone();
         let state_thread = state.clone();
@@ -162,6 +193,8 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             clock,
             join: Some(join),
             cmd_tx: cmd_tx.clone(),
+            hmi,
+            simulation_speed,
         })
     }
 
@@ -175,9 +208,15 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         let state = Arc::new(Mutex::new(ResourceState::Boot));
         let last_error = Arc::new(Mutex::new(None));
         let clock = self.clock.clone();
+        let simulation_speed = self.timing.simulation_speed();
         let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
         let mut runner = self;
         runner.command_rx = Some(cmd_rx);
+        let hmi = runner.runtime.hmi_exchange().unwrap_or_else(|| {
+            let exchange = Arc::new(crate::hmi::exchange::HmiExchange::new());
+            runner.runtime.set_hmi_exchange(exchange.clone());
+            exchange
+        });
 
         let stop_thread = stop.clone();
         let state_thread = state.clone();
@@ -224,6 +263,8 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             clock,
             join: Some(join),
             cmd_tx: cmd_tx.clone(),
+            hmi,
+            simulation_speed,
         })
     }
 }

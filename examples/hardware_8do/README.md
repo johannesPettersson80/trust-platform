@@ -10,7 +10,6 @@ This backend is **NOT** tied to any specific programming language or editor. It 
 - Hardware I/O drivers (EtherCAT or GPIO)
 - PLC runtime environment
 - Control endpoint for visual editors
-- HMI configuration
 
 ## Supported Programs
 
@@ -99,7 +98,6 @@ This will:
 - Compile the ST code (if any)
 - Start the PLC runtime
 - Expose control endpoint at `/tmp/trust-debug.sock`
-- Start HMI web interface at `http://localhost:9090`
 
 ### 3. Run Your Program
 
@@ -123,12 +121,6 @@ hardware_8do/
 ├── src/
 │   ├── Main.st          # Main ST program (placeholder for generated code)
 │   └── config.st        # Global configuration
-└── hmi/
-    ├── _config.toml     # HMI server settings
-    ├── overview.toml    # Main dashboard
-    ├── trends.toml      # Trend charts
-    ├── alarms.toml      # Alarm configuration
-    └── process.toml     # Process view
 ```
 
 ## Example Programs Using This Backend
@@ -152,14 +144,6 @@ The runtime exposes a Unix socket at `/tmp/trust-debug.sock` that allows:
 - Variable monitoring
 
 Visual editors (Ladder, Blockly, Statechart) connect to this endpoint to control hardware without generating ST code.
-
-## HMI Dashboard
-
-Access the HMI at `http://localhost:9090` to:
-- Monitor digital outputs (DO0-DO7)
-- View trends
-- Check alarms
-- Inspect runtime status
 
 ## Troubleshooting
 
@@ -199,3 +183,7 @@ trust-lsp compile src/Main.st
 - [Blockly Examples](../blockly/README.md)
 - [Statechart Examples](../statecharts/README.md)
 - [EtherCAT Setup Guide](../ethercat_ek1100_elx008_v2/README.md)
+
+## Screen
+
+`hmi/pages/overview.toml` shows this example's values. It opens in the HMI Builder in VS Code; press **Live** while the simulator runs to see the values move. To open it in a browser, enable `[runtime.web]` in `runtime.toml`; the runtime then serves it at `/hmi`.

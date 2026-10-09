@@ -228,6 +228,14 @@ function targetForLoop(
     }
   }
   for (const signal of allDeclaredSignals(loop)) {
+    if (!signal.address) {
+      // A program variable without an address, such as a PID's own measurement, is a compiled symbol (Specification 35 §17.1).
+      const symbol = compiled.symbols.get(signal.symbol);
+      if (!symbol || symbol.type.toUpperCase() !== signal.iecType.toUpperCase()) {
+        return { kind: "rejected", reason: `Declared signal ${signal.symbol} is not a compiled ${signal.iecType} variable.` };
+      }
+      continue;
+    }
     const compiledSignal = compiled.signals.get(signal.symbol);
     if (!compiledSignal || compiledSignal.address !== signal.address || compiledSignal.type.toUpperCase() !== signal.iecType.toUpperCase()) {
       return { kind: "rejected", reason: `Declared signal ${signal.symbol} does not match the compiled process-image identity.` };

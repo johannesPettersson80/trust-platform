@@ -581,6 +581,7 @@ fn driver(
     outputs: Vec<GpioOutput>,
 ) -> GpioDriver {
     GpioDriver {
+        place: "test chip".to_string(),
         backend: Box::new(backend),
         inputs,
         outputs,

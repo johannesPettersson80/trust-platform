@@ -27,6 +27,9 @@ mod model;
 #[path = "plant/numeric_io.rs"]
 mod numeric_io;
 #[cfg(test)]
+#[path = "plant/pid_signal_tests.rs"]
+mod pid_signal_tests;
+#[cfg(test)]
 #[path = "plant/resource_tests.rs"]
 mod resource_tests;
 #[path = "plant/signal.rs"]

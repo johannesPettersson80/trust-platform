@@ -1,5 +1,7 @@
 import { randomUUID } from "crypto";
 import { decodeParameterBinding, type ParameterBinding } from "./parameterBinding";
+import { PhysicalApprovalRequired } from "./runtimeTarget";
+import { confirmationTiming } from "./confirmationWindow";
 
 export interface ParameterOwner { id: string; program: string; binding: string }
 
@@ -70,7 +72,7 @@ export class ParameterApplicationClient {
 
   async rollback(review: ParameterReview, physicalApproved: boolean): Promise<ParameterStatus> {
     if (!this.rollbacks.has(review)) throw new Error("Review the retained rollback values on this runtime first.");
-    if (this.source === "physical" && !physicalApproved) throw new Error("Physical rollback requires immediate explicit approval.");
+    if (this.source === "physical" && !physicalApproved) throw new PhysicalApprovalRequired("parameter rollback");
     if (!review.transaction_id || review.observed.supports_request_id !== true) throw new Error("Reload the runtime with parameter-operation identity support before rollback.");
     this.rollbacks.delete(review);
     const observed = review.observed;
@@ -84,7 +86,7 @@ export class ParameterApplicationClient {
 
   async apply(review: ParameterReview, physicalApproved: boolean): Promise<ParameterStatus> {
     if (!this.reviews.has(review)) throw new Error("Review this parameter set on the bound runtime first.");
-    if (this.source === "physical" && !physicalApproved) throw new Error("Physical application requires immediate explicit approval.");
+    if (this.source === "physical" && !physicalApproved) throw new PhysicalApprovalRequired("parameter application");
     if (!review.transaction_id || review.observed.supports_request_id !== true) throw new Error("Reload the runtime with parameter-operation identity support before application.");
     this.reviews.delete(review);
     const observed = review.observed;
@@ -103,23 +105,27 @@ export class ParameterApplicationClient {
       if (record(result) && result.confirmed === true && result.transaction_id === owner.id
         && result.program_revision === owner.program && result.binding_revision === owner.binding) return result.before_dispatch === true ? "before-dispatch" : "terminal";
     } catch { /* A lost cancellation acknowledgement is resolved from the original identity. */ }
-    for (let attempt = 0; attempt < 80; attempt++) {
+    const timing = await confirmationTiming(this.request, this.binding.task_name);
+    const deadline = Date.now() + timing.windowMs;
+    while (Date.now() < deadline) {
       const current = await this.status();
       if (current.program_revision !== owner.program || current.binding_revision !== owner.binding || current.transaction_id !== owner.id) throw new Error("The parameter-operation identity remains unresolved.");
       if (current.status !== "pending") return "terminal";
-      await new Promise(resolve => setTimeout(resolve, 25));
+      await new Promise(resolve => setTimeout(resolve, timing.pollMs));
     }
     throw new Error("Parameter cancellation remains unconfirmed; retry the retained operation after reconnecting.");
   }
 
   private async confirm(review: ParameterReview, rollback: boolean): Promise<ParameterStatus> {
     const observed = review.observed;
-    for (let attempt = 0; attempt < 80; attempt++) {
+    const timing = await confirmationTiming(this.request, this.binding.task_name);
+    const deadline = Date.now() + timing.windowMs;
+    while (Date.now() < deadline) {
       const status = await this.status();
       if (status.program_revision !== observed.program_revision || status.binding_revision !== observed.binding_revision) throw new Error("Runtime program or parameter binding changed during application.");
       if (status.status === "applied" && status.transaction_id === review.transaction_id && sameParameterValues(status.values, review.values) && (rollback ? status.active_revision === observed.previous_revision : status.previous_revision === observed.active_revision)) return status;
       if (status.status !== "pending") throw new Error(status.reason ?? "The reviewed values were not confirmed after controller execution.");
-      await new Promise(resolve => setTimeout(resolve, 25));
+      await new Promise(resolve => setTimeout(resolve, timing.pollMs));
     }
     throw new Error("Timed out waiting for parameter confirmation; inspect runtime status before retrying.");
   }

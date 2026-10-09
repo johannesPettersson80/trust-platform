@@ -36,8 +36,25 @@ impl Runtime {
         let globals = self.globals.clone();
         let mut retained = IndexMap::new();
         let mut retained_program_vars = Vec::new();
+        // Instance variables kept across a warm restart (IEC 61131-3 Ed.3 §6.5.6.2).
+        let mut kept_global_instances = Vec::new();
+        let mut kept_program_instances = Vec::new();
+        let declarations = super::restart_instances::Declarations {
+            function_blocks: &self.function_blocks,
+            classes: &self.classes,
+        };
         if matches!(mode, RestartMode::Warm) {
             for (name, meta) in &globals {
+                if let Some(Value::Instance(id)) = self.storage.get_global(name.as_ref()) {
+                    if let Some(image) = super::restart_instances::capture(
+                        &self.storage,
+                        &declarations,
+                        *id,
+                        retain_on_warm(meta.retain),
+                    ) {
+                        kept_global_instances.push((name.clone(), image));
+                    }
+                }
                 if retain_on_warm(meta.retain) {
                     // Instance identities are never retained; their instances are reconstructed below.
                     if let Some(value) = self
@@ -55,6 +72,22 @@ impl Runtime {
                     continue;
                 };
                 for var in &program.vars {
+                    if let Some(Value::Instance(member)) =
+                        self.storage.get_instance_var(*id, var.name.as_ref())
+                    {
+                        if let Some(image) = super::restart_instances::capture(
+                            &self.storage,
+                            &declarations,
+                            *member,
+                            retain_on_warm(var.retain),
+                        ) {
+                            kept_program_instances.push((
+                                program.name.clone(),
+                                var.name.clone(),
+                                image,
+                            ));
+                        }
+                    }
                     if !retain_on_warm(var.retain) {
                         continue;
                     }
@@ -206,12 +239,34 @@ impl Runtime {
             };
             storage.set_instance_var(*id, var_name, value);
         }
+        for (name, image) in &kept_global_instances {
+            if let Some(Value::Instance(id)) = storage.get_global(name.as_ref()).cloned() {
+                super::restart_instances::restore(&mut storage, id, image);
+            }
+        }
+        for (program_name, var_name, image) in &kept_program_instances {
+            let Some(Value::Instance(program)) = storage.get_global(program_name.as_ref()).cloned()
+            else {
+                continue;
+            };
+            if let Some(Value::Instance(id)) = storage
+                .get_instance_var(program, var_name.as_ref())
+                .cloned()
+            {
+                super::restart_instances::restore(&mut storage, id, image);
+            }
+        }
 
         let memory = self.io.interface().stage_memory(&storage)?;
         Ok(PreparedRestart { storage, memory })
     }
 
     pub(super) fn commit_restart(&mut self, prepared: PreparedRestart) {
+        // Pending host method requests are not retained PLC state. A request prepared for
+        // the old instance generation must not execute against the restarted program.
+        if let Some(exchange) = self.hmi_exchange() {
+            exchange.methods.invalidate();
+        }
         if let Some(debug) = &self.debug {
             debug.clear_runtime_mutations();
         }
@@ -223,6 +278,8 @@ impl Runtime {
         }
         self.faults.clear();
         self.cycle_counter = 0;
+        // The instances are new; a simulated plant publishes its controller measurements again.
+        self.clear_controller_measurements();
     }
 }
 

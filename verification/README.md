@@ -355,8 +355,8 @@ is closed rather than inferred from this procedure.
   association plane. It binds five parsed cargo-fuzz targets and six exact Rust
   fuzz/property smokes to the ordered required surfaces
   `st_lexer_parser`, `hir_lowering_input`, `plcopen_xml`,
-  `bytecode_container_instructions`, `protocol_payloads`, `config_files`,
-  `lsp_incremental_edits`, and `hmi_schema_payloads`. The five cargo targets
+  `bytecode_container_instructions`, `protocol_payloads`, `config_files`, and
+  `lsp_incremental_edits`. The five cargo targets
   include the three crate-local ADS targets deliberately excluded from the
   Phase 2 scanner; that historical scanner denominator is not broadened.
 - Run the Phase 9 report-only audit with:

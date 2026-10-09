@@ -244,16 +244,6 @@ fn lesson25_verifies_from_the_state_control_studio_presets() {
     );
 }
 
-#[test]
-fn lesson25_hmi_only_binds_signals_of_the_executed_heater() {
-    let (runtime, _) = setup(LESSON25);
-    let diagnostics = hmi_diagnostics(LESSON25, &runtime);
-    assert!(
-        diagnostics.is_empty(),
-        "The Lesson 26 HMI must bind the executed heater project: {diagnostics:?}"
-    );
-}
-
 const LESSON26: &str = "03-production-quality-digital-pid/40-bumpless-transfer";
 
 /// Starts at the 75 % hot reset, then holds the manual command at 60 % until `until_step`.
@@ -409,16 +399,6 @@ fn lesson26_verifies_from_the_state_control_studio_presets() {
     assert!(
         (outputs[2] - 87.75).abs() < 0.6,
         "the setpoint kick is kept, not absorbed by a transfer: {outputs:?}"
-    );
-}
-
-#[test]
-fn lesson26_hmi_only_binds_signals_of_the_executed_heater() {
-    let (runtime, _) = setup(LESSON26);
-    let diagnostics = hmi_diagnostics(LESSON26, &runtime);
-    assert!(
-        diagnostics.is_empty(),
-        "The Lesson 27 HMI must bind the executed heater project: {diagnostics:?}"
     );
 }
 
@@ -665,15 +645,5 @@ fn lesson27_verifies_from_the_state_control_studio_presets() {
     assert!(
         (outputs[2] - 87.75).abs() < 0.6,
         "the setpoint kick of the Auto run: {outputs:?}"
-    );
-}
-
-#[test]
-fn lesson27_hmi_only_binds_signals_of_the_executed_heater() {
-    let (runtime, _) = setup(LESSON27);
-    let diagnostics = hmi_diagnostics(LESSON27, &runtime);
-    assert!(
-        diagnostics.is_empty(),
-        "The Lesson 28 HMI must bind the executed heater project: {diagnostics:?}"
     );
 }

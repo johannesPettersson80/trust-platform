@@ -42,7 +42,7 @@ pub(super) fn apply_fb_instance_initializer_from_vm_frame(
         }
         seen.push(name.clone());
 
-        let (canonical_name, type_id) = fb_initializer_target(fb, name)?;
+        let (canonical_name, type_id) = fb_initializer_target(runtime.function_blocks(), fb, name)?;
         let value = evaluate_initializer_from_vm_frame(
             runtime,
             plan,
@@ -1041,6 +1041,7 @@ mod tests {
             direction: ParamDirection::In,
             address: None,
             default: None,
+            retain: crate::RetainPolicy::Unspecified,
         }
     }
 

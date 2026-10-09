@@ -21,6 +21,8 @@
     "src/sfc/webview/**",
     "src/networkCanvas/webview/**",
     "src/controlStudio/webview/**",
-    "src/visual/runtime/webview/**"
+    "src/visual/runtime/webview/**",
+    "src/hmiBuilder/display/webview/**",
+    "src/hmiBuilder/editor/webview/**"
   ]
 }

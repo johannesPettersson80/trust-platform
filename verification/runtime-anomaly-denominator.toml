@@ -148,15 +148,6 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_013C0E328B3E8D1DF885"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_supports_path_allowlist_and_alias_param"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_0145FBD6A5391DCD3D08"
 discovery_source_kind = "rust_integration_test"
 path = "crates/verification-cases/tests/release_evidence_trace_cases.rs"
@@ -418,15 +409,6 @@ reason_code = "different_safety_domain"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_03C3F84A5662C6BC7856"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/core_tests.rs"
-name = "scaffold_widget_mapping_respects_type_and_writability"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_03D27C2E887CA2C0B7CC"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs"
@@ -598,15 +580,6 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_04D8D25BB63297663445"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/schema.rs"
-name = "validate_hmi_bindings_reports_unknown_paths_widgets_and_mismatches"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_04E3AE8E579EE7353332"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/platform_std.rs"
@@ -730,15 +703,6 @@ path = "crates/trust-runtime/src/control/tests/core.rs"
 name = "offline_comm_apply_creates_runtime_toml_when_absent"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_0623C8F5E23E0C5DB233"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_08.rs"
-name = "hmi_responsive_layout_breakpoint_classes_cover_mobile_tablet_desktop"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -913,15 +877,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_07BE5E4888E58F70D0DC"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_loading.rs"
-name = "hmi_dir_loader_promotes_process_auto_svg_to_custom_asset"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_07CD1835ED81602972AA"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/io/interface.rs"
@@ -1000,15 +955,6 @@ path = "crates/trust-runtime/tests/value_defaults.rs"
 name = "default_values_table10"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_088942ADF2B8C26C6DA4"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_descriptor_watch.rs"
-name = "hmi_descriptor_watcher_updates_schema_without_runtime_restart"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -1543,15 +1489,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_0CB6E85705D0168A2FE0"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_07.rs"
-name = "hmi_widget_renderers_handle_null_stale_and_good_values"
-disposition = "mapped"
-mapping_id = "ANOM_MAP_STALE_DATA_REVIEW_168A2FE0"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_0CB85393CF5F1C93EC04"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/state/mod.rs"
@@ -1745,15 +1682,6 @@ discovery_id = "DISC_0DDFCA476A330F0BE047"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
 name = "simulation_warning_includes_mode_and_safety_note"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_0DE0CA028C404CD81DB2"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_queues_allowlisted_program_variable_write"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
@@ -2164,15 +2092,6 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_11618980C47A176C3E67"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_loading.rs"
-name = "hmi_dir_loader_discovers_and_sorts_pages"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_116A738C606DD35D5B09"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/runtime_core_behavior_lock.rs"
@@ -2276,15 +2195,6 @@ discovery_id = "DISC_124D4256A1FBFDC950E4"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/web/ads_routes.rs"
 name = "route_add_with_server_derived_untrusted_channel_is_rejected"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_1257BED418738BD81458"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_rejects_out_of_range_subrange_value"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
@@ -2530,24 +2440,6 @@ path = "crates/trust-runtime/src/io/mqtt/tests.rs"
 name = "security_test_allows_remote_broker_when_tls_configured"
 disposition = "reviewed_nonmapping"
 reason_code = "different_safety_domain"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_15CF6989FA7FE7B04ADE"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/update_tests.rs"
-name = "scaffold_update_skips_default_control_when_no_writable_points"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_15E90DB37D230716C87C"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-debug/src/adapter/tests_part_02.rs"
-name = "debug_control_server_serves_hmi_schema_and_values"
-disposition = "reviewed_nonmapping"
-reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -3100,15 +2992,6 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_1A571724656D51DD106C"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_08.rs"
-name = "hmi_process_asset_pack_templates_and_bindings_align"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_1A61C36FC0DB5422C732"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/stmt_jmp.rs"
@@ -3478,15 +3361,6 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_1D3FFE0AC4DD2D438812"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/mode_tests.rs"
-name = "scaffold_init_fails_when_hmi_dir_exists_without_force"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_1D5C39608522BAB060C6"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-debug/src/session/tests.rs"
@@ -3673,15 +3547,6 @@ path = "crates/trust-lsp/src/handlers/lsp_utils.rs"
 name = "utf16_positions_round_trip_across_all_lsp_line_endings"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_1F69D92EC8C260892A74"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_04.rs"
-name = "hmi_websocket_reconnect_churn_remains_stable"
-disposition = "mapped"
-mapping_id = "ANOM_MAP_DISCONNECT_REVIEW_60892A74"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -4024,15 +3889,6 @@ path = "crates/trust-runtime/tests/setup_command.rs"
 name = "setup_browser_remote_rejects_loopback_bind"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_228754DDEE91A137B538"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_operator_write_uses_hmi_policy_and_audit_path"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -4585,15 +4441,6 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_26CB71E7EB9AFB5A69B9"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
-name = "parse_hmi_init_command"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_26D85E382B6B90BB76E6"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/ci_cicd_contract.rs"
@@ -4918,39 +4765,12 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_29AFB7D7177472E38F54"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-lsp/src/handlers/tests/core_part_05.rs"
-name = "lsp_hmi_toml_diagnostics_use_open_source_buffers"
-disposition = "reviewed_nonmapping"
-reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_29C51953C29C5A3C9B0D"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/mapping_tests.rs"
-name = "widget_mapping_covers_required_type_buckets"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_29F852A3670A263B4BBA"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/tier1/state_deadline_buffers.rs"
 name = "register_executor_tier1_env_parsers_accept_tokens_and_defaults"
 disposition = "reviewed_nonmapping"
 reason_code = "different_safety_domain"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_29F8EA2860B0DF680038"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/schema.rs"
-name = "hmi_dir_alarm_thresholds_map_to_widget_limits"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -5251,15 +5071,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_2C037FCFB82B4E1EF360"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_descriptor_update.rs"
-name = "hmi_scaffold_reset_regenerates_required_pages_and_revision"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_2C13C2D2C45DD82BBC2A"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/server/tests.rs"
@@ -5318,15 +5129,6 @@ discovery_id = "DISC_2C78FE7C3C3E99984F0A"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/plcopen_migration.rs"
 name = "migration_semantic_loss_scoring_reflects_import_completeness"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_2C92CDF668AE8249D137"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_06.rs"
-name = "hmi_process_renderer_handles_malformed_svg_without_crash"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
@@ -5602,15 +5404,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_2E2E22285F0FD5F1666B"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_04.rs"
-name = "hmi_websocket_pushes_values_schema_revision_and_alarm_events"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_2E72F9869B8235838DD5"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_09/shell_modules.rs"
@@ -5878,24 +5671,6 @@ path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
 name = "panic_in_io_driver_faults_resource_visibly"
 disposition = "mapped"
 mapping_id = "ANOM_MAP_PANIC_001"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_30CC3FBF93DA6AEAE39C"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-lsp/src/handlers/diagnostics/publish_hmi_and_tests.rs"
-name = "hmi_toml_diagnostics_avoid_false_positives_for_valid_page"
-disposition = "reviewed_nonmapping"
-reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_30D51AB56DEA87F77B9D"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/live_state.rs"
-name = "hmi_event_stream_deduplicates_alarm_payloads"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -6700,15 +6475,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_391D789A39B180F44CAF"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/update_tests.rs"
-name = "scaffold_update_preserves_existing_page_and_fills_missing_files"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_391F410D2DA36AABCC29"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/web/runtime_cloud_dispatch.rs"
@@ -6974,15 +6740,6 @@ discovery_id = "DISC_3AFAAD8268EF8605C83D"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/tests/core.rs"
 name = "ads_status_control_request_returns_runtime_ads_status_schema"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_3B0DF3186F53721354E3"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_runtime_write_port_queues_allowlisted_write_without_json_transport"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
@@ -7375,15 +7132,6 @@ reason_code = "different_safety_domain"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_3F63F41C5FE5DCAF6DCE"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/live_state.rs"
-name = "hmi_event_stream_tracks_schema_revision_and_widget_ids"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_3F7FEE1079FC4DAA4C99"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-syntax/src/parser/parser.rs"
@@ -7591,15 +7339,6 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_415F390FC293AA24F1ED"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_07.rs"
-name = "hmi_connector_summary_renders_shared_status_contract"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_417C1603DFFB9ABF5E89"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/io_wildcard.rs"
@@ -7654,15 +7393,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_4204FDA9FA20ED44B4D7"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_09.rs"
-name = "hmi_polling_soak_remains_stable"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_420774E0476946F9E120"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/tests/core.rs"
@@ -7705,15 +7435,6 @@ path = "crates/trust-syntax/src/lexer/tokens/tests_part_01.rs"
 name = "test_function_block_keywords"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_428C54C8A32982652B76"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/update_tests.rs"
-name = "scaffold_update_skips_default_process_when_custom_process_page_exists"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -7775,15 +7496,6 @@ discovery_id = "DISC_42E9DE659419345AAE27"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/dispatch_refs.rs"
 name = "peek_dynamic_ref_borrows_global_storage_value"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_43019878280730A8C1EB"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_descriptor_watch.rs"
-name = "hmi_descriptor_get_returns_inferred_layout_when_files_missing"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
@@ -8099,15 +7811,6 @@ discovery_id = "DISC_45CB6C9BAD8DCCF0A59F"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
 name = "build_fails_for_missing_dependency_path"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_45DB690F322968387871"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_values_contract_returns_timestamp_quality_and_typed_values"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
@@ -8581,15 +8284,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_4AE9A8D353C1E6E0C683"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_01.rs"
-name = "hmi_dashboard_routes_render_without_manual_layout"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_4AF6DB3BEA7577D7AFA9"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/config/tests.rs"
@@ -8614,15 +8308,6 @@ path = "crates/trust-runtime/src/runtime/vm/call/tests/function_blocks.rs"
 name = "output_copyback_rejects_nonstring_for_declared_string_null_target"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_4B362FC80A7CC92583FD"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_04.rs"
-name = "hmi_websocket_forced_failure_polling_recovers_within_one_interval"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -8659,15 +8344,6 @@ path = "crates/trust-runtime/tests/struct_initializers.rs"
 name = "case_insensitive_field_matching_materializes_same_value"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_4BA27FCFF2E34916C2BB"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-lsp/src/handlers/commands/path_ranges_and_tests.rs"
-name = "hmi_init_command_rejects_invalid_style"
-disposition = "reviewed_nonmapping"
-reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -9211,15 +8887,6 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_504C36D9A71CF032CA99"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/live_state.rs"
-name = "alarm_deadband_requires_reentry_window_before_clear"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_5079C513733275372753"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/simulation_workflow.rs"
@@ -9238,15 +8905,6 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_509AD0A5B81568F80699"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_rejects_type_mismatch"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_50BC83EE8F3F488A7088"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-dev/src/test_cmd/tests.rs"
@@ -9262,15 +8920,6 @@ path = "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs"
 name = "test_shared_global_task_hazard_warning"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_50F0CBE7F09ADCF6125A"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_04.rs"
-name = "hmi_websocket_slow_consumers_do_not_block_control_plane"
-disposition = "mapped"
-mapping_id = "ANOM_MAP_SLOW_DEVICE_REVIEW_DCF6125A"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -9310,30 +8959,12 @@ mapping_id = "ANOM_MAP_MALFORMED_BYTECODE_003"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_514A3C7CD34EA66EF422"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/core_tests.rs"
-name = "scaffold_output_is_deterministic_for_same_input"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_5151047889EFA5EB8711"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/modbus_driver.rs"
 name = "modbus_cold_start_before_first_response_returns_bounded_no_data"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_516BF822DC021E128AF5"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/mode_tests.rs"
-name = "scaffold_reset_creates_backup_snapshot"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -9775,15 +9406,6 @@ path = "crates/trust-runtime/src/config/tests.rs"
 name = "io_schema_requires_table_params"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_54F6B200F7B5A343EBED"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_04.rs"
-name = "hmi_websocket_value_push_meets_local_latency_slo"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -10255,15 +9877,6 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_58A279694D7D227A1A32"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/schema.rs"
-name = "theme_snapshot_uses_default_fallbacks"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_58C4F9FEBAD2FEFEAA75"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/opcua/tests.rs"
@@ -10306,15 +9919,6 @@ path = "crates/trust-runtime/src/control/tests/connectors.rs"
 name = "connectors_status_reports_ads_client_and_server_roles"
 disposition = "reviewed_nonmapping"
 reason_code = "different_safety_domain"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_5961E116E6F00267072E"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/live_state.rs"
-name = "alarm_state_machine_covers_raise_ack_clear_history"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -10525,15 +10129,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_5B31D2D7385F9ABA19FF"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/schema.rs"
-name = "layout_overrides_keep_widget_ids_stable"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_5B3814C108D3BE9E961E"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/io/mqtt/tests.rs"
@@ -10585,15 +10180,6 @@ path = "crates/trust-runtime/tests/opcua_integration.rs"
 name = "opcua_load_fixture_rejects_writes_to_snapshot_backed_variables"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_5B6A847B671D780BCDBF"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_loading.rs"
-name = "load_customization_prefers_hmi_dir_over_legacy_toml"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -10900,15 +10486,6 @@ path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs"
 name = "t0_read_surfaces_stale_after_bounded_misses_and_spin_limit"
 disposition = "mapped"
 mapping_id = "ANOM_MAP_STALE_DATA_003"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_5E1F500FAB91DA314921"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-lsp/src/handlers/tests/core_part_05.rs"
-name = "lsp_hmi_toml_local_property_diagnostics_do_not_require_runtime_compile"
-disposition = "reviewed_nonmapping"
-reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -11267,15 +10844,6 @@ discovery_id = "DISC_61C813EDB460F6E9100B"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
 name = "parse_ads_doctor_guarded_write_probe_command"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_61D3612B066D535CEB88"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/schema.rs"
-name = "allowlisted_hmi_write_targets_are_marked_writable_in_schema"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
@@ -11929,15 +11497,6 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_6888480526071237330C"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/core_tests.rs"
-name = "scaffold_overview_enforces_budget_and_config_version"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_688E963173245BF331E2"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/linux_rt.rs"
@@ -11960,15 +11519,6 @@ discovery_id = "DISC_68C24ED019533CBFC5EA"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-ide/src/completion/tests.rs"
 name = "test_parameter_name_completion_skips_used_formal"
-disposition = "reviewed_nonmapping"
-reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_68D34BB5C3484AD12D57"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-lsp/src/handlers/commands/path_ranges_and_tests.rs"
-name = "hmi_init_command_with_mock_context_generates_scaffold"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
@@ -12379,15 +11929,6 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_6C3A98A6193F1AB55DFE"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/page_tests.rs"
-name = "scaffold_process_toml_binds_level_fill_y_and_height"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_6C400AA4FB0624C16EEB"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/tests/core.rs"
@@ -12493,15 +12034,6 @@ path = "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs"
 name = "hir_struct_field_default_initializer_is_recorded"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_6D307CA045E0FD7731EB"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_descriptor_watch.rs"
-name = "hmi_trends_and_alarm_contracts_support_ack_flow"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -12889,15 +12421,6 @@ path = "crates/trust-runtime/tests/simulation_workflow.rs"
 name = "simulation_toml_rejects_non_finite_coupling_thresholds"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_6FD023528E1B252027AF"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_descriptor_watch.rs"
-name = "hmi_descriptor_watcher_retains_last_good_schema_on_invalid_toml"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -13333,15 +12856,6 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_73587E255F98F0DAD50F"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/live_state.rs"
-name = "hmi_event_stream_emits_changed_values_only"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_7359722765B15C2650E4"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-ide/src/type_hierarchy.rs"
@@ -13591,15 +13105,6 @@ path = "crates/trust-runtime-core/src/vm/mod.rs"
 name = "vm_dispatch_ops_preserve_stack_jump_and_operand_decode_contracts"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_764455DC84D00D7010ED"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_02.rs"
-name = "hmi_standalone_export_bundle_includes_resolved_descriptor_when_hmi_dir_present"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -14086,15 +13591,6 @@ path = "crates/trust-hir/tests/semantic_standard_functions.rs"
 name = "test_is_valid_bcd_rejects_non_bit_string"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_7AB655BAF940FB462961"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/config/tests.rs"
-name = "runtime_schema_accepts_hmi_persistence_section"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -14818,15 +14314,6 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_8195EB0C9952F58F0A13"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_02.rs"
-name = "hmi_standalone_export_bundle_contains_assets_routes_and_config"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_81E439A8EA2F04181A77"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/comm_handlers/discover_tests.rs"
@@ -14858,15 +14345,6 @@ discovery_id = "DISC_82101BAA11DC10486A75"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
 name = "skip_reasons_match_contract_names"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_823AF3E2C3D2B40FF980"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_processing_stays_under_cycle_budget"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
@@ -14948,15 +14426,6 @@ discovery_id = "DISC_82E0BEAE2894897049D6"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/tests/core.rs"
 name = "ads_server_symbols_control_request_returns_exposed_snapshot"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_82FA70B7294E47A2FFE2"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_schema_contract_includes_required_mapping"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
@@ -15148,15 +14617,6 @@ path = "crates/trust-syntax/tests/parser_error_recovery.rs"
 name = "mismatched_nested_terminator_preserves_outer_boundary_and_following_statement"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_8552316C0519D652C171"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/page_tests.rs"
-name = "scaffold_generates_control_and_process_pages"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -15529,15 +14989,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_887F80B5FD3173D88B00"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-lsp/src/handlers/diagnostics/publish_hmi_and_tests.rs"
-name = "hmi_toml_diagnostics_report_unknown_bind_with_near_match_hint"
-disposition = "reviewed_nonmapping"
-reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_8887FE3BA0A4120A7E2F"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/simulation_workflow.rs"
@@ -15580,15 +15031,6 @@ path = "crates/trust-debug/src/adapter/tests_part_06.rs"
 name = "dispatch_evaluate_honors_using_for_types"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_88F0ECD08508A3F6235B"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_loading.rs"
-name = "hmi_dir_loader_returns_none_for_invalid_toml"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -15666,7 +15108,7 @@ last_reviewed = "2026-07-18"
 [[reviews]]
 discovery_id = "DISC_899E7B19DFD2C8B935D6"
 discovery_source_kind = "rust_unit_test"
-path = "crates/trust-lsp/src/handlers/diagnostics/publish_hmi_and_tests.rs"
+path = "crates/trust-lsp/src/handlers/diagnostics/config_and_tests.rs"
 name = "suggestion_ranking_prefers_closest_match"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
@@ -15706,15 +15148,6 @@ path = "crates/trust-runtime/tests/prometheus_integration.rs"
 name = "prometheus_endpoint_exposes_runtime_and_historian_metrics"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_8A1C3AD3283CE417195B"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/core_tests.rs"
-name = "scaffold_includes_external_symbols_and_excludes_internals"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -15803,15 +15236,6 @@ discovery_id = "DISC_8AAC146F12AF0309C40B"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/e2e_multifile.rs"
 name = "namespaced_pous_resolve_sibling_interfaces"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_8AC7EF9736D2433E07EF"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_01.rs"
-name = "hmi_schema_exposes_section_spans_and_widget_spans_for_web_layout"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
@@ -15925,15 +15349,6 @@ mapping_id = "ANOM_MAP_WATCHDOG_003"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_8BE26ED74E9E29257128"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/live_state.rs"
-name = "hmi_persistence_reloads_bounded_trends_and_alarm_history"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_8BF526DFC16E34DFDDD6"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/handlers/lsp_utils.rs"
@@ -15976,15 +15391,6 @@ path = "crates/trust-runtime/tests/runtime_restart.rs"
 name = "restart_with_retain_store_persists_values"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_8C6BBEE8911DE894B25B"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-lsp/src/handlers/diagnostics/publish_hmi_and_tests.rs"
-name = "hmi_toml_diagnostics_report_type_widget_and_property_issues"
-disposition = "reviewed_nonmapping"
-reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -17167,15 +16573,6 @@ mapping_id = "ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_B2E06B11"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_9918717DC90273C38201"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/live_state.rs"
-name = "alarm_state_uses_configured_alarm_label_without_renaming_widget"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_991D32566D53109352EC"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
@@ -17335,15 +16732,6 @@ path = "crates/trust-ads-server/src/notify.rs"
 name = "read_error_invalidates_handle"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_99E36DCF43E6418FAE63"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/core_tests.rs"
-name = "scaffold_local_only_program_uses_inferred_interface_fallback"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -17669,15 +17057,6 @@ name = "if_branches"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_9CD14C4E394B82FB3DC0"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/web/ui_routes.rs"
-name = "embedded_hmi_module_fallbacks_match_complete_source_modules"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-21"
 
 [[reviews]]
 discovery_id = "DISC_9CDCE19E230C7B923BF7"
@@ -18544,15 +17923,6 @@ reason_code = "different_safety_domain"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_A41FCA8CADE662269BE8"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/page_tests.rs"
-name = "scaffold_process_auto_svg_uses_grid_aligned_instrument_templates"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_A45D628700DA0E8AEA0A"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/verifier_and_parity.rs"
@@ -18629,15 +17999,6 @@ discovery_id = "DISC_A55F43B94FBE8F142878"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/io/ethercat/tests.rs"
 name = "ethercat_config_accepts_hardware_adapter_name"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_A5669A1CE775557EF0B5"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/schema.rs"
-name = "write_customization_parses_enabled_and_allowlist"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
@@ -18877,15 +18238,6 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_A66997F12A4CE2CE2018"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_rejects_non_finite_real_text"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_A693DC52B922A4949B98"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/connectors_status.rs"
@@ -18919,15 +18271,6 @@ path = "crates/trust-runtime/tests/ci_cicd_contract.rs"
 name = "ci_single_test_feedback_is_under_two_seconds_for_small_project"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_A7154671A2D6EC7E8616"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_descriptor_update.rs"
-name = "hmi_descriptor_update_writes_files_and_bumps_schema_revision"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -19081,15 +18424,6 @@ path = "crates/trust-runtime/tests/initializer_architecture.rs"
 name = "initializer_service_size_caps_hold"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_A864D7153154B46359C6"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_rejects_non_allowlisted_target"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -19462,15 +18796,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_ABE7DAE6A97B593AB295"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/mapping_tests.rs"
-name = "annotation_parser_handles_valid_invalid_and_missing_fields"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_ABF55C65457D6C2E3DC5"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/io/mqtt/tests.rs"
@@ -19777,15 +19102,6 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_AF455501E8518CEAB703"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
-name = "parse_hmi_reset_command"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_AF4A9B6344EC39C3976B"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/agent_command/lsp.rs"
@@ -20026,15 +19342,6 @@ path = "crates/trust-runtime/tests/plcopen_command.rs"
 name = "plcopen_import_json_reports_applied_vendor_library_shims"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_B125CFFB42E0AB8AD7F5"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/page_tests.rs"
-name = "scaffold_groups_repeated_instance_prefixes_into_separate_sections"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -21226,15 +20533,6 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_BCEC0C5226A82B9337BC"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/web/hmi_ws.rs"
-name = "hmi_control_error_payload_is_structured"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_BCEDF6BF0C7B94A24FE3"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs"
@@ -21473,15 +20771,6 @@ discovery_id = "DISC_BEB3FCC15BB5DB682280"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/resources.rs"
 name = "global_sync"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_BEC262C381A423B431B6"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_06.rs"
-name = "hmi_process_renderer_rewrites_relative_svg_asset_references"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
@@ -22090,15 +21379,6 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_C390FAFB290EA56F1AFD"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_descriptor_watch.rs"
-name = "hmi_descriptor_watcher_handles_rapid_file_changes_without_deadlock"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_C3A91E2860C30B08BED4"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/io/mqtt/tests.rs"
@@ -22276,15 +21556,6 @@ path = "crates/trust-runtime/tests/sizeof_semantics.rs"
 name = "sizeof_variable_and_type_operands_build_and_run"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_C57EE1D5AAED1932269B"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/live_state.rs"
-name = "trend_downsample_preserves_bounds_and_window"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -23818,15 +23089,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_D40539D01A3F9B67B8F8"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/update_tests.rs"
-name = "scaffold_update_merges_missing_signals_without_overwriting_custom_widgets"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_D4393238D4D14C70E439"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/tests/core.rs"
@@ -24322,15 +23584,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_D9E035B58115474E9893"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_loading.rs"
-name = "schema_merge_applies_defaults_annotations_and_file_overrides"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_DA13E9944A5FE3461161"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-syntax/src/lexer/tokens/tests_part_01.rs"
@@ -24418,15 +23671,6 @@ path = "crates/trust-lsp/src/handlers/sync.rs"
 name = "apply_content_changes_full_sync"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_DA61C9B02F7C758142A4"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/schema.rs"
-name = "hmi_dir_schema_snapshot_includes_rich_metadata"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -24529,15 +23773,6 @@ reason_code = "different_safety_domain"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_DB4609D5670B83F6907D"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_08.rs"
-name = "hmi_polling_stays_under_cycle_budget"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_DB5FB90044BB71F89AF2"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-ide/src/refactor/operations/tests.rs"
@@ -24607,15 +23842,6 @@ path = "crates/trust-runtime-core/src/watchdog.rs"
 name = "watchdog_and_fault_subsystems_preserve_state_contracts"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_DC04CC15DC6756C0F0F4"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_runtime_read_port_is_code_backed_without_json_transport"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -24902,15 +24128,6 @@ discovery_id = "DISC_DF647144552A51EC968B"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/fb_counters.rs"
 name = "ctu_ctd_ctud"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_DF679A6EE690D3521B7D"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_03_part_01.rs"
-name = "hmi_standalone_export_bundle_validates_offline_bootstrap_with_embedded_schema"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
@@ -25460,15 +24677,6 @@ discovery_id = "DISC_E373A62882AB2F3A1763"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/dispatch_refs.rs"
 name = "peek_dynamic_ref_borrows_local_sentinel_value"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_E391A5BE442E661DFD23"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_is_disabled_in_read_only_mode"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
@@ -26239,15 +25447,6 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_EA19A368372ED6E20DFA"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
-name = "parse_hmi_update_command"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_EA1F36511801C6B5FC9E"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
@@ -26434,15 +25633,6 @@ path = "crates/trust-hir/tests/declaration_catalog.rs"
 name = "declaration_catalog_marks_project_imports_and_translated_type_identity"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_EB709EDB9C5543F99BBE"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/config/tests.rs"
-name = "runtime_schema_rejects_empty_hmi_persistence_window"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -27841,15 +27031,6 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_F6A7018579E453D375B0"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/schema.rs"
-name = "resolve_write_point_supports_id_and_path_matches"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_F6B002D7F1C29462475E"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs"
@@ -28291,15 +27472,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_F99DDE5C72C87AAEC469"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_rejects_overlong_bounded_string"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_F9C66C63FFD119E1F673"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-ide/tests/ide_features/ide_features_part_02.rs"
@@ -28381,15 +27553,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_FA32E85174615AB4B548"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/hmi/tests/scaffold_legacy.rs"
-name = "load_customization_uses_legacy_toml_when_hmi_dir_missing"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_FA3777FFB0112B9DE247"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/types_pointer.rs"
@@ -28437,7 +27600,7 @@ last_reviewed = "2026-07-18"
 [[reviews]]
 discovery_id = "DISC_FA853F7CD3A23C7208A6"
 discovery_source_kind = "rust_unit_test"
-path = "crates/trust-lsp/src/handlers/diagnostics/publish_hmi_and_tests.rs"
+path = "crates/trust-lsp/src/handlers/diagnostics/config_and_tests.rs"
 name = "suggestion_ranking_suppresses_low_confidence_noise"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
@@ -28522,15 +27685,6 @@ path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
 name = "scheduler_arms_execution_deadline_during_cycle"
 disposition = "mapped"
 mapping_id = "ANOM_MAP_DEADLINE_REVIEW_F36273CB"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_FB3425E0F781D985BEBE"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_05.rs"
-name = "hmi_process_page_schema_and_svg_asset_route_render"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -28738,15 +27892,6 @@ path = "crates/trust-lsp/src/handlers/tests/core_part_01.rs"
 name = "lsp_hover_uses_utf16_position_and_range_after_supplementary_scalar"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_FD6A0B0E51FD882E157B"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_05.rs"
-name = "hmi_process_binding_transforms_update_fill_opacity_text_y_and_height"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]

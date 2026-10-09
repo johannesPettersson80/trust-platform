@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 100">
+  <g id="vessel" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+    <path d="M1 14 Q1 5 28 5 Q55 5 55 14 V86 Q55 95 28 95 Q1 95 1 86 Z"/>
+    <path d="M19 0 V5.6 M55 24 H60"/>
+  </g>
+  <g id="heater" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M0 68 H5 V84 H0"/>
+    <path id="element" d="M5 72 H38 A4 4 0 0 1 38 80 H5"/>
+  </g>
+  <text id="heater-tag" x="28" y="52" font-size="7" text-anchor="middle" fill="currentColor">EH101</text>
+  <text id="power" x="28" y="61" font-size="7" font-weight="600" text-anchor="middle" fill="currentColor">0 %</text>
+</svg>

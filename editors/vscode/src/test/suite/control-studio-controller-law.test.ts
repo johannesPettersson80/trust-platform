@@ -43,7 +43,7 @@ suite("Control Studio model-free controller law", () => {
       inputs: [channel("u", "V")], outputs: [channel("y", "m")], delaySeconds: 0 };
     const { designTypedPiCandidate } = require("../../controlStudio/pidPiDesign");
     let pi: any;
-    assert.doesNotThrow(() => { pi = designTypedPiCandidate(model); });
+    assert.doesNotThrow(() => { pi = designTypedPiCandidate(model, { method: "SIMC", objective: "balanced", action: "direct" }); });
     assert.strictEqual(pi.candidate.proportionalGain, 1.5);
     const { proportionalLoopAnalysis } = require("../../controlStudio/controllerLaw");
     const routh = calculateDeclaredRouth(proportionalLoopAnalysis(loop(), model, 3), 3);
@@ -161,14 +161,14 @@ suite("Control Studio model-free controller law", () => {
         inputs: [{ id: "u", unit: "V", operatingRange: { minimum: -20, maximum: 20 } }],
         outputs: [{ id: "y", unit: "m", operatingRange: { minimum: -20, maximum: 20 } }] };
       let result: any;
-      assert.doesNotThrow(() => { result = designTypedPiCandidate(model); }, "selected integrating models must reach SIMC PI");
+      assert.doesNotThrow(() => { result = designTypedPiCandidate(model, { method: "SIMC", objective: "balanced", action: "direct" }); }, "selected integrating models must reach SIMC PI");
       assert.strictEqual(result.candidate.proportionalGain, Number((1 / 3).toPrecision(8)));
       assert.strictEqual(result.candidate.integralGain, result.candidate.proportionalGain / 6);
       assert.strictEqual(result.candidate.derivativeGain, 0);
       assert.strictEqual(result.selectedModel.revision, source);
       assert.strictEqual(result.actualSTVerify, true);
       assert.strictEqual(result.candidate.applied, false);
-      assert.throws(() => designTypedPiCandidate({ ...model, delaySeconds: 0 }), /positive.*delay/i);
+      assert.throws(() => designTypedPiCandidate({ ...model, delaySeconds: 0 }, { method: "SIMC", objective: "balanced", action: "direct" }), /positive.*delay/i);
     }
   });
 
@@ -179,13 +179,13 @@ suite("Control Studio model-free controller law", () => {
     const model = { kind: "transfer-function", numerator: [2], denominator: [5, 6, 1], delaySeconds: 0.5, revision: "second-order",
       source: "fitted", validation: "validated", evidence: ["independent record"], inputs: [channel("u", "%")], outputs: [channel("y", "degC")] };
     let result: any;
-    assert.doesNotThrow(() => { result = designTypedPiCandidate(model); }, "a second-order model is within SIMC's scope");
+    assert.doesNotThrow(() => { result = designTypedPiCandidate(model, { method: "SIMC", objective: "balanced", action: "direct" }); }, "a second-order model is within SIMC's scope");
     const closedLoop = 2 * Math.max(1, 5.5 / 3), kp = 5.5 / (2 * (closedLoop + 1));
     const close = (actual: number, expected: number) => Math.abs(actual - expected) <= 1e-7 * Math.abs(expected);
     assert.ok(close(result.candidate.proportionalGain, kp), `Kp ${result.candidate.proportionalGain} ≠ ${kp}`);
     assert.ok(close(result.candidate.integralGain, kp / 5.5), "Ti = min(τ, 4(τc + θ)) = 5.5 s");
     assert.match(result.scope, /half rule/i, "the reduction is named, not hidden");
-    assert.throws(() => designTypedPiCandidate({ ...model, denominator: [1, 0.4, 1] }), /complex poles/i,
+    assert.throws(() => designTypedPiCandidate({ ...model, denominator: [1, 0.4, 1] }, { method: "SIMC", objective: "balanced", action: "direct" }), /complex poles/i,
       "an oscillatory second-order model has no half-rule reduction");
   });
 

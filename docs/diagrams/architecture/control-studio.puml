@@ -37,7 +37,11 @@ package "VS Code extension host" {
   component "Configured-plant validation\nCurrent/Tuned actual ST execution\nnominal campaign has no fitted-model override" as configured_validation
   component "Reviewed application coordinator\nfresh review and single confirmation\nexplicit Apply or Restore only" as application
   component "Commissioning and recovery\nwaits (bounded, cancellable) for the validated operating point\ncoherent parameters/state adoption; state-feedback entry allowance\nobserves the test in runtime time; monitoring and rollback" as commissioning
-  database "Study and operation persistence\nmodels, recordings, requirements, mappings and pins\nparameter/transfer/isolated-operation identities\nreopen observes current runtime; no write replay" as persistence
+  database "Project study store\ncontrol-studio/[loop id]/study.json: draft, history,\npage, mimo sections; recordings/ and history/ folders\natomic writes in a later turn; refused over the storage limit\nchecked results are shared, never checked again (A10.7)" as persistence
+  database "VS Code workspace state\noperation journals only: identification campaign, recording\nowner, mode, commissioning checkpoints, experiment and apply\nrecovery, isolated-operation identity" as journals
+  component "Identification campaign (identificationCampaign.ts)\nprocess time from recording samples; the wall clock only paces\nand supervises connection loss\n1. recording starts first  2. steady baseline (settleDetection.ts)\n3. one step per plant input, held until settled; a single step\nis finished early, pulses and relays run their duration\n4. restoration confirmed by the runtime before the next step" as ident_campaign
+  component "Apply observation (applyObservation.ts)\nrecording starts before the validated target change;\nfollowed on process time; leaving the permitted range\nrestores the previous settings at once" as apply_obs
+  component "Project loop definitions\ncontrol-loops/<name>.json, never overwritten" as loop_files
 }
 
 package "Existing analysis and runtime services" {
@@ -46,6 +50,7 @@ package "Existing analysis and runtime services" {
   component "Native isolated execution\nactual selected ST controller\nconfigured plant or explicit prediction override" as isolated
   component "Runtime parameter/transfer transactions\ncomplete declared target binding\nobserved acknowledgement and recovery identities" as transactions
   component "Running ST controller and plant\nprimary journey: Control.PID\nexisting native simulated-plant adapters" as running
+  component "Runtime experiment executor\ncontrol/experiment_handlers/executor.rs\nruns at the loop task's executions; observes each\nscan once; writes apply at the next task boundary" as runtime_executor
 }
 
 identify --> shared_ui
@@ -65,10 +70,11 @@ panel --> engineer : edits and recovery
 panel --> experiments : scoped review/start/abort
 panel --> analysis : read-only calculations
 experiments --> connection
-experiments --> persistence : recording and recovery identities
+experiments --> journals : recording and recovery identities
 analysis <--> models : same selected model
 analysis --> workers : existing bounded calculations
-panel <--> persistence : restore/save study and ownership
+panel <--> persistence : restore/save study
+panel <--> journals : ownership journals
 shared_ui --> panel : native response context menu / recording export
 panel --> shared_ui : current raw recording or immutable opened history
 experiments --> projection : new operation resets live chart once
@@ -99,8 +105,9 @@ configured_validation --> isolated : configured plant
 application --> engineer : require current passed candidate
 actions --> commissioning : exact reviewed target
 commissioning --> transactions : adopt/restore complete binding
-commissioning --> persistence : durable recovery ownership
-isolated --> persistence : retain operation identity and outcomes
+commissioning --> journals : durable recovery ownership
+commissioning --> apply_obs : observe the applied response
+isolated --> journals : retain operation identity and outcomes
 transactions --> running : coherent parameter/state update
 isolated --> running : prepare bytecode, then bounded actual-ST scans
 identification --> connection
@@ -111,7 +118,7 @@ transactions --> connection
 
 setup_form <--> setup : draft / save or reason
 setup --> bindings : compiled catalog
-setup --> persistence : new loop definitions
+setup --> loop_files : new loop definitions
 tuning --> prediction : Automatic response check; program-law candidate
 panel --> readings : existing loop monitor snapshots
 readings --> identify : initial response and current values
@@ -135,4 +142,34 @@ identify --> reset : Reset
 reset --> models : clear working model and recordings
 reset --> engineer : clear dependent design evidence
 reset --> panel : persist fresh draft
+identification --> ident_campaign : one live campaign
+ident_campaign --> experiments : start, hold, finish, restore
+ident_campaign --> journals : journal before each dispatch
+experiments --> runtime_executor : start, status, finish, abort
+runtime_executor --> running : writes at the loop task's executions
+apply_obs --> transactions : validated target change
+apply_obs --> journals : observation identity and recording
+
+note bottom of journals
+  Closing the panel detaches this client only. A running identification
+  experiment and its recording stay with the runtime; the campaign journal
+  stays in workspace state; reopening reattaches and completes the campaign.
+  A client that still owns its experiment aborts it only on an explicit
+  Cancel or after a failure, through the restoration path.
+  Closing during an Apply's observation detaches it the same way: the runtime
+  keeps recording the response, and reopening reattaches at once, assesses it
+  and reports the Apply's journalled transfers with the target change.
+  An Apply interrupted before its observation began is recovered by reviewed
+  recovery: the runtime recording is stopped, its samples are kept in the
+  checkpoint and the runtime buffer is released.
+end note
+
+note bottom of persistence
+  A legacy study copy in workspace state moves into the project on open.
+  Removed from Control Studio: Manual Record, model-based validation
+  (validation.ts), automatic tune (automaticTune.ts), and the automatic
+  matched anti-windup comparison (no panel entry point).
+  Protocol: docs/specs/control-studio-runtime-protocol.md;
+  numerics: docs/specs/control-studio-numerics.md (replacing the satellite specs).
+end note
 @enduml

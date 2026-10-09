@@ -4,10 +4,8 @@ import {
   identificationOriginalRecording,
   identificationRecordForSource,
   identificationSamplesFromEvidence,
-  currentRuntimeCandidate,
 } from "./panelWorkflowSupport";
-import { generatedPiCandidate } from "./pidCandidateFactory";
-import { candidateFromControlPid, type ControlPidCandidate } from "./controllerCandidate";
+import type { ControlPidCandidate } from "./controllerCandidate";
 import type { ControlLoopDefinition } from "./loopDefinition";
 import type { StudioAnalysisSessions } from "./studioAnalysisSessions";
 import type { SavedDeclaredAnalysis } from "./declaredAnalysisPersistence";
@@ -19,15 +17,8 @@ import {
   type ModelFitEvidence,
 } from "./identification";
 import { ExperimentIdentificationLedger } from "./experiment";
-import { describeTuningMethod, tuneController, type TuningResult } from "./tuning";
-import { buildEngineeringPlotEvidence, engineeringPlotMessageEvidence } from "./engineeringPlots";
-import {
-  compareControlPidCandidates,
-  validationRequirementRows,
-  type ValidationResult,
-} from "./validation";
+import type { TuningResult } from "./tuning";
 import { excludedIntervalsFromSelection, type ControlStudioWorkflowResult, type WorkflowTuningComparison } from "./workflowResult";
-import { formatEngineeringNumber } from "./chartContract";
 import { type ControlLoopMonitor, type LoopRecording } from "./loopMonitor";
 import { decodeEngineeringCommand } from "./messages";
 import { type ControllerApplicationClient } from "./controllerApplication";
@@ -40,7 +31,6 @@ export interface ManualWorkflowState {
   candidate: ControlPidCandidate | undefined;
   tuning: TuningResult | undefined;
   tuningComparison: WorkflowTuningComparison | undefined;
-  validation: ValidationResult | undefined;
   currentRuntimeController: ControlPidCandidate | undefined;
   declaredAnalysis: SavedDeclaredAnalysis | undefined;
   excludedIntervals: ExcludedInterval[];
@@ -54,7 +44,6 @@ export function createManualWorkflowState(): ManualWorkflowState {
     candidate: undefined,
     tuning: undefined,
     tuningComparison: undefined,
-    validation: undefined,
     currentRuntimeController: undefined,
     declaredAnalysis: undefined,
     excludedIntervals: [],
@@ -64,7 +53,7 @@ export function createManualWorkflowState(): ManualWorkflowState {
 export function restoreManualWorkflowState(state: ManualWorkflowState, result: ControlStudioWorkflowResult): void {
   state.model = result.model; state.modelFit = result.modelFit; state.modelEvidence = result.evidence.model;
   state.declaredAnalysis = result.declaredAnalysis; state.candidate = result.candidate;
-  state.validation = result.validation; state.tuningComparison = result.tuningComparison;
+  state.tuningComparison = result.tuningComparison;
   state.currentRuntimeController = result.currentController;
   const rawSamples = result.recording.rawSamples;
   const endSeconds = rawSamples.length ? rawSamples[rawSamples.length - 1].elapsedSeconds : 0;
@@ -90,7 +79,7 @@ export async function handleManualWorkflowCommand(input: ManualWorkflowCommandCo
   // Capture this editor's state and callbacks before any await. The panel owns
   // the scope check in `post`, so late work cannot publish into a new editor.
   const { command, loop, state, sessions, selectedRecording, currentSavedResult,
-    currentLoopSample, testLedger, post, retainDraft, runtimeCandidate, runtimeClient } = input;
+    currentLoopSample, testLedger, post, retainDraft } = input;
   try {
     const identificationWorkflow = sessions.identification;
     if (command.action === "identify-edit") {
@@ -101,7 +90,6 @@ export async function handleManualWorkflowCommand(input: ManualWorkflowCommandCo
       state.candidate = undefined;
       state.tuning = undefined;
       state.tuningComparison = undefined;
-      state.validation = undefined;
       await retainDraft();
       await post("identify", identificationPresentationState(
         identificationWorkflow, loop.signals.manipulatedVariable.unit, loop.signals.processVariable.unit));
@@ -137,7 +125,7 @@ export async function handleManualWorkflowCommand(input: ManualWorkflowCommandCo
       state.excludedIntervals = excludedIntervals;
       state.model = undefined; state.modelFit = undefined; state.modelEvidence = undefined;
       state.tuning = undefined; state.tuningComparison = undefined;
-      state.candidate = undefined; state.validation = undefined;
+      state.candidate = undefined;
       await retainDraft();
       await post("identify", identificationPresentationState(identificationWorkflow, loop.signals.manipulatedVariable.unit, loop.signals.processVariable.unit));
       if (update.engineer) await post("engineer", update.engineer);
@@ -173,69 +161,6 @@ export async function handleManualWorkflowCommand(input: ManualWorkflowCommandCo
       await post("identify", { ...identificationPresentationState(identificationWorkflow, loop.signals.manipulatedVariable.unit, loop.signals.processVariable.unit), cancelled: true });
       return;
     }
-    if (command.action === "tune-settings") {
-      if (!state.model) throw new Error("Identify and accept a model before tuning.");
-      state.candidate = candidateFromControlPid(command.settings, command.method);
-      state.tuning = undefined; state.tuningComparison = undefined; state.validation = undefined;
-      const current = await runtimeCandidate(loop, runtimeClient);
-      state.currentRuntimeController = current;
-      const plots = buildEngineeringPlotEvidence(state.model, current, state.candidate);
-      await post("tune", { status: "complete", candidate: state.candidate, current,
-        plots: engineeringPlotMessageEvidence(plots),
-        recommendation: `${command.method} settings retained exactly; the running controller is unchanged.` });
-      return;
-    }
-    if (command.action === "tune") {
-      if (!state.model) throw new Error("Identify and accept a model before tuning.");
-      const methodEvidence = describeTuningMethod(state.model, command.method, command.objective,
-        loop.signals.manipulatedVariable.unit, loop.signals.processVariable.unit);
-      if (methodEvidence.status === "Unavailable") {
-        await post("tune", { status: "unavailable", reason: methodEvidence.reason, methodEvidence });
-        return;
-      }
-      state.tuning = tuneController(state.model, { method: command.method, objective: command.objective });
-      state.tuningComparison = {
-        objective: command.objective,
-        winnerMethod: command.method,
-        ...(state.tuning.closedLoopTimeSeconds === undefined ? {} :
-          { closedLoopTimeSeconds: state.tuning.closedLoopTimeSeconds }),
-        attempts: [{ id: command.method.toLowerCase(), method: command.method,
-          structure: "PI", status: "Feasible",
-          ...(state.tuning.closedLoopTimeSeconds === undefined ? {} :
-            { closedLoopTimeSeconds: state.tuning.closedLoopTimeSeconds }) }],
-      };
-      const tiSeconds = state.tuning.controller.tiSeconds;
-      if (tiSeconds === undefined) throw new Error("The selected candidate is not a PI controller.");
-      state.candidate = generatedPiCandidate(state.tuning.controller.kp, tiSeconds, command.method, loop);
-      state.validation = undefined;
-      const current = await runtimeCandidate(loop, runtimeClient);
-      state.currentRuntimeController = current;
-      const plots = buildEngineeringPlotEvidence(state.model, current, state.candidate);
-      const methodDetail = command.method === "SIMC"
-        ? `lambda ${formatEngineeringNumber(state.tuning.closedLoopTimeSeconds)} s`
-        : "published AMIGO coefficients; Response affects comparison ranking, not the formula";
-      await post("tune", { status: "complete", result: state.tuning,
-        candidate: state.candidate, current, plots: engineeringPlotMessageEvidence(plots), methodEvidence,
-        recommendation: `${command.method} ${state.candidate.structure} is unapplied · ${methodDetail}; compare the prediction before validation.` });
-      return;
-    }
-    if (!state.model || !state.candidate) throw new Error("Generate a candidate before validation.");
-    const current = await runtimeCandidate(loop, runtimeClient);
-    state.currentRuntimeController = current;
-    state.validation = compareControlPidCandidates(state.model, current, state.candidate, {
-      evidence: "Model-predicted",
-      scenarios: [{ kind: "setpoint", amplitude: 1 }, { kind: "disturbance", amplitude: 0.2 },
-        { kind: "noise", amplitude: 0.02 }],
-      variationFractions: [-0.2, 0, 0.2],
-      processUnit: loop.signals.processVariable.unit,
-      outputUnit: loop.signals.manipulatedVariable.unit,
-    });
-    await post("validate", { status: "complete", result: {
-      ...state.validation,
-      requirements: validationRequirementRows(state.validation.requirements),
-    },
-      acceptable: !state.validation.requirements.some((requirement) =>
-        requirement.status === "Fail" || requirement.status === "Inconclusive") });
   } catch (error) {
     await post(command.action.startsWith("identify") ? "identify" : command.action,
       { status: "failed", reason: error instanceof Error ? error.message : String(error) });

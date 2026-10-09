@@ -2,24 +2,23 @@
 
 > One project. Every surface. All live.
 >
-> truST keeps engineering, runtime, HMI, automation, and AI assistance tied to
+> truST keeps engineering, runtime, automation, and AI assistance tied to
 > the same project instead of splitting them into disconnected toolchains.
 
 | Term | Meaning |
 | --- | --- |
-| One project | The same source, config, HMI, and bundle artifacts reused across engineering, runtime, browser, automation, and AI surfaces. |
+| One project | The same source, config, and bundle artifacts reused across engineering, runtime, browser, automation, and AI surfaces. |
 | Editor AI tools | Typed VS Code language-model tools contributed by the extension, not free-form screen scraping. |
 | Agent API | External JSON-RPC automation for scripts, CI, and agent loops. |
 | truST Mesh | Runtime/plant connectivity model with explicit local, remote, and operator communication planes. |
-| Open artifacts | Reviewable files such as ST sources, `runtime.toml`, `io.toml`, `hmi/`, PLCopen XML, and generated bundles. |
+| Open artifacts | Reviewable files such as ST sources, `runtime.toml`, `io.toml`, PLCopen XML, and generated bundles. |
 
 ```mermaid
 flowchart LR
-    Project[(Project artifacts<br/>ST sources<br/>runtime.toml / io.toml / hmi/)]
+    Project[(Project artifacts<br/>ST sources<br/>runtime.toml / io.toml)]
     VSCode[VS Code<br/>edit, diagnose, debug]
     AiTools[Editor AI tools<br/>typed tool calls]
     BrowserIde[Browser IDE<br/>runtime-hosted editing]
-    Hmi[Browser HMI<br/>operator view]
     Cli[CLI / CI<br/>build, validate, test]
     Agent[Agent API<br/>automation and harness]
     Mesh[truST Mesh<br/>runtime and plant connectivity]
@@ -27,7 +26,6 @@ flowchart LR
     Project --- VSCode
     Project --- AiTools
     Project --- BrowserIde
-    Project --- Hmi
     Project --- Cli
     Project --- Agent
     Project --- Mesh
@@ -42,14 +40,13 @@ project models.*
 ### One project, every surface, all live
 
 The project files are the shared contract. VS Code, the runtime, Browser IDE,
-Browser HMI, CLI/CI, Agent API, and truST Mesh all point back to the same
-source, config, HMI, and bundle artifacts.
+CLI/CI, Agent API, and truST Mesh all point back to the same source, config,
+and bundle artifacts.
 
 Use this mental model when a change crosses surfaces:
 
 - edit and diagnose in [VS Code](../start/program-in-vscode.md)
 - run, inspect, debug, and reload through runtime surfaces
-- expose operator views through [Browser HMI](../operate/hmi-and-web-ui.md)
 - automate repeatable work through [CLI/CI](../start/automate-with-cli.md) and
   the [Agent API](../reference/agent-api/overview.md)
 - connect runtimes and plant systems through [truST Mesh](trust-mesh.md)
@@ -58,19 +55,17 @@ Use this mental model when a change crosses surfaces:
 
 truST's editor AI integration is not just chat over source files. The VS Code
 extension exposes typed language-model tools for ST diagnostics, navigation,
-file reads and edits, HMI authoring, telemetry, settings, and debug actions.
+file reads and edits, telemetry, settings, and debug actions.
 Those tools are declared in the extension manifest, registered at activation,
 and covered by a contract test that checks the manifest, activation events, and
 registered tool names stay in sync.
 
 Scope matters:
 
-- Editor AI tools cover editor intelligence, file operations, HMI workflows,
+- Editor AI tools cover editor intelligence, file operations,
   telemetry/settings, and debug actions.
 - Build, validate, test, compile/reload, and deterministic harness
   orchestration are covered by the external [Agent API](../reference/agent-api/overview.md).
-- HMI writes remain guarded by descriptor policy, allowlists, and runtime
-  authorization; AI tooling does not bypass those controls.
 
 Evidence:
 
@@ -89,7 +84,6 @@ generated, and scripted:
 - ST source files
 - `runtime.toml`
 - `io.toml`
-- `hmi/` descriptor files
 - generated bundle artifacts such as `program.stbc`
 - PLCopen XML when exchanging with other ecosystems
 
@@ -119,8 +113,7 @@ watch runtime state in one place.
 Use the [Agent API](../reference/agent-api/overview.md) when the work needs to
 be automated by a script, CI job, or external agent. Use the
 [Browser IDE](../start/program-in-browser.md) for runtime-hosted quick edits,
-walkthroughs, and demos. Use [Browser HMI](../operate/hmi-and-web-ui.md) when
-the user is operating or inspecting an already-running system.
+walkthroughs, and demos.
 
 ## Surface Capability Matrix
 
@@ -131,21 +124,19 @@ Status key:
 - `no`: this surface does not currently provide the capability
 - `n/a`: the capability does not fit the surface
 
-| Capability | VS Code | Editor AI tools | Browser IDE | Browser HMI | CLI / CI | Agent API | LSP editors |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Diagnostics | full | full | full | n/a | full | full | full |
-| Navigation and symbols | full | full | full | n/a | no | no | full |
-| Rename and refactor | full | partial | full | n/a | no | no | full |
-| File editing | full | full | full | n/a | partial | full | full |
-| Build, test, validate | full | no | full | n/a | full | full | no |
-| Compile and reload | full | partial | partial | n/a | full | full | no |
-| Runtime debug | full | partial | no | n/a | partial | no | no |
-| Runtime I/O and state visibility | full | partial | partial | full | partial | partial | no |
-| HMI authoring | full | full | partial | n/a | partial | no | no |
-| HMI operation | partial | no | no | full | no | no | no |
-| Visual editors | full | no | no | n/a | partial | no | no |
-| PLCopen and interoperability | full | no | no | n/a | full | no | no |
-| Deterministic harness | no | no | no | n/a | full | full | no |
+| Capability | VS Code | Editor AI tools | Browser IDE | CLI / CI | Agent API | LSP editors |
+| --- | --- | --- | --- | --- | --- | --- |
+| Diagnostics | full | full | full | full | full | full |
+| Navigation and symbols | full | full | full | no | no | full |
+| Rename and refactor | full | partial | full | no | no | full |
+| File editing | full | full | full | partial | full | full |
+| Build, test, validate | full | no | full | full | full | no |
+| Compile and reload | full | partial | partial | full | full | no |
+| Runtime debug | full | partial | no | partial | no | no |
+| Runtime I/O and state visibility | full | partial | partial | partial | partial | no |
+| Visual editors | full | no | no | partial | no | no |
+| PLCopen and interoperability | full | no | no | full | no | no |
+| Deterministic harness | no | no | no | full | full | no |
 
 ## Honest Limits
 
@@ -160,8 +151,6 @@ Status key:
   source-aware reload workflows. It also does not mirror full symbol navigation
   or rename/refactor behavior yet. The current contract documents those
   boundaries explicitly.
-- Browser HMI is an operator and technician surface. It is not an authoring
-  surface and should not be marketed as a SCADA replacement.
 - Visual editors are strongest when their generated companion artifacts are
   validated through the same build/runtime path as ST.
 
@@ -174,4 +163,3 @@ Status key:
 - [Agent Quickstart](../start/agent-quickstart.md)
 - [Agent API overview](../reference/agent-api/overview.md)
 - [AI Assistance](../develop/ai-assistance.md)
-- [HMI And Web UI](../operate/hmi-and-web-ui.md)

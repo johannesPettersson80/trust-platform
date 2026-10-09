@@ -10,6 +10,7 @@ import { createHash } from "crypto";
 import * as vscode from "vscode";
 import { validateControlLoopDefinition, type ControlLoopDefinition, type ControlSignalBinding } from "./loopDefinition";
 import { assertControlLoopIdAvailable, type ProjectControlLoopResolution } from "./projectLoop";
+import { MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS } from "./controlStudioLimits";
 
 export type DiscoverControlSignals = (rootUri: string) => Promise<unknown>;
 interface CompiledSignal { symbol: string; address: string; type: string }
@@ -98,14 +99,12 @@ export async function configureControlLoop(
       const manualOutput = proportional ? signals.find(signal =>
         signal.symbol === proportional.manualCommand.symbol && signal.type === proportional.manualCommand.type
       ) : undefined;
-      const durationSeconds = await number(ui, "Observation duration (seconds)", value => {
-        if (value < 1 || value > 3_600 || workflow === "observation") return value >= 1 && value <= 3_600;
-        const durationMs = Math.ceil(Math.max(2, value) * 1_000 / period) * period;
-        if (durationMs <= 600_000 && durationMs / period + 1 <= 12_000) return true;
-        const maximumSeconds = Math.min(Math.floor(600_000 / period), 12_000 - 1) * period / 1_000;
-        return `Automatic identification supports at most ${maximumSeconds} seconds at this task period (12,000 samples).`;
-      });
-      if (durationSeconds === undefined) return { kind: "cancelled" };
+      // B1.3: a proportional setup never asks for an identification duration; Identify chooses it and Limits supplies the maximum.
+      // The observation workflow keeps its duration, because a project-scripted experiment block needs one (loop schema).
+      // A recording keeps any experiment of up to 24 h: a long one is recorded with a record period (A4.2, A7).
+      const durationSeconds = workflow === "proportional" ? undefined : await number(ui, "Observation duration (seconds)", value =>
+        value >= MINIMUM_EXPERIMENT_DURATION_MS / 1_000 && value <= MAXIMUM_EXPERIMENT_DURATION_MS / 1_000);
+      if (workflow !== "proportional" && durationSeconds === undefined) return { kind: "cancelled" };
       const loop: ControlLoopDefinition = {
         schemaVersion: 2, id: loopId, name, projectId, runtimeId,
         revision: "sha256:pending", topology: sp.signal ? "closed-loop" : "open-loop",
@@ -125,7 +124,8 @@ export async function configureControlLoop(
           ...(sp.signal ? { setpoint: binding(sp.signal, processUnit, processMinimum, processMaximum) } : {}),
         },
         limits: { outputMinimum, outputMaximum }, observedSampleTiming: { nominalPeriodMs: period },
-        experiment: { execution: proportional ? "control-studio" : "project-scripted", kind: "observation", amplitude: 0, durationSeconds, seed: 1 },
+        ...(durationSeconds === undefined ? {} : { experiment: { execution: proportional ? "control-studio" as const : "project-scripted" as const,
+          kind: "observation" as const, amplitude: 0, durationSeconds, seed: 1 } }),
         ...(proportional ? { parameterBinding: {
           loop_id: loopId, task_name: proportional.taskName,
           parameters: [{ symbol: proportional.gain.symbol, iec_type: proportional.gain.type, unit: `${outputUnit}/${processUnit}`,

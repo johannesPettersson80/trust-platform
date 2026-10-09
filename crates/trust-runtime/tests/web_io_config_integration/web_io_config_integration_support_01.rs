@@ -109,9 +109,6 @@ pub(super) fn control_state_named_with_audit(
         path: PathBuf::from("main.st"),
         text: source.to_string(),
     }]);
-    let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
-        None, &sources,
-    )));
 
     Arc::new(ControlState {
         debug,
@@ -146,9 +143,6 @@ pub(super) fn control_state_named_with_audit(
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
-        hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
-        hmi_persistence: None,
-        hmi_descriptor,
         historian: None,
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(

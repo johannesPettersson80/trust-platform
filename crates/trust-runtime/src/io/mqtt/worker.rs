@@ -22,6 +22,7 @@ struct MqttWorkerState {
     completed_output_seq: u64,
     next_reconnect: Instant,
     health: IoDriverHealth,
+    detail: Option<SmolStr>,
 }
 
 impl MqttWorkerState {
@@ -42,6 +43,7 @@ impl MqttWorkerState {
             health: IoDriverHealth::Degraded {
                 error: SmolStr::new("mqtt worker initializing"),
             },
+            detail: None,
         }
     }
 }
@@ -163,6 +165,14 @@ impl MqttWorker {
             .clone()
     }
 
+    fn detail(&self) -> Option<SmolStr> {
+        self.shared
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .detail
+            .clone()
+    }
+
     fn copy_latest_inputs(&self, inputs: &mut [u8]) -> Option<Result<(), RuntimeError>> {
         let state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
         let latest = state.latest_inputs.as_ref()?;
@@ -197,7 +207,9 @@ fn run_mqtt_worker(
             if let Some((seq, outputs)) = take_mqtt_pending_output(&shared) {
                 let result = driver.write_outputs(&outputs);
                 let health = driver.health();
+                let detail = driver.detail();
                 let mut state = shared.lock().unwrap_or_else(|err| err.into_inner());
+                state.detail = detail;
                 state.output_inflight = false;
                 state.completed_output_seq = seq;
                 state.health = health;
@@ -238,7 +250,9 @@ fn run_mqtt_worker(
             let result = driver.read_inputs(&mut inputs);
             let input_error = result.as_ref().err().cloned();
             let health = driver.health();
+            let detail = driver.detail();
             let mut state = shared.lock().unwrap_or_else(|err| err.into_inner());
+            state.detail = detail;
             if result.is_ok() && matches!(health, IoDriverHealth::Ok) {
                 state.latest_inputs = Some(inputs);
                 state.last_snapshot_at = Some(Instant::now());

@@ -63,7 +63,7 @@ pub(crate) mod helper_eval;
 /// Historian, alerts, and Prometheus observability helpers.
 #[path = "host/historian/mod.rs"]
 pub mod historian;
-/// HMI schema and value contract helpers.
+/// HMI Builder runtime support: page files and member paths (specification 39).
 pub mod hmi;
 /// FB/Class instance management.
 #[path = "host/instance.rs"]

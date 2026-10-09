@@ -71,7 +71,7 @@ const RUNTIME_TOML_SOURCE = `[bundle]
 version = 1
 
 [resource]
-name = "Simulator"
+name = "MainRes"
 cycle_interval_ms = 10
 
 [runtime.control]
@@ -80,7 +80,7 @@ mode = "production"
 debug_enabled = false
 
 [runtime.web]
-enabled = false
+enabled = true
 listen = "127.0.0.1:8080"
 auth = "local"
 tls = false
@@ -99,7 +99,6 @@ interfaces = []
 enabled = false
 listen = "0.0.0.0:5200"
 tls = false
-auth_token = ""
 publish = []
 
 [runtime.observability]
@@ -116,7 +115,8 @@ prometheus_path = "/metrics"
 level = "info"
 
 [runtime.retain]
-mode = "none"
+mode = "file"
+path = "retain.bin"
 save_interval_ms = 1000
 
 [runtime.watchdog]
@@ -202,14 +202,34 @@ async function promptForProjectName(): Promise<string | undefined> {
   });
 }
 
-async function confirmOverwrite(targetUri: vscode.Uri): Promise<boolean> {
+/** The files a new project writes, relative to its folder. */
+const SCAFFOLD_FILES = [
+  "src/Main.st",
+  "src/config.st",
+  "trust-lsp.toml",
+  "runtime.toml",
+  "io.toml",
+  ".vscode/launch.json",
+  ".vscode/settings.json",
+];
+
+/** The files a new project would replace in `targetUri`. */
+async function existingScaffoldFiles(targetUri: vscode.Uri): Promise<string[]> {
+  const found: string[] = [];
+  for (const file of SCAFFOLD_FILES) {
+    if (await pathExists(vscode.Uri.joinPath(targetUri, ...file.split("/")))) found.push(file);
+  }
+  return found;
+}
+
+async function confirmOverwrite(existing: string[]): Promise<boolean> {
   const selection = await vscode.window.showWarningMessage(
-    `The target path already exists: ${targetUri.fsPath}\nContinue and overwrite project scaffold files if present?`,
+    `This folder already has ${existing.join(", ")}. Replace them with a new project's files? Your other files stay.`,
     { modal: true },
-    "Continue",
+    "Replace",
     "Cancel"
   );
-  return selection === "Continue";
+  return selection === "Replace";
 }
 
 async function writeScaffold(targetUri: vscode.Uri): Promise<void> {
@@ -308,12 +328,18 @@ export function registerNewProjectCommand(
             );
             return false;
           }
-          if (args?.simulateCancelAt === "overwrite") {
-            return false;
-          }
-          const overwrite = args?.overwrite ?? (await confirmOverwrite(targetUri));
-          if (!overwrite) {
-            return false;
+          // Only files a new project writes are replaced, so only they are asked about: an empty
+          // folder, or one with other files only, becomes a project at once.
+          const existing = await existingScaffoldFiles(targetUri);
+          if (existing.length > 0) {
+            if (args?.simulateCancelAt === "overwrite") {
+              return false;
+            }
+            const overwrite =
+              args?.overwrite ?? (await confirmOverwrite(existing));
+            if (!overwrite) {
+              return false;
+            }
           }
         }
 

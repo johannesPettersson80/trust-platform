@@ -15,6 +15,8 @@ use crate::io::{IoAddress, IoDriver, IoDriverHealth, IoSize};
 
 pub struct GpioDriver {
     backend: Box<dyn GpioBackend>,
+    /// The chip, or the sysfs folder, it serves its lines on.
+    place: String,
     inputs: Vec<GpioInput>,
     outputs: Vec<GpioOutput>,
     health: IoDriverHealth,
@@ -40,6 +42,10 @@ impl std::fmt::Debug for GpioDriver {
 impl GpioDriver {
     pub fn from_params(params: &toml::Value) -> Result<Self, RuntimeError> {
         let config = GpioConfig::parse(params)?;
+        let place = match config.backend {
+            GpioBackendKind::Sysfs => format!("sysfs {}", config.sysfs_base.display()),
+            GpioBackendKind::Chardev => config.chip_path.display().to_string(),
+        };
         let mut backend: Box<dyn GpioBackend> = match config.backend {
             GpioBackendKind::Sysfs => Box::new(SysfsBackend::new(config.sysfs_base)),
             GpioBackendKind::Chardev => make_chardev_backend(config.chip_path),
@@ -58,6 +64,7 @@ impl GpioDriver {
 
         Ok(Self {
             backend,
+            place,
             inputs,
             outputs,
             health: IoDriverHealth::Ok,
@@ -153,6 +160,27 @@ impl IoDriver for GpioDriver {
 
     fn health(&self) -> IoDriverHealth {
         self.health.clone()
+    }
+
+    fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
+        crate::io::joined_bytes(
+            self.inputs
+                .iter()
+                .map(|input| input.byte..input.byte + 1)
+                .collect(),
+        )
+    }
+
+    fn detail(&self) -> Option<SmolStr> {
+        let lines = |count: usize, kind: &str| {
+            format!("{count} {kind} line{}", if count == 1 { "" } else { "s" })
+        };
+        Some(SmolStr::new(format!(
+            "{}: {}, {}",
+            self.place,
+            lines(self.inputs.len(), "input"),
+            lines(self.outputs.len(), "output")
+        )))
     }
 }
 
@@ -865,6 +893,7 @@ sysfs_base = "/tmp/gpio"
     fn driver_with_backend(backend: FailingBackend) -> GpioDriver {
         GpioDriver {
             backend: Box::new(backend),
+            place: "test chip".to_string(),
             inputs: vec![GpioInput {
                 line: 17,
                 byte: 0,
@@ -950,6 +979,7 @@ sysfs_base = "/tmp/gpio"
     fn gpio_safe_state_handoff_writes_and_confirms_backend_output() {
         let writes = Arc::new(Mutex::new(Vec::new()));
         let driver = GpioDriver {
+            place: "test chip".to_string(),
             backend: Box::new(RecordingBackend {
                 writes: Arc::clone(&writes),
             }),

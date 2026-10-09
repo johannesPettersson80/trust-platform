@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import type { ControlLoopDefinition, ControlSignalBinding } from "../loopDefinition";
 import type { CompiledCatalog, CompiledSymbol } from "./compiledCatalog";
+import { MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS } from "../controlStudioLimits";
 
 export interface MeasuredSignal { symbol: string; unit: string; minimum: number; maximum: number }
 
@@ -43,10 +44,24 @@ export function withRevision(loop: ControlLoopDefinition): ControlLoopDefinition
   return { ...loop, revision: `sha256:${createHash("sha256").update(JSON.stringify({ ...loop, revision: undefined })).digest("hex")}` };
 }
 
-/** The engineer's identification duration, within what Studio's experiment limits accept (2–600 s). */
+/** The engineer's identification duration, within what Studio's experiment limits accept (A7: 1 s to 24 h). */
+/**
+ * The experiment a setup writes (B1.3). Setup writes one only when the engineer set both its output step and its
+ * identification duration; otherwise the block is left out. Identify then chooses the step and its hold within the
+ * limits (B3.3, B3.4), and Limits asks for the maximum duration when it is missing (A7).
+ */
+export function explicitExperiment(name: string, kind: { execution: "control-studio" | "project-scripted"; kind: "mv_step" | "observation" },
+  step: number | undefined, seconds: number | undefined): { experiment?: ControlLoopDefinition["experiment"] } {
+  if (step === undefined && seconds === undefined) return {};
+  if (step === undefined || seconds === undefined) {
+    throw new Error(`${name} needs both the output step and the identification duration, or neither: Identify chooses the one that is left.`);
+  }
+  return { experiment: { ...kind, amplitude: step, durationSeconds: identificationDuration(name, seconds), seed: 1 } };
+}
+
 export function identificationDuration(name: string, seconds: number | undefined): number {
-  if (seconds === undefined || !Number.isFinite(seconds) || seconds < 2 || seconds > 600) {
-    throw new Error(`${name} needs an identification duration between 2 and 600 s.`);
+  if (seconds === undefined || !Number.isFinite(seconds) || seconds < MINIMUM_EXPERIMENT_DURATION_MS / 1_000 || seconds > MAXIMUM_EXPERIMENT_DURATION_MS / 1_000) {
+    throw new Error(`${name} needs an identification duration between ${MINIMUM_EXPERIMENT_DURATION_MS / 1_000} s and ${MAXIMUM_EXPERIMENT_DURATION_MS / 3_600_000} h.`);
   }
   return seconds;
 }

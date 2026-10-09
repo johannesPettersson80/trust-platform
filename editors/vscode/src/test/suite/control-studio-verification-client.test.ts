@@ -3,7 +3,7 @@ import * as assert from "assert";
 type RuntimeRequest = (operation: string, params: Record<string, unknown>) => Promise<unknown>;
 type VerificationClient = {
   verify: (request: Record<string, unknown>, requirements: readonly Record<string, unknown>[]) => Promise<{
-    projectRevision: string; run: { evidence: string }; evaluation: { status: string };
+    projectRevision: string; run: { evidence: string; samples: readonly { values: unknown }[] }; evaluation: { status: string };
   }>;
   cancel: () => Promise<void>;
   dispose: () => void;
@@ -26,7 +26,8 @@ const run = {
   conditions: { initialState: { PV: 0 }, events: [{ atSeconds: 1, channel: "PV", value: 1 }], durationSeconds: 2,
     sampleTimesSeconds: [0, 1, 2], seed: 7, modelRevision: "model-1", programRevision: "source-digest-1", parameterSchemaRevision: "schema-1" },
   channels: [{ id: "PV", unit: "degC" }],
-  samples: [0, 1, 2].map((timeSeconds, sequence) => ({ timeSeconds, sequence, values: { PV: { value: sequence, quality: "good" } } })),
+  // The runtime's compact wire form: values in channel order, and no quality array while all are good.
+  samples: [0, 1, 2].map((timeSeconds, sequence) => ({ timeSeconds, sequence, values: [sequence] })),
 };
 
 suite("Control Studio runtime verification client", () => {
@@ -50,8 +51,12 @@ suite("Control Studio runtime verification client", () => {
     const channels = (count: number) => Array.from({ length: count }, (_, index) => ({ symbol: `P1.Signal${index}`, unit: "1" }));
     await assert.rejects(client.verify({ ...request, observations: channels(65) }, requirements),
       /records 65 channels; the runtime records at most 64/);
-    await assert.rejects(client.verify({ ...request, step_ms: 20, duration_ms: 200000, max_total_cycles: 10001, observations: channels(30) }, requirements),
-      /10001 samples × 30 channels = 300030 channel samples; the runtime allows 250000/);
+    // A7 allows 1,600,000 channel samples per job. The automatic record period (A4.2) keeps 25,001 scans of 64 channels within
+    // that bound, so the bound is exceeded only when the caller fixes the record period at 1.
+    const { isolatedRecordEvery } = require("../../controlStudio/verificationClient");
+    assert.strictEqual(isolatedRecordEvery({ step_ms: 20, duration_ms: 500000, observations: channels(64) }), 2);
+    await assert.rejects(client.verify({ ...request, step_ms: 20, duration_ms: 500000, max_total_cycles: 25001, observations: channels(64), record_every: 1 },
+      requirements), /25001 samples × 64 channels; the runtime keeps at most 100000 samples and 1600000 channel samples/);
     assert.strictEqual(requests, 0, "a request the runtime would refuse is not dispatched");
   });
 
@@ -356,6 +361,56 @@ suite("Control Studio runtime verification client", () => {
     await assert.rejects(verification, /cancelled|stale/i);
   });
 
+  test("expands compact wire samples into the per-channel shape exactly", () => {
+    const { expandRecordedRunWire } = require("../../controlStudio/recordedRunWire") as { expandRecordedRunWire: (value: unknown) => unknown };
+    const channels = [{ id: "PV", unit: "degC" }, { id: "Mode", unit: "1" }];
+    const compact = { ...run, channels, samples: [
+      { sequence: 0, timeSeconds: 0, values: [1.5, null], quality: [0, 2] },
+      { sequence: 1, timeSeconds: 1, values: [-2.5, 3] },
+    ] };
+    assert.deepStrictEqual(expandRecordedRunWire(compact), { ...run, channels, samples: [
+      { sequence: 0, timeSeconds: 0, values: { PV: { value: 1.5, quality: "good" }, Mode: { value: null, quality: "forced" } } },
+      { sequence: 1, timeSeconds: 1, values: { PV: { value: -2.5, quality: "good" }, Mode: { value: 3, quality: "good" } } },
+    ] });
+  });
+
+  test("refuses compact samples that disagree with their channels, quality codes or missing values", () => {
+    const { expandRecordedRunWire } = require("../../controlStudio/recordedRunWire") as { expandRecordedRunWire: (value: unknown) => unknown };
+    const withSamples = (samples: unknown[]) => ({ ...run, channels: [{ id: "PV", unit: "degC" }, { id: "Mode", unit: "1" }], samples });
+    const refused: unknown[][] = [
+      [{ sequence: 0, timeSeconds: 0, values: [1] }],
+      [{ sequence: 0, timeSeconds: 0, values: [1, 2], quality: [0] }],
+      [{ sequence: 0, timeSeconds: 0, values: [1, 2], quality: [0, 4] }],
+      [{ sequence: 0, timeSeconds: 0, values: [null, 2] }],
+      [{ sequence: 0, timeSeconds: 0, values: [1, "2"] }],
+      [{ sequence: 0, timeSeconds: 0, values: { PV: { value: 1, quality: "good" }, Mode: { value: 2, quality: "good" } } }],
+      ["not a sample"],
+    ];
+    for (const samples of refused) {
+      assert.throws(() => expandRecordedRunWire(withSamples(samples)), /Invalid recorded-run sample encoding/);
+    }
+  });
+
+  test("expands the runs of search trials and leaves trials without runs unchanged", () => {
+    const { expandFiniteSearchResultWire } = require("../../controlStudio/recordedRunWire") as { expandFiniteSearchResultWire: (value: unknown) => unknown };
+    const wireRun = { ...run, channels: [{ id: "PV", unit: "degC" }], samples: [{ sequence: 0, timeSeconds: 0, values: [1], quality: [1] }] };
+    const search = { job_id: "job-1", trials: [
+      { index: 0, status: "qualified", run: wireRun },
+      { index: 1, status: "failed", reason: "budget" },
+    ] };
+    assert.deepStrictEqual(expandFiniteSearchResultWire(search), { job_id: "job-1", trials: [
+      { index: 0, status: "qualified", run: { ...wireRun, samples: [{ sequence: 0, timeSeconds: 0, values: { PV: { value: 1, quality: "bad" } } }] } },
+      { index: 1, status: "failed", reason: "budget" },
+    ] });
+  });
+
+  test("the verification client evaluates a compact runtime run in the per-channel shape", async () => {
+    const module = clientModule();
+    const compact = { ...run, samples: [0, 1, 2].map((timeSeconds, sequence) => ({ timeSeconds, sequence, values: [sequence] })) };
+    const result = await new module.RuntimeVerificationClient!({ source: "simulation", request: completeProtocol(compact) }).verify(request, requirements);
+    assert.deepStrictEqual(result.run.samples[1].values, { PV: { value: 1, quality: "good" } });
+    assert.strictEqual(result.evaluation.status, "Pass");
+  });
 });
 
 function readiness() { return { ready: true, project_revision: "rev-1", execution: "isolated-simulation", supports_request_id: true, source_basis: "loaded-runtime-sources" }; }

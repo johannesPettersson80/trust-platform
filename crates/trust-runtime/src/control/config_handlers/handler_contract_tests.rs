@@ -4,7 +4,7 @@ use serde_json::{json, Map, Value};
 use smol_str::SmolStr;
 
 use super::*;
-use crate::control::tests::hmi_test_state;
+use crate::control::tests::control_test_state;
 use crate::settings::RuntimeSettings;
 
 const SOURCE: &str = r#"
@@ -16,7 +16,7 @@ END_PROGRAM
 "#;
 
 fn state() -> ControlState {
-    hmi_test_state(SOURCE)
+    control_test_state(SOURCE)
 }
 
 fn success_result(response: ControlResponse) -> Value {
@@ -36,6 +36,80 @@ fn set(state: &ControlState, params: Value) -> ControlResponse {
 
 fn settings_snapshot(state: &ControlState) -> RuntimeSettings {
     state.settings.lock().expect("settings").clone()
+}
+
+/// A state whose runtime runs a simulation at `scale`, with the speed attached as the resource loop shares it.
+fn simulated_state(scale: u32) -> (ControlState, crate::scheduler::SimulationSpeed) {
+    let mut state = state();
+    let speed = crate::scheduler::SimulationSpeed::new(scale);
+    state.resource = state.resource.clone().with_simulation_speed(speed.clone());
+    {
+        let mut settings = state.settings.lock().expect("settings");
+        settings.simulation.enabled = true;
+        settings.simulation.time_scale = scale;
+    }
+    (state, speed)
+}
+
+#[test]
+fn config_set_simulation_time_scale_is_refused_without_a_running_simulation() {
+    let state = state();
+    let error = rejected_error(set(&state, json!({"simulation.time_scale": 8})));
+    assert!(error.contains("simulation.time_scale"), "{error}");
+    assert!(error.contains("not running a simulation"), "{error}");
+    assert_eq!(settings_snapshot(&state).simulation.time_scale, 1);
+}
+
+#[test]
+fn config_set_simulation_time_scale_applies_live_without_a_restart_claim() {
+    let (state, speed) = simulated_state(1);
+    for scale in [1_u32, 100, 10] {
+        let response = success_result(set(&state, json!({"simulation.time_scale": scale})));
+        assert_eq!(response["updated"], json!(["simulation.time_scale"]));
+        assert_eq!(response["restart_required"], json!([]));
+        assert_eq!(
+            speed.get(),
+            scale,
+            "the running resource paces at the new speed"
+        );
+        assert_eq!(settings_snapshot(&state).simulation.time_scale, scale);
+    }
+    let config = success_result(handle_config_get(2, &state));
+    assert_eq!(config["simulation.time_scale"], json!(10));
+}
+
+#[test]
+fn config_set_simulation_time_scale_refuses_values_outside_the_range_and_fractions() {
+    let (state, speed) = simulated_state(4);
+    for (value, expected) in [
+        (json!(0), ">= 1 and <= 100"),
+        (json!(101), ">= 1 and <= 100"),
+        (json!(-3), ">= 1 and <= 100"),
+        (json!(2.5), "whole number"),
+        (json!("8"), "whole number"),
+    ] {
+        let error = rejected_error(set(&state, json!({"simulation.time_scale": value})));
+        assert!(error.contains("simulation.time_scale"), "{error}");
+        assert!(error.contains(expected), "{error}");
+    }
+    assert_eq!(
+        speed.get(),
+        4,
+        "a refused speed does not change the running simulation"
+    );
+    assert_eq!(settings_snapshot(&state).simulation.time_scale, 4);
+}
+
+#[test]
+fn config_set_refused_simulation_time_scale_rejects_the_whole_request() {
+    let (state, speed) = simulated_state(4);
+    let error = rejected_error(set(
+        &state,
+        json!({"simulation.time_scale": 0, "log.level": "debug"}),
+    ));
+    assert!(error.contains("simulation.time_scale"), "{error}");
+    assert_ne!(settings_snapshot(&state).log_level.as_str(), "debug");
+    assert_eq!(speed.get(), 4);
 }
 
 #[test]
@@ -537,7 +611,6 @@ fn config_handler_contract_config_get_contains_complete_stable_key_set() {
             "discovery.interfaces",
             "discovery.service_name",
             "fault.policy",
-            "hmi.read_only",
             "log.level",
             "mesh.auth_token_set",
             "mesh.connect",

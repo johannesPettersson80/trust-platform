@@ -9,6 +9,7 @@ import type { ControllerTuningPreferences } from "./controllerTuningPreferences"
 import type { IdentificationCampaignRecord } from "./automaticIdentification";
 import { formatEngineeringNumber } from "./chartContract";
 import { displayEngineeringUnit } from "./unitDisplay";
+import { MAXIMUM_EXPERIMENT_DURATION_MS } from "./controlStudioLimits";
 
 /** Draft test criteria; the existing tuner and independent native validation still decide feasibility. */
 export function automaticEngineerRequirements(loop: ControlLoopDefinition, model: GeneralModel,
@@ -114,12 +115,15 @@ export function automaticEngineerRequirements(loop: ControlLoopDefinition, model
     const band = pick(values.settlingBand, Math.max(noise, Math.min(Math.abs(change) * .02,
       typeof values.maximumError === "number" ? values.maximumError / 2 : Infinity)), `settlingBand${suffix}`);
     const error = pick(values.maximumError, Math.max(2 * band, Math.abs(change) * .04), `maximumError${suffix}`);
+    // A declared overshoot limit is kept, never generated: automatic setup fills no overshoot limit, but must not drop a declared one.
+    const overshoot = (values as typeof values & { maximumOvershootPercent?: number }).maximumOvershootPercent;
     return [id, { referenceChange: change, settlingBand: band, maximumError: error,
-      settlingTimeSeconds: pick(values.settlingTimeSeconds, roundTime(6 * timescale + model.delaySeconds + slewTime), `settlingTimeSeconds${suffix}`) }];
+      settlingTimeSeconds: pick(values.settlingTimeSeconds, roundTime(6 * timescale + model.delaySeconds + slewTime), `settlingTimeSeconds${suffix}`),
+      ...(overshoot === undefined ? {} : { maximumOvershootPercent: overshoot }) }];
   })) as Record<string, ChannelRequirements>;
   const slowest = Math.max(...Object.values(channelRequirements).map(item => item.settlingTimeSeconds));
   const duration = pick(supplied.durationSeconds, roundTime(2 * slowest + 2 * model.delaySeconds), "durationSeconds");
-  if (duration > Math.min(600, 11999 * period)) throw new Error("The model needs a longer validation window than this runtime supports. Review the model and test duration.");
+  if (duration > MAXIMUM_EXPERIMENT_DURATION_MS / 1_000) throw new Error("The model needs a longer validation window than this runtime supports. Review the model and test duration.");
   const tuningObjective = supplied.tuningObjective ?? "robust";
   if (supplied.tuningObjective === undefined) fields.push("tuningObjective");
   return engineerRequirements({ ...supplied, ...channelRequirements[model.outputs[primary.i].id], durationSeconds: duration, tuningObjective,

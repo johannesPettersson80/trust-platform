@@ -636,6 +636,11 @@ numeric/`BOOL`, and `STRING`/`WSTRING` cross-family conversions. Contextual
 untyped numeric literals remain assignable when the literal is representable by
 the target. No implicit conversion is applied to `VAR_IN_OUT`.
 
+The implicit-conversion warning names only these elementary conversions. An
+instance assigned or passed to an interface it implements (section 6.6.6), or a
+reference to a compatible one, is passed as it is: no conversion takes place and
+no warning is given.
+
 ### Explicit Conversions
 
 Use `<TYPE>_TO_<TYPE>` functions:

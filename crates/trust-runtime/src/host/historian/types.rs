@@ -62,7 +62,9 @@ pub enum HistorianValue {
 }
 
 impl HistorianValue {
-    fn as_f64(&self) -> Option<f64> {
+    /// The sample as a number: booleans as 0 or 1; text has none.
+    #[must_use]
+    pub fn as_f64(&self) -> Option<f64> {
         match self {
             Self::Bool(value) => Some(if *value { 1.0 } else { 0.0 }),
             Self::Integer(value) => Some(*value as f64),

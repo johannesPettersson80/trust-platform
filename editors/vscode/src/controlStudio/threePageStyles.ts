@@ -73,4 +73,39 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 1px s
 .studio-mimo > details summary { cursor: pointer; color: var(--trust-accent); }
 .studio-mimo [data-three-page-mimo-analysis-status], .studio-mimo [data-three-page-mimo-analysis-summary] { color: var(--trust-text-muted); margin: 8px 0; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .studio-mimo-windows th, .studio-mimo-windows td { padding: 4px 2px; } .studio-mimo-windows th { font-size: 10px; white-space: normal; } .studio-mimo-windows th:first-child, .studio-mimo-windows td:first-child { width: 48px; } .studio-mimo-windows input { padding: 4px 2px; } }
+/* Simple by default (Specification 35 B9.9): one failure line with at most one fix, long text wraps, and every verdict has an icon. */
+.studio-action-message { overflow-wrap: anywhere; }
+.studio-failure-detail { margin: 4px 0 0; color: var(--trust-text-muted); font-size: 0.9em; overflow-wrap: anywhere; }
+.studio-failure-detail:not([hidden]) { white-space: pre-line; }
+.studio-failure-sentence { all: unset; cursor: pointer; text-decoration: underline dotted; overflow-wrap: anywhere; }
+.studio-failure-sentence:focus-visible { outline: 1px solid var(--trust-accent); outline-offset: 2px; }
+.studio-failure-action { margin-top: 8px; justify-self: start; }
+.studio-analyze-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.studio-analyze-list:not([hidden]) + .studio-action-message { margin-top: 12px; }
+.studio-chart-frame { position: relative; min-width: 0; }
+.studio-chart-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: 16px; color: var(--trust-text-muted); text-align: center; pointer-events: none; }
+.studio-math-fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 4px; }
+.studio-math-num { padding: 0 6px; border-bottom: 1px solid currentColor; }
+.studio-math-den { padding: 0 6px; }
+.studio-model-numbers { color: var(--trust-text); margin: 6px 0 0; overflow-wrap: anywhere; }
+.studio-model-warnings { margin: 6px 0 0; padding-left: 18px; color: var(--trust-text-muted); font-size: 0.9em; overflow-wrap: anywhere; }
+.studio-keep { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; color: var(--trust-text-muted); font-size: 0.9em; white-space: nowrap; }
+.studio-verdict[data-verdict="pass"]::before { content: "✓ "; color: var(--trust-ok); }
+.studio-verdict[data-verdict="fail"]::before { content: "✕ "; color: var(--trust-danger); }
+.studio-verdict[data-verdict="inconclusive"]::before { content: "? "; color: var(--trust-warn); }
+.studio-requirements td { overflow-wrap: anywhere; }
+.studio-setup-summary { display: grid; gap: 8px; max-width: 680px; }
+.studio-setup-found { display: grid; grid-template-columns: minmax(120px, 170px) minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; }
+.studio-setup-found-label { color: var(--trust-text-muted); overflow-wrap: anywhere; }
+.studio-setup-found-value { overflow-wrap: anywhere; }
+.studio-setup-change { grid-column: 1 / -1; display: grid; gap: 8px; }
+.studio-link { background: none; border: 0; padding: 0; color: var(--trust-accent); cursor: pointer; font: inherit; text-decoration: underline; }
+.studio-setup-range { display: grid; gap: 8px; margin-top: 8px; max-width: 680px; }
+.studio-setup-ask { margin: 0; color: var(--trust-text-muted); }
+.studio-field > label, .studio-field > span { min-width: 0; overflow-wrap: anywhere; }
+.trust-compact-editor-more { margin: 8px 0; }
+.trust-compact-editor-more > summary { cursor: pointer; color: var(--trust-accent); margin-bottom: 8px; }
+.trust-compact-editor-requirements.trust-compact-editor-no-signal .trust-field,
+.trust-compact-editor-no-signal .trust-compact-editor-columns { grid-template-columns: minmax(0, 1.6fr) minmax(70px, 1fr); }
+@media (max-width: 650px) { .studio-setup-found { grid-template-columns: 1fr; } }
 `;

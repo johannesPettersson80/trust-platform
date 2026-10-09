@@ -49,10 +49,55 @@ pub(super) fn json_body_error_response(error: JsonBodyError) -> Response<std::io
     .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
 }
 
+/// What a write route allows when a request carries no `Origin` header.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MissingOrigin {
+    /// Only a loopback client, as the runtime's general write routes require.
+    LoopbackOnly,
+    /// Any client. A browser sends `Origin` with every POST, so a request without one comes from
+    /// a program such as the editor's Live mode or Deploy (specification 39, §21.5 item 3).
+    Allowed,
+}
+
 pub(super) fn api_post_policy_check(
     request: &tiny_http::Request,
     web_tls_enabled: bool,
     require_json_content_type: bool,
+) -> Result<(), Response<std::io::Cursor<Vec<u8>>>> {
+    post_policy_check(
+        request,
+        web_tls_enabled,
+        require_json_content_type,
+        MissingOrigin::LoopbackOnly,
+    )
+}
+
+/// The cross-site check of every HMI write route (specification 39, §21.5 item 3): the policy of
+/// the other write routes, on the connection's own scheme, requiring a JSON body and, when the
+/// request carries `Origin`, the runtime's own origin. Every refusal answers 403.
+pub(super) fn hmi_post_policy_check(
+    request: &tiny_http::Request,
+) -> Result<(), Response<std::io::Cursor<Vec<u8>>>> {
+    post_policy_check(request, request.secure(), true, MissingOrigin::Allowed)
+        .map_err(|refusal| refusal.with_status_code(StatusCode(403)))
+}
+
+/// Runs an HMI write route behind [`hmi_post_policy_check`]: a refused request is answered at
+/// once and never reaches the route, so it has no effect.
+pub(super) fn hmi_write_route(request: tiny_http::Request, route: impl FnOnce(tiny_http::Request)) {
+    match hmi_post_policy_check(&request) {
+        Ok(()) => route(request),
+        Err(refusal) => {
+            let _ = request.respond(refusal);
+        }
+    }
+}
+
+fn post_policy_check(
+    request: &tiny_http::Request,
+    web_tls_enabled: bool,
+    require_json_content_type: bool,
+    missing_origin: MissingOrigin,
 ) -> Result<(), Response<std::io::Cursor<Vec<u8>>>> {
     if require_json_content_type {
         let content_type = header_value(request, "Content-Type").unwrap_or_default();
@@ -72,9 +117,10 @@ pub(super) fn api_post_policy_check(
     }
 
     let Some(origin_raw) = header_value(request, "Origin") else {
-        if request
-            .remote_addr()
-            .is_some_and(|addr| addr.ip().is_loopback())
+        if missing_origin == MissingOrigin::Allowed
+            || request
+                .remote_addr()
+                .is_some_and(|addr| addr.ip().is_loopback())
         {
             return Ok(());
         }
@@ -138,3 +184,7 @@ pub(super) fn api_post_policy_check(
 #[cfg(test)]
 #[path = "http_post_policy/contract_tests.rs"]
 mod contract_tests;
+
+#[cfg(test)]
+#[path = "http_post_policy/hmi_contract_tests.rs"]
+mod hmi_contract_tests;

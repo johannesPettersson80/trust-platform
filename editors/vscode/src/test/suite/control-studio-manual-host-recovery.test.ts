@@ -1,13 +1,6 @@
 import * as assert from "assert";
 
 suite("Control Studio Manual host recovery", () => {
-  test("shows a Manual recovery Retry action through the existing engineer route", () => {
-    const presentation = require("../../controlStudio/engineerWorkflowPresentation");
-    const markup = presentation.engineerWorkflowControls("°C", true, "%");
-    assert.match(markup, /data-engineer-retry-recovery/,
-      "A retryable Manual recovery must expose an explicit visible action instead of requiring a new ready event.");
-  });
-
   test("waits for pending-owner storage before dispatching the native transaction", async () => {
     const persistence = require("../../controlStudio/panelPersistence");
     assert.strictEqual(typeof persistence.dispatchPendingManualApplication, "function",

@@ -22,6 +22,13 @@ pub struct DeployRequest {
     pub sources: Option<Vec<DeploySource>>,
     pub signature: Option<DeploySignature>,
     pub restart: Option<String>,
+    /// An updated HMI bundle, activated with the program (specification 39, §16.4 item 6).
+    #[serde(default)]
+    pub hmi: Option<serde_json::Value>,
+    /// Deploy even though bindings of the active HMI break; they show as "not in running
+    /// program".
+    #[serde(default)]
+    pub accept_broken_bindings: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

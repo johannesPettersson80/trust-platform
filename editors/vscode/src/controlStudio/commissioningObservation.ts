@@ -4,6 +4,8 @@ import { connectedModelChannels } from "./loopChannels";
 import { engineerVerificationPlan, type EngineerRequirements } from "./engineerVerificationPlan";
 import { decodeRunRequirement, evaluateObservedRequirement, type RunRequirement } from "./runValidation";
 import type { WorkflowResultSample } from "./workflowResult";
+import { APPLY_OBSERVATION_LIMIT_MS, recordPeriodExecutions } from "./controlStudioLimits";
+import { roundedTransferValue, type TransferBinding } from "./proportionalTransfer";
 
 export interface CommissioningObservation {
   channels: readonly { id: string; source: string; unit: string }[];
@@ -17,6 +19,13 @@ export function commissioningReferenceTargets(loop: ControlLoopDefinition, model
     if (!required) throw new Error(`Declare commissioning requirements for ${output.signal.symbol}.`);
     return [[output.reference.symbol, (model.operatingPoint?.outputs[index] ?? 0) + required.referenceChange]];
   }));
+}
+/**
+ * The reviewed Auto target of the loop's setpoint, rounded to its IEC type as the transfer writes it and the runtime records it.
+ * Live commissioning and a resumed observation assess against this same number, as the assessment compares it exactly.
+ */
+export function commissioningTarget(loop: ControlLoopDefinition, model: GeneralModel, task: EngineerRequirements, binding: TransferBinding): number {
+  return roundedTransferValue(binding.states[0], commissioningReferenceTargets(loop, model, task)[loop.signals.setpoint!.symbol]);
 }
 export function commissioningObservation(loop: ControlLoopDefinition, model: GeneralModel, task: EngineerRequirements,
   values: Readonly<Record<string, number>>): CommissioningObservation {
@@ -40,19 +49,29 @@ export function validCommissioningObservation(value: unknown, durationSeconds: n
     || new Set(observed.channels.map(channel => channel.id)).size !== observed.channels.length
     || !Array.isArray(observed.requirements) || !observed.requirements.length || observed.requirements.length > 64) return false;
   const count = Math.ceil(durationSeconds * 1000 / stepMs);
-  if (!Number.isFinite(count) || count > 12000) return false;
+  if (!Number.isFinite(count) || count * stepMs > APPLY_OBSERVATION_LIMIT_MS) return false;
   try {
-    const contract = { channels: observed.channels, conditions: { sampleTimesSeconds: Array.from({ length: count + 1 }, (_, index) => index * stepMs / 1000) } };
+    // The observation is recorded with a record period (A4.2), so its requirements are checked on that grid and its end.
+    const every = recordPeriodExecutions(count * stepMs, stepMs);
+    const times = Array.from({ length: Math.floor(count / every) + 1 }, (_, index) => index * every * stepMs / 1000);
+    if (times[times.length - 1] !== count * stepMs / 1000) times.push(count * stepMs / 1000);
+    const contract = { channels: observed.channels, conditions: { sampleTimesSeconds: times } };
     observed.requirements.forEach(requirement => decodeRunRequirement(requirement, contract));
     return new Set(observed.requirements.map(requirement => requirement.id)).size === observed.requirements.length;
   } catch { return false; }
 }
-export function assessCommissioningObservation(samples: readonly WorkflowResultSample[], specification: CommissioningObservation): void {
+/** The response's span and record period: the requirements' windows lie within the duration, and averaged samples cover their
+ * executions (A4.2, E4.4). */
+export interface ObservedResponseSpan { readonly durationSeconds: number; readonly recordEvery: number }
+
+export function assessCommissioningObservation(samples: readonly WorkflowResultSample[], specification: CommissioningObservation,
+  span?: ObservedResponseSpan): void {
   if (!samples.length) throw new Error("Commissioning channel observations are missing.");
   const start = samples[0].elapsedSeconds;
   const observed = {
     channels: specification.channels,
-    conditions: { sampleTimesSeconds: samples.map(sample => Math.round((sample.elapsedSeconds - start) * 1e9) / 1e9) },
+    conditions: { sampleTimesSeconds: samples.map(sample => Math.round((sample.elapsedSeconds - start) * 1e9) / 1e9),
+      ...(span ? { durationSeconds: span.durationSeconds } : {}), ...(span && span.recordEvery > 1 ? { recordEvery: span.recordEvery } : {}) },
     samples: samples.map(sample => ({ timeSeconds: Math.round((sample.elapsedSeconds - start) * 1e9) / 1e9, sequence: sample.scan,
       values: Object.fromEntries(specification.channels.map(channel => {
         const primary = channel.source === "setpoint" ? sample.sp : channel.source === "processVariable" ? sample.pv

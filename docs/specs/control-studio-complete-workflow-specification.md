@@ -117,6 +117,14 @@ the current program, mappings and validation before offering explicit Apply
 again. Never replay an old write or restore old live integral/filter state just
 because the study was reopened.
 
+**Keep in project** is the separate, explicit action after Apply (Specification
+35 §17.17): it makes the values the record holds in the running PLC the
+record's initial values in the project, so a restart or a new download keeps
+them. A record written by hand changes in its own declaration; a record Create
+PLC code declared is kept through its equipment settings and generated
+declaration. Apply alone still never edits ST, and Keep is not offered after
+Restore.
+
 Recover an unacknowledged transaction by inspecting its existing operation
 identity. A new runtime epoch or missing transaction outcome is unresolved,
 not permission to repeat Apply. Keep the existing recovery action in the same
@@ -151,7 +159,7 @@ flowchart TD
 A["Identify plant or open recording"] --> B["Identify: acquire/reuse data, fit and check model"]
 B --> C["Tune: use bound controller or request explicit selection"]
 C --> D["Automatically tune with the selected method and requirements"]
-D --> E["Validate: execute actual ST against the configured simulated plant"]
+D --> E["Validate: execute actual ST against the configured simulated plant (simulated target) or the qualified model"]
 E --> F{"Every mandatory requirement passes?"}
 F -->|Yes| G["Show measured results and enable Apply"]
 F -->|No| H["Stop at the affected page; retain results and show the reason"]

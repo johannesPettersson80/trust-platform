@@ -1,6 +1,6 @@
 #[test]
 fn generic_parameter_status_resolves_custom_symbols_without_pid_wrapper() {
-    let state = hmi_test_state("PROGRAM Main VAR Kp : LREAL := 2.0; Ki : LREAL := 0.5; Manual : BOOL := TRUE; END_VAR END_PROGRAM");
+    let state = simulated_control_state("PROGRAM Main VAR Kp : LREAL := 2.0; Ki : LREAL := 0.5; Manual : BOOL := TRUE; END_VAR END_PROGRAM");
     let response = handle_request_value(
         json!({"id":8500,"type":"control.parameters.status","params":{"binding":{
             "loop_id":"engineer-loop", "task_name":"$background", "parameters":[
@@ -42,9 +42,14 @@ fn generic_status(state: &ControlState) -> serde_json::Value {
     result.result.unwrap()
 }
 fn generic_apply(state: &ControlState, status: &serde_json::Value) -> ControlResponse {
+    static NEXT_APPLY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    let transaction_id = format!(
+        "generic-apply-{}",
+        NEXT_APPLY.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    );
     handle_request_value(
         json!({"id":8502,"type":"control.parameters.apply","params":{
-            "binding":generic_binding(),"expected_program_revision":status["program_revision"],
+            "transaction_id":transaction_id,"binding":generic_binding(),"expected_program_revision":status["program_revision"],
             "expected_binding_revision":status["binding_revision"],"expected_active_revision":status["active_revision"],
             "expected_values":status["values"],"values":{"Main.Kp":4.0,"Main.Ki":1.0},"source":"simulation","physical_approved":false
         }}),
@@ -53,9 +58,11 @@ fn generic_apply(state: &ControlState, status: &serde_json::Value) -> ControlRes
     )
 }
 fn generic_fixture() -> (ControlState, TestHarness) {
-    let source = "PROGRAM Main VAR Kp : LREAL := 2.0; Ki : LREAL := 0.5; Manual : BOOL := TRUE; Observed : LREAL; END_VAR Observed := Kp + Ki; END_PROGRAM";
-    let mut state = hmi_test_state(source);
-    let mut harness = TestHarness::from_source(source).unwrap();
+    generic_fixture_for("PROGRAM Main VAR Kp : LREAL := 2.0; Ki : LREAL := 0.5; Manual : BOOL := TRUE; Observed : LREAL; END_VAR Observed := Kp + Ki; END_PROGRAM")
+}
+fn generic_fixture_for(source: &str) -> (ControlState, TestHarness) {
+    let mut state = simulated_control_state(source);
+    let mut harness = simulated_harness(source);
     state.debug = harness.runtime_mut().enable_debug();
     harness.cycle();
     *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
@@ -65,6 +72,34 @@ fn generic_fixture() -> (ControlState, TestHarness) {
     );
     (state, harness)
 }
+#[test]
+fn generic_parameter_confirmation_reverts_studio_values_and_keeps_the_program_change() {
+    // Manual, and the program sets Ki itself after the Studio set is committed and before it is confirmed.
+    let (state, mut harness) = generic_fixture_for("PROGRAM Main VAR Kp : LREAL := 2.0; Ki : LREAL := 0.5; Manual : BOOL := TRUE; Observed : LREAL; END_VAR IF Manual THEN Ki := 2.0; END_IF; Observed := Kp + Ki; END_PROGRAM");
+    let before = generic_status(&state);
+    // Studio writes Kp 4 and Ki 1; the program then changes Ki and leaves Kp alone.
+    let apply = generic_apply(&state, &before);
+    assert!(apply.ok, "{:?}", apply.error);
+    assert!(harness.cycle().errors.is_empty());
+    let after = generic_status(&state);
+    assert_eq!(after["status"], "rejected");
+    let reason = after["reason"].as_str().unwrap();
+    assert!(
+        reason.contains("Main.Ki"),
+        "the rejection names the member the program changed: {reason}"
+    );
+    assert!(!reason.contains("Main.Kp"), "{reason}");
+    assert_eq!(
+        after["values"]["Main.Kp"], 2.0,
+        "Studio's Kp, which the program did not change, returns to its pre-apply value"
+    );
+    assert_eq!(
+        after["values"]["Main.Ki"], 2.0,
+        "the program's own Ki stays live"
+    );
+    assert!(after["previous_revision"].is_null());
+}
+
 #[test]
 fn generic_parameter_apply_commits_whole_set_before_controller_execution_and_rolls_back() {
     let (state, mut harness) = generic_fixture();
@@ -83,7 +118,7 @@ fn generic_parameter_apply_commits_whole_set_before_controller_execution_and_rol
     assert_eq!(after["values"]["Main.Ki"], 1.0);
     assert_ne!(after["active_revision"], before["active_revision"]);
     let rollback = handle_request_value(
-        json!({"id":8503,"type":"control.parameters.rollback","params":{
+        json!({"id":8503,"type":"control.parameters.rollback","params":{"transaction_id":"generic-rollback",
             "binding":generic_binding(),"expected_program_revision":after["program_revision"],
             "expected_binding_revision":after["binding_revision"],"expected_active_revision":after["active_revision"],
             "expected_values":after["values"],"previous_revision":before["active_revision"],"source":"simulation","physical_approved":false
@@ -156,7 +191,7 @@ fn generic_parameter_forcing_race_rejects_without_partial_commit() {
 
 #[test]
 fn generic_parameter_binding_rejects_constant_members() {
-    let state=hmi_test_state("PROGRAM Main VAR CONSTANT Kp : LREAL := 2.0; END_VAR VAR Ki : LREAL := 0.5; Manual : BOOL := TRUE; END_VAR END_PROGRAM");
+    let state=simulated_control_state("PROGRAM Main VAR CONSTANT Kp : LREAL := 2.0; END_VAR VAR Ki : LREAL := 0.5; Manual : BOOL := TRUE; END_VAR END_PROGRAM");
     let response = handle_request_value(
         json!({"id":8504,"type":"control.parameters.status","params":{"binding":generic_binding()}}),
         &state,
@@ -286,7 +321,7 @@ fn generic_parameter_transaction_waits_for_owning_task_and_controller_observes_c
     assert!(status.ok, "{:?}", status.error);
     let before = status.result.unwrap();
     let applied = handle_request_value(
-        json!({"id":8511,"type":"control.parameters.apply","params":{
+        json!({"id":8511,"type":"control.parameters.apply","params":{"transaction_id":"pending-apply",
             "binding":binding,"expected_program_revision":before["program_revision"],"expected_binding_revision":before["binding_revision"],
             "expected_active_revision":before["active_revision"],"expected_values":before["values"],"values":{"Main.Kp":4.0,"Main.Ki":1.0},
             "source":"simulation","physical_approved":false
@@ -340,7 +375,11 @@ fn generic_parameter_cancel_before_commit_fences_the_owned_identity() {
         &state,
         None,
     );
-    assert!(cancel.ok, "cancel owned parameter operation: {:?}", cancel.error);
+    assert!(
+        cancel.ok,
+        "cancel owned parameter operation: {:?}",
+        cancel.error
+    );
     assert_eq!(cancel.result.unwrap()["before_dispatch"], false);
     assert!(harness.cycle().errors.is_empty());
     let after = generic_status(&state);
@@ -357,7 +396,10 @@ fn generic_parameter_cancel_before_commit_fences_the_owned_identity() {
         &state,
         None,
     );
-    assert!(!replay.ok, "cancelled parameter identity must not be replayable");
+    assert!(
+        !replay.ok,
+        "cancelled parameter identity must not be replayable"
+    );
 }
 
 #[test]
@@ -372,7 +414,11 @@ fn generic_parameter_cancel_before_dispatch_rejects_a_late_apply() {
         &state,
         None,
     );
-    assert!(cancel.ok, "register pre-dispatch cancellation: {:?}", cancel.error);
+    assert!(
+        cancel.ok,
+        "register pre-dispatch cancellation: {:?}",
+        cancel.error
+    );
     assert_eq!(cancel.result.unwrap()["before_dispatch"], true);
     let late_apply = handle_request_value(
         json!({"id":8524,"type":"control.parameters.apply","params":{
@@ -384,6 +430,256 @@ fn generic_parameter_cancel_before_dispatch_rejects_a_late_apply() {
         &state,
         None,
     );
-    assert!(!late_apply.ok, "a delayed apply must honor its pre-dispatch cancellation fence");
+    assert!(
+        !late_apply.ok,
+        "a delayed apply must honor its pre-dispatch cancellation fence"
+    );
     assert_eq!(generic_status(&state)["values"], before["values"]);
+}
+
+/// A parameter apply of the generic binding that names its transaction, source label and approval.
+fn generic_apply_as(
+    state: &ControlState,
+    status: &serde_json::Value,
+    transaction_id: &str,
+    source: &str,
+    approved: bool,
+) -> ControlResponse {
+    handle_request_value(
+        json!({"id":8590,"type":"control.parameters.apply","params":{
+            "transaction_id":transaction_id,"binding":generic_binding(),
+            "expected_program_revision":status["program_revision"],"expected_binding_revision":status["binding_revision"],
+            "expected_active_revision":status["active_revision"],"expected_values":status["values"],
+            "values":{"Main.Kp":4.0,"Main.Ki":1.0},"source":source,"physical_approved":approved
+        }}),
+        state,
+        None,
+    )
+}
+
+#[test]
+fn generic_parameter_label_must_agree_with_the_runtime_target_fact() {
+    let (state, _harness) = generic_fixture();
+    let before = generic_status(&state);
+    let physical = generic_apply_as(&state, &before, "label-physical", "physical", true);
+    assert!(!physical.ok);
+    assert_eq!(
+        refusal_text(&physical),
+        "The request says physical, but the runtime's target is simulated."
+    );
+    state.experiments.record_simulated_target(false);
+    let simulated = generic_apply_as(&state, &before, "label-simulation", "simulation", false);
+    assert!(!simulated.ok);
+    assert_eq!(
+        refusal_text(&simulated),
+        "The request says simulation, but the runtime's target is physical."
+    );
+}
+
+#[test]
+fn generic_parameter_physical_target_needs_approval_at_apply() {
+    let (state, _harness) = generic_fixture();
+    state.experiments.record_simulated_target(false);
+    let before = generic_status(&state);
+    let unapproved = generic_apply_as(&state, &before, "physical-unapproved", "physical", false);
+    assert!(!unapproved.ok);
+    assert_eq!(refusal_text(&unapproved), "physical review required");
+    let approved = generic_apply_as(&state, &before, "physical-approved", "physical", true);
+    assert!(approved.ok, "{:?}", approved.error);
+    assert_eq!(generic_status(&state)["status"], "pending");
+}
+
+#[test]
+fn generic_parameter_physical_target_at_the_boundary_needs_approval() {
+    let (state, harness) = generic_fixture();
+    let before = generic_status(&state);
+    assert!(generic_apply_as(&state, &before, "boundary-approval", "simulation", false).ok);
+    // The target turns physical after the review and before the boundary, for example when a fieldbus client appears.
+    let metadata = harness.runtime().metadata_snapshot();
+    let mut storage = harness.runtime().storage().clone();
+    state
+        .debug
+        .commit_parameters("$background", &mut storage, &metadata, true, &[]);
+    let after = generic_status(&state);
+    assert_eq!(after["status"], "rejected");
+    assert_eq!(
+        after["reason"],
+        "attached I/O requires explicit physical review"
+    );
+    assert_eq!(after["values"], before["values"]);
+}
+
+#[test]
+fn generic_parameter_status_keeps_the_retained_values_and_the_rollback() {
+    let (state, mut harness) = generic_fixture();
+    let before = generic_status(&state);
+    assert!(generic_apply_as(&state, &before, "keep-previous", "simulation", false).ok);
+    assert!(harness.cycle().errors.is_empty());
+    let applied = generic_status(&state);
+    assert_eq!(applied["status"], "applied");
+    let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
+        panic!("program");
+    };
+    state
+        .debug
+        .enqueue_instance_write(*id, "Kp", Value::LReal(3.0));
+    assert!(harness.cycle().errors.is_empty());
+    let after = generic_status(&state);
+    assert_eq!(
+        after["status"], "applied",
+        "a status read does not reset the outcome: {after}"
+    );
+    assert_eq!(
+        after["previous_values"], before["values"],
+        "the retained previous values survive a status read"
+    );
+    let rollback = handle_request_value(
+        json!({"id":8560,"type":"control.parameters.rollback","params":{
+            "transaction_id":"keep-rollback","binding":generic_binding(),
+            "expected_program_revision":after["program_revision"],"expected_binding_revision":after["binding_revision"],
+            "expected_active_revision":after["active_revision"],"expected_values":after["values"],
+            "previous_revision":after["previous_revision"],"source":"simulation","physical_approved":false
+        }}),
+        &state,
+        None,
+    );
+    assert!(!rollback.ok);
+    assert!(
+        refusal_text(&rollback).contains("stale rollback revision"),
+        "{:?}",
+        rollback.error
+    );
+}
+
+#[test]
+fn generic_parameter_interrupt_keeps_the_reason_of_a_stopped_transaction() {
+    let (state, _harness) = generic_fixture();
+    let before = generic_status(&state);
+    assert!(generic_apply_as(&state, &before, "stopped-apply", "simulation", false).ok);
+    state.debug.clear_runtime_mutations();
+    let after = generic_status(&state);
+    assert_eq!(after["status"], "rejected");
+    assert_eq!(
+        after["transaction_id"], "stopped-apply",
+        "the stopped transaction keeps its identity"
+    );
+    assert!(
+        after["reason"]
+            .as_str()
+            .unwrap()
+            .contains("runtime interrupted"),
+        "{after}"
+    );
+}
+
+#[test]
+fn generic_parameter_apply_requires_a_transaction_id() {
+    let (state, _harness) = generic_fixture();
+    let before = generic_status(&state);
+    let response = handle_request_value(
+        json!({"id":8570,"type":"control.parameters.apply","params":{
+            "binding":generic_binding(),"expected_program_revision":before["program_revision"],
+            "expected_binding_revision":before["binding_revision"],"expected_active_revision":before["active_revision"],
+            "expected_values":before["values"],"values":{"Main.Kp":4.0,"Main.Ki":1.0},
+            "source":"simulation","physical_approved":false
+        }}),
+        &state,
+        None,
+    );
+    assert!(!response.ok);
+    assert!(
+        refusal_text(&response).contains("transaction_id"),
+        "{:?}",
+        response.error
+    );
+    assert_eq!(generic_status(&state)["status"], "idle", "nothing is registered");
+}
+
+#[test]
+fn generic_parameter_refusal_names_the_running_parameter_transaction() {
+    let (state, _harness) = generic_fixture();
+    let before = generic_status(&state);
+    assert!(generic_apply_as(&state, &before, "p-7", "simulation", false).ok);
+    let second = generic_apply_as(&state, &before, "p-8", "simulation", false);
+    assert!(!second.ok);
+    assert_eq!(
+        refusal_text(&second),
+        "a parameter transaction p-7 is pending"
+    );
+}
+
+#[test]
+fn generic_parameter_stale_value_names_the_stale_member_with_expected_and_actual() {
+    let (state, _harness) = generic_fixture();
+    let before = generic_status(&state);
+    let response = handle_request_value(
+        json!({"id":8580,"type":"control.parameters.apply","params":{
+            "transaction_id":"stale-value","binding":generic_binding(),
+            "expected_program_revision":before["program_revision"],"expected_binding_revision":before["binding_revision"],
+            "expected_active_revision":before["active_revision"],"expected_values":{"Main.Kp":99.0,"Main.Ki":0.5},
+            "values":{"Main.Kp":4.0,"Main.Ki":1.0},"source":"simulation","physical_approved":false
+        }}),
+        &state,
+        None,
+    );
+    assert!(!response.ok);
+    assert_eq!(
+        refusal_text(&response),
+        "stale program, binding, or expected values: Main.Kp expected 99, observed 2"
+    );
+}
+
+#[test]
+fn generic_parameter_identifiers_are_counted_in_characters() {
+    let (state, _harness) = generic_fixture();
+    let before = generic_status(&state);
+    // 128 characters are 256 bytes: a byte count would refuse this identifier.
+    let id = "é".repeat(128);
+    assert!(generic_apply_as(&state, &before, &id, "simulation", false).ok);
+    let oversized = "é".repeat(129);
+    let refused = handle_request_value(
+        json!({"id":8591,"type":"control.parameters.cancel","params":{"loop_id":"engineer-loop",
+            "transaction_id":oversized,"expected_program_revision":before["program_revision"],
+            "expected_binding_revision":before["binding_revision"]}}),
+        &state,
+        None,
+    );
+    assert!(!refused.ok, "129 characters exceed the limit");
+    let cancelled = handle_request_value(
+        json!({"id":8592,"type":"control.parameters.cancel","params":{"loop_id":"engineer-loop",
+            "transaction_id":id,"expected_program_revision":before["program_revision"],
+            "expected_binding_revision":before["binding_revision"]}}),
+        &state,
+        None,
+    );
+    assert!(cancelled.ok, "{:?}", cancelled.error);
+    assert_eq!(cancelled.result.unwrap()["confirmed"], true);
+}
+
+#[test]
+fn runtime_epoch_is_unique_across_runtime_instances_and_takes_a_new_value_on_reload() {
+    let source = "PROGRAM Main VAR Kp : LREAL := 2.0; END_VAR END_PROGRAM";
+    let mut first = TestHarness::from_source(source).unwrap();
+    let mut second = TestHarness::from_source(source).unwrap();
+    let first_debug = first.runtime_mut().enable_debug();
+    let second_debug = second.runtime_mut().enable_debug();
+    let first_epoch = first_debug.runtime_epoch();
+    assert_ne!(
+        first_epoch,
+        second_debug.runtime_epoch(),
+        "two runtimes in one process share no epoch"
+    );
+    assert!(
+        first_epoch >= 1_000_000_000_000,
+        "the epoch starts at the process start time: {first_epoch}"
+    );
+    assert!(
+        first_epoch < 1_u64 << 53,
+        "the epoch stays exact in a JSON number: {first_epoch}"
+    );
+    first_debug.invalidate_control_program();
+    assert!(
+        first_debug.runtime_epoch() > first_epoch,
+        "a reload takes a new epoch"
+    );
 }

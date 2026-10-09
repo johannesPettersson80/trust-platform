@@ -168,14 +168,6 @@ spec_source_id = "SPEC_PUBLIC_WORKFLOW_CDC07CFF8A91_001"
 rationale = "The quick start defines an end-to-end statechart editing task."
 
 [[reviews]]
-discovery_id = "WORKFLOW_CANDIDATE_7EEF7481947C105881BAC728"
-path = "docs/public/examples/hmi.md"
-heading_path = ["HMI", "Quick start"]
-disposition = "workflow_spec"
-spec_source_id = "SPEC_PUBLIC_WORKFLOW_7EEF7481947C_001"
-rationale = "The quick start defines a browser HMI operation task."
-
-[[reviews]]
 discovery_id = "WORKFLOW_CANDIDATE_7B2D72A09D5208C36EE460B9"
 path = "docs/public/examples/index.md"
 heading_path = ["Examples", "First Examples"]
@@ -234,14 +226,6 @@ heading_path = ["Compile, Validate, Reload / Hot Reload", "For automated tools"]
 disposition = "workflow_spec"
 spec_source_id = "SPEC_PUBLIC_WORKFLOW_81374E35F805_001"
 rationale = "The ordered calls define the automation compile-and-reload workflow."
-
-[[reviews]]
-discovery_id = "WORKFLOW_CANDIDATE_819D4CA4AFE80939AC52D192"
-path = "docs/public/operate/hmi-and-web-ui.md"
-heading_path = ["HMI (Preview & Browser)", "Browser HMI"]
-disposition = "workflow_spec"
-spec_source_id = "SPEC_PUBLIC_WORKFLOW_819D4CA4AFE8_001"
-rationale = "The ordered checks define the operator's browser-HMI assessment workflow."
 
 [[reviews]]
 discovery_id = "WORKFLOW_CANDIDATE_11CE18940EA5654E4C536EDC"
@@ -313,22 +297,6 @@ heading_path = ["Maintain An Existing Project", "First steps"]
 disposition = "workflow_spec"
 spec_source_id = "SPEC_PUBLIC_WORKFLOW_F08D90359C6B_001"
 rationale = "The ordered actions define a safe first-change maintenance task."
-
-[[reviews]]
-discovery_id = "WORKFLOW_CANDIDATE_F495BAA5B93DC09081231F64"
-path = "docs/public/start/operate-in-browser.md"
-heading_path = ["Operate In Browser HMI", "What Your URL Usually Looks Like"]
-disposition = "workflow_spec"
-spec_source_id = "SPEC_PUBLIC_WORKFLOW_F495BAA5B93D_001"
-rationale = "The ordered actions define the visible failure path when the operator lacks a valid HMI URL."
-
-[[reviews]]
-discovery_id = "WORKFLOW_CANDIDATE_CC557DA8405666CCB0D1A71F"
-path = "docs/public/start/operate-in-browser.md"
-heading_path = ["Operate In Browser HMI", "Quick start"]
-disposition = "workflow_spec"
-spec_source_id = "SPEC_PUBLIC_WORKFLOW_CC557DA84056_001"
-rationale = "The quick start defines the primary browser-HMI operator journey."
 
 [[reviews]]
 discovery_id = "WORKFLOW_CANDIDATE_06F0B50B276C143A8E3394BD"

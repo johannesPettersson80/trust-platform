@@ -1,4 +1,5 @@
 import type { RuntimeVerificationResult } from "./verificationClient";
+import { experimentStartSeconds } from "./recordedExperimentStart";
 
 export function recordedValues(record: RuntimeVerificationResult | undefined, symbol: string): number[] {
   return record?.run.samples.flatMap(sample => {
@@ -7,10 +8,13 @@ export function recordedValues(record: RuntimeVerificationResult | undefined, sy
   }) ?? [];
 }
 
-/** Noise comes only from a complete pre-excitation baseline, never from the plant transient. */
+/** Noise comes only from a complete pre-excitation baseline, never from the plant transient or the wait before the steady baseline
+ * window (B3.4). */
 export function baselineNoise(record: RuntimeVerificationResult | undefined, inputSymbols: readonly string[], outputSymbol: string): number {
-  if (!record || record.run.samples.length < 8) return 0;
-  const samples = record.run.samples;
+  if (!record) return 0;
+  const start = experimentStartSeconds(record);
+  const samples = record.run.samples.filter(sample => sample.timeSeconds >= start - 1e-9);
+  if (samples.length < 8) return 0;
   const first = samples[0];
   const changed = samples.findIndex(sample => inputSymbols.some(symbol => {
     const start = first.values[symbol], current = sample.values[symbol];

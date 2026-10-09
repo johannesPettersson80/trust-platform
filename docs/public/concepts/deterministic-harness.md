@@ -52,7 +52,7 @@ inspection. Use the full runtime when you need:
 - web UI
 - runtime-cloud
 - runtime control endpoints
-- browser IDE or HMI pages
+- browser IDE pages
 
 ## Why This Is A Core Platform Surface
 
@@ -74,7 +74,7 @@ Use the harness when you want to answer:
 
 Use the full runtime when you want to answer:
 
-- "What does this look like in the runtime UI or HMI?"
+- "What does this look like in the runtime UI?"
 - "How does this runtime behave under runtime control-plane management?"
 - "How does this node participate in a larger distributed system?"
 

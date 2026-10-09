@@ -36,7 +36,7 @@ suite("Control Studio loop setup saving", () => {
     const api = saving();
     assert.strictEqual(typeof api.saveLoopSetup, "function", "the setup form must save through one owner");
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "trust-loop-setup-"));
-    const draft = { structure: "cascade", name: "Vessel temperature", action: "direct", experimentDurationSeconds: 30,
+    const draft = { structure: "cascade", name: "Vessel temperature", action: "direct", experimentStep: 10, experimentDurationSeconds: 30,
       outer: { ...controller("Outer"), processVariable: signal("P1.VesselC", "degC", 0, 90), setpoint: { symbol: "P1.VesselSetpointC" } },
       inner: { ...controller("Inner"), processVariable: signal("P1.JacketC", "degC", 0, 90), manipulatedVariable: signal("P1.HeaterPct", "%", 0, 100) } };
     try {
@@ -75,7 +75,7 @@ suite("Control Studio loop setup saving", () => {
       const [request] = await api.saveLoopSetup(root, scope, coldRoom, { structure: "onoff", name: "Cold room", action: "reverse", instance: "P1",
         processVariable: signal("P1.RoomC", "degC", -10, 20), setpoint: { symbol: "P1.SetpointC" }, manipulatedVariable: signal("P1.CompressorPct", "%", 0, 100),
         mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualPct", hysteresis: "P1.HysteresisC", bandConvention: "half-band",
-        minimumOn: "P1.MinimumOnS", minimumOff: "P1.MinimumOffS", latch: "P1.CoolingOn", experimentDurationSeconds: 120 });
+        minimumOn: "P1.MinimumOnS", minimumOff: "P1.MinimumOffS", latch: "P1.CoolingOn", experimentStep: 100, experimentDurationSeconds: 120 });
       assert.deepStrictEqual(fs.readdirSync(path.join(root, "control-loops")), ["cold-room.json"]);
       assert.deepStrictEqual([request.loopDefinition.controller.onOff?.hysteresisSymbol, request.loopDefinition.controller.onOff?.highOutput],
         ["P1.HysteresisC", 100], "the switching controller is saved, not a PID");

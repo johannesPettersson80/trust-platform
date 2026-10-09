@@ -86,6 +86,14 @@ impl DebugControl {
         std::mem::take(&mut state.runtime_events)
     }
 
+    /// The runtime time of the last captured snapshot, without copying its storage.
+    #[must_use]
+    pub fn snapshot_time(&self) -> Option<crate::value::Duration> {
+        let (lock, _) = &*self.state;
+        let state = lock.lock().expect("debug state poisoned");
+        state.snapshot.as_ref().map(|snapshot| snapshot.now)
+    }
+
     /// Get the last captured debug snapshot, if any.
     #[must_use]
     pub fn snapshot(&self) -> Option<DebugSnapshot> {

@@ -77,6 +77,7 @@ fn lower_function_block_var_blocks(
                             direction: ParamDirection::In,
                             address: address_info.clone(),
                             default: init_expr.clone(),
+                            retain: qualifiers.retain,
                         });
                     }
                 }
@@ -88,6 +89,7 @@ fn lower_function_block_var_blocks(
                             direction: ParamDirection::Out,
                             address: address_info.clone(),
                             default: init_expr.clone(),
+                            retain: qualifiers.retain,
                         });
                     }
                 }
@@ -99,6 +101,7 @@ fn lower_function_block_var_blocks(
                             direction: ParamDirection::InOut,
                             address: address_info.clone(),
                             default: None,
+                            retain: crate::RetainPolicy::Unspecified,
                         });
                     }
                 }

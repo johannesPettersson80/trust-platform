@@ -14,9 +14,7 @@ use trust_runtime::bundle_builder::collect_project_source_files;
 use trust_runtime::config::{
     ControlMode, RuntimeCloudProfile, RuntimeConfig, WebAuthMode, WebConfig,
 };
-use trust_runtime::control::{
-    AdsDoctorJobStore, ControlState, HmiRuntimeDescriptor, SourceFile, SourceRegistry,
-};
+use trust_runtime::control::{AdsDoctorJobStore, ControlState, SourceFile, SourceRegistry};
 use trust_runtime::debug::{DebugSnapshot, DebugVariableHandles};
 use trust_runtime::discovery::DiscoveryState;
 use trust_runtime::error::RuntimeError;
@@ -65,6 +63,7 @@ pub fn run_ide_serve(project: Option<PathBuf>, listen: String) -> anyhow::Result
         listen: SmolStr::new(listen.clone()),
         auth: WebAuthMode::Local,
         tls: false,
+        hmi: trust_runtime::hmi::access::config::HmiAccessConfig::default(),
     };
     let discovery = control_state.discovery.clone();
     let _server = start_web_server_with_mode(
@@ -182,10 +181,6 @@ fn build_config_mode_control_state(
     });
 
     let sources = load_source_registry(project_root.as_path());
-    let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
-        Some(project_root.as_path()),
-        &sources,
-    )));
 
     let mut settings = RuntimeSettings::new(
         trust_runtime::value::Duration::from_millis(10),
@@ -233,7 +228,7 @@ fn build_config_mode_control_state(
     settings.runtime_cloud.link_preferences = Vec::new();
 
     let discovery = Arc::new(DiscoveryState::new());
-    Ok(Arc::new(ControlState {
+    let state = Arc::new(ControlState {
         debug,
         resource,
         metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
@@ -264,9 +259,6 @@ fn build_config_mode_control_state(
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(false)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
-        hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
-        hmi_persistence: None,
-        hmi_descriptor,
         historian: None,
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
@@ -275,7 +267,9 @@ fn build_config_mode_control_state(
         ads_server_config: Arc::new(Mutex::new(None)),
         #[cfg(feature = "ads-server")]
         ads_server_runtime: Arc::new(Mutex::new(None)),
-    }))
+    });
+    state.connect_experiments();
+    Ok(state)
 }
 
 fn load_source_registry(project_root: &Path) -> SourceRegistry {

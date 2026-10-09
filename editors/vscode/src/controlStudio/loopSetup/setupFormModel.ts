@@ -4,13 +4,13 @@ export interface SetupFormModel {
   structure: "pid" | "cascade" | "group" | "identify";
   pids: PidCandidate[];
   cascade?: { outer: string; inner: string };
-  /** REAL/LREAL signals with an I/O address: Studio's identification writes the manual output through the process image. */
+  /** REAL/LREAL signals with an I/O address. */
   addressedReal: string[];
   /** Signals a loop can use as a controller output or setpoint, addressed or not (Specification 35 §17.1): every REAL/LREAL
    * except the library PIDs' own parameter records and internal states. */
   signals?: string[];
-  /** Signals a simulated plant can write as a measurement (Specification 33 §13.2): inputs, and program variables
-   * without an address that the program only reads. */
+  /** Signals a simulated plant can write as a measurement (Specification 33 §13.2): inputs, program variables without an
+   * address that the program only reads, and the measurement each library PID holds, which a simulated plant gives that PID. */
   measurements?: string[];
   booleans: string[];
   /** Model files in the project an LQG estimator can implement: state space, one input, one output (Specification 35 §17.1). */
@@ -32,8 +32,10 @@ export interface SetupFormModel {
 }
 export interface PidPrefill {
   instance: string; parameterRecord?: string; manipulatedVariable?: string; setpoint?: string; processValue?: string; manualOutput?: string;
-  /** A manual output the controller's calls use that has no address: identification writes it through the process image. */
-  unaddressed?: Partial<Record<"manualOutput", string>>;
+  /** The Auto/Manual signal the code tests, and what its TRUE means. */
+  mode?: string; modeWhenTrue?: "Auto" | "Manual";
+  /** The flag the code tests in `IF NOT <flag>` around the PID's Initialize. */
+  startupFlag?: string;
   /** A measurement the controller's calls use that the program computes, which a simulated measurement could not reach. */
   computed?: Partial<Record<"processValue", string>>;
 }
@@ -49,8 +51,10 @@ export function setupFormModel(catalog: CompiledCatalog, estimatorModels?: { fil
   const written = new Set((catalog.writes ?? []).map(symbol => symbol.toUpperCase()));
   const internal = (symbol: string) => [...records, ...pids.map(pid => pid.instance)].some(owner => symbol.startsWith(`${owner}.`));
   const signals = catalog.symbols.filter(entry => real(entry) && !internal(entry.symbol)).map(entry => entry.symbol).sort();
-  const measurements = catalog.symbols.filter(entry => real(entry) && !internal(entry.symbol)
-    && (entry.address ? entry.address.toUpperCase().startsWith("%I") : !written.has(entry.symbol.toUpperCase()))).map(entry => entry.symbol).sort();
+  // A PID's own measurement is what its Update received, wherever the program computed it from (mA, a sensor block, a filter).
+  const own = pids.flatMap(pid => pid.ownMeasurement ? [pid.ownMeasurement] : []);
+  const measurements = [...catalog.symbols.filter(entry => real(entry) && !internal(entry.symbol)
+    && (entry.address ? entry.address.toUpperCase().startsWith("%I") : !written.has(entry.symbol.toUpperCase()))).map(entry => entry.symbol), ...own].sort();
   const instances = catalog.controllers.filter(controller => controller.type.toUpperCase() !== PID_TYPE && controller.tasks.length === 1
     && controller.tasks[0].intervalMs > 0).map(controller => controller.instance).sort();
   const structure = pairs.length ? "cascade" : pids.length > 1 ? "group" : pids.length === 1 ? "pid" : "identify";
@@ -62,10 +66,13 @@ export function setupFormModel(catalog: CompiledCatalog, estimatorModels?: { fil
     if (pid.parameterRecord && records.includes(pid.parameterRecord)) prefill.parameterRecord = pid.parameterRecord;
     if (pid.output && signals.includes(pid.output)) prefill.manipulatedVariable = pid.output;
     if (pid.setpoint && signals.includes(pid.setpoint)) prefill.setpoint = pid.setpoint;
-    if (pid.processValue && measurements.includes(pid.processValue)) prefill.processValue = pid.processValue;
+    if (pid.ownMeasurement) prefill.processValue = pid.ownMeasurement;
+    else if (pid.processValue && measurements.includes(pid.processValue)) prefill.processValue = pid.processValue;
     else if (pid.processValue && signals.includes(pid.processValue)) prefill.computed = { processValue: pid.processValue };
-    if (pid.manualOutput && addressedReal.includes(pid.manualOutput)) prefill.manualOutput = pid.manualOutput;
-    else if (pid.manualOutput && signals.includes(pid.manualOutput)) prefill.unaddressed = { manualOutput: pid.manualOutput };
+    // Studio steps a manual output by name; it needs no address (Specification 35 §17.1).
+    if (pid.manualOutput && signals.includes(pid.manualOutput)) prefill.manualOutput = pid.manualOutput;
+    if (pid.mode && modes.includes(pid.mode.symbol)) { prefill.mode = pid.mode.symbol; prefill.modeWhenTrue = pid.mode.whenTrue; }
+    if (pid.startupFlag && booleans.includes(pid.startupFlag)) prefill.startupFlag = pid.startupFlag;
     return prefill;
   });
   const model: SetupFormModel = { structure, pids, addressedReal, signals, measurements, booleans, modes, records, instances, reals, writes, initializes, prefills,

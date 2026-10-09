@@ -95,6 +95,59 @@ fn tls_fixture_path(name: &str) -> String {
         .replace('\\', "/")
 }
 
+/// Specification 42, §4 item 9: the driver's own words name the broker and whether the session
+/// is connected, or why it is not.
+#[test]
+fn mqtt_detail_names_the_broker_and_the_sessions_state() {
+    let state = Arc::new(Mutex::new(MockState {
+        connected: true,
+        ..MockState::default()
+    }));
+    let factory = Arc::new(MockFactory {
+        state: Arc::clone(&state),
+        attempts: Arc::new(AtomicUsize::new(0)),
+        fail_first: false,
+        always_fail: false,
+    });
+    let mut driver = MqttIoDriver::from_params_with_factory(
+        &params(
+            r#"
+broker = "127.0.0.1:1883"
+topic_in = "line/in"
+topic_out = "line/out"
+on_error = "warn"
+reconnect_ms = 10
+"#,
+        ),
+        factory,
+    )
+    .expect("construct mqtt driver");
+    let mut inputs = [0u8; 4];
+    let wait_for = |driver: &mut MqttIoDriver, inputs: &mut [u8], expected: &str| {
+        let deadline = Instant::now() + StdDuration::from_millis(500);
+        loop {
+            let _ = driver.read_inputs(inputs);
+            let detail = driver.detail().map(|text| text.to_string()).unwrap_or_default();
+            if detail == expected {
+                return;
+            }
+            assert!(Instant::now() < deadline, "detail {detail:?}, expected {expected:?}");
+            std::thread::sleep(StdDuration::from_millis(5));
+        }
+    };
+    wait_for(&mut driver, &mut inputs, "127.0.0.1:1883, connected");
+    {
+        let mut guard = state.lock().unwrap_or_else(|e| e.into_inner());
+        guard.connected = false;
+        guard.last_error = Some(SmolStr::new("connection reset by broker"));
+    }
+    wait_for(
+        &mut driver,
+        &mut inputs,
+        "127.0.0.1:1883, disconnected: connection reset by broker",
+    );
+}
+
 #[test]
 fn contract_test_reads_and_writes_payloads() {
     let state = Arc::new(Mutex::new(MockState {

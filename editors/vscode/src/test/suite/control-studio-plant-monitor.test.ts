@@ -2,12 +2,6 @@ import * as assert from "assert";
 
 import type { PlantControlStudioHandoff } from "../../controlStudio/handoff";
 import {
-  decodePlantMonitorEnvelope,
-  decodeControlStudioReady,
-  decodeControlStudioNavigatePlant,
-  plantMonitorEnvelope,
-} from "../../controlStudio/messages";
-import {
   loadPlantMonitor,
   projectPlantMonitor,
 } from "../../controlStudio/plantMonitor";
@@ -139,46 +133,6 @@ suite("Control Studio plant monitor", () => {
       }
     );
   });
-
-  test("accepts only the matching project, session, plant, and revision envelope", () => {
-    const snapshot = projectPlantMonitor(status(), handoff);
-    const envelope = plantMonitorEnvelope(handoff, "session-1", "message-1", snapshot);
-    const expected = {
-      projectId: handoff.projectId,
-      editorSessionId: "session-1",
-      plantId: handoff.plantId,
-      plantRevision: handoff.savedConfigurationRevision,
-    };
-    assert.deepStrictEqual(decodePlantMonitorEnvelope(envelope, expected), envelope);
-    assert.strictEqual(
-      decodePlantMonitorEnvelope({ ...envelope, editorSessionId: "session-2" }, expected),
-      undefined
-    );
-    assert.strictEqual(
-      decodePlantMonitorEnvelope({ ...envelope, expectedPlantRevision: "sha256:stale" }, expected),
-      undefined
-    );
-    assert.ok(decodeControlStudioReady({
-      schemaVersion: 1,
-      kind: "control-studio.ready",
-      messageId: "ready-1",
-      projectId: expected.projectId,
-      editorSessionId: expected.editorSessionId,
-      plantId: expected.plantId,
-      expectedPlantRevision: expected.plantRevision,
-      payload: {},
-    }, expected));
-    assert.ok(decodeControlStudioNavigatePlant({
-      schemaVersion: 1,
-      kind: "control-studio.navigate-plant",
-      messageId: "navigate-1",
-      projectId: expected.projectId,
-      editorSessionId: expected.editorSessionId,
-      plantId: expected.plantId,
-      expectedPlantRevision: expected.plantRevision,
-      payload: {},
-    }, expected));
-  });
 });
 
 function lifecycle(runtimeState: "running" | "stopped"): RuntimeLifecycleSnapshot {
@@ -187,6 +141,7 @@ function lifecycle(runtimeState: "running" | "stopped"): RuntimeLifecycleSnapsho
       running: runtimeState === "running",
       inlineValuesEnabled: true,
       runtimeMode: "simulate",
+      simulated: runtimeState === "running",
       runtimeState,
       endpoint: runtimeState === "running" ? "tcp://127.0.0.1:9900" : "",
       endpointConfigured: runtimeState === "running",

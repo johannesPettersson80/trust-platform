@@ -179,6 +179,19 @@ fn references_with_ticket(
         });
     }
 
+    // The bindings of the project's HMI files that name it (specification 39, §7.8).
+    let identity = state.with_database(|db| {
+        trust_ide::rename_identity::rename_identity(db, doc.file_id, TextSize::from(offset))
+    });
+    if let Some(identity) = identity {
+        locations.extend(
+            crate::handlers::commands::hmi_rename::references_with_context(state, uri, &identity),
+        );
+    }
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
+
     Some(locations)
 }
 

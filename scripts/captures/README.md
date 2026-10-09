@@ -6,7 +6,7 @@ the public docs.
 ## Capture classes
 
 - Browser product surfaces: Playwright against live truST browser endpoints such
-  as `/ide` and `/hmi`.
+  as `/ide`.
 - Terminal captures: VHS tapes rendered to checked-in GIFs for CLI/runtime
   workflows that should show exact shell output.
 - VS Code browser surfaces: Playwright against `code-server` with the real
@@ -31,11 +31,6 @@ These commands write checked-in assets directly to:
 - `docs/public/assets/images/browser/`
 - `docs/public/assets/images/terminal/`
 - `docs/public/assets/images/vscode/`
-
-Operator HMI pages (overview, daily checks, alarm, shift handover) are captured
-by `scripts/captures/browser/hmi-operator-pages.spec.mjs`, which runs as part of
-the `browser` mode. It navigates the live `/hmi` sidebar to Overview, Alarms,
-and Trends and captures each page in dark mode with live values.
 
 ## Local prerequisites
 

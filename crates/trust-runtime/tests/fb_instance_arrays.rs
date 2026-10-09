@@ -556,7 +556,9 @@ END_PROGRAM
 
 #[test]
 fn a_warm_restart_rebuilds_a_retained_global_function_block_instance() {
-    // docs/specs/10-runtime-semantics.md §4.8: the instance identity of a RETAIN function-block global is not retained.
+    // docs/specs/10-runtime-semantics.md §4.8, IEC 61131-3 Ed.3 §6.5.6.2: the instance of a RETAIN
+    // function-block global is rebuilt with a new identity and keeps its variables' values; a
+    // program's instance without RETAIN starts over.
     let source = format!(
         "{ACCUMULATOR}
 PROGRAM Main
@@ -597,6 +599,14 @@ END_CONFIGURATION
     harness.advance_time(Duration::from_millis(10));
     let cycle = harness.cycle();
     assert!(cycle.errors.is_empty(), "cycle errors: {:?}", cycle.errors);
-    assert_eq!(harness.get_output("Total"), Some(Value::DInt(1)));
-    assert_eq!(harness.get_output("Mine"), Some(Value::DInt(100)));
+    assert_eq!(
+        harness.get_output("Total"),
+        Some(Value::DInt(3)),
+        "the retained instance kept its total"
+    );
+    assert_eq!(
+        harness.get_output("Mine"),
+        Some(Value::DInt(100)),
+        "the other instance started over"
+    );
 }

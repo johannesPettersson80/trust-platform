@@ -1,15 +1,22 @@
 import type { GeneralModel } from "../generalModel";
 import { renderIdentifiedModel } from "./threePageModel";
+import { applyStudioTargetLabel } from "./studioTargetLabel";
 
 export type StudioPage = "model" | "tune" | "verify";
 export function bindThreePageHostState(root: HTMLElement, receive: (stage: string, payload: Record<string, unknown>) => void,
   select: (page: StudioPage, persist: boolean) => void,
-  receiveEnvelope?: (message: Record<string, unknown>) => void): void {
+  receiveEnvelope?: (message: Record<string, unknown>) => void,
+  /** A model reached the page; the operation gate decides whether Tune may run. */
+  modelArrived?: () => void): void {
   window.addEventListener("message", event => {
     const message = event.data;
     if (!record(message) || message.schemaVersion !== 1 || message.projectId !== root.dataset.projectId
       || message.editorSessionId !== root.dataset.editorSessionId || message.loopId !== root.dataset.loopId
       || (message.expectedLoopRevision ?? message.loopRevision) !== root.dataset.loopRevision) return;
+    if (message.kind === "control-studio.target-label") {
+      applyStudioTargetLabel(root, message);
+      return;
+    }
     if (message.kind === "control-studio.navigation.restore") {
       if (record(message.view)) {
         const view = message.view;
@@ -40,13 +47,16 @@ export function bindThreePageHostState(root: HTMLElement, receive: (stage: strin
       root.querySelector<HTMLElement>("[data-studio-model-result]")!.hidden = false;
     }
     if (record(payload.model) && ["transfer-function", "continuous-state-space", "discrete-state-space"].includes(String(payload.model.kind))) {
+      // Tune is enabled by the page's operation gate when the model reaches it, never directly here.
       renderIdentifiedModel(root, payload.model as unknown as GeneralModel);
-      root.querySelector<HTMLButtonElement>("[data-engineer-tune]")!.disabled = false;
+      modelArrived?.();
       const notice = root.querySelector<HTMLElement>('[data-studio-message="tune"]')!;
       notice.textContent = ""; notice.hidden = true;
     }
     receive(String(message.stage), payload);
-    if (message.stage === "engineer" || message.stage === "flow") window.dispatchEvent(new CustomEvent("trust-control-studio-engineer", { detail: payload }));
+    // A manual-tuning preview draws its predicted response on the same plot as a finished Tune.
+    const preview = message.stage === "tune" && payload.status === "preview";
+    if (message.stage === "engineer" || message.stage === "flow" || preview) window.dispatchEvent(new CustomEvent("trust-control-studio-engineer", { detail: payload }));
   });
 }
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === "object" && !Array.isArray(value); }

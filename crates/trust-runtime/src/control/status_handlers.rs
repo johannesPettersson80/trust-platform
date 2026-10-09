@@ -45,6 +45,23 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
     else {
         return unavailable(id, "control mode");
     };
+    let Ok(tasks) = state.metadata.lock().map(|metadata| {
+        metadata
+            .tasks()
+            .iter()
+            .map(|task| json!({"name": task.name.as_str(), "interval_ms": task.interval.as_millis()}))
+            .collect::<Vec<_>>()
+    }) else {
+        return unavailable(id, "runtime metadata");
+    };
+    // The same program revision the family results report (specification 35, A2.3).
+    let Ok(program_revision) = state
+        .metadata
+        .lock()
+        .map(|metadata| state.debug.program_revision(&metadata))
+    else {
+        return unavailable(id, "runtime metadata");
+    };
     // Runtime settings are the single source of truth for selected backend mode/source.
     let execution_backend = settings.execution_backend.as_str();
     let execution_backend_source = settings.execution_backend_source.as_str();
@@ -62,9 +79,14 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
             "execution_backend_source": execution_backend_source,
             "simulation_mode": simulation.mode_label.as_str(),
             "simulation_enabled": simulation.enabled,
+            "simulation_only_io": state.debug.simulation_only_io().unwrap_or(false),
             "simulation_time_scale": simulation.time_scale,
+            "simulation_achieved_time_scale": metrics.simulation_achieved_time_scale,
             "simulation_warning": simulation.warning.as_str(),
-            "hmi_read_only": true,
+            "cycle_interval_ms": settings.cycle_interval.as_millis(),
+            "tasks": tasks,
+            "session_epoch": state.debug.runtime_epoch(),
+            "program_revision": program_revision,
             "metrics": {
                 "cycle_ms": {
                     "min": metrics.cycle.min_ms,

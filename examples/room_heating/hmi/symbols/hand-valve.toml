@@ -1,0 +1,16 @@
+format = 1
+title = "Hand valve"
+size = [128, 92]
+
+# A manual valve has no bindings: it is set by hand at commissioning.
+[properties]
+
+[[port]]
+name = "inlet"
+at = [0, 32]
+direction = "left"
+
+[[port]]
+name = "outlet"
+at = [64, 32]
+direction = "right"

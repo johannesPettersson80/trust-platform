@@ -1,0 +1,74 @@
+/* Layout only: the existing truST shell and HMI drawing tokens own the visual design. */
+.hb-symbol-body {
+    grid-template-columns: 220px minmax(0, 1fr) 280px;
+}
+.hb-symbol-preview {
+    display: grid;
+    place-items: center;
+    padding: 48px;
+    overflow: auto;
+}
+.hb-symbol-preview > svg {
+    width: 100%;
+    max-width: 480px;
+    max-height: 100%;
+    overflow: visible;
+}
+.hb-symbol-preview [id] {
+    cursor: pointer;
+}
+.hb-symbol-preview [data-picked] {
+    outline: 0.5px solid var(--hmi-accent);
+    outline-offset: 2px;
+}
+.hb-symbol-body .hb-field input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 4px 0;
+    accent-color: var(--trust-accent);
+}
+.hb-symbol-part {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px;
+    margin: 4px 0;
+    background: transparent;
+    color: var(--trust-text);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font: inherit;
+}
+.hb-symbol-part[aria-pressed="true"] {
+    background: var(--trust-input-bg);
+    border-color: var(--trust-accent);
+}
+.hb-symbol-part:focus-visible {
+    outline: 2px solid var(--trust-accent);
+}
+.hb-symbol-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+}
+.hb-symbol-entry > :first-child {
+    flex: 1;
+    min-width: 0;
+}
+.hb-symbol-body details {
+    padding: 12px 0;
+    border-top: 1px solid var(--trust-border-subtle);
+}
+.hb-symbol-body summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+@media (max-width: 800px) {
+    .hb-symbol-body {
+        grid-template-columns: 150px minmax(160px, 1fr) 220px;
+    }
+    .hb-symbol-preview {
+        padding: 24px;
+    }
+}

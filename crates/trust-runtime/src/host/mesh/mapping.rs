@@ -10,7 +10,7 @@ use crate::value::Value;
 
 use super::models::MeshQosProfile;
 
-fn mesh_snapshot_timeout() -> StdDuration {
+pub(super) fn mesh_snapshot_timeout() -> StdDuration {
     if cfg!(test) {
         StdDuration::from_millis(750)
     } else {

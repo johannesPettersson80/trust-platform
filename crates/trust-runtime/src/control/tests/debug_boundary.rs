@@ -7,7 +7,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     assert!(state.debug.snapshot().is_some(), "debug snapshot");
 
     let stale_frame = handle_request_value(
@@ -72,7 +72,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     assert!(state.debug.snapshot().is_some(), "debug snapshot");
 
     let globals_ref = state
@@ -104,8 +104,14 @@ END_PROGRAM
         .iter()
         .find(|variable| variable.get("name").and_then(serde_json::Value::as_str) == Some("Main"))
         .expect("Main global");
-    assert_eq!(main.get("value").and_then(serde_json::Value::as_str), Some("Main"));
-    assert_eq!(main.get("type").and_then(serde_json::Value::as_str), Some("Main"));
+    assert_eq!(
+        main.get("value").and_then(serde_json::Value::as_str),
+        Some("Main")
+    );
+    assert_eq!(
+        main.get("type").and_then(serde_json::Value::as_str),
+        Some("Main")
+    );
     assert!(
         !main
             .get("value")
@@ -156,7 +162,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     assert!(state.debug.snapshot().is_some(), "debug snapshot");
 
     let poisoned = state.io_snapshot.clone();

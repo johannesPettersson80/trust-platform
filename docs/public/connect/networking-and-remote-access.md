@@ -6,7 +6,7 @@ from another machine, and which firewall/TLS/token policy owns that exposure.
 Every exposed endpoint needs an owner, transport, authentication expectation,
 and rollback plan before it leaves local development.
 
-That question usually appears before runtime-cloud, mesh, or remote HMI work.
+That question usually appears before runtime-cloud, mesh, or remote browser access work.
 
 ## Guide
 

@@ -22,11 +22,18 @@ pub fn check_program_stbc(
     sources_root: Option<&Path>,
 ) -> anyhow::Result<BundleCheckReport> {
     let compiled = compile_bundle_sources(bundle_root, sources_root)?;
+    let resources = crate::bytecode::BytecodeModule::decode(&compiled.bytes)?
+        .metadata()?
+        .resources
+        .iter()
+        .map(|resource| resource.name.to_string())
+        .collect();
     Ok(BundleCheckReport {
         bytecode_size: compiled.bytes.len(),
         sources: compiled.sources,
         dependency_roots: compiled.dependency_roots,
         resolved_dependencies: compiled.resolved_dependencies,
+        resources,
     })
 }
 
@@ -45,6 +52,21 @@ pub fn collect_project_source_files(
 
     let (sources, _) = collect_sources(&source_roots)?;
     Ok(sources)
+}
+
+/// The source folders of a project's local package dependencies (`[dependencies]` in its
+/// manifest, recursively), resolved as a build resolves them; none without a manifest.
+pub fn dependency_source_roots(bundle_root: &Path) -> anyhow::Result<Vec<PathBuf>> {
+    Ok(resolve_local_dependencies(bundle_root)?
+        .iter()
+        .map(|dependency| preferred_dependency_sources_root(&dependency.path))
+        .collect())
+}
+
+/// The folders of a project's local package dependencies, recursively, as a build resolves them;
+/// none without a manifest. A library's HMI files live under `hmi/` in its folder (spec 39, §8.7).
+pub fn dependency_roots(bundle_root: &Path) -> anyhow::Result<Vec<PathBuf>> {
+    Ok(resolve_local_dependencies(bundle_root)?.into_iter().map(|dependency| dependency.path).collect())
 }
 
 /// Inspect project sources/dependencies without building bytecode.

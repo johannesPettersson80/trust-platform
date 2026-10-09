@@ -38,7 +38,7 @@ plant = "oven"
 kind = "reset_plant"
 "#;
     write_file(&root.join("simulation.toml"), original);
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let read = handle_request_value(
         json!({
@@ -81,19 +81,44 @@ kind = "reset_plant"
 
     assert!(response.ok, "plant.save failed: {:?}", response.error);
     let saved = fs::read_to_string(root.join("simulation.toml")).expect("saved simulation file");
-    assert!(!saved.contains("scenario_events"), "request-only field leaked into [[plants]]");
+    assert!(
+        !saved.contains("scenario_events"),
+        "request-only field leaked into [[plants]]"
+    );
     let document: toml::Value = toml::from_str(&saved).expect("saved TOML");
     let events = document
         .get("plant_events")
         .and_then(toml::Value::as_array)
         .expect("global plant events");
-    assert_eq!(events.len(), 3, "unrelated event plus two replacement events");
-    assert_eq!(events[0].get("plant").and_then(toml::Value::as_str), Some("oven"));
-    assert_eq!(events[0].get("kind").and_then(toml::Value::as_str), Some("reset_plant"));
-    assert_eq!(events[1].get("plant").and_then(toml::Value::as_str), Some("tank"));
-    assert_eq!(events[1].get("kind").and_then(toml::Value::as_str), Some("add_state"));
-    assert_eq!(events[2].get("plant").and_then(toml::Value::as_str), Some("tank"));
-    assert_eq!(events[2].get("kind").and_then(toml::Value::as_str), Some("set_parameter"));
+    assert_eq!(
+        events.len(),
+        3,
+        "unrelated event plus two replacement events"
+    );
+    assert_eq!(
+        events[0].get("plant").and_then(toml::Value::as_str),
+        Some("oven")
+    );
+    assert_eq!(
+        events[0].get("kind").and_then(toml::Value::as_str),
+        Some("reset_plant")
+    );
+    assert_eq!(
+        events[1].get("plant").and_then(toml::Value::as_str),
+        Some("tank")
+    );
+    assert_eq!(
+        events[1].get("kind").and_then(toml::Value::as_str),
+        Some("add_state")
+    );
+    assert_eq!(
+        events[2].get("plant").and_then(toml::Value::as_str),
+        Some("tank")
+    );
+    assert_eq!(
+        events[2].get("kind").and_then(toml::Value::as_str),
+        Some("set_parameter")
+    );
 
     fs::remove_dir_all(root).expect("remove scenario-event fixture");
 }

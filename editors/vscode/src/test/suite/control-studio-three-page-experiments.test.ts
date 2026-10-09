@@ -216,7 +216,7 @@ function projectPlan(): ControlExperimentPlan {
   return {
     id: "test-plan", source: "simulation", kind: "project_sequence", affectedSignal: "P1.ExperimentEnabled",
     address: "%MX24.1", valueType: "BOOL", from: false, to: true, unit: "authority", minimum: 0, maximum: 1,
-    durationMs: 30100, expectedScan: 1, stopOnStaleMs: 500, stopConditions: ["Abort"], restorationValue: false,
+    durationMs: 30100, expectedScan: 1, stopConditions: ["Abort"], restorationValue: false,
     requiresPhysicalApproval: false, trajectory: [],
   };
 }

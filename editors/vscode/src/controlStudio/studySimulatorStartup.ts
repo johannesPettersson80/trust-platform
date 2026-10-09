@@ -1,5 +1,5 @@
 interface SimulatorLifecycle {
-  snapshot(): Promise<{ status: { running: boolean; runtimeMode: string } }>;
+  snapshot(): Promise<{ status: { running: boolean; runtimeMode: string; simulated?: boolean } }>;
   startLocalSimulator(): Promise<{ ok: boolean; failure?: { message?: string } }>;
 }
 
@@ -16,7 +16,11 @@ export class StudySimulatorStartup {
     current();
     const snapshot = await this.lifecycle.snapshot();
     current();
-    if (snapshot.status.runtimeMode !== "simulate") throw new Error("Select the local simulator before starting an isolated study.");
+    if (snapshot.status.runtimeMode !== "simulate") {
+      // A connected runtime whose own report makes it simulated (A2.4) needs no local simulator.
+      if (snapshot.status.running && snapshot.status.simulated === true) return;
+      throw new Error("Select the local simulator, or connect a runtime in simulation mode whose I/O is all simulated, before starting an isolated study (A2.4, A2.6).");
+    }
     if (!snapshot.status.running) {
       if (!this.starting) {
         const start = this.lifecycle.startLocalSimulator().then(result => {

@@ -1,0 +1,6 @@
+include_paths = ["src"]
+
+[dependencies]
+Plant = { path = "libraries/plant", version = "0.1.0" }
+
+Hmi = { path = "libraries/hmi", version = "0.1.0" }

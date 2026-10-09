@@ -14,6 +14,7 @@ use trust_runtime::harness::{
     parse_debug_expression, CompileError, CompileSession, SourceFile as HarnessSourceFile,
 };
 use trust_runtime::io::IoDriverRegistry;
+use trust_runtime::scheduler::SimulationSpeed;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::{Runtime, RuntimeMetadata};
 
@@ -75,6 +76,42 @@ impl SourceOptions {
     }
 }
 
+/// The simulation facts of the loaded program (specification 35, A2.4; specification 33, §6.1). The target is simulated
+/// unless a physical I/O driver is attached. Its speed is the configured `[simulation] time_scale`, or 1 when physical.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SimulationFacts {
+    pub enabled: bool,
+    pub time_scale: u32,
+}
+
+impl SimulationFacts {
+    /// The facts of a program whose I/O has `physical_io` attached and whose project configures `time_scale`.
+    #[must_use]
+    pub fn for_io(physical_io: bool, time_scale: u32) -> Self {
+        if physical_io {
+            Self {
+                enabled: false,
+                time_scale: 1,
+            }
+        } else {
+            Self {
+                enabled: true,
+                time_scale: time_scale.max(1),
+            }
+        }
+    }
+}
+
+impl Default for SimulationFacts {
+    /// Before a program is loaded nothing runs, so nothing is simulated.
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            time_scale: 1,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct DebugSession {
     runtime: Arc<Mutex<Runtime>>,
@@ -86,6 +123,8 @@ pub struct DebugSession {
     breakpoints: BreakpointManager,
     program_path: Option<String>,
     source_options: SourceOptions,
+    simulation_facts: SimulationFacts,
+    simulation_speed: SimulationSpeed,
 }
 
 impl DebugSession {
@@ -105,6 +144,8 @@ impl DebugSession {
             breakpoints: BreakpointManager::new(),
             program_path: None,
             source_options: SourceOptions::default(),
+            simulation_facts: SimulationFacts::default(),
+            simulation_speed: SimulationSpeed::new(1),
         }
     }
 
@@ -123,6 +164,8 @@ impl DebugSession {
             breakpoints: BreakpointManager::new(),
             program_path: None,
             source_options: SourceOptions::default(),
+            simulation_facts: SimulationFacts::default(),
+            simulation_speed: SimulationSpeed::new(1),
         }
     }
 
@@ -200,9 +243,20 @@ impl DebugSession {
             .collect::<Vec<_>>();
         let compile = CompileSession::from_sources(source_files);
         let mut runtime = compile.build_runtime()?;
-        apply_project_io_config(&mut runtime, &path, &self.source_options)?;
+        let physical_io = apply_project_io_config(&mut runtime, &path, &self.source_options)?;
         apply_project_ads_config(&mut runtime, &path, &self.source_options)?;
-        let simulation = load_project_simulation(&path, &self.source_options)?;
+        let simulation_file = load_project_simulation(&path, &self.source_options)?;
+        let facts = SimulationFacts::for_io(
+            physical_io,
+            simulation_file
+                .as_ref()
+                .map_or(1, |config| config.time_scale),
+        );
+        let simulation = simulation_file
+            .filter(|config| config.enabled)
+            .map(SimulationController::new);
+        // The runtime reports the same simulation fact from its first cycle on (specification 33, §6.1).
+        runtime.set_simulation_enabled(facts.enabled);
         runtime.set_debug_control(self.control.clone());
         runtime
             .apply_retain_snapshot(&retained)
@@ -215,6 +269,10 @@ impl DebugSession {
                 .runtime
                 .lock()
                 .map_err(|_| CompileError::new("runtime lock poisoned"))?;
+            // The display keeps its exchange across the reload.
+            if let Some(exchange) = guard.hmi_exchange() {
+                runtime.set_hmi_exchange(exchange);
+            }
             *guard = runtime;
         }
         self.metadata = metadata;
@@ -222,6 +280,9 @@ impl DebugSession {
             .simulation
             .lock()
             .map_err(|_| CompileError::new("simulation lock poisoned"))? = simulation;
+        // The loop keeps the same shared speed object across reloads; the control server holds it too.
+        self.simulation_speed.set(facts.time_scale);
+        self.simulation_facts = facts;
         self.replace_sources(&sources);
 
         // Ensure no stale breakpoints linger across reloads.
@@ -358,6 +419,14 @@ impl DebugRuntime for DebugSession {
         DebugSession::source_text_for_file_id(self, file_id)
     }
 
+    fn simulation_facts(&self) -> SimulationFacts {
+        self.simulation_facts
+    }
+
+    fn simulation_speed(&self) -> SimulationSpeed {
+        self.simulation_speed.clone()
+    }
+
     fn control_sources(&self) -> Vec<ControlSourceFile> {
         self.sources
             .iter()
@@ -370,21 +439,20 @@ impl DebugRuntime for DebugSession {
     }
 }
 
+/// The project's `simulation.toml`, if it exists. Its speed applies even when its plants are disabled, because the
+/// debug simulator always simulates (specification 33, §6.1 item 2).
 fn load_project_simulation(
     program_path: &str,
     options: &SourceOptions,
-) -> Result<Option<SimulationController>, CompileError> {
+) -> Result<Option<SimulationConfig>, CompileError> {
     let root = options
         .root
         .as_deref()
         .map(PathBuf::from)
         .or_else(|| Path::new(program_path).parent().map(Path::to_path_buf))
         .ok_or_else(|| CompileError::new("program path has no project root"))?;
-    let config = SimulationConfig::load_optional(root.join("simulation.toml"))
-        .map_err(|error| CompileError::new(error.to_string()))?;
-    Ok(config
-        .filter(|config| config.enabled)
-        .map(SimulationController::new))
+    SimulationConfig::load_optional(root.join("simulation.toml"))
+        .map_err(|error| CompileError::new(error.to_string()))
 }
 
 fn display_path(path: &Path) -> String {
@@ -403,6 +471,9 @@ include!("session/breakpoint_manager.rs");
 include!("session/source_and_parse_helpers.rs");
 include!("session/tests.rs");
 
+#[cfg(test)]
+#[path = "session/dependency_sources_test.rs"]
+mod dependency_sources_test;
 #[cfg(test)]
 #[path = "session/lesson1_sources_test.rs"]
 mod lesson1_sources_test;

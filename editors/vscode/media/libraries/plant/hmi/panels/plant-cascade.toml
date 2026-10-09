@@ -1,0 +1,193 @@
+format = 1
+title = "Cascade controller"
+size = [608, 440]
+pinnable = true
+settings = true
+
+[fields.OuterMode]
+accepts = ["enumeration"]
+
+[fields.OuterSetpoint]
+accepts = ["number"]
+
+[fields.OuterOutput]
+accepts = ["number"]
+
+[fields.OuterManualOutput]
+accepts = ["number"]
+
+[fields.OuterManual]
+accepts = ["boolean"]
+
+[fields.OuterSetpointPermit]
+accepts = ["boolean"]
+
+[fields.OuterSetpointText]
+accepts = ["text"]
+
+[fields.OuterOutputText]
+accepts = ["text"]
+
+[fields.InnerMode]
+accepts = ["enumeration"]
+
+[fields.InnerSetpoint]
+accepts = ["number"]
+
+[fields.InnerOutput]
+accepts = ["number"]
+
+[fields.InnerManualOutput]
+accepts = ["number"]
+
+[fields.InnerManual]
+accepts = ["boolean"]
+
+[fields.InnerSetpointPermit]
+accepts = ["boolean"]
+
+[fields.InnerSetpointText]
+accepts = ["text"]
+
+[fields.InnerOutputText]
+accepts = ["text"]
+
+[[object]]
+id = "outer-title"
+type = "text"
+variant = "heading"
+text = "Outer loop"
+at = [24, 24]
+size = [560, 28]
+
+[[object]]
+id = "outer-mode"
+type = "mode-selector"
+options = ["Manual", "Auto", "Cascade"]
+at = [24, 68]
+size = [560, 48]
+
+[object.bind]
+mode = "$OuterMode"
+
+[object.command]
+interface = "Plant.ILoop"
+method = "SetLoopMode"
+instance = "$instance.Outer"
+
+
+[object.command.arguments]
+Value = { input = true }
+
+[[object]]
+id = "outer-setpoint"
+type = "setpoint"
+label = "Setpoint"
+at = [24, 132]
+size = [272, 80]
+
+[object.bind]
+value = "$OuterSetpoint"
+interlock = "$OuterSetpointPermit"
+"interlock-reason" = "$OuterSetpointText"
+
+[object.command]
+interface = "Plant.ISetpoint"
+method = "SetSetpoint"
+instance = "$instance.Outer"
+
+
+[object.command.arguments]
+Value = { input = true }
+
+[[object]]
+id = "outer-output"
+type = "setpoint"
+label = "Output"
+unit = "%"
+at = [312, 132]
+size = [272, 80]
+
+[object.bind]
+value = "$OuterManualOutput"
+interlock = "$OuterManual"
+"interlock-reason" = "$OuterOutputText"
+
+[object.command]
+interface = "Plant.ILoop"
+method = "SetOutput"
+instance = "$instance.Outer"
+
+
+[object.command.arguments]
+Value = { input = true }
+
+[[object]]
+id = "inner-title"
+type = "text"
+variant = "heading"
+text = "Inner loop"
+at = [24, 228]
+size = [560, 28]
+
+[[object]]
+id = "inner-mode"
+type = "mode-selector"
+options = ["Manual", "Auto", "Cascade"]
+at = [24, 272]
+size = [560, 48]
+
+[object.bind]
+mode = "$InnerMode"
+
+[object.command]
+interface = "Plant.ILoop"
+method = "SetLoopMode"
+instance = "$instance.Inner"
+
+
+[object.command.arguments]
+Value = { input = true }
+
+[[object]]
+id = "inner-setpoint"
+type = "setpoint"
+label = "Setpoint"
+at = [24, 336]
+size = [272, 80]
+
+[object.bind]
+value = "$InnerSetpoint"
+interlock = "$InnerSetpointPermit"
+"interlock-reason" = "$InnerSetpointText"
+
+[object.command]
+interface = "Plant.ISetpoint"
+method = "SetSetpoint"
+instance = "$instance.Inner"
+
+
+[object.command.arguments]
+Value = { input = true }
+
+[[object]]
+id = "inner-output"
+type = "setpoint"
+label = "Output"
+unit = "%"
+at = [312, 336]
+size = [272, 80]
+
+[object.bind]
+value = "$InnerManualOutput"
+interlock = "$InnerManual"
+"interlock-reason" = "$InnerOutputText"
+
+[object.command]
+interface = "Plant.ILoop"
+method = "SetOutput"
+instance = "$instance.Inner"
+
+
+[object.command.arguments]
+Value = { input = true }

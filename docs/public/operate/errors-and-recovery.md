@@ -46,14 +46,6 @@ write/force/release.
 runtime). Fix it and press **Start** again. If a control port is already in use, stop the other process or
 change the port in the runtime config.
 
-## HMI shows nothing
-
-**What you see:** The HMI Preview says **"Start the runtime to see live HMI data."** rather than a blank
-screen or stale values; Trends/Alarms tabs show a designed note explaining what they render.
-
-**Recover:** Start the simulator (or connect a runtime). Once connected, the preview reads
-*"Values refreshed (connected)."* See [HMI (Preview & Browser)](hmi-and-web-ui.md).
-
 ## The honest-status promise
 
 Across every surface: grey means *not running/connected*; green appears **only** when a runtime is genuinely

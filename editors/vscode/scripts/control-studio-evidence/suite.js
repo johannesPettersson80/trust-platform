@@ -364,16 +364,6 @@ async function clickPlotTab(conn, sessionId, plotId) {
 const SNAPSHOT_BODY = `
   function txt(sel) { var e = doc.querySelector(sel); return e ? (e.textContent||'').trim() : null; }
   function attrOf(sel, name) { var e = doc.querySelector(sel); return e ? e.getAttribute(name) : null; }
-  var tabs = [].slice.call(doc.querySelectorAll('[data-control-studio-mode]')).map(function (b) {
-    return {
-      stage: (b.textContent||'').trim(),
-      status: b.getAttribute('data-status'),
-      ariaLabel: b.getAttribute('aria-label'),
-      ariaSelected: b.getAttribute('aria-selected'),
-      disabled: !!b.disabled,
-      title: b.getAttribute('title'),
-    };
-  });
   var panes = [].slice.call(doc.querySelectorAll('[data-workflow-pane]')).map(function (p) {
     return { pane: p.getAttribute('data-workflow-pane'), hidden: !!p.hidden };
   });
@@ -382,7 +372,6 @@ const SNAPSHOT_BODY = `
     var reading = v.querySelector('.value-reading');
     return { name: name ? (name.textContent||'').trim() : null, reading: reading ? (reading.textContent||'').trim() : null };
   });
-  var automaticTuneButton = doc.querySelector('[data-control-studio-automatic-tune]');
   var testAbort = doc.querySelector('[data-test-abort]');
   var abortRect = null;
   var abortVisibleInViewport = null;
@@ -405,13 +394,7 @@ const SNAPSHOT_BODY = `
       controllerRevision: txt('[data-control-studio-controller-revision]'),
       candidateRevision: txt('[data-control-studio-candidate-revision]'),
       freshness: txt('[data-control-studio-freshness]'),
-      automaticTune: automaticTuneButton ? {
-        text: (automaticTuneButton.textContent||'').trim(),
-        className: automaticTuneButton.className,
-        disabled: !!automaticTuneButton.disabled,
-      } : null,
     },
-    tabs: tabs,
     panes: panes,
     valueStrip: values,
     quality: txt('[data-control-studio-quality]'),

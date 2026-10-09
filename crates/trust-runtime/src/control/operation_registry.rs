@@ -113,6 +113,7 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
         false,
     ),
     operation("io.read", RolePolicy::Fixed(AccessRole::Viewer), false),
+    operation("hmi.read", RolePolicy::Fixed(AccessRole::Viewer), false),
     operation(
         "control.recording.start",
         RolePolicy::Fixed(AccessRole::Viewer),
@@ -125,6 +126,11 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
     ),
     operation(
         "control.recording.release",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation(
+        "control.recording.status",
         RolePolicy::Fixed(AccessRole::Viewer),
         false,
     ),
@@ -167,31 +173,6 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
         false,
     ),
     operation(
-        "hmi.schema.get",
-        RolePolicy::Fixed(AccessRole::Viewer),
-        false,
-    ),
-    operation(
-        "hmi.values.get",
-        RolePolicy::Fixed(AccessRole::Viewer),
-        false,
-    ),
-    operation(
-        "hmi.trends.get",
-        RolePolicy::Fixed(AccessRole::Viewer),
-        false,
-    ),
-    operation(
-        "hmi.alarms.get",
-        RolePolicy::Fixed(AccessRole::Viewer),
-        false,
-    ),
-    operation(
-        "hmi.descriptor.get",
-        RolePolicy::Fixed(AccessRole::Viewer),
-        false,
-    ),
-    operation(
         "historian.query",
         RolePolicy::Fixed(AccessRole::Viewer),
         false,
@@ -224,11 +205,6 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
     operation("pause", RolePolicy::Fixed(AccessRole::Operator), true),
     operation("resume", RolePolicy::Fixed(AccessRole::Operator), true),
     operation("restart", RolePolicy::Fixed(AccessRole::Operator), false),
-    operation(
-        "hmi.alarm.ack",
-        RolePolicy::Fixed(AccessRole::Operator),
-        false,
-    ),
     operation("pair.claim", RolePolicy::Fixed(AccessRole::Operator), false),
     operation("step_in", RolePolicy::Fixed(AccessRole::Engineer), true),
     operation("step_over", RolePolicy::Fixed(AccessRole::Engineer), true),
@@ -265,6 +241,11 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
     ),
     operation(
         "control.experiment.abort",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation(
+        "control.experiment.finish",
         RolePolicy::Fixed(AccessRole::Engineer),
         false,
     ),
@@ -329,17 +310,6 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
         "debug.evaluate",
         RolePolicy::Fixed(AccessRole::Engineer),
         true,
-    ),
-    operation("hmi.write", RolePolicy::Fixed(AccessRole::Engineer), false),
-    operation(
-        "hmi.descriptor.update",
-        RolePolicy::Fixed(AccessRole::Engineer),
-        false,
-    ),
-    operation(
-        "hmi.scaffold.reset",
-        RolePolicy::Fixed(AccessRole::Engineer),
-        false,
     ),
     operation("comm.apply", RolePolicy::Fixed(AccessRole::Engineer), false),
     operation("comm.test", RolePolicy::Fixed(AccessRole::Engineer), false),

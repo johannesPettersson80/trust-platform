@@ -19,7 +19,6 @@ QUERY_EXPECTATIONS: list[tuple[str, str]] = [
     ("agent serve", "start/agent-quickstart/"),
     ("vscode", "start/program-in-vscode/"),
     ("vs code", "start/program-in-vscode/"),
-    ("hmi", "operate/hmi-and-web-ui/"),
     ("ladder", "develop/visual-editors/ladder/"),
     ("visual editor", "develop/visual-editors/"),
     ("companion st", "develop/visual-editors/companion-st/"),

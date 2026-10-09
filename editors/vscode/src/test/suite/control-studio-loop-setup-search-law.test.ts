@@ -32,7 +32,7 @@ const draft = { ...scope, name: "Oven MPC", action: "direct", family: "MPC", ins
   setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualPct",
   coefficients: [{ symbol: "P1.Weight", unit: "1", values: [0.5, 1, 2] }, { symbol: "P1.Horizon", unit: "s", values: [0.1, 5] }],
   states: [{ symbol: "P1.Integral", unit: "%", start: "output" }, { symbol: "P1.Filtered", unit: "degC", start: "measurement" }],
-  experimentStep: 10, experimentDurationSeconds: 600, startupFlag: "P1.Started" };
+  startupFlag: "P1.Started" };
 const model = { kind: "transfer-function", numerator: [2], denominator: [60, 1], delaySeconds: 5, revision: "oven", source: "fitted",
   validation: "validated", evidence: ["recording"], inputs: [{ id: "u", unit: "%", operatingRange: { minimum: 0, maximum: 100 } }],
   outputs: [{ id: "y", unit: "degC", operatingRange: { minimum: 0, maximum: 300 } }], operatingPoint: { inputs: [20], outputs: [60] } };
@@ -84,7 +84,7 @@ const searchFill: [string, string][] = [["structure", "search"], ["name", "Oven 
   ["search.coefficient.0", "P1.Weight"], ["search.coefficient.0.unit", "1"], ["search.coefficient.0.values", "0.5, 1, 2"],
   ["search.coefficient.1", "P1.Horizon"], ["search.coefficient.1.unit", "s"], ["search.coefficient.1.values", "0.1; 5"],
   ["search.state.0", "P1.Integral"], ["search.state.0.unit", "%"], ["search.state.0.start", "output"],
-  ["search.state.1", "P1.Filtered"], ["search.state.1.unit", "degC"], ["search.state.1.start", "measurement"], ["search.experimentDuration", "600"]];
+  ["search.state.1", "P1.Filtered"], ["search.state.1.unit", "degC"], ["search.state.1.start", "measurement"]];
 
 suite("Control Studio coefficients tuned by search Tune result", () => {
   test("names the law and its coefficients by what they are, not by internal ids", () => {

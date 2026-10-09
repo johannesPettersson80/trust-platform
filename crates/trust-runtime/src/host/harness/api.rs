@@ -31,6 +31,7 @@ impl CompileSession {
 
     /// Build a compile session from multiple sources.
     pub fn from_sources(sources: Vec<SourceFile>) -> Self {
+        let _trace = trust_hir::timing::CompilerStage::new("compiler.preprocess", sources.len());
         let label_errors = sources.len() > 1;
         let (sources, instrumentation_errors) = instrument_sources_for_compile(sources);
         Self {
@@ -68,6 +69,8 @@ impl CompileSession {
 
     /// Compile sources into a runtime.
     pub fn build_runtime(&self) -> Result<Runtime, CompileError> {
+        let _trace =
+            trust_hir::timing::CompilerStage::new("compiler.build_runtime", self.sources.len());
         self.ensure_instrumented()?;
         build::build_runtime_from_source_files(
             &self.sources,

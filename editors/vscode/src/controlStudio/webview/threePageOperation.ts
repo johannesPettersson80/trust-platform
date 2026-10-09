@@ -1,9 +1,12 @@
 import type { StudioPage } from "./threePageHostState";
+import { runLockedControls } from "./runLock";
+import { nextActionHasButton, plainReason, studioFailureOf, type StudioFailure, type StudioNextAction } from "./studioFailure";
 
 export type StudioStart = "find" | "recording" | "tune" | "verify";
 export type StudioPost = (kind: string, payload?: Record<string, unknown>) => void;
 const pages: Record<StudioStart, StudioPage> = { find: "model", recording: "model", tune: "tune", verify: "verify" };
 const labels = { find: "Identify plant", tune: "Tune controller", verify: "Validate controller" };
+const PAGE_IDS: readonly StudioPage[] = ["model", "tune", "verify"];
 
 /** Displays one host-owned operation across all three pages. Navigation never starts work. */
 export class ThreePageOperation {
@@ -14,15 +17,67 @@ export class ThreePageOperation {
   private hasCandidate = false;
   private passed = false;
   private page: StudioPage = "model";
+  private resetConfirm?: HTMLElement;
+  private readonly pendingActions = new Map<StudioPage, StudioNextAction>();
   constructor(private readonly root: HTMLElement, private readonly post: StudioPost,
     private readonly select: (page: StudioPage, persist: boolean) => void,
-    private readonly missing: (field: string) => void) {}
+    private readonly missing: (field: string) => void,
+    /** Gates owned by other modules, such as an incomplete plant mapping or a simulator start in progress. */
+    private readonly external: () => string | undefined = () => undefined,
+    /** Performs a failure's typed next action on its own page; it never starts work by itself. */
+    private readonly nextAction: (kind: string, page: StudioPage) => void = () => undefined) {
+    for (const page of PAGE_IDS) {
+      this.root.querySelector<HTMLElement>(`[data-studio-message="${page}"]`)?.addEventListener("click", event => {
+        const target = event.target as HTMLElement | null;
+        const sentence = target && typeof target.closest === "function" ? target.closest<HTMLElement>(".studio-failure-sentence") : null;
+        const detail = this.detail(page);
+        if (!sentence || !detail) return;
+        detail.hidden = !detail.hidden;
+        sentence.setAttribute("aria-expanded", String(!detail.hidden));
+      });
+      this.failureAction(page)?.addEventListener("click", () => {
+        const action = this.pendingActions.get(page);
+        if (action) this.nextAction(action.kind, page);
+      });
+    }
+  }
 
   reset(): void {
     if (this.busy || this.resetting) return;
     this.resetting = true; this.render();
     this.post("control-studio.study.reset");
   }
+  /** Reset discards the study, so the engineer confirms it in the page; window.confirm does not work in a webview. */
+  bindReset(button: HTMLButtonElement, blocked: () => boolean): void {
+    const doc = this.root.ownerDocument;
+    const row = doc.createElement("div");
+    row.className = "studio-reset-confirm"; row.hidden = true; row.setAttribute("role", "group"); row.setAttribute("aria-label", "Confirm reset");
+    const text = doc.createElement("span");
+    text.textContent = "Reset discards the model, the tuned controller and the validation results.";
+    const confirm = doc.createElement("button"); confirm.type = "button"; confirm.className = "trust-button"; confirm.textContent = "Reset study";
+    const keep = doc.createElement("button"); keep.type = "button"; keep.className = "trust-button"; keep.textContent = "Keep";
+    row.append(text, confirm, keep);
+    button.after(row);
+    this.resetConfirm = row;
+    const refused = (): boolean => {
+      if (!this.busy && !blocked()) return false;
+      this.notice("model", "Finish or abort the current operation before resetting the study.");
+      return true;
+    };
+    button.addEventListener("click", () => {
+      if (refused()) return;
+      row.hidden = false; keep.focus();
+    });
+    keep.addEventListener("click", () => { row.hidden = true; button.focus(); });
+    confirm.addEventListener("click", () => { row.hidden = true; if (!refused()) this.reset(); });
+  }
+  /** The one rule for Identify, Tune and Validate: why an idle stage action must stay unavailable, or undefined when every gate agrees. */
+  stageBlock(): string | undefined {
+    if (this.busy) return undefined; // Abort stays reachable while work runs.
+    return this.resetting ? "Reset is in progress." : this.external();
+  }
+  /** A plant model reached the page: Tune becomes available, still subject to every gate. */
+  modelArrived(): void { this.hasModel = true; this.render(); }
   navigated(): void { if (this.busy) this.follows = false; }
   start(from: StudioStart, payload: Record<string, unknown>): void {
     if (this.busy) { this.post("control-studio.flow.cancel"); this.notice(this.page, "Aborting…"); return; }
@@ -49,12 +104,16 @@ export class ThreePageOperation {
     if (status === "verified") this.passed = true;
     if (["model-ready", "candidate", "verified"].includes(status)) this.notice(this.page, "");
     // An unavailable Tune shows why beside it; an available one needs no explanation.
-    if (status === "model-ready" || status === "unavailable") this.notice("tune", this.hasModel ? "" : String(payload.reason ?? ""));
+    if (status === "model-ready" || status === "unavailable") {
+      if (this.hasModel) this.notice("tune", "");
+      else this.show("tune", payload);
+    }
     if (status === "candidate" || status === "verified") this.notice("verify", "");
     if (status === "running" && payload.flowStage) {
       this.busy = true;
       if (this.follows) this.select(this.page, true);
-      this.notice(this.page, this.progress());
+      // The host's own progress sentence, such as the settling time left, replaces the generic one when it sends one.
+      this.notice(this.page, typeof payload.reason === "string" && payload.reason ? payload.reason : this.progress());
     }
     if (status === "running" && payload.activity === "model-check") this.notice(this.page, "Checking model…");
     if (stage === "flow" && ["paused", "completed", "cancelled"].includes(status)) {
@@ -63,27 +122,69 @@ export class ThreePageOperation {
       this.notice(this.page, status === "completed" ? "" : String(payload.reason ?? "Operation stopped."));
     } else if (!payload.flowStage && ["failed", "verification-failed", "unavailable", "recovery-required"].includes(status)) {
       this.busy = false;
-      this.notice(this.page, String(payload.reason ?? "The operation could not finish."));
+      this.show(this.page, payload, "The operation could not finish.");
     }
     if (status === "edited") { this.hasCandidate = false; this.passed = false; if (this.hasModel) this.notice("verify", "Tune again to validate the changed settings."); }
     if (status === "restored" && this.hasModel) this.notice("verify", "Tune again to validate new settings.");
     this.render();
     if (stage === "flow" && status === "paused" && typeof payload.missing === "string") this.missing(payload.missing);
   }
+  /** A plain message in a page's action area. It replaces any failure shown there. */
   notice(page: StudioPage, message: string): void {
-    const area = this.root.querySelector<HTMLElement>(`[data-studio-message="${page}"]`)!;
-    area.textContent = message; area.hidden = !message;
+    const area = this.message(page);
+    area.textContent = plainReason(message); area.hidden = !message;
+    this.clearFailure(page);
   }
+  /** A failure: one sentence, its technical reason in place when the sentence is selected, and at most one button for its fix. */
+  failure(page: StudioPage, failure: StudioFailure): void {
+    const area = this.message(page);
+    const doc = this.root.ownerDocument;
+    area.hidden = false;
+    if (failure.detail) {
+      const sentence = doc.createElement("button");
+      sentence.type = "button"; sentence.className = "studio-failure-sentence"; sentence.textContent = failure.message;
+      sentence.setAttribute("aria-expanded", "false"); sentence.setAttribute("aria-controls", `studio-failure-detail-${page}`);
+      area.replaceChildren(sentence);
+    } else area.textContent = failure.message;
+    const detail = this.detail(page);
+    if (detail) { detail.textContent = failure.detail ?? ""; detail.hidden = true; }
+    const action = this.failureAction(page);
+    if (action) {
+      const button = nextActionHasButton(failure.nextAction);
+      action.hidden = !button;
+      action.textContent = button ? failure.nextAction.label : "";
+      if (button) this.pendingActions.set(page, failure.nextAction); else this.pendingActions.delete(page);
+    }
+  }
+  private show(page: StudioPage, payload: Record<string, unknown>, fallback = ""): void {
+    const failure = studioFailureOf(payload);
+    if (failure) this.failure(page, failure);
+    else this.notice(page, fallback);
+  }
+  private clearFailure(page: StudioPage): void {
+    const detail = this.detail(page);
+    if (detail) { detail.textContent = ""; detail.hidden = true; }
+    const action = this.failureAction(page);
+    if (action) { action.hidden = true; action.textContent = ""; }
+    this.pendingActions.delete(page);
+  }
+  private message(page: StudioPage): HTMLElement { return this.root.querySelector<HTMLElement>(`[data-studio-message="${page}"]`)!; }
+  private detail(page: StudioPage): HTMLElement | null { return this.root.querySelector<HTMLElement>(`[data-studio-failure-detail="${page}"]`); }
+  private failureAction(page: StudioPage): HTMLButtonElement | null { return this.root.querySelector<HTMLButtonElement>(`[data-studio-failure-action="${page}"]`); }
   private progress(): string { return this.page === "model" ? "Identifying plant…" : this.page === "tune" ? "Tuning controller…" : "Validating controller…"; }
   synchronize(): void { this.render(); }
   private render(): void {
+    const blocked = this.stageBlock() !== undefined;
     for (const action of ["find", "tune", "verify"] as const) {
       const button = this.root.querySelector<HTMLButtonElement>(`[data-engineer-${action}]`)!;
       button.textContent = this.busy ? "Abort" : labels[action];
-      button.disabled = this.resetting || !this.busy && (action === "tune" ? !this.hasModel : action === "verify" ? !this.hasCandidate : false);
+      button.disabled = blocked || !this.busy && (action === "tune" ? !this.hasModel : action === "verify" ? !this.hasCandidate : false);
     }
-    for (const control of Array.from(this.root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>("select,input,[data-studio-limits],[data-studio-requirements],[data-identify-import],[data-studio-reset-chart]"))) control.disabled = this.busy || this.resetting;
-    this.root.querySelector<HTMLButtonElement>("[data-engineer-apply]")!.disabled = this.busy || this.resetting || !this.passed;
+    // The idle lock never re-enables an import that the bindings gate or another gate has closed.
+    for (const control of runLockedControls(this.root)) control.disabled = this.busy || this.resetting || (blocked && control.matches("[data-identify-import]"));
+    this.root.querySelector<HTMLButtonElement>("[data-engineer-apply]")!.disabled = this.busy || this.resetting || !this.passed || blocked;
+    if (this.resetConfirm && (this.busy || this.resetting)) this.resetConfirm.hidden = true;
     this.root.dataset.busy = String(this.busy || this.resetting);
   }
 }
+

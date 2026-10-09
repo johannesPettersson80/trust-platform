@@ -9,8 +9,8 @@ fn transfer_binding() -> serde_json::Value {
 
 fn transfer_fixture() -> (ControlState, TestHarness) {
     let source = "PROGRAM Main VAR Kp : LREAL := 2.0; Manual : BOOL := TRUE; ManualCommand : LREAL := 2.0; SP AT %ML0 : LREAL := 10.0; PV : LREAL := 10.0; MV AT %QL0 : LREAL; Alias : LREAL := 10.0; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := Kp * (SP-PV); END_IF; END_PROGRAM";
-    let mut state = hmi_test_state(source);
-    let mut harness = TestHarness::from_source(source).unwrap();
+    let mut state = simulated_control_state(source);
+    let mut harness = simulated_harness(source);
     state.debug = harness.runtime_mut().enable_debug();
     assert!(harness.cycle().errors.is_empty());
     *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
@@ -162,8 +162,8 @@ fn controller_transfer_competing_value_or_force_rejects_whole_set() {
 fn controller_transfer_guards_a_bool_member_and_rejects_the_transfer_when_it_changes() {
     // A cascade's inner loop guards its outer controller's mode (Specification 35 §3).
     let source = "PROGRAM Main VAR Kp : LREAL := 2.0; Manual : BOOL := TRUE; OuterAuto : BOOL := FALSE; ManualCommand : LREAL := 2.0; SP AT %ML0 : LREAL := 10.0; PV : LREAL := 10.0; MV AT %QL0 : LREAL; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := Kp * (SP-PV); END_IF; END_PROGRAM";
-    let mut state = hmi_test_state(source);
-    let mut harness = TestHarness::from_source(source).unwrap();
+    let mut state = simulated_control_state(source);
+    let mut harness = simulated_harness(source);
     state.debug = harness.runtime_mut().enable_debug();
     assert!(harness.cycle().errors.is_empty());
     *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
@@ -223,8 +223,8 @@ fn controller_transfer_guards_a_bool_member_and_rejects_the_transfer_when_it_cha
 fn controller_transfer_switches_additional_modes_with_the_mode_and_returns_them_in_manual() {
     // A cascade enters Auto with both controllers at one task boundary, and Restore returns both to Manual (Specification 35 §17.11).
     let source = "PROGRAM Main VAR Kp : LREAL := 2.0; Manual : BOOL := TRUE; OuterManual : BOOL := TRUE; ManualCommand : LREAL := 2.0; SP AT %ML0 : LREAL := 10.0; PV : LREAL := 10.0; MV AT %QL0 : LREAL; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := Kp * (SP-PV); END_IF; END_PROGRAM";
-    let mut state = hmi_test_state(source);
-    let mut harness = TestHarness::from_source(source).unwrap();
+    let mut state = simulated_control_state(source);
+    let mut harness = simulated_harness(source);
     state.debug = harness.runtime_mut().enable_debug();
     assert!(harness.cycle().errors.is_empty());
     *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
@@ -426,7 +426,26 @@ fn controller_transfer_rejected_first_output_fails_the_transfer_without_halting_
         failed["program_revision"], before["program_revision"],
         "no reload or restart happened, so write authority keeps its identity"
     );
-    assert_eq!(failed["values"]["Main.Manual"], false, "Auto was entered");
+    assert_eq!(
+        failed["transaction"]["restored"], true,
+        "the rejected commit was reverted before the output commit"
+    );
+    assert_eq!(
+        failed["values"]["Main.Manual"], true,
+        "a rejected Auto entry leaves the loop in Manual"
+    );
+    assert_eq!(
+        failed["values"]["Main.SP"], before["values"]["Main.SP"],
+        "the transferred reference returns to its pre-transfer value"
+    );
+    assert_eq!(
+        failed["values"]["Main.ManualCommand"],
+        before["values"]["Main.ManualCommand"]
+    );
+    assert_eq!(
+        failed["values"]["Main.MV"], 2.0,
+        "the output holds its task-boundary value"
+    );
     assert_eq!(
         harness
             .runtime()
@@ -436,6 +455,13 @@ fn controller_transfer_rejected_first_output_fails_the_transfer_without_halting_
         Value::LWord(2.0_f64.to_bits()),
         "the rejected first output image is not published"
     );
+    assert!(harness.cycle().errors.is_empty());
+    let next = transfer_status(&state);
+    assert_eq!(
+        next["values"]["Main.Manual"], true,
+        "the next scan still runs in Manual"
+    );
+    assert_eq!(next["values"]["Main.MV"], 2.0);
 
     let cancelled = handle_request_value(
         json!({"id":8643,"type":"control.parameters.cancel","params":{"loop_id":"ordinary-loop",
@@ -453,25 +479,7 @@ fn controller_transfer_rejected_first_output_fails_the_transfer_without_halting_
     assert_eq!(cancelled["confirmed"], true);
     assert_eq!(cancelled["before_dispatch"], false);
 
-    // The separately guarded recovery holds the current output in Manual, then restores the gain.
-    let current = transfer_status(&state);
-    let held = current["values"]["Main.MV"].clone();
-    let recovery = handle_request_value(
-        json!({"id":8644,"type":"control.transfer.apply","params":{
-        "transaction_id":"manual-recovery","binding":transfer_binding(),
-        "expected_program_revision":current["program_revision"],"expected_binding_revision":current["binding_revision"],
-        "expected_values":current["values"],"values":{"Main.SP":10.0,"Main.ManualCommand":held},
-        "manual":true,"maximum_output_change":0.000001,"source":"simulation","physical_approved":false}}),
-        &state,
-        None,
-    );
-    assert!(recovery.ok, "{:?}", recovery.error);
-    assert!(harness.cycle().errors.is_empty());
-    let recovered = transfer_status(&state);
-    assert_eq!(recovered["status"], "applied", "{recovered}");
-    assert_eq!(recovered["values"]["Main.Manual"], true);
-    assert_eq!(recovered["values"]["Main.MV"], held);
-
+    // The gain is rolled back, so the same Auto entry can be continuous: Kp 2 and SP 11 make the first output the held 2 V.
     let adopted = gain_status(&state);
     let rollback = handle_request_value(
         json!({"id":8645,"type":"control.parameters.rollback","params":{
@@ -484,6 +492,71 @@ fn controller_transfer_rejected_first_output_fails_the_transfer_without_halting_
     assert!(rollback.ok, "{:?}", rollback.error);
     assert!(harness.cycle().errors.is_empty());
     assert_eq!(gain_status(&state)["values"], gains["values"]);
+
+    // A new transaction retries the Auto entry on the reverted loop, and the continuous entry is accepted.
+    let current = transfer_status(&state);
+    let retry = handle_request_value(
+        json!({"id":8646,"type":"control.transfer.apply","params":{
+        "transaction_id":"discontinuous-entry-retry","binding":transfer_binding(),
+        "expected_program_revision":current["program_revision"],"expected_binding_revision":current["binding_revision"],
+        "expected_values":current["values"],"values":{"Main.SP":11.0,"Main.ManualCommand":2.0},
+        "manual":false,"maximum_output_change":0.000001,"source":"simulation","physical_approved":false}}),
+        &state,
+        None,
+    );
+    assert!(retry.ok, "{:?}", retry.error);
+    assert!(harness.cycle().errors.is_empty());
+    let recovered = transfer_status(&state);
+    assert_eq!(recovered["status"], "applied", "{recovered}");
+    assert_eq!(recovered["values"]["Main.Manual"], false);
+    assert_eq!(recovered["values"]["Main.MV"], 2.0);
+}
+
+#[test]
+fn controller_transfer_failed_manual_to_manual_transfer_reverts_the_whole_set() {
+    let (state, mut harness) = transfer_fixture();
+    let before = transfer_status(&state);
+    // A Manual-to-Manual step of the command beyond the reviewed tolerance: the held output would jump from 2 V to 5 V.
+    let step = handle_request_value(
+        json!({"id":8647,"type":"control.transfer.apply","params":{
+        "transaction_id":"manual-step","binding":transfer_binding(),
+        "expected_program_revision":before["program_revision"],"expected_binding_revision":before["binding_revision"],
+        "expected_values":before["values"],"values":{"Main.SP":10.0,"Main.ManualCommand":5.0},
+        "manual":true,"maximum_output_change":0.000001,"source":"simulation","physical_approved":false}}),
+        &state,
+        None,
+    );
+    assert!(step.ok, "{:?}", step.error);
+    assert!(
+        harness.cycle().errors.is_empty(),
+        "a rejected transfer is not a runtime fault"
+    );
+    let failed = transfer_status(&state);
+    assert_eq!(failed["status"], "failed");
+    assert!(failed["transaction"]["reason"]
+        .as_str()
+        .unwrap()
+        .contains("violates reviewed transfer tolerance"));
+    assert_eq!(failed["transaction"]["restored"], true);
+    assert_eq!(failed["values"]["Main.Manual"], true);
+    assert_eq!(
+        failed["values"]["Main.ManualCommand"], 2.0,
+        "the commanded step returns to its pre-transfer value"
+    );
+    assert_eq!(failed["values"]["Main.SP"], 10.0);
+    assert_eq!(
+        failed["values"]["Main.MV"], 2.0,
+        "the output holds its task-boundary value"
+    );
+    assert_eq!(
+        harness
+            .runtime()
+            .io()
+            .read(&crate::io::IoAddress::parse("%QL0").unwrap())
+            .unwrap(),
+        Value::LWord(2.0_f64.to_bits()),
+        "the rejected step is not published"
+    );
 }
 
 #[test]
@@ -787,8 +860,8 @@ fn controller_transfer_tracks_fresh_pv_and_committed_output_at_task_boundary() {
 #[test]
 fn controller_transfer_uses_declared_applied_feedback_as_output_basis() {
     let source = "PROGRAM Main VAR Kp : LREAL := 2.0; Manual : BOOL := TRUE; ManualCommand : LREAL := 2.0; SP AT %ML0 : LREAL := 10.0; PV : LREAL := 10.0; MV AT %QL0 : LREAL; Applied AT %IL0 : LREAL; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := Kp * (SP-PV); END_IF; END_PROGRAM";
-    let mut state = hmi_test_state(source);
-    let mut harness = TestHarness::from_source(source).unwrap();
+    let mut state = simulated_control_state(source);
+    let mut harness = simulated_harness(source);
     state.debug = harness.runtime_mut().enable_debug();
     assert!(harness.cycle().errors.is_empty());
     harness
@@ -957,8 +1030,8 @@ fn pid_transfer_binding() -> serde_json::Value {
 
 fn pid_transfer_fixture() -> (ControlState, TestHarness) {
     let source = "PROGRAM Main VAR Kp : LREAL := 2.0; Ki : LREAL := 1.0; Kd : LREAL := 3.0; Integral : LREAL := 0.0; PreviousError : LREAL := 0.0; Manual : BOOL := TRUE; ManualCommand : LREAL := 2.0; SP AT %ML0 : LREAL := 10.0; PV : LREAL := 10.0; MV AT %QL0 : LREAL; END_VAR IF Manual THEN MV := ManualCommand; ELSE Integral := Integral + Ki * (SP-PV) * LREAL#0.02; MV := Kp * (SP-PV) + Integral + Kd * ((SP-PV) - PreviousError) / LREAL#0.02; PreviousError := SP-PV; END_IF; END_PROGRAM";
-    let mut state = hmi_test_state(source);
-    let mut harness = TestHarness::from_source(source).unwrap();
+    let mut state = simulated_control_state(source);
+    let mut harness = simulated_harness(source);
     state.debug = harness.runtime_mut().enable_debug();
     assert!(harness.cycle().errors.is_empty());
     *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
@@ -986,8 +1059,8 @@ fn transfer_status_for(state: &ControlState, binding: serde_json::Value) -> serd
 #[test]
 fn controller_transfer_declared_model_output_formula_uses_fresh_boundary_measurement() {
     let source = "PROGRAM Main VAR Manual : BOOL := TRUE; SP : LREAL := 10.0; PV : LREAL := 10.0; ManualCommand : LREAL := 2.0; MV AT %QL0 : LREAL; Filter : LREAL := 0.0; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := ManualCommand; END_IF; END_PROGRAM";
-    let mut state = hmi_test_state(source);
-    let mut harness = TestHarness::from_source(source).unwrap();
+    let mut state = simulated_control_state(source);
+    let mut harness = simulated_harness(source);
     state.debug = harness.runtime_mut().enable_debug();
     assert!(harness.cycle().errors.is_empty());
     *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
@@ -1043,4 +1116,534 @@ fn controller_transfer_declared_model_output_formula_uses_fresh_boundary_measure
     .unwrap();
     assert_eq!(after["status"], "applied");
     assert_eq!(after["transaction"]["applied_values"]["Main.Filter"], 10.25);
+}
+
+/// Specification 35, §17.1: a loop whose program sets the manual output from the output in Auto
+/// (Create PLC code's loops, so Manual takes over where the loop is) declares that manual output a
+/// bounded post-scan state; the transfer to Auto is applied although the program changes it.
+#[test]
+fn controller_transfer_accepts_a_manual_output_that_follows_the_output_in_auto() {
+    let source = "PROGRAM Main VAR Manual : BOOL := TRUE; SP : LREAL := 10.0; PV : LREAL := 10.0; ManualCommand : LREAL := 2.0; MV AT %QL0 : LREAL; Filter : LREAL := 0.0; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := ManualCommand + 0.0001; ManualCommand := MV; END_IF; END_PROGRAM";
+    let mut state = simulated_control_state(source);
+    let mut harness = simulated_harness(source);
+    state.debug = harness.runtime_mut().enable_debug();
+    assert!(harness.cycle().errors.is_empty());
+    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
+    state.debug.refresh_snapshot_from_storage(
+        harness.runtime().storage(),
+        harness.runtime().current_time(),
+    );
+    let binding = json!({"loop_id":"tracking-manual-loop","task_name":"$background",
+        "mode":{"symbol":"Main.Manual","manual_value":true},
+        "states":[
+            {"symbol":"Main.SP","iec_type":"LREAL","unit":"m","minimum":-20,"maximum":20},
+            {"symbol":"Main.ManualCommand","iec_type":"LREAL","unit":"V","minimum":-20,"maximum":20},
+            {"symbol":"Main.Filter","iec_type":"LREAL","unit":"m","minimum":-20,"maximum":20}],
+        "guards":[{"symbol":"Main.PV","iec_type":"LREAL","unit":"m","minimum":-20,"maximum":20}],
+        "output":{"symbol":"Main.MV","iec_type":"LREAL","unit":"V","minimum":-20,"maximum":20}});
+    let before = transfer_status_for(&state, binding.clone());
+    let apply = handle_request_value(
+        json!({"id":8631,"type":"control.transfer.apply","params":{
+        "transaction_id":"tracking-manual-output","binding":binding.clone(),
+        "expected_program_revision":before["program_revision"],"expected_binding_revision":before["binding_revision"],
+        "expected_values":before["values"],"values":{"Main.SP":10.0,"Main.ManualCommand":2.0,"Main.Filter":0.0},
+        "manual":false,"maximum_output_change":0.01,"source":"simulation","physical_approved":false,
+        "tracking":{"kind":"declared-state-v1","reference_symbol":"Main.SP","manual_command_symbol":"Main.ManualCommand",
+            "process_variable":"Main.PV","align_output":true,"initialization_values":{"Main.Filter":0.0},
+            "bounded_state_symbols":["Main.ManualCommand"]}}}),
+        &state,
+        None,
+    );
+    assert!(
+        apply.ok,
+        "a manual output that follows the output is a bounded state: {:?}",
+        apply.error
+    );
+    assert!(harness.cycle().errors.is_empty());
+    let after = transfer_status_for(&state, binding);
+    assert_eq!(after["status"], "applied", "{after}");
+}
+
+/// Leaving Auto: the program copies its moving output into the manual output every scan, so the
+/// manual output changes between the reviewed snapshot and the task boundary; declared bounded,
+/// it is accepted there and Manual starts from the held output (specification 35, §17.1).
+#[test]
+fn controller_transfer_to_manual_accepts_a_manual_output_that_follows_the_output() {
+    let source = "PROGRAM Main VAR Manual : BOOL := FALSE; SP : LREAL := 10.0; PV : LREAL := 10.0; ManualCommand : LREAL := 2.0; MV AT %QL0 : LREAL := 2.0; Filter : LREAL := 0.0; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := MV + 0.001; ManualCommand := MV; END_IF; END_PROGRAM";
+    let mut state = simulated_control_state(source);
+    let mut harness = simulated_harness(source);
+    state.debug = harness.runtime_mut().enable_debug();
+    assert!(harness.cycle().errors.is_empty());
+    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
+    state.debug.refresh_snapshot_from_storage(
+        harness.runtime().storage(),
+        harness.runtime().current_time(),
+    );
+    let binding = json!({"loop_id":"tracking-leave-auto","task_name":"$background",
+        "mode":{"symbol":"Main.Manual","manual_value":true},
+        "states":[
+            {"symbol":"Main.SP","iec_type":"LREAL","unit":"m","minimum":-20,"maximum":20},
+            {"symbol":"Main.ManualCommand","iec_type":"LREAL","unit":"V","minimum":-20,"maximum":20},
+            {"symbol":"Main.Filter","iec_type":"LREAL","unit":"m","minimum":-20,"maximum":20}],
+        "guards":[{"symbol":"Main.PV","iec_type":"LREAL","unit":"m","minimum":-20,"maximum":20}],
+        "output":{"symbol":"Main.MV","iec_type":"LREAL","unit":"V","minimum":-20,"maximum":20}});
+    let before = transfer_status_for(&state, binding.clone());
+    let reviewed = before["values"]["Main.ManualCommand"].as_f64().unwrap();
+    // One more Auto scan: the output and the manual output that follows it move on.
+    assert!(harness.cycle().errors.is_empty());
+    let apply = handle_request_value(
+        json!({"id":8632,"type":"control.transfer.apply","params":{
+        "transaction_id":"tracking-leave-auto","binding":binding.clone(),
+        "expected_program_revision":before["program_revision"],"expected_binding_revision":before["binding_revision"],
+        "expected_values":before["values"],"values":{"Main.SP":10.0,"Main.ManualCommand":reviewed,"Main.Filter":0.0},
+        "manual":true,"maximum_output_change":0.01,"source":"simulation","physical_approved":false,
+        "tracking":{"kind":"declared-state-v1","reference_symbol":"Main.SP","manual_command_symbol":"Main.ManualCommand",
+            "process_variable":"Main.PV","align_output":false,"initialization_values":{"Main.Filter":0.0},
+            "bounded_state_symbols":["Main.ManualCommand"]}}}),
+        &state,
+        None,
+    );
+    assert!(apply.ok, "{:?}", apply.error);
+    assert!(harness.cycle().errors.is_empty());
+    state.debug.refresh_snapshot_from_storage(
+        harness.runtime().storage(),
+        harness.runtime().current_time(),
+    );
+    let after = transfer_status_for(&state, binding);
+    assert_eq!(
+        after["status"], "applied",
+        "the manual output the program sets is accepted at the boundary: {after}"
+    );
+    assert_eq!(after["values"]["Main.Manual"], json!(true), "{after}");
+    let held = after["values"]["Main.ManualCommand"].as_f64().unwrap();
+    assert!(
+        held > reviewed,
+        "Manual starts from the output held at the boundary, not the reviewed value: {held} after {reviewed}"
+    );
+}
+
+/// A loop whose output has no address: the program hands it on to the block that owns the I/O, as
+/// Create PLC code writes a PID loop (`EH101.AutoPower := TIC101_Output`). The transfer holds the
+/// output's value at the task boundary, the value the last scan drove the plant with
+/// (specification 35, §17.1).
+#[test]
+fn controller_transfer_holds_an_output_the_program_hands_on_without_an_address() {
+    let source = "PROGRAM Main VAR Manual : BOOL := FALSE; SP : LREAL := 10.0; PV : LREAL := 10.0; ManualCommand : LREAL := 2.0; MV : LREAL := 2.0; Heater AT %QL0 : LREAL; Filter : LREAL := 0.0; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := MV + 0.001; ManualCommand := MV; END_IF; Heater := MV; END_PROGRAM";
+    let mut state = simulated_control_state(source);
+    let mut harness = simulated_harness(source);
+    state.debug = harness.runtime_mut().enable_debug();
+    assert!(harness.cycle().errors.is_empty());
+    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
+    state.debug.refresh_snapshot_from_storage(
+        harness.runtime().storage(),
+        harness.runtime().current_time(),
+    );
+    let binding = json!({"loop_id":"tracking-unaddressed-output","task_name":"$background",
+        "mode":{"symbol":"Main.Manual","manual_value":true},
+        "states":[
+            {"symbol":"Main.SP","iec_type":"LREAL","unit":"m","minimum":-20,"maximum":20},
+            {"symbol":"Main.ManualCommand","iec_type":"LREAL","unit":"V","minimum":-20,"maximum":20},
+            {"symbol":"Main.Filter","iec_type":"LREAL","unit":"m","minimum":-20,"maximum":20}],
+        "guards":[{"symbol":"Main.PV","iec_type":"LREAL","unit":"m","minimum":-20,"maximum":20}],
+        "output":{"symbol":"Main.MV","iec_type":"LREAL","unit":"V","minimum":-20,"maximum":20}});
+    let before = transfer_status_for(&state, binding.clone());
+    let apply = handle_request_value(
+        json!({"id":8633,"type":"control.transfer.apply","params":{
+        "transaction_id":"tracking-unaddressed-output","binding":binding.clone(),
+        "expected_program_revision":before["program_revision"],"expected_binding_revision":before["binding_revision"],
+        "expected_values":before["values"],"values":{"Main.SP":10.0,"Main.ManualCommand":2.0,"Main.Filter":0.0},
+        "manual":true,"maximum_output_change":0.01,"source":"simulation","physical_approved":false,
+        "tracking":{"kind":"declared-state-v1","reference_symbol":"Main.SP","manual_command_symbol":"Main.ManualCommand",
+            "process_variable":"Main.PV","align_output":false,"initialization_values":{"Main.Filter":0.0},
+            "bounded_state_symbols":["Main.ManualCommand"]}}}),
+        &state,
+        None,
+    );
+    assert!(apply.ok, "{:?}", apply.error);
+    assert!(harness.cycle().errors.is_empty());
+    state.debug.refresh_snapshot_from_storage(
+        harness.runtime().storage(),
+        harness.runtime().current_time(),
+    );
+    let after = transfer_status_for(&state, binding);
+    assert_eq!(
+        after["status"], "applied",
+        "an unaddressed output holds its boundary value: {after}"
+    );
+    assert_eq!(after["values"]["Main.Manual"], json!(true), "{after}");
+    let held = after["values"]["Main.ManualCommand"].as_f64().unwrap();
+    let output = after["values"]["Main.MV"].as_f64().unwrap();
+    assert_eq!(held, output, "Manual holds the output it took over: {after}");
+}
+
+/// A simulated target: simulation is enabled, and the scans that follow publish that all I/O is simulated (A2.4).
+fn simulated_control_state(source: &str) -> ControlState {
+    let state = control_test_state(source);
+    state.experiments.record_simulated_target(true);
+    state
+}
+
+/// A harness whose runtime is simulated: simulation is enabled, so the runtime's own target fact is simulated while all
+/// of its I/O is simulation-only (A2.4).
+fn simulated_harness(source: &str) -> TestHarness {
+    let mut harness = TestHarness::from_source(source).expect("build harness");
+    harness.runtime_mut().set_simulation_enabled(true);
+    harness
+}
+
+/// The text of a refusal.
+fn refusal_text(response: &ControlResponse) -> &str {
+    response.error.as_deref().unwrap_or_default()
+}
+
+fn transfer_apply_request(
+    state: &ControlState,
+    before: &serde_json::Value,
+    transaction_id: &str,
+    source: &str,
+    approved: bool,
+) -> ControlResponse {
+    handle_request_value(
+        json!({"id":8701,"type":"control.transfer.apply","params":{
+        "transaction_id":transaction_id,"binding":transfer_binding(),
+        "expected_program_revision":before["program_revision"],"expected_binding_revision":before["binding_revision"],
+        "expected_values":before["values"],"values":{"Main.SP":11.0,"Main.ManualCommand":2.0},
+        "manual":false,"maximum_output_change":0.000001,"source":source,"physical_approved":approved}}),
+        state,
+        None,
+    )
+}
+
+/// The Auto entry of the fixture, tracked by the proportional law on its measured PV (A6.4 bands apply to the PV).
+fn tracked_transfer_apply(
+    state: &ControlState,
+    before: &serde_json::Value,
+    transaction_id: &str,
+) -> ControlResponse {
+    handle_request_value(
+        json!({"id":8720,"type":"control.transfer.apply","params":{
+        "transaction_id":transaction_id,"binding":transfer_binding(),
+        "expected_program_revision":before["program_revision"],"expected_binding_revision":before["binding_revision"],
+        "expected_values":before["values"],"values":{"Main.SP":11.0,"Main.ManualCommand":2.0},
+        "manual":false,"maximum_output_change":0.000001,"source":"simulation","physical_approved":false,
+        "tracking":{"kind":"proportional","reference_symbol":"Main.SP","manual_command_symbol":"Main.ManualCommand",
+            "process_variable":"Main.PV","gain_symbol":"Main.Kp","align_reference":true}}}),
+        state,
+        None,
+    )
+}
+
+/// Writes a field of the fixture's program instance into a copy of the storage, so that a task boundary can be checked
+/// without running the program.
+fn write_main_field(storage: &mut crate::memory::VariableStorage, field: &str, value: Value) {
+    let Value::Instance(id) = storage.get_global("Main").unwrap() else {
+        panic!("program instance");
+    };
+    let reference = storage.resolved_instance_field_ref(*id, field).unwrap();
+    assert!(storage.write_by_ref(reference, value));
+}
+
+#[test]
+fn controller_transfer_label_must_agree_with_the_runtime_target_fact() {
+    let (state, _harness) = transfer_fixture();
+    let before = transfer_status(&state);
+    let physical = transfer_apply_request(&state, &before, "label-physical", "physical", true);
+    assert!(!physical.ok);
+    assert_eq!(
+        refusal_text(&physical),
+        "The request says physical, but the runtime's target is simulated."
+    );
+    state.experiments.record_simulated_target(false);
+    let simulated = transfer_apply_request(&state, &before, "label-simulation", "simulation", false);
+    assert!(!simulated.ok);
+    assert_eq!(
+        refusal_text(&simulated),
+        "The request says simulation, but the runtime's target is physical."
+    );
+}
+
+#[test]
+fn controller_transfer_physical_target_needs_approval_at_apply() {
+    let (state, _harness) = transfer_fixture();
+    state.experiments.record_simulated_target(false);
+    let before = transfer_status(&state);
+    let unapproved = transfer_apply_request(&state, &before, "physical-unapproved", "physical", false);
+    assert!(!unapproved.ok);
+    assert_eq!(refusal_text(&unapproved), "physical review required");
+    let approved = transfer_apply_request(&state, &before, "physical-approved", "physical", true);
+    assert!(approved.ok, "{:?}", approved.error);
+    assert_eq!(transfer_status(&state)["status"], "pending");
+}
+
+#[test]
+fn controller_transfer_physical_target_at_the_boundary_needs_approval() {
+    let (state, harness) = transfer_fixture();
+    let before = transfer_status(&state);
+    let applied = transfer_apply_request(&state, &before, "boundary-approval", "simulation", false);
+    assert!(applied.ok, "{:?}", applied.error);
+    // The target turns physical after the review and before the boundary, for example when a fieldbus client appears.
+    let metadata = harness.runtime().metadata_snapshot();
+    let mut storage = harness.runtime().storage().clone();
+    state
+        .debug
+        .commit_transfer("$background", &mut storage, &metadata, true, &[]);
+    let after = transfer_status(&state);
+    assert_eq!(after["status"], "rejected");
+    assert_eq!(
+        after["reason"],
+        "attached I/O requires explicit physical review"
+    );
+    assert_eq!(after["values"], before["values"], "a refused boundary writes nothing");
+}
+
+#[test]
+fn controller_transfer_status_of_another_binding_leaves_the_record_unchanged() {
+    let (state, mut harness) = transfer_fixture();
+    let before = transfer_status(&state);
+    assert!(queue_transfer(&state, &before).ok);
+    assert!(harness.cycle().errors.is_empty());
+    let applied = transfer_status(&state);
+    assert_eq!(applied["status"], "applied");
+    let mut replacement = transfer_binding();
+    replacement["states"][0]["maximum"] = json!(15.0);
+    let other = handle_request_value(
+        json!({"id":8710,"type":"control.transfer.status","params":{"binding":replacement}}),
+        &state,
+        None,
+    );
+    assert!(other.ok, "{:?}", other.error);
+    let other = other.result.unwrap();
+    assert_eq!(other["status"], "idle", "a binding reports only the transaction it owns");
+    assert!(other["transaction"].is_null());
+    let again = transfer_status(&state);
+    assert_eq!(again["status"], "applied");
+    assert_eq!(
+        again["transaction"], applied["transaction"],
+        "a status read does not overwrite the record"
+    );
+}
+
+#[test]
+fn controller_transfer_measurement_outside_its_range_is_rejected_at_the_boundary() {
+    let (state, harness) = transfer_fixture();
+    let before = transfer_status(&state);
+    let response = tracked_transfer_apply(&state, &before, "measured-out-of-range");
+    assert!(response.ok, "{:?}", response.error);
+    let metadata = harness.runtime().metadata_snapshot();
+    let mut storage = harness.runtime().storage().clone();
+    write_main_field(&mut storage, "PV", Value::LReal(25.0));
+    state
+        .debug
+        .commit_transfer("$background", &mut storage, &metadata, false, &[]);
+    let after = transfer_status(&state);
+    assert_eq!(after["status"], "rejected");
+    assert!(
+        after["reason"]
+            .as_str()
+            .unwrap()
+            .contains("Main.PV = 25 is outside its declared range [-20, 20]"),
+        "{after}"
+    );
+}
+
+#[test]
+fn controller_transfer_bad_quality_measurement_is_rejected_at_the_boundary() {
+    let (state, harness) = transfer_fixture();
+    let before = transfer_status(&state);
+    assert!(tracked_transfer_apply(&state, &before, "measured-not-finite").ok);
+    let metadata = harness.runtime().metadata_snapshot();
+    let mut storage = harness.runtime().storage().clone();
+    write_main_field(&mut storage, "PV", Value::LReal(f64::NAN));
+    state
+        .debug
+        .commit_transfer("$background", &mut storage, &metadata, false, &[]);
+    let after = transfer_status(&state);
+    assert_eq!(after["status"], "rejected");
+    assert_eq!(after["reason"], "Main.PV has bad quality: not a finite number");
+}
+
+#[test]
+fn controller_transfer_refuses_a_live_write_while_the_snapshot_is_stale() {
+    let (state, _harness) = transfer_fixture();
+    state.debug.invalidate_control_program();
+    let before = transfer_status(&state);
+    let response = transfer_apply_request(&state, &before, "stale-snapshot", "simulation", false);
+    assert!(!response.ok);
+    assert!(
+        refusal_text(&response).contains("runtime snapshot is stale"),
+        "{:?}",
+        response.error
+    );
+}
+
+#[test]
+fn controller_transfer_fault_reverts_the_committed_members_in_the_same_scan() {
+    let (state, mut harness) = transfer_fixture();
+    let before = transfer_status(&state);
+    assert!(queue_transfer(&state, &before).ok);
+    let metadata = harness.runtime().metadata_snapshot();
+    state.debug.commit_transfer(
+        "$background",
+        harness.runtime_mut().storage_mut(),
+        &metadata,
+        false,
+        &[],
+    );
+    assert_eq!(
+        harness.get_output("Main.Manual"),
+        Some(Value::Bool(false)),
+        "the commit wrote the mode"
+    );
+    state.debug.fail_transfer(
+        "runtime fault in the owning task",
+        harness.runtime_mut().storage_mut(),
+    );
+    assert_eq!(
+        harness.get_output("Main.Manual"),
+        Some(Value::Bool(true)),
+        "the mode is reverted in the same scan"
+    );
+    assert_eq!(
+        harness.get_output("Main.SP"),
+        Some(Value::LReal(10.0)),
+        "the reference is reverted in the same scan"
+    );
+    let failed = transfer_status(&state);
+    assert_eq!(failed["status"], "failed");
+    assert_eq!(failed["transaction"]["restored"], true);
+}
+
+#[test]
+fn controller_transfer_restores_a_bool_output_as_bool_after_a_rejected_first_output() {
+    let source = "PROGRAM Main VAR Manual : BOOL := TRUE; SP : LREAL := 10.0; ManualCommand : LREAL := 2.0; PV : LREAL := 10.0; Valve : BOOL := FALSE; END_VAR IF Manual THEN Valve := FALSE; ELSE Valve := TRUE; END_IF; END_PROGRAM";
+    let mut state = simulated_control_state(source);
+    let mut harness = simulated_harness(source);
+    state.debug = harness.runtime_mut().enable_debug();
+    assert!(harness.cycle().errors.is_empty());
+    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
+    state.debug.refresh_snapshot_from_storage(
+        harness.runtime().storage(),
+        harness.runtime().current_time(),
+    );
+    let binding = json!({"loop_id":"valve-loop","task_name":"$background",
+        "mode":{"symbol":"Main.Manual","manual_value":true},
+        "states":[{"symbol":"Main.SP","iec_type":"LREAL","unit":"m","minimum":-20,"maximum":20},
+            {"symbol":"Main.ManualCommand","iec_type":"LREAL","unit":"V","minimum":-20,"maximum":20}],
+        "guards":[{"symbol":"Main.PV","iec_type":"LREAL","unit":"m","minimum":-20,"maximum":20}],
+        "output":{"symbol":"Main.Valve","iec_type":"BOOL","unit":"1","minimum":0,"maximum":1}});
+    let before = handle_request_value(
+        json!({"id":8730,"type":"control.transfer.status","params":{"binding":binding}}),
+        &state,
+        None,
+    )
+    .result
+    .unwrap();
+    let entry = handle_request_value(
+        json!({"id":8731,"type":"control.transfer.apply","params":{
+        "transaction_id":"valve-entry","binding":binding,
+        "expected_program_revision":before["program_revision"],"expected_binding_revision":before["binding_revision"],
+        "expected_values":before["values"],"values":{"Main.SP":11.0,"Main.ManualCommand":2.0},
+        "manual":false,"maximum_output_change":0.000001,"source":"simulation","physical_approved":false}}),
+        &state,
+        None,
+    );
+    assert!(entry.ok, "{:?}", entry.error);
+    assert!(harness.cycle().errors.is_empty());
+    let failed = handle_request_value(
+        json!({"id":8732,"type":"control.transfer.status","params":{"binding":binding}}),
+        &state,
+        None,
+    )
+    .result
+    .unwrap();
+    assert_eq!(failed["status"], "failed");
+    assert_eq!(failed["transaction"]["restored"], true);
+    assert_eq!(
+        harness.get_output("Main.Valve"),
+        Some(Value::Bool(false)),
+        "a BOOL output is restored as BOOL"
+    );
+}
+
+#[test]
+fn controller_transfer_refusal_names_the_running_transfer_and_parameter() {
+    let (state, _harness) = transfer_fixture();
+    let before = transfer_status(&state);
+    assert!(queue_transfer(&state, &before).ok);
+    let second = transfer_apply_request(&state, &before, "transfer-2", "simulation", false);
+    assert!(!second.ok);
+    assert_eq!(
+        refusal_text(&second),
+        "a controller transfer transfer-1 is pending"
+    );
+    let gains = gain_status(&state);
+    let parameter = handle_request_value(
+        json!({"id":8661,"type":"control.parameters.apply","params":{
+        "transaction_id":"parameter-blocked","binding":gain_binding(),
+        "expected_program_revision":gains["program_revision"],"expected_binding_revision":gains["binding_revision"],
+        "expected_active_revision":gains["active_revision"],"expected_values":gains["values"],
+        "values":{"Main.Kp":3.0},"source":"simulation","physical_approved":false}}),
+        &state,
+        None,
+    );
+    assert!(!parameter.ok);
+    assert_eq!(
+        refusal_text(&parameter),
+        "a controller transfer transfer-1 is pending"
+    );
+}
+
+#[test]
+fn controller_transfer_loop_identity_message_names_the_limit() {
+    let (state, _harness) = transfer_fixture();
+    let mut binding = transfer_binding();
+    binding["loop_id"] = json!("x".repeat(129));
+    let response = handle_request_value(
+        json!({"id":8740,"type":"control.transfer.status","params":{"binding":binding}}),
+        &state,
+        None,
+    );
+    assert!(!response.ok);
+    assert_eq!(
+        refusal_text(&response),
+        "transfer loop_id must be 1 to 128 characters"
+    );
+}
+
+#[test]
+fn controller_transfer_identifiers_are_counted_in_characters() {
+    let (state, _harness) = transfer_fixture();
+    let before = transfer_status(&state);
+    // 128 characters are 256 bytes: a byte count would refuse both requests below.
+    let id = "é".repeat(128);
+    let applied = transfer_apply_request(&state, &before, &id, "simulation", false);
+    assert!(applied.ok, "{:?}", applied.error);
+    let cancelled = handle_request_value(
+        json!({"id":8750,"type":"control.transfer.cancel","params":{"loop_id":"ordinary-loop",
+            "transaction_id":id,"expected_program_revision":before["program_revision"]}}),
+        &state,
+        None,
+    );
+    assert!(cancelled.ok, "{:?}", cancelled.error);
+    assert_eq!(cancelled.result.unwrap()["status"], "cancelled");
+}
+
+#[test]
+fn controller_transfer_pending_label_names_the_live_write() {
+    let (state, _harness) = transfer_fixture();
+    assert_eq!(state.debug.pending_transaction_label(), None);
+    let before = transfer_status(&state);
+    assert!(queue_transfer(&state, &before).ok);
+    assert_eq!(
+        state.debug.pending_transaction_label().as_deref(),
+        Some("a controller transfer transfer-1")
+    );
+    let cancelled = handle_request_value(
+        json!({"id":8760,"type":"control.transfer.cancel","params":{"loop_id":"ordinary-loop",
+            "transaction_id":"transfer-1","expected_program_revision":before["program_revision"]}}),
+        &state,
+        None,
+    );
+    assert!(cancelled.ok, "{:?}", cancelled.error);
+    assert_eq!(state.debug.pending_transaction_label(), None);
 }

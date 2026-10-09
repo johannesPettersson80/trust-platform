@@ -3164,8 +3164,6 @@ fn direct_control_state_field_bypass(line: &str) -> Option<&'static str> {
         "resource_name",
         "io_health",
         "debug_variables",
-        "hmi_live",
-        "hmi_descriptor",
         "historian",
     ];
     for field in FORBIDDEN_FIELDS {
@@ -4731,7 +4729,7 @@ mod tests {
     fn known_bad_host_surface_forbidden_import_fails_without_waiver() {
         let mut map = base_map();
         map.import_edges.push(ImportEdge {
-            from_file: "crates/trust-runtime/src/control/hmi_handlers.rs".to_string(),
+            from_file: "crates/trust-runtime/src/control/io_handlers.rs".to_string(),
             from_module: "control".to_string(),
             to_module: "web".to_string(),
             line: 11,

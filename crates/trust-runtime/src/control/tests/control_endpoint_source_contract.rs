@@ -174,10 +174,7 @@ fn source_lookup_prefers_exact_stored_path() {
         source(2, "src/main.st", "EXACT"),
     ]);
 
-    assert_eq!(
-        registry.file_id_for_path(Path::new("src/main.st")),
-        Some(2)
-    );
+    assert_eq!(registry.file_id_for_path(Path::new("src/main.st")), Some(2));
 }
 
 #[test]
@@ -186,10 +183,7 @@ fn project_relative_source_lookup_checks_root_join() {
     let registry = SourceRegistry::new(vec![source(1, "/project/generated/main.st", "MAIN")]);
 
     assert_eq!(
-        registry.file_id_for_path_in_project(
-            Path::new("generated/main.st"),
-            Some(root)
-        ),
+        registry.file_id_for_path_in_project(Path::new("generated/main.st"), Some(root)),
         Some(1)
     );
 }
@@ -214,10 +208,7 @@ fn multi_component_source_lookup_does_not_invent_project_src_prefix() {
     ]);
 
     assert_eq!(
-        registry.file_id_for_path_in_project(
-            Path::new("generated/main.st"),
-            Some(root)
-        ),
+        registry.file_id_for_path_in_project(Path::new("generated/main.st"), Some(root)),
         None
     );
 }
@@ -248,11 +239,7 @@ fn ambiguous_relative_suffix_match_fails_closed() {
 
 #[test]
 fn unmatched_absolute_path_does_not_use_suffix_fallback() {
-    let registry = SourceRegistry::new(vec![source(
-        1,
-        "/project/src/main.st",
-        "MAIN",
-    )]);
+    let registry = SourceRegistry::new(vec![source(1, "/project/src/main.st", "MAIN")]);
 
     assert_eq!(
         registry.file_id_for_path(Path::new("/different/src/main.st")),
@@ -262,11 +249,7 @@ fn unmatched_absolute_path_does_not_use_suffix_fallback() {
 
 #[test]
 fn suffix_match_requires_complete_path_component_boundaries() {
-    let registry = SourceRegistry::new(vec![source(
-        1,
-        "/project/src/not-main.st",
-        "OTHER",
-    )]);
+    let registry = SourceRegistry::new(vec![source(1, "/project/src/not-main.st", "OTHER")]);
 
     assert_eq!(registry.file_id_for_path(Path::new("main.st")), None);
 }
@@ -330,7 +313,7 @@ fn source_lookup_matches_existing_symlink_candidate_to_registered_canonical_path
 
 #[test]
 fn control_server_accessors_preserve_endpoint_and_shared_state_identity() {
-    let state = Arc::new(hmi_test_state(
+    let state = Arc::new(control_test_state(
         r#"
 PROGRAM Main
 END_PROGRAM
@@ -344,12 +327,4 @@ END_PROGRAM
 
     assert!(matches!(server.endpoint(), ControlEndpoint::Tcp(address) if address.port() == 0));
     assert!(Arc::ptr_eq(&server.state(), &state));
-}
-
-#[test]
-fn hmi_descriptor_startup_timeout_uses_bounded_test_contract() {
-    assert_eq!(
-        hmi_descriptor_watch_startup_timeout(),
-        Duration::from_secs(10)
-    );
 }

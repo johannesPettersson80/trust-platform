@@ -1,3 +1,4 @@
+import { MainWorkflowError } from "./mainWorkflowFailure";
 import { linearTransferModel } from "./linearTransferModel";
 import { designIntegratingProportionalController } from "./integratingProportionalDesign";
 import { type GeneralTransferModel } from "./generalModel";
@@ -58,28 +59,29 @@ export function designSimpleProportionalController(
     * Math.log(referenceMagnitude / requirements.settlingBand)
     / requirements.settlingTimeSeconds - 1;
   const requiredQ = Math.max(0, steadyThreshold, settlingThreshold);
-  const lowerQ = Math.min(
-    gain * requirements.proportionalGainBounds.minimum,
-    gain * requirements.proportionalGainBounds.maximum,
-  );
-  const upperQ = Math.max(
-    gain * requirements.proportionalGainBounds.minimum,
-    gain * requirements.proportionalGainBounds.maximum,
-  );
+  // The bounds limit the magnitude of Kp. q = K·Kp is nonnegative here, so Kp takes the sign of K and |q| = |K|·|Kp|.
+  const bounds = requirements.proportionalGainBounds;
+  const highestMagnitude = Math.max(Math.abs(bounds.minimum), Math.abs(bounds.maximum));
+  const lowestMagnitude = bounds.minimum <= 0 && bounds.maximum >= 0 ? 0 : Math.min(Math.abs(bounds.minimum), Math.abs(bounds.maximum));
+  const lowerQ = Math.abs(gain) * lowestMagnitude;
+  const upperQ = Math.abs(gain) * highestMagnitude;
   let q = Math.max(requiredQ, lowerQ);
   if (q > upperQ + tolerance(q, upperQ)) {
-    throw new Error("Proportional gain bounds cannot satisfy the declared steady-error and settling requirements.");
+    throw new MainWorkflowError("Proportional gain bounds cannot satisfy the declared steady-error and settling requirements.",
+      { cause: "task-infeasible", nextAction: "open-requirements" });
   }
   for (let attempt = 0; attempt < 8 && !meetsPredictions(q, referenceMagnitude, timeConstant, worstFinalError, requirements); attempt++) {
     q += tolerance(q, requiredQ);
   }
   if (q > upperQ + tolerance(q, upperQ) || !meetsPredictions(q, referenceMagnitude, timeConstant, worstFinalError, requirements)) {
-    throw new Error("Finite proportional gain bounds cannot satisfy the declared prediction requirements.");
+    throw new MainWorkflowError("Finite proportional gain bounds cannot satisfy the declared prediction requirements.",
+      { cause: "task-infeasible", nextAction: "open-requirements" });
   }
   const proportionalGain = q / gain;
+  const magnitude = Math.abs(proportionalGain);
   if (!Number.isFinite(proportionalGain)
-    || proportionalGain < requirements.proportionalGainBounds.minimum - tolerance(proportionalGain, requirements.proportionalGainBounds.minimum)
-    || proportionalGain > requirements.proportionalGainBounds.maximum + tolerance(proportionalGain, requirements.proportionalGainBounds.maximum)) {
+    || magnitude < lowestMagnitude - tolerance(magnitude, lowestMagnitude)
+    || magnitude > highestMagnitude + tolerance(magnitude, highestMagnitude)) {
     throw new Error("Calculated proportional gain is outside the declared bounds.");
   }
   const prediction = predicted(q, referenceMagnitude, timeConstant, worstFinalError, requirements);

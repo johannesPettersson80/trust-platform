@@ -19,6 +19,7 @@ import {
   type DiscoverProgressRow,
 } from "./DiscoverPane";
 import { browseAction } from "./browseActions";
+import { useEquipmentConnections } from "./EquipmentConnections";
 import type { DiscoverCandidate, RoutePlan, SymbolNode } from "../offlineComm";
 import {
   buildOpcuaConnection,
@@ -78,6 +79,7 @@ const EMPTY: NCGraph = {
 };
 
 function Canvas() {
+  const equipment = useEquipmentConnections((message) => vscode.postMessage(message));
   const [graph, setGraph] = useState<NCGraph>(
     () => (typeof window !== "undefined" && (window as { __NC__?: NCGraph }).__NC__) || EMPTY
   );
@@ -756,6 +758,14 @@ function Canvas() {
   );
 
   const drawerRoutes: CanvasDrawerRoutes = {};
+  if (equipment.visible && equipment.state) {
+    drawerRoutes.equipment = {
+      state: equipment.state,
+      post,
+      onClose: equipment.close,
+      onBrowse: () => equipment.setVisible(false),
+    };
+  }
   if (addSlot?.kind === "device") {
     drawerRoutes.addConnection = {
       schema,
@@ -1051,6 +1061,15 @@ function Canvas() {
       : undefined;
   return (
     <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
+      {equipment.state && !equipment.visible ? (
+        <button
+          className="trust-button"
+          style={{ alignSelf: "flex-start", margin: 6 }}
+          onClick={() => equipment.setVisible(true)}
+        >
+          Connections for {equipment.state.instance}
+        </button>
+      ) : null}
       <CanvasToolbar
         searchDraft={searchDraft}
         onSearch={onSearch}
@@ -1073,7 +1092,10 @@ function Canvas() {
             : undefined
         }
         addOpen={addSlot?.kind === "device"}
-        onAdd={openAddPicker}
+        onAdd={() => {
+          equipment.setVisible(false);
+          openAddPicker();
+        }}
         discoverOpen={discoverOpen}
         onToggleDiscover={() => {
           setDiscoverOpen((value) => !value);
@@ -1110,6 +1132,7 @@ function Canvas() {
           graph={graph}
           post={post}
           onSelectNode={(node) => {
+            equipment.setVisible(false);
             clearApplyResult();
             setDraft(undefined); // selection and the add-flow share the right drawer
             const data = node.data as Record<string, unknown>;

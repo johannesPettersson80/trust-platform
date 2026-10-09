@@ -353,7 +353,7 @@ IF Manual THEN`));
         const otherLoop = { ...structuredClone(loop), id: `${loop.id}-other`, name: "Other loop", revision: `${loop.revision}-other`,
           parameterBinding: { ...structuredClone(loop.parameterBinding), loop_id: `${loop.id}-other` } };
         storage.storeEngineerDraft = async (...args: any[]) => {
-          if (args[1].id === otherLoop.id) retained = structuredClone(args[2]);
+          if (args[0].id === otherLoop.id) retained = structuredClone(args[1]);
           return originalStore(...args);
         };
         try {

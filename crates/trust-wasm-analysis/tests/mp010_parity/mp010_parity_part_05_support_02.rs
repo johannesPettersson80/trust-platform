@@ -204,6 +204,10 @@ pub(crate) fn load_plant_demo_documents() -> Vec<DocumentInput> {
             "config.st",
             include_str!("../../../../examples/plant_demo/src/config.st"),
         ),
+        (
+            "hmi.st",
+            include_str!("../../../../examples/plant_demo/libraries/hmi/src/hmi.st"),
+        ),
     ];
     files
         .into_iter()

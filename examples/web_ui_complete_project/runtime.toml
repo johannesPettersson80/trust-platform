@@ -2,7 +2,7 @@
 version = 1
 
 [resource]
-name = "web_ui_complete_project"
+name = "Cpu"
 cycle_interval_ms = 20
 
 [runtime.control]

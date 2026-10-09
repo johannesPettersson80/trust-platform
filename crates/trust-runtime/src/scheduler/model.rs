@@ -15,6 +15,11 @@ pub enum ResourceCommand {
         names: Vec<SmolStr>,
         respond_to: std::sync::mpsc::Sender<IndexMap<SmolStr, Value>>,
     },
+    MeshCatalogue {
+        names: Vec<String>,
+        respond_to:
+            std::sync::mpsc::Sender<Result<Vec<crate::hmi::variable_tree::VariableNode>, String>>,
+    },
     MeshApply {
         updates: IndexMap<SmolStr, Value>,
         source: Option<SmolStr>,
@@ -24,8 +29,7 @@ pub enum ResourceCommand {
         respond_to: std::sync::mpsc::Sender<crate::debug::DebugSnapshot>,
     },
     SimulationSnapshot {
-        respond_to:
-            std::sync::mpsc::Sender<Option<crate::simulation::SimulationRuntimeSnapshot>>,
+        respond_to: std::sync::mpsc::Sender<Option<crate::simulation::SimulationRuntimeSnapshot>>,
     },
     SimulationTraceClear {
         plant_id: String,

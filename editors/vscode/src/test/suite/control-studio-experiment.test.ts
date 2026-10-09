@@ -79,7 +79,8 @@ suite("Control Studio bounded experiment", () => {
     const api = experimentApi();
     const configured = { ...loop(), experiment: { execution: "project-scripted", kind: "observation", amplitude: 0,
       durationSeconds: 30, seed: 1, activation: { symbol: "P1.Run", address: "%MX64.0", iecType: "BOOL", direction: "write" } } };
-    for (const durationSeconds of [0, Number.NaN, Number.POSITIVE_INFINITY, 3601]) {
+    // A7: a duration is 1 s to 24 h of process time, so 3601 s is valid and 86401 s is not.
+    for (const durationSeconds of [0, 0.5, Number.NaN, Number.POSITIVE_INFINITY, 86_401]) {
       assert.strictEqual(api.buildControlExperimentPlan({ loop: configured, sample: sample(), kind: "observation", amplitude: 0, durationSeconds }).kind, "rejected");
     }
   });
@@ -139,11 +140,9 @@ suite("Control Studio bounded experiment", () => {
     });
     assert.strictEqual(automatic.kind, "accepted");
     assert.strictEqual(automatic.plan.kind, "mv_step", "a Manual loop receives a bounded output step for identification");
-    assert.deepStrictEqual(automatic.plan.trajectory, [
-      { atMs: 0, value: 32 },
-      { atMs: 3_000, value: 42 },
-      { atMs: 15_000, value: 32 },
-    ]);
+    // B3.4: the automatic step is held from the start; the runtime restores the value from before it at the end, not at half the duration.
+    assert.deepStrictEqual(automatic.plan.trajectory, [{ atMs: 0, value: 42 }]);
+    assert.strictEqual(automatic.plan.restorationValue, 32);
 
     const automaticAuto = api.buildControlExperimentPlan({
       loop: configured, sample: sample(), kind: "automatic", amplitude: defaults.amplitude, durationSeconds: defaults.durationSeconds,
@@ -151,11 +150,8 @@ suite("Control Studio bounded experiment", () => {
     assert.strictEqual(automaticAuto.kind, "accepted");
     assert.strictEqual(automaticAuto.plan.kind, "setpoint_step", "an Auto loop uses the declared setpoint before disturbing output directly");
     assert.strictEqual(automaticAuto.plan.to, 60);
-    assert.deepStrictEqual(automaticAuto.plan.trajectory, [
-      { atMs: 0, value: 50 },
-      { atMs: 3_000, value: 60 },
-      { atMs: 15_000, value: 50 },
-    ]);
+    assert.deepStrictEqual(automaticAuto.plan.trajectory, [{ atMs: 0, value: 60 }]);
+    assert.strictEqual(automaticAuto.plan.restorationValue, 50);
 
     const observation = api.buildControlExperimentPlan({
       loop: configured, sample: sample(), kind: "observation", amplitude: 0, durationSeconds: defaults.durationSeconds,
@@ -178,8 +174,8 @@ suite("Control Studio bounded experiment", () => {
   test("starts and restores a project-owned lesson through its single Boolean authority", () => {
     const api = experimentApi();
     const projectLoop = {
-      ...loop(),
-      controller: { ...loop().controller, type: "RouthComparison", design: "project" },
+      ...boundLoop(),
+      controller: { ...boundLoop().controller, type: "RouthComparison", design: "project" },
       experiment: {
         execution: "project-scripted", kind: "observation", amplitude: 0,
         durationSeconds: 40, seed: 20260829,
@@ -195,8 +191,8 @@ suite("Control Studio bounded experiment", () => {
         source: "simulation", kind: "project_sequence", affectedSignal: "P1.ExperimentEnabled",
         address: "%MX96.0", valueType: "BOOL", from: false, to: true, unit: "authority",
         minimum: 0, maximum: 1, durationMs: 40_000, expectedScan: 41,
-        stopOnStaleMs: 500,
-        stopConditions: ["Abort", "40 s timeout", "Stale runtime data", "Signal force", "Runtime fault"],
+        task: "MainTask", modeBinding: { symbol: "P1.Run", manualValue: false },
+        stopConditions: ["Abort", "40 s timeout", "Loop mode changed", "Bad runtime data", "Signal force", "Signal outside its limits", "Runtime fault"],
         restorationValue: false, requiresPhysicalApproval: false, trajectory: [],
       },
     });
@@ -213,7 +209,7 @@ suite("Control Studio bounded experiment", () => {
   test("builds a concise bounded setpoint plan from current loop evidence", () => {
     const api = experimentApi();
     assert.deepStrictEqual(api.buildControlExperimentPlan({
-      loop: loop(), sample: sample(), kind: "setpoint_step", amplitude: 5, durationSeconds: 30,
+      loop: boundLoop(), sample: sample(), kind: "setpoint_step", amplitude: 5, durationSeconds: 30,
     }), {
       kind: "accepted",
       plan: {
@@ -221,8 +217,8 @@ suite("Control Studio bounded experiment", () => {
         source: "simulation", kind: "setpoint_step", affectedSignal: "LevelSP", address: "%ML0",
         valueType: "LREAL",
         from: 50, to: 55, unit: "%", minimum: 0, maximum: 100, durationMs: 30_000,
-        expectedScan: 41, stopOnStaleMs: 500,
-        stopConditions: ["Abort", "30 s timeout", "Stale runtime data", "Signal force", "Runtime fault"],
+        expectedScan: 41, task: "MainTask", modeBinding: { symbol: "P1.Run", manualValue: false },
+        stopConditions: ["Abort", "30 s timeout", "Loop mode changed", "Bad runtime data", "Signal force", "Signal outside its limits", "Runtime fault"],
         restorationValue: 50, requiresPhysicalApproval: false,
         trajectory: [{ atMs: 0, value: 55 }],
       },
@@ -293,9 +289,9 @@ suite("Control Studio bounded experiment", () => {
     assert.strictEqual(accepted.kind, "accepted");
     assert.strictEqual(accepted.plan.durationMs, 1_200_000);
     assert.deepStrictEqual(api.buildControlExperimentPlan({
-      loop: loop(), sample: sample(), kind: "setpoint_step", amplitude: 5, durationSeconds: 3_601,
+      loop: loop(), sample: sample(), kind: "setpoint_step", amplitude: 5, durationSeconds: 86_401,
     }), {
-      kind: "rejected", reason: "Duration must be between 1 and 3600 seconds.",
+      kind: "rejected", reason: "Duration must be between 1 s and 24 h.",
     });
   });
 
@@ -438,7 +434,7 @@ suite("Control Studio bounded experiment", () => {
       return { status: operation.endsWith("abort") ? "aborted" : "running", experiment_id: "experiment-1" };
     });
     const plan = { ...api.buildControlExperimentPlan({
-      loop: loop(), sample: sample(), kind: "setpoint_step", amplitude: 5, durationSeconds: 30,
+      loop: boundLoop(), sample: sample(), kind: "setpoint_step", amplitude: 5, durationSeconds: 30,
     }).plan, id: "experiment-1" };
     await client.start(plan, false);
     await client.status("experiment-1");
@@ -449,9 +445,22 @@ suite("Control Studio bounded experiment", () => {
     assert.deepStrictEqual(calls[0].params, {
       experiment_id: "experiment-1", source: "simulation", kind: "setpoint_step", address: "%ML0",
       value: 55, restoration_value: 50, value_type: "LREAL", minimum: 0, maximum: 100, duration_ms: 30_000,
-      expected_scan: 41, stop_on_stale_ms: 500, controller_mode: "Auto",
+      expected_scan: 41, task: "MainTask", mode_binding: { symbol: "P1.Run", manual_value: false },
       trajectory: [{ at_ms: 0, value: 55 }],
     });
+    assert.equal("stop_on_stale_ms" in calls[0].params, false);
+    assert.equal("controller_mode" in calls[0].params, false);
+  });
+
+  test("finish requests a normal completion of the named experiment", async () => {
+    const api = experimentApi();
+    const calls: any[] = [];
+    const client = new api.ControlExperimentClient(async (operation: string, params: unknown) => {
+      calls.push({ operation, params });
+      return { status: "completed", experiment_id: "experiment-1" };
+    });
+    await client.finish("experiment-1");
+    assert.deepStrictEqual(calls, [{ operation: "control.experiment.finish", params: { experiment_id: "experiment-1" } }]);
   });
 
   test("accepts only strict loop-scoped review, approval, and abort messages", () => {
@@ -486,25 +495,6 @@ suite("Control Studio bounded experiment", () => {
     assert.deepStrictEqual(messages.decodeControlExperimentCommand(command(
       "control-studio.experiment.abort", { experimentId: "experiment-1" }
     ), expected), { action: "abort", messageId: "message-1", experimentId: "experiment-1" });
-    assert.deepStrictEqual(messages.decodeControlExperimentCommand(command(
-      "control-studio.relay.calculate", {}
-    ), expected), { action: "calculate-relay", messageId: "message-1" },
-    "the explicit relay calculation command must be bound to the current loop and carry no mutable candidate settings");
-    assert.strictEqual(messages.decodeControlExperimentCommand(command(
-      "control-studio.relay.calculate", { proportionalGain: 99 }
-    ), expected), undefined, "the webview must never supply relay tuning values to the host");
-    assert.deepStrictEqual(messages.decodeAntiWindupCommand(command(
-      "control-studio.anti-windup.review", { trackingTimeSeconds: 4 }
-    ), expected), { action: "review", messageId: "message-1", trackingTimeSeconds: 4 });
-    assert.deepStrictEqual(messages.decodeAntiWindupCommand(command(
-      "control-studio.anti-windup.stage", {}
-    ), expected), { action: "stage", messageId: "message-1" });
-    assert.deepStrictEqual(messages.decodeAntiWindupCommand(command(
-      "control-studio.anti-windup.verify", {}
-    ), expected), { action: "verify", messageId: "message-1" });
-    assert.deepStrictEqual(messages.decodeAntiWindupCommand(command(
-      "control-studio.anti-windup.rollback", {}
-    ), expected), { action: "rollback", messageId: "message-1" });
     assert.strictEqual(messages.decodeControlExperimentCommand({
       ...command("control-studio.experiment.approve", { planId: "experiment-1", physicalApproved: false }),
       expectedLoopRevision: "sha256:stale",
@@ -676,7 +666,7 @@ suite("Control Studio bounded experiment", () => {
     }), /complete runtime-owned recording/i);
     assert.throws(() => api.identificationSamplesFromRuntimeRecording({ kind: "mv_step" }, {
       ...complete, rawSamples: [complete.rawSamples[0], { ...complete.rawSamples[2], scan: 14 }],
-    }), /contiguous runtime scans/i);
+    }), /steady record period, with no missed execution/i);
   });
 
   test("retains an incomplete aborted Test prefix while keeping it out of Identify", () => {
@@ -745,6 +735,13 @@ function loop() {
     },
     limits: { outputMinimum: 0, outputMaximum: 100 }, observedSampleTiming: { nominalPeriodMs: 10 },
   };
+}
+
+/** The loop with its schema-version 2 parameter binding: the task and the Manual-mode signal every plan carries (B1.4, C0). */
+function boundLoop() {
+  return { ...loop(), schemaVersion: 2,
+    parameterBinding: { loop_id: "loop:tank", task_name: "MainTask", mode: { symbol: "P1.Run", manual_value: false },
+      parameters: [{ symbol: "TankController.Kp", iec_type: "LREAL", unit: "1", convention: "proportional gain", minimum: 0, maximum: 10 }] } };
 }
 
 /** The Lesson 14 step test: 5 s baseline, then a 20–40 s hold chosen through a declared experiment parameter. */

@@ -1,5 +1,74 @@
 # Architecture Improvements Checklist
 
+- [ ] Explicit HMI generation correction (6 October): normal editor reads HIR declarations;
+  Create PLC code uses the existing generation rules and protected regions; Create HMI
+  preserves existing views. No runtime or PLC execution during authoring. Separate helpers
+  own discovery, configuration, hardware mapping and source transactions. SOLID/KISS/DRY
+  review and native/extension/real-browser evidence are tracked by EG-01..09; validation pending.
+
+- [x] HMI repair pass: read-only LSP command work runs on blocking workers; normal transport and file parsing remain responsive. No PLC execution semantics change. Native command, browser, extension and diagram checks pass in hmi-repair-20261006; all five remaining capture checks now pass in hmi-final-captures-20261006 / -r2 / -r3.
+
+- [ ] Scoped Plant HMI runtime integration (authorized 6 October): shared declaration validation,
+  bounded Hmi.Display handoff, existing VM method execution, named-user replay isolation and
+  existing audit. Standard ST retention replaces the rejected settings store. Final timing/vertical/browser proof remains open.
+  See [contract](../../../specs/plant-hmi-runtime-integration.md); diagram source is
+  `docs/diagrams/architecture/plant-hmi-runtime-integration.puml`. SOLID/KISS/DRY review and
+  rendered diagram/drift checks belong to the one final batch.
+  Page and popup DOM updates now share surfacePatch/ValuePaintQueue; unchanged controls retain
+  identity during live updates. No second renderer or PLC execution behavior is introduced.
+
+- [ ] HMI catalogue and generated PLC ownership (source prepared, 6 October): implement
+  [CAT-01..13](hmi-builder-implementation-checklist.md) against
+  [the exact component specification](../../../specs/hmi-component-catalogue.md). One project
+  instance may have many views; preserve customer ST and one execution/settings/alarm owner.
+  Reuse current instrument assets and internal filters; no simulator work. Builder-owned
+  equipment copying reuses the project identity allocator and the page/source WorkspaceEdit;
+  settings copy while I/O and relationships clear. See `docs/diagrams/architecture/plant-library-authoring.puml`.
+  Bounded LSP compilation reuse is owned by hmi_compilation_cache, keyed by exact sources;
+  mutable access discards the entry. No runtime/compiler implementation is changed.
+  Diagram and implementation evidence remain pending under the final validation rule.
+
+- [ ] Plant Library replacement (source prepared, 6 October 2026): implement
+  [PL-01..28](trust-plant-library-checklist.md) against
+  [the target specification](../../../specs/trust-plant-library.md). Reuse existing
+  runtime/alarm/PID/history owners, replace the old Equipment library, add validated
+  settings and source-independent normal PLC I/O. Leave simulator code, configuration
+  and control examples untouched; no simulation-specific library API. SOLID/KISS/DRY and PlantUML
+  implementation evidence remains open pending the one final batch; no release is authorized.
+
+- [ ] Agent HMI authoring (specification 43): shared native-tool/MCP adapters, document snapshots,
+  persistent drafts, semantic edits, rendering and editor transactions are implemented in the
+  feature checkout with focused red/green proof. Full review/recovery/client acceptance remains
+  open. Post-commit cancellation retains the applied receipt; isolated project symbol scopes
+  prevent preview registry leakage.
+  Keep native schema/binding ownership and shared drawing; see HA-03..09 and
+  `docs/diagrams/architecture/hmi-agent-authoring.puml`. Proposal review now uses a read-only
+  virtual document in the existing builder, shared theme tokens and renderer-produced images;
+  Apply/Discard return to the same revision/transaction owner with a fresh request context.
+  The normal editor's P&ID sync, deployment and Live handlers are never instantiated for it.
+  Layout constraints now have a separate geometry owner; pinned collision checks reuse the
+  builder's rotated bounding-box helper. Versioned composition definitions/references reuse
+  normal page objects and shared drawing. Image loading reuses the native HMI bundle reader
+  and editor snapshots, with review hashes; no new runtime API or alternate rendering engine.
+
+- [x] Alarm equipment navigation (4 October 2026): `equipmentNavigation` reuses the existing
+  read-only page API and instance bindings; alarm actions keep acknowledgement separate from
+  navigation, and one display owner handles the temporary focus. Native rendered interaction
+  tests red then green. Runtime-display diagram also reconciled with the existing `HmiExchange`
+  and program-driven `Hmi.Display` service boundary, replacing obsolete HmiRead command arrows.
+  SOLID/KISS/DRY: no new binding registry, runtime endpoint, polling loop or write authority.
+  Diagram rendered and drift checked on the builder; 29 focused display checks and real-runtime
+  dark/light navigation journeys pass. Evidence: `2026-10-04-hmi-equipment-navigation/`.
+
+- [x] HMI My Symbols visual editor (4 October 2026): a separate host and webview own
+  symbol editing; runtime `my_symbols` owns parsing, SVG cleaning and canonical writing;
+  the preview reuses `customSymbol` and `applyRules`, and shell styles reuse truST tokens.
+  Native format and rendered interaction red/green recorded in HB-5-02. Diagram rendered and
+  drift checked; real-extension captures self-reviewed in three themes with native rule-edit
+  and Undo proof (`2026-10-04-hmi-symbol-editor`). Independent final UX acceptance remains
+  open. SOLID/KISS/DRY: no second parser, renderer,
+  theme or persistence owner; edits use the existing VS Code text document.
+
 - [x] Control-course comparison presentation repair (15 September): reuse one presentation-only `modelStructureEvidence` table owner in existing and three-page recorded-fit views; host fit, immutable recordings and structure authorization remain unchanged. Rendered expected red to15 focused green checks; real native choice/export/reopen and29 individual image reviews retained in `control-course-repair-20260915`. SOLID/KISS/DRY slice satisfied; overall architecture/release gates remain open.
 
 - [x] Shared linear chart tick precision now considers the visible value span around the operating point. Rendered expected red (3 distinct labels for8 ticks) reaches25 chart checks green; native heater baseline images show distinct ticks. SOLID/KISS/DRY: existing formatter reused, no raw-sample changes or new chart owner. Evidence: `control-course-repair-20260915/lesson20-relay-final`.
@@ -92,17 +161,9 @@
   native contracts. Reopened recovery uses fresh clients; historical results
   never recreate Apply authority. No physical readback claim from driver ACK.
 - [ ] `ARCH-CONTROL-WORKFLOW-01` Share selected supplied/identified models through small model/session adapters; retain the actual controller and reject incompatible conversions. Connect isolated actual-ST Verify through typed inline simulation override. The selected model now carries validated absolute `operatingPoint` coordinates into model-deviation simulation through physical input/output offsets; supplied nonzero rendered actual-ST proof passed in `/tmp/control-operating-point-rendered.log`, and the independently fitted nonzero Find -> Tune -> Verify journey passed in `/tmp/control-find-point-rendered-green3.log` with rendered evidence inspected in `/tmp/control-find-operating-point.png`; the fitted path also proves wrong supplied coefficients are ignored. Scoped first-order P integration, manual P pin/history, shared recorded-response chart controls, terminal and cancellation-unconfirmed outcome retention, native bounded worker prefix retention on cancellation, wall-budget expiry, abnormal child exit and byte/output-budget faults, and historical engineer study Save/reopen through the existing workspace-state boundary are proven. Native checkpoint/API/runtime evidence is retained in `control-checkpoint-header-green.log`, `isolated-final.log`, `wall-budget.log`, `byte-budget.log`, `search-suite.log`, and the five runtime vertical logs; rendered cancellation Save/reopen passed in `/tmp/control-cancel-prefix-rendered-green2.log` (1 passing, 9s) with controller updates retained. The received-frame count reports complete rows transferred by the supervisor; external OS-kill rendered proof remains unproven. Pin content identity invalidation moved from the expected red in `/tmp/control-pin-content-red.log` to green in `/tmp/control-pin-content-green.log` (1 passing). The normal-window guided flow exercised the compiled law through Save -> Find -> Tune -> actual-ST Verify in `/tmp/control-guided-external-current-dark.log` and `/tmp/control-guided-external-current-light.log`; active Find/Verify study restore now rejects before model/history mutation (`/tmp/control-study-active-open-green.log`), with rendered rejection green in `/tmp/control-study-open-rendered-green2.log`. One symbolic `control.signals.inspect` snapshot now supplies SP/PV/MV and mode through the shared monitor (`/tmp/control-symbolic-mode-rendered-red.log`, `/tmp/control-symbolic-mode-rendered-green.log`, `/tmp/control-symbolic-current-green.log`); resumed current-scan and predicted-versus-verified-unapplied headers are covered by `/tmp/control-study-current-state-{red,green}.log` and `/tmp/control-engineer-candidate-header-{red,green}.log`. The identification session injects coherent MV/PV/Manual baseline acquisition into the campaign, with deterministic qualification owned by `identificationBaseline`. External Supply/import is guarded by `GeneralModelSession` through `EngineerWorkflowSession.assertIdleForReplacement` before mutation; accepted internal Find handoff remains allowed. Manual gain pin compatibility compares the full selected model content plus revision, loop, parameter symbol/unit, bounds and REAL precision, so reused revision strings cannot preserve a stale pin. `RuntimeRecordingSession` first pins a coherent symbolic `control.signals.inspect` identity, then owns the typed start/stop/release handoff; native `control.recording` owns bounded scan capture, program identity and per-binding quality, and the session projects validated acquisition evidence into the saved result. Local P Auto commissioning and guided setup have bounded rendered proof; broader Auto recovery, other workflow persistence, full connected workflow and final architecture acceptance remain incomplete. PlantUML source and targeted immutable-image remote SVG are updated; local drift check passes. Host-owned current Engineer evidence now reuses the shared stage vocabulary through a small webview projector; the compatible P header has one Tune action. Actual Find and supplied manual/failure/reopen journeys pass; broader workflow acceptance remains open.
-- [x] `ARCH-CONTROL-SATURATION-01` Keep saturation assessment pure in `saturationWindup.ts`, terminal Test handoff in `testTerminalEvidence.ts`, and Test presentation in `webview/{experimentWorkflow,saturationWindupEvidence}.ts`. The panel only composes the terminal recording owner; it does not reconstruct request or integral state. Explicit loop IDs bind request/integral values, and the analysis fails closed on incomplete/quality/missing evidence. SOLID/KISS/DRY: no ST-side calculation, no symbol-name convention, no duplicate terminal renderer, and `panel.ts`/`workflow.ts` remain below 1,000 lines. Focused red/green plus actual-ST light/dark/high-contrast evidence are retained in `control-saturation-*` logs and `saturation-windup-actual/`; the WF-008 tracked comparison is intentionally separate.
-- [x] `ARCH-CONTROL-ANTIWINDUP-01` Keep qualified-evidence gating and typed candidate math in `antiWindupWorkflow.ts`, scoped terminal evidence and candidate lifetime in `antiWindupPanelWorkflow.ts`, and visible state reduction/DOM actions in `antiWindupPresentation.ts` and `webview/antiWindupControls.ts`. The panel only delegates scoped messages and posts results; it remains below 1,000 lines. Stage requires a reviewed simulation record, and Restore returns the reviewed untracked baseline; a failed follow-up keeps Restore visible. Focused expected red/green extension tests cover the workflow, panel session and presentation. Matched actual-ST tracked/untracked comparison, rendered journey, package and course evidence remain open.
-- [ ] `ARCH-CONTROL-RELAY-01` Keep feedback-relay cycle extraction and PI
-  arithmetic in `relayTuning.ts`, Test-terminal candidate lifetime in its
-  `RelayTuningSession`, and visible state/DOM controls in
-  `relayTuningPresentation.ts` and `webview/relayTuningControls.ts`. The panel
-  composes only scoped command/evidence handoff; runtime relay switching remains
-  owned by the existing experiment service. Focused command/session/state reds
-  and paired greens, actual-ST relay execution, and Dark/Light/High Contrast
-  rendered evidence pass. Automatic Find-model orchestration, persistence and
-  shared Verify integration remain open.
+- [x] `ARCH-CONTROL-SATURATION-01` Retired 8 October 2026: the saturation-and-windup assessment had no reader and is removed with `saturationWindup.ts`; `testTerminalEvidence.ts` keeps the terminal Test record only (specification 35 no longer describes the assessment).
+- [x] `ARCH-CONTROL-ANTIWINDUP-01` Retired 8 October 2026: the automatic matched anti-windup comparison was unwired and unused and is removed (the `antiWindup*.ts` modules); back-calculation remains a declared PID law field tuned with the gains (specification 35 Part C).
+- [x] `ARCH-CONTROL-RELAY-01` Retired 8 October 2026: `RelayTuningSession` and its unread terminal payload are removed; cycle qualification and the Relay rule stay in `relayTuning.ts` and `relayCycleEvidence.ts`, reached through Tune's Relay rule (numerical annex N5.R).
 - [ ] `ARCH-CONTROL-GENERAL-01` Guided setup owns explicit binding selection and exclusive config persistence in configureLoop.ts; reuse the LSP compiled catalog and existing opening command. Multi-loop discovery remains in projectLoop.ts; stage evidence is independent of excitation ownership. Focused red/green passes; full panel decomposition and final diagram gates remain open.
 - [ ] `ARCH-CONTROL-RECORDING-ACK-01` Keep native recording-ID ownership in
   `RuntimeRecordingSession` and manual pending Start/Stop ownership in
@@ -717,3 +778,200 @@ Release measurements: Lesson 79 scan 2.8 → 1.8 → 0.79 ms; `X := X + 1` loop 
   before and after. Measured disturbances are model inputs the controller only reads: `measuredDisturbanceInput` (loopChannels)
   keeps them out of the controller outputs, the verification output bounds and the transfer's written states, and
   `engineerDisturbanceScenarios.ts` owns their verification case.
+
+## Legacy HMI removal and HMI Builder foundation — 2026-10-01
+
+- [x] Removed the legacy HMI (spec 39, decision 12): the `trust-runtime` `hmi` internals (descriptor,
+  scaffold, runtime views, points, layout, catalog, persistence), the `/hmi` routes, assets, export
+  and `/ws/hmi` socket, the `hmi.*` control operations and handlers, the `ControlState` HMI fields
+  and descriptor watcher, the `hmi` CLI command and the scaffold `run` wrote into projects,
+  `[runtime.hmi_persistence]`, `trust-lsp.hmiInit` and the HMI diagnostics, the `trust-debug` HMI
+  wiring, and the VS Code HMI panel, language-model tools and launcher. `notify` and
+  `tungstenite` are no longer dependencies. Removal tests went red first and are green.
+- [x] HMI Builder foundation as new single-responsibility modules under
+  `crates/trust-runtime/src/hmi/`: `page_files` (format 1 loader, canonical writer, JSON shape),
+  `member_paths` (one walker for bound paths), `variable_tree` (picker tree), `catalogue`
+  (`components.json`, shared with the editor) and `binding_checks`; in `trust-lsp`,
+  `commands/hmi_files.rs` (parse, format) and `commands/hmi_checks.rs` (checks), which share
+  `compile_project` with `trust-lsp.hmiBindings`. Largest file 416 lines (`page_files/load.rs`).
+  Network Canvas reads the `hmiBindings` process image directly instead of an HMI normalizer.
+- [x] Diagrams: `compiled-binding-sources`, `runtime-execution`, `system-architecture`,
+  `runtime-bytecode-vm-execution` and `runtime-ads-client` edited; the software-map generator
+  updated (HMI Builder node depending on the runtime core, `Hmi` command gone) and the same three
+  lines changed in `full-software-map-generated.puml` (its counts were already stale at HEAD; a
+  full regeneration needs the static line-count artifacts). Rendered with
+  `scripts/render_diagrams.sh` on trust-builder, manifest refreshed,
+  `scripts/check_diagram_drift.py` clean (1 Oct).
+- [x] Runtime display (spec 39 §11.1), new single-responsibility modules: `hmi/display_values`
+  (value encoding for the display, members in declared order; `read` runs on the resource thread
+  through `ResourceCommand::HmiRead`, so no storage copy and no shared lock), and
+  `web/hmi_display` split into routes and access (`hmi_display.rs`), project files read on open
+  (`files.rs`) and the write-only value stream (`stream.rs`; the page names its own paths). The
+  browser side is TypeScript beside the drawing module: `hmiBuilder/display/liveValues.ts`
+  (state, staleness, trend samples; no DOM, so Live mode can reuse it), `runtimeDisplay.ts`
+  (page loading and redraw with injected browser services) and a thin `webview/` entry; both
+  bundles are committed into the runtime with staleness tests. The debug adapter's bridge answers
+  the same read. `tungstenite` is a dependency again, for the stream. Largest new file 302 lines
+  (`display_values/mod.rs`). Diagram `hmi-runtime-display` added, rendered with
+  `scripts/render_diagrams.sh` on trust-builder, manifest refreshed, drift check clean (1 Oct).
+- [x] **Communication link states for the program (specification 42, 3 October 2026).** A new
+  `runtime/link_subsystem.rs` (`LinkSubsystem`, composed into `Runtime` beside the ADS and OPC UA
+  client subsystems) maps driver health and the ADS and OPC UA client reports to one link state
+  and writes every `Comm.Link` block after the inputs are read; the runtime cycle gains one call.
+  The instance walk the alarm service used moved, unchanged, to `hmi/instance_walk.rs`, shared by
+  both (alarm suites green before and after); `driver_to_protocol` moved to `io/link_names.rs`,
+  shared with `comm.schema`. Diagram `runtime-execution` updated, rendered on trust-builder,
+  manifest refreshed, drift check clean.
+
+- [x] **Named HMI operation in the editor (spec 39 §11, 4 October).** Shared runtime
+  `startDisplay`/Operation/SessionControl reused through `LiveDisplayHost`; `LiveOperator`
+  owns the saved/deployed gate, `LiveSession` owns a pinned in-memory cookie, and `liveNetwork`
+  owns HTTP/WebSocket transport. App notices/value helpers extracted under 113 green locks.
+  Diagram `hmi-editor-live` rendered on trust-builder; manifest refreshed and drift check clean.
+  Focused authority tests and 608 HMI extension tests pass; runtime/browser milestone tracked
+  in the HMI implementation checklist.
+
+- [x] **Shared HMI presentation defaults (spec 39 §5.9, 4 October).** Native
+  `hmi::presentation` owns stable per-path format collection. Runtime page/popup responses and
+  the language-server project catalogue reuse it; the editor passes unsaved text overrides.
+  The shared drawing applies defaults to copies, preserving authoring and command constraints.
+  `hmi-runtime-display` diagram regenerated on trust-builder; drift check clean. The same native module supplies live equipment metadata in the value snapshot; metadata-only
+  changes participate in stream deltas. Diagram regenerated and drift checked on the builder.
+
+- [ ] **HMI cross-runtime values (spec 39 §7.9, 4 October).** First slice reuses the existing
+  member-path resolver for configured mesh publish paths; no second member walker. Native
+  expected-red/green snapshot proof is recorded in the HMI checklist. Typed discovery, HMI
+  subscription/freshness and authenticated owner-policy writes remain open. Cloud-planes
+  diagram updated; regeneration follows this slice.
+
+
+### HMI authoring completion batch — 4 October 2026
+
+- Implemented, final validation pending: metadata/selection provenance, page/draft inspection,
+  native dirty faceplate overlays and pairs, region constraints, multi-page draft commit,
+  viewport images, synthetic scenarios, qualitative review records, inherited display formats,
+  native incomplete-page deployment refusal, separate PLC proposals, and configured Control Studio
+  handoff. Transport, queries, geometry, snapshots, preview and source application remain separate.
+- Synthetic exploration reuses the shipped runtime display with snapshot-only fetch/socket owners;
+  writes and login are refused without accessing runtime transport. No new model provider.
+- SOLID/KISS/DRY inspection: new responsibilities are separate small modules; shared native
+  parser, display renderer and Control Studio configuration resolver remain authoritative.
+  App.tsx remains below 1,000 lines. Diagram source updated; regeneration is part of the one final batch.
+- Tests were authored/registered but not executed during implementation, per the user's order.
+
+- Cross-runtime HMI: qualified paths are parsed by the shared member-path owner; remote data
+  cache and named owner sessions are separate from mesh transport and web presentation. Network
+  reads run outside the PLC thread; native writes and pulse endings remain at Hmi.Display.
+  Owner login uses existing SessionStore, type checks, policy and audit over authenticated TLS;
+  neither metadata nor a local user role grants owner-write authority. Native two-peer TLS and
+  owner-domain regressions are authored but not yet executed.
+- Named simulator journeys reuse the existing LiveSession/selected-target owners with explicit
+  local-simulation filtering, deployed-page matching and bounded outcomes. No fallback or new
+  provider client. Final screenshots and consolidated test evidence remain pending.
+
+- Final batch 4 October 18:35 UTC: HMI authoring diagram rendered and drift check passed.
+  Rust/TypeScript compilation failed; source corrections are prepared but unverified. No second
+  validation run. See the HMI checklist's final-batch ledger; integration/acceptance remains open.
+
+- 5 October repair: request existing mesh liveliness tokens and exclude the local runtime from
+  peer discovery. Isolate ordinary value-card scheduling in `ValuePaintQueue`, preserving atomic
+  value/unit cards and immediate safety-state/control painting. Updated performance probe measures
+  complete value frames rather than first mutation. Diagram source updated; one final regeneration
+  and validation are pending. These local repairs are not the previously tested remote snapshot.
+
+- 5 October functional repair: preview faceplate/alarm provenance reuses `symbolInstance`;
+  private configured-runtime discovery advances to the first due periodic scan. Snapshot
+  transport emits separate value/alarm frames, and CSS containment preserves the proposal
+  shell. The real VS Code navigation/faceplate/alarm journey passes. `ValuePaintQueue` bounds
+  ordinary updates at 96 cards, begins in the drawing turn and retains DOM text nodes; fresh
+  stream updates suppress redundant timer redraws while stale/quiet pages keep their timers.
+  SOLID/KISS/DRY: no new parser, binding resolver, runtime endpoint, model provider or write
+  authority. Strict physical timing and complete independent/client acceptance remain open.
+
+## Plant library / HMI completion review — 6 October 2026
+
+- Shared ST equipment and managers own behavior; normal I/O remains the hardware/simulation
+  boundary. No compiler, VM or scheduler change was introduced in this completion pass.
+- Generated settings preserve ST defaults and apply only explicit overrides. Provider metadata
+  supplies the inspector defaults; the editor does not infer active settings from zero values.
+- Source-exact, bounded LSP metadata caches reuse pristine compilations and immutable binding
+  responses. Mutable runtime access disqualifies that instance from reuse. Dirty-source and
+  cache-isolation cases passed; the full editor journey remains tracked in PL-27.
+- Page and popup share the same SVG patch/paint owner. Real browser ownership, start/stop,
+  settings Apply and alarm acknowledgement passed in browser-plant-live-6.
+- SOLID/KISS/DRY: no duplicate device kernel, historian, settings store or UI paint engine.
+  Plant authoring and display diagrams rendered; final drift check passed.
+- Overall acceptance is not closed: see trust-plant-library-checklist.md and its final ledger.
+
+
+### HMI cold discovery compiler work — 6 October 2026
+
+- [x] Reuse project catalog source ranges for imported declaration lookup; prune executable
+  trees from declaration precollection. Existing semantic ownership and invalidation remain.
+- [x] First-candidate compiler/editor checks executed; one new whitespace assertion failed.
+  Cold inspector still took 114.891 s. See hmi-cold-performance-20261006/RESULTS.md.
+- [x] Prepare source-revision constant-location reuse to remove remaining repeated scans.
+- [ ] Validate prepared follow-up and regenerate its diagram after explicit rerun approval.
+
+
+### Cold editor follow-up — 6 October 2026
+
+The declaration/configuration indexes and owner-scoped hazard query passed 1,544 native checks;
+actual settings still took 71 seconds. A live stack identified three redundant semantic
+projects inside OpenOT preprocessing. The no-attribute fast path and shared authoring model
+are prepared with tests/specification; validation and regenerated diagram are pending explicit
+next-batch approval. No PLC execution subsystem changed.
+
+## Plant library and HMI Builder rebuild — 7 October 2026
+
+Ownership and data flow changed; diagrams `plant-library-authoring.puml` and
+`plant-hmi-runtime-integration.puml` rewritten (rendering, manifest and drift check run in the
+validation batch on trust-builder).
+
+- [x] Runtime owns the one parser and writer for page files, panels, component definitions and
+  docked-panel composition (`hmi/page_files/{pairs,docked,faceplates}.rs`); the language server
+  adapts them thinly (`hmi_authoring/documents.rs`, `pairs.rs`); the deploy projection is gone.
+- [x] One pair check (`binding_checks/pairs.rs`) serves `hmi check`, the ST-file diagnostics and
+  the editor's pair-file check (through `PairProgram for Declarations`).
+- [x] Create PLC code is a new module split by responsibility (`hmi_generate/{mod,regions,
+  equipment}.rs`); the inspector (`hmi_equipment.rs`) and Create HMI (`hmi_authoring/propose.rs`)
+  reuse its definition lookup and region refresh. The old component-sync and explicit-generation
+  modules are retired; single-page "Add missing variables" keeps value variables only.
+- [x] Settings values have one owner (`hmi_authoring/equipment_settings.rs`) for the inspector
+  and the generator; the design file (`hmi_plant_project.rs`, format 2) holds choices only.
+- [x] Retain: instance member paths in the snapshot (`runtime/retain_snapshot.rs`,
+  `restart_instances.rs`); inherited initialisers resolved in `host/instance.rs`. No VM or
+  scheduler change.
+- [x] Plant library: behaviour families own their logic once; alarms and controllers come from
+  the Alarm and Control libraries.
+- [x] Instance walks share one ownership rule (`hmi/instance_holdings.rs`): interface, REFERENCE,
+  POINTER, VAR_IN_OUT and VAR_EXTERNAL members are not followed, so alarm, display and link
+  discovery find each instance once, where it is declared.
+- [x] One binding direction rule (`binding_checks::check_direction`) for the runtime, `hmi check`
+  and the editor; the editor's own copy is gone.
+- [x] My equipment is a new language-server module (`hmi_own_equipment/{blocks,definition,
+  picture}.rs`) writing through the runtime's pair writer; the host writes its files
+  (`editor/ownEquipment.ts`), screen-file edits moved to `editor/screenFile.ts`.
+- [x] Library HMI files (`LIBRARY_FOLDERS`: panels, pairs, symbols) are read by one bundle reader
+  for the runtime and the editor.
+- [x] Cross-file function block initialisers are checked after the project's symbols merge
+  (`collector::DeferredInitializer`), not in the per-file collector.
+- [x] Validation batch, diagram rendering and drift check (final run 9 on trust-builder: native
+  set, Clippy, VS Code, browser, diagrams with no drift).
+- [x] PID loops as ordinary code (7 October 2026, evening): Create PLC code's loop rendering is its
+  own module (`hmi_generate/loops.rs`); the regions gained a retained region in `regions.rs`; pair
+  members beside an instance resolve through one helper (`page_files::pair_member_path`, TS
+  `memberPath`) at every join site; the runtime's PID measurement override is its own module
+  (`runtime/controller_measurement.rs`, `vm/call/measurement.rs`) with one empty check on the
+  method-call path; experiment targets by name are `experiment_handlers/target.rs`. Diagrams:
+  `plant-library-authoring.puml`, `simulation-plant-system.puml`.
+- [ ] Validation batch for the loops change (pending).
+
+## Simulation time, target fact and Control Studio storage — 8 October 2026
+
+- [x] Simulation time (specification 33, §6.1): each executed cycle advances process time by one cycle interval, paced at the shared `time_scale` (1–100); without simulation process time is the wall clock. `config.set simulation.time_scale` changes a running speed from the next cycle; `status` reports the configured and achieved speed. Diagrams: `runtime-execution.puml`, `simulation-plant-system.puml`.
+- [x] Target fact: `Runtime::simulated_target()` (simulation enabled, all I/O simulation-only, no ADS or OPC UA client connection) decides live writes. It feeds the task-boundary parameter and transfer commits and the experiment, transfer, parameter and controller handlers. Diagram: `runtime-execution.puml`.
+- [x] Control Studio storage: studies live in the project under `control-studio/<loop id>/`; workspace state holds only operation journals. Identification is a process-time campaign (recording first, steady baseline, held step, early finish for single steps, restoration confirmed). Experiments run in the runtime at the loop task's executions; Apply observations are runtime recordings followed on process time. Diagram: `control-studio.puml`.
+- [x] Removed from Control Studio: Manual Record, `validation.ts`, `automaticTune.ts`; `identificationBaseline.ts` and `webview/validationPresentation.ts` are deleted too.
+- [ ] Open: the `antiWindup*.ts` modules are still in the worktree, and `panel.ts` still attaches an anti-windup availability field to Test payloads; the comparison itself has no panel entry point. `resumeApplyObservation` has no product caller, so an interrupted Apply is recovered by reviewed recovery, not followed to its end.
+- [ ] Validation batch for these diagrams (rendering, `manifest.json`, drift check) pending.

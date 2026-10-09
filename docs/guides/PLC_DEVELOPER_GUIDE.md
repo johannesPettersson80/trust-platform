@@ -273,13 +273,6 @@ http://<device-ip>:8080
 Operations UI:
 
 - `http://<device-ip>:8080` for status, I/O, settings, deploy.
-- `http://<device-ip>:8080/hmi` for auto-generated read-only HMI.
-
-Dedicated HMI control API (via `POST /api/control`):
-
-- `hmi.schema.get`
-- `hmi.values.get`
-- `hmi.write` (phase-gated: enabled only when `[write].enabled = true` in `hmi.toml` and target is explicitly allowlisted)
 
 ## Debug Attach (Development)
 

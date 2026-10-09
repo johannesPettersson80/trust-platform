@@ -30,6 +30,35 @@ function response(params: any, revision: string, scan: number, pv = 35) {
 }
 
 suite("Control Studio observation after runtime restart", () => {
+  test("records the loop's own task, and every scan for a background program", async function () {
+    this.timeout(10000);
+    const runtime = require("../../runtimeLifecycle").runtimeLifecycleService;
+    const selected = require("../../selectedRuntime");
+    const control = require("../../runtimeControlClient");
+    const original = { snapshot: runtime.snapshot, token: runtime.controlAuthToken, selected: selected.getSelectedRuntimeId,
+      send: control.sendRuntimeControlRequest };
+    const tasks: unknown[] = [];
+    let scan = 0;
+    runtime.snapshot = async () => lifecycle("task-session");
+    runtime.controlAuthToken = async () => "bound-token";
+    selected.getSelectedRuntimeId = () => loop.runtimeId;
+    control.sendRuntimeControlRequest = async (_endpoint: string, _token: string, operation: string, params: any) => {
+      if (operation === "control.signals.inspect") return response(params, "program", ++scan);
+      if (operation === "control.recording.start") { tasks.push(params.task); return { status: "recording" }; }
+      throw new Error(`unexpected ${operation}`);
+    };
+    try {
+      const bound = (task_name: string) => ({ ...loop,
+        parameterBinding: { loop_id: loop.id, task_name, mode: { symbol: "P1.AutoMode", manual_value: false }, parameters: [] } }) as never;
+      await RuntimeRecordingSession.start(bound("MainTask"));
+      await RuntimeRecordingSession.start(bound("$background"));
+      assert.deepStrictEqual(tasks, ["MainTask", undefined], "a loop's recording samples its task; a background program runs every scan");
+    } finally {
+      runtime.snapshot = original.snapshot; runtime.controlAuthToken = original.token;
+      selected.getSelectedRuntimeId = original.selected; control.sendRuntimeControlRequest = original.send;
+    }
+  });
+
   test("starts one recording while live monitoring continues on the native single-watch selection", async function () {
     this.timeout(10000);
     const runtime = require("../../runtimeLifecycle").runtimeLifecycleService;

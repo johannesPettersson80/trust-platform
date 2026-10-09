@@ -18,9 +18,13 @@ import {
 import { canvasGraphSummary, LOCAL_RUNTIME_NODE_ID } from "./webview/types";
 import type { ManagedRuntime } from "../localRuntimeModel";
 import { SIMULATOR_RUNTIME_ID } from "../trustHomeModel";
+import { latestSimulatorSpeedRead } from "../simulationSpeed";
 import type { NCFault, NCGraph, NCHost, NCPlant, NCRuntime } from "./webview/types";
 
 export { canvasGraphSummary, runtimeEmptyMessage } from "./webview/types";
+
+/** The simulator's runtime node, with the speed fields its Mode row reads (NodeInspector; specification 35, B9.2). */
+type SimulatorRuntimeNode = NCRuntime;
 
 export function attachPlantsToRuntime(
   graph: NCGraph,
@@ -216,6 +220,21 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
       severity: "error",
     });
   }
+  // The speed is shown only while the simulator runs, from its latest status read; a stopped simulator carries none.
+  const speed = running ? latestSimulatorSpeedRead() : undefined;
+  const runtime: SimulatorRuntimeNode = {
+    id: LOCAL_RUNTIME_NODE_ID,
+    name: model.runtime.name || "Simulator",
+    mode: model.runtime.mode,
+    health,
+    detail,
+    // The local simulator has no remote control endpoint — we own its process.
+    endpoints,
+    ...(speed === undefined ? {} : {
+      simulationTimeScale: speed.configured,
+      ...(speed.achieved === undefined ? {} : { simulationAchievedTimeScale: speed.achieved }),
+    }),
+  };
   return {
     kind: "graph",
     title: "Devices & Connections",
@@ -233,17 +252,7 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
         // simulator's run state. The runtime node below carries the Start/Stop lifecycle.
         health: "connected",
         containers: [],
-        runtimes: [
-          {
-            id: LOCAL_RUNTIME_NODE_ID,
-            name: model.runtime.name || "Simulator",
-            mode: model.runtime.mode,
-            health,
-            detail,
-            // The local simulator has no remote control endpoint — we own its process.
-            endpoints,
-          },
-        ],
+        runtimes: [runtime],
       },
     ],
     links: [],

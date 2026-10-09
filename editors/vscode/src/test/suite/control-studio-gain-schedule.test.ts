@@ -29,7 +29,7 @@ const points = [{ name: "Low", proportionalGain: "P1.KpLow", integralGain: "P1.K
 const draft = () => ({ ...scope, name: "Tank level", instance: "P1.Loop", action: "direct", parameterRecord: "P1.Parameters",
   processVariable: { symbol: "P1.LevelM", unit: "m", minimum: 0, maximum: 2 }, manipulatedVariable: { symbol: "P1.ValvePct", unit: "%", minimum: 0, maximum: 100 },
   setpoint: { symbol: "P1.SetpointM" }, mode: { symbol: "P1.Auto", whenTrue: "Auto" }, manualOutput: "P1.ManualPct",
-  experimentStep: 10, experimentDurationSeconds: 120, points });
+  points });
 
 suite("Control Studio gain schedule", () => {
   test("writes one loop per operating point whose parameters are that point's gain variables", () => {
@@ -68,7 +68,7 @@ suite("Control Studio gain schedule", () => {
       assert.ok(structures.includes("schedule"), `a gain schedule has its own structure: ${structures}`);
       for (const [field, value] of [["structure", "schedule"], ["name", "Tank level"], ["processVariable", "P1.LevelM"], ["processVariable.unit", "m"],
         ["processVariable.minimum", "0"], ["processVariable.maximum", "2"], ["manipulatedVariable.unit", "%"], ["manipulatedVariable.minimum", "0"],
-        ["manipulatedVariable.maximum", "100"], ["mode", "P1.Auto"], ["experimentDuration", "120"]]) view.set(field, value);
+        ["manipulatedVariable.maximum", "100"], ["mode", "P1.Auto"]]) view.set(field, value);
       const message = () => view.root.querySelector<HTMLElement>("[data-setup-message]")!.textContent ?? "";
       assert.match(message(), /operating point/i, `the schedule's points are next: ${message()}`);
       for (const [field, value] of [["schedule.0.name", "Low"], ["schedule.0.proportionalGain", "P1.KpLow"], ["schedule.0.integralGain", "P1.KiLow"],

@@ -1194,18 +1194,11 @@ suite("truST sidebar — control surface contract", () => {
     assert.ok(source.includes("Devices &amp; Connections"), "nav must offer Devices & Connections");
     assert.ok(source.includes(">Libraries<"), "nav must offer Libraries as a first-class destination");
     assert.ok(source.includes(">Live Values<"), "nav must offer Live Values");
-    assert.ok(source.includes('id="navHmi"'), "nav must offer HMI");
+    // Specification 39, decision 12: the legacy HMI launcher is removed.
+    assert.ok(!source.includes('id="navHmi"'), "the legacy HMI launcher must not remain");
     assert.ok(
       !source.includes('id="navProject"') && !source.includes("projectActionsMenu"),
       "the retired Project bucket must not remain in the sidebar"
-    );
-    assert.ok(
-      source.includes('hmiLabel') && source.includes('"Create HMI"'),
-      "the HMI launcher may say Create HMI when the project has no HMI descriptors"
-    );
-    assert.ok(
-      source.includes('createFileSystemWatcher("**/hmi/*.toml")'),
-      "the HMI launcher label must refresh when HMI descriptor files are created or removed"
     );
     // Honesty / no jargon.
     assert.ok(

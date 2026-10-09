@@ -9,6 +9,7 @@ import { formatMatrixRows, formatNumberList } from "./numberListText";
 import type { CandidateRobustness, Margin } from "../candidateRobustness";
 import { familyLabel } from "../controllerFamilies";
 import type { FeedforwardDesign } from "../feedforwardPidDesign";
+import { signalRoleLabel } from "./signalRoles";
 
 export function renderTunedController(root: HTMLElement, loop: ControlLoopDefinition, payload: Record<string, unknown>): void {
   if (payload.status !== "candidate" || !payload.values || typeof payload.values !== "object") return;
@@ -24,12 +25,18 @@ export function renderTunedController(root: HTMLElement, loop: ControlLoopDefini
     ...(["PI", "PID"].includes(family) ? [[law.integralGainSymbol, PID_GAIN_LABELS.IntegralGain]] : []),
     ...(["PD", "PID"].includes(family) ? [[law.derivativeGainSymbol, PID_GAIN_LABELS.DerivativeGain]] : []),
   ] as [string, string][]) : law?.kind === "proportional" ? new Map([[law.gainSymbol, PID_GAIN_LABELS.ProportionalGain]]) : seededGainLabels(loop);
+  // A Keep toggle keeps the calculated value fixed for the next tuning run; it uses the pins that Tune already sends.
+  const pinned = (payload.settingsPins as { values?: Record<string, number> } | undefined)?.values ?? {};
   for (const parameter of loop.parameterBinding?.parameters ?? []) {
     if (!Number.isFinite(values[parameter.symbol]) || primary && !primary.has(parameter.symbol) || groupSymbols && !groupSymbols.has(parameter.symbol)) continue;
     const label = document.createElement("dt"); label.textContent = ownedParameterLabel(loop, parameter.symbol, primary?.get(parameter.symbol) ?? readable(parameter.convention || parameter.symbol));
     const value = document.createElement("dd"); value.textContent = `${formatEngineeringNumber(values[parameter.symbol])}${unitSuffix(parameter.unit)}`;
     value.dataset.studioParameter = parameter.symbol;
-    list.append(label, value);
+    const keepLabel = document.createElement("label"); keepLabel.className = "studio-keep"; keepLabel.title = "Keep this value fixed for the next tuning run";
+    const keep = document.createElement("input"); keep.type = "checkbox"; keep.dataset.studioKeep = parameter.symbol; keep.checked = Number.isFinite(pinned[parameter.symbol]);
+    keepLabel.append(keep, " Keep");
+    const row = document.createElement("div"); row.append(label, value, keepLabel);
+    list.append(row);
   }
   area.replaceChildren(title, list);
   const margins = payload.robustness as CandidateRobustness | undefined;
@@ -158,6 +165,21 @@ function channelUnit(loop: ControlLoopDefinition, kind: "inputs" | "outputs", id
   return signal?.unit ?? "";
 }
 
+/** A channel's role in the loop with its unit, for example "Measurement (°C)"; the symbol stays the row's hover text. */
+function channelRoleText(loop: ControlLoopDefinition | null, symbol: string): string {
+  const signal = [loop?.signals.processVariable, loop?.signals.manipulatedVariable, loop?.signals.setpoint, ...(loop?.signals.additional ?? [])]
+    .find(candidate => candidate?.symbol === symbol);
+  return signalRoleLabel(loop, symbol, signal?.unit ?? "");
+}
+
+/** A verdict cell keeps its word as the text; the icon and colour come from the verdict attribute in the page styles. */
+function verdictCell(text: string): HTMLTableCellElement {
+  const cell = document.createElement("td"); cell.textContent = text;
+  const verdict = /^(Pass|Fail|Inconclusive)\b/.exec(text)?.[1]?.toLowerCase();
+  if (verdict) { cell.classList.add("studio-verdict"); cell.dataset.verdict = verdict; }
+  return cell;
+}
+
 export function renderValidationResults(root: HTMLElement, payload: Record<string, unknown>): void {
   if (["edited", "model-ready", "candidate"].includes(String(payload.status))) {
     root.querySelector<HTMLTableElement>("[data-studio-validation-result]")!.hidden = true; return;
@@ -188,7 +210,7 @@ export function renderValidationResults(root: HTMLElement, payload: Record<strin
         ? requirement.direction === "up" ? "Maximum increase rate" : "Maximum decrease rate"
         : requirement?.kind === "dwell" && requirement.state ? requirement.state === "high" ? "Minimum ON time" : "Minimum OFF time"
         : errorFromReference(result.kind, requirement, loop) ?? names[result.kind] ?? readable(result.kind);
-      const channel = requirement?.channel && (fixedParameter || result.kind === "state-bounds" ? readable(requirement.channel.split(".").pop()!) : requirement.channel);
+      const channel = requirement?.channel && (fixedParameter || result.kind === "state-bounds" ? readable(requirement.channel.split(".").pop()!) : channelRoleText(loop, requirement.channel));
       const criteria = (payload.task as EngineerRequirements | undefined)?.automaticCriteria;
       const field = result.kind === "error" ? "maximumError" : result.kind === "settling" ? "settlingTimeSeconds" : undefined;
       const output = loop?.channels?.outputs.find(output => {
@@ -201,10 +223,10 @@ export function renderValidationResults(root: HTMLElement, payload: Record<strin
       row.dataset.resultPriority = String(result.status === "Fail" ? 0 : result.status === "Inconclusive" ? 1 : 2);
       row.dataset.requirementPriority = String(fixedParameter ? 7 : ({ settling: 0, overshoot: 1, error: 2, bounds: 3, rate: 4, "state-bounds": 6 } as Record<string, number>)[result.kind] ?? 5);
       const status = result.kind === "activity" && result.limit === undefined && result.status === "Pass" ? "Measured" : result.status;
-      for (const text of [title, measurement(result, requirement, evaluation), limit(result, requirement), status]) {
+      for (const text of [title, measurement(result, requirement, evaluation), limit(result, requirement)]) {
         const cell = document.createElement("td"); cell.textContent = text; row.append(cell);
       }
-      if (result.status !== "Pass") row.cells[3].textContent = `${result.status} · ${result.reason}`;
+      row.append(verdictCell(result.status !== "Pass" ? `${result.status} · ${result.reason}` : status));
       body.append(row);
     }
   }
@@ -212,13 +234,15 @@ export function renderValidationResults(root: HTMLElement, payload: Record<strin
     const row = document.createElement("tr"); row.dataset.studioRequirement = "limit-and-controller-checks";
     row.dataset.resultPriority = "2"; row.dataset.requirementPriority = "8";
     row.title = "Operating ranges, output rates, controller states, unchanged parameters and the controller transfer run";
-    for (const text of ["Ranges, states and transfer", `${passedChecks} ${passedChecks === 1 ? "check" : "checks"}`, "Within declared limits", "Pass"]) {
+    for (const text of ["Ranges, states and transfer", `${passedChecks} ${passedChecks === 1 ? "check" : "checks"}`, "Within declared limits"]) {
       const cell = document.createElement("td"); cell.textContent = text; row.append(cell);
     }
+    row.append(verdictCell("Pass"));
     body.append(row);
   }
   const completed = new Set(scenarios?.map(scenario => scenario.id) ?? []);
-  if (appendModelValidationRows(body, payload.modelValidation as IndependentModelValidation | undefined)) completed.add("plant-model");
+  if (appendModelValidationRows(body, payload.modelValidation as IndependentModelValidation | undefined,
+    JSON.parse(root.dataset.studioLoop ?? "null") as ControlLoopDefinition | null)) completed.add("plant-model");
   if (payload.initialization) completed.add("controller-transfer");
   const required = Array.isArray(payload.requiredScenarios) ? payload.requiredScenarios : [];
   for (const id of required) {
@@ -227,9 +251,10 @@ export function renderValidationResults(root: HTMLElement, payload: Record<strin
     if (id === "controller-transfer" && payload.status === "verification-failed") continue;
     const row = document.createElement("tr"); row.dataset.studioRequirement = id;
     row.dataset.resultPriority = "1"; row.dataset.requirementPriority = "0";
-    for (const text of [readable(id), "—", "Complete required scenario", "Inconclusive · Scenario did not complete."]) {
+    for (const text of [readable(id), "—", "Complete required scenario"]) {
       const cell = document.createElement("td"); cell.textContent = text; row.append(cell);
     }
+    row.append(verdictCell("Inconclusive · Scenario did not complete."));
     body.append(row);
   }
   const rows = Array.from(body.rows).sort((left, right) => Number(left.dataset.resultPriority) - Number(right.dataset.resultPriority)
@@ -249,6 +274,7 @@ const names: Record<string, string> = { error: "Maximum steady-state error", set
   bounds: "Operating range", "state-bounds": "State range", rate: "Maximum rate", levels: "Allowed output levels", dwell: "Minimum dwell time",
   saturation: "Maximum saturation time", switching: "Maximum switching count", activity: "Command activity" };
 function measurement(result: RunRequirementResult, requirement: RunRequirement | undefined, evaluation: RunEvaluation): string {
+  if (requirement?.kind === "overshoot" && result.value !== undefined) return percentOfSetpointChange(result.value, requirement);
   if (requirement && (requirement.kind === "bounds" || requirement.kind === "state-bounds")) {
     const values = evaluation.run.samples.filter(sample => sample.timeSeconds >= requirement.window.start && sample.timeSeconds <= requirement.window.end)
       .map(sample => sample.values[requirement.channel]).filter(value => value?.quality === "good" && value.value !== null).map(value => value.value!);
@@ -260,11 +286,16 @@ function measurement(result: RunRequirementResult, requirement: RunRequirement |
   return result.value === undefined ? "—" : `${formatEngineeringNumber(result.value)}${unitSuffix(result.unit)}`;
 }
 function limit(result: RunRequirementResult, requirement?: RunRequirement): string {
+  if (requirement?.kind === "overshoot" && result.limit !== undefined) return `≤ ${percentOfSetpointChange(result.limit, requirement)}`;
   if (requirement?.kind === "bounds" || requirement?.kind === "state-bounds") return `${requirement.minimum === requirement.maximum ? "= " : ""}${formatEngineeringNumber(requirement.minimum)}${requirement.minimum === requirement.maximum ? "" : `–${formatEngineeringNumber(requirement.maximum)}`}${unitSuffix(result.unit)}`;
   if (requirement?.kind === "levels") return formatNumberList(requirement.allowed);
   return result.limit === undefined ? "—" : `${requirement?.kind === "dwell" ? "≥" : "≤"} ${formatEngineeringNumber(result.limit)}${unitSuffix(result.unit)}`;
 }
 function unitSuffix(unit: string): string { return unit === "1" ? "" : ` ${displayEngineeringUnit(unit)}`; }
+/** Overshoot is read in percent of its setpoint change; the evaluator keeps the output unit, so only this display converts. */
+function percentOfSetpointChange(value: number, step: { initial: number; target: number }): string {
+  return `${formatEngineeringNumber(value / Math.abs(step.target - step.initial) * 100)} %`;
+}
 /** Identifier-like words made readable; a dotted symbol path stays exactly as the program declares it. */
 function readable(value: string): string {
   return value.split(" ").map(word => word.includes(".") ? word : word.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[-_]/g, " ")).join(" ");

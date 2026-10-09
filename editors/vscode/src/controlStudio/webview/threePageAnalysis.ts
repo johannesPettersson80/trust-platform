@@ -27,6 +27,7 @@ import { formatNumberList } from "./numberListText";
 import { decodePeriodicRecording } from "./periodicRecording";
 import { measuredFrequencyRows } from "../measuredFrequencyRows";
 import { formatEngineeringNumber } from "../chartContract";
+import { formatDurationSeconds, parseDurationSeconds } from "./durationField";
 
 echarts.use([LineChart, ScatterChart, GridComponent, LegendComponent, TooltipComponent, AriaComponent, CanvasRenderer]);
 
@@ -165,10 +166,12 @@ export function initializeThreePageAnalysis(
     if (selected === "response" && (model || selectedModel)) {
       const selectedModelValue = model?.model ?? selectedModel; if (!selectedModelValue) return;
       const value = (name: string) => editor.querySelector<HTMLInputElement>(`[data-analysis-${name}]`)?.value ?? "";
-      responseDraft = { stepSeconds: Number(value("response-step")), durationSeconds: Number(value("response-duration")), initialState: value("response-initial"), input: value("response-input"), connection: (editor.querySelector<HTMLSelectElement>("[data-analysis-response-connection]")?.value ?? "open-loop") as typeof responseDraft.connection };
+      // An unreadable duration keeps the last valid one in the draft; the message names what to fix.
+      const stepSeconds = parseDurationSeconds(value("response-step")), durationSeconds = parseDurationSeconds(value("response-duration"));
+      responseDraft = { stepSeconds: stepSeconds ?? responseDraft.stepSeconds, durationSeconds: durationSeconds ?? responseDraft.durationSeconds, initialState: value("response-initial"), input: value("response-input"), connection: (editor.querySelector<HTMLSelectElement>("[data-analysis-response-connection]")?.value ?? "open-loop") as typeof responseDraft.connection };
       const stateCount = selectedModelValue.kind === "transfer-function" ? selectedModelValue.denominator.length - 1 : selectedModelValue.states.length;
       const initialState = parseNumberList(responseDraft.initialState, stateCount === 0); const input = parseNumberList(responseDraft.input);
-      if (parseFiniteNumber(value("response-step")) === undefined || parseFiniteNumber(value("response-duration")) === undefined || !initialState || initialState.length !== stateCount || !input || input.length !== selectedModelValue.inputs.length) { failure = "Enter finite response settings and complete state/input vectors."; render(); return; }
+      if (stepSeconds === undefined || durationSeconds === undefined || !initialState || initialState.length !== stateCount || !input || input.length !== selectedModelValue.inputs.length) { failure = "Enter finite response settings and complete state/input vectors."; render(); return; }
       pendingModelAnalysis = true; render();
       post("control-studio.general-model.response", { stepSeconds: responseDraft.stepSeconds, durationSeconds: responseDraft.durationSeconds, initialState, input, connection: responseDraft.connection });
       return;
@@ -333,8 +336,9 @@ export function initializeThreePageAnalysis(
   const renderResponseEditor = (): void => {
     const selectedModelValue = model?.model ?? selectedModel; if (!selectedModelValue) return;
     const states = selectedModelValue.kind === "transfer-function" ? selectedModelValue.denominator.length - 1 : selectedModelValue.states.length;
-    const defaults = { step: String(responseDraft.stepSeconds), duration: String(responseDraft.durationSeconds), initial: responseDraft.initialState || Array(states).fill(0).join(","), input: responseDraft.input || Array(selectedModelValue.inputs.length).fill(0).join(",") };
-    [["response-step", "Step (s)", defaults.step], ["response-duration", "Duration (s)", defaults.duration], ["response-initial", "Initial state", defaults.initial], ["response-input", "Held input", defaults.input]].forEach(([id, labelText, value]) => { const label = document.createElement("label"); label.className = "studio-field"; label.textContent = labelText; const input = document.createElement("input"); input.type = "text"; input.value = value; input.setAttribute(`data-analysis-${id}`, ""); label.append(input); editor.append(label); });
+    // Durations take "90 s", "15 min" or plain seconds, and show in their largest unit; the draft keeps the number.
+    const defaults = { step: formatDurationSeconds(responseDraft.stepSeconds), duration: formatDurationSeconds(responseDraft.durationSeconds), initial: responseDraft.initialState || Array(states).fill(0).join(","), input: responseDraft.input || Array(selectedModelValue.inputs.length).fill(0).join(",") };
+    [["response-step", "Step", defaults.step], ["response-duration", "Duration", defaults.duration], ["response-initial", "Initial state", defaults.initial], ["response-input", "Held input", defaults.input]].forEach(([id, labelText, value]) => { const label = document.createElement("label"); label.className = "studio-field"; label.textContent = labelText; const input = document.createElement("input"); input.type = "text"; input.value = value; input.setAttribute(`data-analysis-${id}`, ""); label.append(input); editor.append(label); });
     const connection = document.createElement("select"); connection.setAttribute("data-analysis-response-connection", ""); ["open-loop", "feedback"].forEach(value => { const option = new Option(value === "open-loop" ? "Open loop" : "Declared feedback", value); connection.append(option); }); connection.value = responseDraft.connection; const label = document.createElement("label"); label.className = "studio-field"; label.textContent = "Connection"; label.append(connection); editor.append(label);
     const output = document.createElement("select"); output.setAttribute("data-analysis-response-output", ""); selectedModelValue.outputs.forEach((item, index) => output.append(new Option(`${item.id} (${item.unit})`, String(index)))); output.value = String(Math.min(responseOutputIndex, selectedModelValue.outputs.length - 1)); responseOutputIndex = Number(output.value); output.addEventListener("change", () => { responseOutputIndex = Number(output.value); render(); }); const outputLabel = document.createElement("label"); outputLabel.className = "studio-field"; outputLabel.textContent = "Displayed output"; outputLabel.append(output); editor.append(outputLabel);
   };

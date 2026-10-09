@@ -236,7 +236,7 @@
     "Identify"
   ],
   "proof": {
-    "specification": "docs/specs/control-studio-routh-hurwitz.md",
+    "specification": "docs/specs/control-studio-numerics.md",
     "nativeTest": "routh_shaft_gain_cases_match_the_declared_bounded_observations",
     "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_routh routh_shaft_gain_cases_match_the_declared_bounded_observations",
     "projectPath": "examples/control/07-classical-stability-and-frequency-design/44-routh-hurwitz",

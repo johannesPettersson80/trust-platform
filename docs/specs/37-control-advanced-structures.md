@@ -118,7 +118,9 @@ configuration when `TimeConstant <= 0` or `DeadTime < 0`.
 `Initialize` sets the delay-free and delayed model values to `ModelOutput`,
 sets the initial correction from `ProcessValue - ModelOutput`, clears elapsed
 time, and fills the assumed pre-start history with that equilibrium. It does
-not execute a model interval.
+not execute a model interval. Until the first model interval runs, `Update` reports that
+initial correction as `Correction`; afterwards `Correction` is the latest
+applied correction.
 
 Prediction becomes active only after successful configuration and
 initialization. Before both operations, or while the input `Enabled` field is

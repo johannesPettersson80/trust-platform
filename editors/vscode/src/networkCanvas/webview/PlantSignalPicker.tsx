@@ -199,7 +199,7 @@ function SignalSelect({
               onKeyDown={(event) => {
                 if (event.key === "Enter") applyManualAddress();
               }}
-              placeholder={signalDirection === "command" ? "%Q…" : "%I…"}
+              placeholder={signalDirection === "command" ? "%Q… or %M…" : "%I…"}
               style={SELECT}
             />
             <button

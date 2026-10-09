@@ -1,3 +1,6 @@
+import { MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS } from "../controlStudioLimits";
+import { parseDurationSeconds } from "./durationField";
+
 /** The one-page loop setup form: shows the chosen structure's fields, names the first missing item and posts one draft. */
 export function initializeLoopSetupForm(root: HTMLElement, post: (message: unknown) => void): { showError(reason: string): void } {
   const form = root.querySelector<HTMLFormElement>("[data-loop-setup]");
@@ -35,8 +38,12 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     if (structure() === "identify") {
       const input = signal("identify.manipulatedVariable", "plant input"); if (input.missing) return input;
       const output = signal("identify.processVariable", "measured output"); if (output.missing) return output;
-      const recording = durationValue("identify.experimentDuration", "recording duration"); if (recording.missing) return recording;
-      return { draft: { structure: "identify", name, manipulatedVariable: input.value, processVariable: output.value, experimentDurationSeconds: recording.value } };
+      // The project runs this experiment, so Studio cannot choose its length: the engineer says how long to record it (C12).
+      const seconds = parseDurationSeconds(value("identify.durationSeconds"));
+      if (seconds === undefined || seconds < MINIMUM_EXPERIMENT_DURATION_MS / 1_000 || seconds > MAXIMUM_EXPERIMENT_DURATION_MS / 1_000) {
+        return { missing: "Enter how long to record the project's experiment, from 1 s to 24 h (for example 15 min)." };
+      }
+      return { draft: { structure: "identify", name, manipulatedVariable: input.value, processVariable: output.value, experimentDurationSeconds: seconds } };
     }
     if (structure() === "state-feedback") {
       if (!value("feedback.instance")) return { missing: "Choose the instance that runs the state-feedback law." };
@@ -55,14 +62,12 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
       if (!states.length) return { missing: "Choose at least one further measured output: state feedback needs every state it feeds back." };
       if (!value("feedback.mode")) return { missing: "Choose the Auto/Manual signal." };
       if (!value("feedback.manualOutput")) return { missing: "Choose the manual output." };
-      const step = stepValue("feedback.experimentStep", "plant input", mv.value!.maximum - mv.value!.minimum); if (step.missing) return step;
-      const duration = durationValue("feedback.experimentDuration", "identification duration"); if (duration.missing) return duration;
       const startup = startupFlag(); if (startup.missing) return startup;
       return { draft: { structure: "state-feedback", name, action, ...(startup.value ? { startupFlag: startup.value } : {}),
         family: value("feedback.family") || "LQR", instance: value("feedback.instance"),
         manipulatedVariable: mv.value, processVariable: pv.value, setpoint: { symbol: value("feedback.setpoint") }, gain: value("feedback.gain"),
         referenceGain: value("feedback.referenceGain"), states, mode: { symbol: value("feedback.mode"), whenTrue: value("feedback.modeWhenTrue") || "Auto" },
-        manualOutput: value("feedback.manualOutput"), experimentStep: step.value, experimentDurationSeconds: duration.value } };
+        manualOutput: value("feedback.manualOutput") } };
     }
     if (structure() === "own-law") {
       if (!value("own.instance")) return { missing: "Choose the instance that computes the law." };
@@ -78,15 +83,12 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
       const derivative = differentiating ? gainValue("own.derivativeGain", "derivative gain") : {}; if (derivative.missing) return derivative;
       if (differentiating && !value("own.derivativeState")) return { missing: "Choose the variable holding the previous value the derivative is taken from." };
       if (differentiating && !value("own.derivativeOn")) return { missing: "Choose whether that previous value is the error or the measurement." };
-      const step = stepValue("own.experimentStep", "output", mv.value!.maximum - mv.value!.minimum); if (step.missing) return step;
-      const duration = durationValue("own.experimentDuration", "identification duration"); if (duration.missing) return duration;
       const startup = startupFlag(); if (startup.missing) return startup;
       return { draft: { structure: "own-law", name, action, ...(startup.value ? { startupFlag: startup.value } : {}), law,
         instance: value("own.instance"), processVariable: pv.value, setpoint: { symbol: value("own.setpoint") }, manipulatedVariable: mv.value,
         mode: { symbol: value("own.mode"), whenTrue: value("own.modeWhenTrue") || "Auto" }, manualOutput: value("own.manualOutput"),
         proportionalGain: proportional.value, ...(integrating ? { integralGain: integral.value, integralTerm: value("own.integralTerm") } : {}),
-        ...(differentiating ? { derivativeGain: derivative.value, derivativeState: value("own.derivativeState"), derivativeOn: value("own.derivativeOn") } : {}),
-        experimentStep: step.value, experimentDurationSeconds: duration.value } };
+        ...(differentiating ? { derivativeGain: derivative.value, derivativeState: value("own.derivativeState"), derivativeOn: value("own.derivativeOn") } : {}) } };
     }
     if (structure() === "search") {
       if (!value("search.instance")) return { missing: "Choose the instance that computes the law." };
@@ -112,13 +114,11 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
         if (!unit) return { missing: `Enter the unit of ${symbol}.` };
         states.push({ symbol, unit, start: value(`search.state.${index}.start`) || "zero" });
       }
-      const step = stepValue("search.experimentStep", "output", mv.value!.maximum - mv.value!.minimum); if (step.missing) return step;
-      const duration = durationValue("search.experimentDuration", "identification duration"); if (duration.missing) return duration;
       const startup = startupFlag(); if (startup.missing) return startup;
       return { draft: { structure: "search", name, action, ...(startup.value ? { startupFlag: startup.value } : {}), family: value("search.family") || "MPC",
         instance: value("search.instance"), processVariable: pv.value, setpoint: { symbol: value("search.setpoint") }, manipulatedVariable: mv.value,
         mode: { symbol: value("search.mode"), whenTrue: value("search.modeWhenTrue") || "Auto" }, manualOutput: value("search.manualOutput"),
-        coefficients, states, experimentStep: step.value, experimentDurationSeconds: duration.value } };
+        coefficients, states } };
     }
     if (structure() === "onoff") {
       if (!value("onoff.instance")) return { missing: "Choose the instance that switches the output." };
@@ -130,7 +130,6 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
       const unset = choices.find(([field]) => !value(`onoff.${field}`)); if (unset) return { missing: `Choose ${unset[1]}.` };
       const minimumOn = equipmentSeconds("onoff.equipmentMinimumOn", "equipment minimum ON time"); if (minimumOn.missing) return minimumOn;
       const minimumOff = equipmentSeconds("onoff.equipmentMinimumOff", "equipment minimum OFF time"); if (minimumOff.missing) return minimumOff;
-      const duration = durationValue("onoff.experimentDuration", "identification duration"); if (duration.missing) return duration;
       const startup = startupFlag(); if (startup.missing) return startup;
       return { draft: { structure: "onoff", name, action, ...(startup.value ? { startupFlag: startup.value } : {}), instance: value("onoff.instance"), processVariable: pv.value,
         setpoint: { symbol: value("onoff.setpoint") }, manipulatedVariable: mv.value, mode: { symbol: value("onoff.mode"), whenTrue: value("onoff.modeWhenTrue") || "Auto" },
@@ -138,7 +137,7 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
         minimumOn: value("onoff.minimumOn"), minimumOff: value("onoff.minimumOff"), latch: value("onoff.latch"),
         ...(value("onoff.dwellTimer") ? { dwellTimer: value("onoff.dwellTimer") } : {}),
         ...(minimumOn.value !== undefined ? { equipmentMinimumOnSeconds: minimumOn.value } : {}),
-        ...(minimumOff.value !== undefined ? { equipmentMinimumOffSeconds: minimumOff.value } : {}), experimentDurationSeconds: duration.value } };
+        ...(minimumOff.value !== undefined ? { equipmentMinimumOffSeconds: minimumOff.value } : {}) } };
     }
     if (structure() === "group") {
       const prefixes = included();
@@ -151,12 +150,10 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
         const mv = signal(`${prefix}manipulatedVariable`, `${instance} output`); if (mv.missing) return hinted(mv, prefix, "manipulatedVariable");
         if (!value(`${prefix}setpoint`)) return hinted({ missing: `Choose the setpoint of ${instance}.` }, prefix, "setpoint");
         if (!value(`${prefix}manualOutput`)) return hinted({ missing: `Choose the manual output of ${instance}.` }, prefix, "manualOutput");
-        const step = stepValue(`${prefix}experimentStep`, `${instance} output`, mv.value!.maximum - mv.value!.minimum); if (step.missing) return step;
         members.push({ instance, parameterRecord: value(`${prefix}parameterRecord`), processVariable: pv.value, manipulatedVariable: mv.value,
-          setpoint: { symbol: value(`${prefix}setpoint`) }, manualOutput: value(`${prefix}manualOutput`), experimentStep: step.value });
+          setpoint: { symbol: value(`${prefix}setpoint`) }, manualOutput: value(`${prefix}manualOutput`) });
       }
       if (!value("group.mode")) return { missing: "Choose the Auto/Manual signal the members share." };
-      const duration = durationValue("group.experimentDuration", "identification duration"); if (duration.missing) return duration;
       // The program's static decoupler, one variable per plant input and member (Specification 35 §17.15).
       const decoupler: string[][] = [];
       if (checked("group.decoupled")) for (const member of members) {
@@ -176,7 +173,7 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
       const startup = startupFlag(); if (startup.missing) return startup;
       return { draft: { structure: "group", name, action, ...(startup.value ? { startupFlag: startup.value } : {}),
         mode: { symbol: value("group.mode"), whenTrue: value("group.modeWhenTrue") || "Auto" },
-        experimentDurationSeconds: duration.value, members, ...(decoupler.length ? { decoupler } : {}) } };
+        members, ...(decoupler.length ? { decoupler } : {}) } };
     }
     if (structure() === "cascade") {
       const outer = controller("outer.", "outer"); if (outer.missing) return hinted(outer, "outer.", "manualOutput");
@@ -187,13 +184,10 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
       const innerPv = signal("inner.processVariable", "inner measurement"); if (innerPv.missing) return hinted(innerPv, "inner.", "processVariable");
       const output = signal("inner.manipulatedVariable", "output"); if (output.missing) return hinted(output, "inner.", "manipulatedVariable");
       // One identification of the plant input for both loops (Specification 35 §17.11).
-      const step = stepValue("cascade.experimentStep", "plant input", output.value!.maximum - output.value!.minimum); if (step.missing) return step;
-      const duration = durationValue("cascade.experimentDuration", "identification duration"); if (duration.missing) return duration;
       const startup = startupFlag(); if (startup.missing) return startup;
       return { draft: { structure: "cascade", name, action, ...(startup.value ? { startupFlag: startup.value } : {}),
         outer: { ...outer.value, processVariable: outerPv.value, setpoint: { symbol: value("outer.setpoint") } },
-        inner: { ...inner.value, processVariable: innerPv.value, manipulatedVariable: output.value },
-        experimentStep: step.value, experimentDurationSeconds: duration.value } };
+        inner: { ...inner.value, processVariable: innerPv.value, manipulatedVariable: output.value } } };
     }
     const loop = singleLoop(name, action); if (loop.missing) return loop;
     if (structure() === "schedule") {
@@ -222,14 +216,12 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     // The measured disturbance and the program's feedforward variables (Specification 35 §17.12).
     const disturbance = signal("ff.disturbance", "measured disturbance"); if (disturbance.missing) return disturbance;
     if (!value("ff.disturbanceCommand")) return { missing: "Choose the variable Identify steps to move the disturbance." };
-    const disturbanceStep = stepValue("ff.disturbanceStep", "disturbance", disturbance.value!.maximum - disturbance.value!.minimum);
-    if (disturbanceStep.missing) return disturbanceStep;
     if (!value("ff.gain")) return { missing: "Choose the variable holding the feedforward gain." };
     const leadLag = [["ff.lead", "lead time"], ["ff.lag", "lag time"], ["ff.filtered", "filtered disturbance the lag keeps"]] as const;
     const absent = leadLag.find(([field]) => !value(field));
     if (absent && leadLag.some(([field]) => value(field))) return { missing: `Choose the ${absent[1]} too, or no lead/lag at all.` };
     return { draft: { ...loop.draft, structure: "feedforward", disturbance: disturbance.value, disturbanceCommand: value("ff.disturbanceCommand"),
-      disturbanceStep: disturbanceStep.value, feedforward: { gain: value("ff.gain"),
+      feedforward: { gain: value("ff.gain"),
         ...(absent ? {} : { lead: value("ff.lead"), lag: value("ff.lag"), filtered: value("ff.filtered") }) } } };
   };
 
@@ -239,16 +231,13 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     if (!value("parameterRecord")) return { missing: "Choose the parameter record." };
     const pv = signal("processVariable", "measurement"); if (pv.missing) return hinted(pv, "", "processVariable");
     const mv = signal("manipulatedVariable", "output"); if (mv.missing) return hinted(mv, "", "manipulatedVariable");
-    const step = stepValue("experimentStep", "output", mv.value!.maximum - mv.value!.minimum); if (step.missing) return step;
-    const duration = durationValue("experimentDuration", "identification duration"); if (duration.missing) return duration;
     if (!value("setpoint")) return hinted({ missing: "Choose the setpoint." }, "", "setpoint");
     if (!value("mode")) return { missing: "Choose the Auto/Manual signal." };
     if (!value("manualOutput")) return hinted({ missing: "Choose the manual output." }, "", "manualOutput");
     const startup = startupFlag(); if (startup.missing) return startup;
     return { draft: { structure: "pid", name, ...(startup.value ? { startupFlag: startup.value } : {}), instance: value("instance"), action, parameterRecord: value("parameterRecord"),
       processVariable: pv.value, manipulatedVariable: mv.value, setpoint: { symbol: value("setpoint") },
-      mode: { symbol: value("mode"), whenTrue: value("modeWhenTrue") || "Auto" }, manualOutput: value("manualOutput"), experimentStep: step.value,
-      experimentDurationSeconds: duration.value } };
+      mode: { symbol: value("mode"), whenTrue: value("modeWhenTrue") || "Auto" }, manualOutput: value("manualOutput") } };
   };
 
   /** LQG: the program's estimates, their gains and observer gains for each state of the estimator's model (§17.1). */
@@ -269,13 +258,11 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     if (!value("feedback.measurementNoise") || !(measurementNoise > 0)) return { missing: "Enter the positive measurement-noise variance." };
     if (!value("feedback.mode")) return { missing: "Choose the Auto/Manual signal." };
     if (!value("feedback.manualOutput")) return { missing: "Choose the manual output." };
-    const step = stepValue("feedback.experimentStep", "plant input", Number(mv.maximum) - Number(mv.minimum)); if (step.missing) return step;
-    const duration = durationValue("feedback.experimentDuration", "identification duration"); if (duration.missing) return duration;
     const startup = startupFlag(); if (startup.missing) return startup;
     return { draft: { structure: "state-feedback", name, action, ...(startup.value ? { startupFlag: startup.value } : {}), family: "LQG",
       instance: value("feedback.instance"), manipulatedVariable: mv, processVariable: pv, setpoint: { symbol: value("feedback.setpoint") },
       referenceGain: value("feedback.referenceGain"), mode: { symbol: value("feedback.mode"), whenTrue: value("feedback.modeWhenTrue") || "Auto" },
-      manualOutput: value("feedback.manualOutput"), experimentStep: step.value, experimentDurationSeconds: duration.value,
+      manualOutput: value("feedback.manualOutput"),
       estimator: { modelFile: value("feedback.estimatorModel"), measurementNoise, states } } };
   };
   const ownLaw = (): string => value("own.law") || "PI";
@@ -286,21 +273,6 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     if (!minimum || !maximum || !Number.isFinite(Number(minimum)) || !Number.isFinite(Number(maximum))) return { missing: `Enter the ${label} minimum and maximum.` };
     if (Number(maximum) <= Number(minimum)) return { missing: `The ${label} maximum must be above its minimum.` };
     return { value: { symbol, minimum: Number(minimum), maximum: Number(maximum) } };
-  };
-  /** Until the user edits a step, it follows a tenth of its output's range. */
-  const defaultStep = (field: string, output: string): void => {
-    const input = root.querySelector<HTMLInputElement>(`[data-setup-field="${field}"]`);
-    const minimum = Number(value(`${output}.minimum`)), maximum = Number(value(`${output}.maximum`));
-    if (!input || input.dataset.edited === "true" || !value(`${output}.minimum`) || !value(`${output}.maximum`) || !(maximum > minimum)) return;
-    input.value = String(Number(((maximum - minimum) / 10).toPrecision(6)));
-  };
-  root.querySelectorAll<HTMLInputElement>('[data-setup-field$="experimentStep"]').forEach(input =>
-    input.addEventListener("input", () => { input.dataset.edited = "true"; }));
-  const stepValue = (field: string, label: string, span: number): { value?: number; missing?: string } => {
-    const raw = value(field), step = Number(raw);
-    if (!raw || !Number.isFinite(step) || step <= 0) return { missing: `Enter the ${label} identification step.` };
-    if (step > span) return { missing: `The ${label} identification step must fit inside its output range.` };
-    return { value: step };
   };
   /** Validation starts the program from seeded values: the setpoint, manual outputs, modes, parameter records and PID states.
    * Code that writes one of them itself, typically a startup branch, would replace it on the first scan. */
@@ -342,13 +314,6 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     return Number.isFinite(seconds) && seconds >= 0 ? { value: seconds }
       : { missing: `The ${label} must be zero or more seconds; leave it blank when the equipment has none.` };
   };
-  /** How long identification runs depends on the process, so it has no default. */
-  const durationValue = (field: string, label: string): { value?: number; missing?: string } => {
-    const raw = value(field), seconds = Number(raw);
-    if (!raw || !Number.isFinite(seconds)) return { missing: `Enter the ${label} in seconds: long enough for the measurement to show the response.` };
-    if (seconds < 2 || seconds > 600) return { missing: `The ${label} must be between 2 and 600 s.` };
-    return { value: seconds };
-  };
   /** When a field is still empty because the controller's own variable cannot serve, say why and what to choose. */
   const hinted = <T extends { missing?: string }>(state: T, prefix: string, field: string): T => {
     if (value(`${prefix}${field}`)) return state;
@@ -356,17 +321,18 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     const computed = field === "processVariable" ? prefill?.computedProcessValue : undefined;
     if (computed) return { ...state, missing: `${state.missing} The controller reads ${computed}, which the program computes, so a simulated `
       + "measurement would be overwritten every scan; choose the measurement it is computed from." };
-    const manual = field === "manualOutput" ? prefill?.unaddressedManualOutput : undefined;
-    if (manual) return { ...state, missing: `${state.missing} The controller reads ${manual}, which has no I/O address; identification `
-      + "writes the manual output through the process image, so map it with AT %M in VAR_CONFIG." };
     return state;
   };
   /** A chosen controller fills in what its own calls say, except fields the user has chosen. */
   const prefills = new Map(Array.from(root.querySelectorAll<HTMLElement>("[data-setup-prefills] li")).map(item => [item.dataset.instance ?? "", item.dataset]));
+  // The Auto/Manual signal, what its TRUE means and the startup-done flag come from the code too (Specification 35 §17.1).
   const prefilled: Record<string, readonly [string, string][]> = {
-    "": [["parameterRecord", "parameterRecord"], ["manipulatedVariable", "manipulatedVariable"], ["setpoint", "setpoint"], ["processVariable", "processValue"], ["manualOutput", "manualOutput"]],
-    "outer.": [["outer.parameterRecord", "parameterRecord"], ["outer.manualOutput", "manualOutput"], ["outer.processVariable", "processValue"], ["outer.setpoint", "setpoint"]],
-    "inner.": [["inner.parameterRecord", "parameterRecord"], ["inner.manualOutput", "manualOutput"], ["inner.processVariable", "processValue"], ["inner.manipulatedVariable", "manipulatedVariable"]],
+    "": [["parameterRecord", "parameterRecord"], ["manipulatedVariable", "manipulatedVariable"], ["setpoint", "setpoint"], ["processVariable", "processValue"], ["manualOutput", "manualOutput"],
+      ["mode", "mode"], ["modeWhenTrue", "modeWhenTrue"], ["startupFlag", "startupFlag"]],
+    "outer.": [["outer.parameterRecord", "parameterRecord"], ["outer.manualOutput", "manualOutput"], ["outer.processVariable", "processValue"], ["outer.setpoint", "setpoint"],
+      ["outer.mode", "mode"], ["outer.modeWhenTrue", "modeWhenTrue"]],
+    "inner.": [["inner.parameterRecord", "parameterRecord"], ["inner.manualOutput", "manualOutput"], ["inner.processVariable", "processValue"], ["inner.manipulatedVariable", "manipulatedVariable"],
+      ["inner.mode", "mode"], ["inner.modeWhenTrue", "modeWhenTrue"]],
   };
   const memberFields = (prefix: string): readonly [string, string][] => [[`${prefix}parameterRecord`, "parameterRecord"], [`${prefix}processVariable`, "processValue"],
     [`${prefix}manipulatedVariable`, "manipulatedVariable"], [`${prefix}setpoint`, "setpoint"], [`${prefix}manualOutput`, "manualOutput"]];
@@ -387,13 +353,50 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
   for (const prefix of Object.keys(prefilled)) fillFrom(prefix);
   root.querySelectorAll<HTMLInputElement>('[data-setup-field^="group."][data-setup-field$=".instance"]')
     .forEach(input => fillFrom((input.dataset.setupField ?? "").replace(/instance$/, "")));
+  // What the code states is shown in words. Change reveals the selector that changes a fact; the loop name follows the controller
+  // until it is typed, and the unit and range fields appear only where the code did not supply them.
+  const chosenText = (field: string): string => {
+    const element = fields.get(field);
+    if (!element) return "";
+    if (element.tagName !== "SELECT") return element.value.trim();
+    const select = element as HTMLSelectElement;
+    return select.value ? select.selectedOptions[0]?.textContent?.trim() ?? "" : "";
+  };
+  // The compiled task of each PID comes from the program; it is shown, never chosen.
+  const tasks = new Map(Array.from(root.querySelectorAll<HTMLElement>("[data-setup-tasks] li")).map(item => [item.dataset.instance ?? "", item.dataset.task ?? ""]));
+  const refreshFound = (): void => {
+    for (const element of Array.from(root.querySelectorAll<HTMLElement>("[data-setup-found-value]"))) {
+      const field = element.dataset.setupFoundValue ?? "";
+      const text = field === "mode" ? (chosenText("mode") ? `${chosenText("mode")} · TRUE means ${chosenText("modeWhenTrue") || "Auto"}` : "")
+        : field === "task" ? tasks.get(value("instance")) ?? ""
+        : chosenText(field);
+      element.textContent = text || (field === "task" ? "Not stated in the code" : "Not found in the code");
+    }
+  };
+  const nameField = fields.get("name") as HTMLInputElement | undefined;
+  if (nameField) nameField.addEventListener("input", () => { nameField.dataset.auto = "false"; });
+  const prefillName = (): void => {
+    if (!nameField || nameField.dataset.auto === "false" || !value("instance")) return;
+    nameField.value = value("instance").split(".").pop() ?? value("instance");
+    nameField.dataset.auto = "true";
+  };
+  for (const button of Array.from(root.querySelectorAll<HTMLButtonElement>("[data-setup-change]"))) {
+    button.addEventListener("click", () => {
+      const panel = root.querySelector<HTMLElement>(`[data-setup-change-panel="${button.dataset.setupChange ?? ""}"]`);
+      if (!panel) return;
+      panel.hidden = !panel.hidden;
+      button.setAttribute("aria-expanded", String(!panel.hidden));
+      if (!panel.hidden) panel.querySelector<HTMLElement>("select, input")?.focus();
+    });
+  }
+
   const render = (): void => {
-    defaultStep("experimentStep", "manipulatedVariable");
-    defaultStep("cascade.experimentStep", "inner.manipulatedVariable");
-    for (const prefix of included()) defaultStep(`${prefix}experimentStep`, `${prefix}manipulatedVariable`);
-    defaultStep("feedback.experimentStep", "feedback.manipulatedVariable");
-    defaultStep("own.experimentStep", "own.manipulatedVariable");
-    defaultStep("search.experimentStep", "search.manipulatedVariable");
+    prefillName();
+    refreshFound();
+    for (const group of Array.from(root.querySelectorAll<HTMLElement>("[data-setup-range-group]"))) {
+      const field = group.dataset.setupRangeGroup ?? "";
+      group.hidden = Boolean(value(`${field}.unit`) && value(`${field}.minimum`) && value(`${field}.maximum`));
+    }
     // A further coefficient or kept value appears once the previous one is chosen.
     for (const [attribute, field] of [["data-search-coefficient", "search.coefficient"], ["data-search-state", "search.state"]] as const) {
       root.querySelectorAll<HTMLElement>(`[${attribute}]`).forEach(row => {

@@ -8,11 +8,14 @@ import type { ControlSignalBinding } from "./loopDefinition";
 
 const run = workerData.run as RuntimeVerificationResult;
 const input = workerData.input as ControlSignalBinding, output = workerData.output as ControlSignalBinding;
-const samples: IdentificationSample[] = run.run.samples.map(sample => ({ timeSeconds: sample.timeSeconds,
+// The fit starts at the steady baseline window; the recording and its evidence stay whole (B3.4).
+const fitFrom = typeof workerData.fitFromSeconds === "number" ? workerData.fitFromSeconds : 0;
+const samples: IdentificationSample[] = run.run.samples.filter(sample => sample.timeSeconds >= fitFrom - 1e-9).map(sample => ({ timeSeconds: sample.timeSeconds,
   input: sample.values[input.symbol]?.value ?? NaN, output: sample.values[output.symbol]?.value ?? NaN,
   quality: sample.values[input.symbol]?.quality === "good" && sample.values[output.symbol]?.quality === "good" ? "good" : "bad",
   inputUnit: input.unit, outputUnit: output.unit }));
-const fit = identifyPlantFromExcitation(samples, workerData.maximumNormalizedError);
+const baselineEnd = typeof workerData.baselineEndSeconds === "number" ? workerData.baselineEndSeconds : undefined;
+const fit = identifyPlantFromExcitation(samples, workerData.maximumNormalizedError, baselineEnd);
 const channels = { inputs: [{ id: workerData.inputId ?? input.symbol, unit: input.unit, operatingRange: input.range }],
   outputs: [{ id: workerData.outputId ?? output.symbol, unit: output.unit, operatingRange: output.range }] };
 const model = provisionalIdentificationModel(fit.recommended, samples, channels, recordingFingerprint(run.run), fit);

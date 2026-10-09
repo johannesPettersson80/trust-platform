@@ -200,12 +200,10 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                     );
                 };
                 if matches!(symbol.kind, SymbolKind::EnumValue { .. })
-                    && matches!(
-                        self.checker
-                            .symbols
-                            .resolve_enum_value_by_name(name.as_str()),
-                        EnumValueResolution::Ambiguous
-                    )
+                    && self
+                        .checker
+                        .symbols
+                        .enum_value_ambiguous_from(self.checker.current_scope, name.as_str())
                 {
                     return self.checker.legacy_diagnostic_type(
                         DiagnosticCode::CannotResolve,

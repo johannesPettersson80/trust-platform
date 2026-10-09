@@ -15,7 +15,7 @@
 | debug execution | [Debugging](../operate/debugging-and-runtime-panel.md) |
 | map variables to I/O | [I/O Binding](../connect/devices-and-fieldbus/io-binding.md) |
 | use Ladder, SFC, Blockly, or statecharts | [Visual Editors](visual-editors/index.md) |
-| author HMI pages | [HMI Authoring](hmi-authoring.md) |
+| design operator screens | [HMI Builder](hmi-builder.md) |
 | choose a communication path | [Protocol Matrix](../connect/protocol-matrix.md) |
 | use Modbus, MQTT, OPC UA, EtherCAT, or GPIO | [Communication Overview](../connect/index.md) |
 | add libraries | [Libraries](libraries/index.md) |

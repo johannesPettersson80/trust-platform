@@ -40,4 +40,23 @@ suite("Control Studio simulator startup", () => {
     await retry.ensure("simulator", () => false);
     assert.strictEqual(attempts, 2);
   });
+
+  test("accepts a connected runtime that reports its own simulation mode and starts nothing", async () => {
+    const { StudySimulatorStartup } = require("../../controlStudio/studySimulatorStartup");
+    const { simulationTarget } = require("../../controlStudio/simulationTarget");
+    let simulated = true, starts = 0;
+    const owner = new StudySimulatorStartup({
+      snapshot: async () => ({ status: { running: true, runtimeMode: "online", simulated } }),
+      startLocalSimulator: async () => { starts++; return { ok: true }; },
+    }, () => "unix:///tmp/trust-runtime.sock");
+    await owner.ensure("unix:///tmp/trust-runtime.sock", () => false);
+    assert.strictEqual(starts, 0, "a runtime in simulation mode needs no local simulator");
+    simulated = false;
+    await assert.rejects(owner.ensure("unix:///tmp/trust-runtime.sock", () => false), /simulation mode/i,
+      "a runtime that does not report simulation is physical");
+    assert.strictEqual(simulationTarget({ runtimeMode: "online", simulated: true }), true);
+    assert.strictEqual(simulationTarget({ runtimeMode: "online", simulated: false }), false);
+    assert.strictEqual(simulationTarget({ runtimeMode: "simulate" }), false, "a simulate setting alone never makes a target simulated (A2.4)");
+    assert.strictEqual(simulationTarget({ runtimeMode: "simulate", simulated: true }), true, "the runtime's own report decides");
+  });
 });

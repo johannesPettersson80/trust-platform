@@ -35,6 +35,7 @@ mod symbol_path;
 mod transfer;
 pub(crate) use parameters::resolve_path as resolve_control_parameter_path;
 pub use recording::{IoRecordingResult, IoRecordingSpec};
+pub(crate) use symbol_path::number_as as control_number_as;
 
 include!("control/types.rs");
 include!("control/api.rs");

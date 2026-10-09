@@ -15,17 +15,14 @@ import {
   frequencyResponse,
   tuneController,
 } from "../../controlStudio/tuning";
-import { runSavedSimulationAutomaticTune, tuneSavedSimulationPlant } from "../../controlStudio/automaticTune";
-import { decodeEngineeringCommand, decodeLoopAutomaticTuneApprove } from "../../controlStudio/messages";
+import { decodeEngineeringCommand } from "../../controlStudio/messages";
 import {
   candidateFromControlPid,
-  selectSimplestPassingCandidate,
   updateControlPid,
   type ControlPidParameters,
   type ControlPidState,
 } from "../../controlStudio/controllerCandidate";
 import { buildEngineeringPlotEvidence } from "../../controlStudio/engineeringPlots";
-import { compareControlPidCandidates } from "../../controlStudio/validation";
 
 function fopdtSamples(amplitude = 2): IdentificationSample[] {
   const result: IdentificationSample[] = [];
@@ -175,7 +172,9 @@ suite("Control Studio identification and tuning", () => {
     const samples = fopdtSamples(2);
     samples.push({ timeSeconds: 30.1, input: 0, output: samples[samples.length - 1].output, quality: "good" });
     const result = identifyPlant(samples);
-    assert.ok(result.recommended.gain > 0.5 && result.recommended.gain < 1.5,
+    // The held-step gain of this simulated record is 1.5. Its least-squares gain (N2.2) is close to that value but not exactly
+    // it, so the check uses the tolerance of the simplest-model test. The restoration sample lies outside the hold (B3.4 step 5).
+    assert.ok(Math.abs(result.recommended.gain - 1.5) < 0.15,
       "the final restoration must not replace the held-step response used for gain estimation");
   });
 
@@ -365,8 +364,8 @@ suite("Control Studio identification and tuning", () => {
 
   test("generates unapplied SIMC and AMIGO PI candidates with model-backed margins", () => {
     const model = identifyPlant(fopdtSamples()).recommended;
-    const simc = tuneController(model, { method: "SIMC", objective: "balanced" });
-    const amigo = tuneController(model, { method: "AMIGO", objective: "balanced" });
+    const simc = tuneController(model, { method: "SIMC", objective: "balanced", action: "direct" });
+    const amigo = tuneController(model, { method: "AMIGO", objective: "balanced", action: "direct" });
     assert.strictEqual(simc.applied, false);
     assert.strictEqual(simc.controller.structure, "PI");
     assert.ok(simc.controller.kp > 0 && simc.controller.tiSeconds! > 0);
@@ -380,7 +379,7 @@ suite("Control Studio identification and tuning", () => {
     const describe = (require("../../controlStudio/tuning") as any).describeTuningMethod;
     assert.strictEqual(typeof describe, "function", "tuning method presentation is missing");
     const model = identifyPlant(fopdtSamples()).recommended;
-    const simc = describe(model, "SIMC", "balanced", "%", "°C");
+    const simc = describe(model, "SIMC", "balanced", "%", "°C", "direct");
     assert.strictEqual(simc.status, "Feasible");
     assert.strictEqual(simc.title, "SIMC PI (Skogestad 2003)");
     assert.strictEqual(simc.convention, "Parallel Control.PID");
@@ -391,7 +390,7 @@ suite("Control Studio identification and tuning", () => {
     assert.strictEqual(simc.result.derivativeGain, 0);
     assert.strictEqual(simc.applied, false);
 
-    const unavailable = describe({ ...model, deadTimeSeconds: 0 }, "AMIGO", "balanced", "%", "°C");
+    const unavailable = describe({ ...model, deadTimeSeconds: 0 }, "AMIGO", "balanced", "%", "°C", "direct");
     assert.strictEqual(unavailable.status, "Unavailable");
     assert.match(unavailable.reason, /resolved positive dead time/i);
     assert.strictEqual(unavailable.result, undefined);
@@ -401,99 +400,6 @@ suite("Control Studio identification and tuning", () => {
     assert.throws(() => frequencyResponse({
       kind: "first_order", gain: 0, stable: true, normalizedError: 0,
     }), /gain/i);
-  });
-
-  test("Automatic Tune reuses the same tune and validation services without applying", () => {
-    const result = tuneSavedSimulationPlant({
-      schema_version: 1, operation: "plant.read", project_identity: "fixture", project_root: "/fixture",
-      saved_configuration_revision: "sha256:plant-1", saved_configuration: { plants: [{ id: "plant-1",
-        model: "first_order_dead_time", parameters: { gain: 1.5, time_constant_s: 4, dead_time_s: 0.5 } }] },
-    } as never, "plant-1", "balanced");
-    assert.strictEqual(result.applied, false);
-    assert.strictEqual(result.modelEvidence, "Exact simulation model");
-    assert.deepStrictEqual(result.evaluatedStructures, ["P", "PI", "PD", "PID"]);
-    assert.strictEqual(result.structure, "PI", "the simplest passing structure should win this FOPDT case");
-    assert.ok(result.frequency.points.length >= 40);
-    assert.ok(result.requirements.length >= 4);
-    assert.ok(result.requirements.every((requirement) => requirement.status !== "Fail" && requirement.status !== "Inconclusive"));
-    assert.match(result.rationale, /simplest passing/i);
-    const attempts = (result as unknown as { attempts?: readonly {
-      method: string; status: string; score?: number; reason?: string }[] }).attempts;
-    assert.ok(attempts, "Automatic Tune does not retain method comparison attempts");
-    assert.ok(attempts.some((attempt) => attempt.method === "SIMC"));
-    assert.ok(attempts.some((attempt) => attempt.method === "AMIGO"));
-    assert.ok(attempts.some((attempt) => attempt.method === "Constrained comparison"));
-    assert.ok(attempts.every((attempt) => ["Feasible", "Rejected", "Unavailable"].includes(attempt.status)));
-    assert.ok(result.validationResult.metrics?.candidate,
-      "the recommendation must retain the common comparison metrics");
-  });
-
-  test("Automatic Tune materializes a P candidate without an integral time", () => {
-    const automaticTune = require("../../controlStudio/automaticTune") as {
-      materializeAutomaticTuneController?: (candidate: ReturnType<typeof candidateFromControlPid>) =>
-        { kp: number; tiSeconds?: number };
-    };
-    assert.strictEqual(typeof automaticTune.materializeAutomaticTuneController, "function");
-    const candidate = candidateFromControlPid({
-      proportionalGain: 0.1, integralGain: 0, derivativeGain: 0,
-      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: 0, outputMaximum: 100, rateMinimum: -100, rateMaximum: 100,
-      trackingTime: 1, antiWindup: "BackCalculation",
-    }, "Constrained comparison");
-    assert.deepStrictEqual(automaticTune.materializeAutomaticTuneController!(candidate), { kp: 0.1 });
-  });
-
-  test("compares every method with the running controller units, limits, and timing semantics", () => {
-    const current = candidateFromControlPid({
-      proportionalGain: 0.667, integralGain: 0.667, derivativeGain: 0,
-      proportionalSetpointWeight: 0.8, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: -10, outputMaximum: 10, rateMinimum: -25, rateMaximum: 25,
-      trackingTime: 0.4, antiWindup: "Combined",
-    }, "Imported");
-    const tuneWithUnits = tuneSavedSimulationPlant as unknown as (
-      response: Parameters<typeof tuneSavedSimulationPlant>[0], plantId: string,
-      objective: "balanced", controller: ReturnType<typeof candidateFromControlPid>,
-      units: { processUnit: string; outputUnit: string }
-    ) => ReturnType<typeof tuneSavedSimulationPlant>;
-    const result = tuneWithUnits({
-      schema_version: 1, operation: "plant.read", project_identity: "fixture", project_root: "/fixture",
-      saved_configuration_revision: "sha256:plant-1", saved_configuration: { plants: [{ id: "plant-1",
-        model: "first_order_dead_time", parameters: { gain: 1, time_constant_s: 1, dead_time_s: 0.5 } }] },
-    } as never, "plant-1", "balanced", current, { processUnit: "unit", outputUnit: "%" });
-    assert.deepStrictEqual({
-      proportionalSetpointWeight: result.parameters.proportionalSetpointWeight,
-      derivativeSetpointWeight: result.parameters.derivativeSetpointWeight,
-      bias: result.parameters.bias,
-      outputMinimum: result.parameters.outputMinimum,
-      outputMaximum: result.parameters.outputMaximum,
-      rateMinimum: result.parameters.rateMinimum,
-      rateMaximum: result.parameters.rateMaximum,
-      antiWindup: result.parameters.antiWindup,
-    }, {
-      proportionalSetpointWeight: 0.8, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: -10, outputMaximum: 10, rateMinimum: -25, rateMaximum: 25,
-      antiWindup: "Combined",
-    });
-    const units = Object.fromEntries(result.requirements
-      .filter((requirement) => ["MV excursion", "MV rate", "Noise response"].includes(requirement.name))
-      .map((requirement) => [requirement.name, requirement.unit]));
-    assert.deepStrictEqual(units, {
-      "MV excursion": "%", "MV rate": "%/s", "Noise response": "% RMS",
-    }, "the comparison must retain the loop's controller-output engineering unit");
-  });
-
-  test("Automatic Tune stops at the failed stage and retains completed work", () => {
-    const outcome = runSavedSimulationAutomaticTune({
-      schema_version: 1, operation: "plant.read", project_identity: "fixture", project_root: "/fixture",
-      saved_configuration_revision: "sha256:plant-1", saved_configuration: { plants: [{ id: "plant-1",
-        model: "state_space", parameters: {} }] },
-    } as never, "plant-1", "balanced");
-    assert.strictEqual(outcome.status, "failed");
-    if (outcome.status !== "failed") return;
-    assert.deepStrictEqual(outcome.completedStages, ["Test"]);
-    assert.strictEqual(outcome.failedStage, "Identify");
-    assert.match(outcome.reason, /first-order-plus-dead-time/i);
-    assert.match(outcome.recovery, /configure|record|identify/i);
   });
 
   test("keeps automatic method choices and comparison evidence in the current Tune result owner", () => {
@@ -526,13 +432,6 @@ suite("Control Studio identification and tuning", () => {
     assert.match(workflow, /data-studio-requirements/);
   });
 
-  test("accepts Automatic Tune approval from the configured loop scope", () => {
-    const scope = { projectId: "project", editorSessionId: "editor", loopId: "loop", loopRevision: "sha256:loop" };
-    assert.deepStrictEqual(decodeLoopAutomaticTuneApprove({ schemaVersion: 1, kind: "control-studio.automatic.approve",
-      messageId: "message", projectId: "project", editorSessionId: "editor", loopId: "loop",
-      expectedLoopRevision: "sha256:loop", payload: { objective: "balanced" } }, scope),
-    { messageId: "message", objective: "balanced" });
-  });
   test("accepts a strict loop-scoped raw identification edit with blank fields", () => {
     const scope = { projectId: "project", editorSessionId: "editor", loopId: "loop", loopRevision: "sha256:loop" };
     const values = Object.fromEntries([
@@ -551,7 +450,7 @@ suite("Control Studio identification and tuning", () => {
       payload: { form: { schemaVersion: 1, model: "fopdt", heldStep: true, values: { ...values, extra: "" }, excludedStart: "", excludedEnd: "" } } }, scope), undefined);
   });
 
-  test("accepts the concise loop-scoped qualification, fit, acceptance, tune, and validate commands", () => {
+  test("accepts the concise loop-scoped qualification, fit, and acceptance commands", () => {
     const scope = { projectId: "project", editorSessionId: "editor", loopId: "loop", loopRevision: "sha256:loop" };
     const base = { schemaVersion: 1, messageId: "message", projectId: "project", editorSessionId: "editor",
       loopId: "loop", expectedLoopRevision: "sha256:loop" };
@@ -568,23 +467,6 @@ suite("Control Studio identification and tuning", () => {
       payload: {} }, scope), { action: "identify-accept", messageId: "message" });
     assert.strictEqual(decodeEngineeringCommand({ ...base, kind: "control-studio.identify.run",
       payload: { model: "invented" } }, scope), undefined);
-    assert.deepStrictEqual(decodeEngineeringCommand({ ...base, kind: "control-studio.tune.run",
-      payload: { method: "SIMC", objective: "balanced" } }, scope),
-    { action: "tune", messageId: "message", method: "SIMC", objective: "balanced" });
-    assert.deepStrictEqual(decodeEngineeringCommand({ ...base, kind: "control-studio.validate.run", payload: {} }, scope),
-      { action: "validate", messageId: "message" });
-    const settings = {
-      proportionalGain: 2, integralGain: 0.5, derivativeGain: 0,
-      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: 0, outputMaximum: 100, rateMinimum: -20, rateMaximum: 20,
-      trackingTime: 1, antiWindup: "BackCalculation",
-    };
-    assert.deepStrictEqual(decodeEngineeringCommand({ ...base, kind: "control-studio.tune.run",
-      payload: { method: "Manual", settings } }, scope),
-    { action: "tune-settings", messageId: "message", method: "Manual", settings });
-    assert.deepStrictEqual(decodeEngineeringCommand({ ...base, kind: "control-studio.tune.run",
-      payload: { method: "Imported", settings } }, scope),
-    { action: "tune-settings", messageId: "message", method: "Imported", settings });
   });
 
   test("preserves manual and imported Control.PID settings without conversion", () => {
@@ -651,34 +533,6 @@ suite("Control Studio identification and tuning", () => {
     assert.ok(Math.abs(incremental2.output - 0.79) < 1e-12);
   });
 
-  test("selects the simplest passing structure and uses performance only within that complexity", () => {
-    const parameters: ControlPidParameters = {
-      proportionalGain: 1, integralGain: 1, derivativeGain: 0,
-      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: 0, outputMaximum: 100, rateMinimum: -100, rateMaximum: 100,
-      trackingTime: 1, antiWindup: "BackCalculation",
-    };
-    const pi = candidateFromControlPid(parameters, "Manual");
-    const pid = candidateFromControlPid({ ...parameters, derivativeGain: 0.2 }, "Manual");
-    assert.strictEqual(selectSimplestPassingCandidate([
-      { candidate: pi, passes: true, performanceScore: 1 },
-      { candidate: pid, passes: true, performanceScore: 0.95 },
-    ], 0.1)?.structure, "PI");
-    assert.strictEqual(selectSimplestPassingCandidate([
-      { candidate: pi, passes: true, performanceScore: 1 },
-      { candidate: pid, passes: true, performanceScore: 0.7 },
-    ], 0.1)?.structure, "PI");
-    const pd = candidateFromControlPid({ ...parameters, integralGain: 0, derivativeGain: 0.2 }, "Manual");
-    assert.strictEqual(selectSimplestPassingCandidate([
-      { candidate: pi, passes: true, performanceScore: 1 },
-      { candidate: pd, passes: true, performanceScore: 0.95 },
-    ], 0.1)?.structure, "PD");
-    assert.strictEqual(selectSimplestPassingCandidate([
-      { candidate: pi, passes: false, performanceScore: 1 },
-      { candidate: pid, passes: false, performanceScore: 0.7 },
-    ]), undefined);
-  });
-
   test("reports unsafe frequency margins instead of coercing them positive", () => {
     const result = frequencyResponse({
       kind: "first_order_dead_time", gain: 100, timeConstantSeconds: 1,
@@ -694,8 +548,8 @@ suite("Control Studio identification and tuning", () => {
     };
     const symmetric = { kind: "first_order_dead_time" as const, gain: 1, timeConstantSeconds: 1,
       deadTimeSeconds: 1, stable: true, normalizedError: 0 };
-    const simc = tuneController(symmetric, { method: "SIMC", objective: "balanced" });
-    const amigo = tuneController(symmetric, { method: "AMIGO", objective: "balanced" });
+    const simc = tuneController(symmetric, { method: "SIMC", objective: "balanced", action: "direct" });
+    const amigo = tuneController(symmetric, { method: "AMIGO", objective: "balanced", action: "direct" });
     relative(simc.controller.kp, 1 / 3);
     relative(simc.controller.tiSeconds!, 1);
     relative(simc.controller.kp / simc.controller.tiSeconds!, 1 / 3);
@@ -704,7 +558,7 @@ suite("Control Studio identification and tuning", () => {
     relative(amigo.controller.kp / amigo.controller.tiSeconds!, 0.25);
 
     const asymmetric = { ...symmetric, gain: 2, timeConstantSeconds: 10 };
-    const asymmetricAmigo = tuneController(asymmetric, { method: "AMIGO", objective: "fast" });
+    const asymmetricAmigo = tuneController(asymmetric, { method: "AMIGO", objective: "fast", action: "direct" });
     relative(asymmetricAmigo.controller.kp, 1.4117768595);
     relative(asymmetricAmigo.controller.tiSeconds!, 6.0768722467);
     relative(asymmetricAmigo.controller.kp / asymmetricAmigo.controller.tiSeconds!,
@@ -714,33 +568,39 @@ suite("Control Studio identification and tuning", () => {
   test("maps only SIMC response objectives and rejects models outside each published domain", () => {
     const model = { kind: "first_order_dead_time" as const, gain: 1, timeConstantSeconds: 1,
       deadTimeSeconds: 0.5, stable: true, normalizedError: 0 };
-    const fast = tuneController(model, { method: "SIMC", objective: "fast" });
-    const balanced = tuneController(model, { method: "SIMC", objective: "balanced" });
-    const robust = tuneController(model, { method: "SIMC", objective: "robust" });
+    const fast = tuneController(model, { method: "SIMC", objective: "fast", action: "direct" });
+    const balanced = tuneController(model, { method: "SIMC", objective: "balanced", action: "direct" });
+    const robust = tuneController(model, { method: "SIMC", objective: "robust", action: "direct" });
     assert.ok(fast.controller.kp > balanced.controller.kp);
     assert.ok(balanced.controller.kp > robust.controller.kp);
-    const amigoFast = tuneController(model, { method: "AMIGO", objective: "fast" });
-    const amigoRobust = tuneController(model, { method: "AMIGO", objective: "robust" });
+    const amigoFast = tuneController(model, { method: "AMIGO", objective: "fast", action: "direct" });
+    const amigoRobust = tuneController(model, { method: "AMIGO", objective: "robust", action: "direct" });
     assert.deepStrictEqual(amigoFast.controller, amigoRobust.controller,
       "response labels must not silently rewrite the published AMIGO formula");
     assert.throws(() => tuneController({ ...model, stable: false },
-      { method: "SIMC", objective: "balanced" }), /stable/i);
+      { method: "SIMC", objective: "balanced", action: "direct" }), /stable/i);
+    // A loop whose output rises while the measurement is above the setpoint (cooling) tunes on the
+    // gain's magnitude and gives the gain its negative sign; Ti stays positive.
+    const cooling = tuneController({ ...model, gain: -1 }, { method: "SIMC", objective: "balanced", action: "reverse" });
+    assert.ok(cooling.controller.kp < 0, "a negative plant gain needs a negative proportional gain");
+    assert.ok((cooling.controller.tiSeconds ?? 0) > 0);
+    // A gain whose sign contradicts the loop's direction is refused in plain words.
     assert.throws(() => tuneController({ ...model, gain: -1 },
-      { method: "SIMC", objective: "balanced" }), /positive gain/i);
+      { method: "SIMC", objective: "balanced", action: "direct" }), /measurement falls when the output rises/i);
     assert.throws(() => tuneController({ ...model, normalizedError: 0.3 },
-      { method: "SIMC", objective: "balanced" }), /model error/i);
+      { method: "SIMC", objective: "balanced", action: "direct" }), /model error/i);
     assert.throws(() => tuneController({ ...model, deadTimeSeconds: 0 },
-      { method: "AMIGO", objective: "balanced" }), /resolved positive dead time/i);
+      { method: "AMIGO", objective: "balanced", action: "direct" }), /resolved positive dead time/i);
     assert.throws(() => tuneController({ ...model, deadTimeSeconds: 2 },
-      { method: "AMIGO", objective: "balanced" }), /delay.*domain/i);
+      { method: "AMIGO", objective: "balanced", action: "direct" }), /delay.*domain/i);
   });
 
   test("qualifies SIMC PI for an integrating tank without treating rate gain as static gain", () => {
     const tank = { kind: "integrating" as const, gain: 0.05, deadTimeSeconds: 1,
       stable: true, normalizedError: 0.04 };
-    const fast = tuneController(tank, { method: "SIMC", objective: "fast" });
-    const balanced = tuneController(tank, { method: "SIMC", objective: "balanced" });
-    const robust = tuneController(tank, { method: "SIMC", objective: "robust" });
+    const fast = tuneController(tank, { method: "SIMC", objective: "fast", action: "direct" });
+    const balanced = tuneController(tank, { method: "SIMC", objective: "balanced", action: "direct" });
+    const robust = tuneController(tank, { method: "SIMC", objective: "robust", action: "direct" });
     assert.deepStrictEqual(fast.controller, { structure: "PI", kp: 10, tiSeconds: 8 });
     assert.deepStrictEqual(balanced.controller,
       { structure: "PI", kp: 6.6666667, tiSeconds: 12 });
@@ -749,7 +609,7 @@ suite("Control Studio identification and tuning", () => {
       robust.closedLoopTimeSeconds], [1, 2, 4]);
     assert.strictEqual(balanced.applied, false);
 
-    const described = describeTuningMethod(tank, "SIMC", "balanced", "valve-%", "level-%");
+    const described = describeTuningMethod(tank, "SIMC", "balanced", "valve-%", "level-%", "direct");
     assert.strictEqual(described.status, "Feasible");
     assert.strictEqual(described.units.plantGain, "level-%/(valve-%·s)");
     assert.match(described.assumptions.join(" "), /integrating.*positive.*rate gain/i);
@@ -760,9 +620,9 @@ suite("Control Studio identification and tuning", () => {
       openLoop.points[openLoop.points.length - 1].magnitudeDb > 100,
       "an integrating model must lose 20 dB per decade before controller effects");
     assert.throws(() => tuneController({ ...tank, deadTimeSeconds: 0 },
-      { method: "SIMC", objective: "balanced" }), /resolved positive effective delay/i);
+      { method: "SIMC", objective: "balanced", action: "direct" }), /resolved positive effective delay/i);
     assert.throws(() => tuneController(tank,
-      { method: "AMIGO", objective: "balanced" }), /integrating/i);
+      { method: "AMIGO", objective: "balanced", action: "direct" }), /integrating/i);
   });
 
   test("keeps proportional control eligible for integrating plants", () => {
@@ -774,103 +634,6 @@ suite("Control Studio identification and tuning", () => {
     };
     const proportional = candidateFromControlPid(parameters, "Manual");
     assert.strictEqual(proportional.structure, "P");
-  });
-
-  test("exposes one deterministic qualified-method comparison service", () => {
-    const tuning = require("../../controlStudio/tuning") as Record<string, unknown>;
-    assert.strictEqual(typeof tuning.compareQualifiedTunings, "function",
-      "qualified tuning comparison is not implemented");
-  });
-
-  test("retains the complete common performance and actuator metric set", () => {
-    const model = { kind: "first_order_dead_time" as const, gain: 1, timeConstantSeconds: 1,
-      deadTimeSeconds: 0.5, stable: true, normalizedError: 0 };
-    const base: ControlPidParameters = {
-      proportionalGain: 0.667, integralGain: 0.667, derivativeGain: 0,
-      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: -10, outputMaximum: 10, rateMinimum: -100, rateMaximum: 100,
-      trackingTime: 1, antiWindup: "BackCalculation",
-    };
-    const result = compareControlPidCandidates(model,
-      candidateFromControlPid(base, "Imported"), candidateFromControlPid(base, "SIMC"), {
-        evidence: "Model-predicted",
-        scenarios: [{ kind: "setpoint", amplitude: 1 }, { kind: "disturbance", amplitude: 0.2 },
-          { kind: "noise", amplitude: 0.02 }],
-        variationFractions: [-0.2, 0, 0.2], outputUnit: "%",
-      });
-    const metrics = (result as unknown as { metrics?: { candidate?: Record<string, number | boolean> } }).metrics?.candidate;
-    assert.ok(metrics, "validation does not retain candidate metrics");
-    for (const name of ["iae", "ise", "itae", "mvMovement", "peakAbsoluteMv", "maximumMvRate",
-      "noiseMvRms", "worstCaseVariationIae"] as const) {
-      assert.ok(Number.isFinite(metrics?.[name]), `${name} must be finite`);
-    }
-  });
-
-  test("ranks feasible candidates by structural complexity and objective", () => {
-    const candidates = require("../../controlStudio/controllerCandidate") as {
-      rankQualifiedCandidates?: (items: readonly unknown[], objective: "balanced") => {
-        winner?: { source: string; structure: string }; ranked: readonly { id: string; feasible: boolean }[] };
-    };
-    assert.strictEqual(typeof candidates.rankQualifiedCandidates, "function");
-    const base: ControlPidParameters = {
-      proportionalGain: 1, integralGain: 1, derivativeGain: 0,
-      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: -10, outputMaximum: 10, rateMinimum: -100, rateMaximum: 100,
-      trackingTime: 1, antiWindup: "BackCalculation",
-    };
-    const metric = { iae: 1, ise: 1, itae: 1, mvMovement: 1, peakAbsoluteMv: 1,
-      maximumMvRate: 1, noiseMvRms: 1, worstCaseVariationIae: 1,
-      gainMarginDb: 10, phaseMarginDegrees: 45 };
-    const ranked = candidates.rankQualifiedCandidates!([
-      { id: "amigo", method: "AMIGO", candidate: candidateFromControlPid(base, "AMIGO"),
-        feasible: true, metrics: metric },
-      { id: "rejected", method: "Constrained comparison",
-        candidate: candidateFromControlPid({ ...base, proportionalGain: 10 }, "Constrained comparison"),
-        feasible: false, metrics: { ...metric, iae: 0.01 } },
-      { id: "simc", method: "SIMC", candidate: candidateFromControlPid(base, "SIMC"),
-        feasible: true, metrics: metric },
-    ], "balanced");
-    assert.strictEqual(ranked.winner?.source, "SIMC");
-    assert.deepStrictEqual(ranked.ranked.map((item) => item.id), ["simc", "amigo", "rejected"]);
-    assert.strictEqual(ranked.ranked[2].feasible, false);
-
-    const nearTie = candidates.rankQualifiedCandidates!([
-      { id: "amigo-near", method: "AMIGO", candidate: candidateFromControlPid(base, "AMIGO"),
-        feasible: true, metrics: metric },
-      { id: "simc-near", method: "SIMC", candidate: candidateFromControlPid(base, "SIMC"),
-        feasible: true, metrics: { ...metric, iae: 1.05, ise: 1.05, itae: 1.05,
-          mvMovement: 1.05, peakAbsoluteMv: 1.05, maximumMvRate: 1.05,
-          noiseMvRms: 1.05, worstCaseVariationIae: 1.05 } },
-    ], "balanced");
-    assert.strictEqual(nearTie.winner?.source, "AMIGO",
-      "equally simple qualifying candidates are selected by their declared objective");
-    assert.strictEqual(nearTie.ranked[0].id, "amigo-near");
-
-    const proportional = candidateFromControlPid({ ...base, integralGain: 0 }, "Constrained comparison");
-    const pid = candidateFromControlPid({ ...base, derivativeGain: 0.2 }, "Constrained comparison");
-    const complexityResult = candidates.rankQualifiedCandidates!([
-      { id: "p", method: "Constrained comparison", candidate: proportional,
-        feasible: true, metrics: { ...metric, iae: 2, ise: 2, itae: 2,
-          mvMovement: 2, peakAbsoluteMv: 2, maximumMvRate: 2,
-          noiseMvRms: 2, worstCaseVariationIae: 2 } },
-      { id: "pid", method: "Constrained comparison", candidate: pid,
-        feasible: true, metrics: metric },
-    ], "balanced");
-    assert.strictEqual(complexityResult.winner?.structure, "P",
-      "a more complex controller must not displace a simpler qualifying controller");
-
-    const pi = candidateFromControlPid(base, "Constrained comparison");
-    const pd = candidateFromControlPid({ ...base, integralGain: 0, derivativeGain: 0.2 }, "Constrained comparison");
-    const equallySimpleResult = candidates.rankQualifiedCandidates!([
-      { id: "pi", method: "Constrained comparison", candidate: pi,
-        feasible: true, metrics: { ...metric, iae: 1.05, ise: 1.05, itae: 1.05,
-          mvMovement: 1.05, peakAbsoluteMv: 1.05, maximumMvRate: 1.05,
-          noiseMvRms: 1.05, worstCaseVariationIae: 1.05 } },
-      { id: "pd", method: "Constrained comparison", candidate: pd,
-        feasible: true, metrics: metric },
-    ], "balanced");
-    assert.strictEqual(equallySimpleResult.winner?.structure, "PD",
-      "PI and PD are equally simple, so the better matching objective wins");
   });
 
   test("retains measured, predicted, residual, range, delay, units, and warnings as model evidence", () => {
@@ -915,7 +678,6 @@ suite("Control Studio identification and tuning", () => {
       sensitivity?: readonly { sensitivityMagnitudeDb: number;
         complementarySensitivityMagnitudeDb: number; controlSensitivityMagnitudeDb: number }[];
       rootLocus?: { status: string; branches: readonly unknown[] };
-      requirements?: readonly { name: string; plot: string; status: string }[];
       uncertainty?: { status: string; points: readonly { lower: number; nominal: number; upper: number }[] };
     };
     assert.strictEqual(advanced.nichols?.length, evidence.candidateOpenLoopBode.length);
@@ -924,9 +686,6 @@ suite("Control Studio identification and tuning", () => {
     assert.ok(advanced.sensitivity?.every((point) => [point.sensitivityMagnitudeDb,
       point.complementarySensitivityMagnitudeDb, point.controlSensitivityMagnitudeDb].every(Number.isFinite)));
     assert.ok(advanced.rootLocus?.status === "qualified" && advanced.rootLocus.branches.length >= 40);
-    assert.ok(advanced.requirements?.some((item) => item.name === "Overshoot" && item.plot === "response"));
-    assert.ok(advanced.requirements?.some((item) => item.name === "Phase margin" && item.plot === "bode"));
-    assert.ok(advanced.requirements?.every((item) => ["Pass", "Fail", "Inconclusive"].includes(item.status)));
     assert.strictEqual(advanced.uncertainty?.status, "evaluated");
     assert.strictEqual(advanced.uncertainty?.points.length, evidence.timeResponse.length);
     assert.ok(advanced.uncertainty?.points.every((point) => point.lower <= point.nominal && point.nominal <= point.upper));
@@ -957,13 +716,5 @@ suite("Control Studio identification and tuning", () => {
     }).engineeringPlotMessageEvidence;
     assert.strictEqual(typeof messageEvidence, "function", "unbounded margins need an explicit message representation");
     assert.strictEqual(messageEvidence?.(evidence).gainMarginDb, "unbounded");
-    const validation = compareControlPidCandidates(model, current, candidate, {
-      evidence: "Model-predicted", scenarios: [{ kind: "setpoint", amplitude: 1 }],
-      variationFractions: [0],
-    });
-    const gainMargin = validation.requirements.find((item) => item.name === "Gain margin");
-    assert.strictEqual(gainMargin?.status, "Pass");
-    assert.strictEqual(gainMargin?.value, Number.POSITIVE_INFINITY,
-      "the rendered requirement must state that the passing margin is unbounded");
   });
 });

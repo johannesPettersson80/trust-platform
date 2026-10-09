@@ -1,0 +1,42 @@
+format = 1
+title = "Settings"
+order = 4
+icon = "settings"
+
+[[object]]
+id = "heading"
+type = "text"
+variant = "heading"
+text = "Settings"
+at = [40, 32]
+size = [600, 40]
+
+[[object]]
+id = "room-settings"
+type = "panel"
+label = "Room"
+at = [40, 100]
+size = [440, 180]
+
+[[object]]
+id = "fan-speed"
+type = "numeric-input"
+label = "Fan speed while heating"
+unit = "%"
+decimals = 0
+min = 30
+max = 100
+role = "engineer"
+at = [64, 160]
+size = [392, 56]
+
+[object.bind]
+value = { path = "Main.FanSpeed", direction = "read-write" }
+
+[[object]]
+id = "heating-note"
+type = "text"
+variant = "caption"
+text = "The heating sequence's own settings, when room heating starts and the pump's overrun, are in its panel's Settings on the Overview."
+at = [40, 300]
+size = [640, 48]

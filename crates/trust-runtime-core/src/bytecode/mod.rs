@@ -258,6 +258,22 @@ impl BytecodeMetadata {
     pub fn primary_resource(&self) -> Option<&ResourceMetadata> {
         self.resources.first()
     }
+
+    /// The resource a runtime whose `runtime.toml` names `name` runs: the configuration's resource
+    /// of that name, else the single legacy placeholder; `None` when there is neither, and the
+    /// runtime refuses the program.
+    #[must_use]
+    pub fn runtime_resource(&self, name: &str) -> Option<&ResourceMetadata> {
+        self.resource(name).or_else(|| self.legacy_placeholder())
+    }
+
+    /// The one resource, named `RESOURCE`, of a program that predates named resources.
+    #[must_use]
+    pub fn legacy_placeholder(&self) -> Option<&ResourceMetadata> {
+        let resource = self.resources.first()?;
+        (self.resources.len() == 1 && resource.name.eq_ignore_ascii_case("RESOURCE"))
+            .then_some(resource)
+    }
 }
 
 #[cfg(test)]

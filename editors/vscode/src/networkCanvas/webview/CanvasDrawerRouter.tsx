@@ -1,3 +1,4 @@
+import { EquipmentConnections } from "./EquipmentConnections";
 import React from "react";
 
 import { AddDevicePanel } from "./AddDevicePanel";
@@ -12,6 +13,7 @@ import { PlantDraftPanel } from "./PlantDraftPanel";
 import { SetUpRuntimePanel } from "./SetUpRuntimePanel";
 
 export interface CanvasDrawerRoutes {
+  equipment?: React.ComponentProps<typeof EquipmentConnections>;
   addDevice?: React.ComponentProps<typeof AddDevicePanel>;
   plantDraft?: React.ComponentProps<typeof PlantDraftPanel>;
   inspectNode?: React.ComponentProps<typeof NodeInspector>;
@@ -28,6 +30,7 @@ export interface CanvasDrawerRoutes {
 // selection, and a browse task wins over discovery. This preserves one active
 // right-hand task surface and keeps drawer geometry deterministic.
 export function activeDrawerWidth(routes: CanvasDrawerRoutes): number {
+  if (routes.equipment) return 360;
   // Plant setup is a main-canvas editor surface, not a narrow inspector.
   if (routes.plantDraft) return 0;
   if (routes.addDevice) return 360;
@@ -43,6 +46,7 @@ export function activeDrawerWidth(routes: CanvasDrawerRoutes): number {
 }
 
 export function CanvasDrawerRouter({ routes }: { routes: CanvasDrawerRoutes }) {
+  if (routes.equipment) return <EquipmentConnections {...routes.equipment}/>;
   return (
     <>
       {routes.addConnection && <AddPane {...routes.addConnection} />}

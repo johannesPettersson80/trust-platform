@@ -24,8 +24,7 @@ suite("Control Studio ON/OFF setup rendered", () => {
           ['onoff.processVariable.unit','°C'],['onoff.processVariable.minimum','-10'],['onoff.processVariable.maximum','20'],['onoff.setpoint','P1.SetpointC'],
           ['onoff.manipulatedVariable','P1.CompressorPct'],['onoff.manipulatedVariable.unit','%'],['onoff.manipulatedVariable.minimum','0'],
           ['onoff.manipulatedVariable.maximum','100'],['onoff.mode','P1.AutoMode'],['onoff.manualOutput','P1.ManualPct'],['onoff.hysteresis','P1.HysteresisC'],
-          ['onoff.minimumOn','P1.MinimumOnS'],['onoff.minimumOff','P1.MinimumOffS'],['onoff.latch','P1.CoolingOn'],['onoff.dwellTimer','P1.DwellS'],
-          ['onoff.experimentDuration','300']]) set(name,value);return 'filled';`);
+          ['onoff.minimumOn','P1.MinimumOnS'],['onoff.minimumOff','P1.MinimumOffS'],['onoff.latch','P1.CoolingOn'],['onoff.dwellTimer','P1.DwellS']]) set(name,value);return 'filled';`);
       const state = JSON.parse(await inner(`return JSON.stringify({save:d.querySelector('[data-setup-save]').disabled,message:d.querySelector('[data-setup-message]').textContent,
         startup:d.querySelector('[data-setup-startup]').hidden,visible:[...d.querySelectorAll('[data-setup-section]')].filter(s=>!s.hidden).map(s=>s.dataset.setupSection)});`));
       assert.deepStrictEqual([state.save, state.startup, state.visible], [false, true, ["onoff"]],

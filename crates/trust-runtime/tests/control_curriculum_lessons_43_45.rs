@@ -236,16 +236,6 @@ fn lesson44_the_delayed_model_follows_the_heater_and_the_delay_free_one_does_not
     );
 }
 
-#[test]
-fn lesson44_hmi_only_binds_signals_of_the_executed_heater() {
-    let (runtime, _) = setup(LESSON44);
-    let diagnostics = hmi_diagnostics(LESSON44, &runtime);
-    assert!(
-        diagnostics.is_empty(),
-        "The Lesson 48 HMI must bind the executed heater project: {diagnostics:?}"
-    );
-}
-
 const LESSON45: &str = "02-derivative-action-and-dynamic-response/19-poles-zeros-and-response";
 
 /// One 20 ms update of the heater and the shaft with their pole predictions.
@@ -327,14 +317,4 @@ fn lesson45_the_shaft_oscillates_with_its_complex_poles() {
             "the poles' response: {update:?}"
         );
     }
-}
-
-#[test]
-fn lesson45_hmi_only_binds_signals_of_the_executed_project() {
-    let (runtime, _) = setup(LESSON45);
-    let diagnostics = hmi_diagnostics(LESSON45, &runtime);
-    assert!(
-        diagnostics.is_empty(),
-        "The Lesson 49 HMI must bind the executed project: {diagnostics:?}"
-    );
 }

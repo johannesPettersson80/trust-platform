@@ -221,3 +221,83 @@ fn sigint_requests_bounded_graceful_stop_in_child_runtime() {
 fn sigterm_requests_bounded_graceful_stop_in_child_runtime() {
     assert_graceful_signal_stop("TERM");
 }
+
+/// Starts the project, waits until it runs, stops it and returns the runtime's output.
+fn run_until_started_then_stop(project: &Path, control_port: u16) -> Output {
+    let child = wait_for_control_port(spawn_runtime(project), control_port);
+    send_signal(child.id(), "TERM");
+    let output = wait_for_exit(child, "TERM");
+    assert!(
+        output.status.success(),
+        "runtime should stop cleanly; status={}; stdout:\n{}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    output
+}
+
+fn tree_snapshot(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+    let mut files = Vec::new();
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(dir) = pending.pop() {
+        for entry in fs::read_dir(&dir).expect("read dir") {
+            let path = entry.expect("dir entry").path();
+            if path.is_dir() {
+                pending.push(path);
+            } else {
+                let bytes = fs::read(&path).expect("read file");
+                files.push((
+                    path.strip_prefix(root).expect("inside root").to_path_buf(),
+                    bytes,
+                ));
+            }
+        }
+    }
+    files.sort();
+    files
+}
+
+/// Specification 39, decision 12: `trust-runtime run` no longer writes legacy HMI pages into
+/// the project.
+#[test]
+fn run_does_not_create_an_hmi_folder_in_the_project() {
+    let project = unique_temp_dir("no-hmi-scaffold");
+    let control_port = reserve_local_port();
+    write_signal_project(&project, control_port);
+
+    let output = run_until_started_then_stop(&project, control_port);
+
+    assert!(
+        !project.join("hmi").exists(),
+        "run must not write HMI files into the project; stdout:\n{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let _ = fs::remove_dir_all(&project);
+}
+
+/// Specification 39, §15: the project's HMI folder belongs to the HMI Builder; running the
+/// project leaves its page files exactly as they are.
+#[test]
+fn run_leaves_hmi_builder_page_files_untouched() {
+    let project = unique_temp_dir("hmi-pages-untouched");
+    let control_port = reserve_local_port();
+    write_signal_project(&project, control_port);
+    fs::create_dir_all(project.join("hmi/pages")).expect("create hmi pages");
+    fs::write(
+        project.join("hmi/pages/overview.toml"),
+        "format = 1\ntitle = \"Overview\"\n\n[[object]]\nid = \"out-lamp\"\ntype = \"lamp\"\nat = [40, 40]\nsize = [48, 48]\n\n[object.bind]\non = \"Main.Out\"\n",
+    )
+    .expect("write page file");
+    let before = tree_snapshot(&project.join("hmi"));
+
+    let output = run_until_started_then_stop(&project, control_port);
+
+    assert_eq!(
+        tree_snapshot(&project.join("hmi")),
+        before,
+        "run must leave the HMI folder unchanged; stdout:\n{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let _ = fs::remove_dir_all(&project);
+}

@@ -83,6 +83,10 @@ struct DebugState {
     pending_lvalue_writes: Vec<PendingLValueWrite>,
     forced_vars: Vec<ForcedVar>,
     forced_io: Vec<(IoAddress, Value)>,
+    /// The callback that runs once per published cycle; the experiment executor registers it.
+    scan_observer: Option<ScanObserver>,
+    /// Whether the runtime's I/O was simulation-only at the last published cycle (Specification 35, A2.3).
+    latest_simulation_only_io: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -116,6 +120,9 @@ pub(crate) enum PendingVarTarget {
     Retain(SmolStr),
     Instance(InstanceId, SmolStr),
     Local(FrameId, SmolStr),
+    /// A variable or a field below one by its storage reference: a Control Studio experiment's
+    /// variable (Specification 35, experiments by variable name).
+    Reference(crate::value::ValueRef),
 }
 
 #[derive(Debug, Clone)]

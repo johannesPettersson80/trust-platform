@@ -504,6 +504,53 @@ jobs:
           name: gate-browser-analysis
           path: gate-artifacts/browser-analysis.txt
 
+  # Screen tests of the HMI (specification 39, §18 phase 3): the operator journey of the tank-level
+  # example against the simulator, and the reference page compared with its approved screenshots.
+  hmi-screen-tests:
+    name: HMI Screen Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/hmi-screen-tests
+    steps:
+      - uses: actions/checkout@v6
+      - name: Checkout OpenOT reference sibling
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/checkout_openot_ref.sh
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: scripts/hmi-screen-tests/package-lock.json
+      - name: Verify HMI gate failure handling
+        working-directory: ${{ github.workspace }}
+        run: python3 -m unittest scripts.tests.test_hmi_ci_gate -v
+      - name: Build current HMI bundles and reject stale generated assets
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/hmi_ci_gate.sh bundles
+      - name: Run current runtime and deterministic browser journeys
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/hmi_ci_gate.sh browser
+      - name: Upload the screen test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: hmi-screen-test-results
+          path: scripts/hmi-screen-tests/test-results
+      - name: Record successful HMI gate
+        working-directory: ${{ github.workspace }}
+        run: |
+          mkdir -p gate-artifacts
+          echo "job=hmi-screen-tests result=success" > gate-artifacts/hmi-screen-tests.txt
+      - name: Upload HMI gate marker
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-hmi-screen-tests
+          path: gate-artifacts/hmi-screen-tests.txt
+
   vscode-extension:
     name: VS Code Extension
     runs-on: ubuntu-latest
@@ -745,7 +792,7 @@ jobs:
   release-gate-report:
     name: Release Gate Report
     runs-on: ubuntu-latest
-    needs: [fmt, clippy, test, conformance, architecture-safety, msrv, docs, browser-analysis, vscode-extension, editor-expansion, mp001-parity, supply-chain, version-release-guard]
+    needs: [fmt, clippy, test, conformance, architecture-safety, msrv, docs, browser-analysis, vscode-extension, hmi-screen-tests, editor-expansion, mp001-parity, supply-chain, version-release-guard]
     if: ${{ always() }}
     steps:
       - uses: actions/checkout@v6
@@ -771,6 +818,7 @@ jobs:
           NEED_DOCS: ${{ needs.docs.result }}
           NEED_BROWSER_ANALYSIS: ${{ needs['browser-analysis'].result }}
           NEED_VSCODE_EXTENSION: ${{ needs['vscode-extension'].result }}
+          NEED_HMI_SCREEN_TESTS: ${{ needs['hmi-screen-tests'].result }}
           NEED_EDITOR_EXPANSION: ${{ needs['editor-expansion'].result }}
           NEED_MP001_PARITY: ${{ needs['mp001-parity'].result }}
           NEED_SUPPLY_CHAIN: ${{ needs['supply-chain'].result }}
@@ -790,6 +838,7 @@ jobs:
             --required-gate gate-docs \
             --required-gate gate-browser-analysis \
             --required-gate gate-vscode-extension \
+            --required-gate gate-hmi-screen-tests \
             --required-gate gate-editor-expansion \
             --required-gate gate-mp001-parity \
             --required-gate gate-supply-chain \
@@ -803,6 +852,7 @@ jobs:
             --job-status "docs=${NEED_DOCS}" \
             --job-status "browser-analysis=${NEED_BROWSER_ANALYSIS}" \
             --job-status "vscode-extension=${NEED_VSCODE_EXTENSION}" \
+            --job-status "hmi-screen-tests=${NEED_HMI_SCREEN_TESTS}" \
             --job-status "editor-expansion=${NEED_EDITOR_EXPANSION}" \
             --job-status "mp001-parity=${NEED_MP001_PARITY}" \
             --job-status "supply-chain=${NEED_SUPPLY_CHAIN}" \

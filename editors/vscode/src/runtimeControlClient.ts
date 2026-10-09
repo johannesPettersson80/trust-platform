@@ -36,6 +36,14 @@ export class RuntimeControlError extends Error {
   }
 }
 
+/** The runtime could not be reached or stopped answering: the request never produced a runtime answer. */
+export class RuntimeTransportError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RuntimeTransportError";
+  }
+}
+
 let nextRequestId = 1;
 
 export async function probeRuntimeControlEndpoint(
@@ -124,10 +132,10 @@ export async function sendRuntimeControlRequest<T = unknown>(
 
     const errorHandler = (error: unknown): void => {
       const message = error instanceof Error ? error.message : String(error);
-      finish(() => reject(new Error(message)));
+      finish(() => reject(new RuntimeTransportError(message)));
     };
     const closeHandler = (): void => {
-      finish(() => reject(new Error("Runtime control connection closed.")));
+      finish(() => reject(new RuntimeTransportError("Runtime control connection closed.")));
     };
     const dataHandler = (chunk: unknown): void => {
       buffer += Buffer.isBuffer(chunk) ? chunk.toString() : String(chunk);
@@ -151,14 +159,14 @@ export async function sendRuntimeControlRequest<T = unknown>(
     };
 
     socket.setTimeout(timeoutMs, () => {
-      finish(() => reject(new Error("control request timeout")));
+      finish(() => reject(new RuntimeTransportError("control request timeout")));
     });
     socket.once("error", errorHandler);
     socket.once("close", closeHandler);
     socket.once("connect", () => {
       socket.write(`${JSON.stringify(requestEnvelope)}\n`, (error) => {
         if (error) {
-          finish(() => reject(error));
+          finish(() => reject(new RuntimeTransportError(error.message)));
         }
       });
     });

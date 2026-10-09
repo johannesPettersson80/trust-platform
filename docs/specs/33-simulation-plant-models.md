@@ -115,7 +115,7 @@ Every plant defines:
 | `description` | string | no | Optional project documentation for the simulated process. |
 | `model` | closed string enum | yes | Selects a built-in model from Section 7. |
 | `command_sources` | array of addresses or symbols | yes | Ordered numeric PLC output or memory signals, or unaddressed program variables (Section 13.1). |
-| `feedback_targets` | array of addresses or symbols | yes | Ordered numeric PLC input signals, or unaddressed program variables (Section 13.2). |
+| `feedback_targets` | array of addresses or symbols | yes | Ordered numeric PLC input signals, unaddressed program variables, or `pid:` and a `Control.PID` instance's path (Section 13.2). |
 | `actuator_feedback_targets` | array of records | no | Optional applied-actuator PLC input address for each ordered command channel; see Section 3.2.1. |
 | `step_ms` | positive integer | no | Overrides the default fixed integration step. |
 | `initial_state` | array of finite numbers | model-dependent | Sets dynamic state at activation. |
@@ -521,12 +521,56 @@ restart.
 
 ### 6.1 Simulation time
 
-Plant time is the scheduler's monotonic simulation time after applying the
-configured time scale. Wall-clock time and CPU execution duration do not enter
-plant equations.
+Simulation time is the runtime's process time while simulation is enabled. It
+is the time that every task, timer, plant, coupling, plant event, recording and
+experiment uses (specification 35, A3.1). Wall-clock time and CPU execution
+duration do not enter plant equations.
 
-Time scaling changes how quickly simulation time advances relative to wall
-time; it shall not change model results at equal simulation timestamps.
+1. **Exact steps.** Simulation time advances by exactly one resource cycle
+   interval for each executed cycle. It is never read from the wall clock. A
+   cycle that starts late therefore does not lengthen the interval that the
+   next cycle sees, and no cycle is skipped. A free-running resource (cycle
+   interval 0) has no step to take: its process time is the wall clock times
+   the speed.
+2. **Speed.** The scheduler paces cycles against the wall clock at the
+   configured speed `time_scale`, a whole number from 1 to 100. At speed `s`
+   a cycle is due every cycle interval ÷ `s` of wall time. A cycle that starts
+   within one paced interval of its due time keeps the schedule. A cycle that
+   starts later restarts the schedule from its own start. The scheduler never
+   runs extra cycles to recover lost wall time.
+3. **A host that cannot keep the pace** runs the simulation more slowly than
+   configured, with unchanged results. The runtime measures the **achieved
+   speed**: the simulation time advanced divided by the wall time elapsed, over
+   the last 5 s of wall time, or since the last pause, restart or speed change
+   if that is shorter. With several resources, the achieved speed is the lowest
+   of theirs. Late cycles are not overruns in simulation; the achieved speed
+   reports them.
+4. **Pause and restart.** While the resource is paused, simulation time does not
+   advance. A warm or cold restart continues simulation time from its last
+   value. After a pause, a restart or a speed change the schedule restarts at
+   the next cycle.
+5. **Changing the speed while running.** `config.set` with the key
+   `simulation.time_scale` changes the speed of a running simulation. The new
+   speed applies from the next cycle and never moves simulation time. The change
+   lasts until the runtime stops. The project keeps its speed in
+   `simulation.toml` (`[simulation] time_scale`); `--time-scale` with a value
+   above 1 overrides it at launch and enables simulation. The VS Code simulator
+   reads the project's speed again when its program is reloaded; every VS Code
+   control that changes the speed also saves it there. Without simulation the
+   speed is 1, and the runtime refuses the key. An I/O driver named `simulated`,
+   `sim`, `noop`, `loopback` or `none` touches no real I/O; any other enabled
+   driver makes the target physical.
+6. **Reporting.** The control endpoint's `status` operation reports `simulation_time_scale`, the
+   configured speed, and `simulation_achieved_time_scale`, the achieved speed of
+   item 3, or `null` before the first second of wall time has been measured.
+7. **Speed does not change results.** Everything scheduled in simulation time
+   produces the same values at equal simulation timestamps at any speed and
+   under any host load. A write that arrives from outside the runtime, such as
+   an operator command or a debugger write, takes effect at the first cycle
+   after it arrives, so its simulation time depends on the speed.
+
+Without simulation, process time follows the wall clock, and a cycle that
+starts late counts as an overrun.
 
 ### 6.2 Fixed internal step
 
@@ -1205,6 +1249,28 @@ an input, before the program runs. The program must only read it: a value the
 program assigns itself replaces the feedback during the scan, so a client that
 knows the program's assignments (Control Studio) refuses such a target.
 
+A feedback target may instead be written `pid:` followed by the path of an
+instance of the Control library's `PID` (`pid:Main.TIC101`): the measurement
+that controller receives. It is for a model of the loop seen from the
+controller (Control Studio's model checks), where the program computes the
+controller's measurement itself, through a transmitter block's scaling, a
+filter or a fault hold, so no program variable or input carries it unchanged.
+Each time the plant publishes, the value is held for that instance; whenever the
+program calls that instance's `Update`, the `Input` it passes reaches the
+controller with `ProcessValue` replaced by the held value. Nothing else changes:
+the program's own variables keep what the program wrote, other fields of
+`Input` and other instances are untouched, and the controller's
+`StateValue.ProcessValue` afterwards shows the value it used. Reading the target
+back gives the held value. The target is valid only as a feedback target; a
+command source written `pid:` rejects configuration. A path that names no
+`Control.PID` instance faults the plant at its first publish, naming the target.
+A held value is removed when the runtime restarts or loads another program; the
+plant then gives it again at its next publish.
+
+In an isolated run (Specification 35) the copy of the program starts with the
+running PLC's bound process-image inputs, and the run's plant writes only its
+own feedback targets: every other input keeps the value the running PLC had.
+
 Conversion shall reject nonfinite values and numeric overflow. Integer targets
 round to nearest with ties to even before range checking. No conversion may
 wrap, truncate modulo the target width, or reinterpret floating-point bits as
@@ -1216,7 +1282,8 @@ scenario.
 
 ### 13.3 Target ownership
 
-An enabled plant feedback target, address or symbol, shall be unique across:
+An enabled plant feedback target, address, symbol or `pid:` instance (compared
+without regard to case), shall be unique across:
 
 - all enabled plants;
 - existing simulation couplings; and

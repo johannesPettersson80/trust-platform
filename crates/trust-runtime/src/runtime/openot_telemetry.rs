@@ -21,6 +21,10 @@ mod imp {
         publisher: Option<SharedRecordPublisher>,
         source: OpenOtTelemetrySource,
         st_fb_producers: Vec<StFbProducerState>,
+        /// The alarm service's run (its start time in ms) and its last record's number
+        /// (specification 40, §5.2).
+        alarm_run_id: u64,
+        alarm_seq: u64,
     }
 
     impl Default for OpenOtTelemetrySubsystem {
@@ -29,8 +33,18 @@ mod imp {
                 publisher: None,
                 source: OpenOtTelemetrySource::Heartbeat,
                 st_fb_producers: Vec::new(),
+                alarm_run_id: start_ms(),
+                alarm_seq: 0,
             }
         }
+    }
+
+    /// Milliseconds since the Unix epoch, the alarm service's run identity.
+    fn start_ms() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|elapsed| u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX))
+            .unwrap_or_default()
     }
 
     #[derive(Debug, Clone)]
@@ -103,6 +117,27 @@ mod imp {
         pub(crate) fn reset_scan_state(&mut self) {
             for producer in &mut self.st_fb_producers {
                 producer.reset();
+            }
+        }
+
+        /// Publishes the alarm service's records (specification 40, §5.2). A record the ring
+        /// refuses is logged; the alarm list and the in-memory records keep it.
+        pub(crate) fn publish_alarm_records(&mut self, records: &[crate::hmi::alarms::AlarmEvent]) {
+            let Some(publisher) = self.publisher.as_mut() else {
+                return;
+            };
+            for event in records {
+                let Some(record) = super::super::openot_alarm_records::alarm_record(
+                    event,
+                    self.alarm_run_id,
+                    self.alarm_seq + 1,
+                ) else {
+                    continue;
+                };
+                self.alarm_seq += 1;
+                if let Err(error) = publisher.append_record(&record) {
+                    tracing::warn!("an alarm record did not reach the OpenOT ring: {error:?}");
+                }
             }
         }
 
@@ -703,6 +738,12 @@ mod imp {
         }
 
         pub(crate) fn reset_scan_state(&mut self) {}
+
+        pub(crate) fn publish_alarm_records(
+            &mut self,
+            _records: &[crate::hmi::alarms::AlarmEvent],
+        ) {
+        }
     }
 }
 

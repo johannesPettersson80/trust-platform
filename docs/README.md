@@ -64,12 +64,6 @@ User-facing runtime benchmark and build-mode guidance is documented in:
 
 Use `TRUST_RUNTIME_HOST_CODEGEN=generic` for portable/shared binaries and cross-host comparisons. Use `TRUST_RUNTIME_HOST_CODEGEN=native` when you control the deployment hardware and want maximum performance on that machine class. The full host-native + PGO workflow is documented in `docs/guides/PLC_DEVELOPER_GUIDE.md`.
 
-## HMI Directory Workflow
-
-Production `hmi/` descriptor usage (including process SVG pages and LM tool
-invocation order) is documented in:
-`docs/guides/HMI_DIRECTORY_WORKFLOW.md`.
-
 ## Conformance Suite
 
 Conformance scope, naming rules, and summary-contract artifacts are in

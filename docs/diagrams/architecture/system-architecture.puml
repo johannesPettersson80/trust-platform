@@ -234,7 +234,6 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "TLS Materials\n(cert/key/ca)" as tlsMaterials
     component "Linux RT Posture\n(PREEMPT_RT verify + memlock + affinity)" as linuxRt
     component "Historian Service\n(recording + alerts + hooks)" as historianSvc
-    component "HMI Persistence\n(trends + alarms JSONL)" as hmiPersistence
     component "Prometheus Scrape\n(/metrics)" as promScrape
     component "OPC UA Gateway\n(server + probe client)" as opcuaGateway
     component "ADS Client Integration\n(host/ads + runtime subsystem + CLI)" as adsClient
@@ -295,7 +294,6 @@ package "trust-runtime crate" as struntime #LightYellow {
     runtimeConfig --> runtime
     runtimeConfig --> tlsMaterials : runtime.tls
     runtimeConfig --> historianSvc : runtime.observability
-    runtimeConfig --> hmiPersistence : runtime.hmi_persistence
     runtimeConfig --> opcuaGateway : runtime.opcua
     runtimeConfig --> adsServerIntegration : runtime.ads_server
     runtimeConfig --> linuxRt : runtime.realtime
@@ -317,7 +315,6 @@ package "trust-runtime crate" as struntime #LightYellow {
     launcher --> discovery : advertises (if enabled)
     launcher --> meshSync : starts (if enabled)
     launcher --> historianSvc : starts sampler\n(if enabled)
-    launcher --> hmiPersistence : loads restart window\n(if enabled)
     launcher --> opcuaGateway : starts (if enabled)
     controlServer --> runtime : pause/step/io
     controlServer --> commControlHandlers : comm.capabilities/schema/apply/test
@@ -329,7 +326,6 @@ package "trust-runtime crate" as struntime #LightYellow {
     adsControlHandlers --> adsClient : live ads.status
     adsControlHandlers --> adsServerIntegration : server status/symbols/doctor
     controlServer --> historianSvc : historian.query/alerts
-    controlServer --> hmiPersistence : persist HMI\ntrends/alarms
     runtime --> retainMgr : retain lifecycle
     webServer --> webDispatcher : bounded admission
     webDispatcher --> controlServer : status/control
@@ -425,7 +421,7 @@ adsClient --> twincatPlc : ADS/AMS\nplain now, secure reserved
 adsOnboarding --> twincatPlc : ADS UDP identify/discover\nroute planning/add-route
 adsExternalClients --> adsServerCrate : ADS/AMS browse/read/write/notify\nplain now, secure reserved
 ctlClient --> controlServer : JSON IPC\nshutdown acknowledgement precedes stop signal
-browserUi --> webServer : HTTP/HTTPS (/hmi, /ide, /api/*)\nshutdown response write precedes stop signal
+browserUi --> webServer : HTTP/HTTPS (/ide, /api/*)\nshutdown response write precedes stop signal
 discovery --> browserUi : mDNS advertise
 meshSync --> peerRuntime : peer link (token + optional TLS)
 opcuaClients --> opcuaGateway : browse/read/write

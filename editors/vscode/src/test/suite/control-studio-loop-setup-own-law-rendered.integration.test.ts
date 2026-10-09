@@ -22,7 +22,7 @@ suite("Control Studio own P or PI law setup rendered", () => {
       const set = (fields: [string, string][]) => inner(`const set=(name,value)=>{const e=d.querySelector('[data-setup-field="'+name+'"]');e.value=value;e.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));e.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));};
         for(const [name,value] of ${JSON.stringify(fields)}) set(name,value);return 'filled';`);
       const state = async () => JSON.parse(await inner(`return JSON.stringify({save:d.querySelector('[data-setup-save]').disabled,message:d.querySelector('[data-setup-message]').textContent,
-        step:d.querySelector('[data-setup-field="own.experimentStep"]').value,integral:!d.querySelector('[data-own-integral]').hidden,
+        integral:!d.querySelector('[data-own-integral]').hidden,
         startup:!d.querySelector('[data-setup-startup]').hidden,visible:[...d.querySelectorAll('[data-setup-section]')].filter(s=>!s.hidden).map(s=>s.dataset.setupSection)});`));
       await set([["structure", "own-law"], ["name", "Temperature"], ["own.instance", "P1"], ["own.law", "P"]]);
       assert.strictEqual((await state()).integral, false, "a P law shows no integral fields");
@@ -30,10 +30,9 @@ suite("Control Studio own P or PI law setup rendered", () => {
         ["own.processVariable.maximum", "200"], ["own.setpoint", "P1.SetpointC"], ["own.manipulatedVariable", "P1.HeaterPct"], ["own.manipulatedVariable.unit", "%"],
         ["own.manipulatedVariable.minimum", "0"], ["own.manipulatedVariable.maximum", "100"], ["own.mode", "P1.AutoMode"], ["own.manualOutput", "P1.ManualPct"],
         ["own.proportionalGain", "P1.Kp"], ["own.proportionalGain.minimum", "0"], ["own.proportionalGain.maximum", "20"],
-        ["own.integralGain", "P1.Ki"], ["own.integralGain.minimum", "0"], ["own.integralGain.maximum", "10"], ["own.integralTerm", "P1.Integral"],
-        ["own.experimentDuration", "30"]]);
+        ["own.integralGain", "P1.Ki"], ["own.integralGain.minimum", "0"], ["own.integralGain.maximum", "10"], ["own.integralTerm", "P1.Integral"]]);
       const completed = await state();
-      assert.deepStrictEqual([completed.save, completed.step, completed.integral, completed.startup, completed.visible], [false, "10", true, false, ["own-law"]],
+      assert.deepStrictEqual([completed.save, completed.integral, completed.startup, completed.visible], [false, true, false, ["own-law"]],
         completed.message);
       await shot("completed");
       await inner("d.querySelector('[data-setup-save]').click();return 'save';");

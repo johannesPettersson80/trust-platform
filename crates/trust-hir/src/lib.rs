@@ -37,6 +37,7 @@ pub mod openot_authoring;
 pub mod project;
 pub mod semantic;
 pub mod symbols;
+pub mod timing;
 pub mod type_check;
 pub mod types;
 

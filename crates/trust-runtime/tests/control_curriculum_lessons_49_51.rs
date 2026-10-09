@@ -93,16 +93,6 @@ fn lesson49_the_settled_cycles_swing_about_the_operating_point() {
     }
 }
 
-#[test]
-fn lesson49_hmi_only_binds_signals_of_the_executed_project() {
-    let (runtime, _) = setup(LESSON49);
-    let diagnostics = hmi_diagnostics(LESSON49, &runtime);
-    assert!(
-        diagnostics.is_empty(),
-        "The Lesson 53 HMI must bind the executed project: {diagnostics:?}"
-    );
-}
-
 const LESSON50: &str = "07-classical-stability-and-frequency-design/46-bode-frequency-response";
 
 /// Least-squares fit of k + a·cos(ωt) + b·sin(ωt): the amplitude √(a² + b²) and the phase of a·cos + b·sin.

@@ -498,9 +498,10 @@ pub(super) fn bind_vm_function_block_arguments(
     instance_id: InstanceId,
     args: &[VmNativeArg],
 ) -> Result<Vec<VmFbOutBinding>, VmTrap> {
-    let params = module.pou_params(pou_id).ok_or_else(|| {
+    let params = module.pou_params_with_inherited(pou_id).ok_or_else(|| {
         VmTrap::InvalidNativeCall(format!("missing parameter metadata for pou id {pou_id}").into())
     })?;
+    let params: &[_] = &params;
     let arg_indices = resolve_vm_arg_indices(params, args)?;
     let mut prepared_targets = Vec::with_capacity(params.len());
     for (param, arg_index) in params.iter().zip(arg_indices.iter().copied()) {

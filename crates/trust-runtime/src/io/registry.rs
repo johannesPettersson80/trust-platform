@@ -149,6 +149,18 @@ fn is_none_driver(name: &str) -> bool {
     name.trim().eq_ignore_ascii_case("none")
 }
 
+/// True when a configured I/O driver touches no real I/O: the simulated drivers and `none`, which
+/// attaches nothing. Every other enabled driver is physical (specification 35, A2.4). The runtime
+/// binary and the VS Code simulator decide simulation with this one rule.
+#[must_use]
+pub fn is_nonphysical_driver(name: &str) -> bool {
+    is_none_driver(name)
+        || matches!(
+            name.trim().to_ascii_lowercase().as_str(),
+            "simulated" | "sim" | "noop" | "loopback"
+        )
+}
+
 fn validate_simulated(_params: &toml::Value) -> Result<(), RuntimeError> {
     Ok(())
 }

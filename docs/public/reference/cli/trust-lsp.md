@@ -22,8 +22,9 @@ Standard LSP capabilities include:
 - code lens
 - call hierarchy
 
-It also exposes a small `workspace/executeCommand` API for project info and
-HMI helper workflows.
+It also exposes a small `workspace/executeCommand` API for project info,
+namespace moves, and the process-image and control symbol catalog used by
+Control Studio and the network canvas.
 
 ## Not covered here
 

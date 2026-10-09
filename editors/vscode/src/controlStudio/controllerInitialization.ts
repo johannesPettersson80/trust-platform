@@ -13,6 +13,7 @@ import type { TransferStatus } from "./runtimeTransfer";
 import type { CommissioningProfile } from "./commissioningProfile";
 
 import { initializationValues, type ControllerInitialization } from "./controllerInitialState";
+import { initializedStates } from "./pidMeasurement";
 export { decodeControllerInitialization, initializationValues, type ControllerInitialization } from "./controllerInitialState";
 
 export interface DeclaredStateTracking {
@@ -36,7 +37,7 @@ export function declaredTransferBinding(loop: ControlLoopDefinition, definition:
   const additional_outputs = channels.outputs.slice(1).map(channel => channel.output);
   const states = [channels.references[0].reference, channels.outputs[0].command,
     ...channels.references.slice(1).map(channel => channel.reference), ...channels.outputs.slice(1).map(channel => channel.command),
-    ...definition.states.map(({ symbol, iec_type, unit, minimum, maximum }) => ({ symbol, iec_type, unit, minimum, maximum }))];
+    ...initializedStates(loop, definition).map(({ symbol, iec_type, unit, minimum, maximum }) => ({ symbol, iec_type, unit, minimum, maximum }))];
   const guards = [...parameters.parameters.map(({ symbol, iec_type, unit, minimum, maximum }) => ({ symbol, iec_type, unit, minimum, maximum })),
     ...channels.measurements];
   const additional_modes = (loop.controller.project?.additionalModes ?? []).map(mode => ({ symbol: mode.symbol, manual_value: mode.manualValue }));
@@ -48,7 +49,11 @@ export function declaredTransferBinding(loop: ControlLoopDefinition, definition:
 }
 export function declaredCommissioningProfile(loop: ControlLoopDefinition, model: GeneralModel, definition: ControllerInitialization, label: string, parameters: Readonly<Record<string, number>> = {}): CommissioningProfile {
   const channels = declaredControllerChannels(loop);
-  const formulas = initializationFormulas(loop, model, definition);
+  // A state that is also a measurement, such as a PID's own measurement, is read at the boundary, never initialized.
+  const owned = initializedStates(loop, definition), ownedSymbols = new Set(owned.map(state => state.symbol));
+  const declaredFormulas = initializationFormulas(loop, model, definition);
+  const formulaEntries = Object.entries(declaredFormulas ?? {}).filter(([symbol]) => ownedSymbols.has(symbol));
+  const formulas = formulaEntries.length ? Object.fromEntries(formulaEntries) : undefined;
   return { label,
     references: () => channels.references.map(channel => channel.reference.symbol),
     targets: (model, task) => commissioningReferenceTargets(loop, model, task),
@@ -66,17 +71,21 @@ export function declaredCommissioningProfile(loop: ControlLoopDefinition, model:
       additional_references: channels.references.slice(1).map(channel => ({ reference_symbol: channel.reference.symbol, process_variable: channel.process.symbol })),
       additional_measurements: channels.measurements.map(channel => channel.symbol),
       additional_commands: channels.outputs.slice(1).map(channel => ({ manual_command_symbol: channel.command.symbol, output_symbol: channel.output.symbol })),
-      initialization_values: initialize ? initializationValues(loop, model, definition, parameters)
-        : Object.fromEntries(definition.states.map(state => [state.symbol, roundedTransferValue(state, state.iec_type === "BOOL" ? 0 : state.minimum / 2 + state.maximum / 2)])),
+      initialization_values: initialize
+        ? Object.fromEntries(Object.entries(initializationValues(loop, model, definition, parameters)).filter(([symbol]) => ownedSymbols.has(symbol)))
+        : Object.fromEntries(owned.map(state => [state.symbol, roundedTransferValue(state, state.iec_type === "BOOL" ? 0 : state.minimum / 2 + state.maximum / 2)])),
       ...(formulas ? { initialization_formulas: formulas } : {}),
-      bounded_state_symbols: definition.states.filter(state => state.postScan === "bounded").map(state => state.symbol) }),
+      // Code that copies the output into the manual output changes it in the scan after Auto entry (§17.1).
+      bounded_state_symbols: [...owned.filter(state => state.postScan === "bounded").map(state => state.symbol),
+        ...(loop.controller.manualOutputFollowsOutput ? [binding.states[1].symbol] : [])] }),
   };
 }
 export function declaredInitializationPlan(loop: ControlLoopDefinition, model: GeneralModel, task: EngineerRequirements,
   values: Readonly<Record<string, number>>, definition: ControllerInitialization, processNoise?: number) {
   const binding = declaredTransferBinding(loop, definition);
   const base = engineerVerificationPlan(loop, model, task, values);
-  const initialized = Object.fromEntries(definition.states.map(state => [state.symbol, base.request.initial_values[state.symbol]]));
+  const owned = initializedStates(loop, definition);
+  const initialized = Object.fromEntries(owned.map(state => [state.symbol, base.request.initial_values[state.symbol]]));
   const step = base.request.step_ms, duration = step * 6, transferAt = step * 3;
   const channels = declaredControllerChannels(loop), modelChannels = connectedModelChannels(loop, model);
   const referenceIndex = modelChannels.outputs.findIndex(channel => channel.signal.symbol === loop.signals.processVariable.symbol);
@@ -109,7 +118,7 @@ export function declaredInitializationPlan(loop: ControlLoopDefinition, model: G
   }
   const observations = [...new Map([...base.request.observations, ...binding.states.map(state => ({ symbol: state.symbol, unit: state.unit })),
     { symbol: binding.mode.symbol, unit: "1" }].map(signal => [signal.symbol, signal])).values()];
-  return { reference, tolerance, request: { ...base.request, duration_ms: duration, max_total_cycles: 7, observations,
+  return { reference, tolerance, request: { ...base.request, record_every: undefined, duration_ms: duration, max_total_cycles: 7, observations,
     initial_values: { ...base.request.initial_values, ...held, ...initialized, [binding.mode.symbol]: Number(binding.mode.manual_value) },
     events: [...Object.entries({ ...held, ...initialized }).map(([symbol, value]) => ({ at_ms: transferAt, symbol, value })),
       { at_ms: transferAt, symbol: binding.mode.symbol, value: Number(!binding.mode.manual_value) }],
@@ -126,7 +135,7 @@ export function declaredInitializationPlan(loop: ControlLoopDefinition, model: G
     }),
     { id: "auto-mode", kind: "bounds" as const, channel: binding.mode.symbol, window: { start: transferAt / 1000, end: window.end },
       minimum: Number(!binding.mode.manual_value), maximum: Number(!binding.mode.manual_value) },
-    ...definition.states.map(state => ({ id: `initialized-state:${state.symbol}`, kind: "state-bounds" as const, channel: state.symbol,
+    ...owned.map(state => ({ id: `initialized-state:${state.symbol}`, kind: "state-bounds" as const, channel: state.symbol,
       window: { start: transferAt / 1000, end: window.end },
       minimum: state.postScan === "unchanged" ? initialized[state.symbol] : state.minimum,
       maximum: state.postScan === "unchanged" ? initialized[state.symbol] : state.maximum })),

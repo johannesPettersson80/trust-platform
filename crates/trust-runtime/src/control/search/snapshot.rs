@@ -13,7 +13,31 @@ pub(super) struct Snapshot {
     pub project_identity: String,
     pub sources: Vec<Source>,
     pub simulation: String,
+    /// The live runtime's bound inputs when the run was requested, written into the isolated
+    /// runtime before its first scan. Kept out of `project_revision`, which names the project and
+    /// must not change with the plant between review and start; `process_inputs_revision` is
+    /// their own digest.
+    #[serde(default)]
+    pub process_inputs: Vec<super::process_inputs::ProcessInput>,
+    #[serde(default)]
+    pub process_inputs_revision: String,
 }
+/// The refusal for an isolated simulation that would run on a physical target's host (A2.6).
+pub(super) const PHYSICAL_HOST_REFUSAL: &str =
+    "Isolated simulations do not run on a physical target's host; use a local analysis runtime.";
+
+/// Admits an isolated simulation only when the runtime itself reports simulation enabled
+/// (`status.active`) and simulation-only I/O, however it was started (A2.4, A2.6). An absent
+/// native host answer is not simulated.
+pub(super) fn admit_simulated_host(
+    native: Option<&crate::simulation::SimulationRuntimeSnapshot>,
+) -> Result<(), String> {
+    match native {
+        Some(native) if native.status.active && native.simulation_only_io == Some(true) => Ok(()),
+        _ => Err(PHYSICAL_HOST_REFUSAL.into()),
+    }
+}
+
 pub(super) fn digest(value: impl std::fmt::Debug) -> String {
     format!(
         "sha256:{:x}",
@@ -38,11 +62,8 @@ pub(super) fn load(state: &ControlState) -> Result<Snapshot, String> {
         .map_err(|e| e.to_string())?;
     let native = receiver
         .recv_timeout(std::time::Duration::from_millis(250))
-        .map_err(|_| "native simulation host status timed out")?
-        .ok_or("active native simulation host required; configuration alone is insufficient")?;
-    if !native.status.active || native.simulation_only_io != Some(true) {
-        return Err("search requires active native simulation with simulation-only I/O; physical or unknown host rejected".into());
-    }
+        .map_err(|_| "native simulation host status timed out")?;
+    admit_simulated_host(native.as_ref())?;
     let files = state.sources.files();
     if files.is_empty()
         || files.len() > 64
@@ -77,10 +98,20 @@ pub(super) fn load(state: &ControlState) -> Result<Snapshot, String> {
         .to_string_lossy()
         .into_owned();
     let project_revision = digest((&project_identity, &sources, &simulation));
+    let process_inputs = super::process_inputs::capture(
+        state
+            .io_snapshot
+            .lock()
+            .map_err(|_| "runtime I/O snapshot unavailable")?
+            .as_ref(),
+    );
+    let process_inputs_revision = digest(&process_inputs);
     Ok(Snapshot {
         project_revision,
         project_identity,
         sources,
         simulation,
+        process_inputs,
+        process_inputs_revision,
     })
 }

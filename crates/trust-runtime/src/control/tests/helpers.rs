@@ -5,12 +5,12 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use indexmap::IndexMap;
 use serde_json::json;
 
-use crate::debug::{DebugVariableHandles, PendingVarTarget};
+use crate::debug::DebugVariableHandles;
 use crate::error::RuntimeError;
 use crate::harness::TestHarness;
 use crate::historian::{AlertRule, HistorianConfig, HistorianService, RecordingMode};
@@ -92,25 +92,25 @@ fn runtime_settings() -> RuntimeSettings {
     )
 }
 
-pub(super) fn hmi_test_state(source: &str) -> ControlState {
-    hmi_test_state_with_ads_status(source, disabled_ads_status())
+pub(super) fn control_test_state(source: &str) -> ControlState {
+    control_test_state_with_ads_status(source, disabled_ads_status())
 }
 
-fn hmi_test_state_with_ads_status(
+fn control_test_state_with_ads_status(
     source: &str,
     ads_status: crate::ads::diagnostics::AdsStatusReport,
 ) -> ControlState {
-    hmi_test_state_with_status_reports(source, ads_status, disabled_opcua_client_status())
+    control_test_state_with_status_reports(source, ads_status, disabled_opcua_client_status())
 }
 
-fn hmi_test_state_with_opcua_client_status(
+fn control_test_state_with_opcua_client_status(
     source: &str,
     opcua_status: crate::opcua::OpcUaClientStatusReport,
 ) -> ControlState {
-    hmi_test_state_with_status_reports(source, disabled_ads_status(), opcua_status)
+    control_test_state_with_status_reports(source, disabled_ads_status(), opcua_status)
 }
 
-fn hmi_test_state_with_status_reports(
+fn control_test_state_with_status_reports(
     source: &str,
     ads_status: crate::ads::diagnostics::AdsStatusReport,
     opcua_status: crate::opcua::OpcUaClientStatusReport,
@@ -134,6 +134,9 @@ fn hmi_test_state_with_status_reports(
                 }
                 ResourceCommand::MeshSnapshot { respond_to, .. } => {
                     let _ = respond_to.send(IndexMap::new());
+                }
+                ResourceCommand::MeshCatalogue { respond_to, .. } => {
+                    let _ = respond_to.send(Err("unsupported in this control fixture".to_string()));
                 }
                 ResourceCommand::Snapshot { respond_to } => {
                     let _ = respond_to.send(snapshot.clone());
@@ -170,9 +173,6 @@ fn hmi_test_state_with_status_reports(
         path: std::path::PathBuf::from("main.st"),
         text: source.to_string(),
     }]);
-    let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
-        None, &sources,
-    )));
     ControlState {
         debug,
         resource,
@@ -204,9 +204,6 @@ fn hmi_test_state_with_status_reports(
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
-        hmi_live: Arc::new(Mutex::new(crate::hmi::HmiLiveState::default())),
-        hmi_persistence: None,
-        hmi_descriptor,
         historian: None,
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
@@ -238,96 +235,8 @@ fn disabled_opcua_client_status() -> crate::opcua::OpcUaClientStatusReport {
     }
 }
 
-fn set_hmi_project_root(state: &mut ControlState, root: &Path) {
+fn set_project_root(state: &mut ControlState, root: &Path) {
     state.project_root = Some(root.to_path_buf());
-    state.hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
-        state.project_root.as_deref(),
-        &state.sources,
-    )));
-}
-
-fn hmi_schema_result(state: &ControlState) -> serde_json::Value {
-    let response = handle_request_value(json!({"id": 999, "type": "hmi.schema.get"}), state, None);
-    assert!(response.ok, "schema response failed: {:?}", response.error);
-    response.result.expect("schema result")
-}
-
-fn hmi_schema_revision_and_speed_label(state: &ControlState) -> (u64, String) {
-    let result = hmi_schema_result(state);
-    let revision = result
-        .get("schema_revision")
-        .and_then(serde_json::Value::as_u64)
-        .expect("schema revision");
-    let label = result
-        .get("widgets")
-        .and_then(serde_json::Value::as_array)
-        .and_then(|widgets| {
-            widgets.iter().find_map(|widget| {
-                if widget.get("path").and_then(serde_json::Value::as_str) == Some("Main.speed") {
-                    widget
-                        .get("label")
-                        .and_then(serde_json::Value::as_str)
-                        .map(ToOwned::to_owned)
-                } else {
-                    None
-                }
-            })
-        })
-        .expect("speed label");
-    (revision, label)
-}
-
-fn wait_for_schema_revision(
-    state: &ControlState,
-    min_revision: u64,
-    timeout: Duration,
-) -> (u64, String) {
-    let deadline = Instant::now() + timeout;
-    loop {
-        let current = hmi_schema_revision_and_speed_label(state);
-        if current.0 >= min_revision {
-            return current;
-        }
-        if Instant::now() >= deadline {
-            panic!(
-                "schema revision did not reach {min_revision}; last seen {:?}",
-                current
-            );
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-}
-
-fn wait_for_descriptor_error(state: &ControlState, timeout: Duration) -> serde_json::Value {
-    let deadline = Instant::now() + timeout;
-    loop {
-        let schema = hmi_schema_result(state);
-        if schema
-            .get("descriptor_error")
-            .and_then(serde_json::Value::as_str)
-            .is_some()
-        {
-            return schema;
-        }
-        if Instant::now() >= deadline {
-            panic!("descriptor_error was not present before timeout");
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-}
-
-fn wait_for_descriptor_error_clear(state: &ControlState, timeout: Duration) -> serde_json::Value {
-    let deadline = Instant::now() + timeout;
-    loop {
-        let schema = hmi_schema_result(state);
-        if schema.get("descriptor_error").is_none() {
-            return schema;
-        }
-        if Instant::now() >= deadline {
-            panic!("descriptor_error was not cleared before timeout");
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
 }
 
 fn pairing_file(name: &str) -> PathBuf {

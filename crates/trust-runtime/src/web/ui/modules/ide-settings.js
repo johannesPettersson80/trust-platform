@@ -173,7 +173,7 @@ const SETTINGS_CATEGORIES = [
     fields: [
       { key: "simulation.enabled", label: "Simulation Enabled", type: "toggle", default: false },
       { key: "simulation.seed", label: "Simulation Seed", type: "number", default: 0, min: 0, max: 4294967295 },
-      { key: "simulation.time_scale", label: "Simulation Time Scale", type: "number", default: 1, min: 1, max: 1000000 },
+      { key: "simulation.time_scale", label: "Simulation Time Scale", type: "number", default: 1, min: 1, max: 100 },
     ],
   },
   {
@@ -2918,7 +2918,11 @@ async function settingsApplyValue(key, value, options) {
       const simulationBacked = Object.prototype.hasOwnProperty.call(SETTINGS_SIMULATION_BINDINGS, key);
       if (simulationBacked) {
         await settingsPersistSimulationValue(key, normalized);
-        settingsSetRestartWarning("Saved to simulation.toml. Restart required for this change to take full effect.");
+        if (key === "simulation.time_scale") {
+          await settingsApplySimulationSpeed(normalized);
+        } else {
+          settingsSetRestartWarning("Saved to simulation.toml. Restart required for this change to take full effect.");
+        }
         if (!opts.silent && typeof showIdeToast === "function") {
           showIdeToast(`Saved ${field?.label || key}`, "success");
         }
@@ -2962,6 +2966,25 @@ async function settingsApplyValue(key, value, options) {
       }
     }
   });
+}
+
+// A running simulation takes a new speed at once (specification 33, §6.1, item 5). Without a
+// running simulation the saved speed waits for the next start, and the note says so.
+async function settingsApplySimulationSpeed(value) {
+  if (!onlineState || !onlineState.connected) {
+    settingsSetRestartWarning("Saved to simulation.toml. The speed applies when simulation next starts.");
+    return;
+  }
+  const status = await runtimeControlRequest({ id: 1, type: "status" }, { timeoutMs: 3000 });
+  if (status?.simulation_enabled !== true) {
+    settingsSetRestartWarning("Saved. The speed applies once simulation is on.");
+    return;
+  }
+  await runtimeControlRequest(
+    { id: 1, type: "config.set", params: { "simulation.time_scale": value } },
+    { timeoutMs: 3000 },
+  );
+  settingsClearRestartWarning();
 }
 
 // -- Load settings -----------------------------------------------------------

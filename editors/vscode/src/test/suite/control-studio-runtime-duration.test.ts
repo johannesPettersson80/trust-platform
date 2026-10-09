@@ -5,31 +5,30 @@ function duration(): any {
   try { return require("../../controlStudio/runtimeDuration"); } catch { return {}; }
 }
 
-/** A runtime clock in nanoseconds that advances `stepMs` of runtime time on every reading. */
-function clock(stepMs: number) {
-  let readings = 0;
-  return { read: async () => (readings++) * stepMs * 1e6, readings: () => readings };
-}
-
 suite("Control Studio runtime-time observation", () => {
-  test("waits until the runtime has executed the whole duration, also when it runs behind real time", async () => {
+  test("measures process time from the runtime's own timestamps, not from this host's clock", () => {
     const api = duration();
-    assert.strictEqual(typeof api.awaitRuntimeDuration, "function", "Apply observes the test duration in the runtime's own time");
-    const runtime = clock(50);
-    await api.awaitRuntimeDuration(runtime.read, 500, { checkCancelled: () => undefined, boundMs: 5000, pollMs: 1 });
-    assert.ok(runtime.readings() >= 11, `500 ms of runtime time at 50 ms per reading needs at least 11 readings: ${runtime.readings()}`);
+    assert.strictEqual(typeof api.RuntimeReadingClock, "function", "Apply measures process time from the runtime's clock");
+    const clock = new api.RuntimeReadingClock(() => 0);
+    assert.strictEqual(clock.observe({ runtime_time_ns: 0 }), 0, "the first reading starts the process time");
+    assert.strictEqual(clock.observe({ runtime_time_ns: 2.5e9 }), 2500, "2.5 s of runtime time is 2500 ms, whatever the wall clock says");
   });
 
-  test("reports a runtime that falls further behind than the wall-clock bound", async () => {
-    const stopped = { read: async () => 7e9 };
-    await assert.rejects(() => duration().awaitRuntimeDuration(stopped.read, 500, { checkCancelled: () => undefined, boundMs: 20, pollMs: 1 }),
-      /executed 0 s of the reviewed 0\.5 s/);
+  test("stops with 'The runtime stopped sending values.' when no newer runtime value arrives within the connection-loss timeout", () => {
+    const api = duration();
+    let wall = 0;
+    const clock = new api.RuntimeReadingClock(() => wall);
+    clock.observe({ runtime_time_ns: 1e9 });
+    wall = 4_000;
+    assert.strictEqual(clock.observe({ runtime_time_ns: 1e9 }), 0, "a repeated scan is not a newer value");
+    assert.doesNotThrow(() => clock.ensureFresh(), "4 s without a newer value is within the 5 s timeout");
+    wall = 6_000;
+    assert.throws(() => clock.ensureFresh(), /The runtime stopped sending values\./, "6 s without a newer value ends the wait");
   });
 
-  test("stops when cancelled", async () => {
-    const runtime = clock(1);
-    let checks = 0;
-    await assert.rejects(() => duration().awaitRuntimeDuration(runtime.read, 10_000, {
-      checkCancelled: () => { if (++checks > 3) throw new Error("Controller commissioning cancelled."); }, boundMs: 5000, pollMs: 1 }), /cancelled/);
+  test("refuses a reading that carries no runtime clock", () => {
+    const api = duration();
+    const clock = new api.RuntimeReadingClock(() => 0);
+    assert.throws(() => clock.observe({}), /does not report its clock/);
   });
 });

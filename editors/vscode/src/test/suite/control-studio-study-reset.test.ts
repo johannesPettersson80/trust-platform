@@ -1,5 +1,10 @@
 import * as assert from "assert";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import type { ControlLoopDefinition } from "../../controlStudio/loopDefinition";
 import { StudioAnalysisSessions } from "../../controlStudio/studioAnalysisSessions";
+import { openProjectStudy } from "../../controlStudio/studyStore";
 import { pidLoop } from "./control-studio-pid-fixtures";
 
 suite("Control Studio study reset", () => {
@@ -9,7 +14,15 @@ suite("Control Studio study reset", () => {
     outputs: [{ id: "y", unit: "m", operatingRange: { minimum: -20, maximum: 20 } }] };
   const scope = { projectId: "reset-project", editorSessionId: "reset-editor", loopId: "reset-loop", loopRevision: "reset-revision" };
   const request = { schemaVersion: 1, kind: "control-studio.study.reset", messageId: "reset-once", ...scope, expectedLoopRevision: scope.loopRevision, payload: {} };
+
+  /** Reset keeps the previous working study as history, so the loop's project study is open first. */
+  async function openStudy(): Promise<void> {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "control-studio-reset-"));
+    await openProjectStudy(root, { ...pidLoop(), projectId: scope.projectId, id: scope.loopId, revision: scope.loopRevision } as ControlLoopDefinition);
+  }
+
   test("clears the model and rejects a replay after a new model has been supplied", async () => {
+    await openStudy();
     const sessions = new StudioAnalysisSessions(pidLoop()); const events: any[] = [];
     try {
       sessions.model.selectModel(model);
@@ -23,6 +36,7 @@ suite("Control Studio study reset", () => {
     } finally { sessions.dispose(); }
   });
   test("preserves current evidence when a recording or controller operation is active", async () => {
+    await openStudy();
     const sessions = new StudioAnalysisSessions(pidLoop()); const events: any[] = [];
     try {
       sessions.model.selectModel(model);
@@ -33,6 +47,18 @@ suite("Control Studio study reset", () => {
       assert.strictEqual(events[1].status, "failed"); assert.strictEqual(sessions.model.selectedModel()?.revision, model.revision);
       (sessions.engineer as any).state.busy = undefined;
       assert.strictEqual(await sessions.handle({ ...request, loopId: "another-loop" }, scope, async () => { throw new Error("Must ignore foreign reset"); }), false);
+    } finally { sessions.dispose(); }
+  });
+  test("refuses a reset when the previous study cannot be kept as history", async () => {
+    const unopened = { ...scope, loopId: "never-opened-loop" };
+    const unopenedRequest = { ...request, loopId: unopened.loopId, messageId: "reset-unopened" };
+    const sessions = new StudioAnalysisSessions(pidLoop()); const events: any[] = [];
+    try {
+      sessions.model.selectModel(model);
+      await sessions.handle(unopenedRequest, unopened, async (_stage, payload) => { events.push(payload); });
+      assert.strictEqual(events[0].status, "failed");
+      assert.match(String(events[0].reason), /not open/);
+      assert.strictEqual(sessions.model.selectedModel()?.revision, model.revision, "a reset that cannot keep history changes nothing");
     } finally { sessions.dispose(); }
   });
 });

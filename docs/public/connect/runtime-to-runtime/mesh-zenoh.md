@@ -41,6 +41,11 @@ publish = ["Status.PLCState"]
 "LineB:Status.PLCState" = "Local.Status.RemoteState"
 ```
 
+When `auth_token` is configured, peers authenticate with that shared mesh token. Peers with
+missing or different tokens cannot join the authenticated link. `tls = true` uses the
+certificate, key and CA configured under `[runtime.tls]` and negotiates TLS on mesh sockets;
+it does not fall back to plaintext. Certificates must cover the hostnames used to connect.
+
 ## How to think about it
 
 - discovery finds peers
@@ -53,3 +58,8 @@ Mesh is not the HardRT path.
 ## Worked tutorial
 
 --8<-- "examples/tutorials/15_multi_plc_discovery_mesh/README.md:3"
+
+Published names may also select a nested program or equipment member, such as
+`Main.Tank.Level`, or an array element such as `Main.Levels[2]`. Only the named values are
+included; missing members and out-of-bounds elements are omitted. Identifiers match without
+case sensitivity. This does not by itself enable HMI remote writes.

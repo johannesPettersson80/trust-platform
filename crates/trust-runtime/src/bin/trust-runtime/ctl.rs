@@ -171,11 +171,12 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                 .get("state")
                 .and_then(JsonValue::as_str)
                 .context("status result missing string 'state'")?;
+            // A runtime without a fault reports `"fault": null`.
             let fault = match result.get("fault") {
+                None | Some(JsonValue::Null) => "none",
                 Some(value) => value
                     .as_str()
-                    .context("status result 'fault' must be a string")?,
-                None => "none",
+                    .context("status result 'fault' must be a string or null")?,
             };
             let (rt_profile, rt_active) = match result.get("realtime") {
                 Some(value) => {

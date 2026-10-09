@@ -14,10 +14,15 @@ export async function connectedIdentificationChannels(loop: ControlLoopDefinitio
     const experiment = loop.experiment && input.experimentStep !== undefined ? { ...loop.experiment, amplitude: input.experimentStep } : loop.experiment;
     if (signal.symbol === loop.signals.manipulatedVariable.symbol) return { loop: { ...loop, experiment }, sample: (sample: LoopMonitorSample) => sample };
     const command = input.manualOutputSignal;
+    // A Manual command without an address is stepped by name (Specification 35 §17.1).
     const address = entries.find(entry => entry.name?.toLowerCase() === command?.toLowerCase())?.address;
-    if (!command || !address || !input.manualOutputType) throw new Error(`The connected runtime has no addressed Manual command for ${signal.symbol}.`);
+    if (!command || !input.manualOutputType) throw new Error(`The loop declares no Manual command for ${signal.symbol}.`);
+    // The primary output's address and tracking belong to its own Manual command, not this one.
+    const controller = { ...loop.controller };
+    delete controller.manualOutputAddress;
+    delete controller.manualOutputFollowsOutput;
     return { loop: { ...loop, experiment, signals: { ...loop.signals, manipulatedVariable: signal },
-      controller: { ...loop.controller, manualOutputSignal: command, manualOutputAddress: address, manualOutputType: input.manualOutputType },
+      controller: { ...controller, manualOutputSignal: command, ...(address ? { manualOutputAddress: address } : {}), manualOutputType: input.manualOutputType },
       limits: { outputMinimum: input.actuator.minimum, outputMaximum: input.actuator.maximum } },
       sample: (sample: LoopMonitorSample): LoopMonitorSample => {
         if (sample.availability !== "available") return sample;

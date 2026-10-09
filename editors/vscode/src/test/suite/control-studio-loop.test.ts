@@ -352,36 +352,15 @@ suite("Control Studio loop definition", () => {
     }), { kind: "accepted", loop: extended });
   });
 
-  test("requires an explicit requested-output and retained-integral adapter before saturation analysis", () => {
+  test("accepts a legacy saturation-evidence key without validating or using it", () => {
     const api = loopApi();
     const loop = completeLoop();
-    const additional = [
-      auxiliary("requested-power", "requested-output", "state", "%ML32", "%", "read"),
-      auxiliary("stored-correction", "retained-integral", "state", "%ML40", "%", "read"),
-    ];
-    const configured = { ...loop,
-      controller: { ...loop.controller, saturationEvidence: {
-        requestedOutputId: "requested-power", integralStateId: "stored-correction",
-      } },
-      signals: { ...loop.signals, additional },
-    };
     const scope = { projectId: loop.projectId, runtimeId: loop.runtimeId };
-    assert.deepStrictEqual(api.saturationWindupEvidence(configured), {
-      requestedOutputId: "requested-power", integralStateId: "stored-correction",
-    });
-    assert.deepStrictEqual(api.validateControlLoopDefinition(configured, scope), { kind: "accepted", loop: configured });
-
-    assert.deepStrictEqual(api.decodeControlLoopDefinition({ ...configured,
-      controller: { ...configured.controller, saturationEvidence: {
-        requestedOutputId: "stored-correction", integralStateId: "stored-correction",
-      } },
-    }), { kind: "rejected", reason: "malformed_loop" });
-    for (const changed of [
-      { requestedOutputId: "unknown", integralStateId: "stored-correction" },
-      { requestedOutputId: "requested-power", integralStateId: "unknown" },
-    ]) assert.deepStrictEqual(api.validateControlLoopDefinition({ ...configured,
-      controller: { ...configured.controller, saturationEvidence: changed },
-    }, scope), { kind: "rejected", reason: "incompatible_saturation_evidence" });
+    for (const legacy of [{ requestedOutputId: "requested-power", integralStateId: "stored-correction" }, "not an adapter"]) {
+      const withLegacy = { ...loop, controller: { ...loop.controller, saturationEvidence: legacy } };
+      assert.deepStrictEqual(api.validateControlLoopDefinition(withLegacy, scope), { kind: "accepted", loop: withLegacy });
+      assert.strictEqual(api.decodeControlLoopDefinition(withLegacy).kind, "accepted");
+    }
   });
 
   test("rejects overlapping addresses and duplicate role identities inside one channel", () => {

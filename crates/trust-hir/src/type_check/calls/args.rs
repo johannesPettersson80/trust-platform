@@ -657,19 +657,38 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         };
 
         if ids.is_empty() {
-            ids = self
-                .checker
-                .symbols
-                .iter()
-                .filter(|sym| {
-                    sym.parent == Some(symbol_id)
-                        && matches!(sym.kind, SymbolKind::Parameter { .. })
-                })
-                .map(|sym| sym.id)
-                .collect();
+            // A function block's parameters include those it inherits (IEC 61131-3 Edition 3,
+            // 6.6.5.3): the base's first, then its own, each in declaration order.
+            let mut chain = vec![symbol_id];
+            let mut current = symbol_id;
+            while let Some(base) = self.checker.symbols.extends_name(current).and_then(|name| {
+                self.checker
+                    .symbols
+                    .resolve_oop_reference_for_owner(current, name.as_str())
+            }) {
+                if chain.contains(&base) {
+                    break;
+                }
+                chain.push(base);
+                current = base;
+            }
+            for owner in chain.into_iter().rev() {
+                let mut own: Vec<SymbolId> = self
+                    .checker
+                    .symbols
+                    .iter()
+                    .filter(|sym| {
+                        sym.parent == Some(owner)
+                            && matches!(sym.kind, SymbolKind::Parameter { .. })
+                    })
+                    .map(|sym| sym.id)
+                    .collect();
+                own.sort_by_key(|id| id.0);
+                ids.extend(own);
+            }
+        } else {
+            ids.sort_by_key(|id| id.0);
         }
-
-        ids.sort_by_key(|id| id.0);
 
         ids.into_iter()
             .filter_map(|id| {

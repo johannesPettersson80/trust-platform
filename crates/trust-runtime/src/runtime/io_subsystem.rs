@@ -16,7 +16,40 @@ pub(super) struct IoSubsystem {
 
 pub(super) struct IoDriverEntry {
     pub(super) name: SmolStr,
+    /// The name of its link, for a driver of `io.toml` (specification 42, §2).
+    pub(super) link: Option<SmolStr>,
     pub(super) driver: Box<dyn IoDriver>,
+    /// Switched off from the program (specification 42, §4 item 6): neither read nor written.
+    pub(super) enabled: bool,
+    /// How long its last read and its last write took (§4).
+    pub(super) read_time: std::time::Duration,
+    pub(super) write_time: std::time::Duration,
+}
+
+impl IoDriverEntry {
+    fn new(name: SmolStr, link: Option<SmolStr>, driver: Box<dyn IoDriver>) -> Self {
+        Self {
+            name,
+            link,
+            driver,
+            enabled: true,
+            read_time: std::time::Duration::ZERO,
+            write_time: std::time::Duration::ZERO,
+        }
+    }
+}
+
+/// A linked driver as its link reports it this scan (specification 42, §3 item 1, §4).
+pub(crate) struct LinkIo<'a> {
+    pub(crate) link: &'a SmolStr,
+    pub(crate) health: IoDriverHealth,
+    pub(crate) enabled: bool,
+    /// Its last read and write together.
+    pub(crate) response: std::time::Duration,
+    /// The protocol's own state in words, when the driver gives it.
+    pub(crate) detail: Option<SmolStr>,
+    /// The bytes of the input image it fills (specification 42, §5 item 4).
+    pub(crate) input_bytes: Vec<std::ops::Range<usize>>,
 }
 
 impl IoSubsystem {
@@ -58,10 +91,60 @@ impl IoSubsystem {
     }
 
     pub(super) fn add_driver(&mut self, name: impl Into<SmolStr>, driver: Box<dyn IoDriver>) {
-        self.drivers.push(IoDriverEntry {
-            name: name.into(),
-            driver,
-        });
+        self.drivers
+            .push(IoDriverEntry::new(name.into(), None, driver));
+    }
+
+    pub(super) fn add_driver_with_link(
+        &mut self,
+        name: impl Into<SmolStr>,
+        link: impl Into<SmolStr>,
+        driver: Box<dyn IoDriver>,
+    ) {
+        self.drivers
+            .push(IoDriverEntry::new(name.into(), Some(link.into()), driver));
+    }
+
+    /// Each linked driver as its link reports it.
+    pub(super) fn link_ios(&self) -> impl Iterator<Item = LinkIo<'_>> + '_ {
+        self.drivers.iter().filter_map(|entry| {
+            entry.link.as_ref().map(|link| LinkIo {
+                link,
+                health: entry.driver.health(),
+                enabled: entry.enabled,
+                response: entry.read_time + entry.write_time,
+                detail: entry.driver.detail(),
+                input_bytes: entry.driver.input_bytes(),
+            })
+        })
+    }
+
+    /// Switches a linked driver off or on (specification 42, §4 item 6).
+    pub(super) fn set_link_enabled(&mut self, link: &str, enabled: bool) {
+        for entry in &mut self.drivers {
+            if entry.link.as_deref() == Some(link) {
+                entry.enabled = enabled;
+            }
+        }
+    }
+
+    /// Tests a linked driver (§4 item 7): one read into a spare image, which the process image
+    /// does not take; nothing when no driver has that link.
+    pub(super) fn test_link(&mut self, link: &str) -> Option<Result<std::time::Duration, String>> {
+        let size = self.interface.inputs().len();
+        let entry = self
+            .drivers
+            .iter_mut()
+            .find(|entry| entry.link.as_deref() == Some(link))?;
+        let mut spare = vec![0u8; size];
+        let started = std::time::Instant::now();
+        Some(
+            entry
+                .driver
+                .read_inputs(&mut spare)
+                .map(|()| started.elapsed())
+                .map_err(|error| error.to_string()),
+        )
     }
 
     pub(super) fn clear_drivers(&mut self) {

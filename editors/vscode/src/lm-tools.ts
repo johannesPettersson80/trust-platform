@@ -1,3 +1,5 @@
+import { registerAgentConnection } from "./hmiBuilder/agent/connect";
+import { HmiAgentTool } from "./hmiBuilder/agent/tools";
 import * as vscode from "vscode";
 
 import {
@@ -45,19 +47,6 @@ import {
   STWorkspaceSymbolsTool,
 } from "./lm-tools/lspTools";
 import {
-  STHmiApplyPatchTool,
-  STHmiExplainWidgetTool,
-  STHmiGenerateCandidatesTool,
-  STHmiGetBindingsTool,
-  STHmiGetLayoutTool,
-  STHmiInitTool,
-  STHmiPlanIntentTool,
-  STHmiPreviewSnapshotTool,
-  STHmiRunJourneyTool,
-  STHmiTraceCaptureTool,
-  STHmiValidateTool,
-} from "./lm-tools/hmiTools";
-import {
   STApplyEditsTool,
   STFileReadTool,
   STFileWriteTool,
@@ -72,7 +61,6 @@ import {
 } from "./lm-tools/debugTools";
 
 export { __testSetRuntimeControlRequestHandler } from "./lm-tools/shared";
-export * from "./lm-tools/hmiTools";
 
 export function registerLanguageModelTools(
   context: vscode.ExtensionContext,
@@ -86,7 +74,18 @@ export function registerLanguageModelTools(
     return;
   }
   const getClient = options?.getClient;
+  registerAgentConnection(context, getClient);
+  const authoringEnvironment = { storageRoot: context.globalStorageUri.fsPath + "/hmi-drafts", fontFile: context.asAbsolutePath("media/fonts/InterVariable.woff2") };
   context.subscriptions.push(
+    lm.registerTool("hmi_apply_draft", new HmiAgentTool("hmi_apply_draft", getClient, authoringEnvironment)),
+    lm.registerTool("hmi_preview_states", new HmiAgentTool("hmi_preview_states", getClient, authoringEnvironment)),
+    lm.registerTool("hmi_render_draft", new HmiAgentTool("hmi_render_draft", getClient, authoringEnvironment)),
+    lm.registerTool("hmi_validate_draft", new HmiAgentTool("hmi_validate_draft", getClient, authoringEnvironment)),
+    lm.registerTool("hmi_edit_draft", new HmiAgentTool("hmi_edit_draft", getClient, authoringEnvironment)),
+    lm.registerTool("hmi_compose_page", new HmiAgentTool("hmi_compose_page", getClient, authoringEnvironment)),
+    lm.registerTool("hmi_get_context", new HmiAgentTool("hmi_get_context", getClient, authoringEnvironment)),
+    lm.registerTool("hmi_browse_library", new HmiAgentTool("hmi_browse_library", getClient, authoringEnvironment)),
+    lm.registerTool("hmi_inspect_page", new HmiAgentTool("hmi_inspect_page", getClient, authoringEnvironment)),
     lm.registerTool("trust_lsp_request", new STLspRequestTool(getClient)),
     lm.registerTool("trust_lsp_notify", new STLspNotificationTool(getClient)),
     lm.registerTool("trust_get_hover", new STHoverTool()),
@@ -166,26 +165,6 @@ export function registerLanguageModelTools(
     lm.registerTool("trust_get_formatting_edits", new STFormatTool()),
     lm.registerTool("trust_get_code_actions", new STCodeActionsTool(getClient)),
     lm.registerTool("trust_get_project_info", new STProjectInfoTool(getClient)),
-    lm.registerTool("trust_hmi_get_bindings", new STHmiGetBindingsTool(getClient)),
-    lm.registerTool("trust_hmi_get_layout", new STHmiGetLayoutTool()),
-    lm.registerTool("trust_hmi_apply_patch", new STHmiApplyPatchTool()),
-    lm.registerTool("trust_hmi_plan_intent", new STHmiPlanIntentTool()),
-    lm.registerTool("trust_hmi_trace_capture", new STHmiTraceCaptureTool()),
-    lm.registerTool(
-      "trust_hmi_generate_candidates",
-      new STHmiGenerateCandidatesTool(getClient),
-    ),
-    lm.registerTool("trust_hmi_validate", new STHmiValidateTool(getClient)),
-    lm.registerTool(
-      "trust_hmi_preview_snapshot",
-      new STHmiPreviewSnapshotTool(getClient),
-    ),
-    lm.registerTool("trust_hmi_run_journey", new STHmiRunJourneyTool()),
-    lm.registerTool(
-      "trust_hmi_explain_widget",
-      new STHmiExplainWidgetTool(getClient),
-    ),
-    lm.registerTool("trust_hmi_init", new STHmiInitTool(getClient)),
     lm.registerTool("trust_workspace_rename_file", new STWorkspaceRenameFileTool()),
     lm.registerTool("trust_update_settings", new STSettingsUpdateTool(getClient)),
     lm.registerTool("trust_read_telemetry", new STTelemetryReadTool()),

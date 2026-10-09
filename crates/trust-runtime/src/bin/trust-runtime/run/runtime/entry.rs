@@ -29,6 +29,9 @@ pub fn run_runtime(
         warning: simulation_warning,
         controller: simulation_controller,
     } = simulation;
+    if simulation_enabled {
+        runtime.set_simulation_enabled(true);
+    }
 
     let debug = runtime.enable_debug();
     let metrics = Arc::new(Mutex::new(RuntimeMetrics::new()));
@@ -70,10 +73,6 @@ pub fn run_runtime(
 
     runtime.restart(restart_mode)?;
     load_startup_retain(&mut runtime, restart_mode)?;
-
-    let startup_hmi_scaffold = bundle
-        .as_ref()
-        .and_then(|bundle| auto_scaffold_hmi_update(bundle, &runtime, &sources));
 
     let logger = RuntimeLogger::new(match &bundle {
         Some(bundle) => LogLevel::parse(bundle.runtime.log_level.as_str()),
@@ -134,8 +133,13 @@ pub fn run_runtime(
         .unwrap_or_else(|| Duration::from_millis(10));
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), cycle_interval)
         .with_restart_signal(pending_restart.clone())
-        .with_start_gate(start_gate.clone())
-        .with_time_scale(simulation_time_scale);
+        .with_start_gate(start_gate.clone());
+    if simulation_enabled {
+        runner = runner.with_simulation_speed(
+            SimulationSpeed::new(simulation_time_scale),
+            Some(metrics.clone()),
+        );
+    }
     if realtime_config.enabled {
         runner = runner.with_thread_init_hook(make_thread_init_hook(
             realtime_config.clone(),
@@ -222,19 +226,6 @@ pub fn run_runtime(
         None
     };
 
-    let hmi_persistence = if let Some(bundle) = &bundle {
-        if bundle.runtime.hmi_persistence.enabled {
-            Some(HmiPersistenceService::new(
-                bundle.runtime.hmi_persistence.clone(),
-                Some(bundle.root.as_path()),
-            )?)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
     let (audit_tx, audit_rx) = std::sync::mpsc::channel();
     let audit_logger = logger.clone();
     std::thread::spawn(move || {
@@ -243,10 +234,6 @@ pub fn run_runtime(
         }
     });
 
-    let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
-        bundle.as_ref().map(|bundle| bundle.root.as_path()),
-        &sources,
-    )));
     let ads_server_config = Arc::new(Mutex::new(
         bundle
             .as_ref()
@@ -309,15 +296,6 @@ pub fn run_runtime(
                 .unwrap_or(true),
         )),
         debug_variables: Arc::new(Mutex::new(trust_runtime::debug::DebugVariableHandles::new())),
-        hmi_live: Arc::new(Mutex::new(
-            hmi_persistence
-                .as_ref()
-                .map(|service| service.load_state())
-                .transpose()?
-                .unwrap_or_default(),
-        )),
-        hmi_persistence: hmi_persistence.clone(),
-        hmi_descriptor,
         historian: historian.clone(),
         pairing: pairing.clone(),
         ads_doctor_jobs: Arc::new(Mutex::new(
@@ -329,7 +307,7 @@ pub fn run_runtime(
         #[cfg(feature = "ads-server")]
         ads_server_runtime: ads_server_runtime.clone(),
     });
-    spawn_hmi_descriptor_watcher(state.clone());
+    state.connect_experiments();
 
     let mut opcua_server: Option<OpcUaWireServer> = None;
     if let Some(bundle) = &bundle {
@@ -358,14 +336,22 @@ pub fn run_runtime(
 
     let _server = ControlServer::start(control_endpoint.clone(), state.clone())?;
     let _mesh = if let Some(bundle) = &bundle {
-        start_mesh(
+        start_mesh_with_tls(
             &bundle.runtime.mesh,
             bundle.runtime.resource_name.clone(),
             control.clone(),
+            tls_materials.as_deref(),
         )?
     } else {
         None
     };
+    if let Some(bundle) = &bundle {
+        if bundle.runtime.mesh.enabled {
+            let access = Arc::new(bundle.runtime.web.hmi.clone());
+            let sessions = Arc::new(trust_runtime::hmi::access::sessions::SessionStore::new((*access).clone()));
+            trust_runtime::hmi::remote_operations::configure_owner(&control.hmi_exchange(),sessions,access,state.audit_tx.clone());
+        }
+    }
     if let Some(mesh) = _mesh.as_ref() {
         if let Ok(mut guard) = mesh_topology.lock() {
             *guard = Some(mesh.topology_evidence());
@@ -456,7 +442,6 @@ pub fn run_runtime(
             web_url.as_deref(),
             simulation_enabled,
             simulation_time_scale,
-            startup_hmi_scaffold.as_ref(),
             selected_execution_backend,
             selected_execution_backend_source,
         );

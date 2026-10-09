@@ -36,8 +36,12 @@ mod docs;
 mod fleet;
 #[path = "trust-runtime/git.rs"]
 mod git;
-#[path = "trust-runtime/hmi.rs"]
-mod hmi;
+#[path = "trust-runtime/hmi_check.rs"]
+mod hmi_check;
+#[path = "trust-runtime/hmi_password.rs"]
+mod hmi_password;
+#[path = "trust-runtime/hmi_test.rs"]
+mod hmi_test;
 #[path = "trust-runtime/plant.rs"]
 mod plant;
 #[path = "trust-runtime/plcopen.rs"]
@@ -186,6 +190,18 @@ fn run() -> anyhow::Result<()> {
             sources,
             ci,
         }) => build::run_build(project, sources, ci),
+        Some(Command::HmiPassword { iterations }) => hmi_password::run_hmi_password(iterations),
+        Some(Command::Hmi {
+            action: cli::HmiAction::Check { project, json },
+        }) => hmi_check::run_hmi_check(project, json),
+        Some(Command::Hmi {
+            action:
+                cli::HmiAction::Test {
+                    project,
+                    update,
+                    chromium,
+                },
+        }) => hmi_test::run_hmi_test(project, update, chromium),
         Some(Command::ControlSearchWorker) => {
             trust_runtime::control::search::worker_stdio().map_err(anyhow::Error::msg)
         }
@@ -202,7 +218,6 @@ fn run() -> anyhow::Result<()> {
             out_dir,
             format,
         }) => docs::run_docs(project, out_dir, format),
-        Some(Command::Hmi { project, action }) => hmi::run_hmi(project, action),
         Some(Command::Plcopen { action }) => plcopen::run_plcopen(action),
         Some(Command::Ads { action }) => ads::run_ads(action),
         Some(Command::Comm { action }) => comm::run_comm(action),
@@ -302,7 +317,6 @@ fn suggest_subcommand(input: &str) -> Option<&'static str> {
         "build",
         "test",
         "docs",
-        "hmi",
         "plcopen",
         "ads",
         "comm",

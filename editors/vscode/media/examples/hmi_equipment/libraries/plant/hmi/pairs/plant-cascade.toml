@@ -1,0 +1,100 @@
+format = 1
+title = "Cascade controller"
+block = "Plant.FB_CascadeLoop"
+faceplate = "plant-cascade"
+symbol = "controller"
+
+[fields]
+OuterMode = "Outer.Mode"
+OuterSetpoint = "Outer.Setpoint"
+OuterOutput = "Outer.Output"
+OuterManualOutput = "Outer.ManualOutput"
+OuterManual = "Outer.Manual"
+OuterSetpointPermit = "Outer.SetpointPermit"
+OuterSetpointText = "Outer.SetpointText"
+OuterOutputText = "Outer.OutputText"
+InnerMode = "Inner.Mode"
+InnerSetpoint = "Inner.Setpoint"
+InnerOutput = "Inner.Output"
+InnerManualOutput = "Inner.ManualOutput"
+InnerManual = "Inner.Manual"
+InnerSetpointPermit = "Inner.SetpointPermit"
+InnerSetpointText = "Inner.SetpointText"
+InnerOutputText = "Inner.OutputText"
+
+[bind]
+pv = "Outer.MeasuredValue"
+sp = "Outer.Setpoint"
+manual = "Outer.Manual"
+
+[[settings]]
+member = "Outer.ProportionalGain"
+title = "Outer: proportional gain"
+key = true
+help = "The three gains share one sign: negative when the output must rise while the measurement is above the setpoint."
+
+[[settings]]
+member = "Outer.IntegralGain"
+title = "Outer: integral gain"
+unit = "1/s"
+key = true
+help = "The three gains share one sign: negative when the output must rise while the measurement is above the setpoint."
+
+[[settings]]
+member = "Outer.DerivativeGain"
+title = "Outer: derivative gain"
+unit = "s"
+help = "The three gains share one sign: negative when the output must rise while the measurement is above the setpoint."
+
+[[settings]]
+member = "Inner.ProportionalGain"
+title = "Inner: proportional gain"
+key = true
+help = "The three gains share one sign: negative when the output must rise while the measurement is above the setpoint."
+
+[[settings]]
+member = "Inner.IntegralGain"
+title = "Inner: integral gain"
+unit = "1/s"
+key = true
+help = "The three gains share one sign: negative when the output must rise while the measurement is above the setpoint."
+
+[[settings]]
+member = "Inner.DerivativeGain"
+title = "Inner: derivative gain"
+unit = "s"
+help = "The three gains share one sign: negative when the output must rise while the measurement is above the setpoint."
+
+[[dependencies]]
+member = "OuterMeasurement"
+title = "Outer measurement"
+interface = "Plant.IMeasurement"
+
+[[dependencies]]
+member = "InnerMeasurement"
+title = "Inner measurement"
+interface = "Plant.IMeasurement"
+
+[[dependencies]]
+member = "Output"
+title = "Controlled equipment"
+interface = "Plant.IPositionDevice"
+required = false
+drives = "AutoPosition"
+
+[[dependencies]]
+member = "Output"
+title = "Controlled equipment"
+interface = "Plant.IPowerDevice"
+required = false
+drives = "AutoPower"
+
+[[dependencies]]
+member = "Output"
+title = "Controlled equipment"
+interface = "Plant.ISpeedDevice"
+required = false
+drives = "AutoSpeed"
+
+[program]
+position = "controllers"

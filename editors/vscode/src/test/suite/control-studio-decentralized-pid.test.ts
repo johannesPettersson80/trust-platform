@@ -16,7 +16,7 @@ suite("Control Studio decentralized PI design for PID groups", () => {
   test("designs each member's PI by SIMC on its own path with the gain it sees when the other loops are closed", () => {
     const api = design();
     assert.strictEqual(typeof api.designDecentralizedPi, "function", "a PID group needs a model-based design, not only a declared grid");
-    const result = api.designDecentralizedPi(zones, pairs, "balanced");
+    const result = api.designDecentralizedPi(zones, pairs, "balanced", "direct");
     assert.strictEqual(result.members.length, 2);
     for (const member of result.members) {
       assert.ok(Math.abs(member.pathGain - 0.225) < 1e-3, `own-path gain ${member.pathGain}`);
@@ -46,7 +46,7 @@ suite("Control Studio decentralized PI design for PID groups", () => {
     const { projectControllerSeed } = require("../../controlStudio/projectControllerSeed");
     const task = { referenceChange: 1, maximumError: 0.2, settlingBand: 0.1, settlingTimeSeconds: 30, durationSeconds: 60, tuningObjective: "balanced" };
     const values = projectControllerSeed(loop, model, task, loop.controller.project.seed, "PI");
-    const [first, second] = api.designDecentralizedPi(model, pairs, "balanced").members;
+    const [first, second] = api.designDecentralizedPi(model, pairs, "balanced", "direct").members;
     assert.deepStrictEqual(values, {
       "P1.Parameters.ProportionalGain": first.proportionalGain, "P1.Parameters.IntegralGain": first.integralGain, "P1.Parameters.DerivativeGain": 0,
       "P1.SecondaryParameters.ProportionalGain": second.proportionalGain, "P1.SecondaryParameters.IntegralGain": second.integralGain,
@@ -59,7 +59,7 @@ suite("Control Studio decentralized PI design for PID groups", () => {
     assert.strictEqual(typeof api.designDecentralizedPi, "function");
     // K = [[0.2, 0.5], [0.5, 0.2]]: λ₁₁ = 1/(1 − 0.25/0.04) ≈ −0.19; the crossed pairing has λ ≈ 1.19.
     const crossed = { ...zones, a: [[-1, 0], [0, -1]], b: [[0.2, 0.5], [0.5, 0.2]], revision: "crossed" };
-    assert.throws(() => api.designDecentralizedPi(crossed, pairs, "balanced"),
+    assert.throws(() => api.designDecentralizedPi(crossed, pairs, "balanced", "direct"),
       /relative gain of u1 → y1 is -0\.19.*pair u1 → y2 and u2 → y1/i);
   });
 });

@@ -1,4 +1,8 @@
 import { canonicalJson } from "./canonicalJson";
+import { ISOLATED_SIMULATION_SAMPLE_LIMIT } from "./controlStudioLimits";
+import { firstGap, gapPhrase, medianSpacing } from "./evenSampling";
+import { steadyRecordPeriod } from "./recordSequence";
+import { largest, rootSumSquare, smallest } from "./sampleStatistics";
 
 /** Generic observed-run acceptance, independent of controller structure and transport. */
 export type RunEvidence = "model-predicted" | "ST-executed" | "physical-recorded";
@@ -98,31 +102,30 @@ export function evaluateObservedRequirement(run: Pick<RecordedRun, "channels" | 
     : requirement.kind === "bounds" || requirement.kind === "state-bounds" ? 0 : requirement.maximum;
   const base = { id: requirement.id, kind: requirement.kind, unit, ...(declaredLimit === undefined ? {} : { limit: declaredLimit }) };
   const expected = run.conditions.sampleTimesSeconds.filter(t => t >= requirement.window.start && t <= requirement.window.end);
-  const samples = run.samples.filter(s => s.timeSeconds >= requirement.window.start && s.timeSeconds <= requirement.window.end);
   const referenceChannel = requirement.kind === "error" && typeof requirement.reference !== "number" ? requirement.reference.channel : undefined;
   const needed = referenceChannel ? [requirement.channel, referenceChannel] : [requirement.channel];
-  const complete = expected.length === samples.length && samples.every((s, i) => s.timeSeconds === expected[i]
-    && Number.isSafeInteger(s.sequence) && (i === 0 || s.sequence === samples[i - 1].sequence + 1)
-    && needed.every(id => s.values[id]?.quality === "good" && finite(s.values[id]?.value)));
-  if (!complete) return { ...base, status: "Inconclusive", reason: "The declared window lacks complete, ordered, good-quality sample coverage." };
+  const coverage = heldOnGrid(run.samples, expected, needed, requirement.window,
+    ((run.conditions as { recordEvery?: number }).recordEvery ?? 1) > 1);
+  if ("reason" in coverage) return { ...base, status: "Inconclusive", reason: coverage.reason };
+  const samples = coverage.samples;
   const values = samples.map(s => s.values[requirement.channel].value as number);
   let value: number; let limit: number;
   switch (requirement.kind) {
     case "error": {
       const reference = requirement.reference;
       const errors = values.map((v, i) => Math.abs(v - (typeof reference === "number" ? reference : samples[i].values[reference.channel].value as number)));
-      value = requirement.statistic === "maximum" ? Math.max(...errors) : requirement.statistic === "rms"
-        ? Math.hypot(...errors) / Math.sqrt(errors.length) : errors.reduce((a, b) => a + b, 0) / errors.length;
+      value = requirement.statistic === "maximum" ? largest(errors) : requirement.statistic === "rms"
+        ? rootSumSquare(errors) / Math.sqrt(errors.length) : errors.reduce((a, b) => a + b, 0) / errors.length;
       limit = requirement.maximum; break;
     }
     case "overshoot":
-      value = Math.max(0, ...values.map(v => Math.sign(requirement.target - requirement.initial) * (v - requirement.target)));
+      value = largest(values.map(v => Math.sign(requirement.target - requirement.initial) * (v - requirement.target)), 0);
       limit = requirement.maximum; break;
     case "bounds": case "state-bounds":
-      value = Math.max(0, ...values.map(v => Math.max(requirement.minimum - v, v - requirement.maximum)));
+      value = largest(values.map(v => Math.max(requirement.minimum - v, v - requirement.maximum)), 0);
       limit = 0; break;
     case "levels":
-      value = Math.max(0, ...values.map(value => Math.min(...requirement.allowed.map(level => Math.abs(value - level)))));
+      value = largest(values.map(value => Math.min(...requirement.allowed.map(level => Math.abs(value - level)))), 0);
       limit = requirement.tolerance; break;
     case "dwell": {
       const intervals: number[] = [];
@@ -135,13 +138,13 @@ export function evaluateObservedRequirement(run: Pick<RecordedRun, "channels" | 
         transitionStart = samples[index].timeSeconds; high = nextHigh;
       }
       if (!intervals.length) return { ...base, status: "Inconclusive", reason: `No complete ${requirement.state} dwell interval was observed; extend the switching scenario.` };
-      const shortest = Math.min(...intervals);
+      const shortest = smallest(intervals);
       const meetsMinimum = shortest + 1e-9 * Math.max(1, requirement.minimumSeconds) >= requirement.minimumSeconds;
       return { ...base, status: meetsMinimum ? "Pass" : "Fail", value: shortest, limit: requirement.minimumSeconds,
         reason: meetsMinimum ? "Every completed observed dwell meets the declared minimum." : "An observed switch occurred before the declared minimum dwell." };
     }
     case "rate":
-      value = Math.max(0, ...values.slice(1).map((v, i) => (requirement.direction === "up" ? v - values[i] : requirement.direction === "down" ? values[i] - v : Math.abs(v - values[i])) / (samples[i + 1].timeSeconds - samples[i].timeSeconds)));
+      value = largest(values.slice(1).map((v, i) => (requirement.direction === "up" ? v - values[i] : requirement.direction === "down" ? values[i] - v : Math.abs(v - values[i])) / (samples[i + 1].timeSeconds - samples[i].timeSeconds)), 0);
       limit = requirement.maximum; break;
     case "switching":
       value = values.slice(1).filter((v, i) => Math.abs(v - values[i]) > requirement.threshold).length;
@@ -170,30 +173,72 @@ export function evaluateObservedRequirement(run: Pick<RecordedRun, "channels" | 
     reason: value <= limit ? "Observed measurement satisfies the declared limit." : "Observed measurement exceeds the declared limit." };
 }
 
+type RunScan = RecordedRun["samples"][number];
+const INCOMPLETE_COVERAGE = "The declared window lacks complete, ordered, good-quality sample coverage.";
+
+/** The declared sample times of a window, each holding the last observed scan at or before it. Normal task jitter is accepted: the
+ * scans must reach beyond both window ends, be ordered, contiguous and good, and leave no interval longer than one and a half steps. */
+function heldOnGrid(scans: readonly RunScan[], grid: readonly number[], needed: readonly string[], range: { start: number; end: number },
+  averaged: boolean):
+  { samples: RunScan[] } | { reason: string } {
+  let lower = -1;
+  for (let index = 0; index < scans.length && scans[index].timeSeconds <= range.start + 1e-9; index += 1) lower = index;
+  let upper = scans.findIndex(scan => scan.timeSeconds >= range.end - 1e-9);
+  // A sample recorded at a record period sits at the mean time of its executions (E4.4): the first one covers the run's
+  // beginning and the last one its end, so a window that starts before the first or ends after the last is still covered.
+  if (averaged && lower < 0 && scans.length > 0) lower = 0;
+  if (averaged && upper < 0 && scans.length > 0) upper = scans.length - 1;
+  if (grid.length === 0 || lower < 0 || upper < 0) return { reason: INCOMPLETE_COVERAGE };
+  const span = scans.slice(lower, upper + 1);
+  if (span.some((scan, index) => !Number.isSafeInteger(scan.sequence) || index > 0
+      && !(scan.timeSeconds > span[index - 1].timeSeconds))
+    || !steadyRecordPeriod(span.map(scan => scan.sequence), upper === scans.length - 1)
+    || span.some(scan => !needed.every(id => scan.values[id]?.quality === "good" && finite(scan.values[id]?.value)))) {
+    return { reason: INCOMPLETE_COVERAGE };
+  }
+  const gap = firstGap(span.map(scan => scan.timeSeconds), medianSpacing(grid));
+  if (gap) return { reason: `The recording has ${gapPhrase(gap)}.` };
+  let held = lower;
+  return { samples: grid.map(timeSeconds => {
+    while (held < upper && scans[held + 1].timeSeconds <= timeSeconds + 1e-9) held += 1;
+    return { timeSeconds, sequence: scans[held].sequence, values: scans[held].values };
+  }) };
+}
+
 function decodeRun(value: unknown): RecordedRun {
   if (!record(value) || !text(value.id) || !["model-predicted", "ST-executed", "physical-recorded"].includes(String(value.evidence))
       || !numbers(value.parameters) || !record(value.conditions) || !Array.isArray(value.channels) || !Array.isArray(value.samples)) throw new Error("Invalid recorded-run contract.");
   const c = value.conditions;
   if (!numbers(c.initialState) || !finite(c.durationSeconds) || c.durationSeconds <= 0 || !Number.isSafeInteger(c.seed)
       || !text(c.modelRevision) || !text(c.programRevision) || !text(c.parameterSchemaRevision)
-      || !Array.isArray(c.sampleTimesSeconds) || c.sampleTimesSeconds.length < 2 || c.sampleTimesSeconds.length > 12000
-      || c.sampleTimesSeconds[0] !== 0 || c.sampleTimesSeconds[c.sampleTimesSeconds.length - 1] !== c.durationSeconds
+      || !Array.isArray(c.sampleTimesSeconds) || c.sampleTimesSeconds.length < 2 || c.sampleTimesSeconds.length > ISOLATED_SIMULATION_SAMPLE_LIMIT
+      // A run recorded at a record period k (E4.4) takes each sample at the mean time of its k executions, so only an
+      // unaveraged run starts at 0.
+      || c.recordEvery !== undefined && (!Number.isSafeInteger(c.recordEvery) || (c.recordEvery as number) < 2 || (c.recordEvery as number) > 100_000)
+      || (c.recordEvery === undefined ? c.sampleTimesSeconds[0] !== 0 : !finite(c.sampleTimesSeconds[0]) || c.sampleTimesSeconds[0] < 0)
+      || (c.recordEvery === undefined ? c.sampleTimesSeconds[c.sampleTimesSeconds.length - 1] !== c.durationSeconds
+        : !(c.sampleTimesSeconds[c.sampleTimesSeconds.length - 1] <= (c.durationSeconds as number) + 1e-9))
       || !c.sampleTimesSeconds.every((t, i, all) => finite(t) && t >= 0 && (i === 0 || t > all[i - 1]))
       || !Array.isArray(c.events) || !c.events.every(e => record(e) && finite(e.atSeconds) && e.atSeconds >= 0 && e.atSeconds <= (c.durationSeconds as number)
         && text(e.channel) && finite(e.value))) throw new Error("Invalid immutable experiment conditions.");
-  // The isolated run's channel maximum (control-studio-controller-bindings).
+  // The isolated run's channel maximum (runtime protocol annex, E8; specification 35, A7) and its sample maximum (A7; E8.3).
   if (value.channels.length === 0 || value.channels.length > 64 || !value.channels.every(c => record(c) && text(c.id) && text(c.unit))
       || new Set(value.channels.map(c => c.id)).size !== value.channels.length
-      || value.samples.length > 12000 || !value.samples.every(s => record(s) && finite(s.timeSeconds) && Number.isSafeInteger(s.sequence) && record(s.values))) {
+      || value.samples.length > ISOLATED_SIMULATION_SAMPLE_LIMIT || !value.samples.every(s => record(s) && finite(s.timeSeconds) && Number.isSafeInteger(s.sequence) && record(s.values))) {
     throw new Error("Invalid run channels or sample structure.");
   }
   // Preserve NaN/undefined quality evidence; JSON cloning would silently coerce it.
   return clone(value) as unknown as RecordedRun;
 }
-export function decodeRunRequirement(value: unknown, run: Pick<RecordedRun, "channels"> & { conditions: Pick<RunConditions, "sampleTimesSeconds"> }): RunRequirement {
+export function decodeRunRequirement(value: unknown, run: Pick<RecordedRun, "channels">
+  & { conditions: Pick<RunConditions, "sampleTimesSeconds"> & { durationSeconds?: number } }): RunRequirement {
+  // A window lies within the run. A run recorded at a record period has its samples at the mean times of their executions (E4.4),
+  // so a window's ends need not be sample times.
+  const times = run.conditions.sampleTimesSeconds;
+  const end = run.conditions.durationSeconds ?? times[times.length - 1];
   if (!record(value) || !text(value.id) || !text(value.channel) || !run.channels.some(c => c.id === value.channel)
       || !record(value.window) || !finite(value.window.start) || !finite(value.window.end) || value.window.start >= value.window.end
-      || !run.conditions.sampleTimesSeconds.includes(value.window.start) || !run.conditions.sampleTimesSeconds.includes(value.window.end)) throw new Error("Invalid requirement identity, channel or sample window.");
+      || value.window.start < 0 || !(value.window.end <= end + 1e-9)) throw new Error("Invalid requirement identity, channel or sample window.");
   const nonnegative = (v: unknown) => finite(v) && v >= 0;
   let valid = false;
   switch (value.kind) {

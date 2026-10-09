@@ -10,7 +10,7 @@ real-time deployment/verification contract for:
 - `mesh/Zenoh`
 - `realtime / T0`
 - Linux field/network protocols such as `EtherCAT`, `Modbus TCP`, and `MQTT`
-- the normal control/web/HMI surfaces
+- the normal control/web surfaces
 
 This is a Linux-only story today. It is not the embedded/native-host port.
 
@@ -57,7 +57,7 @@ Support matrix:
 | --- | --- |
 | Linux `aarch64` edge hosts such as Raspberry Pi-class systems | Implemented; baseline evidence captured on Raspberry Pi 5 non-RT Linux; `PREEMPT_RT` reference-target evidence pending |
 | Linux `x86_64` industrial/desktop hosts with wired NICs | Implemented; reference-target evidence pending |
-| `mesh/Zenoh`, `realtime / T0`, control/web/HMI surfaces | Behavior-lock coverage green on normal Linux; `PREEMPT_RT` evidence is target-specific and not yet attached to a validated reference host |
+| `mesh/Zenoh`, `realtime / T0`, control/web surfaces | Behavior-lock coverage green on normal Linux; `PREEMPT_RT` evidence is target-specific and not yet attached to a validated reference host |
 | Linux network/fieldbus paths such as `EtherCAT`, `Modbus TCP`, `MQTT` | Implemented on Linux; `PREEMPT_RT` evidence depends on the exact NIC/driver/hardware mix |
 | Wi-Fi-heavy deployments, unsupported NICs, and non-RT kernels | Not a validated real-time claim surface |
 
@@ -95,7 +95,7 @@ Important:
   equivalent launcher
 - `trust-runtime` does apply memory locking and scheduler-thread affinity
 - `runtime.realtime.cpu_affinity` pins the scheduler thread only; keep mesh,
-  web, HMI, and other worker pools off the scan core with `systemd`
+  web, and other worker pools off the scan core with `systemd`
   `CPUAffinity=`, cpusets, or equivalent cgroup policy
 
 ## systemd Unit
@@ -258,7 +258,7 @@ realtime status instead.
 - `PREEMPT_RT` reduces latency and jitter, but firmware/SMI/BIOS/PCIe/GPU
   activity can still break your budget
 - the reference RT path is Linux + wired Ethernet, not Wi-Fi
-- heavy browser/HMI/diagnostic activity can affect timing if you do not isolate
+- heavy browser/diagnostic activity can affect timing if you do not isolate
   it
 - fieldbus timing quality remains NIC/driver/hardware specific
 

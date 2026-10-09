@@ -87,7 +87,7 @@ suite("Control Studio manual Tune settings", () => {
     } finally { f.restore(); }
   });
 
-  test("manual PI exposes the declared anti-windup gain and retains its pin", () => {
+  test("manual PI exposes the declared anti-windup gain without a Pin checkbox", () => {
     const definition = structuredClone(loop);
     definition.controller.law.antiWindup = { method: "back-calculation", trackingGainSymbol: "P1.TrackingGain" };
     definition.parameterBinding.parameters.push({ symbol: "P1.TrackingGain", iec_type: "LREAL", unit: "1/s", convention: "Anti-windup tracking gain", minimum: 0, maximum: 10 });
@@ -96,7 +96,7 @@ suite("Control Studio manual Tune settings", () => {
     try {
       assert.ok(f.root.querySelector("[data-studio-manual-value='P1.TrackingGain']"), "PI requires its declared anti-windup setting");
       assert.strictEqual(f.controls.read().values["P1.TrackingGain"], 1);
-      assert.strictEqual(f.controls.read().pinnedValues["P1.TrackingGain"], 1);
+      assert.strictEqual(f.root.querySelector("[data-studio-manual-pin]"), null, "manual settings have no Pin checkboxes");
     } finally { f.restore(); }
   });
 
@@ -131,11 +131,13 @@ suite("Control Studio manual Tune settings", () => {
       settingsPins: { values: { "P1.Parameters.IntegralGain": 0.5 } },
       };
       renderTunedController(dom.window.document.querySelector("main") as HTMLElement, loop, payload);
+      // An automatic result offers a Keep toggle per calculated setting; the pinned one starts kept.
+      assert.strictEqual((area.querySelector("[data-studio-keep='P1.Parameters.IntegralGain']") as HTMLInputElement)?.checked, true);
       initializeManualTuneSettings(dom.window.document.querySelector("main") as HTMLElement, loop).render(payload);
       assert.ok(area.querySelector("[data-studio-manual-settings]"), "Tune result needs a manual settings editor");
       assert.strictEqual(area.querySelectorAll("input[data-studio-manual-value]").length, 3);
       assert.strictEqual((area.querySelector("[data-studio-manual-value='P1.Parameters.IntegralGain']") as HTMLInputElement)?.value, "0.5");
-      assert.strictEqual((area.querySelector("[data-studio-manual-pin='P1.Parameters.IntegralGain']") as HTMLInputElement)?.checked, true);
+      assert.strictEqual(area.querySelector("[data-studio-manual-pin]"), null, "manual settings have no Pin checkboxes");
       assert.match(area.textContent ?? "", /%\/°C/);
     } finally {
       (globalThis as any).document = previousDocument;
@@ -170,9 +172,7 @@ suite("Control Studio manual Tune settings", () => {
       field.value = "";
       assert.throws(() => f.controls.read(), /integral gain.*0.*100/i);
       field.value = "0.500000001";
-      const pin = f.root.querySelector<HTMLInputElement>("[data-studio-manual-pin='P1.Parameters.IntegralGain']")!;
-      pin.checked = true;
-      assert.deepStrictEqual(f.controls.read().pinnedValues, { "P1.Parameters.IntegralGain": 0.500000001 });
+      assert.deepStrictEqual(f.controls.read().values, { "P1.Parameters.ProportionalGain": 2, "P1.Parameters.IntegralGain": 0.500000001 });
     } finally { f.restore(); }
   });
 

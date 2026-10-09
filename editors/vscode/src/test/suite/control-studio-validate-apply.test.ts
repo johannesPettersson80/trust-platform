@@ -1,8 +1,6 @@
 import * as assert from "assert";
-import { compareControllers, compareControlPidCandidates, type ValidationScenario } from "../../controlStudio/validation";
 import { ControllerApplicationClient } from "../../controlStudio/controllerApplication";
 import { createWorkflowResult, decodeWorkflowResult, exportWorkflowJson, exportSamplesCsv } from "../../controlStudio/workflowResult";
-import { decodeControllerApplicationCommand, decodeWorkflowResultCommand } from "../../controlStudio/messages";
 import { candidateFromControlPid, type ControlPidParameters } from "../../controlStudio/controllerCandidate";
 import * as workflowResultModule from "../../controlStudio/workflowResult";
 
@@ -83,172 +81,6 @@ suite("Control Studio validation, apply, rollback, and export", () => {
     const original = JSON.stringify(legacy);
     assert.strictEqual(decodeWorkflowResult(legacy)?.schemaVersion, 3, "reading legacy data does not silently rewrite it");
     assert.strictEqual(JSON.stringify(legacy), original);
-  });
-
-  test("projects complete validation evidence for the collapsed professional details", () => {
-    const rows = (require("../../controlStudio/validation") as {
-      validationRequirementRows?: (requirements: unknown[]) => unknown;
-    }).validationRequirementRows;
-    assert.strictEqual(typeof rows, "function", "complete validation evidence projection is not implemented");
-    assert.deepStrictEqual(rows?.([{
-      name: "Gain margin", status: "Pass", value: 12.34567, limit: 6, unit: "dB",
-      source: "Model-predicted", reason: "Gain margin must be at least 6 dB.",
-    }]), [{
-      name: "Gain margin", status: "Pass", value: 12.34567, limit: 6, unit: "dB",
-      source: "Model-predicted", reason: "Gain margin must be at least 6 dB.",
-    }]);
-    assert.deepStrictEqual(rows?.([{
-      name: "Gain margin", status: "Pass", value: Number.POSITIVE_INFINITY, limit: 6, unit: "dB",
-      source: "Model-predicted", reason: "No finite phase crossover exists.",
-    }]), [{
-      name: "Gain margin", status: "Pass", value: "unbounded", limit: 6, unit: "dB",
-      source: "Model-predicted", reason: "No finite phase crossover exists.",
-    }], "unbounded margins must survive the webview message boundary");
-  });
-
-  test("presents stability requirements as states instead of numeric booleans", () => {
-    const format = (require("../../controlStudio/validation") as {
-      formatValidationRequirementValue?: (value: unknown, unit: string, limit?: boolean) => string;
-    }).formatValidationRequirementValue;
-    assert.strictEqual(typeof format, "function", "validation-state presentation is not implemented");
-    assert.strictEqual(format?.(1, "boolean"), "Stable");
-    assert.strictEqual(format?.(0, "boolean"), "Unstable");
-    assert.strictEqual(format?.(1, "boolean", true), "Required");
-    assert.strictEqual(format?.(12.3456, "dB"), "12.35 dB");
-    assert.strictEqual(format?.("unbounded", "dB"), "∞ dB");
-  });
-
-  test("compares current and candidate under the identical bounded scenarios", () => {
-    const scenarios: ValidationScenario[] = [{ kind: "setpoint", amplitude: 1 }, { kind: "disturbance", amplitude: 0.2 }];
-    const result = compareControllers(
-      { gain: 1.5, timeConstantSeconds: 4, deadTimeSeconds: 0.5 },
-      { structure: "PI", kp: 0.4, tiSeconds: 4 },
-      { structure: "PI", kp: 0.8, tiSeconds: 4 },
-      scenarios
-    );
-    assert.deepStrictEqual(result.current.scenarios, result.candidate.scenarios);
-    assert.ok(result.requirements.every((item) => ["Pass", "Fail", "Inconclusive"].includes(item.status)));
-    assert.strictEqual(result.evidence, "Model-predicted");
-    assert.strictEqual(result.applied, false);
-  });
-
-  test("validates exact Control.PID candidates across response, disturbance, noise, margins, and variation", () => {
-    const settings: ControlPidParameters = { proportionalGain: 0.4, integralGain: 0.1, derivativeGain: 0,
-      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: 0, outputMaximum: 100, rateMinimum: -100, rateMaximum: 100,
-      trackingTime: 1, antiWindup: "BackCalculation" };
-    const scenarios: ValidationScenario[] = [
-      { kind: "setpoint", amplitude: 1 }, { kind: "disturbance", amplitude: 0.2 },
-      { kind: "noise", amplitude: 0.02 },
-    ];
-    const result = compareControlPidCandidates(
-      { kind: "first_order_dead_time", gain: 1.5, timeConstantSeconds: 4, deadTimeSeconds: 0.5,
-        stable: true, normalizedError: 0.02 },
-      candidateFromControlPid(settings, "Imported"),
-      candidateFromControlPid({ ...settings, proportionalGain: 0.8, integralGain: 0.2 }, "SIMC"),
-      { evidence: "Model-predicted", scenarios, variationFractions: [-0.2, 0, 0.2],
-        processUnit: "°C", outputUnit: "%" } as never
-    );
-    assert.strictEqual(result.evidence, "Model-predicted");
-    assert.deepStrictEqual(result.current.scenarios, result.candidate.scenarios);
-    const conditions = (result as unknown as { conditions?: {
-      initialCondition: { processValue: number; firstLagState: number; delayedInput: number;
-        controller: Record<string, number> };
-      sampleTimesSeconds: readonly number[];
-      durationSeconds: number;
-      noise: { generator: string; seed: number };
-      limits: Record<string, number>;
-      variationFractions: readonly number[];
-      scenarios: readonly { kind: string; event: { affectedSignal: string; atSeconds: number;
-        amplitude: number }; disturbanceTrajectory: readonly { atSeconds: number; value: number }[];
-        noiseAmplitude: number }[];
-    } }).conditions;
-    assert.ok(conditions, "one retained validation-conditions record is missing");
-    assert.deepStrictEqual(conditions.initialCondition, {
-      processValue: 0, firstLagState: 0, delayedInput: 0,
-      controller: { setpoint: 0, setpointRate: 0, processValue: 0, processValueRate: 0,
-        feedForward: 0, nominalOutput: 0, saturatedOutput: 0 },
-    });
-    assert.strictEqual(conditions.sampleTimesSeconds.length, 2701);
-    assert.strictEqual(conditions.sampleTimesSeconds[0], 0);
-    assert.strictEqual(conditions.sampleTimesSeconds[conditions.sampleTimesSeconds.length - 1], 54);
-    assert.strictEqual(conditions.durationSeconds, 54);
-    assert.deepStrictEqual(conditions.noise, { generator: "xorshift32-uniform", seed: 20260828 });
-    assert.deepStrictEqual(conditions.limits, { outputMinimum: 0, outputMaximum: 100,
-      rateMinimum: -100, rateMaximum: 100 });
-    assert.deepStrictEqual(conditions.variationFractions, [-0.2, 0, 0.2]);
-    assert.deepStrictEqual(conditions.scenarios.map((item) => ({ kind: item.kind,
-      signal: item.event.affectedSignal, eventAmplitude: item.event.amplitude,
-      disturbance: item.disturbanceTrajectory[0]?.value, noiseAmplitude: item.noiseAmplitude })), [
-      { kind: "setpoint", signal: "SP", eventAmplitude: 1, disturbance: 0, noiseAmplitude: 0 },
-      { kind: "disturbance", signal: "Load disturbance", eventAmplitude: 0.2, disturbance: 0.2, noiseAmplitude: 0 },
-      { kind: "noise", signal: "PV", eventAmplitude: 0.02, disturbance: 0, noiseAmplitude: 0.02 },
-    ]);
-    for (const name of ["Settling time", "Overshoot", "Steady-state error", "MV excursion",
-      "MV rate", "Saturation recovery", "Noise response", "Gain margin", "Phase margin",
-      "Bounded variation stability"]) {
-      const requirement = result.requirements.find((item) => item.name === name);
-      assert.ok(requirement, `missing ${name}`);
-      assert.strictEqual(requirement.source, "Model-predicted");
-      assert.ok(requirement!.unit.length > 0 && requirement!.reason.length > 0);
-      assert.ok(["Pass", "Fail", "Inconclusive"].includes(requirement!.status));
-    }
-    assert.strictEqual(result.applied, false);
-    assert.strictEqual(result.requirements.find((item) => item.name === "MV excursion")?.unit, "%");
-    assert.strictEqual(result.requirements.find((item) => item.name === "MV rate")?.unit, "%/s");
-    assert.strictEqual(result.requirements.find((item) => item.name === "Noise response")?.unit, "% RMS");
-  });
-
-  test("keeps simulation-observed validation distinct from model prediction", () => {
-    const settings: ControlPidParameters = { proportionalGain: 0.5, integralGain: 0.1, derivativeGain: 0,
-      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: 0, outputMaximum: 100, rateMinimum: -100, rateMaximum: 100,
-      trackingTime: 1, antiWindup: "BackCalculation" };
-    const result = compareControlPidCandidates(
-      { kind: "first_order", gain: 1, timeConstantSeconds: 2, deadTimeSeconds: 0,
-        stable: true, normalizedError: 0 },
-      candidateFromControlPid(settings, "Imported"), candidateFromControlPid(settings, "Manual"),
-      { evidence: "Simulation-observed", scenarios: [{ kind: "setpoint", amplitude: 1 }], variationFractions: [0] }
-    );
-    assert.strictEqual(result.evidence, "Simulation-observed");
-    assert.ok(result.requirements.every((item) => item.source === "Simulation-observed"));
-    const noise = result.requirements.find((item) => item.name === "Noise response");
-    assert.strictEqual(noise?.status, "Inconclusive");
-    assert.match(noise?.reason ?? "", /no bounded noise scenario/i);
-  });
-
-  test("measures noise-driven MV activity instead of saturation error", () => {
-    const base: ControlPidParameters = { proportionalGain: 0.5, integralGain: 0.1, derivativeGain: 0,
-      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: -100, outputMaximum: 100, rateMinimum: -1_000, rateMaximum: 1_000,
-      trackingTime: 1, antiWindup: "BackCalculation" };
-    const result = compareControlPidCandidates(
-      { kind: "first_order", gain: 1, timeConstantSeconds: 2, deadTimeSeconds: 0,
-        stable: true, normalizedError: 0 },
-      candidateFromControlPid(base, "Imported"),
-      candidateFromControlPid({ ...base, derivativeGain: 0.4 }, "Manual"),
-      { evidence: "Model-predicted", scenarios: [{ kind: "noise", amplitude: 0.02 }], variationFractions: [0] }
-    );
-    const noise = result.requirements.find((item) => item.name === "Noise response");
-    assert.strictEqual(noise?.status, "Fail", "derivative noise amplification must be visible against the PI baseline");
-    assert.ok((noise?.value ?? 0) > 0, "noise response must contain measured MV activity");
-  });
-
-  test("measures recovery after saturation instead of the unused simulation horizon", () => {
-    const settings: ControlPidParameters = { proportionalGain: 2, integralGain: 1, derivativeGain: 0,
-      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: 0, outputMaximum: 1.5, rateMinimum: -100, rateMaximum: 100,
-      trackingTime: 1, antiWindup: "BackCalculation" };
-    const result = compareControlPidCandidates(
-      { kind: "first_order", gain: 1, timeConstantSeconds: 2, deadTimeSeconds: 0,
-        stable: true, normalizedError: 0 },
-      candidateFromControlPid(settings, "Imported"), candidateFromControlPid(settings, "Manual"),
-      { evidence: "Model-predicted", scenarios: [{ kind: "setpoint", amplitude: 1 }], variationFractions: [0] }
-    );
-    const recovery = result.requirements.find((item) => item.name === "Saturation recovery");
-    assert.strictEqual(recovery?.status, "Pass");
-    assert.ok((recovery?.value ?? Number.POSITIVE_INFINITY) < 6,
-      "recovery must measure from saturation exit to settled response, not to the horizon");
   });
 
   test("uses revision-guarded existing runtime requests and separate physical approval", async () => {
@@ -686,40 +518,6 @@ suite("Control Studio validation, apply, rollback, and export", () => {
     assert.deepStrictEqual(selected, [{ startSeconds: 0, endSeconds: 2 }, { startSeconds: 3, endSeconds: 5 }]);
   });
 
-  test("accepts only loop-scoped apply and rollback confirmations", () => {
-    const scope = { projectId: "project", editorSessionId: "editor", loopId: "loop", loopRevision: "sha256:loop" };
-    const base = { schemaVersion: 1, messageId: "message", projectId: "project", editorSessionId: "editor",
-      loopId: "loop", expectedLoopRevision: "sha256:loop" };
-    assert.deepStrictEqual(decodeControllerApplicationCommand({ ...base, kind: "control-studio.candidate.apply",
-      payload: { physicalApproved: false } }, scope), { action: "apply", messageId: "message", physicalApproved: false });
-    assert.deepStrictEqual(decodeControllerApplicationCommand({ ...base, kind: "control-studio.candidate.rollback",
-      payload: {} }, scope), { action: "rollback", messageId: "message" });
-    assert.strictEqual(decodeControllerApplicationCommand({ ...base, expectedLoopRevision: "sha256:stale",
-      kind: "control-studio.candidate.apply", payload: { physicalApproved: false } }, scope), undefined);
-  });
-
-  test("accepts only loop-scoped save and export commands", () => {
-    const scope = { projectId: "project", editorSessionId: "editor", loopId: "loop", loopRevision: "sha256:loop" };
-    const base = { schemaVersion: 1, messageId: "message", projectId: "project", editorSessionId: "editor",
-      loopId: "loop", expectedLoopRevision: "sha256:loop", payload: {} };
-    assert.deepStrictEqual(decodeWorkflowResultCommand({ ...base, kind: "control-studio.result.save" }, scope),
-      { action: "save", messageId: "message" });
-    assert.deepStrictEqual(decodeWorkflowResultCommand({ ...base, kind: "control-studio.result.export-csv" }, scope),
-      { action: "export-csv", messageId: "message" });
-    assert.deepStrictEqual(decodeWorkflowResultCommand({ ...base, kind: "control-studio.result.export-json" }, scope),
-      { action: "export-json", messageId: "message" });
-    assert.deepStrictEqual(decodeWorkflowResultCommand({ ...base, kind: "control-studio.result.open",
-      payload: { resultRevision: 2 } }, scope),
-      { action: "open", messageId: "message", resultRevision: 2 });
-    assert.deepStrictEqual(decodeWorkflowResultCommand({ ...base, kind: "control-studio.result.compare",
-      payload: { leftRevision: 1, rightRevision: 2 } }, scope),
-      { action: "compare", messageId: "message", leftRevision: 1, rightRevision: 2 });
-    assert.strictEqual(decodeWorkflowResultCommand({ ...base, kind: "control-studio.result.open",
-      payload: { resultRevision: 0 } }, scope), undefined);
-    assert.strictEqual(decodeWorkflowResultCommand({ ...base, expectedLoopRevision: "sha256:stale",
-      kind: "control-studio.result.save" }, scope), undefined);
-  });
-
   test("saves and restores the complete evidence-bound chart session", () => {
     const result = completeSavedRun("run-session", 1);
     const chartSession = {
@@ -740,15 +538,6 @@ suite("Control Studio validation, apply, rollback, and export", () => {
     assert.strictEqual(decodeWorkflowResult({ ...result, chartSession: {
       ...chartSession, boundary: "loop:other:sha256:loop-1",
     } }), undefined);
-
-    const scope = { projectId: "project", editorSessionId: "editor", loopId: "loop", loopRevision: "sha256:loop" };
-    const command = decodeWorkflowResultCommand({ schemaVersion: 1, kind: "control-studio.result.save",
-      messageId: "message", projectId: "project", editorSessionId: "editor", loopId: "loop",
-      expectedLoopRevision: "sha256:loop", payload: { session: {
-        ...chartSession, boundary: "loop:sha256:loop",
-      } } }, scope) as unknown as { action?: string; session?: unknown } | undefined;
-    assert.strictEqual(command?.action, "save");
-    assert.deepStrictEqual(command?.session, { ...chartSession, boundary: "loop:sha256:loop" });
   });
 });
 

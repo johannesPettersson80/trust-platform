@@ -84,7 +84,9 @@ suite("Control Studio three-page scenario requirements", () => {
       (editControlRequirements as any)(measured, { referenceChange: 5, maximumError: 1, settlingBand: .2, settlingTimeSeconds: 8, durationSeconds: 20 }, (next: Record<string, unknown>) => { holder.committed = next; });
       const document: Document = view.dom.window.document;
       const keys = [...document.querySelectorAll<HTMLInputElement>("input[data-studio-requirement]")].map(input => input.dataset.studioRequirement);
-      assert.deepStrictEqual(keys, ["referenceChange", "maximumError", "settlingTimeSeconds", "settlingBand", "durationSeconds", "constantInputDisturbance", "transferTolerance"],
+      // The visible rows are settling time, overshoot, steady-state error and the input disturbance (specification 35, B9.9);
+      // the test design (setpoint change, duration, Auto-entry tolerance) sits under More….
+      assert.deepStrictEqual(keys, ["settlingTimeSeconds", "settlingBand", "maximumOvershootPercent", "maximumError", "constantInputDisturbance", "referenceChange", "durationSeconds", "transferTolerance"],
         "no row for the auxiliary measured output; the input disturbance and Auto-entry tolerance belong to the controller output");
       (document.querySelector("[data-studio-editor-done]") as HTMLButtonElement).click();
       assert.strictEqual(holder.committed?.referenceChange, 5);

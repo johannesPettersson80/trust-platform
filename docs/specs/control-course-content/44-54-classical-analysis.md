@@ -238,7 +238,7 @@ away from the target. State that stability does not guarantee fast settling.
 **Control Studio experiment:** use the actual automatic Routh–Hurwitz control
 to calculate the declared polynomial, table, first-column signs, unstable-pole
 count and analytically derived interval for $K_p=1,0,-1$. Follow
-[the feature contract](../control-studio-routh-hurwitz.md). Do not put Routh
+[the feature contract](../control-studio-numerics.md#n7-stability-and-margins). Do not put Routh
 math in ST or replace Studio analysis with paper-only calculations. Then use
 existing parameter review/application and bounded Test on the actual shaft ST
 controller. The README must name only controls verified in the rendered

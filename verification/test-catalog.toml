@@ -388,30 +388,6 @@ last_reviewed = "2026-07-13"
 
 [[tests]]
 schema_version = 2
-id = "TEST_VM_SUBRANGE_HMI_WRITE_REJECTION_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_1257BED418738BD81458"
-discovery_source_kind = "rust_unit_test"
-test_class = "unit"
-area = "bytecode_vm"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_rejects_out_of_range_subrange_value"
-command = "cargo test -p trust-runtime --lib control::tests::hmi_write_rejects_out_of_range_subrange_value -- --exact"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["VM_SEAM_SUBRANGE_001"]
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes"
-expected_result = "An HMI write of INT#100 to INT(0..10) is rejected before queueing, reports runtime_subrange_violation, and leaves the observable target at its prior INT#0 value."
-expected_failure_mode = "The HMI write succeeds, queues a debug write, changes the observable subrange target, omits error_code, or reports a code other than runtime_subrange_violation."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_VM_SUBRANGE_HMI_WRITE_REJECTION_001.json"
-last_reviewed = "2026-07-13"
-
-[[tests]]
-schema_version = 2
 id = "TEST_VM_SUBRANGE_RETAIN_RELOAD_REJECTION_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_093B7EAE0DCB979D4540"
@@ -2712,54 +2688,6 @@ last_reviewed = "2026-07-16"
 
 [[tests]]
 schema_version = 2
-id = "TEST_VM_HMI_TYPE_ERROR_CODE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_509AD0A5B81568F80699"
-discovery_source_kind = "rust_unit_test"
-test_class = "unit"
-area = "bytecode_vm"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_rejects_type_mismatch"
-command = "cargo test -p trust-runtime --lib control::tests::hmi_write_rejects_type_mismatch -- --exact"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["VM_SEAM_DECLARED_TYPE_001"]
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#stable-machine-error-identifiers"
-expected_result = "An HMI value with the wrong declared type is rejected before queueing and reports runtime_type_mismatch while leaving the target unchanged."
-expected_failure_mode = "The mismatched value is queued, mutates the target, omits error_code, or reports a code other than runtime_type_mismatch."
-evidence_destination = "target/gate-artifacts/cases/TEST_VM_HMI_TYPE_ERROR_CODE_001.json"
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-last_reviewed = "2026-07-16"
-
-[[tests]]
-schema_version = 2
-id = "TEST_VM_HMI_STRING_CAPACITY_ERROR_CODE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_F99DDE5C72C87AAEC469"
-discovery_source_kind = "rust_unit_test"
-test_class = "unit"
-area = "bytecode_vm"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_rejects_overlong_bounded_string"
-command = "cargo test -p trust-runtime --lib control::tests::hmi_write_rejects_overlong_bounded_string -- --exact"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["VM_SEAM_STRING_BOUND_001"]
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#stable-machine-error-identifiers"
-expected_result = "An over-capacity HMI STRING write is rejected before queueing and reports runtime_string_capacity_exceeded while leaving the target unchanged."
-expected_failure_mode = "The over-capacity value is queued, mutates the target, omits error_code, or reports a code other than runtime_string_capacity_exceeded."
-evidence_destination = "target/gate-artifacts/cases/TEST_VM_HMI_STRING_CAPACITY_ERROR_CODE_001.json"
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-last_reviewed = "2026-07-16"
-
-[[tests]]
-schema_version = 2
 id = "TEST_IEC_IMPLICIT_CONVERSION_MATRIX_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_05908CB5750AA05E1CDC"
@@ -4966,30 +4894,6 @@ oracle_ref = "SPEC_RUNTIME_ENGINE_001#floating-point-boundary-admission-policy"
 expected_result = "Mapped MQTT F32 process-image reads reject infinity before publishing an output point."
 expected_failure_mode = "A non-finite process-image F32 value is formatted or published as a valid MQTT point payload."
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MQTT_NONFINITE_PROCESS_IMAGE_READ_001.json"
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-last_reviewed = "2026-07-14"
-
-[[tests]]
-schema_version = 2
-id = "TEST_RUNTIME_HMI_NONFINITE_WRITE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_A66997F12A4CE2CE2018"
-discovery_source_kind = "rust_unit_test"
-test_class = "failing_regression"
-area = "runtime_safety"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_rejects_non_finite_real_text"
-command = "cargo test -p trust-runtime --lib control::tests::hmi_write_rejects_non_finite_real_text -- --exact"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_SAFE_NAN_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#floating-point-boundary-admission-policy"
-expected_result = "HMI writes reject REAL and LREAL NaN and infinities plus finite REAL values that overflow basic-single width before queueing any debug write, reporting runtime_non_finite_value for every rejection."
-expected_failure_mode = "The HMI queues a non-finite or width-overflowing floating-point write, changes the target, omits error_code, or reports a code other than runtime_non_finite_value."
-evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_HMI_NONFINITE_WRITE_001.json"
 suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false

@@ -41,6 +41,11 @@ export type RuntimeStatusPayload = {
   running: boolean;
   inlineValuesEnabled: boolean;
   runtimeMode: "simulate" | "online";
+  /** The running target is simulated (Specification 35, A2.4): the runtime reports simulation enabled and every attached
+   * I/O driver simulated. Editor settings and the debug configuration never set it. */
+  simulated?: boolean;
+  /** The resource cycle the runtime reports, when it reports one (A7 connection-loss timeout). */
+  cycleIntervalMs?: number;
   runtimeState: "running" | "connected" | "stopped";
   targetLabel?: string;
   endpoint: string;

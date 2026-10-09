@@ -1,7 +1,7 @@
 import type { ControlLoopDefinition } from "../loopDefinition";
 import { PID_TYPE, type CompiledCatalog } from "./compiledCatalog";
-import { binding, measurementBinding, compiled, identificationDuration, loopId, realType, withRevision, type MeasuredSignal } from "./loopBindings";
-import { pidParameters, pidStates, startupState } from "./pidBindings";
+import { binding, measurementBinding, compiled, explicitExperiment, loopId, realType, withRevision, type MeasuredSignal } from "./loopBindings";
+import { pidParameters, pidStates, startupState, manualOutputTracking } from "./pidBindings";
 
 export interface SignalChoice { symbol: string; unit?: string; minimum?: number; maximum?: number }
 export type { MeasuredSignal } from "./loopBindings";
@@ -12,7 +12,7 @@ export interface PidLoopDraft {
   instance: string; action: "direct" | "reverse"; parameterRecord: string;
   processVariable: MeasuredSignal; manipulatedVariable: MeasuredSignal; setpoint: SignalChoice;
   mode: ModeChoice; manualOutput: string;
-  /** The identification experiment's output step in the output unit; a tenth of the output range when absent. */
+  /** The identification experiment's output step in the output unit; Identify chooses it when absent (B3.3). */
   experimentStep?: number;
   /** How long identification runs, in s. It depends on the process, so it is always the engineer's choice. */
   experimentDurationSeconds?: number;
@@ -45,6 +45,7 @@ function pidLoop(catalog: CompiledCatalog, draft: PidLoopDraft, id: string): Con
       instance: draft.instance, type: "Control.PID", design: "pid", revision: "sha256:unverified", action: draft.action,
       taskPeriodMs: period, modeSignal: draft.mode.symbol, modeWhenTrue: draft.mode.whenTrue,
       manualOutputSignal: manual.symbol, manualOutputType: realType(manual), ...(manual.address ? { manualOutputAddress: manual.address } : {}),
+      ...manualOutputTracking(catalog, draft.instance, manual.symbol),
       law: { kind: "pid", parameterRecordSymbol: draft.parameterRecord,
         proportionalGainSymbol: `${draft.parameterRecord}.ProportionalGain`, integralGainSymbol: `${draft.parameterRecord}.IntegralGain`,
         derivativeGainSymbol: `${draft.parameterRecord}.DerivativeGain` },
@@ -59,8 +60,7 @@ function pidLoop(catalog: CompiledCatalog, draft: PidLoopDraft, id: string): Con
     },
     limits: { outputMinimum: mv.minimum, outputMaximum: mv.maximum },
     observedSampleTiming: { nominalPeriodMs: period },
-    experiment: { execution: "control-studio", kind: "mv_step", amplitude: draft.experimentStep ?? span / 10,
-      durationSeconds: identificationDuration(draft.name, draft.experimentDurationSeconds), seed: 1 },
+    ...explicitExperiment(draft.name, { execution: "control-studio", kind: "mv_step" }, draft.experimentStep, draft.experimentDurationSeconds),
     parameterBinding: {
       loop_id: id, task_name: task.name,
       mode: { symbol: draft.mode.symbol, manual_value: draft.mode.whenTrue === "Manual" },

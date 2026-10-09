@@ -19,12 +19,12 @@ export interface MimoPanelActionDependencies {
 
 /** Runs the retained-recording MIMO owner and publishes its typed result envelope. */
 export async function handleMimoAnalysisCommand(dependencies: MimoPanelActionDependencies): Promise<void> {
-  const { context, loop, recording, sessions, command, retainWorkflowDraft, post } = dependencies;
+  const { loop, recording, sessions, command, retainWorkflowDraft, post } = dependencies;
   try {
     if (!recording) throw new Error("Select a retained recording before calculating MIMO paths.");
     const snapshot = sessions.analyzeMimo(recording, command.recordingId, command.trials,
       command.maximumUnexcitedInputDrift === undefined ? undefined : { maximumUnexcitedInputDrift: command.maximumUnexcitedInputDrift });
-    await storeMimoAnalysis(context, loop, snapshot);
+    await storeMimoAnalysis(loop, snapshot);
     await retainWorkflowDraft();
     await post({ status: "complete", result: snapshot.result, recordingId: snapshot.recordingId, recordingHash: snapshot.recordingHash,
       trials: snapshot.trials, ...(snapshot.options ? { options: snapshot.options } : {}) });

@@ -8,10 +8,10 @@ END_VAR
 output_bit := FALSE;
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
-    state.auth_token = std::sync::Arc::new(std::sync::Mutex::new(Some(
-        smol_str::SmolStr::new("old-admin-token"),
-    )));
+    let mut state = control_test_state(source);
+    state.auth_token = std::sync::Arc::new(std::sync::Mutex::new(Some(smol_str::SmolStr::new(
+        "old-admin-token",
+    ))));
     state.control_requires_auth = true;
 
     let force = handle_request_value(
@@ -53,7 +53,10 @@ END_PROGRAM
         &state,
         None,
     );
-    assert!(!stale_release.ok, "the old token must stop authorizing commands");
+    assert!(
+        !stale_release.ok,
+        "the old token must stop authorizing commands"
+    );
     assert_eq!(
         state.debug.forced_snapshot().io.len(),
         1,
@@ -70,7 +73,10 @@ END_PROGRAM
         &state,
         None,
     );
-    assert!(release.ok, "the new token should authorize release: {release:?}");
+    assert!(
+        release.ok,
+        "the new token should authorize release: {release:?}"
+    );
     assert!(
         state.debug.forced_snapshot().io.is_empty(),
         "authorized release must remove the force"

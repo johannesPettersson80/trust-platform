@@ -35,7 +35,7 @@ const draft = () => ({ ...scope, name: "Water temperature", instance: "P1.Loop",
   manipulatedVariable: { symbol: "P1.HeaterPct", unit: "%", minimum: 0, maximum: 100 },
   setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.Auto", whenTrue: "Auto" }, manualOutput: "P1.ManualPct",
   model: { gain: "P1.ModelGain", timeConstant: "P1.ModelTimeConstantS", delay: "P1.ModelDelayS", correction: "P1.CorrectionC" },
-  experimentStep: 10, experimentDurationSeconds: 60 });
+  });
 /** 0.2 °C per % through a 5 s lag after a 1 s delay, at rest at 35 °C with 75 %. */
 const model: any = { kind: "transfer-function", numerator: [0.2], denominator: [5, 1], delaySeconds: 1, revision: "heater", source: "fitted",
   validation: "validated", evidence: ["recording"], inputs: [{ id: "P1.HeaterPct", unit: "%", operatingRange: { minimum: 0, maximum: 100 } }],
@@ -131,7 +131,7 @@ suite("Control Studio Smith predictor setup", () => {
       view.set("structure", "smith");
       for (const [field, value] of [["name", "Water temperature"], ["processVariable", "P1.WaterC"], ["processVariable.unit", "degC"],
         ["processVariable.minimum", "0"], ["processVariable.maximum", "80"], ["manipulatedVariable.unit", "%"], ["manipulatedVariable.minimum", "0"],
-        ["manipulatedVariable.maximum", "100"], ["mode", "P1.Auto"], ["experimentDuration", "60"]]) view.set(field, value);
+        ["manipulatedVariable.maximum", "100"], ["mode", "P1.Auto"]]) view.set(field, value);
       const save = view.root.querySelector("[data-setup-save]"), message = view.root.querySelector("[data-setup-message]");
       assert.strictEqual(save.disabled, true);
       assert.match(message.textContent ?? "", /model gain/i, "the predictor's variables are next");
@@ -143,8 +143,7 @@ suite("Control Studio Smith predictor setup", () => {
         structure: "smith", name: "Water temperature", instance: "P1.Loop", action: "direct", parameterRecord: "P1.Parameters",
         processVariable: { symbol: "P1.WaterC", unit: "degC", minimum: 0, maximum: 80 },
         manipulatedVariable: { symbol: "P1.HeaterPct", unit: "%", minimum: 0, maximum: 100 },
-        setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.Auto", whenTrue: "Auto" }, manualOutput: "P1.ManualPct", experimentStep: 10,
-        experimentDurationSeconds: 60,
+        setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.Auto", whenTrue: "Auto" }, manualOutput: "P1.ManualPct",
         model: { gain: "P1.ModelGain", timeConstant: "P1.ModelTimeConstantS", delay: "P1.ModelDelayS", correction: "P1.CorrectionC" },
       } }]);
     } finally { view.close(); }

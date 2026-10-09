@@ -300,15 +300,24 @@ fn solve_decoupler(matrix: &mut [Vec<f64>], values: &mut [f64]) -> Result<(), St
                     .total_cmp(&matrix[right][column].abs())
             })
             .ok_or("decoupler matrix is empty")?;
-        if !(matrix[pivot][column].abs() > 1e-12 * scale.max(1e-300)) {
+        // Not greater, including a pivot that is not a number, means singular.
+        let threshold = 1e-12 * scale.max(1e-300);
+        if matrix[pivot][column].abs().partial_cmp(&threshold) != Some(std::cmp::Ordering::Greater)
+        {
             return Err("decoupler matrix is singular".into());
         }
         matrix.swap(column, pivot);
         values.swap(column, pivot);
         for row in column + 1..size {
             let factor = matrix[row][column] / matrix[column][column];
-            for k in column..size {
-                matrix[row][k] -= factor * matrix[column][k];
+            // The pivot row lies above `row`, so the two rows can be borrowed together.
+            let (above, below) = matrix.split_at_mut(row);
+            let pivot_row = &above[column];
+            for (cell, pivot_cell) in below[0][column..size]
+                .iter_mut()
+                .zip(&pivot_row[column..size])
+            {
+                *cell -= factor * pivot_cell;
             }
             values[row] -= factor * values[column];
         }
@@ -321,5 +330,48 @@ fn solve_decoupler(matrix: &mut [Vec<f64>], values: &mut [f64]) -> Result<(), St
         Ok(())
     } else {
         Err("decoupled initialization is not finite".into())
+    }
+}
+
+#[cfg(test)]
+mod decoupler_tests {
+    //! Behavior lock for `solve_decoupler` (Specification 35 §17.15): the solution `D⁻¹·u`, and
+    //! the singular cases, including a pivot that is not a number.
+    use super::solve_decoupler;
+
+    fn solve(rows: &[&[f64]], values: &[f64]) -> Result<Vec<f64>, String> {
+        let mut matrix: Vec<Vec<f64>> = rows.iter().map(|row| row.to_vec()).collect();
+        let mut values = values.to_vec();
+        solve_decoupler(&mut matrix, &mut values).map(|()| values)
+    }
+
+    #[test]
+    fn a_regular_matrix_gives_d_inverse_times_u() {
+        let solved = solve(
+            &[&[2.0, 1.0, 0.0], &[1.0, 3.0, 1.0], &[0.0, 1.0, 4.0]],
+            &[3.0, 6.0, 9.0],
+        )
+        .expect("a regular matrix");
+        for (value, expected) in solved.iter().zip([1.0, 1.0, 2.0]) {
+            assert!((value - expected).abs() < 1e-12, "{solved:?}");
+        }
+        let swapped = solve(&[&[0.0, 1.0], &[1.0, 0.0]], &[2.0, 3.0]).expect("pivoting swaps rows");
+        assert_eq!(swapped, vec![3.0, 2.0]);
+    }
+
+    #[test]
+    fn a_singular_matrix_or_a_pivot_that_is_not_a_number_is_refused() {
+        assert_eq!(
+            solve(&[&[1.0, 2.0], &[2.0, 4.0]], &[1.0, 2.0]),
+            Err("decoupler matrix is singular".to_string())
+        );
+        assert_eq!(
+            solve(&[&[f64::NAN, 0.0], &[0.0, f64::NAN]], &[1.0, 1.0]),
+            Err("decoupler matrix is singular".to_string())
+        );
+        assert_eq!(
+            solve(&[&[0.0, 0.0], &[0.0, 0.0]], &[1.0, 1.0]),
+            Err("decoupler matrix is singular".to_string())
+        );
     }
 }

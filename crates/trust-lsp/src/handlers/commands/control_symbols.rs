@@ -5,8 +5,8 @@ use trust_runtime::memory::InstanceId;
 use trust_runtime::value::Value;
 use trust_runtime::RuntimeMetadata;
 
-/// Compiled controller identity and symbolic leaves for explicit Control Studio binding.
-/// The existing HMI catalog retains its own operator-facing selection rules.
+/// Compiled controller identity and symbolic leaves for explicit Control Studio binding, an
+/// instance's inherited members among its own (Specification 35 §17.1).
 pub(super) fn catalog(
     metadata: &RuntimeMetadata,
     snapshot: &DebugSnapshot,
@@ -73,14 +73,37 @@ impl Collector<'_> {
                 if !self.ancestors.insert(*id) {
                     return Err(format!("Recursive controller instance at {path}."));
                 }
-                let instance = self
-                    .snapshot
+                let snapshot = self.snapshot;
+                let instance = snapshot
                     .storage
                     .get_instance(*id)
                     .ok_or_else(|| format!("Compiled instance {path} is unavailable."))?;
                 self.controllers.push(json!({ "instance": path, "type": instance.type_name.as_str(), "tasks": tasks }));
-                for (name, value) in &instance.variables {
-                    self.walk(&format!("{path}.{name}"), value, tasks, depth + 1)?;
+                // A block that EXTENDS another keeps the inherited members in its base instance;
+                // they are the block's own members by name (`Main.TT101.Value`).
+                let mut named = HashSet::new();
+                let mut owner = Some(instance);
+                let mut bases = 0usize;
+                while let Some(current) = owner {
+                    for (name, value) in &current.variables {
+                        if named.insert(name.to_ascii_uppercase()) {
+                            self.walk(&format!("{path}.{name}"), value, tasks, depth + 1)?;
+                        }
+                    }
+                    owner = match current.parent {
+                        Some(base) => {
+                            bases += 1;
+                            if bases > 32 {
+                                return Err(format!(
+                                    "Compiled instance {path} has too many bases."
+                                ));
+                            }
+                            Some(snapshot.storage.get_instance(base).ok_or_else(|| {
+                                format!("The base of compiled instance {path} is unavailable.")
+                            })?)
+                        }
+                        None => None,
+                    };
                 }
                 self.ancestors.remove(id);
             }

@@ -1,3 +1,4 @@
+import { MainWorkflowError } from "./mainWorkflowFailure";
 import { decodePidLaw } from "./controllerLaw";
 import type { ControlLoopDefinition, ControlPidInitializationAdapter } from "./loopDefinition";
 
@@ -9,7 +10,8 @@ import type { ControlLoopDefinition, ControlPidInitializationAdapter } from "./l
 export function pidInitializationAdapter(loop: ControlLoopDefinition): ControlPidInitializationAdapter {
   const adapter = loop.controller.pidInitialization;
   if (!adapter || adapter.kind !== "parallel-pid-v1" || !decodePidLaw(loop.controller.law, loop.parameterBinding) || !loop.signals.setpoint) {
-    throw new Error("Typed PI/PID initialization adapter is required for Auto commissioning; choose Manual staging after Verify.");
+    throw new MainWorkflowError("Typed PI/PID initialization adapter is required for Auto commissioning; choose Manual staging after Verify.",
+      { cause: "controller-capability", nextAction: "choose-method" });
   }
   return adapter;
 }

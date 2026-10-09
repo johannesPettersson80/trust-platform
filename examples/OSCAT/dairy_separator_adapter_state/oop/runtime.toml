@@ -2,7 +2,7 @@
 version = 1
 
 [resource]
-name = "DairySeparatorAdapterStateOop"
+name = "Cpu0"
 cycle_interval_ms = 50
 
 [runtime.control]

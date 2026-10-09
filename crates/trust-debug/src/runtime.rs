@@ -5,11 +5,12 @@ use std::sync::{Arc, Mutex};
 use trust_runtime::control::SourceFile as ControlSourceFile;
 use trust_runtime::debug::DebugControl;
 use trust_runtime::harness::CompileError;
+use trust_runtime::scheduler::SimulationSpeed;
 use trust_runtime::simulation::SimulationController;
 use trust_runtime::{Runtime, RuntimeMetadata};
 
 use crate::protocol::{Breakpoint, SetBreakpointsArguments, SetBreakpointsResponseBody, Source};
-use crate::session::{SourceFile, SourceOptionsUpdate};
+use crate::session::{SimulationFacts, SourceFile, SourceOptionsUpdate};
 
 /// Narrow interface for debug adapters.
 pub trait DebugRuntime: Send {
@@ -26,4 +27,8 @@ pub trait DebugRuntime: Send {
     fn source_for_file_id(&self, file_id: u32) -> Option<Source>;
     fn source_text_for_file_id(&self, file_id: u32) -> Option<&str>;
     fn control_sources(&self) -> Vec<ControlSourceFile>;
+    /// Whether the loaded program is simulated, and its configured speed (specification 35, A2.4).
+    fn simulation_facts(&self) -> SimulationFacts;
+    /// The speed of the simulator loop, which `config.set` changes (specification 33, §6.1 item 5).
+    fn simulation_speed(&self) -> SimulationSpeed;
 }

@@ -1,5 +1,6 @@
 import type { ControlLoopDefinition } from "./loopDefinition";
 import { engineerScenarioPresentation } from "./engineerScenarioPresentation";
+import { MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS } from "./controlStudioLimits";
 
 /** Unit labels are already escaped by the panel view model. */
 export function engineerGoalFields(unit: string): string {
@@ -17,7 +18,7 @@ export function engineerSettings(processUnit: string, outputUnit: string, loop?:
 <fieldset class="engineer-setting-group"><legend>Identification experiment</legend>
 <div data-engineer-acquisition-controls><div class="engineer-field-grid">
 <label>Method<select data-engineer-acquisition-method><option value="configured">Use project setup</option><option value="automatic">Choose automatically</option><option value="mv_step">Step output</option><option value="mv_pulse">Pulse output</option><option value="setpoint_step">Step setpoint</option><option value="relay">Feedback relay</option><option value="prbs">PRBS</option><option value="multisine">Multisine</option></select></label>
-<label>Duration (s)<input data-engineer-acquisition-duration type="number" min="2" max="600" value="${loop?.experiment?.durationSeconds ?? 10}"></label>
+<label>Duration (s)<input data-engineer-acquisition-duration type="number" min="${MINIMUM_EXPERIMENT_DURATION_MS / 1_000}" max="${MAXIMUM_EXPERIMENT_DURATION_MS / 1_000}" value="${loop?.experiment?.durationSeconds ?? 10}"></label>
 <label class="engineer-check"><input type="checkbox" data-engineer-auto-amplitude checked>Choose amplitude automatically</label>
 <label data-engineer-amplitude-field><span data-engineer-amplitude-label>Amplitude (chosen method)</span><input data-engineer-acquisition-amplitude type="number" value="${loop?.experiment?.amplitude ?? 0}" step="any"></label>
 <label data-engineer-relay-field>Process direction<select data-engineer-relay-direction><option value="">Choose a direction</option><option value="positive"${loop?.experiment?.relayDirection === "positive" ? " selected" : ""}>More output raises PV</option><option value="negative"${loop?.experiment?.relayDirection === "negative" ? " selected" : ""}>More output lowers PV</option></select></label>

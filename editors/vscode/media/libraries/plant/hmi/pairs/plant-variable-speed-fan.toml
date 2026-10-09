@@ -1,0 +1,109 @@
+format = 1
+title = "Variable-speed fan"
+block = "Plant.FB_VariableSpeedFan"
+faceplate = "plant-drive"
+symbol = "fan"
+variants = ["variable-speed"]
+
+[bind]
+running = "Running"
+fault = "Fault"
+manual = "Manual"
+"out-of-service" = "OutOfService"
+
+[[settings]]
+member = "HasFeedback"
+title = "Has running feedback"
+key = true
+
+[[settings]]
+member = "HasSpeedFeedback"
+title = "Has speed feedback"
+key = true
+
+[[settings]]
+member = "StartTimeout"
+title = "Start timeout"
+unit = "s"
+min = 1
+max = 600
+key = true
+help = "Running feedback must arrive within this time."
+
+[[settings]]
+member = "StopTimeout"
+title = "Stop timeout"
+unit = "s"
+min = 1
+max = 600
+key = true
+help = "Running feedback must drop within this time."
+
+[[settings]]
+member = "ServiceInterval"
+title = "Service interval"
+unit = "h"
+min = 0
+max = 100000
+help = "Running hours between services; 0 for none."
+
+[[settings]]
+member = "MinSpeed"
+title = "Minimum speed"
+unit = "%"
+min = 0
+max = 100
+key = true
+
+[[settings]]
+member = "MaxSpeed"
+title = "Maximum speed"
+unit = "%"
+min = 0
+max = 100
+key = true
+
+[[settings]]
+member = "SpeedDeviation"
+title = "Speed deviation alarm"
+unit = "%"
+min = 0
+max = 100
+
+[[settings]]
+member = "DeviationTime"
+title = "Deviation delay"
+unit = "s"
+min = 0
+max = 600
+
+[[io]]
+member = "RunCommand"
+title = "Run command"
+direction = "output"
+
+[[io]]
+member = "RunningFeedback"
+title = "Running feedback"
+direction = "input"
+required_when = "HasFeedback"
+
+[[io]]
+member = "Trip"
+title = "Protection trip"
+direction = "input"
+required = false
+
+[[io]]
+member = "SpeedSetpoint"
+title = "Speed reference"
+direction = "output"
+
+[[io]]
+member = "SpeedFeedback"
+title = "Speed feedback"
+direction = "input"
+required_when = "HasSpeedFeedback"
+
+[program]
+position = "actuators"

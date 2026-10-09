@@ -43,16 +43,19 @@ suite("Control Studio sidebar destination", () => {
   test("is visible below Devices & Connections and opens the existing editor", () => {
     const source = homeSource();
     const devices = source.indexOf('id="navDevices"');
+    const hmi = source.indexOf('id="navHmiBuilder"');
     const studio = source.indexOf('id="navControlStudio"');
     const liveValues = source.indexOf('id="navLiveValues"');
-    const hmi = source.indexOf('id="navHmi"');
     const libraries = source.indexOf('id="navLibraries"');
 
     assert.ok(studio >= 0, "the truST sidebar does not expose Control Studio");
     assert.ok(
-      devices < studio && studio < liveValues && liveValues < hmi && hmi < libraries,
-      "the project destinations must follow Devices, Control Studio, Live Values, HMI, Libraries"
+      devices < hmi && hmi < studio && studio < liveValues && liveValues < libraries,
+      "the project destinations must follow Devices, HMI, Control Studio, Live Values, Libraries"
     );
+    // Specification 39, decision 12: the legacy HMI launcher is removed; the HMI destination
+    // opens the HMI Builder instead (§21.3 item 8).
+    assert.ok(!source.includes('id="navHmi"'), "the legacy HMI launcher must not remain");
     assert.ok(
       source.includes('case "navControlStudio"') &&
         source.includes('executeCommand("trust-lsp.controlStudio.open")') &&

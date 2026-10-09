@@ -17,16 +17,13 @@ fn simulation_warning_message(enabled: bool, time_scale: u32) -> Option<String> 
     if !enabled {
         return None;
     }
-    Some(format!(
-        "Simulation mode active (time scale x{}). Not for live hardware.",
-        time_scale.max(1)
-    ))
+    Some(trust_runtime::scheduler::simulation_warning(time_scale))
 }
 
 fn validate_runtime_launch_options(restart: &str, time_scale: u32) -> anyhow::Result<RestartMode> {
     let restart_mode = parse_restart_mode(restart)?;
-    if time_scale == 0 {
-        anyhow::bail!("--time-scale must be >= 1");
+    if let Err(message) = trust_runtime::scheduler::validate_time_scale(i64::from(time_scale)) {
+        anyhow::bail!("--time-scale {}", message);
     }
     Ok(restart_mode)
 }

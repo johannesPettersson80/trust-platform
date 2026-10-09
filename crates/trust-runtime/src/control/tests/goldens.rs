@@ -37,7 +37,7 @@ fn assert_connector_fixture(actual: &serde_json::Value, fixture: &str) {
 
 #[test]
 fn phase0_ads_status_matches_disabled_goldens() {
-    let state = hmi_test_state(
+    let state = control_test_state(
         r#"
 PROGRAM Main
 END_PROGRAM
@@ -67,7 +67,7 @@ END_PROGRAM
 
 #[test]
 fn phase0_opcua_status_matches_capability_goldens() {
-    let state = hmi_test_state(
+    let state = control_test_state(
         r#"
 PROGRAM Main
 END_PROGRAM
@@ -108,7 +108,7 @@ END_PROGRAM
 
 #[test]
 fn phase0_io_driver_status_matches_legacy_golden() {
-    let state = hmi_test_state(
+    let state = control_test_state(
         r#"
 PROGRAM Main
 END_PROGRAM
@@ -143,7 +143,7 @@ END_PROGRAM
 
 #[test]
 fn phase0_missing_or_failed_connectors_do_not_report_healthy() {
-    let state = hmi_test_state(
+    let state = control_test_state(
         r#"
 PROGRAM Main
 END_PROGRAM

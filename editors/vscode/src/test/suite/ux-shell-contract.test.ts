@@ -1,3 +1,4 @@
+import { pbkdf2Sync, timingSafeEqual } from "crypto";
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
@@ -15,6 +16,18 @@ import { pickAuthToken } from "../../runtimeAuthModel";
 import { CHECK_PROGRAM_COMMAND } from "../../checkProgram";
 import { summarizeCheck } from "../../checkProgramModel";
 import { healthStatusLabel } from "../../networkCanvas/webview/statusPresentation";
+
+// HMI examples deliberately publish operator/operator and engineer/engineer logins. Accept
+// only hashes that actually verify those documented demo passwords, never arbitrary hashes.
+function isPublicHmiDemoHash(value: string): boolean {
+  const [algorithm, iterations, salt, digest, extra] = value.split(":");
+  if (algorithm !== "pbkdf2-sha256" || iterations !== "600000" || extra !== undefined || !salt || !digest) return false;
+  const expected = Buffer.from(digest, "base64url");
+  if (expected.length !== 32) return false;
+  return ["operator", "engineer"].some((password) =>
+    timingSafeEqual(pbkdf2Sync(password, Buffer.from(salt, "base64url"), 600000, 32, "sha256"), expected),
+  );
+}
 
 // v5 "complete PLC IDE shell" contract guards (vscode-ux-overhaul-plan.md §0.5/§0.6/§9). This file holds
 // the package.json + source invariants for the shell: palette cleanup, no user-facing Communication
@@ -101,8 +114,6 @@ const HIDDEN_FROM_PALETTE = [
   "trust-lsp.debug.reload", // Update running simulation drives this internal command
   "trust-lsp.test.runAll", // tests live in VS Code's native Testing view
   "trust-lsp.test.runOne", // tests live in VS Code's native Testing view
-  "trust-lsp.hmi.init", // raw HMI init — reached via the adaptive HMI launcher
-  "trust-lsp.hmi.refreshFromDescriptor", // raw HMI refresh
 ];
 
 const RETIRED_COMMUNICATION_COMMANDS = [
@@ -505,14 +516,7 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
 
   test("the manifest parses and ships the curated starters", () => {
     const ids = manifestEntries().map((entry) => entry.id);
-    for (const id of [
-      "empty-simulator",
-      "conveyor",
-      "twincat-ads",
-      "raspberry-pi",
-      "hmi-starter",
-      "plcopen-motion-single-axis",
-    ]) {
+    for (const id of ["empty-simulator", "conveyor", "twincat-ads", "raspberry-pi", "plcopen-motion-single-axis"]) {
       assert.ok(ids.includes(id), `manifest must include the '${id}' starter`);
     }
   });
@@ -793,8 +797,8 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     const scripts = loadPackageJson().scripts ?? {};
     assert.ok(
       scripts["build:examples"]?.includes("build-examples.js") &&
-        scripts.compile?.startsWith("npm run build:examples"),
-      "every extension build must regenerate examples before compiling"
+        scripts.compile?.includes("npm run build:examples &&"),
+      "every extension build must regenerate examples before compiling",
     );
   });
 
@@ -872,7 +876,19 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     );
   });
 
-  test("example fixtures contain no secrets beyond the reserved local example token", () => {
+  test("public demo credential exception rejects arbitrary secrets and hashes", () => {
+    assert.strictEqual(isPublicHmiDemoHash("a-real-private-password"), false);
+    assert.strictEqual(
+      isPublicHmiDemoHash("pbkdf2-sha256:1:c2FsdA:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
+      false,
+    );
+    assert.strictEqual(
+      isPublicHmiDemoHash("pbkdf2-sha256:600000:c2FsdA:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
+      false,
+    );
+  });
+
+  test("example fixtures contain only documented public demo credentials", () => {
     const offenders: string[] = [];
     const walk = (dir: string) => {
       for (const name of fs.readdirSync(dir)) {
@@ -882,10 +898,9 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
           continue;
         }
         const text = fs.readFileSync(full, "utf8");
-        const withoutReservedExampleToken = text.replace(
-          /auth_token\s*=\s*"trust-example-token"/g,
-          ""
-        );
+        const withoutReservedExampleToken = text
+          .replace(/auth_token\s*=\s*"trust-example-token"/g, "")
+          .replace(/password\s*=\s*"([^"]+)"/g, (line, hash: string) => (isPublicHmiDemoHash(hash) ? "" : line));
         if (/(auth_token|password|secret|api[_-]?key)\s*[:=]\s*["']?[^"'\s]/i.test(withoutReservedExampleToken)) {
           offenders.push(full);
         }
@@ -895,7 +910,7 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     assert.deepStrictEqual(
       offenders,
       [],
-      "example fixtures may contain only the documented non-secret local example token"
+      "example fixtures may contain only the reserved token and verified public HMI demo passwords",
     );
   });
 });
@@ -1885,6 +1900,15 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
     }
   });
 
+  test("Devices & Connections is bundled with the automatic JSX runtime its type check uses", () => {
+    // A component without its own React import (the equipment connections drawer) blanked the whole
+    // canvas when the bundle used the classic runtime, which the react-jsx type check cannot see.
+    const build = fs.readFileSync(path.join(extensionRoot(), "scripts", "build-network-canvas-webview.js"), "utf8");
+    assert.match(build, /jsx: "automatic"/);
+    const config = fs.readFileSync(path.join(extensionRoot(), "tsconfig.webview.json"), "utf8");
+    assert.match(config, /"jsx":\s*"react-jsx"/);
+  });
+
   test("ONE selected-run-target store, written by the dropdown AND the graph", () => {
     const store = readSrc("selectedRuntime.ts");
     assert.ok(
@@ -2686,8 +2710,8 @@ suite("S-24 — Libraries surface contract", () => {
       "catalog source must stay hidden until the ST-package-install backend contract exists"
     );
     assert.ok(
-      source.includes("No libraries added. Add OSCAT, PLCopen Motion, or your own."),
-      "empty state must be plain-language and must not mention trust-lsp.toml"
+      source.includes("No libraries added. Add Plant, OSCAT, PLCopen Motion, or your own."),
+      "empty state must be plain-language and must not mention trust-lsp.toml",
     );
   });
 
@@ -2962,101 +2986,6 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
   });
 
-  test("HMI preview uses shared truST product theme roles", () => {
-    const src = readSrc("hmi-panel/view.ts");
-    for (const token of [
-      "--trust-canvas",
-      "--trust-surface",
-      "--trust-text",
-      "--trust-text-muted",
-      "--trust-border",
-      "--trust-accent",
-      "--trust-input-bg",
-      "--trust-selected-bg",
-    ]) {
-      assert.ok(src.includes(token), `HMI preview must define and consume ${token}`);
-    }
-
-    for (const selector of [
-      "button {",
-      ".tab.active",
-      ".widget {",
-      ".section-card {",
-      ".process-panel {",
-      ".hmi-empty--state",
-      "#status {",
-    ]) {
-      assert.ok(src.includes(selector), `HMI preview must style ${selector} as product chrome`);
-    }
-    assert.ok(
-      src.includes("Start the runtime to see live HMI data") &&
-        src.includes("Use Start in the truST sidebar"),
-      "HMI stopped state must render a beginner-facing empty-state body, not only a toolbar status"
-    );
-    assert.ok(
-      src.includes("renderProcessPage(page, allWidgets)") &&
-        !src.includes("renderProcessPage(page, visible)"),
-      "HMI process bindings must resolve against all schema widgets, not only widgets visible on the process page"
-    );
-    assert.ok(
-      src.includes("function applyProcessSvgTheme") &&
-        src.includes("trust-process-svg") &&
-        src.includes("svg.trust-process-svg > rect:first-of-type") &&
-        src.includes("svg.trust-process-svg .pid-title") &&
-        src.includes("svg.trust-process-svg .pid-value") &&
-        src.includes("var(--trust-surface-raised)") &&
-        src.includes("var(--trust-text)") &&
-        src.includes("var(--trust-accent)"),
-      "HMI process SVG embedding must normalize generated process SVGs to shared theme roles"
-    );
-
-    for (const legacyPattern of [
-      "border: 1px solid var(--vscode-panel-border",
-      "background: var(--vscode-editor-background",
-      "color: var(--vscode-editor-foreground",
-      "border-color: var(--vscode-focusBorder",
-      "background: color-mix(in srgb, var(--vscode-focusBorder",
-    ]) {
-      assert.ok(
-        !src.includes(legacyPattern),
-        `HMI preview must not keep private raw VS Code chrome: ${legacyPattern}`
-      );
-    }
-  });
-
-  test("HMI preview formats live values like the rest of truST", () => {
-    const src = readSrc("hmi-panel/view.ts");
-    assert.ok(
-      src.includes("function formatHmiLiteral") &&
-        src.includes('return "TRUE";') &&
-        src.includes('return "FALSE";'),
-      "HMI preview must format BOOL values as IEC TRUE/FALSE, matching Live Values"
-    );
-    assert.ok(
-      src.includes("function formatRealValue") && src.includes("numeric.toFixed(1)"),
-      "HMI preview must keep at least one decimal for REAL/LREAL values"
-    );
-    assert.ok(
-      src.includes("function processMapKeys") &&
-        src.includes('keys.push(value ? "true" : "false")'),
-      "HMI process maps must remain compatible with existing lowercase true/false map keys"
-    );
-  });
-
-  test("HMI preview schedules descriptor refreshes from edit save and watcher events", () => {
-    const src = readSrc("hmiPanel.ts");
-    for (const token of [
-      "vscode.workspace.onDidChangeTextDocument",
-      "vscode.workspace.onDidSaveTextDocument",
-      'vscode.workspace.createFileSystemWatcher("**/hmi/*.{toml,svg}")',
-      'vscode.workspace.createFileSystemWatcher("**/hmi/views/*.view.toml")',
-      "scheduleSchemaRefresh();",
-      "DESCRIPTOR_REFRESH_DEBOUNCE_MS",
-    ]) {
-      assert.ok(src.includes(token), `HMI preview must keep descriptor refresh wiring: ${token}`);
-    }
-  });
-
   test("React Flow canvas controls use the shared Devices & Connections treatment", () => {
     const themeCss = readSrc("webview/theme.css");
     for (const selector of [
@@ -3238,7 +3167,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
         src.includes("LOCAL_RUNTIME_NODE_ID") &&
         src.includes("const openAddPicker = useCallback") &&
         src.includes('setAddSlot({ kind: "device", targetId: toolbarAddTarget.id })') &&
-        src.includes("onAdd={openAddPicker}") &&
+        /onAdd=\{\(\)\s*=>\s*\{\s*equipment\.setVisible\(false\);\s*openAddPicker\(\);\s*\}\}/.test(src) &&
         /<button[\s\S]*onClick=\{onAdd\}[\s\S]*\+ Add[\s\S]*<\/button>/.test(src),
       "Devices & Connections must expose a first-class + Add toolbar action that opens the picker for the selected/default runtime"
     );

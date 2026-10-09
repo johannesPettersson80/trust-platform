@@ -5,6 +5,8 @@ import { decodeWorkflowResult, type WorkflowRecordingProvenance } from "./workfl
 import { displayEngineeringUnit } from "./unitDisplay";
 import { importedRecordingId } from "./recordingIdentity";
 import { identificationOriginalRecording, type SavedIdentificationInput } from "./identificationState";
+import { RECORDING_SAMPLE_LIMIT } from "./controlStudioLimits";
+import { steadyRecordPeriod } from "./recordSequence";
 export { importedRecordingId };
 
 export const MAX_RECORDING_IMPORT_BYTES = 32 * 1024 * 1024;
@@ -29,10 +31,10 @@ export function readIdentificationRecordingImport(json: string, loop: ControlLoo
   const samples = data.rawSamples;
   if (!acquisition || acquisition.method !== "runtime_scan_buffer" || acquisition.completeness !== "complete" ||
       acquisition.missingScanRanges.length || acquisition.droppedObservedSamples || !acquisition.actualCycleTimingAvailable ||
-      samples.length < 2 || samples.length > 12000 || acquisition.observedSampleCount !== samples.length ||
+      samples.length < 2 || samples.length > RECORDING_SAMPLE_LIMIT || acquisition.observedSampleCount !== samples.length ||
       acquisition.scanRange?.first !== samples[0].scan || acquisition.scanRange?.last !== samples[samples.length - 1].scan ||
-      samples.some((sample, i) => i > 0 && sample.scan !== samples[i - 1].scan + 1)) {
-    throw new Error("Identify requires a complete recording of 2–12000 consecutive runtime scans.");
+      !steadyRecordPeriod(samples.map(sample => sample.scan), true)) {
+    throw new Error(`Identify requires a complete recording of 2–${RECORDING_SAMPLE_LIMIT} runtime samples at a steady record period.`);
   }
   const provenance: WorkflowRecordingProvenance = data.provenance ?? {
     schemaVersion: 1, resultId: result.resultId, resultRevision: result.resultRevision, createdAt: result.createdAt,

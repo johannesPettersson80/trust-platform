@@ -7,10 +7,11 @@ import { text } from "./panelBindings";
 import { selectedIntervals } from "./panelPersistence";
 import { recordingSamples, loadWorkflowSimulationPlant } from "./workflowSnapshots";
 import { createWorkflowResult, type ControlStudioWorkflowResult, type WorkflowPlantContext } from "./workflowResult";
+import { shareClone } from "./recordedEvidence";
 
 export type WorkflowResultSnapshotState = Pick<ControlStudioWorkflowResult, "model" | "generalModelAnalysis" | "periodicFrequencyAnalysis" | "leadLagAnalysis" | "engineerStudy" | "commissioning"
   | "runValidation" | "finiteSearch" | "declaredAnalysis" | "routhAnalysis" | "modelFit" | "currentController" | "candidate"
-  | "validation" | "tuningComparison" | "experiment" | "identificationStudy"> & {
+  | "tuningComparison" | "experiment" | "identificationStudy"> & {
     previousResult?: ControlStudioWorkflowResult;
     source: ControlStudioWorkflowResult["source"];
     recording?: LoopRecording;
@@ -19,33 +20,32 @@ export type WorkflowResultSnapshotState = Pick<ControlStudioWorkflowResult, "mod
   };
 
 /** Synchronously captures a validated draft without loading plant metadata or advancing history. */
-export function buildWorkflowDraftSnapshot(suppliedLoop: ControlLoopDefinition, captured: WorkflowResultSnapshotState,
-  chartSession?: ControlStudioWorkflowResult["chartSession"]): ControlStudioWorkflowResult {
-  const state = structuredClone(captured);
+export function buildWorkflowDraftSnapshot(suppliedLoop: ControlLoopDefinition, captured: WorkflowResultSnapshotState): ControlStudioWorkflowResult {
+  const state = shareClone(captured);
   const loop = structuredClone(suppliedLoop);
   const provenance = state.recording ? state.recording.provenance : state.previousResult?.recording.provenance;
   const sameAcquisition = !state.recording || Boolean(state.recording.evidence.recordingId &&
     state.recording.evidence.recordingId === state.previousResult?.recording.acquisition?.recordingId);
   const plant = provenance?.plant ?? (sameAcquisition ? state.previousResult?.plant : undefined);
-  return assembleWorkflowResult(loop, state, chartSession, plant,
+  return assembleWorkflowResult(loop, state, plant,
     state.previousResult?.software.extensionVersion ?? "Unavailable");
 }
 
 /** One editor supplies a snapshot synchronously; later metadata reads cannot switch owners. */
 export async function buildWorkflowResultSnapshot(context: vscode.ExtensionContext, suppliedLoop: ControlLoopDefinition,
-  captured: WorkflowResultSnapshotState, chartSession?: ControlStudioWorkflowResult["chartSession"]): Promise<ControlStudioWorkflowResult> {
-  const state = structuredClone(captured);
+  captured: WorkflowResultSnapshotState): Promise<ControlStudioWorkflowResult> {
+  const state = shareClone(captured);
   const loop = structuredClone(suppliedLoop);
   const provenance = state.recording ? state.recording.provenance : state.previousResult?.recording.provenance;
   const source = provenance?.source ?? state.source;
   const plant = provenance ? provenance.plant : source === "Simulation" && loop.plantId
     ? await loadWorkflowSimulationPlant(context, loop)
     : undefined;
-  return assembleWorkflowResult(loop, state, chartSession, plant, text(context.extension.packageJSON.version, "Unavailable"));
+  return assembleWorkflowResult(loop, state, plant, text(context.extension.packageJSON.version, "Unavailable"));
 }
 
 function assembleWorkflowResult(loop: ControlLoopDefinition, state: WorkflowResultSnapshotState,
-  chartSession: ControlStudioWorkflowResult["chartSession"], plant: WorkflowPlantContext | undefined,
+  plant: WorkflowPlantContext | undefined,
   extensionVersion: string): ControlStudioWorkflowResult {
   const rawSamples = recordingSamples(state.recording, state.previousResult?.recording.rawSamples ?? []);
   const provenance = state.recording ? state.recording.provenance : state.previousResult?.recording.provenance;
@@ -87,18 +87,14 @@ function assembleWorkflowResult(loop: ControlLoopDefinition, state: WorkflowResu
     ...(state.identificationStudy ? { identificationStudy: state.identificationStudy } : {}),
     ...(state.currentController ? { currentController: state.currentController } : {}),
     ...(state.candidate ? { candidate: state.candidate } : {}),
-    ...(state.validation ? { validation: state.validation } : {}),
     ...(state.tuningComparison ? { tuningComparison: state.tuningComparison } : {}),
     ...(state.candidate?.source ? { method: state.candidate.source } : {}),
     ...(experiment ? { experiment } : {}),
     ...(plant ? { plant } : {}),
-    ...(chartSession ? { chartSession } : {}),
     evidence: { observation: rawSamples.length ? "Observed" : "Not observed", model: state.declaredAnalysis || generalModelAnalysis ? "Model-predicted" : state.model
       ? (state.modelEvidence ??
         (source === "Simulation" ? "Identified from simulation data" : "Identified from physical data"))
       : "Not evaluated" },
-    conclusion: state.validation
-      ? "Validation result retained for review; no controller change was applied by saving."
-      : "Workflow state retained for continued analysis.",
+    conclusion: "Workflow state retained for continued analysis.",
   }, new Date().toISOString());
 }

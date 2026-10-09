@@ -1,4 +1,8 @@
 import type { IdentificationSample } from "./identification";
+import { blockAveraged, firstGap, gapPhrase, MAXIMUM_FIT_SAMPLES, medianSpacing } from "./evenSampling";
+import {
+  baselineNoiseRms, heldUnitResponse, leastSquaresGain, MINIMUM_REACHED_FRACTION, noiseRefusal, partialResponseRefusal, reachedFraction,
+} from "./numerics/identification";
 
 export interface StepResponseSettings {
   baselineDurationSeconds: number;
@@ -58,6 +62,10 @@ export interface StepResponseAnalysis {
   boundaryLimited: boolean;
   warnings: string[];
   points: Array<{ timeSeconds: number; measured: number; predicted: number; residual: number }>;
+  /** Fraction of the fitted final change that the held response reached (A10.3). */
+  finalChangeFraction?: number;
+  /** The final-window mean less the fitted steady value: a reported check, never an input to the gain (N2.4). */
+  finalWindowDifference?: number;
 }
 
 export interface StepResponseMeasurement {
@@ -79,6 +87,8 @@ export type StepResponseQualification = { suitable: true } | { suitable: false; 
 const MAX_GRID_EVALUATIONS = 100_000_000;
 const MAX_GRID_POINTS = 1_000_000;
 const EPSILON = 1e-9;
+/** The annex default for the normalized error limit (N3.2), used when a caller does not pass the policy's value. */
+const DEFAULT_MAXIMUM_NORMALIZED_ERROR = 0.15;
 
 export function validStepResponseSettings(value: unknown): value is StepResponseSettings {
   return stepResponseSettingsProblem(value) === undefined;
@@ -171,75 +181,122 @@ export function measureStepResponse(samples: readonly IdentificationSample[], se
   };
 }
 
-export function analyzeStepResponse(samples: readonly IdentificationSample[], settings: StepResponseSettings): StepResponseAnalysis {
+/**
+ * Fits the first-order-with-delay candidates of the settings' grids to a held step. Each candidate is simulated on the recorded
+ * sample times, and its gain is the least-squares value for its own dynamics from the steady baseline (N2.2). The fit is refused
+ * when the response is buried in noise, when its normalized error exceeds the limit, or when the held response has not reached
+ * 63 % of its fitted final change (A10.3).
+ */
+export function analyzeStepResponse(samples: readonly IdentificationSample[], settings: StepResponseSettings,
+  maximumNormalizedError = DEFAULT_MAXIMUM_NORMALIZED_ERROR): StepResponseAnalysis {
   if (!validStepResponseSettings(settings)) throw new Error("Invalid step-response identification settings.");
   const prepared = prepare(samples, settings);
   const windows = inspectWindows(prepared, settings);
-  const hold = prepared.samples.filter((sample) => sample.timeSeconds >= prepared.stepTime && sample.timeSeconds < prepared.holdEnd);
   const baselineMean = windows.baseline.mean;
-  const finalMean = windows.final.mean;
   const deltaInput = prepared.inputChange;
   if (Math.abs(deltaInput) <= EPSILON) throw new Error("Step-response identification requires a nonzero measured input change.");
-  const gain = (finalMean - baselineMean) / deltaInput;
-  if (!Number.isFinite(gain)) throw new Error("Step-response identification gain is not finite.");
+  const holdIndex = prepared.samples.flatMap((sample, index) =>
+    sample.timeSeconds >= prepared.stepTime && sample.timeSeconds < prepared.holdEnd ? [index] : []);
+  const hold = holdIndex.map((index) => prepared.samples[index]);
+  const times = prepared.samples.map((sample) => sample.timeSeconds);
+  const deviations = prepared.samples.map((sample) => sample.input - prepared.inputBefore);
   const delayValues = gridValues(settings.delay);
   const tauValues = gridValues(settings.timeConstant);
-  const evaluationCount = delayValues.length * tauValues.length;
-  const gainInterval = gainBounds(windows.baseline, windows.final, deltaInput, settings.measurementBound);
-  const gainValues = lattice(gainInterval.minimum, gainInterval.maximum, settings.gainStep);
-  if (evaluationCount * Math.max(1, gainValues.length) * Math.max(1, hold.length) > MAX_GRID_EVALUATIONS) {
+  if (delayValues.length * tauValues.length * Math.max(1, hold.length) > MAX_GRID_EVALUATIONS) {
     throw new Error("Step-response identification grid is too large; refine the requested bounds or spacing.");
   }
-  let best = { baseline: baselineMean, gain, delaySeconds: delayValues[0], timeConstantSeconds: tauValues[0], squaredError: Number.POSITIVE_INFINITY };
+  const responseFor = (delaySeconds: number, timeConstantSeconds: number): number[] => heldUnitResponse(times, deviations,
+    { kind: "first_order", timeConstantSeconds, delaySeconds: delaySeconds - settings.timestampShiftSeconds });
+  let best: { gain: number; delaySeconds: number; timeConstantSeconds: number; squaredError: number; response: number[] } | undefined;
   for (const delaySeconds of delayValues) {
     for (const timeConstantSeconds of tauValues) {
-      let squaredError = 0;
-      for (const sample of hold) {
-        const predicted = predict(baselineMean, gain, deltaInput, sample.timeSeconds - prepared.stepTime, delaySeconds, timeConstantSeconds, settings.timestampShiftSeconds);
-        squaredError += (sample.output - predicted) ** 2;
+      const response = responseFor(delaySeconds, timeConstantSeconds);
+      const fitted = leastSquaresGain(hold.map((sample) => sample.output), baselineMean, holdIndex.map((index) => response[index]));
+      if (Number.isFinite(fitted.gain) && (!best || fitted.squaredError < best.squaredError)) {
+        best = { gain: fitted.gain, delaySeconds, timeConstantSeconds, squaredError: fitted.squaredError, response };
       }
-      if (squaredError < best.squaredError) best = { baseline: baselineMean, gain, delaySeconds, timeConstantSeconds, squaredError };
     }
   }
-  const consistency = consistentSet(hold, windows, deltaInput, settings, gainValues, delayValues, tauValues);
+  if (!best) throw new Error("Step-response identification gain is not finite.");
+  const chosen = best;
+  const gain = chosen.gain;
+  const finalChange = gain * deltaInput;
+  if (!(Math.abs(finalChange) > EPSILON)) throw new Error("The recorded step has no measurable final change.");
+  const unit = samples[0].outputUnit ?? "";
+  // The response must be large against the baseline noise before its shape is judged (the noise rule).
+  const baselineStart = prepared.stepTime - settings.baselineDurationSeconds;
+  const baselineOutputs = samples.filter((sample) => sample.timeSeconds >= baselineStart - EPSILON
+    && sample.timeSeconds < prepared.stepTime - EPSILON).map((sample) => sample.output);
+  const noiseMessage = noiseRefusal(Math.abs(finalChange), baselineNoiseRms(baselineOutputs), unit, "step");
+  if (noiseMessage) throw new Error(noiseMessage);
+  // The normalized error (N3.2) over the whole held response and over its final 10 % must each meet the limit.
+  const residuals = holdIndex.map((index) => prepared.samples[index].output - (baselineMean + gain * chosen.response[index]));
+  const holdOutputs = hold.map((sample) => sample.output);
+  const span = Math.max(...holdOutputs) - Math.min(...holdOutputs);
+  const wholeError = normalizedRms(residuals, span);
+  const finalError = normalizedRms(residuals.slice(-Math.max(3, Math.ceil(0.1 * residuals.length))), span);
+  if (!(wholeError <= maximumNormalizedError && finalError <= maximumNormalizedError)) {
+    throw new Error(`The first-order step fit has normalized error ${engineeringText(Math.max(wholeError, finalError))} against the limit ${engineeringText(maximumNormalizedError)}. Choose another method, a larger step or a longer duration.`);
+  }
+  // A held step is accepted only once it has reached 63 % of its fitted final change (A10.3).
+  const fraction = reachedFraction(holdOutputs, baselineMean, finalChange);
+  if (!(fraction >= MINIMUM_REACHED_FRACTION)) {
+    throw new Error(partialResponseRefusal(fraction, prepared.holdEnd - prepared.stepTime, chosen.delaySeconds, chosen.timeConstantSeconds));
+  }
+  // The uncertainty grid keeps the final window as a constraint only where that window is steady (N2.4).
+  const steady = finalSteady(windows.final, settings);
+  const gainInterval = steady ? gainBounds(windows.baseline, windows.final, deltaInput, settings.measurementBound)
+    : { minimum: gain - 2 * settings.measurementBound / Math.abs(deltaInput), maximum: gain + 2 * settings.measurementBound / Math.abs(deltaInput) };
+  const gainValues = lattice(gainInterval.minimum, gainInterval.maximum, settings.gainStep);
+  const consistency = consistentSet(hold, holdIndex, responseFor, baselineMean, deltaInput, settings, gainValues, delayValues, tauValues,
+    steady ? windows.final.mean : undefined);
   const warnings: string[] = [];
-  if (best.delaySeconds === settings.delay.maximum && settings.delay.maximum > 0
-    || best.delaySeconds === settings.delay.minimum && settings.delay.minimum > 0
-    || best.timeConstantSeconds === settings.timeConstant.minimum && settings.timeConstant.minimum > 0
-    || best.timeConstantSeconds === settings.timeConstant.maximum) {
+  if (chosen.delaySeconds === settings.delay.maximum && settings.delay.maximum > 0
+    || chosen.delaySeconds === settings.delay.minimum && settings.delay.minimum > 0
+    || chosen.timeConstantSeconds === settings.timeConstant.minimum && settings.timeConstant.minimum > 0
+    || chosen.timeConstantSeconds === settings.timeConstant.maximum) {
     warnings.push("The best grid fit is on a search boundary; inspect or extend the justified range.");
   }
   if (consistency.count === 0) warnings.push("No consistent parameter combination satisfies the declared measurement bound across the held response.");
-  const direction = Math.sign(finalMean - baselineMean);
+  const direction = Math.sign(finalChange);
   const onsetThreshold = baselineMean + (direction || 1) * settings.onsetThreshold;
   const detectableOnsetSeconds = detectOnset(hold, prepared.stepTime, onsetThreshold, settings.onsetSamples, direction);
-  const points = hold.map((sample) => {
-    const predicted = predict(best.baseline, best.gain, deltaInput, sample.timeSeconds - prepared.stepTime, best.delaySeconds, best.timeConstantSeconds, settings.timestampShiftSeconds);
-    return { timeSeconds: sample.timeSeconds, measured: sample.output, predicted, residual: sample.output - predicted };
-  });
+  const points = holdIndex.map((index, k) => ({ timeSeconds: prepared.samples[index].timeSeconds, measured: hold[k].output,
+    predicted: baselineMean + gain * chosen.response[index], residual: residuals[k] }));
   return {
     settings: cloneSettings(settings), baseline: windows.baseline, final: windows.final, inputChange: deltaInput,
     stepTimeSeconds: prepared.stepTime, holdEndSeconds: prepared.holdEnd, sampleTimeSeconds: prepared.sampleTime,
     ...(detectableOnsetSeconds === undefined ? {} : { detectableOnsetSeconds }), onsetThreshold,
-    level63: baselineMean + 0.632 * (finalMean - baselineMean), best, consistency,
+    level63: baselineMean + 0.632 * finalChange,
+    best: { baseline: baselineMean, gain, delaySeconds: chosen.delaySeconds, timeConstantSeconds: chosen.timeConstantSeconds,
+      squaredError: chosen.squaredError },
+    consistency,
     boundaryLimited: warnings.some((warning) => /boundary/.test(warning)),
-    warnings: [...warnings, ...(Math.abs(settings.timestampShiftSeconds) > 0 ? ["Timestamp-shift tolerance is retained for sensitivity analysis and is not nominal model evidence."] : [])], points,
+    warnings: [...warnings, ...(Math.abs(settings.timestampShiftSeconds) > 0 ? ["Timestamp-shift tolerance is retained for sensitivity analysis and is not nominal model evidence."] : [])],
+    points,
+    finalChangeFraction: fraction,
+    finalWindowDifference: windows.final.mean - (baselineMean + finalChange),
   };
 }
 
 function prepare(samples: readonly IdentificationSample[], settings: StepResponseSettings): {
-  samples: IdentificationSample[]; stepIndex: number; stepTime: number; holdEnd: number; inputChange: number; sampleTime: number;
+  samples: IdentificationSample[]; stepIndex: number; stepTime: number; holdEnd: number; inputBefore: number; inputChange: number; sampleTime: number;
 } {
   if (!validStepResponseSettings(settings)) throw new Error("Invalid step-response identification settings.");
-  if (samples.length < 4 || samples.length > 10_000 || !samples.every((sample) => sample.quality === "good" && !sample.clipped && !sample.saturated &&
+  if (samples.length < 4 || !samples.every((sample) => sample.quality === "good" && !sample.clipped && !sample.saturated &&
     sample.inputUnit === samples[0].inputUnit && sample.outputUnit === samples[0].outputUnit && finite(sample.timeSeconds) && finite(sample.input) && finite(sample.output))) {
     throw new Error("Step-response identification requires complete finite good-quality samples.");
   }
-  const intervals = samples.slice(1).map((sample, index) => sample.timeSeconds - samples[index].timeSeconds);
-  const sampleTime = median(intervals);
-  if (!(sampleTime > 0) || Math.abs(settings.timestampShiftSeconds) > sampleTime + EPSILON
-    || intervals.some((interval) => Math.abs(interval - sampleTime) > Math.max(EPSILON, sampleTime * 1e-6))) {
-    throw new Error("Step-response samples must have complete uniformly timed coverage.");
+  const times = samples.map((sample) => sample.timeSeconds);
+  if (times.some((time, index) => index > 0 && !(time > times[index - 1]))) {
+    throw new Error("Step-response sample times must be strictly increasing.");
+  }
+  // Task jitter is normal; an interval longer than one and a half median spacings is a gap, refused with its time.
+  const sampleTime = medianSpacing(times);
+  const gap = firstGap(times, sampleTime);
+  if (gap) throw new Error(`The recording has ${gapPhrase(gap)}.`);
+  if (Math.abs(settings.timestampShiftSeconds) > sampleTime + EPSILON) {
+    throw new Error("Step-response timestamp shift must not exceed one sample time.");
   }
   const stepIndex = samples.slice(1).findIndex((sample, index) => Math.abs(sample.input - samples[index].input) > EPSILON) + 1;
   if (stepIndex < 1) throw new Error("Step-response identification requires one nonzero input step.");
@@ -254,8 +311,10 @@ function prepare(samples: readonly IdentificationSample[], settings: StepRespons
     throw new Error("Step-response input contains ambiguous excitation before restoration.");
   }
   const holdEnd = samples[restorationIndex].timeSeconds;
-  return { samples: samples.map((sample) => ({ ...sample })), stepIndex, stepTime: samples[stepIndex].timeSeconds,
-    holdEnd, inputChange: inputAfter - inputBefore, sampleTime };
+  // The fit keeps the recorded instants (A4.3). No block straddles the step or its restoration, so the input change stays exact.
+  const fitted = blockAveraged(samples, MAXIMUM_FIT_SAMPLES, [samples[stepIndex].timeSeconds, holdEnd]);
+  return { samples: fitted, stepIndex, stepTime: samples[stepIndex].timeSeconds, holdEnd, inputBefore, inputChange: inputAfter - inputBefore,
+    sampleTime: fitted.length === samples.length ? sampleTime : medianSpacing(fitted.map((sample) => sample.timeSeconds)) };
 }
 
 function inspectWindows(prepared: ReturnType<typeof prepare>, settings: StepResponseSettings): { baseline: StepResponseWindow; final: StepResponseWindow } {
@@ -264,12 +323,15 @@ function inspectWindows(prepared: ReturnType<typeof prepare>, settings: StepResp
   if (finalStart < prepared.stepTime - EPSILON) throw new Error("Final window must lie within the held step before restoration. Shorten the final window.");
   const baseline = window(prepared.samples, baselineStart, prepared.stepTime, prepared.sampleTime, "baseline");
   const final = window(prepared.samples, finalStart, prepared.holdEnd, prepared.sampleTime, "final");
-  for (const item of [baseline, final]) {
-    if (item.range > settings.maximumWindowRange + EPSILON || Math.abs(item.slopePerSecond) > settings.maximumWindowSlopePerSecond + EPSILON) {
-      throw new Error(`${item.count > 0 ? item.startSeconds === baselineStart ? "Baseline" : "Final" : "Step-response"} window is not steady within the declared range and slope limits.`);
-    }
+  // Only the baseline must be steady. The final window is a reported check, so a partial response is not refused for it (A10.3).
+  if (baseline.range > settings.maximumWindowRange + EPSILON || Math.abs(baseline.slopePerSecond) > settings.maximumWindowSlopePerSecond + EPSILON) {
+    throw new Error("Baseline window is not steady within the declared range and slope limits.");
   }
   return { baseline, final };
+}
+
+function finalSteady(final: StepResponseWindow, settings: StepResponseSettings): boolean {
+  return final.range <= settings.maximumWindowRange + EPSILON && Math.abs(final.slopePerSecond) <= settings.maximumWindowSlopePerSecond + EPSILON;
 }
 
 function window(samples: readonly IdentificationSample[], start: number, end: number, sampleTime: number, label: string): StepResponseWindow {
@@ -285,18 +347,25 @@ function window(samples: readonly IdentificationSample[], start: number, end: nu
     range: Math.max(...numbers) - Math.min(...numbers), slopePerSecond: duration > 0 ? (numbers[numbers.length - 1] - numbers[0]) / duration : 0 };
 }
 
-function consistentSet(hold: readonly IdentificationSample[], windows: { baseline: StepResponseWindow; final: StepResponseWindow }, deltaInput: number,
-  settings: StepResponseSettings, gains: readonly number[], delays: readonly number[], taus: readonly number[]): StepResponseAnalysis["consistency"] {
+/** The parameter grid whose simulated responses keep every held sample within the measurement bound (N2.4). The baseline is the
+ * measured mean, not a fitted quantity (N2.2). `finalTarget`, when given, is the steady final window mean that the steady value must meet. */
+function consistentSet(hold: readonly IdentificationSample[], holdIndex: readonly number[],
+  responseFor: (delaySeconds: number, timeConstantSeconds: number) => number[], baselineMean: number, deltaInput: number,
+  settings: StepResponseSettings, gains: readonly number[], delays: readonly number[], taus: readonly number[],
+  finalTarget: number | undefined): StepResponseAnalysis["consistency"] {
   let count = 0;
   let gainMin = Number.POSITIVE_INFINITY, gainMax = Number.NEGATIVE_INFINITY;
   let delayMin = Number.POSITIVE_INFINITY, delayMax = Number.NEGATIVE_INFINITY;
   let tauMin = Number.POSITIVE_INFINITY, tauMax = Number.NEGATIVE_INFINITY;
   let baselineMin = Number.POSITIVE_INFINITY, baselineMax = Number.NEGATIVE_INFINITY;
   for (const delay of delays) for (const tau of taus) {
-    const responses = hold.map((sample) => responseFraction(sample.timeSeconds - hold[0].timeSeconds, delay, tau, settings.timestampShiftSeconds));
+    const full = responseFor(delay, tau);
+    const responses = holdIndex.map((index) => full[index] / deltaInput);
     for (const gain of gains) {
-    let lower = Math.max(windows.baseline.mean - settings.measurementBound, windows.final.mean - settings.measurementBound - gain * deltaInput);
-    let upper = Math.min(windows.baseline.mean + settings.measurementBound, windows.final.mean + settings.measurementBound - gain * deltaInput);
+    let lower = Math.max(baselineMean - settings.measurementBound,
+      finalTarget === undefined ? Number.NEGATIVE_INFINITY : finalTarget - settings.measurementBound - gain * deltaInput);
+    let upper = Math.min(baselineMean + settings.measurementBound,
+      finalTarget === undefined ? Number.POSITIVE_INFINITY : finalTarget + settings.measurementBound - gain * deltaInput);
     for (let index = 0; index < hold.length; index += 1) {
       const sample = hold[index];
       const response = responses[index];
@@ -304,29 +373,31 @@ function consistentSet(hold: readonly IdentificationSample[], windows: { baselin
       upper = Math.min(upper, sample.output + settings.measurementBound - gain * deltaInput * response);
       if (lower > upper + EPSILON) break;
     }
-    const first = Math.ceil((lower - (windows.baseline.mean - settings.measurementBound) - EPSILON) / settings.baselineStep);
-    const last = Math.floor((upper - (windows.baseline.mean - settings.measurementBound) + EPSILON) / settings.baselineStep);
+    const first = Math.ceil((lower - (baselineMean - settings.measurementBound) - EPSILON) / settings.baselineStep);
+    const last = Math.floor((upper - (baselineMean - settings.measurementBound) + EPSILON) / settings.baselineStep);
     if (first > last) continue;
     const candidateCount = last - first + 1;
     count += candidateCount;
     gainMin = Math.min(gainMin, gain); gainMax = Math.max(gainMax, gain);
     delayMin = Math.min(delayMin, delay); delayMax = Math.max(delayMax, delay);
     tauMin = Math.min(tauMin, tau); tauMax = Math.max(tauMax, tau);
-    baselineMin = Math.min(baselineMin, windows.baseline.mean - settings.measurementBound + first * settings.baselineStep);
-    baselineMax = Math.max(baselineMax, windows.baseline.mean - settings.measurementBound + last * settings.baselineStep);
+    baselineMin = Math.min(baselineMin, baselineMean - settings.measurementBound + first * settings.baselineStep);
+    baselineMax = Math.max(baselineMax, baselineMean - settings.measurementBound + last * settings.baselineStep);
     }
   }
   return count === 0 ? { count: 0 } : { count, gain: { minimum: gainMin, maximum: gainMax }, delaySeconds: { minimum: delayMin, maximum: delayMax },
     timeConstantSeconds: { minimum: tauMin, maximum: tauMax }, baseline: { minimum: baselineMin, maximum: baselineMax } };
 }
 
-function predict(baseline: number, gain: number, inputChange: number, elapsed: number, delay: number, tau: number, timestampShiftSeconds: number): number {
-  return baseline + gain * inputChange * responseFraction(elapsed, delay, tau, timestampShiftSeconds);
+/** Normalized root-mean-square error (N3.2): the root mean square of the residuals over the span of the measured output. */
+function normalizedRms(residuals: readonly number[], span: number): number {
+  return Math.sqrt(mean(residuals.map((value) => value * value))) / Math.max(EPSILON, span);
 }
-function responseFraction(elapsed: number, delay: number, tau: number, timestampShiftSeconds = 0): number {
-  const afterDelay = elapsed + timestampShiftSeconds - delay;
-  return afterDelay < 0 ? 0 : 1 - Math.exp(-afterDelay / tau);
+
+function engineeringText(value: number): string {
+  return Number(value.toPrecision(3)).toString();
 }
+
 function detectOnset(samples: readonly IdentificationSample[], stepTime: number, threshold: number, required: number, direction: number): number | undefined {
   for (let index = 0; index <= samples.length - required; index += 1) {
     if (samples.slice(index, index + required).every((sample) => direction * (sample.output - threshold) > 0)) return samples[index].timeSeconds - stepTime;
@@ -356,4 +427,3 @@ function finite(value: unknown): value is number { return typeof value === "numb
 function positive(value: unknown): value is number { return finite(value) && value > 0; }
 function positiveOrZero(value: unknown): value is number { return finite(value) && value >= 0; }
 function mean(values: readonly number[]): number { return values.reduce((sum, value) => sum + value, 0) / values.length; }
-function median(values: readonly number[]): number { const sorted = [...values].sort((left, right) => left - right); return sorted[Math.floor(sorted.length / 2)]; }

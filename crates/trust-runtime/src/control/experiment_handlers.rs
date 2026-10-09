@@ -1,26 +1,54 @@
 mod abort_binding;
 use abort_binding::{AbortBinding, AbortBindingParams};
+mod executor;
+mod mode;
+use mode::{ModeBinding, ModeBindingParams};
+mod target;
+use target::ExperimentTarget;
 mod values;
 use values::{
-    decode_params, decode_relay_feedback, decode_trajectory, experiment_type_id, experiment_value,
-    numeric_value, snapshot_type, snapshot_value,
+    check_trajectory_spacing, decode_params, decode_relay_feedback, decode_trajectory,
+    experiment_type_id, experiment_value, numeric_value,
 };
 
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
 
 use super::{ControlResponse, ControlState};
 use crate::debug::DebugControl;
-use crate::io::{validate_process_image_address, IoAddress, IoSnapshot};
+use crate::io::IoAddress;
 use crate::value::Value;
 use trust_hir::TypeId;
+
+/// The task name of the background programs, which execute in every scan.
+const BACKGROUND_TASK: &str = "$background";
+/// The shortest experiment, 1 s of process time (Specification 35, A7).
+const MIN_DURATION_MS: u64 = 1_000;
+/// The longest experiment, 24 h of process time (Specification 35, A7).
+const MAX_DURATION_MS: u64 = 86_400_000;
 
 #[derive(Clone, Debug, Default)]
 pub struct ControlExperimentService {
     active: Arc<Mutex<Option<ExperimentRecord>>>,
+    /// Whether the latest published scan's target is simulated (Specification 35, A2.4); `None` before the first scan.
+    target_fact: Arc<Mutex<Option<bool>>>,
+}
+
+impl ControlExperimentService {
+    /// The target fact of the latest published scan, or `None` before the first one (Specification 35, A2.4).
+    pub(crate) fn simulated_target(&self) -> Option<bool> {
+        self.target_fact.lock().ok().and_then(|fact| *fact)
+    }
+
+    /// Records the target fact that a published scan carries; the scan observer calls it once per cycle.
+    pub(crate) fn record_simulated_target(&self, simulated: bool) {
+        if let Ok(mut fact) = self.target_fact.lock() {
+            *fact = Some(simulated);
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -28,27 +56,62 @@ struct ExperimentRecord {
     id: String,
     source: String,
     kind: String,
-    address: IoAddress,
+    /// The task whose executions drive the experiment, or `BACKGROUND_TASK`.
+    task: String,
+    /// The period between executions: the task's interval, or the resource cycle for the background programs.
+    interval: Duration,
+    target: ExperimentTarget,
     restoration_value: Value,
     restoration_observed_value: Value,
     reviewed_scan: u64,
     started_scan: u64,
-    started: Instant,
+    /// The process time of the task's first execution after the start request; the trajectory is measured from it.
+    origin: Option<Duration>,
+    /// The process time the experiment has run, as of its last execution of the task.
+    elapsed: Duration,
     duration: Duration,
     status: ExperimentStatus,
     stop_reason: Option<&'static str>,
     restoration: &'static str,
     restoration_reason: Option<&'static str>,
-    restoration_deadline: Option<Instant>,
-    restoration_timeout: Duration,
+    /// Executions of the task since the restoring write; the restoration is confirmed within three (Specification 35, A7).
+    restoration_checks: u32,
     minimum: f64,
     maximum: f64,
     trajectory: Vec<(Duration, Value)>,
-    next_trajectory: usize,
+    /// The first trajectory point not yet due.
+    next_point: usize,
+    /// The value last queued to the target; `None` until the first write.
+    queued: Option<Value>,
+    /// The trajectory point that became due last, until its value is read back.
+    queued_point: Option<usize>,
+    last_applied: Option<AppliedPoint>,
+    /// Whether the request carried the engineer's approval for a physical target.
+    physically_approved: bool,
+    mode: Option<ModeBinding>,
     relay_feedback: Option<RelayFeedbackRecord>,
     write_enabled: bool,
     abort_binding: Option<AbortBinding>,
     restoration_after_scan: Option<u64>,
+    /// The runtime epoch the experiment's references were resolved in; the epoch's end stops the experiment.
+    epoch: u64,
+}
+
+impl ExperimentRecord {
+    /// A running experiment, or one whose output is still being restored: live writes wait for it.
+    fn is_busy(&self) -> bool {
+        self.status == ExperimentStatus::Running || self.restoration == "pending"
+    }
+}
+
+/// A trajectory point whose value the target read back after the execution that followed its write.
+#[derive(Clone, Debug)]
+struct AppliedPoint {
+    index: usize,
+    at: Duration,
+    value: Value,
+    scan: Option<u64>,
+    process_time: Duration,
 }
 
 #[derive(Clone, Debug)]
@@ -80,7 +143,14 @@ struct StartParams {
     experiment_id: String,
     source: String,
     kind: String,
-    address: String,
+    /// The loop's task, by name, or "$background" for the background programs (Specification 35, A3.5).
+    task: String,
+    /// The process-image address the experiment writes, or with `symbol` a program variable
+    /// (Specification 35, experiments by variable name); exactly one of the two.
+    #[serde(default)]
+    address: Option<String>,
+    #[serde(default)]
+    symbol: Option<String>,
     value: JsonValue,
     restoration_value: JsonValue,
     #[serde(default)]
@@ -89,9 +159,9 @@ struct StartParams {
     maximum: f64,
     duration_ms: u64,
     expected_scan: u64,
-    stop_on_stale_ms: u64,
+    /// The loop's mode signal and the value that means Manual (Specification 35, A6.5).
     #[serde(default)]
-    controller_mode: Option<String>,
+    mode_binding: Option<ModeBindingParams>,
     #[serde(default)]
     physical_approval: Option<PhysicalApproval>,
     #[serde(default)]
@@ -133,6 +203,88 @@ struct ExperimentIdParams {
     experiment_id: String,
 }
 
+/// The refusal text for a live write that a running or restoring experiment blocks: its identifier and whether it still
+/// runs or restores (Specification 35, A6.6).
+fn experiment_busy_message(record: &ExperimentRecord) -> String {
+    if record.status == ExperimentStatus::Running {
+        format!("experiment {} is running", record.id)
+    } else {
+        format!("experiment {} is restoring its output", record.id)
+    }
+}
+
+/// The refusal for a request whose `source` label contradicts the runtime's target. The target's class is the runtime's
+/// fact, never the label (Specification 35, A2.4).
+pub(super) fn contradicted_source(source: &str, simulated_target: bool) -> Option<String> {
+    let labelled_simulated = source == "simulation";
+    (labelled_simulated != simulated_target).then(|| {
+        let class = if simulated_target {
+            "simulated"
+        } else {
+            "physical"
+        };
+        format!("The request says {source}, but the runtime's target is {class}.")
+    })
+}
+
+/// The runtime checks a start makes under the experiment lock: no transfer or parameter transaction is pending, and the
+/// runtime is still in the epoch the request resolved its target in. Starting claims that epoch for the experiment.
+/// Returns the refusal, if any.
+fn claim_start_admission(
+    state: &ControlState,
+    id: u64,
+    expected_epoch: u64,
+) -> Option<ControlResponse> {
+    // A pending transfer or parameter transaction owns the controller's values until it is confirmed; its kind and
+    // identifier name it (Specification 35, A6.6).
+    if let Some(label) = state.debug.pending_transaction_label() {
+        return Some(error(
+            id,
+            format!("{label} is pending; start the experiment after it is confirmed"),
+            "transaction_pending",
+        ));
+    }
+    if !state.debug.begin_experiment(expected_epoch) {
+        return Some(error(
+            id,
+            "the runtime was reloaded or restarted while the experiment was starting; read its status again",
+            "stale_scan",
+        ));
+    }
+    None
+}
+
+/// Answers a request that writes live values. It is refused with `experiment_active` while an experiment is running or
+/// restoring. The experiment lock is held across the write, so no experiment can start in the middle of it.
+pub(super) fn answer_live_write(
+    id: u64,
+    state: &ControlState,
+    write: impl FnOnce() -> Result<JsonValue, String>,
+    error_code: &'static str,
+) -> ControlResponse {
+    let active = match state.experiments.active.lock() {
+        Ok(active) => active,
+        Err(_) => {
+            return error(
+                id,
+                "experiment state unavailable",
+                "experiment_state_unavailable",
+            )
+        }
+    };
+    if let Some(record) = active.as_ref().filter(|record| record.is_busy()) {
+        return error(id, experiment_busy_message(record), "experiment_active");
+    }
+    let result = write();
+    drop(active);
+    match result {
+        Ok(value) => ControlResponse::ok(id, value),
+        Err(message) => ControlResponse::error_with_code(id, message, error_code),
+    }
+}
+
+/// Records a start request. The request is validated and its target and mode resolved here; the first write is queued
+/// by the executor at the next scan of the experiment's task (Specification 35, A3.5), not by this handler.
 pub(super) fn handle_start(
     id: u64,
     params: Option<JsonValue>,
@@ -143,16 +295,14 @@ pub(super) fn handle_start(
         Err(error) => return ControlResponse::error_with_code(id, error, "invalid_experiment"),
     };
     if params.experiment_id.trim().is_empty()
-        || params.duration_ms == 0
-        || params.duration_ms > 3_600_000
-        || params.stop_on_stale_ms == 0
+        || !(MIN_DURATION_MS..=MAX_DURATION_MS).contains(&params.duration_ms)
         || !params.minimum.is_finite()
         || !params.maximum.is_finite()
         || params.minimum >= params.maximum
     {
         return error(
             id,
-            "invalid experiment duration, freshness, or limits",
+            "invalid experiment duration or limits; the duration is 1 s to 24 h of process time",
             "invalid_experiment",
         );
     }
@@ -175,43 +325,48 @@ pub(super) fn handle_start(
     {
         return error(id, "unsupported experiment kind", "invalid_experiment");
     }
-    if [
-        "output_step",
-        "mv_step",
-        "mv_pulse",
-        "relay",
-        "prbs",
-        "multisine",
-    ]
-    .contains(&params.kind.as_str())
-        && params.controller_mode.as_deref() != Some("Manual")
-    {
+    // The target's class is the runtime's fact from its latest scan; a label that contradicts it is refused (A2.4).
+    let Some(simulated_target) = state.experiments.simulated_target() else {
         return error(
             id,
-            "output steps require confirmed Manual controller mode",
-            "controller_mode_blocked",
+            "no completed runtime scan yet; the runtime's target is not known",
+            "io_unavailable",
         );
+    };
+    if let Some(message) = contradicted_source(&params.source, simulated_target) {
+        return error(id, message, "invalid_target");
     }
-    if params.source == "physical"
-        && !params
-            .physical_approval
-            .as_ref()
-            .is_some_and(|approval| approval.user_approved && approval.topology_reviewed)
-    {
+    let physically_approved = params
+        .physical_approval
+        .as_ref()
+        .is_some_and(|approval| approval.user_approved && approval.topology_reviewed);
+    if !simulated_target && !physically_approved {
         return error(
             id,
             "physical experiment requires immediate approval and a reviewed topology",
             "physical_approval_required",
         );
     }
-
-    let address = match IoAddress::parse(&params.address) {
-        Ok(address) => address,
-        Err(parse_error) => return error(id, parse_error.to_string(), "invalid_address"),
+    let (task, interval) = match experiment_task(&params.task, state) {
+        Ok(task) => task,
+        Err((message, code)) => return error(id, message, code),
     };
-    if let Err(error_value) = validate_process_image_address(&address) {
-        return error(id, error_value.to_string(), "invalid_address");
-    }
+
+    // Read before the target is resolved: a reload that lands in between makes the start refuse rather than
+    // resolve a variable in a program the experiment would not be bound to.
+    let expected_epoch = state.debug.runtime_epoch();
+    let target = {
+        let metadata = state.metadata.lock().ok();
+        match ExperimentTarget::decode(
+            params.address.as_deref(),
+            params.symbol.as_deref(),
+            &state.debug,
+            metadata.as_deref(),
+        ) {
+            Ok(target) => target,
+            Err((message, code)) => return error(id, message, code),
+        }
+    };
     let declared_type = match params
         .value_type
         .as_deref()
@@ -252,40 +407,36 @@ pub(super) fn handle_start(
         },
         Err(_) => return error(id, "I/O snapshot unavailable", "io_unavailable"),
     };
-    let snapshot_seen_ms = state
-        .io_snapshot_seen_ms
-        .load(std::sync::atomic::Ordering::Relaxed);
-    let now_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis() as u64)
-        .unwrap_or(0);
-    if snapshot.scan.is_none()
-        || snapshot_seen_ms == 0
-        || now_ms.saturating_sub(snapshot_seen_ms) > params.stop_on_stale_ms
-    {
-        return error(id, "runtime I/O snapshot is stale", "stale_scan");
-    }
-    if snapshot.forced.iter().any(|forced| forced == &address) {
+    let Some(started_scan) = snapshot.scan else {
+        return error(id, "no completed runtime scan yet", "io_unavailable");
+    };
+    if target.forced(&state.debug, &snapshot) {
         return error(id, "experiment signal is forced", "forced_signal");
     }
-    let snapshot_type = snapshot
-        .inputs
-        .iter()
-        .chain(&snapshot.outputs)
-        .chain(&snapshot.memory)
-        .find(|entry| entry.address == address)
-        .and_then(|entry| entry.value_type);
-    if declared_type.is_some() && snapshot_type != declared_type {
+    if declared_type.is_some() && target.runtime_type(&snapshot) != declared_type {
         return error(
             id,
             "declared experiment type does not match the runtime binding",
             "incompatible_binding",
         );
     }
+    let write_value = match target.coerce(value, declared_type) {
+        Ok(value) => value,
+        Err(message) => return error(id, message, "incompatible_binding"),
+    };
+    let restoration_write_value = match target.coerce(restoration_value.clone(), declared_type) {
+        Ok(value) => value,
+        Err(message) => return error(id, message, "incompatible_binding"),
+    };
+    // An address reads back as its binding decodes it; a variable in its own type.
+    let restoration_observed_value = match &target {
+        ExperimentTarget::Address { .. } => restoration_value,
+        ExperimentTarget::Symbol(_) => restoration_write_value.clone(),
+    };
     // An observation never writes this signal, so a changing PV between review
     // and start is normal plant behavior rather than a restoration conflict.
     if params.kind != "observation"
-        && snapshot_value(&snapshot, &address) != Some(&restoration_value)
+        && target.current(&state.debug, &snapshot).as_ref() != Some(&restoration_observed_value)
     {
         return error(
             id,
@@ -293,27 +444,6 @@ pub(super) fn handle_start(
             "restoration_mismatch",
         );
     }
-
-    let restoration_observed_value = restoration_value.clone();
-    let (write_value, restoration_write_value) = match declared_type {
-        Some(value_type) => {
-            let write_value = match crate::io::coerce_to_io(value, value_type, address.size) {
-                Ok(value) => value,
-                Err(error_value) => {
-                    return error(id, error_value.to_string(), "incompatible_binding")
-                }
-            };
-            let restoration_write_value =
-                match crate::io::coerce_to_io(restoration_value, value_type, address.size) {
-                    Ok(value) => value,
-                    Err(error_value) => {
-                        return error(id, error_value.to_string(), "incompatible_binding")
-                    }
-                };
-            (write_value, restoration_write_value)
-        }
-        None => (value, restoration_value),
-    };
     let write_enabled = params.kind != "observation";
     if (params.kind == "relay") != params.relay_feedback.is_some() {
         return error(
@@ -329,6 +459,7 @@ pub(super) fn handle_start(
             "invalid_experiment",
         );
     }
+    let coerce = |raw: Value| target.coerce(raw, declared_type);
     let relay_feedback = match params.relay_feedback.as_ref() {
         Some(relay) => match decode_relay_feedback(
             relay,
@@ -336,8 +467,7 @@ pub(super) fn handle_start(
             params.minimum,
             params.maximum,
             params.value_type.as_deref(),
-            declared_type,
-            address.size,
+            &coerce,
             requested,
         ) {
             Ok(relay) => Some(relay),
@@ -345,14 +475,21 @@ pub(super) fn handle_start(
         },
         None => None,
     };
-    let abort_binding = match params.abort_binding {
-        Some(binding) => {
-            match AbortBinding::decode(binding, &params.kind, &address, declared_type, &snapshot) {
+    let abort_binding = match (params.abort_binding, target.address()) {
+        (Some(binding), Some(address)) => {
+            match AbortBinding::decode(binding, &params.kind, address, declared_type, &snapshot) {
                 Ok(binding) => Some(binding),
                 Err((message, code)) => return error(id, message, code),
             }
         }
-        None => None,
+        (Some(_), None) => {
+            return error(
+                id,
+                "a project abort binding needs an addressed activation signal",
+                "invalid_target",
+            )
+        }
+        (None, _) => None,
     };
     let trajectory = if let Some(relay) = relay_feedback.as_ref() {
         vec![(Duration::ZERO, relay.high_value.clone())]
@@ -363,8 +500,7 @@ pub(super) fn handle_start(
             params.minimum,
             params.maximum,
             params.value_type.as_deref(),
-            declared_type,
-            address.size,
+            &coerce,
         ) {
             Ok(values) if values.is_empty() && write_enabled => {
                 vec![(Duration::ZERO, write_value.clone())]
@@ -373,6 +509,9 @@ pub(super) fn handle_start(
             Err(message) => return error(id, message, "invalid_experiment"),
         }
     };
+    if let Err(message) = check_trajectory_spacing(&trajectory, interval) {
+        return error(id, message, "invalid_experiment");
+    }
     if params.kind == "mv_pulse"
         && (trajectory.len() != 2
             || trajectory[0] != (Duration::ZERO, write_value.clone())
@@ -388,17 +527,42 @@ pub(super) fn handle_start(
             "invalid_experiment",
         );
     }
+    let mode =
+        match (mode_requirement(&params.kind), params.mode_binding) {
+            (Some(manual_required), Some(binding)) => {
+                match ModeBinding::start(binding, manual_required, &state.debug) {
+                    Ok(mode) => Some(mode),
+                    Err((message, code)) => return error(id, message, code),
+                }
+            }
+            (Some(_), None) => return error(
+                id,
+                "this experiment needs the loop's mode_binding (its mode signal and Manual value)",
+                "invalid_experiment",
+            ),
+            (None, _) => None,
+        };
 
+    let (target_key, target_value) = target.echo();
     let record = ExperimentRecord {
         id: params.experiment_id.clone(),
-        source: params.source,
+        // The source a status reports is the target's class, whatever the request labelled it (A2.4).
+        source: (if simulated_target {
+            "simulation"
+        } else {
+            "physical"
+        })
+        .to_string(),
         kind: params.kind,
-        address: address.clone(),
+        task,
+        interval,
+        target: target.clone(),
         restoration_value: restoration_write_value,
         restoration_observed_value,
         reviewed_scan: params.expected_scan,
-        started_scan: snapshot.scan.expect("fresh snapshot has a scan"),
-        started: Instant::now(),
+        started_scan,
+        origin: None,
+        elapsed: Duration::ZERO,
         duration: Duration::from_millis(params.duration_ms),
         status: ExperimentStatus::Running,
         stop_reason: None,
@@ -408,16 +572,21 @@ pub(super) fn handle_start(
             "not_required"
         },
         restoration_reason: None,
-        restoration_deadline: None,
-        restoration_timeout: Duration::from_millis(params.stop_on_stale_ms),
+        restoration_checks: 0,
         minimum: params.minimum,
         maximum: params.maximum,
         trajectory,
-        next_trajectory: usize::from(write_enabled),
+        next_point: 0,
+        queued: None,
+        queued_point: None,
+        last_applied: None,
+        physically_approved,
+        mode,
         relay_feedback,
         write_enabled,
         abort_binding,
         restoration_after_scan: None,
+        epoch: expected_epoch,
     };
     {
         let mut active = match state.experiments.active.lock() {
@@ -430,41 +599,98 @@ pub(super) fn handle_start(
                 )
             }
         };
-        if active.as_ref().is_some_and(|current| {
-            current.status == ExperimentStatus::Running
-                || (current.abort_binding.is_some() && current.restoration == "pending")
-        }) {
-            return error(
-                id,
-                "another experiment is already running",
-                "experiment_active",
-            );
+        // A restoring experiment keeps its output until it is restored, so it is never replaced (A6.6).
+        if let Some(current) = active.as_ref().filter(|current| current.is_busy()) {
+            return error(id, experiment_busy_message(current), "experiment_active");
         }
-        // Start and stop queue writes under one lifecycle lock. An abort cannot
-        // be followed by a delayed first activation write from this request.
-        if write_enabled {
-            state
-                .debug
-                .enqueue_io_write(address, record.trajectory[0].1.clone());
+        if let Some(refusal) = claim_start_admission(state, id, expected_epoch) {
+            return refusal;
         }
         *active = Some(record);
     }
-    spawn_guard(
-        state.experiments.clone(),
-        state.debug.clone(),
-        state.io_snapshot.clone(),
-        state.io_snapshot_seen_ms.clone(),
-        params.experiment_id.clone(),
-        Duration::from_millis(params.stop_on_stale_ms),
-    );
     ControlResponse::ok(
         id,
         json!({
             "experiment_id": params.experiment_id,
             "status": "running",
-            "restoration": if write_enabled { "pending" } else { "not_required" }
+            "restoration": if write_enabled { "pending" } else { "not_required" },
+            target_key: target_value,
         }),
     )
+}
+
+/// The task an experiment follows and its period: the configured task's interval, or the resource cycle for the
+/// background programs (Specification 35, A3.5).
+fn experiment_task(
+    task: &str,
+    state: &ControlState,
+) -> Result<(String, Duration), (String, &'static str)> {
+    if task.trim().is_empty() {
+        return Err((
+            "give the loop's task name, or $background".into(),
+            "invalid_experiment",
+        ));
+    }
+    if task == BACKGROUND_TASK {
+        let cycle = state
+            .settings
+            .lock()
+            .map_err(|_| {
+                (
+                    "runtime settings unavailable".to_string(),
+                    "experiment_state_unavailable",
+                )
+            })?
+            .cycle_interval;
+        return Ok((BACKGROUND_TASK.to_string(), std_duration(cycle)));
+    }
+    let metadata = state.metadata.lock().map_err(|_| {
+        (
+            "runtime metadata unavailable".to_string(),
+            "experiment_state_unavailable",
+        )
+    })?;
+    metadata
+        .tasks()
+        .iter()
+        .find(|configured| configured.name.eq_ignore_ascii_case(task))
+        .map(|configured| {
+            (
+                configured.name.to_string(),
+                std_duration(configured.interval),
+            )
+        })
+        .ok_or_else(|| {
+            (
+                format!("experiment task {task} is not configured"),
+                "invalid_experiment",
+            )
+        })
+}
+
+/// A process-time duration as the executor counts it.
+fn std_duration(duration: crate::value::Duration) -> Duration {
+    Duration::from_nanos(u64::try_from(duration.as_nanos()).unwrap_or(0))
+}
+
+/// Whether the experiment runs only while the loop is in Manual (`Some(true)`) or only in Auto (`Some(false)`), or in
+/// either (`None`). Output experiments write the plant input or the manual output; setpoint and load experiments need
+/// the loop to follow its setpoint (Specification 35, A6.5).
+fn mode_requirement(kind: &str) -> Option<bool> {
+    match kind {
+        "output_step" | "mv_step" | "mv_pulse" | "relay" | "prbs" | "multisine" => Some(true),
+        "setpoint_step" | "load_step" => Some(false),
+        _ => None,
+    }
+}
+
+/// The scan the control surface last published, which stamps a stop made between scans.
+fn latest_scan(state: &ControlState) -> Option<u64> {
+    state
+        .io_snapshot
+        .lock()
+        .ok()
+        .and_then(|snapshot| snapshot.as_ref().and_then(|value| value.scan))
 }
 
 pub(super) fn handle_status(
@@ -476,6 +702,7 @@ pub(super) fn handle_status(
         Ok(value) => value,
         Err(message) => return error(id, message, "invalid_experiment"),
     };
+    // A status request only reads. A boundary that ended the experiment is settled by the next scan (A6.7), never here.
     let active = match state.experiments.active.lock() {
         Ok(active) => active,
         Err(_) => {
@@ -504,11 +731,9 @@ pub(super) fn handle_abort(
         Ok(value) => value,
         Err(message) => return error(id, message, "invalid_experiment"),
     };
-    match finish(
-        &state.experiments,
-        &state.debug,
-        &state.io_snapshot,
-        params.experiment_id.as_str(),
+    match stop(
+        state,
+        &params.experiment_id,
         ExperimentStatus::Aborted,
         "user_abort",
     ) {
@@ -517,281 +742,38 @@ pub(super) fn handle_abort(
     }
 }
 
-fn spawn_guard(
-    service: ControlExperimentService,
-    debug: DebugControl,
-    snapshot: Arc<Mutex<Option<IoSnapshot>>>,
-    snapshot_seen_ms: Arc<std::sync::atomic::AtomicU64>,
-    experiment_id: String,
-    stale_after: Duration,
-) {
-    std::thread::spawn(move || loop {
-        std::thread::sleep(Duration::from_millis(20));
-        let (elapsed, duration, address, minimum, maximum, relay_feedback, abort_binding) =
-            match service.active.lock() {
-                Ok(mut active) => {
-                    let Some(record) = active.as_mut().filter(|record| record.id == experiment_id)
-                    else {
-                        return;
-                    };
-                    if record.status != ExperimentStatus::Running {
-                        if record.restoration != "pending" {
-                            return;
-                        }
-                        let observed = snapshot.lock().ok().and_then(|value| value.clone());
-                        let confirmed = observed.as_ref().is_some_and(|value| {
-                            if snapshot_value(value, &record.address)
-                                != Some(&record.restoration_observed_value)
-                            {
-                                return false;
-                            }
-                            if let Some(abort) = record.abort_binding.as_mut() {
-                                if value
-                                    .scan
-                                    .zip(record.restoration_after_scan)
-                                    .is_none_or(|(scan, after)| scan <= after)
-                                    || value.forced.contains(&record.address)
-                                    || snapshot_type(value, &record.address) != Some(TypeId::BOOL)
-                                {
-                                    return false;
-                                }
-                                return abort.confirm(value);
-                            }
-                            true
-                        });
-                        if confirmed {
-                            record.restoration = "restored";
-                            record.restoration_deadline = None;
-                            return;
-                        }
-                        if record
-                            .restoration_deadline
-                            .is_some_and(|deadline| Instant::now() >= deadline)
-                        {
-                            record.status = ExperimentStatus::FailedToRestore;
-                            if let Some(abort) = record.abort_binding.as_mut() {
-                                abort.fail_confirmation();
-                            }
-                            record.restoration = "failed";
-                            record.restoration_reason = Some("confirmation_timeout");
-                            record.restoration_deadline = None;
-                            return;
-                        }
-                        continue;
-                    }
-                    let elapsed = record.started.elapsed();
-                    // Keep the experiment lock while queuing due values. Abort takes
-                    // the same lock, so restoration can never be followed by a late
-                    // excitation write from this trajectory.
-                    while record.next_trajectory < record.trajectory.len()
-                        && record.trajectory[record.next_trajectory].0 <= elapsed
-                    {
-                        debug.enqueue_io_write(
-                            record.address.clone(),
-                            record.trajectory[record.next_trajectory].1.clone(),
-                        );
-                        record.next_trajectory += 1;
-                    }
-                    (
-                        elapsed,
-                        record.duration,
-                        record.address.clone(),
-                        record.minimum,
-                        record.maximum,
-                        record.relay_feedback.clone(),
-                        record.abort_binding.clone(),
-                    )
-                }
-                Err(_) => return,
-            };
-        // Legacy plans retain their established timeout precedence. A reviewed
-        // abort policy checks faults before declaring normal completion.
-        if elapsed >= duration && abort_binding.is_none() {
-            let _ = finish(
-                &service,
-                &debug,
-                &snapshot,
-                &experiment_id,
-                ExperimentStatus::Completed,
-                "duration_complete",
-            );
-            continue;
-        }
-        let current_snapshot = snapshot.lock().ok().and_then(|snapshot| snapshot.clone());
-        let forced = current_snapshot
-            .as_ref()
-            .is_some_and(|snapshot| snapshot.forced.iter().any(|forced| forced == &address));
-        if forced {
-            let _ = finish(
-                &service,
-                &debug,
-                &snapshot,
-                &experiment_id,
-                ExperimentStatus::Failed,
-                "signal_forced",
-            );
-            continue;
-        }
-        let now_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
-        let seen_ms = snapshot_seen_ms.load(std::sync::atomic::Ordering::Relaxed);
-        if seen_ms == 0 || now_ms.saturating_sub(seen_ms) > stale_after.as_millis() as u64 {
-            let _ = finish(
-                &service,
-                &debug,
-                &snapshot,
-                &experiment_id,
-                ExperimentStatus::Failed,
-                "stale_runtime_data",
-            );
-            continue;
-        }
-        let Some(current_value) = current_snapshot
-            .as_ref()
-            .and_then(|snapshot| snapshot_value(snapshot, &address))
-            .and_then(numeric_value)
-            .filter(|value| value.is_finite())
-        else {
-            let _ = finish(
-                &service,
-                &debug,
-                &snapshot,
-                &experiment_id,
-                ExperimentStatus::Failed,
-                "bad_runtime_data",
-            );
-            continue;
-        };
-        if current_value < minimum || current_value > maximum {
-            let _ = finish(
-                &service,
-                &debug,
-                &snapshot,
-                &experiment_id,
-                ExperimentStatus::Failed,
-                "signal_outside_limits",
-            );
-            continue;
-        }
-        if let Some(abort) = abort_binding {
-            let failure = current_snapshot
-                .as_ref()
-                .map_or(Some("bad_abort_binding"), |value| {
-                    if snapshot_type(value, &address) != Some(TypeId::BOOL) {
-                        return Some("bad_runtime_data");
-                    }
-                    match abort.asserted(value) {
-                        Ok(false) => None,
-                        Ok(true) => Some("project_abort_asserted"),
-                        Err(reason) => Some(reason),
-                    }
-                });
-            if let Some(reason) = failure {
-                let _ = finish(
-                    &service,
-                    &debug,
-                    &snapshot,
-                    &experiment_id,
-                    ExperimentStatus::Failed,
-                    reason,
-                );
-                continue;
-            }
-        }
-        if elapsed >= duration {
-            let _ = finish(
-                &service,
-                &debug,
-                &snapshot,
-                &experiment_id,
-                ExperimentStatus::Completed,
-                "duration_complete",
-            );
-            continue;
-        }
-        let Some(relay) = relay_feedback else {
-            continue;
-        };
-        let relay_forced = current_snapshot.as_ref().is_some_and(|snapshot| {
-            snapshot
-                .forced
-                .iter()
-                .any(|forced| forced == &relay.address)
-        });
-        if relay_forced {
-            let _ = finish(
-                &service,
-                &debug,
-                &snapshot,
-                &experiment_id,
-                ExperimentStatus::Failed,
-                "relay_feedback_forced",
-            );
-            continue;
-        }
-        let relay_value = current_snapshot.as_ref().and_then(|snapshot| {
-            (snapshot_type(snapshot, &relay.address) == Some(relay.value_type))
-                .then(|| snapshot_value(snapshot, &relay.address))
-                .flatten()
-                .and_then(numeric_value)
-                .filter(|value| value.is_finite())
-        });
-        let Some(relay_value) = relay_value else {
-            let _ = finish(
-                &service,
-                &debug,
-                &snapshot,
-                &experiment_id,
-                ExperimentStatus::Failed,
-                "bad_relay_feedback",
-            );
-            continue;
-        };
-        let mut active = match service.active.lock() {
-            Ok(active) => active,
-            Err(_) => return,
-        };
-        let Some(record) = active.as_mut().filter(|record| {
-            record.id == experiment_id && record.status == ExperimentStatus::Running
-        }) else {
-            continue;
-        };
-        let Some(relay) = record.relay_feedback.as_mut() else {
-            continue;
-        };
-        // The relay changes state only after measured PV crosses a hysteresis
-        // threshold. Holding the experiment lock prevents an abort restoration
-        // from being followed by a late relay write.
-        let high = super::relay_state::next_relay_state(
-            relay_value,
-            relay.center,
-            relay.hysteresis,
-            true,
-            relay.high_active,
-        );
-        if high != relay.high_active {
-            let value = if high {
-                relay.high_value.clone()
-            } else {
-                relay.low_value.clone()
-            };
-            debug.enqueue_io_write(record.address.clone(), value);
-            relay.high_active = high;
-        }
-    });
+/// Ends a running experiment as a normal completion, without asserting the project abort binding: the restoration is
+/// written at the next scan and confirmed as for any other completion (Specification 35, A3.5). An experiment that is
+/// not running returns its current status.
+pub(super) fn handle_finish(
+    id: u64,
+    params: Option<JsonValue>,
+    state: &ControlState,
+) -> ControlResponse {
+    let params: ExperimentIdParams = match decode_params(params) {
+        Ok(value) => value,
+        Err(message) => return error(id, message, "invalid_experiment"),
+    };
+    match stop(
+        state,
+        &params.experiment_id,
+        ExperimentStatus::Completed,
+        "finished_early",
+    ) {
+        Ok(result) => ControlResponse::ok(id, result),
+        Err((message, code)) => error(id, message, code),
+    }
 }
 
-fn finish(
-    service: &ControlExperimentService,
-    debug: &DebugControl,
-    snapshot: &Arc<Mutex<Option<IoSnapshot>>>,
+/// Stops the named experiment with `status` and `stop_reason`, queuing its restoration when it has written anything.
+fn stop(
+    state: &ControlState,
     experiment_id: &str,
     status: ExperimentStatus,
     stop_reason: &'static str,
 ) -> Result<JsonValue, (String, &'static str)> {
-    let mut active = service.active.lock().map_err(|_| {
+    let scan = latest_scan(state);
+    let mut active = state.experiments.active.lock().map_err(|_| {
         (
             "experiment state unavailable".to_string(),
             "experiment_state_unavailable",
@@ -806,37 +788,81 @@ fn finish(
                 "experiment_not_found",
             )
         })?;
+    settle_at_boundary(record, &state.debug, scan);
+    finish_record(record, &state.debug, scan, status, stop_reason);
+    Ok(record_json(record))
+}
+
+/// Stops a running experiment with `status` and `stop_reason`, and queues its restoration. A runtime boundary that ended
+/// the experiment's epoch takes the place of the request: the experiment fails with the boundary's reason, and a variable
+/// is not written, because its reference names the program that ended. Nothing is restored when nothing was written.
+fn finish_record(
+    record: &mut ExperimentRecord,
+    debug: &DebugControl,
+    scan: Option<u64>,
+    status: ExperimentStatus,
+    stop_reason: &'static str,
+) {
     if record.status != ExperimentStatus::Running {
-        return Ok(record_json(record));
+        return;
     }
+    let boundary = debug.experiment_boundary(record.epoch);
+    let (status, stop_reason) = match boundary {
+        Some(reason) => (ExperimentStatus::Failed, reason),
+        None => (status, stop_reason),
+    };
+    let ended_variable = boundary.is_some() && record.target.is_symbol();
+    let restores = record.write_enabled && record.queued.is_some();
     // Abort assertion precedes deactivation; the declared ST program owns the
     // actuator policy. Queue both while excluding late excitation writes.
-    if record.write_enabled {
+    if restores {
         if let Some(abort) = record.abort_binding.as_mut() {
-            record.restoration_after_scan = Some(
-                snapshot
-                    .lock()
-                    .ok()
-                    .and_then(|value| value.as_ref().and_then(|value| value.scan))
-                    .unwrap_or(record.started_scan),
-            );
+            record.restoration_after_scan = Some(scan.unwrap_or(record.started_scan));
             if status != ExperimentStatus::Completed {
                 abort.request(debug);
             }
         }
-        debug.enqueue_io_write(record.address.clone(), record.restoration_value.clone());
+        if !ended_variable {
+            record
+                .target
+                .write(debug, record.restoration_value.clone(), record.epoch);
+        }
     }
     record.status = status;
     record.stop_reason = Some(stop_reason);
-    record.restoration = if record.write_enabled {
-        "pending"
+    record.restoration_checks = 0;
+    if !restores {
+        record.restoration = "not_required";
+    } else if ended_variable {
+        record.restoration = "failed";
+        record.restoration_reason = boundary;
     } else {
-        "not_required"
+        record.restoration = "pending";
+    }
+}
+
+/// Settles an experiment whose runtime epoch has ended, whichever request or scan reaches it first: a running experiment
+/// stops with the boundary's reason, and a variable restoration, which can no longer be written, fails at once.
+fn settle_at_boundary(record: &mut ExperimentRecord, debug: &DebugControl, scan: Option<u64>) {
+    let Some(reason) = debug.experiment_boundary(record.epoch) else {
+        return;
     };
-    record.restoration_deadline = record
-        .write_enabled
-        .then(|| Instant::now() + record.restoration_timeout);
-    Ok(record_json(record))
+    if record.status == ExperimentStatus::Running {
+        finish_record(record, debug, scan, ExperimentStatus::Failed, reason);
+    } else if record.restoration == "pending" && record.target.is_symbol() {
+        record.restoration = "failed";
+        record.restoration_reason = Some(reason);
+    }
+}
+
+fn applied_json(point: &AppliedPoint) -> JsonValue {
+    json!({
+        "index": point.index,
+        "value": numeric_value(&point.value),
+        "time_ms": point.at.as_millis() as u64,
+        "scan": point.scan,
+        "process_time_ms": point.process_time.as_millis() as u64,
+    })
 }
 
 fn record_json(record: &ExperimentRecord) -> JsonValue {
@@ -852,10 +878,13 @@ fn record_json(record: &ExperimentRecord) -> JsonValue {
             "high_active": relay.high_active,
         })
     });
+    let (target_key, target_value) = record.target.echo();
     json!({
         "experiment_id": record.id,
         "source": record.source,
         "kind": record.kind,
+        "task": record.task,
+        target_key: target_value,
         "status": match record.status {
             ExperimentStatus::Running => "running",
             ExperimentStatus::Completed => "completed",
@@ -863,13 +892,14 @@ fn record_json(record: &ExperimentRecord) -> JsonValue {
             ExperimentStatus::Failed => "failed",
             ExperimentStatus::FailedToRestore => "failed_to_restore",
         },
-        "elapsed_ms": record.started.elapsed().as_millis() as u64,
+        "elapsed_ms": record.elapsed.as_millis() as u64,
         "duration_ms": record.duration.as_millis() as u64,
         "reviewed_scan": record.reviewed_scan,
         "started_scan": record.started_scan,
         "stop_reason": record.stop_reason,
         "restoration": record.restoration,
         "restoration_reason": record.restoration_reason,
+        "last_applied": record.last_applied.as_ref().map(applied_json),
         "relay_feedback": relay_feedback,
         "abort_binding": record.abort_binding.as_ref().map(AbortBinding::json),
     })

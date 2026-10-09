@@ -40,8 +40,7 @@ export function engineerEnvelopeScenarios(loop: ControlLoopDefinition, model: Ge
     channels.inputs.map((_, channel) => ({ id: `gain-${channel}`, target: "process_input", channel, mode: "multiply", startSeconds: 0,
       generator: "constant", value: 1 + direction * task.gainUncertaintyFraction! })));
   const project = loop.controller.project;
-  if (project?.family === "MPC" || project?.components?.some(component => component.kind === "back-calculation")
-    || loop.controller.antiWindupVerification !== undefined) {
+  if (project?.family === "MPC" || project?.components?.some(component => component.kind === "back-calculation")) {
     const hold = Math.ceil(task.settlingTimeSeconds * 1000 / nominal.request.step_ms) * nominal.request.step_ms / 1000;
     const recovery = engineerVerificationPlan(loop, model, { ...task, settlingTimeSeconds: 2 * hold,
       durationSeconds: task.durationSeconds + hold }, values);

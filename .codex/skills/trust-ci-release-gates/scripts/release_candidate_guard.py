@@ -45,6 +45,7 @@ BASE_REQUIRED_COMMANDS = (
     "remote_reclaim_before_test_all",
     "remote_test_all",
     "remote_clean_after",
+    "remote_hmi",
 )
 MARKETPLACE_TARGETS = (
     "darwin-arm64",

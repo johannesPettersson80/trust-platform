@@ -10,7 +10,7 @@ use indexmap::IndexMap;
 use rustls::pki_types::ServerName;
 use smol_str::SmolStr;
 use trust_runtime::config::{ControlMode, WebAuthMode, WebConfig};
-use trust_runtime::control::{ControlState, HmiRuntimeDescriptor, SourceFile, SourceRegistry};
+use trust_runtime::control::{ControlState, SourceFile, SourceRegistry};
 use trust_runtime::debug::DebugVariableHandles;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
@@ -117,9 +117,6 @@ fn control_state(source: &str) -> Arc<ControlState> {
         path: std::path::PathBuf::from("main.st"),
         text: source.to_string(),
     }]);
-    let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
-        None, &sources,
-    )));
     Arc::new(ControlState {
         debug,
         resource,
@@ -151,9 +148,6 @@ fn control_state(source: &str) -> Arc<ControlState> {
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
-        hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
-        hmi_persistence: None,
-        hmi_descriptor,
         historian: None,
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(
@@ -226,6 +220,7 @@ fn web_tls_handshake_and_downgrade_prevention() {
         listen: SmolStr::new(listen.clone()),
         auth: WebAuthMode::Local,
         tls: true,
+        hmi: Default::default(),
     };
     let tls = tls_materials();
     let _server = start_web_server(&config, state, None, None, None, Some(tls.clone()))
@@ -234,7 +229,7 @@ fn web_tls_handshake_and_downgrade_prevention() {
     let mut response = None;
     let mut last_error = String::new();
     for _ in 0..240 {
-        match https_get_raw(&listen, "/hmi", &tls) {
+        match https_get_raw(&listen, "/ide", &tls) {
             Ok(body) => {
                 response = Some(body);
                 break;
@@ -247,14 +242,14 @@ fn web_tls_handshake_and_downgrade_prevention() {
     }
     let response = response.unwrap_or_else(|| panic!("https response (last error: {last_error})"));
     assert!(response.starts_with("HTTP/1.1 200"));
-    assert!(response.contains("truST HMI"));
+    assert!(response.contains("truST Web IDE"));
 
     let mut plain = TcpStream::connect(&listen).expect("connect plain http socket");
     plain
         .set_read_timeout(Some(Duration::from_millis(250)))
         .expect("set read timeout");
     plain
-        .write_all(b"GET /hmi HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+        .write_all(b"GET /ide HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
         .expect("write plaintext request");
     let mut buffer = [0_u8; 32];
     match plain.read(&mut buffer) {

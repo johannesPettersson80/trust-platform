@@ -8,6 +8,11 @@ import { prepareBoundedStepReview } from "./boundedStepReview";
 import { prepareSensorLagComparison, type SensorLagComparison } from "./sensorLagComparison";
 import type { IdentificationExperiment } from "./identificationExperiment";
 import type { IdentificationRecording } from "./identificationState";
+import { blockAveraged, MAXIMUM_FIT_SAMPLES, medianSpacing } from "./evenSampling";
+import {
+  baselineNoiseRms, heldUnitResponse, leastSquaresGain, MINIMUM_REACHED_FRACTION, noiseRefusal, partialResponseRefusal,
+  reachedFraction, type HeldShape,
+} from "./numerics/identification";
 
 export type ModelKind = "static_gain" | "integrating" | "first_order" | "first_order_dead_time" | "second_order" | "second_order_dead_time";
 
@@ -82,6 +87,11 @@ export interface IdentificationResult {
   recommended: IdentifiedModel;
   models: readonly IdentifiedModel[];
   partition?: "single-run" | "independent-runs";
+  /** The physical refusal of the recommended form: a response too small against the noise, or one that has not reached 63 % of its
+   * fitted final change (A10.3). It is reported, never replaced by a state model that could pass it. */
+  refusal?: string;
+  /** The integrator rule's refusal of an integrating form that the data cannot yet tell apart from a self-regulating form. */
+  integratorRefusal?: string;
 }
 
 export interface ModelFitPoint {
@@ -102,6 +112,8 @@ export interface ModelFitEvidence {
   delaySeconds: number;
   operatingRange: { inputMinimum: number; inputMaximum: number; outputMinimum: number; outputMaximum: number };
   warnings: readonly string[];
+  /** Fraction of the fitted final change that a held step reached (A10.3); undefined where the fraction is not defined. */
+  finalChangeFraction?: number;
 }
 
 export interface IdentifiedModelPresentation {
@@ -152,6 +164,10 @@ export interface IdentificationReviewInput {
   excluded: readonly ExcludedInterval[];
   source: "Simulation" | "Physical";
   requestedKind: IdentificationModelSelection;
+  /** The process the loop's identification policy declares; "integrating" accepts an integrating form directly. */
+  declaredProcess?: string;
+  /** A closed-loop fit (a setpoint step in Auto) is not subject to the integrator rule. */
+  closedLoop?: boolean;
 }
 
 export type IdentificationReview =
@@ -195,8 +211,9 @@ export function prepareIdentificationReview(input: IdentificationReviewInput): I
   const estimationQualification = qualifyIdentificationData(estimation, input.excluded);
   if (!estimationQualification.suitable) throw new Error(estimationQualification.reason);
   if (input.validation === undefined) {
-    const preview = identifyPlant(estimation, input.excluded, input.source);
+    const preview = identifyPlant(estimation, input.excluded, input.source, undefined, input.maximumNormalizedError, identifyOptions(input));
     const selected = selectRequestedModel(preview, input.requestedKind);
+    refuseRefusedPreview(preview, selected);
     return {
       stage: "validation_required",
       estimationQualification,
@@ -215,7 +232,7 @@ export function prepareIdentificationReview(input: IdentificationReviewInput): I
   if (!validationQualification.suitable) {
     throw new Error(`Independent validation: ${validationQualification.reason}`);
   }
-  const result = identifyPlant(estimation, input.excluded, input.source, validation, input.maximumNormalizedError);
+  const result = identifyPlant(estimation, input.excluded, input.source, validation, input.maximumNormalizedError, identifyOptions(input));
   const selected = selectRequestedModel(result, input.requestedKind);
   return {
     stage: "acceptance_required",
@@ -259,6 +276,12 @@ function selectRequestedModel(
     }
   }
   return selected;
+}
+
+/** A recording as a fit receives it: at most MAXIMUM_FIT_SAMPLES points, with no block straddling the largest input change. */
+function fitRecording(samples: readonly IdentificationSample[]): IdentificationSample[] {
+  const stepIndex = largestInputChange(samples);
+  return blockAveraged(samples, MAXIMUM_FIT_SAMPLES, stepIndex >= 1 ? [samples[stepIndex].timeSeconds] : []);
 }
 
 function heldStepSamples(samples: readonly IdentificationSample[]): IdentificationSample[] {
@@ -321,6 +344,8 @@ export function modelFitEvidence(
   const warnings: string[] = [];
   if (!model.stable) warnings.push("The fitted model is not stable.");
   if (model.normalizedError > 0.2) warnings.push("Prediction error is high for controller design.");
+  const evidence = heldStepEvidence(model, samples);
+  if (evidence?.fraction !== undefined) warnings.push(`The response reached ${Math.round(evidence.fraction * 100)} % of its fitted final change.`);
   if ((model.deadTimeSeconds ?? 0) > 0 && (model.deadTimeSeconds ?? 0) < medianIntervals(samples)) {
     warnings.push("Dead time is shorter than one sample interval and is weakly resolved.");
   }
@@ -329,6 +354,7 @@ export function modelFitEvidence(
     rootMeanSquareError,
     outputUnit: samples.find((sample) => sample.outputUnit)?.outputUnit ?? "unit",
     stable: model.stable,
+    finalChangeFraction: evidence?.fraction,
     delaySeconds: model.deadTimeSeconds ?? 0,
     operatingRange: {
       inputMinimum: Math.min(...samples.map((sample) => sample.input)),
@@ -492,14 +518,15 @@ export function identifyPlant(
   excluded: readonly ExcludedInterval[] = [],
   source: "Simulation" | "Physical" = "Simulation",
   validationSamples?: readonly IdentificationSample[],
-  maximumNormalizedError = 0.35
+  maximumNormalizedError = 0.35,
+  options: IdentifyPlantOptions = {}
 ): IdentificationResult {
   const qualified = qualifyIdentificationData(samples, excluded);
   if (!qualified.suitable) throw new Error(qualified.reason);
   if (validationSamples !== undefined) {
     const validation = qualifyIdentificationData(validationSamples, []);
     if (!validation.suitable) throw new Error(`Independent validation: ${validation.reason}`);
-    const fitted = identifyLowOrderModels(heldStepSamples(qualified.samples), heldStepSamples(validation.samples), {
+    const fitted = identifyLowOrderModels(fitRecording(heldStepSamples(qualified.samples)), fitRecording(heldStepSamples(validation.samples)), {
       allowedKinds: ["static_gain", "integrating", "first_order", "first_order_dead_time",
         "second_order", "second_order_dead_time"],
       absoluteTolerance: 1e-9,
@@ -510,14 +537,21 @@ export function identifyPlant(
     if (fitted.status === "rejected") {
       throw new Error(`No qualified low-order model: ${fitted.reason}.`);
     }
+    const recommended = lowOrderModel(fitted.recommended);
+    const estimationValues = fitRecording(heldStepSamples(qualified.samples));
+    const refusal = unreliableStepRefusal(recommended, qualified.samples, estimationValues);
+    const integratorRefusal = integratorRefusalFor(options, estimationValues, maximumNormalizedError);
     return {
       source: source === "Physical" ? "Identified from physical data" : "Identified from simulation data",
-      recommended: lowOrderModel(fitted.recommended),
+      recommended,
       models: fitted.models.map(lowOrderModel),
       partition: "independent-runs",
+      ...(refusal === undefined ? {} : { refusal }),
+      ...(integratorRefusal === undefined ? {} : { integratorRefusal }),
     };
   }
-  const values = heldStepSamples(qualified.samples);
+  const held = heldStepSamples(qualified.samples);
+  const values = fitRecording(held);
   const stepIndex = largestInputChange(values);
   if (stepIndex < 2 || stepIndex >= values.length - 10) throw new Error("A bounded input step with pre- and post-step data is required.");
   const before = values.slice(0, stepIndex);
@@ -533,18 +567,21 @@ export function identifyPlant(
   const response = output1 - output0;
   const delayTime = firstCrossing(values, stepIndex, output0 + response * 0.02) - stepTime;
   const t63 = firstCrossing(values, stepIndex, output0 + response * 0.632) - stepTime;
-  const dt = qualified.sampleTimeSeconds;
+  // Block averaging, when it applies, widens the sample spacing the crossings and time bounds are measured on.
+  const dt = values.length === held.length ? qualified.sampleTimeSeconds : medianSpacing(values.map((sample) => sample.timeSeconds));
   const deadTime = Math.max(0, delayTime - dt);
   const tau = Math.max(dt, t63 - deadTime);
   const horizon = values[values.length - 1].timeSeconds - stepTime;
+  // Each candidate's gain is the least-squares value for its own dynamics on the recorded instants (N2.2); the final window is only a check.
   const models: IdentifiedModel[] = [
-    candidate("integrating", slopeGain(values, stepIndex, inputChange), undefined, undefined, rampDelay(values, stepIndex, output0)),
-    candidate("first_order", gain, tau + deadTime, undefined, 0),
-    candidate("first_order_dead_time", gain, tau, undefined, deadTime),
-    candidate("second_order", gain, Math.max(dt, (tau + deadTime) / 2.146), Math.max(dt, (tau + deadTime) / 2.146), 0),
-    candidate("second_order_dead_time", gain, Math.max(dt, tau / 2.146), Math.max(dt, tau / 2.146), deadTime),
+    candidate("integrating", 1, undefined, undefined, rampDelay(values, stepIndex, output0)),
+    candidate("first_order", 1, tau + deadTime, undefined, 0),
+    candidate("first_order_dead_time", 1, tau, undefined, deadTime),
+    candidate("second_order", 1, Math.max(dt, (tau + deadTime) / 2.146), Math.max(dt, (tau + deadTime) / 2.146), 0),
+    candidate("second_order_dead_time", 1, Math.max(dt, tau / 2.146), Math.max(dt, tau / 2.146), deadTime),
   ];
   for (const model of models) {
+    model.gain = jointGain(model, values, stepIndex, input0, output0);
     model.normalizedError = modelError(model, values, stepIndex, input0, output0, inputChange, Math.abs(response));
   }
   const beforeMinimum = Math.min(...before.map((sample) => sample.output));
@@ -590,8 +627,11 @@ export function identifyPlant(
   if (horizon <= dt) {
     throw new Error("No acceptable stable low-order model could be identified from the retained data.");
   }
+  const refusal = unreliableStepRefusal(recommended, held, values);
+  const integratorRefusal = integratorRefusalFor(options, values, maximumNormalizedError);
   return { source: source === "Physical" ? "Identified from physical data" : "Identified from simulation data",
-    recommended: { ...recommended }, models: models.map((model) => ({ ...model })), partition: "single-run" };
+    recommended: { ...recommended }, models: models.map((model) => ({ ...model })), partition: "single-run",
+    ...(refusal === undefined ? {} : { refusal }), ...(integratorRefusal === undefined ? {} : { integratorRefusal }) };
 }
 
 export function selectLowOrderModel(
@@ -679,11 +719,110 @@ function responseFraction(model: IdentifiedModel, time: number): number {
   return 1 - Math.exp(-time / (model.timeConstantSeconds ?? 1));
 }
 
-function slopeGain(samples: readonly IdentificationSample[], stepIndex: number, inputChange: number): number {
-  const tail = samples.slice(stepIndex + Math.floor((samples.length - stepIndex) / 2));
-  const first = tail[0];
-  const last = tail[tail.length - 1];
-  return (last.output - first.output) / Math.max(1e-12, (last.timeSeconds - first.timeSeconds) * inputChange);
+/** Least-squares gain of a candidate's unit response to the held input deviations, from the steady baseline (N2.2). Dynamic forms
+ * are simulated on the recorded instants; second-order forms use their exact step response at those instants. */
+function jointGain(model: IdentifiedModel, samples: readonly IdentificationSample[], stepIndex: number, input0: number, output0: number): number {
+  const times = samples.map((sample) => sample.timeSeconds);
+  const deviations = samples.map((sample) => sample.input - input0);
+  const response = model.kind === "second_order" || model.kind === "second_order_dead_time"
+    ? samples.map((sample, index) => deviations[index] * responseFraction(model,
+      Math.max(0, sample.timeSeconds - times[stepIndex] - (model.deadTimeSeconds ?? 0))))
+    : heldUnitResponse(times, deviations, heldShape(model));
+  return leastSquaresGain(samples.slice(stepIndex).map((sample) => sample.output), output0, response.slice(stepIndex)).gain;
+}
+
+function heldShape(model: IdentifiedModel): HeldShape {
+  const delaySeconds = model.deadTimeSeconds ?? 0;
+  if (model.kind === "integrating") return { kind: "integrating", delaySeconds };
+  if (model.kind === "static_gain") return { kind: "static_gain" };
+  return { kind: "first_order", timeConstantSeconds: model.timeConstantSeconds ?? 1, delaySeconds };
+}
+
+/** The fitted response of a held step: its size, and the fraction of its final change the held response reached (A10.3). Undefined
+ * for a recording with more than one excitation (a PRBS, multisine or relay), where neither is defined. */
+function heldStepEvidence(model: IdentifiedModel, samples: readonly IdentificationSample[]):
+  { responseSize: number; holdSeconds: number; fraction?: number } | undefined {
+  if (inputChangeCount(samples) > 2) return undefined;
+  const held = heldStepSamples(samples);
+  const { stepIndex, input0, output0 } = identificationOperatingPoint(held);
+  const holdSeconds = held[held.length - 1].timeSeconds - held[stepIndex].timeSeconds;
+  const finalChange = model.gain * (held[stepIndex].input - input0);
+  if (model.kind === "integrating") return { responseSize: Math.abs(finalChange * holdSeconds), holdSeconds };
+  const fraction = Math.abs(finalChange) > 1e-12
+    ? reachedFraction(held.slice(stepIndex).map((sample) => sample.output), output0, finalChange) : undefined;
+  return { responseSize: Math.abs(finalChange), holdSeconds, ...(fraction === undefined ? {} : { fraction }) };
+}
+
+/** The two refusals of a held-step fit: a response buried in the baseline noise, and a held response that has not reached 63 % of
+ * its fitted final change (A10.3). `raw` keeps the baseline before the step; `values` is the fitted record. */
+function unreliableStepRefusal(model: IdentifiedModel, raw: readonly IdentificationSample[], values: readonly IdentificationSample[]): string | undefined {
+  const evidence = heldStepEvidence(model, values);
+  if (!evidence) return undefined;
+  const rawStep = largestInputChange(raw);
+  const noiseRms = rawStep > 0 ? baselineNoiseRms(raw.slice(0, rawStep).map((sample) => sample.output)) : 0;
+  const noiseMessage = noiseRefusal(evidence.responseSize, noiseRms, raw.find((sample) => sample.outputUnit)?.outputUnit ?? "", "step");
+  if (noiseMessage) return noiseMessage;
+  if (evidence.fraction !== undefined && evidence.fraction < MINIMUM_REACHED_FRACTION) {
+    return partialResponseRefusal(evidence.fraction, evidence.holdSeconds, model.deadTimeSeconds ?? 0, model.timeConstantSeconds ?? 1);
+  }
+  return undefined;
+}
+
+/** What the caller states about the process: the process its identification policy declares, and whether the fit is closed loop. */
+export interface IdentifyPlantOptions { declaredProcess?: string; closedLoop?: boolean }
+
+function identifyOptions(input: IdentificationReviewInput): IdentifyPlantOptions {
+  return { declaredProcess: input.declaredProcess, closedLoop: input.closedLoop };
+}
+
+/** The integrator rule for a held step in open loop. An integrating form is accepted only when the data can tell it apart from a
+ * self-regulating form: a first-order-with-delay fit that meets the error limit with a time constant at least the hold would fit the
+ * same data, so the response has not yet shown that it levels off. Undefined when the rule does not refuse. */
+function integratorRefusalFor(options: IdentifyPlantOptions, values: readonly IdentificationSample[], maximumNormalizedError: number): string | undefined {
+  if (options.closedLoop || options.declaredProcess === "integrating") return undefined;
+  const stepIndex = largestInputChange(values);
+  const sampleTime = medianIntervals(values);
+  if (stepIndex < 1 || !(sampleTime > 0)) return undefined;
+  const { input0, output0 } = identificationOperatingPoint(values);
+  const times = values.map((sample) => sample.timeSeconds);
+  const deviations = values.map((sample) => sample.input - input0);
+  const measured = values.slice(stepIndex).map((sample) => sample.output);
+  const holdSeconds = times[times.length - 1] - times[stepIndex];
+  const span = Math.max(...measured) - Math.min(...measured);
+  if (!(holdSeconds > 0) || !(span > 0)) return undefined;
+  const timeConstants = logarithmicValues(sampleTime, 20 * holdSeconds, 60);
+  let best: { timeConstantSeconds: number; error: number } | undefined;
+  for (let index = 0; index < 9; index += 1) {
+    const delaySeconds = index * 0.3 * holdSeconds / 8;
+    for (const timeConstantSeconds of timeConstants) {
+      const response = heldUnitResponse(times, deviations, { kind: "first_order", timeConstantSeconds, delaySeconds });
+      const fitted = leastSquaresGain(measured, output0, response.slice(stepIndex));
+      if (!Number.isFinite(fitted.gain)) continue;
+      const error = Math.sqrt(fitted.squaredError / measured.length) / span;
+      if (!best || error < best.error) best = { timeConstantSeconds, error };
+    }
+  }
+  if (!best || !(best.error <= maximumNormalizedError) || best.timeConstantSeconds < holdSeconds) return undefined;
+  return `The response is still rising like a ramp after ${minutesText(holdSeconds)} min; it cannot yet be told whether it levels off. Hold the step longer (Limits… → maximum duration), or identify with a setpoint step in Auto.`;
+}
+
+/** A preview is not offered when the physical rules refuse it: the recommended form's refusal, or a requested integrator's refusal. */
+function refuseRefusedPreview(result: IdentificationResult, selected: IdentifiedModel): void {
+  if (result.refusal) throw new Error(result.refusal);
+  if (selected.kind === "integrating" && result.integratorRefusal) throw new Error(result.integratorRefusal);
+}
+
+function logarithmicValues(minimum: number, maximum: number, count: number): number[] {
+  return Array.from({ length: count }, (_, index) => minimum * Math.pow(maximum / minimum, index / (count - 1)));
+}
+
+function minutesText(seconds: number): string {
+  return String(Number((seconds / 60).toPrecision(2)));
+}
+
+/** Number of samples at which the input differs from the sample before. */
+function inputChangeCount(samples: readonly IdentificationSample[]): number {
+  return samples.slice(1).filter((sample, index) => Math.abs(sample.input - samples[index].input) > 1e-9 * Math.max(1, Math.abs(sample.input))).length;
 }
 
 /** Where the late ramp, a least-squares line extended back, meets the level before the step: an integrator's delay. */

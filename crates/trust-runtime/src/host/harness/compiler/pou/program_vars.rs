@@ -44,7 +44,10 @@ fn lower_program_var_blocks(
             if qualifiers.constant
                 && matches!(
                     kind,
-                    VarBlockKind::Var | VarBlockKind::Stat | VarBlockKind::Global | VarBlockKind::Temp
+                    VarBlockKind::Var
+                        | VarBlockKind::Stat
+                        | VarBlockKind::Global
+                        | VarBlockKind::Temp
                 )
             {
                 if let Some(expr) = init_expr.as_ref() {
@@ -105,6 +108,7 @@ fn lower_program_var_blocks(
                             initializer: init_expr.clone(),
                             retain: qualifiers.retain,
                             address: parts.address.clone(),
+                            constant: qualifiers.constant,
                         });
                     }
                 }

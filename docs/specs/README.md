@@ -2,7 +2,7 @@
 
 This directory contains the IEC 61131-3 Structured Text language specs
 (`01-09`), the split runtime/tooling specs (`10-14`), the Ladder/profile/editor
-specs (`15-17`), the project/runtime and operational contract specs (`18-38`), and the current
+specs (`15-17`), the project/runtime and operational contract specs (`18-39`), and the current
 non-numbered SFC profile note (`sfc-profile`). Product and tooling contracts in
 this directory are explicitly identified and do not become IEC requirements.
 
@@ -29,7 +29,7 @@ this directory are explicitly identified and do not become IEC requirements.
 | [22-developer-workflows.md](22-developer-workflows.md) | Developer source-discovery and project-scoped commit behavior | trust-dev |
 | [23-connector-status.md](23-connector-status.md) | Canonical connector state, health, confidence, and point-quality vocabulary | trust-runtime, editors/vscode |
 | [24-release-evidence.md](24-release-evidence.md) | Platform, source-build, dependency, artifact, version, hardware, and conformance evidence | release tooling, CI, docs |
-| [25-vscode-product-contract.md](25-vscode-product-contract.md) | VS Code shell, Live Values, Devices & Connections, examples, libraries, HMI preview, and visual-editor product behavior | editors/vscode |
+| [25-vscode-product-contract.md](25-vscode-product-contract.md) | VS Code shell, Live Values, Devices & Connections, examples, libraries, and visual-editor product behavior | editors/vscode |
 | [26-hir-semantic-kernel.md](26-hir-semantic-kernel.md) | Incremental HIR source identity, invalidation, translation, concurrency, and semantic-query contracts | trust-hir |
 | [27-openot-authoring.md](27-openot-authoring.md) | OpenOT pragma vocabulary, runtime translation, producer publication, event materialization, and fenced reconciliation | trust-hir, trust-runtime |
 | [28-hir-warning-policy.md](28-hir-warning-policy.md) | Product warning policy for unused declarations, conversions, complexity, reachability, determinism, and suspicious operations | trust-hir |
@@ -43,6 +43,13 @@ this directory are explicitly identified and do not become IEC requirements.
 | [36-control-pid-performance-evaluation.md](36-control-pid-performance-evaluation.md) | Executed Control.PID performance, robustness, disturbance, noise, and stability benchmark | trust-runtime, editors/vscode |
 | [37-control-advanced-structures.md](37-control-advanced-structures.md) | Smith prediction, PID gain scheduling, and static two-loop decoupling composed around Control.PID | libraries/control, trust-runtime |
 | [38-control-engineering-curriculum.md](38-control-engineering-curriculum.md) | Causal real-world control-engineering learning sequence from feedback foundations through advanced design and commissioning | documentation, examples, Control Studio |
+| [39-hmi-builder.md](39-hmi-builder.md) | Drag-and-drop HMI Builder: editor, pages, symbols, pipes, bindings, equipment pairs, generation from and to the program, live mode, safe operation, TOML format | editors/vscode, trust-runtime, trust-lsp, libraries |
+| [40-alarm-library.md](40-alarm-library.md) | The shipped `Alarm` library: alarms as function blocks (ISA-18.2), their lifecycle, operator actions and the runtime's alarm service | libraries/alarm, trust-runtime |
+| [41-equipment-library.md](41-equipment-library.md) | Retired `Equipment` library; replaced by the Plant library | — |
+| [42-communication-links.md](42-communication-links.md) | The state of every communication link for the program and the HMI: the `Comm.Link` block the runtime fills each scan, its alarm and the link faceplate | libraries/comm, trust-runtime |
+| [43-hmi-agent-authoring.md](43-hmi-agent-authoring.md) | Agent tools for visual HMI composition, revisioned drafts, rendered critique, collaborative editing, MCP access and CI/release acceptance | editors/vscode, trust-lsp, trust-runtime |
+| [trust-plant-library.md](trust-plant-library.md) | The native OOP Plant library: equipment, instruments, controllers, groups and sequences with mode-based authority, retained settings and runtime discovery | libraries/plant, trust-runtime, trust-lsp, editors/vscode |
+| [hmi-component-catalogue.md](hmi-component-catalogue.md) | Exact FB-to-HMI asset catalogue, reuse/new work, instrument ownership and drag-and-drop code-generation contract | libraries, trust-lsp, trust-runtime, editors/vscode |
 | [16-ladder-profile-trust.md](16-ladder-profile-trust.md) | truST LD schema/runtime/editor profile and interoperability constraints | trust-runtime, trust-lsp, editors/vscode |
 | [17-visual-editors-runtime-unification.md](17-visual-editors-runtime-unification.md) | Shared ST-backed runtime/debug command path for Ladder/Statechart/Blockly | editors/vscode, trust-debug, trust-runtime |
 | [18-configurations-resources-tasks.md](18-configurations-resources-tasks.md) | CONFIGURATION/RESOURCE/TASK declarations and program-to-task binding rules | trust-hir, trust-lsp, trust-runtime |
@@ -182,6 +189,9 @@ Use:
   for automatic progression, compact editors and save/restart behavior
 - [35-vscode-control-studio.md](35-vscode-control-studio.md) for Control Studio
   runtime and numerical contracts, UI clarity and acceptance
+- [Control Studio runtime protocol](control-studio-runtime-protocol.md) and
+  [Control Studio numerics](control-studio-numerics.md), the annexes of
+  specification 35 for the runtime operations and the numerical methods
 - [38-control-engineering-curriculum.md](38-control-engineering-curriculum.md)
   for the progressive real-world control learning path and lesson contract
 

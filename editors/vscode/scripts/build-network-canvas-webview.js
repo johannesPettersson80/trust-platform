@@ -19,6 +19,9 @@ const buildOptions = {
   platform: "browser",
   target: ["es2020"],
   format: "iife",
+  // The automatic JSX runtime, as tsconfig.webview.json type-checks it: a component without its
+  // own React import (EquipmentConnections.tsx) blanked the whole canvas with the classic one.
+  jsx: "automatic",
   sourcemap: true,
   minify: !isWatch,
   loader: {

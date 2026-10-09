@@ -125,9 +125,19 @@ fn log_runtime_event(logger: &RuntimeLogger, event: &trust_runtime::debug::Runti
     }
 }
 
+/// How loudly an audit record is logged: HMI command records (specification 39, §12.7) are
+/// always kept; other control records only when debugging.
+fn audit_log_level(event: &trust_runtime::control::ControlAuditEvent) -> LogLevel {
+    if event.request_type.starts_with("hmi.") {
+        LogLevel::Info
+    } else {
+        LogLevel::Debug
+    }
+}
+
 fn log_control_audit(logger: &RuntimeLogger, event: trust_runtime::control::ControlAuditEvent) {
     logger.log(
-        LogLevel::Debug,
+        audit_log_level(&event),
         "control_audit",
         json!({
             "event_id": event.event_id.as_str(),

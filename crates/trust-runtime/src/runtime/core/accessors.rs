@@ -8,6 +8,14 @@ type InstanceInitContext<'a> = (
 );
 
 impl Runtime {
+    /// Publishes the alarm service's records to the OpenOT ring when it is enabled (specification
+    /// 40, §5.2).
+    pub fn publish_alarm_records(&mut self, records: &[crate::hmi::alarms::AlarmEvent]) {
+        if !records.is_empty() {
+            self.openot_telemetry.publish_alarm_records(records);
+        }
+    }
+
     pub(crate) fn resource_name(&self) -> &SmolStr {
         &self.resource_name
     }
@@ -79,6 +87,18 @@ impl Runtime {
     #[must_use]
     pub fn programs(&self) -> &IndexMap<SmolStr, ProgramDef> {
         &self.programs
+    }
+
+    /// The program type of a program instance a configuration names, ignoring case.
+    #[must_use]
+    pub fn program_type(&self, instance: &str) -> Option<&SmolStr> {
+        self.program_types.get(instance.to_ascii_uppercase().as_str())
+    }
+
+    /// Records the program type of a program instance a configuration names.
+    pub(crate) fn set_program_type(&mut self, instance: &str, program_type: SmolStr) {
+        self.program_types
+            .insert(SmolStr::new(instance.to_ascii_uppercase()), program_type);
     }
 
     pub(crate) fn globals(&self) -> &IndexMap<SmolStr, GlobalVarMeta> {
@@ -247,8 +267,37 @@ impl Runtime {
         self.io.all_drivers_simulated() && self.ads_connection_count()==0 && self.opcua_client_connection_count()==0
     }
 
+    /// Enables or disables simulation for this resource. The runtime binary calls it at startup in simulation mode, and
+    /// the debug adapter when its launch asks for simulation (Specification 35, A2.4).
+    pub fn set_simulation_enabled(&mut self, enabled: bool) {
+        self.simulation_enabled = enabled;
+    }
+
+    /// True when the target is simulated: simulation is enabled and all attached I/O is simulation-only (Specification 35,
+    /// A2.4). Every write the runtime receives is decided by this fact, never by a label in the request.
+    #[must_use]
+    pub fn simulated_target(&self) -> bool {
+        self.simulation_enabled && self.simulation_only_io()
+    }
+
     pub fn add_io_driver(&mut self, name: impl Into<SmolStr>, driver: Box<dyn IoDriver>) {
         self.io.add_driver(name, driver);
+    }
+
+    /// Register one I/O driver with the name of its link, for example `modbus_tcp:0`
+    /// (specification 42, §2).
+    pub fn add_io_driver_with_link(
+        &mut self,
+        name: impl Into<SmolStr>,
+        link: impl Into<SmolStr>,
+        driver: Box<dyn IoDriver>,
+    ) {
+        self.io.add_driver_with_link(name, link, driver);
+    }
+
+    /// Note a configured link that is switched off (specification 42, §3 item 1).
+    pub fn add_disabled_link(&mut self, link: impl Into<SmolStr>) {
+        self.links.add_disabled(link.into());
     }
 
     /// Clear all registered I/O drivers.

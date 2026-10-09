@@ -183,18 +183,18 @@ suite("Control Studio connected PID engineer path", () => {
     };
 
     const missingModel = await run(proportionalLoop(), undefined, {});
-    assert.deepStrictEqual(missingModel?.failure, { cause: "model-or-data", nextAction: "find-model" });
+    assert.strictEqual(missingModel?.failure?.nextAction?.kind, "identify");
 
     const invalidSettings = await run(proportionalLoop(), model, { referenceChange: 0 });
-    assert.deepStrictEqual(invalidSettings?.failure, { cause: "settings", nextAction: "retune" });
+    assert.strictEqual(invalidSettings?.failure?.nextAction?.kind, "tune");
 
     const missingPidAdapter = await run(pidLoop(), model, { family: "PI", applicationMode: "auto" });
-    assert.deepStrictEqual(missingPidAdapter?.failure, { cause: "controller-capability", nextAction: "choose-controller" });
+    assert.strictEqual(missingPidAdapter?.failure?.nextAction?.kind, "choose-method");
 
     const constrained = proportionalLoop();
     constrained.parameterBinding.parameters[0].maximum = 0.1;
     const infeasibleTask = await run(constrained, model, {});
-    assert.deepStrictEqual(infeasibleTask?.failure, { cause: "task-infeasible", nextAction: "revise-requirements" });
+    assert.strictEqual(infeasibleTask?.failure?.nextAction?.kind, "open-requirements");
   });
 
   test("recommends P first for a typed PID adapter until the declared task proves an added term necessary", () => {
@@ -221,14 +221,14 @@ suite("Control Studio connected PID engineer path", () => {
     };
     const unvalidated = rejected({ ...base, validation: "unvalidated", evidence: [] });
     assert.strictEqual(unvalidated.status, "unavailable");
-    assert.deepStrictEqual(unvalidated.failure, { cause: "model-or-data", nextAction: "find-model" });
+    assert.strictEqual((unvalidated.failure as { nextAction?: { kind?: string } } | undefined)?.nextAction?.kind, "identify");
     assert.match(String(unvalidated.reason), /independent validation/i);
     assert.strictEqual((unvalidated.model as any)?.revision, "supplied", "The blocked model remains available for inspection");
     assert.strictEqual((unvalidated.modelAnalysis as any)?.model.revision, "supplied", "Model inspection is independent of controller qualification");
 
     const wrongOutputUnit = rejected({ ...base, revision: "wrong-output-unit", outputs: [channel("y", "°C")] });
     assert.strictEqual(wrongOutputUnit.status, "unavailable");
-    assert.deepStrictEqual(wrongOutputUnit.failure, { cause: "model-or-data", nextAction: "find-model" });
+    assert.strictEqual((wrongOutputUnit.failure as { nextAction?: { kind?: string } } | undefined)?.nextAction?.kind, "identify");
     assert.match(String(wrongOutputUnit.reason), /output(?:\s+\w+)?\s+unit/i);
 
     const multivariable = rejected({ ...base, revision: "mimo", inputs: [channel("u1", "V"), channel("u2", "V")] });
@@ -263,7 +263,7 @@ suite("Control Studio connected PID engineer path", () => {
         expectedLoopRevision: scope.loopRevision, payload: {} }, scope, async value => { posts.push(value); });
       const result = posts[posts.length - 1];
       assert.strictEqual(result?.status, "failed", String(result?.reason));
-      assert.deepStrictEqual(result?.failure, { cause: "model-or-data", nextAction: "find-model" });
+      assert.strictEqual(result?.failure?.nextAction?.kind, "identify");
       assert.match(String(result?.reason), /independent validation/i);
     } finally {
       session.dispose();
@@ -322,17 +322,19 @@ suite("Control Studio connected PID engineer path", () => {
     const started = Date.now();
     // The previous experiment's response is still decaying: 5 m falling with a 0.25 s time constant.
     const moving = () => 5 * Math.exp(-(Date.now() - started) / 250);
-    let atRecordingStart: number | undefined;
-    search.connectRuntimeSearch = async () => ({ source: "simulation", request: async (operation: string) =>
-      operation === "control.experiment.status" ? { status: "completed", restoration: "restored" } : {} });
-    recordingModule.RuntimeRecordingSession.start = async () => {
-      atRecordingStart = moving();
-      return { recoveryOwner: () => ({ schemaVersion: 1, recordingId: "settled-recording", projectId: loop.projectId, runtimeId: loop.runtimeId,
+    // The recording starts first and observes the baseline (B3.4 steps 1-2); the step is the experiment start, sent after the steady baseline.
+    let atStep: number | undefined;
+    search.connectRuntimeSearch = async () => ({ source: "simulation", request: async (operation: string) => {
+      if (operation === "control.experiment.start") atStep = moving();
+      return operation === "control.experiment.status" ? { status: "completed", stop_reason: "duration_complete", restoration: "restored" } : {};
+    } });
+    recordingModule.RuntimeRecordingSession.start = async () => ({ recoveryOwner: () => ({ schemaVersion: 1, recordingId: "settled-recording", projectId: loop.projectId, runtimeId: loop.runtimeId,
         loopId: loop.id, loopRevision: loop.revision, source: "simulation", bindings: [] }),
+      // The campaign judges the steady baseline from the recording's follow pages on process time (B3.4 step 2).
+      follow: async () => followPage((Date.now() - started) / 1000, moving()),
       stop: async () => ({ samples: [], evidence: { recordingId: "settled-recording", method: "runtime_scan_buffer", completeness: "incomplete",
         observedSampleCount: 0, missingScanRanges: [], droppedObservedSamples: 0, actualCycleTimingAvailable: false,
-        freshnessAvailable: false, reason: "The runtime returned no samples." } }) };
-    };
+        freshnessAvailable: false, reason: "The runtime returned no samples." } }) });
     const sample = () => { const value = manualSample(loop); value.processVariable = { ...value.processVariable, value: moving() }; return value; };
     const session = new EngineerWorkflowSession(loop, () => undefined, () => undefined,
       undefined, undefined, undefined, undefined, undefined, undefined, liveAcquisitionPorts(sample));
@@ -342,8 +344,8 @@ suite("Control Studio connected PID engineer path", () => {
       await session.handle({ schemaVersion: 1, kind: "control-studio.engineer.find", messageId: "settle-first",
         projectId: scope.projectId, editorSessionId: scope.editorSessionId, loopId: scope.loopId,
         expectedLoopRevision: scope.loopRevision, payload: {} }, scope, async value => { posts.push(value); });
-      assert.ok(atRecordingStart !== undefined, "the experiment ran");
-      assert.ok(Math.abs(atRecordingStart!) < 0.4, `the step starts from a steady output, not from ${atRecordingStart} m while it still moves`);
+      assert.ok(atStep !== undefined, "the experiment step was sent");
+      assert.ok(Math.abs(atStep!) < 0.4, `the step starts from a steady output, not from ${atStep} m while it still moves`);
       assert.ok(posts.some(post => post.status === "running" && /settle/i.test(String(post.reason))), "the wait is shown as progress");
     } finally {
       session.dispose();
@@ -361,13 +363,16 @@ suite("Control Studio connected PID engineer path", () => {
     const oldSearch = search.connectRuntimeSearch;
     const oldStart = recordingModule.RuntimeRecordingSession.start;
     let requests = 0;
+    const started = Date.now();
     search.connectRuntimeSearch = async () => ({ source: "simulation", request: async (operation: string) => {
       requests += 1;
-      return operation === "control.experiment.status" ? { status: "completed", restoration: "restored" } : {};
+      return operation === "control.experiment.status" ? { status: "completed", stop_reason: "duration_complete", restoration: "restored" } : {};
     } });
     recordingModule.RuntimeRecordingSession.start = async () => ({
       recoveryOwner: () => ({ schemaVersion: 1, recordingId: "prbs-recording", projectId: loop.projectId, runtimeId: loop.runtimeId,
         loopId: loop.id, loopRevision: loop.revision, source: "simulation", bindings: [] }),
+      // The output holds at 0 m, so the baseline is judged on its own window; the PRBS then runs and its recording is unusable.
+      follow: async () => followPage((Date.now() - started) / 1000, 0),
       stop: async () => ({ samples: [], evidence: { recordingId: "prbs-recording", method: "runtime_scan_buffer", completeness: "incomplete",
         observedSampleCount: 0, missingScanRanges: [], droppedObservedSamples: 0, actualCycleTimingAvailable: false,
         freshnessAvailable: false, reason: "The runtime returned no samples." } }),
@@ -382,7 +387,7 @@ suite("Control Studio connected PID engineer path", () => {
         expectedLoopRevision: scope.loopRevision, payload: {} }, scope, async value => { posts.push(value); });
       const result = posts[posts.length - 1];
       assert.strictEqual(result?.status, "failed", String(result?.reason));
-      assert.deepStrictEqual(result?.failure, { cause: "model-or-data", nextAction: "find-model" });
+      assert.strictEqual(result?.failure?.nextAction?.kind, "identify");
       assert.ok(requests > 0, "the implemented PRBS method may dispatch bounded acquisition before reporting retained-data failure");
     } finally {
       session.dispose();
@@ -515,7 +520,7 @@ suite("Control Studio connected PID engineer path", () => {
           applicationMode: "manual" } }, scope, async value => { posts.push(value); });
       const result = posts[posts.length - 1];
       assert.strictEqual(result?.status, "failed", String(result?.reason));
-      assert.deepStrictEqual(result?.failure, { cause: "task-infeasible", nextAction: "revise-requirements" });
+      assert.strictEqual(result?.failure?.nextAction?.kind, "open-requirements");
       assert.match(String(result?.reason), /output limit/i);
     } finally { session.dispose(); }
   });
@@ -584,6 +589,7 @@ suite("Control Studio connected PID engineer path", () => {
 
   test("verifies the declared PI retained states and first output before Auto commissioning", async () => {
     const loop = pidLoop();
+    const plants = drivingPlant(loop);
     loop.controller.pidInitialization = pidInitialization();
     const model: any = { kind: "transfer-function", numerator: [1], denominator: [1, 1], delaySeconds: 0,
       revision: "first-order", source: "provided", validation: "validated", evidence: ["bench"],
@@ -594,7 +600,10 @@ suite("Control Studio connected PID engineer path", () => {
     const oldSearch = search.connectRuntimeSearch, oldParameters = parameters.connectRuntimeParameters;
     const oldVerify = verification.RuntimeVerificationClient.prototype.verify;
     const requests: any[] = [];
-    search.connectRuntimeSearch = async () => ({ source: "simulation", request: async () => { throw new Error("Verify must use its existing client boundary"); } });
+    search.connectRuntimeSearch = async () => ({ source: "simulation", request: async (operation: string) => {
+      if (operation === "plant.read") return plants;
+      throw new Error("Verify must use its existing client boundary");
+    } });
     parameters.connectRuntimeParameters = async () => ({ source: "simulation", client: { status: async () => ({
       values: { "Main.Kp": 1, "Main.Ki": 0, "Main.Kd": 0 }, program_revision: "program", binding_revision: "binding",
     }) } });
@@ -642,6 +651,7 @@ suite("Control Studio connected PID engineer path", () => {
 
   test("routes a failed actual-ST verification back to Tune with its retained evidence", async () => {
     const loop = proportionalLoop();
+    const plants = drivingPlant(loop);
     const model: any = { kind: "transfer-function", numerator: [1], denominator: [1, 1], delaySeconds: 0,
       revision: "first-order", source: "provided", validation: "validated", evidence: ["bench"],
       inputs: [channel("u", "V")], outputs: [channel("y", "m")] };
@@ -651,7 +661,7 @@ suite("Control Studio connected PID engineer path", () => {
     const oldSearch = search.connectRuntimeSearch;
     const oldParameters = parameters.connectRuntimeParameters;
     const oldVerify = verification.RuntimeVerificationClient.prototype.verify;
-    search.connectRuntimeSearch = async () => ({ source: "simulation", request: async () => ({}) });
+    search.connectRuntimeSearch = async () => ({ source: "simulation", request: async (operation: string) => operation === "plant.read" ? plants : {} });
     parameters.connectRuntimeParameters = async () => ({ source: "simulation", client: { status: async () => ({
       values: { "Main.Kp": 1 }, program_revision: "program", binding_revision: "binding",
     }) } });
@@ -677,8 +687,8 @@ suite("Control Studio connected PID engineer path", () => {
       await invoke("verify", { applicationMode: "manual" });
       const result = posts[posts.length - 1];
       assert.strictEqual(result?.status, "verification-failed");
-      assert.deepStrictEqual(result?.failure, { cause: "settings", nextAction: "retune" });
-      assert.match(String(result?.reason), /Next: Tune again/i);
+      assert.strictEqual(result?.failure?.nextAction?.kind, "tune");
+      assert.match(String(result?.reason), /Next: Tune controller/i);
       assert.strictEqual(calls.filter(request => request.simulation_override === undefined).length, 2,
         "the retained baseline and failed candidate must both execute actual-ST requests; prediction requests are separate");
     } finally {
@@ -715,7 +725,7 @@ suite("Control Studio connected PID engineer path", () => {
     runtime.bindRuntimeConnection = async () => ({ source: "simulation", request: async (operation: string, payload: any) => {
       assert.strictEqual(operation, "control.transfer.status");
       bindings.push(payload.binding);
-      return { program_revision: "program", binding_revision: "transfer", status: "idle", reason: null, transaction: null,
+      return { program_revision: "program", binding_revision: "transfer", runtime_time_ns: 1_000_000_000, status: "idle", reason: null, transaction: null,
         supported_tracking: ["parallel-pid-v1"], values: { "Main.Manual": true, "Main.SP": 0, "Main.ManualCommand": 0,
           "Main.Integral": 0, "Main.PreviousError": 0, "Main.Kp": 1, "Main.Ki": 0, "Main.Kd": 0, "Main.PV": 0, "Main.MV": 0 } };
     } });
@@ -735,7 +745,7 @@ suite("Control Studio connected PID engineer path", () => {
         settlingTimeSeconds: 2, durationSeconds: 4, ...automatic });
       await invoke("verify", automatic);
       await invoke("apply", automatic);
-      assert.strictEqual(posts[posts.length - 1]?.status, "review");
+      assert.strictEqual(posts[posts.length - 1]?.status, "review", String(posts[posts.length - 1]?.reason));
       assert.deepStrictEqual(bindings[0].states.map((state: any) => state.symbol),
         ["Main.SP", "Main.ManualCommand", "Main.Integral", "Main.PreviousError"]);
       assert.deepStrictEqual(bindings[0].guards.map((guard: any) => guard.symbol),
@@ -887,10 +897,30 @@ function stateDesignModel(loop: any): any {
     a: [[-1]], b: [[1]], c: [[1]], d: [[0]], operatingPoint: { inputs: [0], outputs: [0] } };
 }
 
+/**
+ * One follow page of a running recording: a single good sample of the measured output at its process time (A3.2). The campaign
+ * reads only these samples while it waits for a steady baseline (B3.4 step 2).
+ */
+function followPage(elapsedSeconds: number, processValue: number): Record<string, unknown> {
+  return { state: "running", elapsedMs: Math.round(elapsedSeconds * 1_000), complete: false, reason: null,
+    rawSamples: [{ elapsedSeconds, quality: "good", pv: processValue }] };
+}
+
 /** Find always runs through the panel's live acquisition service; these ports retain nothing. */
 function liveAcquisitionPorts(sample: () => any = () => ({ availability: "unavailable", source: "Simulation", loopId: "none", reason: "not sampled" })): any {
   return { sample: async () => sample(), recordingOwner: () => undefined, persist: async () => undefined,
-    clear: async () => undefined, retain: async () => undefined, mode: { read: () => undefined, write: async () => undefined } };
+    clear: async () => undefined, retain: async () => undefined, mode: { read: () => undefined, write: async () => undefined },
+    campaign: { read: () => undefined, write: async () => undefined } };
+}
+
+/**
+ * A simulated plant that drives this loop's signals, so Validate runs the configured plant (Specification 35, B5.3). Without
+ * one the qualified model is the plant and every actual-ST request keeps its model override.
+ */
+function drivingPlant(loop: any): { plants: { id: string; command_sources: string[]; feedback_targets: string[] }[] } {
+  loop.plantId = "engineer-plant";
+  return { plants: [{ id: loop.plantId, command_sources: [loop.signals.manipulatedVariable.address],
+    feedback_targets: [loop.signals.processVariable.address] }] };
 }
 
 function manualSample(loop: any): any {

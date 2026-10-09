@@ -36,7 +36,6 @@ code examples/tutorials/12_hmi_pid_process_dashboard
 5. Open **Live Values** to inspect `%I`, `%Q`, and memory while it runs (see [Live Values](../operate/live-values.md)).
 6. Set a breakpoint in the control logic and step through it (see [Debugging In VS Code](../operate/debugging-in-vscode.md)).
 7. Rename or jump to the control function block to confirm the LSP flow.
-8. Open the **HMI** preview once the editor-side behavior makes sense.
 
 ## IEC-Aware Diagnostics
 
@@ -85,13 +84,6 @@ Verify it works:
 
 1. toggle `%IX0.0`
 2. confirm **Live Values** changes
-3. open the HMI from the running project for visual confirmation
-
-![Browser HMI for the tutorial project](../assets/images/browser/hmi-home.png)
-
-*Figure:* `/hmi` for the same shipped tutorial project once the runtime is
-connected. Use it as the operator-side confirmation after the editor,
-diagnostics, Live Values, and debugger all look correct.
 
 ## If It Fails
 
@@ -108,4 +100,3 @@ diagnostics, Live Values, and debugger all look correct.
 - [Create A New Project](create-new-project.md)
 - [Project Layout](../develop/project-layout.md)
 - [Run & Check](../operate/debugging-and-runtime-panel.md)
-- [HMI And Web UI](../operate/hmi-and-web-ui.md)

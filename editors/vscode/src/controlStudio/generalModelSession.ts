@@ -9,6 +9,7 @@ import { isSavedGeneralModelAnalysis, isSavedPeriodicFrequencyAnalysis, validMod
 import { estimatePeriodicFrequency } from "./threePageAnalysisOperations";
 import type { ModelTimeResponse } from "./generalModelTime";
 import type { ModelPoleView } from "./generalModelPoleView";
+import { RECORDING_SAMPLE_LIMIT } from "./controlStudioLimits";
 export { isSavedGeneralModelAnalysis, type SavedGeneralModelAnalysis } from "./generalModelPersistence";
 export type DeclaredFeedbackProvider = (model: GeneralModel) => GeneralFeedbackDefinition | undefined;
 export interface PeriodicRecordingSource { input: readonly number[]; output: readonly number[]; sampleTimeSeconds: number; recordingId: string; recordingRevision: string; }
@@ -58,7 +59,7 @@ export class GeneralModelSession {
         const recordingId = typeof payload.recordingId === "string" ? payload.recordingId : undefined;
         const recordingRevision = typeof payload.recordingRevision === "string" ? payload.recordingRevision : undefined;
         const source = recordingId && recordingRevision ? this.periodicRecordingProvider?.(recordingId, recordingRevision) : undefined;
-        if (!source || source.recordingId !== recordingId || source.recordingRevision !== recordingRevision || source.input.length !== source.output.length || source.input.length > 12000
+        if (!source || source.recordingId !== recordingId || source.recordingRevision !== recordingRevision || source.input.length !== source.output.length || source.input.length > RECORDING_SAMPLE_LIMIT
             || !source.input.every(finite) || !source.output.every(finite)
             || !Number.isSafeInteger(payload.startupSamples) || (payload.startupSamples as number) < 1
             || !Array.isArray(payload.frequencies) || !payload.frequencies.every(finite) || payload.frequencies.length === 0

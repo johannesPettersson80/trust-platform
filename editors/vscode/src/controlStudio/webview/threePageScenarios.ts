@@ -1,5 +1,6 @@
 import { applyEventTimeLimit, initEngineerScenarioEditor, type EngineerScenarioEditorContext } from "./engineerScenarioEditor";
 import { latestScenarioCheck, validEngineerScenarios, type EngineerScenario } from "../scenarioContract";
+import { parseDurationSeconds } from "./durationField";
 
 export interface ThreePageScenarioOptions {
   scenarioDefinitions: readonly Record<string, unknown>[];
@@ -29,14 +30,18 @@ export function mountThreePageScenarios(section: HTMLElement, options: ThreePage
   container.append(heading, raw, error, list, add);
   const form = section.querySelector<HTMLFormElement>("form");
   const actions = form?.querySelector<HTMLElement>(".trust-compact-editor-actions");
-  (actions ? form!.insertBefore(container, actions) : section.append(container));
+  // The scenarios belong to the Requirements test design, so they sit inside its More… section when the dialog has one.
+  const more = section.querySelector<HTMLElement>(".trust-compact-editor-more-body");
+  if (more) more.append(container);
+  else if (actions) form!.insertBefore(container, actions);
+  else section.append(container);
   // The validation duration can change in the same dialog, so event-time limits follow its field.
   const durationField = section.querySelector<HTMLInputElement>("[data-studio-requirement='durationSeconds']");
   const context: EngineerScenarioEditorContext = {
     processSymbol: options.processSymbol, setpointSymbol: options.setpointSymbol,
     samplePeriodMs: options.samplePeriodMs, processMinimum: options.processMinimum, processMaximum: options.processMaximum,
     get durationSeconds() {
-      const entered = durationField ? Number(durationField.value) : Number.NaN;
+      const entered = durationField ? parseDurationSeconds(durationField.value) ?? Number.NaN : Number.NaN;
       return durationField && durationField.value.trim() !== "" && Number.isFinite(entered) ? entered : options.durationSeconds;
     },
   };

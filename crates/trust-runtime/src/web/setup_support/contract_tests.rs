@@ -390,42 +390,6 @@ fn source_read_rejects_symbolic_escape() {
 }
 
 #[test]
-fn hmi_asset_read_accepts_only_contained_lowercase_svg_file() {
-    let fixture = TempProject::new("hmi-asset");
-    fixture.write("hmi/pump.svg", "<svg></svg>");
-    fixture.write("hmi/pump.SVG", "<svg></svg>");
-    fixture.write("hmi/script.js", "alert(1)");
-    assert_eq!(
-        read_hmi_asset_file(&fixture.root, "pump.svg").expect("SVG"),
-        "<svg></svg>"
-    );
-    assert!(read_hmi_asset_file(&fixture.root, "pump.SVG").is_err());
-    assert!(read_hmi_asset_file(&fixture.root, "script.js").is_err());
-}
-
-#[test]
-fn hmi_asset_read_rejects_parent_traversal() {
-    let fixture = TempProject::new("hmi-traversal");
-    fixture.write("hmi/pump.svg", "");
-    fixture.write("outside.svg", "<svg>secret</svg>");
-    assert!(read_hmi_asset_file(&fixture.root, "../outside.svg").is_err());
-}
-
-#[cfg(unix)]
-#[test]
-fn hmi_asset_read_rejects_symbolic_escape() {
-    let fixture = TempProject::new("hmi-symlink");
-    fixture.write("hmi/pump.svg", "");
-    fixture.write("outside.svg", "<svg>secret</svg>");
-    std::os::unix::fs::symlink(
-        fixture.root.join("outside.svg"),
-        fixture.root.join("hmi/linked.svg"),
-    )
-    .expect("symlink");
-    assert!(read_hmi_asset_file(&fixture.root, "linked.svg").is_err());
-}
-
-#[test]
 fn setup_apply_writes_valid_runtime_and_project_io_without_system_mutation() {
     let fixture = TempProject::new("apply");
     let payload = SetupApplyRequest {

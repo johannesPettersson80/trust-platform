@@ -187,6 +187,59 @@ END_PROGRAM
 }
 
 #[test]
+fn check_reports_a_runtime_resource_the_configuration_lacks() {
+    // The runtime runs the configuration's resource that runtime.toml names, so a name the
+    // program lacks stopped it at start while the check said ok; now the check reports it.
+    let project = unique_temp_dir("check-resource-mismatch");
+    write_project_fixture(
+        &project,
+        r#"
+PROGRAM Main
+END_PROGRAM
+
+CONFIGURATION Config
+RESOURCE MainRes ON PLC
+    TASK MainTask (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH MainTask : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+    );
+    let output = run_check(&project);
+    assert!(
+        !output.status.success(),
+        "a resource the program lacks fails the check"
+    );
+    let payload = json_stdout(&output);
+    let issue = payload["issues"]
+        .as_array()
+        .expect("issues")
+        .iter()
+        .find(|issue| issue["code"] == "config.resource")
+        .cloned()
+        .unwrap_or_else(|| panic!("a resource issue in {payload}"));
+    assert_eq!(
+        issue["message"],
+        "runtime.toml names resource 'main', but the program's configuration declares resource 'MainRes'; use the same name in both"
+    );
+    let runtime_path = project.join("runtime.toml");
+    let text = std::fs::read_to_string(&runtime_path).expect("read runtime.toml");
+    assert!(text.contains("name = \"main\""), "{text}");
+    std::fs::write(
+        &runtime_path,
+        text.replacen("name = \"main\"", "name = \"MainRes\"", 1),
+    )
+    .expect("write runtime.toml");
+    let output = run_check(&project);
+    assert!(
+        output.status.success(),
+        "matching names pass: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
 fn check_aggregates_required_and_optional_config_errors_with_stable_exit_code() {
     let project = unique_temp_dir("check-config-aggregate");
     write_project_fixture(

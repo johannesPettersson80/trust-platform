@@ -1,0 +1,22 @@
+@startuml hmi-symbol-editor
+!theme plain
+title HMI My Symbols editor (specification 39 section 14.4)
+component "VS Code text document\nUndo / redo / save" as document
+component "Symbol editor host\nVersion checks + WorkspaceEdit" as host
+component "SymbolEditor webview\nParts, rules, bindings, ports" as editor
+component "Shared HMI drawing\ncustomSymbol + applyRules" as drawing
+component "Language server\nhmiFileParse / hmiFileFormat" as lsp
+component "Runtime my_symbols\nSVG cleaner, parser, canonical writer" as format
+artifact "hmi/symbols/name.toml" as definition
+artifact "hmi/symbols/name.svg\nOriginal artwork" as svg
+artifact "Shared truST theme\nVS Code variables" as theme
+document --> definition : save
+document --> host : text changes
+host --> document : minimal text edit
+host <--> editor : validated model / edited model
+editor --> drawing : preview values only
+editor --> theme : shell tokens
+host --> lsp : text + original drawing
+lsp --> format : parse / write then validate
+host --> svg : read only
+@enduml

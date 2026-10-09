@@ -13,6 +13,14 @@ import release_candidate_release as candidate_release
 
 
 class ReleaseCandidateGuardTests(unittest.TestCase):
+    def test_hmi_gate_is_required_and_uses_the_leased_target(self):
+        self.assertIn("remote_hmi", guard.required_command_ids(vscode_changed=False))
+        commands = dict(candidate_prepare.remote_validation_commands(vscode_changed=True, remote_target="/tmp/trust-hmi-target"))
+        command = commands["remote_hmi"]
+        self.assertIn("with_cargo_target_lease.sh", command)
+        self.assertIn("CARGO_TARGET_DIR=", command)
+        self.assertIn("hmi_ci_gate.sh", command)
+
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.repo = Path(self.temp_dir.name)

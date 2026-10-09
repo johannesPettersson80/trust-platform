@@ -44,6 +44,8 @@ import {
   disconnectManagedRuntimeAfterStop,
 } from "./managedRuntimeSession";
 import type { ManagedRuntime } from "./localRuntimeModel";
+import { onDidChangeSimulationSpeed, shownSimulatorSpeed } from "./simulationSpeed";
+import { simulationSpeedText } from "./controlStudio/runtimeTarget";
 import { getWorkspaceProjectState } from "./workspaceProject";
 
 // The ONE truST sidebar (WebviewView `trust.home`). It keeps one fixed layout:
@@ -208,7 +210,6 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       selectedRaw,
       primaryGate ? { reason: primaryGate } : undefined
     );
-    const hmiLabel = (await hasHmiDescriptor()) ? "HMI" : "Create HMI";
     // Update running simulation is SIMULATOR-ONLY and only when the running sim's source changed.
     // Remote apply/restart/deploy lives on the runtime node, never here.
     const canApply =
@@ -249,8 +250,13 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       deploy: deployButtonState(selected, this.compileState),
     };
     const actionHint = !buttons.action.enabled ? buttons.action.title : selected.primary.hint ?? "";
+    // "Speed ×N" beside the Simulator target (specification 35, B9.2): the running speed, or the saved speed that the next start uses.
+    const speedLine = selected.kind === "simulator"
+      ? `Speed ${simulationSpeedText(await shownSimulatorSpeed(snapshot, selected)) || "×1"}`
+      : "";
     void this.view.webview.postMessage({
       type: "state",
+      speed: speedLine,
       projectOpen,
       workspaceKind: workspaceState.kind,
       workspaceName: displayProjectName(workspaceState.folder?.name ?? ""),
@@ -265,7 +271,6 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       applyTitle: updateGate || "Update running simulation",
       applyMessage: visibleApplyMessage,
       applyMessageKind,
-      hmiLabel,
     });
   }
 
@@ -279,6 +284,9 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
         return;
       case "select":
         await this.onSelect(String(message.id ?? ""));
+        return;
+      case "changeSpeed":
+        await vscode.commands.executeCommand("trust-lsp.simulation.speed");
         return;
       case "chooseTarget":
         await this.chooseTarget();
@@ -313,6 +321,9 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       case "navDevices":
         await vscode.commands.executeCommand("trust-lsp.networkCanvas.open");
         return;
+      case "navHmiBuilder":
+        await vscode.commands.executeCommand("trust-lsp.hmiBuilder.open");
+        return;
       case "navControlStudio":
         await vscode.commands.executeCommand("trust-lsp.controlStudio.open");
         return;
@@ -321,10 +332,6 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
         return;
       case "navLiveValues":
         await vscode.commands.executeCommand("trust-lsp.debug.openIoPanel");
-        return;
-      case "navHmi":
-        await openOrCreateHmi();
-        await this.render();
         return;
       default:
         return;
@@ -713,6 +720,27 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       padding: 6px 8px;
       width: 100%;
     }
+    .speed-line {
+      align-items: center;
+      display: flex;
+      font-size: 12px;
+      gap: 6px;
+      opacity: 0.85;
+    }
+    .speed-line[hidden] {
+      display: none;
+    }
+    .speed-change {
+      background: none;
+      border: none;
+      color: var(--vscode-textLink-foreground);
+      cursor: pointer;
+      font: inherit;
+      padding: 0;
+    }
+    .speed-change:hover {
+      text-decoration: underline;
+    }
     .target-button .value {
       overflow: hidden;
       text-overflow: ellipsis;
@@ -872,12 +900,12 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       <nav class="nav" aria-label="truST destinations disabled until a project is open">
         <button class="nav-button" disabled><span class="nav-icon">▤</span><span>Devices &amp; Connections</span></button>
         <div class="disabled-reason">Open a project to use this.</div>
+        <button class="nav-button" disabled><span class="nav-icon codicon codicon-device-desktop" aria-hidden="true"></span><span>HMI</span></button>
+        <div class="disabled-reason">Open a project to use this.</div>
         <button class="nav-button" disabled><span class="nav-icon codicon codicon-graph-line" aria-hidden="true"></span><span>Control Studio</span></button>
         <div class="disabled-reason">Open a project to use this.</div>
         <button class="nav-button" disabled><span class="nav-icon">◉</span><span>Live Values</span></button>
         <div class="disabled-reason">Start a project to watch values.</div>
-        <button class="nav-button" disabled><span class="nav-icon">▭</span><span>Create HMI</span></button>
-        <div class="disabled-reason">Open a project to use this.</div>
         <button class="nav-button" disabled><span class="nav-icon">▦</span><span>Libraries</span></button>
         <div class="disabled-reason">Open a project to use this.</div>
       </nav>
@@ -895,6 +923,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
           <span class="value" id="targetValue">Simulator</span>
           <span aria-hidden="true">▾</span>
         </button>
+        <div class="speed-line" id="speedLine" hidden><span id="speedText"></span><button id="speedChange" class="speed-change" type="button">Change…</button></div>
         <div class="action-row" aria-label="Run controls">
           <button id="compile" class="action-button" type="button" title="Compile project">
             <span class="icon codicon codicon-tools" id="compileIcon" aria-hidden="true"></span><span class="label" id="compileLabel">Compile</span>
@@ -916,9 +945,9 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 
       <nav class="nav" aria-label="truST destinations">
         <button class="nav-button" id="navDevices"><span class="nav-icon">▤</span><span>Devices &amp; Connections</span></button>
+        <button class="nav-button" id="navHmiBuilder" title="Open the project's screens in the HMI Builder"><span class="nav-icon codicon codicon-device-desktop" aria-hidden="true"></span><span>HMI</span></button>
         <button class="nav-button" id="navControlStudio"><span class="nav-icon codicon codicon-graph-line" aria-hidden="true"></span><span>Control Studio</span></button>
         <button class="nav-button" id="navLiveValues"><span class="nav-icon">◉</span><span>Live Values</span></button>
-        <button class="nav-button" id="navHmi"><span class="nav-icon">▭</span><span id="navHmiLabel">HMI</span></button>
         <button class="nav-button" id="navLibraries"><span class="nav-icon">▦</span><span>Libraries</span></button>
       </nav>
 	  </section>
@@ -932,6 +961,9 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     const projectNameEl = document.getElementById("projectName");
     const targetButton = document.getElementById("targetButton");
     const targetValue = document.getElementById("targetValue");
+    const speedLine = document.getElementById("speedLine");
+    const speedText = document.getElementById("speedText");
+    const speedChange = document.getElementById("speedChange");
     const compileEl = document.getElementById("compile");
     const compileIcon = document.getElementById("compileIcon");
     const compileLabel = document.getElementById("compileLabel");
@@ -947,7 +979,6 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 	  const applyEl = document.getElementById("apply");
 	  const applyMessageEl = document.getElementById("applyMessage");
 	  const hintEl = document.getElementById("hint");
-	  const navHmiLabel = document.getElementById("navHmiLabel");
 
 	  function post(type) { return () => vscode.postMessage({ type }); }
     function setButton(button, icon, label, view) {
@@ -1003,6 +1034,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     }
     window.addEventListener("resize", fitActionLabels);
     targetButton.addEventListener("click", post("chooseTarget"));
+    speedChange.addEventListener("click", post("changeSpeed"));
     compileEl.addEventListener("click", post("compile"));
 	  actionEl.addEventListener("click", () => { if (!actionEl.disabled) { vscode.postMessage({ type: "action" }); } });
       debugEl.addEventListener("click", post("debug"));
@@ -1012,10 +1044,10 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 	  document.getElementById("openProject").addEventListener("click", post("openProject"));
 	  document.getElementById("startExample").addEventListener("click", post("startExample"));
 	  document.getElementById("navDevices").addEventListener("click", post("navDevices"));
+	  document.getElementById("navHmiBuilder").addEventListener("click", post("navHmiBuilder"));
 	  document.getElementById("navControlStudio").addEventListener("click", post("navControlStudio"));
 	  document.getElementById("navLibraries").addEventListener("click", post("navLibraries"));
 	  document.getElementById("navLiveValues").addEventListener("click", post("navLiveValues"));
-	  document.getElementById("navHmi").addEventListener("click", post("navHmi"));
 
   window.addEventListener("message", (event) => {
     const msg = event.data;
@@ -1044,6 +1076,8 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       projectNameEl.textContent = msg.workspaceName || "truST project";
       projectNameEl.title = msg.workspaceName || "truST project";
       targetValue.textContent = msg.selected.label;
+      speedLine.hidden = !msg.speed;
+      speedText.textContent = msg.speed || "";
       targetButton.title = "Target: " + msg.selected.label + " — " + msg.selected.statusLabel;
       setButton(compileEl, compileIcon, compileLabel, msg.buttons.compile);
       setButton(actionEl, actionIcon, actionLabel, msg.buttons.action);
@@ -1060,7 +1094,6 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 	    const hint = msg.actionHint || msg.selected.primary.hint || "";
 	    hintEl.textContent = hint ? "⚠ " + hint : "";
 	    hintEl.style.display = hint ? "block" : "none";
-	    navHmiLabel.textContent = msg.hmiLabel || "HMI";
 	  });
 
   vscode.postMessage({ type: "ready" });
@@ -1103,6 +1136,10 @@ export function registerTrustHome(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     onDidChangeManagedRuntimes(() => provider.refresh())
   );
+  // A speed change (Simulation Speed… or Change…) updates the Run section's speed line.
+  context.subscriptions.push(
+    onDidChangeSimulationSpeed(() => provider.refresh())
+  );
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (affectsTrustConfiguration(event, "runtime.fleetEndpoints")) {
@@ -1119,10 +1156,6 @@ export function registerTrustHome(context: vscode.ExtensionContext): void {
   projectWatcher.onDidCreate(() => provider.refresh());
   projectWatcher.onDidDelete(() => provider.refresh());
   context.subscriptions.push(projectWatcher);
-  const hmiWatcher = vscode.workspace.createFileSystemWatcher("**/hmi/*.toml");
-  hmiWatcher.onDidCreate(() => provider.refresh());
-  hmiWatcher.onDidDelete(() => provider.refresh());
-  context.subscriptions.push(hmiWatcher);
   context.subscriptions.push(
     vscode.languages.onDidChangeDiagnostics(() => provider.refresh())
   );
@@ -1152,15 +1185,6 @@ function displayProjectName(name: string): string {
     .filter((part) => part.length > 0)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
-}
-
-async function hasHmiDescriptor(): Promise<boolean> {
-  const found = await vscode.workspace.findFiles(
-    "**/hmi/*.toml",
-    "**/node_modules/**",
-    1
-  );
-  return found.length > 0;
 }
 
 function compileButtonState(
@@ -1381,17 +1405,6 @@ async function withSidebarActionTimeout(
       clearTimeout(timer);
     }
   }
-}
-
-// HMI is adaptive (§0.5.13): open when a descriptor exists, otherwise scaffold then open. Never a dead
-// disabled button.
-async function openOrCreateHmi(): Promise<void> {
-  if (await hasHmiDescriptor()) {
-    await vscode.commands.executeCommand("trust-lsp.hmi.openPreview");
-    return;
-  }
-  await vscode.commands.executeCommand("trust-lsp.hmi.init");
-  await vscode.commands.executeCommand("trust-lsp.hmi.openPreview");
 }
 
 async function newDiagramMenu(): Promise<void> {

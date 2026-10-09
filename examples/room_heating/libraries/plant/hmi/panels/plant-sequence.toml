@@ -1,0 +1,187 @@
+format = 1
+title = "Sequence"
+size = [608, 300]
+pinnable = true
+
+[fields.StateText]
+accepts = ["text"]
+
+[fields.CurrentStep]
+accepts = ["number"]
+
+[fields.StepName]
+accepts = ["text"]
+
+[fields.StepTime]
+accepts = ["time"]
+
+[fields.Message]
+accepts = ["text"]
+
+[fields.CanStart]
+accepts = ["boolean"]
+
+[fields.CanHold]
+accepts = ["boolean"]
+
+[fields.CanResume]
+accepts = ["boolean"]
+
+[fields.CanStop]
+accepts = ["boolean"]
+
+[fields.CanAbort]
+accepts = ["boolean"]
+
+[fields.CanReset]
+accepts = ["boolean"]
+
+[[object]]
+id = "state"
+type = "value"
+label = "State"
+at = [24, 24]
+size = [272, 48]
+
+[object.bind]
+value = "$StateText"
+
+[[object]]
+id = "step-time"
+type = "value"
+label = "Step time"
+decimals = 0
+at = [312, 24]
+size = [272, 48]
+
+[object.bind]
+value = "$StepTime"
+
+[[object]]
+id = "step-name"
+type = "value"
+label = "Step name"
+at = [24, 80]
+size = [440, 48]
+
+[object.bind]
+value = "$StepName"
+
+[[object]]
+id = "step"
+type = "value"
+label = "Step"
+decimals = 0
+at = [480, 80]
+size = [104, 48]
+
+[object.bind]
+value = "$CurrentStep"
+
+[[object]]
+id = "message"
+type = "text"
+variant = "caption"
+at = [24, 134]
+size = [560, 24]
+
+[object.bind]
+text = "$Message"
+
+[[object]]
+id = "start"
+type = "button"
+text = "Start"
+at = [24, 164]
+size = [176, 48]
+
+[object.bind]
+interlock = "$CanStart"
+"interlock-reason" = "$StateText"
+
+[object.command]
+interface = "Plant.ISequence"
+method = "Start"
+instance = "$instance"
+
+[[object]]
+id = "hold"
+type = "button"
+text = "Hold"
+at = [216, 164]
+size = [176, 48]
+
+[object.bind]
+interlock = "$CanHold"
+"interlock-reason" = "$StateText"
+
+[object.command]
+interface = "Plant.ISequence"
+method = "Hold"
+instance = "$instance"
+
+[[object]]
+id = "resume"
+type = "button"
+text = "Resume"
+at = [408, 164]
+size = [176, 48]
+
+[object.bind]
+interlock = "$CanResume"
+"interlock-reason" = "$StateText"
+
+[object.command]
+interface = "Plant.ISequence"
+method = "Resume"
+instance = "$instance"
+
+[[object]]
+id = "stop"
+type = "button"
+text = "Stop"
+variant = "stop"
+at = [24, 228]
+size = [176, 48]
+
+[object.bind]
+interlock = "$CanStop"
+"interlock-reason" = "$StateText"
+
+[object.command]
+interface = "Plant.ISequence"
+method = "Stop"
+instance = "$instance"
+
+[[object]]
+id = "abort"
+type = "button"
+text = "Abort"
+variant = "stop"
+at = [216, 228]
+size = [176, 48]
+
+[object.bind]
+interlock = "$CanAbort"
+"interlock-reason" = "$StateText"
+
+[object.command]
+interface = "Plant.ISequence"
+method = "Abort"
+instance = "$instance"
+
+[[object]]
+id = "reset"
+type = "button"
+text = "Reset"
+at = [408, 228]
+size = [176, 48]
+
+[object.bind]
+interlock = "$CanReset"
+"interlock-reason" = "$StateText"
+
+[object.command]
+interface = "Plant.ISequence"
+method = "Reset"
+instance = "$instance"

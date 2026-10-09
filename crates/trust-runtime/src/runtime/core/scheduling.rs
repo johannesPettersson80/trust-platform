@@ -37,6 +37,11 @@ impl Runtime {
         );
     }
 
+    /// Register a global declared `VAR_GLOBAL CONSTANT`.
+    pub(crate) fn register_constant_global(&mut self, name: SmolStr) {
+        self.constant_globals.insert(name);
+    }
+
     /// Register a task configuration.
     pub fn register_task(&mut self, task: TaskConfig) {
         let mut state = TaskState::new(self.current_time);

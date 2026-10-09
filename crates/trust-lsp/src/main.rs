@@ -27,9 +27,7 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 use tracing::info;
 
-use crate::handlers::{
-    HMI_BINDINGS_COMMAND, HMI_INIT_COMMAND, MOVE_NAMESPACE_COMMAND, PROJECT_INFO_COMMAND,
-};
+use crate::handlers::EXECUTE_COMMANDS;
 use crate::state::ServerState;
 use crate::telemetry::TelemetryEvent;
 
@@ -133,12 +131,10 @@ impl LanguageServer for StLanguageServer {
                 }),
 
                 execute_command_provider: Some(ExecuteCommandOptions {
-                    commands: vec![
-                        MOVE_NAMESPACE_COMMAND.to_string(),
-                        PROJECT_INFO_COMMAND.to_string(),
-                        HMI_INIT_COMMAND.to_string(),
-                        HMI_BINDINGS_COMMAND.to_string(),
-                    ],
+                    commands: EXECUTE_COMMANDS
+                        .iter()
+                        .map(|command| command.to_string())
+                        .collect(),
                     ..Default::default()
                 }),
 
@@ -615,7 +611,23 @@ impl LanguageServer for StLanguageServer {
     }
 
     async fn execute_command(&self, params: ExecuteCommandParams) -> Result<Option<Value>> {
-        Ok(handlers::execute_command(&self.client, &self.state, params).await)
+        if params.command == "trust-lsp.moveNamespace" {
+            return Ok(handlers::execute_command(&self.client, &self.state, params).await);
+        }
+        let state = Arc::clone(&self.state);
+        tokio::task::spawn_blocking(move || {
+            let _trace = trust_hir::timing::CompilerStage::new("lsp.command", 1);
+            if trust_hir::timing::enabled() {
+                tracing::info!(target: "trust::compiler_timing", event = "request", command = %params.command);
+            }
+            handlers::execute_read_command(&state, params)
+        })
+            .await
+            .map_err(|error| tower_lsp::jsonrpc::Error {
+                code: tower_lsp::jsonrpc::ErrorCode::InternalError,
+                message: format!("Command worker failed: {error}").into(),
+                data: None,
+            })
     }
 
     async fn code_lens(&self, params: CodeLensParams) -> Result<Option<Vec<CodeLens>>> {

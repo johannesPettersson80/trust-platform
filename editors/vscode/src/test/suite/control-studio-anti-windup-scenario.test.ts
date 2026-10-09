@@ -1,21 +1,14 @@
 import * as assert from "assert";
 
-suite("Control Studio anti-windup verification scenario", () => {
-  test("accepts only one explicit isolated scenario with the declared mode, setpoint and retained integral", () => {
+suite("Control Studio legacy anti-windup verification key", () => {
+  test("loads a legacy anti-windup verification key without validating or using it", () => {
     const api = loopApi();
     const configured = loop();
-    configured.controller.antiWindupVerification = scenario();
-    assert.deepStrictEqual(api.validateControlLoopDefinition(configured, scope()), { kind: "accepted", loop: configured });
-    for (const changed of [
-      { ...scenario(), initialValues: scenario().initialValues.filter((value: any) => value.symbol !== "Main.Manual") },
-      { ...scenario(), initialValues: scenario().initialValues.filter((value: any) => value.symbol !== "Main.Integral") },
-      { ...scenario(), initialValues: [...scenario().initialValues, { symbol: "Main.Kp", value: 2 }] },
-    ]) assert.deepStrictEqual(api.validateControlLoopDefinition({ ...configured, controller: {
-      ...configured.controller, antiWindupVerification: changed,
-    } }, scope()), { kind: "rejected", reason: "incompatible_anti_windup_verification" });
-    assert.deepStrictEqual(api.decodeControlLoopDefinition({ ...configured, controller: {
-      ...configured.controller, antiWindupVerification: { ...scenario(), events: [{ atMs: 125, symbol: "Main.SP", value: 50 }] },
-    } }), { kind: "rejected", reason: "malformed_loop" });
+    for (const legacy of [scenario(), { ...scenario(), events: [{ atMs: 125, symbol: "Main.SP", value: 50 }] }, "not a scenario"]) {
+      const withLegacy = { ...configured, controller: { ...configured.controller, antiWindupVerification: legacy } };
+      assert.deepStrictEqual(api.validateControlLoopDefinition(withLegacy, scope()), { kind: "accepted", loop: withLegacy });
+      assert.strictEqual(api.decodeControlLoopDefinition(withLegacy).kind, "accepted");
+    }
   });
 });
 

@@ -63,7 +63,6 @@ export function assertHotHeaterRecording(
   assert.strictEqual(result.recording.acquisition?.method, "runtime_scan_buffer");
   assert.strictEqual(result.recording.acquisition?.completeness, "complete");
   assert.deepStrictEqual(result.recording.acquisition?.missingScanRanges, []);
-  for (const id of selected) assert.ok(result.chartSession?.selectedSignals.includes(id), `saved chart session retains ${id}`);
   const active = result.recording.rawSamples.filter(sample => sample.additional?.some(signal => signal.id === "lesson-experiment" && signal.value === 1));
   const reference = fs.readFileSync(path.join(project, "tests/fixtures/hot-response-reference.csv"), "utf8")
     .split(/\r?\n/).filter(line => line && !line.startsWith("#")).map(line => line.split(",").map(Number));
@@ -115,5 +114,5 @@ export function assertHotHeaterRecording(
     maximumApplied: Math.max(...active.map(sample => sample.appliedMv!)),
     maximumPv: Math.max(...active.map(sample => sample.pv!)),
     retainedIntegralBeforeReturn: channel(active[99], "stored-correction"), terminalAppliedAtZeroCommand: firstStop.appliedMv,
-    selectedSignals: result.chartSession?.selectedSignals, referenceTolerance: 1e-8 };
+    referenceTolerance: 1e-8 };
 }

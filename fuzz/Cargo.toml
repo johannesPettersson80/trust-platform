@@ -58,10 +58,4 @@ path = "fuzz_targets/lsp_incremental.rs"
 test = false
 doc = false
 
-[[bin]]
-name = "hmi_payloads"
-path = "fuzz_targets/hmi_payloads.rs"
-test = false
-doc = false
-
 [workspace]

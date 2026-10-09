@@ -14,6 +14,7 @@ import type { RuntimeVerificationAttempt } from "../verificationClient";
 import type { SavedEngineerFamilyEvaluation } from "../engineerStudyPersistence";
 import type { SearchConnection } from "../finiteSearchSession";
 import type { compareOnModel } from "../modelPredictionRuns";
+import type { ControllerGains } from "../controllerAdapters";
 
 export type Respond = (payload: Record<string, unknown>) => Promise<void>;
 export type ModelComparisonRun = Awaited<ReturnType<typeof compareOnModel>>;
@@ -51,6 +52,8 @@ export interface EngineerActionHost {
     observed: Readonly<Record<string, number>>, values: Readonly<Record<string, number>>, generation: number): Promise<ModelComparisonRun>;
   programLawPrediction(model: GeneralModel, task: EngineerRequirements, values: Readonly<Record<string, number>>,
     generation: number, respond: Respond): Promise<ModelComparisonRun | { unavailable: string } | undefined>;
+  /** The running controller's settings when its runtime is reachable; a read only, it never writes. */
+  runningControllerGains(): Promise<ControllerGains | undefined>;
 }
 
 /** One accepted message: its payload, its reply channels and the generation and application mode it was accepted with. */

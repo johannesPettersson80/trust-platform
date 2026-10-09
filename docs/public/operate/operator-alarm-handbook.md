@@ -4,16 +4,11 @@ Alarm work starts with process context, not the acknowledge button.
 Site-specific alarm causes, reset conditions, and contacts belong in the local
 runbook.
 
-![Browser HMI alarm page](../assets/images/browser/hmi-operator-alarm-page.png)
-
-*Figure:* The Browser HMI alarm view gives operators the active alarm, process
-context, acknowledgement action, and recent history in one place.
-
 ## Alarm Response Sequence
 
 | Step | What to check | Record |
 | --- | --- | --- |
-| Open Alarms | Identify the active alarm, area, and timestamp | alarm text or code |
+| Find the alarm | Identify the active alarm, area, and timestamp | alarm text or code |
 | Check process state | Compare the alarm against the HMI graphic, trend, or nearby equipment | observed equipment condition |
 | Acknowledge only when seen | Confirm an operator has read and accepted responsibility for the next action | operator initials and time |
 | Follow the site procedure | Silence, hold, or escalate according to the runbook | action taken |
@@ -53,7 +48,6 @@ Record at least:
 
 ## Related
 
-- [Operate In Browser HMI](../start/operate-in-browser.md)
 - [Field Fault Procedures](field-fault-procedures.md)
 - [Operator Shift Handover](operator-shift-handover.md)
 - [Runbooks](../examples/runbooks.md)

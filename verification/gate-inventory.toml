@@ -1100,28 +1100,6 @@ rationale = "Capture refresh automation does not establish accepted UI journey p
 
 [[surfaces]]
 schema_version = 1
-id = "GATE_JOB_HMI_LONG_SOAK"
-discovery_id = "DISC_8A5048EA5B2E3D3F24AF"
-source_kind = "github_workflow_job"
-path = ".github/workflows/hmi-long-soak.yml"
-name = "HMI Long Soak / hmi-soak"
-command = "workflow job .github/workflows/hmi-long-soak.yml#hmi-soak"
-variant = "manual 24-hour read-only HMI soak"
-command_role = "entrypoint"
-disposition = "assigned"
-suite_ids = ["nightly"]
-owner = "trust-runtime"
-duration_class = "long"
-environment = "github_self_hosted_linux"
-artifact_kind = "ci_artifact"
-artifact_paths = ["hmi-long-soak-${{ github.run_id }}"]
-artifact_retention = "repository_default"
-enforcement = "conditional"
-required_env = []
-rationale = "Manual self-hosted long-soak proof enforces resource, HMI error, and latency thresholds."
-
-[[surfaces]]
-schema_version = 1
 id = "GATE_JOB_NIGHTLY_RELIABILITY"
 discovery_id = "DISC_59726B8C5AB103FE2332"
 source_kind = "github_workflow_job"

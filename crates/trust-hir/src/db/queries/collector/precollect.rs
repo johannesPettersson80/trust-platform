@@ -4,6 +4,11 @@ use crate::db::diagnostics::{is_expression_kind, is_pou_kind};
 
 impl SymbolCollector<'_> {
     pub(super) fn precollect_pous(&mut self, node: &SyntaxNode, namespace: &[SmolStr]) {
+        // Executable statements cannot contain declaration blocks. Keep precollection
+        // proportional to declarations rather than the size of every method body.
+        if node.kind() == SyntaxKind::StmtList {
+            return;
+        }
         let mut current_ns: Vec<SmolStr> = namespace.to_vec();
         if node.kind() == SyntaxKind::Namespace {
             if let Some((parts, _)) = qualified_name_parts(node) {
@@ -45,6 +50,11 @@ impl SymbolCollector<'_> {
     }
 
     pub(super) fn precollect_types(&mut self, node: &SyntaxNode, namespace: &[SmolStr]) {
+        // Executable statements cannot contain declaration blocks. Keep precollection
+        // proportional to declarations rather than the size of every method body.
+        if node.kind() == SyntaxKind::StmtList {
+            return;
+        }
         let mut current_ns: Vec<SmolStr> = namespace.to_vec();
         if node.kind() == SyntaxKind::Namespace {
             if let Some((parts, _)) = qualified_name_parts(node) {
@@ -68,6 +78,9 @@ impl SymbolCollector<'_> {
         namespace: &[SmolStr],
         pou_stack: &[SmolStr],
     ) {
+        if node.kind() == SyntaxKind::StmtList {
+            return;
+        }
         let mut current_namespace: Vec<SmolStr> = namespace.to_vec();
         let mut current_pou_stack: Vec<SmolStr> = pou_stack.to_vec();
 
@@ -82,6 +95,11 @@ impl SymbolCollector<'_> {
         if node.kind() == SyntaxKind::VarBlock && const_block_is_precollectable(node) {
             let current_scope = const_scope_identity(&current_namespace, &current_pou_stack);
             self.collect_const_block(node, &current_scope);
+        }
+        // Initializers have been captured above; expressions contain no further
+        // variable declarations (including in non-constant blocks).
+        if node.kind() == SyntaxKind::VarBlock {
+            return;
         }
 
         for child in node.children() {
@@ -130,5 +148,60 @@ fn const_block_is_precollectable(node: &SyntaxNode) -> bool {
         | VarQualifier::Temp
         | VarQualifier::Static
         | VarQualifier::Access => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn constant_precollection_preserves_namespace_pou_and_method_scopes() {
+        let parse = trust_syntax::parser::parse(
+            "NAMESPACE Plant
+VAR_GLOBAL CONSTANT GlobalLimit : INT := 4; END_VAR
+FUNCTION_BLOCK Pump
+VAR CONSTANT LocalLimit : INT := GlobalLimit + 1; END_VAR
+VAR Value : INT; END_VAR
+Value := LocalLimit;
+METHOD PUBLIC Read : INT
+VAR CONSTANT MethodLimit : INT := 6; END_VAR
+Read := MethodLimit;
+END_METHOD
+END_FUNCTION_BLOCK
+END_NAMESPACE",
+        );
+        assert!(parse.ok(), "{:?}", parse.errors());
+        let root = parse.syntax();
+        let mut actual = SymbolCollector::build(None);
+        actual.precollect_constants(&root, &[], &[]);
+        // Preserve the former exhaustive walk as a behavior oracle: pruning must
+        // change work performed, never names, scopes, order, or initializer text.
+        fn exhaustive(
+            collector: &mut SymbolCollector<'_>,
+            node: &SyntaxNode,
+            namespace: &[SmolStr],
+            pous: &[SmolStr],
+        ) {
+            let mut namespace = namespace.to_vec();
+            let mut pous = pous.to_vec();
+            if node.kind() == SyntaxKind::Namespace {
+                if let Some((parts, _)) = qualified_name_parts(node) {
+                    namespace.extend(parts.into_iter().map(|(name, _)| name));
+                }
+            } else if is_pou_kind(node.kind()) {
+                pous.extend(pou_scope_parts(node));
+            }
+            if node.kind() == SyntaxKind::VarBlock && const_block_is_precollectable(node) {
+                collector.collect_const_block(node, &const_scope_identity(&namespace, &pous));
+            }
+            for child in node.children() {
+                exhaustive(collector, &child, &namespace, &pous);
+            }
+        }
+        let mut expected = SymbolCollector::build(None);
+        exhaustive(&mut expected, &root, &[], &[]);
+        assert_eq!(actual.const_exprs.len(), 3);
+        assert_eq!(actual.const_exprs, expected.const_exprs);
     }
 }

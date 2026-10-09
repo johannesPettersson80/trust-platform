@@ -26,7 +26,7 @@ time_constant_s = 5.0
 "#;
     write_file(&root.join("simulation.toml"), simulation);
     let saved_before = fs::read(root.join("simulation.toml")).unwrap();
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let read = handle_request_value(
         json!({
@@ -91,10 +91,9 @@ time_constant_s = 5.0
                     active_configuration_revision,
                     respond_to,
                 } => {
-                    let _ = respond_to.send(controller.clear_plant_trace(
-                        &plant_id,
-                        &active_configuration_revision,
-                    ));
+                    let _ = respond_to.send(
+                        controller.clear_plant_trace(&plant_id, &active_configuration_revision),
+                    );
                 }
                 _ => {}
             }
@@ -129,11 +128,27 @@ time_constant_s = 5.0
     let retry = handle_request_value(clear_request, &state, None);
 
     assert!(first.ok, "plant.trace.clear failed: {:?}", first.error);
-    assert_eq!(retry.result, first.result, "clear retry must replay the first result");
+    assert_eq!(
+        retry.result, first.result,
+        "clear retry must replay the first result"
+    );
     let result = first.result.expect("clear result");
-    assert_eq!(result.get("plant_id").and_then(serde_json::Value::as_str), Some("tank-a"));
-    assert_eq!(result.get("prior_row_count").and_then(serde_json::Value::as_u64), Some(1));
-    assert_eq!(result.get("prior_dropped_row_count").and_then(serde_json::Value::as_u64), Some(0));
+    assert_eq!(
+        result.get("plant_id").and_then(serde_json::Value::as_str),
+        Some("tank-a")
+    );
+    assert_eq!(
+        result
+            .get("prior_row_count")
+            .and_then(serde_json::Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        result
+            .get("prior_dropped_row_count")
+            .and_then(serde_json::Value::as_u64),
+        Some(0)
+    );
     let trace = |plant_id: &str, request_id: u64| {
         handle_request_value(
             json!({
@@ -152,13 +167,26 @@ time_constant_s = 5.0
         .result
         .expect("trace after clear")
     };
-    assert_eq!(trace("tank-a", 6193).get("retained_row_count").and_then(serde_json::Value::as_u64), Some(0));
-    assert_eq!(trace("tank-b", 6194).get("retained_row_count").and_then(serde_json::Value::as_u64), Some(1));
+    assert_eq!(
+        trace("tank-a", 6193)
+            .get("retained_row_count")
+            .and_then(serde_json::Value::as_u64),
+        Some(0)
+    );
+    assert_eq!(
+        trace("tank-b", 6194)
+            .get("retained_row_count")
+            .and_then(serde_json::Value::as_u64),
+        Some(1)
+    );
     assert_eq!(
         handle_request_value(status_request, &state, None).result,
         Some(status_before),
         "trace clear changed plant or simulation state"
     );
-    assert_eq!(fs::read(root.join("simulation.toml")).unwrap(), saved_before);
+    assert_eq!(
+        fs::read(root.join("simulation.toml")).unwrap(),
+        saved_before
+    );
     fs::remove_dir_all(root).expect("remove trace-clear fixture");
 }

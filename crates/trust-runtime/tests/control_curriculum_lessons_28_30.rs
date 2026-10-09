@@ -267,16 +267,6 @@ fn lesson28_verifies_from_the_state_control_studio_presets() {
     );
 }
 
-#[test]
-fn lesson28_hmi_only_binds_signals_of_the_executed_heater() {
-    let (runtime, _) = setup(LESSON28);
-    let diagnostics = hmi_diagnostics(LESSON28, &runtime);
-    assert!(
-        diagnostics.is_empty(),
-        "The Lesson 29 HMI must bind the executed heater project: {diagnostics:?}"
-    );
-}
-
 const LESSON29: &str = "14-integrated-capstones/81-water-heater";
 
 /// Hot reset, then Auto from 0.5 s until `until_step`, with the given setpoint and extraction.
@@ -460,16 +450,6 @@ fn lesson29_verifies_from_the_state_control_studio_presets() {
     );
 }
 
-#[test]
-fn lesson29_hmi_only_binds_signals_of_the_executed_heater() {
-    let (runtime, _) = setup(LESSON29);
-    let diagnostics = hmi_diagnostics(LESSON29, &runtime);
-    assert!(
-        diagnostics.is_empty(),
-        "The Lesson 30 HMI must bind the executed heater project: {diagnostics:?}"
-    );
-}
-
 const LESSON30: &str =
     "01-feedback-foundations-and-temperature-control/08-heating-valve-rate-tracking";
 
@@ -586,15 +566,5 @@ fn lesson30_measured_tracking_reduces_the_overshoot() {
     assert!(
         untracked - tracked > 0.3,
         "measured tracking lowers the peak: {tracked:.3} vs {untracked:.3} °C"
-    );
-}
-
-#[test]
-fn lesson30_hmi_only_binds_signals_of_the_executed_valve_loop() {
-    let (runtime, _) = setup(LESSON30);
-    let diagnostics = hmi_diagnostics(LESSON30, &runtime);
-    assert!(
-        diagnostics.is_empty(),
-        "The Lesson 31 HMI must bind the executed valve project: {diagnostics:?}"
     );
 }

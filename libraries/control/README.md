@@ -1,13 +1,23 @@
 # truST Control Library
 
-The Control library provides a combined-form PID controller
-and its independent low-pass filter. It is intended for cyclic Structured Text
-applications that supply the actual elapsed cycle time on every update.
+The manual is the [Control library guide](../../docs/guides/CONTROL_LIBRARY_GUIDE.md).
+
+The Control library provides a combined-form PID controller, its independent
+low-pass filter and the advanced structures composed from them. It is intended
+for cyclic Structured Text applications that supply the actual elapsed cycle
+time on every update.
 
 The public namespace contains:
 
 - `Control.PID`, with `Configure`, `Initialize`, `Update`, and read-only `GetState` methods;
 - `Control.LowPass`, with `Configure`, `Initialize`, and `Update` methods;
+- `Control.SmithPredictorFOPDT`, a Smith predictor for a first-order process with dead time, and
+  `Control.PIDGainScheduler`, which interpolates PID tuning over an operating point, each with
+  `Configure`, `Initialize`, and `Update` methods (specification 37);
+- `Control.StaticDecoupler2x2`, which maps two controller commands to two actuators and back,
+  with `Configure`, `ToActuators`, `ToVirtual`, and `Snapshot` methods;
+- the function `Control.ConvertPIDForm`, which converts PID tuning between the parallel, ideal
+  and series forms;
 - parameter, input, and initialization records; and
 - enums for controller mode, anti-windup equation, and filter order.
 

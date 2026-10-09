@@ -24,10 +24,11 @@ suite("Control Studio PID group setup rendered", () => {
         set('structure','group');set('name','Zone temperatures');include('group.0.include');include('group.1.include');
         for(const n of [0,1]){set('group.'+n+'.processVariable.unit','°C');set('group.'+n+'.processVariable.minimum','20');set('group.'+n+'.processVariable.maximum','60');
           set('group.'+n+'.manipulatedVariable.unit','%');set('group.'+n+'.manipulatedVariable.minimum','0');set('group.'+n+'.manipulatedVariable.maximum','100');}
-        set('group.experimentDuration','40');set('group.mode','P1.ZonesAuto');return 'filled';`);
+        set('group.mode','P1.ZonesAuto');return 'filled';`);
       assert.deepStrictEqual(JSON.parse(await inner(`return JSON.stringify(['group.1.parameterRecord','group.1.processVariable','group.1.manipulatedVariable','group.1.setpoint','group.1.manualOutput']
         .map(name=>d.querySelector('[data-setup-field="'+name+'"]').value));`)),
-      ["P1.Zone2Parameters", "P1.Zone2C", "P1.Heater2Pct", "P1.Zone2SetpointC", "P1.Zone2ManualPct"], "each member is filled in from its own compiled calls");
+      ["P1.Zone2Parameters", "P1.Zone2.StateValue.ProcessValue", "P1.Heater2Pct", "P1.Zone2SetpointC", "P1.Zone2ManualPct"],
+      "each member is filled in from its own compiled calls; its measurement is the PID's own");
       assert.match(await inner("return d.querySelector('[data-setup-message]').textContent;"), /initializes P1\.Zone1.*startup/,
         "the program initializes its PIDs at startup, so the group needs the startup flag");
       await inner(`const e=d.querySelector('[data-setup-field="startupFlag"]');e.value='P1.Initialized';e.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'flag';`);

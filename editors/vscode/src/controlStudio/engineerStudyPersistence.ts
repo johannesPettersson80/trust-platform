@@ -1,4 +1,4 @@
-import { compactStoredEvidence } from "./studyStorageCompaction";
+import { checkedFor, compactStoredBytes, markChecked, shareCopy } from "./recordedEvidence";
 import { decodeIndependentModelValidation, type IndependentModelValidation } from "./independentModelValidation";
 import { decodeConnectedIdentificationRecord } from "./connectedIdentificationRecord";
 import { validLoopChannels, type LoopChannels } from "./loopChannels";
@@ -10,6 +10,7 @@ import { validEngineerScenarios, type EngineerScenario } from "./engineerVerific
 import { isControllerFamily, CONTROLLER_FAMILIES, type ControllerFamily } from "./controllerFamilies";
 import { decodeEngineerDraft, type EngineerDraft } from "./engineerDraft";
 import type { EngineerScenarioResult } from "./engineerVerificationCampaign";
+import { ISOLATED_SIMULATION_SCAN_LIMIT, MAXIMUM_EXPERIMENT_DURATION_MS, STUDY_STORAGE_LIMIT_BYTES } from "./controlStudioLimits";
 import { decodeControllerSettingsPins, type ControllerSettingsPins } from "./controllerSettingsPins";
 import { decodeEngineerGainChoice, type EngineerGainChoice } from "./engineerGainChoice";
 import { type IdentificationCampaignRecord } from "./automaticIdentification";
@@ -18,11 +19,13 @@ import { engineerRequirements, type EngineerRequirements } from "./engineerVerif
 import { decodeGeneralModel, type GeneralModel } from "./generalModel";
 import { evaluateRecordedRun } from "./runValidation";
 import type { RuntimeVerificationAttempt, RuntimeVerificationResult } from "./verificationClient";
+import { recordedSampleTimes } from "./isolatedRunSampling";
 import { canonicalJson } from "./canonicalJson";
 
 const MAX_CAMPAIGNS = 16;
 const MAX_CAMPAIGN_RUNS = 16;
-export const MAX_ENGINEER_STUDY_BYTES = 16 * 1024 * 1024;
+/** A study is bounded by the study storage limit of A7 (256 MiB per loop, recordings included). */
+export const MAX_ENGINEER_STUDY_BYTES = STUDY_STORAGE_LIMIT_BYTES;
 
 export interface SavedEngineerCampaign extends IdentificationCampaignRecord {
   id: string;
@@ -113,7 +116,7 @@ export function decodeEngineerStudy(value: unknown): EngineerStudy | undefined {
       new Set(campaigns.map(campaign => campaign!.id)).size !== campaigns.length) return undefined;
   const modelValidation = value.modelValidation === undefined ? undefined : decodeIndependentModelValidation(value.modelValidation, selectedModel, campaigns.flatMap(campaign => campaign!.runs));
   if (value.modelValidation !== undefined && !modelValidation) return undefined;
-  return clone({ ...(modelValidation ? { modelValidation } : {}), ...(recordingCatalog ? { recordingCatalog } : {}), ...(value.channelMapping ? { channelMapping: value.channelMapping as LoopChannels } : {}), ...(value.requiredScenarios ? { requiredScenarios: value.requiredScenarios as string[] } : {}), ...(tuningPreferences ? { tuningPreferences } : {}), ...(modelComparison ? { modelComparison } : {}), ...(value.acquisitionSettings ? { acquisitionSettings: acquisitionSettings(value.acquisitionSettings)! } : {}), ...(value.scenarioDefinitions ? { scenarioDefinitions: value.scenarioDefinitions as EngineerScenario[] } : {}), ...(tuningRuns ? { tuningRuns: tuningRuns as RuntimeVerificationResult[] } : {}), ...(draft ? { draft } : {}), ...(scenarioResults ? { scenarioResults: scenarioResults as EngineerScenarioResult[] } : {}), ...(settingsPins ? { settingsPins } : {}), ...(selectedModel ? { selectedModel } : {}), ...(task ? { task } : {}),
+  return shareCopy({ ...(modelValidation ? { modelValidation } : {}), ...(recordingCatalog ? { recordingCatalog } : {}), ...(value.channelMapping ? { channelMapping: value.channelMapping as LoopChannels } : {}), ...(value.requiredScenarios ? { requiredScenarios: value.requiredScenarios as string[] } : {}), ...(tuningPreferences ? { tuningPreferences } : {}), ...(modelComparison ? { modelComparison } : {}), ...(value.acquisitionSettings ? { acquisitionSettings: acquisitionSettings(value.acquisitionSettings)! } : {}), ...(value.scenarioDefinitions ? { scenarioDefinitions: value.scenarioDefinitions as EngineerScenario[] } : {}), ...(tuningRuns ? { tuningRuns: tuningRuns as RuntimeVerificationResult[] } : {}), ...(draft ? { draft } : {}), ...(scenarioResults ? { scenarioResults: scenarioResults as EngineerScenarioResult[] } : {}), ...(settingsPins ? { settingsPins } : {}), ...(selectedModel ? { selectedModel } : {}), ...(task ? { task } : {}),
     ...(value.applicationMode ? { applicationMode: value.applicationMode as "auto" | "manual" } : {}),
     ...(value.controllerChoice ? { controllerChoice: value.controllerChoice as EngineerStudy["controllerChoice"] } : {}),
     ...(gainChoice ? { gainChoice } : {}),
@@ -149,7 +152,7 @@ export function decodeVerificationAttempt(value: unknown): RuntimeVerificationAt
     !text(value.jobId) || !text(value.projectRevision) || !text(value.reason) || !jsonRecord(value.request) ||
     value.request.execution !== "isolated-simulation" || value.request.expected_project_revision !== value.projectRevision ||
     !positiveInteger(value.request.step_ms) || !positiveInteger(value.request.duration_ms) ||
-    value.request.step_ms > 1000 || value.request.duration_ms > 600000 || value.request.duration_ms / value.request.step_ms + 1 > 12000 ||
+    value.request.step_ms > 1000 || value.request.duration_ms > MAXIMUM_EXPERIMENT_DURATION_MS || value.request.duration_ms / value.request.step_ms + 1 > ISOLATED_SIMULATION_SCAN_LIMIT ||
     !Array.isArray(value.request.observations) || !value.request.observations.length) return undefined;
   try {
     // Decode raw evidence only; no empty-requirement evaluation becomes qualification.
@@ -161,7 +164,7 @@ export function decodeVerificationAttempt(value: unknown): RuntimeVerificationAt
 }
 
 function decodeTask(value: unknown): EngineerRequirements | undefined {
-  if (!record(value) || !onlyKeys(value, ["automaticCriteria", "channelRequirements", "referenceChange", "maximumError", "settlingBand", "settlingTimeSeconds", "durationSeconds", "transferTolerance", "tuningMethod", "tuningObjective", "constantInputDisturbance", "measurementNoiseBand", "gainUncertaintyFraction"])) return undefined;
+  if (!record(value) || !onlyKeys(value, ["automaticCriteria", "channelRequirements", "referenceChange", "maximumError", "settlingBand", "settlingTimeSeconds", "durationSeconds", "transferTolerance", "tuningMethod", "tuningObjective", "constantInputDisturbance", "measurementNoiseBand", "gainUncertaintyFraction", "maximumOvershootPercent"])) return undefined;
   try { return engineerRequirements(value); } catch { return undefined; }
 }
 
@@ -174,11 +177,17 @@ function decodeCampaign(value: unknown): SavedEngineerCampaign | undefined {
   const runs = value.runs.map(run => decodeConnectedIdentificationRecord(run) ?? decodeRuntimeVerificationResult(run));
   if (runs.some((run): run is undefined => !run) ||
       (value.status === "completed" && new Set(runs.map(run => run!.projectRevision)).size > 1)) return undefined;
-  return clone({ id: value.id, status: value.status as SavedEngineerCampaign["status"],
+  return shareCopy({ id: value.id, status: value.status as SavedEngineerCampaign["status"],
     ...(value.reason === undefined ? {} : { reason: value.reason }), runs: runs as RuntimeVerificationResult[] });
 }
 
+/**
+ * A result is checked once (A10.7): the checked copy is frozen and shared, and the result it was decoded from maps to it,
+ * so a later snapshot or save neither evaluates nor copies it again.
+ */
 function decodeRuntimeVerificationResult(value: unknown): RuntimeVerificationResult | undefined {
+  const known = checkedFor(value);
+  if (known) return known as RuntimeVerificationResult;
   if (!record(value) || !onlyKeys(value, ["projectRevision", "request", "run", "evaluation"]) || !text(value.projectRevision) ||
       !jsonRecord(value.request) || !record(value.evaluation) || !Array.isArray(value.evaluation.specification) ||
       value.evaluation.specification.length === 0 || value.evaluation.specification.length > 64) return undefined;
@@ -186,7 +195,10 @@ function decodeRuntimeVerificationResult(value: unknown): RuntimeVerificationRes
     const evaluation = evaluateRecordedRun(value.run, value.evaluation.specification);
     if (evaluation.run.evidence !== "ST-executed" || !matchesFrozenRequest(value.request, evaluation.run, value.projectRevision) ||
         canonicalJson(value.evaluation) !== canonicalJson(evaluation)) return undefined;
-    return clone({ projectRevision: value.projectRevision, request: value.request, run: evaluation.run, evaluation });
+    const result = clone({ projectRevision: value.projectRevision, request: value.request, run: evaluation.run, evaluation });
+    // The evaluation repeats its run: one object, so the run is stored and compared once.
+    result.evaluation.run = result.run;
+    return markChecked(result, value);
   } catch { return undefined; }
 }
 
@@ -196,12 +208,14 @@ function matchesFrozenRequest(request: Record<string, unknown>, run: RuntimeVeri
   const durationMs = request.duration_ms;
   const seed = request.seed;
   if (request.execution !== "isolated-simulation" || request.expected_project_revision !== projectRevision ||
-      !positiveInteger(stepMs) || stepMs > 1000 || !positiveInteger(durationMs) || durationMs > 600000 ||
-      !nonnegativeInteger(seed) || durationMs % stepMs !== 0 || durationMs / stepMs + 1 > 12000 ||
+      !positiveInteger(stepMs) || stepMs > 1000 || !positiveInteger(durationMs) || durationMs > MAXIMUM_EXPERIMENT_DURATION_MS ||
+      !nonnegativeInteger(seed) || durationMs % stepMs !== 0 || durationMs / stepMs + 1 > ISOLATED_SIMULATION_SCAN_LIMIT ||
+      (request.record_every !== undefined && !positiveInteger(request.record_every)) ||
+      ((run.conditions as typeof run.conditions & { recordEvery?: unknown }).recordEvery ?? 1) !== (request.record_every ?? 1) ||
       !record(request.initial_values) || !Array.isArray(request.events) || !Array.isArray(request.observations) ||
       run.conditions.durationSeconds !== durationMs / 1000 || run.conditions.seed !== seed ||
-      canonicalJson(run.conditions.sampleTimesSeconds) !== canonicalJson(Array.from({ length: durationMs / stepMs + 1 },
-        (_, index) => index * stepMs / 1000)) ||
+      canonicalJson(run.conditions.sampleTimesSeconds) !== canonicalJson(recordedSampleTimes({ step_ms: stepMs, duration_ms: durationMs },
+        positiveInteger(request.record_every) ? request.record_every : 1)) ||
       canonicalJson(run.conditions.initialState) !== canonicalJson(request.initial_values) ||
       canonicalJson((run.conditions as typeof run.conditions & { feedbackRelay?: unknown }).feedbackRelay ?? null) !== canonicalJson(request.feedback_relay ?? null) ||
       canonicalJson(run.conditions.events) !== canonicalJson(request.events.map(event => record(event)
@@ -227,8 +241,8 @@ function matchesSimulationOverride(value: unknown, run: RuntimeVerificationResul
 }
 
 function withinSerializedLimit(value: unknown): boolean {
-  // The bound protects workspace storage, so it applies to the compact form that is actually stored.
-  try { return Buffer.byteLength(JSON.stringify(compactStoredEvidence(value)), "utf8") <= MAX_ENGINEER_STUDY_BYTES; } catch { return false; }
+  // The bound protects study storage, so it applies to the compact form that is actually stored.
+  try { return compactStoredBytes(value) <= MAX_ENGINEER_STUDY_BYTES; } catch { return false; }
 }
 
 function onlyKeys(value: Record<string, unknown>, allowed: readonly string[]): boolean {

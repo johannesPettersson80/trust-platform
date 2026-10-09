@@ -1,6 +1,6 @@
-import { connectedIdentificationPanelPorts, clearIdentificationRecording } from "./connectedIdentificationPanel";
+import { connectedIdentificationPanelPorts, clearIdentificationRecording, journalledIdentificationExperimentId } from "./connectedIdentificationPanel";
 import { routeIdentificationRecordingImport } from "./identificationRecordingImport";
-import { decodeLoopLiveViewCommand, decodeLoopReady } from "./messages";
+import { decodeLoopReady, decodeControlStudioHostCommand, decodeManualPreviewRequest, type ControlStudioHostCommand } from "./messages";
 import { ThreePageBindingRoute, adoptStudioBinding, type StudioBindingOpen } from "./threePageBindingRoute";
 import { createControlStudioRuntimeStartHandler, routeControlStudioRuntimeStart } from "./runtimeStartAction";
 import { restoredEngineerStage, restoredEngineerViewSelection, storeEngineerStage } from "./engineerNavigationStorage";
@@ -16,27 +16,27 @@ import { SymbolicLoopObservation } from "./symbolicLoopObservation";
 import { StudioAnalysisSessions } from "./studioAnalysisSessions";
 import { retainedPeriodicRecordingSource } from "./periodicRecordingSource";
 import { postRestoredEngineeringPlots } from "./workflowSnapshots";
-import { RecordingCoordinator, executeRecordingCommand, sameRecordingScope } from "./recordingCoordinator";
+import { sameRecordingScope } from "./recordingCoordinator";
 import { RuntimeRecordingSession } from "./runtimeRecording";
-import { ExperimentRecordingOwner, restoreExperimentRecordingOwner, startExperimentWithRecording, stopExperimentRecording } from "./experimentRecording";
+import { latestRequestGate } from "./engineerActions/manualPreview";
+import { ExperimentRecordingOwner, experimentRecordingWindowMs, restoreExperimentRecordingOwner, startExperimentWithRecording, stopExperimentRecording } from "./experimentRecording";
 import { ExperimentStatusPoller } from "./experimentStatusPoller";
 import { refreshTestExperiment } from "./testExperimentLifecycle";
 import { buildTerminalTestEvidence } from "./testTerminalEvidence";
-import { AntiWindupPanelSession, routeAntiWindupPanelCommand } from "./antiWindupPanelWorkflow";
-import { RelayTuningSession } from "./relayTuning";
-import { currentRuntimeCandidate, currentStageEvidence, postApplicationResult, postEngineeringResult, postExperimentResult, runtimeExperimentClient } from "./panelWorkflowSupport";
+import { onDidReadSimulationSpeed, targetLabelUpdates } from "../simulationSpeed";
+import { runtimeTargetFromStatus, simulationTargetLabel } from "./runtimeTarget";
+import { currentRuntimeCandidate, postEngineeringResult, postExperimentResult, resolveStudyRuntimeTarget, runtimeExperimentClient, type StudyRuntimeTarget } from "./panelWorkflowSupport";
 import { identificationPresentationState } from "./identificationPresentationState";
-import { restoreRecordingRecoveryOwner,retryRecordingRecoveryOwner } from "./recordingRecoveryRestore";
 import { randomUUID } from "crypto";
 import * as path from "path";
 import * as vscode from "vscode";
 import { configureControlStudioCommand, openControlStudioCommand, registerControlStudioCommands } from "./openCommand";
 import { completeLoopRequest,completePlantHandoff,isLoopRequest,text } from "./panelBindings";
 import {
-clearExperimentRecovery,clearRecordingRecovery,controlStudioScopeKey,
+clearExperimentRecovery,controlStudioScopeKey,
 reconcileManualApplicationRecovery,
 storePendingManualApplicationRecovery,
-restoreExperimentRecovery,storeRecordingRecovery,
+restoreExperimentRecovery,
 restoreWorkflowResultHistory,
 storeExperimentRecovery,
 workflowResultStorageKey
@@ -46,13 +46,13 @@ import { connectRuntimeParameters } from "./runtimeParameterConnection";
 import { appliedProjectHoldSeconds } from "./projectExperimentHold";
 import type { PlantControlStudioHandoff } from "./handoff";
 import type { ControlLoopDefinition } from "./loopDefinition";
+import { openWorkspaceStudy } from "./studyMigration";
+import { projectRootHoldingLoop } from "./studyStore";
+import { experimentRecordingJournal, journalBeforeDispatch, testStartPorts, UNPINNED_RUNTIME_MESSAGE, UnconfirmedTestStarts } from "./testExperimentGuards";
 
-import { readProjectPlants } from "../networkCanvas/canvasDataService";
 import { sendRuntimeControlRequest } from "../runtimeControlClient";
 import { runtimeLifecycleService } from "../runtimeLifecycle";
 import { saveControlStudioChartExport, type ChartExportHost, type ChartExportScope } from "./chartExportHost";
-import { runSavedSimulationAutomaticTune } from "./automaticTune";
-import { candidateFromControlPid } from "./controllerCandidate";
 import { ControllerApplicationClient } from "./controllerApplication";
 import {
 buildControlExperimentPlan,
@@ -62,27 +62,15 @@ type ControlExperimentPlan,
 } from "./experiment";
 import { ControlLoopMonitor,controlLoopStaleAfterMs,type LoopRecording } from "./loopMonitor";
 import {
-automaticTuneResultEnvelope,
-decodeAutomaticTuneApprove,
 decodeControlExperimentCommand,
-decodeAntiWindupCommand,
-decodeControllerApplicationCommand,
-decodeControlStudioNavigatePlant,
-decodeControlStudioReady,
 decodeEngineeringCommand,
-decodeLoopAutomaticTuneApprove,
-decodeLoopRecordingCommand,
-decodeWorkflowResultCommand,
 decodeMimoAnalysisCommand,
 loopMonitorEnvelope,loopRecordingEvidenceEnvelope,
 plantMonitorEnvelope,
 } from "./messages";
 import { loadPlantMonitor } from "./plantMonitor";
 import {
-compareWorkflowResultRevisions,
-exportSamplesCsv,
 exportWorkflowJson,
-saveWorkflowResultRevision,
 workflowExperimentContext,
 workflowResultForExport,
 workflowResultHistoryItems,
@@ -90,6 +78,7 @@ type ControlStudioWorkflowResult,
 } from "./workflowResult";
 import { createManualWorkflowState, handleManualWorkflowCommand, restoreManualWorkflowState, type ManualWorkflowState } from "./manualWorkflowCommands";
 import { handleMimoAnalysisCommand } from "./mimoPanelActions";
+import { CONNECTION_LOSS_TIMEOUT_MS, RECORDING_SAMPLE_LIMIT } from "./controlStudioLimits";
 
 export const CONTROL_STUDIO_OPEN_COMMAND = "trust-lsp.controlStudio.open";
 const startStudioSimulator = createControlStudioRuntimeStartHandler(runtimeLifecycleService);
@@ -100,6 +89,10 @@ let panel: vscode.WebviewPanel | undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
 let activeHandoff: PlantControlStudioHandoff | undefined;
 let activeLoop: ControlLoopDefinition | undefined;
+/** The runtime the open loop is pinned to (A2.7). Resolved when the loop opens; a selection change never moves it. */
+let activeRuntimeTarget: StudyRuntimeTarget | undefined;
+/** The latest status of an identification reattached on reopening; the page gets it again once it reports ready (A8.6). */
+let reattachedIdentificationStatus: Record<string, unknown> | undefined;
 let editorSessionId = "";
 let bindingDiscovery: import("./configureLoop").DiscoverControlSignals | undefined;
 let bindingRoute: ThreePageBindingRoute | undefined;
@@ -108,9 +101,8 @@ let draftSessions: StudioAnalysisSessions | undefined;
 let refreshTimer: NodeJS.Timeout | undefined;
 const experimentStatusPoller = new ExperimentStatusPoller(() => { void refreshExperimentStatus(); });
 let symbolicLoopObservation = new SymbolicLoopObservation();
-let loopMonitor = new ControlLoopMonitor({ staleAfterMs: 1_500, recordingCapacity: 12_000 });
+let loopMonitor = new ControlLoopMonitor({ staleAfterMs: CONNECTION_LOSS_TIMEOUT_MS, recordingCapacity: RECORDING_SAMPLE_LIMIT });
 let completedRecording: LoopRecording | undefined;
-const runtimeRecorder = new RecordingCoordinator(RuntimeRecordingSession.start);
 const experimentRecorder = new ExperimentRecordingOwner(RuntimeRecordingSession.start);
 let currentLoopSample: ReturnType<ControlLoopMonitor["observe"]> | undefined;
 let pendingExperiment: ControlExperimentPlan | undefined;
@@ -118,18 +110,25 @@ let currentExperimentId: string | undefined;
 let currentExperimentPlan: ControlExperimentPlan | undefined;
 let currentExperimentTerminal: unknown;
 let experimentIdentification = new ExperimentIdentificationLedger();
-const antiWindupSession = new AntiWindupPanelSession();
-const relayTuningSession = new RelayTuningSession();
+/** The target label the page shows for the pinned runtime, and the speed-read subscription that keeps it current (B9.2). */
+let targetLabelSubscription: vscode.Disposable | undefined;
+/** The pinned runtime's label as last read, for every render of the page (specification 35, B9.2). */
+let currentTargetLabel: string | undefined;
+/** The Test identity whose start is landing: journalled, and not yet answered or failed (A8.5). */
+let landingTestStart: string | undefined;
 let manualWorkflowState: ManualWorkflowState = createManualWorkflowState();
 let analysisSessions = new StudioAnalysisSessions();
 let currentWorkflowResult: ControlStudioWorkflowResult | undefined;
 let currentResultIsDraft = false;
 let currentWorkflowHistory: ControlStudioWorkflowResult[] = [];
 let workflowResultUnavailableReason: string | undefined;
+/** The latest manual-preview request; an answer for an earlier one is dropped (B4.5). */
+const manualPreviewRequests = latestRequestGate();
 let viewingWorkflowResult = false;
-let appliedController: { instancePath: string; previousRevision: string; activeRevision: string } | undefined;
 let activeScopeKey = "";
 let manualRecoveryReconciled = false;
+/** Test identities whose start outcome is unknown; they are reconciled by status and never sent again (A8.5). */
+const unconfirmedTestStarts = new UnconfirmedTestStarts();
 
 async function handleChartExportMessage(message: unknown, scope: ChartExportScope): Promise<Awaited<ReturnType<typeof saveControlStudioChartExport>> | undefined> {
   if (!message || typeof message !== "object" || (message as { kind?: unknown }).kind !== "control-studio.chart.export") return undefined;
@@ -157,7 +156,7 @@ export function registerControlStudioPanel(
       if (!panel?.active || !activeLoop || !(completedRecording?.rawSamples?.length || currentWorkflowResult?.recording.rawSamples.length)) {
         void vscode.window.showInformationMessage("Open a completed recording in Control Studio before saving it."); return;
       }
-      await handleWorkflowResultCommand(context, { action: "export-json", messageId: randomUUID() }, activeLoop);
+      await exportWorkflowResultJson(context, activeLoop);
     },
   });
   context.subscriptions.push(
@@ -176,10 +175,9 @@ async function showControlStudio(
     return;
   }
   const nextScopeKey = controlStudioScopeKey(loopRequest, handoff);
-  if ((runtimeRecorder.loop && !sameRecordingScope(runtimeRecorder.loop, loopRequest)) ||
-      (experimentRecorder.loop && !sameRecordingScope(experimentRecorder.loop, loopRequest))) {
+  if (experimentRecorder.loop && !sameRecordingScope(experimentRecorder.loop, loopRequest)) {
     void vscode.window.showErrorMessage("Stop the active recording before opening another loop.");
-    const loop = runtimeRecorder.loop ?? experimentRecorder.loop;
+    const loop = experimentRecorder.loop;
     if (!loop) return;
     await showControlStudio(context, { schemaVersion: 1, source: "ConfiguredLoop", scope: { projectId: loop.projectId, runtimeId: loop.runtimeId }, loopDefinition: loop });
     return;
@@ -197,6 +195,8 @@ async function showControlStudio(
   const sessions = new StudioAnalysisSessions(loopRequest, () => manualWorkflowState.declaredAnalysis, async recording => {
     if (analysisSessions !== sessions || !loopRequest || !sameRecordingScope(activeLoop, loopRequest)) return;
     completedRecording = recording; viewingWorkflowResult = false;
+    // The caller releases the runtime's buffer once this returns, so the samples are stored in the study first (E4.7, E11.6).
+    await retainCurrentWorkflowDraft(context, loopRequest);
     await panel?.webview.postMessage(loopRecordingEvidenceEnvelope(loopMessageScope(loopRequest), randomUUID(), recording.evidence, recording));
   }, loopRequest ? async owner => storePendingManualApplicationRecovery(context, loopRequest, owner) : undefined,
   loopRequest ? async post => {
@@ -218,30 +218,50 @@ async function showControlStudio(
   activeScopeKey = nextScopeKey;
   symbolicLoopObservation = new SymbolicLoopObservation();
   loopMonitor = new ControlLoopMonitor({
-    staleAfterMs: activeLoop ? controlLoopStaleAfterMs(activeLoop) : 1_500,
-    recordingCapacity: 12_000,
+    staleAfterMs: activeLoop ? controlLoopStaleAfterMs(activeLoop) : CONNECTION_LOSS_TIMEOUT_MS,
+    recordingCapacity: RECORDING_SAMPLE_LIMIT,
   });
   completedRecording = undefined;
   experimentIdentification = new ExperimentIdentificationLedger();
-  antiWindupSession.reset();
-  relayTuningSession.reset();
-  loopMonitor.setRuntimeRecording(runtimeRecorder.recording || experimentRecorder.recording);
+  loopMonitor.setRuntimeRecording(experimentRecorder.recording);
   currentLoopSample = undefined;
   pendingExperiment = undefined;
-  const recoveredExperiment = restoreExperimentRecovery(context, activeLoop);
+  // An identification campaign journals its experiment as well; reopening leaves that experiment to the identification's own
+  // recovery, which follows it on the Identify page (A8.5, A8.6), and adopts only a Test experiment here.
+  const restored = restoreExperimentRecovery(context, activeLoop);
+  const recoveredExperiment = restored && activeLoop && restored.experimentId === journalledIdentificationExperimentId(context, activeLoop)
+    ? undefined : restored;
   currentExperimentId = recoveredExperiment?.experimentId;
   currentExperimentPlan = recoveredExperiment?.plan;
   currentExperimentTerminal = undefined;
   manualWorkflowState = createManualWorkflowState();
-  const restoredWorkflow = restoreWorkflowResultHistory(context, activeLoop);
+  // A8.3 and A8.6: the loop's study is read from its project folder, and opening it starts nothing.
+  const runtimeTarget = loopRequest ? await resolveStudyRuntimeTarget(loopRequest).catch(() => undefined) : undefined;
+  const studyRoot = loopRequest ? await projectRootHoldingLoop(loopRequest, vscode.workspace.workspaceFolders ?? []) : undefined;
+  if (analysisSessions !== sessions || openTicket !== openRequestGeneration) return;
+  activeRuntimeTarget = runtimeTarget;
+  const initialTargetLabel = await readTargetLabel(runtimeTarget);
+  if (analysisSessions !== sessions || openTicket !== openRequestGeneration) return;
+  pinTargetLabel(initialTargetLabel);
+  let studyOpenFailure: string | undefined;
+  if (loopRequest) {
+    try {
+      if (!studyRoot) throw new Error("This loop is not in an open project folder, so its study cannot be stored in the project.");
+      await openWorkspaceStudy(context.workspaceState, studyRoot, loopRequest);
+    } catch (error) {
+      studyOpenFailure = `The study could not be opened. Its stored files were preserved: ${String(error)}`;
+    }
+  }
+  if (analysisSessions !== sessions || openTicket !== openRequestGeneration) return;
+  const restoredWorkflow = restoreWorkflowResultHistory(activeLoop);
   currentWorkflowHistory = restoredWorkflow.history;
-  workflowResultUnavailableReason = restoredWorkflow.unavailableReason;
+  workflowResultUnavailableReason = studyOpenFailure ?? restoredWorkflow.unavailableReason;
   currentWorkflowResult = activeLoop
     ? [...currentWorkflowHistory].reverse().find((result) => result.loop.revision === activeLoop?.revision)
     : undefined;
   currentResultIsDraft = false;
   try {
-    const workflowDraft = activeLoop && restoreWorkflowDraft(context, activeLoop);
+    const workflowDraft = activeLoop && restoreWorkflowDraft(activeLoop);
     if (workflowDraft) { currentWorkflowResult = workflowDraft; currentResultIsDraft = true; }
     if (currentWorkflowResult && !await activateWorkflowResult(currentWorkflowResult, false)) return;
   } catch (error) {
@@ -254,7 +274,7 @@ async function showControlStudio(
   // their chart projection; restoring a draft must not suspend live observation.
   viewingWorkflowResult = false;
   if (loopRequest) {
-    const draft = workflowResultUnavailableReason ? undefined : restoreEngineerDraft(context, loopRequest) ?? currentWorkflowResult?.engineerStudy;
+    const draft = workflowResultUnavailableReason ? undefined : restoreEngineerDraft(loopRequest) ?? currentWorkflowResult?.engineerStudy;
     if (draft) {
       // Restore history intact before the latest durable owner reconciles it.
       sessions.engineer?.restoreStudy(draft, false);
@@ -272,17 +292,13 @@ async function showControlStudio(
   if (loopRequest && bindingOpen) await adoptStudioBinding(context, loopRequest, sessions, loopMessageScope(loopRequest), bindingOpen);
   bindingRoute = loopRequest ? new ThreePageBindingRoute(loopRequest, loopMessageScope(loopRequest), bindingDiscovery,
     () => analysisSessions === sessions && activeLoop === loopRequest,
-    () => { if (currentExperimentId || runtimeRecorder.recording || experimentRecorder.recording) throw new Error("Finish or abort the current experiment before changing its binding."); sessions.engineer?.assertModelReplacementAllowed(); },
+    () => { if (currentExperimentId || experimentRecorder.recording) throw new Error("Finish or abort the current experiment before changing its binding."); sessions.engineer?.assertModelReplacementAllowed(); },
     (request, sessionId, family) => showControlStudio(context, request, { sessionId, family, sourceLoop: loopRequest, sourceStudy: sessions.engineer?.snapshotStudy() })) : undefined;
-  appliedController = undefined;
   manualRecoveryReconciled = false;
   const title = activeLoop?.name ?? text(activeHandoff?.plantId, "Unbound loop");
   if (panel) {
     panel.title = `Control Studio · ${title}`;
-    panel.webview.html = controlStudioHtml(
-      panel.webview, context, title, activeLoop?.runtimeId ?? activeHandoff?.runtimeId,
-      activeHandoff, activeLoop, editorSessionId, currentStageEvidence(manualWorkflowState.model, manualWorkflowState.candidate, manualWorkflowState.validation)
-    );
+    panel.webview.html = controlStudioHtml(panel.webview, context, activeHandoff, activeLoop, editorSessionId, currentTargetLabel);
     panel.reveal(vscode.ViewColumn.Active);
     return;
   }
@@ -298,10 +314,7 @@ async function showControlStudio(
         vscode.Uri.file(path.join(context.extensionPath, "src", "webview"))],
     }
   );
-  panel.webview.html = controlStudioHtml(
-    panel.webview, context, title, activeLoop?.runtimeId ?? activeHandoff?.runtimeId,
-    activeHandoff, activeLoop, editorSessionId, currentStageEvidence(manualWorkflowState.model, manualWorkflowState.candidate, manualWorkflowState.validation)
-  );
+  panel.webview.html = controlStudioHtml(panel.webview, context, activeHandoff, activeLoop, editorSessionId, currentTargetLabel);
   panel.webview.onDidReceiveMessage(async (message) => {
     if (message?.kind === "control-studio.chart.export") {
       const ownerPanel = panel;
@@ -321,25 +334,6 @@ async function showControlStudio(
       return;
     }
 
-    const handoff = activeHandoff;
-    if (handoff) {
-      const expected = {
-        projectId: handoff.projectId,
-        editorSessionId,
-        plantId: handoff.plantId,
-        plantRevision: handoff.savedConfigurationRevision,
-      };
-      if (decodeControlStudioReady(message, expected)) {
-        void refreshMonitor();
-      } else if (decodeControlStudioNavigatePlant(message, expected)) {
-        void vscode.commands.executeCommand("trust-lsp.networkCanvas.open", {
-          focusNodeId: `plant:${handoff.runtimeId}:${handoff.plantId}`,
-        });
-      } else {
-        const approval = decodeAutomaticTuneApprove(message, expected);
-        if (approval) void completeAutomaticTune(context, handoff, approval.messageId, approval.objective);
-      }
-    }
     const loop = activeLoop;
     if (loop) {
       // A reused webview keeps its message listener, but owns the newly selected session.
@@ -347,22 +341,31 @@ async function showControlStudio(
       const expected = loopMessageScope(loop);
       const ownerPanel = panel;
       const stillCurrent = () => panel === ownerPanel && activeLoop === loop && editorSessionId === expected.editorSessionId;
-      if (decodeLoopLiveViewCommand(message, expected)) { viewingWorkflowResult = false; void refreshLoopMonitor(); return; }
       if (await routeControlStudioRuntimeStart(message, expected, loop.runtimeId, startStudioSimulator,
         async value => { if (stillCurrent()) await ownerPanel?.webview.postMessage(value); })) return;
       if (await routeIdentificationRecordingImport(message, expected, loop,
-        Boolean(currentExperimentId || runtimeRecorder.recording || experimentRecorder.recording), async (recording, reference) => {
+        Boolean(currentExperimentId || experimentRecorder.recording), async (recording, reference) => {
           if (!stillCurrent()) return;
           const update = sessions.selectIdentificationRecording(recording, reference);
           completedRecording = recording; viewingWorkflowResult = false;
           manualWorkflowState.model = undefined; manualWorkflowState.modelFit = undefined; manualWorkflowState.modelEvidence = undefined;
-          manualWorkflowState.tuning = undefined; manualWorkflowState.tuningComparison = undefined; manualWorkflowState.candidate = undefined; manualWorkflowState.validation = undefined;
+          manualWorkflowState.tuning = undefined; manualWorkflowState.tuningComparison = undefined; manualWorkflowState.candidate = undefined;
           manualWorkflowState.excludedIntervals = [];
           await retainCurrentWorkflowDraft(context, loop);
           if (update) await postEngineeringResult(ownerPanel, loop, expected.editorSessionId, "engineer", update);
         }, async value => { if (stillCurrent()) await ownerPanel?.webview.postMessage(value); })) return;
+      const hostCommand = decodeControlStudioHostCommand(message, expected);
+      if (hostCommand) { await runControlStudioHostCommand(hostCommand); return; }
+      const preview = decodeManualPreviewRequest(message, expected);
+      if (preview && sessions.engineer) {
+        const serial = manualPreviewRequests.begin();
+        const payload = await sessions.engineer.previewManualSettings(preview.settings);
+        // Only the latest request is answered; a preview superseded while it was computed is dropped.
+        if (manualPreviewRequests.isLatest(serial) && stillCurrent()) await postEngineeringResult(ownerPanel, loop, expected.editorSessionId, "tune", payload);
+        return;
+      }
       if (await bindingRoute?.handle(message, payload => postEngineeringResult(ownerPanel, loop, expected.editorSessionId, "bindings", payload))) return;
-      if (await storeEngineerStage(context, loop, message, expected)) return;
+      if (await storeEngineerStage(loop, message, expected)) return;
       if (await sessions.handle(message, expected, async (stage, payload) => {
         if (!stillCurrent()) return;
         if (stage === "engineer" && payload.status === "running") viewingWorkflowResult = false;
@@ -373,7 +376,7 @@ async function showControlStudio(
         if (stage === "general-model" && payload.status === "imported") {
           manualWorkflowState.model = undefined; manualWorkflowState.modelFit = undefined; manualWorkflowState.modelEvidence = undefined;
           manualWorkflowState.candidate = undefined; manualWorkflowState.tuning = undefined; manualWorkflowState.tuningComparison = undefined;
-          manualWorkflowState.validation = undefined; manualWorkflowState.declaredAnalysis = undefined;
+          manualWorkflowState.declaredAnalysis = undefined;
         }
         if ((stage === "engineer" || stage === "general-model") && payload.status !== "running" && payload.status !== "commissioning") {
           if (stage === "engineer" && payload.status === "edited") {
@@ -388,32 +391,20 @@ async function showControlStudio(
           }
         }
         if (payload.status === "reset" && ownerPanel) {
-          ownerPanel.webview.html = controlStudioHtml(ownerPanel.webview, context, loop.name, loop.runtimeId,
-            activeHandoff, loop, expected.editorSessionId, currentStageEvidence(undefined, undefined, undefined));
+          ownerPanel.webview.html = controlStudioHtml(ownerPanel.webview, context, activeHandoff, loop, expected.editorSessionId, currentTargetLabel);
           return;
         }
         await ownerPanel?.webview.postMessage({ schemaVersion: 1, kind: "control-studio.engineering.result", messageId: randomUUID(),
           projectId: expected.projectId, editorSessionId: expected.editorSessionId, loopId: expected.loopId,
           expectedLoopRevision: expected.loopRevision, stage, payload });
-      }, Boolean(currentExperimentId || runtimeRecorder.recording || experimentRecorder.recording))) return;
+      }, Boolean(currentExperimentId || experimentRecorder.recording))) return;
       if (!stillCurrent()) return;
-      const command = decodeLoopRecordingCommand(message, expected);
       const experimentCommand = decodeControlExperimentCommand(message, expected);
-      const antiWindupCommand = decodeAntiWindupCommand(message, expected);
-      const applicationCommand = decodeControllerApplicationCommand(message, expected);
-      const workflowResultCommand = decodeWorkflowResultCommand(message, expected);
       const mimoCommand = decodeMimoAnalysisCommand(message, expected);
-      const automaticCommand = decodeLoopAutomaticTuneApprove(message, expected);
       const engineeringCommand = decodeEngineeringCommand(message, expected);
-      if (command?.action === "start" || command?.action === "stop") {
-        void handleRuntimeRecording(context, command.action, loop);
-      } else if (decodeLoopReady(message, expected)) {
-        await restoreRecordingRecoveryOwner(context, loop, runtimeRecorder, active => loopMonitor.setRuntimeRecording(active));
+      if (decodeLoopReady(message, expected)) {
         await refreshExperimentStatus();
-        const retainedRecordingState = runtimeRecorder.currentUpdate;
-        if (retainedRecordingState) void ownerPanel?.webview.postMessage(
-          loopRecordingEvidenceEnvelope(expected, randomUUID(), retainedRecordingState)
-        );
+        if (reattachedIdentificationStatus) await postEngineeringResult(panel, activeLoop, editorSessionId, "flow", reattachedIdentificationStatus);
         if (workflowResultUnavailableReason) await postWorkflowResult("failed", {
           reason: workflowResultUnavailableReason,
           history: workflowResultHistoryItems(currentWorkflowHistory),
@@ -427,7 +418,7 @@ async function showControlStudio(
           void refreshLoopMonitor();
           await postWorkflowResult("history", { history: workflowResultHistoryItems(currentWorkflowHistory) });
         }
-        const restoredDraft = workflowResultUnavailableReason ? undefined : restoreEngineerDraft(context, loop);
+        const restoredDraft = workflowResultUnavailableReason ? undefined : restoreEngineerDraft(loop);
         const restoredModel = restoredDraft && !viewingWorkflowResult ? sessions.engineer?.modelChanged() : undefined;
         if (restoredDraft && !viewingWorkflowResult) await postEngineeringResult(panel, activeLoop, editorSessionId, "engineer",
           { ...restoredEngineerView(restoredDraft, sessions.engineer?.recordedCommissioning()), modelAnalysis: restoredModel?.modelAnalysis, task: restoredModel?.task ?? restoredDraft.task, stageEvidence: sessions.engineer?.currentStageEvidence(), relayCycle: sessions.engineer?.relayCycle(), ...sessions.engineer?.restoredOwnerView() });
@@ -444,24 +435,23 @@ async function showControlStudio(
         }
         const application = await observeStudioApplication(loop, sessions.engineer?.recordedCommissioning());
         if (application && stillCurrent()) await postEngineeringResult(ownerPanel, loop, expected.editorSessionId, "engineer", application);
+        // A8.6 and B6.3: an Apply observation that was running when VS Code closed is reattached and completed. It can last
+        // as long as the test duration, so reopening does not wait for it; its progress and result arrive as they come.
+        void sessions.engineer?.recoverApplyObservation(async payload => {
+          if (stillCurrent()) await postEngineeringResult(ownerPanel, loop, expected.editorSessionId, "engineer", payload);
+        }).catch(error => {
+          void vscode.window.showWarningMessage(`The Apply observation could not be reattached: ${String(error)}`);
+        });
         await bindingRoute?.publish(payload => postEngineeringResult(ownerPanel, loop, expected.editorSessionId, "bindings", payload));
         await ownerPanel?.webview.postMessage({ schemaVersion: 1, kind: "control-studio.navigation.restore", ...expected,
-          stage: restoredEngineerStage(context, loop), view: restoredEngineerViewSelection(context, loop) });
+          stage: restoredEngineerStage(loop), view: restoredEngineerViewSelection(loop) });
         if (currentExperimentId) void refreshMonitor();
       } else if (experimentCommand) {
         void handleExperimentCommand(experimentCommand, loop);
-      } else if (antiWindupCommand) {
-        void routeAntiWindupPanelCommand({ command: antiWindupCommand, loop, session: antiWindupSession, connectParameters: () => connectRuntimeParameters(loop), connectSearch: () => import("./runtimeSearchConnection").then(({ connectRuntimeSearch }) => connectRuntimeSearch(loop)), post: payload => postExperimentResult(ownerPanel, loop, expected.editorSessionId, "anti-windup", payload) });
-      } else if (applicationCommand) {
-        void handleControllerApplication(applicationCommand, loop);
-      } else if (workflowResultCommand) {
-        void handleWorkflowResultCommand(context, workflowResultCommand, loop);
       } else if (mimoCommand && ownerPanel) {
         void handleMimoAnalysisCommand({ context, loop, recording: completedRecording, sessions, command: mimoCommand,
           retainWorkflowDraft: () => retainCurrentWorkflowDraft(context, loop),
           post: payload => postEngineeringResult(ownerPanel, loop, expected.editorSessionId, "mimo", payload) });
-      } else if (automaticCommand && loop.plantId) {
-        void completeLoopAutomaticTune(context, loop, automaticCommand.messageId, automaticCommand.objective);
       } else if (engineeringCommand) {
         void dispatchManualWorkflowCommand(engineeringCommand, loop, context, ownerPanel, expected.editorSessionId, manualWorkflowState);
       }
@@ -469,12 +459,16 @@ async function showControlStudio(
   }, undefined, context.subscriptions);
   panel.onDidDispose(() => {
     openRequestGeneration++;
+    reattachedIdentificationStatus = undefined;
     disposeCurrentAnalysisSessions(context);
     if (refreshTimer) clearTimeout(refreshTimer);
     experimentStatusPoller.dispose();
+    targetLabelSubscription?.dispose();
+    targetLabelSubscription = undefined;
     refreshTimer = undefined;
     activeHandoff = undefined;
     activeLoop = undefined;
+    activeRuntimeTarget = undefined;
     activeScopeKey = "";
     editorSessionId = "";
     draftSessions = undefined;
@@ -482,6 +476,15 @@ async function showControlStudio(
     viewingWorkflowResult = false;
     panel = undefined;
   }, undefined, context.subscriptions);
+}
+
+/**
+ * The page's host commands (A11.2) run the commands truST already has. Attaching to a runtime that is already running has
+ * no command of its own yet, so connecting opens Devices & Connections, where that is done.
+ */
+async function runControlStudioHostCommand(command: ControlStudioHostCommand): Promise<void> {
+  if (command === "connect-runtime") await vscode.commands.executeCommand("trust-lsp.networkCanvas.open");
+  else await vscode.commands.executeCommand("trust-lsp.controlStudio.configure");
 }
 
 function loopMessageScope(loop: ControlLoopDefinition) {
@@ -547,12 +550,6 @@ async function handleExperimentCommand(
 ): Promise<void> {
   if (!panel || !command) return;
   viewingWorkflowResult = false;
-  if (command.action === "calculate-relay") {
-    await postExperimentResult(panel, activeLoop, editorSessionId, "relay-candidate", {
-      relayTuning: relayTuningSession.calculateCandidate(),
-    });
-    return;
-  }
   if (command.action === "review") {
     const ownerPanel = panel;
     await refreshLoopMonitor();
@@ -562,7 +559,6 @@ async function handleExperimentCommand(
       holdSeconds = await appliedProjectHoldSeconds(loop, () => connectRuntimeParameters(loop));
     } catch (error) {
       if (panel !== ownerPanel || activeLoop !== loop) return;
-      relayTuningSession.reset();
       pendingExperiment = undefined;
       await postExperimentResult(panel, activeLoop, editorSessionId, "review",
         { kind: "rejected", reason: error instanceof Error ? error.message : String(error) });
@@ -585,16 +581,20 @@ async function handleExperimentCommand(
       ...(holdSeconds === undefined ? {} : { holdSeconds }),
     });
     if (result.kind === "accepted") {
-      relayTuningSession.reset();
       const records = experimentIdentification.records;
       const previous = records[records.length - 1];
       const plan = previous?.outcome === "failed"
         ? experimentIdentification.retry(previous.experimentId, result.plan)
         : result.plan;
+      if (unconfirmedTestStarts.isUnconfirmed(plan.id)) {
+        // A start whose outcome is unknown is never sent again under its identity (A8.5).
+        pendingExperiment = undefined;
+        await postExperimentResult(panel, activeLoop, editorSessionId, "failed", { reason: "This Test identity has a start that the runtime has not confirmed. Its status is reconciled; it is not reviewed or sent again." });
+        return;
+      }
       pendingExperiment = plan;
       await postExperimentResult(panel, activeLoop, editorSessionId, "review", { kind: "accepted", plan });
     } else {
-      relayTuningSession.reset();
       pendingExperiment = undefined;
       await postExperimentResult(panel, activeLoop, editorSessionId, "review", result);
     }
@@ -607,12 +607,35 @@ async function handleExperimentCommand(
       return;
     }
     try {
-      if (currentExperimentId || runtimeRecorder.recording || experimentRecorder.recording) {
+      unconfirmedTestStarts.assertSendable(plan.id);
+    } catch (error) {
+      await postExperimentResult(panel, activeLoop, editorSessionId, "failed", { reason: error instanceof Error ? error.message : String(error) });
+      return;
+    }
+    const dispatch = { started: false };
+    try {
+      if (currentExperimentId || experimentRecorder.recording) {
         throw new Error("Stop the active runtime recording before starting a Test experiment.");
       }
-      const result = await startExperimentWithRecording(experimentRecorder, loop,
-        () => runtimeExperimentClient().start(plan, command.physicalApproved), undefined,
-        owner => storeExperimentRecovery(extensionContext, loop, plan, owner));
+      if (landingTestStart !== undefined) throw new Error("Another Test start is still landing. Its outcome is reconciled by status first.");
+      if (!extensionContext) throw new Error("The Test start cannot be journalled without Control Studio's workspace state.");
+      const experimentContext = extensionContext;
+      // A2.7 and A8.5: the start carries its pinned target and the Test journal, or nothing is sent.
+      const ports = testStartPorts(await pinnedRuntime(), experimentRecordingJournal({
+        persist: owner => storeExperimentRecovery(experimentContext, loop, plan, owner),
+        clearOwner: () => storeExperimentRecovery(experimentContext, loop, plan.id),
+      }));
+      const client = runtimeExperimentClient(ports.target);
+      // A8.5: the identity is journalled before the recording or the experiment is dispatched.
+      // The identity is journalled from here until the start is answered or has failed; status reads meanwhile keep it.
+      landingTestStart = plan.id;
+      const result = await journalBeforeDispatch(
+        () => storeExperimentRecovery(experimentContext, loop, plan.id),
+        () => startExperimentWithRecording(experimentRecorder, loop,
+          () => { dispatch.started = true; return client.start(plan, command.physicalApproved); }, ports.journal,
+          owner => storeExperimentRecovery(experimentContext, loop, plan, owner),
+          experimentRecordingWindowMs(plan.durationMs)))
+        .finally(() => { landingTestStart = undefined; });
       currentExperimentId = plan.id;
       currentExperimentPlan = plan;
       currentExperimentTerminal = undefined;
@@ -621,12 +644,27 @@ async function handleExperimentCommand(
       experimentStatusPoller.schedule();
       await postExperimentResult(panel, activeLoop, editorSessionId, "running", result);
     } catch (error) {
-      await postExperimentResult(panel, activeLoop, editorSessionId, "failed", { reason: error instanceof Error ? error.message : String(error) });
+      // A failed start keeps no reviewed plan to send again (A8.5). Before dispatch nothing reached the experiment, so its
+      // journal entry is retired. After dispatch the outcome is unknown: the identity is reconciled by status, never replayed.
+      pendingExperiment = undefined;
+      const reason = error instanceof Error ? error.message : String(error);
+      if (!dispatch.started) {
+        if (extensionContext) await clearExperimentRecovery(extensionContext, loop);
+        await postExperimentResult(panel, activeLoop, editorSessionId, "failed", { reason });
+        return;
+      }
+      unconfirmedTestStarts.markUnconfirmed(plan.id);
+      const reconciled = await reconcileStartByStatus(plan).catch(() => undefined);
+      if (reconciled) {
+        await postExperimentResult(panel, activeLoop, editorSessionId, reconciled.phase, reconciled.value);
+        return;
+      }
+      await postExperimentResult(panel, activeLoop, editorSessionId, "failed", { reason: `${reason} The runtime has not confirmed this start. Its identity is kept for status reconciliation and is not sent again.` });
     }
     return;
   }
   try {
-    const result = await runtimeExperimentClient().abort(command.experimentId);
+    const result = await runtimeExperimentClient(requirePinnedRuntime()).abort(command.experimentId);
     const phase = classifyControlExperimentStatus(result);
     if (phase === "invalid" || phase === "running") {
       throw new Error("The runtime returned an invalid abort state.");
@@ -654,18 +692,21 @@ async function experimentIdentificationPayload(plan: ControlExperimentPlan | und
       loop, plan, result,
       stopRecording: async () => {
         if (!loop) throw new Error("The Test loop is no longer available for runtime recording recovery.");
-        const recording = await stopExperimentRecording(experimentRecorder, loop);
-        completedRecording = recording;
-        return recording;
+        const context = extensionContext;
+        if (!context) throw new Error("The Test recording cannot be kept without Control Studio's workspace state.");
+        // The study keeps the samples before the runtime buffer is released (E4.7, E11.6). A failed keep leaves the buffer for the next Stop.
+        return stopExperimentRecording(experimentRecorder, loop, async kept => {
+          completedRecording = kept;
+          await retainCurrentWorkflowDraft(context, loop);
+        });
       },
       recordIdentification: (reviewedPlan, terminal, samples, evidence) =>
         experimentIdentification.record(reviewedPlan, terminal, samples, evidence),
     });
-    loopMonitor.setRuntimeRecording(runtimeRecorder.recording || experimentRecorder.recording);
-    const augmented = antiWindupSession.augmentTerminalPayload(loop, payload);
-    return relayTuningSession.augmentTerminalPayload(plan, augmented);
+    loopMonitor.setRuntimeRecording(experimentRecorder.recording);
+    return payload;
   } catch (error) {
-    loopMonitor.setRuntimeRecording(runtimeRecorder.recording || experimentRecorder.recording);
+    loopMonitor.setRuntimeRecording(experimentRecorder.recording);
     const identification_error = error instanceof Error ? error.message : String(error);
     return record(result) ? { ...result, identification_error } : { identification_error };
   }
@@ -678,9 +719,10 @@ async function refreshExperimentStatus(): Promise<void> {
     loop: () => activeLoop,
     recovery: loop => restoreExperimentRecovery(extensionContext!, loop),
     recordingActive: () => experimentRecorder.recording,
+    startLanding: experimentId => landingTestStart === experimentId,
     recoverOwner: (loop, owner) => restoreExperimentRecordingOwner(experimentRecorder, loop, owner, RuntimeRecordingSession.recover),
     recovered: plan => { currentExperimentPlan ??= plan; loopMonitor.setRuntimeRecording(true); },
-    status: experimentId => runtimeExperimentClient().status(experimentId),
+    status: experimentId => runtimeExperimentClient(requirePinnedRuntime()).status(experimentId),
     classify: classifyControlExperimentStatus,
     terminal: value => experimentIdentificationPayload(currentExperimentPlan, value),
     terminalObserved: value => { currentExperimentTerminal = value; },
@@ -691,203 +733,119 @@ async function refreshExperimentStatus(): Promise<void> {
     post: (phase, payload) => postExperimentResult(panel, activeLoop, editorSessionId, phase, payload),
     schedule: () => experimentStatusPoller.schedule(),
   });
-  if (!currentExperimentId) await analysisSessions.engineer?.recoverIdentificationMode().catch(error => {
-    void vscode.window.showWarningMessage(`Identification recovery remains pending: ${String(error)}`);
-  });
+  if (!currentExperimentId) void reattachIdentification();
+}
+
+/**
+ * A8.5, A8.6, A10.4: reopening reattaches an interrupted identification and completes it as it would have completed (follow the
+ * held step to its settled end, return the mode, fit). That completion belongs to the journaled operation; reopening starts nothing
+ * new and never aborts a running experiment. It runs beside the page, so the reopened page never waits for it to end, and the page
+ * shows it as running, with the campaign's progress, until it ends. Its reports go only to the panel that reattached it.
+ */
+async function reattachIdentification(): Promise<void> {
+  const owner = panel, ownerLoop = activeLoop, ownerSession = editorSessionId, ownerSessions = analysisSessions;
+  const current = () => panel === owner && analysisSessions === ownerSessions;
+  const follow = async (payload: Record<string, unknown>) => {
+    if (current()) await postEngineeringResult(owner, ownerLoop, ownerSession, "flow", payload);
+  };
+  let following = false;
+  // The latest progress this reattachment showed; a page that reopens meanwhile is sent it once it is ready.
+  let shown: Record<string, unknown> | undefined;
+  const recovered = await ownerSessions.engineer?.recoverIdentificationMode(async reason => {
+    following = true;
+    shown = { flowStage: "Identify", status: "running", reason };
+    if (current()) reattachedIdentificationStatus = shown;
+    await follow(shown);
+  }).catch(async error => {
+    if (current()) void vscode.window.showWarningMessage(`Identification recovery remains pending: ${String(error)}`);
+    if (following) await follow({ flowStage: "Identify", status: "paused", reason: `Identification recovery remains pending: ${String(error)}` });
+    following = false;
+    return undefined;
+  }).finally(() => { if (reattachedIdentificationStatus === shown) reattachedIdentificationStatus = undefined; });
+  // A resumed campaign that fitted a model shows that model as a finished Identify does.
+  if (recovered && current()) await postEngineeringResult(owner, ownerLoop, ownerSession, "engineer", recovered);
+  if (following) await follow({ flowStage: "Identify", status: "completed", state: "completed", reason: recovered ? "Model ready for review." : "" });
+}
+
+/**
+ * The runtime the study is pinned to (A2.7): the runtime connected when the loop opened, or, when none was, the one connected at
+ * the first live action. Once pinned it never changes. Without a connected runtime the action explains that one must be
+ * connected and offers to connect it.
+ */
+async function pinnedRuntime(): Promise<StudyRuntimeTarget> {
+  if (!activeRuntimeTarget && activeLoop) {
+    activeRuntimeTarget = await resolveStudyRuntimeTarget(activeLoop);
+    pinTargetLabel(await readTargetLabel(activeRuntimeTarget));
+  }
+  return requirePinnedRuntime();
+}
+
+/** The runtime the study is pinned to, once a live action has pinned it (A2.7). A live Test request never picks up another runtime. */
+function requirePinnedRuntime(): StudyRuntimeTarget {
+  if (!activeRuntimeTarget) throw new Error(UNPINNED_RUNTIME_MESSAGE);
+  return activeRuntimeTarget;
+}
+
+/** Reconciles a start whose outcome is unknown by its identity (A8.5). The experiment is attached only when the runtime reports it; nothing is sent. */
+async function reconcileStartByStatus(plan: ControlExperimentPlan):
+  Promise<{ phase: "running" | "restoring" | "terminal"; value: unknown } | undefined> {
+  const value = await runtimeExperimentClient(requirePinnedRuntime()).status(plan.id);
+  const runtimePhase = classifyControlExperimentStatus(value);
+  if (runtimePhase !== "running" && runtimePhase !== "awaiting_restoration" && runtimePhase !== "terminal") return undefined;
+  unconfirmedTestStarts.confirm(plan.id);
+  currentExperimentId = plan.id;
+  currentExperimentPlan = plan;
+  currentExperimentTerminal = runtimePhase === "terminal" ? value : undefined;
+  loopMonitor.setRuntimeRecording(experimentRecorder.recording);
+  experimentStatusPoller.schedule();
+  return { phase: runtimePhase === "awaiting_restoration" ? "restoring" : runtimePhase, value };
+}
+
+/** The pinned runtime's target label from its status report (specification 35, B9.2); undefined when that status cannot be read. */
+async function readTargetLabel(target: StudyRuntimeTarget | undefined): Promise<string | undefined> {
+  if (!target) return undefined;
+  try {
+    const authToken = await runtimeLifecycleService.controlAuthToken(target.endpoint);
+    const report = await sendRuntimeControlRequest(target.endpoint, authToken, "status", {}, { timeoutMs: 750 });
+    return simulationTargetLabel(runtimeTargetFromStatus(report));
+  } catch {
+    return undefined;
+  }
+}
+
+/** Keeps the page's target label current for the pinned runtime. The subscription ends when the loop changes or the panel closes. */
+function pinTargetLabel(initial: string | undefined): void {
+  targetLabelSubscription?.dispose();
+  currentTargetLabel = initial;
+  const target = activeRuntimeTarget;
+  const loop = activeLoop;
+  targetLabelSubscription = target && loop
+    ? onDidReadSimulationSpeed(targetLabelUpdates(target.runtimeId, initial, label => {
+      if (activeLoop === loop && activeRuntimeTarget === target) { currentTargetLabel = label; void postTargetLabel(loop, label); }
+    }))
+    : undefined;
+}
+
+/** Posts the target label in the envelope the other host-to-page messages use; the page checks that envelope's scope. */
+async function postTargetLabel(loop: ControlLoopDefinition, label: string): Promise<void> {
+  await panel?.webview.postMessage({ schemaVersion: 1, kind: "control-studio.target-label", messageId: randomUUID(),
+    projectId: loop.projectId, editorSessionId, loopId: loop.id, expectedLoopRevision: loop.revision, label });
 }
 
 function record(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-async function completeAutomaticTune(
-  context: vscode.ExtensionContext,
-  handoff: PlantControlStudioHandoff,
-  messageId: string,
-  objective: "balanced" | "robust" | "fast"
-): Promise<void> {
-  const current = panel;
-  const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!current || !projectDir) return;
-  try {
-    const saved = await readProjectPlants(context, projectDir);
-    const outcome = runSavedSimulationAutomaticTune(saved, handoff.plantId, objective);
-    if (outcome.status === "failed") {
-      await current.webview.postMessage(automaticTuneResultEnvelope(
-        handoff, editorSessionId, messageId, { status: "failed", error: outcome.reason,
-          failedStage: outcome.failedStage, completedStages: outcome.completedStages, recovery: outcome.recovery }
-      ));
-      return;
-    }
-    const result = outcome.result;
-    manualWorkflowState.candidate = candidateFromControlPid(result.parameters, result.method);
-    manualWorkflowState.model = { ...result.model, normalizedError: 0, stable: true };
-    manualWorkflowState.modelFit = undefined;
-    manualWorkflowState.modelEvidence = "Exact simulation model";
-    manualWorkflowState.validation = result.validationResult;
-    manualWorkflowState.tuningComparison = {
-      objective,
-      winnerMethod: result.method,
-      ...(result.closedLoopTimeSeconds === undefined ? {} :
-        { closedLoopTimeSeconds: result.closedLoopTimeSeconds }),
-      attempts: result.attempts.map((attempt) => ({ ...attempt })),
-    };
-    await current.webview.postMessage(automaticTuneResultEnvelope(
-      handoff, editorSessionId, messageId, { status: "complete", result }
-    ));
-  } catch (error) {
-    await current.webview.postMessage(automaticTuneResultEnvelope(
-      handoff,
-      editorSessionId,
-      messageId,
-      { status: "failed", error: error instanceof Error ? error.message : String(error) }
-    ));
-  }
-}
-
-async function completeLoopAutomaticTune(
-  context: vscode.ExtensionContext, loop: ControlLoopDefinition, messageId: string,
-  objective: "balanced" | "robust" | "fast"
-): Promise<void> {
-  const current = panel; const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!current || !projectDir || !loop.plantId) return;
-  try {
-    const saved = await readProjectPlants(context, projectDir);
-    const runtimeCurrent = await currentRuntimeCandidate(loop, runtimeControllerClient);
-    const outcome = runSavedSimulationAutomaticTune(saved, loop.plantId, objective, runtimeCurrent, {
-      processUnit: loop.signals.processVariable.unit,
-      outputUnit: loop.signals.manipulatedVariable.unit,
-    });
-    if (outcome.status === "failed") {
-      await current.webview.postMessage({ schemaVersion: 1, kind: "control-studio.automatic.result",
-        messageId, projectId: loop.projectId, editorSessionId, loopId: loop.id,
-        expectedLoopRevision: loop.revision, payload: { status: "failed", error: outcome.reason,
-          failedStage: outcome.failedStage, completedStages: outcome.completedStages, recovery: outcome.recovery } });
-      return;
-    }
-    const result = outcome.result;
-    manualWorkflowState.candidate = candidateFromControlPid(result.parameters, result.method);
-    manualWorkflowState.model = { ...result.model, normalizedError: 0, stable: true };
-    manualWorkflowState.modelFit = undefined;
-    manualWorkflowState.modelEvidence = "Exact simulation model";
-    manualWorkflowState.validation = result.validationResult;
-    manualWorkflowState.tuningComparison = {
-      objective,
-      winnerMethod: result.method,
-      ...(result.closedLoopTimeSeconds === undefined ? {} :
-        { closedLoopTimeSeconds: result.closedLoopTimeSeconds }),
-      attempts: result.attempts.map((attempt) => ({ ...attempt })),
-    };
-    manualWorkflowState.currentRuntimeController = runtimeCurrent;
-    await current.webview.postMessage({ schemaVersion: 1, kind: "control-studio.automatic.result",
-      messageId, projectId: loop.projectId, editorSessionId, loopId: loop.id,
-      expectedLoopRevision: loop.revision, payload: { status: "complete", result } });
-  } catch (error) {
-    await current.webview.postMessage({ schemaVersion: 1, kind: "control-studio.automatic.result",
-      messageId, projectId: loop.projectId, editorSessionId, loopId: loop.id,
-      expectedLoopRevision: loop.revision, payload: { status: "failed", error: error instanceof Error ? error.message : String(error) } });
-  }
-}
-
-async function handleControllerApplication(
-  command: NonNullable<ReturnType<typeof decodeControllerApplicationCommand>>,
-  loop: ControlLoopDefinition
-): Promise<void> {
-  try {
-    const client = await runtimeControllerClient();
-    if (command.action === "apply") {
-      const candidate = manualWorkflowState.candidate;
-      if (!candidate) throw new Error("No validated controller candidate is available.");
-      if (!manualWorkflowState.validation || manualWorkflowState.validation.requirements.some((requirement) =>
-        requirement.status === "Fail" || requirement.status === "Inconclusive")) {
-        throw new Error("The current candidate has not passed required validation.");
-      }
-      const status = await client.status(loop.controller.instance);
-      if (!status.confirmed || status.pendingRevision) {
-        throw new Error("A controller write is still pending scan confirmation.");
-      }
-      const sampleRevision = currentLoopSample?.availability === "available"
-        ? currentLoopSample.controller.revision : undefined;
-      if (!sampleRevision || status.activeRevision !== sampleRevision) {
-        throw new Error("The live controller revision changed. Refresh and validate again before applying.");
-      }
-      const result = await client.apply({ instancePath: loop.controller.instance,
-        source: currentLoopSample!.availability === "available" ? currentLoopSample!.source : "Physical",
-        expectedRevision: status.activeRevision, candidate: candidate.parameters,
-        physicalApproved: command.physicalApproved });
-      appliedController = { instancePath: loop.controller.instance, ...result };
-      await postApplicationResult(panel, activeLoop, editorSessionId, "applied", { ...result, observationSeconds: 30 });
-      return;
-    }
-    const applied = appliedController;
-    if (!applied) throw new Error("No applied candidate is available to roll back.");
-    const result = await client.rollback({ instancePath: applied.instancePath,
-      expectedActiveRevision: applied.activeRevision, previousRevision: applied.previousRevision });
-    appliedController = undefined;
-    await postApplicationResult(panel, activeLoop, editorSessionId, "rolled-back", result);
-  } catch (error) {
-    await postApplicationResult(panel, activeLoop, editorSessionId, "failed", { reason: error instanceof Error ? error.message : String(error) });
-  }
-}
-
-async function handleWorkflowResultCommand(
-  context: vscode.ExtensionContext,
-  command: NonNullable<ReturnType<typeof decodeWorkflowResultCommand>>,
-  loop: ControlLoopDefinition
-): Promise<void> {
+/** Exports the current result as JSON; the Control Studio export command is its only caller. */
+async function exportWorkflowResultJson(context: vscode.ExtensionContext, loop: ControlLoopDefinition): Promise<void> {
   const owner = editorSessionId;
   const postOwned = (phase: string, payload: unknown): Promise<void> =>
     editorSessionId === owner ? postWorkflowResult(phase, payload) : Promise.resolve();
   try {
-    if (command.action === "open") {
-      const selected = currentWorkflowHistory.find((item) => item.resultRevision === command.resultRevision);
-      if (!selected) throw new Error(`Saved result revision ${command.resultRevision} is unavailable.`);
-      analysisSessions.engineer?.assertStudyRestoreAllowed(selected.engineerStudy);
-      if (!await activateWorkflowResult(selected) || editorSessionId !== owner) return;
-      currentWorkflowResult = selected;
-      currentResultIsDraft = false;
-      viewingWorkflowResult = true;
-      await postOwned("opened", { result: selected,
-        history: workflowResultHistoryItems(currentWorkflowHistory) });
-      return;
-    }
-    if (command.action === "compare") {
-      const left = currentWorkflowHistory.find((item) => item.resultRevision === command.leftRevision);
-      const right = currentWorkflowHistory.find((item) => item.resultRevision === command.rightRevision);
-      if (!left || !right) throw new Error("One of the selected saved result revisions is unavailable.");
-      await postOwned("compared", { comparison: compareWorkflowResultRevisions(left, right),
-        history: workflowResultHistoryItems(currentWorkflowHistory) });
-      return;
-    }
-    if (command.action === "save") {
-      const result = await buildCurrentWorkflowResult(context, loop, command.session);
-      const nextHistory = await saveWorkflowResultRevision(
-        context.workspaceState, workflowResultStorageKey(loop), result, 20
-      );
-      if (editorSessionId !== owner) return;
-      currentWorkflowHistory = nextHistory;
-      currentWorkflowResult = result;
-      currentResultIsDraft = false;
-      await postOwned("saved", { createdAt: result.createdAt,
-        resultRevision: result.resultRevision, history: workflowResultHistoryItems(currentWorkflowHistory) });
-      return;
-    }
     const result = await workflowResultForExport(
       currentWorkflowResult,
       () => buildCurrentWorkflowResult(context, loop), viewingWorkflowResult
     );
-    if (command.action === "export-csv") {
-      if (result.recording.rawSamples.length === 0) throw new Error("No raw recording is available to export.");
-      const uri = await vscode.window.showSaveDialog({
-        defaultUri: vscode.Uri.file(path.join(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "",
-          "control-studio-samples.csv")),
-        filters: { "CSV samples": ["csv"] },
-      });
-      if (!uri) return;
-      await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(exportSamplesCsv(result.recording.rawSamples)));
-      await postOwned("exported", { format: "CSV", path: uri.fsPath });
-      return;
-    }
     const uri = await vscode.window.showSaveDialog({
       defaultUri: vscode.Uri.file(path.join(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "",
         "control-studio-result.json")),
@@ -899,7 +857,7 @@ async function handleWorkflowResultCommand(
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     if (editorSessionId !== owner) {
-      void vscode.window.showWarningMessage(`Control Studio ${command.action} for ${loop.name} failed: ${reason}`);
+      void vscode.window.showWarningMessage(`Control Studio export-json for ${loop.name} failed: ${reason}`);
       return;
     }
     await postOwned("failed", { reason });
@@ -928,7 +886,7 @@ async function activateWorkflowResult(result: ControlStudioWorkflowResult, resto
   analysisSessions.parameters?.dispose();
   restoreManualWorkflowState(manualWorkflowState, result);
   if (activeLoop && extensionContext) {
-    const mimo = restoreMimoAnalysis(extensionContext, activeLoop);
+    const mimo = restoreMimoAnalysis(activeLoop);
     analysisSessions.restoreMimo(completedRecording, mimo);
   }
   return true;
@@ -939,6 +897,8 @@ function disposeCurrentAnalysisSessions(context: vscode.ExtensionContext): void 
   try {
     if (activeLoop) void retainCurrentWorkflowDraft(context, activeLoop)
       .catch(error => vscode.window.showWarningMessage(`Could not retain the workflow draft: ${String(error)}`));
+    // Closing during an Apply observation detaches it: the runtime keeps recording, and reopening reattaches at once (A8.5, A10.4).
+    if (activeLoop && analysisSessions.engineer?.detachObservationForClose()) { analysisSessions.dispose(); return; }
     if (activeLoop && (preserveUnresolvedRecovery(context, activeLoop, analysisSessions, currentWorkflowSnapshotState)
       || preservePendingManualApplication(context, activeLoop, analysisSessions)
       || preservePendingIdentification(activeLoop, analysisSessions))) return;
@@ -946,10 +906,9 @@ function disposeCurrentAnalysisSessions(context: vscode.ExtensionContext): void 
   analysisSessions.dispose();
 }
 
-function buildCurrentWorkflowResult(context: vscode.ExtensionContext, loop: ControlLoopDefinition,
-  chartSession?: ControlStudioWorkflowResult["chartSession"]): Promise<ControlStudioWorkflowResult> {
+function buildCurrentWorkflowResult(context: vscode.ExtensionContext, loop: ControlLoopDefinition): Promise<ControlStudioWorkflowResult> {
   const revision = Math.max(0, ...currentWorkflowHistory.map(result => result.resultRevision)) + 1;
-  return buildWorkflowResultSnapshot(context, loop, currentWorkflowSnapshotState(), chartSession)
+  return buildWorkflowResultSnapshot(context, loop, currentWorkflowSnapshotState())
     .then(result => ({ ...result, resultRevision: revision }));
 }
 
@@ -963,7 +922,7 @@ function retainCurrentWorkflowDraft(context: vscode.ExtensionContext, loop: Cont
   const study = analysisSessions.engineer?.snapshotDraft() ?? { campaigns: [] };
   const workflow = buildWorkflowDraftSnapshot(loop, currentWorkflowSnapshotState(study));
   workflow.software.extensionVersion = text(context.extension.packageJSON.version, "Unavailable");
-  return storeEngineerDraft(context, loop, study, workflow).then(async stored => {
+  return storeEngineerDraft(loop, study, workflow).then(async stored => {
     if (!owner || panel !== owner || editorSessionId !== ownerSession || activeLoop !== loop) return;
     currentWorkflowResult = stored ?? workflow;
     currentResultIsDraft = true;
@@ -981,7 +940,7 @@ function currentWorkflowSnapshotState(engineerStudy = analysisSessions.engineer?
     runValidation: analysisSessions.validation.snapshot(), finiteSearch: analysisSessions.search?.snapshot(), routhAnalysis: analysisSessions.routh?.snapshot(),
     commissioning: analysisSessions.engineer?.recordedCommissioning(), model: manualWorkflowState.model, modelEvidence: manualWorkflowState.modelEvidence,
     declaredAnalysis: manualWorkflowState.declaredAnalysis, modelFit: manualWorkflowState.modelFit, currentController: manualWorkflowState.currentRuntimeController,
-    candidate: manualWorkflowState.candidate, validation: manualWorkflowState.validation, tuningComparison: manualWorkflowState.tuningComparison,
+    candidate: manualWorkflowState.candidate, tuningComparison: manualWorkflowState.tuningComparison,
   };
 }
 
@@ -995,7 +954,7 @@ async function postWorkflowResult(phase: string, payload: unknown): Promise<void
     const result = payload.result as unknown as ControlStudioWorkflowResult;
     await postRestoredEngineeringPlots(result, (stage, payload) => postEngineeringResult(panel, activeLoop, editorSessionId, stage, payload));
     if (activeLoop && extensionContext) {
-      const mimo = restoreMimoAnalysis(extensionContext, activeLoop);
+      const mimo = restoreMimoAnalysis(activeLoop);
       if (analysisSessions.restoreMimo(completedRecording, mimo) && mimo) {
         await postEngineeringResult(panel, activeLoop, editorSessionId, "mimo", { status: "complete", result: mimo.result,
           recordingId: mimo.recordingId, recordingHash: mimo.recordingHash, trials: mimo.trials, ...(mimo.options ? { options: mimo.options } : {}) });
@@ -1045,22 +1004,4 @@ export async function runtimeControllerClient(): Promise<ControllerApplicationCl
   const token = await runtimeLifecycleService.controlAuthToken(endpoint);
   return new ControllerApplicationClient((operation, params) =>
     sendRuntimeControlRequest(endpoint, token, operation, params, { timeoutMs: 2_000 }));
-}
-
-async function handleRuntimeRecording(context: vscode.ExtensionContext, action: "start" | "stop", loop: ControlLoopDefinition): Promise<void> {
-  if (experimentRecorder.recording) {
-    void vscode.window.showErrorMessage("The active Test owns runtime acquisition. Wait for its terminal recording before using Manual Record.");
-    return;
-  }
-  if (action === "stop") await retryRecordingRecoveryOwner(context, loop, runtimeRecorder,
-    active => loopMonitor.setRuntimeRecording(active));
-  await executeRecordingCommand(runtimeRecorder, action, loop, {
-    recordingChanged: value => loopMonitor.setRuntimeRecording(value || experimentRecorder.recording),
-    started: () => { completedRecording = undefined; viewingWorkflowResult = false; },
-    stopped: recording => { completedRecording = recording; },
-    persistOwner: owner => storeRecordingRecovery(context, loop, owner),
-    clearOwner: () => clearRecordingRecovery(context, loop),
-    publish: async evidence => { await panel?.webview.postMessage(loopRecordingEvidenceEnvelope(loopMessageScope(loop), randomUUID(), evidence, "state" in evidence ? undefined : completedRecording)); },
-    refresh: () => { void refreshLoopMonitor(); },
-  });
 }

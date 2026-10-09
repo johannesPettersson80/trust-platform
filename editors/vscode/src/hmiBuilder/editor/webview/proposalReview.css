@@ -1,0 +1,118 @@
+/* Proposal review shares the builder shell and truST theme; the PNG retains its HMI theme. */
+.hb-proposal-loading {
+    padding: 24px;
+}
+.hb-proposal-heading {
+    flex-wrap: wrap;
+    padding: 14px 20px;
+}
+.hb-proposal-heading h1 {
+    margin: 4px 0 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+.hb-proposal-eyebrow,
+.hb-proposal-file {
+    color: var(--trust-text-muted);
+}
+.hb-proposal-badge {
+    padding: 4px 8px;
+    border: 1px solid var(--trust-border-subtle);
+    border-radius: 4px;
+    white-space: nowrap;
+}
+.hb-proposal-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+}
+.hb-proposal-toolbar {
+    flex-wrap: wrap;
+}
+.hb-proposal-toolbar [role="tablist"] {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+}
+.hb-proposal-toolbar [aria-selected="true"] {
+    border-color: var(--trust-accent);
+}
+.hb-proposal-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    flex: 1;
+    min-height: 0;
+}
+.hb-proposal-viewport {
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    padding: 24px;
+}
+.hb-proposal-viewport img {
+    display: block;
+    max-width: none;
+    border: 1px solid var(--trust-border-subtle);
+}
+.hb-proposal-summary {
+    overflow: auto;
+    padding: 8px 20px 20px;
+    border-left: 1px solid var(--trust-border-subtle);
+    background: var(--trust-panel);
+}
+.hb-proposal-summary p {
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+.hb-proposal-summary h2 {
+    font-size: 14px;
+    margin: 16px 0 12px;
+}
+.hb-proposal-summary ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.hb-proposal-summary li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--trust-border-subtle);
+    overflow-wrap: anywhere;
+}
+.hb-proposal-summary li span {
+    display: block;
+    margin-top: 4px;
+    color: var(--trust-text-muted);
+}
+.hb-proposal-explanation {
+    line-height: 1.5;
+    padding-top: 12px;
+}
+.hb-proposal button:disabled {
+    cursor: default;
+}
+@media (max-width: 760px) {
+    .hb-proposal-body {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(200px, 1fr) minmax(100px, 30%);
+    }
+    .hb-proposal-summary {
+        border-left: 0;
+        border-top: 1px solid var(--trust-border-subtle);
+    }
+}
+
+.hb-proposal-exploration {
+    position: relative;
+    contain: layout paint;
+    isolation: isolate;
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+}
+.hb-proposal-exploration .hmi-popup {
+    max-width: 92%;
+    max-height: 92%;
+}
+.hb-proposal-exploration .hmi-popup-surface {
+    overflow: auto;
+}

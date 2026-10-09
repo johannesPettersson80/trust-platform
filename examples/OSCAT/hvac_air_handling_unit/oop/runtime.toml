@@ -2,7 +2,7 @@
 version = 1
 
 [resource]
-name = "AhuOop"
+name = "Cpu0"
 cycle_interval_ms = 100
 
 [runtime.control]

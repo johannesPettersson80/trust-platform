@@ -82,6 +82,16 @@ pub(super) fn execute_function_block_ref(
     dispatch::execute_function_block_ref(runtime, reference)
 }
 
+pub(super) fn execute_hmi_method(
+    runtime: &mut Runtime,
+    instance: crate::memory::InstanceId,
+    method: &str,
+    inputs: &[(SmolStr, Value)],
+    budget: &mut usize,
+) -> Result<Value, RuntimeError> {
+    call::execute_hmi_method(runtime, instance, method, inputs, budget)
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct VmModule {
     pub(super) code: Vec<u8>,
@@ -347,6 +357,32 @@ impl VmModule {
 
     pub(super) fn pou_params(&self, id: u32) -> Option<&[VmParamMeta]> {
         self.pou_params.get(&id).map(Vec::as_slice)
+    }
+
+    /// A function block's call parameters with those it inherits (IEC 61131-3 Edition 3,
+    /// 6.6.5.3): the base's first, then its own. Borrowed when it extends nothing.
+    pub(super) fn pou_params_with_inherited(
+        &self,
+        id: u32,
+    ) -> Option<std::borrow::Cow<'_, [VmParamMeta]>> {
+        let own = self.pou_params(id)?;
+        if !self.parent_pou_ids.contains_key(&id) {
+            return Some(std::borrow::Cow::Borrowed(own));
+        }
+        let mut chain = vec![id];
+        let mut current = id;
+        while let Some(&parent) = self.parent_pou_ids.get(&current) {
+            if chain.contains(&parent) {
+                break;
+            }
+            chain.push(parent);
+            current = parent;
+        }
+        let mut params = Vec::new();
+        for pou in chain.into_iter().rev() {
+            params.extend(self.pou_params(pou).unwrap_or_default().iter().cloned());
+        }
+        Some(std::borrow::Cow::Owned(params))
     }
 
     pub(super) fn pou_has_return_slot(&self, id: u32) -> bool {

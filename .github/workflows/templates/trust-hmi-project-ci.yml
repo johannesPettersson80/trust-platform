@@ -1,0 +1,27 @@
+# Customer projects: install a pinned, trusted truST release before these steps.
+# This template assumes trust-runtime is on PATH; it never deploys or approves baselines.
+name: HMI project checks
+on:
+  push:
+    paths: ['hmi/**', 'src/**', 'sources/**', 'runtime.toml', 'trust-lsp.toml']
+  pull_request:
+    paths: ['hmi/**', 'src/**', 'sources/**', 'runtime.toml', 'trust-lsp.toml']
+permissions:
+  contents: read
+jobs:
+  hmi:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, trust-hmi-project]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate HMI bindings and owner policy
+        run: trust-runtime hmi check --project .
+      - name: Compare approved screens
+        run: trust-runtime hmi test --project .
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() }}
+        with:
+          name: hmi-screen-differences-${{ github.sha }}
+          path: hmi/screens/*.actual.png
+          if-no-files-found: ignore

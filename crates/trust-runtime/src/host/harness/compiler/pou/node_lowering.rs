@@ -49,8 +49,9 @@ fn lower_function_block_node(
     {
         if let Some(base_name) = extends_clause
             .children()
-            .find(|child| child.kind() == SyntaxKind::Name)
+            .find(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::QualifiedName))
         {
+            // A base in a namespace is written qualified, for example `Lib.Base`.
             let raw = node_text(&base_name);
             let resolved = resolve_named_type(ctx.registry, &raw, &ctx.using)?;
             let type_id = ctx
@@ -113,8 +114,9 @@ fn lower_class_node(
     {
         if let Some(base_name) = extends_clause
             .children()
-            .find(|child| child.kind() == SyntaxKind::Name)
+            .find(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::QualifiedName))
         {
+            // A base in a namespace is written qualified, for example `Lib.Base`.
             let raw = node_text(&base_name);
             base = Some(resolve_named_type(ctx.registry, &raw, &ctx.using)?);
         }
@@ -184,8 +186,9 @@ fn lower_interface_node(
     {
         if let Some(base_name) = extends_clause
             .children()
-            .find(|child| child.kind() == SyntaxKind::Name)
+            .find(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::QualifiedName))
         {
+            // A base in a namespace is written qualified, for example `Lib.Base`.
             let raw = node_text(&base_name);
             base = Some(resolve_named_type(ctx.registry, &raw, &ctx.using)?);
         }
@@ -335,6 +338,7 @@ fn lower_property_methods(
                 direction: ParamDirection::In,
                 address: None,
                 default: None,
+                retain: crate::RetainPolicy::Unspecified,
             }],
             locals: Vec::new(),
             static_locals: Vec::new(),

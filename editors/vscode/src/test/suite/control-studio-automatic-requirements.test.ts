@@ -1,5 +1,6 @@
 import * as assert from "assert";
 import { automaticEngineerRequirements } from "../../controlStudio/automaticEngineerRequirements";
+import { MAXIMUM_EXPERIMENT_DURATION_MS } from "../../controlStudio/controlStudioLimits";
 import { EngineerWorkflowSession } from "../../controlStudio/engineerWorkflowSession";
 import type { GeneralModel } from "../../controlStudio/generalModel";
 import { pidLoop, channel } from "./control-studio-pid-fixtures";
@@ -26,11 +27,19 @@ suite("Control Studio automatic test criteria", () => {
   test("derives a bounded model-scaled task without explicit requirement fields", async () => {
     const fast = await tune(model(2)), slow = await tune(model(8));
     assert.ok(slow.task.settlingTimeSeconds > fast.task.settlingTimeSeconds);
-    assert.ok(slow.task.durationSeconds > slow.task.settlingTimeSeconds && slow.task.durationSeconds <= 600);
+    assert.ok(slow.task.durationSeconds > slow.task.settlingTimeSeconds && slow.task.durationSeconds <= MAXIMUM_EXPERIMENT_DURATION_MS / 1_000);
     assert.ok(fast.task.settlingBand > 0 && fast.task.maximumError > fast.task.settlingBand);
     assert.ok(fast.task.automaticCriteria.fields.includes("maximumError"));
     assert.strictEqual(fast.task.automaticCriteria.modelRevision,"model-2");
     assert.deepStrictEqual(fast.messages.find(message => message.status === "candidate").task,fast.task);
+  });
+  test("derives a validation of a slow process longer than 100,000 task periods, which a record period keeps (A7, A4.2)", () => {
+    // A 75 min process at a 100 ms task: its test needs more than the 10,000 s that 100,000 unaveraged periods would allow.
+    const loop = pidLoop();
+    loop.controller.taskPeriodMs = 100;
+    const task = automaticEngineerRequirements(loop, model(4500), {}, []);
+    assert.ok(task.durationSeconds > 10_000, `the test covers the slow process: ${task.durationSeconds} s`);
+    assert.ok(task.durationSeconds <= MAXIMUM_EXPERIMENT_DURATION_MS / 1_000);
   });
   test("keeps explicit process requirements and fills only missing settings", async () => {
     const result = await tune(model(), { maximumError: .4, settlingBand: .1, settlingTimeSeconds: 45, referenceChange: 2 });

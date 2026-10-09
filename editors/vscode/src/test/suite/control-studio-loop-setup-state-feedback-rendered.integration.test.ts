@@ -28,11 +28,11 @@ suite("Control Studio state-feedback setup rendered", () => {
         ["feedback.processVariable.maximum", "0.5"], ["feedback.setpoint", "P1.Tank2SetpointM"], ["feedback.gain", "P1.K2"], ["feedback.referenceGain", "P1.N"]]);
       assert.deepStrictEqual(JSON.parse(await hidden()), [false, true, true], "one further measured output is offered at a time");
       await set([["feedback.state.0", "P1.Tank1M"], ["feedback.state.0.unit", "m"], ["feedback.state.0.minimum", "0"], ["feedback.state.0.maximum", "0.5"],
-        ["feedback.state.0.gain", "P1.K1"], ["feedback.mode", "P1.FeedbackEnabled"], ["feedback.manualOutput", "P1.ManualM3PerS"], ["feedback.experimentDuration", "300"]]);
+        ["feedback.state.0.gain", "P1.K1"], ["feedback.mode", "P1.FeedbackEnabled"], ["feedback.manualOutput", "P1.ManualM3PerS"]]);
       assert.deepStrictEqual(JSON.parse(await hidden()), [false, false, true]);
       const state = JSON.parse(await inner(`return JSON.stringify({save:d.querySelector('[data-setup-save]').disabled,message:d.querySelector('[data-setup-message]').textContent,
-        step:d.querySelector('[data-setup-field="feedback.experimentStep"]').value,visible:[...d.querySelectorAll('[data-setup-section]')].filter(s=>!s.hidden).map(s=>s.dataset.setupSection)});`));
-      assert.deepStrictEqual([state.save, state.step, state.visible], [false, "0.002", ["state-feedback"]], state.message);
+        visible:[...d.querySelectorAll('[data-setup-section]')].filter(s=>!s.hidden).map(s=>s.dataset.setupSection)});`));
+      assert.deepStrictEqual([state.save, state.visible], [false, ["state-feedback"]], state.message);
       await shot("completed");
       await inner("d.querySelector('[data-setup-save]').click();return 'save';");
       const studio = await attachControlStudio(connection, port, "", "loop:tank-2-level");

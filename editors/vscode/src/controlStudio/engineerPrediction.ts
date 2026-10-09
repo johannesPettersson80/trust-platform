@@ -58,7 +58,6 @@ export function engineerPrediction(model: GeneralModel | undefined, loop: Contro
     plots.timeResponse = plots.timeResponse.map((point, index) => ({ timeSeconds: point.timeSeconds,
       candidatePv: point.candidatePv, candidateMv: point.candidateMv,
       ...(running ? { currentPv: running[index].candidatePv, currentMv: running[index].candidateMv } : {}) }));
-    plots.requirements = []; // Actual task requirements are evaluated by the ST verification campaign.
     plots.comparison = { candidate, context: { modelRevision: model!.revision,
       evidenceRevision: JSON.stringify({ model, loop, task }), method: "unit-step-model-prediction-v1" } };
     return engineeringPlotMessageEvidence(plots);

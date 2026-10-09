@@ -6,7 +6,11 @@ import type { RecordingOwnerPersistence } from "./runtimeRecording";
 export interface RecordingSession {
   readonly loop: ControlLoopDefinition;
   stop(): Promise<LoopRecording>;
+  /** Frees the stopped runtime buffer. Called only after the stopped samples are kept (E4.7, E11.6). */
+  release?(): Promise<void>;
 }
+/** Keeps a stopped recording's samples, for example in the study. The runtime buffer is released only after this resolves. */
+export type RecordingRetention = (recording: LoopRecording) => Promise<void>;
 export interface RecordingStateNotice {
   readonly state: "starting" | "recording" | "unconfirmed";
   readonly reason: string;
@@ -24,7 +28,8 @@ export class RecordingCoordinator {
   private recoveredReason?: string;
   private recoveredLoop?: ControlLoopDefinition;
   private stopping = false;
-  constructor(private readonly start: (loop: ControlLoopDefinition, persistence?: RecordingOwnerPersistence) => Promise<RecordingSession>) {}
+  /** `plannedDurationMs` sizes the runtime window; without it the start keeps its one-hour default. */
+  constructor(private readonly start: (loop: ControlLoopDefinition, persistence?: RecordingOwnerPersistence, plannedDurationMs?: number) => Promise<RecordingSession>) {}
   get recording(): boolean { return !!this.pendingLoop || !!this.session || !!this.recoveredLoop || this.stopping; }
   get loop(): ControlLoopDefinition | undefined { return this.session?.loop ?? this.pendingLoop ?? this.recoveredLoop; }
   get unresolvedStart(): RecordingStartUnconfirmed | undefined { return this.unconfirmedStart; }
@@ -64,13 +69,14 @@ export class RecordingCoordinator {
     return true;
   }
 
-  async execute(action: "start" | "stop", loop: ControlLoopDefinition, persistence?: RecordingOwnerPersistence): Promise<RecordingTransition | undefined> {
+  async execute(action: "start" | "stop", loop: ControlLoopDefinition, persistence?: RecordingOwnerPersistence, plannedDurationMs?: number,
+    retain?: RecordingRetention): Promise<RecordingTransition | undefined> {
     if (action === "start") {
       if (this.recording) return undefined;
       this.unconfirmedStart = undefined;
       this.pendingLoop = loop;
       try {
-        this.pendingStart = this.start(loop, persistence);
+        this.pendingStart = this.start(loop, persistence, plannedDurationMs);
         this.session = await this.pendingStart;
         return { kind: "started" };
       } catch (error) {
@@ -92,10 +98,11 @@ export class RecordingCoordinator {
         else throw error;
       }
     }
-    if (this.unconfirmedStart?.recording) {
-      const recording = this.unconfirmedStart.recording;
+    const pending = this.unconfirmedStart;
+    if (pending?.recording) {
+      await keepAndRelease(pending.session, pending.recording, retain);
       this.unconfirmedStart = undefined;
-      return { kind: "stopped", recording };
+      return { kind: "stopped", recording: pending.recording };
     }
     if (!this.session && this.recoveredReason) throw new Error(this.recoveredReason);
     if (this.stopping || !this.session) return undefined;
@@ -103,6 +110,8 @@ export class RecordingCoordinator {
     this.stopping = true;
     try {
       const recording = await session.stop();
+      // A failed keep leaves this owner in place, so the next Stop retries the keep before any release (E4.7, E11.6).
+      await keepAndRelease(session, recording, retain);
       if (this.session === session) {
         this.session = undefined;
         this.unconfirmedStart = undefined;
@@ -119,10 +128,11 @@ export class RecordingCoordinator {
   }
 }
 
-export function recordingFailure(error: unknown): LoopRecordingEvidence {
-  return { method: "runtime_scan_buffer", completeness: "incomplete", observedSampleCount: 0,
-    missingScanRanges: [], droppedObservedSamples: 0, actualCycleTimingAvailable: false, freshnessAvailable: false,
-    reason: `Incomplete recording — ${error instanceof Error ? error.message : String(error)}` };
+/** Keeps the stopped samples, then frees the runtime buffer. Without a keeper the buffer stays for the next start's sweep. */
+async function keepAndRelease(session: RecordingSession, recording: LoopRecording, retain: RecordingRetention | undefined): Promise<void> {
+  if (!retain) return;
+  await retain(recording);
+  await session.release?.();
 }
 
 function recordingStarted(): RecordingStateNotice {
@@ -132,44 +142,6 @@ function recordingStarted(): RecordingStateNotice {
 function recordingUnconfirmed(error: RecordingStartUnconfirmed): RecordingStateNotice {
   return { state: "unconfirmed", reason: error.message };
 }
-
-export function isRecordingStateNotice(value: unknown): value is RecordingStateNotice {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const state = (value as RecordingStateNotice).state;
-  return state === "starting" || state === "recording" || state === "unconfirmed";
-}
-
-/** Shared recording completion owns state notifications and terminal evidence. */
-export async function executeRecordingCommand(coordinator: RecordingCoordinator, action: "start" | "stop",
-  loop: ControlLoopDefinition, hooks: {
-    recordingChanged(value: boolean): void; started(): void; stopped(recording: LoopRecording): void;
-    publish(update: RecordingUpdate): Promise<void>; refresh(): void;
-    persistOwner?(owner: Parameters<RecordingOwnerPersistence["persist"]>[0]): Promise<void>;
-    clearOwner?(): Promise<void>;
-  }): Promise<void> {
-  const persistence = hooks.persistOwner && hooks.clearOwner
-    ? { persist: hooks.persistOwner, clear: async () => hooks.clearOwner!() } satisfies RecordingOwnerPersistence : undefined;
-  const transition = coordinator.execute(action, loop, persistence);
-  hooks.recordingChanged(coordinator.recording);
-  if (action === "start" && coordinator.currentUpdate) await hooks.publish(coordinator.currentUpdate);
-  try {
-    const result = await transition;
-    if (result?.kind === "started") { hooks.started(); await hooks.publish(recordingStarted()); }
-    if (result?.kind === "stopped") { hooks.stopped(result.recording); await hooks.clearOwner?.(); await hooks.publish(result.recording.evidence); }
-    if (result?.kind === "start-unconfirmed") {
-      if (result.error.recording) {
-        hooks.stopped(result.error.recording);
-        await hooks.clearOwner?.();
-        await hooks.publish(result.error.recording.evidence);
-      } else await hooks.publish(recordingUnconfirmed(result.error));
-    }
-  } catch (error) {
-    coordinator.reportRecoveredStopFailure(loop, error);
-    await hooks.publish(coordinator.currentUpdate ?? (coordinator.unresolvedStart ? recordingUnconfirmed(coordinator.unresolvedStart) : recordingFailure(error)));
-  }
-  finally { hooks.recordingChanged(coordinator.recording); hooks.refresh(); }
-}
-
 
 export function sameRecordingScope(left: ControlLoopDefinition | undefined, right: ControlLoopDefinition | undefined): boolean {
   return !!left && !!right && left.projectId === right.projectId && left.runtimeId === right.runtimeId

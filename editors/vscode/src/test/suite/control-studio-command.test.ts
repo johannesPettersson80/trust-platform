@@ -450,7 +450,6 @@ suite("Control Studio command", () => {
       "Output maximum": "100",
       "Gain minimum": "0",
       "Gain maximum": "25",
-      "Observation duration (seconds)": "45",
       "Maximum rising output rate (output units/s)": "",
       "Maximum falling output rate (output units/s)": "",
     };
@@ -508,7 +507,8 @@ suite("Control Studio command", () => {
         parameters: [{ symbol: "Main.Kp", iec_type: "LREAL", unit: "%/bar", convention: "proportional gain", minimum: 0, maximum: 25 }],
         mode: { symbol: "Main.Manual", manual_value: true },
       });
-      assert.strictEqual(saved.experiment.durationSeconds, 45, "setup records the engineer's observation duration");
+      // B1.3: a proportional setup asks for no identification duration, so it writes no experiment; Identify chooses it within Limits.
+      assert.strictEqual(saved.experiment, undefined, "setup records no observation duration the engineer did not set");
       assert.ok(!("analysis" in saved) && !("analysisParameterSymbols" in saved) && !("plant" in saved) && !("plantId" in saved),
         "declaring an existing proportional controller must not fabricate analysis or a plant");
       const { validateControlLoopDefinition } = require("../../controlStudio/loopDefinition");
@@ -523,11 +523,11 @@ suite("Control Studio command", () => {
     }
   });
 
-  test("guided proportional setup rejects a duration that exceeds the automatic-identification sample budget", async () => {
+  test("guided proportional setup asks for no identification duration, so the record period bounds a long identification (B1.3, A4.2)", async () => {
     const folder = vscode.workspace.workspaceFolders?.[0];
     assert.ok(folder);
     const file = path.join(folder.uri.fsPath, "control-loops", "sample-budget-proportional.json");
-    let durationValidation: string | undefined;
+    const asked: string[] = [];
     const values: Record<string, string> = {
       "Loop name": "Sample budget proportional",
       "Process unit": "bar", "Process minimum": "0", "Process maximum": "12",
@@ -537,10 +537,7 @@ suite("Control Studio command", () => {
       "Maximum falling output rate (output units/s)": "",
     };
     const input = async (options: vscode.InputBoxOptions) => {
-      if (options.title === "Observation duration (seconds)") {
-        durationValidation = options.validateInput?.("600") as string | undefined;
-        return undefined;
-      }
+      asked.push(options.title ?? "");
       return values[options.title ?? ""];
     };
     const pick = async (items: readonly any[], options: vscode.QuickPickOptions) => {
@@ -559,6 +556,8 @@ suite("Control Studio command", () => {
       if (options.title?.endsWith(": applied actuator feedback")) return items.find(item => item.label === "Use the controller output");
       return undefined;
     };
+    const originalInfo = vscode.window.showInformationMessage;
+    (vscode.window as any).showInformationMessage = async () => "Save loop";
     const presenter = setupTestPrompts(input, pick);
     try {
       if (fs.existsSync(file)) fs.unlinkSync(file);
@@ -580,32 +579,34 @@ suite("Control Studio command", () => {
           memory: [{ symbol: "Main.SP", address: "%ML0", type: "LREAL" }],
         },
       }), presenter);
-      assert.match(durationValidation ?? "", /at most 599\.95 seconds at this task period \(12,000 samples\)/i,
-        "600 seconds at 50 ms creates 12,001 scan samples and must explain the supported limit before save");
-      assert.strictEqual(result.kind, "cancelled");
-      assert.strictEqual(fs.existsSync(file), false, "an adapter-ineligible duration must not write a loop definition");
+      assert.ok(!asked.includes("Observation duration (seconds)"), "a proportional setup never asks for an identification duration (B1.3)");
+      assert.strictEqual(result.kind, "accepted", JSON.stringify(result));
+      assert.strictEqual(JSON.parse(fs.readFileSync(file, "utf8")).experiment, undefined, "Identify chooses the duration within Limits (B1.3)");
+      const { recordPeriodExecutions } = require("../../controlStudio/controlStudioLimits");
+      assert.strictEqual(recordPeriodExecutions(600_000, 50), 1,
+        "600 s at 50 ms is 12,000 scans, which the 100,000-sample record holds without averaging (A4.2)");
     } finally {
+      (vscode.window as any).showInformationMessage = originalInfo;
       if (fs.existsSync(file)) fs.unlinkSync(file);
     }
   });
 
-  test("guided proportional setup reports the scan-rounded duration maximum", async () => {
+  test("guided observation setup accepts the 24 h maximum at a 700 ms task, which the record period keeps within the sample limit (A7, A4.2)", async () => {
     const folder = vscode.workspace.workspaceFolders?.[0];
     assert.ok(folder);
-    const file = path.join(folder.uri.fsPath, "control-loops", "scan-rounded-proportional.json");
+    const file = path.join(folder.uri.fsPath, "control-loops", "scan-rounded-observation.json");
     let durationValidation: string | undefined;
     const values: Record<string, string> = {
-      "Loop name": "Scan rounded proportional",
+      "Loop name": "Scan rounded observation",
       "Process unit": "bar", "Process minimum": "0", "Process maximum": "12",
       "Output unit": "%", "Output minimum": "0", "Output maximum": "100",
-      "Gain minimum": "0", "Gain maximum": "25",
       "Maximum rising output rate (output units/s)": "",
       "Maximum falling output rate (output units/s)": "",
     };
     const input = async (options: vscode.InputBoxOptions) => {
       if (options.title === "Observation duration (seconds)") {
-        durationValidation = options.validateInput?.("601") as string | undefined;
-        return undefined;
+        durationValidation = options.validateInput?.("86400") as string | undefined;
+        return durationValidation ? undefined : "86400";
       }
       return values[options.title ?? ""];
     };
@@ -615,7 +616,7 @@ suite("Control Studio command", () => {
       if (options.title === "Process variable") return items.find(item => item.label === "Main.PV");
       if (options.title === "Controller output") return items.find(item => item.label === "Main.Output");
       if (options.title === "Setpoint") return items.find(item => item.label === "Main.SP");
-      if (options.title === "Control workflow") return items.find(item => item.label === "Tune existing proportional controller");
+      if (options.title === "Control workflow") return items.find(item => item.label === "Observation");
       if (options.title === "Proportional gain") return items.find(item => item.label === "Main.Kp");
       if (options.title === "Manual command") return items.find(item => item.label === "Main.ManualCommand");
       if (options.title === "Manual mode") return items.find(item => item.label === "Main.Manual");
@@ -625,37 +626,32 @@ suite("Control Studio command", () => {
       if (options.title?.endsWith(": applied actuator feedback")) return items.find(item => item.label === "Use the controller output");
       return undefined;
     };
+    const originalInfo = vscode.window.showInformationMessage;
+    (vscode.window as any).showInformationMessage = async () => "Save loop";
     const presenter = setupTestPrompts(input, pick);
     try {
       if (fs.existsSync(file)) fs.unlinkSync(file);
       const { configureControlLoop } = require("../../controlStudio/configureLoop");
-      const result = await configureControlLoop("runtime:guided-proportional", async () => ({
+      const result = await configureControlLoop("runtime:guided-observation", async () => ({
         ok: true,
-        controlSymbols: {
-          controllers: [{ instance: "Main.Controller", type: "ExistingProportional",
-            tasks: [{ name: "MainTask", intervalMs: 700 }] }],
-          symbols: [
-            { symbol: "Main.Kp", type: "LREAL" },
-            { symbol: "Main.ManualCommand", type: "LREAL" },
-            { symbol: "Main.Manual", type: "BOOL" },
-          ],
-        },
+        controlSymbols: { controllers: [{ instance: "Main.Controller", type: "ExistingProportional",
+          tasks: [{ name: "MainTask", intervalMs: 700 }] }] },
         processImage: {
           feedbacks: [{ symbol: "Main.PV", address: "%IL0", type: "LREAL" }],
           commands: [{ symbol: "Main.Output", address: "%QL0", type: "LREAL" }],
           memory: [{ symbol: "Main.SP", address: "%ML0", type: "LREAL" }],
         },
       }), presenter);
-      assert.match(durationValidation ?? "", /at most 599\.9 seconds at this task period \(12,000 samples\)/i,
-        "the reported maximum must be a scan-rounded duration that the runtime adapter accepts");
-      assert.strictEqual(result.kind, "cancelled");
-      assert.strictEqual(fs.existsSync(file), false);
+      assert.strictEqual(durationValidation, undefined, "the observation maximum is 24 h at every task period (A7)");
+      assert.strictEqual(result.kind, "accepted", JSON.stringify(result));
+      assert.strictEqual(JSON.parse(fs.readFileSync(file, "utf8")).experiment.durationSeconds, 86400);
     } finally {
+      (vscode.window as any).showInformationMessage = originalInfo;
       if (fs.existsSync(file)) fs.unlinkSync(file);
     }
   });
 
-  test("guided observation setup retains the one-hour observation limit", async () => {
+  test("guided observation setup accepts a one-hour observation within the 24 h limit (A7)", async () => {
     const folder = vscode.workspace.workspaceFolders?.[0];
     assert.ok(folder);
     const file = path.join(folder.uri.fsPath, "control-loops", "one-hour-observation.json");

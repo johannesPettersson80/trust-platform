@@ -90,7 +90,9 @@ suite("Control Studio three-page analysis presentation", () => {
       const channel = (id: string, unit: string) => ({ id, unit, operatingRange: { minimum: 0, maximum: 1 } });
       renderIdentifiedModel(root, { kind: "transfer-function", revision: "r", source: "provided", validation: "validated", evidence: ["e"],
         numerator: [2], denominator: [6, 5, 1], delaySeconds: 0, inputs: [channel("u", "V")], outputs: [channel("y", "m")] } as any);
-      assert.strictEqual(root.querySelector("[data-studio-model-equation]").textContent, "G(s) = (2) / (6s² +5s +1)");
+      // The equation is a stacked fraction: its numerator and denominator are read separately.
+      assert.strictEqual(root.querySelector(".studio-math-num").textContent, "2");
+      assert.strictEqual(root.querySelector(".studio-math-den").textContent, "6s² +5s +1");
     } finally { dom.window.close(); }
   });
 

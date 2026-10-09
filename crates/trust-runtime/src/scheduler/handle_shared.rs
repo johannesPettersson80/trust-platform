@@ -8,6 +8,10 @@ pub struct ResourceHandle<C: Clock + Clone> {
     clock: C,
     join: Option<thread::JoinHandle<()>>,
     cmd_tx: std::sync::mpsc::Sender<ResourceCommand>,
+    /// The exchange the resource's `Hmi.Display` calls serve (specification 39, §18 Phase 5).
+    pub(crate) hmi: Arc<crate::hmi::exchange::HmiExchange>,
+    /// The shared speed of the resource's simulation, when it runs on simulation time.
+    simulation_speed: Option<SimulationSpeed>,
 }
 
 impl<C: Clock + Clone> ResourceHandle<C> {
@@ -20,6 +24,8 @@ impl<C: Clock + Clone> ResourceHandle<C> {
             last_error: self.last_error.clone(),
             clock: self.clock.clone(),
             cmd_tx: self.cmd_tx.clone(),
+            hmi: self.hmi.clone(),
+            simulation_speed: self.simulation_speed.clone(),
         }
     }
     /// Signal the resource thread to stop.
@@ -66,9 +72,31 @@ pub struct ResourceControl<C: Clock + Clone> {
     last_error: Arc<Mutex<Option<RuntimeError>>>,
     clock: C,
     cmd_tx: std::sync::mpsc::Sender<ResourceCommand>,
+    hmi: Arc<crate::hmi::exchange::HmiExchange>,
+    simulation_speed: Option<SimulationSpeed>,
 }
 
 impl<C: Clock + Clone> ResourceControl<C> {
+    /// The exchange between the screens and the program's `Hmi.Display` calls.
+    #[must_use]
+    pub fn hmi_exchange(&self) -> Arc<crate::hmi::exchange::HmiExchange> {
+        self.hmi.clone()
+    }
+
+    /// The shared speed of this resource's simulation, when it runs on simulation time (specification 33, §6.1
+    /// item 5). `config.set` changes the speed through it.
+    #[must_use]
+    pub fn simulation_speed(&self) -> Option<SimulationSpeed> {
+        self.simulation_speed.clone()
+    }
+
+    /// Attaches the speed of a resource that runs on simulation time.
+    #[must_use]
+    pub fn with_simulation_speed(mut self, speed: SimulationSpeed) -> Self {
+        self.simulation_speed = Some(speed);
+        self
+    }
+
     /// Create a lightweight stub control with a command receiver.
     ///
     /// Intended for debug/control IPC where no scheduler thread is running.
@@ -84,6 +112,8 @@ impl<C: Clock + Clone> ResourceControl<C> {
                 last_error,
                 clock,
                 cmd_tx,
+                hmi: Arc::new(crate::hmi::exchange::HmiExchange::new()),
+                simulation_speed: None,
             },
             cmd_rx,
         )
@@ -108,6 +138,8 @@ impl<C: Clock + Clone> ResourceControl<C> {
                 last_error,
                 clock,
                 cmd_tx,
+                hmi: Arc::new(crate::hmi::exchange::HmiExchange::new()),
+                simulation_speed: None,
             },
             cmd_rx,
         )

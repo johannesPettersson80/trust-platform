@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use trust_runtime::io::IoAddress;
 use trust_runtime::value::{Duration, Value};
 
@@ -105,27 +103,6 @@ fn lesson22_executes_the_setpoint_weight_control_studio_applies() {
 }
 
 #[test]
-fn lesson22_hmi_only_binds_signals_of_the_executed_heater() {
-    let relative =
-        "01-feedback-foundations-and-temperature-control/10-proportional-setpoint-weighting";
-    let (runtime, _) = setup(relative);
-    let project = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/control")
-        .join(relative);
-    let descriptor = trust_runtime::hmi::load_hmi_dir(&project).unwrap();
-    let diagnostics = trust_runtime::hmi::validate_hmi_bindings(
-        "Res",
-        &runtime.metadata_snapshot(),
-        None,
-        &descriptor,
-    );
-    assert!(
-        diagnostics.is_empty(),
-        "The Lesson 23 HMI must bind the executed heater project: {diagnostics:?}"
-    );
-}
-
-#[test]
 fn lesson23_filters_the_measurement_control_studio_applies() {
     for filter_seconds in [1.0, 0.0] {
         let (mut runtime, mut simulation) =
@@ -189,26 +166,6 @@ fn lesson23_filters_the_measurement_control_studio_applies() {
             }
         }
     }
-}
-
-#[test]
-fn lesson23_hmi_only_binds_signals_of_the_executed_heater() {
-    let relative = "01-feedback-foundations-and-temperature-control/11-measurement-filtering";
-    let (runtime, _) = setup(relative);
-    let project = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/control")
-        .join(relative);
-    let descriptor = trust_runtime::hmi::load_hmi_dir(&project).unwrap();
-    let diagnostics = trust_runtime::hmi::validate_hmi_bindings(
-        "Res",
-        &runtime.metadata_snapshot(),
-        None,
-        &descriptor,
-    );
-    assert!(
-        diagnostics.is_empty(),
-        "The Lesson 24 HMI must bind the executed heater project: {diagnostics:?}"
-    );
 }
 
 #[test]
@@ -476,25 +433,5 @@ fn lesson24_verifies_from_the_state_control_studio_presets() {
     assert!(
         outputs[2] > 75.0,
         "the controller acts on the 3 °C setpoint step from the next scan: {outputs:?}"
-    );
-}
-
-#[test]
-fn lesson24_hmi_only_binds_signals_of_the_executed_heater() {
-    let relative = "01-feedback-foundations-and-temperature-control/12-elapsed-time-and-sampling";
-    let (runtime, _) = setup(relative);
-    let project = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/control")
-        .join(relative);
-    let descriptor = trust_runtime::hmi::load_hmi_dir(&project).unwrap();
-    let diagnostics = trust_runtime::hmi::validate_hmi_bindings(
-        "Res",
-        &runtime.metadata_snapshot(),
-        None,
-        &descriptor,
-    );
-    assert!(
-        diagnostics.is_empty(),
-        "The Lesson 25 HMI must bind the executed heater project: {diagnostics:?}"
     );
 }

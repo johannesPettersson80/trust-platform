@@ -1,6 +1,6 @@
 import type { ControlLoopDefinition } from "../loopDefinition";
 import type { CompiledCatalog } from "./compiledCatalog";
-import { binding, measurementBinding, compiled, identificationDuration, loopId, realType, withRevision, type MeasuredSignal } from "./loopBindings";
+import { binding, measurementBinding, compiled, explicitExperiment, loopId, realType, withRevision, type MeasuredSignal } from "./loopBindings";
 import { startupState } from "./pidBindings";
 import type { ModeChoice, SignalChoice } from "./pidLoopGenerator";
 
@@ -81,8 +81,7 @@ export function searchLawLoopDefinition(catalog: CompiledCatalog, draft: SearchL
     },
     limits: { outputMinimum: mv.minimum, outputMaximum: mv.maximum },
     observedSampleTiming: { nominalPeriodMs: period },
-    experiment: { execution: "control-studio", kind: "mv_step", amplitude: draft.experimentStep ?? span / 10,
-      durationSeconds: identificationDuration(draft.name, draft.experimentDurationSeconds), seed: 1 },
+    ...explicitExperiment(draft.name, { execution: "control-studio", kind: "mv_step" }, draft.experimentStep, draft.experimentDurationSeconds),
     parameterBinding: {
       loop_id: id, task_name: task.name, mode: { symbol: draft.mode.symbol, manual_value: draft.mode.whenTrue === "Manual" },
       // Each coefficient is shown by its own variable name.

@@ -81,7 +81,6 @@ struct RuntimeSection {
     realtime: Option<RealtimeSection>,
     openot: Option<OpenOtSection>,
     observability: Option<ObservabilitySection>,
-    hmi_persistence: Option<HmiPersistenceSection>,
     ads: Option<AdsSection>,
     ads_server: Option<AdsServerSection>,
     opcua_client: Option<OpcUaClientSection>,
@@ -150,6 +149,7 @@ struct WebSection {
     listen: Option<String>,
     auth: Option<String>,
     tls: Option<bool>,
+    hmi: Option<crate::hmi::access::config::HmiSection>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -266,14 +266,6 @@ struct ObservabilitySection {
     prometheus_enabled: Option<bool>,
     prometheus_path: Option<String>,
     alerts: Option<Vec<AlertSection>>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct HmiPersistenceSection {
-    enabled: Option<bool>,
-    history_path: Option<String>,
-    max_entries: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]

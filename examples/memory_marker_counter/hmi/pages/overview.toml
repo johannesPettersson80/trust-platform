@@ -1,0 +1,42 @@
+format = 1
+title = "Overview"
+
+[[object]]
+id = "heading"
+type = "text"
+variant = "heading"
+at = [40, 32]
+size = [800, 40]
+text = "Counter"
+
+[[object]]
+id = "counter"
+type = "value"
+at = [40, 104]
+size = [280, 104]
+label = "Counter"
+
+[object.bind]
+value = "P1.Counter"
+
+[[object]]
+id = "latched"
+type = "value"
+at = [360, 104]
+size = [280, 104]
+label = "Counter latched"
+
+[object.bind]
+value = "P1.CounterLatched"
+
+[[object]]
+id = "history"
+type = "trend"
+at = [40, 240]
+size = [1200, 300]
+label = "Counter"
+span = 60
+
+[object.bind]
+Counter = "P1.Counter"
+Latched = "P1.CounterLatched"

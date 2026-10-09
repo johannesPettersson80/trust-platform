@@ -1,0 +1,31 @@
+name: Controlled HMI Agent Acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      client:
+        type: choice
+        required: true
+        options: [codex-ide, vscode-agent]
+permissions:
+  contents: read
+concurrency:
+  group: hmi-real-agent-${{ inputs.client }}
+  cancel-in-progress: false
+jobs:
+  actual-client:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, trust-hmi-agents]
+    environment: hmi-agent-acceptance
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - name: Exercise the actual configured IDE client
+        env:
+          HMI_REAL_AGENT_DRIVER: ${{ vars.HMI_REAL_AGENT_DRIVER }}
+        run: python3 scripts/hmi-authoring/real_client_gate.py --client '${{ inputs.client }}' --head '${{ github.sha }}' --output artifacts/hmi-real-agent
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() }}
+        with:
+          name: hmi-real-agent-${{ inputs.client }}-${{ github.sha }}
+          path: artifacts/hmi-real-agent
+          retention-days: 30

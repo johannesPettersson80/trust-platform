@@ -153,19 +153,6 @@ pub fn input_cycle_time(runtime: &Runtime, program: InstanceId) -> f64 {
     }
 }
 
-pub fn hmi_diagnostics(relative: &str, runtime: &Runtime) -> Vec<String> {
-    let descriptor = trust_runtime::hmi::load_hmi_dir(&project_dir(relative)).unwrap();
-    trust_runtime::hmi::validate_hmi_bindings(
-        "Res",
-        &runtime.metadata_snapshot(),
-        None,
-        &descriptor,
-    )
-    .iter()
-    .map(|diagnostic| format!("{diagnostic:?}"))
-    .collect()
-}
-
 /// Replaces fields of one program record (for example `Parameters`) in a single write, as Control Studio's Apply does.
 pub fn set_program_record(
     runtime: &mut Runtime,

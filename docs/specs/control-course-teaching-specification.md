@@ -360,6 +360,26 @@ shall distinguish proposed activities, mathematical predictions and actual
 recorded observations. No execution result, software qualification or physical
 equipment result may be invented.
 
+### 6.1 Course gallery presentation
+
+The course gallery shall use the selected lesson's name as its primary heading,
+with its position and equipment as compact context. Create and Open project
+actions appear before expandable technical metadata and expected observations.
+The full description, objective, expected observation and lesson explanation are
+preserved; only identical repeated presentation is omitted. The disclosure
+supports keyboard and pointer use, and the initial project action remains
+visible at every supported window size and zoom level. The gallery uses the
+shared truST theme and navigation.
+
+Authored preview Markdown keeps its paragraph, list and table structure, inline
+code, emphasis and equations, and renders equations accessibly without deleting
+their source meaning. A project-file reference opens a read-only preview of the
+bundled example file and says so; it does not create a project, switch the
+workspace or adopt a retained project's state. Only files belonging to the
+selected catalog example may be previewed: escaped paths, unlisted targets,
+executable URL schemes and raw HTML execution are refused. Create and Open
+project keep their behaviour.
+
 ## 7. Course goals and assessments
 
 The complete course shall develop all five capabilities below through student

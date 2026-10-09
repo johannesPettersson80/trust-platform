@@ -30,6 +30,8 @@ crates/trust-runtime/web/ide-frontend/node_modules/
 scripts/captures/node_modules/
 scripts/captures/.cache/
 scripts/captures/test-results/
+scripts/hmi-screen-tests/node_modules/
+scripts/hmi-screen-tests/test-results/
 scripts/captures/playwright-report/
 
 # Local tooling caches
@@ -59,9 +61,7 @@ runtime-*.log.runtime.log
 /io.toml
 /program.stbc
 /examples/**/program.stbc
-/examples/**/hmi/process.auto.svg
 /sources/
-/hmi/_evidence/
 /.merge-pr*/
 
 # Internal docs (not for public repo)
@@ -184,3 +184,11 @@ conformance/reports/*
 !conformance/reports/.gitkeep
 AGENTS.md
 CLAUDE.md
+
+# The CJK fonts, copied into the extension by editors/vscode/scripts/build-hmi-builder-webview.js
+# from crates/trust-runtime/src/web/ui/assets/fonts (specification 39, §14.5 item 2).
+editors/vscode/media/fonts/NotoSans*-Subset.woff2
+editors/vscode/media/fonts/LICENSE-NOTO-CJK.txt
+
+# Retained values written by a runtime started in an example folder.
+retain.bin

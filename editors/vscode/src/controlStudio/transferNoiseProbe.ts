@@ -7,7 +7,7 @@ export function restingNoiseProbeRequest<T extends object>(request: T): T {
   const stepMs = (request as { step_ms?: unknown }).step_ms;
   const step = typeof stepMs === "number" && stepMs > 0 ? stepMs : 20;
   const cycles = Math.max(10, Math.round(1000 / step));
-  return { ...request, events: [], duration_ms: cycles * step, max_total_cycles: cycles + 1 };
+  return { ...request, record_every: undefined, events: [], duration_ms: cycles * step, max_total_cycles: cycles + 1 };
 }
 
 /** Half of the range of a recorded signal's good samples, or undefined without at least four of them. */

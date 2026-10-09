@@ -10,6 +10,18 @@ mod validation;
 mod variable_initializers;
 mod variables;
 
+pub(super) type ConstantExpressions = FxHashMap<(Option<SmolStr>, SmolStr), SyntaxNode>;
+
+/// An instance initialiser of a function block that another file of the project declares, or
+/// that extends one: a file's own table holds only a carrier type for such a block, so its members
+/// are checked once the project's symbols are merged. A derived block's initialiser may set the
+/// variables it inherits (IEC 61131-3 Ed.3 §6.5.1 for initial values; §6.6.5.5.2 rule 2 with
+/// §6.6.7.2.7 for inherited variables).
+pub(super) struct DeferredInitializer {
+    type_id: TypeId,
+    list: SyntaxNode,
+}
+
 pub(super) struct SymbolCollector<'a> {
     table: SymbolTable,
     diagnostics: DiagnosticBuilder,
@@ -23,6 +35,9 @@ pub(super) struct SymbolCollector<'a> {
     importing_project_types: FxHashSet<SmolStr>,
     diagnosed_project_type_import_failures: FxHashSet<SmolStr>,
     namespace_override: Option<Vec<SmolStr>>,
+    /// Initialisers left to the check after the merge; `None` checks them at once, as a collector
+    /// over the merged project symbols does.
+    deferred_initializers: Option<Vec<DeferredInitializer>>,
 }
 
 impl<'a> SymbolCollector<'a> {
@@ -43,6 +58,7 @@ impl<'a> SymbolCollector<'a> {
             importing_project_types: FxHashSet::default(),
             diagnosed_project_type_import_failures: FxHashSet::default(),
             namespace_override: None,
+            deferred_initializers: project_types.map(|_| Vec::new()),
         }
     }
 
@@ -58,29 +74,42 @@ impl<'a> SymbolCollector<'a> {
         (self.table, self.diagnostics.finish())
     }
 
-    pub(crate) fn collect_for_project_with_const_roots(
+    pub(super) fn constant_expressions(root: &SyntaxNode) -> ConstantExpressions {
+        let mut collector = Self::build(None);
+        collector.precollect_constants(root, &[], &[]);
+        collector.const_exprs
+    }
+
+    pub(crate) fn collect_for_project_with_constants(
         mut self,
         root: &SyntaxNode,
-        const_roots: &[SyntaxNode],
-    ) -> (SymbolTable, Vec<Diagnostic>, Vec<PendingType>) {
-        for project_root in const_roots {
-            self.precollect_constants(project_root, &[], &[]);
-        }
+        constants: &ConstantExpressions,
+    ) -> (
+        SymbolTable,
+        Vec<Diagnostic>,
+        Vec<PendingType>,
+        Vec<DeferredInitializer>,
+    ) {
+        self.const_exprs = constants.clone();
         self.phase_precollect(root);
         self.phase_collect_symbols(root);
         self.phase_constants();
         let pending_types = std::mem::take(&mut self.pending_types);
-        (self.table, self.diagnostics.finish(), pending_types)
+        let deferred = self.deferred_initializers.take().unwrap_or_default();
+        (
+            self.table,
+            self.diagnostics.finish(),
+            pending_types,
+            deferred,
+        )
     }
 
-    pub(crate) fn collect_with_project_const_roots(
+    pub(crate) fn collect_with_project_constants(
         mut self,
         root: &SyntaxNode,
-        const_roots: &[SyntaxNode],
+        constants: &ConstantExpressions,
     ) -> (SymbolTable, Vec<Diagnostic>) {
-        for project_root in const_roots {
-            self.precollect_constants(project_root, &[], &[]);
-        }
+        self.const_exprs = constants.clone();
         self.collect(root)
     }
 
@@ -88,9 +117,13 @@ impl<'a> SymbolCollector<'a> {
         table: SymbolTable,
         root: &SyntaxNode,
         project_roots: &[SyntaxNode],
+        deferred: Vec<DeferredInitializer>,
     ) -> (SymbolTable, Vec<Diagnostic>) {
         let mut collector = Self::build(None);
         collector.table = table;
+        for initializer in deferred {
+            collector.check_aggregate_initializer_fields(initializer.type_id, &initializer.list);
+        }
         collector.check_variable_initializer_constant_expressions(root);
         collector.phase_access_and_config(root);
         collector.phase_var_validation_with_config_roots(root, project_roots);

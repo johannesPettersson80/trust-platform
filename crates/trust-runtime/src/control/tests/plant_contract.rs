@@ -19,7 +19,7 @@ gain = 1.0
 time_constant_s = 5.0
 "#,
     );
-    let mut state = hmi_test_state(
+    let mut state = control_test_state(
         "PROGRAM Main\nVAR\n  command AT %QW0 : UINT;\n  process AT %IW0 : UINT;\nEND_VAR\nEND_PROGRAM",
     );
     state.project_root = Some(root.clone());
@@ -39,9 +39,20 @@ time_constant_s = 5.0
 
     assert!(response.ok, "plant.read failed: {:?}", response.error);
     let result = response.result.expect("plant.read result");
-    assert_eq!(result.get("contract").and_then(serde_json::Value::as_str), Some("trust.plant"));
-    assert_eq!(result.get("schema_version").and_then(serde_json::Value::as_u64), Some(1));
-    assert_eq!(result.get("operation").and_then(serde_json::Value::as_str), Some("plant.read"));
+    assert_eq!(
+        result.get("contract").and_then(serde_json::Value::as_str),
+        Some("trust.plant")
+    );
+    assert_eq!(
+        result
+            .get("schema_version")
+            .and_then(serde_json::Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        result.get("operation").and_then(serde_json::Value::as_str),
+        Some("plant.read")
+    );
     let project_id = result
         .get("project_id")
         .and_then(serde_json::Value::as_str)
@@ -52,13 +63,19 @@ time_constant_s = 5.0
         .get("configuration_revision")
         .and_then(serde_json::Value::as_str)
         .expect("configuration revision");
-    assert!(revision.starts_with("sha256:"), "unexpected revision: {revision}");
+    assert!(
+        revision.starts_with("sha256:"),
+        "unexpected revision: {revision}"
+    );
     let plants = result
         .get("plants")
         .and_then(serde_json::Value::as_array)
         .expect("saved plant descriptors");
     assert_eq!(plants.len(), 1);
-    assert_eq!(plants[0].get("id").and_then(serde_json::Value::as_str), Some("tank"));
+    assert_eq!(
+        plants[0].get("id").and_then(serde_json::Value::as_str),
+        Some("tank")
+    );
 
     fs::remove_dir_all(root).expect("remove plant contract fixture");
 }
@@ -66,7 +83,7 @@ time_constant_s = 5.0
 #[test]
 fn plant_capabilities_reports_the_closed_runtime_surface() {
     let root = temp_dir("plant-capabilities-v1");
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
 
     let response = handle_request_value(
@@ -79,16 +96,26 @@ fn plant_capabilities_reports_the_closed_runtime_surface() {
         None,
     );
 
-    assert!(response.ok, "plant.capabilities failed: {:?}", response.error);
-    let result = response.result.expect("capabilities result");
-    assert_eq!(result.get("contract").and_then(serde_json::Value::as_str), Some("trust.plant"));
-    assert_eq!(result.get("schema_version").and_then(serde_json::Value::as_u64), Some(1));
     assert!(
-        result
-            .get("project_id")
-            .and_then(serde_json::Value::as_str)
-            .is_some_and(|value| value.starts_with("project:sha256:"))
+        response.ok,
+        "plant.capabilities failed: {:?}",
+        response.error
     );
+    let result = response.result.expect("capabilities result");
+    assert_eq!(
+        result.get("contract").and_then(serde_json::Value::as_str),
+        Some("trust.plant")
+    );
+    assert_eq!(
+        result
+            .get("schema_version")
+            .and_then(serde_json::Value::as_u64),
+        Some(1)
+    );
+    assert!(result
+        .get("project_id")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|value| value.starts_with("project:sha256:")));
     assert_eq!(
         result.get("model_kinds"),
         Some(&json!([
@@ -107,7 +134,9 @@ fn plant_capabilities_reports_the_closed_runtime_surface() {
         ]))
     );
     assert_eq!(
-        result.pointer("/limits/max_trace_rows_per_plant").and_then(serde_json::Value::as_u64),
+        result
+            .pointer("/limits/max_trace_rows_per_plant")
+            .and_then(serde_json::Value::as_u64),
         Some(100_000)
     );
     assert_eq!(
@@ -129,7 +158,7 @@ fn plant_capabilities_reports_the_closed_runtime_surface() {
 #[test]
 fn plant_status_unavailable_contains_no_fabricated_runtime_values() {
     let root = temp_dir("plant-status-unavailable");
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let project_id = handle_request_value(
         json!({
@@ -158,18 +187,41 @@ fn plant_status_unavailable_contains_no_fabricated_runtime_values() {
         None,
     );
 
-    assert!(!response.ok, "missing runtime evidence must not report success");
+    assert!(
+        !response.ok,
+        "missing runtime evidence must not report success"
+    );
     assert_eq!(response.error_code.as_deref(), Some("status_unavailable"));
     let unavailable = response.result.expect("structured unavailable result");
-    assert_eq!(unavailable.get("contract").and_then(serde_json::Value::as_str), Some("trust.plant"));
-    assert_eq!(unavailable.get("operation").and_then(serde_json::Value::as_str), Some("plant.status"));
-    assert_eq!(unavailable.get("available").and_then(serde_json::Value::as_bool), Some(false));
     assert_eq!(
-        unavailable.get("reason_code").and_then(serde_json::Value::as_str),
+        unavailable
+            .get("contract")
+            .and_then(serde_json::Value::as_str),
+        Some("trust.plant")
+    );
+    assert_eq!(
+        unavailable
+            .get("operation")
+            .and_then(serde_json::Value::as_str),
+        Some("plant.status")
+    );
+    assert_eq!(
+        unavailable
+            .get("available")
+            .and_then(serde_json::Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        unavailable
+            .get("reason_code")
+            .and_then(serde_json::Value::as_str),
         Some("runtime_evidence_unavailable")
     );
     for forbidden in ["simulation_time", "plants", "samples", "healthy", "running"] {
-        assert!(unavailable.get(forbidden).is_none(), "fabricated field: {forbidden}");
+        assert!(
+            unavailable.get(forbidden).is_none(),
+            "fabricated field: {forbidden}"
+        );
     }
     fs::remove_dir_all(root).expect("remove unavailable-status fixture");
 }
@@ -192,7 +244,7 @@ gain = 1.0
 time_constant_s = 5.0
 "#;
     write_file(&root.join("simulation.toml"), simulation);
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let read = handle_request_value(
         json!({
@@ -240,26 +292,59 @@ time_constant_s = 5.0
         None,
     );
 
-    assert!(response.ok, "active plant.status failed: {:?}", response.error);
+    assert!(
+        response.ok,
+        "active plant.status failed: {:?}",
+        response.error
+    );
     let result = response.result.expect("active status result");
-    assert_eq!(result.get("available").and_then(serde_json::Value::as_bool), Some(true));
     assert_eq!(
-        result.get("active_configuration_revision").and_then(serde_json::Value::as_str),
+        result.get("available").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        result
+            .get("active_configuration_revision")
+            .and_then(serde_json::Value::as_str),
         Some(revision.as_str())
     );
-    assert_eq!(result.get("effective_seed").and_then(serde_json::Value::as_str), Some("42"));
+    assert_eq!(
+        result
+            .get("effective_seed")
+            .and_then(serde_json::Value::as_str),
+        Some("42")
+    );
     assert_eq!(
         result
             .get("random_algorithm_version")
             .and_then(serde_json::Value::as_u64),
         Some(1)
     );
-    assert_eq!(result.get("simulation_time_ns").and_then(serde_json::Value::as_str), Some("0"));
-    let plants = result.get("plants").and_then(serde_json::Value::as_array).unwrap();
+    assert_eq!(
+        result
+            .get("simulation_time_ns")
+            .and_then(serde_json::Value::as_str),
+        Some("0")
+    );
+    let plants = result
+        .get("plants")
+        .and_then(serde_json::Value::as_array)
+        .unwrap();
     assert_eq!(plants.len(), 1);
-    assert_eq!(plants[0].get("id").and_then(serde_json::Value::as_str), Some("tank"));
-    assert_eq!(plants[0].get("model").and_then(serde_json::Value::as_str), Some("first_order"));
-    assert_eq!(plants[0].get("operating_state").and_then(serde_json::Value::as_str), Some("running"));
+    assert_eq!(
+        plants[0].get("id").and_then(serde_json::Value::as_str),
+        Some("tank")
+    );
+    assert_eq!(
+        plants[0].get("model").and_then(serde_json::Value::as_str),
+        Some("first_order")
+    );
+    assert_eq!(
+        plants[0]
+            .get("operating_state")
+            .and_then(serde_json::Value::as_str),
+        Some("running")
+    );
     assert_eq!(plants[0].get("state"), Some(&json!([0.0])));
     assert_eq!(plants[0].get("command"), Some(&json!([0.0])));
     assert_eq!(plants[0].get("measured_feedback"), Some(&json!([0.0])));
@@ -277,7 +362,10 @@ time_constant_s = 5.0
         Some(false),
         "runtime status must distinguish friction hold from an external stuck fault"
     );
-    assert_eq!(plants[0].get("step_ns").and_then(serde_json::Value::as_str), Some("10000000"));
+    assert_eq!(
+        plants[0].get("step_ns").and_then(serde_json::Value::as_str),
+        Some("10000000")
+    );
     assert_eq!(
         plants[0]
             .get("accumulated_remainder_ns")
@@ -305,7 +393,7 @@ gain = 1.0
 time_constant_s = 5.0
 "#;
     write_file(&root.join("simulation.toml"), simulation);
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let read = handle_request_value(
         json!({
@@ -353,12 +441,24 @@ time_constant_s = 5.0
         None,
     );
 
-    assert!(!response.ok, "disabled trace must not report an empty success");
+    assert!(
+        !response.ok,
+        "disabled trace must not report an empty success"
+    );
     assert_eq!(response.error_code.as_deref(), Some("trace_disabled"));
     let result = response.result.expect("structured trace-disabled result");
-    assert_eq!(result.get("operation").and_then(serde_json::Value::as_str), Some("plant.trace.read"));
-    assert_eq!(result.get("plant_id").and_then(serde_json::Value::as_str), Some("tank"));
-    assert!(result.get("rows").is_none(), "disabled trace fabricated rows");
+    assert_eq!(
+        result.get("operation").and_then(serde_json::Value::as_str),
+        Some("plant.trace.read")
+    );
+    assert_eq!(
+        result.get("plant_id").and_then(serde_json::Value::as_str),
+        Some("tank")
+    );
+    assert!(
+        result.get("rows").is_none(),
+        "disabled trace fabricated rows"
+    );
     fs::remove_dir_all(root).expect("remove trace-disabled fixture");
 }
 
@@ -382,7 +482,7 @@ gain = 1.0
 time_constant_s = 5.0
 "#;
     write_file(&root.join("simulation.toml"), simulation);
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let read = handle_request_value(
         json!({
@@ -445,18 +545,56 @@ time_constant_s = 5.0
     let second = handle_request_value(request, &state, None);
 
     assert!(first.ok, "plant.trace.read failed: {:?}", first.error);
-    assert_eq!(second.result, first.result, "reading a trace changed its snapshot");
+    assert_eq!(
+        second.result, first.result,
+        "reading a trace changed its snapshot"
+    );
     let result = first.result.expect("trace result");
-    assert_eq!(result.get("active_configuration_revision").and_then(serde_json::Value::as_str), Some(revision.as_str()));
-    assert_eq!(result.get("capacity").and_then(serde_json::Value::as_u64), Some(4));
-    assert_eq!(result.get("retained_row_count").and_then(serde_json::Value::as_u64), Some(1));
-    assert_eq!(result.get("dropped_row_count").and_then(serde_json::Value::as_u64), Some(0));
-    assert_eq!(result.get("effective_seed").and_then(serde_json::Value::as_str), Some("42"));
-    assert!(result.get("configuration_digest").and_then(serde_json::Value::as_str).is_some());
-    let rows = result.get("rows").and_then(serde_json::Value::as_array).unwrap();
+    assert_eq!(
+        result
+            .get("active_configuration_revision")
+            .and_then(serde_json::Value::as_str),
+        Some(revision.as_str())
+    );
+    assert_eq!(
+        result.get("capacity").and_then(serde_json::Value::as_u64),
+        Some(4)
+    );
+    assert_eq!(
+        result
+            .get("retained_row_count")
+            .and_then(serde_json::Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        result
+            .get("dropped_row_count")
+            .and_then(serde_json::Value::as_u64),
+        Some(0)
+    );
+    assert_eq!(
+        result
+            .get("effective_seed")
+            .and_then(serde_json::Value::as_str),
+        Some("42")
+    );
+    assert!(result
+        .get("configuration_digest")
+        .and_then(serde_json::Value::as_str)
+        .is_some());
+    let rows = result
+        .get("rows")
+        .and_then(serde_json::Value::as_array)
+        .unwrap();
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].get("sequence").and_then(serde_json::Value::as_str), Some("0"));
-    assert_eq!(rows[0].get("plant_id").and_then(serde_json::Value::as_str), Some("tank"));
+    assert_eq!(
+        rows[0].get("sequence").and_then(serde_json::Value::as_str),
+        Some("0")
+    );
+    assert_eq!(
+        rows[0].get("plant_id").and_then(serde_json::Value::as_str),
+        Some("tank")
+    );
     assert_eq!(
         rows[0]
             .get("simulation_time_ns")
@@ -473,7 +611,7 @@ fn plant_contract_mutations_reject_unknown_fields_without_writing() {
     let root = temp_dir("plant-contract-closed-mutation");
     let original = "[simulation]\nenabled = true\n";
     write_file(&root.join("simulation.toml"), original);
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
 
     let response = handle_request_value(
@@ -499,13 +637,14 @@ fn plant_contract_mutations_reject_unknown_fields_without_writing() {
     let error_result = response.result.expect("structured plant error result");
     assert_eq!(error_result.get("contract"), Some(&json!("trust.plant")));
     assert_eq!(error_result.get("operation"), Some(&json!("plant.save")));
-    assert!(
-        error_result
-            .get("project_id")
-            .and_then(serde_json::Value::as_str)
-            .is_some_and(|value| value.starts_with("project:sha256:"))
+    assert!(error_result
+        .get("project_id")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|value| value.starts_with("project:sha256:")));
+    assert_eq!(
+        fs::read_to_string(root.join("simulation.toml")).unwrap(),
+        original
     );
-    assert_eq!(fs::read_to_string(root.join("simulation.toml")).unwrap(), original);
     fs::remove_dir_all(root).expect("remove closed-mutation fixture");
 }
 
@@ -540,7 +679,7 @@ fn plant_contract_operations_use_the_specified_role_boundaries() {
 #[test]
 fn plant_contract_rejects_unknown_operations_with_the_stable_code() {
     let root = temp_dir("plant-unsupported-operation");
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let response = handle_request_value(
         json!({
@@ -551,7 +690,10 @@ fn plant_contract_rejects_unknown_operations_with_the_stable_code() {
         &state,
         None,
     );
-    assert_eq!(response.error_code.as_deref(), Some("unsupported_operation"));
+    assert_eq!(
+        response.error_code.as_deref(),
+        Some("unsupported_operation")
+    );
     assert_eq!(
         response
             .result
@@ -568,7 +710,7 @@ fn plant_validate_is_side_effect_free_for_a_valid_complete_candidate() {
     let root = temp_dir("plant-validate-side-effect-free");
     let original = "# retained heading\n[simulation]\nenabled = true\n";
     write_file(&root.join("simulation.toml"), original);
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let project_id = handle_request_value(
         json!({
@@ -606,9 +748,21 @@ fn plant_validate_is_side_effect_free_for_a_valid_complete_candidate() {
 
     assert!(response.ok, "plant.validate failed: {:?}", response.error);
     let result = response.result.expect("validation result");
-    assert_eq!(result.get("valid").and_then(serde_json::Value::as_bool), Some(true));
-    assert_eq!(result.get("issues").and_then(serde_json::Value::as_array).map(Vec::len), Some(0));
-    assert_eq!(fs::read_to_string(root.join("simulation.toml")).unwrap(), original);
+    assert_eq!(
+        result.get("valid").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        result
+            .get("issues")
+            .and_then(serde_json::Value::as_array)
+            .map(Vec::len),
+        Some(0)
+    );
+    assert_eq!(
+        fs::read_to_string(root.join("simulation.toml")).unwrap(),
+        original
+    );
     fs::remove_dir_all(root).expect("remove validation fixture");
 }
 
@@ -617,7 +771,7 @@ fn plant_save_is_revision_guarded_atomic_and_preserves_unrelated_text() {
     let root = temp_dir("plant-save-atomic");
     let original = "# retained heading\n[simulation]\nenabled = true\n\n# unrelated rule\n[[couplings]]\nsource = \"%QX2.0\"\ntarget = \"%IX2.0\"\n";
     write_file(&root.join("simulation.toml"), original);
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let read = handle_request_value(
         json!({
@@ -656,7 +810,12 @@ fn plant_save_is_revision_guarded_atomic_and_preserves_unrelated_text() {
 
     assert!(response.ok, "plant.save failed: {:?}", response.error);
     let result = response.result.expect("save result");
-    assert_eq!(result.get("restart_required").and_then(serde_json::Value::as_bool), Some(false));
+    assert_eq!(
+        result
+            .get("restart_required")
+            .and_then(serde_json::Value::as_bool),
+        Some(false)
+    );
     assert_ne!(
         result.get("configuration_revision"),
         read.get("configuration_revision"),
@@ -674,7 +833,10 @@ fn plant_save_is_revision_guarded_atomic_and_preserves_unrelated_text() {
         .filter_map(Result::ok)
         .filter(|entry| entry.file_name().to_string_lossy().contains(".tmp"))
         .count();
-    assert_eq!(temporary_files, 0, "successful atomic save left a temporary file");
+    assert_eq!(
+        temporary_files, 0,
+        "successful atomic save left a temporary file"
+    );
     fs::remove_dir_all(root).expect("remove save fixture");
 }
 
@@ -695,7 +857,7 @@ gain = 1.0
 time_constant_s = 5.0
 "#;
     write_file(&root.join("simulation.toml"), original);
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let read = handle_request_value(
         json!({
@@ -751,15 +913,28 @@ time_constant_s = 5.0
         None,
     );
 
-    assert!(response.ok, "active plant.save failed: {:?}", response.error);
+    assert!(
+        response.ok,
+        "active plant.save failed: {:?}",
+        response.error
+    );
     let result = response.result.expect("active save result");
-    assert_eq!(result.get("restart_required").and_then(serde_json::Value::as_bool), Some(true));
     assert_eq!(
-        result.get("active_configuration_revision").and_then(serde_json::Value::as_str),
+        result
+            .get("restart_required")
+            .and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        result
+            .get("active_configuration_revision")
+            .and_then(serde_json::Value::as_str),
         Some(active_revision.as_str())
     );
     assert_ne!(
-        result.get("configuration_revision").and_then(serde_json::Value::as_str),
+        result
+            .get("configuration_revision")
+            .and_then(serde_json::Value::as_str),
         Some(active_revision.as_str())
     );
     assert_eq!(result.get("affected_plant_ids"), Some(&json!(["tank"])));
@@ -783,7 +958,7 @@ gain = 1.0
 time_constant_s = 5.0
 "#;
     write_file(&root.join("simulation.toml"), current);
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let read = handle_request_value(
         json!({
@@ -835,15 +1010,21 @@ time_constant_s = 5.0
         descriptor.get("id").and_then(serde_json::Value::as_str),
         Some("current-tank")
     );
-    assert_eq!(fs::read_to_string(root.join("simulation.toml")).unwrap(), current);
+    assert_eq!(
+        fs::read_to_string(root.join("simulation.toml")).unwrap(),
+        current
+    );
     fs::remove_dir_all(root).expect("remove revision-conflict fixture");
 }
 
 #[test]
 fn plant_save_retry_with_the_same_operation_returns_the_original_result() {
     let root = temp_dir("plant-save-idempotent-retry");
-    write_file(&root.join("simulation.toml"), "[simulation]\nenabled = true\n");
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    write_file(
+        &root.join("simulation.toml"),
+        "[simulation]\nenabled = true\n",
+    );
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let read = handle_request_value(
         json!({
@@ -881,7 +1062,10 @@ fn plant_save_retry_with_the_same_operation_returns_the_original_result() {
     let second = handle_request_value(request, &state, None);
 
     assert!(second.ok, "identical retry failed: {:?}", second.error);
-    assert_eq!(second.result, first.result, "retry must return the original result");
+    assert_eq!(
+        second.result, first.result,
+        "retry must return the original result"
+    );
     assert_eq!(
         fs::read(root.join("simulation.toml")).unwrap(),
         saved_after_first,

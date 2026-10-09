@@ -1,7 +1,7 @@
 import type { ControlLoopDefinition } from "../loopDefinition";
 import { PID_TYPE, type CompiledCatalog } from "./compiledCatalog";
-import { binding, measurementBinding, compiled, identificationDuration, loopId, realType, withRevision, type MeasuredSignal } from "./loopBindings";
-import { pidParameters, pidStates, startupState } from "./pidBindings";
+import { binding, measurementBinding, compiled, explicitExperiment, loopId, realType, withRevision, type MeasuredSignal } from "./loopBindings";
+import { pidParameters, pidStates, startupState, manualOutputTracking } from "./pidBindings";
 import type { ModeChoice, SignalChoice } from "./pidLoopGenerator";
 
 /** A cascade tuned together: the outer `Control.PID`'s output is the inner one's setpoint (Specification 35 §17.11). */
@@ -46,6 +46,7 @@ export function cascadeLoopDefinition(catalog: CompiledCatalog, draft: CascadeTo
       instance: draft.inner.instance, type: "Control.PID", design: "project", revision: "sha256:unverified", action: draft.action,
       taskPeriodMs: period, modeSignal: draft.inner.mode.symbol, modeWhenTrue: draft.inner.mode.whenTrue,
       manualOutputSignal: manual.symbol, manualOutputType: realType(manual), ...(manual.address ? { manualOutputAddress: manual.address } : {}),
+      ...manualOutputTracking(catalog, draft.inner.instance, manual.symbol),
       project: {
         family: "cascade", convention: "project-owned-native-controller",
         additionalModes: [{ symbol: draft.outer.mode.symbol, manualValue: draft.outer.mode.whenTrue === "Manual" }],
@@ -71,8 +72,7 @@ export function cascadeLoopDefinition(catalog: CompiledCatalog, draft: CascadeTo
     identificationPolicy: { maximumOrder: 1, openLoopPermitted: true, sustainedHoldPermitted: true, information: "basic" },
     limits: { outputMinimum: mv.minimum, outputMaximum: mv.maximum },
     observedSampleTiming: { nominalPeriodMs: period },
-    experiment: { execution: "control-studio", kind: "mv_step", amplitude: draft.experimentStep ?? span / 10,
-      durationSeconds: identificationDuration(draft.name, draft.experimentDurationSeconds), seed: 1 },
+    ...explicitExperiment(draft.name, { execution: "control-studio", kind: "mv_step" }, draft.experimentStep, draft.experimentDurationSeconds),
     parameterBinding: {
       loop_id: id, task_name: innerTask.name,
       mode: { symbol: draft.inner.mode.symbol, manual_value: draft.inner.mode.whenTrue === "Manual" },

@@ -38,6 +38,8 @@ impl DebugControl {
                     pending_lvalue_writes: Vec::new(),
                     forced_vars: Vec::new(),
                     forced_io: Vec::new(),
+                    scan_observer: None,
+                    latest_simulation_only_io: None,
                 }),
                 Condvar::new(),
             )),

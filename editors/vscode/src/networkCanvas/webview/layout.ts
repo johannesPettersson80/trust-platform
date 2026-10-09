@@ -230,6 +230,8 @@ export function buildGraph(
         managed: rt.managed,
         managedName: rt.managedName,
         runTarget: rt.runTarget,
+        simulationTimeScale: rt.simulationTimeScale,
+        simulationAchievedTimeScale: rt.simulationAchievedTimeScale,
         // `plants` is populated only when the project simulation service has
         // attached its typed configuration to this runtime. That is the
         // capability boundary; runtime IDs and display names are not.

@@ -46,14 +46,27 @@
     ]
   },
   {
-    "id": "hmi-starter",
-    "title": "HMI starter",
-    "description": "Includes an HMI so Open HMI works immediately - no hardware.",
-    "path": "hmi-starter",
+    "id": "hmi-tank-level",
+    "title": "HMI tank level",
+    "description": "A tank level loop with the real Control.PID, alarms, and screens built in the HMI Builder - no hardware.",
+    "path": "hmi_tank_level",
     "hardware": "none",
     "tags": [
       "hmi",
-      "simulator"
+      "simulator",
+      "alarms"
+    ]
+  },
+  {
+    "id": "hmi-equipment",
+    "title": "HMI equipment",
+    "description": "The Plant library's pump, control valve, level transmitter, tank and PID loop on a simulated tank, each opening its operator panel - no hardware.",
+    "path": "hmi_equipment",
+    "hardware": "none",
+    "tags": [
+      "hmi",
+      "simulator",
+      "equipment"
     ]
   },
   {

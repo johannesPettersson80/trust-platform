@@ -8,6 +8,7 @@ import { recordingFingerprint } from "./independentModelValidation";
 import type { ControlLoopDefinition } from "./loopDefinition";
 import { manualControllerCandidate } from "./manualControllerCandidate";
 import { relayPiFromMeasuredRecord } from "./relayTuning";
+import { requiredGainSign } from "./numerics/identification";
 
 export type RelayCycleEvidence =
   | { status: "qualified"; cycles: number; outputAmplitude: number; responseAmplitude: number; periodSeconds: number;
@@ -43,7 +44,9 @@ export function relayRuleCandidate(loop: ControlLoopDefinition, model: GeneralMo
   const pid = decodePidLaw(loop.controller.law, loop.parameterBinding);
   if (!pid) throw new Error("The relay rule needs a declared PID controller law.");
   if (relay?.status !== "qualified") throw new Error("Identify the plant with Feedback relay and repeatable cycles before using the relay rule.");
+  // Ku is a magnitude; the gains take the sign of the controller action (numerical annex N5.R, N6).
+  const sign = requiredGainSign(loop.controller.action ?? "direct");
   const tuned = manualControllerCandidate(loop, model, "PI",
-    { [pid.proportionalGainSymbol]: relay.proportionalGain, [pid.integralGainSymbol]: relay.integralGain }, pins);
+    { [pid.proportionalGainSymbol]: sign * relay.proportionalGain, [pid.integralGainSymbol]: sign * relay.integralGain }, pins);
   return { ...tuned, reason: `Relay rule from Ku = ${formatEngineeringNumber(relay.ultimateGain)} and Pu = ${formatEngineeringNumber(relay.periodSeconds)} s: Kp = 0.45·Ku, Ti = Pu/1.2. Validate before applying.` };
 }

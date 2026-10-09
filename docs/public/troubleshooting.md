@@ -17,7 +17,6 @@ surfaces that do not match the expected state. For product questions, use
 | runtime-to-runtime communication | [Program / Communication / Runtime To Runtime](connect/runtime-to-runtime/index.md) |
 | hardware or fieldbus issues | [Program / I/O And Hardware](connect/devices-and-fieldbus/index.md) |
 | editor/runtime panel issues | [Program / PLC Programming / Debugging](operate/debugging-and-runtime-panel.md) |
-| HMI issues | [Run / Operator HMI](operate/hmi-and-web-ui.md) |
 | runtime-cloud issues | [Run / Runtime Cloud](operate/runtime-cloud.md) |
 
 ## Common symptoms
@@ -28,7 +27,6 @@ surfaces that do not match the expected state. For product questions, use
 | build fails before runtime starts | diagnostics and config files | [Build, Validate, Test](operate/build-validate-test.md) |
 | runtime panel cannot connect | control endpoint, local process, and port | [Debugging And Runtime Panel](operate/debugging-and-runtime-panel.md) |
 | values stay stale | I/O mapping and driver choice | [I/O Binding](connect/devices-and-fieldbus/io-binding.md) |
-| `/hmi` opens but values are wrong | runtime freshness and descriptor bindings | [HMI And Web UI](operate/hmi-and-web-ui.md) |
 | remote node cannot pair | discovery, pairing, and firewall boundary | [Discovery And Pairing](connect/runtime-to-runtime/discovery-and-pairing.md) |
 
 ## Common first checks

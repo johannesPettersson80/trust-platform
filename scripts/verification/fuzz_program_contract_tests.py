@@ -47,7 +47,6 @@ EXPECTED_CARGO_TARGETS = {
     ("fuzz/Cargo.toml", "bytecode_container", "fuzz/fuzz_targets/bytecode_container.rs"),
     ("fuzz/Cargo.toml", "runtime_config", "fuzz/fuzz_targets/runtime_config.rs"),
     ("fuzz/Cargo.toml", "lsp_incremental", "fuzz/fuzz_targets/lsp_incremental.rs"),
-    ("fuzz/Cargo.toml", "hmi_payloads", "fuzz/fuzz_targets/hmi_payloads.rs"),
     (
         "crates/trust-ads-server/fuzz/Cargo.toml",
         "ams_frame",
@@ -281,9 +280,9 @@ class FuzzProgramContractTests(unittest.TestCase):
         self.assertTrue(any("semantic digest drifted" in item for item in failures), failures)
 
     def test_every_live_target_has_one_registered_record(self) -> None:
-        self.assertEqual(17, len(self.program["targets"]))
+        self.assertEqual(16, len(self.program["targets"]))
         self.assertEqual(
-            11,
+            10,
             sum(row["target_kind"] == "cargo_fuzz" for row in self.program["targets"]),
         )
         self.assertEqual(
@@ -346,7 +345,7 @@ class FuzzProgramContractTests(unittest.TestCase):
     def test_tier_and_surface_claim_drift_fail(self) -> None:
         corrupted = copy.deepcopy(self.program)
         corrupted["targets"][0]["primary_tier"] = "release"
-        corrupted["targets"][0]["surface_associations"][0]["surface_id"] = "hmi_schema_payloads"
+        corrupted["targets"][0]["surface_associations"][0]["surface_id"] = "lsp_incremental_edits"
         failures = validate_fuzz_program_contract(ROOT, corrupted)
         self.assertTrue(any("tier" in item for item in failures), failures)
         self.assertTrue(any("live target contract" in item for item in failures), failures)

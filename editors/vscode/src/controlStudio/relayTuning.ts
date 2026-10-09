@@ -58,22 +58,6 @@ export function relayPiFromMeasuredRecord(input: {
   return { ...calculateRelayPiCandidate({ highOutput: input.highOutput, lowOutput: input.lowOutput, cycles }), cycles };
 }
 
-/** Adapts the immutable runtime Test ledger only when its reviewed plan was a feedback relay. */
-export function relayPiFromExperimentRecord(input: {
-  plan: { kind: string; relayFeedback?: { highOutput: number; lowOutput: number } };
-  samples: readonly { timeSeconds: number; input: number; output: number; quality: string }[];
-}): RelayPiCalculation & { cycles: readonly RelayCycle[] } {
-  if (input.plan.kind !== "relay" || !input.plan.relayFeedback) {
-    throw new Error("Relay PI analysis requires a reviewed feedback-relay Test record.");
-  }
-  if (input.samples.some(sample => sample.quality !== "good")) {
-    throw new Error("Relay PI analysis requires good-quality measured input/output samples.");
-  }
-  return relayPiFromMeasuredRecord({ highOutput: input.plan.relayFeedback.highOutput,
-    lowOutput: input.plan.relayFeedback.lowOutput,
-    samples: input.samples.map(sample => ({ timeSeconds: sample.timeSeconds, processValue: sample.output, output: sample.input })) });
-}
-
 export interface RelayPiCandidate {
   proportionalGain: number;
   integralTimeSeconds: number;
@@ -88,48 +72,6 @@ export type RelayPiCalculation =
 type RelayCycleQualification =
   | { status: "qualified"; outputAmplitude: number; responseAmplitude: number; periodSeconds: number }
   | { status: "not_qualified"; reason: string };
-
-export type RelayTuningPresentation =
-  | { status: "ready"; cycles: number; message: string }
-  | { status: "not_qualified"; reason: string };
-
-type RelayExperimentPlan = {
-  kind: string;
-  relayFeedback?: { highOutput: number; lowOutput: number };
-};
-
-type RelayExperimentSample = {
-  timeSeconds: number;
-  input: number;
-  output: number;
-  quality: string;
-};
-
-/** Owns the relay-Test evidence until the engineer explicitly requests its PI calculation. */
-export class RelayTuningSession {
-  private qualifiedRecord: { plan: RelayExperimentPlan; samples: readonly RelayExperimentSample[] } | undefined;
-
-  reset(): void {
-    this.qualifiedRecord = undefined;
-  }
-
-  augmentTerminalPayload(plan: RelayExperimentPlan | undefined, payload: unknown): unknown {
-    this.reset();
-    if (plan?.kind !== "relay" || !record(payload) || !record(payload.identification) ||
-        !Array.isArray(payload.identification.samples)) return payload;
-    const samples = payload.identification.samples as readonly RelayExperimentSample[];
-    const presentation = relayTuningPresentation(plan, samples);
-    if (presentation.status === "ready") this.qualifiedRecord = { plan, samples };
-    return { ...payload, relayTuning: presentation };
-  }
-
-  calculateCandidate(): RelayPiCalculation {
-    if (!this.qualifiedRecord) {
-      return { status: "not_qualified", reason: "No qualified feedback-relay Test record is available. Run and review Relay Test first." };
-    }
-    return relayPiFromExperimentRecord(this.qualifiedRecord);
-  }
-}
 
 /** Converts qualified feedback-relay cycles into an unapplied Ziegler–Nichols PI candidate. */
 export function calculateRelayPiCandidate(input: {
@@ -150,25 +92,6 @@ export function calculateRelayPiCandidate(input: {
     responseAmplitude: qualification.responseAmplitude,
     candidate: { proportionalGain, integralTimeSeconds, integralGain: proportionalGain / integralTimeSeconds, applied: false },
   };
-}
-
-function relayTuningPresentation(plan: RelayExperimentPlan, samples: readonly RelayExperimentSample[]): RelayTuningPresentation {
-  try {
-    const cycles = relayCyclesFromExperimentRecord({ plan, samples });
-    const qualification = qualifyRelayCycles({
-      highOutput: plan.relayFeedback!.highOutput,
-      lowOutput: plan.relayFeedback!.lowOutput,
-      cycles,
-    });
-    if (qualification.status !== "qualified") return qualification;
-    return {
-      status: "ready",
-      cycles: cycles.length,
-      message: `${numberName(cycles.length)} measured feedback-relay cycles are ready. Calculate relay candidate to create an unapplied PI proposal.`,
-    };
-  } catch (error) {
-    return { status: "not_qualified", reason: error instanceof Error ? error.message : String(error) };
-  }
 }
 
 /** Qualifies measured relay evidence without calculating controller settings. */
@@ -203,42 +126,6 @@ function qualifyRelayCycles(input: {
     }
   }
   return { status: "qualified", outputAmplitude, responseAmplitude, periodSeconds };
-}
-
-function relayCyclesFromExperimentRecord(input: {
-  plan: RelayExperimentPlan;
-  samples: readonly RelayExperimentSample[];
-}): readonly RelayCycle[] {
-  if (input.plan.kind !== "relay" || !input.plan.relayFeedback) {
-    throw new Error("Relay PI analysis requires a reviewed feedback-relay Test record.");
-  }
-  if (input.samples.some(sample => !isRelayExperimentSample(sample) || sample.quality !== "good")) {
-    throw new Error("Relay PI analysis requires good-quality measured input/output samples.");
-  }
-  return extractRelayCycles({
-    highOutput: input.plan.relayFeedback.highOutput,
-    lowOutput: input.plan.relayFeedback.lowOutput,
-    samples: input.samples.map(sample => ({
-      timeSeconds: sample.timeSeconds,
-      processValue: sample.output,
-      output: sample.input,
-    })),
-  });
-}
-
-function isRelayExperimentSample(value: RelayExperimentSample): boolean {
-  return Number.isFinite(value.timeSeconds) && Number.isFinite(value.input) &&
-    Number.isFinite(value.output) && typeof value.quality === "string";
-}
-
-function numberName(value: number): string {
-  const names = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
-  const name = names[value] ?? String(value);
-  return name.charAt(0).toUpperCase() + name.slice(1);
-}
-
-function record(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function mean(values: readonly number[]): number {

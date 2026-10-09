@@ -46,6 +46,10 @@ impl SimulationOverride {
         Ok(())
     }
 }
+fn default_record_every() -> u64 {
+    1
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct RunRequest {
@@ -58,6 +62,9 @@ pub(super) struct RunRequest {
     pub seed: u64,
     pub max_total_cycles: u64,
     pub wall_budget_ms: u64,
+    /// Executions averaged into one sample (A4.2); one keeps every grid point.
+    #[serde(default = "default_record_every")]
+    pub record_every: u64,
     pub initial_values: BTreeMap<String, f64>,
     pub events: Vec<Event>,
     pub observations: Vec<Channel>,
@@ -78,6 +85,7 @@ impl RunRequest {
             max_total_cycles: self.max_total_cycles,
             wall_budget_ms: self.wall_budget_ms,
             per_trial_wall_ms: self.wall_budget_ms,
+            record_every: self.record_every,
             initial_values: self.initial_values.clone(),
             events: self.events.clone(),
             observations: self.observations.clone(),

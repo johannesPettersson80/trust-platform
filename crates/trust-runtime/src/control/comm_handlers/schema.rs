@@ -153,15 +153,7 @@ pub(super) fn supports_runtime_file_protocol(protocol: &str) -> bool {
 }
 
 pub(super) fn driver_to_protocol(driver: &str) -> Option<&'static str> {
-    match driver.trim().to_ascii_lowercase().as_str() {
-        "modbus-tcp" | "modbus_tcp" => Some("modbus_tcp"),
-        "mqtt" => Some("mqtt"),
-        "ethercat" => Some("ethercat"),
-        "gpio" => Some("gpio"),
-        "simulated" | "sim" | "noop" => Some("simulated"),
-        "loopback" => Some("loopback"),
-        _ => None,
-    }
+    crate::io::link_protocol(driver)
 }
 
 fn configured_instances_from_root(root: &Path) -> Vec<CommConfiguredInstance> {

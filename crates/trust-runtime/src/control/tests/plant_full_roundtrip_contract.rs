@@ -70,7 +70,7 @@ channel = 0
 value = 0.25
 "#,
     );
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let read = handle_request_value(
         json!({"id": 6800, "type": "plant.read", "params": {"contract": "trust.plant", "schema_version": 1}}),
@@ -149,7 +149,7 @@ gain = 1.0
 time_constant_s = 5.0
 "#;
     write_file(&root.join("simulation.toml"), baseline);
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     let read = handle_request_value(
         json!({"id": 6900, "type": "plant.read", "params": {"contract": "trust.plant", "schema_version": 1}}),

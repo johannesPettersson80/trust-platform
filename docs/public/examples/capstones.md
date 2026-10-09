@@ -1,7 +1,7 @@
 # Capstones
 
-Capstones show source, runtime config, HMI files, and operator surfaces working
-together in one larger project.
+Capstones show source, runtime config, and runtime surfaces working together
+in one larger project.
 
 ## Plant Demo
 

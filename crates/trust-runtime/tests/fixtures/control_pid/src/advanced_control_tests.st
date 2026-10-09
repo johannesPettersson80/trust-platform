@@ -105,6 +105,28 @@ Result := ConvertPIDForm(Input := Parallel, Target := PIDParameterForm#Series);
 ASSERT_TRUE(Result.Status = PIDFormConversionStatus#NonRepresentable);
 END_TEST_PROGRAM
 
+TEST_PROGRAM control_smith_predictor_initialization_sets_the_correction_from_the_measurement
+VAR
+    Predictor : SmithPredictorFOPDT;
+    State : SmithPredictorInitialState;
+    Input : SmithPredictorInput;
+    Output : SmithPredictorOutput;
+END_VAR
+(* Spec 37 §2.3: Initialize sets the initial correction from ProcessValue - ModelOutput. Before
+   configuration no model interval runs, so the update reports that correction while it returns
+   the measurement. *)
+State.ModelOutput := LREAL#10.0;
+State.ProcessValue := LREAL#12.0;
+Predictor.Initialize(State := State);
+Input.ProcessValue := LREAL#12.0;
+Input.CycleTime := LREAL#0.5;
+Input.Enabled := TRUE;
+Output := Predictor.Update(Input := Input);
+ASSERT_FALSE(Output.Active);
+ASSERT_NEAR(EXPECTED := LREAL#12.0, ACTUAL := Output.PredictedProcessValue, DELTA := LREAL#1.0e-12);
+ASSERT_NEAR(EXPECTED := LREAL#2.0, ACTUAL := Output.Correction, DELTA := LREAL#1.0e-12);
+END_TEST_PROGRAM
+
 TEST_PROGRAM control_smith_predictor_zero_delay_reduces_to_measurement
 VAR
     Predictor : SmithPredictorFOPDT;

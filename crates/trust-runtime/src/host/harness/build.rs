@@ -23,6 +23,7 @@ pub(super) fn build_runtime_from_source_files(
     label_errors: bool,
     extra_program_instances: &[SmolStr],
 ) -> Result<Runtime, CompileError> {
+    let parsing = trust_hir::timing::CompilerStage::new("compiler.parse", sources.len());
     let mut parses = Vec::with_capacity(sources.len());
     let mut parse_errors = Vec::new();
     for (idx, source) in sources.iter().enumerate() {
@@ -53,6 +54,9 @@ pub(super) fn build_runtime_from_source_files(
         }
     }
 
+    drop(parsing);
+    let analysis =
+        trust_hir::timing::CompilerStage::new("compiler.semantic_analysis", sources.len());
     let mut project = Project::new();
     let mut file_ids = Vec::with_capacity(sources.len());
     for (idx, source) in sources.iter().enumerate() {
@@ -83,6 +87,9 @@ pub(super) fn build_runtime_from_source_files(
         .map(|file_id| project.database().analyze(*file_id))
         .collect::<Vec<_>>();
 
+    drop(analysis);
+    let _lowering =
+        trust_hir::timing::CompilerStage::new("compiler.lower_and_initialize", sources.len());
     let mut runtime = Runtime::new();
     let profile = runtime.profile();
     let mut statement_locations: Vec<Vec<SourceLocation>> = vec![Vec::new(); sources.len()];

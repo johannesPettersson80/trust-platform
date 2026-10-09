@@ -169,6 +169,22 @@ impl IoDriver for EthercatIoDriver {
     fn health(&self) -> IoDriverHealth {
         self.health.clone()
     }
+
+    fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
+        // The modules' input image, from the image's start.
+        if self.config.expected_input_bytes == 0 {
+            Vec::new()
+        } else {
+            std::iter::once(0..self.config.expected_input_bytes).collect()
+        }
+    }
+
+    fn detail(&self) -> Option<SmolStr> {
+        match (&self.health, self.discovered) {
+            (IoDriverHealth::Faulted { error }, false) => Some(error.clone()),
+            _ => Some(self.discovery_message.clone()),
+        }
+    }
 }
 
 fn build_bus(config: &EthercatConfig) -> Result<Box<dyn EthercatBus>, RuntimeError> {

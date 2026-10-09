@@ -6,7 +6,6 @@ import { groupSettingSymbols, ownedParameterLabel, PID_GAIN_LABELS } from "../co
 
 export interface ManualTuneSettingsValue {
   values: Record<string, number>;
-  pinnedValues: Record<string, number>;
 }
 
 export interface ManualTuneSettingsControls {
@@ -14,13 +13,15 @@ export interface ManualTuneSettingsControls {
   read(): ManualTuneSettingsValue;
 }
 
-/** Renders editable declared controller settings beside a candidate without writing runtime values. */
+/**
+ * Renders editable declared controller settings beside a candidate without writing runtime values. Manual settings have
+ * no Keep toggles: each edit is the setting, and `changed` receives every complete set of values.
+ */
 export function initializeManualTuneSettings(root: HTMLElement, loop: ControlLoopDefinition,
   changed?: (value: ManualTuneSettingsValue) => void): ManualTuneSettingsControls {
   const area = root.querySelector<HTMLElement>("[data-studio-tuning-result]")!;
-  const rows = new Map<string, { value: HTMLInputElement; pin: HTMLInputElement }>();
+  const rows = new Map<string, HTMLInputElement>();
   let values: Record<string, number> = {};
-  let pinnedValues: Record<string, number> = {};
 
   const symbols = (family = "PID"): Set<string> => {
     const group = groupSettingSymbols(loop);
@@ -38,36 +39,36 @@ export function initializeManualTuneSettings(root: HTMLElement, loop: ControlLoo
     const proportional = decodeProportionalLaw(loop.controller.law, loop.parameterBinding);
     return proportional ? new Set([proportional.gainSymbol]) : new Set(loop.parameterBinding?.parameters.map(parameter => parameter.symbol) ?? []);
   };
-  const snapshot = (): ManualTuneSettingsValue => {
+  /** Reads every setting. Explicit validation focuses the first invalid one; a live edit only marks it. */
+  const snapshot = (focus: boolean): ManualTuneSettingsValue => {
     const next: Record<string, number> = loop.controller.group ? { ...values } : {};
-    const pins: Record<string, number> = loop.controller.group ? { ...pinnedValues } : {};
-    for (const [symbol, row] of rows) {
-      const value = row.value.valueAsNumber;
+    for (const [symbol, input] of rows) {
+      const value = input.valueAsNumber;
       const parameter = loop.parameterBinding?.parameters.find(candidate => candidate.symbol === symbol);
       if (!parameter || !Number.isFinite(value) || value < parameter.minimum || value > parameter.maximum) {
-        row.value.setAttribute("aria-invalid", "true"); row.value.classList.add("trust-input--error"); row.value.focus();
-        const label = row.value.labels?.[0]?.textContent;
+        input.setAttribute("aria-invalid", "true"); input.classList.add("trust-input--error");
+        if (focus) input.focus();
+        const label = input.labels?.[0]?.textContent;
         // Lower-case only the sentence position, so symbols such as (Kp) or (Tf) keep their case.
         const name = label ? label.charAt(0).toLowerCase() + label.slice(1) : symbol;
         throw new Error(`Enter ${name} between ${parameter?.minimum ?? "the declared minimum"} and ${parameter?.maximum ?? "the declared maximum"}.`);
       }
-      row.value.removeAttribute("aria-invalid"); row.value.classList.remove("trust-input--error");
+      input.removeAttribute("aria-invalid"); input.classList.remove("trust-input--error");
       next[symbol] = value;
-      if (row.pin.checked) pins[symbol] = value;
-      else delete pins[symbol];
     }
-    return { values: next, pinnedValues: pins };
+    return { values: next };
   };
-  const notify = (): void => { if (!changed) return; try { const next = snapshot(); values = next.values; pinnedValues = next.pinnedValues; changed(next); } catch { /* Keep incomplete edits for explicit validation on Tune. */ } };
+  const notify = (): void => {
+    if (!changed) return;
+    try { const next = snapshot(false); values = next.values; changed(next); } catch { /* Keep incomplete edits for explicit validation on Tune. */ }
+  };
   return {
-    read: snapshot,
+    read: () => snapshot(true),
     render(payload) {
       if (payload.status !== "candidate" || !payload.values || typeof payload.values !== "object") return;
       const candidate = payload.values as Record<string, number>;
-      const saved = payload.settingsPins && typeof payload.settingsPins === "object" ? payload.settingsPins as { values?: Record<string, number> } : undefined;
       const relevant = symbols(typeof payload.family === "string" ? payload.family : "PID");
       values = loop.controller.group ? { ...candidate } : Object.fromEntries([...relevant].filter(symbol => Number.isFinite(candidate[symbol])).map(symbol => [symbol, candidate[symbol]]));
-      pinnedValues = saved?.values ?? {};
       rows.clear();
       const fieldset = document.createElement("fieldset");
       fieldset.dataset.studioManualSettings = "true";
@@ -87,9 +88,8 @@ export function initializeManualTuneSettings(root: HTMLElement, loop: ControlLoo
         const input = document.createElement("input"); input.type = "number"; input.step = "any"; input.min = String(parameter.minimum); input.max = String(parameter.maximum); input.value = values[parameter.symbol] === undefined ? "" : String(values[parameter.symbol]); input.className = "trust-input"; input.dataset.studioManualValue = parameter.symbol;
         input.id = `manual-setting-${rows.size}`; label.htmlFor = input.id;
         const unit = document.createElement("span"); unit.textContent = parameter.unit === "1" ? "" : displayEngineeringUnit(parameter.unit);
-        const pinLabel = document.createElement("label"); const pin = document.createElement("input"); pin.type = "checkbox"; pin.checked = Number.isFinite(pinnedValues[parameter.symbol]); pin.dataset.studioManualPin = parameter.symbol; pinLabel.append(pin, " Pin");
-        input.addEventListener("input", notify); pin.addEventListener("change", notify);
-        row.append(label, input, unit, pinLabel); fieldset.append(row); rows.set(parameter.symbol, { value: input, pin });
+        input.addEventListener("input", notify);
+        row.append(label, input, unit); fieldset.append(row); rows.set(parameter.symbol, input);
       }
       const title = document.createElement("p"); title.textContent = `${payload.family} controller · ${loop.controller.type}`;
       area.replaceChildren(title, fieldset); area.hidden = false;

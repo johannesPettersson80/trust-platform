@@ -2,7 +2,7 @@ import type { GeneralModel } from "../generalModel";
 import type { ControlLoopDefinition } from "../loopDefinition";
 import { ratioUnit, sampleModel } from "../stateControllerDesign";
 import type { CompiledCatalog } from "./compiledCatalog";
-import { binding, measurementBinding, compiled, identificationDuration, loopId, realType, withRevision, type MeasuredSignal } from "./loopBindings";
+import { binding, measurementBinding, compiled, explicitExperiment, loopId, realType, withRevision, type MeasuredSignal } from "./loopBindings";
 import { startupState } from "./pidBindings";
 import type { ModeChoice, SignalChoice } from "./pidLoopGenerator";
 
@@ -81,8 +81,7 @@ export function lqgLoopDefinition(catalog: CompiledCatalog, draft: LqgLoopDraft)
     identificationPolicy: { maximumOrder: estimates.length, openLoopPermitted: true, sustainedHoldPermitted: true, information: "basic" },
     limits: { outputMinimum: mv.minimum, outputMaximum: mv.maximum },
     observedSampleTiming: { nominalPeriodMs: period },
-    experiment: { execution: "control-studio", kind: "mv_step", amplitude: draft.experimentStep ?? span / 10,
-      durationSeconds: identificationDuration(draft.name, draft.experimentDurationSeconds), seed: 1 },
+    ...explicitExperiment(draft.name, { execution: "control-studio", kind: "mv_step" }, draft.experimentStep, draft.experimentDurationSeconds),
     parameterBinding: {
       loop_id: id, task_name: task.name, mode: { symbol: draft.mode.symbol, manual_value: draft.mode.whenTrue === "Manual" },
       parameters: [

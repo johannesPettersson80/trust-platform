@@ -17,6 +17,11 @@ pub(super) fn dispatch(request: &ControlRequest, state: &ControlState) -> Option
             request.params.clone(),
             state,
         ),
+        "control.experiment.finish" => super::super::experiment_handlers::handle_finish(
+            request.id,
+            request.params.clone(),
+            state,
+        ),
         _ => return None,
     };
     Some(response)

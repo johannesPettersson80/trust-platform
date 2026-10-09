@@ -1,5 +1,6 @@
 use super::{
     contracts::Request,
+    record_period::{period_count, period_time_seconds, RecordPeriod},
     snapshot::{digest, Snapshot},
 };
 use crate::{
@@ -46,7 +47,28 @@ impl WorkerInput {
     }
 }
 pub(super) const PREFIX: &str = "TRUST_SEARCH_RESULT ";
-pub(super) const MAX_OUTPUT: u64 = 32 * 1024 * 1024;
+/// Most bytes one worker may write for one run or trial (specification 35, A7), derived from the
+/// largest valid run at the sample and channel limits, plus a 1 MiB reserve. Its sizes are those of
+/// `worker_checkpoint.rs`; S = 100,000 samples and L = 1,600,000 channel samples.
+///
+/// - A streamed run writes its checkpoint, `MAX_CHECKPOINT` = 56,324,288 bytes, then a final result
+///   that repeats its header: S × 25 + 512 KiB = 3,024,288 bytes. Together, 59,348,576 bytes.
+/// - A search trial writes one result holding its complete run: S × (83 + 25) + L × 27 + 512 KiB =
+///   54,524,288 bytes.
+///
+/// The larger run is 59,348,576 bytes; with the reserve the cap is 60,397,152 bytes (57.6 MiB), so
+/// a valid single run or trial always fits. A search job's retained total is also bounded by this
+/// value (`service.rs`). A job whose trials together exceed it fails explicitly, without truncation.
+pub(super) const MAX_OUTPUT: u64 = {
+    let run = super::worker_checkpoint::MAX_CHECKPOINT as u64
+        + super::execution_settings::MAX_RUN_SAMPLES * super::worker_checkpoint::TIME_BYTES
+        + super::worker_checkpoint::HEADER_BYTES;
+    let trial = super::execution_settings::MAX_RUN_SAMPLES
+        * (super::worker_checkpoint::SAMPLE_BYTES + super::worker_checkpoint::TIME_BYTES)
+        + super::execution_settings::MAX_CHANNEL_SAMPLES * super::worker_checkpoint::VALUE_BYTES
+        + super::worker_checkpoint::HEADER_BYTES;
+    (if run > trial { run } else { trial }) + super::worker_checkpoint::RESERVE_BYTES
+};
 pub fn stdio() -> Result<(), String> {
     let memory_limit = super::limits::apply()?;
     let mut text = String::new();
@@ -92,34 +114,7 @@ fn read(runtime: &Runtime, symbol: &str) -> Result<f64, String> {
 }
 fn assign(runtime: &mut Runtime, symbol: &str, number: f64) -> Result<(), String> {
     let resolved = crate::debug::resolve_control_parameter_path(runtime.storage(), symbol)?;
-    let value = match resolved.value {
-        Value::LReal(_) => Value::LReal(number),
-        Value::Real(_) => Value::Real(number as f32),
-        Value::Bool(_) if number == 0.0 || number == 1.0 => Value::Bool(number == 1.0),
-        other => {
-            if number.fract() != 0.0 || number.abs() > 9_007_199_254_740_991.0 {
-                return Err(
-                    "integer initial/event value must be exactly integral and representable".into(),
-                );
-            }
-            let kind = match other {
-                Value::SInt(_) => trust_hir::TypeId::SINT,
-                Value::Int(_) => trust_hir::TypeId::INT,
-                Value::DInt(_) => trust_hir::TypeId::DINT,
-                Value::LInt(_) => trust_hir::TypeId::LINT,
-                Value::USInt(_) => trust_hir::TypeId::USINT,
-                Value::UInt(_) => trust_hir::TypeId::UINT,
-                Value::UDInt(_) => trust_hir::TypeId::UDINT,
-                Value::ULInt(_) => trust_hir::TypeId::ULINT,
-                _ => return Err("unsupported initial/event/parameter type".into()),
-            };
-            crate::harness::coerce_value_to_type(Value::LInt(number as i64), kind)
-                .map_err(|error| error.to_string())?
-        }
-    };
-    if !numeric(value.clone())?.is_finite() {
-        return Err("value exceeds runtime type range".into());
-    }
+    let value = crate::debug::control_number_as(&resolved.value, number)?;
     let reference = resolved.reference;
     let addresses: Vec<_> = runtime
         .io()
@@ -171,6 +166,14 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
     {
         return Err("worker snapshot revision mismatch".into());
     }
+    // A snapshot without live inputs (an older caller's, or a fixture's) needs no revision.
+    let carries_inputs = !input.snapshot.process_inputs.is_empty()
+        || !input.snapshot.process_inputs_revision.is_empty();
+    if carries_inputs
+        && input.snapshot.process_inputs_revision != digest(&input.snapshot.process_inputs)
+    {
+        return Err("worker live input revision mismatch".into());
+    }
     let sources = input
         .snapshot
         .sources
@@ -194,6 +197,9 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
     runtime
         .apply_bytecode_module(&module, None)
         .map_err(|error| error.to_string())?;
+    // The first scan sees every bound input as the live plant had it; the run's plant then
+    // writes only its own feedback targets.
+    super::process_inputs::apply(&mut runtime, &input.snapshot.process_inputs)?;
     let mut config = crate::simulation::SimulationConfig::from_toml_text(
         &input.simulation,
         "isolated execution simulation",
@@ -248,10 +254,14 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
         }
     }
     let n = input.settings.duration_ms / input.settings.step_ms;
-    let sample_times: Vec<f64> = (0..=n)
-        .map(|i| (i * input.settings.step_ms) as f64 / 1000.0)
+    let record_every = input.settings.record_every;
+    let sample_times: Vec<f64> = (0..period_count(n + 1, record_every))
+        .map(|period| period_time_seconds(period, record_every, n, input.settings.step_ms))
         .collect();
     let mut conditions = json!({"initialState":input.settings.initial_values,"events":input.settings.events.iter().map(|event|json!({"atSeconds":event.at_ms as f64/1000.0,"channel":event.symbol,"value":event.value})).collect::<Vec<_>>(),"durationSeconds":input.settings.duration_ms as f64/1000.0,"sampleTimesSeconds":sample_times,"seed":input.settings.seed,"modelRevision":input.model_revision,"programRevision":digest(&input.snapshot.sources),"parameterSchemaRevision":input.parameter_schema_revision});
+    if record_every > 1 {
+        conditions["recordEvery"] = json!(record_every);
+    }
     if let Some(model_provenance) = &input.model_provenance {
         conditions["modelProvenance"] = json!(model_provenance);
         conditions["simulationConfigRevision"] = json!(input.simulation_config_revision);
@@ -272,7 +282,14 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
         .feedback_relay
         .as_ref()
         .map_or(0, |relay| relay.start_ms);
-    let mut samples = Vec::with_capacity((n + 1) as usize);
+    // A streamed run keeps its samples only in its checkpoint frames; search trials keep them here.
+    let mut samples = Vec::with_capacity(if input.evaluation.is_some() {
+        period_count(n + 1, record_every) as usize
+    } else {
+        0
+    });
+    let mut sample_count = 0_usize;
+    let mut period = RecordPeriod::default();
     let mut violations = Vec::new();
     let mut score = 0.0;
     let mut previous_error = None;
@@ -316,12 +333,9 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
                     ));
                 }
             }
-            let mut values = serde_json::Map::new();
+            let mut readings = Vec::with_capacity(input.settings.observations.len());
             for channel in &input.settings.observations {
-                values.insert(
-                    channel.symbol.clone(),
-                    json!({"value":read(&runtime,&channel.symbol)?,"quality":"good"}),
-                );
+                readings.push(read(&runtime, &channel.symbol)?);
             }
             if let Some(evaluation) = &input.evaluation {
                 let error = read(&runtime, &evaluation.objective.reference_symbol)?
@@ -343,12 +357,34 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
                     }
                 }
             }
-            let sample =
-                json!({"timeSeconds":ms as f64/1000.0,"sequence":sequence,"values":values});
-            if let Some(checkpoint) = &mut checkpoint {
-                checkpoint.sample(&sample)?;
+            period.push(&readings);
+            // A sample closes after its last grid point; the run's last point closes a partial period.
+            if (sequence + 1) % record_every == 0 || sequence == n {
+                let window = sequence / record_every;
+                // A mean that overflows to a non-finite number has no value: it is null and bad.
+                let measured: Vec<(Option<f64>, u64)> = period
+                    .means()
+                    .into_iter()
+                    .map(|mean| {
+                        if mean.is_finite() {
+                            (Some(mean), super::worker_checkpoint::QUALITY_GOOD)
+                        } else {
+                            (None, super::worker_checkpoint::QUALITY_BAD)
+                        }
+                    })
+                    .collect();
+                let sample = super::worker_checkpoint::sample_row(
+                    window,
+                    period_time_seconds(window, record_every, n, input.settings.step_ms),
+                    &measured,
+                );
+                match &mut checkpoint {
+                    Some(checkpoint) => checkpoint.sample(&sample)?,
+                    None => samples.push(sample),
+                }
+                sample_count += 1;
+                period = RecordPeriod::default();
             }
-            samples.push(sample);
             simulator
                 .apply_post_cycle(now, &runtime)
                 .map_err(|e| e.to_string())?;
@@ -356,17 +392,23 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
         Ok(())
     })();
     if let Err(reason) = executed {
-        if input.evaluation.is_some() || samples.is_empty() {
+        if input.evaluation.is_some() || sample_count == 0 {
             return Err(reason);
         }
+        // The streamed samples are already in the checkpoint frames; the supervisor assembles them.
         return Ok(
-            json!({"status":"failed","reason":reason,"io_provenance":"isolated-simulation-no-physical-drivers","run":recorded_run(&samples)}),
+            json!({"status":"failed","reason":reason,"io_provenance":"isolated-simulation-no-physical-drivers","run":recorded_run(&[])}),
         );
     }
     if !score.is_finite() {
         return Err("nonfinite objective".into());
     }
-    let run = recorded_run(&samples);
+    // A streamed run's final result carries its header alone; the frames hold its samples.
+    let run = if input.evaluation.is_some() {
+        recorded_run(&samples)
+    } else {
+        recorded_run(&[])
+    };
     Ok(if let Some(evaluation) = &input.evaluation {
         json!({"index":input.index,"parameters":input.parameters,"status":if violations.is_empty(){"qualified"}else{"rejected"},"violations":violations,"score":score,"score_unit":format!("{}^2 s",evaluation.objective.error_unit),"integration":"trapezoidal","io_provenance":"isolated-simulation-no-physical-drivers","run":run})
     } else {

@@ -5,6 +5,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 mod collector;
 mod database;
 mod helpers;
+mod project_configuration;
+mod project_constants;
 mod project_types;
 mod salsa_backend;
 

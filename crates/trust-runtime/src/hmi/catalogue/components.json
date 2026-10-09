@@ -1,0 +1,1584 @@
+{
+  "format": 1,
+  "components": [
+    {
+      "type": "text",
+      "category": "display",
+      "phase": 1,
+      "size": [160, 32],
+      "variants": ["heading", "body", "caption"],
+      "properties": {
+        "text": {
+          "accepts": ["value"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "image",
+      "category": "display",
+      "phase": 1,
+      "size": [160, 120]
+    },
+    {
+      "type": "value",
+      "category": "display",
+      "phase": 1,
+      "size": [160, 48],
+      "properties": {
+        "value": {
+          "accepts": ["value"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "gauge",
+      "category": "display",
+      "phase": 1,
+      "size": [160, 160],
+      "properties": {
+        "value": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "bar",
+      "category": "display",
+      "phase": 1,
+      "size": [48, 200],
+      "variants": ["vertical", "horizontal"],
+      "properties": {
+        "value": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "split-bar",
+      "category": "display",
+      "phase": 1,
+      "size": [96, 200],
+      "properties": {
+        "request": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "first": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "second": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "trend",
+      "category": "display",
+      "phase": 1,
+      "size": [480, 240],
+      "properties": {
+        "high-limit": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "low-limit": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      },
+      "additional": {
+        "accepts": ["number", "boolean"],
+        "directions": ["read"]
+      }
+    },
+    {
+      "type": "status",
+      "category": "display",
+      "phase": 1,
+      "size": [40, 40],
+      "properties": {
+        "state": {
+          "accepts": ["boolean", "enumeration", "number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "table",
+      "category": "display",
+      "phase": 1,
+      "size": [320, 160],
+      "properties": {
+        "row-count": { "accepts": ["number"], "directions": ["read"] },
+        "value": {
+          "accepts": ["array", "structure"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "event-log",
+      "category": "display",
+      "phase": 1,
+      "size": [720, 376]
+    },
+    {
+      "type": "alarm-list",
+      "category": "display",
+      "phase": 1,
+      "size": [720, 376]
+    },
+    {
+      "type": "button",
+      "category": "control",
+      "phase": 1,
+      "size": [120, 48],
+      "variants": ["stop"],
+      "properties": {
+        "target": {
+          "accepts": ["boolean"],
+          "directions": ["write"]
+        },
+        "feedback": {
+          "accepts": ["value"],
+          "directions": ["read"]
+        },
+        "interlock": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "interlock-reason": {
+          "accepts": ["text"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "pulse-button",
+      "category": "control",
+      "phase": 1,
+      "size": [120, 48],
+      "variants": ["stop"],
+      "properties": {
+        "target": {
+          "accepts": ["boolean"],
+          "directions": ["write"]
+        },
+        "feedback": {
+          "accepts": ["value"],
+          "directions": ["read"]
+        },
+        "interlock": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "interlock-reason": {
+          "accepts": ["text"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "switch",
+      "category": "control",
+      "phase": 1,
+      "size": [88, 48],
+      "properties": {
+        "value": {
+          "accepts": ["boolean"],
+          "directions": ["read-write", "write"]
+        },
+        "feedback": {
+          "accepts": ["value"],
+          "directions": ["read"]
+        },
+        "interlock": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "interlock-reason": {
+          "accepts": ["text"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "selector",
+      "category": "control",
+      "phase": 1,
+      "size": [200, 48],
+      "properties": {
+        "value": {
+          "accepts": ["enumeration", "number"],
+          "directions": ["read-write", "write"]
+        },
+        "feedback": {
+          "accepts": ["value"],
+          "directions": ["read"]
+        },
+        "interlock": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "interlock-reason": {
+          "accepts": ["text"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "mode-selector",
+      "category": "control",
+      "phase": 1,
+      "size": [264, 48],
+      "properties": {
+        "mode": {
+          "accepts": ["enumeration"],
+          "directions": ["read-write", "write"]
+        },
+        "feedback": {
+          "accepts": ["value"],
+          "directions": ["read"]
+        },
+        "interlock": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "interlock-reason": {
+          "accepts": ["text"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "slider",
+      "category": "control",
+      "phase": 1,
+      "size": [264, 48],
+      "variants": ["horizontal", "vertical"],
+      "properties": {
+        "value": {
+          "accepts": ["number"],
+          "directions": ["read-write", "write"]
+        },
+        "feedback": {
+          "accepts": ["value"],
+          "directions": ["read"]
+        },
+        "interlock": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "interlock-reason": {
+          "accepts": ["text"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "numeric-input",
+      "category": "control",
+      "phase": 1,
+      "size": [208, 48],
+      "properties": {
+        "value": {
+          "accepts": ["number"],
+          "directions": ["read-write", "write"]
+        },
+        "feedback": {
+          "accepts": ["value"],
+          "directions": ["read"]
+        },
+        "interlock": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "interlock-reason": {
+          "accepts": ["text"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "setpoint",
+      "category": "control",
+      "phase": 1,
+      "size": [240, 96],
+      "properties": {
+        "value": {
+          "accepts": ["number"],
+          "directions": ["read-write", "write"]
+        },
+        "low-limit": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "high-limit": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "feedback": {
+          "accepts": ["value"],
+          "directions": ["read"]
+        },
+        "interlock": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "interlock-reason": {
+          "accepts": ["text"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "panel",
+      "category": "layout",
+      "phase": 1,
+      "size": [320, 240]
+    },
+    {
+      "type": "group",
+      "category": "layout",
+      "phase": 1,
+      "size": [320, 240]
+    },
+    {
+      "type": "page-button",
+      "category": "layout",
+      "phase": 1,
+      "size": [160, 48]
+    },
+    {
+      "type": "line",
+      "category": "layout",
+      "phase": 1,
+      "size": [160, 2]
+    },
+    {
+      "type": "faceplate",
+      "category": "layout",
+      "phase": 5,
+      "size": [400, 344]
+    },
+    {
+      "type": "pump",
+      "category": "equipment",
+      "group": "liquid",
+      "phase": 2,
+      "size": [128, 108],
+      "variants": ["variable-speed"],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "speed": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "running": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "valve",
+      "category": "equipment",
+      "group": "liquid",
+      "phase": 2,
+      "size": [128, 108],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "open": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "closed": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "control-valve",
+      "category": "equipment",
+      "group": "liquid",
+      "phase": 2,
+      "size": [128, 108],
+      "variants": ["positioner"],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "position": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "demand": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "junction",
+      "category": "equipment",
+      "group": "liquid",
+      "phase": 2,
+      "size": [16, 16],
+      "ports": ["left", "right", "top", "bottom"]
+    },
+    {
+      "type": "tank",
+      "category": "equipment",
+      "group": "liquid",
+      "phase": 2,
+      "size": [128, 172],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "level": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "gravity-tank",
+      "category": "equipment",
+      "group": "liquid",
+      "phase": 2,
+      "size": [128, 172],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "level": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "tank-cascade",
+      "category": "equipment",
+      "group": "liquid",
+      "phase": 2,
+      "size": [192, 188],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "upper-level": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "lower-level": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "dosing-pump",
+      "category": "equipment",
+      "group": "liquid",
+      "phase": 2,
+      "size": [128, 108],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "running": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "rate": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "supply",
+      "category": "equipment",
+      "group": "liquid",
+      "phase": 2,
+      "size": [128, 108],
+      "variants": ["regulated"],
+      "ports": ["outlet"],
+      "properties": {
+        "pressure": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "mixer",
+      "category": "equipment",
+      "group": "liquid",
+      "phase": 2,
+      "size": [128, 108],
+      "ports": ["inlet", "inlet-2", "outlet"],
+      "properties": {
+        "ratio": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "temperature-sensor",
+      "category": "equipment",
+      "group": "instruments",
+      "phase": 2,
+      "size": [176, 56],
+      "attaches": true,
+      "properties": {
+        "value": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "level-sensor",
+      "category": "equipment",
+      "group": "instruments",
+      "phase": 2,
+      "size": [176, 56],
+      "attaches": true,
+      "properties": {
+        "value": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "flow-sensor",
+      "category": "equipment",
+      "group": "instruments",
+      "phase": 2,
+      "size": [176, 56],
+      "attaches": true,
+      "properties": {
+        "value": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "pressure-sensor",
+      "category": "equipment",
+      "group": "instruments",
+      "phase": 2,
+      "size": [176, 56],
+      "attaches": true,
+      "properties": {
+        "value": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "position-sensor",
+      "category": "equipment",
+      "group": "instruments",
+      "phase": 2,
+      "size": [176, 56],
+      "attaches": true,
+      "properties": {
+        "value": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "speed-sensor",
+      "category": "equipment",
+      "group": "instruments",
+      "phase": 2,
+      "size": [176, 56],
+      "attaches": true,
+      "properties": {
+        "value": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "sensor-pair",
+      "category": "equipment",
+      "group": "instruments",
+      "phase": 2,
+      "size": [280, 56],
+      "attaches": true,
+      "properties": {
+        "a": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "b": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "disagree": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "controller",
+      "category": "equipment",
+      "group": "instruments",
+      "phase": 2,
+      "size": [256, 56],
+      "properties": {
+        "pv": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "sp": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "cold-room",
+      "category": "equipment",
+      "group": "thermal",
+      "phase": 2,
+      "size": [192, 172],
+      "properties": {
+        "door-open": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "temperature": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "refrigeration-unit",
+      "category": "equipment",
+      "group": "thermal",
+      "phase": 2,
+      "size": [160, 108],
+      "properties": {
+        "running": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "heater",
+      "category": "equipment",
+      "group": "thermal",
+      "phase": 2,
+      "size": [128, 172],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "power": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "temperature": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "level": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "cooler",
+      "category": "equipment",
+      "group": "thermal",
+      "phase": 2,
+      "size": [128, 108],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "running": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "jacketed-vessel",
+      "category": "equipment",
+      "group": "thermal",
+      "phase": 2,
+      "size": [128, 172],
+      "ports": ["inlet", "outlet", "jacket-inlet", "jacket-outlet"],
+      "properties": {
+        "level": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "temperature": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "coupled-vessels",
+      "category": "equipment",
+      "group": "thermal",
+      "phase": 2,
+      "size": [192, 172],
+      "ports": ["inlet-1", "outlet-1", "inlet-2", "outlet-2"],
+      "properties": {
+        "temperature-1": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "temperature-2": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "heat-draw-off",
+      "category": "equipment",
+      "group": "thermal",
+      "phase": 2,
+      "size": [128, 108],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "power": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "motor",
+      "category": "equipment",
+      "group": "motion",
+      "phase": 2,
+      "size": [128, 108],
+      "properties": {
+        "running": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "servo-motor",
+      "category": "equipment",
+      "group": "motion",
+      "phase": 2,
+      "size": [160, 108],
+      "properties": {
+        "running": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "speed": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "angle": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "shaft",
+      "category": "equipment",
+      "group": "motion",
+      "phase": 2,
+      "size": [128, 108],
+      "properties": {
+        "angle": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "speed": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "drum",
+      "category": "equipment",
+      "group": "motion",
+      "phase": 2,
+      "size": [128, 172],
+      "properties": {
+        "angle": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "position": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "coupling",
+      "category": "equipment",
+      "group": "motion",
+      "phase": 2,
+      "size": [192, 108],
+      "properties": {
+        "motor-angle": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "load-angle": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "encoder",
+      "category": "equipment",
+      "group": "motion",
+      "phase": 2,
+      "size": [128, 108],
+      "properties": {
+        "angle": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "rotary-arm",
+      "category": "equipment",
+      "group": "motion",
+      "phase": 2,
+      "size": [128, 172],
+      "properties": {
+        "angle": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "axis-indicator",
+      "category": "equipment",
+      "group": "motion",
+      "phase": 2,
+      "size": [160, 172],
+      "properties": {
+        "actual": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "target": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "network-link",
+      "category": "equipment",
+      "group": "communication",
+      "phase": 2,
+      "size": [160, 108],
+      "properties": {
+        "connected": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "age": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "hold": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fallback": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "fan",
+      "category": "equipment",
+      "group": "thermal",
+      "phase": 2,
+      "size": [128, 108],
+      "properties": {
+        "running": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "speed": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "blower",
+      "category": "equipment",
+      "group": "liquid",
+      "phase": 2,
+      "size": [128, 108],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "running": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "agitator",
+      "category": "equipment",
+      "group": "liquid",
+      "phase": 2,
+      "size": [128, 108],
+      "properties": {
+        "running": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "conveyor",
+      "category": "equipment",
+      "group": "motion",
+      "phase": 2,
+      "size": [160, 84],
+      "properties": {
+        "running": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "damper",
+      "category": "equipment",
+      "group": "thermal",
+      "phase": 2,
+      "size": [128, 108],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "open": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "closed": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "position": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "cylinder",
+      "category": "equipment",
+      "group": "motion",
+      "phase": 2,
+      "size": [160, 84],
+      "properties": {
+        "open": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "closed": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "motor-valve",
+      "category": "equipment",
+      "group": "liquid",
+      "phase": 2,
+      "size": [128, 108],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "open": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "closed": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "weigh-scale",
+      "category": "equipment",
+      "group": "instruments",
+      "phase": 2,
+      "size": [128, 108],
+      "properties": {
+        "value": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "analyzer",
+      "category": "equipment",
+      "group": "instruments",
+      "phase": 2,
+      "size": [176, 56],
+      "attaches": true,
+      "properties": {
+        "value": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "level-switch",
+      "category": "equipment",
+      "group": "instruments",
+      "phase": 2,
+      "size": [176, 56],
+      "attaches": true,
+      "properties": {
+        "state": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "pressure-switch",
+      "category": "equipment",
+      "group": "instruments",
+      "phase": 2,
+      "size": [176, 56],
+      "attaches": true,
+      "properties": {
+        "state": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "digital-switch",
+      "category": "equipment",
+      "group": "instruments",
+      "phase": 2,
+      "size": [176, 56],
+      "attaches": true,
+      "properties": {
+        "state": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "vessel",
+      "category": "equipment",
+      "group": "process",
+      "phase": 3,
+      "size": [128, 172],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "level": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "heat-exchanger",
+      "category": "equipment",
+      "group": "process",
+      "phase": 3,
+      "size": [128, 108],
+      "ports": ["inlet", "outlet", "medium-inlet", "medium-outlet"],
+      "properties": {
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "temperature": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "filter",
+      "category": "equipment",
+      "group": "process",
+      "phase": 3,
+      "size": [128, 108],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "clogged": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "differential-pressure": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "cyclone",
+      "category": "equipment",
+      "group": "process",
+      "phase": 3,
+      "size": [128, 172],
+      "ports": ["inlet", "gas-outlet", "solids-outlet"],
+      "properties": {
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "differential-pressure": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "crusher",
+      "category": "equipment",
+      "group": "process",
+      "phase": 3,
+      "size": [128, 108],
+      "ports": ["inlet", "outlet"],
+      "properties": {
+        "running": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "load": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "screen",
+      "category": "equipment",
+      "group": "process",
+      "phase": 3,
+      "size": [160, 108],
+      "ports": ["inlet", "oversize", "undersize"],
+      "properties": {
+        "running": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "vfd",
+      "category": "equipment",
+      "group": "electrical",
+      "phase": 3,
+      "size": [128, 108],
+      "properties": {
+        "running": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "frequency": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "drive",
+      "category": "equipment",
+      "group": "electrical",
+      "phase": 3,
+      "size": [128, 108],
+      "properties": {
+        "running": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "ready": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "speed": {
+          "accepts": ["number"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "contactor",
+      "category": "equipment",
+      "group": "electrical",
+      "phase": 3,
+      "size": [128, 108],
+      "properties": {
+        "closed": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "breaker",
+      "category": "equipment",
+      "group": "electrical",
+      "phase": 3,
+      "size": [128, 108],
+      "properties": {
+        "closed": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "tripped": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    },
+    {
+      "type": "device",
+      "category": "equipment",
+      "group": "process",
+      "phase": 3,
+      "size": [128, 108],
+      "properties": {
+        "running": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "fault": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "manual": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        },
+        "out-of-service": {
+          "accepts": ["boolean"],
+          "directions": ["read"]
+        }
+      }
+    }
+]
+}

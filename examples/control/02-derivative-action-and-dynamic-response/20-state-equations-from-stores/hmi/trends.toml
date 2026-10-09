@@ -1,6 +1,0 @@
-title = "Trends"
-kind = "trend"
-icon = "line-chart"
-order = 50
-duration_s = 600
-signals = ["P1.RaisePumpM3PerS", "P1.RaiseTank1M", "P1.RaiseTank2M"]

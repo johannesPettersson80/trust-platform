@@ -25,10 +25,23 @@ Show these elements, in this order:
 2. **Controller** selector, identifying the actual ST instance or controller
    group and showing its recommended configuration by default. Show the small
    **Channels…** entry beside it only for multiple channels.
-3. **Tuning method** selector, defaulting to **Automatic**.
-4. **Tune controller** button, with a small **Requirements…** entry on that row.
-5. The resulting **controller type and settings**, in plain text.
+3. **Tuning method** selector, defaulting to **Automatic**. It lists tuning
+   methods only.
+4. **Tune controller** button, with small **Requirements…** and, once a model
+   exists, **Analyze…** entries on that row. Analyze… holds the analysis tools
+   (Bode, Nyquist, root locus, pole-zero map, Routh–Hurwitz, lead/lag design, the
+   frequency and multichannel tools).
+5. The resulting **controller type and settings**, in plain text, with their
+   margins. In manual tuning the settings are edited here and the plot follows each
+   edit. After automatic tuning, a small Keep toggle beside a setting keeps it fixed
+   for the next run.
 6. The **predicted response plot**.
+
+Simplification, 8 October 2026: the user asked for a design that serves both a
+beginner control engineer and a professor ("do what you think is best, think from a
+users experience"). The rules of [Specification 35 B9.9](35-vscode-control-studio.md#b99-simple-by-default-complete-one-click-away)
+apply to this page and take precedence over earlier wording here.
+
 
 Do not add other permanent controls, headings, descriptive paragraphs or
 information panels to this page.
@@ -38,10 +51,14 @@ for continuation, the small editor pattern, autosave and reopening.
 
 ## Control requirements
 
-**Requirements…** opens one compact editor with **Requirement / Signal / Limit**
-rows and units. Prefill the project's declared requirements. Typical rows are
-maximum settling time, maximum overshoot and maximum steady-state error; show
-the criteria applicable to this task rather than an unrelated catalogue.
+**Requirements…** opens one compact editor with **Requirement / Limit** rows and
+units (a Signal column appears only for several outputs). Prefill the project's
+declared requirements. The visible rows are maximum settling time, maximum
+overshoot and maximum steady-state error, each with the band it needs, and an
+optional input disturbance. Maximum overshoot is in percent of the test
+setpoint change; blank declares no overshoot limit (specification 35, B4.3). A collapsed **More…** holds the test design (test
+setpoint change, validation duration, Auto-entry tolerance, measurement noise and
+scenarios), filled automatically and marked Automatic.
 Existing declared disturbance, actuator, rate and state constraints remain part
 of the same requirement set and must not disappear when editing these rows.
 The editor always offers an optional **Input disturbance** row in the controller
@@ -99,8 +116,8 @@ estimate require review. Default bands/errors use two/four percent of the test
 change with that noise floor. Generated values use readable engineering precision
 without enlarging a test step. These are initial test-design choices; independent
 model and controller checks determine whether they work. Explicit values are
-never rounded or relaxed. Runtime caps remain600s and12000samples, with the
-existing channel-sample budget enforced by the verification planner.
+never rounded or relaxed. Durations, sample counts and channel budgets follow
+the limits of [Specification 35 A7](35-vscode-control-studio.md#a7-limits).
 
 The PID paper (*A Practical Guide to PID Controller Implementation*, v3, §1)
 explicitly excludes tuning from its scope. Its §6 examples use Lambda PI with
@@ -205,7 +222,7 @@ tuning, validation and Apply. The mapping identifies which controller settings
 correspond to each tuned value; never guess writable variables from names such
 as `Kp` or `PID`. If the mapping is absent or incompatible, report that in the
 existing action area and leave application unavailable. Follow the existing
-[controller binding contract](control-studio-controller-bindings.md).
+[controller binding contract](control-studio-runtime-protocol.md#e2-symbol-bindings-and-resolution).
 
 **Tune controller** calculates settings for the selected controller and stops
 here with its candidate and predicted response. The Validate tab only navigates;

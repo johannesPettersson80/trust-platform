@@ -1,5 +1,9 @@
 fn experiment_state(value: i64, forced: bool) -> ControlState {
-    let state = hmi_test_state("PROGRAM Main\nEND_PROGRAM\n");
+    // `Main.Manual` is the loop's mode: TRUE is the Manual value for output kinds and not Manual for setpoint kinds.
+    let state = control_test_state("PROGRAM Main\nVAR Manual : BOOL := TRUE; END_VAR\nEND_PROGRAM\n");
+    state.connect_experiments();
+    // The target is simulated, as the scan of this fixture reports (Specification 35, A2.4).
+    state.experiments.record_simulated_target(true);
     let address = crate::io::IoAddress::parse("%MW0").expect("experiment address");
     *state.io_snapshot.lock().expect("I/O snapshot") = Some(crate::io::IoSnapshot {
         scan: Some(7),
@@ -26,13 +30,6 @@ fn experiment_state(value: i64, forced: bool) -> ControlState {
         ],
         ..crate::io::IoSnapshot::default()
     });
-    state.io_snapshot_seen_ms.store(
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("system time")
-            .as_millis() as u64,
-        std::sync::atomic::Ordering::Relaxed,
-    );
     state
 }
 
@@ -48,11 +45,17 @@ fn start_experiment(state: &ControlState, overrides: serde_json::Value) -> Contr
         "maximum": 100,
         "duration_ms": 5_000,
         "expected_scan": 7,
-        "stop_on_stale_ms": 500
+        "task": "$background"
     });
     if let (Some(base), Some(changes)) = (params.as_object_mut(), overrides.as_object()) {
         base.extend(changes.clone());
     }
+    // Output kinds need Manual (`Main.Manual` equal to the Manual value); setpoint kinds need Auto.
+    let manual_required = matches!(
+        params["kind"].as_str(),
+        Some("output_step" | "mv_step" | "mv_pulse" | "relay" | "prbs" | "multisine")
+    );
+    params["mode_binding"] = json!({ "symbol": "Main.Manual", "manual_value": manual_required });
     handle_request_value(
         json!({
             "id": 8001,
@@ -77,6 +80,11 @@ fn control_studio_experiment_starts_once_and_abort_restores_exact_value() {
             .and_then(serde_json::Value::as_str),
         Some("running")
     );
+    assert!(
+        state.debug.drain_io_writes().is_empty(),
+        "the start request writes nothing"
+    );
+    experiment_scan(&state, 0);
     assert_eq!(
         state.debug.drain_io_writes(),
         vec![(
@@ -134,18 +142,33 @@ fn control_studio_project_sequence_uses_and_restores_boolean_authority() {
             value: crate::io::IoSnapshotValue::Value(Value::Bool(false)),
             source: None,
         });
-    let started = start_experiment(&state, json!({
-        "kind": "project_sequence",
-        "address": "%MX8.0",
-        "value": true,
-        "restoration_value": false,
-        "value_type": "BOOL",
-        "minimum": 0,
-        "maximum": 1,
-        "duration_ms": 2_000
-    }));
-    assert!(started.ok, "project sequence start failed: {:?}", started.error);
-    assert_eq!(state.debug.drain_io_writes(), vec![(address.clone(), Value::Bool(true))]);
+    let started = start_experiment(
+        &state,
+        json!({
+            "kind": "project_sequence",
+            "address": "%MX8.0",
+            "value": true,
+            "restoration_value": false,
+            "value_type": "BOOL",
+            "minimum": 0,
+            "maximum": 1,
+            "duration_ms": 2_000
+        }),
+    );
+    assert!(
+        started.ok,
+        "project sequence start failed: {:?}",
+        started.error
+    );
+    assert!(
+        state.debug.drain_io_writes().is_empty(),
+        "the start request writes nothing"
+    );
+    experiment_scan(&state, 0);
+    assert_eq!(
+        state.debug.drain_io_writes(),
+        vec![(address.clone(), Value::Bool(true))]
+    );
 
     let aborted = handle_request_value(
         json!({
@@ -156,8 +179,15 @@ fn control_studio_project_sequence_uses_and_restores_boolean_authority() {
         &state,
         None,
     );
-    assert!(aborted.ok, "project sequence abort failed: {:?}", aborted.error);
-    assert_eq!(state.debug.drain_io_writes(), vec![(address, Value::Bool(false))]);
+    assert!(
+        aborted.ok,
+        "project sequence abort failed: {:?}",
+        aborted.error
+    );
+    assert_eq!(
+        state.debug.drain_io_writes(),
+        vec![(address, Value::Bool(false))]
+    );
 }
 
 #[test]
@@ -173,42 +203,34 @@ fn control_studio_experiment_rejects_unknown_or_unsafe_preconditions() {
     assert!(!forced.ok);
     assert_eq!(forced.error_code.as_deref(), Some("forced_signal"));
 
-    let stale_state = experiment_state(10, false);
-    stale_state
-        .io_snapshot_seen_ms
-        .store(0, std::sync::atomic::Ordering::Relaxed);
-    let stale = start_experiment(&stale_state, json!({}));
-    assert!(!stale.ok);
-    assert_eq!(stale.error_code.as_deref(), Some("stale_scan"));
-
     let outside = start_experiment(&experiment_state(10, false), json!({ "value": 101 }));
     assert!(!outside.ok);
     assert_eq!(outside.error_code.as_deref(), Some("outside_limits"));
 
+    // The fixture's target is simulated, so a physical label contradicts the runtime's fact (A2.4).
     let physical = start_experiment(
         &experiment_state(10, false),
         json!({ "source": "physical" }),
     );
     assert!(!physical.ok);
-    assert_eq!(
-        physical.error_code.as_deref(),
-        Some("physical_approval_required")
-    );
+    assert_eq!(physical.error_code.as_deref(), Some("invalid_target"));
 }
 
 #[test]
 fn control_studio_experiment_timeout_restores_without_an_editor_request() {
     let state = experiment_state(10, false);
-    let started = start_experiment(&state, json!({ "duration_ms": 20 }));
+    let started = start_experiment(&state, json!({ "duration_ms": 1_000 }));
     assert!(started.ok, "start failed: {:?}", started.error);
     let _ = state.debug.drain_io_writes();
-    std::thread::sleep(std::time::Duration::from_millis(80));
+    for time in (0..=990).step_by(10) {
+        experiment_scan(&state, time);
+    }
     assert_eq!(
         state.debug.drain_io_writes(),
-        vec![(
-            crate::io::IoAddress::parse("%MW0").unwrap(),
-            Value::LInt(10),
-        )]
+        vec![
+            (crate::io::IoAddress::parse("%MW0").unwrap(), Value::LInt(15)),
+            (crate::io::IoAddress::parse("%MW0").unwrap(), Value::LInt(10)),
+        ]
     );
     let status = handle_request_value(
         json!({
@@ -242,7 +264,11 @@ fn control_studio_experiment_timeout_restores_without_an_editor_request() {
 fn control_studio_experiment_accepts_bounded_slow_process_duration() {
     let state = experiment_state(10, false);
     let started = start_experiment(&state, json!({ "duration_ms": 1_200_000 }));
-    assert!(started.ok, "slow-process experiment was rejected: {:?}", started.error);
+    assert!(
+        started.ok,
+        "slow-process experiment was rejected: {:?}",
+        started.error
+    );
 
     let aborted = handle_request_value(
         json!({
@@ -253,16 +279,22 @@ fn control_studio_experiment_accepts_bounded_slow_process_duration() {
         &state,
         None,
     );
-    assert!(aborted.ok, "slow-process experiment abort failed: {:?}", aborted.error);
+    assert!(
+        aborted.ok,
+        "slow-process experiment abort failed: {:?}",
+        aborted.error
+    );
 
-    let rejected = start_experiment(&state, json!({ "duration_ms": 3_600_001 }));
+    let rejected = start_experiment(&state, json!({ "duration_ms": 86_400_001 }));
     assert!(!rejected.ok);
     assert_eq!(rejected.error_code.as_deref(), Some("invalid_experiment"));
 }
 
 #[test]
 fn control_studio_experiment_preserves_declared_lreal_signal_type() {
-    let state = hmi_test_state("PROGRAM Main\nEND_PROGRAM\n");
+    let state = control_test_state("PROGRAM Main\nVAR Manual : BOOL := TRUE; END_VAR\nEND_PROGRAM\n");
+    state.connect_experiments();
+    state.experiments.record_simulated_target(true);
     let address = crate::io::IoAddress::parse("%ML0").expect("experiment address");
     *state.io_snapshot.lock().expect("I/O snapshot") = Some(crate::io::IoSnapshot {
         scan: Some(11),
@@ -275,14 +307,6 @@ fn control_studio_experiment_preserves_declared_lreal_signal_type() {
         }],
         ..crate::io::IoSnapshot::default()
     });
-    state.io_snapshot_seen_ms.store(
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("system time")
-            .as_millis() as u64,
-        std::sync::atomic::Ordering::Relaxed,
-    );
-
     let started = handle_request_value(
         json!({
             "id": 8010,
@@ -299,8 +323,8 @@ fn control_studio_experiment_preserves_declared_lreal_signal_type() {
                 "maximum": 100,
                 "duration_ms": 5_000,
                 "expected_scan": 11,
-                "stop_on_stale_ms": 500,
-                "controller_mode": "Auto"
+                "task": "$background",
+                "mode_binding": { "symbol": "Main.Manual", "manual_value": false }
             }
         }),
         &state,
@@ -308,6 +332,11 @@ fn control_studio_experiment_preserves_declared_lreal_signal_type() {
     );
 
     assert!(started.ok, "typed LREAL start failed: {:?}", started.error);
+    assert!(
+        state.debug.drain_io_writes().is_empty(),
+        "the start request writes nothing"
+    );
+    experiment_scan(&state, 0);
     assert_eq!(
         state.debug.drain_io_writes(),
         vec![(address.clone(), Value::LWord(5.0_f64.to_bits()))]
@@ -336,8 +365,7 @@ fn control_studio_experiment_executes_bounded_trajectory_and_restores_once() {
         &state,
         json!({
             "kind": "prbs",
-            "controller_mode": "Manual",
-            "duration_ms": 200,
+            "duration_ms": 1_000,
             "trajectory": [
                 { "at_ms": 0, "value": 15 },
                 { "at_ms": 30, "value": 5 },
@@ -346,7 +374,9 @@ fn control_studio_experiment_executes_bounded_trajectory_and_restores_once() {
         }),
     );
     assert!(started.ok, "trajectory start failed: {:?}", started.error);
-    std::thread::sleep(std::time::Duration::from_millis(120));
+    for time in (0..=50).step_by(10) {
+        experiment_scan(&state, time);
+    }
     assert_eq!(
         state.debug.drain_io_writes(),
         vec![
@@ -387,7 +417,6 @@ fn control_studio_mv_pulse_requires_a_timed_return_to_its_baseline() {
         &state,
         json!({
             "kind": "mv_pulse",
-            "controller_mode": "Manual",
             "trajectory": [{ "at_ms": 0, "value": 15 }]
         }),
     );
@@ -398,7 +427,6 @@ fn control_studio_mv_pulse_requires_a_timed_return_to_its_baseline() {
         &state,
         json!({
             "kind": "mv_pulse",
-            "controller_mode": "Manual",
             "trajectory": [
                 { "at_ms": 0, "value": 15 },
                 { "at_ms": 2500, "value": 10 }
@@ -415,7 +443,6 @@ fn control_studio_relay_switches_from_process_feedback_and_never_from_elapsed_dw
         &state,
         json!({
             "kind": "relay",
-            "controller_mode": "Manual",
             "value": 15,
             "duration_ms": 1_000,
             "relay_feedback": {
@@ -433,6 +460,11 @@ fn control_studio_relay_switches_from_process_feedback_and_never_from_elapsed_dw
         "feedback relay start failed: {:?}",
         started.error
     );
+    assert!(
+        state.debug.drain_io_writes().is_empty(),
+        "the start request writes nothing"
+    );
+    experiment_scan(&state, 0);
     assert_eq!(
         state.debug.drain_io_writes(),
         vec![(
@@ -441,7 +473,7 @@ fn control_studio_relay_switches_from_process_feedback_and_never_from_elapsed_dw
         )]
     );
 
-    std::thread::sleep(std::time::Duration::from_millis(45));
+    experiment_scan(&state, 10);
     assert!(
         state.debug.drain_io_writes().is_empty(),
         "elapsed time alone must not switch a feedback relay"
@@ -449,7 +481,7 @@ fn control_studio_relay_switches_from_process_feedback_and_never_from_elapsed_dw
 
     state.io_snapshot.lock().unwrap().as_mut().unwrap().memory[1].value =
         crate::io::IoSnapshotValue::Value(Value::LInt(53));
-    std::thread::sleep(std::time::Duration::from_millis(45));
+    experiment_scan(&state, 20);
     assert_eq!(
         state.debug.drain_io_writes(),
         vec![(crate::io::IoAddress::parse("%MW0").unwrap(), Value::LInt(5),)]
@@ -457,7 +489,7 @@ fn control_studio_relay_switches_from_process_feedback_and_never_from_elapsed_dw
 
     state.io_snapshot.lock().unwrap().as_mut().unwrap().memory[1].value =
         crate::io::IoSnapshotValue::Value(Value::LInt(51));
-    std::thread::sleep(std::time::Duration::from_millis(45));
+    experiment_scan(&state, 30);
     assert!(
         state.debug.drain_io_writes().is_empty(),
         "the relay must retain its low state inside hysteresis"
@@ -465,7 +497,7 @@ fn control_studio_relay_switches_from_process_feedback_and_never_from_elapsed_dw
 
     state.io_snapshot.lock().unwrap().as_mut().unwrap().memory[1].value =
         crate::io::IoSnapshotValue::Value(Value::LInt(47));
-    std::thread::sleep(std::time::Duration::from_millis(45));
+    experiment_scan(&state, 40);
     assert_eq!(
         state.debug.drain_io_writes(),
         vec![(
@@ -550,8 +582,7 @@ fn control_studio_abort_preempts_future_excitation_and_confirms_restoration_from
     let started = start_experiment(
         &state,
         json!({
-            "duration_ms": 500,
-            "stop_on_stale_ms": 200,
+            "duration_ms": 1_000,
             "trajectory": [
                 { "at_ms": 0, "value": 15 },
                 { "at_ms": 100, "value": 20 }
@@ -559,6 +590,11 @@ fn control_studio_abort_preempts_future_excitation_and_confirms_restoration_from
         }),
     );
     assert!(started.ok, "start failed: {:?}", started.error);
+    assert!(
+        state.debug.drain_io_writes().is_empty(),
+        "the start request writes nothing"
+    );
+    experiment_scan(&state, 0);
     assert_eq!(state.debug.drain_io_writes().len(), 1);
 
     let aborted = handle_request_value(
@@ -587,14 +623,14 @@ fn control_studio_abort_preempts_future_excitation_and_confirms_restoration_from
         )]
     );
 
-    std::thread::sleep(std::time::Duration::from_millis(140));
+    experiment_scan(&state, 10);
     assert!(
         state.debug.drain_io_writes().is_empty(),
         "no trajectory point may be queued after abort is accepted"
     );
     state.io_snapshot.lock().unwrap().as_mut().unwrap().memory[0].value =
         crate::io::IoSnapshotValue::Value(Value::LInt(10));
-    std::thread::sleep(std::time::Duration::from_millis(40));
+    experiment_scan(&state, 20);
     let status = handle_request_value(
         json!({
             "id": 8015,
@@ -628,16 +664,20 @@ fn control_studio_runtime_data_trip_stops_and_failed_restoration_is_explicit() {
     let started = start_experiment(
         &state,
         json!({
-            "duration_ms": 2_000,
-            "stop_on_stale_ms": 60
+            "duration_ms": 2_000
         }),
     );
     assert!(started.ok, "start failed: {:?}", started.error);
+    assert!(
+        state.debug.drain_io_writes().is_empty(),
+        "the start request writes nothing"
+    );
+    experiment_scan(&state, 0);
     let _ = state.debug.drain_io_writes();
     state.io_snapshot.lock().unwrap().as_mut().unwrap().memory[0].value =
         crate::io::IoSnapshotValue::Value(Value::LInt(101));
 
-    std::thread::sleep(std::time::Duration::from_millis(45));
+    experiment_scan(&state, 10);
     assert_eq!(
         state.debug.drain_io_writes(),
         vec![(
@@ -645,7 +685,9 @@ fn control_studio_runtime_data_trip_stops_and_failed_restoration_is_explicit() {
             Value::LInt(10),
         )]
     );
-    std::thread::sleep(std::time::Duration::from_millis(80));
+    for time in [20, 30, 40] {
+        experiment_scan(&state, time);
+    }
     let status = handle_request_value(
         json!({
             "id": 8016,
@@ -685,10 +727,11 @@ fn control_studio_runtime_data_trip_stops_and_failed_restoration_is_explicit() {
 fn control_studio_unresolved_runtime_value_trips_the_running_experiment() {
     let state = experiment_state(10, false);
     assert!(start_experiment(&state, json!({ "duration_ms": 2_000 })).ok);
+    experiment_scan(&state, 0);
     let _ = state.debug.drain_io_writes();
     state.io_snapshot.lock().unwrap().as_mut().unwrap().memory[0].value =
         crate::io::IoSnapshotValue::Unresolved;
-    std::thread::sleep(std::time::Duration::from_millis(45));
+    experiment_scan(&state, 10);
     let status = handle_request_value(
         json!({
             "id": 8017,
@@ -709,9 +752,14 @@ fn control_studio_unresolved_runtime_value_trips_the_running_experiment() {
 }
 
 #[test]
-fn control_studio_running_experiment_trips_on_force_and_staleness() {
+fn control_studio_running_experiment_trips_on_force() {
     let forced_state = experiment_state(10, false);
     assert!(start_experiment(&forced_state, json!({ "duration_ms": 2_000 })).ok);
+    assert!(
+        forced_state.debug.drain_io_writes().is_empty(),
+        "the start request writes nothing"
+    );
+    experiment_scan(&forced_state, 0);
     let _ = forced_state.debug.drain_io_writes();
     forced_state
         .io_snapshot
@@ -720,7 +768,8 @@ fn control_studio_running_experiment_trips_on_force_and_staleness() {
         .as_mut()
         .unwrap()
         .forced = vec![crate::io::IoAddress::parse("%MW0").unwrap()];
-    std::thread::sleep(std::time::Duration::from_millis(65));
+    experiment_scan(&forced_state, 10);
+    experiment_scan(&forced_state, 20);
     let forced_status = handle_request_value(
         json!({
             "id": 8018,
@@ -746,46 +795,22 @@ fn control_studio_running_experiment_trips_on_force_and_staleness() {
             .and_then(serde_json::Value::as_str),
         Some("restored")
     );
+}
 
-    let stale_state = experiment_state(10, false);
-    assert!(
-        start_experiment(
-            &stale_state,
-            json!({
-                "duration_ms": 2_000,
-                "stop_on_stale_ms": 40
-            })
-        )
-        .ok
-    );
-    let _ = stale_state.debug.drain_io_writes();
-    stale_state
-        .io_snapshot_seen_ms
-        .store(0, std::sync::atomic::Ordering::Relaxed);
-    std::thread::sleep(std::time::Duration::from_millis(65));
-    let stale_status = handle_request_value(
-        json!({
-            "id": 8019,
-            "type": "control.experiment.status",
-            "params": { "experiment_id": "experiment-1" }
-        }),
-        &stale_state,
-        None,
-    );
-    assert_eq!(
-        stale_status
-            .result
-            .as_ref()
-            .and_then(|value| value.get("stop_reason"))
-            .and_then(serde_json::Value::as_str),
-        Some("stale_runtime_data")
-    );
-    assert_eq!(
-        stale_status
-            .result
-            .as_ref()
-            .and_then(|value| value.get("restoration"))
-            .and_then(serde_json::Value::as_str),
-        Some("restored")
-    );
+/// Publishes one scan of the fixture's I/O at `time_ms` of process time, as the runtime's cycle publishes it. The scan runs
+/// the experiments, so a test advances them by publishing scans rather than by waiting (Specification 35, A3.5).
+fn experiment_scan(state: &ControlState, time_ms: i64) {
+    let io = state
+        .io_snapshot
+        .lock()
+        .expect("I/O snapshot")
+        .clone()
+        .expect("fixture I/O");
+    let storage = state
+        .debug
+        .with_snapshot(|snapshot| snapshot.storage.clone())
+        .expect("debug snapshot");
+    state
+        .debug
+        .push_control_snapshot_at(io, time_ms * 1_000_000, &storage, &[], true, true);
 }

@@ -30,6 +30,17 @@
 
   --trust-input-bg: var(--vscode-input-background, #10141b);
   --trust-input-border: var(--vscode-input-border, var(--vscode-editorWidget-border, #343b47));
+  --trust-input-fg: var(--vscode-input-foreground, var(--trust-text));
+
+  --trust-font: var(--vscode-font-family, system-ui, -apple-system, "Segoe UI", sans-serif);
+  --trust-font-size: var(--vscode-font-size, 13px);
+  --trust-panel: var(--vscode-sideBar-background, var(--trust-surface));
+  --trust-hover: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground, rgba(127, 127, 127, .14)));
+  --trust-sash: var(--vscode-sash-hoverBorder, var(--trust-accent));
+  --trust-action-secondary-bg: var(--vscode-button-secondaryBackground, var(--trust-surface-raised));
+  --trust-action-secondary-hover-bg: var(--vscode-button-secondaryHoverBackground, var(--trust-hover));
+  --trust-action-secondary-fg: var(--vscode-button-secondaryForeground, var(--trust-text));
+  --trust-danger-bg: var(--vscode-inputValidation-errorBackground, color-mix(in srgb, var(--trust-danger) 16%, var(--trust-surface)));
 
   --trust-protocol-blue: var(--vscode-charts-blue, #5b9bd5);
   --trust-protocol-orange: var(--vscode-charts-orange, #d29152);
@@ -172,6 +183,14 @@ body[data-vscode-theme-kind="vscode-high-contrast-light"] {
 
 @media (forced-colors: active) {
   :root {
+    --trust-panel: Canvas;
+    --trust-hover: Highlight;
+    --trust-sash: Highlight;
+    --trust-action-secondary-bg: Canvas;
+    --trust-action-secondary-hover-bg: Highlight;
+    --trust-action-secondary-fg: CanvasText;
+    --trust-danger-bg: Canvas;
+    --trust-input-fg: CanvasText;
     --trust-canvas: Canvas;
     --trust-surface: Canvas;
     --trust-surface-raised: Canvas;

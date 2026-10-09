@@ -61,16 +61,6 @@ suite("Control Studio relay tuning", () => {
       assert.match(result.reason, new RegExp(variant, "i"));
       assert.strictEqual("candidate" in result, false);
     }
-    const session = new api.RelayTuningSession();
-    const samples = relaySamples().map((sample, index) => ({
-      ...sample, output: index === 7 ? 38 : sample.output,
-    }));
-    const terminal = session.augmentTerminalPayload(
-      { kind: "relay", relayFeedback: { highOutput: 80, lowOutput: 70 } },
-      { identification: { samples } },
-    );
-    assert.strictEqual(terminal.relayTuning.status, "not_qualified");
-    assert.strictEqual(session.calculateCandidate().status, "not_qualified");
   });
 
   test("extracts relay cycles only from measured feedback-driven output transitions", () => {
@@ -113,56 +103,7 @@ suite("Control Studio relay tuning", () => {
     assert.strictEqual(result.cycles.length, 3);
   });
 
-  test("accepts only a completed good-quality feedback-relay Test ledger record", () => {
-    const api = relayApi();
-    const plan = { kind: "relay", relayFeedback: { highOutput: 80, lowOutput: 70 } };
-    const samples = [
-      { timeSeconds: 0, input: 80, output: 35, quality: "good" }, { timeSeconds: 1, input: 70, output: 35.2, quality: "good" },
-      { timeSeconds: 2, input: 80, output: 34.8, quality: "good" }, { timeSeconds: 3, input: 70, output: 35.21, quality: "good" },
-      { timeSeconds: 4, input: 80, output: 34.79, quality: "good" }, { timeSeconds: 5, input: 70, output: 35.19, quality: "good" },
-      { timeSeconds: 6, input: 80, output: 34.81, quality: "good" }, { timeSeconds: 7, input: 70, output: 35.22, quality: "good" },
-      { timeSeconds: 8, input: 80, output: 34.78, quality: "good" },
-    ];
-    assert.strictEqual(api.relayPiFromExperimentRecord({ plan, samples }).status, "qualified");
-    assert.throws(() => api.relayPiFromExperimentRecord({ plan: { kind: "mv_step" }, samples }), /feedback-relay/i);
-    assert.throws(() => api.relayPiFromExperimentRecord({ plan, samples: [{ ...samples[0], quality: "bad" }] }), /good-quality/i);
-  });
-
-  test("retains qualified Test evidence until the engineer explicitly calculates an unapplied relay candidate", () => {
-    const api = relayApi();
-    assert.strictEqual(typeof api.RelayTuningSession, "function",
-      "a relay Test needs a retained-evidence session before it can offer Calculate relay candidate");
-    const session = new api.RelayTuningSession();
-    const plan = { kind: "relay", relayFeedback: { highOutput: 80, lowOutput: 70 } };
-    const samples = relaySamples();
-    const terminal = session.augmentTerminalPayload(plan, { identification: { samples } });
-
-    assert.deepStrictEqual(terminal.relayTuning, {
-      status: "ready",
-      cycles: 3,
-      message: "Three measured feedback-relay cycles are ready. Calculate relay candidate to create an unapplied PI proposal.",
-    });
-    assert.strictEqual("candidate" in terminal.relayTuning, false,
-      "qualifying a Test record must not silently create or apply controller settings");
-
-    const calculation = session.calculateCandidate();
-    assert.strictEqual(calculation.status, "qualified");
-    assert.strictEqual(calculation.candidate.applied, false);
-    assert.ok(Math.abs(calculation.candidate.proportionalGain - (9 / (Math.PI * 0.21))) < 1e-5,
-      "the calculation must use the retained 0.2075-unit mean response amplitude, not the illustrative 0.20-unit example");
-  });
-
 });
-
-function relaySamples() {
-  return [
-    { timeSeconds: 0, input: 80, output: 35, quality: "good" }, { timeSeconds: 1, input: 70, output: 35.2, quality: "good" },
-    { timeSeconds: 2, input: 80, output: 34.8, quality: "good" }, { timeSeconds: 3, input: 70, output: 35.21, quality: "good" },
-    { timeSeconds: 4, input: 80, output: 34.79, quality: "good" }, { timeSeconds: 5, input: 70, output: 35.19, quality: "good" },
-    { timeSeconds: 6, input: 80, output: 34.81, quality: "good" }, { timeSeconds: 7, input: 70, output: 35.22, quality: "good" },
-    { timeSeconds: 8, input: 80, output: 34.78, quality: "good" },
-  ];
-}
 
 function relayApi(): any {
   try { return require("../../controlStudio/relayTuning"); } catch { return {}; }

@@ -675,6 +675,59 @@ impl SymbolTable {
         matched.map_or(EnumValueResolution::NotFound, EnumValueResolution::Resolved)
     }
 
+    /// Whether an enumeration value name is ambiguous where it is used: two or more enumerated
+    /// types that the use can see define a value of that name. The use sees the types of the
+    /// global scope, of the namespaces enclosing it and of the namespaces a USING directive on
+    /// its way imports; a type of another namespace does not count (IEC 61131-3 Ed.3 §6.4.4.2
+    /// for the type prefix, §6.9 for namespaces).
+    #[must_use]
+    pub fn enum_value_ambiguous_from(&self, scope: ScopeId, name: &str) -> bool {
+        // The namespaces the use sees; `None` stands for the global scope.
+        let mut visible: FxHashSet<Option<SymbolId>> = FxHashSet::default();
+        visible.insert(None);
+        let mut current = Some(scope);
+        while let Some(scope_id) = current {
+            let Some(scope) = self.get_scope(scope_id) else {
+                break;
+            };
+            if let Some(owner) = scope.owner.filter(|owner| {
+                self.get(*owner)
+                    .is_some_and(|symbol| matches!(symbol.kind, SymbolKind::Namespace))
+            }) {
+                visible.insert(Some(owner));
+            }
+            for using in &scope.using_directives {
+                if let Some(namespace) = self.resolve_qualified(&using.path) {
+                    visible.insert(Some(namespace));
+                }
+            }
+            current = scope.parent;
+        }
+        let mut types = FxHashSet::default();
+        for symbol in self.symbols.values() {
+            if matches!(symbol.kind, SymbolKind::EnumValue { .. })
+                && symbol.name.eq_ignore_ascii_case(name)
+                && visible.contains(&self.enclosing_namespace(symbol))
+            {
+                types.insert(symbol.type_id);
+            }
+        }
+        types.len() > 1
+    }
+
+    /// The namespace a symbol is declared in, or `None` for the global scope.
+    fn enclosing_namespace(&self, symbol: &Symbol) -> Option<SymbolId> {
+        let mut parent = symbol.parent;
+        while let Some(id) = parent {
+            let owner = self.get(id)?;
+            if matches!(owner.kind, SymbolKind::Namespace) {
+                return Some(id);
+            }
+            parent = owner.parent;
+        }
+        None
+    }
+
     /// Sets the table's constant values.
     pub fn set_const_values(&mut self, values: FxHashMap<(Option<SmolStr>, SmolStr), i64>) {
         self.const_values = values
@@ -1184,3 +1237,5 @@ mod tests {
 #[cfg(test)]
 #[path = "table_contract_tests.rs"]
 mod contract_tests;
+
+include!("declaration_types.rs");

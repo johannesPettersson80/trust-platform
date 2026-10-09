@@ -10,7 +10,6 @@ Example routes for programming by doing.
 | connect to external systems or hardware | [Connectivity](connectivity.md) | [Program / Communication](../connect/protocol-matrix.md) |
 | migrate from vendor-specific tooling | [Vendor Profiles](vendor-profiles.md) | [Program / Migration](../migrate/index.md) |
 | learn visual editors | [Visual Editors](visual-editors.md) | [Program / Visual Programming](../develop/visual-editors/index.md) |
-| build HMI/operator workflows | [HMI](hmi.md) | [Run / Operator HMI](../operate/hmi-and-web-ui.md) |
 | learn PID and control engineering | [Control System Engineering](../develop/control-system-engineering.md) | [Control Studio](../operate/control-studio.md) |
 | motion and performance work | [Libraries And Motion](libraries-and-motion.md) | [Benchmarks](../reference/benchmarks.md) |
 | federation/fleet workflows | [Runtime Cloud](runtime-cloud.md) | [Run / Runtime Cloud](../operate/runtime-cloud.md) |
@@ -22,8 +21,8 @@ If you are unsure, do this order:
 
 1. [Tutorials](tutorials.md)
 2. [Connectivity](connectivity.md)
-3. [Vendor Profiles](vendor-profiles.md) or [HMI](hmi.md), depending on your
-   actual project
+3. [Vendor Profiles](vendor-profiles.md), when your project comes from
+   vendor-specific tooling
 
 ## Control engineering path
 

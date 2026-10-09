@@ -1,7 +1,7 @@
 import type { ControlLoopDefinition } from "../loopDefinition";
 import { PID_TYPE, type CompiledCatalog } from "./compiledCatalog";
-import { binding, measurementBinding, compiled, identificationDuration, loopId, realType, withRevision, type MeasuredSignal } from "./loopBindings";
-import { pidParameters, pidStates, startupState } from "./pidBindings";
+import { binding, measurementBinding, compiled, explicitExperiment, loopId, realType, withRevision, type MeasuredSignal } from "./loopBindings";
+import { pidParameters, pidStates, startupState, manualOutputTracking } from "./pidBindings";
 import type { ModeChoice, SignalChoice } from "./pidLoopGenerator";
 
 export interface PidGroupMemberDraft {
@@ -53,8 +53,7 @@ export function pidGroupLoopDefinition(catalog: CompiledCatalog, draft: PidGroup
   const decouplerParameters = (decoupler ?? []).flatMap((row, i) => row.map((symbol, j) => ({ symbol, iec_type: realType(compiled(catalog, symbol)),
     unit: unitRatio(draft.members[i].manipulatedVariable.unit, draft.members[j].manipulatedVariable.unit),
     convention: `Decoupler entry for ${draft.members[i].manipulatedVariable.symbol} from ${draft.members[j].instance}`, minimum: -1e3, maximum: 1e3 })));
-  const step = (member: PidGroupMemberDraft) => member.experimentStep ?? draft.experimentStep
-    ?? (member.manipulatedVariable.maximum - member.manipulatedVariable.minimum) / 10;
+  const step = (member: PidGroupMemberDraft) => member.experimentStep ?? draft.experimentStep;
   return withRevision({
     schemaVersion: 2, id, name: draft.name, projectId: draft.projectId, runtimeId: draft.runtimeId, revision: "sha256:pending",
     topology: "closed-loop",
@@ -62,6 +61,7 @@ export function pidGroupLoopDefinition(catalog: CompiledCatalog, draft: PidGroup
       instance: first.instance, type: "Control.PID", design: "project", revision: "sha256:unverified", action: draft.action,
       taskPeriodMs: period, modeSignal: draft.mode.symbol, modeWhenTrue: draft.mode.whenTrue,
       manualOutputSignal: manual[0].symbol, manualOutputType: realType(manual[0]), ...(manual[0].address ? { manualOutputAddress: manual[0].address } : {}),
+      ...manualOutputTracking(catalog, first.instance, manual[0].symbol),
       project: {
         family: decoupler ? "decoupled-PI" : "paired-PI", convention: "project-owned-native-controller",
         initialization: { kind: "declared-state-v1", states: [...states.flat(), ...(draft.startupFlag ? [startupState(draft.startupFlag)] : [])] },
@@ -93,14 +93,13 @@ export function pidGroupLoopDefinition(catalog: CompiledCatalog, draft: PidGroup
       inputs: draft.members.map((member, index) => ({ modelChannelId: member.manipulatedVariable.symbol, signalId: index ? `mv-${index + 1}` : "manipulatedVariable",
         ...(index ? { manualOutputSignal: manual[index].symbol, manualOutputType: realType(manual[index]) } : {}),
         actuator: { kind: "continuous" as const, minimum: member.manipulatedVariable.minimum, maximum: member.manipulatedVariable.maximum },
-        experimentStep: step(member) })),
+        ...(step(member) === undefined ? {} : { experimentStep: step(member) }) })),
       outputs: draft.members.map((member, index) => ({ modelChannelId: member.processVariable.symbol, signalId: index ? `pv-${index + 1}` : "processVariable",
         setpointSignalId: index ? `sp-${index + 1}` : "setpoint" })),
     },
     limits: { outputMinimum: first.manipulatedVariable.minimum, outputMaximum: first.manipulatedVariable.maximum },
     observedSampleTiming: { nominalPeriodMs: period },
-    experiment: { execution: "control-studio", kind: "mv_step", amplitude: step(first),
-      durationSeconds: identificationDuration(draft.name, draft.experimentDurationSeconds), seed: 1 },
+    ...explicitExperiment(draft.name, { execution: "control-studio", kind: "mv_step" }, step(first), draft.experimentDurationSeconds),
     parameterBinding: {
       loop_id: id, task_name: task.name, mode: { symbol: draft.mode.symbol, manual_value: draft.mode.whenTrue === "Manual" },
       parameters: [...draft.members.flatMap(gains), ...decouplerParameters],

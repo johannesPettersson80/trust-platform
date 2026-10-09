@@ -1,0 +1,107 @@
+format = 1
+title = "Alarm summary"
+block = "Plant.FB_AlarmManager"
+faceplate = "plant-alarms"
+symbol = "value"
+
+[bind]
+value = "UnacknowledgedCount"
+
+[[dependencies]]
+member = "Source1"
+title = "Alarm source 1"
+interface = "Plant.IAlarmSource"
+required = false
+
+[[dependencies]]
+member = "Source2"
+title = "Alarm source 2"
+interface = "Plant.IAlarmSource"
+required = false
+
+[[dependencies]]
+member = "Source3"
+title = "Alarm source 3"
+interface = "Plant.IAlarmSource"
+required = false
+
+[[dependencies]]
+member = "Source4"
+title = "Alarm source 4"
+interface = "Plant.IAlarmSource"
+required = false
+
+[[dependencies]]
+member = "Source5"
+title = "Alarm source 5"
+interface = "Plant.IAlarmSource"
+required = false
+
+[[dependencies]]
+member = "Source6"
+title = "Alarm source 6"
+interface = "Plant.IAlarmSource"
+required = false
+
+[[dependencies]]
+member = "Source7"
+title = "Alarm source 7"
+interface = "Plant.IAlarmSource"
+required = false
+
+[[dependencies]]
+member = "Source8"
+title = "Alarm source 8"
+interface = "Plant.IAlarmSource"
+required = false
+
+[[dependencies]]
+member = "Source9"
+title = "Alarm source 9"
+interface = "Plant.IAlarmSource"
+required = false
+
+[[dependencies]]
+member = "Source10"
+title = "Alarm source 10"
+interface = "Plant.IAlarmSource"
+required = false
+
+[[dependencies]]
+member = "Source11"
+title = "Alarm source 11"
+interface = "Plant.IAlarmSource"
+required = false
+
+[[dependencies]]
+member = "Source12"
+title = "Alarm source 12"
+interface = "Plant.IAlarmSource"
+required = false
+
+[[dependencies]]
+member = "Source13"
+title = "Alarm source 13"
+interface = "Plant.IAlarmSource"
+required = false
+
+[[dependencies]]
+member = "Source14"
+title = "Alarm source 14"
+interface = "Plant.IAlarmSource"
+required = false
+
+[[dependencies]]
+member = "Source15"
+title = "Alarm source 15"
+interface = "Plant.IAlarmSource"
+required = false
+
+[[dependencies]]
+member = "Source16"
+title = "Alarm source 16"
+interface = "Plant.IAlarmSource"
+required = false
+
+[program]
+position = "controllers"

@@ -1,0 +1,67 @@
+# The room heating's simulation. The plant (written by Devices & Connections) turns heater power,
+# valve demand and window opening into the two transmitter signals and the valve position. The
+# couplings below stand in for the field's digital signals: contactor feedback, flow and the
+# simulation page's fault switches (Simulation program, %QX4.x). Devices & Connections has no
+# editor for couplings yet, so they are written here.
+[[plants]]
+command_sources = ["%QL8", "%QL16", "%ML0"]
+description = "Hot water tank T-101 heated by EH-101 feeds fan-coil E-101 through three-way valve TV-101. Deviations from 45 °C tank, 22 °C room and 51 % valve, linear around that point; outdoor 5 °C, tank surroundings 20 °C."
+enabled = true
+feedback_targets = ["%IL8", "%IL16", "%IL24"]
+id = "room-heating"
+initial_input = [-38.1667, -51, 0]
+initial_state = [-7, -2, -51]
+input_offset = [-38.1667, -51, 0]
+input_scale = [1, 1, 1]
+model = "state_space"
+name = "Tank and room"
+output_offset = [11.2, 11.04, 51]
+output_scale = [0.16, 0.32, 1]
+parameters = { a = [[-0.000394783, 0.000354783, -0.00016], [0.000739131, -0.001739131, 0.000333333], [0, 0, -0.2]], b = [[0.00024, 0, 0], [0, 0, -0.000166667], [0, 0.2, 0]], c = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], d = [[0, 0, 0], [0, 0, 0], [0, 0, 0]] }
+uncertainties = [{ channel = 0, generator = "normal_approx_white", id = "effect_1", mean = 0, mode = "add", standard_deviation = 0.03, start_s = 0, target = "measurement" }, { channel = 1, generator = "normal_approx_white", id = "effect_2", mean = 0, mode = "add", standard_deviation = 0.02, start_s = 0, target = "measurement" }]
+
+# Contactor and drive feedback, and the flow switch once the pump has run up.
+[[couplings]]
+source = "%QX0.0"
+target = "%IX0.6"
+delay_ms = 300
+
+[[couplings]]
+source = "%QX0.1"
+target = "%IX0.2"
+delay_ms = 300
+
+[[couplings]]
+source = "%QX0.1"
+target = "%IX0.1"
+delay_ms = 4000
+
+[[couplings]]
+source = "%QX0.2"
+target = "%IX0.4"
+delay_ms = 2000
+
+# The Simulation page's field faults.
+[[couplings]]
+source = "%QX4.0"
+target = "%IX0.0"
+
+[[couplings]]
+source = "%QX4.1"
+target = "%IX0.3"
+
+[[couplings]]
+source = "%QX4.2"
+target = "%IX0.5"
+
+[[couplings]]
+source = "%QX4.3"
+target = "%IX0.7"
+
+[[couplings]]
+source = "%QX4.4"
+target = "%IX1.0"
+
+[[couplings]]
+source = "%QX4.5"
+target = "%IX1.1"

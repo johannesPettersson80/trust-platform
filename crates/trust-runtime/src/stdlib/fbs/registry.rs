@@ -57,6 +57,7 @@ pub fn standard_function_blocks() -> Vec<FunctionBlockDef> {
                     direction: *direction,
                     address: None,
                     default: None,
+                    retain: crate::RetainPolicy::Unspecified,
                 })
                 .collect(),
             vars: Vec::new(),

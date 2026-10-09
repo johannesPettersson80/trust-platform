@@ -7,36 +7,6 @@
       "source": "/ide with the tutorial project loaded for examples/tutorials/12_hmi_pid_process_dashboard"
     },
     {
-      "path": "images/browser/hmi-home.png",
-      "class": "browser-product-surface",
-      "generator": "playwright",
-      "source": "/hmi for examples/tutorials/12_hmi_pid_process_dashboard"
-    },
-    {
-      "path": "images/browser/hmi-operator-guide-overview.png",
-      "class": "browser-product-surface",
-      "generator": "playwright",
-      "source": "live /hmi overview page capture against running trust-runtime with examples/tutorials/12_hmi_pid_process_dashboard in dark mode"
-    },
-    {
-      "path": "images/browser/hmi-operator-daily-checks.png",
-      "class": "browser-product-surface",
-      "generator": "playwright",
-      "source": "live /hmi overview page capture (same surface operators use for daily checks)"
-    },
-    {
-      "path": "images/browser/hmi-operator-alarm-page.png",
-      "class": "browser-product-surface",
-      "generator": "playwright",
-      "source": "live /hmi Alarms page capture with a raised Pressure Deviation BAR alarm"
-    },
-    {
-      "path": "images/browser/hmi-operator-shift-handover.png",
-      "class": "browser-product-surface",
-      "generator": "playwright",
-      "source": "live /hmi Trends page capture used at shift handover to compare recent values"
-    },
-    {
       "path": "images/install/marketplace-listing.png",
       "class": "browser-install-surface",
       "generator": "playwright",
@@ -253,18 +223,6 @@
       "source": "desktop VS Code Devices & Connections overview capture"
     },
     {
-      "path": "images/vscode/vscode-hmi-running.png",
-      "class": "vscode-desktop-surface",
-      "generator": "synced-media",
-      "source": "desktop VS Code HMI surface with running runtime values"
-    },
-    {
-      "path": "images/vscode/vscode-hmi-stopped.png",
-      "class": "vscode-desktop-surface",
-      "generator": "synced-media",
-      "source": "desktop VS Code HMI surface in stopped-runtime state"
-    },
-    {
       "path": "images/vscode/vscode-live-values-force.png",
       "class": "vscode-desktop-surface",
       "generator": "synced-media",
@@ -340,7 +298,7 @@
       "path": "images/one-project-surface-tour.gif",
       "class": "composite-surface-tour",
       "generator": "scripts/captures/generate-one-project-surface-tour.sh",
-      "source": "animated tour generated from checked-in VS Code, diagnostics, debugger, Browser IDE, and Browser HMI captures"
+      "source": "animated tour generated from checked-in VS Code, diagnostics, debugger, and Browser IDE captures"
     }
   ]
 }

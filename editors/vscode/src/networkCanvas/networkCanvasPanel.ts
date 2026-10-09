@@ -70,7 +70,7 @@ import {
   decodeOpenControlStudioMessage,
 } from "./canvasMessageRouter";
 import { CONTROL_STUDIO_OPEN_COMMAND } from "../controlStudio/panel";
-import { normalizeHmiBindingsCatalog } from "../lm-tools/shared/hmi/core";
+import { EquipmentHardwareHandoff } from "./equipmentHandoff";
 import {
   buildPlantSignalCatalog,
   type PlantSignalCatalog,
@@ -91,6 +91,9 @@ const NETWORK_CANVAS_VIEW_TYPE = "trust-network-canvas";
 const REFRESH_INTERVAL_MS = 1500;
 
 let panel: vscode.WebviewPanel | undefined;
+const equipmentHandoff = new EquipmentHardwareHandoff((message) => {
+  void panel?.webview.postMessage(message);
+});
 let extensionContext: vscode.ExtensionContext | undefined;
 let currentStage: NetworkCanvasStage = "welcome";
 let deviceRequested = false;
@@ -129,6 +132,7 @@ export function registerNetworkCanvasPanel(
         pinnedNodeId = request.focusNodeId;
       }
       await showNetworkCanvasPanel(context);
+      await equipmentHandoff.open(request);
     })
   );
   context.subscriptions.push(
@@ -172,6 +176,7 @@ async function showNetworkCanvasPanel(
     );
     panel.webview.html = networkCanvasWebviewHtml(panel.webview, context);
     panel.onDidDispose(() => {
+      equipmentHandoff.dispose();
       panel = undefined;
       currentStage = "welcome";
       deviceRequested = false;
@@ -281,9 +286,8 @@ async function currentPlantSignals(
       };
     }
   }
-  const response = compiledBindings as { ok?: boolean } | undefined;
   return buildPlantSignalCatalog(
-    response?.ok === true ? normalizeHmiBindingsCatalog(compiledBindings) : compiledBindings,
+    compiledBindings,
     live,
     communicationSchema,
     communicationTopology
@@ -492,6 +496,7 @@ async function handleAddTags(message: Record<string, unknown>): Promise<void> {
 }
 
 async function handleWebviewMessage(value: unknown): Promise<void> {
+  if (await equipmentHandoff.handle(value)) return;
   const message = decodeCanvasMessage(value);
   if (!message) {
     return;

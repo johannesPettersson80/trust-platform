@@ -4,7 +4,6 @@ include!("tests/debug_boundary.rs");
 include!("tests/audit_durability.rs");
 include!("tests/connectors.rs");
 include!("tests/goldens.rs");
-include!("tests/hmi.rs");
 include!("tests/debug_mutation_lifecycle.rs");
 include!("tests/authorization_matrix.rs");
 include!("tests/authorization_trace.rs");
@@ -23,6 +22,7 @@ include!("tests/plant_offline_contract.rs");
 include!("tests/plant_full_roundtrip_contract.rs");
 
 include!("tests/control_studio_recording.rs");
+include!("tests/control_studio_runtime_facts.rs");
 
 include!("tests/control_studio_parameters.rs");
 include!("tests/control_studio_transfer.rs");
@@ -32,9 +32,15 @@ include!("tests/control_studio_transfer_formulas.rs");
 include!("tests/control_studio_search.rs");
 
 include!("tests/control_studio_symbolic_acquisition.rs");
+include!("tests/control_studio_signal_paths.rs");
+include!("tests/control_studio_experiment_symbol.rs");
 
 #[cfg(target_os = "linux")]
 include!("tests/control_studio_isolated_run.rs");
+#[cfg(target_os = "linux")]
+include!("tests/control_studio_isolated_live_inputs.rs");
 include!("tests/control_studio_delayed_integrator.rs");
 
 include!("tests/control_studio_experiment_abort.rs");
+include!("tests/control_studio_experiment_boundary.rs");
+include!("tests/control_studio_experiment_scan.rs");

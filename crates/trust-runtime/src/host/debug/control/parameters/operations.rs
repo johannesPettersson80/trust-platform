@@ -17,19 +17,21 @@ impl DebugControl {
     ) -> Result<JsonValue, String> {
         let request: CancelRequest =
             serde_json::from_value(params).map_err(|error| error.to_string())?;
-        if request.transaction_id.is_empty() || request.transaction_id.len() > 128 {
+        if request.transaction_id.is_empty()
+            || request.transaction_id.chars().count() > MAX_IDENTIFIER_CHARS
+        {
             return Err("invalid parameter transaction identity".into());
         }
         let mut state = self.state.0.lock().map_err(|_| "debug state unavailable")?;
         if state.parameters.program_revision(metadata) != request.expected_program_revision {
             return Err("parameter program epoch changed".into());
         }
-        let record = state
+        let reviewed = state
             .parameters
-            .records
+            .reviews
             .get(&request.loop_id)
             .ok_or("read parameter status before cancellation")?;
-        if record.binding_revision != request.expected_binding_revision {
+        if reviewed.binding_revision != request.expected_binding_revision {
             return Err("parameter binding changed".into());
         }
         let id = &request.transaction_id;
@@ -37,7 +39,7 @@ impl DebugControl {
             || !state.parameters.used_operations.contains(id)
         {
             if !state.parameters.used_operations.contains(id)
-                && state.parameters.used_operations.len() >= 1024
+                && state.parameters.used_operations.len() >= MAX_TRANSACTION_IDENTITIES
             {
                 return Err("parameter identity capacity reached".into());
             }
@@ -48,14 +50,19 @@ impl DebugControl {
                 "binding_revision":request.expected_binding_revision,"confirmed":true,"before_dispatch":true}),
             );
         }
-        if record.transaction_id.as_ref() != Some(id) {
+        let recorded = state
+            .parameters
+            .records
+            .get(&request.loop_id)
+            .is_some_and(|record| record.transaction_id.as_deref() == Some(id.as_str()));
+        if !recorded {
             return Err("parameter transaction history no longer matches".into());
         }
         if let Some(pending) = state
             .parameters
             .pending
             .as_ref()
-            .filter(|pending| pending.request.transaction_id.as_ref() == Some(id))
+            .filter(|pending| pending.request.transaction_id == *id)
         {
             if pending.committed {
                 return Ok(

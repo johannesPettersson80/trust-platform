@@ -1,8 +1,8 @@
 import type { ControlLoopDefinition } from "../loopDefinition";
 import type { FeedforwardPidSeed } from "../feedforwardPidDesign";
 import { PID_TYPE, type CompiledCatalog } from "./compiledCatalog";
-import { binding, compiled, identificationDuration, loopId, measurementBinding, realType, withRevision, type MeasuredSignal } from "./loopBindings";
-import { pidParameters, pidStates, startupState } from "./pidBindings";
+import { binding, compiled, explicitExperiment, loopId, measurementBinding, realType, withRevision, type MeasuredSignal } from "./loopBindings";
+import { pidParameters, pidStates, startupState, manualOutputTracking } from "./pidBindings";
 import type { ModeChoice, SignalChoice } from "./pidLoopGenerator";
 
 /** A `Control.PID` whose program adds a feedforward from a measured disturbance to its `FeedForward` input (Specification 35 §17.12). */
@@ -66,6 +66,7 @@ export function feedforwardLoopDefinition(catalog: CompiledCatalog, draft: Feedf
       instance: draft.instance, type: "Control.PID", design: "project", revision: "sha256:unverified", action: draft.action,
       taskPeriodMs: period, modeSignal: draft.mode.symbol, modeWhenTrue: draft.mode.whenTrue,
       manualOutputSignal: manual.symbol, manualOutputType: realType(manual), ...(manual.address ? { manualOutputAddress: manual.address } : {}),
+      ...manualOutputTracking(catalog, draft.instance, manual.symbol),
       project: {
         family: "feedforward", convention: "project-owned-native-controller",
         initialization: { kind: "declared-state-v1", states }, seed,
@@ -82,7 +83,7 @@ export function feedforwardLoopDefinition(catalog: CompiledCatalog, draft: Feedf
     channels: {
       inputs: [
         { modelChannelId: mv.symbol, signalId: "manipulatedVariable", actuator: { kind: "continuous", minimum: mv.minimum, maximum: mv.maximum },
-          experimentStep: draft.experimentStep ?? (mv.maximum - mv.minimum) / 10 },
+          ...(draft.experimentStep === undefined ? {} : { experimentStep: draft.experimentStep }) },
         { modelChannelId: disturbance.symbol, signalId: "measured-disturbance", manualOutputSignal: command.symbol, manualOutputType: realType(command),
           actuator: { kind: "continuous", minimum: disturbance.minimum, maximum: disturbance.maximum }, experimentStep: draft.disturbanceStep },
       ],
@@ -92,8 +93,7 @@ export function feedforwardLoopDefinition(catalog: CompiledCatalog, draft: Feedf
     identificationPolicy: { maximumOrder: 2, maximumNormalizedError: 0.05, openLoopPermitted: true, sustainedHoldPermitted: true, information: "basic" },
     limits: { outputMinimum: mv.minimum, outputMaximum: mv.maximum },
     observedSampleTiming: { nominalPeriodMs: period },
-    experiment: { execution: "control-studio", kind: "mv_step", amplitude: draft.experimentStep ?? (mv.maximum - mv.minimum) / 10,
-      durationSeconds: identificationDuration(draft.name, draft.experimentDurationSeconds), seed: 1 },
+    ...explicitExperiment(draft.name, { execution: "control-studio", kind: "mv_step" }, draft.experimentStep, draft.experimentDurationSeconds),
     parameterBinding: {
       loop_id: id, task_name: task.name,
       mode: { symbol: draft.mode.symbol, manual_value: draft.mode.whenTrue === "Manual" },

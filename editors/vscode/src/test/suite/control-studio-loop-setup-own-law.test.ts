@@ -31,7 +31,7 @@ const draft = { ...scope, name: "Oven", action: "direct", law: "PI", instance: "
   manipulatedVariable: { symbol: "P1.HeaterPct", unit: "%", minimum: 0, maximum: 100 },
   setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualPct",
   proportionalGain: { symbol: "P1.Kp", minimum: 0, maximum: 20 }, integralGain: { symbol: "P1.Ki", minimum: 0, maximum: 2 },
-  integralTerm: "P1.Integral", experimentStep: 10, experimentDurationSeconds: 600, startupFlag: "P1.Started" };
+  integralTerm: "P1.Integral", startupFlag: "P1.Started" };
 const task = { referenceChange: 10, maximumError: 1, settlingBand: 0.5, settlingTimeSeconds: 400, durationSeconds: 800 };
 const model = { kind: "transfer-function", numerator: [2], denominator: [60, 1], delaySeconds: 5, revision: "oven", source: "fitted",
   validation: "validated", evidence: ["recording"], inputs: [{ id: "u", unit: "%", operatingRange: { minimum: 0, maximum: 100 } }],
@@ -58,7 +58,8 @@ suite("Control Studio own P or PI law setup", () => {
       ["P1.SetpointC", "P1.OvenC", "P1.HeaterPct"]);
     assert.deepStrictEqual([loop.controller.modeSignal, loop.controller.manualOutputSignal, loop.parameterBinding.task_name],
       ["P1.AutoMode", "P1.ManualPct", "MainTask"]);
-    assert.deepStrictEqual([loop.experiment.kind, loop.experiment.amplitude, loop.experiment.durationSeconds], ["mv_step", 10, 600]);
+    // B1.3: setup asks for no identification step or duration, so it writes no experiment; Identify chooses both within Limits.
+    assert.strictEqual(loop.experiment, undefined, "setup writes no experiment the engineer did not set");
   });
 
   test("offers Tune only the families whose gains the program has and designs them from the model", () => {
@@ -105,7 +106,7 @@ suite("Control Studio own P or PI law setup", () => {
     assert.strictEqual(typeof api.ownLawLoopDefinition, "function", "a law the program computes itself needs its own setup structure");
     const { engineerVerificationCampaign } = require("../../controlStudio/engineerVerificationCampaign");
     const loop = api.ownLawLoopDefinition(oven, draft);
-    // Validation runs at most 600 s.
+    // Validation runs at most 24 h of process time (A7).
     const campaign = engineerVerificationCampaign(loop, model, { ...task, settlingTimeSeconds: 200, durationSeconds: 400 }, { "P1.Kp": 1, "P1.Ki": 0.5 });
     const measured = campaign.flatMap((scenario: any) => scenario.requirements.map((requirement: any) => requirement.id));
     assert.ok(measured.includes(loop.controller.project.objective.requirementId),
@@ -177,7 +178,7 @@ const ownLawDraft = { structure: "own-law", name: "Oven", action: "direct", law:
   manipulatedVariable: { symbol: "P1.HeaterPct", unit: "%", minimum: 0, maximum: 100 },
   mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualPct",
   proportionalGain: { symbol: "P1.Kp", minimum: 0, maximum: 20 }, integralGain: { symbol: "P1.Ki", minimum: 0, maximum: 2 },
-  integralTerm: "P1.Integral", experimentStep: 10, experimentDurationSeconds: 600 };
+  integralTerm: "P1.Integral" };
 
 suite("Control Studio own P or PI law on Tune", () => {
   test("a candidate of the program's PI carries the margins of its designed gains", async () => {
@@ -246,10 +247,7 @@ suite("Control Studio own P or PI law setup form", () => {
       const message = () => view.root.querySelector("[data-setup-message]")!.textContent ?? "";
       assert.match(message(), /integral term/i, "a PI law names the variable holding its integral term");
       view.set("own.integralTerm", "P1.Integral");
-      assert.match(message(), /identification duration/i);
-      assert.strictEqual(view.root.querySelector<HTMLInputElement>('[data-setup-field="own.experimentStep"]')!.value, "10",
-        "the identification step defaults to a tenth of the output range");
-      view.set("own.experimentDuration", "600");
+      assert.strictEqual(view.root.querySelector('[data-setup-field="own.experimentStep"]'), null, "setup asks for no identification step");
       const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
       assert.strictEqual(save.disabled, false, message());
       save.click();
@@ -262,7 +260,7 @@ suite("Control Studio own P or PI law setup form", () => {
     try {
       const laws = Array.from(view.root.querySelectorAll<HTMLOptionElement>('[data-setup-field="own.law"] option')).map(option => option.value);
       assert.ok(laws.includes("PID") && view.root.querySelector("[data-own-derivative]"), `the law choice offers PID with its derivative fields: ${laws}`);
-      for (const [field, value] of [...ownLawFill, ["own.law", "PID"], ["own.integralTerm", "P1.Integral"], ["own.experimentDuration", "600"]]) view.set(field, value);
+      for (const [field, value] of [...ownLawFill, ["own.law", "PID"], ["own.integralTerm", "P1.Integral"]]) view.set(field, value);
       assert.strictEqual(view.root.querySelector<HTMLElement>("[data-own-derivative]")!.hidden, false, "a PID law shows its derivative fields");
       assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /derivative gain/i);
       for (const [field, value] of [["own.derivativeGain", "P1.Kd"], ["own.derivativeGain.minimum", "0"], ["own.derivativeGain.maximum", "50"],
@@ -281,7 +279,6 @@ suite("Control Studio own P or PI law setup form", () => {
       for (const [field, value] of ownLawFill.filter(([field]) => !field.startsWith("own.integralGain"))) view.set(field, value);
       view.set("own.law", "P");
       assert.strictEqual(view.root.querySelector<HTMLElement>("[data-own-integral]")!.hidden, true, "a P law has no integral fields");
-      view.set("own.experimentDuration", "600");
       view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
       const { integralGain: _gain, integralTerm: _term, ...pDraft } = ownLawDraft;
       assert.deepStrictEqual(view.posts[0].draft, { ...pDraft, law: "P" });
@@ -291,7 +288,7 @@ suite("Control Studio own P or PI law setup form", () => {
   test("requires the startup flag when the program writes a gain itself", () => {
     const view = open({ ...ownLawModel, writes: [...ownLawModel.writes, "P1.Kp"] });
     try {
-      for (const [field, value] of [...ownLawFill, ["own.integralTerm", "P1.Integral"], ["own.experimentDuration", "600"]]) view.set(field, value);
+      for (const [field, value] of [...ownLawFill, ["own.integralTerm", "P1.Integral"]]) view.set(field, value);
       assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /writes P1\.Kp.*startup/i,
         "a program that sets its own gain would replace the candidate being validated");
       view.set("startupFlag", "P1.Started");
@@ -303,7 +300,7 @@ suite("Control Studio own P or PI law setup form", () => {
   test("the integral term the program updates every scan needs no startup flag", () => {
     const view = open(ownLawModel);
     try {
-      for (const [field, value] of [...ownLawFill, ["own.integralTerm", "P1.Integral"], ["own.experimentDuration", "600"]]) view.set(field, value);
+      for (const [field, value] of [...ownLawFill, ["own.integralTerm", "P1.Integral"]]) view.set(field, value);
       assert.strictEqual(view.root.querySelector<HTMLElement>("[data-setup-startup]")!.hidden, true);
       assert.strictEqual(view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.disabled, false);
     } finally { view.close(); }

@@ -428,7 +428,6 @@ export function renderExamplesGalleryHtml(panel: vscode.WebviewPanel, context: v
       ads: "ADS",
       ethercat: "EtherCAT",
       gpio: "GPIO",
-      hmi: "HMI",
       plcopen: "PLCopen",
       raspberrypi: "Raspberry Pi",
       twincat: "TwinCAT",
@@ -492,7 +491,6 @@ export function renderExamplesGalleryHtml(panel: vscode.WebviewPanel, context: v
       const tags = example.tags || [];
       if (topicId === "tutorials") { return tags.includes("control") || tags.includes("starter"); }
       if (topicId === "test-debug") { return tags.includes("diagnosis") || tags.includes("simulator"); }
-      if (topicId === "hmi") { return tags.includes("hmi"); }
       if (topicId === "connectivity") { return tags.includes("fieldbus") || tags.includes("ads") || tags.includes("ethercat") || tags.includes("gpio"); }
       if (topicId === "runtime-cloud") { return tags.includes("networked") || tags.includes("raspberrypi"); }
       if (topicId === "visual-editors") { return tags.includes("visual") || tags.includes("statechart"); }
@@ -513,7 +511,7 @@ export function renderExamplesGalleryHtml(panel: vscode.WebviewPanel, context: v
 
       const badges = document.createElement("div");
       badges.className = "badges";
-      const simulatorStarter = ["empty-simulator", "conveyor", "twincat-ads", "raspberry-pi", "hmi-starter", "plcopen-motion-single-axis"].includes(example.id);
+      const simulatorStarter = ["empty-simulator", "conveyor", "twincat-ads", "raspberry-pi", "plcopen-motion-single-axis"].includes(example.id);
       if (simulatorStarter) {
         const execution = document.createElement("span");
         execution.className = "badge ok";

@@ -56,6 +56,8 @@ policy = "halt"
         }]),
         signature: None,
         restart: None,
+        hmi: None,
+        accept_broken_bindings: None,
     };
     let result = apply_deploy(&root, request).unwrap();
     assert!(result.written.contains(&"runtime.toml".to_string()));
@@ -110,6 +112,8 @@ policy = "halt"
         }]),
         signature: None,
         restart: None,
+        hmi: None,
+        accept_broken_bindings: None,
     };
     let result = apply_deploy(&root, request).expect("deploy should pass");
     assert!(result.written.contains(&"runtime.toml".to_string()));
@@ -160,6 +164,8 @@ policy = "halt"
         sources: None,
         signature: None,
         restart: None,
+        hmi: None,
+        accept_broken_bindings: None,
     };
     let err = apply_deploy(&root, request).expect_err("schema should fail");
     assert!(err
@@ -215,6 +221,8 @@ fn signed_request(root: &Path, key_id: &str, secret: &str) -> DeployRequest {
         }]),
         signature: None,
         restart: None,
+        hmi: None,
+        accept_broken_bindings: None,
     };
     let key_dir = root.join("security");
     fs::create_dir_all(&key_dir).expect("security dir");

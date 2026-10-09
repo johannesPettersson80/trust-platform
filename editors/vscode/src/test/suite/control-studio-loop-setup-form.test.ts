@@ -22,7 +22,7 @@ const onOffDraft = { structure: "onoff", name: "Cold room", action: "reverse", i
   processVariable: { symbol: "P1.RoomC", unit: "degC", minimum: -10, maximum: 20 }, setpoint: { symbol: "P1.SetpointC" },
   manipulatedVariable: { symbol: "P1.CompressorPct", unit: "%", minimum: 0, maximum: 100 },
   mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualPct", hysteresis: "P1.HysteresisC", bandConvention: "half-band",
-  minimumOn: "P1.MinimumOnS", minimumOff: "P1.MinimumOffS", latch: "P1.CoolingOn", dwellTimer: "P1.DwellS", experimentDurationSeconds: 120 };
+  minimumOn: "P1.MinimumOnS", minimumOff: "P1.MinimumOffS", latch: "P1.CoolingOn", dwellTimer: "P1.DwellS" };
 
 /** Two tanks in series whose program feeds both levels back to the pump. */
 const feedbackModel = { ...onOffModel, addressedReal: ["P1.ManualM3PerS", "P1.PumpM3PerS", "P1.Tank1M", "P1.Tank2M", "P1.Tank2SetpointM"],
@@ -33,12 +33,12 @@ const feedbackFill: [string, string][] = [["structure", "state-feedback"], ["nam
   ["feedback.processVariable.minimum", "0"], ["feedback.processVariable.maximum", "0.5"], ["feedback.setpoint", "P1.Tank2SetpointM"],
   ["feedback.gain", "P1.K2"], ["feedback.referenceGain", "P1.N"],
   ["feedback.state.0", "P1.Tank1M"], ["feedback.state.0.unit", "m"], ["feedback.state.0.minimum", "0"], ["feedback.state.0.maximum", "0.5"],
-  ["feedback.state.0.gain", "P1.K1"], ["feedback.mode", "P1.FeedbackEnabled"], ["feedback.manualOutput", "P1.ManualM3PerS"], ["feedback.experimentDuration", "300"]];
+  ["feedback.state.0.gain", "P1.K1"], ["feedback.mode", "P1.FeedbackEnabled"], ["feedback.manualOutput", "P1.ManualM3PerS"]];
 const feedbackDraft = { structure: "state-feedback", name: "Tank 2 level", action: "direct", family: "LQR", instance: "P1",
   manipulatedVariable: { symbol: "P1.PumpM3PerS", unit: "m3/s", minimum: 0, maximum: 0.02 },
   processVariable: { symbol: "P1.Tank2M", unit: "m", minimum: 0, maximum: 0.5 }, setpoint: { symbol: "P1.Tank2SetpointM" },
   gain: "P1.K2", referenceGain: "P1.N", states: [{ signal: { symbol: "P1.Tank1M", unit: "m", minimum: 0, maximum: 0.5 }, gain: "P1.K1" }],
-  mode: { symbol: "P1.FeedbackEnabled", whenTrue: "Auto" }, manualOutput: "P1.ManualM3PerS", experimentStep: 0.002, experimentDurationSeconds: 300 };
+  mode: { symbol: "P1.FeedbackEnabled", whenTrue: "Auto" }, manualOutput: "P1.ManualM3PerS" };
 
 
 suite("Control Studio loop setup form", () => {
@@ -63,27 +63,43 @@ suite("Control Studio loop setup form", () => {
       assert.strictEqual(view.root.querySelector<HTMLSelectElement>("[data-setup-field=\"instance\"]")!.value, "P1.Controller");
       assert.strictEqual(view.root.querySelector<HTMLSelectElement>("[data-setup-field=\"manipulatedVariable\"]")!.value, "P1.AppliedPowerPct");
       assert.strictEqual(save.disabled, true);
-      assert.match(message.textContent ?? "", /name/i, "the first missing item is named");
+      // B1.3: the loop name is prefilled from the controller, so the first missing item is the measurement the code does not state.
+      assert.strictEqual(view.root.querySelector<HTMLInputElement>("[data-setup-field=\"name\"]")!.value, "Controller", "the loop name follows the controller");
+      assert.match(message.textContent ?? "", /choose the measurement/i, "the first missing item is named");
       view.set("name", "Heater temperature");
       view.set("processVariable", "P1.TemperatureC");
       view.set("processVariable.unit", "degC"); view.set("processVariable.minimum", "0"); view.set("processVariable.maximum", "80");
       view.set("manipulatedVariable.unit", "%"); view.set("manipulatedVariable.minimum", "0"); view.set("manipulatedVariable.maximum", "100");
       view.set("mode", "P1.AutoMode"); view.set("modeWhenTrue", "Auto");
-      assert.strictEqual(view.root.querySelector<HTMLInputElement>("[data-setup-field=\"experimentStep\"]")!.value, "10",
-        "the identification step defaults to a tenth of the output range");
-      view.set("experimentStep", "20");
-      assert.strictEqual(save.disabled, true, "the identification duration depends on the process and is never assumed");
-      assert.match(message.textContent ?? "", /identification duration/i);
-      view.set("experimentDuration", "30");
+      assert.strictEqual(view.root.querySelector("[data-setup-field=\"experimentStep\"]"), null, "Identify chooses the identification step, so setup never asks for it");
       assert.strictEqual(save.disabled, false, message.textContent ?? "");
       save.click();
       assert.deepStrictEqual(view.posts, [{ kind: "control-studio.setup.save", draft: {
         structure: "pid", name: "Heater temperature", instance: "P1.Controller", action: "direct", parameterRecord: "P1.Parameters",
         processVariable: { symbol: "P1.TemperatureC", unit: "degC", minimum: 0, maximum: 80 },
         manipulatedVariable: { symbol: "P1.AppliedPowerPct", unit: "%", minimum: 0, maximum: 100 },
-        setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualOutput", experimentStep: 20,
-        experimentDurationSeconds: 30,
+        setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualOutput",
       } }]);
+    } finally { view.close(); }
+  });
+
+  test("asks how long to record a project-run experiment, because Studio cannot choose its length (B1.3, C12)", () => {
+    const view = open(onOffModel);
+    try {
+      const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
+      const message = view.root.querySelector<HTMLElement>("[data-setup-message]")!;
+      for (const [field, value] of [["structure", "identify"], ["name", "Cold room"], ["identify.manipulatedVariable", "P1.CompressorPct"],
+        ["identify.manipulatedVariable.unit", "%"], ["identify.manipulatedVariable.minimum", "0"], ["identify.manipulatedVariable.maximum", "100"],
+        ["identify.processVariable", "P1.RoomC"], ["identify.processVariable.unit", "degC"], ["identify.processVariable.minimum", "-10"],
+        ["identify.processVariable.maximum", "20"]] as const) view.set(field, value);
+      assert.strictEqual(save.disabled, true);
+      assert.match(message.textContent ?? "", /how long to record/i, "the missing duration is named");
+      view.set("identify.durationSeconds", "15 min");
+      assert.strictEqual(save.disabled, false, message.textContent ?? "");
+      save.click();
+      assert.deepStrictEqual(view.posts, [{ kind: "control-studio.setup.save", draft: { structure: "identify", name: "Cold room",
+        manipulatedVariable: { symbol: "P1.CompressorPct", unit: "%", minimum: 0, maximum: 100 },
+        processVariable: { symbol: "P1.RoomC", unit: "degC", minimum: -10, maximum: 20 }, experimentDurationSeconds: 900 } }]);
     } finally { view.close(); }
   });
 
@@ -92,7 +108,7 @@ suite("Control Studio loop setup form", () => {
     try {
       for (const [field, value] of [["name", "Heater temperature"], ["processVariable", "P1.TemperatureC"], ["processVariable.unit", "degC"],
         ["processVariable.minimum", "0"], ["processVariable.maximum", "80"], ["manipulatedVariable.unit", "%"], ["manipulatedVariable.minimum", "0"],
-        ["manipulatedVariable.maximum", "100"], ["experimentDuration", "30"]]) view.set(field, value);
+        ["manipulatedVariable.maximum", "100"]]) view.set(field, value);
       assert.match(view.root.querySelector<HTMLElement>("[data-setup-message]")!.textContent ?? "", /Auto\/Manual signal.*without an I\/O address/);
     } finally { view.close(); }
   });
@@ -103,7 +119,7 @@ suite("Control Studio loop setup form", () => {
       view.set("name", "Heater"); view.set("processVariable", "P1.TemperatureC");
       view.set("processVariable.unit", "degC"); view.set("processVariable.minimum", "0"); view.set("processVariable.maximum", "80");
       view.set("manipulatedVariable.unit", "%"); view.set("manipulatedVariable.minimum", "0"); view.set("manipulatedVariable.maximum", "100");
-      view.set("mode", "P1.AutoMode"); view.set("experimentDuration", "60");
+      view.set("mode", "P1.AutoMode");
       const message = view.root.querySelector("[data-setup-message]")!.textContent ?? "";
       assert.match(message, /writes P1\.Parameters\.IntegralGain.*startup/i, "the reason names the write and asks for the startup flag");
       view.set("startupFlag", "P1.Initialized");
@@ -118,7 +134,7 @@ suite("Control Studio loop setup form", () => {
       view.set("name", "Heater"); view.set("processVariable", "P1.TemperatureC");
       view.set("processVariable.unit", "degC"); view.set("processVariable.minimum", "0"); view.set("processVariable.maximum", "80");
       view.set("manipulatedVariable.unit", "%"); view.set("manipulatedVariable.minimum", "0"); view.set("manipulatedVariable.maximum", "100");
-      view.set("experimentDuration", "60"); view.set("mode", "P1.AutoMode");
+      view.set("mode", "P1.AutoMode");
       const startup = view.root.querySelector<HTMLElement>("[data-setup-startup]");
       assert.ok(startup, "the startup-done flag has its own section, shown only when validation needs it");
       assert.strictEqual(startup!.hidden, true, "the controller writes its own output every scan");
@@ -139,7 +155,7 @@ suite("Control Studio loop setup form", () => {
         ["inner.parameterRecord", "P1.InnerParameters"], ["inner.mode", "P1.InnerAuto"], ["inner.manualOutput", "P1.InnerManual"],
         ["inner.processVariable", "P1.JacketC"], ["inner.processVariable.unit", "degC"], ["inner.processVariable.minimum", "20"],
         ["inner.processVariable.maximum", "80"], ["inner.manipulatedVariable", "P1.HeaterPct"], ["inner.manipulatedVariable.unit", "%"],
-        ["inner.manipulatedVariable.minimum", "0"], ["inner.manipulatedVariable.maximum", "100"], ["cascade.experimentDuration", "30"]];
+        ["inner.manipulatedVariable.minimum", "0"], ["inner.manipulatedVariable.maximum", "100"], ];
       for (const [field, value] of fill) view.set(field, value);
       const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
       assert.strictEqual(save.disabled, true);
@@ -150,9 +166,8 @@ suite("Control Studio loop setup form", () => {
       assert.strictEqual(save.disabled, false, view.root.querySelector("[data-setup-message]")!.textContent ?? "");
       save.click();
       assert.strictEqual(view.posts[0].draft.startupFlag, "P1.Initialized");
-      // One identification of the plant input for both loops (Specification 35 §17.11): its step follows the output range.
-      assert.deepStrictEqual([view.posts[0].draft.experimentStep, view.posts[0].draft.experimentDurationSeconds], [10, 30]);
-      assert.ok(!("experimentDurationSeconds" in view.posts[0].draft.inner) && !("experimentDurationSeconds" in view.posts[0].draft.outer));
+      // Identify chooses the identification step and duration within the limits, so the cascade draft carries neither (Specification 35 B1.3).
+      assert.ok(!("experimentStep" in view.posts[0].draft) && !("experimentDurationSeconds" in view.posts[0].draft));
     } finally { view.close(); }
   });
 
@@ -204,7 +219,7 @@ suite("Control Studio loop setup form", () => {
     } finally { view.close(); }
   });
 
-  test("offers a controller output and setpoint that have no I/O address (Specification 35 §17.1)", () => {
+  test("offers a controller output, setpoint and manual output that have no I/O address (Specification 35 §17.1)", () => {
     const view = open({ ...singleModel, signals: [...singleModel.addressedReal, "P1.ControllerPct", "P1.OperatorSetpointC"].sort(),
       measurements: ["P1.TemperatureC"] });
     try {
@@ -212,7 +227,7 @@ suite("Control Studio loop setup form", () => {
       assert.ok(options("manipulatedVariable").includes("P1.ControllerPct"), `${options("manipulatedVariable")}`);
       assert.ok(options("setpoint").includes("P1.OperatorSetpointC"));
       assert.deepStrictEqual(options("processVariable").filter(Boolean), ["P1.TemperatureC"]);
-      assert.ok(!options("manualOutput").includes("P1.ControllerPct"), "identification writes the manual output through the process image");
+      assert.ok(options("manualOutput").includes("P1.ControllerPct"), "Studio steps a manual output by name, so it needs no I/O address");
     } finally { view.close(); }
   });
 
@@ -237,23 +252,20 @@ suite("Control Studio loop setup form", () => {
         view.set(`group.${n}.processVariable.unit`, "degC"); view.set(`group.${n}.processVariable.minimum`, "20"); view.set(`group.${n}.processVariable.maximum`, "60");
         view.set(`group.${n}.manipulatedVariable.unit`, "%"); view.set(`group.${n}.manipulatedVariable.minimum`, "0"); view.set(`group.${n}.manipulatedVariable.maximum`, "100");
       }
-      assert.strictEqual(view.root.querySelector('[data-setup-field="group.experimentStep"]'), null,
-        "each member has its own identification step (Specification 35 §17.9), not one for the group");
-      assert.deepStrictEqual([0, 1].map(n => field(`group.${n}.experimentStep`)), ["10", "10"], "a tenth of each member's output range");
-      view.set("group.1.experimentStep", "5");
-      view.set("group.experimentDuration", "40");
+      assert.strictEqual(view.root.querySelector('[data-setup-field="group.experimentStep"]'), null, "no member asks for an identification step");
+      assert.strictEqual(view.root.querySelector('[data-setup-field="group.experimentDuration"]'), null, "the group asks for no identification duration");
       const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
       assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /Auto\/Manual signal.*share/i);
       view.set("group.mode", "P1.ZonesAuto");
       assert.strictEqual(save.disabled, false, view.root.querySelector("[data-setup-message]")!.textContent ?? "");
       save.click();
       const draft = view.posts[0].draft;
-      assert.deepStrictEqual([draft.structure, draft.mode, draft.experimentDurationSeconds, draft.members.map((entry: any) => entry.instance)],
-        ["group", { symbol: "P1.ZonesAuto", whenTrue: "Auto" }, 40, ["P1.Zone1", "P1.Zone2"]]);
+      assert.deepStrictEqual([draft.structure, draft.mode, draft.members.map((entry: any) => entry.instance)],
+        ["group", { symbol: "P1.ZonesAuto", whenTrue: "Auto" }, ["P1.Zone1", "P1.Zone2"]]);
       assert.deepStrictEqual(draft.members[1], { instance: "P1.Zone2", parameterRecord: "P1.Zone2Parameters",
         processVariable: { symbol: "P1.Zone2C", unit: "degC", minimum: 20, maximum: 60 }, manipulatedVariable: { symbol: "P1.Heater2Pct", unit: "%", minimum: 0, maximum: 100 },
-        setpoint: { symbol: "P1.Zone2SetpointC" }, manualOutput: "P1.Zone2ManualPct", experimentStep: 5 });
-      assert.deepStrictEqual([draft.members[0].experimentStep, draft.experimentStep], [10, undefined]);
+        setpoint: { symbol: "P1.Zone2SetpointC" }, manualOutput: "P1.Zone2ManualPct" });
+      assert.ok(!("experimentStep" in draft.members[0]) && !("experimentStep" in draft), "no identification step in the group draft");
     } finally { view.close(); }
   });
 
@@ -266,8 +278,6 @@ suite("Control Studio loop setup form", () => {
         "the secondary setup no longer offers what this form sets up");
       for (const [field, value] of onOffFill) view.set(field, value);
       const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
-      assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /identification duration/i);
-      view.set("onoff.experimentDuration", "120");
       assert.strictEqual(save.disabled, false, view.root.querySelector("[data-setup-message]")!.textContent ?? "");
       save.click();
       assert.deepStrictEqual(view.posts[0].draft, onOffDraft);
@@ -277,7 +287,7 @@ suite("Control Studio loop setup form", () => {
   test("takes the switched equipment's own minimum ON and OFF times, and none when they are blank", () => {
     const view = open(onOffModel);
     try {
-      for (const [field, value] of [...onOffFill, ["onoff.experimentDuration", "120"], ["onoff.equipmentMinimumOn", "-1"]]) view.set(field, value);
+      for (const [field, value] of [...onOffFill, ["onoff.equipmentMinimumOn", "-1"]]) view.set(field, value);
       const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
       assert.strictEqual(save.disabled, true);
       assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /equipment minimum ON time/i);
@@ -290,7 +300,7 @@ suite("Control Studio loop setup form", () => {
   test("requires the startup flag when the program writes a switching setting itself", () => {
     const view = open({ ...onOffModel, booleans: [...onOffModel.booleans, "P1.Initialized"], writes: ["P1.CompressorPct", "P1.CoolingOn", "P1.MinimumOnS"] });
     try {
-      for (const [field, value] of [...onOffFill, ["onoff.experimentDuration", "120"]]) view.set(field, value);
+      for (const [field, value] of onOffFill) view.set(field, value);
       assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /writes P1\.MinimumOnS.*startup/i,
         "a program that sets its own minimum ON time would replace the candidate being validated");
       view.set("startupFlag", "P1.Initialized");
@@ -310,8 +320,7 @@ suite("Control Studio loop setup form", () => {
       for (const [field, value] of feedbackFill.slice(15, 19)) view.set(field, value);
       assert.match(message(), /gain on P1\.Tank1M/i);
       for (const [field, value] of feedbackFill.slice(19)) view.set(field, value);
-      assert.strictEqual(view.root.querySelector<HTMLInputElement>('[data-setup-field="feedback.experimentStep"]')!.value, "0.002",
-        "the identification step defaults to a tenth of the plant input range");
+      assert.strictEqual(view.root.querySelector('[data-setup-field="feedback.experimentStep"]'), null, "setup asks for no identification step");
       const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
       assert.strictEqual(save.disabled, false, message());
       save.click();

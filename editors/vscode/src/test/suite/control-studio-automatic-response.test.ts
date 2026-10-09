@@ -4,7 +4,7 @@ import * as path from "path";
 import { tuneTypedController } from "../../controlStudio/controllerAdapters";
 import { recommendAutomaticController } from "../../controlStudio/automaticControllerRecommendation";
 import { engineerPrediction } from "../../controlStudio/engineerPrediction";
-import { classifyMainWorkflowFailure, mainWorkflowNextActionLabel } from "../../controlStudio/mainWorkflowFailure";
+import { classifyMainWorkflowFailure, nextActionLabel } from "../../controlStudio/mainWorkflowFailure";
 import { tuneControllerAdapter } from "../../controlStudio/controllerTuning";
 
 /** A Control.PID loop with a 20 ms task and ±20 V output. */
@@ -58,8 +58,8 @@ suite("Control Studio Automatic tuning meets the requirements", () => {
   test("sends the engineer to the requirements when no response can meet them", () => {
     const loop = pidLoop();
     assert.throws(() => tuneTypedController(loop, model, "PI", "manual", { ...task, settlingTimeSeconds: 2, durationSeconds: 4 }), (error: Error) => {
-      const next = classifyMainWorkflowFailure("tune", error).nextAction;
-      assert.strictEqual(mainWorkflowNextActionLabel(next), "Revise requirements or equipment",
+      const next = classifyMainWorkflowFailure(error).nextAction;
+      assert.strictEqual(next, "open-requirements",
         "the requirements, not another Tune, decide whether a PI can meet them");
       return true;
     });
@@ -86,20 +86,20 @@ suite("Control Studio Automatic tuning meets the requirements", () => {
     const loop = pidLoop();
     const refusal = (plant: any, task: any) => {
       try { tuneControllerAdapter(loop, plant, task, { family: "P", applicationMode: "manual" }); }
-      catch (error) { return { message: (error as Error).message, next: mainWorkflowNextActionLabel(classifyMainWorkflowFailure("tune", error).nextAction) }; }
+      catch (error) { return { message: (error as Error).message, next: nextActionLabel(classifyMainWorkflowFailure(error).nextAction) }; }
       assert.fail("P must be refused");
     };
     // 1.5 m/V with a 0.5 s delay: P keeps the offset Δr/(1 + K·Kp); within 0.1 − 0.05 m that needs Kp ≥ (1/0.05 − 1)/1.5.
     const delayed = refusal(model, task);
     assert.match(delayed.message, /P is unavailable for a model with a transport delay/);
     assert.match(delayed.message, /Kp ≥ 12\.67 V\/m/);
-    assert.strictEqual(delayed.next, "Choose controller");
+    assert.strictEqual(delayed.next, "Choose another method");
     // The shaft G(s) = 1/(s² + s): with P its error decays at B/(2J) = 0.5 1/s whatever Kp; settling by 4 s needs 1 1/s.
     const shaft = { ...model, numerator: [1], denominator: [1, 1, 0], delaySeconds: 0, revision: "shaft" };
     const undamped = refusal(shaft, { referenceChange: 1, maximumError: 0.02, settlingBand: 0.01, settlingTimeSeconds: 4, durationSeconds: 8 });
     assert.match(undamped.message, /decay rate at 0\.5 1\/s/);
     assert.match(undamped.message, /at least 1 1\/s/);
-    assert.strictEqual(undamped.next, "Choose controller");
+    assert.strictEqual(undamped.next, "Choose another method");
   });
 
   test("designs P for a delayed integrating tank and refuses it under a declared outflow change", () => {

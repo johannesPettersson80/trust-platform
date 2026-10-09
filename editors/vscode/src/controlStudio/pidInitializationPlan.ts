@@ -37,7 +37,7 @@ export function pidInitializationPlan(loop: ControlLoopDefinition, model: Genera
     { symbol: adapter.integralState.symbol, unit: adapter.integralState.unit },
     { symbol: adapter.derivativeState.symbol, unit: adapter.derivativeState.unit }]);
   return { integralState: initialIntegral, derivativeState: initialDerivative, reference: processValue, tolerance,
-    request: { ...base.request, duration_ms: duration, max_total_cycles: 7,
+    request: { ...base.request, record_every: undefined, duration_ms: duration, max_total_cycles: 7,
       initial_values: { ...base.request.initial_values, [binding.mode.symbol]: Number(binding.mode.manual_value),
         [reference.symbol]: processValue, [manual]: initialManual,
         [adapter.integralState.symbol]: initialIntegral, [adapter.derivativeState.symbol]: initialDerivative },

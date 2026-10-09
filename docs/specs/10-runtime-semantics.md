@@ -518,12 +518,12 @@ subrange-typed storage validate the
 incoming value before modifying the target. An out-of-range value produces a
 visible runtime error and leaves the target at its previous value; the runtime
 must not clamp, wrap, or partially store the rejected value. The same rule
-applies at HMI/control and retain-reload write boundaries when declared
+applies at control and retain-reload write boundaries when declared
 subrange type information is available. A wrong-base-type source fails
 semantic analysis with `E203`; crafted VM input with the wrong runtime tag
 returns `TypeMismatch` with `runtime_type_mismatch` and does not modify
 storage. An out-of-range runtime value reports
-`runtime_subrange_violation` at VM, retain-reload, and HMI/control boundaries.
+`runtime_subrange_violation` at VM, retain-reload, and control boundaries.
 
 This product rule implements the reviewed subrange decision in
 `docs/IEC_DECISIONS.md`; it does not define that stable public error mapping.
@@ -1401,6 +1401,36 @@ Only `RETAIN` and `PERSISTENT` declarations survive a warm restart.
 dates, enums, and recursively retainable arrays/structures may be retained;
 runtime references and instance identities are never retained, including when
 nested in an aggregate.
+
+Function block and class instances follow IEC 61131-3 Ed.3 §6.5.6.2. A warm
+restart rebuilds every instance with a new identity and then restores
+variables into it:
+- an instance declared `RETAIN` (a global or a program variable) keeps the
+  values of all its variables, including those its base declares, except those
+  its type declares `NON_RETAIN`;
+- a variable that is itself an instance follows its own type's declarations,
+  not the enclosing instance's `RETAIN`;
+- a variable its type declares in a `RETAIN` section, whether a local
+  (`VAR`), an input (`VAR_INPUT`) or an output (`VAR_OUTPUT`), keeps its value in
+  every instance that is reached this way, and one it declares `NON_RETAIN`
+  starts over even in a `RETAIN` instance (IEC 61131-3 Ed.3 §6.5.6.1 and
+  §6.5.6.2).
+
+This restores values across a warm restart of the running runtime. The
+persisted retain snapshot (power loss, online change, reload) holds the same
+instance variables as member paths below the instance that a global or a
+program variable holds: `@global-instance/<global>/<member path>` and
+`@program-instance/<program>/<variable>/<member path>`, where a base part's
+variables stand at the derived instance's level (`Pump.Limit`) and a nested
+instance adds its name (`Pump.Inner.Total`). Loading the snapshot finds each
+path in the rebuilt instance and migrates the value to the variable's declared
+type as for program variables; a path the program no longer has, or a
+variable now declared `NON_RETAIN`, is dropped with a `RetainOrphanDropped`
+event.
+
+An instance initializer may name a variable, input or output that the block
+declares or inherits from a block it extends (IEC 61131-3 Ed.3 §6.6.5.3):
+`P102 : FB_Pump := (StartTimeout := T#10s)`.
 
 Restart is prepared against isolated storage before commit. A preparation,
 initializer, retained-value migration, or store-load failure leaves the live
@@ -2810,12 +2840,7 @@ Conversion boundaries preserve the committed error identity:
   `Overflow` normalizes to `RuntimeError::Overflow` and
   `runtime_overflow`.
 
-The HMI admission boundary uses the same runtime codes for type and subrange
-failures. It additionally reports `runtime_string_capacity_exceeded` for a
-rejected bounded-string request and `runtime_non_finite_value` for a rejected
-NaN, infinity, or width-overflowing floating-point request. A failed control
-response carries the stable identifier in `error_code` and retains the
-diagnostic message in `error`.
+HMI command admission is specified in `docs/specs/39-hmi-builder.md`.
 
 These identifiers are truST product API choices. They do not interpret,
 extend, or deviate from IEC 61131-3 semantics.

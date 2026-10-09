@@ -33,6 +33,7 @@ pub struct RuntimeMetadata {
     pub(super) classes: IndexMap<SmolStr, ClassDef>,
     pub(super) interfaces: IndexMap<SmolStr, InterfaceDef>,
     pub(super) programs: IndexMap<SmolStr, ProgramDef>,
+    pub(super) constant_globals: indexmap::IndexSet<SmolStr>,
     pub(super) tasks: Vec<TaskConfig>,
     pub(super) task_thread_ids: IndexMap<SmolStr, u32>,
     pub(super) background_thread_id: Option<u32>,
@@ -40,6 +41,13 @@ pub struct RuntimeMetadata {
 }
 
 impl RuntimeMetadata {
+    /// Whether a global is declared `VAR_GLOBAL CONSTANT`; names compare without regard to case.
+    pub fn global_is_constant(&self, name: &str) -> bool {
+        self.constant_globals
+            .iter()
+            .any(|constant| constant.eq_ignore_ascii_case(name))
+    }
+
     pub(crate) fn control_program_revision(&self) -> String {
         use sha2::{Digest, Sha256};
         format!(

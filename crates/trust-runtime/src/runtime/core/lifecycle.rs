@@ -20,6 +20,8 @@ impl Runtime {
             initializer_catalog: InitializerCatalog::default(),
             ads: AdsSubsystem::new(),
             opcua_client: OpcUaClientSubsystem::new(),
+            links: crate::runtime::link_subsystem::LinkSubsystem::new(),
+            hmi: crate::runtime::hmi_subsystem::HmiSubsystem::new(),
             io: IoSubsystem::new(),
             access: AccessMap::default(),
             stdlib: StandardLibrary::new(),
@@ -33,10 +35,13 @@ impl Runtime {
             classes: IndexMap::new(),
             interfaces: IndexMap::new(),
             programs: IndexMap::new(),
+            program_types: IndexMap::new(),
             edge_inputs: IndexMap::new(),
             globals: IndexMap::new(),
+            constant_globals: indexmap::IndexSet::new(),
             tasks: Vec::new(),
             ready_tasks_scratch: Vec::new(),
+            cycle_task_runs: Vec::new(),
             background_program_names_scratch: Vec::new(),
             task_state: IndexMap::new(),
             task_thread_ids: IndexMap::new(),
@@ -58,6 +63,8 @@ impl Runtime {
             vm_register_profile: super::vm::RegisterProfileState::default(),
             vm_tier1_specialized_executor:
                 super::vm::RegisterTier1SpecializedExecutorState::from_env(),
+            controller_measurements: Default::default(),
+            simulation_enabled: false,
         };
         runtime.register_builtin_function_blocks();
         runtime
@@ -96,6 +103,7 @@ impl Runtime {
             classes: self.classes.clone(),
             interfaces: self.interfaces.clone(),
             programs: self.programs.clone(),
+            constant_globals: self.constant_globals.clone(),
             tasks: self.tasks.clone(),
             task_thread_ids: self
                 .tasks

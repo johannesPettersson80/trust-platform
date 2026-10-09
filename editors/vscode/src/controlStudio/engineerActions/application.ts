@@ -7,8 +7,12 @@ import { sameParameterHistory, type ParameterStatus } from "../parameterApplicat
 import { PidCommissioning } from "../pidCommissioning";
 import { ProportionalCommissioning } from "../proportionalCommissioning";
 import { connectRuntimeParameters } from "../runtimeParameterConnection";
+import { requireLiveWrite } from "../runtimeTarget";
+import { restoreUnavailableReason } from "../restoreAvailability";
+import { bindingRuntime, MainWorkflowError, presentMainWorkflowFailure } from "../mainWorkflowFailure";
 import type { EngineerActionContext, EngineerActionHost } from "./host";
 import { explanation } from "./values";
+import { measuredProcessNoise } from "../processNoiseEvidence";
 
 /** Confirms the reviewed application or rollback: commissioning in Auto, or the Manual transaction. */
 export async function confirmReviewedOperation(host: EngineerActionHost, { respond, generation }: EngineerActionContext): Promise<boolean> {
@@ -28,15 +32,20 @@ export async function confirmReviewedOperation(host: EngineerActionHost, { respo
       await respond({ status: "commissioning", reason: "Commissioning the reviewed controller and recording its response. Cancel remains available." });
       const result = await retained.commissioning.run(); host.state.commissioned = result;
       if (result.recording) await host.retainRecording?.(result.recording);
+      // The runtime's buffer is released only once the samples are stored in the study (runtimeRecording.ts).
+      if (result.recording && host.retainRecording) await retained.commissioning.releaseRecording();
+      // A typed failure keeps its own reason (B6.7); an untyped failure keeps the commissioning prefix as before.
+      const commissioningReason = result.status === "passed" || result.failure ? result.reason : `Auto commissioning ${result.status}: ${result.reason}`;
       await respond({ status: result.status === "passed" ? "commissioned" : "failed", commissioning: result,
         observed: result.parameters, initialization: host.state.initialization?.evaluation,
-        ...(result.status !== "passed" && result.recoveryConfirmed ? { failure: { cause: "model-or-data", nextAction: "find-model" } } : {}),
-        reason: result.status === "passed" ? result.reason : `Auto commissioning ${result.status}: ${result.reason}` });
+        ...(result.status !== "passed" && (result.failure || result.recoveryConfirmed)
+          ? { failure: presentMainWorkflowFailure(commissioningReason, result.failure ?? { cause: "model-or-data", nextAction: "identify" }) } : {}),
+        reason: commissioningReason });
       return true;
     }
     if (retained.rollback && retained.commissioning) {
       host.state.commissioning = retained.commissioning;
-      await respond({ status: "commissioning", reason: "Recovering the reviewed controller in Manual. Cancel can retry an unconfirmed recovery." });
+      await respond({ status: "commissioning", reason: "Recovering the reviewed controller. Cancel can retry an unconfirmed recovery." });
     }
     if (!retained.commissioning) {
       const owner: PendingManualApplicationOwner = {
@@ -75,7 +84,9 @@ export async function confirmReviewedOperation(host: EngineerActionHost, { respo
     const observed = retained.rollback && retained.commissioning ? await retained.commissioning.rollback()
       : await retained.client.apply(retained.value, false);
     if (retained.rollback && retained.commissioning) host.state.commissioned = retained.commissioning.recordedOutcome();
-    await respond({ status: "applied", observed, recoveryResolved: retained.rollback, applicationAction: retained.rollback ? "restore" : "apply", reason: retained.rollback ? "Previous values restored and observed after ST execution in Manual." : "Candidate values staged in Manual and observed after ST execution. Automatic-mode transfer remains a separate commissioning operation." });
+    // A6.2 and B6.4: the restore names the mode it left the loop in, the one it was found in when that is known.
+    const restoredMode = retained.commissioning instanceof InterruptedCommissioningRecovery ? `; ${retained.commissioning.modeStatement()}` : "";
+    await respond({ status: "applied", observed, recoveryResolved: retained.rollback, applicationAction: retained.rollback ? "restore" : "apply", reason: retained.rollback ? `Previous values restored and observed after ST execution${restoredMode}.` : "Candidate values staged in Manual and observed after ST execution. Automatic-mode transfer remains a separate commissioning operation." });
   } finally { if (host.state.commissioning?.recoveryConfirmed !== false || host.state.commissioning instanceof InterruptedCommissioningRecovery) host.state.busy = undefined; }
   return true;
 }
@@ -83,8 +94,8 @@ export async function confirmReviewedOperation(host: EngineerActionHost, { respo
 /** Apply and Restore: reviews the exact change, waiting for the validated operating point before an Auto commissioning. */
 export async function reviewApplication(host: EngineerActionHost, { respond, generation, applicationMode }: EngineerActionContext, action: "apply" | "rollback"): Promise<boolean> {
   if (action === "apply") await host.checkVerifiedProject();
-  const connection = await connectRuntimeParameters(host.loop());
-  if (connection.source !== "simulation") throw new Error("This connected commissioning adapter requires the local simulator; physical application needs its explicit reviewed path.");
+  const connection = await bindingRuntime(() => connectRuntimeParameters(host.loop()));
+  requireLiveWrite(connection, "parameter application");
   if (action === "apply") {
     await host.checkVerifiedProject();
     const value = await connection.client.review(host.state.values!);
@@ -94,7 +105,7 @@ export async function reviewApplication(host: EngineerActionHost, { respond, gen
     host.state.manualApplicationRecovery = undefined;
     if (applicationMode === "auto") {
       if (host.state.initialization?.evaluation.status !== "Pass" || host.state.initialization.projectRevision !== host.state.verified?.projectRevision) {
-        throw new Error("Verify the Auto initialization case before commissioning.");
+        throw new MainWorkflowError("Verify the Auto initialization case before commissioning.", { cause: "settings", nextAction: "validate" });
       }
       const settling = host.state.applySettling = { cancelled: false };
       let shown = "";
@@ -102,11 +113,15 @@ export async function reviewApplication(host: EngineerActionHost, { respond, gen
         host.state.review.commissioning = await controllerAdapter(host.loop()).commission(host.model()!, host.state.task!, connection.client, value, {
           // Only a changed reading is posted again.
           progress: async reason => { if (reason !== shown) { shown = reason; await respond({ status: "running", activity: "apply-settling", reason }); } },
-          cancelled: () => settling.cancelled || generation !== host.state.generation });
+          cancelled: () => settling.cancelled || generation !== host.state.generation },
+          measuredProcessNoise(host.loop(), host.model(), host.state.campaigns));
       } finally { if (host.state.applySettling === settling) host.state.applySettling = undefined; }
     }
   } else {
     const observed = await connection.client.status();
+    // B6.4: Restore is unavailable once the settings Apply wrote are no longer the active ones, so nothing is overwritten.
+    const unavailable = restoreUnavailableReason(observed, host.state.commissioned?.parameters);
+    if (unavailable) throw new MainWorkflowError(unavailable, { cause: "settings", nextAction: "none" });
     const matchesCommissioning = sameParameterHistory(observed, host.state.commissioned?.parameters)
       || (!host.state.commissioned?.parameters && host.state.commissioned?.recoveryConfirmed === false
         && matchesGainRecovery(observed, host.state.commissioned.gainRecovery));
@@ -118,7 +133,7 @@ export async function reviewApplication(host: EngineerActionHost, { respond, gen
     let commissioning: ProportionalCommissioning | PidCommissioning | InterruptedCommissioningRecovery | undefined;
     if (matchesCommissioning && host.state.commissioned) {
       const model = host.model();
-      if (!model || !host.state.task) throw new Error("Restore the compatible model and task before reviewing commissioning recovery.");
+      if (!model || !host.state.task) throw new MainWorkflowError("Restore the compatible model and task before reviewing commissioning recovery.", { cause: "settings", nextAction: !model ? "identify" : "open-requirements" });
       commissioning = host.state.commissioning ?? await controllerAdapter(host.loop()).recover(
         model, host.state.task, connection.client, value, host.state.commissioned);
     }

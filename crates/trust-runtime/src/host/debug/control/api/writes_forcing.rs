@@ -38,6 +38,25 @@ impl DebugControl {
         self.enqueue_var_write(PendingVarTarget::Local(frame_id, name.into()), value);
     }
 
+    /// Queue a write of the variable (or field) a storage reference names, applied at the next
+    /// cycle boundary as the other debug writes are. A reference that no longer names a variable
+    /// when the write is applied is skipped: its writer confirms the value it reads back.
+    /// `epoch` is the runtime epoch the reference was resolved in: once a reload or restart has ended it, the write is
+    /// dropped, because the reference names a variable only in the program that ended.
+    pub(crate) fn enqueue_reference_write(
+        &self,
+        reference: crate::value::ValueRef,
+        value: Value,
+        epoch: u64,
+    ) {
+        let (lock, _) = &*self.state;
+        let mut state = lock.lock().expect("debug state poisoned");
+        if state.parameters.epoch() != epoch {
+            return;
+        }
+        push_var_write(&mut state, PendingVarTarget::Reference(reference), value);
+    }
+
     /// Queue a pending lvalue write to apply at the next cycle boundary.
     pub fn enqueue_lvalue_write(
         &self,
@@ -88,17 +107,7 @@ impl DebugControl {
     fn enqueue_var_write(&self, target: PendingVarTarget, value: Value) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        if let Some(entry) = state
-            .pending_var_writes
-            .iter_mut()
-            .find(|entry| entry.target == target)
-        {
-            entry.value = value;
-        } else {
-            state
-                .pending_var_writes
-                .push(PendingVarWrite { target, value });
-        }
+        push_var_write(&mut state, target, value);
     }
 
     /// Force a global variable to the given value.
@@ -164,6 +173,20 @@ impl DebugControl {
         state.forced_io.retain(|(current, _)| current != address);
     }
 
+    /// Whether a forced variable holds the variable (or field) a reference names, judged on the
+    /// latest completed scan's storage.
+    pub(crate) fn forces_reference(&self, reference: &crate::value::ValueRef) -> bool {
+        let (lock, _) = &*self.state;
+        let state = lock.lock().expect("debug state poisoned");
+        let Some(snapshot) = state.snapshot.as_ref() else {
+            return false;
+        };
+        state
+            .forced_vars
+            .iter()
+            .any(|force| symbol_path::forced_holds(&snapshot.storage, &force.target, reference))
+    }
+
     pub(crate) fn forced_snapshot(&self) -> ForcedSnapshot {
         let (lock, _) = &*self.state;
         let state = lock.lock().expect("debug state poisoned");
@@ -193,4 +216,19 @@ impl DebugControl {
         state.forced_vars.retain(|entry| !predicate(&entry.target));
     }
 
+}
+
+/// Queues a variable write, replacing an earlier queued write to the same target.
+fn push_var_write(state: &mut DebugState, target: PendingVarTarget, value: Value) {
+    if let Some(entry) = state
+        .pending_var_writes
+        .iter_mut()
+        .find(|entry| entry.target == target)
+    {
+        entry.value = value;
+    } else {
+        state
+            .pending_var_writes
+            .push(PendingVarWrite { target, value });
+    }
 }

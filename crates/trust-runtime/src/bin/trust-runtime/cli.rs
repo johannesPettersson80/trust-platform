@@ -12,7 +12,6 @@ include!("cli/comm.rs");
 include!("cli/plant.rs");
 include!("cli/fleet.rs");
 include!("cli/ads.rs");
-include!("cli/hmi.rs");
 include!("cli/setup.rs");
 include!("cli/plcopen.rs");
 include!("cli/registry.rs");

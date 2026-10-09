@@ -11,14 +11,16 @@ import type { RuntimeRequest, RuntimeVerificationClient } from "./verificationCl
 export async function checkIndependentModel(loop: ControlLoopDefinition, model: GeneralModel, campaigns: readonly IdentificationCampaignRecord[],
   request: RuntimeRequest, ports: ConnectedIdentificationPorts | undefined, cancelled: () => boolean,
   attach: (acquisition: ConnectedIdentification, owner: Pick<RuntimeVerificationClient, "cancel" | "snapshot">) => void,
-  retain: (campaign: IdentificationCampaignRecord) => void, progress: (payload: Record<string, unknown>) => Promise<void>): Promise<IndependentModelValidation> {
+  retain: (campaign: IdentificationCampaignRecord) => void, progress: (payload: Record<string, unknown>) => Promise<void>,
+  expectedSettlingSeconds?: number): Promise<IndependentModelValidation> {
   if (!ports) throw new Error("The connected model-validation service is unavailable.");
   const estimation = campaigns.flatMap(campaign => campaign.runs).find(record => model.evidence.includes(recordingFingerprint(record.run)));
   if (!estimation) throw new Error("The provisional model's estimation recording is missing. Identify the plant again.");
   const mapping = connectedModelChannels(loop, model);
   const channels = { inputs: mapping.inputs.map((input, i) => ({ id: model.inputs[i].id, symbol: input.signal.symbol, unit: input.signal.unit })),
     outputs: mapping.outputs.map((output, i) => ({ id: model.outputs[i].id, symbol: output.signal.symbol, unit: output.signal.unit })) };
-  const acquisition = new ConnectedIdentification(request, ports);
+  // The check's recording follows the requirements' settling time (A4.2): a slow process is not recorded at every execution.
+  const acquisition = new ConnectedIdentification(request, ports, { expectedSettlingSeconds });
   const worker = new BoundedAnalysisJob(); const owner = acquisition.cancellationOwner();
   attach(acquisition, { cancel: async () => { worker.cancel(); await owner.cancel(); }, snapshot: owner.snapshot });
   try {

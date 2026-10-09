@@ -1,8 +1,11 @@
 #[test]
 fn plant_contract_enforces_viewer_operator_and_engineer_roles_before_dispatch() {
     let root = temp_dir("plant-auth-boundary");
-    write_file(&root.join("simulation.toml"), "[simulation]\nenabled = true\n");
-    let mut state = hmi_test_state("PROGRAM Main\nEND_PROGRAM");
+    write_file(
+        &root.join("simulation.toml"),
+        "[simulation]\nenabled = true\n",
+    );
+    let mut state = control_test_state("PROGRAM Main\nEND_PROGRAM");
     state.project_root = Some(root.clone());
     state.auth_token = Arc::new(Mutex::new(Some(SmolStr::new("admin-token"))));
     state.control_requires_auth = true;
@@ -11,7 +14,9 @@ fn plant_contract_enforces_viewer_operator_and_engineer_roles_before_dispatch() 
     state.pairing = Some(store.clone());
     let token = |role| {
         let code = store.start_pairing();
-        store.claim(&code.code, Some(role)).expect("paired role token")
+        store
+            .claim(&code.code, Some(role))
+            .expect("paired role token")
     };
     let viewer = token(AccessRole::Viewer);
     let operator = token(AccessRole::Operator);
@@ -27,7 +32,11 @@ fn plant_contract_enforces_viewer_operator_and_engineer_roles_before_dispatch() 
         &state,
         Some("tcp:viewer"),
     );
-    assert!(viewer_read.ok, "viewer read failed: {:?}", viewer_read.error);
+    assert!(
+        viewer_read.ok,
+        "viewer read failed: {:?}",
+        viewer_read.error
+    );
     let read = viewer_read.result.expect("read result");
 
     for (id, auth, role) in [
@@ -51,8 +60,14 @@ fn plant_contract_enforces_viewer_operator_and_engineer_roles_before_dispatch() 
             &state,
             Some("tcp:restricted"),
         );
-        assert_eq!(denied.error_code.as_deref(), Some("insufficient_role"), "{role}");
-        let result = denied.result.expect("structured plant authorization result");
+        assert_eq!(
+            denied.error_code.as_deref(),
+            Some("insufficient_role"),
+            "{role}"
+        );
+        let result = denied
+            .result
+            .expect("structured plant authorization result");
         assert_eq!(result.get("contract"), Some(&json!("trust.plant")));
         assert_eq!(result.get("schema_version"), Some(&json!(1)));
         assert_eq!(result.get("operation"), Some(&json!("plant.save")));
@@ -80,7 +95,10 @@ fn plant_contract_enforces_viewer_operator_and_engineer_roles_before_dispatch() 
         &state,
         Some("tcp:viewer"),
     );
-    assert_eq!(viewer_clear.error_code.as_deref(), Some("insufficient_role"));
+    assert_eq!(
+        viewer_clear.error_code.as_deref(),
+        Some("insufficient_role")
+    );
 
     let operator_clear = handle_request_value(
         json!({
@@ -120,7 +138,10 @@ fn plant_contract_enforces_viewer_operator_and_engineer_roles_before_dispatch() 
         &state,
         Some("tcp:engineer"),
     );
-    assert_ne!(engineer_validate.error_code.as_deref(), Some("insufficient_role"));
+    assert_ne!(
+        engineer_validate.error_code.as_deref(),
+        Some("insufficient_role")
+    );
 
     let _ = fs::remove_file(pairing_path);
     fs::remove_dir_all(root).expect("remove plant auth fixture");

@@ -1,4 +1,6 @@
 import type { StudioPost } from "./threePageOperation";
+import { runLockedControls } from "./runLock";
+import { plainReason } from "./studioFailure";
 
 type RecoveryAction = "cancel" | "retry-recovery" | "rollback" | "review-runtime" | "confirm-rollback" | "confirm-runtime";
 
@@ -33,7 +35,7 @@ export class ThreePageRecovery {
     if (!projection) {
       if (this.active && ["failed", "unavailable", "busy"].includes(String(payload.status))) {
         this.busy = false;
-        if (typeof payload.reason === "string") this.reason = payload.reason;
+        if (typeof payload.reason === "string") this.reason = plainReason(payload.reason);
         this.render();
       }
       return;
@@ -42,7 +44,7 @@ export class ThreePageRecovery {
     this.active = true;
     this.busy = false;
     this.projection = projection;
-    this.reason = String(payload.reason ?? "Recovery is required before continuing.");
+    this.reason = payload.reason === undefined ? "Recovery is required before continuing." : plainReason(String(payload.reason));
     this.render();
   }
 
@@ -100,9 +102,8 @@ export class ThreePageRecovery {
   }
 
   private captureAndLock(): void {
-    const controls = this.root.querySelectorAll<HTMLElement>(
-      "select,input,textarea,button,[data-studio-limits],[data-studio-requirements]",
-    );
+    // Recovery locks every button as well as the run-locked fields; only its own recovery action stays available.
+    const controls = new Set<HTMLElement>([...runLockedControls(this.root), ...Array.from(this.root.querySelectorAll<HTMLElement>("button"))]);
     for (const control of Array.from(controls)) {
       if (control.matches("[data-studio-recovery-action],[data-engineer-stage-tab]")) continue;
       if ("disabled" in control) this.originalDisabled.set(control, Boolean((control as HTMLInputElement).disabled));

@@ -21,17 +21,22 @@ suite("Control Studio loop setup form rendered", () => {
       const inner = (body: string) => evaluateInWebview(connection, form, body);
       const field = (name: string) => inner(`return d.querySelector('[data-setup-field="${name}"]').value;`);
       assert.deepStrictEqual(await Promise.all(["structure", "instance", "parameterRecord", "processVariable", "manipulatedVariable", "setpoint", "manualOutput"].map(field)),
-        ["pid", "P1.Controller", "P1.Parameters", "P1.ProcessValue", "P1.ManipulatedValue", "P1.Setpoint", "P1.ManualOutput"],
-        "the compiled calls prefill the controller, its parameter record and its signals");
+        ["pid", "P1.Controller", "P1.Parameters", "P1.Controller.StateValue.ProcessValue", "P1.ManipulatedValue", "P1.Setpoint", "P1.ManualOutput"],
+        "the compiled calls prefill the controller, its parameter record and its signals; the measurement is the PID's own");
+      assert.deepStrictEqual(await Promise.all(["mode", "startupFlag"].map(field)), ["P1.AutoMode", "P1.Initialized"],
+        "the Auto/Manual signal the code tests and the flag around the PID's Initialize come from the program's own code");
+      await shot("prefilled");
       const rows = JSON.parse(await inner(`return JSON.stringify(['unit','minimum','maximum'].map(part=>Math.round(d.querySelector("[data-setup-field='processVariable."+part+"']").getBoundingClientRect().top)));`));
       assert.ok(rows.every((top: number) => top === rows[0]), `a signal's unit, minimum and maximum share one row: ${rows}`);
-      await shot("prefilled");
       await inner(`const set=(name,value)=>{const e=d.querySelector('[data-setup-field="'+name+'"]');e.value=value;e.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));e.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));};
         set('name','Fixture temperature');set('processVariable.unit','°C');set('processVariable.minimum','0');set('processVariable.maximum','100');
-        set('manipulatedVariable.unit','%');set('manipulatedVariable.minimum','0');set('manipulatedVariable.maximum','100');set('experimentDuration','30');set('mode','P1.AutoMode');return 'filled';`);
-      assert.match(await inner("return d.querySelector('[data-setup-message]').textContent;"), /initializes P1\.Controller.*startup/,
-        "the program's startup code initializes the PID, so validation needs the flag that marks startup as done");
-      await inner(`const e=d.querySelector('[data-setup-field="startupFlag"]');e.value='P1.Initialized';e.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'flag';`);
+        set('manipulatedVariable.unit','%');set('manipulatedVariable.minimum','0');set('manipulatedVariable.maximum','100');set('mode','P1.AutoMode');return 'filled';`);
+      const startup = (flag: string) => inner(`const e=d.querySelector('[data-setup-field="startupFlag"]');e.value='${flag}';e.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'flag';`);
+      await startup("");
+      const startupMessage = await inner("return d.querySelector('[data-setup-message]').textContent;");
+      assert.match(startupMessage, /initializes P1\.Controller.*startup/,
+        `the program's startup code initializes the PID, so validation needs the flag that marks startup as done: ${startupMessage}`);
+      await startup("P1.Initialized");
       assert.strictEqual(await inner("return String(d.querySelector('[data-setup-save]').disabled);"), "false", await inner("return d.querySelector('[data-setup-message]').textContent;"));
       await shot("completed");
       await inner("d.querySelector('[data-setup-save]').click();return 'save';");
@@ -42,7 +47,8 @@ suite("Control Studio loop setup form rendered", () => {
       const saved = JSON.parse(fs.readFileSync(path.join(project, "control-loops", "fixture-temperature.json"), "utf8"));
       assert.strictEqual(validateControlLoopDefinition(saved, { projectId: saved.projectId, runtimeId: saved.runtimeId }).kind, "accepted");
       assert.strictEqual(saved.controller.law.parameterRecordSymbol, "P1.Parameters");
-      assert.strictEqual(saved.experiment.durationSeconds, 30, "identification runs for the duration entered in the form");
+      assert.strictEqual(saved.experiment, undefined,
+        "setup asks for no identification step or duration: Identify chooses them, and Limits supplies the maximum (B1.3)");
       assert.deepStrictEqual(saved.controller.pidInitialization.applicationStates.map((state: { symbol: string }) => state.symbol), ["P1.Initialized"],
         "validation starts with the program's startup done, as the reviewed hand-written loop of this project declares");
     } finally {

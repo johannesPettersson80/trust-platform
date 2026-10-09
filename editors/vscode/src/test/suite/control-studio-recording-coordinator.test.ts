@@ -1,9 +1,8 @@
 import * as assert from "assert";
-import { executeRecordingCommand, RecordingCoordinator, type RecordingSession, type RecordingUpdate } from "../../controlStudio/recordingCoordinator";
+import { RecordingCoordinator, type RecordingSession } from "../../controlStudio/recordingCoordinator";
 import { RecordingStartUnconfirmed } from "../../controlStudio/recordingStartFailure";
 import type { ControlLoopDefinition } from "../../controlStudio/loopDefinition";
 import type { LoopRecording } from "../../controlStudio/loopMonitor";
-import type { RecordingRecoveryOwner } from "../../controlStudio/runtimeRecording";
 
 const signal = { symbol: "P1.Value", address: "%IL0", iecType: "LREAL", direction: "read" as const,
   unit: "%", range: { minimum: 0, maximum: 100 } };
@@ -22,26 +21,6 @@ const retainedRecording: LoopRecording = { samples: [], rawSamples: [], evidence
   droppedObservedSamples: 0, actualCycleTimingAvailable: true, freshnessAvailable: false,
   reason: "Start acknowledgement unconfirmed; stopped data retained. Complete recording — runtime captured 3 scans.",
 } };
-
-function hooks() {
-  const changes: boolean[] = []; const stopped: LoopRecording[] = []; const evidence: LoopRecording["evidence"][] = [];
-  const updates: RecordingUpdate[] = [];
-  let started = 0; let refreshed = 0;
-  return {
-    changes, stopped, evidence, updates,
-    get started() { return started; }, get refreshed() { return refreshed; },
-    value: {
-      recordingChanged: (value: boolean) => { changes.push(value); },
-      started: () => { started += 1; },
-      stopped: (value: LoopRecording) => { stopped.push(value); },
-      publish: async (value: RecordingUpdate) => {
-        updates.push(value);
-        if (!("state" in value)) evidence.push(value);
-      },
-      refresh: () => { refreshed += 1; },
-    },
-  };
-}
 
 suite("Control Studio recording coordination", () => {
   test("honors Stop while a recording start acknowledgement is pending", async () => {
@@ -80,99 +59,6 @@ suite("Control Studio recording coordination", () => {
     assert.strictEqual(coordinator.recording, true);
   });
 
-  test("retains actual stopped samples when Start acknowledgement is uncertain", async () => {
-    let starts = 0; let retriedStops = 0;
-    const session: RecordingSession = { loop, stop: async () => { retriedStops += 1; return recording; } };
-    const uncertain = new RecordingStartUnconfirmed(session, retainedRecording,
-      new Error("Start reply lost"));
-    const coordinator = new RecordingCoordinator(async () => { starts += 1; throw uncertain; });
-    const events = hooks();
-
-    await executeRecordingCommand(coordinator, "start", loop, events.value);
-
-    assert.strictEqual(starts, 1);
-    assert.strictEqual(events.started, 0, "An uncertain acknowledgement is not a successful Start");
-    assert.deepStrictEqual(events.stopped, [retainedRecording], "Keep the actual Stop result rather than a placeholder");
-    assert.deepStrictEqual(events.evidence, [retainedRecording.evidence], "Publish the native sample count and completeness unchanged");
-    assert.strictEqual(events.evidence[0].observedSampleCount, 3, "Never replace returned samples with zero evidence");
-    assert.strictEqual(retriedStops, 0, "A Stop that already returned data must not be replayed");
-    assert.strictEqual(coordinator.recording, false);
-  });
-
-  test("honors a pending Stop after an uncertain Start whose first Stop failed", async () => {
-    let starts = 0; let retryStops = 0;
-    const session: RecordingSession = { loop, stop: async () => { retryStops += 1; return retainedRecording; } };
-    const uncertain = new RecordingStartUnconfirmed(session, undefined,
-      new Error("Start reply lost"), new Error("first Stop reply lost"));
-    const coordinator = new RecordingCoordinator(async () => { starts += 1; throw uncertain; });
-    const startEvents = hooks(); const stopEvents = hooks();
-
-    await Promise.all([
-      executeRecordingCommand(coordinator, "start", loop, startEvents.value),
-      executeRecordingCommand(coordinator, "stop", loop, stopEvents.value),
-    ]);
-
-    assert.strictEqual(starts, 1, "The pending Stop must not cause another Start");
-    assert.strictEqual(startEvents.started, 0, "The lost acknowledgement must not be presented as a Start");
-    assert.deepStrictEqual(startEvents.updates, [
-      { state: "starting", reason: "Starting recording…" },
-      { state: "unconfirmed", reason: uncertain.message },
-    ], "A failed automatic Stop remains explicit without inventing a zero-sample record");
-    assert.strictEqual(retryStops, 1, "The pending Stop retries the original owned session");
-    assert.deepStrictEqual(stopEvents.stopped, [retainedRecording]);
-    assert.deepStrictEqual(stopEvents.evidence, [retainedRecording.evidence]);
-    assert.strictEqual(stopEvents.evidence[0].observedSampleCount, 3);
-    assert.strictEqual(coordinator.recording, false, "Successful retry releases only the original owner");
-  });
-
-  test("publishes Starting then keeps one lost-acknowledgement owner through failed and incomplete Stop retry", async () => {
-    const originalRecordingId = "recording-start-reply-lost";
-    const incompleteRecording: LoopRecording = { samples: [], rawSamples: [], evidence: {
-      method: "runtime_scan_buffer", completeness: "incomplete", observedSampleCount: 2,
-      missingScanRanges: [{ first: 4, last: 4 }], droppedObservedSamples: 1,
-      actualCycleTimingAvailable: true, freshnessAvailable: false,
-      reason: "Runtime scan 4 was not retained.",
-    } };
-    let starts = 0;
-    const stopIds = [originalRecordingId]; // The lost Start acknowledgement already attempted this owner's Stop once.
-    let successfulStop = false;
-    const session: RecordingSession = { loop, stop: async () => {
-      stopIds.push(originalRecordingId);
-      if (!successfulStop) throw new Error("first Stop reply lost");
-      return incompleteRecording;
-    } };
-    const uncertain = new RecordingStartUnconfirmed(session, undefined,
-      new Error("Start reply lost"), new Error("first Stop reply lost"));
-    const coordinator = new RecordingCoordinator(async () => { starts += 1; throw uncertain; });
-    const startEvents = hooks(); const failedStopEvents = hooks(); const completedStopEvents = hooks();
-
-    await executeRecordingCommand(coordinator, "start", loop, startEvents.value);
-
-    assert.deepStrictEqual(startEvents.updates, [
-      { state: "starting", reason: "Starting recording…" },
-      { state: "unconfirmed", reason: uncertain.message },
-    ], "Manual recording must expose its pending Start before the lost acknowledgement recovery state.");
-    assert.strictEqual(starts, 1);
-    assert.strictEqual(coordinator.recording, true, "The original owner remains available for Stop.");
-    assert.deepStrictEqual(stopIds, [originalRecordingId], "Do not replace or replay the uncertain Start.");
-
-    await executeRecordingCommand(coordinator, "stop", loop, failedStopEvents.value);
-
-    assert.strictEqual(coordinator.recording, true, "A failed Stop retains the original owner.");
-    assert.deepStrictEqual(stopIds, [originalRecordingId, originalRecordingId]);
-    assert.strictEqual(starts, 1, "Stop recovery must never issue a replacement Start.");
-
-    successfulStop = true;
-    await executeRecordingCommand(coordinator, "stop", loop, completedStopEvents.value);
-
-    assert.deepStrictEqual(stopIds, [originalRecordingId, originalRecordingId, originalRecordingId]);
-    assert.strictEqual(starts, 1);
-    assert.deepStrictEqual(completedStopEvents.stopped, [incompleteRecording]);
-    assert.deepStrictEqual(completedStopEvents.evidence, [incompleteRecording.evidence],
-      "The successful Stop must publish the runtime's actual incomplete evidence.");
-    assert.strictEqual(coordinator.recording, false);
-  });
-
   test("does not let a completed unconfirmed record replace a later recording Stop", async () => {
     let starts = 0; let laterStops = 0;
     const staleSession: RecordingSession = { loop, stop: async () => recording };
@@ -196,28 +82,6 @@ suite("Control Studio recording coordination", () => {
     assert.strictEqual(laterStops, 1);
   });
 
-  test("persists an owner before Start and clears it only after terminal Stop evidence", async () => {
-    const owner: RecordingRecoveryOwner = { schemaVersion: 1, recordingId: "owned-recording", projectId: loop.projectId,
-      runtimeId: loop.runtimeId, loopId: loop.id, loopRevision: loop.revision, source: "Simulation",
-      bindings: [{ id: "processVariable", address: "%IL0", iec_type: "LREAL" }] };
-    const order: string[] = [];
-    const coordinator = new RecordingCoordinator((async (_loop: ControlLoopDefinition, lifecycle: any) => {
-      assert.strictEqual(typeof lifecycle?.persist, "function", "Coordinator must provide persistence before Start can dispatch.");
-      await lifecycle.persist(owner); order.push("start");
-      return { loop, stop: async () => { order.push("stop"); return recording; } };
-    }) as any);
-    const events = hooks();
-    const lifecycle = {
-      ...events.value,
-      persistOwner: async (value: RecordingRecoveryOwner) => { assert.deepStrictEqual(value, owner); order.push("persist"); },
-      clearOwner: async () => { order.push("clear"); },
-    };
-    await executeRecordingCommand(coordinator, "start", loop, lifecycle);
-    assert.deepStrictEqual(order, ["persist", "start"]);
-    await executeRecordingCommand(coordinator, "stop", loop, lifecycle);
-    assert.deepStrictEqual(order, ["persist", "start", "stop", "clear"]);
-  });
-
   test("adopts a recovered owner as unconfirmed and stops only that owner", async () => {
     let recoveredStops = 0; let freshStarts = 0;
     const recovered: RecordingSession = { loop, stop: async () => { recoveredStops += 1; return recording; } };
@@ -232,17 +96,6 @@ suite("Control Studio recording coordination", () => {
     assert.strictEqual(freshStarts, 0);
     assert.strictEqual((await coordinator.execute("stop", loop))?.kind, "stopped");
     assert.strictEqual(recoveredStops, 1);
-  });
-
-  test("keeps an unavailable recovered owner unconfirmed and blocks a replacement Start", async () => {
-    let starts = 0;
-    const coordinator = new RecordingCoordinator(async () => { starts += 1; return { loop, stop: async () => recording }; });
-    coordinator.adoptUnavailableRecovery(loop, "Recording recovery unconfirmed — Start the matching runtime before retrying Stop.");
-    const events = hooks();
-    await executeRecordingCommand(coordinator, "stop", loop, events.value);
-    assert.deepStrictEqual(events.updates, [{ state: "unconfirmed", reason: "Recording recovery unconfirmed — Start the matching runtime before retrying Stop." }]);
-    assert.strictEqual(await coordinator.execute("start", loop), undefined);
-    assert.strictEqual(starts, 0);
   });
 
   test("reconstructs the same unavailable owner when its runtime becomes available", async () => {
@@ -261,28 +114,31 @@ suite("Control Studio recording coordination", () => {
     assert.strictEqual(coordinator.recording, false);
   });
 
-  test("retains a recovered owner when terminal program identity evidence is rejected", async () => {
-    let replacementStarts = 0;
-    const coordinator = new RecordingCoordinator(async () => {
-      replacementStarts += 1;
-      throw new Error("Recovery must not authorize a replacement Start.");
-    });
-    coordinator.adoptRecoveredOwner({ loop, stop: async () => {
-      throw new Error("The recording program identity does not match its bound program.");
-    } }, "Recording recovery unconfirmed — Stop the original runtime buffer to obtain terminal evidence.");
-    const events = hooks();
-    let clears = 0;
+  test("keeps a stopped recording before its runtime buffer is released", async () => {
+    const order: string[] = [];
+    const session: RecordingSession = { loop, stop: async () => { order.push("stop"); return recording; },
+      release: async () => { order.push("release"); } };
+    const coordinator = new RecordingCoordinator(async () => session);
+    await coordinator.execute("start", loop);
+    const stopped = await coordinator.execute("stop", loop, undefined, undefined, async () => { order.push("retain"); });
+    assert.strictEqual(stopped?.kind, "stopped");
+    assert.deepStrictEqual(order, ["stop", "retain", "release"]);
+    assert.strictEqual(coordinator.recording, false);
+  });
 
-    await executeRecordingCommand(coordinator, "stop", loop, {
-      ...events.value,
-      clearOwner: async () => { clears += 1; },
-    });
-
-    assert.strictEqual(clears, 0, "Rejected terminal identity evidence must retain the persisted owner.");
-    assert.deepStrictEqual(events.updates, [{ state: "unconfirmed",
-      reason: "Recording recovery unconfirmed — The recording program identity does not match its bound program." }]);
-    assert.strictEqual(await coordinator.execute("start", loop), undefined, "Recovery must continue blocking a replacement Start.");
-    assert.strictEqual(replacementStarts, 0);
-    assert.strictEqual(coordinator.recording, true);
+  test("a failed keep leaves the owner and its buffer in place, and the next Stop keeps and then releases", async () => {
+    const order: string[] = [];
+    const session: RecordingSession = { loop, stop: async () => { order.push("stop"); return recording; },
+      release: async () => { order.push("release"); } };
+    const coordinator = new RecordingCoordinator(async () => session);
+    await coordinator.execute("start", loop);
+    await assert.rejects(coordinator.execute("stop", loop, undefined, undefined, async () => { throw new Error("study store unavailable"); }),
+      /study store unavailable/);
+    assert.strictEqual(coordinator.recording, true, "the owner is kept for a retry");
+    assert.deepStrictEqual(order, ["stop"], "nothing is released before the samples are kept");
+    const retried = await coordinator.execute("stop", loop, undefined, undefined, async () => { order.push("retain"); });
+    assert.strictEqual(retried?.kind, "stopped");
+    assert.deepStrictEqual(order, ["stop", "stop", "retain", "release"]);
+    assert.strictEqual(coordinator.recording, false);
   });
 });

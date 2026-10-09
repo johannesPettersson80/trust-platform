@@ -15,16 +15,56 @@ import { connectRuntimeParameters } from "../runtimeParameterConnection";
 import { connectRuntimeSearch } from "../runtimeSearchConnection";
 import { parseStateDesignDraft } from "../stateDesignPreferences";
 import { RuntimeVerificationClient } from "../verificationClient";
+import { bindingRuntime, MainWorkflowError } from "../mainWorkflowFailure";
+import type { GeneralModel } from "../generalModel";
+import type { ControlLoopDefinition } from "../loopDefinition";
+import { gainSignContradiction } from "../numerics/identification";
 import type { EngineerActionContext, EngineerActionHost } from "./host";
-import { record } from "./values";
+import { explanation, record } from "./values";
+
+/**
+ * N6.3 and B3.9: the scalar gain of a single-input, single-output transfer model must have the sign the controller action
+ * requires, before any design runs. An integrating model's rate gain is checked the same way. Models without one scalar gain,
+ * such as state models and several channels, are not checked here. The stored action "direct" expects a positive gain and
+ * "reverse" a negative one; a missing action counts as direct.
+ */
+export function assertGainSignMatchesAction(loop: ControlLoopDefinition, model: GeneralModel): void {
+  if (model.kind !== "transfer-function" || model.inputs.length !== 1 || model.outputs.length !== 1) return;
+  const { numerator, denominator } = model;
+  if (!numerator.length || !denominator.length) return;
+  // Coefficients are in descending powers of s, so the last one is the constant term. An integrator has none, and its
+  // rate gain is the coefficient of s instead.
+  const constant = denominator[denominator.length - 1];
+  const integrating = constant === 0;
+  const coefficient = integrating ? denominator[denominator.length - 2] : constant;
+  if (coefficient === undefined || coefficient === 0) return;
+  const gain = numerator[numerator.length - 1] / coefficient;
+  const { processVariable, manipulatedVariable } = loop.signals;
+  const unit = `${processVariable.unit}/${manipulatedVariable.unit}${integrating ? "/s" : ""}`;
+  const contradiction = gainSignContradiction(gain, unit, loop.controller.action ?? "direct");
+  if (contradiction) throw new MainWorkflowError(contradiction, { cause: "model-or-data", nextAction: "open-loop-setup" });
+}
+
+/**
+ * The task the engineer typed on Tune (A11.2): an invalid entry is corrected on Tune, so its failure offers Tune. The
+ * automatic requirements read the recorded evidence, whose errors keep their own classification.
+ */
+function resolvedTaskInputs(host: EngineerActionHost, model: GeneralModel, payload: Record<string, unknown>) {
+  try { return resolveEngineerRequirements(host.requirementLoop(), model, payload, host.state.tuningPreferences, host.state.campaigns); }
+  catch (error) {
+    if (payload.automaticRequirements === true || error instanceof MainWorkflowError) throw error;
+    throw new MainWorkflowError(explanation(error), { cause: "settings", nextAction: "tune" });
+  }
+}
 
 /** Tune: designs a candidate for the selected model and requirements, with its predicted response. */
 export async function tuneCandidate(host: EngineerActionHost, { payload, respond, generation, applicationMode }: EngineerActionContext): Promise<boolean> {
   host.state.campaignPassed = false; host.state.verifiedInputs = undefined;
   host.state.design = undefined; host.state.values = undefined; host.state.verified = undefined; host.state.initialization = undefined; host.state.review = undefined;
   const model = host.model();
-  if (!model) throw new Error("Find or supply a model first.");
+  if (!model) throw new MainWorkflowError("Find or supply a model first.", { cause: "model-or-data", nextAction: "identify" });
   assertEngineerModelCompatibility(host.loop(), model);
+  assertGainSignMatchesAction(host.loop(), model);
   if (payload.pinnedValues !== undefined) payload.settingsPins = payload.pinnedValues === null ? null
     : { loopRevision: host.loop().revision, family: isControllerFamily(payload.family) ? payload.family : host.state.family, values: payload.pinnedValues };
   if (payload.settingsPins === null) host.state.settingsPins = undefined;
@@ -54,14 +94,14 @@ export async function tuneCandidate(host: EngineerActionHost, { payload, respond
   }
   if (payload.tuningPreferences !== undefined) {
     const preferences = controllerTuningPreferences(payload.tuningPreferences);
-    if (!preferences) throw new Error("Choose a supported tuning method and finite controller settings.");
+    if (!preferences) throw new MainWorkflowError("Choose a supported tuning method and finite controller settings.", { cause: "controller-capability", nextAction: "choose-method" });
     host.state.tuningPreferences = preferences;
   }
   if (host.state.tuningPreferences?.method === "state-design" && host.state.tuningPreferences.stateDesignDraft) {
     host.state.tuningPreferences.stateDesign = parseStateDesignDraft(host.state.tuningPreferences.stateDesignDraft,
       String(payload.family ?? host.loop().controller.stateFeedback?.family ?? host.state.family));
   }
-  const task = resolveEngineerRequirements(host.requirementLoop(), model, payload, host.state.tuningPreferences, host.state.campaigns);
+  const task = resolvedTaskInputs(host, model, payload);
   assertControllerRequirements(host.loop(), task);
   host.state.task = task;
   let tuned: ControllerTuningResult;
@@ -71,13 +111,14 @@ export async function tuneCandidate(host: EngineerActionHost, { payload, respond
   } else if (host.state.tuningPreferences?.method === "relay") {
     tuned = relayRuleCandidate(host.loop(), model, host.relayCycle(), host.state.settingsPins?.values);
   } else if (host.loop().controller.project) {
-    if (payload.family !== "automatic" && !controllerAdapter(host.loop()).families.includes(payload.family as typeof host.state.family)) throw new Error("Choose the controller family declared by the current ST adapter.");
+    if (payload.family !== "automatic" && !controllerAdapter(host.loop()).families.includes(payload.family as typeof host.state.family)) throw new MainWorkflowError("Choose the controller family declared by the current ST adapter.", { cause: "controller-capability", nextAction: "choose-method" });
     const selectedProjectFamily = payload.family === "automatic" ? undefined : payload.family as typeof host.state.family;
     host.state.busy = "verify";
     const tuning = (async () => {
-      const connection = await connectRuntimeSearch(host.loop(), { cancelled: () => generation !== host.state.generation });
-      if (connection.source !== "simulation") throw new Error("Native controller tuning requires isolated simulation.");
-      const parameters = await connectRuntimeParameters(host.loop());
+      const cancelled = () => generation !== host.state.generation;
+      const connection = await bindingRuntime(() => connectRuntimeSearch(host.loop(), { cancelled }), cancelled);
+      if (connection.source !== "simulation") throw new MainWorkflowError("Native controller tuning requires isolated simulation.", { cause: "runtime", nextAction: "connect-runtime" });
+      const parameters = await bindingRuntime(() => connectRuntimeParameters(host.loop()), cancelled);
       const observed = await parameters.client.status();
       const readiness = await connection.request("control.simulation.run.status", {});
       if (!record(readiness) || readiness.ready !== true || typeof readiness.project_revision !== "string") {

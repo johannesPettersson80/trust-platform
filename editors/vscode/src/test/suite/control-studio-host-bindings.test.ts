@@ -124,6 +124,27 @@ suite("Control Studio host binding discovery", () => {
     }
   });
 
+  test("lists a loop whose measurement is a compiled variable without an address, such as a PID's own (Specification 35 §17.1)", async () => {
+    const api = loadApi();
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "trust-control-bindings-unaddressed-"));
+    try {
+      const loop = pidLoop();
+      const { address: _address, ...measurement } = loop.signals.processVariable;
+      loop.signals.processVariable = { ...measurement, symbol: "Main.StateValue.ProcessValue" };
+      fs.writeFileSync(path.join(root, "control-loop.json"), `${JSON.stringify(loop)}\n`);
+      const compiled = catalog();
+      const missing = await api.discoverControlStudioBindings(root, loop.runtimeId, compiled);
+      assert.ok(missing.rejected.some((entry: any) => /Main\.StateValue\.ProcessValue is not a compiled LREAL variable/.test(entry.reason)),
+        JSON.stringify(missing.rejected));
+      compiled.controlSymbols.symbols.push({ symbol: "Main.StateValue.ProcessValue", type: "LREAL" });
+      const discovered = await api.discoverControlStudioBindings(root, loop.runtimeId, compiled);
+      assert.deepStrictEqual(discovered.rejected, []);
+      assert.deepStrictEqual(discovered.targets[0].outputs.map((entry: any) => [entry.symbol, entry.address]), [["Main.StateValue.ProcessValue", undefined]]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test("rejects duplicate loop IDs instead of exposing an ambiguous target", async () => {
     const api = loadApi();
     assert.ok(api, "host binding discovery service must be available");

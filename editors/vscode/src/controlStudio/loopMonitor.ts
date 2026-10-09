@@ -8,6 +8,8 @@ import type {
   ControlLoopDefinition,
   ControlSignalBinding,
 } from "./loopDefinition";
+import { simulationTarget } from "./simulationTarget";
+import { CONNECTION_LOSS_TIMEOUT_MS } from "./controlStudioLimits";
 
 export type ControlEvidenceSource = "Simulation" | "Physical";
 export type ControlSignalQuality = "good" | "forced" | "uncertain" | "stale" | "bad";
@@ -88,13 +90,6 @@ export interface LoopRecording {
   provenance?: WorkflowRecordingProvenance;
 }
 
-export interface LoopHealthSummary {
-  sampleCount: number;
-  meanAbsoluteError: number | null;
-  saturationSamples: number;
-  timing: string;
-}
-
 /** All fields must originate in one runtime scan; transports decode provenance before projection. */
 export interface CoherentLoopReadings {
   running: boolean;
@@ -115,16 +110,14 @@ interface MonitorOptions {
 export function controlLoopStaleAfterMs(
   loop: Pick<ControlLoopDefinition, "observedSampleTiming">
 ): number {
-  return Math.max(1_500, loop.observedSampleTiming.nominalPeriodMs * 5);
+  return Math.max(CONNECTION_LOSS_TIMEOUT_MS, loop.observedSampleTiming.nominalPeriodMs * 5);
 }
 
 /** Projects one synchronized runtime scan; it never owns or polls a transport. */
 export class ControlLoopMonitor {
   private readonly staleAfterMs: number;
-  private readonly recordingCapacity: number;
   private lastScan: number | undefined;
   private lastNewScanAtMs: number | undefined;
-  private recording = false;
   private runtimeRecording = false;
 
   setRuntimeRecording(active: boolean): void { this.runtimeRecording = active; }
@@ -133,49 +126,9 @@ export class ControlLoopMonitor {
     this.lastScan = undefined;
     this.lastNewScanAtMs = undefined;
   }
-  private samples: AvailableLoopSample[] = [];
-  private lastRecordedScan: number | undefined;
-  private droppedObservedSamples = 0;
 
   constructor(options: MonitorOptions) {
     this.staleAfterMs = options.staleAfterMs;
-    this.recordingCapacity = Math.max(1, Math.floor(options.recordingCapacity));
-  }
-
-  startRecording(): void {
-    this.samples = [];
-    this.lastRecordedScan = undefined;
-    this.droppedObservedSamples = 0;
-    this.recording = true;
-  }
-
-  stopRecording(): LoopRecording {
-    this.recording = false;
-    const samples = this.samples.map(copySample);
-    const firstRecordedScan = samples[0]?.scan;
-    const lastRecordedScan = samples[samples.length - 1]?.scan;
-    const missingScanRanges = missingScanRangesFor(samples);
-    return {
-      samples,
-      evidence: {
-        method: "ui_observed_snapshots",
-        completeness: "incomplete",
-        observedSampleCount: samples.length,
-        ...(firstRecordedScan === undefined || lastRecordedScan === undefined
-          ? {} : { scanRange: { first: firstRecordedScan, last: lastRecordedScan } }),
-        missingScanRanges,
-        droppedObservedSamples: this.droppedObservedSamples,
-        actualCycleTimingAvailable: false,
-        freshnessAvailable: false,
-        reason: incompleteRecordingReason(
-          samples.length,
-          firstRecordedScan,
-          lastRecordedScan,
-          missingScanRanges,
-          this.droppedObservedSamples
-        ),
-      },
-    };
   }
 
   observe(
@@ -193,8 +146,10 @@ export class ControlLoopMonitor {
     }, observedAtMs);
   }
 
+  /** Projects one coherent scan. observedAtMs is the host time the scan was received; the scan is stale once it has not
+   * advanced for staleAfterMs of that clock (A3.4). */
   observeReadings(loop: ControlLoopDefinition, source: ControlEvidenceSource,
-    readings: CoherentLoopReadings, observedAtMs: number): LoopMonitorSample {
+    readings: CoherentLoopReadings, observedAtMs: number, staleAfterMs = this.staleAfterMs): LoopMonitorSample {
     const scan = readings.scan;
     if (!readings.running || scan === undefined) {
       if (!readings.running) {
@@ -210,7 +165,7 @@ export class ControlLoopMonitor {
       this.lastNewScanAtMs = observedAtMs;
     } else if (
       this.lastNewScanAtMs !== undefined &&
-      observedAtMs - this.lastNewScanAtMs > this.staleAfterMs
+      observedAtMs - this.lastNewScanAtMs > staleAfterMs
     ) {
       return unavailable(source, loop.id, "Runtime scan is stale");
     }
@@ -259,69 +214,10 @@ export class ControlLoopMonitor {
         ...(loop.limits.rateDownPerS === undefined ? {} : { downPerSecond: loop.limits.rateDownPerS }),
       },
       saturation: saturation(manipulatedVariable.value, loop),
-      recording: this.recording || this.runtimeRecording,
+      recording: this.runtimeRecording,
     };
-    if (this.recording && scan !== this.lastRecordedScan) {
-      this.samples.push(copySample(sample));
-      this.lastRecordedScan = scan;
-      if (this.samples.length > this.recordingCapacity) {
-        this.samples.shift();
-        this.droppedObservedSamples += 1;
-      }
-    }
     return sample;
   }
-}
-
-function incompleteRecordingReason(
-  observed: number,
-  first: number | undefined,
-  last: number | undefined,
-  gaps: readonly MissingScanRange[],
-  dropped: number
-): string {
-  if (first !== undefined && last !== undefined && gaps.length > 0) {
-    const expected = last - first + 1;
-    const ranges = gaps.map((range) => range.first === range.last
-      ? String(range.first) : `${range.first}\u2013${range.last}`);
-    const listed = ranges.length === 1
-      ? ranges[0] : `${ranges.slice(0, -1).join(", ")} and ${ranges[ranges.length - 1]}`;
-    const missing = `Incomplete recording \u2014 UI observed ${observed} of ${expected} scans; scans ${listed} were not acquired`;
-    return dropped > 0
-      ? `${missing}; ${dropped} UI-observed ${dropped === 1 ? "sample was" : "samples were"} dropped by the bounded editor buffer.`
-      : `${missing}.`;
-  }
-  if (dropped > 0) {
-    return `Incomplete recording \u2014 ${dropped} UI-observed ${dropped === 1 ? "sample was" : "samples were"} dropped by the bounded editor buffer.`;
-  }
-  return "Incomplete recording \u2014 UI-observed snapshots do not prove every runtime scan was acquired.";
-}
-
-function missingScanRangesFor(samples: readonly AvailableLoopSample[]): MissingScanRange[] {
-  const ranges: MissingScanRange[] = [];
-  for (let index = 1; index < samples.length; index += 1) {
-    const previous = samples[index - 1].scan;
-    const current = samples[index].scan;
-    if (current > previous + 1) ranges.push({ first: previous + 1, last: current - 1 });
-  }
-  return ranges;
-}
-
-export function summarizeLoopHealth(samples: readonly AvailableLoopSample[]): LoopHealthSummary {
-  const errorSamples = samples.filter((sample) => sample.setpoint !== undefined);
-  const meanAbsoluteError = samples.length > 0 && errorSamples.length === samples.length
-    ? errorSamples.reduce((sum, sample) =>
-      sum + Math.abs(sample.setpoint!.value - sample.processVariable.value), 0) / errorSamples.length
-    : null;
-  const timing = samples.length < 3
-    ? `${numberWord(samples.length)} ${samples.length === 1 ? "sample is" : "samples are"} insufficient for oscillation or noise diagnostics.`
-    : "Timing is available for descriptive analysis.";
-  return {
-    sampleCount: samples.length,
-    meanAbsoluteError,
-    saturationSamples: samples.filter((sample) => sample.saturation !== "none").length,
-    timing,
-  };
 }
 
 function readSignal(binding: ControlSignalBinding, state: IoState): ControlMonitorSignal | undefined {
@@ -390,7 +286,7 @@ function entries(state: IoState): readonly IoEntry[] {
 }
 
 function evidenceSource(lifecycle: RuntimeLifecycleSnapshot): ControlEvidenceSource {
-  return lifecycle.status.runtimeMode === "simulate" ? "Simulation" : "Physical";
+  return simulationTarget(lifecycle.status) ? "Simulation" : "Physical";
 }
 
 function saturation(value: number, loop: ControlLoopDefinition): AvailableLoopSample["saturation"] {
@@ -400,26 +296,9 @@ function saturation(value: number, loop: ControlLoopDefinition): AvailableLoopSa
 }
 
 function missingReason(label: string, binding: ControlSignalBinding, scan: number): string {
-  return `${label} ${binding.address} is missing from runtime scan ${scan}`;
+  return `${label} ${binding.address ?? binding.symbol} is missing from runtime scan ${scan}`;
 }
 
 function unavailable(source: ControlEvidenceSource, loopId: string, reason: string): UnavailableLoopSample {
   return { availability: "unavailable", source, loopId, reason };
-}
-
-function copySample(sample: AvailableLoopSample): AvailableLoopSample {
-  return {
-    ...sample,
-    controller: { ...sample.controller },
-    ...(sample.setpoint ? { setpoint: { ...sample.setpoint } } : {}),
-    processVariable: { ...sample.processVariable },
-    manipulatedVariable: { ...sample.manipulatedVariable },
-    ...(sample.additional ? { additional: sample.additional.map((signal) => ({ ...signal })) } : {}),
-    outputLimits: { ...sample.outputLimits },
-    rateLimits: { ...sample.rateLimits },
-  };
-}
-
-function numberWord(value: number): string {
-  return ["Zero", "One", "Two"][value] ?? String(value);
 }

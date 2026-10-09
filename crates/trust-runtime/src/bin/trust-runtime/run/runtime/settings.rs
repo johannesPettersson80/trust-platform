@@ -146,6 +146,7 @@ fn resolve_web_config(bundle: Option<&RuntimeBundle>, settings: &RuntimeSettings
         listen: settings.web.listen.clone(),
         auth,
         tls: settings.web.tls,
+        hmi: trust_runtime::hmi::access::config::HmiAccessConfig::default(),
     }
 }
 

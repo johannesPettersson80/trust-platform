@@ -53,8 +53,7 @@ handlers::tests::core::core_part_04::lsp_external_diagnostics_provide_quick_fixe
 handlers::tests::core::core_part_04::lsp_workspace_symbols_include_dependency_sources: test
 handlers::tests::core::core_part_05::lsp_did_close_unsaved_dependency_reverts_cross_file_semantics_to_disk: test
 handlers::tests::core::core_part_05::lsp_document_symbols_include_members: test
-handlers::tests::core::core_part_05::lsp_hmi_toml_diagnostics_use_open_source_buffers: test
-handlers::tests::core::core_part_05::lsp_hmi_toml_local_property_diagnostics_do_not_require_runtime_compile: test
+handlers::tests::core::core_part_05::lsp_hmi_folder_toml_files_get_no_legacy_hmi_diagnostics: test
 handlers::tests::core::core_part_05::lsp_memory_budget_eviction_keeps_closed_dependency_semantically_indexed: test
 handlers::tests::core::core_part_05::lsp_oop_access_diagnostics_include_explainer_and_hint: test
 handlers::tests::core::core_part_05::lsp_push_sync_refreshes_dependent_open_document_diagnostics: test

@@ -21,7 +21,7 @@ function coldRoomLoop() {
     processVariable: { symbol: "P1.RoomC", unit: "degC", minimum: -10, maximum: 20 }, setpoint: { symbol: "P1.SetpointC" },
     manipulatedVariable: { symbol: "P1.CompressorPct", unit: "%", minimum: 0, maximum: 100 }, mode: { symbol: "P1.AutoMode", whenTrue: "Auto" },
     manualOutput: "P1.ManualPct", hysteresis: "P1.HysteresisC", bandConvention: "half-band", minimumOn: "P1.MinimumOnS",
-    minimumOff: "P1.MinimumOffS", latch: "P1.CoolingOn", experimentDurationSeconds: 120 });
+    minimumOff: "P1.MinimumOffS", latch: "P1.CoolingOn", experimentStep: 100, experimentDurationSeconds: 120 });
 }
 const MODEL = { kind: "transfer-function", numerator: [-0.1], denominator: [60, 1], delaySeconds: 0, revision: "room", source: "fitted",
   validation: "validated", evidence: ["recording"], inputs: [{ id: "P1.CompressorPct", unit: "%", operatingRange: { minimum: 0, maximum: 100 } }],
@@ -31,7 +31,11 @@ const REQUIREMENTS = { referenceChange: -7, maximumError: 2, settlingBand: 0.5, 
 /** A runtime whose readings follow the given sequence, repeating the last one. */
 function readings(values: Record<string, number>[]) {
   let index = 0;
-  const read = async () => ({ values: values[Math.min(index++, values.length - 1)] });
+  // Each reading is a newer scan 100 ms later on the runtime's own clock, so the wait measures process time (B6.2).
+  const read = async () => {
+    const at = index++;
+    return { values: values[Math.min(at, values.length - 1)], runtime_time_ns: at * 100_000_000 };
+  };
   return { read, count: () => index };
 }
 

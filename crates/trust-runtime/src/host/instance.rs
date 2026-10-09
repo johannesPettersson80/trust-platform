@@ -400,6 +400,7 @@ pub(crate) fn apply_instance_array_initializer(
             profile,
             stdlib,
             initializer_catalog,
+            function_blocks,
             parent_instance_id,
             instance_id,
             fb,
@@ -582,6 +583,7 @@ fn init_var_defaults(
                     profile,
                     stdlib,
                     initializer_catalog,
+                    function_blocks,
                     Some(instance_id),
                     nested_id,
                     fb,
@@ -746,6 +748,7 @@ fn init_method_static_defaults(
                         profile,
                         stdlib,
                         initializer_catalog,
+                        function_blocks,
                         Some(instance_id),
                         nested_id,
                         fb,
@@ -813,6 +816,7 @@ pub(crate) fn apply_fb_instance_initializer(
     profile: &DateTimeProfile,
     stdlib: &StandardLibrary,
     initializer_catalog: &InitializerCatalog,
+    function_blocks: &IndexMap<SmolStr, FunctionBlockDef>,
     parent_instance_id: Option<InstanceId>,
     target_instance_id: InstanceId,
     fb: &FunctionBlockDef,
@@ -832,7 +836,7 @@ pub(crate) fn apply_fb_instance_initializer(
         }
         seen.push(name.clone());
 
-        let (canonical_name, type_id) = fb_initializer_target(fb, name)?;
+        let (canonical_name, type_id) = fb_initializer_target(function_blocks, fb, name)?;
         let value = crate::harness::initializer::evaluate_initializer(
             storage,
             registry,
@@ -855,10 +859,39 @@ pub(crate) fn apply_fb_instance_initializer(
     Ok(())
 }
 
+/// The member an instance initializer names and its type: an input, an output or a variable of the
+/// block or of a block it extends (IEC 61131-3 Ed.3 §6.6.5.3: a derived block has its base's
+/// variables), so `P102 : Plant.FB_Pump := (StartTimeout := T#10s)` sets an inherited setting.
 pub(crate) fn fb_initializer_target(
+    function_blocks: &IndexMap<SmolStr, FunctionBlockDef>,
     fb: &FunctionBlockDef,
     name: &SmolStr,
 ) -> Result<(SmolStr, trust_hir::TypeId), RuntimeError> {
+    let mut current = Some(fb);
+    let mut depth = 0;
+    while let Some(block) = current {
+        if let Some(target) = own_initializer_target(block, name)? {
+            return Ok(target);
+        }
+        depth += 1;
+        if depth > 32 {
+            break;
+        }
+        current = match &block.base {
+            Some(FunctionBlockBase::FunctionBlock(base)) => {
+                function_blocks.get(&SmolStr::new(base.to_ascii_uppercase()))
+            }
+            _ => None,
+        };
+    }
+    Err(RuntimeError::TypeMismatch)
+}
+
+/// The member as one block declares it, `None` when that block does not declare it.
+fn own_initializer_target(
+    fb: &FunctionBlockDef,
+    name: &SmolStr,
+) -> Result<Option<(SmolStr, trust_hir::TypeId)>, RuntimeError> {
     if let Some(param) = fb
         .params
         .iter()
@@ -867,7 +900,7 @@ pub(crate) fn fb_initializer_target(
         if param.direction == ParamDirection::InOut {
             return Err(RuntimeError::TypeMismatch);
         }
-        return Ok((param.name.clone(), param.type_id));
+        return Ok(Some((param.name.clone(), param.type_id)));
     }
     if let Some(var) = fb
         .vars
@@ -877,7 +910,7 @@ pub(crate) fn fb_initializer_target(
         if var.external {
             return Err(RuntimeError::TypeMismatch);
         }
-        return Ok((var.name.clone(), var.type_id));
+        return Ok(Some((var.name.clone(), var.type_id)));
     }
     if fb
         .temps
@@ -886,7 +919,7 @@ pub(crate) fn fb_initializer_target(
     {
         return Err(RuntimeError::TypeMismatch);
     }
-    Err(RuntimeError::TypeMismatch)
+    Ok(None)
 }
 
 fn class_type_name(type_id: trust_hir::TypeId, registry: &TypeRegistry) -> Option<SmolStr> {
@@ -936,6 +969,7 @@ mod tests {
                 direction: ParamDirection::In,
                 address: None,
                 default: Some(Expr::Literal(Value::Int(5))),
+                retain: crate::RetainPolicy::Unspecified,
             }],
             vars: Vec::new(),
             temps: Vec::new(),

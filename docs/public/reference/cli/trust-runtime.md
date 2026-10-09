@@ -21,9 +21,11 @@ binary reports them.
 | `check` | validate sources/config without writing `program.stbc` |
 | `build` | generate `program.stbc` |
 | `validate` | validate project config + bundle |
+| `hmi check` | check the project's HMI files against its program, for CI |
+| `hmi test` | compare every HMI page's look with its approved screenshot, for CI |
+| `hmi-password` | print the stored hash of an HMI user's password |
 | `test` | deprecated alias for `trust-dev test` |
 | `docs` | deprecated alias for `trust-dev docs` |
-| `hmi` | scaffold/update/reset `hmi/` |
 | `ads` | Beckhoff ADS onboarding backend, symbol import, route artifacts, and validation |
 | `comm` | offline communication schema, configuration, discovery, topology, and symbol browsing |
 | `plcopen` | PLCopen import/export/profile |
@@ -100,6 +102,33 @@ Primary options:
 
 - `--project`
 - `--ci`
+
+### HMI check
+
+```text
+Usage: trust-runtime hmi check [--project <dir>] [--json]
+```
+
+Runs the HMI Builder's checks over every HMI file of the project, for its own CI: the files
+load, the assets the pages use are there, every binding resolves in the program with a
+compatible type and direction, and every control is within the write policy of
+`runtime.toml`. It compiles the program with its libraries first. Each problem prints as
+`file:line: message`; any problem exits 1, a clean project exits 0 with
+`HMI check passed: N files`. `--json` prints `{ "ok", "problems": [{ "file", "line",
+"message" }] }`.
+
+### HMI test
+
+```text
+Usage: trust-runtime hmi test [--project <dir>] [--update] [--chromium <path>]
+```
+
+Draws every HMI page in headless Chromium as the runtime display lays it out at the screen's
+design size, with design samples in place of live values, and compares it with its approved
+screenshot `hmi/screens/<page>.png`. A page whose look changed, or that has no approved
+screenshot, fails the command (exit 1) and leaves its new look as
+`hmi/screens/<page>.actual.png` to review; `--update` approves every page's new look. Chromium
+is taken from `--chromium`, `CHROMIUM`, the usual names on the path, or Playwright's cache.
 
 ### Test
 
@@ -187,18 +216,6 @@ Usage: trust-runtime commit [OPTIONS]
 This preserves `--project`, `--message`, and `--dry-run` while forwarding to
 `trust-dev commit`. It prints a deprecation warning and will not be removed
 before 2026-10-05; removal requires a separate behavior-change release note.
-
-### HMI
-
-```text
-Usage: trust-runtime hmi [OPTIONS] <COMMAND>
-```
-
-Current subcommands:
-
-- `init`
-- `update`
-- `reset`
 
 ### ADS
 

@@ -1,7 +1,6 @@
 import * as assert from "assert";
 import { spawnSync } from "child_process";
 import * as vscode from "vscode";
-import { STHmiApplyPatchTool, STHmiGetLayoutTool } from "../../lm-tools";
 
 const NEW_PROJECT_COMMAND = "trust-lsp.newProject";
 
@@ -70,36 +69,6 @@ function completionItems(result: CompletionResult): vscode.CompletionItem[] {
     return [];
   }
   return Array.isArray(result) ? result : result.items;
-}
-
-function toolResultText(result: unknown): string {
-  if (typeof result === "string") {
-    return result;
-  }
-  if (!result || typeof result !== "object") {
-    return String(result);
-  }
-  const objectResult = result as Record<string, unknown>;
-  if (typeof objectResult.text === "string") {
-    return objectResult.text;
-  }
-  const content = objectResult.content;
-  if (Array.isArray(content)) {
-    for (const entry of content) {
-      if (
-        entry &&
-        typeof entry === "object" &&
-        typeof (entry as { value?: unknown }).value === "string"
-      ) {
-        return (entry as { value: string }).value;
-      }
-    }
-  }
-  try {
-    return JSON.stringify(result);
-  } catch {
-    return String(result);
-  }
 }
 
 suite("New project command (VS Code)", function () {
@@ -520,6 +489,15 @@ suite("New project command (VS Code)", function () {
         `runtime.toml must declare ${section} or the runtime parser rejects the project.`
       );
     }
+    // The runtime runs the configuration's resource that runtime.toml names, so the two agree.
+    const resource = /RESOURCE\s+(\w+)\s+ON/.exec(configSource)?.[1];
+    assert.ok(resource, "config.st declares a resource");
+    assert.match(runtimeToml, new RegExp(`\\[resource\\]\\nname = "${resource}"`));
+    // The runtime refuses a token that is present but empty, so the disabled mesh declares none.
+    assert.doesNotMatch(runtimeToml, /auth_token\s*=\s*""/, "a new project's runtime starts as written");
+    // The HMI can be opened on this computer at once, and commissioned values survive a restart.
+    assert.match(runtimeToml, /\[runtime\.web\]\nenabled = true\nlisten = "127\.0\.0\.1:8080"/);
+    assert.match(runtimeToml, /\[runtime\.retain\]\nmode = "file"\npath = "retain\.bin"/);
     const ioToml = await readText(ioTomlUri);
     assert.ok(
       /driver\s*=\s*"simulated"/.test(ioToml),
@@ -558,9 +536,10 @@ suite("New project command (VS Code)", function () {
     assert.strictEqual(cancelledAtName, false);
     assert.strictEqual(await pathExists(cancelAtNameTarget), false);
 
+    // A folder holding a project's manifest: a new project would replace it, so it asks.
     const existingTarget = vscode.Uri.joinPath(fixturesRoot, "cancel-at-overwrite");
     await vscode.workspace.fs.createDirectory(existingTarget);
-    const sentinelUri = vscode.Uri.joinPath(existingTarget, "sentinel.txt");
+    const sentinelUri = vscode.Uri.joinPath(existingTarget, "trust-lsp.toml");
     await vscode.workspace.fs.writeFile(sentinelUri, Buffer.from("keep-me"));
 
     const cancelledAtOverwrite = await vscode.commands.executeCommand<boolean>(
@@ -572,16 +551,31 @@ suite("New project command (VS Code)", function () {
       }
     );
     assert.strictEqual(cancelledAtOverwrite, false);
-    assert.strictEqual(await pathExists(sentinelUri), true);
-    assert.strictEqual(
-      await pathExists(vscode.Uri.joinPath(existingTarget, "src", "Main.st")),
-      false
-    );
+    assert.strictEqual(Buffer.from(await vscode.workspace.fs.readFile(sentinelUri)).toString(), "keep-me");
+    assert.strictEqual(await pathExists(vscode.Uri.joinPath(existingTarget, "src", "Main.st")), false);
+  });
+
+  test("a folder without truST files becomes a project without a question", async () => {
+    const targetUri = vscode.Uri.joinPath(fixturesRoot, "plain-folder");
+    await vscode.workspace.fs.createDirectory(targetUri);
+    const otherUri = vscode.Uri.joinPath(targetUri, "notes.txt");
+    await vscode.workspace.fs.writeFile(otherUri, Buffer.from("mine"));
+    // No overwrite answer is given: a question would be refused by the test host.
+    const created = await vscode.commands.executeCommand<boolean>(NEW_PROJECT_COMMAND, {
+      targetUri,
+      openWorkspace: false,
+    });
+    assert.strictEqual(created, true);
+    assert.strictEqual(Buffer.from(await vscode.workspace.fs.readFile(otherUri)).toString(), "mine");
+    assert.strictEqual(await pathExists(vscode.Uri.joinPath(targetUri, "src", "Main.st")), true);
+    await deleteTreeIfExists(targetUri);
   });
 
   test("existing target requires explicit confirmation behavior", async () => {
     const targetUri = vscode.Uri.joinPath(fixturesRoot, "existing-target");
-    await vscode.workspace.fs.createDirectory(targetUri);
+    await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(targetUri, "src"));
+    const ownMainUri = vscode.Uri.joinPath(targetUri, "src", "Main.st");
+    await vscode.workspace.fs.writeFile(ownMainUri, Buffer.from("PROGRAM Mine END_PROGRAM\n"));
     const sentinelUri = vscode.Uri.joinPath(targetUri, "keep.txt");
     await vscode.workspace.fs.writeFile(sentinelUri, Buffer.from("do-not-delete"));
 
@@ -596,8 +590,8 @@ suite("New project command (VS Code)", function () {
     assert.strictEqual(declined, false, "Expected explicit decline to stop.");
     assert.strictEqual(await pathExists(sentinelUri), true);
     assert.strictEqual(
-      await pathExists(vscode.Uri.joinPath(targetUri, "src", "Main.st")),
-      false
+      Buffer.from(await vscode.workspace.fs.readFile(ownMainUri)).toString(),
+      "PROGRAM Mine END_PROGRAM\n",
     );
 
     const accepted = await vscode.commands.executeCommand<boolean>(
@@ -664,54 +658,6 @@ suite("New project command (VS Code)", function () {
       { targetUri: multiRootTarget, openWorkspace: false }
     );
     assert.strictEqual(createdMultiRoot, true);
-    assert.strictEqual(
-      await pathExists(vscode.Uri.joinPath(multiRootTarget, "src", "Main.st")),
-      true
-    );
-
-    const patchTool = new STHmiApplyPatchTool();
-    const layoutTool = new STHmiGetLayoutTool();
-    const tokenSource = new vscode.CancellationTokenSource();
-    const hmiFile = `multi-root-hmi-${Date.now()}.toml`;
-
-    const patchResult = await patchTool.invoke(
-      {
-        input: {
-          dry_run: false,
-          rootPath: secondWorkspaceRoot.fsPath,
-          operations: [
-            {
-              op: "add",
-              path: `/files/${hmiFile}`,
-              value: 'title = "Secondary HMI"\n',
-            },
-          ],
-        },
-      },
-      tokenSource.token
-    );
-    const patchPayload = JSON.parse(toolResultText(patchResult));
-    assert.strictEqual(patchPayload.ok, true);
-    assert.strictEqual(patchPayload.rootPath, secondWorkspaceRoot.fsPath);
-    assert.strictEqual(
-      await pathExists(vscode.Uri.joinPath(secondWorkspaceRoot, "hmi", hmiFile)),
-      true
-    );
-    assert.strictEqual(
-      await pathExists(vscode.Uri.joinPath(workspaceFolder.uri, "hmi", hmiFile)),
-      false
-    );
-
-    const layoutResult = await layoutTool.invoke(
-      { input: { rootPath: secondWorkspaceRoot.fsPath } },
-      tokenSource.token
-    );
-    const layoutPayload = JSON.parse(toolResultText(layoutResult));
-    assert.strictEqual(layoutPayload.exists, true);
-    assert.strictEqual(layoutPayload.rootPath, secondWorkspaceRoot.fsPath);
-    assert.ok(
-      Array.isArray(layoutPayload.files) &&
-        layoutPayload.files.some((entry: { name?: string }) => entry.name === hmiFile)
-    );
+    assert.strictEqual(await pathExists(vscode.Uri.joinPath(multiRootTarget, "src", "Main.st")), true);
   });
 });

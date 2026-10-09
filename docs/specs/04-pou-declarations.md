@@ -301,6 +301,16 @@ END_FUNCTION_BLOCK
 4. **Can contain methods**: OOP-style methods allowed
 5. **Can inherit**: Using EXTENDS (if supported)
 6. **EXTENDS targets**: Function blocks may EXTENDS a FUNCTION_BLOCK or CLASS; extending an INTERFACE is invalid (Table 40, IEC 61131-3 Ed.3 §6.6.3.4)
+   - **Inherited parameters**: a derived function block inherits its base's input,
+     output and in-out variables (IEC 61131-3 Ed.3 §6.6.5.3), so a call of the derived
+     block binds them like its own, for example `Block(Value := 7, Gain := 3,
+     Result => R)` where `Gain` and `Result` are declared in the base. The base's
+     parameters come first in positional order, then the derived block's, each in
+     declaration order.
+   - A base in a namespace is written qualified (`EXTENDS Lib.Base`) or found
+     through `USING`; both give the same inheritance (IEC 61131-3 Ed.3 Tables 64–66).
+   - Calling a derived function block runs only its own body; the base's body does not
+     run.
 7. **Can implement interfaces**: A function block declaration may use
    `IMPLEMENTS` with one or more interface names; the parser preserves the
    complete ordered interface list for semantic validation (IEC 61131-3 Ed.3

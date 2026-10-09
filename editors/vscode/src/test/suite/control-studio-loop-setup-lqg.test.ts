@@ -31,7 +31,7 @@ const draft = { ...scope, name: "Tank 2 level", action: "direct", family: "LQG",
   manipulatedVariable: { symbol: "P1.PumpM3PerS", unit: "m3/s", minimum: 0, maximum: 0.02 },
   processVariable: { symbol: "P1.Tank2M", unit: "m", minimum: 0, maximum: 0.5 }, setpoint: { symbol: "P1.Tank2SetpointM" },
   referenceGain: "P1.N", mode: { symbol: "P1.Enabled", whenTrue: "Auto" }, manualOutput: "P1.ManualM3PerS",
-  experimentStep: 0.002, experimentDurationSeconds: 300, estimator };
+  estimator };
 
 suite("Control Studio LQG setup", () => {
   test("writes an LQG loop whose program estimates the states with the chosen model, ready for LQG design", () => {
@@ -67,7 +67,7 @@ suite("Control Studio LQG setup", () => {
         ["feedback.manipulatedVariable.unit", "m3/s"], ["feedback.manipulatedVariable.minimum", "0"], ["feedback.manipulatedVariable.maximum", "0.02"],
         ["feedback.processVariable", "P1.Tank2M"], ["feedback.processVariable.unit", "m"], ["feedback.processVariable.minimum", "0"],
         ["feedback.processVariable.maximum", "0.5"], ["feedback.setpoint", "P1.Tank2SetpointM"], ["feedback.referenceGain", "P1.N"],
-        ["feedback.mode", "P1.Enabled"], ["feedback.manualOutput", "P1.ManualM3PerS"], ["feedback.experimentDuration", "300"]]) view.set(field, value);
+        ["feedback.mode", "P1.Enabled"], ["feedback.manualOutput", "P1.ManualM3PerS"]]) view.set(field, value);
       const next = view.root.querySelector<HTMLElement>("[data-setup-message]")!.textContent ?? "";
       assert.match(next, /estimator.*model|model.*estimator/i, `the estimator's model file is next: ${next}`);
       view.set("feedback.estimatorModel", "lqg-model.json");

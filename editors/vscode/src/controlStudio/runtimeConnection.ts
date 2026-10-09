@@ -1,6 +1,7 @@
 import { runtimeLifecycleService } from "../runtimeLifecycle";
 import { sendRuntimeControlRequest } from "../runtimeControlClient";
 import { getSelectedRuntimeId } from "../selectedRuntime";
+import { simulationTarget } from "./simulationTarget";
 
 /** Captures the reviewed endpoint and token once; later selections cannot reroute it. */
 export async function bindRuntimeConnection(runtimeId: string) {
@@ -10,7 +11,7 @@ export async function bindRuntimeConnection(runtimeId: string) {
   const endpoint = lifecycle.status.endpoint;
   const token = await runtimeLifecycleService.controlAuthToken(endpoint);
   if (getSelectedRuntimeId() !== runtimeId) throw new Error("The selected runtime changed before review.");
-  const source = lifecycle.status.runtimeMode === "simulate" ? "simulation" as const : "physical" as const;
+  const source = simulationTarget(lifecycle.status) ? "simulation" as const : "physical" as const;
   return { source, endpoint, request: (operation: string, params: Record<string, unknown>): Promise<unknown> =>
     sendRuntimeControlRequest(endpoint, token, operation, params, { timeoutMs: 5000 }) };
 }

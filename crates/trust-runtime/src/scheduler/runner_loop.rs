@@ -28,10 +28,7 @@ fn grid_cycle_start(scheduled: Option<i64>, now: i64, interval: i64) -> i64 {
     }
 }
 
-fn cycle_deadline_from(
-    start: std::time::Instant,
-    timeout: Duration,
-) -> Option<std::time::Instant> {
+fn cycle_deadline_from(start: std::time::Instant, timeout: Duration) -> Option<std::time::Instant> {
     if timeout.as_nanos() <= 0 {
         return Some(start);
     }
@@ -111,7 +108,6 @@ fn run_resource_loop_core<C, F>(
 {
     let mut paused = false;
     let mut automatic_restarts = AutomaticRestartLimiter::default();
-    let mut scheduled_start: Option<i64> = None;
     if let Some(gate) = runner.start_gate.as_ref() {
         set_resource_state(&state, ResourceState::Ready);
         if !gate.wait_open(&stop) {
@@ -146,17 +142,15 @@ fn run_resource_loop_core<C, F>(
                     ResourceCommand::Pause => {
                         paused = true;
                         set_resource_state(&state, ResourceState::Paused);
+                        runner.timing.restart_schedule();
                     }
                     ResourceCommand::Resume => {
                         paused = false;
                         set_resource_state(&state, ResourceState::Running);
+                        runner.timing.restart_schedule();
                     }
                     ResourceCommand::SimulationSnapshot { respond_to } => {
-                        let snapshot = runner
-                            .simulation
-                            .as_ref()
-                            .map(|simulation|simulation.runtime_snapshot_for(&runner.runtime));
-                        let _ = respond_to.send(snapshot);
+                        let _ = respond_to.send(runner.simulation_snapshot());
                     }
                     ResourceCommand::SimulationTraceClear {
                         plant_id,
@@ -168,10 +162,8 @@ fn run_resource_loop_core<C, F>(
                             .as_mut()
                             .ok_or(crate::simulation::PlantTraceClearError::StatusUnavailable)
                             .and_then(|simulation| {
-                                simulation.clear_plant_trace(
-                                    &plant_id,
-                                    &active_configuration_revision,
-                                )
+                                simulation
+                                    .clear_plant_trace(&plant_id, &active_configuration_revision)
                             });
                         let _ = respond_to.send(result);
                     }
@@ -202,7 +194,7 @@ fn run_resource_loop_core<C, F>(
                 thread::yield_now();
             } else {
                 let sleep_interval =
-                    scaled_sleep_interval(runner.cycle_interval, runner.time_scale);
+                    scaled_sleep_interval(runner.cycle_interval, runner.timing.scale());
                 let deadline = Duration::from_nanos(
                     now_raw.as_nanos().saturating_add(sleep_interval.as_nanos()),
                 );
@@ -212,10 +204,8 @@ fn run_resource_loop_core<C, F>(
         }
 
         let now_raw = runner.clock.now();
-        let sleep_interval =
-            scaled_sleep_interval(runner.cycle_interval, runner.time_scale).as_nanos();
-        let cycle_start = grid_cycle_start(scheduled_start, now_raw.as_nanos(), sleep_interval);
-        let now = scaled_time(now_raw, runner.time_scale);
+        let slot = runner.timing.begin_cycle(now_raw, runner.cycle_interval);
+        let now = slot.process_time;
         runner.runtime.set_current_time(now);
         let wall_start = std::time::Instant::now();
         let watchdog = runner.runtime.watchdog_policy();
@@ -303,8 +293,7 @@ fn run_resource_loop_core<C, F>(
             thread::yield_now();
             continue;
         }
-        let deadline = Duration::from_nanos(cycle_start.saturating_add(sleep_interval));
-        scheduled_start = Some(deadline.as_nanos());
+        let deadline = runner.timing.finish_cycle(slot);
         runner.clock.sleep_until(deadline);
     }
 }
@@ -355,28 +344,32 @@ fn try_automatic_restart<C: Clock + Clone>(
     true
 }
 
-fn apply_automatic_restart_backoff<C: Clock + Clone>(
-    runner: &ResourceRunner<C>,
-    attempt: u32,
-) {
+fn apply_automatic_restart_backoff<C: Clock + Clone>(runner: &ResourceRunner<C>, attempt: u32) {
     let backoff = automatic_restart_backoff(runner.cycle_interval, attempt);
     if backoff.as_nanos() <= 0 {
         thread::yield_now();
         return;
     }
-    let deadline = Duration::from_nanos(runner.clock.now().as_nanos().saturating_add(backoff.as_nanos()));
+    let deadline = Duration::from_nanos(
+        runner
+            .clock
+            .now()
+            .as_nanos()
+            .saturating_add(backoff.as_nanos()),
+    );
     runner.clock.sleep_until(deadline);
 }
 
 fn automatic_restart_backoff(cycle_interval: Duration, attempt: u32) -> Duration {
-    let base = cycle_interval
-        .as_nanos()
-        .clamp(
-            AUTOMATIC_RESTART_BACKOFF_FLOOR_NANOS,
-            AUTOMATIC_RESTART_BACKOFF_CAP_NANOS,
-        );
+    let base = cycle_interval.as_nanos().clamp(
+        AUTOMATIC_RESTART_BACKOFF_FLOOR_NANOS,
+        AUTOMATIC_RESTART_BACKOFF_CAP_NANOS,
+    );
     let multiplier = 1_i64 << attempt.saturating_sub(1).min(8);
-    Duration::from_nanos(base.saturating_mul(multiplier).min(AUTOMATIC_RESTART_BACKOFF_CAP_NANOS))
+    Duration::from_nanos(
+        base.saturating_mul(multiplier)
+            .min(AUTOMATIC_RESTART_BACKOFF_CAP_NANOS),
+    )
 }
 
 #[derive(Debug)]
@@ -432,7 +425,9 @@ where
         }
         Err(payload) => {
             debug_assert!(sentinel.panicked_mid_cycle());
-            Err(runner.runtime.resource_panic(panic_payload_message(payload)))
+            Err(runner
+                .runtime
+                .resource_panic(panic_payload_message(payload)))
         }
     }
 }
@@ -548,7 +543,9 @@ mod runner_loop_poison_tests {
                 let mut starts = recorded.lock().expect("cycle starts lock");
                 starts.push(runtime.current_time().as_nanos());
                 if starts.len() == 101 {
-                    return Err(RuntimeError::SimulationFault("stop after 101 cycles".into()));
+                    return Err(RuntimeError::SimulationFault(
+                        "stop after 101 cycles".into(),
+                    ));
                 }
                 Ok(())
             },
@@ -748,11 +745,8 @@ END_PROGRAM
         harness.set_input("transient_value", Value::DInt(70));
         harness.set_input("ordinary_value", Value::DInt(80));
 
-        let mut runner = ResourceRunner::new(
-            harness.into_runtime(),
-            TestClock,
-            Duration::from_millis(1),
-        );
+        let mut runner =
+            ResourceRunner::new(harness.into_runtime(), TestClock, Duration::from_millis(1));
         let mut limiter = AutomaticRestartLimiter::default();
         let state = Arc::new(Mutex::new(ResourceState::Running));
         let last_error = Arc::new(Mutex::new(None));
@@ -815,10 +809,7 @@ END_PROGRAM
 
         assert!(matches!(
             err,
-            RuntimeError::RestartLimitExceeded {
-                attempts: 3,
-                ..
-            }
+            RuntimeError::RestartLimitExceeded { attempts: 3, .. }
         ));
     }
 
@@ -830,10 +821,7 @@ END_PROGRAM
 
         assert!(first.as_nanos() > 0);
         assert!(second >= first);
-        assert_eq!(
-            capped.as_nanos(),
-            AUTOMATIC_RESTART_BACKOFF_CAP_NANOS
-        );
+        assert_eq!(capped.as_nanos(), AUTOMATIC_RESTART_BACKOFF_CAP_NANOS);
     }
 }
 
@@ -853,6 +841,15 @@ fn apply_resource_command(runtime: &mut Runtime, command: ResourceCommand) {
         ResourceCommand::MeshSnapshot { names, respond_to } => {
             let snapshot = runtime.snapshot_globals(&names);
             let _ = respond_to.send(snapshot);
+        }
+        ResourceCommand::MeshCatalogue { names, respond_to } => {
+            let metadata = runtime.metadata_snapshot();
+            let result = crate::hmi::variable_tree::published_variables(
+                &metadata,
+                runtime.storage(),
+                &names,
+            );
+            let _ = respond_to.send(result);
         }
         ResourceCommand::MeshApply {
             updates,

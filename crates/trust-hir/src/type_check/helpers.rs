@@ -106,6 +106,11 @@ impl<'a> TypeChecker<'a> {
         if self.is_generic_type(target) || self.is_generic_type(source) {
             return;
         }
+        // An instance passed to an interface it implements, or a reference to a compatible one,
+        // is passed as it is (IEC 61131-3 §6.6.6): no elementary conversion (§6.4.2) takes place.
+        if self.passes_reference(target) || self.passes_reference(source) {
+            return;
+        }
 
         self.diagnostics.warning(
             DiagnosticCode::ImplicitConversion,
@@ -116,6 +121,22 @@ impl<'a> TypeChecker<'a> {
                 self.type_name(target)
             ),
         );
+    }
+
+    /// Whether a value of this type is an instance, an interface or a reference, which an
+    /// assignment passes rather than converts.
+    fn passes_reference(&self, type_id: TypeId) -> bool {
+        matches!(
+            self.symbols.type_by_id(type_id),
+            Some(
+                Type::Interface { .. }
+                    | Type::Class { .. }
+                    | Type::FunctionBlock { .. }
+                    | Type::Reference { .. }
+                    | Type::Pointer { .. }
+                    | Type::Null
+            )
+        )
     }
 
     fn is_string_family_implicit_ok(&self, target: TypeId, source: TypeId) -> bool {

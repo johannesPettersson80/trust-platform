@@ -785,3 +785,12 @@ mod point_map_nonfinite_tests {
         );
     }
 }
+
+/// The bytes of the input image the input points fill (specification 42, §5 item 4).
+fn input_point_bytes(points: &[MqttInputPoint]) -> Vec<std::ops::Range<usize>> {
+    points
+        .iter()
+        .filter_map(|point| mqtt_image_range(point.image_offset, point.image_bit, point.data_type).ok())
+        .map(|bits| bits.start / 8..bits.end.div_ceil(8))
+        .collect()
+}

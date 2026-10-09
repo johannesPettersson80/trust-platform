@@ -77,10 +77,11 @@ fn write_project_with_control_target(root: &Path, endpoint: &str, token: &str) {
 
 #[test]
 fn ctl_status_sends_authenticated_request_and_prints_summary() {
+    // The runtime reports `"fault": null` when there is no fault (control/status_handlers.rs).
     let (endpoint, request_rx, server) = spawn_control_server(json!({
         "id": 1,
         "ok": true,
-        "result": { "state": "running" }
+        "result": { "state": "running", "fault": null }
     }));
 
     let output = run_ctl(&["--endpoint", &endpoint, "--token", "cli-token", "status"]);

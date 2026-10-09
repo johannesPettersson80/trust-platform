@@ -6,7 +6,6 @@ import {
 export * from "./shared/types";
 export * from "./shared/lm";
 export * from "./shared/workspace";
-export * from "./shared/hmi";
 export * from "./shared/lsp";
 
 export function __testSetRuntimeControlRequestHandler(

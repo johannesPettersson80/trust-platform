@@ -46,8 +46,8 @@ export async function adoptStudioBinding(context: vscode.ExtensionContext, loop:
   }
   if (selection.family) await sessions.engineer?.handle({ schemaVersion: 1, kind: "control-studio.engineer.invalidate", messageId: randomUUID(),
     ...scope, expectedLoopRevision: scope.loopRevision, payload: { family: selection.family } }, scope, async () => {});
-  await storeEngineerDraft(context, loop, sessions.engineer?.snapshotStudy());
-  await storeEngineerStage(context, loop, { schemaVersion: 1, kind: "control-studio.navigation.select", ...scope,
+  await storeEngineerDraft(loop, sessions.engineer?.snapshotStudy());
+  await storeEngineerStage(loop, { schemaVersion: 1, kind: "control-studio.navigation.select", ...scope,
     expectedLoopRevision: scope.loopRevision, payload: { stage: "tune" } }, scope);
 }
 

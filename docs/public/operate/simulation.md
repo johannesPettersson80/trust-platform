@@ -1,7 +1,7 @@
 # Simulation
 
 Virtual process and fault-injection loop before real I/O. Simulated signals use
-the same project, runtime, and HMI path planned for target hardware.
+the same project and runtime path planned for target hardware.
 
 Use simulation first when the next question can be answered without energizing
 real equipment.

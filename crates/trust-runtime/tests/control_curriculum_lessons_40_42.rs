@@ -115,16 +115,6 @@ fn lesson40_equal_flows_again_hold_the_new_level() {
     }
 }
 
-#[test]
-fn lesson40_hmi_only_binds_signals_of_the_executed_tank() {
-    let (runtime, _) = setup(LESSON40);
-    let diagnostics = hmi_diagnostics(LESSON40, &runtime);
-    assert!(
-        diagnostics.is_empty(),
-        "The Lesson 43 HMI must bind the executed tank project: {diagnostics:?}"
-    );
-}
-
 const LESSON41: &str =
     "01-feedback-foundations-and-temperature-control/16-gravity-tank-nonlinearity";
 
@@ -310,16 +300,6 @@ fn lesson41_the_constant_outflow_model_keeps_rising() {
     );
 }
 
-#[test]
-fn lesson41_hmi_only_binds_signals_of_the_executed_tank() {
-    let (runtime, _) = setup(LESSON41);
-    let diagnostics = hmi_diagnostics(LESSON41, &runtime);
-    assert!(
-        diagnostics.is_empty(),
-        "The Lesson 45 HMI must bind the executed tank project: {diagnostics:?}"
-    );
-}
-
 const LESSON42: &str =
     "01-feedback-foundations-and-temperature-control/17-gravity-tank-linearization";
 
@@ -419,15 +399,5 @@ fn lesson42_the_large_step_leaves_the_local_error() {
     assert!(
         last.large - last.large_tangent > 0.05,
         "far outside the declared 0.005 m: {last:?}"
-    );
-}
-
-#[test]
-fn lesson42_hmi_only_binds_signals_of_the_executed_tanks() {
-    let (runtime, _) = setup(LESSON42);
-    let diagnostics = hmi_diagnostics(LESSON42, &runtime);
-    assert!(
-        diagnostics.is_empty(),
-        "The Lesson 46 HMI must bind the executed tanks: {diagnostics:?}"
     );
 }

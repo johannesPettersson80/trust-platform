@@ -12,7 +12,7 @@
 Documentation: <https://johannespettersson80.github.io/trust-platform/>
 
 truST is an open IEC 61131-3 control workspace: one project edited in VS Code,
-run by `trust-runtime`, observed through browser HMI, automated through product
+run by `trust-runtime`, observed through the browser IDE, automated through product
 CLI, Agent APIs, and `trust-dev` workbench tools, connected through truST Mesh,
 and assisted by AI tools that can read diagnostics and use typed truST surfaces.
 
@@ -22,11 +22,11 @@ named-model qualification requires separate device-in-loop evidence.
 [PREEMPT_RT](docs/public/operate/preempt-rt.md) is a supported Linux deployment
 configuration, not a deterministic-latency certification.
 
-![One project across VS Code, diagnostics, debug, Browser IDE, and Browser HMI](docs/public/assets/images/one-project-surface-tour.gif)
+![One project across VS Code, diagnostics, debug, and the Browser IDE](docs/public/assets/images/one-project-surface-tour.gif)
 
-The same runtime also serves a browser IDE at `/ide` and an operator HMI at
-`/hmi`, so one project drives engineering, automation, and operation without
-separate project copies to reconcile.
+The same runtime also serves a browser IDE at `/ide`, so one project drives
+engineering, automation, and operation without separate project copies to
+reconcile.
 
 Read [One Project, Every Surface](docs/public/concepts/one-project.md) for the
 surface map and AI/tooling boundaries. Runtimes connect to each other and to
@@ -38,19 +38,18 @@ runtime, the right wire for each job.
 - [Install truST](docs/public/start/installation.md)
 - [What is truST?](docs/public/index.md)
 - [Program in VS Code](docs/public/start/program-in-vscode.md)
-- [Program with examples, I/O, communication, HMI, and AI](docs/public/develop/index.md)
-- [Operate in Browser HMI](docs/public/start/operate-in-browser.md)
+- [Program with examples, I/O, communication, and AI](docs/public/develop/index.md)
 - [Hardware support](docs/public/hardware/index.md)
 - [Reference](docs/public/reference/index.md)
 
 ## Features
 
 - IEC-aware diagnostics, formatting, rename, navigation, and refactors
-- Editor AI tools for typed diagnostics, navigation, file edits, HMI work,
-  telemetry, settings, and debug actions
+- Editor AI tools for typed diagnostics, navigation, file edits, telemetry,
+  settings, and debug actions
 - Runtime panel with live values, memory, and I/O inspection
 - Debugger with breakpoints, stepping, locals, and call stack
-- Browser IDE and operator HMI backed by the same project/runtime
+- Browser IDE backed by the same project/runtime
 - CLI, Agent API, deterministic test, and harness workflows
 - truST Mesh for runtime-to-runtime and plant connectivity
 - PLCopen XML import/export and visual editor support

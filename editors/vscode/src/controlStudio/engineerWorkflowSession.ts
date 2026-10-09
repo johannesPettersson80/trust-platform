@@ -35,21 +35,26 @@ import { RuntimeVerificationClient, type RuntimeVerificationResult, type Runtime
 import { type ParameterStatus } from "./parameterApplication";
 import { isDeepStrictEqual } from "util";
 import { type ConnectedIdentificationPorts } from "./connectedIdentification";
-import { identificationRecovery } from "./connectedIdentificationRecovery";
+import { identificationRecovery, type IdentificationRecovery } from "./connectedIdentificationRecovery";
+import type { AutomaticIdentificationResult } from "./automaticIdentification";
+import { randomUUID } from "crypto";
 import { previewAutomaticRequirements } from "./automaticEngineerRequirements";
 import { identifiedModelPresentation, type AcceptedIdentificationModel } from "./identification";
-import { classifyMainWorkflowFailure, mainWorkflowNextActionLabel } from "./mainWorkflowFailure";
+import { bindingRuntime, classifyMainWorkflowFailure, MainWorkflowError, nextActionSentence, presentMainWorkflowFailure, qualifyModel,
+  type MainWorkflowClassification } from "./mainWorkflowFailure";
 import { ApplyPrecondition } from "./commissioningStartingPoint";
 import { AutomaticControllerSelectionError } from "./automaticControllerRecommendation";
 import { assertEngineerModelCompatibility, assertQualifiedModelResult } from "./engineerModelCompatibility";
 import { createEngineerSessionState, type EngineerSessionState } from "./engineerSessionState";
 import { candidateMargins } from "./candidateMargins";
 import type { EngineerActionContext, EngineerActionHost } from "./engineerActions/host";
-import { identifyPlant } from "./engineerActions/find";
+import { acceptIdentificationResult, identifyPlant } from "./engineerActions/find";
 import { tuneCandidate } from "./engineerActions/tune";
 import { validateCandidate } from "./engineerActions/verify";
 import { confirmReviewedOperation, reviewApplication } from "./engineerActions/application";
-import { reviewInterruptedRollback, reviewReplacementRuntime, retireInterruptedOperation } from "./engineerActions/recovery";
+import { reattachApplyObservation, reviewInterruptedRollback, reviewReplacementRuntime, retireInterruptedOperation } from "./engineerActions/recovery";
+import { observationInProgress, type ObservedCheckpoint } from "./applyObservation";
+import { previewManualSettings as previewSettings } from "./engineerActions/manualPreview";
 
 /** Serializable host owner; deliberately excludes the single-use review and runtime client. */
 export interface PendingManualApplicationOwner {
@@ -73,6 +78,10 @@ export type ManualApplicationCloseRecovery = PendingManualApplicationRecovery | 
 /** Connects the existing model, design, isolated runtime and parameter transaction services. */
 export class EngineerWorkflowSession {
   private readonly state: EngineerSessionState;
+  /** The reattaching or recovering identification this session holds; closing releases its clients only (A8.6, A10.4). */
+  private identificationRecovery: IdentificationRecovery | undefined;
+  /** Closing the panel detaches a reattached Apply observation: the runtime keeps recording it, and nothing is aborted (A10.4). */
+  private observationDetached = false;
   private readonly host: EngineerActionHost;
   private get loop(): ControlLoopDefinition { return controllerRequirementLoop(this.configuredLoop, this.state.channelMapping, this.state.task); }
   constructor(private readonly configuredLoop: ControlLoopDefinition, private readonly model: () => GeneralModel | undefined,
@@ -106,6 +115,7 @@ export class EngineerWorkflowSession {
       requireManualRecovery: (recovery, reason) => this.requireManualRecovery(recovery, reason),
       compareOnModel: (connection, model, task, observed, values, generation) => this.compareOnModel(connection, model, task, observed, values, generation),
       programLawPrediction: (model, task, values, generation, respond) => this.programLawPrediction(model, task, values, generation, respond),
+      runningControllerGains: () => this.runningControllerGains(),
     };
   }
 
@@ -153,17 +163,22 @@ export class EngineerWorkflowSession {
       }
       this.state.modelComparison = decodeModelComparison(this.state.modelComparison, model);
       modelAnalysis = selectedModelFrequencyAnalysis(model);
-      assertQualifiedModelResult(this.loop, model);
+      qualifyModel(() => assertQualifiedModelResult(this.loop, model!));
       this.state.task = previewAutomaticRequirements(this.requirementLoop(), model, this.state.task, this.state.campaigns);
       const evidence = this.currentStageEvidence(), families = this.availableFamilies(), relayCycle = this.relayCycle();
       return { status: "model-ready", task: this.state.task, compatibleControllerRequired: evidence?.hasModel !== true, model, ...(this.state.modelComparison ? { identificationPresentation: this.state.modelComparison.presentation } : {}), ...(modelAnalysis ? { modelAnalysis } : {}), ...(relayCycle ? { relayCycle } : {}), stageEvidence: this.currentStageEvidence(), gainChoice: this.state.gainChoice,
         availableFamilies: families, controllerChoice: this.state.controllerChoice, recommendedFamily: this.recommendedFamily(),
         reason: evidence?.hasModel ? modelReadyReason(model, families) : "Choose a compatible controller on Tune." };
     } catch (error) {
-      const failure = classifyMainWorkflowFailure("tune", error);
-      return { status: "unavailable", failure, ...(model ? { model } : {}), ...(modelAnalysis ? { modelAnalysis } : {}), stageEvidence: this.currentStageEvidence(),
-        reason: `${explanation(error)} Next: ${mainWorkflowNextActionLabel(failure.nextAction)}.` };
+      const failure = failureOf(error);
+      return { status: "unavailable", failure: presentMainWorkflowFailure(explanation(error), failure), ...(model ? { model } : {}), ...(modelAnalysis ? { modelAnalysis } : {}), stageEvidence: this.currentStageEvidence(),
+        reason: `${explanation(error)}${nextActionSentence(failure.nextAction)}` };
     }
+  }
+
+  /** Manual preview (B4.5): read-only, and answered by panel.ts as stage "tune" for the latest request only. */
+  previewManualSettings(settings: Readonly<Record<string, number>>): Promise<Record<string, unknown>> {
+    return previewSettings(this.host, settings);
   }
 
   async handle(message: unknown, scope: LoopMessageScope, post: (payload: Record<string, unknown>) => Promise<void>): Promise<boolean> {
@@ -304,14 +319,14 @@ export class EngineerWorkflowSession {
         this.state.familyEvaluations = error.attempts.map(attempt => ({ family: attempt.structure,
           status: "unavailable", reason: attempt.reason }));
       }
-      const failure = classifyMainWorkflowFailure(action, error);
+      const failure = failureOf(error);
       await respond({ status: "failed", scenarioResults: this.state.scenarioResults, ...(this.state.initialization ? { initialization: this.state.initialization.evaluation } : {}), ...(recovery?.recoveryConfirmed === false ? { commissioning: recovery } : {}),
         ...(error instanceof AcquisitionLimitsRequired || error instanceof ChannelRequirementsRequired ? { missing: error.missing } : {}),
         ...(error instanceof AutomaticControllerSelectionError ? { attempts: error.attempts } : {}),
-        failure, ...(this.state.interruptedCheckpoint && !["completed", "recovered", "retired"].includes(this.state.interruptedCheckpoint.stage) ? { commissioningCheckpoint: true } : {}), reason: error instanceof AutomaticControllerSelectionError
+        failure: presentMainWorkflowFailure(explanation(error), failure), ...(this.state.interruptedCheckpoint && !["completed", "recovered", "retired"].includes(this.state.interruptedCheckpoint.stage) ? { commissioningCheckpoint: true } : {}), reason: error instanceof AutomaticControllerSelectionError
           ? "No controller candidate fits the current model and limits. Choose a compatible controller or review Requirements."
           : error instanceof ApplyPrecondition ? error.message
-          : `${failedOperationLabel(action)} failed: ${explanation(error)} Next: ${mainWorkflowNextActionLabel(failure.nextAction)}.` });
+          : `${failedOperationLabel(action)} failed: ${explanation(error)}${nextActionSentence(failure.nextAction)}` });
     }
     return true;
   }
@@ -352,29 +367,64 @@ export class EngineerWorkflowSession {
     return this.captureStudy(true);
   }
 
+  /** Closing during an Apply observation detaches it at once; reopening reattaches it from its journal (A8.5, A10.4). */
+  detachObservationForClose(): boolean {
+    const owner = this.state.commissioning;
+    if (!owner || !("detachForClose" in owner) || !owner.detachForClose()) return false;
+    this.state.commissioning = undefined;
+    this.releaseForClose();
+    return true;
+  }
+
   async finishUnresolvedRecoveryForClose(): Promise<CommissioningResult | undefined> {
     const owner = this.state.commissioning;
     this.state.commissioning = undefined;
-    this.invalidate();
+    this.releaseForClose();
     return owner ? await owner.settleForClose() : this.state.commissioned;
   }
 
   hasPendingManualApplication(): boolean { return this.state.pendingManualApplication !== undefined; }
 
   hasPendingIdentification(): boolean { return this.state.pendingFind !== undefined || this.state.pendingVerification !== undefined && this.state.identification?.snapshot().status === "running"; }
-  async recoverIdentificationMode(): Promise<void> {
-    if (this.state.identification || this.state.busy) return;
+  /**
+   * Reattaches to the identification the journal holds (A8.5, A10.4). A campaign whose experiment may still run is resumed,
+   * fitted and stored as Identify stores its result; without one, the original recording and mode are restored by cancelling.
+   * Returns the stage payload to show when a model was stored. `progress` receives the resumed campaign's progress (A8.6).
+   */
+  async recoverIdentificationMode(progress?: (text: string) => Promise<void>): Promise<Record<string, unknown> | undefined> {
+    if (this.state.identification || this.state.busy) return undefined;
     const recovery = identificationRecovery(this.loop, this.liveIdentification, () => { this.state.busy = undefined; this.state.cancellationOwner = undefined; });
-    if (!recovery) return;
+    if (!recovery) return undefined;
+    this.identificationRecovery = recovery;
+    // The recovery owns the busy state until it finishes, so a Cancel pressed during a resume reaches its cancel().
     this.state.busy = "verify"; this.state.cancellationOwner = recovery;
-    await recovery.cancel();
+    return recoverIdentification(recovery, found => {
+      this.state.campaigns.push({ id: randomUUID(), status: "completed" as const, runs: found.runs });
+      return acceptIdentificationResult(this.host, found);
+    }, progress);
   }
+  /**
+   * Reattaches to the Apply observation the runtime is recording when the panel reopens (A8.5, A8.6, B6.3). It starts nothing new and
+   * reports the outcome as the Apply's own. Closing the panel detaches it and aborts nothing (A10.4).
+   */
+  async recoverApplyObservation(post: (payload: Record<string, unknown>) => Promise<void>): Promise<boolean> {
+    const checkpoint = this.state.interruptedCheckpoint;
+    if (!checkpoint || !observationInProgress(checkpoint) || this.state.busy || this.observationDetached) return false;
+    this.state.busy = "apply";
+    try { await reattachApplyObservation(this.host, checkpoint as ObservedCheckpoint, post, () => this.observationDetached); }
+    finally { this.state.busy = undefined; }
+    return true;
+  }
+
+  /**
+   * Closing during an identification releases this session's clients only (A8.5, A10.4): the experiment, its recording and an
+   * isolated run continue in the runtime with their journals, and reopening reattaches to them (A8.6). The campaign's own tail
+   * ends at once after release; the runtime-owned experiment and the isolated run are not awaited.
+   */
   async finishIdentificationForClose(): Promise<void> {
-    const owner = this.state.identification?.cancellationOwner();
-    this.invalidate();
-    await owner?.cancel();
+    this.releaseIdentificationRecovery();
+    this.releaseForClose();
     await this.state.pendingFind?.catch(() => undefined);
-    await this.state.pendingVerification?.catch(() => undefined);
   }
 
   pendingManualApplicationOwner(): PendingManualApplicationOwner | undefined {
@@ -384,7 +434,7 @@ export class EngineerWorkflowSession {
 
   async finishPendingManualApplicationForClose(): Promise<ManualApplicationCloseRecovery | undefined> {
     const pending = this.state.pendingManualApplication;
-    this.invalidate();
+    this.releaseForClose();
     if (!pending) return undefined;
     return pending.settling.then(observed => ({ operation: pending.operation, origin: pending.origin, observed }), error => ({
       operation: pending.operation, origin: pending.origin, reason: explanation(error),
@@ -402,7 +452,7 @@ export class EngineerWorkflowSession {
     const selectedModel = this.model();
     if (!this.state.recordingCatalog && !this.state.channelMapping && !selectedModel && !this.state.task && !this.state.tuningPreferences && !this.state.acquisitionPreferences && !this.state.settingsPins && !this.state.scenarioDefinitions?.length
       && this.state.controllerChoice === "automatic" && !this.state.campaigns.length && !this.state.recordedBaseline && !this.state.recordedCandidate && !this.state.verificationAttempts.length) return undefined;
-    if (!recoveryOnly && (this.state.busy || this.state.pendingFind || this.state.pendingVerification) && this.state.cancellationOwner?.snapshot()?.status !== "cancellation-unconfirmed") throw new Error("Wait for the current operation or cancel it before saving the study.");
+    if (!recoveryOnly && (this.state.busy || this.state.pendingFind || this.state.pendingVerification) && this.state.cancellationOwner?.snapshot()?.status !== "cancellation-unconfirmed") throw new MainWorkflowError("Wait for the current operation or cancel it before saving the study.", { cause: "runtime", nextAction: "wait" });
     const study = decodeEngineerStudy({ ...(this.state.channelMapping ? { channelMapping: this.state.channelMapping } : {}), ...(this.state.tuningPreferences ? { tuningPreferences: this.state.tuningPreferences } : {}), ...(decodeModelComparison(this.state.modelComparison, selectedModel) ? { modelComparison: this.state.modelComparison } : {}), ...(this.state.acquisitionPreferences ? { acquisitionSettings: this.state.acquisitionPreferences } : {}), scenarioDefinitions: this.state.scenarioDefinitions ?? [], ...(selectedModel ? { selectedModel } : {}),
       ...(this.state.tuningRuns.length ? { tuningRuns: this.state.tuningRuns } : {}),
       ...(this.state.recordingCatalog ? { recordingCatalog: this.state.recordingCatalog } : {}),
@@ -433,7 +483,7 @@ export class EngineerWorkflowSession {
   private assertIdleForReplacement(action: string): void {
     if (this.state.busy || this.state.pendingFind || this.state.pendingVerification || this.state.cancelling || this.state.commissioned?.recoveryConfirmed === false || this.state.manualApplicationRecovery
       || this.state.interruptedCheckpoint && !["completed", "recovered", "retired"].includes(this.state.interruptedCheckpoint.stage)) {
-      throw new Error(`Finish the running operation, or cancel it and wait for retained evidence, then retry ${action}.`);
+      throw new MainWorkflowError(`Finish the running operation, or cancel it and wait for retained evidence, then retry ${action}.`, { cause: "runtime", nextAction: "wait" });
     }
   }
   restoreStudy(value: EngineerStudy | undefined, restoreOperationOwner = true): void {
@@ -475,6 +525,8 @@ export class EngineerWorkflowSession {
   relayCycle(): RelayCycleEvidence | undefined { return selectedModelRelayCycle(this.loop, this.model(), this.state.campaigns); }
 
   restoredOwnerView(): Record<string, unknown> | undefined {
+    // A journalled observation is reattached and reported by recoverApplyObservation (A8.6); it is not a recovery to review.
+    if (this.state.interruptedCheckpoint && observationInProgress(this.state.interruptedCheckpoint)) return undefined;
     if (this.state.interruptedCheckpoint && !["completed", "recovered", "retired"].includes(this.state.interruptedCheckpoint.stage)) return {
       status: "recovery-required", commissioningCheckpoint: true,
       reason: "An interrupted commissioning operation is retained. Review rollback, or review a restarted runtime, before starting new work.",
@@ -501,7 +553,7 @@ export class EngineerWorkflowSession {
       cancel: async () => {
         if (!client) {
           const connection = await bindRuntimeConnection(this.loop.runtimeId);
-          if (connection.source !== "simulation") throw new Error("Reconnect the original simulator to resolve its isolated operation.");
+          if (connection.source !== "simulation") throw new MainWorkflowError("Reconnect the original simulator to resolve its isolated operation.", { cause: "runtime", nextAction: "connect-runtime" });
           client = new RuntimeVerificationClient({ source: "simulation", request: connection.request }, this.retainIsolatedOperation);
           client.restoreCancellation(unresolved);
         }
@@ -581,19 +633,20 @@ export class EngineerWorkflowSession {
   private scenarioLoop(): ControlLoopDefinition { return { ...this.loop, verificationScenarios: this.state.scenarioDefinitions }; }
   private inputSignature(): string { return JSON.stringify({ loop: this.scenarioLoop(), model: this.model(), task: this.state.task, values: this.state.values }); }
   private async checkVerifiedProject(): Promise<void> {
-    if (!this.state.campaignPassed) throw new Error("Every mandatory scenario must pass before application.");
-    if (this.state.verifiedInputs !== this.inputSignature()) throw new Error("Workflow inputs changed after verification. Verify the current candidate again.");
-    if (this.state.verified?.evaluation.status !== "Pass" || !this.state.values || this.model()?.revision !== this.state.design?.selectedModel.revision) throw new Error("Verify the selected candidate before application.");
-    if (this.model()?.validation !== "validated") throw new Error("Independent model validation or an accepted external model reference is required before application.");
-    const connection = await connectRuntimeSearch(this.loop);
+    // Each of these is cured by Validate: it checks the model when needed and runs the candidate's ST in every scenario.
+    if (!this.state.campaignPassed) throw new MainWorkflowError("Every mandatory scenario must pass before application.", { cause: "settings", nextAction: "validate" });
+    if (this.state.verifiedInputs !== this.inputSignature()) throw new MainWorkflowError("Workflow inputs changed after verification. Verify the current candidate again.", { cause: "settings", nextAction: "validate" });
+    if (this.state.verified?.evaluation.status !== "Pass" || !this.state.values || this.model()?.revision !== this.state.design?.selectedModel.revision) throw new MainWorkflowError("Verify the selected candidate before application.", { cause: "settings", nextAction: "validate" });
+    if (this.model()?.validation !== "validated") throw new MainWorkflowError("Independent model validation or an accepted external model reference is required before application.", { cause: "model-or-data", nextAction: "validate" });
+    const connection = await bindingRuntime(() => connectRuntimeSearch(this.loop));
     const readiness = await connection.request("control.simulation.run.status", {});
-    if (!record(readiness) || readiness.project_revision !== this.state.verified.projectRevision) throw new Error("The loaded project changed since verification. Verify again.");
+    if (!record(readiness) || readiness.project_revision !== this.state.verified.projectRevision) throw new MainWorkflowError("The loaded project changed since verification. Verify again.", { cause: "settings", nextAction: "validate" });
   }
   private async invalidateInputs(action: "invalidate" | "cancel", inputs: Record<string, unknown>,
     applicationMode: "auto" | "manual", post: (payload: Record<string, unknown>) => Promise<void>): Promise<boolean> {
     if (action === "invalidate" && inputs.channelMapping !== undefined) {
       try { this.state.channelMapping = controllerChannelMapping(this.configuredLoop, inputs.channelMapping); }
-      catch (error) { await post({ status: "failed", reason: explanation(error) }); return true; }
+      catch (error) { await post({ status: "failed", reason: explanation(error), failure: presentMainWorkflowFailure(explanation(error), failureOf(error)) }); return true; }
     }
     if (action === "invalidate" && (inputs.family === "automatic" || isControllerFamily(inputs.family))) {
       this.state.controllerChoice = inputs.family;
@@ -626,6 +679,8 @@ export class EngineerWorkflowSession {
     this.state.cancellationOwner = unconfirmed ? owner : undefined;
     await post({ inputRevision: this.state.generation, channelMapping: this.state.channelMapping, tuningPreferences: this.state.tuningPreferences, stageEvidence: this.currentStageEvidence(), status: unconfirmed ? "failed" : action === "cancel" ? "cancelled" : "edited",
       verificationAttempts: this.state.verificationAttempts, studyAvailable: true, cancellationUnconfirmed: unconfirmed,
+      // Cancelling is the engineer's own action; new work waits until the runtime confirms it has stopped.
+      ...(unconfirmed ? { failure: presentMainWorkflowFailure(attempt.reason, { cause: "runtime", nextAction: "wait" }) } : {}),
       canTune: Boolean(this.model()), canIdentify: Boolean(this.loop.parameterBinding && (this.loop.controller.manualOutputSignal || this.loop.signals.setpoint)),
       reason: unconfirmed ? `${attempt.reason} New work is blocked; press Cancel to retry confirmation.`
         : action === "cancel" ? "Operation cancelled. Any started runtime job has reached a terminal state; retained outcomes do not authorize Apply."
@@ -633,24 +688,84 @@ export class EngineerWorkflowSession {
     return true;
   }
 
+  /** An input change: its results are reset and the live work it invalidates is cancelled, as before (A8.4). */
   private invalidate(): void {
+    this.resetResults();
+    this.cancelLiveWork();
+  }
+
+  /**
+   * Closing: results are reset and this session lets go of its clients, but no runtime operation is cancelled (A8.5, A10.4).
+   * An isolated run keeps going in the runtime and its outcome is still retained through retainIsolatedOperation.
+   */
+  private releaseForClose(): void {
+    this.observationDetached = true;
+    this.resetResults();
+    this.state.verifier = undefined;
+    this.state.identification?.dispose(); this.state.identification = undefined;
+  }
+
+  /** Closing lets a reattached identification's timers and followers go; its experiment, recording and journal stay in the runtime. */
+  private releaseIdentificationRecovery(): void {
+    const recovery = this.identificationRecovery;
+    if (!recovery) return;
+    this.identificationRecovery = undefined;
+    recovery.release?.();
+    if (this.state.cancellationOwner === recovery) { this.state.cancellationOwner = undefined; this.state.busy = undefined; }
+  }
+
+  private resetResults(): void {
     this.state.runtimeReplacementReview = undefined;
     this.state.modelPrediction = undefined;
     this.state.generation++; this.state.campaignPassed = false; this.state.verifiedInputs = undefined;
     this.state.design = undefined; this.state.verified = undefined; this.state.initialization = undefined; this.state.values = undefined; this.state.review = undefined;
     this.state.cancellationOwner ??= this.state.verifier ?? this.state.identification?.cancellationOwner();
+  }
+
+  /**
+   * Cancels the isolated run and the identification this session owns. A running identification is cancelled through its owner,
+   * which restores the loop before it finishes; a finished one is only released.
+   */
+  private cancelLiveWork(): void {
     this.state.verifier?.dispose(); this.state.verifier = undefined;
-    this.state.identification?.dispose(); this.state.identification = undefined;
+    const identification = this.state.identification;
+    if (identification?.snapshot().status === "running") void identification.cancellationOwner().cancel().catch(() => undefined);
+    else identification?.dispose();
+    this.state.identification = undefined;
   }
   private requireManualRecovery(recovery: PendingManualApplicationOwner, reason: string): string {
     this.state.manualApplicationRecovery = { recovery: structuredClone(recovery), reason };
     return reason;
   }
-  dispose(): void { void this.state.commissioning?.cancel().catch(() => undefined); this.invalidate(); }
+  dispose(): void { void this.state.commissioning?.cancel().catch(() => undefined); this.releaseIdentificationRecovery(); this.releaseForClose(); }
 }
 
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === "object" && !Array.isArray(value); }
 function explanation(error: unknown): string { return error instanceof Error ? error.message : String(error); }
+
+/**
+ * The failure's typed next action (A11.2). Two errors are classified here because mainWorkflowFailure cannot import
+ * their modules without a cycle; every other error is classified by its own type in mainWorkflowFailure.
+ */
+export function failureOf(error: unknown): MainWorkflowClassification {
+  if (error instanceof ChannelRequirementsRequired) return { cause: "settings", nextAction: "open-requirements" };
+  if (error instanceof AutomaticControllerSelectionError) {
+    // B4.7: no candidate meets the requirements; the detail keeps each structure's reason.
+    return { cause: "task-infeasible", nextAction: "open-requirements", summary: "No controller candidate fits the current model and limits." };
+  }
+  return classifyMainWorkflowFailure(error);
+}
+
+/**
+ * Resumes a journalled identification and stores its result, or cancels the recovery when no campaign can resume (A8.5).
+ * Cancelling restores the original recording and mode; it never starts an experiment.
+ */
+export async function recoverIdentification(recovery: IdentificationRecovery,
+  store: (found: AutomaticIdentificationResult) => Record<string, unknown>,
+  progress: (text: string) => Promise<void> = async () => undefined): Promise<Record<string, unknown> | undefined> {
+  if (!recovery.resume) { await recovery.cancel(); return undefined; }
+  return store(await recovery.resume(progress));
+}
 
 /** The failed operation as the learner knows it: by its page or button, never by its internal message kind. */
 function failedOperationLabel(action: string): string {

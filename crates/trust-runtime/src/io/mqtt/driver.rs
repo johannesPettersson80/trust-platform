@@ -5,6 +5,8 @@ pub struct MqttIoDriver {
     config: MqttIoConfig,
     factory: Arc<dyn MqttSessionFactory>,
     session: Option<Box<dyn MqttSession>>,
+    /// Why the last session or connection attempt ended, while there is no session.
+    session_error: Option<SmolStr>,
     health: IoDriverHealth,
     next_reconnect: Instant,
     mapped_inputs: Vec<u8>,
@@ -40,6 +42,7 @@ impl MqttIoDriver {
             config,
             factory,
             session: None,
+            session_error: None,
             health: IoDriverHealth::Degraded {
                 error: SmolStr::new("mqtt initializing"),
             },
@@ -88,6 +91,7 @@ impl MqttIoDriver {
                 return Ok(());
             }
             if let Some(error) = session.last_error() {
+                self.session_error = Some(error.clone());
                 self.set_degraded(format!("mqtt disconnected: {error}"));
                 if now < self.next_reconnect {
                     return Err(RuntimeError::IoTransport(
@@ -124,6 +128,7 @@ impl MqttIoDriver {
                     self.session = Some(session);
                     if connected {
                         self.health = IoDriverHealth::Ok;
+                        self.session_error = None;
                         self.publish_sparkplug_birth_if_needed()?;
                         return Ok(());
                     }
@@ -141,6 +146,7 @@ impl MqttIoDriver {
                 }
                 Err(err) => {
                     self.session = None;
+                    self.session_error = Some(SmolStr::new(err.to_string()));
                     self.set_degraded(format!("mqtt connect failed: {err}"));
                     self.next_reconnect = now + self.config.reconnect;
                     return Err(RuntimeError::IoTransport(
@@ -152,6 +158,7 @@ impl MqttIoDriver {
                 || "mqtt connect timed out".to_string(),
                 |err| err.to_string(),
             );
+            self.session_error = Some(SmolStr::new(&detail));
             self.set_degraded(format!("mqtt connect failed: {detail}"));
             self.next_reconnect = Instant::now() + self.config.reconnect;
             return Err(RuntimeError::IoTransport(
@@ -331,5 +338,36 @@ impl IoDriver for MqttIoDriver {
             return worker.health();
         }
         self.health.clone()
+    }
+
+    /// The broker and the session's state: connected, or why not (specification 42, §4 item 9).
+    fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
+        // Input points fill their own bytes; a raw input topic fills the image from its start.
+        if !self.config.input_points.is_empty() {
+            return crate::io::joined_bytes(input_point_bytes(&self.config.input_points));
+        }
+        if self.config.topic_in.is_empty() {
+            Vec::new()
+        } else {
+            std::iter::once(0..usize::MAX).collect()
+        }
+    }
+
+    fn detail(&self) -> Option<SmolStr> {
+        if let Some(worker) = &self.worker {
+            return worker.detail();
+        }
+        let session = match &self.session {
+            Some(session) if session.is_connected() => "connected".to_string(),
+            Some(session) => session
+                .last_error()
+                .map_or_else(|| "connecting".to_string(), |error| format!("disconnected: {error}")),
+            None => self
+                .session_error
+                .as_ref()
+                .map_or_else(|| "not connected".to_string(), |error| format!("disconnected: {error}")),
+        };
+        let broker = &self.config.endpoint;
+        Some(SmolStr::new(format!("{}:{}, {session}", broker.host, broker.port)))
     }
 }

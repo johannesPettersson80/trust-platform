@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { withStudio } from "./control-studio-three-page.integration.test";
 import { pollValue, requiredEnvironment } from "./plant-rendered-harness";
+import { parseDurationSeconds } from "../../controlStudio/webview/durationField";
 
 suite("Control Studio automatic requirements UI", () => {
   test("prefills an older saved model that has no tuning task", async function () {
@@ -18,7 +19,7 @@ suite("Control Studio automatic requirements UI", () => {
       await withStudio(async (inner,_reopen,capture)=>{
         await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();d.querySelector('[data-studio-requirements]').click();return 'legacy requirements';");
         await capture('legacy-automatic-requirements');
-        assert.ok(Number(await inner("return d.querySelector('[data-studio-requirement=durationSeconds]').value;"))>0,'The restored host must send its generated task to the optional editor');
+        assert.ok((parseDurationSeconds(await inner("return d.querySelector('[data-studio-requirement=durationSeconds]').value;")) ?? 0)>0,'The restored host must send its generated task to the optional editor');
       });
     } finally {storage.restoreEngineerDraft=original;storage.restoreWorkflowDraft=workflow;}
   });
@@ -32,9 +33,11 @@ suite("Control Studio automatic requirements UI", () => {
       const initialFields=JSON.parse(await inner("return JSON.stringify([...d.querySelectorAll('[data-studio-requirement]')].map(e=>({key:e.dataset.studioRequirement,value:e.value,required:e.required,placeholder:e.placeholder})));"));
       const required=initialFields.filter((field:any)=>field.required);
       assert.ok(required.length>=5 && required.every((field:any)=>field.value!==''),'The optional Requirements editor must prefill every required field before the first Tune');
-      assert.deepStrictEqual(initialFields.filter((field:any)=>!field.required).map((field:any)=>[field.key,field.value,field.placeholder]),[['constantInputDisturbance','','None'],['transferTolerance','','Automatic']],
-        'no load trial is declared and the Auto-entry tolerance stays blank for the automatic allowance');
-      assert.ok(initialFields.every((field:any)=>Number(field.value)===Number(Number(field.value).toPrecision(3))),'Generated values should use readable engineering precision');
+      assert.deepStrictEqual(initialFields.filter((field:any)=>!field.required).map((field:any)=>[field.key,field.value,field.placeholder]),[['maximumOvershootPercent','','None'],['constantInputDisturbance','','None'],['transferTolerance','','Automatic']],
+        'no overshoot limit or load trial is declared and the Auto-entry tolerance stays blank for the automatic allowance');
+      // Durations show in their largest unit ("47.4 s", "15 min") and parse back; other values keep three significant digits.
+      assert.ok(initialFields.filter((field:any)=>/Seconds$/.test(field.key)&&field.value!=='').every((field:any)=>parseDurationSeconds(field.value)!==undefined),'Generated durations should read as durations');
+      assert.ok(initialFields.filter((field:any)=>!/Seconds$/.test(field.key)).every((field:any)=>Number(field.value)===Number(Number(field.value).toPrecision(3))),'Generated values should use readable engineering precision');
       await capture('automatic-requirements-before-tune');
       await inner("[...d.querySelectorAll('[data-trust-compact-editor] button')].find(b=>b.textContent==='Cancel').click();d.querySelector('[data-engineer-tune]').click();return 'tune';");
       await new Promise(resolve=>setTimeout(resolve,700));
@@ -55,7 +58,7 @@ suite("Control Studio automatic requirements UI", () => {
       await inner("[...d.querySelectorAll('[data-trust-compact-editor] button')].find(b=>b.textContent==='Cancel').click();return 'cancel';");
       await reopen();
       await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();d.querySelector('[data-studio-requirements]').click();return 'reopen requirements';");
-      assert.strictEqual(Number(await inner("return d.querySelector('[data-studio-requirement=durationSeconds]').value;")),candidate.task.durationSeconds);
+      assert.strictEqual(parseDurationSeconds(await inner("return d.querySelector('[data-studio-requirement=durationSeconds]').value;")),candidate.task.durationSeconds);
       await inner("[...d.querySelectorAll('[data-trust-compact-editor] button')].find(b=>b.textContent==='Cancel').click();d.querySelector('[data-engineer-tune]').click();return 'retune';");
       await pollValue("retune completed",()=>inner("return d.querySelector('[data-studio-three-page]').dataset.busy;"),value=>value==='false',25000);
       await inner("d.defaultView.__validated=[];d.defaultView.addEventListener('trust-control-studio-engineer',e=>d.defaultView.__validated.push(e.detail));d.querySelector('[data-engineer-stage-tab=verify]').click();d.querySelector('[data-engineer-verify]').click();return 'validate';");

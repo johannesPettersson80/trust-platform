@@ -8,7 +8,7 @@ inside VS Code; Agent API serves external scripts, CI, and repair loops.
 
 | Surface | Best for | What it can use today |
 | --- | --- | --- |
-| Editor AI tools | VS Code-side assistance while you are working in the project | ST diagnostics, hover, symbols, definitions, references, completions, signature help, rename edits, formatting edits, code actions, file reads/writes, HMI bindings/layout/patch/validation/preview/journey tools, telemetry, settings, and debug actions |
+| Editor AI tools | VS Code-side assistance while you are working in the project | ST diagnostics, hover, symbols, definitions, references, completions, signature help, rename edits, formatting edits, code actions, file reads/writes, telemetry, settings, and debug actions |
 | Agent API | non-editor automation, CI, repair loops, and harness execution | project info, workspace read/write, diagnostics, formatting, build, validate, test, compile/reload, runtime reload, and deterministic harness methods |
 
 ## Editor AI Tools
@@ -28,23 +28,20 @@ flowchart LR
     Tools[Editor AI tools]
     Diagnostics[Diagnostics and symbols]
     Files[Read, range, edit]
-    HMI[HMI plan, patch, validate, preview]
     Debug[Debug and runtime actions]
     Validate[Validated truST path]
 
     Prompt --> Tools
     Tools --> Diagnostics
     Tools --> Files
-    Tools --> HMI
     Tools --> Debug
     Diagnostics --> Validate
     Files --> Validate
-    HMI --> Validate
     Debug --> Validate
 ```
 
-*Figure:* AI assistance routes through typed truST tools. The same diagnostics,
-HMI validation, and runtime/debug paths remain visible to the engineer.
+*Figure:* AI assistance routes through typed truST tools. The same diagnostics
+and runtime/debug paths remain visible to the engineer.
 
 Use the editor AI tools when you want the assistant to:
 
@@ -53,9 +50,6 @@ Use the editor AI tools when you want the assistant to:
   help
 - read a file or range before applying edits
 - preview formatting or rename edits
-- inspect HMI bindings and descriptor layout
-- apply HMI descriptor patches through typed operations
-- validate or preview HMI changes before accepting them
 - start, attach, reload, or open the runtime I/O panel for debug-oriented work
 
 Evidence:
@@ -77,8 +71,6 @@ Evidence:
 | build, validate, and test | no direct editor-AI tool; use CLI or Agent API | yes |
 | compile and reload | partial debug/reload helpers | yes, through runtime methods |
 | deterministic harness loops | no | yes |
-| HMI descriptor planning and validation | yes | no direct v1 HMI authoring surface |
-| HMI runtime writes | policy-controlled by runtime/HMI authorization | policy-controlled by runtime/HMI authorization |
 
 ## Agent API
 
@@ -107,7 +99,8 @@ Start here:
 
 AI uses the same validated pathways as human engineers: diagnostics drive
 edits, typed tool calls expose the available operation, runtime validation
-confirms the result, and HMI authorization decides whether writes are allowed.
+confirms the result, and runtime control authorization decides whether writes
+are allowed.
 
 Editor AI tools and Agent API methods have different scopes. Use the
 [One Project, Every Surface](../concepts/one-project.md) matrix when you need
@@ -121,12 +114,6 @@ For editor work:
 Read the diagnostics for this ST file, inspect the referenced definitions, then propose the smallest edit.
 ```
 
-For HMI work:
-
-```text
-Inspect the available HMI bindings and current layout, then dry-run a descriptor patch for a readonly status widget.
-```
-
 For automation:
 
 ```text
@@ -138,4 +125,3 @@ Use the Agent API loop: read project info, run diagnostics, build, validate, and
 - [One Project, Every Surface](../concepts/one-project.md)
 - [Program In VS Code](../start/program-in-vscode.md)
 - [Automate With CLI / CI / agents](../start/automate-with-cli.md)
-- [HMI Authoring](hmi-authoring.md)

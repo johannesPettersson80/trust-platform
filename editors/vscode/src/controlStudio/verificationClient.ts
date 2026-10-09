@@ -1,12 +1,18 @@
 import { createHash, randomUUID } from "crypto";
 import { evaluateRecordedRun, type RecordedRun, type RunEvaluation, type RunRequirement } from "./runValidation";
 import { canonicalJson } from "./canonicalJson";
+import { expandRecordedRunWire } from "./recordedRunWire";
+import { ISOLATED_SIMULATION_CELL_LIMIT, ISOLATED_SIMULATION_CHANNEL_LIMIT, ISOLATED_SIMULATION_SAMPLE_LIMIT } from "./controlStudioLimits";
+import { isolatedRecordEvery, recordedSampleTimes, scanCount } from "./isolatedRunSampling";
+export { isolatedRecordEvery, recordedSampleTimes };
 
 export type RuntimeRequest = (operation: string, params: Record<string, unknown>) => Promise<unknown>;
 export interface RuntimeVerificationConnection { source: "simulation"; request: RuntimeRequest }
 export interface RuntimeVerificationRequest {
   request_id?: string;
   step_ms: number; duration_ms: number; seed: number; max_total_cycles: number; wall_budget_ms: number;
+  /** Scans one recorded sample averages (Specification 35, A4.2); chosen by the client when absent. */
+  record_every?: number;
   initial_values: Readonly<Record<string, number>>;
   events: readonly { at_ms: number; symbol: string; value: number }[];
   observations: readonly { symbol: string; unit: string }[];
@@ -41,12 +47,14 @@ export class RuntimeVerificationExecutionError extends Error {
 }
 
 /** The isolated runtime's recording limits, checked before dispatch so the message names the exceeded bound. */
-export function assertRuntimeRecordingBounds(request: Pick<RuntimeVerificationRequest, "step_ms" | "duration_ms" | "observations">): void {
+export function assertRuntimeRecordingBounds(request: Pick<RuntimeVerificationRequest, "step_ms" | "duration_ms" | "observations" | "record_every">): void {
   const channels = request.observations.length;
-  if (channels > 64) throw new Error(`Validation records ${channels} channels; the runtime records at most 64. Declare fewer additional signals.`);
-  const samples = Math.floor(request.duration_ms / request.step_ms) + 1;
-  if (samples * channels > 250000) {
-    throw new Error(`Validation would record ${samples} samples × ${channels} channels = ${samples * channels} channel samples; the runtime allows 250000. Shorten the run or record fewer signals.`);
+  if (channels > ISOLATED_SIMULATION_CHANNEL_LIMIT) {
+    throw new Error(`Validation records ${channels} channels; the runtime records at most ${ISOLATED_SIMULATION_CHANNEL_LIMIT}. Declare fewer additional signals.`);
+  }
+  const samples = Math.ceil(scanCount(request) / (request.record_every ?? 1));
+  if (samples > ISOLATED_SIMULATION_SAMPLE_LIMIT || samples * channels > ISOLATED_SIMULATION_CELL_LIMIT) {
+    throw new Error(`Validation would record ${samples} samples × ${channels} channels; the runtime keeps at most ${ISOLATED_SIMULATION_SAMPLE_LIMIT} samples and ${ISOLATED_SIMULATION_CELL_LIMIT} channel samples. Record fewer signals.`);
   }
 }
 
@@ -63,8 +71,10 @@ export class RuntimeVerificationClient {
     if (this.disposed || this.busy || this.active) throw new Error("Verification client is disposed or already running.");
     if (this.connection.source !== "simulation") throw new Error("Verify requires isolated simulation.");
     if (requirements.length === 0) throw new Error("Declare at least one run requirement before verification.");
-    assertRuntimeRecordingBounds(input);
-    const copiedInput = clone(input); const copiedRequirements = clone(requirements);
+    const every = input.record_every ?? isolatedRecordEvery(input);
+    const sized = every > 1 ? { ...input, record_every: every } : input;
+    assertRuntimeRecordingBounds(sized);
+    const copiedInput = clone(sized); const copiedRequirements = clone(requirements);
     const generation = ++this.generation;
     this.busy = true;
     this.retained = undefined;
@@ -100,7 +110,8 @@ export class RuntimeVerificationClient {
         if (!observed || observed.job_id !== id || observed.project_revision !== revision) throw error;
       }
       this.current(generation);
-      const deadline = Date.now() + Math.min(60000, Math.max(1, request.wall_budget_ms)) + 5000;
+      // The runtime ends a run that exceeds its wall budget (A7); this deadline only covers a runtime that stops answering.
+      const deadline = Date.now() + Math.max(1, request.wall_budget_ms) + 5000;
       while (Date.now() < deadline) {
         this.current(generation);
         const status = record(await this.connection.request("control.simulation.run.status", identity(job, false)));
@@ -260,7 +271,10 @@ function validateRun(run: RecordedRun, request: RuntimeVerificationRequest & { e
       || canonicalJson(run.parameters) !== canonicalJson(Object.fromEntries((request.parameter_overrides ?? []).map(item => [item.symbol, item.value])))) {
     throw new Error("Recorded run does not match the frozen verification request.");
   }
-  const expected = Array.from({ length: request.duration_ms / request.step_ms + 1 }, (_, index) => index * request.step_ms / 1000);
+  const every = request.record_every ?? 1;
+  const declared = (conditions as RecordedRun["conditions"] & { recordEvery?: unknown }).recordEvery;
+  if ((declared ?? 1) !== every) throw new Error("Recorded run averages a different number of scans than the frozen verification request.");
+  const expected = recordedSampleTimes(request, every);
   if (JSON.stringify(conditions.sampleTimesSeconds) !== JSON.stringify(expected)) throw new Error("Recorded run sample times do not match the frozen verification request.");
 }
 function validateIdentity(value: Record<string, unknown> | undefined, job: { id: string; revision: string }): void {
@@ -273,9 +287,12 @@ function freeze<T>(value: T): T { if (value && typeof value === "object") { Obje
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function delay(milliseconds: number): Promise<void> { return new Promise(resolve => setTimeout(resolve, milliseconds)); }
 
-/** Worker-local run numbers are namespaced by the confirmed runtime job identity. */
+/**
+ * Worker-local run numbers are namespaced by the confirmed runtime job identity. The runtime's
+ * compact samples are expanded here, so the evaluator receives the per-channel form.
+ */
 function scopedRun(value: unknown, jobId: string): unknown {
-  const run = record(value);
+  const run = record(expandRecordedRunWire(value));
   if (!run || !text(run.id)) throw new Error("Runtime recording has no run identity.");
   return { ...run, id: `${jobId}:${run.id}` };
 }

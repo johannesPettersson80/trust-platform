@@ -1,7 +1,9 @@
 import * as assert from "assert";
 import { mountThreePageScenarios } from "../../controlStudio/webview/threePageScenarios";
 import { engineerVerificationCampaign } from "../../controlStudio/engineerVerificationCampaign";
-import { engineerRequirements } from "../../controlStudio/engineerVerificationPlan";
+import { engineerRequirements, engineerVerificationPlan } from "../../controlStudio/engineerVerificationPlan";
+import { assertRuntimeRecordingBounds, isolatedRecordEvery } from "../../controlStudio/verificationClient";
+import { commissioningObservation, validCommissioningObservation } from "../../controlStudio/commissioningObservation";
 import { classifyMainWorkflowFailure } from "../../controlStudio/mainWorkflowFailure";
 import type { GeneralModel } from "../../controlStudio/generalModel";
 import { channel, pidLoop } from "./control-studio-pid-fixtures";
@@ -49,6 +51,25 @@ suite("Control Studio scenario timing", () => {
     } finally { (globalThis as any).document = previousDocument; (globalThis as any).window = previousWindow; dom.window.close(); }
   });
 
+  test("simulates a long validation at the task period and records it at a record period that follows the process (A4.2, A7)", () => {
+    // A slow process: 4 h of validation at a 100 ms task is 144,001 scans, more than one run keeps without a record period.
+    const loop = pidLoop();
+    loop.controller.taskPeriodMs = 100;
+    const model: GeneralModel = { kind: "transfer-function", numerator: [1.5], denominator: [4500, 1], delaySeconds: 10,
+      inputs: [channel("u", "V")], outputs: [channel("y", "m")], operatingPoint: { inputs: [0], outputs: [0] },
+      source: "provided", validation: "validated", evidence: ["declared-fixture"], revision: "slow-process" };
+    const task = engineerRequirements({ referenceChange: 1, maximumError: .2, settlingBand: .1, settlingTimeSeconds: 7200, durationSeconds: 14400 });
+    const { request } = engineerVerificationPlan(loop, model, task, { "Main.Kp": 1, "Main.Ki": .001, "Main.Kd": 0 });
+    assert.strictEqual(request.max_total_cycles, 144001, "every execution of the 4 h run is simulated");
+    // About 200 samples over the 2 h settling time: one sample per 36 s, 360 executions each, about 400 samples in all.
+    assert.strictEqual(request.record_every, 360, "the record period follows the process, not the 100 ms task");
+    assert.ok(isolatedRecordEvery(request) <= 360, "the process's record period also keeps the run within the sample limits");
+    assert.doesNotThrow(() => assertRuntimeRecordingBounds(request));
+    // Apply observes the same 4 h response at a record period, so its requirements are valid for that duration too.
+    const observed = commissioningObservation(loop, model, task, { "Main.Kp": 1, "Main.Ki": .001, "Main.Kd": 0 });
+    assert.strictEqual(validCommissioningObservation(observed, 14400, 100), true, "the 4 h observation's requirements decode");
+  });
+
   test("refuses a declared check beyond the validation run with the duration it needs", () => {
     const loop = pidLoop();
     loop.verificationScenarios = [{ id: "load-trial", initialValues: {}, events: [],
@@ -60,7 +81,7 @@ suite("Control Studio scenario timing", () => {
     const task = engineerRequirements({ referenceChange: 1, maximumError: .2, settlingBand: .1, settlingTimeSeconds: 15, durationSeconds: 30 });
     assert.throws(() => engineerVerificationCampaign(loop, model, task, { "Main.Kp": 1, "Main.Ki": .2, "Main.Kd": 0 }), (error: Error) => {
       assert.match(error.message, /load-trial checks late-error until 60 s, after the 30 s validation\. Allow a validation duration of at least 60 s\./);
-      assert.strictEqual(classifyMainWorkflowFailure("verify", error).nextAction, "revise-requirements", "the fix is in Requirements, not in Tune");
+      assert.strictEqual(classifyMainWorkflowFailure(error).nextAction, "open-requirements", "the fix is in Requirements, not in Tune");
       return true;
     });
   });

@@ -1,0 +1,15 @@
+format = 1
+title = "Pump"
+size = [320, 200]
+
+[fields.Running]
+accepts = ["boolean"]
+
+[[object]]
+id = "symbol"
+type = "pump"
+at = [96, 40]
+size = [128, 108]
+
+[object.bind]
+running = "$Running"

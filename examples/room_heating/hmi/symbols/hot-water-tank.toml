@@ -1,0 +1,27 @@
+format = 1
+title = "Hot water tank"
+size = [120, 244]
+
+# The tank's heater: its element lights while it heats and shows its power.
+[properties]
+running = "boolean"
+power = "number"
+fault = "boolean"
+
+[[port]]
+name = "inlet"
+at = [19, 0]
+direction = "up"
+
+[[port]]
+name = "outlet"
+at = [60, 24]
+direction = "right"
+
+[[part]]
+id = "element"
+active = "running"
+
+[[part]]
+id = "power"
+show = "power"

@@ -203,9 +203,8 @@ trust-runtime ads validate --offline \
 
 The generated file is deterministic and should be reviewed. It is not hidden
 build output. The generated globals are normal ST declarations, so they appear
-on the same runtime surfaces as other globals: HMI schemas and values, debug and
-control reads, historian sampling, and OPC UA export when the OPC UA server is
-enabled.
+on the same runtime surfaces as other globals: debug and control reads,
+historian sampling, and OPC UA export when the OPC UA server is enabled.
 
 Enable live runtime ADS with:
 
@@ -379,7 +378,7 @@ TwinCAT merge gate. Production validation for server mode is:
    and validates any guarded write path.
 
 Start the TwinCAT side with Target Browser, not Scope. The customer path is:
-discover or add the route, open `truST-ADS -> 851`, browse the `global.*`
+discover or add the route, open `CommRes -> 851` (the runtime's resource name), browse the `global.*`
 symbols, read them, and perform a guarded write to a safe writable symbol such
 as `global.Setpoint`. Target Browser value preview can be used as a quick
 live-value sanity check. TwinCAT Scope View is optional interop only; it adds a

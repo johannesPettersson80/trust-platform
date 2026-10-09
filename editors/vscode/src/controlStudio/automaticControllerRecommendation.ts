@@ -1,3 +1,4 @@
+import { MainWorkflowError } from "./mainWorkflowFailure";
 import { poleMatchedPid } from "./pidTaskDesign";
 import { delayedIntegrator, designIntegratingPToRequirements, designPidToRequirements } from "./automaticPidResponse";
 import { linearTransferModel } from "./linearTransferModel";
@@ -74,7 +75,7 @@ export function recommendAutomaticController(
       const integrator = pid ? delayedIntegrator(model) : undefined;
       if (integrator) return designIntegratingPToRequirements(loop, model, task, integrator.rateGain, integrator.delaySeconds);
       try { return designSimpleProportionalController(model, requirements); }
-      catch { return poleMatchedPid(model, "P", task, loop.controller.taskPeriodMs); }
+      catch { return poleMatchedPid(model, "P", task, loop.controller.taskPeriodMs, loop.controller.action); }
     })();
     assertInitialOutputWithinLimits(loop, proportional.candidate.proportionalGain, task, loop.controller.pidInitialization ? model.operatingPoint?.inputs[0] ?? 0 : 0);
     p = pid
@@ -91,7 +92,7 @@ export function recommendAutomaticController(
   }
   if (!pid) {
     if (p) return p;
-    throw new Error(attempts[0].reason);
+    throw new MainWorkflowError(attempts[0].reason, { cause: "task-infeasible", nextAction: "open-requirements" });
   }
 
   const pi = typedCandidate("PI", () => designPidToRequirements(loop, model, "PI", task), loop, model, task, applicationMode);

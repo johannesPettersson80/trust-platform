@@ -41,6 +41,7 @@ impl Runtime {
 
         let mut ready = std::mem::take(&mut self.ready_tasks_scratch);
         ready.clear();
+        self.cycle_task_runs.clear();
         if let Err(err) = self.collect_ready_tasks_into(&mut ready) {
             self.ready_tasks_scratch = ready;
             return Err(self.record_fault(err));
@@ -54,6 +55,12 @@ impl Runtime {
                 self.ready_tasks_scratch = ready;
                 return Err(self.record_fault(err));
             }
+            // The screens are served in the task where the program calls Hmi.Display.
+            if let Err(err) = self.serve_hmi_after_task() {
+                ready.clear();
+                self.ready_tasks_scratch = ready;
+                return Err(self.record_fault(err));
+            }
             if let Some(start) = task_timer {
                 self.metrics.record_task(&task.name, start.elapsed());
             }
@@ -61,6 +68,9 @@ impl Runtime {
         ready.clear();
         self.ready_tasks_scratch = ready;
         if let Err(err) = self.execute_background_programs() {
+            return Err(self.record_fault(err));
+        }
+        if let Err(err) = self.serve_hmi_after_task() {
             return Err(self.record_fault(err));
         }
 
@@ -150,6 +160,12 @@ impl Runtime {
                         return Err(error::RuntimeError::UndefinedVariable(name));
                     }
                     self.storage.set_instance_var(id, name, write.value);
+                }
+                crate::debug::PendingVarTarget::Reference(reference) => {
+                    // An experiment's variable (Specification 35): a reference a reloaded
+                    // program no longer has is skipped, never a fault; the experiment reads its
+                    // variable back and reports what it finds.
+                    let _ = self.storage.write_by_ref(reference, write.value);
                 }
                 crate::debug::PendingVarTarget::Local(frame_id, name) => {
                     let result = self.storage.with_frame(frame_id, |storage| {
@@ -264,24 +280,20 @@ impl Runtime {
             .filter(|debug| debug.has_parameter_transaction() || debug.has_transfer_transaction())
         {
             let metadata = self.metadata_snapshot();
-            let has_io_driver = self
-                .io
-                .interface_and_drivers_mut()
-                .1
-                .iter()
-                .any(|entry| !entry.driver.is_simulated());
+            // The runtime's own target fact decides whether a boundary write needs approval, never a request label (A2.4).
+            let physical_target = !self.simulated_target();
             debug.commit_parameters(
                 &task.name,
                 &mut self.storage,
                 &metadata,
-                has_io_driver,
+                physical_target,
                 self.io.interface().bindings(),
             );
             debug.commit_transfer(
                 &task.name,
                 &mut self.storage,
                 &metadata,
-                has_io_driver,
+                physical_target,
                 self.io.interface().bindings(),
             );
         }
@@ -301,7 +313,7 @@ impl Runtime {
             self.execute_function_block_ref(fb_ref)?;
         }
         if let Some(debug) = &self.debug {
-            debug.confirm_parameters(&task.name, &self.storage, self.current_time);
+            debug.confirm_parameters(&task.name, &mut self.storage, self.current_time);
             debug.confirm_transfer_task(&task.name, &mut self.storage);
             debug.push_runtime_event(crate::debug::RuntimeEvent::TaskEnd {
                 name: task.name.clone(),
@@ -336,24 +348,20 @@ impl Runtime {
             .filter(|debug| debug.has_parameter_transaction() || debug.has_transfer_transaction())
         {
             let metadata = self.metadata_snapshot();
-            let has_io_driver = self
-                .io
-                .interface_and_drivers_mut()
-                .1
-                .iter()
-                .any(|entry| !entry.driver.is_simulated());
+            // The runtime's own target fact decides whether a boundary write needs approval, never a request label (A2.4).
+            let physical_target = !self.simulated_target();
             debug.commit_parameters(
                 "$background",
                 &mut self.storage,
                 &metadata,
-                has_io_driver,
+                physical_target,
                 self.io.interface().bindings(),
             );
             debug.commit_transfer(
                 "$background",
                 &mut self.storage,
                 &metadata,
-                has_io_driver,
+                physical_target,
                 self.io.interface().bindings(),
             );
         }
@@ -361,7 +369,7 @@ impl Runtime {
             self.execute_program_by_name(program_name)?;
         }
         if let Some(debug) = &self.debug {
-            debug.confirm_parameters("$background", &self.storage, self.current_time);
+            debug.confirm_parameters("$background", &mut self.storage, self.current_time);
             debug.confirm_transfer_task("$background", &mut self.storage);
         }
         background.clear();
@@ -409,6 +417,8 @@ impl Runtime {
             }
             if let Some(due_at) = readiness.due_at {
                 ready.push(ReadyTask { index: idx, due_at });
+                self.cycle_task_runs
+                    .push((task.name.clone(), readiness.missed_intervals));
             }
         }
         Ok(())
@@ -464,8 +474,11 @@ impl Runtime {
     fn read_cycle_inputs(&mut self) -> Result<(), error::RuntimeError> {
         {
             let (interface, drivers) = self.io.interface_and_drivers_mut();
-            for entry in drivers {
+            // A link switched off from the program is not read (specification 42, §4 item 6).
+            for entry in drivers.iter_mut().filter(|entry| entry.enabled) {
+                let started = std::time::Instant::now();
                 entry.driver.read_inputs(interface.inputs_mut())?;
+                entry.read_time = started.elapsed();
             }
         }
         if let Some(debug) = self.debug.clone() {
@@ -479,6 +492,7 @@ impl Runtime {
         self.ads.apply_inputs(&mut self.storage, now_ms)?;
         self.opcua_client.apply_inputs(&mut self.storage, now_ms)?;
         self.update_io_health();
+        self.apply_link_states(i64::try_from(now_ms).unwrap_or(i64::MAX));
         Ok(())
     }
 
@@ -498,8 +512,10 @@ impl Runtime {
             self.check_output_commit_deadline()?;
             {
                 let (interface, drivers) = self.io.interface_and_drivers_mut();
-                for entry in drivers {
+                for entry in drivers.iter_mut().filter(|entry| entry.enabled) {
+                    let started = std::time::Instant::now();
                     entry.driver.write_outputs(interface.outputs())?;
+                    entry.write_time = started.elapsed();
                 }
             }
             Ok(())
@@ -530,7 +546,7 @@ impl Runtime {
 
     fn record_fault(&mut self, err: error::RuntimeError) -> error::RuntimeError {
         if let Some(debug) = &self.debug {
-            debug.fail_transfer(&err.to_string());
+            debug.fail_transfer(&err.to_string(), &mut self.storage);
         }
         self.apply_fault(err, self.faults.decision())
     }
@@ -550,7 +566,14 @@ impl Runtime {
                 .into_iter()
                 .map(|(address, _)| address)
                 .collect();
-            debug.push_control_snapshot_at(snapshot, self.current_time.as_nanos(), &self.storage);
+            debug.push_control_snapshot_at(
+                snapshot,
+                self.current_time.as_nanos(),
+                &self.storage,
+                &self.cycle_task_runs,
+                self.simulation_only_io(),
+                self.simulated_target(),
+            );
         }
     }
 }

@@ -1,0 +1,58 @@
+format = 1
+title = "Counter"
+size = [608, 200]
+pinnable = true
+settings = true
+
+[fields.Count]
+accepts = ["number"]
+
+[fields.Done]
+accepts = ["boolean"]
+
+[fields.Preset]
+accepts = ["number"]
+
+[[object]]
+id = "count"
+type = "value"
+label = "Count"
+decimals = 0
+at = [24, 24]
+size = [272, 88]
+
+[object.bind]
+value = "$Count"
+
+[[object]]
+id = "preset"
+type = "value"
+label = "Preset"
+decimals = 0
+at = [312, 24]
+size = [272, 88]
+
+[object.bind]
+value = "$Preset"
+
+[[object]]
+id = "done"
+type = "status"
+label = "Preset reached"
+at = [24, 128]
+size = [272, 48]
+
+[object.bind]
+state = "$Done"
+
+[[object]]
+id = "reset-count"
+type = "button"
+text = "Reset count"
+at = [312, 128]
+size = [272, 48]
+
+[object.command]
+interface = "Plant.ICounter"
+method = "ResetCount"
+instance = "$instance"

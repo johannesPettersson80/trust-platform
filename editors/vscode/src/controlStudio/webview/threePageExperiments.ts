@@ -1,4 +1,5 @@
 import { experimentStatusLabel } from "../failureMessages";
+import { plainReason } from "./studioFailure";
 import type { ControlExperimentPlan, ControlExperimentRuntimePhase } from "../experiment";
 import type { ControlLoopDefinition } from "../loopDefinition";
 import { displayEngineeringUnit, formatEngineeringNumber } from "../chartContract";
@@ -33,7 +34,9 @@ export class ThreePageExperiments {
   private selectedMethod = false;
 
   constructor(private readonly root: HTMLElement, private readonly loop: ControlLoopDefinition,
-    private readonly post: ThreePageExperimentPost) {
+    private readonly post: ThreePageExperimentPost,
+    /** The shared stage gate; Identify stays disabled while any page gate reports a block. */
+    private readonly blocked: () => string | undefined = () => undefined) {
     const section = root.querySelector<HTMLElement>("[data-three-page-experiment]");
     if (!section) throw new Error("The project experiment workspace is missing.");
     this.section = section;
@@ -326,7 +329,7 @@ export class ThreePageExperiments {
   private renderPrimaryButton(button: HTMLButtonElement): void {
     if (!this.selectedMethod) return;
     button.textContent = this.primaryActionLabel;
-    button.disabled = this.pending !== undefined;
+    button.disabled = this.pending !== undefined || this.blocked() !== undefined;
   }
 
   private renderParameters(): void {
@@ -362,10 +365,10 @@ export class ThreePageExperiments {
 
 function isControlExperimentPlan(value: unknown): value is ControlExperimentPlan {
   if (!record(value) || typeof value.id !== "string" || typeof value.source !== "string" || typeof value.kind !== "string"
-    || typeof value.affectedSignal !== "string" || typeof value.address !== "string" || typeof value.valueType !== "string"
+    || typeof value.affectedSignal !== "string" || value.address !== undefined && typeof value.address !== "string" || typeof value.valueType !== "string"
     || typeof value.unit !== "string" || !Number.isFinite(value.minimum) || !Number.isFinite(value.maximum)
     || !Number.isFinite(value.durationMs) || !Number.isFinite(value.expectedScan)
-    || !Number.isFinite(value.stopOnStaleMs) || !Array.isArray(value.stopConditions) || typeof value.restorationValue !== "boolean" && typeof value.restorationValue !== "number"
+    || !Array.isArray(value.stopConditions) || typeof value.restorationValue !== "boolean" && typeof value.restorationValue !== "number"
     || typeof value.requiresPhysicalApproval !== "boolean" || !Array.isArray(value.trajectory)) return false;
   return ["simulation", "physical"].includes(value.source) && ["observation", "setpoint_step", "load_step", "mv_step", "mv_pulse", "relay", "prbs", "multisine", "output_step", "project_sequence"].includes(value.kind);
 }
@@ -380,7 +383,7 @@ function record(value: unknown): value is Record<string, any> {
 }
 
 function text(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+  return typeof value === "string" && value.length > 0 ? plainReason(value) : undefined;
 }
 
 function isParameterBinding(value: unknown): value is ParameterBinding {

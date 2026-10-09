@@ -1,7 +1,6 @@
 import * as assert from "assert";
 import { renderThreePageStudioHtml } from "../../controlStudio/threePageTemplate";
 import type { ControlStudioView } from "../../controlStudio/panelTemplate";
-import { controlStudioStageAvailability } from "../../controlStudio/stageAvailability";
 
 const { JSDOM } = require("jsdom");
 
@@ -39,16 +38,9 @@ function view(): ControlStudioView {
   };
   return {
     cspSource: "", nonce: "n", chartScript: "chart.js", workflowScript: "workflow.js",
-    plant: "Heater", sourceLabel: "Simulation", runtime: "simulator",
-    controllerInstance: "P1.Controller", project: "project:x", session: "s",
+    project: "project:x", session: "s",
     revision: "sha256:a", loop: "loop", loopRevision: "sha256:b",
     processUnit: "degC", outputUnit: "%",
-    experimentDefaults: { execution: "project-scripted", kind: "observation", amplitude: 0, durationSeconds: 60.1, seed: 20260829 },
-    experimentOptions: "", pidDesign: { available: true },
-    tuneDescription: "", tuneDisabledReason: "", tuneStateText: "",
-    automaticTune: { disabled: false, primary: false, title: "" },
-    guidedWorkflow: false,
-    stageAvailability: controlStudioStageAvailability("project-scripted"),
     loopDefinition: {
       schemaVersion: 1, id: "loop", name: "Loop", revision: "sha256:b",
       projectId: "project:x", runtimeId: "simulator",

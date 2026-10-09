@@ -5,7 +5,6 @@
 - Fast diagnostics and semantic highlighting
 - Go to definition/references, rename, and formatting
 - Runtime panel with live I/O control
-- HMI preview panel with live schema + value updates
 - Debugging with breakpoints, step, continue, and runtime values
 - ST test workflow with CodeLens + Test Explorer
 
@@ -42,6 +41,48 @@ code --install-extension trust-platform.trust-lsp
 - Debug real logic with breakpoints + runtime state
 - Drive and observe process I/O directly in the panel
 - Run ST tests from CodeLens (`TEST_PROGRAM` / `TEST_FUNCTION_BLOCK`) and Test Explorer
+
+---
+
+## Build an HMI with your agent (feature preview)
+
+Use the agent you already run in VS Code. truST supplies engineering tools; it does not ask you
+for a separate model-provider account. The tools read the active project's saved and unsaved
+HMI/ST documents, browse component images, compose or refine an isolated draft, and return real
+rendered previews for your agent to inspect.
+
+VS Code agents can discover the nine `hmi_*` tools directly. For an MCP client, run
+**truST: HMI: Connect Agent Tools** in the desired workspace. The command opens connection
+instructions for that window. Use the shown configuration in your agent's MCP settings; the
+connection ends when the workspace/window closes. Do not share the private connection file.
+
+A typical request is: “Inspect my project and component library. Propose a tank overview with
+readable level and temperature readings. Render it, fix any clipped labels, and show me the
+review before applying it.” Ask the agent to use `sourceFile` when refining an existing page.
+Review opens a read-only proposal in the HMI Builder with before/after images, object changes
+and findings. Apply or discard there, or ask the agent to do it. Project context lists saved drafts
+so your agent can resume them after a restart. Application checks source revisions, uses
+VS Code Undo, and reports saving separately. These authoring tools do not deploy the HMI or
+operate the controller.
+
+Use `hmi_browse_library` to discover the five composition families. Search for an exact family
+ID to receive its synthetic reference image and normal builder object model. References use
+`Example` paths; replace these with inspected project bindings. Composition accepts explicit
+`layout.regions`, `layout.gap`, `layout.flow` and per-item `pinnedAt` coordinates to preserve the
+intended hierarchy and existing equipment placement. Impossible layouts report their conflicts.
+For target displays, pass up to three content `viewports` to `hmi_validate_draft`. It reports
+projected control sizes, overlap rectangles, page bounds and the shared visual warnings; inspect
+the images as well, since geometry checks do not establish visual quality or physical performance.
+Project image previews support static PNG/JPEG/SVG assets and unsaved SVG edits; changing an
+asset after review blocks Apply until a fresh review. A failure before any editor transaction is
+invoked can be retried; an uncertain editor outcome requires source inspection and cannot be
+bypassed with another request key.
+
+This feature is still under implementation: complete IDE-agent acceptance, the full visual
+matrix, project-image previews, complete faceplate browsing and transaction recovery are tracked in
+[the HMI checklist](../../docs/internal/testing/checklists/hmi-builder-implementation-checklist.md).
+Read-only tool/image access has been verified in the actual Codex IDE window as well as the CLI.
+Complete authoring journeys and other IDE chat clients remain separate acceptance checks.
 
 ---
 
@@ -82,7 +123,6 @@ Open it in VS Code:
 - `Structured Text: New Project`
 - `Structured Text: Import PLCopen XML`
 - `Structured Text: Open Runtime Panel`
-- `Structured Text: Open HMI Preview`
 - `Structured Text: Start Debugging`
 - `Structured Text: Attach Debugger`
 - `Structured Text: Run All Tests`
@@ -102,21 +142,6 @@ Use this when you want to create a truST project from an existing PLCopen XML fi
 
 The command runs `trust-runtime plcopen import --json` in the background and
 lets you open the imported project and migration report after completion.
-
-## HMI Descriptor + LM Workflow
-
-Use the HMI descriptor workflow when building `hmi/` pages and process SVG
-layouts:
-
-1. Run `Structured Text: Initialize HMI Descriptor`.
-2. Open `Structured Text: Open HMI Preview`.
-3. In LM-driven flows, use deterministic tool order:
-   - `trust_hmi_init` -> `trust_hmi_get_bindings` -> `trust_hmi_get_layout`
-   - `trust_hmi_apply_patch` (`dry_run=true` first, then apply)
-   - `trust_hmi_validate` / `trust_hmi_run_journey` for evidence checks
-
-Detailed guide:
-- `docs/guides/HMI_DIRECTORY_WORKFLOW.md`
 
 ---
 

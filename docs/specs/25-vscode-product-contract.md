@@ -4,8 +4,9 @@ Status: normative truST product specification for the shipped VS Code
 extension.
 
 This document owns the user-facing shell, Live Values, Devices & Connections,
-onboarding, libraries, HMI preview, Control Studio placement, and visual-editor
-presentation contracts.
+onboarding, libraries, Control Studio placement, and visual-editor
+presentation contracts. The HMI Builder is specified in
+`docs/specs/39-hmi-builder.md`.
 It is a truST product specification, not an IEC 61131-3 semantic rule.
 Reviewed choices that resolve earlier product-plan conflicts are recorded in
 `docs/PRODUCT_DECISIONS.md`.
@@ -37,7 +38,7 @@ package, or end-to-end evidence.
   title is `Open Control Studio`. It is a full editor surface and MUST NOT be
   embedded in Live Values or the Devices & Connections inspector.
 - The truST sidebar MUST expose the project destinations in this order:
-  `Devices & Connections`, `Control Studio`, `Live Values`, `HMI`, and
+  `Devices & Connections`, `Control Studio`, `Live Values`, and
   `Libraries`. Control Studio is a permanent first-class destination, not a
   command-palette-only feature. With no open project it remains visible but
   disabled and explains `Open a project to use this.`
@@ -59,7 +60,7 @@ package, or end-to-end evidence.
 - Commands whose intended route is another product surface MAY remain
   registered for internal invocation, but MUST be hidden from the command
   palette. This applies to opening Live Values, debug start/attach/
-  configuration/reload, test execution, and raw HMI initialization/refresh.
+  configuration/reload, and test execution.
 - The legacy Communication and ADS panel commands MUST be absent from command
   contributions, activation events, menus, and the package manifest as a
   whole. No visible editor-title, view-title, or view-item menu may expose
@@ -68,7 +69,7 @@ package, or end-to-end evidence.
   events, commands, menus, language-model tools, build inputs, compiled
   panel/tool output, and packaged media.
 - Hiding a command MUST NOT remove the registered handler needed by F5,
-  sidebar actions, native Testing, or adaptive HMI flows.
+  sidebar actions, or native Testing.
 
 ## 2. Discover
 
@@ -102,7 +103,7 @@ package, or end-to-end evidence.
 ### 3.1 Curated gallery
 
 - The packaged manifest MUST parse and contain: Empty simulator, Conveyor,
-  TwinCAT ADS, Raspberry Pi, HMI starter, and PLCopen Motion single axis.
+  TwinCAT ADS, Raspberry Pi, and PLCopen Motion single axis.
 - A valid top-level manifest MUST retain every valid entry when an individual
   control lesson's `lesson.json` is missing, unreadable, invalid JSON, or fails
   lesson-schema validation. Such an entry remains visible as unavailable with
@@ -749,18 +750,10 @@ package, or end-to-end evidence.
   actions, and focus outlines.
 - Default minimap/statistics overlays MUST NOT obscure the program.
 
-### 8.2 HMI preview
+### 8.2 HMI
 
-- HMI Preview uses shared canvas, surface, text, border, selection, input,
-  accent, card, tab, button, status, and empty-state roles.
-- With no runtime, it clears stale live presentation and directs the user to
-  Start in the truST sidebar.
-- Process bindings resolve against the complete HMI schema, not only visible
-  widgets. Embedded process SVG is normalized to shared roles.
-- BOOL displays as `TRUE`/`FALSE`; REAL/LREAL retains a decimal component.
-  Existing lowercase boolean process-map keys remain compatible.
-- Descriptor refresh is debounced after relevant text edits, saves, descriptor
-  or SVG changes, and view-file watcher events.
+The HMI Builder editor and its pages are specified in
+`docs/specs/39-hmi-builder.md`.
 
 ### 8.3 Common authoring shell
 
@@ -815,7 +808,6 @@ package, or end-to-end evidence.
 - Workflow-copy assertions do not prove produced VSIX contents.
 - Selection among multiple configured ADS or OPC UA client connections remains
   unspecified; this batch requires only one configured connection to browse.
-- HMI formatting outside BOOL and REAL/LREAL remains outside this batch.
 - Positive focus/invocation of shared Run and Live Values from every visual
   editor requires a rendered journey; removal of duplicate panes is not that
   proof.
@@ -906,21 +898,9 @@ These locks MUST be labeled as component evidence. They do not authorize a
 visible embedded runtime panel, establish IEC/runtime semantics, or replace
 generated Structured Text execution and rendered extension evidence.
 
-### 11.5 HMI language-model tools and evidence
+### 11.5 HMI authoring
 
-- HMI language-model tools validate inputs and cancellation before committing
-  final artifacts. Cancellation MUST NOT be reported as a completed workflow.
-- Candidate generation, intent planning, validation locks, scenario traces,
-  viewport snapshots, journey results, and provenance explanations are
-  deterministic for identical reviewed inputs.
-- Validation writes bounded lock evidence and applies the documented retention
-  policy. Trace and preview operations preserve their scenario and viewport
-  identity.
-- Binding lookup routes through the registered workspace command and validates
-  its input shape. Layout snapshots and dry-run patches report conflicts
-  without applying them.
-- HMI page enumeration excludes scene-view payload TOML that is not an HMI
-  page.
+HMI authoring workflows are specified in `docs/specs/39-hmi-builder.md`.
 
 ### 11.6 Libraries, project creation, persistence, and focused recovery
 

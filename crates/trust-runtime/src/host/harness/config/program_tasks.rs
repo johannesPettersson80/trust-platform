@@ -70,6 +70,7 @@ pub(super) fn register_program_instances(
         runtime
             .register_program(instance.clone())
             .map_err(|err| CompileError::new(format!("PROGRAM init error: {err}")))?;
+        runtime.set_program_type(program.name.as_str(), def.name.clone());
         let instance_id = match runtime.storage().get_global(program.name.as_ref()) {
             Some(Value::Instance(id)) => *id,
             _ => {

@@ -71,6 +71,7 @@ pub(super) fn handle_config_set(
     let mut control_mode_changed = false;
     let mut debug_enabled = state.debug_enabled.load(Ordering::Relaxed);
     let mut debug_enabled_changed = false;
+    let mut simulation_time_scale: Option<u32> = None;
 
     for (key, value) in params {
         match key.as_str() {
@@ -298,6 +299,26 @@ pub(super) fn handle_config_set(
                 updated.push("control.mode");
                 restart_required.push("control.mode");
             }
+            "simulation.time_scale" => {
+                if !settings.simulation.enabled {
+                    return ControlResponse::error(
+                        id,
+                        config_value_error(key, "the runtime is not running a simulation"),
+                    );
+                }
+                let scale = parse_or_error!(expect_simulation_time_scale(key, value));
+                if state.resource.simulation_speed().is_none() {
+                    return ControlResponse::error(
+                        id,
+                        config_value_error(key, "simulation control is not attached"),
+                    );
+                }
+                settings.simulation.time_scale = scale;
+                settings.simulation.warning =
+                    SmolStr::new(crate::scheduler::simulation_warning(scale));
+                simulation_time_scale = Some(scale);
+                updated.push("simulation.time_scale");
+            }
             "runtime.execution_backend"
             | "runtime.execution_backend_source"
             | "realtime.profile"
@@ -329,6 +350,13 @@ pub(super) fn handle_config_set(
     }
 
     *settings_guard = settings.clone();
+
+    // The running resource applies the new speed from its next cycle; simulation time does not move.
+    if let Some(scale) = simulation_time_scale {
+        if let Some(speed) = state.resource.simulation_speed() {
+            speed.set(scale);
+        }
+    }
 
     if auth_changed {
         if let Ok(mut guard) = state.auth_token.lock() {
@@ -369,4 +397,16 @@ pub(super) fn handle_config_set(
         id,
         json!({ "updated": updated, "restart_required": restart_required }),
     )
+}
+
+/// A simulation speed: a whole number from 1 to 100 (specification 33, §6.1 item 5).
+fn expect_simulation_time_scale(key: &str, value: &serde_json::Value) -> Result<u32, String> {
+    let message = match value.as_i64() {
+        Some(scale) => match crate::scheduler::validate_time_scale(scale) {
+            Ok(scale) => return Ok(scale),
+            Err(message) => message,
+        },
+        None => crate::scheduler::time_scale_not_whole_message(value),
+    };
+    Err(config_value_error(key, &message))
 }

@@ -71,9 +71,9 @@ initial_delayed_input = 0.0
                 assert_eq!(run["parameters"]["Main.Kp"], gain);
                 let samples = run["samples"].as_array().unwrap();
                 assert_eq!(samples.len(), 21);
-                assert_eq!(samples[0]["values"]["Main.PV"]["value"], 0.0);
-                assert_eq!(samples[1]["values"]["Main.PV"]["value"], 0.0);
-                assert!(samples[3]["values"]["Main.PV"]["value"].as_f64().unwrap() > 0.0);
+                assert_eq!(channel_value(&run, 0, "Main.PV"), 0.0);
+                assert_eq!(channel_value(&run, 1, "Main.PV"), 0.0);
+                assert!(channel_value(&run, 3, "Main.PV").as_f64().unwrap() > 0.0);
                 runs.push(run);
                 break;
             }
@@ -86,11 +86,8 @@ initial_delayed_input = 0.0
         runs[0]["conditions"], runs[1]["conditions"],
         "both gains must use identical verification conditions"
     );
-    let final_value = |run: &serde_json::Value| {
-        run["samples"].as_array().unwrap().last().unwrap()["values"]["Main.PV"]["value"]
-            .as_f64()
-            .unwrap()
-    };
+    let final_value =
+        |run: &serde_json::Value| last_channel_value(run, "Main.PV").as_f64().unwrap();
     assert!(final_value(&runs[1]) > final_value(&runs[0]));
     assert!(final_value(&runs[1]) < 1.1);
 }

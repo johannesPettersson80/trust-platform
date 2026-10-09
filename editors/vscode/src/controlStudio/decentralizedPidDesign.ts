@@ -23,7 +23,8 @@ export interface DecentralizedPiDesign { gainMatrix: number[][]; relativeGains: 
 const tolerance = { absolute: 1e-12, relative: 1e-10, conditionLimit: 1e12 };
 
 /** Specification 35 §17.9: one SIMC PI per member, on its own path, for the gain it sees with the other loops closed. */
-export function designDecentralizedPi(model: GeneralModel, pairs: readonly DecentralizedPair[], objective: TuningObjective): DecentralizedPiDesign {
+export function designDecentralizedPi(model: GeneralModel, pairs: readonly DecentralizedPair[], objective: TuningObjective,
+  action: "direct" | "reverse"): DecentralizedPiDesign {
   const inputs = pairs.map(pair => model.inputs.findIndex(input => input.id === pair.inputId));
   const outputs = pairs.map(pair => model.outputs.findIndex(output => output.id === pair.outputId));
   if (pairs.length < 2 || inputs.some(index => index < 0) || outputs.some(index => index < 0)
@@ -48,9 +49,10 @@ export function designDecentralizedPi(model: GeneralModel, pairs: readonly Decen
     const { timeConstantSeconds, delaySeconds } = twoPointPath(responses[index].times, responses[index].outputs[outputs[index]], "group member");
     const path = { timeConstantSeconds, delaySeconds };
     const effectiveGain = gainMatrix[index][index] / relativeGains[index][index];
-    const tuning = tuneController({ kind: path.delaySeconds > 0 ? "first_order_dead_time" : "first_order", gain: Math.abs(effectiveGain),
-      timeConstantSeconds: path.timeConstantSeconds, deadTimeSeconds: path.delaySeconds, normalizedError: 0, stable: true }, { method: "SIMC", objective });
-    const proportionalGain = Math.sign(effectiveGain) * tuning.controller.kp;
+    // Tune checks the signed effective gain against the action (N6.3) and returns the signed Kp (N6.4).
+    const tuning = tuneController({ kind: path.delaySeconds > 0 ? "first_order_dead_time" : "first_order", gain: effectiveGain,
+      timeConstantSeconds: path.timeConstantSeconds, deadTimeSeconds: path.delaySeconds, normalizedError: 0, stable: true }, { method: "SIMC", objective, action });
+    const proportionalGain = tuning.controller.kp;
     return { ...pair, pathGain: gainMatrix[index][index], relativeGain: relativeGains[index][index], effectiveGain, ...path,
       proportionalGain, integralGain: proportionalGain / tuning.controller.tiSeconds!, derivativeGain: 0 };
   });

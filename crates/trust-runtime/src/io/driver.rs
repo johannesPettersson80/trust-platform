@@ -13,6 +13,18 @@ pub trait IoDriver: Send {
     fn health(&self) -> IoDriverHealth {
         IoDriverHealth::Ok
     }
+
+    /// The bytes of the input image it fills, from its own configuration, so a value located
+    /// there turns stale while its link exchanges no data (specification 42, §5 item 4); `0..
+    /// usize::MAX` for a driver that fills the image from its start. None marks nothing.
+    fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
+        Vec::new()
+    }
+
+    /// The protocol's own state in words, beside the health (specification 42, §4 item 9).
+    fn detail(&self) -> Option<SmolStr> {
+        None
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,4 +74,18 @@ impl IoDriver for SimulatedIoDriver {
     fn write_outputs(&mut self, _outputs: &[u8]) -> Result<(), RuntimeError> {
         Ok(())
     }
+}
+
+/// Byte ranges sorted, with overlapping and touching ones joined (specification 42, §5 item 4).
+pub(crate) fn joined_bytes(mut ranges: Vec<std::ops::Range<usize>>) -> Vec<std::ops::Range<usize>> {
+    ranges.retain(|range| range.start < range.end);
+    ranges.sort_by_key(|range| range.start);
+    let mut joined: Vec<std::ops::Range<usize>> = Vec::with_capacity(ranges.len());
+    for range in ranges {
+        match joined.last_mut() {
+            Some(last) if range.start <= last.end => last.end = last.end.max(range.end),
+            _ => joined.push(range),
+        }
+    }
+    joined
 }

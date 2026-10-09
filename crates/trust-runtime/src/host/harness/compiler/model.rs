@@ -140,6 +140,8 @@ pub(crate) struct GlobalInit {
     pub(crate) initializer: Option<Expr>,
     pub(crate) retain: crate::RetainPolicy,
     pub(crate) address: Option<SmolStr>,
+    /// Declared in a `VAR_GLOBAL CONSTANT` block.
+    pub(crate) constant: bool,
 }
 
 #[derive(Clone)]

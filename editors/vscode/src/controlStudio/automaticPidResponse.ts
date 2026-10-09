@@ -9,6 +9,7 @@ import { designPidForTask, poleMatchedPid } from "./pidTaskDesign";
 import { displayEngineeringUnit } from "./unitDisplay";
 import { decodePidLaw } from "./controllerLaw";
 import { linearTransferModel } from "./linearTransferModel";
+import { gainSignContradiction, requiredGainSign } from "./numerics/identification";
 
 type Response = NonNullable<EngineerRequirements["tuningObjective"]>;
 
@@ -23,8 +24,9 @@ const NEAREST: Record<Response, readonly Response[]> = {
  */
 export function designPidToRequirements(loop: ControlLoopDefinition, model: GeneralModel, family: "PI" | "PD" | "PID",
   task: EngineerRequirements): PidPiDesign {
-  const design = (tuningObjective: Response) => designPidForTask(model, family, { ...task, tuningObjective }, loop.controller.taskPeriodMs);
-  if (task.tuningMethod !== undefined) return designPidForTask(model, family, task, loop.controller.taskPeriodMs);
+  const action = loop.controller.action;
+  const design = (tuningObjective: Response) => designPidForTask(model, family, { ...task, tuningObjective }, loop.controller.taskPeriodMs, action);
+  if (task.tuningMethod !== undefined) return designPidForTask(model, family, task, loop.controller.taskPeriodMs, action);
   const shortfalls: Partial<Record<Response, string>> = {};
   for (const [index, response] of NEAREST[task.tuningObjective ?? "balanced"].entries()) {
     const candidate = design(response);
@@ -39,14 +41,15 @@ export function designPidToRequirements(loop: ControlLoopDefinition, model: Gene
   for (let placement = 0, envelope = Math.max(4, Math.log(Math.abs(task.referenceChange) / task.settlingBand)); placement < 8;
     placement++, envelope *= 1.25) {
     let placed: PidPiDesign;
-    try { placed = poleMatchedPid(model, family, task, loop.controller.taskPeriodMs, envelope); }
+    try { placed = poleMatchedPid(model, family, task, loop.controller.taskPeriodMs, action, envelope); }
     catch (error) {
       // Without a pole-placement form, or beyond the sample-rate limit, the formula responses' refusal stands.
       if (/Pole matching needs|bandwidth/.test(error instanceof Error ? error.message : String(error))) break;
       continue;
     }
     const { proportionalGain, integralGain, derivativeGain } = placed.candidate;
-    if ([proportionalGain, integralGain, derivativeGain].some(gain => (gain ?? 0) < 0)) continue;
+    // N5.12(c): non-negative in the magnitude frame, where s_a multiplies each gain (N6.1), so a direct loop's gains are >= 0 and a reverse loop's are <= 0.
+    if ([proportionalGain, integralGain, derivativeGain].some(gain => (gain ?? 0) * requiredGainSign(action) < 0)) continue;
     const outcome = predictedShortfall(loop, model, family, placed, task);
     if (outcome === "meets") return placed;
     if (outcome !== "unpredicted") placedShortfall = outcome;
@@ -127,8 +130,10 @@ function gainRangeShortfall(loop: ControlLoopDefinition, design: PidPiDesign): s
     const parameter = loop.parameterBinding?.parameters.find(candidate => candidate.symbol === symbol);
     if (!parameter || value === undefined || !Number.isFinite(value)) continue;
     const unit = displayEngineeringUnit(parameter.unit), shown = (number: number) => formatEngineeringNumber(Number(number.toPrecision(4)));
-    if (value > parameter.maximum) return `needs ${label} = ${shown(value)} ${unit}, above its declared maximum of ${shown(parameter.maximum)} ${unit}`;
-    if (value < parameter.minimum) return `needs ${label} = ${shown(value)} ${unit}, below its declared minimum of ${shown(parameter.minimum)} ${unit}`;
+    // The declared bounds limit the magnitude of a signed gain; its sign follows the controller action (N6.3).
+    const magnitude = Math.abs(value);
+    if (magnitude > parameter.maximum) return `needs ${label} of magnitude ${shown(magnitude)} ${unit}, above its declared maximum of ${shown(parameter.maximum)} ${unit}`;
+    if (magnitude < parameter.minimum) return `needs ${label} of magnitude ${shown(magnitude)} ${unit}, below its declared minimum of ${shown(parameter.minimum)} ${unit}`;
   }
   return undefined;
 }
@@ -139,11 +144,15 @@ function gainRangeShortfall(loop: ControlLoopDefinition, design: PidPiDesign): s
  */
 export function designIntegratingPToRequirements(loop: ControlLoopDefinition, model: GeneralModel, task: EngineerRequirements,
   rateGain: number, delaySeconds: number): PidPiDesign {
+  const action = loop.controller.action;
+  // N6.3: the rate gain's sign must be the one the action requires; the formula then runs on its magnitude, with s_a applied (N5.8, N6.4).
+  const contradiction = gainSignContradiction(rateGain, `${loop.signals.processVariable.unit}/${loop.signals.manipulatedVariable.unit}/s`, action);
+  if (contradiction) throw new Error(contradiction);
   const multiples: Record<Response, number> = { fast: 1, balanced: 2, robust: 4 };
   const shortfalls: Partial<Record<Response, string>> = {};
   for (const [index, response] of NEAREST[task.tuningObjective ?? "balanced"].entries()) {
     const lambda = multiples[response] * delaySeconds;
-    const candidate = designTypedProportionalCandidate(model, 1 / (rateGain * (lambda + delaySeconds)));
+    const candidate = designTypedProportionalCandidate(model, requiredGainSign(action) / (Math.abs(rateGain) * (lambda + delaySeconds)));
     const outcome = predictedShortfall(loop, model, "P", candidate, task);
     if (outcome === "meets" || outcome === "unpredicted" && index === 0) return candidate;
     if (outcome !== "unpredicted") shortfalls[response] = outcome;
@@ -152,12 +161,12 @@ export function designIntegratingPToRequirements(loop: ControlLoopDefinition, mo
   throw new MainWorkflowError(`P cannot meet the requirements on the model: ${reason}`, { cause: "task-infeasible", nextAction: "revise-requirements" });
 }
 
-/** K′e^(−Ls)/s with L > 0: the rate gain and delay of a delayed integrating model, or nothing for any other model. */
+/** K′e^(−Ls)/s with L > 0: the signed rate gain and delay of a delayed integrating model, or nothing for any other model. */
 export function delayedIntegrator(model: GeneralModel): { rateGain: number; delaySeconds: number } | undefined {
   let transfer: ReturnType<typeof linearTransferModel>;
   try { transfer = linearTransferModel(model); } catch { return undefined; }
   const [leading, constant] = transfer.denominator;
   if (transfer.denominator.length !== 2 || constant !== 0 || transfer.numerator.length !== 1 || !(transfer.delaySeconds > 0)) return undefined;
   const rateGain = transfer.numerator[0] / leading;
-  return Number.isFinite(rateGain) && rateGain > 0 ? { rateGain, delaySeconds: transfer.delaySeconds } : undefined;
+  return Number.isFinite(rateGain) && rateGain !== 0 ? { rateGain, delaySeconds: transfer.delaySeconds } : undefined;
 }

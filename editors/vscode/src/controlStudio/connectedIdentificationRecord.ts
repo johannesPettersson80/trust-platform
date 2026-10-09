@@ -3,6 +3,7 @@ import type { ControlExperimentPlan } from "./experiment";
 import type { LoopRecording } from "./loopMonitor";
 import { evaluateRecordedRun, type RecordedRun } from "./runValidation";
 import type { RuntimeVerificationResult } from "./verificationClient";
+import { MainWorkflowError } from "./mainWorkflowFailure";
 import { isDeepStrictEqual } from "util";
 
 /** Identification alone accepts connected records; isolated verification keeps its stricter decoder. */
@@ -29,14 +30,21 @@ export function decodeConnectedIdentificationRecord(value: unknown): RuntimeVeri
   } catch { return undefined; }
 }
 
-/** Preserve native scan times and measured applied inputs; no replay or resampling. */
+/** Preserve native scan times and measured applied inputs; no replay or resampling. The record keeps the whole recording, which
+ * its acquisition evidence describes; `baselineStartSeconds`, the start of the steady baseline window (B3.4), tells the fit where
+ * the experiment's data begins, so the wait before it never sets the operating point, and `baselineEndSeconds` where that window
+ * ends, so the operating point is taken over the window (N1.3). */
 export function connectedIdentificationRecord(loop: ControlLoopDefinition, recording: LoopRecording,
-  plan: ControlExperimentPlan): RuntimeVerificationResult {
+  plan: ControlExperimentPlan, baselineStartSeconds = 0, baselineEndSeconds?: number): RuntimeVerificationResult {
   const acquisition = recording.evidence;
   const raw = recording.rawSamples;
   if (acquisition.method !== "runtime_scan_buffer" || acquisition.completeness !== "complete"
     || !acquisition.recordingId || !acquisition.programRevision || !raw?.length) {
-    throw new Error("Identification requires the complete recording from the connected runtime.");
+    // An incomplete recording stays evidence and is never used for identification (A4.4, E4.5). Identify records a new one, so
+    // the next action is Identify (A11.2); the runtime's own reason is kept, and the message says what the next attempt changes (A11.1).
+    throw new MainWorkflowError(`Identification requires the complete recording from the connected runtime. ${acquisition.reason} `
+      + "The incomplete recording is kept as evidence, and Identify plant records a new one.",
+    { cause: "model-or-data", nextAction: "identify" });
   }
   const bindings = [loop.signals.processVariable, loop.signals.manipulatedVariable,
     ...(loop.signals.setpoint ? [loop.signals.setpoint] : []), ...(loop.signals.additional ?? [])];
@@ -60,5 +68,6 @@ export function connectedIdentificationRecord(loop: ControlLoopDefinition, recor
     maximum: binding === loop.signals.manipulatedVariable ? loop.limits.outputMaximum : binding.range.maximum,
   })));
   return { projectRevision: acquisition.programRevision, request: { execution: "connected-runtime", loop_revision: loop.revision,
-    acquisition, experiment: plan }, run, evaluation };
+    acquisition, experiment: plan, ...(baselineStartSeconds > 0 ? { baselineStartSeconds } : {}),
+    ...(baselineEndSeconds !== undefined && baselineEndSeconds > baselineStartSeconds ? { baselineEndSeconds } : {}) }, run, evaluation };
 }

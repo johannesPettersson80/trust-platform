@@ -15,15 +15,23 @@ fn apply_bundle_runtime_overrides(
     runtime.configure_openot_telemetry(&bundle.runtime.openot, Some(&bundle.root))?;
 
     let registry = IoDriverRegistry::default_registry();
-    for driver in &bundle.io.drivers {
+    for (position, driver) in bundle.io.drivers.iter().enumerate() {
+        // Each driver's link is named as Devices & Connections names it (specification 42, §2).
+        let link = trust_runtime::io::io_link_name(driver.name.as_str(), position);
         if !driver.enabled {
+            if let Some(link) = link {
+                runtime.add_disabled_link(link);
+            }
             continue;
         }
         if let Some(spec) = registry
             .build(driver.name.as_str(), &driver.params)
             .map_err(anyhow::Error::from)?
         {
-            runtime.add_io_driver(spec.name, spec.driver);
+            match link {
+                Some(link) => runtime.add_io_driver_with_link(spec.name, link, spec.driver),
+                None => runtime.add_io_driver(spec.name, spec.driver),
+            }
         }
     }
 

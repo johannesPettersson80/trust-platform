@@ -1,0 +1,53 @@
+format = 1
+title = "Live measurement limits"
+hidden = true
+
+[[object]]
+id = "heading"
+type = "text"
+at = [64, 48]
+size = [1100, 48]
+text = "Live measurement limits"
+variant = "heading"
+
+[[object]]
+id = "gauge"
+type = "gauge"
+at = [112, 152]
+size = [400, 400]
+decimals = 2
+limits = { low = 1, high = 2 }
+[object.bind]
+value = "Main.Metadata.Value"
+
+[[object]]
+id = "bar"
+type = "bar"
+variant = "horizontal"
+at = [672, 224]
+size = [720, 96]
+label = "Measured temperature"
+[object.bind]
+value = "Main.Metadata.Value"
+
+[[object]]
+id = "alternate"
+type = "switch"
+at = [720, 448]
+size = [360, 56]
+label = "Alternate display metadata"
+[object.bind]
+value = { path = "Main.MetadataAlternate", direction = "read-write" }
+
+[[object]]
+id = "explanation"
+type = "text"
+at = [672, 552]
+size = [800, 72]
+text = "The process value stays at 100. The PLC changes its unit label and high limit."
+
+[[object]]
+id = "alarms"
+type = "alarm-list"
+at = [64, 664]
+size = [1500, 336]

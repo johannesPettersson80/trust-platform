@@ -1,6 +1,0 @@
-title = "Trends"
-kind = "trend"
-icon = "line-chart"
-order = 50
-duration_s = 600
-signals = ["P1.ElapsedSeconds", "P1.FrozenPrediction", "P1.HighFlowApplied", "P1.HighFlowRequested", "P1.HighFlowTemperature", "P1.LoadApplied", "P1.LoadTemperature", "P1.LocalTemperature"]

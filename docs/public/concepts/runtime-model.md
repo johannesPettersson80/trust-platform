@@ -8,7 +8,6 @@ endpoint behavior, hot reload, and web/runtime-cloud surfaces.
 | `program.stbc` | Compiled bytecode artifact loaded by `trust-runtime`. |
 | Control endpoint | Local or configured API used for status, reload, and runtime control. |
 | Hot reload | Guarded bytecode replacement after diagnostics/build checks. |
-| `HMI` | Runtime-hosted browser operator surface. |
 
 ## Build Artifact
 
@@ -26,7 +25,6 @@ The runtime combines:
 - runtime config from `runtime.toml`
 - I/O config from `io.toml`
 - optional simulation config from `simulation.toml`
-- optional HMI descriptors from `hmi/`
 
 ## Control Options
 

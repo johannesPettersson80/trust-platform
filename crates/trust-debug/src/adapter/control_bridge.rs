@@ -11,8 +11,7 @@ use smol_str::SmolStr;
 
 use trust_runtime::config::ControlMode;
 use trust_runtime::control::{
-    AdsDoctorJobStore, ControlEndpoint, ControlServer, ControlState, HmiRuntimeDescriptor,
-    SourceRegistry,
+    AdsDoctorJobStore, ControlEndpoint, ControlServer, ControlState, SourceRegistry,
 };
 use trust_runtime::debug::{DebugControl, DebugSnapshot, DebugVariableHandles, RuntimeEvent};
 use trust_runtime::discovery::DiscoveryState;
@@ -21,7 +20,7 @@ use trust_runtime::io::IoDriverStatus;
 use trust_runtime::linux_rt::{LinuxRtConfig, LinuxRtRuntimeStatus};
 use trust_runtime::mesh::MeshTopologyEvidence;
 use trust_runtime::metrics::RuntimeMetrics;
-use trust_runtime::scheduler::{ResourceCommand, ResourceControl, StdClock};
+use trust_runtime::scheduler::{simulation_warning, ResourceCommand, ResourceControl, StdClock};
 use trust_runtime::settings::{
     BaseSettings, DiscoverySettings, MeshSettings, RuntimeSettings, SimulationSettings, WebSettings,
 };
@@ -29,6 +28,7 @@ use trust_runtime::value::{Duration, Value};
 use trust_runtime::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
 
 use crate::runtime::DebugRuntime;
+use crate::session::SimulationFacts;
 
 #[cfg(unix)]
 const DEFAULT_UNIX_ENDPOINT: &str = "/tmp/trust-debug.sock";
@@ -50,14 +50,17 @@ impl DebugControlServer {
         project_root: Option<PathBuf>,
     ) -> Result<Self, RuntimeError> {
         let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
+        // The simulator loop paces with this speed, and `config.set` changes it (specification 33, §6.1 item 5). It is
+        // attached whatever the facts are at start: a reload can change them, and `config.set` refuses a physical target.
+        let resource = resource.with_simulation_speed(session.simulation_speed());
+        // The display is served at the debugged program's Hmi.Display call (specification 39, §18).
+        if let Ok(mut runtime) = session.runtime_handle().lock() {
+            runtime.set_hmi_exchange(resource.hmi_exchange());
+        }
         let debug = session.debug_control();
         let sources = SourceRegistry::new(session.control_sources());
         let io_snapshot = Arc::new(Mutex::new(None));
         let io_snapshot_seen_ms = Arc::new(AtomicU64::new(0));
-        let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
-            project_root.as_deref(),
-            &sources,
-        )));
         let state = Arc::new(ControlState {
             debug: debug.clone(),
             resource,
@@ -89,9 +92,6 @@ impl DebugControlServer {
             ))),
             debug_enabled: Arc::new(AtomicBool::new(true)),
             debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
-            hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
-            hmi_persistence: None,
-            hmi_descriptor,
             historian: None,
             pairing: None,
             ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
@@ -101,7 +101,8 @@ impl DebugControlServer {
             #[cfg(feature = "ads-server")]
             ads_server_runtime: Arc::new(Mutex::new(None)),
         });
-        trust_runtime::control::spawn_hmi_descriptor_watcher(state.clone());
+        // Experiments advance on the simulator's scans, as they do in the runtime binary (specification 35, A3.5).
+        state.connect_experiments();
         let server = ControlServer::start(endpoint, state.clone())?;
         let drain = spawn_command_drain(
             cmd_rx,
@@ -128,6 +129,20 @@ impl DebugControlServer {
         Arc<AtomicU64>,
     ) {
         (self.io_snapshot.clone(), self.io_snapshot_seen_ms.clone())
+    }
+
+    /// The metrics that control.status reports. The simulator loop publishes its achieved speed into them.
+    pub(super) fn metrics_sink(&self) -> Arc<Mutex<RuntimeMetrics>> {
+        self.server.state().metrics.clone()
+    }
+
+    /// Reports the simulation facts of the program that is now loaded (specification 35, A2.4).
+    pub(super) fn refresh_simulation(&self, facts: SimulationFacts) {
+        let state = self.server.state();
+        let Ok(mut settings) = state.settings.lock() else {
+            return;
+        };
+        settings.simulation = simulation_settings(facts);
     }
 }
 
@@ -182,13 +197,28 @@ fn default_settings(session: &dyn DebugRuntime) -> RuntimeSettings {
             zenohd_version: SmolStr::new(trust_runtime::mesh::ZENOHD_BASELINE_VERSION),
             plugin_versions: IndexMap::new(),
         },
-        SimulationSettings {
-            enabled: false,
-            time_scale: 1,
-            mode_label: SmolStr::new("production"),
-            warning: SmolStr::new(""),
-        },
+        simulation_settings(session.simulation_facts()),
     )
+}
+
+/// The simulation settings for `facts`. The mode label and the warning are the ones the runtime binary shows in
+/// simulation mode (specification 33, §6.1 item 6).
+fn simulation_settings(facts: SimulationFacts) -> SimulationSettings {
+    let warning = if facts.enabled {
+        simulation_warning(facts.time_scale)
+    } else {
+        String::new()
+    };
+    SimulationSettings {
+        enabled: facts.enabled,
+        time_scale: facts.time_scale,
+        mode_label: SmolStr::new(if facts.enabled {
+            "simulation"
+        } else {
+            "production"
+        }),
+        warning: SmolStr::new(warning),
+    }
 }
 
 fn spawn_command_drain(
@@ -204,6 +234,10 @@ fn spawn_command_drain(
                     let _ = respond_to.send(Err(RuntimeError::ControlError(SmolStr::new(
                         "bytecode reload unavailable in debug control",
                     ))));
+                }
+                ResourceCommand::MeshCatalogue { respond_to, .. } => {
+                    let _ = respond_to
+                        .send(Err("mesh catalogue unavailable in debug control".to_owned()));
                 }
                 ResourceCommand::MeshSnapshot { respond_to, .. } => {
                     let _ = respond_to.send(IndexMap::<SmolStr, Value>::new());
@@ -289,6 +323,7 @@ fn empty_debug_snapshot() -> DebugSnapshot {
 mod search_provenance_tests {
     use super::*;
     use crate::DebugAdapter;
+
     #[test]
     fn debug_bridge_reports_the_actual_session_simulation_snapshot() {
         let stamp = std::time::SystemTime::now()
@@ -443,3 +478,75 @@ time_constant_s = 1.0
         let _ = std::fs::remove_dir_all(root);
     }
 }
+
+#[cfg(test)]
+mod display_read_tests {
+    use super::*;
+
+    /// Specification 39, §11.1 and §18 Phase 5: the runtime display shows the debugged program's
+    /// values from its `Hmi.Display` call, also after the program is reloaded.
+    #[test]
+    fn the_runtime_display_reads_the_debugged_programs_values() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root =
+            std::env::temp_dir().join(format!("debug-hmi-read-{}-{stamp}", std::process::id()));
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("src/hmi.st"),
+            include_str!("../../../../libraries/hmi/src/hmi.st"),
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("src/Main.st"),
+            "PROGRAM Main\nVAR\n    Count : INT := 7;\n    Screens : Hmi.Display;\nEND_VAR\n    Screens();\nEND_PROGRAM\n",
+        )
+        .unwrap();
+        let main = root.join("src/Main.st").to_string_lossy().into_owned();
+        let mut session = crate::DebugSession::new(trust_runtime::Runtime::new());
+        session.update_source_options(crate::session::SourceOptionsUpdate {
+            root: Some(root.to_string_lossy().into_owned()),
+            include_globs: Some(vec!["**/*.st".into()]),
+            exclude_globs: Some(vec![]),
+            ignore_pragmas: None,
+        });
+        session.reload_program(Some(main.as_ref())).unwrap();
+        let bridge = DebugControlServer::start(
+            &session,
+            ControlEndpoint::Tcp("127.0.0.1:0".parse().unwrap()),
+            None,
+            Some(root.clone()),
+        )
+        .unwrap();
+        // A reload builds a new runtime; the display keeps its exchange.
+        session.reload_program(Some(main.as_ref())).unwrap();
+        let paths: Vec<_> = ["Main.Count", "Main.Gone"]
+            .iter()
+            .map(|path| trust_runtime::hmi::member_paths::MemberPath::parse(path).unwrap())
+            .collect();
+        let exchange = bridge.server.state().resource.hmi_exchange();
+        let _screen = exchange.open_screen(paths.clone());
+        session
+            .runtime_handle()
+            .lock()
+            .unwrap()
+            .execute_cycle()
+            .unwrap();
+        let read = exchange
+            .read(&paths)
+            .expect("the debugged program's Hmi.Display call served the display");
+        let values: Vec<Option<serde_json::Value>> = read
+            .values
+            .into_iter()
+            .map(|value| value.map(|wire| serde_json::to_value(wire).unwrap()))
+            .collect();
+        assert_eq!(values, vec![Some(serde_json::json!({ "value": 7 })), None]);
+        let _ = std::fs::remove_dir_all(root);
+    }
+}
+
+#[cfg(test)]
+#[path = "control_bridge_mesh_tests.rs"]
+mod mesh_tests;

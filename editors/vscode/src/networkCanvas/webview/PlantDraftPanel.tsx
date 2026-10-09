@@ -430,7 +430,7 @@ export function PlantDraftPanel({
       <div style={{ minWidth: 0 }}>
       <section className="trust-section" data-plant-setup-section="connections">
         <div className="trust-section__title">Connections</div>
-        <p className="trust-help" style={{ marginTop: 0 }}>Choose a named PLC signal for each model port. Command ports read PLC outputs; feedback ports write PLC inputs.</p>
+        <p className="trust-help" style={{ marginTop: 0 }}>Choose a named PLC signal for each model port. Command ports read PLC outputs or memory; feedback ports write PLC inputs.</p>
         {temperatureView && <div className="trust-help" data-plant-temperature-assumptions>
           <p>{(editor.inputScale?.[0] ?? 1) === 1 && (editor.inputOffset?.[0] ?? 0) === 0
             ? "PLC 0–100 = heater 0–100%"

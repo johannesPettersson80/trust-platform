@@ -15,8 +15,9 @@ fn lower_global_var_block(
             .initializer
             .as_ref()
             .map(|expr| {
-                lower_expr(expr, ctx)
-                    .and_then(|lowered| resolve_initializer_enum_variant(expr, lowered, type_id, ctx))
+                lower_expr(expr, ctx).and_then(|lowered| {
+                    resolve_initializer_enum_variant(expr, lowered, type_id, ctx)
+                })
             })
             .transpose()?;
         if qualifiers.constant && matches!(kind, VarBlockKind::Global) {
@@ -37,6 +38,7 @@ fn lower_global_var_block(
                         initializer: init_expr.clone(),
                         retain: qualifiers.retain,
                         address: parts.address.clone(),
+                        constant: qualifiers.constant,
                     });
                 }
             }
@@ -108,6 +110,7 @@ pub(super) fn lower_var_access_block(
                     initializer: None,
                     retain: crate::RetainPolicy::Unspecified,
                     address: Some(text.clone()),
+                    constant: false,
                 });
             }
             AccessPath::Parts(_) => {

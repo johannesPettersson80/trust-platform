@@ -45,10 +45,11 @@ suite("Control Studio Test recording owner", () => {
       events.push("recording-start");
       return { loop: requestedLoop, stop: async () => { events.push("recording-stop"); return completeRecording(); } };
     });
+    const journal = { persist: async () => undefined, clear: async () => undefined };
     await assert.rejects(() => api.startExperimentWithRecording(owner, loop, async () => {
       events.push("experiment-start");
       throw new Error("runtime rejected the reviewed test");
-    }), /runtime rejected/);
+    }, journal), /runtime rejected/);
     assert.deepStrictEqual(events, ["recording-start", "experiment-start", "recording-stop"]);
     assert.strictEqual(owner.recording, false);
   });
@@ -65,7 +66,8 @@ suite("Control Studio Test recording owner", () => {
       return { loop: requestedLoop, recoveryOwner: () => recoveryOwner,
         stop: async () => { events.push("recording-stop"); return completeRecording(); } };
     });
-    await api.startExperimentWithRecording(owner, loop, async () => { events.push("experiment-start"); return "started"; }, undefined,
+    await api.startExperimentWithRecording(owner, loop, async () => { events.push("experiment-start"); return "started"; },
+      { persist: async () => undefined, clear: async () => undefined },
       async (persisted: any) => { events.push(`persist:${persisted.recordingId}`); });
     assert.deepStrictEqual(events, ["recording-start", "persist:test-recording", "experiment-start"]);
   });

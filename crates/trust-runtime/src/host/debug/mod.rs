@@ -11,7 +11,8 @@ mod trace;
 mod types;
 
 pub(crate) use control::{
-    numeric_control_value, resolve_control_parameter_path, ForcedVarTarget, PendingVarTarget,
+    control_number_as, numeric_control_value, resolve_control_parameter_path, ForcedVarTarget,
+    PendingVarTarget, ScanObserver, ScanView,
 };
 pub use control::{
     ControlAction, ControlOutcome, DebugControl, DebugMode, IoRecordingResult, IoRecordingSpec,

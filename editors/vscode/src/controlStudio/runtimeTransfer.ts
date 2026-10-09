@@ -6,6 +6,10 @@ import { randomUUID } from "crypto";
 import { roundedTransferValue, type ProportionalTracking, type TransferBinding } from "./proportionalTransfer";
 import type { ParallelPidTracking } from "./pidTransfer";
 import type { RuntimeRequest } from "./verificationClient";
+import { PhysicalApprovalRequired, type LiveWriteAuthority } from "./runtimeTarget";
+import { confirmationTiming } from "./confirmationWindow";
+import { MainWorkflowError } from "./mainWorkflowFailure";
+
 
 export interface TransferOwner { id: string; program: string; binding: string }
 
@@ -22,7 +26,9 @@ export interface TransferStatus {
   transaction: null | { id: string; program_revision: string; binding_revision: string;
     status: string; reason: string | null; observed_values: Record<string, number | boolean> | null;
     confirmation: "post-st" | "output-image" | null;
-    initial_values?: Record<string, number | boolean> | null; applied_values?: Record<string, number> | null };
+    initial_values?: Record<string, number | boolean> | null; applied_values?: Record<string, number> | null;
+    /** True when the runtime reverted a failed transfer in the same scan, so the loop kept its mode and values (A6.3). */
+    restored?: boolean };
 }
 
 /** A transport and program epoch stay pinned through acknowledgement and recovery. */
@@ -53,13 +59,18 @@ export class RuntimeTransferClient {
       || !(transaction.observed_values === null || this.validValues(transaction.observed_values))
       || (transaction.initial_values != null && !this.validValues(transaction.initial_values))
       || (transaction.applied_values != null && !this.validAppliedValues(transaction.applied_values))
+      || (transaction.restored !== undefined && typeof transaction.restored !== "boolean")
       || ![null, "post-st", "output-image"].includes(transaction.confirmation))) {
       throw new Error("The runtime returned invalid transfer outcome evidence.");
     }
     return value as unknown as TransferStatus;
   }
 
-  async apply(values: Record<string, number>, manual: boolean, tolerance: number, tracking?: TransferTracking, reviewed?: TransferStatus): Promise<TransferStatus> {
+  /** `write` is the caller's live-write authority (A2.4, A2.5). Callers not yet given their connection's authority still write
+   * as a simulation; the runtime refuses any physical write that lacks approval, whatever the request says. */
+  async apply(values: Record<string, number>, manual: boolean, tolerance: number, tracking?: TransferTracking, reviewed?: TransferStatus,
+    write: LiveWriteAuthority = { source: "simulation" }): Promise<TransferStatus> {
+    if (write.source === "physical" && !write.approval) throw new PhysicalApprovalRequired("controller transfer");
     if (this.active) throw new Error("Resolve the owned transfer before starting another.");
     const status = reviewed ?? await this.status();
     if (status.program_revision !== this.program || status.status === "pending") throw new Error("The program changed or another transfer is pending.");
@@ -72,7 +83,7 @@ export class RuntimeTransferClient {
         expected_program_revision: active.program, expected_binding_revision: active.binding,
         expected_values: status.values, values, manual, maximum_output_change: tolerance,
         ...(tracking ? { tracking } : {}),
-        source: "simulation", physical_approved: false });
+        source: write.source, physical_approved: write.approval !== undefined });
     } catch (error) {
       if (error instanceof RuntimeControlError && error.code === "invalid_transfer_request") {
         this.active = undefined;
@@ -87,7 +98,7 @@ export class RuntimeTransferClient {
     }
     const outcome = await this.finish(active);
     if (outcome.status !== "applied" || outcome.transaction?.confirmation !== "output-image") {
-      throw new Error(outcome.reason ?? `Transfer ${outcome.status}.`);
+      throw transferRejection(outcome);
     }
     const expectedMode = manual ? this.binding.mode.manual_value : !this.binding.mode.manual_value;
     const observed = outcome.transaction.observed_values;
@@ -181,7 +192,8 @@ export class RuntimeTransferClient {
   }
 
   private async finish(active: { id: string; program: string; binding: string }): Promise<TransferStatus> {
-    const deadline = Date.now() + 10000;
+    const timing = await confirmationTiming(this.request, this.binding.task_name);
+    const deadline = Date.now() + timing.windowMs;
     while (Date.now() < deadline) {
       const status = await this.status();
       const transaction = status.transaction;
@@ -193,7 +205,7 @@ export class RuntimeTransferClient {
         if (!this.outcomes.some(value => value.transaction?.id === active.id)) this.outcomes.push(status);
         return status;
       }
-      await new Promise(resolve => setTimeout(resolve, 25));
+      await new Promise(resolve => setTimeout(resolve, timing.pollMs));
     }
     throw new Error("Controller transfer confirmation is unresolved. Cancel retries the same owned transaction.");
   }
@@ -210,6 +222,18 @@ export class RuntimeTransferClient {
     return Object.keys(value).length === members.length + modes.length && members.every(member =>
       typeof value[member.symbol] === "number" && Number.isFinite(value[member.symbol]));
   }
+}
+/**
+ * A transfer that did not apply, with the runtime's reason kept whole. A failure that the runtime reverted in the same scan left
+ * the loop as it was (A6.3): its next action is to validate again, and nothing is offered to restore.
+ */
+export function transferRejection(outcome: TransferStatus): Error {
+  const reason = outcome.reason ?? `Transfer ${outcome.status}.`;
+  if (outcome.transaction?.restored !== true) return new Error(reason);
+  // The runtime's reason is one clause without its full stop (control-studio-runtime-protocol E6.7); the revert is a sentence of its own.
+  const clause = /[.!?]$/.test(reason) ? reason : `${reason}.`;
+  return new MainWorkflowError(`${clause} The runtime reverted the transfer in the same scan, so the loop kept its mode and values.`,
+    { cause: "settings", nextAction: "validate" });
 }
 function record(value: unknown): value is Record<string, any> { return !!value && typeof value === "object" && !Array.isArray(value); }
 function text(value: unknown): value is string { return typeof value === "string" && value.length > 0; }

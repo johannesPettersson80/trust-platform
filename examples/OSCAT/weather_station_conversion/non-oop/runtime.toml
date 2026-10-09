@@ -2,7 +2,7 @@
 version = 1
 
 [resource]
-name = "WeatherStationConversionClassic"
+name = "Cpu0"
 cycle_interval_ms = 1000
 
 [runtime.control]

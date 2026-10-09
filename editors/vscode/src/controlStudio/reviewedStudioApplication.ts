@@ -8,17 +8,6 @@ export interface ReviewedStudioApplicationCommand {
   messageId: string;
 }
 
-export interface ReviewedStudioApplicationMessage {
-  schemaVersion: 1;
-  kind: "control-studio.application.apply" | "control-studio.application.restore";
-  messageId: string;
-  projectId: string;
-  editorSessionId: string;
-  loopId: string;
-  expectedLoopRevision: string;
-  payload: Record<string, never>;
-}
-
 export function decodeReviewedStudioApplicationCommand(value: unknown,
   expected: LoopMessageScope): ReviewedStudioApplicationCommand | undefined {
   if (!record(value) || !record(value.payload) || JSON.stringify(value).length > 16_000 ||

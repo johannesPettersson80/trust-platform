@@ -26,6 +26,11 @@ pub(super) struct PreparedRetainSnapshot {
 }
 
 const PROGRAM_RETAIN_KEY_PREFIX: &str = "@program/";
+/// Retained members of a function block instance that a program declares:
+/// `@program-instance/<program>/<variable>/<member path>`.
+const PROGRAM_INSTANCE_KEY_PREFIX: &str = "@program-instance/";
+/// Retained members of a global function block instance: `@global-instance/<global>/<member path>`.
+const GLOBAL_INSTANCE_KEY_PREFIX: &str = "@global-instance/";
 
 impl Runtime {
     /// Capture retained values that can be preserved across reloads.
@@ -61,7 +66,109 @@ impl Runtime {
                 }
             }
         }
+        self.capture_instance_members(&mut snapshot);
         snapshot
+    }
+
+    /// The retained members of function block instances (IEC 61131-3 Ed.3 §6.5.6.1–§6.5.6.2,
+    /// specification 10 §6.7), so they survive a power loss as program variables do: what a type
+    /// declares `RETAIN` in every instance reached, and everything not declared `NON_RETAIN` in an
+    /// instance declared `RETAIN`.
+    fn capture_instance_members(&self, snapshot: &mut RetainSnapshot) {
+        let declarations = super::restart_instances::Declarations {
+            function_blocks: &self.function_blocks,
+            classes: &self.classes,
+        };
+        for (name, meta) in &self.globals {
+            let Some(Value::Instance(id)) = self.storage.get_global(name.as_ref()) else {
+                continue;
+            };
+            let Some(image) = super::restart_instances::capture(
+                &self.storage,
+                &declarations,
+                *id,
+                retain_on_warm(meta.retain),
+            ) else {
+                continue;
+            };
+            for (path, value) in super::restart_instances::flatten(&image) {
+                snapshot.insert(
+                    SmolStr::new(format!("{GLOBAL_INSTANCE_KEY_PREFIX}{name}/{path}")),
+                    value,
+                );
+            }
+        }
+        for program in self.programs.values() {
+            let Some(Value::Instance(instance)) = self.storage.get_global(program.name.as_ref())
+            else {
+                continue;
+            };
+            for var in &program.vars {
+                let Some(Value::Instance(member)) =
+                    self.storage.get_instance_var(*instance, var.name.as_ref())
+                else {
+                    continue;
+                };
+                let Some(image) = super::restart_instances::capture(
+                    &self.storage,
+                    &declarations,
+                    *member,
+                    retain_on_warm(var.retain),
+                ) else {
+                    continue;
+                };
+                for (path, value) in super::restart_instances::flatten(&image) {
+                    snapshot.insert(
+                        SmolStr::new(format!(
+                            "{PROGRAM_INSTANCE_KEY_PREFIX}{}/{}/{path}",
+                            program.name, var.name
+                        )),
+                        value,
+                    );
+                }
+            }
+        }
+    }
+
+    /// The instance a retained instance-member key names, in `storage`, and the member path below
+    /// it; `None` when the program no longer declares that instance.
+    fn instance_member_root(
+        &self,
+        storage: &VariableStorage,
+        key: &str,
+    ) -> Option<(crate::memory::InstanceId, String)> {
+        if let Some(rest) = key.strip_prefix(PROGRAM_INSTANCE_KEY_PREFIX) {
+            let (program_name, rest) = rest.split_once('/')?;
+            let (variable_name, path) = rest.split_once('/')?;
+            let program = self
+                .programs
+                .values()
+                .find(|program| program.name.eq_ignore_ascii_case(program_name))?;
+            let Some(Value::Instance(program_instance)) = storage.get_global(program.name.as_ref())
+            else {
+                return None;
+            };
+            let variable = program
+                .vars
+                .iter()
+                .find(|variable| variable.name.eq_ignore_ascii_case(variable_name))?;
+            let Some(Value::Instance(id)) =
+                storage.get_instance_var(*program_instance, variable.name.as_ref())
+            else {
+                return None;
+            };
+            return Some((*id, path.to_string()));
+        }
+        let rest = key.strip_prefix(GLOBAL_INSTANCE_KEY_PREFIX)?;
+        let (global_name, path) = rest.split_once('/')?;
+        let (stored, _) = self
+            .globals
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case(global_name))?;
+        let Some(Value::Instance(id)) = storage.get_global(stored.as_ref()) else {
+            return None;
+        };
+        Some((*id, path.to_string()))
     }
 
     /// Apply a retained snapshot to the current runtime.
@@ -90,6 +197,61 @@ impl Runtime {
         let mut prepared_storage = storage.clone();
         let mut staged_events = Vec::new();
         for (name, value) in snapshot.values() {
+            if name.starts_with(PROGRAM_INSTANCE_KEY_PREFIX)
+                || name.starts_with(GLOBAL_INSTANCE_KEY_PREFIX)
+            {
+                let declarations = super::restart_instances::Declarations {
+                    function_blocks: &self.function_blocks,
+                    classes: &self.classes,
+                };
+                let landing = self
+                    .instance_member_root(&prepared_storage, name)
+                    .and_then(|(id, path)| {
+                        super::restart_instances::locate(&prepared_storage, id, &path)
+                    })
+                    .filter(|landing| {
+                        declarations.declared(&landing.type_name, &landing.name)
+                            != crate::RetainPolicy::NonRetain
+                    });
+                let type_id = landing.as_ref().and_then(|landing| {
+                    declarations.declared_type(&landing.type_name, &landing.name)
+                });
+                let (Some(landing), Some(type_id)) = (landing, type_id) else {
+                    staged_events.push(crate::debug::RuntimeEvent::RetainOrphanDropped {
+                        name: name.clone(),
+                        time: self.current_time,
+                    });
+                    continue;
+                };
+                if !value_is_retainable(value) {
+                    continue;
+                }
+                let migrated = {
+                    let ctx = RetainMigrationContext {
+                        storage: &prepared_storage,
+                        registry: &self.registry,
+                        initializer_catalog: &self.initializer_catalog,
+                        profile: &self.profile,
+                        stdlib: &self.stdlib,
+                    };
+                    canonicalize_retained_value(&ctx, type_id, value)
+                }
+                .map_err(|error| {
+                    error::RuntimeError::RetainMigration(
+                        format!("invalid retained value for instance member '{name}': {error}")
+                            .into(),
+                    )
+                })?;
+                if &migrated != value {
+                    staged_events.push(crate::debug::RuntimeEvent::RetainMigrationApplied {
+                        name: name.clone(),
+                        detail: retain_migration_detail(value, &migrated),
+                        time: self.current_time,
+                    });
+                }
+                prepared_storage.set_instance_var(landing.part, landing.name, migrated);
+                continue;
+            }
             if let Some((program_name, variable_name)) = parse_program_retain_key(name) {
                 let Some(program) = self
                     .programs

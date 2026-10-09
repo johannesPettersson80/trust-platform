@@ -6,7 +6,7 @@ import { engineerVerificationPlan, proportionalParameter, type EngineerRequireme
 export interface TransferMember { symbol: string; iec_type: "REAL" | "LREAL" | "BOOL"; unit: string; minimum: number; maximum: number }
 export interface TransferBinding {
   loop_id: string; task_name: string; mode: { symbol: string; manual_value: boolean };
-  /** Further controllers' modes switched with `mode` at the same task boundary (control-studio-controller-transfer.md). */
+  /** Further controllers' modes switched with `mode` at the same task boundary (runtime protocol annex, E6). */
   additional_modes?: { symbol: string; manual_value: boolean }[];
   tracking_outputs?: Readonly<Record<string, string>>;
   states: TransferMember[]; guards: TransferMember[]; output: TransferMember; additional_outputs?: TransferMember[];
@@ -49,15 +49,16 @@ export function transferTolerance(loop: ControlLoopDefinition, manual?: number):
   return manual ?? 1e-6 * Math.max(1, span);
 }
 
-/** A verified Auto entry holds the setpoint at the model's operating point, so its output also moves by the
- * controller's response to measurement noise of half-range n. Without a reviewed tolerance, allow the largest
- * response of one cycle: Kp·2n from P on Δy, Ki·Δt·n from I, and Kd·4n/Δt from D on the change of the sampled rate. */
+/** An Auto entry's first output also moves by the controller's response in one execution to measurement noise n and to the
+ * error e it enters with (Specification 35, A6.4). Without a reviewed tolerance, allow Kp·2n from P on Δy, Ki·Δt·(|e| + n)
+ * from I, and Kd·4n/Δt from D on the change of the sampled rate. */
 export function noiseAwareTransferTolerance(loop: ControlLoopDefinition, reviewed: number | undefined,
   proportionalGain: number | undefined, processNoise: number | undefined,
-  others: { integralGain?: number; derivativeGain?: number; cycleSeconds?: number } = {}): number {
+  others: { integralGain?: number; derivativeGain?: number; cycleSeconds?: number; entryError?: number } = {}): number {
   if (reviewed !== undefined || !processNoise || proportionalGain === undefined || !Number.isFinite(proportionalGain)) return transferTolerance(loop, reviewed);
   const cycle = others.cycleSeconds !== undefined && others.cycleSeconds > 0 ? others.cycleSeconds : undefined;
-  const integral = cycle && Number.isFinite(others.integralGain) ? Math.abs(others.integralGain!) * cycle * processNoise : 0;
+  const error = others.entryError !== undefined && Number.isFinite(others.entryError) ? Math.abs(others.entryError) : 0;
+  const integral = cycle && Number.isFinite(others.integralGain) ? Math.abs(others.integralGain!) * cycle * (error + processNoise) : 0;
   const derivative = cycle && Number.isFinite(others.derivativeGain) ? 4 * Math.abs(others.derivativeGain!) * processNoise / cycle : 0;
   return Math.max(transferTolerance(loop), 2 * Math.abs(proportionalGain) * processNoise + integral + derivative);
 }
@@ -91,7 +92,7 @@ export function proportionalInitializationPlan(loop: ControlLoopDefinition, mode
   const transferAt = step * 3;
   const window = { start: 0, end: duration / 1000 };
   const tolerance = transferTolerance(loop, task.transferTolerance);
-  return { reference, tolerance, request: { ...base.request, duration_ms: duration, max_total_cycles: 7,
+  return { reference, tolerance, request: { ...base.request, record_every: undefined, duration_ms: duration, max_total_cycles: 7,
     initial_values: { ...base.request.initial_values, [binding.mode.symbol]: Number(binding.mode.manual_value),
       [binding.states[0].symbol]: pv, [binding.states[1].symbol]: roundedTransferValue(binding.states[1], mv) },
     observations: [...base.request.observations, { symbol: binding.mode.symbol, unit: "1" }],

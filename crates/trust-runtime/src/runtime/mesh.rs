@@ -5,12 +5,14 @@
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 
+use crate::hmi::member_paths::{resolve_member, MemberPath};
 use crate::value::Value;
 
 use super::core::Runtime;
 
 impl Runtime {
-    /// Snapshot global values for mesh publishing.
+    /// Snapshot explicitly published globals and nested program/equipment paths.
+    /// Globals retain their canonical spelling; nested keys retain the configured path.
     pub fn snapshot_globals(&self, names: &[SmolStr]) -> IndexMap<SmolStr, Value> {
         let mut out = IndexMap::new();
         for name in names {
@@ -21,6 +23,11 @@ impl Runtime {
                 .find(|(canonical, _)| canonical.eq_ignore_ascii_case(name.as_str()))
             {
                 out.insert(canonical.clone(), value.clone());
+            } else if let Some(value) = MemberPath::parse(name)
+                .ok()
+                .and_then(|path| resolve_member(&path, self.storage()))
+            {
+                out.insert(name.clone(), value.clone());
             }
         }
         out
@@ -61,6 +68,46 @@ mod tests {
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0], (&SmolStr::new("Enabled"), &Value::Bool(true)));
         assert_eq!(entries[1], (&SmolStr::new("Pressure"), &Value::DInt(7)));
+    }
+
+    #[test]
+    fn mesh_publish_snapshot_reads_only_requested_nested_equipment_members() {
+        let mut harness = crate::harness::TestHarness::from_source(
+            r#"
+FUNCTION_BLOCK Pump
+VAR_OUTPUT
+    Running : BOOL;
+    Speed : REAL;
+END_VAR
+    Running := TRUE;
+    Speed := 1460.0;
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+    P101 : Pump;
+    Levels : ARRAY[1..2] OF INT := [12, 24];
+END_VAR
+    P101();
+END_PROGRAM
+"#,
+        )
+        .expect("the publish fixture compiles");
+        harness.cycle();
+        let snapshot = harness.runtime().snapshot_globals(&[
+            "Main.P101.Running".into(),
+            "main.p101.speed".into(),
+            "Main.Levels[2]".into(),
+            "Main.Missing".into(),
+            "Main.Levels[9]".into(),
+        ]);
+        assert_eq!(snapshot.get("Main.P101.Running"), Some(&Value::Bool(true)));
+        assert_eq!(snapshot.get("main.p101.speed"), Some(&Value::Real(1460.0)));
+        assert_eq!(snapshot.get("Main.Levels[2]"), Some(&Value::Int(24)));
+        assert_eq!(
+            snapshot.len(),
+            3,
+            "no missing paths or unrequested instance members are published"
+        );
     }
 
     #[test]

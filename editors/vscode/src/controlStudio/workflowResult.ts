@@ -10,11 +10,13 @@ import { isSavedDeclaredAnalysis, type SavedDeclaredAnalysis } from "./declaredA
 import { decodeEngineerStudy, type EngineerStudy } from "./engineerStudyPersistence";
 import type { ControlPidCandidate } from "./controllerCandidate";
 import type { IdentifiedModel, ModelFitEvidence } from "./identification";
-import type { ValidationResult } from "./validation";
 import { decodeControlChartSession, type ControlChartSession } from "./chartContract";
 import type { CommissioningResult } from "./proportionalCommissioning";
 import { assessCommissioningRecording } from "./commissioningAssessment";
 import { isSavedRouthAnalysis, type SavedRouthAnalysis } from "./routhPersistence";
+import { MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS, RECORDING_SAMPLE_LIMIT } from "./controlStudioLimits";
+import { steadyRecordPeriod } from "./recordSequence";
+import { shareCopy } from "./recordedEvidence";
 
 export interface WorkflowResultSample {
   additional?: readonly RecordedChannel[];
@@ -85,7 +87,6 @@ export interface ControlStudioWorkflowResult {
   identificationStudy?: SavedIdentificationState;
   currentController?: ControlPidCandidate;
   candidate?: ControlPidCandidate;
-  validation?: ValidationResult;
   method?: string;
   tuningComparison?: WorkflowTuningComparison;
   experiment?: WorkflowExperimentContext;
@@ -185,7 +186,7 @@ export function decodeWorkflowResult(value: unknown): ControlStudioWorkflowResul
       (value.identificationStudy !== undefined && (value.schemaVersion !== 4 || !decodeIdentificationState(value.identificationStudy))) ||
       (value.currentController !== undefined && !candidate(value.currentController)) ||
       (value.candidate !== undefined && !candidate(value.candidate)) ||
-      (value.validation !== undefined && !record(value.validation)) || !evidence(value.evidence) ||
+      !evidence(value.evidence) ||
       (value.tuningComparison !== undefined && !tuningComparison(value.tuningComparison)) ||
       (value.experiment !== undefined && !experimentContext(value.experiment)) ||
       (value.plant !== undefined && (!plantContext(value.plant) || value.plant.source !== value.source)) ||
@@ -197,7 +198,7 @@ export function decodeWorkflowResult(value: unknown): ControlStudioWorkflowResul
   if (!recordingMatchesResult(value)) return undefined;
   if (!identificationRecordingsMatchResult(value)) return undefined;
   if (value.commissioning !== undefined && (value.schemaVersion !== 4 || !validCommissioning(value.commissioning, value))) return undefined;
-  return cloneJson(value) as unknown as ControlStudioWorkflowResult;
+  return shareCopy(value) as unknown as ControlStudioWorkflowResult;
 }
 
 function identificationRecordingsMatchResult(outer: Record<string, unknown>): boolean {
@@ -221,11 +222,12 @@ function validCommissioning(value: unknown, outer: Record<string, unknown>): val
     || !value.channels.every(channel => record(channel) && nonempty(channel.id) && typeof channel.unit === "string")
     || new Set(value.channels.map(channel => (channel as Record<string, unknown>).id)).size !== value.channels.length
     || !Array.isArray(value.transfers) || value.transfers.length > 16
-    || JSON.stringify(value).length > 16 * 1024 * 1024 || !record(value.criteria)) return false;
+    || JSON.stringify(value).length > 16 * 1024 * 1024 || !record(value.criteria)
+    || (value.foundMode !== undefined && value.foundMode !== "auto" && value.foundMode !== "manual")) return false;
   const gainRecovery = value.gainRecovery === undefined ? undefined : decodeGainRecoveryContext(value.gainRecovery);
   if (value.gainRecovery !== undefined && !gainRecovery) return false;
   const criteria = value.criteria;
-  if (criteria.target !== value.target || !finite(criteria.durationSeconds) || criteria.durationSeconds <= 0 || criteria.durationSeconds > 600
+  if (criteria.target !== value.target || !finite(criteria.durationSeconds) || criteria.durationSeconds < MINIMUM_EXPERIMENT_DURATION_MS / 1_000 || criteria.durationSeconds > MAXIMUM_EXPERIMENT_DURATION_MS / 1_000
     || !finite(criteria.settlingTimeSeconds) || criteria.settlingTimeSeconds < 0 || criteria.settlingTimeSeconds >= criteria.durationSeconds
     || !finite(criteria.maximumError) || criteria.maximumError <= 0 || !finite(criteria.taskPeriodMs) || criteria.taskPeriodMs <= 0
     || !limits(criteria.processRange) || !limits(criteria.outputLimits)) return false;
@@ -244,7 +246,7 @@ function validCommissioning(value: unknown, outer: Record<string, unknown>): val
     && (item.transaction.applied_values === undefined || item.transaction.applied_values === null || values(item.transaction.applied_values))
     && [null, "post-st", "output-image"].includes(item.transaction.confirmation as null))) return false;
   if (value.recording !== undefined) {
-    if (!record(value.recording) || !Array.isArray(value.recording.rawSamples) || value.recording.rawSamples.length > 12000
+    if (!record(value.recording) || !Array.isArray(value.recording.rawSamples) || value.recording.rawSamples.length > RECORDING_SAMPLE_LIMIT
       || !value.recording.rawSamples.every(workflowSample) || !record(value.recording.evidence)
       || value.recording.evidence.method !== "runtime_scan_buffer" || !revision(value.recording.evidence.programRevision)
       || !recordingMatchesResult({ ...outer, recording: { rawSamples: value.recording.rawSamples,
@@ -261,7 +263,7 @@ function validCommissioning(value: unknown, outer: Record<string, unknown>): val
         && (item as any).transaction.confirmation === "output-image"
         && (item as any).transaction.program_revision === (value.recording as any).evidence.programRevision)) return false;
     const raw = value.recording.rawSamples as WorkflowResultSample[];
-    if (!raw.length || raw.some((sample, index) => index > 0 && sample.scan !== raw[index - 1].scan + 1)) return false;
+    if (!raw.length || !steadyRecordPeriod(raw.map(sample => sample.scan), true)) return false;
     try {
       if (assessCommissioningRecording(value.recording as any, criteria as any) !== value.maximumError) return false;
     } catch { return false; }
@@ -369,14 +371,15 @@ export function workflowExperimentContext(
   const restorationStatus = terminalValue.restoration === "restored"
     ? "confirmed"
     : terminalValue.restoration === "not_required" ? "not_required" : "failed";
-  const richPlan = nonempty(planValue.affectedSignal) && nonempty(planValue.address) &&
+  // A variable written by name has no address (Specification 35 §17.1).
+  const richPlan = nonempty(planValue.affectedSignal) && (planValue.address === undefined || nonempty(planValue.address)) &&
     Number.isSafeInteger(planValue.durationMs) && (planValue.durationMs as number) > 0 &&
     trajectory(planValue.trajectory) && stringList(planValue.stopConditions);
   return {
     kind: (planValue.kind === "project_sequence" ? "observation" : planValue.kind) as WorkflowExperimentContext["kind"],
     ...(richPlan ? {
       affectedSignal: planValue.affectedSignal as string,
-      address: planValue.address as string,
+      ...(nonempty(planValue.address) ? { address: planValue.address } : {}),
       durationMs: planValue.durationMs as number,
       ...(finite(planValue.intervalMs) ? { intervalMs: planValue.intervalMs } : {}),
       ...(Number.isSafeInteger(planValue.seed) ? { seed: planValue.seed as number } : {}),
@@ -592,7 +595,7 @@ function experimentContext(value: unknown): value is WorkflowExperimentContext {
     (value.restoration.reason === undefined || nonempty(value.restoration.reason)) &&
     ((value.affectedSignal === undefined && value.address === undefined && value.durationMs === undefined &&
       value.trajectory === undefined && value.stopConditions === undefined) ||
-      (nonempty(value.affectedSignal) && nonempty(value.address) && Number.isSafeInteger(value.durationMs) &&
+      (nonempty(value.affectedSignal) && (value.address === undefined || nonempty(value.address)) && Number.isSafeInteger(value.durationMs) &&
         (value.durationMs as number) > 0 && trajectory(value.trajectory) && stringList(value.stopConditions))) &&
     (value.intervalMs === undefined || (finite(value.intervalMs) && value.intervalMs > 0)) &&
     (value.seed === undefined || (typeof value.seed === "number" && Number.isSafeInteger(value.seed) &&

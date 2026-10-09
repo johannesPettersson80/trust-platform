@@ -17,6 +17,7 @@ import { responseRowAxis, responseRowGrids } from "./responseRows";
 import type { WorkflowResultSample } from "../workflowResult";
 import { decodeLoopMonitorEnvelope } from "../messages";
 import { ThreePageLiveSignals, type SignalResponseGroup } from "./threePageLiveSignals";
+import { signalRoleName, signalRoleTitle } from "./signalRoles";
 
 type ResponseGroup = SignalResponseGroup;
 
@@ -26,6 +27,9 @@ if (host) {
   const root = document.querySelector<HTMLElement>("[data-studio-three-page]")!;
   const loop = JSON.parse(root.dataset.studioLoop ?? "null") as ControlLoopDefinition | null;
   const chart = echarts.init(host, undefined, { renderer: "canvas" });
+  // The full symbols of the loop's signals show on hover; the legend and axes name them by role.
+  if (loop) host.title = signalRoleTitle(loop);
+  const empty = root.querySelector<HTMLElement>("[data-studio-chart-empty]");
   const plots: Partial<Record<StudioPage, ResponseGroup[]>> = {};
   let live = loop ? new ThreePageLiveSignals(loop) : undefined;
   let recordedSource = false;
@@ -39,23 +43,28 @@ if (host) {
     const groups = plots[page] ?? (page === livePage && !recordedSource ? live?.responses(selected("inputs"), selected("outputs"),
       root.querySelector<HTMLSelectElement>("[data-engineer-acquisition-method]")?.value === "project"
         ? Array.from(root.querySelector<HTMLSelectElement>("[data-three-page-experiment-signals]")?.selectedOptions ?? [], option => option.value) : undefined) : undefined) ?? [];
-    host.closest<HTMLElement>(".studio-response")!.hidden = groups.length === 0;
+    // Tune has no plot before its first prediction; Identify and Validate keep their plot area and say what it waits for.
+    host.closest<HTMLElement>(".studio-response")!.hidden = groups.length === 0 && page === "tune";
+    if (empty) { empty.hidden = groups.length > 0; empty.textContent = groups.length ? "" : live?.emptyMessage() ?? "Start the runtime to see live values"; }
     const title = root.querySelector<HTMLElement>("[data-studio-response-title]")!;
     title.textContent = page === "tune" ? "Predicted response" : page === "verify" ? "Measured response" : "";
     title.hidden = !groups.length || !title.textContent;
     const rows: ResponseGroup[] = groups.length ? groups : [{ name: "", unit: "", series: [] }];
-    const applicationHeight = page === "verify" ? root.querySelector<HTMLElement>("[data-studio-application]")!.offsetHeight + 32 : 24;
+    // The Apply block sits above the plot on Validate, so the plot needs no room for it.
+    const applicationHeight = 24;
     const available = window.innerHeight - (host.getBoundingClientRect().top + window.scrollY) - applicationHeight;
     const minimumRowHeight = page === "model" && rows.length > 1 ? 180 : 240;
     host.style.minHeight = `${rows.length * minimumRowHeight}px`;
     host.style.height = `${Math.max(rows.length * minimumRowHeight, available)}px`;
     const height = Math.max(host.clientHeight, rows.length * minimumRowHeight);
     const times = groups.flatMap(group => group.series.flatMap(series => series.points.map(point => point[0]).filter((time): time is number => time !== null)));
-    const timeRange = times.length ? times.reduce(([low, high], time) => [Math.min(low, time), Math.max(high, time)], [Infinity, -Infinity]) : undefined;
+    const starts = groups.flatMap(group => group.timeStart === undefined ? [] : [group.timeStart]);
+    const timeRange = times.length ? [...times, ...starts].reduce(([low, high], time) => [Math.min(low, time), Math.max(high, time)], [Infinity, -Infinity]) : undefined;
     const series = responseChartSeries(theme, loop, groups);
     const labels = new Map(groups.flatMap(group => group.series.map(item => [item.name, item.label ?? item.name] as const)));
     const description = groups.length ? `Response plot: ${[...labels.values()].join(", ")}. ${groups.map(group => `${group.name} (${displayEngineeringUnit(group.unit)})`).join(", ")}. Time in seconds.` : "Response plot";
-    chart.setOption({
+    if (!groups.length) chart.clear();
+    else chart.setOption({
       animation: false, aria: { enabled: true, description },
       backgroundColor: theme.background,
       color: [theme.pv, theme.auxiliaryOrange, theme.sp, theme.auxiliaryPurple],
@@ -112,11 +121,11 @@ if (host) {
       const fittedExperiment = decodeIdentificationExperiment(presentation.experiment);
       const retained = loop && recording.length ? recordedSignalResponses(loop, recording, selectedSignals) : [];
       const retainedSeries = retained.flatMap(group => group.series);
-      plots.model = outputs.map((output, index) => ({ name: output.id, unit: output.unit, series: [
-        { signalId: loop ? experimentSignalBindings(loop).find(signal => signal.symbol === output.id)?.id : undefined, name: outputs.length === 1 ? "Measured" : `${output.id} · Measured`, points: fittedExperiment?.outputs[index]?.points.map(point => [point.timeSeconds, point.value])
+      plots.model = outputs.map((output, index) => ({ name: signalRoleName(loop, output.id) ?? output.id, unit: output.unit, series: [
+        { signalId: loop ? experimentSignalBindings(loop).find(signal => signal.symbol === output.id)?.id : undefined, name: outputs.length === 1 ? "Measured" : `${signalRoleName(loop, output.id) ?? output.id} · Measured`, points: fittedExperiment?.outputs[index]?.points.map(point => [point.timeSeconds, point.value])
           ?? retainedSeries.find(series => series.name === output.id || outputs.length === 1 && series.signalId === "pv")?.points
           ?? output.points.map(point => [point.timeSeconds, point.measured]) },
-        { prediction: true, name: outputs.length === 1 ? "Model prediction" : `${output.id} · Model prediction`, points: output.points.map(point => [point.timeSeconds, point.predicted]), dashed: true },
+        { prediction: true, name: outputs.length === 1 ? "Model prediction" : `${signalRoleName(loop, output.id) ?? output.id} · Model prediction`, points: output.points.map(point => [point.timeSeconds, point.predicted]), dashed: true },
       ] }));
       if (fittedExperiment) { plots.model.push(...experimentResponses(fittedExperiment, false, loop)); recordedSource = true; }
       else if (retained.length) plots.model.push(...retained.map(group => ({ ...group,
@@ -125,7 +134,7 @@ if (host) {
     const prediction = payload.plots as EngineeringPlotMessageEvidence | undefined;
     if (loop && prediction?.timeResponse?.length) {
       const points = prediction.timeResponse;
-      plots.tune = [{ name: loop.signals.processVariable.symbol, unit: loop.signals.processVariable.unit, series: [
+      plots.tune = [{ name: signalRoleName(loop, loop.signals.processVariable.symbol) ?? loop.signals.processVariable.symbol, unit: loop.signals.processVariable.unit, series: [
         { name: "Tuned", points: points.map(point => [point.timeSeconds, point.candidatePv]) },
         ...(points.some(point => typeof point.currentPv === "number") ? [{ name: "Current", dashed: true, points: points.map(point => [point.timeSeconds, point.currentPv ?? null]) }] : []),
       ] }];
@@ -176,9 +185,9 @@ function runResponses(loop: ControlLoopDefinition, candidate: RunEvaluation, bas
   const current = baseline?.run?.samples?.length && baseline.run.conditions.modelRevision === run.conditions.modelRevision
     && baseline.run.conditions.durationSeconds === run.conditions.durationSeconds ? baseline.run : undefined;
   const outputs = loop.channels?.outputs.map(channel => loopSignal(loop, channel.signalId)) ?? [loop.signals.processVariable];
-  return outputs.map(signal => ({ name: signal.symbol, unit: signal.unit, series: [
-    { name: outputs.length === 1 ? "Tuned" : `${signal.symbol} · Tuned`, points: run.samples.map(sample => [sample.timeSeconds, sample.values[signal.symbol]?.quality === "good" ? sample.values[signal.symbol].value : null]) },
-    ...(current ? [{ name: outputs.length === 1 ? "Current" : `${signal.symbol} · Current`, dashed: true,
+  return outputs.map(signal => ({ name: signalRoleName(loop, signal.symbol) ?? signal.symbol, unit: signal.unit, timeStart: 0, series: [
+    { name: outputs.length === 1 ? "Tuned" : `${signal.symbol} · Tuned`, label: outputs.length === 1 ? undefined : `${signalRoleName(loop, signal.symbol) ?? signal.symbol} · Tuned`, points: run.samples.map(sample => [sample.timeSeconds, sample.values[signal.symbol]?.quality === "good" ? sample.values[signal.symbol].value : null]) },
+    ...(current ? [{ name: outputs.length === 1 ? "Current" : `${signal.symbol} · Current`, label: outputs.length === 1 ? undefined : `${signalRoleName(loop, signal.symbol) ?? signal.symbol} · Current`, dashed: true,
       points: current.samples.map(sample => [sample.timeSeconds, sample.values[signal.symbol]?.quality === "good" ? sample.values[signal.symbol].value : null]) }] : []),
   ] }));
 }
@@ -186,13 +195,13 @@ function runResponses(loop: ControlLoopDefinition, candidate: RunEvaluation, bas
 function experimentResponses(experiment: IdentificationExperiment, includeOutputs: boolean, loop?: ControlLoopDefinition | null): ResponseGroup[] {
   const bindings = loop ? experimentSignalBindings(loop) : [];
   const binding = (id: string) => bindings.find(signal => signal.symbol === id);
-  const outputs: ResponseGroup[] = includeOutputs ? experiment.outputs.map(trace => ({ name: trace.id, unit: trace.unit,
-    series: [{ signalId: binding(trace.id)?.id, name: `${trace.id} · Measured`, points: trace.points.map(point => [point.timeSeconds, point.value]) }] })) : [];
+  const outputs: ResponseGroup[] = includeOutputs ? experiment.outputs.map(trace => ({ name: signalRoleName(loop, trace.id) ?? trace.id, unit: trace.unit,
+    series: [{ signalId: binding(trace.id)?.id, name: `${signalRoleName(loop, trace.id) ?? trace.id} · Measured`, points: trace.points.map(point => [point.timeSeconds, point.value]) }] })) : [];
   const inputs = new Map<string, ResponseGroup>();
   for (const trace of experiment.inputs) {
     const group = inputs.get(trace.unit) ?? { name: "Applied input", unit: trace.unit, series: [] };
     const applied = loop ? experimentInputBinding(loop, trace.id) : undefined;
-    group.series.push({ signalId: applied?.id, name: applied?.symbol ?? `${trace.id} · Applied input`, points: trace.points.map(point => [point.timeSeconds, point.value]) });
+    group.series.push({ signalId: applied?.id, name: applied ? signalRoleName(loop, applied.symbol) ?? applied.symbol : `${trace.id} · Applied input`, points: trace.points.map(point => [point.timeSeconds, point.value]) });
     inputs.set(trace.unit, group);
   }
   return [...outputs, ...inputs.values()];

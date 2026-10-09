@@ -7,7 +7,7 @@ export function prepareBoundedStepReview(input: IdentificationReviewInput): Iden
   const settings = input.stepResponseSettings!;
   if (input.requestedKind !== "fopdt" || input.excluded.length) throw new Error("Bounded step fitting needs FOPDT and the complete recording.");
   const estimation = input.estimation.map(sample => ({ ...sample }));
-  const analysis = analyzeStepResponse(estimation, settings);
+  const analysis = analyzeStepResponse(estimation, settings, input.maximumNormalizedError ?? 0.15);
   const { best, consistency } = analysis;
   const rms = Math.sqrt(best.squaredError / analysis.points.length);
   const response = Math.abs(analysis.final.mean - analysis.baseline.mean);

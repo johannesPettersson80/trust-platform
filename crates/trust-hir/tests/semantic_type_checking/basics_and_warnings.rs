@@ -278,6 +278,40 @@ END_PROGRAM
 }
 
 #[test]
+fn an_instance_passed_to_its_interface_is_no_implicit_conversion() {
+    // IEC 61131-3 §6.6.6: an instance assigned to an interface it implements is passed as a
+    // reference; §6.4.2's elementary conversions do not apply.
+    let warnings = check_warnings(
+        r#"
+INTERFACE IMeasure
+    METHOD Read : REAL
+    END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK Sensor IMPLEMENTS IMeasure
+    METHOD Read : REAL
+        Read := 1.0;
+    END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK Loop
+    VAR_INPUT Measurement : IMeasure; END_VAR
+END_FUNCTION_BLOCK
+
+PROGRAM Test
+    VAR Probe : Sensor; Control : Loop; Current : IMeasure; END_VAR
+    Control(Measurement := Probe);
+    Current := Probe;
+END_PROGRAM
+"#,
+    );
+    assert!(
+        !warnings.contains(&DiagnosticCode::ImplicitConversion),
+        "{warnings:?}"
+    );
+}
+
+#[test]
 fn test_cyclomatic_complexity_warning() {
     let mut body = String::new();
     for _ in 0..15 {
@@ -381,16 +415,18 @@ END_PROGRAM
     assert!(warnings.contains(&DiagnosticCode::NondeterministicTimeDate));
 }
 
+/// Specification 14 (W011): a direct `%I`/`%Q` address in reusable code warns; a program's I/O
+/// list is the normal place for addresses.
 #[test]
 fn test_nondeterministic_io_warning() {
     let warnings = check_warnings(
         r#"
-PROGRAM Test
+FUNCTION_BLOCK Test
     VAR
         input AT %IX0.0 : BOOL;
         output AT %QW1 : INT;
     END_VAR
-END_PROGRAM
+END_FUNCTION_BLOCK
 "#,
     );
     assert!(warnings.contains(&DiagnosticCode::NondeterministicIo));

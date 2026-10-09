@@ -9,11 +9,11 @@ import {
 import { registerDebugAdapter } from "./debug";
 import { getBinaryPath } from "./binary";
 import { registerIoPanel } from "./ioPanel";
-import { registerHmiPanel } from "./hmiPanel";
 import { registerNetworkCanvasPanel } from "./networkCanvas/networkCanvasPanel";
 import { registerControlStudioPanel } from "./controlStudio/panel";
 import { registerRuntimeLifecycle } from "./runtimeLifecycle";
 import { registerRuntimeControls } from "./runtimeControls";
+import { registerSimulationSpeedCommand } from "./simulationSpeed";
 import { registerTrustHome } from "./trustHomeView";
 import { registerLanguageModelTools } from "./lm-tools";
 import { augmentDiagnostic } from "./diagnostics";
@@ -47,6 +47,16 @@ import { StateChartEditorProvider } from "./statechart/stateChartEditor";
 import { BlocklyEditorProvider } from "./blockly/blocklyEditor";
 import { LadderEditorProvider } from "./ladder/ladderEditor";
 import { SfcEditorProvider } from "./sfc/sfcEditor";
+import { HmiBuilderEditorProvider } from "./hmiBuilder/editor/hmiBuilderEditor";
+import { HmiProblems } from "./hmiBuilder/editor/problems";
+import { registerHmiExplorer } from "./hmiBuilder/editor/explorerFiles";
+import { registerHmiTemplates } from "./hmiBuilder/editor/templates";
+import { registerOpenHmi } from "./hmiBuilder/editor/openHmi";
+import { registerHmiProgramEdits } from "./hmiBuilder/editor/programEdits";
+import { registerSymbolImport } from "./hmiBuilder/editor/symbolImport";
+import { registerWritePolicy } from "./hmiBuilder/editor/writePolicy";
+import { registerHmiUsers } from "./hmiBuilder/editor/hmiUsers";
+import { registerProcessScreen } from "./hmiBuilder/editor/processScreen";
 import { registerVisualCompanionSync } from "./visual/companionSt";
 import { registerVisualCustomEditorAutoOpen } from "./visual/autoOpenCustomEditors";
 
@@ -175,6 +185,18 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(BlocklyEditorProvider.register(context));
   context.subscriptions.push(LadderEditorProvider.register(context));
   context.subscriptions.push(SfcEditorProvider.register(context));
+  // Binding problems of HMI pages and popups in the Problems view (specification 39, §7.6).
+  const hmiProblems = new HmiProblems();
+  context.subscriptions.push(hmiProblems);
+  context.subscriptions.push(HmiBuilderEditorProvider.register(context, hmiProblems));
+  context.subscriptions.push(registerHmiTemplates(context.extensionPath));
+  context.subscriptions.push(registerOpenHmi());
+  context.subscriptions.push(registerHmiExplorer(context.extensionPath));
+  context.subscriptions.push(registerHmiProgramEdits());
+  context.subscriptions.push(registerSymbolImport());
+  context.subscriptions.push(registerWritePolicy());
+  context.subscriptions.push(registerHmiUsers(() => getBinaryPath(context, "trust-runtime", "runtime.cli.path")));
+  context.subscriptions.push(registerProcessScreen());
 
   registerDebugAdapter(context);
   registerRuntimeLifecycle(context);
@@ -183,9 +205,9 @@ export async function activate(context: vscode.ExtensionContext) {
   registerLocalRuntime(context);
   registerOpcuaTrust(context);
   registerRuntimeControls(context);
+  context.subscriptions.push(registerSimulationSpeedCommand(context));
   registerTrustHome(context);
   registerIoPanel(context);
-  registerHmiPanel(context);
   registerNetworkCanvasPanel(context, { getClient: () => client });
   registerControlStudioPanel(context, async (rootUri) => {
     if (!client) return { ok: false, error: "The language server is not ready. Retry after the project has compiled." };
@@ -262,29 +284,6 @@ export async function activate(context: vscode.ExtensionContext) {
   registerNamespaceMoveCommand(context, client);
   registerNamespaceMoveCodeActions(context);
   registerNamespaceMoveContext(context);
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-      "trust-lsp.hmi.init",
-      async (input?: { style?: string } | string) => {
-        if (!client) {
-          throw new Error("Language client is not available.");
-        }
-        const rawStyle =
-          typeof input === "string"
-            ? input
-            : typeof input?.style === "string"
-              ? input.style
-              : "";
-        const style = rawStyle.trim().toLowerCase();
-        const args = style ? [{ style }] : [];
-        return client.sendRequest("workspace/executeCommand", {
-          command: "trust-lsp.hmiInit",
-          arguments: args,
-        });
-      }
-    )
-  );
-
   startClientWithRetry(context, config);
 
   context.subscriptions.push(

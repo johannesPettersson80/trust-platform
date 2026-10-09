@@ -10,6 +10,7 @@ import type { TransferBinding } from "./proportionalTransfer";
 import type { TransferOwner, TransferTracking } from "./runtimeTransfer";
 import type { RecordingRecoveryOwner, RecordingOwnerPersistence } from "./runtimeRecording";
 import type { CommissioningResult } from "./proportionalCommissioning";
+import { RECORDING_SAMPLE_LIMIT } from "./controlStudioLimits";
 
 /** Recovery data cannot recreate a review token or authorize Auto entry. */
 export interface CommissioningCheckpoint {
@@ -29,6 +30,10 @@ export interface CommissioningCheckpoint {
   transfer?: TransferOwner;
   recording?: RecordingRecoveryOwner;
   recordingResult?: LoopRecording;
+  /** The mode the loop was found in at review (A6.2). A checkpoint written before this field has none, and its restore stays in Manual. */
+  foundMode?: "auto" | "manual";
+  /** The measured output's noise Apply's Auto entry allowed for (A6.4), so that a restore's return to Auto allows the same. */
+  processNoise?: number;
 }
 export type CommissioningCheckpointWriter = (checkpoint: CommissioningCheckpoint) => Promise<void>;
 
@@ -97,6 +102,8 @@ export function decodeCommissioningCheckpoint(value: unknown, loop: ControlLoopD
     || value.recording.loopId !== loop.id || value.recording.projectId !== loop.projectId || value.recording.runtimeId !== loop.runtimeId
     || !text(value.recording.recordingId) || !Array.isArray(value.recording.bindings))) return undefined;
   if (value.recordingResult !== undefined && !validRecordingResult(value.recordingResult)) return undefined;
+  if (value.foundMode !== undefined && !["auto", "manual"].includes(String(value.foundMode))) return undefined;
+  if (value.processNoise !== undefined && (!number(value.processNoise) || value.processNoise < 0)) return undefined;
   try { engineerRequirements(value.task); } catch { return undefined; }
   return structuredClone(value) as unknown as CommissioningCheckpoint;
 }
@@ -108,9 +115,9 @@ function sameNumericRecord(left: Readonly<Record<string, number>>, right: Readon
 }
 
 function validRecordingResult(value: unknown): boolean {
-  if (!record(value) || !Array.isArray(value.samples) || value.samples.length > 12000 || !record(value.evidence)) return false;
+  if (!record(value) || !Array.isArray(value.samples) || value.samples.length > RECORDING_SAMPLE_LIMIT || !record(value.evidence)) return false;
   const rawSamples = value.rawSamples;
-  if (rawSamples !== undefined && (!Array.isArray(rawSamples) || rawSamples.length > 12000)) return false;
+  if (rawSamples !== undefined && (!Array.isArray(rawSamples) || rawSamples.length > RECORDING_SAMPLE_LIMIT)) return false;
   const sampleCount = rawSamples !== undefined ? rawSamples.length : value.samples.length;
   // Runtime recordings retain their decoded samples in rawSamples and leave
   // the monitor projection empty; UI recordings use samples directly.
@@ -121,7 +128,7 @@ function validRecordingResult(value: unknown): boolean {
     || !["incomplete", "complete"].includes(String(evidence.completeness))
     || !number(observedSampleCount) || !Number.isSafeInteger(observedSampleCount) || observedSampleCount < 0
     || observedSampleCount !== sampleCount || !Array.isArray(evidence.missingScanRanges)
-    || evidence.missingScanRanges.length > 12000 || !evidence.missingScanRanges.every(range => {
+    || evidence.missingScanRanges.length > RECORDING_SAMPLE_LIMIT || !evidence.missingScanRanges.every(range => {
       if (!record(range)) return false;
       const first = range.first, last = range.last;
       return number(first) && number(last) && Number.isSafeInteger(first) && Number.isSafeInteger(last) && first <= last;

@@ -1,5 +1,4 @@
 import type { IoState } from "../../io-panel/types";
-import type { HmiBindingCatalog } from "../../lm-tools/shared/types";
 
 export interface PlantSignalCandidate {
   readonly symbol: string;
@@ -23,11 +22,7 @@ export type ManualPlantSignalValidation =
   | {
       readonly ok: false;
       readonly code:
-        | "catalog_unavailable"
-        | "not_compiled"
-        | "wrong_direction"
-        | "duplicate_feedback"
-        | "physical_io_enabled";
+        "catalog_unavailable" | "not_compiled" | "wrong_direction" | "duplicate_feedback" | "physical_io_enabled";
       readonly message: string;
     };
 
@@ -55,9 +50,7 @@ function collectSchemaPhysicalDrivers(schema: unknown, drivers: Set<string>): vo
     const instances = Array.isArray(protocol.instances) ? protocol.instances : [];
     const enabled = instances.some(
       (instance) =>
-        !!instance &&
-        typeof instance === "object" &&
-        (instance as Record<string, unknown>).enabled !== false
+        !!instance && typeof instance === "object" && (instance as Record<string, unknown>).enabled !== false,
     );
     if (!enabled) continue;
     const title = stringField(protocol.title);
@@ -78,10 +71,9 @@ function collectTopologyPhysicalDrivers(topology: unknown, drivers: Set<string>)
       ...(Array.isArray(host.runtimes) ? host.runtimes : []),
       ...(Array.isArray(host.containers)
         ? host.containers.flatMap((container) =>
-            container && typeof container === "object" &&
-            Array.isArray((container as Record<string, unknown>).runtimes)
+            container && typeof container === "object" && Array.isArray((container as Record<string, unknown>).runtimes)
               ? ((container as Record<string, unknown>).runtimes as unknown[])
-              : []
+              : [],
           )
         : []),
     ];
@@ -112,7 +104,7 @@ export function validateManualPlantSignalAddress(
   catalog: PlantSignalCatalog,
   direction: PlantSignalDirection,
   address: string,
-  context: PlantSignalValidationContext = {}
+  context: PlantSignalValidationContext = {},
 ): ManualPlantSignalValidation {
   if (catalog.status !== "ready") {
     return {
@@ -124,9 +116,7 @@ export function validateManualPlantSignalAddress(
   const candidates = direction === "command" ? catalog.commands : catalog.feedbacks;
   const opposite = direction === "command" ? catalog.feedbacks : catalog.commands;
   const requested = canonicalAddress(address);
-  const candidate = candidates.find(
-    (entry) => canonicalAddress(entry.address) === requested
-  );
+  const candidate = candidates.find((entry) => canonicalAddress(entry.address) === requested);
   if (!candidate) {
     if (opposite.some((entry) => canonicalAddress(entry.address) === requested)) {
       return {
@@ -134,7 +124,7 @@ export function validateManualPlantSignalAddress(
         code: "wrong_direction",
         message:
           direction === "command"
-            ? "Use a compiled numeric %Q output for a command."
+            ? "Use a compiled numeric %Q output or %M memory value for a command."
             : "Use a compiled numeric %I input for feedback.",
       };
     }
@@ -143,15 +133,13 @@ export function validateManualPlantSignalAddress(
       code: "not_compiled",
       message:
         direction === "command"
-          ? "Enter or choose a compiled numeric %Q output."
+          ? "Enter or choose a compiled numeric %Q output or %M memory value."
           : "Enter or choose a compiled numeric %I input.",
     };
   }
   if (
     direction === "feedback" &&
-    context.usedFeedbackTargets?.some(
-      (used) => canonicalAddress(used) === canonicalAddress(candidate.address)
-    )
+    context.usedFeedbackTargets?.some((used) => canonicalAddress(used) === canonicalAddress(candidate.address))
   ) {
     return {
       ok: false,
@@ -169,29 +157,37 @@ export function validateManualPlantSignalAddress(
   return { ok: true, address: candidate.address };
 }
 
+/** Builds the plant signal catalog from the `trust-lsp.hmiBindings` response. */
 export function buildPlantSignalCatalog(
-  compiled: HmiBindingCatalog | unknown,
+  compiled: unknown,
   live: IoState,
   communicationSchema?: unknown,
-  communicationTopology?: unknown
+  communicationTopology?: unknown,
 ): PlantSignalCatalog {
   if (!compiled || typeof compiled !== "object") {
     return compileError("Compiled signal metadata is unavailable.");
   }
   const response = compiled as Record<string, unknown>;
-  const normalizedCatalog = isHmiBindingCatalog(compiled) ? compiled : undefined;
-  if (!normalizedCatalog && response.ok !== true) {
+  if (response.ok !== true) {
     return compileError(
       typeof response.error === "string" && response.error.trim()
         ? response.error
-        : "The current project did not compile."
+        : "The current project did not compile.",
     );
   }
-  const processImage = normalizedCatalog?.processImage;
+  const processImage =
+    response.processImage && typeof response.processImage === "object"
+      ? (response.processImage as Record<string, unknown>)
+      : undefined;
 
+  // A command reads a PLC output or a memory value, such as a disturbance the program or the HMI
+  // sets (specification 33, §13.1).
   const catalog: PlantSignalCatalog = {
     status: "ready",
-    commands: normalizeCandidates(processImage?.commands, live.outputs),
+    commands: [
+      ...normalizeCandidates(processImage?.commands, live.outputs),
+      ...normalizeCandidates(processImage?.memory, live.memory ?? []),
+    ],
     feedbacks: normalizeCandidates(processImage?.feedbacks, live.inputs),
   };
   const physicalDrivers = enabledPhysicalIoDrivers(communicationSchema, communicationTopology);
@@ -202,14 +198,9 @@ function compileError(error: string): PlantSignalCatalog {
   return { status: "compile_error", commands: [], feedbacks: [], error };
 }
 
-function normalizeCandidates(
-  value: unknown,
-  liveEntries: IoState["inputs"]
-): PlantSignalCandidate[] {
+function normalizeCandidates(value: unknown, liveEntries: IoState["inputs"]): PlantSignalCandidate[] {
   if (!Array.isArray(value)) return [];
-  const liveByAddress = new Map(
-    liveEntries.map((entry) => [canonicalAddress(entry.address), entry] as const)
-  );
+  const liveByAddress = new Map(liveEntries.map((entry) => [canonicalAddress(entry.address), entry] as const));
   return value.flatMap((candidate): PlantSignalCandidate[] => {
     if (!candidate || typeof candidate !== "object") return [];
     const record = candidate as Record<string, unknown>;
@@ -224,18 +215,6 @@ function normalizeCandidates(
     }
     return [result];
   });
-}
-
-function isHmiBindingCatalog(value: unknown): value is HmiBindingCatalog {
-  if (!value || typeof value !== "object") return false;
-  const record = value as Partial<HmiBindingCatalog>;
-  return (
-    Array.isArray(record.entries) &&
-    record.byPath instanceof Map &&
-    !!record.processImage &&
-    Array.isArray(record.processImage.commands) &&
-    Array.isArray(record.processImage.feedbacks)
-  );
 }
 
 function stringField(value: unknown): string {

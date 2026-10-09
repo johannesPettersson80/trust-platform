@@ -8,7 +8,6 @@ import {
   type ExperimentIdentificationTerminal,
 } from "./experiment";
 import type { LoopRecording, LoopRecordingEvidence } from "./loopMonitor";
-import { assessConfiguredSaturationWindup } from "./saturationWindup";
 
 export interface TerminalTestEvidenceInput {
   readonly loop: ControlLoopDefinition | undefined;
@@ -36,13 +35,11 @@ export async function buildTerminalTestEvidence(input: TerminalTestEvidenceInput
     samples = retainedIdentificationSamplesFromRuntimeRecording(input.plan, recording);
   }
   const identification = input.recordIdentification(input.plan, terminal, samples, recording.evidence);
-  const saturationWindup = assessConfiguredSaturationWindup(input.loop, recording);
   return {
     ...input.result,
     identification,
     recordingEvidence: recording.evidence,
     recording,
-    ...(saturationWindup.status === "unavailable" ? {} : { saturationWindup }),
   };
 }
 

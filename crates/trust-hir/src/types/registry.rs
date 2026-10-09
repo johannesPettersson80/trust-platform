@@ -20,6 +20,29 @@ pub struct TypeRegistry {
 }
 
 impl TypeRegistry {
+    /// Snapshot declaration types without lowering executable code. Type identities are
+    /// preserved so structures, aliases and recursive references remain in one ID domain.
+    pub(crate) fn declaration_snapshot(
+        types: FxHashMap<TypeId, Type>,
+        names: FxHashMap<SmolStr, TypeId>,
+        named_value_types: FxHashSet<TypeId>,
+        overlapping_struct_types: FxHashSet<TypeId>,
+    ) -> Self {
+        let next_id = types
+            .keys()
+            .map(|id| id.0)
+            .max()
+            .unwrap_or(TypeId::USER_TYPES_START - 1)
+            + 1;
+        Self {
+            types,
+            names,
+            named_value_types,
+            overlapping_struct_types,
+            next_id,
+        }
+    }
+
     /// Creates a new type registry with built-in types.
     #[must_use]
     pub fn new() -> Self {

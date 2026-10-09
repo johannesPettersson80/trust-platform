@@ -30,6 +30,7 @@ import type { IdentificationReview } from "./identification";
 import * as path from "path";
 import { AutomaticStudioFlow } from "./automaticStudioFlow";
 import { ReviewedStudioApplicationCoordinator } from "./reviewedStudioApplication";
+import { KeepInProjectCoordinator } from "./keepInProject";
 import { identifyOpenedRecording } from "./openedRecordingIdentification";
 import { declaredFeedbackDefinition } from "./declaredFeedbackModel";
 import { MimoAnalysisSession, type MimoAnalysisSnapshot } from "./mimoAnalysisSession";
@@ -63,6 +64,7 @@ export class StudioAnalysisSessions {
   private replayGeneration = 0;
   private readonly automaticFlow: AutomaticStudioFlow;
   private readonly reviewedApplication = new ReviewedStudioApplicationCoordinator();
+  private readonly keepInProject = new KeepInProjectCoordinator();
   get identification(): IdentificationWorkflow { return this.identificationSession; }
   constructor(loop?: ControlLoopDefinition, declared: () => SavedDeclaredAnalysis | undefined = () => undefined,
     retainRecording?: (recording: LoopRecording) => Promise<void>,
@@ -228,10 +230,12 @@ export class StudioAnalysisSessions {
   }
   async handle(message: unknown, scope: LoopMessageScope, post: (stage: string, payload: Record<string, unknown>) => Promise<void>, recordingActive = false): Promise<boolean> {
     if (await this.studyReset.handle(message, scope, this, recordingActive || this.recordingBusy || this.automaticFlow.running, post)) return true;
+    // Keep in project writes the applied values into the project, separately from Apply (Specification 35 §17.17).
+    if (await this.keepInProject.handle(message, scope, this.boundLoop, payload => this.forwardSessionUpdate("engineer", payload, post))) return true;
     if (this.engineer && await this.reviewedApplication.handle(message, { engineer: this.engineer, scope,
       isCurrent: () => !this.disposed, post: payload => this.forwardSessionUpdate("engineer", payload, post) })) return true;
     if (await this.automaticFlow.handle(message, scope, (stage, payload) => this.forwardSessionUpdate(stage, payload, post))) return true;
-    for (const [stage, session] of [["engineer", this.engineer], ["routh", this.routh], ["general-model", this.model], ["lead-lag", this.leadLag], ["run-validation", this.validation], ["parameters", this.parameters], ["search", this.search]] as const) {
+    for (const [stage, session] of [["engineer", this.engineer], ["routh", this.routh], ["general-model", this.model], ["lead-lag", this.leadLag], ["parameters", this.parameters]] as const) {
       if (this.disposed) return false;
       if (await session?.handle(message, scope, async payload => {
         await this.forwardSessionUpdate(stage, payload, post);

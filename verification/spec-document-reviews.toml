@@ -2686,23 +2686,6 @@ last_reviewed = "2026-07-19"
 
 [[document_reviews]]
 schema_version = 1
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-content_sha256 = "e11650f361898eeedf5397444f609bbaf882764654d78dadd2a54519f539678e"
-areas = ["hmi_ui"]
-authority_levels = ["public_claim"]
-owners = ["trust-runtime"]
-freshness = "current"
-visibility = "public"
-oracle_usable = false
-classification_basis = "explicit_review"
-conflict_disposition = "potential_conflict_reported"
-checklist_staleness = "not_applicable"
-removed_behavior_disposition = "potentially_stale_reported"
-last_reviewed = "2026-07-19"
-
-[[document_reviews]]
-schema_version = 1
 document_id = "SPEC_DOC_61AC9835FD6CF0303BCD84AB"
 path = "docs/specs/19-project-model.md"
 content_sha256 = "c92edc6b81e19764fdba4140dd3519395db240bb25e6f8120045d6af8cda7ce1"
@@ -2981,23 +2964,6 @@ content_sha256 = "ef416a1f929d2ec573583f41d52cb322528ece93e2881e2de1da351683bf91
 areas = ["compiler_iec"]
 authority_levels = ["normative_candidate"]
 owners = ["trust-hir"]
-freshness = "current"
-visibility = "public"
-oracle_usable = false
-classification_basis = "explicit_review"
-conflict_disposition = "potential_conflict_reported"
-checklist_staleness = "not_applicable"
-removed_behavior_disposition = "potentially_stale_reported"
-last_reviewed = "2026-07-19"
-
-[[document_reviews]]
-schema_version = 1
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-content_sha256 = "7548e214b724f66ad34b30bab6c0c07f5ed357419f080c4fb012cd829b3a1514"
-areas = ["hmi_ui"]
-authority_levels = ["public_claim"]
-owners = ["trust-runtime"]
 freshness = "current"
 visibility = "public"
 oracle_usable = false
@@ -3447,23 +3413,6 @@ classification_basis = "registered_metadata"
 conflict_disposition = "registered_conflicts_reviewed"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "reviewed_current"
-last_reviewed = "2026-07-19"
-
-[[document_reviews]]
-schema_version = 1
-document_id = "SPEC_DOC_7DCF526B76B422D5258E2A10"
-path = "docs/guides/HMI_OPERATOR_FIRST_SPECIFICATION.md"
-content_sha256 = "258fca93cb48c43609d0110bf176fe972a99a0021a37e669a223ad37aa639885"
-areas = ["hmi_ui"]
-authority_levels = ["implementation_guide"]
-owners = ["trust-runtime"]
-freshness = "current"
-visibility = "public"
-oracle_usable = false
-classification_basis = "explicit_review"
-conflict_disposition = "not_oracle_authority"
-checklist_staleness = "not_applicable"
-removed_behavior_disposition = "not_oracle_authority"
 last_reviewed = "2026-07-19"
 
 [[document_reviews]]
@@ -4360,23 +4309,6 @@ authority_levels = ["reviewed_decision"]
 owners = ["trust-runtime"]
 freshness = "historical"
 visibility = "internal"
-oracle_usable = true
-classification_basis = "registered_metadata"
-conflict_disposition = "registered_conflicts_reviewed"
-checklist_staleness = "not_applicable"
-removed_behavior_disposition = "reviewed_current"
-last_reviewed = "2026-07-19"
-
-[[document_reviews]]
-schema_version = 1
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-content_sha256 = "bd8b32769dcef382b1d52a1e7383b8fd32553edd5ff941ae207c8534d79a25b3"
-areas = ["hmi_ui"]
-authority_levels = ["normative_product"]
-owners = ["trust-runtime"]
-freshness = "current"
-visibility = "public"
 oracle_usable = true
 classification_basis = "registered_metadata"
 conflict_disposition = "registered_conflicts_reviewed"
@@ -5576,23 +5508,6 @@ last_reviewed = "2026-07-19"
 
 [[document_reviews]]
 schema_version = 1
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-content_sha256 = "4b2c2c82916c09d1a32f88b375309afcae9c5d2d8e041b8e7b127543f69b2b9d"
-areas = ["hmi_ui"]
-authority_levels = ["normative_product"]
-owners = ["trust-runtime"]
-freshness = "current"
-visibility = "public"
-oracle_usable = true
-classification_basis = "registered_metadata"
-conflict_disposition = "registered_conflicts_reviewed"
-checklist_staleness = "not_applicable"
-removed_behavior_disposition = "reviewed_current"
-last_reviewed = "2026-07-19"
-
-[[document_reviews]]
-schema_version = 1
 document_id = "SPEC_DOC_CB69F75CF61B57EAA90FE5A7"
 path = "docs/public/connect/add-a-device.md"
 content_sha256 = "6b4b54252b0ecc32aa04b2f53b3ab0956429f98f4d749a78f4867043a90dcd06"
@@ -5967,23 +5882,6 @@ last_reviewed = "2026-07-19"
 
 [[document_reviews]]
 schema_version = 1
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-content_sha256 = "eabe68d4410243f4d5bf8629d341e98971fb6eaa8a9c4d0ddc0c3d3ef1082dfb"
-areas = ["hmi_ui"]
-authority_levels = ["public_claim"]
-owners = ["trust-runtime"]
-freshness = "current"
-visibility = "public"
-oracle_usable = false
-classification_basis = "explicit_review"
-conflict_disposition = "potential_conflict_reported"
-checklist_staleness = "not_applicable"
-removed_behavior_disposition = "potentially_stale_reported"
-last_reviewed = "2026-07-19"
-
-[[document_reviews]]
-schema_version = 1
 document_id = "SPEC_DOC_DC445D600D304EF76F47AAC8"
 path = "docs/internal/testing/checklists/docs-ia-visual-polish-checklist.md"
 content_sha256 = "e273f3b5efe2ebfcf1f41fafd8751720f64f41d4082ed2d25cf853d2a9569925"
@@ -6031,23 +5929,6 @@ classification_basis = "explicit_review"
 conflict_disposition = "potential_conflict_reported"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "potentially_stale_reported"
-last_reviewed = "2026-07-19"
-
-[[document_reviews]]
-schema_version = 1
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-content_sha256 = "a88efb584d6e3a427a4d5c0e6c1e4d825b0939b8845144b97b66037b4e1a7ab8"
-areas = ["hmi_ui"]
-authority_levels = ["normative_product"]
-owners = ["trust-runtime"]
-freshness = "current"
-visibility = "public"
-oracle_usable = true
-classification_basis = "registered_metadata"
-conflict_disposition = "registered_conflicts_reviewed"
-checklist_staleness = "not_applicable"
-removed_behavior_disposition = "reviewed_current"
 last_reviewed = "2026-07-19"
 
 [[document_reviews]]
@@ -6643,23 +6524,6 @@ classification_basis = "explicit_review"
 conflict_disposition = "potential_conflict_reported"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "potentially_stale_reported"
-last_reviewed = "2026-07-19"
-
-[[document_reviews]]
-schema_version = 1
-document_id = "SPEC_DOC_F70DD85AD58CE24E8B070C0C"
-path = "docs/guides/HMI_OPERATOR_FIRST_IMPLEMENTATION_CHECKLIST.md"
-content_sha256 = "27bdc9ad3415f76c14588c8836beac88eaddfea3e4fc1aa7d50f11b584c1892b"
-areas = ["hmi_ui"]
-authority_levels = ["implementation_guide"]
-owners = ["trust-runtime"]
-freshness = "current"
-visibility = "public"
-oracle_usable = false
-classification_basis = "explicit_review"
-conflict_disposition = "not_oracle_authority"
-checklist_staleness = "not_applicable"
-removed_behavior_disposition = "not_oracle_authority"
 last_reviewed = "2026-07-19"
 
 [[document_reviews]]

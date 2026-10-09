@@ -10,6 +10,7 @@ import { decodeControllerLaw, decodePidLaw, type ControllerLaw } from "./control
 import { decodeParameterBinding, validAnalysisParameterSymbols, type ParameterBinding } from "./parameterBinding";
 import { decodeDeclaredAnalysis, type DeclaredControlAnalysis } from "./declaredAnalysis";
 import { expectedPrimarySignalDirection, isAuxiliarySignalDirectionAccepted } from "./loopSignalDirections";
+import { MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS } from "./controlStudioLimits";
 import { projectStepRecordingMs } from "./projectExperimentHold";
 
 export type ControlSignalDirection = "read" | "write";
@@ -32,22 +33,6 @@ export interface ControlAuxiliarySignalBinding extends ControlSignalBinding {
   id: string;
   channel: string;
   role: ControlAuxiliarySignalRole;
-}
-
-/** Explicit runtime-state bindings needed to assess requested-versus-applied saturation. */
-export interface ControlSaturationEvidence {
-  requestedOutputId: string;
-  integralStateId: string;
-}
-
-/** Explicit frozen inputs for one automatic isolated anti-windup comparison. */
-export interface ControlAntiWindupVerificationScenario {
-  stepMs: number;
-  durationMs: number;
-  seed: number;
-  wallBudgetMs: number;
-  initialValues: ReadonlyArray<{ symbol: string; value: number }>;
-  events: ReadonlyArray<{ atMs: number; symbol: string; value: number }>;
 }
 
 /**
@@ -101,11 +86,17 @@ export interface ControlLoopDefinition {
     modeWhenTrue?: "Auto" | "Manual";
     trackingSignal?: string;
     manualOutputSignal?: string;
+    /** Absent for a manual output without an address: Studio then writes it by name (Specification 35 §17.1). */
     manualOutputAddress?: string;
     manualOutputType?: "REAL" | "LREAL" | "BOOL";
+    /** The code copies the output into the manual output outside Manual, so Manual starts where Auto left off; after a scan
+     * in Auto the manual output is the output, not the value a transfer wrote (Specification 35 §17.1). */
+    manualOutputFollowsOutput?: true;
     pidInitialization?: ControlPidInitializationAdapter | LibraryPidInitialization;
-    saturationEvidence?: ControlSaturationEvidence;
-    antiWindupVerification?: ControlAntiWindupVerificationScenario;
+    /** Legacy key from the removed saturation-and-windup analysis: accepted and ignored when a loop loads. */
+    saturationEvidence?: unknown;
+    /** Legacy key from the removed anti-windup comparison: accepted and ignored when a loop loads. */
+    antiWindupVerification?: unknown;
   };
   signals: {
     setpoint?: ControlSignalBinding;
@@ -184,11 +175,9 @@ export type ControlLoopValidationResult =
   | { kind: "rejected"; reason: "malformed_loop" | "unsupported_version" }
   | { kind: "rejected"; reason: "cross_runtime_loop" }
   | { kind: "rejected"; reason: "incompatible_controller_design" }
-  | { kind: "rejected"; reason: "incompatible_anti_windup_verification" }
   | { kind: "rejected"; reason: "incompatible_pid_initialization" }
   | { kind: "rejected"; reason: "incompatible_topology" }
   | { kind: "rejected"; reason: "incompatible_model_units" }
-  | { kind: "rejected"; reason: "incompatible_saturation_evidence" }
   | {
       kind: "rejected";
       reason: "invalid_signal_direction" | "incompatible_signal_type";
@@ -344,16 +333,6 @@ export function validateControlLoopDefinition(
       return { kind: "rejected", reason: "incompatible_auxiliary_units", channel };
     }
   }
-  const saturation = saturationWindupEvidence(loop);
-  if (saturation) {
-    const requested = additional.find((binding) => binding.id === saturation.requestedOutputId);
-    const integral = additional.find((binding) => binding.id === saturation.integralStateId);
-    if (!requested || !integral || requested === integral || requested.role !== "state" || integral.role !== "state" ||
-        requested.direction !== "read" || integral.direction !== "read" || requested.unit !== loop.signals.manipulatedVariable.unit ||
-        integral.unit !== loop.signals.manipulatedVariable.unit) {
-      return { kind: "rejected", reason: "incompatible_saturation_evidence" };
-    }
-  }
   const boundSignals: Array<[string, ControlSignalBinding]> = [
     ...(loop.signals.setpoint ? [["setpoint", loop.signals.setpoint] as [string, ControlSignalBinding]] : []),
     ["processVariable", loop.signals.processVariable],
@@ -372,33 +351,10 @@ export function validateControlLoopDefinition(
       }
     }
   }
-  if (loop.controller.antiWindupVerification && !validAntiWindupVerificationScenario(loop, saturation)) {
-    return { kind: "rejected", reason: "incompatible_anti_windup_verification" };
-  }
   if (loop.controller.pidInitialization && !validPidInitialization(loop)) {
     return { kind: "rejected", reason: "incompatible_pid_initialization" };
   }
   return { kind: "accepted", loop };
-}
-
-/** Returns only the declared stable IDs; live values remain runtime-record evidence. */
-export function saturationWindupEvidence(loop: ControlLoopDefinition): ControlSaturationEvidence | undefined {
-  const evidence = loop.controller.saturationEvidence;
-  return evidence ? { requestedOutputId: evidence.requestedOutputId, integralStateId: evidence.integralStateId } : undefined;
-}
-
-function validAntiWindupVerificationScenario(loop: ControlLoopDefinition, saturation: ControlSaturationEvidence | undefined): boolean {
-  const scenario = loop.controller.antiWindupVerification;
-  const binding = loop.parameterBinding;
-  const law = decodeControllerLaw(loop.controller.law, binding);
-  if (!scenario || !binding || !law || law.kind !== "pid" || !law.antiWindup || !saturation || !loop.signals.setpoint) return false;
-  const integral = loop.signals.additional?.find(signal => signal.id === saturation.integralStateId);
-  if (!integral) return false;
-  const initial = new Map(scenario.initialValues.map(value => [value.symbol, value.value]));
-  const parameters = new Set(binding.parameters.map(parameter => parameter.symbol));
-  return initial.get(binding.mode.symbol) === Number(!binding.mode.manual_value) && initial.has(loop.signals.setpoint.symbol) &&
-    initial.has(integral.symbol) && !scenario.initialValues.some(value => parameters.has(value.symbol)) &&
-    !scenario.events.some(value => parameters.has(value.symbol));
 }
 
 function validPidInitialization(loop: ControlLoopDefinition): boolean {
@@ -441,30 +397,8 @@ function controller(value: unknown): boolean {
     optionalString(value.trackingSignal) && optionalString(value.manualOutputSignal) && optionalString(value.manualOutputAddress) &&
     (value.manualOutputType === undefined || nonempty(value.manualOutputSignal) &&
       (value.manualOutputType === "REAL" || value.manualOutputType === "LREAL" || value.manualOutputType === "BOOL")) &&
-    saturationEvidence(value.saturationEvidence) && antiWindupVerification(value.antiWindupVerification) && pidInitialization(value.pidInitialization);
-}
-
-function saturationEvidence(value: unknown): boolean {
-  return value === undefined || record(value) && Object.keys(value).sort().join(",") === "integralStateId,requestedOutputId" &&
-    nonempty(value.requestedOutputId) && nonempty(value.integralStateId) && value.requestedOutputId !== value.integralStateId;
-}
-
-function antiWindupVerification(value: unknown): boolean {
-  if (value === undefined) return true;
-  if (!record(value) || Object.keys(value).sort().join(",") !== "durationMs,events,initialValues,seed,stepMs,wallBudgetMs") return false;
-  const { stepMs, durationMs, seed, wallBudgetMs, initialValues, events: configuredEvents } = value;
-  if (!positiveInteger(stepMs) || !positiveInteger(durationMs) || durationMs % stepMs !== 0 || !safeInteger(seed) || seed < 0 ||
-      !positiveInteger(wallBudgetMs) || wallBudgetMs > 10_000 || !Array.isArray(initialValues) || initialValues.length === 0 ||
-      initialValues.length > 64 || !Array.isArray(configuredEvents) || configuredEvents.length > 1024) return false;
-  const initialSymbols = new Set<string>();
-  if (!initialValues.every(item => record(item) && Object.keys(item).sort().join(",") === "symbol,value" &&
-      nonempty(item.symbol) && finite(item.value) && !initialSymbols.has(item.symbol) && (initialSymbols.add(item.symbol), true))) return false;
-  let previous = 0;
-  const events = new Set<string>();
-  return configuredEvents.every(item => record(item) && Object.keys(item).sort().join(",") === "atMs,symbol,value" &&
-    safeInteger(item.atMs) && item.atMs >= previous && item.atMs <= durationMs && item.atMs % stepMs === 0 &&
-    nonempty(item.symbol) && finite(item.value) && !events.has(`${item.atMs}\0${item.symbol}`) &&
-    (events.add(`${item.atMs}\0${item.symbol}`), previous = item.atMs, true));
+    (value.manualOutputFollowsOutput === undefined || value.manualOutputFollowsOutput === true && nonempty(value.manualOutputSignal)) &&
+    pidInitialization(value.pidInitialization);
 }
 
 function pidInitialization(value: unknown): boolean {
@@ -545,8 +479,8 @@ function experiment(value: unknown): boolean {
   if (!record(value) || (value.execution !== "control-studio" && value.execution !== "project-scripted") ||
       !["observation", "setpoint_step", "load_step", "mv_step", "mv_pulse", "relay", "prbs", "multisine"]
         .includes(String(value.kind)) ||
-      !finite(value.amplitude) || !finite(value.durationSeconds) || value.durationSeconds < 1 ||
-      value.durationSeconds > 3_600 || typeof value.seed !== "number" || !Number.isSafeInteger(value.seed) ||
+      !finite(value.amplitude) || !finite(value.durationSeconds) || value.durationSeconds < MINIMUM_EXPERIMENT_DURATION_MS / 1_000 ||
+      value.durationSeconds > MAXIMUM_EXPERIMENT_DURATION_MS / 1_000 || typeof value.seed !== "number" || !Number.isSafeInteger(value.seed) ||
       value.seed < 1 || value.seed > 0xffff_ffff) return false;
   if (value.baselineSeconds !== undefined && (value.execution !== "project-scripted" || !activation(value.activation) ||
       !finite(value.baselineSeconds) || value.baselineSeconds < 0 || value.baselineSeconds >= value.durationSeconds)) return false;
@@ -606,10 +540,6 @@ function finite(value: unknown): value is number {
 
 function safeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value);
-}
-
-function positiveInteger(value: unknown): value is number {
-  return safeInteger(value) && value > 0;
 }
 
 function positive(value: unknown): value is number {

@@ -1,0 +1,56 @@
+format = 1
+title = "Overview"
+
+[[object]]
+id = "heading"
+type = "text"
+variant = "heading"
+at = [40, 32]
+size = [800, 40]
+text = "Values served over ADS"
+
+[[object]]
+id = "level"
+type = "gauge"
+at = [40, 104]
+size = [220, 220]
+label = "Tank level"
+unit = "%"
+decimals = 1
+min = 0
+max = 100
+
+[object.bind]
+value = "TankLevel"
+
+[[object]]
+id = "setpoint"
+type = "value"
+at = [300, 104]
+size = [280, 104]
+label = "Setpoint"
+unit = "%"
+decimals = 1
+
+[object.bind]
+value = "Setpoint"
+
+[[object]]
+id = "pump"
+type = "status"
+at = [300, 224]
+size = [280, 48]
+label = "Pump running"
+
+[object.bind]
+state = "PumpRunning"
+
+[[object]]
+id = "status-word"
+type = "value"
+at = [620, 104]
+size = [280, 104]
+label = "Status word"
+
+[object.bind]
+value = "StatusWord"

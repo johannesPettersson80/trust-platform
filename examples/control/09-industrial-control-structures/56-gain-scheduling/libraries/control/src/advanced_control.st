@@ -250,6 +250,7 @@ VAR
     Initialized : BOOL;
     DelayFreeModelValue : LREAL;
     InitialModelOutput : LREAL;
+    CorrectionStateValue : LREAL;
     ElapsedTime : LREAL;
     HistoryTimes : ARRAY[0..255] OF LREAL;
     HistoryValues : ARRAY[0..255] OF LREAL;
@@ -279,6 +280,7 @@ VAR_INPUT
 END_VAR
 DelayFreeModelValue := State.ModelOutput;
 InitialModelOutput := State.ModelOutput;
+CorrectionStateValue := State.ProcessValue - State.ModelOutput;
 ElapsedTime := LREAL#0.0;
 HistoryTimes[0] := LREAL#0.0;
 HistoryValues[0] := State.ModelOutput;
@@ -309,6 +311,7 @@ END_VAR
 Result.PredictedProcessValue := Input.ProcessValue;
 Result.DelayFreeModel := DelayFreeModelValue;
 Result.DelayedModel := DelayFreeModelValue;
+Result.Correction := CorrectionStateValue;
 
 IF Configured AND Initialized AND (Input.CycleTime > LREAL#0.0) THEN
     Coefficient := Input.CycleTime
@@ -368,6 +371,7 @@ IF Configured AND Initialized AND (Input.CycleTime > LREAL#0.0) THEN
         );
     END_IF;
 
+    CorrectionStateValue := CorrectionValue;
     Result.DelayFreeModel := DelayFreeModelValue;
     Result.DelayedModel := DelayedModelValue;
     Result.Correction := CorrectionValue;

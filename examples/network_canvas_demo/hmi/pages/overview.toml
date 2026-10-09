@@ -1,0 +1,44 @@
+format = 1
+title = "Overview"
+
+[[object]]
+id = "heading"
+type = "text"
+variant = "heading"
+at = [40, 32]
+size = [800, 40]
+text = "Conveyor line"
+
+[[object]]
+id = "speed"
+type = "gauge"
+at = [40, 104]
+size = [220, 220]
+label = "Conveyor speed"
+unit = "m/s"
+decimals = 1
+min = 0
+max = 5
+
+[object.bind]
+value = "conveyor_speed"
+
+[[object]]
+id = "running"
+type = "status"
+at = [300, 104]
+size = [280, 48]
+label = "Running"
+
+[object.bind]
+state = "running"
+
+[[object]]
+id = "state"
+type = "value"
+at = [300, 168]
+size = [280, 104]
+label = "Line state"
+
+[object.bind]
+value = "line_state"

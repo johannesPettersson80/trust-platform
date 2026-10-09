@@ -17,11 +17,22 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
    <label class="studio-field">Minimum<input type="number" step="any" data-setup-field="${field}.minimum"></label>
    <label class="studio-field">Maximum<input type="number" step="any" data-setup-field="${field}.maximum"></label>
   </div>`;
-  // The step the identification experiment applies to the output, in the output's own unit, and how long it runs.
-  const step = (field: string, label = "Identification step") =>
-    `<label class="studio-field">${escape(label)}<input type="number" step="any" min="0" data-setup-field="${field}"></label>`;
-  const duration = (field: string, label = "Identification duration (s)") =>
-    `<label class="studio-field">${escape(label)}<input type="number" step="any" min="2" max="600" data-setup-field="${field}"></label>`;
+  // What the code states is shown in words; its Change link reveals the selector that can change it (Specification 35 B1.3).
+  const found = (field: string, label: string, control: string) => `<div class="studio-setup-found" data-setup-found="${field}">
+   <span class="studio-setup-found-label">${escape(label)}</span>
+   <span class="studio-setup-found-value" data-setup-found-value="${field}"></span>
+   <button type="button" class="studio-link" data-setup-change="${field}" aria-expanded="false">Change</button>
+   <div class="studio-setup-change" data-setup-change-panel="${field}" hidden>${control}</div>
+  </div>`;
+  /** The unit and range of a signal, asked only where the code did not supply them. */
+  const rangeGroup = (field: string, label: string) => `<div class="studio-setup-range" data-setup-range-group="${field}">
+   <p class="studio-setup-ask">${escape(label)}: its unit and range, which the code does not state</p>
+   <div class="studio-field-group">
+    <label class="studio-field">Unit<input type="text" data-setup-field="${field}.unit"></label>
+    <label class="studio-field">Minimum<input type="number" step="any" data-setup-field="${field}.minimum"></label>
+    <label class="studio-field">Maximum<input type="number" step="any" data-setup-field="${field}.maximum"></label>
+   </div>
+  </div>`;
   /** A variable holding a gain of the program's own law, with the range Tune may choose from; its unit follows the signals'. */
   const gain = (field: string, label: string) => `${select(field, label, model.reals)}
   <div class="studio-field-group">
@@ -29,6 +40,8 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
    <label class="studio-field">Maximum<input type="number" step="any" data-setup-field="${field}.maximum"></label>
   </div>`;
   const pidNames = model.pids.map(pid => pid.instance);
+  // Studio writes a manual output by name, so any REAL/LREAL serves; it needs no I/O address (Specification 35 §17.1).
+  const manualOutputs = model.signals ?? model.addressedReal;
   // Apply switches the Auto/Manual signal directly, so only a BOOL without an I/O address can be one.
   const modes = model.modes ?? model.booleans;
   const controller = (prefix: string, label: string, selected?: string) => `
@@ -36,7 +49,7 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
   ${select(`${prefix}parameterRecord`, "Parameter record", model.records)}
   ${select(`${prefix}mode`, "Auto/Manual signal", modes)}
   ${choice(`${prefix}modeWhenTrue`, "TRUE means", [["Auto", "Auto"], ["Manual", "Manual"]], "Auto")}
-  ${select(`${prefix}manualOutput`, "Manual output", model.addressedReal)}`;
+  ${select(`${prefix}manualOutput`, "Manual output", manualOutputs)}`;
   const prefill = model.prefill;
   const structures: [string, string][] = [["pid", "One PID loop"], ["cascade", "Cascade: one PID sets the other's setpoint"],
     ["feedforward", "Feedforward: the PID adds the program's feedforward from a measured disturbance"],
@@ -58,29 +71,30 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
     ${signal(`group.${index}.processVariable`, "Measurement")}
     ${signal(`group.${index}.manipulatedVariable`, "Output", undefined, model.signals ?? model.addressedReal)}
     ${select(`group.${index}.setpoint`, "Setpoint", model.signals ?? model.addressedReal)}
-    ${select(`group.${index}.manualOutput`, "Manual output", model.addressedReal)}
-    ${step(`group.${index}.experimentStep`)}
-   </div>
+    ${select(`group.${index}.manualOutput`, "Manual output", manualOutputs)}
+     </div>
   </fieldset>`;
   return `<form class="studio-fields" data-loop-setup novalidate>
  <label class="studio-field">Loop name<input type="text" data-setup-field="name"></label>
  ${choice("structure", "Structure", structures, model.structure === "cascade" ? "cascade" : model.structure === "identify" ? "identify" : "pid")}
  <section class="studio-fields" data-setup-section="pid">
-  ${select("instance", "Controller", pidNames, prefill?.instance)}
-  ${select("parameterRecord", "Parameter record", model.records, prefill?.parameterRecord)}
-  ${signal("processVariable", "Measurement", prefill?.processValue)}
-  ${signal("manipulatedVariable", "Output", prefill?.manipulatedVariable, model.signals ?? model.addressedReal)}
-  ${step("experimentStep")}
-  ${duration("experimentDuration")}
-  ${select("setpoint", "Setpoint", model.signals ?? model.addressedReal, prefill?.setpoint)}
-  ${select("mode", "Auto/Manual signal", modes)}
-  ${choice("modeWhenTrue", "TRUE means", [["Auto", "Auto"], ["Manual", "Manual"]], "Auto")}
-  ${select("manualOutput", "Manual output", model.addressedReal, prefill?.manualOutput)}
+  <div class="studio-setup-summary" data-setup-summary>
+   ${found("instance", "Controller", select("instance", "Controller", pidNames, prefill?.instance))}
+   ${found("parameterRecord", "Parameter record", select("parameterRecord", "Parameter record", model.records, prefill?.parameterRecord))}
+   ${found("processVariable", "Measurement", select("processVariable", "Measurement", model.measurements ?? model.addressedReal, prefill?.processValue))}
+   ${found("manipulatedVariable", "Output", select("manipulatedVariable", "Output", model.signals ?? model.addressedReal, prefill?.manipulatedVariable))}
+   ${found("setpoint", "Setpoint", select("setpoint", "Setpoint", model.signals ?? model.addressedReal, prefill?.setpoint))}
+   ${found("mode", "Auto/Manual signal", `${select("mode", "Auto/Manual signal", modes)}${choice("modeWhenTrue", "TRUE means", [["Auto", "Auto"], ["Manual", "Manual"]], "Auto")}`)}
+   ${found("manualOutput", "Manual output", select("manualOutput", "Manual output", manualOutputs, prefill?.manualOutput))}
+   <div class="studio-setup-found" data-setup-found="task"><span class="studio-setup-found-label">Task</span><span class="studio-setup-found-value" data-setup-found-value="task"></span></div>
+   <ul hidden data-setup-tasks>${model.pids.map(pid => `<li data-instance="${escape(pid.instance)}" data-task="${escape(pid.task ? `${pid.task.name} (${pid.task.intervalMs} ms)` : "")}"></li>`).join("")}</ul>
+  </div>
+  ${rangeGroup("processVariable", "Measurement")}
+  ${rangeGroup("manipulatedVariable", "Output")}
  </section>
  <section class="studio-fields" data-setup-section="feedforward">
   ${signal("ff.disturbance", "Measured disturbance", undefined, model.signals ?? model.addressedReal)}
-  ${select("ff.disturbanceCommand", "Variable Identify steps to move the disturbance", model.addressedReal)}
-  ${step("ff.disturbanceStep", "Disturbance identification step")}
+  ${select("ff.disturbanceCommand", "Variable Identify steps to move the disturbance", manualOutputs)}
   ${select("ff.gain", "Feedforward gain", model.reals)}
   <label class="studio-field">Lead time (s)<select data-setup-field="ff.lead">${options(model.reals, undefined, "None: no lead/lag")}</select></label>
   <label class="studio-field">Lag time (s)<select data-setup-field="ff.lag">${options(model.reals, undefined, "None")}</select></label>
@@ -106,14 +120,11 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
   ${controller("inner.", "Inner controller", model.cascade?.inner)}
   ${signal("inner.processVariable", "Inner measurement")}
   ${signal("inner.manipulatedVariable", "Output", undefined, model.signals ?? model.addressedReal)}
-  ${step("cascade.experimentStep")}
-  ${duration("cascade.experimentDuration")}
  </section>
  <section class="studio-fields" data-setup-section="group">
   ${model.pids.map((pid, index) => member(pid.instance, index)).join("")}
   ${select("group.mode", "Shared Auto/Manual signal", modes)}
   ${choice("group.modeWhenTrue", "TRUE means", [["Auto", "Auto"], ["Manual", "Manual"]], "Auto")}
-  ${duration("group.experimentDuration")}
   <label class="studio-field studio-group-include"><input type="checkbox" data-setup-field="group.decoupled"> The program applies a static decoupler, u = D·v in Auto</label>
   <div class="studio-fields" data-group-decoupler hidden>
    ${[0, 1, 2, 3].flatMap(row => [0, 1, 2, 3].map(column => `<div data-decoupler-entry="${row}.${column}" hidden>${select(`group.decoupler.${row}.${column}`,
@@ -127,7 +138,7 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
   ${signal("onoff.manipulatedVariable", "Output, switched between its minimum and maximum", undefined, model.signals ?? model.addressedReal)}
   ${select("onoff.mode", "Auto/Manual signal", modes)}
   ${choice("onoff.modeWhenTrue", "TRUE means", [["Auto", "Auto"], ["Manual", "Manual"]], "Auto")}
-  ${select("onoff.manualOutput", "Manual output", model.addressedReal)}
+  ${select("onoff.manualOutput", "Manual output", manualOutputs)}
   ${select("onoff.hysteresis", "Hysteresis", model.reals)}
   ${choice("onoff.bandConvention", "Hysteresis holds", band, "half-band")}
   ${select("onoff.minimumOn", "Minimum ON time (s)", model.reals)}
@@ -136,7 +147,6 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
   <label class="studio-field">Equipment minimum OFF time (s)<input type="number" step="any" min="0" placeholder="None" data-setup-field="onoff.equipmentMinimumOff"></label>
   ${select("onoff.latch", "Output-on state", model.booleans)}
   <label class="studio-field">Time in current state (s)<select data-setup-field="onoff.dwellTimer">${options(model.reals, undefined, "None")}</select></label>
-  ${duration("onoff.experimentDuration")}
  </section>
  <section class="studio-fields" data-setup-section="state-feedback">
   ${choice("feedback.family", "Design", [["LQR", "LQR, weighted by the signal ranges"], ["state-feedback", "Pole placement"],
@@ -164,9 +174,7 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
   </div>`).join("")}
   ${select("feedback.mode", "Auto/Manual signal", modes)}
   ${choice("feedback.modeWhenTrue", "TRUE means", [["Auto", "Auto"], ["Manual", "Manual"]], "Auto")}
-  ${select("feedback.manualOutput", "Manual output", model.addressedReal)}
-  ${step("feedback.experimentStep")}
-  ${duration("feedback.experimentDuration")}
+  ${select("feedback.manualOutput", "Manual output", manualOutputs)}
  </section>
  <section class="studio-fields" data-setup-section="own-law">
   ${select("own.instance", "Instance that computes the law", model.instances)}
@@ -177,7 +185,7 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
   ${signal("own.manipulatedVariable", "Output", undefined, model.signals ?? model.addressedReal)}
   ${select("own.mode", "Auto/Manual signal", modes)}
   ${choice("own.modeWhenTrue", "TRUE means", [["Auto", "Auto"], ["Manual", "Manual"]], "Auto")}
-  ${select("own.manualOutput", "Manual output", model.addressedReal)}
+  ${select("own.manualOutput", "Manual output", manualOutputs)}
   ${gain("own.proportionalGain", "Proportional gain Kp")}
   <div class="studio-fields" data-own-integral>
    ${gain("own.integralGain", "Integral gain Ki")}
@@ -188,8 +196,6 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
    ${select("own.derivativeState", "Previous value the derivative is taken from", model.reals)}
    <label class="studio-field">That previous value is<select data-setup-field="own.derivativeOn">${options([], undefined)}<option value="error">${escape("The error")}</option><option value="measurement">${escape("The measurement")}</option></select></label>
   </div>
-  ${step("own.experimentStep")}
-  ${duration("own.experimentDuration")}
  </section>
  <section class="studio-fields" data-setup-section="search">
   ${choice("search.family", "Law", [["MPC", "Model predictive control"], ["ratio", "Ratio"], ["split-range", "Split range"], ["override", "Override"],
@@ -201,7 +207,7 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
   ${signal("search.manipulatedVariable", "Output", undefined, model.signals ?? model.addressedReal)}
   ${select("search.mode", "Auto/Manual signal", modes)}
   ${choice("search.modeWhenTrue", "TRUE means", [["Auto", "Auto"], ["Manual", "Manual"]], "Auto")}
-  ${select("search.manualOutput", "Manual output", model.addressedReal)}
+  ${select("search.manualOutput", "Manual output", manualOutputs)}
   ${[0, 1, 2, 3].map(index => `<div class="studio-fields" data-search-coefficient="${index}">
    ${select(`search.coefficient.${index}`, `Coefficient ${index + 1}`, model.reals)}
    <div class="studio-field-group">
@@ -216,18 +222,15 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
     <label class="studio-field">Starts at<select data-setup-field="search.state.${index}.start"><option value="zero">Zero</option><option value="output">The output</option><option value="measurement">The measurement</option></select></label>
    </div>
   </div>`).join("")}
-  ${step("search.experimentStep")}
-  ${duration("search.experimentDuration")}
  </section>
  <section class="studio-fields" data-setup-section="identify">
   ${signal("identify.manipulatedVariable", "Plant input")}
   ${signal("identify.processVariable", "Measured output")}
-  ${duration("identify.experimentDuration", "Recording duration (s)")}
+  <label class="studio-field">Recording duration<input type="text" data-setup-field="identify.durationSeconds" placeholder="for example 15 min"></label>
  </section>
- <section class="studio-fields" data-setup-startup hidden>${select("startupFlag", "Startup-done flag", model.booleans)}</section>
- <ul hidden data-setup-prefills>${(model.prefills ?? []).map(({ unaddressed, computed, ...prefill }) => `<li${[
-  ...Object.entries(prefill), ...Object.entries(unaddressed ?? {}).map(([key, symbol]) => [`unaddressed-${key}`, symbol] as const),
-  ...Object.entries(computed ?? {}).map(([key, symbol]) => [`computed-${key}`, symbol] as const)].map(([key, symbol]) =>
+ <section class="studio-setup-summary" data-setup-startup hidden>${found("startupFlag", "Startup-done flag", select("startupFlag", "Startup-done flag", model.booleans))}</section>
+ <ul hidden data-setup-prefills>${(model.prefills ?? []).map(({ computed, ...prefill }) => `<li${[
+  ...Object.entries(prefill), ...Object.entries(computed ?? {}).map(([key, symbol]) => [`computed-${key}`, symbol] as const)].map(([key, symbol]) =>
   ` data-${key.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`)}="${escape(symbol ?? "")}"`).join("")}></li>`).join("")}</ul>
  <ul hidden data-setup-writes>${model.writes.map(symbol => `<li data-kind="write">${escape(symbol)}</li>`).join("")}${
   model.initializes.map(instance => `<li data-kind="initialize">${escape(instance)}</li>`).join("")}</ul>

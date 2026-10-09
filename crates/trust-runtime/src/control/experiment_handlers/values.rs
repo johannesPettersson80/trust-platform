@@ -8,15 +8,14 @@ use serde_json::Value as JsonValue;
 use std::time::Duration;
 use trust_hir::TypeId;
 
-#[allow(clippy::too_many_arguments)]
+/// `coerce` converts an output value to the type the experiment's target holds it in.
 pub(super) fn decode_relay_feedback(
     params: &RelayFeedbackParams,
     snapshot: &IoSnapshot,
     minimum: f64,
     maximum: f64,
     output_value_type: Option<&str>,
-    output_type: Option<TypeId>,
-    output_size: crate::io::IoSize,
+    coerce: &dyn Fn(Value) -> Result<Value, String>,
     requested: f64,
 ) -> Result<RelayFeedbackRecord, (String, &'static str)> {
     if !params.center.is_finite() || !params.hysteresis.is_finite() || params.hysteresis <= 0.0 {
@@ -70,11 +69,7 @@ pub(super) fn decode_relay_feedback(
                 "outside_limits",
             ));
         }
-        let write_value = match output_type {
-            Some(value_type) => crate::io::coerce_to_io(raw, value_type, output_size)
-                .map_err(|error| (error.to_string(), "incompatible_binding")),
-            None => Ok(raw),
-        }?;
+        let write_value = coerce(raw).map_err(|error| (error, "incompatible_binding"))?;
         Ok((write_value, numeric))
     };
     let (low_value, low) = decode_output(&params.low_value)?;
@@ -100,14 +95,14 @@ pub(super) fn decode_relay_feedback(
     })
 }
 
+/// `coerce` converts a value to the type the experiment's target holds it in.
 pub(super) fn decode_trajectory(
     points: Vec<TrajectoryPoint>,
     duration_ms: u64,
     minimum: f64,
     maximum: f64,
     value_type: Option<&str>,
-    declared_type: Option<TypeId>,
-    address_size: crate::io::IoSize,
+    coerce: &dyn Fn(Value) -> Result<Value, String>,
 ) -> Result<Vec<(Duration, Value)>, String> {
     if points.len() > 10_000 {
         return Err("experiment trajectory exceeds 10000 points".to_string());
@@ -131,15 +126,30 @@ pub(super) fn decode_trajectory(
         if numeric < minimum || numeric > maximum {
             return Err("trajectory value is outside declared limits".to_string());
         }
-        let value = match declared_type {
-            Some(value_type) => crate::io::coerce_to_io(raw, value_type, address_size)
-                .map_err(|error| error.to_string())?,
-            None => raw,
-        };
-        values.push((Duration::from_millis(point.at_ms), value));
+        values.push((Duration::from_millis(point.at_ms), coerce(raw)?));
         previous = Some(point.at_ms);
     }
     Ok(values)
+}
+
+/// Refuses a trajectory whose consecutive points are closer than the task's interval: the executor queues one point per
+/// execution, so a closer point could never reach the program (Specification 35, A3.5).
+pub(super) fn check_trajectory_spacing(
+    trajectory: &[(Duration, Value)],
+    interval: Duration,
+) -> Result<(), String> {
+    for pair in trajectory.windows(2) {
+        let (first, second) = (pair[0].0, pair[1].0);
+        if second.saturating_sub(first) < interval {
+            return Err(format!(
+                "trajectory points at {} ms and {} ms are closer than the task interval {} ms",
+                first.as_millis(),
+                second.as_millis(),
+                interval.as_millis()
+            ));
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn snapshot_value<'a>(

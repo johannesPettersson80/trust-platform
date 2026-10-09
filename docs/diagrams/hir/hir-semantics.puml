@@ -40,6 +40,20 @@ package "Database Layer" as dbLayer #LightGreen {
         -> merged_project_symbols / analyze_query
         -> diagnostics_query / type_of_query
 
+        Catalog source ranges locate imported
+        declarations directly; no library-wide
+        search per imported type. Precollection
+        skips executable statement trees.
+        Per-file constant locations are tracked
+        by source revision and reused across
+        project symbol collection and analysis.
+        VAR_CONFIG checks visit only files with
+        initializers. Task-sharing diagnostics
+        run at the owning global's source file.
+        OpenOT preprocessing skips semantic work
+        without attributes and shares one model
+        between validation and instrumentation.
+
         Any source change syncs inputs,
         invalidating affected queries
         through Salsa dependency tracking.

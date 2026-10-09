@@ -1,5 +1,4 @@
-import { renderValidationPresentation } from "./validationPresentation";
-import { controlStudioStageAvailability, type ControlStudioStageEvidence, type ControlStudioStageId } from "../stageAvailability";
+import { controlStudioStageAvailability, type ControlStudioStageId } from "../stageAvailability";
 import { setIdentificationActionState } from "./identificationActions";
 
 export interface WorkflowActionAvailability {
@@ -27,22 +26,6 @@ function currentState(): PresentationState {
   };
 }
 
-/** Host analysis and retained-recording controls feed one navigation projection. */
-export function setEngineerWorkflowEvidence(evidence: ControlStudioStageEvidence): void {
-  const state = { ...currentState() };
-  for (const key of ["loopBound", "hasDeclaredAnalysis", "hasManualParameters", "identificationFailed"] as const) {
-    if (evidence[key] !== undefined) state[key] = evidence[key];
-  }
-  if (evidence.hasRecording !== undefined) state.engineerRecording = evidence.hasRecording;
-  states.set(document, state);
-  setWorkflowActionAvailability({
-    ...(evidence.hasModel !== undefined ? { model: evidence.hasModel } : {}),
-    ...(evidence.hasCandidate !== undefined ? { candidate: evidence.hasCandidate } : {}),
-    ...(evidence.validationHasResult !== undefined
-      ? { validationPassed: evidence.validationHasResult ? evidence.validationPassed : undefined } : {}),
-  });
-}
-
 /** Owns dependent-action availability so workflow stages share one visible gate. */
 export function setWorkflowActionAvailability(update: WorkflowActionAvailability): void {
   const state = { ...currentState(), ...update };
@@ -56,21 +39,8 @@ export function setWorkflowActionAvailability(update: WorkflowActionAvailability
     setIdentificationActionState(update.recording ? "imported" : "initial");
   }
   if (update.model !== undefined) {
-    const button = document.querySelector<HTMLButtonElement>("[data-tune-generate]");
-    if (button) button.disabled = !update.model;
     if (update.model) setIdentificationActionState("accepted");
   }
-  if (update.candidate !== undefined) {
-    const button = document.querySelector<HTMLButtonElement>("[data-validate-run]");
-    if (button) button.disabled = !update.candidate;
-  }
-  if (update.result !== undefined) {
-    for (const selector of ["[data-result-save]", "[data-result-export-csv]", "[data-result-export-json]"]) {
-      const button = document.querySelector<HTMLButtonElement>(selector);
-      if (button) button.disabled = !update.result;
-    }
-  }
-  renderValidationPresentation(Boolean(state.recordedResponse), Boolean(state.candidate));
   const evidence = { loopBound: state.loopBound, hasDeclaredAnalysis: state.hasDeclaredAnalysis,
     hasManualParameters: state.hasManualParameters, hasModel: state.model,
     hasCandidate: state.candidate, hasRecording: Boolean(state.recording || state.engineerRecording),

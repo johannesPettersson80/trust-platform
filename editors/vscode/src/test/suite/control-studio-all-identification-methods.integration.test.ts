@@ -29,7 +29,7 @@ suite("Control Studio all identification methods", () => {
           assert.ok(events.some((event: any) => event.experiment?.inputs?.length), "Keep the rejected experiment visible");
           assert.ok(Number(await inner("return d.querySelector('[data-control-studio-chart]').dataset.pointCount;")) > 100);
           await capture("method-siso-relay-clipped");
-          await inner("d.querySelector('[data-studio-reset-chart]').click();return 'reset';");
+          await inner("d.querySelector('[data-studio-reset-chart]').click();Array.from(d.querySelectorAll('.studio-reset-confirm button')).find(b=>b.textContent==='Reset study').click();return 'reset';");
           await pollValue("reset complete", () => inner("return d?.querySelector('[data-control-studio-chart]')?.dataset.pointCount??'loading';").catch(() => "loading"), value => Number(value) >= 4, 10000);
           return;
         }
@@ -69,7 +69,7 @@ suite("Control Studio all identification methods", () => {
         await reopen();
         await inner("d.querySelector('[data-engineer-stage-tab=model]').click();return 'reopened';");
         assert.match(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');"), /Applied input/);
-        await inner("d.querySelector('[data-studio-reset-chart]').click();return 'reset';");
+        await inner("d.querySelector('[data-studio-reset-chart]').click();Array.from(d.querySelectorAll('.studio-reset-confirm button')).find(b=>b.textContent==='Reset study').click();return 'reset';");
         await pollValue("reset complete", () => inner("return d?.querySelector('[data-control-studio-chart]')?.dataset.pointCount??'loading';").catch(() => "loading"), value => Number(value) >= 4, 10000);
       }, { loop: value => { loop = value; loop.experiment.durationSeconds = suffix === "mimo" ? 60 : 30; loop.experiment.relayDirection = "positive"; if (method === "relay") { loop.experiment.kind = "relay"; loop.experiment.amplitude = clippedRelay ? 10 : 1; } if (suffix === "mimo") loop.identificationPolicy = { ...loop.identificationPolicy, maximumOrder: 8 }; } });
     } finally {

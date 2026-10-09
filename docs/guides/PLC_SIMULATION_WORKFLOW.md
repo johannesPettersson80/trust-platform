@@ -118,7 +118,15 @@ trust-runtime play --project <project-folder> --simulation --time-scale 8
 ```
 
 - `--simulation` forces simulation mode even if `simulation.toml` is absent.
-- `--time-scale` accelerates simulation time (`>= 1`).
+- `--time-scale` sets the simulation speed. Use a whole number from 1 to 100. Any other value stops the launch.
+
+## Simulation speed
+
+The speed is set by `time_scale` in `simulation.toml` or by `--time-scale`. It is a whole number from 1 to 100.
+
+- You can change the speed of a running simulation. Use `config.set` with the key `simulation.time_scale`. The new speed applies from the next cycle.
+- Results do not depend on the speed. Simulation time moves forward by one cycle for each cycle that runs. A command or write that comes from outside the runtime takes effect at the next cycle, so its simulation time depends on the speed.
+- A slow host cannot keep up with a high speed. The runtime then runs slower than the speed you set. The achieved speed is in `simulation_achieved_time_scale` in `control.status`. It is `null` until one second has been measured.
 
 ## Validate behavior safely
 

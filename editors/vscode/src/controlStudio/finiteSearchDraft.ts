@@ -1,4 +1,5 @@
 import type { ControlLoopDefinition, ControlSignalBinding } from "./loopDefinition";
+import { ISOLATED_SIMULATION_WALL_TIME_LIMIT_MS, SEARCH_WALL_TIME_LIMIT_MS } from "./controlStudioLimits";
 
 /** Uses declared engineering meaning; the editor shows every initial value before Start. */
 export function buildFiniteSearchDraft(loop: ControlLoopDefinition, values: Readonly<Record<string, number>>): Record<string, unknown> {
@@ -33,7 +34,7 @@ export function buildFiniteSearchDraft(loop: ControlLoopDefinition, values: Read
   const process = loop.signals.processVariable;
   return { grid, trial_count: grid.reduce((count, axis) => count * axis.values.length, 1),
     step_ms: step, duration_ms: duration, seed: loop.experiment?.seed ?? 1,
-    max_total_cycles: 50000, wall_budget_ms: 60000, per_trial_wall_ms: 10000,
+    max_total_cycles: 50000, wall_budget_ms: SEARCH_WALL_TIME_LIMIT_MS, per_trial_wall_ms: ISOLATED_SIMULATION_WALL_TIME_LIMIT_MS,
     initial_values: initial, events: [], observations: unique.map(signal => ({ symbol: signal.symbol, unit: unit(signal) })),
     requirements: [
       { id: "process-bounds", symbol: process.symbol, minimum: process.range.minimum, maximum: process.range.maximum, start_ms: 0, end_ms: duration },

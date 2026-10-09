@@ -6,6 +6,784 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Control Studio tunes long processes. Experiments may run for up to 24 h and execute at the
+  loop task's executions on the runtime's own time, so a busy computer or a faster simulation
+  does not change them. Identify holds its step until the response has settled. At the time
+  limit it accepts a response that has reached 63 % of its fitted change. It reconnects to a
+  running test after VS Code restarts. Recordings follow the process instead of the controller's
+  task: about 200 samples per expected settling time, each the average of the executions in
+  between, so a slow process no longer produces hundreds of thousands of samples or holds up
+  VS Code. The controller still runs at every execution, and a value held during a sample, such
+  as a fixed parameter, is recorded exactly. Fits use the samples' real times. Saving a study no
+  longer holds up VS Code: each recorded result is checked once and then reused, instead of being
+  checked and copied again four times on every save. Closing Control Studio or VS Code never stops
+  a running test, identification or Apply's observation; reopening follows it at once and shows
+  its progress and its result.
+- Control Studio: Automatic identification chooses the step itself. A loop in Auto with a
+  setpoint gets a setpoint step in Auto. A loop in Manual gets a plant-input step, sized from the
+  measured noise and the limits. Automatic never switches a loop in Manual into Auto. Validate
+  checks a provisional model with a second step of the opposite sign.
+- Control Studio: the controller's direction is stated in words, for example "increase the
+  output while the measurement is below the setpoint". A model whose gain contradicts it is
+  refused with that explanation, and a cooling loop is tuned with negative gains, also by the
+  relay rule. A slow, self-regulating process is no longer taken for an integrating one, and a
+  response too small for the measured noise is refused with the noise named.
+- Control Studio pages are simpler:
+  - Each failure is one line with one button for what to do next (**Limits…**,
+    **Requirements…**, **Connect runtime…**, **Loop setup…** and so on); clicking the line shows
+    the details.
+  - Durations are entered and shown as "90 s", "15 min" or "2 h".
+  - Signals are named by their role (Measurement, Output, Setpoint) with the symbol on hover.
+  - The model shows as a formula with one line of its key numbers.
+  - Manual tuning previews the response while you type.
+  - The analysis tools are under **Analyze…**.
+  - Requirements shows the main rows, with the test design under **More…**.
+  - **Apply** sits directly under the results table.
+  - Loop setup shows what it found in the code as a short summary with **Change** links, and no
+    longer asks for an identification step or duration. Only when the project runs its own
+    experiment does it ask how long to record it.
+- Control Studio: maximum overshoot is a requirement you can declare, in percent of the setpoint
+  change. Limits nobody declared (a fixed 20 % overshoot, 2 % steady-state error, 6 dB gain
+  margin and others) are no longer applied.
+- Control Studio: when the target is simulated and the project's simulated plant drives the loop,
+  Validate runs against that plant, otherwise against the checked model. Apply on a loop in Auto
+  starts from wherever the controller's output is; a loop in Manual must hold the validated output
+  within the controller's response to the measured noise, no longer to within 0.0001 %. Entering
+  Auto allows the controller's response to the measured noise, from an identification in Auto as
+  well as in Manual, so a noisy loop is no longer reverted at the switch. **Restore previous
+  settings** returns a loop that was in Auto before Apply to Auto, also for `Control.PID`; it used to
+  leave it in Manual. Apply observes the response on the runtime's time and continues after
+  a VS Code restart. Any measured output that
+  leaves its permitted range restores the previous settings at once. A failed Apply leaves the
+  loop in the mode it was found in.
+- Control Studio keeps each loop's study in the project, under `control-studio/<loop id>/`: one
+  study file and one file per recording. Studies kept by earlier versions move there on first
+  open.
+- Runtime: live writes on a physical plant need approval, decided by the runtime from what it
+  knows about its own I/O, never from a label in the request; controller rollback needs it too.
+  A controller transfer is all-or-nothing: a failed check or a fault reverts it in the same scan,
+  and BOOL values come back as BOOL. Measured values are checked with tolerance bands instead of
+  exact comparison. Status requests never change state. A program reload or restart stops a
+  running experiment safely, and only one live write runs at a time.
+- Simulation: time advances by exactly one cycle per cycle, so a busy computer slows the
+  simulation instead of skipping cycles, and the runtime reports the speed it reached. The speed
+  (1× to 100×) can be changed while the simulation runs (`config.set`
+  `simulation.time_scale`), also in the VS Code simulator, which now uses the project's speed.
+- VS Code: **truST: Simulation Speed…** chooses 1× to 100× and saves it in `simulation.toml`. The
+  status bar, the Home view, Control Studio and Devices & Connections show the speed, and say
+  when the computer cannot keep it ("×6.8 of ×10").
+- HMI: while the runtime runs a simulation, the operator screens show a **SIMULATION** badge with
+  its speed, in all eleven languages.
+- Runtime: an I/O driver named `none` no longer makes simulation mode refuse to start.
+- Runtime: `trust-runtime ctl status` works against a runtime that reports no fault; it failed with
+  "status result 'fault' must be a string".
+- Control Studio: loop setup bounds a `Control.PID`'s rate limits widely enough for the Plant
+  library's "no rate limit" value (±10⁹), so loops built with the Plant library validate and apply.
+
+- Rebuild the Plant library and the HMI Builder around plain IEC 61131-3 objects. Devices are
+  commanded by mode: Auto by the program through `Auto…` inputs, Manual by the operator through
+  methods such as `Start`, `Stop`, `Open`, `Close`, `SetSpeed` and `SetPosition` (each returning
+  whether it was accepted), Out of service by nobody; a mode change never moves anything. Take
+  control, request identities, command contexts, registration and the settings provider are
+  removed. Fail positions, always-on supervision, latched trips and drives starting at 0 % are
+  part of every device; settings are ordinary RETAIN members described once in the component
+  definition. Limit alarms use `Alarm.LimitAlarm`. A PID loop is no library block: Create PLC
+  code writes it as ordinary code around the real `Control.PID` (see below), with negative gains
+  for reverse action.
+- RETAIN members of function block instances, also inherited and nested ones, survive a warm
+  restart and a power loss; an instance initialiser may set an inherited member, also of a
+  function block declared in another file or a library (such initialisers were refused as
+  unknown fields).
+- One HMI page format for the editor, the runtime, `hmi check` and the language server:
+  equipment objects record `block`, `instance` and `faceplate`, panels live in `hmi/panels`, and
+  docked panels are composed by the loader. Deploying sends the files as written.
+- HMI Builder: the palette lists Equipment, Instruments, Controllers and Groups and sequences
+  first; the inspector shows a device's tag, its hardware status with one button and its key
+  settings with their real values and units. **Create PLC code** writes one declaration and one
+  call per new device into two checksum-marked regions, refuses regions changed by hand and keeps
+  the program's own code; **Create HMI** places the declared devices in rows of instruments,
+  controllers and equipment. Edits are never dropped, the toolbar keeps one row, canvas keys act
+  only while the canvas has the focus, a just-placed device shows its settings at once, and an
+  attached level sensor touches its tank's wall.
+- HMI runtime: a pulse always ends, replay records are counted per user, every HMI write route
+  checks the request's origin, and the active bundle is read once per activation.
+- HMI display: a control whose interlock permit reads FALSE is greyed with the permit's reason as
+  its tooltip (Start and Stop in Auto read "Auto: switch to Manual"); a refused command names the
+  reason alone, without an "interlocked:" prefix. Trends inside panels placed on a page keep
+  their history, the PID panel shows the measurement and draws it in its trend, and a device's
+  Reset is enabled only while it has a fault.
+- VS Code: the truST sidebar has an HMI destination, and *truST: Open HMI* opens the project's
+  start page in the HMI Builder, or the new-screen dialog for a project without screens.
+- HMI Builder: **My equipment** lists the project's own function blocks in the Components panel;
+  placing one writes its definition and an automatic panel (outputs as lamps and values, interface
+  methods as buttons, `VAR PUBLIC RETAIN` members as settings), drawn as the new plain `device`
+  until **Shown as** in the inspector gives it one of My Symbols or an imported SVG, each picture
+  input driven by the member of its name or the one chosen. A block extending a Plant block
+  takes that block's definition. Libraries ship their own symbols too.
+- HMI symbols: a part can also move to and fro (`stroke`), travel by a displacement (`travel`
+  with `move`) or show only while a number equals a value (`equals` with `value`), for an INT
+  state's pictures; the symbol editor offers all three.
+- HMI Builder: **Languages…** in the top bar and Screen settings choose the screens' languages
+  as tick boxes of truST's eleven languages by their own names, with the default marked.
+- HMI alarms: an alarm is listed once, where it is declared, not again under each block that
+  refers to its instrument through an interface; the same holds for displays and link blocks.
+- HMI display: a setpoint entry's number no longer reaches into its label; Plant panels keep
+  every label and button text whole and show one message line, the devices' new `ReasonText`
+  (why the device is blocked, else why a command would be refused), with no empty line; Out of
+  service and Return to service are lit only while they can act; a refusal's notice and mark go
+  once a later command is accepted.
+- HMI Builder: Live mode always shows the real run target; its test values and recordings are
+  removed.
+- VS Code: Initialize truST here makes a project of an empty folder, or one with other files,
+  without asking; it asks only before replacing a project's own files. Adding the Plant library
+  now declares it in `trust-lsp.toml` when that file is not open (it was copied but not declared),
+  and leaves the library's example projects out of the project. A new HMI screen's files are
+  written at once; its first page no longer shows an unsaved, empty file's problem. Create PLC
+  code saves the program it edits and writes the files it creates with their text, so closing VS
+  Code afterwards no longer loses the code or leaves an empty `screens.st` that blocked the next
+  run (an empty one left by an earlier version is taken over).
+- HMI Builder: renaming equipment in the program (Rename Symbol) also renames the instance its
+  page objects show, and their tag when it is the instance's name; before, the object kept
+  pointing at the old instance. Create PLC code also accepts a rename that moves a call to
+  another place in the name order, instead of refusing the region as changed by hand.
+- HMI Builder: Apply connections and the inspector's equipment changes save the project design
+  (`plant.toml`) and the files they create; before, the change stayed unsaved in a file without
+  an editor and was lost when VS Code closed.
+- HMI Builder: a terminal needed only with feedback that the block leaves off by default (a
+  variable-speed fan's speed feedback) is optional, so the fan shows Connected instead of Partly
+  connected and Create PLC code no longer lists it as missing. Connecting such a terminal, a
+  control valve's position feedback for example, switches its feedback on in the declaration
+  (`HasFeedback := TRUE`); before, the valve ignored the connected feedback.
+- Compiler: the direct I/O warning (W011) concerns addresses declared inside function blocks,
+  functions, methods and classes only; a program's I/O list no longer gets a warning per entry.
+- HMI Builder: a process symbol without bindings, such as a tank or a hand valve drawn on a
+  page, is a drawing and is no longer warned of as unbound.
+- HMI Builder: the inspector shows every setting of a piece of equipment, the key ones first
+  and the others under More settings, so alarm limits, alarm texts, signal ranges and feedback
+  flags can be set before the PLC code runs; the equipment definitions now offer the feedback
+  flags (Has running feedback, Has position feedback, Double-acting and the like) as settings.
+- HMI Builder: in Live mode the equipment's Settings dialog has Keep in project, which writes the
+  values commissioned on the PLC into the project (plant.toml and the generated declaration).
+- Control Studio reads loop signals inside function blocks and records: members a block inherits,
+  structure fields, and enumerations (as their number). A controller's own `StateValue` and a
+  transmitter's inherited `Value` can now be watched and recorded.
+- Control Studio step tests can change a program variable by name instead of a `%M` address. The
+  runtime writes it between scans, guards it and confirms its restoration, as it does for an
+  address.
+- A simulated plant can give a `Control.PID` its measurement directly with a `pid:<instance>`
+  feedback target. Model checks then work however the program computes the measurement
+  (transmitter scaling, filters, fault holds).
+- Isolated Control Studio runs start from the running PLC's inputs, so blocks fed by inputs the
+  run's plant does not write see real signals.
+- HMI Builder: a PID controller's Controlled equipment offers heaters and variable-speed drives
+  as well as valves; Create PLC code drives the heater's power (`EH101.AutoPower := TIC101_Output`)
+  or the drive's speed, by what the equipment is, or another controller's setpoint (a cascade).
+- PID loops are ordinary code: **Create PLC code** writes each loop as ST around the real
+  `Control.PID` (Configure, Initialize, Update), the way the control course does, instead of a
+  Plant library block around it. Its values are variables beside the PID (`TIC101_Setpoint`,
+  `TIC101_Manual`, `TIC101_ManualOutput`, `TIC101_Output`) with one parameter record
+  (`TIC101_Parameters`) that the HMI's settings and Control Studio share; those the operator and
+  the engineer set are retained. A bad measurement holds the output and the loop restarts from
+  the next good one without a bump; Manual and Auto change without a bump. Create PLC code adds
+  the `USING` directives and the write rules the loop's panel needs. `FB_PIDLoop`,
+  `FB_CascadeLoop`, `ILoop`, `E_LoopMode` and the cascade panel are removed; a cascade is two
+  linked loops. Component definitions may name variables beside the instance (`{instance}_…`),
+  and a switch may name its two words (`options = ["Auto", "Manual"]`).
+- New example `examples/room_heating`: a hot water tank and a room, built in the HMI Builder, with
+  both temperature loops written by Create PLC code as ordinary `Control.PID` code and set up in
+  Control Studio from the code; a start/stop sequence, protections, alarms, trends, settings and
+  English, German and Swedish screens.
+- HMI: a loop controller shows its measurement in its setpoint's and its transmitter's unit and
+  decimals (`42.2 → 45.0 °C`, before `42.191 → 45.0 °C`), and so do its panel and trend; the
+  panel's output reads with one decimal.
+- Create PLC code no longer adds a second `USING` for a namespace whose directive follows a
+  comment at the top of the file.
+- Control Studio: identification can switch a loop to Manual whose code copies the output into
+  the manual output in Auto. The switch was refused with "transfer values changed before task
+  boundary", because that manual output moves every scan; the runtime now accepts a state the
+  transfer declares as set by the program, and Manual starts from the held output. A loop whose
+  output has no I/O address (the program hands it on, as in `EH101.AutoPower := TIC101_Output`)
+  is no longer refused with "automatic tracking needs a mapped committed output": the transfer
+  holds the output's value at the task boundary. Returning such a loop to Auto after
+  identification allows the PID's own first step (its integral step on the error identification
+  made and its response to the measured noise) instead of failing the whole identification with
+  "violates reviewed transfer tolerance", and it no longer writes back the manual output from
+  before identification, which only held the output of that moment.
+- Control Studio records a loop at its own task's executions instead of every resource cycle. A
+  100 ms loop in a 10 ms resource filled the 12000-sample recording in 120 s, so a 600 s
+  identification lost its step and failed with "Identification samples have gaps or inconsistent
+  timing"; it now holds 1200 s. `control.recording.start` takes an optional `task`.
+- Control Studio experiments run on the runtime's clock: in a simulation at 10x a 600 s
+  identification excites the process for 600 s of process time (60 s of wall time) instead of
+  6000 s. Restoration and staleness deadlines stay on the wall clock.
+- Control Studio's model check accepts a live plant's recording: it required samples on an exact
+  time grid, which only a simulator gives, and reported "The independent recording has missing or
+  irregular scans" for every live loop whose task runs every 100 or 110 ms. It now compares on an
+  even grid at the recording's median spacing; missing samples and gaps are still refused.
+- Control Studio treats a connected runtime that reports its own simulation mode as a simulation:
+  it identifies, tunes and validates against it without VS Code's local simulator, which cannot
+  be operated from the HMI.
+- HMI Builder: equipment is renamed in the inspector (its tag), which renames it in the program,
+  the pages and plant.toml; new equipment gets the first free name per program instead of the
+  same name twice; the Objects list names untagged equipment by its block; objects placed one
+  after another step aside instead of piling up; a digital signal is drawn as an instrument
+  bubble with its tag's letters (FS for FS-101); Create PLC code lists open connections in full.
+- Devices & Connections: Connect hardware's help for a terminal without a fitting PLC signal
+  shows the declaration to add (for example `TT101_Raw AT %IL0 : LREAL;`) instead of pointing to
+  a device.
+- Runtime: `trust-runtime check` and `validate` report a runtime.toml resource name the program's
+  configuration does not declare ("runtime.toml names resource 'Simulator', but the program's
+  configuration declares resource 'MainRes'; use the same name in both"); before, both said the
+  project was ok and only `run` refused it.
+- Examples: every example's runtime.toml now names the resource its program's configuration
+  declares, so each starts with `trust-runtime run`; 88 examples (the OSCAT, communication and
+  starter examples among them) named a resource their program lacks. The ADS server example
+  appears in TwinCAT under its resource name, `CommRes`.
+- New projects: the runtime starts as written. The scaffold no longer declares an empty mesh
+  `auth_token`, which the runtime refuses ("runtime.mesh.auth_token must not be empty"), and its
+  runtime.toml names the configuration's resource (`MainRes`) instead of one the program lacks
+  ("invalid bytecode metadata 'resource 'Simulator''").
+- New projects: the runtime's web server is on for this computer (127.0.0.1:8080), so a deployed
+  HMI opens in a browser at once, and RETAIN values are kept in `retain.bin`, so commissioned
+  settings and operator setpoints survive a restart.
+- HMI: the labels and buttons of the panels a project shows, its own and its libraries' (a placed
+  sequence panel, an equipment popup), are in the Texts table and switch with the display's
+  language; a panel placed on a page no longer stays in English.
+- HMI: a loop controller shows its loop as on a P&ID: a dashed signal line from its measuring
+  instrument and one to the equipment it acts on, routed around the other objects. The lines
+  follow the controller's configured measurement and controlled equipment, so the picture never
+  contradicts the PLC code.
+- HMI: a switch's toggle keeps a control's usual size (at most 32 px high) in a taller object, in
+  proportion to its label; the whole object still takes the click.
+- HMI: an `active` or `alarm` part of a project's own symbol drawn as a line is painted on its
+  line; it no longer fills the outline solid. An active part also glows softly, as a lit status
+  does (a heater element while it heats).
+- HMI: `currentColor` in a project's own symbol (My Symbols) is the built-in symbols' line colour,
+  so such a drawing follows the dark and light themes instead of drawing black.
+- HMI: a duration rounds its seconds to the object's decimals ("2 min 54 s" instead of
+  "2 min 54.353 s"); without decimals it reads as before.
+- Plant library: protection, interlock and permissive panels show only the conditions in use (with a
+  text, or unhealthy), from the new `InUse[1..8]` output, instead of all eight rows.
+- Plant library: the sequence panel shows the state, the step name and the step time in rows wide
+  enough for them ("Heat the room", "28 min 1 s"); they were cut or ran into each other.
+- HMI Builder: Screen settings list the runtime display's users and add or remove one
+  (**Add user…**, also **HMI: Add User** in the command palette); the password is stored only as
+  the hash `trust-runtime hmi-password` makes. A new project no longer needs a hand-edited
+  `runtime.toml` before anyone can log in.
+- HMI Builder: a control whose variable the runtime's write policy does not cover offers
+  **Allow writing**, in the inspector's new Problems section and as a quick fix in the page file;
+  it adds the rule to `runtime.toml` with the control's role and limits. Create HMI Settings Page
+  adds the rules of its controls, so a new settings page works at once.
+- HMI Builder: Screen settings edit the top bar's title, and a new screen's title is the project
+  folder's name in words ("Room heating", not "room-heating").
+- HMI Builder: the inspector's Add pen field empties once the pen is added; leaving the field
+  no longer adds the same pen a second time.
+- HMI Builder: a trend pen added in the inspector is named as its legend should read: the tag for
+  a transmitter's value ("TT101"), the tag and member for another member ("TIC101 setpoint"),
+  instead of the variable's last part ("Value", "Value2").
+- HMI: pipes are drawn over layout panels, so a panel used as an area of the plant (a room) no
+  longer hides the pipes that cross it; they stay under the equipment symbols.
+- Devices & Connections: a simulated plant's input can read a memory value (`%M`), such as a
+  window opening the HMI sets, as the simulation specification allows; before, only `%Q`
+  outputs were offered and a memory address was refused.
+- Libraries: the empty page names Plant too, and the descriptions of the libraries to add wrap
+  inside their cards instead of running into the next one.
+- Devices & Connections: Connect hardware from the HMI Builder opens the equipment's connections
+  instead of a blank canvas (the canvas is now bundled with the automatic JSX runtime).
+- Compiler: passing an instance to an interface it implements, such as a transmitter to a PID
+  loop's `Measurement`, no longer warns of an implicit conversion; only elementary conversions
+  do.
+- HMI display: the equipment Settings dialog speaks the screen's language, and after Apply its
+  Cancel reads Close until the next edit; a panel's trend takes the opening object's unit pen by
+  pen, so a controller's output no longer reads in the measurement's unit, and a trend's pens of
+  one unit share their scale, so a setpoint is read against its measurement. The runtime keeps
+  the history of the trends inside panels for each instance a page opens them for, so a panel's
+  trend opens filled.
+
+- Keep explicit synthetic alarm exploration usable without executing PLC alarm sources;
+  label preview-only rows and use declaration checks for draft validation.
+
+- Restore declaration-only HMI field diagnostics and source locations, and patch the
+  shell-quote development dependency.
+
+- Preserve FB input/output/in-out members, inherited ones included, in declaration-only HMI
+  metadata.
+- Instrument OpenOT declarations using parsed token boundaries so single-line programs
+  and keyword text in comments/strings retain their telemetry.
+
+- Replace automatic HMI-to-PLC source synchronization with the explicit Create PLC code and
+  Create HMI actions. Ordinary authoring reads declarations instead of compiling or executing
+  PLC source.
+
+- Add opt-in compiler/HMI request timing logs for preprocessing, analysis, cache waits and settings-probe execution, without recording source text or PLC values.
+
+- Prepare OpenOT compiler metadata once per operation and skip its semantic analysis for
+  sources without OpenOT attributes; preserve ordinary compiler errors and telemetry output.
+
+- Reduce cold HMI equipment discovery and settings loading work by resolving imported types at catalogued source locations and excluding executable bodies from declaration precollection.
+
+- HMI repair: keep project inspection off the language-server transport task, show readable PLC command refusals and name equipment popups from their selected PLC instance.
+
+
+- Keep live panel controls attached during value updates, and install bundled library
+  files without opening every source as a dirty editor. Reuse bounded pristine LSP compilations
+  for unchanged source text, invalidating edits and discarding any runtime borrowed mutably.
+
+- Synthetic HMI exploration resolves implicit equipment faceplate instances using the editor's
+  existing binding rules, including alarm-to-equipment navigation. Configured-project alarm
+  discovery now executes its first due preview scan instead of returning an empty alarm list.
+
+- Keep narrow bar labels separate from stale ages. Ordinary value updates retain SVG text
+  nodes and start bounded painting in the current drawing turn. Agent validation identifies
+  uneven spacing and misaligned rows of repeated equipment cards.
+
+- VS Code agent draft inspection shares the authoring store used by composition and MCP.
+  Stale value ages refresh immediately even when ordinary value painting is deferred.
+
+- Keep equipment-alarm badges clear of trend range, export and expand controls.
+
+- HMI peer discovery includes runtimes that were already online at startup. Ordinary value
+  cards coalesce whole-card paints across animation frames while urgent state/control changes
+  remain immediate. Browser performance evidence measures completion of all updated values.
+
+- HMI agent authoring gains project/selection provenance, exact draft inspection, multi-page
+  proposals, viewport images, additional synthetic states, explicit incomplete-design saving,
+  and revision-bound visual review. Incomplete pages fail native deployment checks. The existing
+  builder can explore a synthetic proposal without runtime writes and open a placed controller's
+  configured Control Studio loop. HMI CI uses a shared parity/browser gate and installed-VSIX smoke.
+
+- HMI draft application can recover from definite pre-commit failures, while unknown editor
+  outcomes prevent duplicate application even with another request key. Clean cached editor
+  models no longer resurrect deleted source files.
+- HMI preview manifests identify the compiled renderer, actual fonts, source/frame revisions
+  and PNG content; native-scale crops retain exact full-page pixels.
+
+- HMI agent previews now include project PNG/JPEG/SVG images and unsaved SVG edits, reject
+  unsupported animated or externally dependent SVG resources, and prevent applying an image
+  proposal after its reviewed asset content changes.
+- HMI agent validation reports rotated page bounds, overlap regions, shared contrast warnings
+  and projected touch-target sizes for requested display profiles, while keeping visual
+  findings separate from engineering errors.
+- HMI agent composition accepts explicit regions, grid spacing, fill direction and pinned
+  equipment. Library queries expose versioned composition guidance and shared-renderer
+  references for process, equipment, repeated-unit, investigation and settings pages.
+
+
+- Add an in-development HMI authoring toolset for existing VS Code agents and scoped local MCP
+  clients: project context, visual component browsing, isolated draft composition/refinement,
+  validation, browser-rendered previews and reviewed editor application with Undo. Dirty ST and
+  HMI documents are respected; changed program revisions block stale application. Committed
+  outcomes survive late cancellation, and retries retain their original application receipts.
+- Agent previews embed the shipped multilingual fonts and isolate project symbol definitions.
+  Library sheets include rendered object bounds and keep synthetic equipment visible.
+- HMI draft review shows a read-only before/after comparison in the existing builder, with
+  object changes, findings and explicit Apply/Discard actions. Drafts can be rediscovered after
+  restart, verify stored content hashes, and support inspection by page region. Undo clears
+  diagnostics for a newly created page that it removes.
+
+- Specify agent-driven HMI authoring: visual catalogue discovery, revisioned drafts,
+  composition, rendered review, editor transactions and CI/release acceptance. Implementation
+  is tracked separately; no direct Codex SDK integration is shipped by this specification.
+
+- Runtime mesh now enforces configured peer tokens and TLS using the runtime's certificate
+  material. A requested TLS connection cannot silently start as plaintext; wrong or missing
+  peer credentials are rejected.
+- Runtime mesh publish lists can select nested program/equipment members and array elements
+  through the shared member-path resolver, while retaining existing global-name behavior.
+
+- Plant HMI showcase pages combine process views, placed equipment panels, live readings,
+  trends and alarms. Pipes approach a tank inlet around its body, scaled faceplate animations
+  stay aligned, and compact trend axes keep their labels separated.
+- HMI Builder starts new page views at a readable 75% minimum with scrolling; Fit and saved
+  zoom remain available. Design trends show identified sample history using the declared
+  ranges; Live mode keeps actual history only. Alarm counters and disabled-control labels
+  remain readable in both themes.
+
+- HMI bars, gauges and split bars support validated display limit bands and an atomic
+  inspector editor. Values can inherit project units and decimal precision without writing
+  overrides into their page files; explicit object settings remain available.
+- Plant analog instruments and tanks expose an optional engineering unit. HMI value snapshots carry
+  analog measurements' and tank levels' actual alarm thresholds and priorities, allowing
+  readouts and range marks to follow program changes without changing the measurement.
+  Alarm readings retain the unit captured when raised, and their value column accommodates
+  unit text. Numeric entry inherits units without rounding the editable value or widening
+  the control's write range.
+
+- HMI Builder Live controls use a named HMI login with the runtime's existing roles,
+  confirmations, outcomes and audit path. The operating view requires the saved project's
+  deployed bundle; simulator/test/recording sources stay read-only. Leaving Live, editing HMI
+  files, changing targets or disconnecting closes the connection without replaying commands.
+
+- Alarm details offer **Show equipment**, which opens the equipment's page and briefly outlines
+  it without acknowledging or writing. Missing equipment has an explanation; the labels are
+  included in all built-in languages.
+
+- HMI trends support a fixed range for each pen and independent automatic scales. The inspector
+  applies both limits together; the axis follows the first visible pen in its colour. Existing
+  shared ranges remain the fallback, and CSV exports keep original values.
+
+- HMI symbol definitions can be read with their cleaned SVG and written as validated TOML
+  through the language server, supporting visual editing without changing the original artwork.
+  Open a definition with HMI Builder to select parts, edit typed animation rules, bindings and
+  ports, and try preview values. The editor uses the existing truST theme and shared HMI drawing;
+  invalid text keeps the last valid preview while visual edits are paused.
+
+- HMI Builder files (`docs/specs/39-hmi-builder.md`): the language server reads, checks and writes the new HMI pages
+  (`hmi/pages/*.toml`) and screen layout (`hmi/screen.toml`) through `trust-lsp.hmiFileParse`, `trust-lsp.hmiFileFormat`
+  (canonical TOML: fixed key order, sorted bindings, one value per line) and `trust-lsp.hmiFileCheck` (every binding
+  checked against the compiled program, with file, line and a plain message). `trust-lsp.hmiBindings` also returns the
+  program's variables with their structure, array and function block members (`variables`). A project may set its own
+  colours per theme in `[colors.dark]` and `[colors.light]` of `hmi/screen.toml`; tokens it does not set keep the
+  default palette. Pages can hold text, images from `hmi/assets/`, values, gauges, bars, split bars, status lights,
+  trends (with a `span` in seconds), tables, panels, groups, lines and page buttons.
+- HMI Builder in VS Code: page files (`hmi/pages/*.toml`) open in a drag-and-drop editor with Components, canvas and
+  inspector. Add a component by clicking or dragging it onto the page, select, move with the mouse or the arrow keys on
+  an 8 px grid (Alt places freely), resize by its handles, delete, and edit labels, positions, ranges and bindings in
+  the inspector. Every change is a normal text edit of the TOML file, written by the language server's canonical
+  writer, so undo, save and Git work as for any file; **Open as text** stays available. The canvas draws with the same
+  drawing module and font as the runtime, in the project's screen size, theme and colours.
+  - Variables: the **Tags** tab of the bottom panel lists the program's programs, function block instances and members
+    with their types, searchable. Drag a variable onto the page to create a matching component, bound to it and
+    labelled with its name (a boolean makes a status light, a structure or array a table, any other value a value
+    card), or onto a binding in the inspector. Each binding's **⋯** button opens a picker offering only the variables
+    the binding can have. A drop that cannot work says why, in the binding checks' words. The list is read again when a
+    source file is saved, and shows why while the program does not compile. Configured program instances show the type
+    their configuration declares.
+  - Panels: the Components panel and the inspector resize by their edge and collapse to a strip; the bottom panel
+    resizes by its top edge. A narrow editor shows the side panels as strips. The arrangement is remembered for the
+    user in every page.
+  - Unsaved builder edits come back after a VS Code restart, in the builder.
+- Binding checks: a write binding to a `VAR_GLOBAL CONSTANT` is refused ("is a constant and cannot be written"), as for
+  other constants.
+- Operating the runtime HMI: setpoint entries and buttons on `/hmi` pages send commands (`POST /api/hmi/command`) for a
+  logged-in user. Users, session times and a deny-by-default write policy are set in `runtime.toml` under
+  `[runtime.web.hmi]`; `trust-runtime hmi-password` prints a user's stored password hash. A page's controls can only
+  narrow the policy (`role`, `min`/`max`); the editor reports a control that asks for more. Each command is checked
+  (session, page version, permission, limits, type, interlock), written at a cycle boundary, read back, and confirmed by
+  its feedback or readback; a repeated command id runs once, a pulse ends by itself, an interlock refuses with its
+  reason, and every outcome is written to the runtime's audit log at info level. The page shows the user and role, a
+  login dialog, each command's outcome, and becomes read-only when the session ends; a command whose answer is lost is
+  shown as unknown and never sent again. Page files gain the control keys `role`, `confirm`, `action`, `pulse`,
+  `expect` and `timeout`, and controls the bindings `feedback`, `interlock` and `interlock-reason`.
+- HMI screen layout: the runtime draws the top bar of `hmi/screen.toml` (title, logo, page title, alarm counter,
+  clock and the logged-in user) and the navigation as a side bar or tabs, built from the page list. Pages may set
+  `order`, `icon`, `group` and `hidden`. Popups (`hmi/popups/<name>.toml`, with their own `size` and optional
+  `pinnable`) open from an object's `[object.click] popup`, with their own values and commands. They are modal until
+  pinned, and close with their button or Escape. Page buttons go to their page. Project images under `hmi/assets/`
+  are served to the display. The editor opens popup files, edits a page's place in the navigation, a popup's size and
+  pin, and an object's click target, and New HMI Screen creates a screen layout and a first page from three
+  templates. Deployment checks popups and click targets.
+- HMI controls: switches, selectors, mode selectors and sliders work on `/hmi` pages. A switch writes the opposite
+  of its value; a selector writes one of its `options` (by name to an enumeration, by position to a number); a mode
+  selector writes Manual, Auto or Track, for example to a `Control.PIDMode`; a slider writes where it is released,
+  within its limits (default 0 to 100). These controls send nothing while their value is unknown or stale. The
+  runtime writes and reads back enumerations by value name, and checks each value against the control's options and
+  limits; the editor checks options against the bound enumeration. The inspector edits a control's role,
+  confirmation question, timeout, button action, pulse and options. Every control takes a press anywhere on its box,
+  and an applied or confirmed outcome fades after a few seconds. Clicking an object in the editor no longer snaps it
+  onto the grid.
+- Deploying the runtime HMI: `POST /api/hmi/deploy` takes an HMI bundle (every file under `hmi/` with its SHA-256
+  version), checks it against the running program and the write policy, and activates it in one step; a refused
+  bundle leaves the running one untouched and answers with its problems (file, line and message).
+  `POST /api/hmi/rollback` restores the previous bundle. Both need the runtime's administrator access or an Engineer's
+  HMI session and are written to the audit log. Open pages are told to reload, and their commands are refused as out
+  of date. The language server's `trust-lsp.hmiBundle` builds and checks the project's bundle. A program deployment
+  (`POST /api/deploy`) that would break bindings of the active HMI is refused with the broken bindings listed, unless
+  it carries an updated bundle (`hmi`) or accepts them (`accept_broken_bindings`); an object bound to a variable the
+  running program does not have reads "Not in running program".
+- Alarm library (`libraries/alarm`, `docs/specs/40-alarm-library.md`): alarms are function blocks in the program,
+  following ISA-18.2 and EEMUA 191. `Alarm.Alarm` holds the lifecycle (active and unacknowledged, active and
+  acknowledged, cleared and unacknowledged), message, priority (High, Medium, Low), on- and off-delays, latching,
+  shelving, suppression by design, out of service and first out (`FirstOutGroup`). `DigitalAlarm`, `LimitAlarm` (with
+  deadband; a value that is not finite counts as beyond the limit), `DeviationAlarm` and `DiscrepancyAlarm` extend
+  it, and a project's own block can extend it too by calling `Evaluate`.
+- Runtime alarm service: the runtime finds every alarm instance of the running program (at any depth, customer blocks
+  included), reads them at each call of `Hmi.Display` and records each transition with its time, message, priority and, for an
+  operator's action, the user; the latest 1 000 records are kept in memory. `GET /api/hmi/alarms` returns the alarm
+  list (unacknowledged first, then by priority, then newest; shelved, suppressed and out-of-service alarms apart, with
+  their counts) and the records; the value stream sends the list when it changes and each new record.
+  `POST /api/hmi/alarm` acknowledges, shelves (1 s to 24 h), unshelves, resets or comments an alarm for an Operator,
+  and takes it out of or back into service for an Engineer, as a command with confirmation and an audit record.
+- Alarms on the runtime display: with `alarms = true` in the screen's `[top_bar]`, the top bar counts the alarms that
+  annunciate, in the mark and colour of the highest priority (High a red diamond, Medium an orange triangle, Low a yellow
+  circle), shows the newest alarm and notes shelved, suppressed and out-of-service alarms; it blinks while an alarm is
+  unacknowledged and stops while the data is stale. The `alarm-list` component has tabs for active, shelved, suppressed
+  and out-of-service alarms, an Acknowledge button on unacknowledged rows, pages, and a dialog per alarm with the
+  actions its state allows (shelve for 15 minutes to 24 hours, unshelve, reset, comment, and out of service for an
+  Engineer). The `event-log` component shows the alarm transitions and each command's final outcome, newest first.
+  Objects bound to a function block instance show the alarms that instance holds. Projects may set the new colour
+  tokens `alarm-high`, `alarm-medium` and `alarm-low`.
+- With `[runtime.openot]` enabled, the runtime publishes every alarm transition to the OpenOT ring as a condition record
+  (`ConditionActive`, `ConditionCleared`, `ConditionAcknowledged`, shelving, suppression, service, comments and resets)
+  whose identity is the alarm's instance path (`SourcePath`, and a `ConditionId` derived from it), with the user of an
+  operator's action. The runtime keeps the alarm list and records itself, so the history is recorded with or without
+  the web server.
+- Trends on the runtime display open with the last `span` seconds from the runtime's historian, when it is enabled
+  (`GET /api/hmi/history`).
+- Renaming a variable, an instance, a structure field or a program now also renames it in the bindings of the HMI
+  pages and popups, and Find All References lists those bindings. Only the renamed part of each path changes.
+- HMI Builder: binding problems of page and popup files appear in the Problems view at their lines, checked when a
+  file opens or changes and when a source file of the project is saved, and on the canvas as an outlined object with
+  "!" whose problems show on hover.
+- HMI Builder Live mode: the editor's Live switch shows the page with the values of the running simulator or runtime,
+  read every 250 ms through the new control request `hmi.read` (Viewer, at most 1000 paths; answered at the program's
+  next call of `Hmi.Display` with the values, the cycle and the paths the program lacks). Live mode observes: controls send nothing and editing is off. Without a
+  running target it says so and every value is unknown. An online runtime that answers counts as running even without
+  a debug session.
+- HMI Builder edits like a design tool (`docs/specs/39-hmi-builder.md` §3.3 item 8): Shift-click, a box dragged on
+  empty canvas, Ctrl+A and Escape select; Ctrl+C, Ctrl+X and Ctrl+V work across pages through the clipboard and
+  Ctrl+D repeats the last step, a copied binding moving to the next number when that variable exists (`TT101` to
+  `TT102`); the inspector aligns and distributes, and guides snap to other objects' edges and centres and show equal
+  gaps while dragging; Ctrl+G groups, Ctrl+Shift+G ungroups and a double-click edits one member; Ctrl+] and Ctrl+[
+  (with Shift: to the front or the back) change the layer order. Pages and Layers tabs sit beside Components: add,
+  rename, duplicate, reorder, hide and delete pages; the objects front to back, hidden in the editor or locked. Ctrl+wheel
+  and pinch zoom at the pointer, Space-drag and middle-drag pan, Shift+1 fits, Shift+2 zooms to the selection, Shift+0
+  shows 100 %, and a page reopens at the zoom it was left at. A right-click anywhere on the canvas opens a menu with
+  cut, copy, paste, duplicate, delete, group, layer order, align, lock and Open faceplate. While a run target is
+  connected, the Tags panel and a binding's picker show each variable's current value.
+- Runtime display: a control the signed-in role may not use is dimmed under a lock naming the role that may (Operator
+  or Engineer, or Locked where the write policy lets no role write it), and a press says so instead of sending. The
+  page, popup and faceplate answers carry each control's lowest role as `roles`.
+- Runtime display alarm list: columns for priority, time, tag, message, a limit alarm's value against its limit when it
+  was raised ("91.5 > 90.0"), and state, under headings that sort (and reverse on a second click); a row of chips to
+  search and to filter by priority, equipment and unacknowledged, saying how many rows it shows; and sound (EEMUA 191):
+  a High alarm sounds until acknowledged or silenced, a Medium alarm once, with Silence in the top bar. The alarm list
+  rows carry `raised: { value, limit, high }`. The equipment example gains an Alarms page.
+- Runtime trend history, on by default: every value a trend of the active HMI bundle shows is kept in memory for 24
+  hours (a sample a second for the last hour, then each minute's lowest and highest value), read at each call of
+  `Hmi.Display` whether or not a screen is open, so a trend opens filled without enabling the historian.
+  `/api/hmi/history` answers from it and always says `"enabled": true`.
+- Runtime display trends: range chips for 5 minutes to 24 hours, filled from the runtime's history; a box dragged on the
+  plot zooms into its period, the wheel zooms the time axis at the pointer and a drag along the time row pans, each
+  pausing the live scroll until Back to live; a cursor line that reads each pen at its time; a legend entry hides or
+  shows its pen; Export saves the visible window as CSV; Expand shows the trend over the page.
+- Runtime display: a day and night switch in the top bar that any operator may use; each panel's browser remembers it,
+  and the project's theme stays the default.
+- Runtime display: on a touch screen a number entry opens a large keypad under its allowed range, with touch-sized
+  Cancel and Send; a mouse or keyboard opens the entry as before.
+- HMI faceplates on a page: an object of type `faceplate` shows a faceplate bound to one instance, exactly as its popup
+  does, under a slim header naming the instance, with its values on the page's stream and its controls' commands. The
+  HMI Builder's Components panel has a Faceplates group: a faceplate placed from it, or from a symbol's "Place faceplate
+  on page", offers only the instances it fits; a placement keeps its proportions when resized. The editor,
+  `trust-runtime hmi check` and deployments report a faceplate the project lacks and an instance it does not fit, and
+  `trust-runtime hmi test` draws placements. The Equipment library ships cards for the pump, valve, motor, tank and PID
+  loop, and the equipment example has a Cards page.
+- HMI visibility binding: every object takes `visible`, a BOOL of the program; it is shown while TRUE, hidden while
+  FALSE, and stays shown while the value is unknown. The inspector names it "Visible while" and sets it on every
+  object of a selection or group.
+- Docs: an HMI Builder guide (Develop > Operator Screens): getting started, the main tasks with pictures, and every key.
+- `trust-runtime hmi check [--project <dir>] [--json]`: the HMI Builder's checks over every HMI file of a project for
+  its own CI (files load, assets present, bindings resolve in the compiled program, controls within the write policy),
+  printing `file:line: message` and exiting 1 on any problem.
+- `trust-runtime hmi test [--project <dir>] [--update] [--chromium <path>]`: every HMI page drawn in headless Chromium
+  with design samples, laid out as the runtime display lays it out, and compared with its approved screenshot in
+  `hmi/screens/`; a changed or unapproved page fails and leaves `<page>.actual.png`, `--update` approves.
+- HMI library (`libraries/hmi`) and `Hmi.Display`: the screens are served where the program calls the block, in a
+  normal task of its choice. After that task the runtime applies the commands the screens queued, copies the values
+  they show and reads the alarms; the web server works from that copy, so no HMI work runs on the PLC thread between
+  scans. A page gets its values right after each call, at most four times a second, and is told how often the calls
+  come; a command the program has not taken within its time limit is withdrawn and never applied later. A project
+  with screens calls `Hmi.Display` to show live values, and its alarms are read and recorded at that call. New HMI
+  Screen adds the library, a `Screens` program calling it and its task (every 250 ms, priority 10), the HMI Builder
+  warns at the top of `hmi/screen.toml` when no program calls it, and the examples with screens call it.
+- The runtime display's value stream sends every value once, then only the values that changed, and the cycle count
+  alone when nothing changed; the list of paths the program lacks comes when it changes. Trends still get a sample per
+  cycle.
+- Turning parts on the runtime display (pump impellers, fans, motor rotors) are drawn in a layer of their own above
+  the page, which the browser turns by itself; a value update no longer restyles and repaints them. The display lays
+  out a page once per screen size instead of at every update.
+- Values of a link without data: each `io.toml` driver declares the input bytes it fills (Modbus TCP points or block,
+  MQTT input points or raw topic, EtherCAT modules, GPIO input lines). A page value located there (an `AT %I…`
+  declaration or a `VAR_CONFIG` entry) shows as stale, with the link's time since its last data, while that link
+  exchanges no data; a value the program computes is not marked.
+- HMI Builder Deploy: the editor's Deploy button saves the project's HMI files, checks the bundle, and sends it to the
+  selected runtime's web server (found from the endpoints the runtime reports, with its control token). The editor
+  check's or the runtime's problems stop it and are listed with file and line; the simulator has no web server, so
+  Deploy says to use Live mode or start a runtime. After a deployment the editor offers Roll back.
+- Deploying the HMI version that is already active no longer replaces the kept previous bundle with a copy of it, so
+  Roll back still goes back after Deploy is pressed twice.
+- HMI Builder quality checks: the Problems view and the editor warn about touch targets below 44 × 44 px, numbers
+  bound to REAL or LREAL without a unit (`unit = ""` says a number has none; the inspector offers No unit), objects
+  that take bindings but have none, labels and texts cut to fit, and project colours that lower the contrast of the
+  drawing's text or look like the warning or an alarm colour. Warnings never stop a deployment.
+- HMI Builder Colours: with nothing selected, the inspector lists the screen theme's colour tokens with a colour picker
+  each; a chosen colour is written to `[colors.<theme>]` of `hmi/screen.toml`, and Reset brings back the default.
+- HMI colours and text: the light theme takes deeper shades so every text and sign of the drawing has enough contrast
+  (WCAG 2.1), and the dark theme's unknown grey is lighter. "Not in running program", a setpoint's limits and a
+  refusal's reason are now 14 px. Short setpoint entries and numeric inputs draw one line without overlapping, a short
+  value card cuts a long label instead of running it under the number, and a button's outcome sign no longer covers its
+  text. New page buttons are 48 px high, new setpoint entries 240 × 96 and new numeric inputs 208 × 48.
+- HMI Builder: the editor uses truST's shared webview tokens, so it matches the other truST editors and follows high
+  contrast and forced colours.
+- New example `examples/hmi_tank_level`: a tank level loop with the real `Control.PID`, Alarm library alarms (a high
+  level, a high-high trip and a pump overload trip with first out, and an own level-rise detection suppressed by design in
+  Auto), and screens built in the HMI Builder. It runs in the simulator and on `trust-runtime`, and is in the example
+  gallery.
+- New tutorial `examples/tutorials/24_hmi_alarms`: declaring alarms and operating them in the HMI's runtime display —
+  priorities, acknowledge, shelve, first out on a trip, equipment alarms and own detection.
+- HMI Builder: Add pen adds a variable to a trend as a pen named after its last part.
+- HMI: bars and split bars draw their label above the bars.
+- HMI Builder: P&ID-based symbols for a pump, an on/off valve and a control valve, offered under Equipment. What moves in
+  the plant moves in the symbol: a running pump's impeller turns, a valve's ball or plug stands where the valve is, and a
+  closed valve is drawn filled. The tag and state word stand under the symbol, with fault, manual, out-of-service and stale
+  signs beside them; nothing turns when the viewer asks for reduced motion.
+- HMI: `symbols = "rendered"` in `hmi/screen.toml` is an error; the symbols are two-dimensional.
+- HMI: languages. `languages` in `hmi/screen.toml` and `hmi/texts/<tag>.toml` per language translate every text of a
+  project, and every word truST shows can be changed. truST ships its own words in English, Chinese (Simplified),
+  German, Spanish, Japanese, Portuguese (Brazil), French, Korean, Italian, Turkish and Swedish. The runtime display
+  has a language button; the browser keeps the choice and `?lang=` fixes a panel to a language. Numbers follow the
+  language.
+- HMI: text is measured with the widths of the font the HMI ships, so labels and words are placed where they really end.
+- HMI Builder: a language picker above the canvas shows the page in each of the project's languages; in another
+  language a click on a text edits its translation in place, written to `hmi/texts/<tag>.toml`. The Texts tab lists
+  every text in every language with the missing ones marked, and Longest lengthens every text by 40 % to find the
+  objects too small for a translation. The Problems view checks text files and warns of every text cut in any
+  language.
+- HMI: text objects, button labels and the state word under a symbol are cut with "…" when they do not fit; signs
+  never are.
+- Language server: `trust-lsp.hmiTexts` gives the editor a project's languages and texts; `trust-lsp.hmiFileParse`
+  and `trust-lsp.hmiFileFormat` read and write `hmi/texts/<tag>.toml`.
+- HMI: Chinese, Japanese and Korean show in truST's own fonts (Noto Sans, subset to GB 2312, JIS X 0208 and modern
+  Hangul), each loaded only for a page that shows such text and drawn in that language's forms.
+- Libraries: the Equipment library (specification 41): motors, fixed- and variable-speed pumps, on/off and control
+  valves and tanks with Auto, Manual and Out of service, interlocks and permissives with reasons, feedback monitoring
+  with latched faults, Alarm library alarms, counters and safe restart behaviour.
+- Runtime: a function block's inputs and outputs declared `RETAIN` or `NON_RETAIN` keep or reset their values over a
+  warm restart as declared (IEC 61131-3 §6.5.6.2); before, they followed the instance's declaration.
+- Examples: the tank example, tutorial 12 and plant_demo show their pumps and valves with the P&ID symbols; the alarm
+  tutorial's pictures are renewed.
+- HMI: every component cuts a label, title, text or tag that does not fit with "…", ending before its state chips.
+- HMI pipes (`[[pipe]]` in page files): a pipe joins two ports of the symbols (pump, valves, junction), is routed
+  around the objects with few bends and follows them when they move. A process line is solid, a signal line dashed.
+  A pipe shows flow only from its own `flow` binding while it reports flow, backwards when negative; never from a
+  pump's or a valve's state. The language server checks the ports, the line style, the bends and the flow binding.
+- HMI: the phase 2 process and motion equipment of the control course, as two-dimensional P&ID-style symbols with
+  their moving parts: open, gravity-drained and cascaded tanks filled to their level, dosing pump, supply line, mixing
+  point, variable-speed pump, control valve with positioner; temperature, level, flow, pressure, position and speed
+  sensors and the redundant sensor pair; cold room, refrigeration unit, electric heater with its vessel, cooler,
+  jacketed and coupled vessels, heat draw-off; servo motor with drive, shaft, drum with load, flexible coupling,
+  encoder, rotary arm and axis position indicator; the network link with its connection, packet age, hold and
+  fallback. The Components panel groups them under Liquid, Thermal, Motion, Instruments and Communication.
+- HMI: an instrument attaches to the equipment or the pipe it measures (`attach` in page files) and is joined to it
+  by a line; the HMI Builder attaches it in the inspector or by dragging from the instrument's handle.
+- HMI Builder: the inspector's Preview shows the selected object in each of its states, including stale and unknown,
+  without a running program; nothing is saved.
+- HMI faceplates (`hmi/faceplates/*.toml`, `hmi/pairs/*.toml`, specification 39 §8.7): faceplate files open in the
+  HMI Builder with their description and fields; an object's click opens a faceplate of the project or its
+  libraries, for the instance its bindings name; `trust-lsp.hmiFaceplates` lists them. A pair whose block lacks a
+  member its faceplate needs, or holds the wrong kind of value, is an error in the pair file and at the block's
+  name in its ST file. In the runtime display a faceplate is titled by the tag of the object that opens it.
+- Equipment library: faceplates and pairs for the pumps, valves, motor and tank, the PID loop and the cascade;
+  controller blocks `PIDLoop` and `CascadeLoop` that run `Control.PID` for an operator (specification 41 §6). The
+  library now needs the Control library too. New symbols: motor and loop controller.
+- New example `examples/hmi_equipment`: a pump, a control valve, a tank and a PID loop of the Equipment library on a
+  simulated tank, each opening its faceplate.
+- HMI: a mode selector offers the modes of the enumeration it is bound to and shows them as words ("Out of service");
+  a symbol with a click opens it anywhere in its box; in a faceplate only the symbol carries the alarm mark.
+- Equipment library: the equipment of a PLC programmer's plants, built on two bases. Motors (`Fan`, `Agitator`,
+  `Blower`, `Conveyor`), drives (`VFDMotor`, `VariableSpeedPump`, `VariableSpeedFan`, `DosingPump`),
+  `ReversingMotor`, `TwoSpeedMotor`, `Heater`; actuators (`Cylinder`, `Damper`, `ModulatingDamper`, `MotorValve`,
+  `AnalogOutput`); measurements (`AnalogInput` with temperature, level, pressure and analyzer inputs, `FlowInput`,
+  `WeighScale`, `DigitalInput` with level and pressure switches); groups (`InterlockGroup`, `DutyGroup`,
+  `Sequence` to extend with your steps, `Counter`). 23 faceplates and 37 pairs; a block that extends a base opens
+  its base's faceplate and shows its own symbol in it. New symbols: fan, blower, agitator, conveyor, damper,
+  cylinder, motor valve, weigh scale, analyzer, level switch and pressure switch.
+- Manuals for the Equipment, Alarm and Control libraries, under Develop › Libraries, like the OSCAT and PLCopen
+  Motion manuals; a test compiles and runs every example in them.
+- Fixed: `Control.SmithPredictorFOPDT.Initialize` ignored the initial `ProcessValue`; it now sets the initial
+  correction from it, and `Update` reports the latest applied correction also when no model interval runs
+  (specification 37 §2.3).
+- HMI: a table shows a `BOOL` as a lit or empty mark, field names as words ("First out"), texts whole and from the
+  left, and leaves out the empty rows at the end of an array of structures with their count. A duration reads as
+  "1 h 2 min 3.5 s" instead of `T#1h2m3s500ms`. A faceplate's values take the unit of the object that opens it.
+- Fixed: the runtime display did not send the values that pipes' `flow` bindings name, so pipes never showed flow.
+- HMI: the runtime display changes a page in place where its drawing changed instead of rebuilding it on every update;
+  on a Raspberry Pi 5 a page of 30 turning pumps and 270 changing values went from 27 to 47 frames per second, and
+  turning symbols no longer restart their animation on each update.
+- HMI Builder: **Create HMI Pages from Program** writes an overview page with a symbol for each instance whose block
+  has an equipment pair, bound to it and opening its faceplate; **Add Missing Variables to Program** declares and
+  calls in the program what a page drawn first binds, as one change shown for approval; **Create HMI Settings
+  Page** writes a page of entries for a program's retained variables, for engineers. Pairs name the member each
+  property of their symbol shows in a new `[bind]` table, checked like their fields.
+- Communication link states for the program and the HMI (specification 42): a new Comm library with the
+  `Comm.Link` block, which the runtime fills at the start of every scan with its link's state (connected,
+  degraded, failed, connecting, disabled or unknown), how long it has been in it, when data was last exchanged and
+  the latest error, for every `io.toml` driver (`modbus_tcp:0`, `mqtt:1`, …), ADS client connection
+  (`ads:<connection>`) and OPC UA client connection (`opcua_client:<connection>`). The block raises an alarm when
+  its link has delivered no data for a set time (failed, misnamed or never connected), and opens the new link faceplate from the `network-link` symbol. Manual
+  under Develop › Libraries.
+- Communication links can be switched off, tested and counted: `Comm.Link` takes `Enable`, `Test` and `Reset` and
+  reports `Disabled`, `Exchanges`, `Failures`, `ResponseTime` and `TestResult`. An `io.toml` driver's link switched
+  off is neither read nor written from the next scan and raises no alarm; a test reads the device once without
+  touching the process image and reports "answered in 12 ms" or the error. The link faceplate shows the counters and
+  gives engineers Link on, Test link and Reset counters, within the runtime's write policy. The `network-link`
+  symbol takes `out-of-service`: a link switched off on purpose reads Off, not Lost.
+- Each link reports its protocol's own state as `Comm.Link.Detail`, shown on the link faceplate: a Modbus TCP server
+  and unit with its last exception reply by name, an MQTT broker and whether its session is connected or why not,
+  what EtherCAT discovery found, a GPIO chip and its lines; an ADS client connection's summary and an OPC UA
+  client connection's session detail.
+- HMI Builder Live mode: besides the run target, a page can show test values typed in the inspector for each binding,
+  or a recorded run: Record keeps the run target's updates and saves them under `hmi/recordings/`, and the Recording
+  source plays one back with Play and a timeline that can be scrubbed. Live mode's sources, recording and status
+  stand on a bar of their own under the top bar.
+- Adaptive HMI display: on a screen smaller than the design size the runtime display shows a page at scale 1, so
+  texts and touch targets keep their sizes, and lays it out again at the screen's width, scrolling vertically. Panels
+  and groups, each display, control and text, and the process graphic move as blocks, a design's columns kept
+  together; a block too wide scales, never below 44 × 44 px controls, or, with `arrange = "row"`, `"column"` or
+  `"grid"` on a panel or group, rearranges its objects. The editor previews a page at 1920 × 1080, 1280 × 800,
+  1024 × 768 and on a tablet in landscape and portrait.
+- HMI components: vessel, heat exchanger, filter, cyclone, crusher and vibrating screen (Process), and frequency
+  converter (VFD), drive, contactor and circuit breaker (Electrical), each with its states, words in all 11 languages
+  and their own headings in the Components panel.
+- My Symbols: a project's own SVG drawings become HMI symbols (`hmi/symbols/<name>.svg` and `.toml`, placed as
+  `my:<name>`), their named parts turning, filling, showing values, blinking or changing colour with the bindings, in
+  the editor, Live mode and the runtime display, with ports for pipes. The drawing is cleaned when read (scripts,
+  event attributes, embedded objects and outside references are refused). **HMI: Import Symbol** copies an SVG and
+  writes its definition; the Problems view and deployment check it.
+- P&ID view: P&IDs (`hmi/pid/<name>.toml`) open in the HMI Builder in the HMI's own look, each symbol with its tag and
+  without states, warned of only for cut texts (a hand valve needs no variable). A page that
+  names its P&ID (`pid = "<name>"`) shares its process objects with it: a change of their type, tag or bindings,
+  an object added or deleted, and the pipes between them reach the other view at once; positions, displays and
+  texts stay each view's own. **Generate Process Screen from P&ID** writes a linked page bound to the same
+  instances.
+- Replace the experimental direct-model HMI draft command with tools for the customer’s existing
+  agent; the extension does not require a separate language-model provider.
+- HMI screen tests in CI (`scripts/hmi-screen-tests`, HMI Screen Tests job): an operator journey through the
+  tank-level example in the runtime, and the drawing compared with approved screenshots in both themes.
+- Fixed: the runtime display's top bar and side bar were 1 and 21 px larger than their 56 and 232 px, so the Operator
+  panel template's page did not fit a 1920 × 1080 screen exactly.
+- Fixed: an enumeration value was reported ambiguous because another namespace that the code neither is in nor uses
+  had a value of that name, so a project with the Equipment and Control libraries did not compile. The pair link check
+  now finds members a block inherits.
+- HMI Builder: a symbol shows its ports under the pointer; drag from a port to another to draw a pipe, or onto a pipe
+  to branch into it through a new junction. Click a pipe to select it, set its line style and flow in the inspector,
+  drag it to bend it (Straighten undoes that), and delete it with Delete. A valve or a junction dropped onto a pipe
+  splits it into two pipes through it; deleting an object deletes its pipes.
+- HMI Builder: the messages a program gives its alarms are listed in the Texts tab to translate like any other text;
+  `trust-lsp.hmiBindings` gives them as `alarms`.
+- HMI: with a top bar that does not show the user, the session stands under the bar instead of covering its end.
+- HMI Builder: a saved change to `hmi/screen.toml` reaches the open builder at once.
+- The examples whose old HMI was removed have screens again, built for the HMI Builder: plant_demo,
+  web_ui_complete_project, hardware_8do, memory_marker_counter, network_canvas_demo, communication/ads_server_basic and
+  tutorial 12.
+- VS Code's simulator now runs projects that use libraries through `[dependencies]` in `trust-lsp.toml`, as
+  `trust-runtime build` does; before, their types did not resolve.
+- A program instance named in a configuration (`PROGRAM Tank WITH Fast : TankLevelControl`) is now known by its program's
+  type, so renaming the program's variables also renames them in the HMI bindings.
+- Function block inheritance: a call of a derived function block binds the inputs and outputs it inherits
+  (`MyAlarm(Message := 'Tank high', Priority := AlarmPriority#High)`), which the compiler refused as unknown
+  parameters. A base named with its namespace (`EXTENDS Alarm.Alarm`) is no longer dropped when the program is
+  compiled for the runtime. HMI paths and the editor's variable list reach inherited members.
+- Warm restart: a function block instance declared `RETAIN` keeps its variables' values, except those its type
+  declares `NON_RETAIN` (IEC 61131-3 §6.5.6.2); before, it started over. The retain file written for a power loss
+  does not hold instance values yet.
+- The runtime shows these pages read-only at `/hmi` (the first page by name) and `/hmi/<page>` when the project has
+  `hmi/screen.toml`; without it, `/hmi` says the project has no HMI. Pages are read when opened, and a file that does
+  not load shows its errors with file and line. Values stream over `/ws/hmi?page=<page>` every 250 ms (or the scan
+  period, if longer), including members of function block instances such as `Control.PID`, structure fields and
+  array elements; a value whose program stops scanning or whose connection drops turns stale with its age. The page
+  data and the stream need the Viewer role. The HMI ships the Inter font (SIL Open Font License).
+
 - Control course: all 89 lessons follow the lesson template and the lesson map (`docs/specs/control-course-lesson-template.md`,
   `docs/specs/control-course-lesson-map.md`). Each lesson starts from the previous lesson's result and explains its new
   idea in four steps: a plain definition, what it means in words (with a comparison a PLC engineer knows), the formula
@@ -216,6 +994,17 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Keep rejected independent model predictions inspectable after save/reopen without allowing acceptance. Preserve the model overlay when restoring hidden experiment signal selections.
 - Keep Lesson18 on the same native heater used for identification, and use the permitted40s estimation hold for its independent validation handoff. Preserve the lesson's fixed error and timing requirements.
 
+### Removed
+
+- The legacy HMI is removed; the HMI Builder (`docs/specs/39-hmi-builder.md`) replaces it. Removed: the `/hmi` page
+  with its assets, export (`/hmi/export.json`) and live socket (`/ws/hmi`); the `hmi.*` control operations; the
+  `trust-runtime hmi` command; the `hmi/` pages that `trust-runtime run` wrote into projects; the language server's
+  `trust-lsp.hmiInit` command and HMI diagnostics; the VS Code HMI preview, its commands, the
+  `trust.hmi.refreshIntervalMs` setting and the HMI language-model tools; and the legacy HMI examples, tutorials and
+  documentation. `trust-lsp.hmiBindings` still returns the process image and control symbols but no longer `programs`
+  and `globals`; `status` no longer reports `hmi_read_only`, `config.get` no longer reports `hmi.read_only`, and the
+  access capabilities no longer include `hmi`. A `runtime.toml` that still contains `[runtime.hmi_persistence]` is now
+  rejected: delete that section. Existing `hmi/` folders are no longer read or changed.
 
 ### Changed
 

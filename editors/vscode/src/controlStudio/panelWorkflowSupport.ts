@@ -9,10 +9,10 @@ export { identificationOriginalRecording } from "./identificationState";
 import type { ControlPidCandidate } from "./controllerCandidate";
 import { candidateFromRuntimeParameters } from "./pidCandidateFactory";
 import type { ControllerApplicationClient } from "./controllerApplication";
-import type { IdentifiedModel } from "./identification";
-import type { ValidationResult } from "./validation";
 import { runtimeLifecycleService } from "../runtimeLifecycle";
 import { sendRuntimeControlRequest } from "../runtimeControlClient";
+import { getSelectedRuntimeId } from "../selectedRuntime";
+import { MainWorkflowError } from "./mainWorkflowFailure";
 
 export async function postExperimentResult(panel: vscode.WebviewPanel | undefined,
   loop: ControlLoopDefinition | undefined, editorSessionId: string, phase: string, payload: unknown): Promise<void> {
@@ -23,12 +23,32 @@ export async function postExperimentResult(panel: vscode.WebviewPanel | undefine
   });
 }
 
-export function runtimeExperimentClient(): ControlExperimentClient {
+/** The runtime a study is bound to (A2.7): resolved once, when the loop is opened or reconnected, and kept with the study session. */
+export interface StudyRuntimeTarget { readonly runtimeId: string; readonly endpoint: string }
+
+/** Resolves the study's runtime from the current selection. Only opening or reconnecting a loop calls it, never a live request. */
+export async function resolveStudyRuntimeTarget(loop: ControlLoopDefinition): Promise<StudyRuntimeTarget> {
+  assertSelectedRuntimeIsTarget(loop.runtimeId, getSelectedRuntimeId());
+  const lifecycle = await runtimeLifecycleService.snapshot();
+  if (!lifecycle.status.running) {
+    throw new MainWorkflowError("Start the runtime before running a live action.", { cause: "runtime", nextAction: "connect-runtime" });
+  }
+  return { runtimeId: loop.runtimeId, endpoint: lifecycle.status.endpoint };
+}
+
+/** A live action refuses when the selected runtime is not the study's target: a selection change never switches the study (A2.7). */
+export function assertSelectedRuntimeIsTarget(targetRuntimeId: string, selectedRuntimeId: string): void {
+  if (selectedRuntimeId === targetRuntimeId) return;
+  throw new MainWorkflowError(`Control Studio is connected to ${targetRuntimeId}; the selected runtime is ${selectedRuntimeId || "none"}. Reconnect to continue.`,
+    { cause: "runtime", nextAction: "connect-runtime" });
+}
+
+/** Live experiment requests go to the study's pinned endpoint, and each one is refused while another runtime is selected. */
+export function runtimeExperimentClient(target: StudyRuntimeTarget): ControlExperimentClient {
   return new ControlExperimentClient(async (operation, params) => {
-    const lifecycle = await runtimeLifecycleService.snapshot();
-    if (!lifecycle.status.running) throw new Error("The runtime is not running.");
-    const token = await runtimeLifecycleService.controlAuthToken(lifecycle.status.endpoint);
-    return sendRuntimeControlRequest(lifecycle.status.endpoint, token, operation, params, { timeoutMs: 2_000 });
+    assertSelectedRuntimeIsTarget(target.runtimeId, getSelectedRuntimeId());
+    const token = await runtimeLifecycleService.controlAuthToken(target.endpoint);
+    return sendRuntimeControlRequest(target.endpoint, token, operation, params, { timeoutMs: 2_000 });
   });
 }
 
@@ -68,28 +88,11 @@ export function identificationSamplesFromEvidence(testRecord: ExperimentIdentifi
   })) ?? [];
 }
 
-export function currentStageEvidence(model: IdentifiedModel | undefined, candidate: ControlPidCandidate | undefined,
-  validation: ValidationResult | undefined) {
-  return {
-    hasModel: Boolean(model), hasCandidate: Boolean(candidate), validationHasResult: Boolean(validation),
-    validationPassed: validation ? !validation.requirements.some(requirement =>
-      requirement.status === "Fail" || requirement.status === "Inconclusive") : undefined,
-  };
-}
-
 export async function postEngineeringResult(panel: vscode.WebviewPanel | undefined,
   loop: ControlLoopDefinition | undefined, editorSessionId: string, stage: string, payload: unknown): Promise<void> {
   if (!panel || !loop) return;
-  const visibleStage = stage === "tune-settings" ? "tune" : stage;
   await panel.webview.postMessage({ schemaVersion: 1, kind: "control-studio.engineering.result", messageId: randomUUID(),
-    projectId: loop.projectId, editorSessionId, loopId: loop.id, expectedLoopRevision: loop.revision, stage: visibleStage, payload });
-}
-
-export async function postApplicationResult(panel: vscode.WebviewPanel | undefined,
-  loop: ControlLoopDefinition | undefined, editorSessionId: string, phase: string, payload: unknown): Promise<void> {
-  if (!panel || !loop) return;
-  await panel.webview.postMessage({ schemaVersion: 1, kind: "control-studio.application.result", messageId: randomUUID(),
-    projectId: loop.projectId, editorSessionId, loopId: loop.id, expectedLoopRevision: loop.revision, phase, payload });
+    projectId: loop.projectId, editorSessionId, loopId: loop.id, expectedLoopRevision: loop.revision, stage, payload });
 }
 
 export async function currentRuntimeCandidate(loop: ControlLoopDefinition,

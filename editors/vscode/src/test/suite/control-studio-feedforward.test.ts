@@ -221,12 +221,12 @@ suite("Control Studio feedforward setup", () => {
       assert.strictEqual(view.root.querySelector<HTMLElement>('[data-setup-section="feedforward"]')?.hidden, false);
       for (const [field, value] of [["name", "Water temperature"], ["processVariable", "P1.WaterC"], ["processVariable.unit", "degC"],
         ["processVariable.minimum", "0"], ["processVariable.maximum", "80"], ["manipulatedVariable.unit", "%"], ["manipulatedVariable.minimum", "0"],
-        ["manipulatedVariable.maximum", "100"], ["mode", "P1.Auto"], ["experimentDuration", "120"]]) view.set(field, value);
+        ["manipulatedVariable.maximum", "100"], ["mode", "P1.Auto"]]) view.set(field, value);
       const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!, message = view.root.querySelector<HTMLElement>("[data-setup-message]")!;
       assert.strictEqual(save.disabled, true);
       assert.match(message.textContent ?? "", /measured disturbance/i, "the disturbance is the next missing item");
       for (const [field, value] of [["ff.disturbance", "P1.LoadKw"], ["ff.disturbance.unit", "kW"], ["ff.disturbance.minimum", "0"],
-        ["ff.disturbance.maximum", "50"], ["ff.disturbanceCommand", "P1.LoadKw"], ["ff.disturbanceStep", "10"], ["ff.gain", "P1.FeedforwardGain"]]) view.set(field, value);
+        ["ff.disturbance.maximum", "50"], ["ff.disturbanceCommand", "P1.LoadKw"], ["ff.gain", "P1.FeedforwardGain"]]) view.set(field, value);
       assert.strictEqual(save.disabled, false, message.textContent ?? "");
       view.set("ff.lead", "P1.LeadS");
       assert.strictEqual(save.disabled, true, "a lead time needs its lag time and the filtered disturbance");
@@ -238,9 +238,8 @@ suite("Control Studio feedforward setup", () => {
         structure: "feedforward", name: "Water temperature", instance: "P1.Loop", action: "direct", parameterRecord: "P1.Parameters",
         processVariable: { symbol: "P1.WaterC", unit: "degC", minimum: 0, maximum: 80 },
         manipulatedVariable: { symbol: "P1.HeaterPct", unit: "%", minimum: 0, maximum: 100 },
-        setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.Auto", whenTrue: "Auto" }, manualOutput: "P1.ManualPct", experimentStep: 10,
-        experimentDurationSeconds: 120,
-        disturbance: { symbol: "P1.LoadKw", unit: "kW", minimum: 0, maximum: 50 }, disturbanceCommand: "P1.LoadKw", disturbanceStep: 10,
+        setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.Auto", whenTrue: "Auto" }, manualOutput: "P1.ManualPct",
+        disturbance: { symbol: "P1.LoadKw", unit: "kW", minimum: 0, maximum: 50 }, disturbanceCommand: "P1.LoadKw",
         feedforward: { gain: "P1.FeedforwardGain", lead: "P1.LeadS", lag: "P1.LagS", filtered: "P1.FilteredLoadKw" },
       } }]);
     } finally { view.close(); }

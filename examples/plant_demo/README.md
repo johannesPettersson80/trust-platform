@@ -73,3 +73,7 @@ This is the runtime wiring contract for your typed logic model.
   - confirm workspace root is `examples/plant_demo`.
 - If no runtime change on input toggles:
   - confirm correct `%IX/%IW` addresses from `src/config.st`.
+
+## Screen
+
+`hmi/pages/overview.toml` shows this example's values. It opens in the HMI Builder in VS Code; press **Live** while the simulator runs to see the values move. The runtime also serves it at <http://127.0.0.1:8080/hmi>.

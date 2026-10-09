@@ -3,8 +3,12 @@ import type { IdentifiedModel } from "./identification";
 import type { FrequencyPoint } from "./tuning";
 import { rootLocus } from "./numerics";
 import type { DesignComparisonContext } from "./chartContract";
+import { FIT_POINT_LIMIT, ISOLATED_SIMULATION_SCAN_LIMIT } from "./controlStudioLimits";
 
-const MAX_PREDICTION_PERIODS = 10_000;
+/** A prediction simulates every controller period, up to the scans an isolated job may run (A7). */
+const MAX_PREDICTION_PERIODS = ISOLATED_SIMULATION_SCAN_LIMIT;
+/** It keeps at most this many evenly spaced periods for the plot and the checks that read it, as a fit keeps (A4.5). */
+const MAX_PREDICTION_POINTS = FIT_POINT_LIMIT;
 
 export type RootLocusParameter = "proportionalGain" | "integralGain" | "derivativeGain";
 export interface RootLocusSweep {
@@ -65,15 +69,6 @@ export interface EngineeringPlotEvidence {
   // loop whose gain stays below one leaves gainCrossover undefined, an unbounded phase margin.
   gainCrossover: FrequencyPoint | undefined;
   phaseCrossover: FrequencyPoint | undefined;
-  requirements: readonly {
-    name: string;
-    plot: "response" | "bode" | "sensitivity" | "constraints";
-    status: "Pass" | "Fail" | "Inconclusive";
-    value: number | "unbounded";
-    limit: number;
-    unit: string;
-    direction: "maximum" | "minimum";
-  }[];
   uncertainty: {
     status: "evaluated" | "not-evaluated";
     method: string;
@@ -109,7 +104,7 @@ export function buildEngineeringPlotEvidence(
   const operating = options.operatingPoint ?? { input: 0, output: 0 };
   const target = operating.output + (options.referenceChange ?? 1);
   if (![horizon, cycleTime, operating.input, operating.output, target].every(Number.isFinite) || horizon <= 0 || cycleTime <= 0 || steps > MAX_PREDICTION_PERIODS) {
-    throw new Error("Prediction needs finite coordinates and at most 10000 controller periods.");
+    throw new Error(`Prediction needs finite coordinates and at most ${MAX_PREDICTION_PERIODS} controller periods.`);
   }
   const filterSeconds = options.measurementFilterSeconds ?? 0;
   if (!Number.isFinite(filterSeconds) || filterSeconds < 0) throw new Error("The measurement filter time must be finite and not negative.");
@@ -119,9 +114,12 @@ export function buildEngineeringPlotEvidence(
   const candidateSimulation = simulationState(model, candidate, cycleTime, operating, target, filterSeconds, disturbance);
   const timeResponse: EngineeringTimePoint[] = [{ timeSeconds: 0, currentPv: operating.output,
     candidatePv: operating.output, currentMv: operating.input, candidateMv: operating.input }];
+  // A slow process is simulated at every period but kept at evenly spaced periods, always including the last.
+  const stride = Math.max(1, Math.ceil(steps / MAX_PREDICTION_POINTS));
   for (let step = 1; step <= steps; step += 1) {
     const currentPoint = advance(currentSimulation, model, current, cycleTime);
     const candidatePoint = advance(candidateSimulation, model, candidate, cycleTime);
+    if (step % stride !== 0 && step !== steps) continue;
     timeResponse.push({
       timeSeconds: step * cycleTime,
       currentPv: currentPoint.pv,
@@ -172,13 +170,12 @@ export function buildEngineeringPlotEvidence(
   const peakSensitivity = Math.max(...sensitivity.map((item) => 10 ** (item.sensitivityMagnitudeDb / 20)), Math.hypot(farSensitivity.re, farSensitivity.im));
   const locus = buildRootLocus(model, candidate, sweep);
   const uncertainty = buildUncertaintyEnvelope(model, candidate, timeResponse, cycleTime);
-  const requirements = graphicalRequirements(timeResponse, margins, peakSensitivity);
   return { evidence: "Model-predicted", comparison: { candidate,
     context: { modelRevision: JSON.stringify(model),
       evidenceRevision: JSON.stringify({ baseline: current.parameters, horizon, steps, options }),
       method: "unit-step-model-prediction-v1" } }, timeResponse, plantBode: unwrappedPlant,
     candidateOpenLoopBode: unwrappedOpenLoop, nichols, nyquist, sensitivity, peakSensitivity,
-    rootLocus: locus, requirements, uncertainty, ...margins };
+    rootLocus: locus, uncertainty, ...margins };
 }
 
 interface Complex { re: number; im: number }
@@ -373,14 +370,16 @@ function buildRootLocus(
     const sweep: RootLocusSweep = requested ?? {
       parameter: "proportionalGain",
       values: [...new Set([0, candidate.parameters.proportionalGain,
-        ...Array.from({ length: 61 }, (_, index) => 10 ** (-3 + index * 0.1))])].sort((a, b) => a - b),
+        // A reverse loop's gain is negative, so its locus is the negative branch, swept with the same magnitudes.
+        ...Array.from({ length: 61 }, (_, index) => Math.sign(candidate.parameters.proportionalGain || 1) * 10 ** (-3 + index * 0.1))])].sort((a, b) => a - b),
       selectedValue: candidate.parameters.proportionalGain,
     };
+    // Zero is the open-loop start of the locus. Negative gains are swept as they are, not mirrored.
     if (!["proportionalGain", "integralGain", "derivativeGain"].includes(sweep.parameter)
         || !Array.isArray(sweep.values) || sweep.values.length === 0 || sweep.values.length > 1001
-        || !sweep.values.every(value => Number.isFinite(value) && value >= 0)
+        || !sweep.values.every(value => Number.isFinite(value))
         || !sweep.values.includes(sweep.selectedValue)) {
-      throw new Error("Choose one gain, 1–1001 finite nonnegative values, and a selected value in that sweep.");
+      throw new Error("Choose one gain, 1–1001 finite values, and a selected value in that sweep.");
     }
     const plant = plantPolynomial(model);
     const branches = sweep.values.map(gain => {
@@ -460,9 +459,14 @@ function buildUncertaintyEnvelope(
 ): EngineeringPlotEvidence["uncertainty"] {
   const models = uncertaintyCornerModels(model);
   if (models.length === 0) return { status: "not-evaluated", method: "Not evaluated", points: [] };
+  // Each corner model is simulated at every period up to each kept point of the nominal response.
   const traces = models.map((variant) => {
     const state = simulationState(variant, candidate, cycleTime);
-    return nominal.map((_, index) => index === 0 ? state.pv : advance(state, variant, candidate, cycleTime).pv);
+    let periods = 0, pv = state.pv;
+    return nominal.map((point) => {
+      for (const target = Math.round(point.timeSeconds / cycleTime); periods < target; periods += 1) pv = advance(state, variant, candidate, cycleTime).pv;
+      return pv;
+    });
   });
   return {
     status: "evaluated",
@@ -504,46 +508,4 @@ function uncertaintyCornerModels(model: IdentifiedModel): IdentifiedModel[] {
       .map((value) => ({ ...variant, [field]: value })));
   }
   return variants.slice(0, 16);
-}
-
-function graphicalRequirements(
-  time: readonly EngineeringTimePoint[],
-  margins: { gainMarginDb: number; phaseMarginDegrees: number },
-  maximumSensitivity: number
-): EngineeringPlotEvidence["requirements"] {
-  const current = responseMetrics(time.flatMap((point) => point.currentPv === undefined ? [] : [{ time: point.timeSeconds, pv: point.currentPv }]));
-  const candidate = responseMetrics(time.map((point) => ({ time: point.timeSeconds, pv: point.candidatePv })));
-  const maximumOutput = Math.max(...time.map((point) => Math.abs(point.candidateMv)));
-  return [
-    requirement("Overshoot", "response", candidate.overshootPercent, Math.max(10, current.overshootPercent), "%", "maximum"),
-    requirement("Settling time", "response", candidate.settlingSeconds, current.settlingSeconds, "s", "maximum"),
-    requirement("Gain margin", "bode", margins.gainMarginDb, 6, "dB", "minimum"),
-    requirement("Phase margin", "bode", margins.phaseMarginDegrees, 30, "°", "minimum"),
-    requirement("Peak sensitivity", "sensitivity", maximumSensitivity, 2, "ratio", "maximum"),
-    requirement("Controller output", "constraints", maximumOutput, 100, "%", "maximum"),
-  ];
-}
-
-function responseMetrics(points: readonly { time: number; pv: number }[]): {
-  overshootPercent: number; settlingSeconds: number;
-} {
-  const overshootPercent = Math.max(0, (Math.max(...points.map((point) => point.pv)) - 1) * 100);
-  let lastOutside = -1;
-  points.forEach((point, index) => { if (Math.abs(point.pv - 1) > 0.02) lastOutside = index; });
-  return { overshootPercent,
-    settlingSeconds: lastOutside < points.length - 1 ? points[Math.max(0, lastOutside + 1)].time : Number.POSITIVE_INFINITY };
-}
-
-function requirement(
-  name: string,
-  plot: EngineeringPlotEvidence["requirements"][number]["plot"],
-  value: number,
-  limit: number,
-  unit: string,
-  direction: "maximum" | "minimum"
-): EngineeringPlotEvidence["requirements"][number] {
-  const valid = Number.isFinite(value) || value === Number.POSITIVE_INFINITY;
-  const passed = valid && (direction === "maximum" ? value <= limit : value >= limit);
-  return { name, plot, status: !valid ? "Inconclusive" : passed ? "Pass" : "Fail",
-    value: value === Number.POSITIVE_INFINITY ? "unbounded" : value, limit, unit, direction };
 }

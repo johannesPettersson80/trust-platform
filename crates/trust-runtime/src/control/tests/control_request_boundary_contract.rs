@@ -1,7 +1,4 @@
-fn control_request(
-    kind: &str,
-    params: Option<serde_json::Value>,
-) -> ControlRequest {
+fn control_request(kind: &str, params: Option<serde_json::Value>) -> ControlRequest {
     ControlRequest {
         id: 7,
         r#type: kind.into(),
@@ -13,7 +10,7 @@ fn control_request(
 
 #[test]
 fn shutdown_prepares_success_before_signalling_resource_stop() {
-    let state = hmi_test_state("PROGRAM Main END_PROGRAM");
+    let state = control_test_state("PROGRAM Main END_PROGRAM");
 
     let response = program_handlers::handle_shutdown(41, &state);
 
@@ -26,7 +23,7 @@ fn shutdown_prepares_success_before_signalling_resource_stop() {
 
 #[test]
 fn web_shutdown_dispatch_defers_resource_stop_until_transport_completion() {
-    let state = hmi_test_state("PROGRAM Main END_PROGRAM");
+    let state = control_test_state("PROGRAM Main END_PROGRAM");
 
     let response = dispatch_web_control_request_port(
         json!({"id": 42, "type": "shutdown"}),
@@ -36,17 +33,14 @@ fn web_shutdown_dispatch_defers_resource_stop_until_transport_completion() {
     );
     assert!(response.ok, "web shutdown response must be successful");
     let mut responses = [response];
-    let serialized = write_then_complete_web_control_responses_port(
-        &mut responses,
-        &state,
-        |responses| {
+    let serialized =
+        write_then_complete_web_control_responses_port(&mut responses, &state, |responses| {
             assert!(
                 !state.resource.stop_requested(),
                 "web dispatch must not stop the resource before the response write boundary"
             );
             serde_json::to_value(&responses[0]).expect("serialized web response")
-        },
-    );
+        });
     assert_eq!(serialized["id"], json!(42));
     assert_eq!(serialized["result"]["status"], json!("stopping"));
     assert!(
@@ -76,8 +70,12 @@ fn access_capabilities_are_exact_for_each_role() {
         assert_eq!(access["io"]["write"], json!(mutation_allowed));
         assert_eq!(access["io"]["force"], json!(mutation_allowed));
         assert_eq!(access["io"]["release"], json!(mutation_allowed));
-        assert_eq!(access["hmi"]["write"], json!(mutation_allowed));
-        assert_eq!(access["reason"], reason.map_or(serde_json::Value::Null, |text| json!(text)));
+        // Specification 39, decision 12: the legacy HMI write capability is removed.
+        assert!(access.get("hmi").is_none(), "{access}");
+        assert_eq!(
+            access["reason"],
+            reason.map_or(serde_json::Value::Null, |text| json!(text))
+        );
     }
 }
 
@@ -216,7 +214,7 @@ fn credential_channel_is_not_injected_into_other_operations() {
 }
 
 fn auth_state() -> ControlState {
-    let mut state = hmi_test_state(
+    let mut state = control_test_state(
         r#"
 PROGRAM Main
 END_PROGRAM
@@ -295,12 +293,10 @@ fn web_dispatch_does_not_override_malformed_auth_member() {
 
     assert!(!response.ok);
     assert_eq!(response.error_code, None);
-    assert!(
-        response
-            .error
-            .as_deref()
-            .is_some_and(|error| error.contains("invalid request"))
-    );
+    assert!(response
+        .error
+        .as_deref()
+        .is_some_and(|error| error.contains("invalid request")));
 }
 
 #[test]
@@ -335,10 +331,8 @@ fn request_line_always_returns_one_serialized_response() {
 fn malformed_request_line_uses_id_zero_and_stable_error_prefix() {
     let state = auth_state();
     for line in ["", "{", "not json", "[] trailing"] {
-        let response =
-            handle_request_line(line, &state, Some("unix")).expect("response line");
-        let value: serde_json::Value =
-            serde_json::from_str(&response).expect("response JSON");
+        let response = handle_request_line(line, &state, Some("unix")).expect("response line");
+        let value: serde_json::Value = serde_json::from_str(&response).expect("response JSON");
         assert_eq!(value["id"], json!(0), "line={line:?}");
         assert_eq!(value["ok"], json!(false), "line={line:?}");
         assert!(
@@ -376,7 +370,7 @@ fn structurally_invalid_request_value_uses_id_zero() {
 
 #[test]
 fn control_ports_return_owned_project_root_and_resource_name() {
-    let mut state = hmi_test_state(
+    let mut state = control_test_state(
         r#"
 PROGRAM Main
 END_PROGRAM
@@ -385,10 +379,8 @@ END_PROGRAM
     state.project_root = Some(PathBuf::from("/project"));
     state.resource_name = SmolStr::new("RESOURCE_A");
 
-    let mut root = hmi_asset_project_root_port(&state).expect("project root");
     let mut name = runtime_resource_name_port(&state);
     assert_eq!(name, "RESOURCE_A");
-    root.push("changed");
     name = SmolStr::new("CHANGED");
 
     assert_eq!(state.project_root, Some(PathBuf::from("/project")));
@@ -411,10 +403,7 @@ fn required_role_port_matches_registry_authority() {
         AccessRole::Admin
     );
     assert_eq!(
-        control_request_required_role_port(
-            "ads.doctor",
-            Some(&json!({"writes_enabled": true}))
-        ),
+        control_request_required_role_port("ads.doctor", Some(&json!({"writes_enabled": true}))),
         AccessRole::Engineer
     );
 }

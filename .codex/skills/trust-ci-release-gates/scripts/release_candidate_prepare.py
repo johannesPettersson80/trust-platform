@@ -142,13 +142,14 @@ def remote_validation_commands(
                 leased(
                     "vscode_tmp=$(mktemp -d /tmp/trust-vscode-candidate.XXXXXX) && "
                     "trap 'rm -rf -- \"$vscode_tmp\"' EXIT && "
-                    "cd editors/vscode && npm ci && npm run lint && npm run compile && "
+                    "cd editors/vscode && npm ci && npm run lint && "
                     f"{vscode_target_env} xvfb-run -a npm test"
                 ),
             )
         )
     commands.extend(
         [
+            ("remote_hmi", leased(f"{target_env} HMI_REUSE_EDITOR_BUILD={int(vscode_changed)} bash scripts/hmi_ci_gate.sh")),
             ("remote_fmt", "just fmt"),
             (
                 "remote_cross_target_warnings",

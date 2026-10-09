@@ -102,10 +102,12 @@ pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_jso
     let module = BytecodeModule::decode(&bundle.bytecode)?;
     module.validate()?;
     let metadata = module.metadata()?;
-    let _resource = metadata
-        .resource(bundle.runtime.resource_name.as_str())
-        .or_else(|| metadata.primary_resource())
-        .ok_or_else(|| anyhow::anyhow!("bytecode metadata missing resource definitions"))?;
+    // The same resource the runtime would run, so a project that validates also starts.
+    let name = bundle.runtime.resource_name.as_str();
+    if metadata.runtime_resource(name).is_none() {
+        let declared: Vec<&str> = metadata.resources.iter().map(|resource| resource.name.as_str()).collect();
+        anyhow::bail!("{}", resource_mismatch(name, &declared));
+    }
     let io_drivers = enabled_io_driver_names(&bundle);
     Ok(json!({
         "version": 1,
@@ -117,4 +119,17 @@ pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_jso
         "io_driver": io_drivers.first().cloned().unwrap_or_default(),
         "io_drivers": io_drivers,
     }))
+}
+
+/// Why a project's runtime cannot run its program: runtime.toml names a resource the program's
+/// configuration does not declare.
+pub(crate) fn resource_mismatch(name: &str, declared: &[&str]) -> String {
+    let declared = match declared {
+        [] => "no resource".to_string(),
+        [one] => format!("resource '{one}'"),
+        many => format!("the resources {}", many.iter().map(|name| format!("'{name}'")).collect::<Vec<_>>().join(", ")),
+    };
+    format!(
+        "runtime.toml names resource '{name}', but the program's configuration declares {declared}; use the same name in both"
+    )
 }

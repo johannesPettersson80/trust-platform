@@ -132,6 +132,18 @@ pub enum Command {
         #[arg(long, action = ArgAction::SetTrue)]
         ci: bool,
     },
+    /// Check a project's HMI files for its own CI (specification 39, §18 phase 5 item 6).
+    Hmi {
+        #[command(subcommand)]
+        action: HmiAction,
+    },
+    /// Print the stored hash of an HMI user's password for `[[runtime.web.hmi.user]]`, reading
+    /// the password from standard input (specification 39, §12.8).
+    HmiPassword {
+        /// PBKDF2 iterations (at least 10000).
+        #[arg(long, default_value_t = trust_runtime::hmi::access::password::DEFAULT_ITERATIONS)]
+        iterations: u32,
+    },
     /// Build program.stbc from project sources.
     Build {
         /// Project folder directory (defaults to auto-detect or current directory).
@@ -145,7 +157,9 @@ pub enum Command {
         ci: bool,
     },
     /// Deprecated alias for `trust-dev test`.
-    #[command(after_help = "Canonical:\n  trust-dev test --project ./my-plc\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime test --project ./my-plc")]
+    #[command(
+        after_help = "Canonical:\n  trust-dev test --project ./my-plc\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime test --project ./my-plc"
+    )]
     Test {
         /// Project folder directory (defaults to auto-detect or current directory).
         #[arg(long = "project", alias = "bundle")]
@@ -167,7 +181,9 @@ pub enum Command {
         ci: bool,
     },
     /// Deprecated alias for `trust-dev docs`.
-    #[command(after_help = "Canonical:\n  trust-dev docs --project ./my-plc\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime docs --project ./my-plc")]
+    #[command(
+        after_help = "Canonical:\n  trust-dev docs --project ./my-plc\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime docs --project ./my-plc"
+    )]
     Docs {
         /// Project folder directory (defaults to auto-detect or current directory).
         #[arg(long = "project", alias = "bundle")]
@@ -178,14 +194,6 @@ pub enum Command {
         /// Output format (`markdown`, `html`, `both`).
         #[arg(long, value_enum, default_value_t = DocsFormat::Both)]
         format: DocsFormat,
-    },
-    /// Human-machine-interface scaffold workflows.
-    Hmi {
-        /// Project folder directory (defaults to auto-detect or current directory).
-        #[arg(long = "project", alias = "bundle")]
-        project: Option<PathBuf>,
-        #[command(subcommand)]
-        action: HmiAction,
     },
     /// PLCopen XML interchange (ST-complete profile).
     Plcopen {
@@ -293,7 +301,9 @@ pub enum Command {
         start: bool,
     },
     /// Deprecated alias for `trust-dev commit`.
-    #[command(after_help = "Canonical:\n  trust-dev commit --project .\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime commit --project .")]
+    #[command(
+        after_help = "Canonical:\n  trust-dev commit --project .\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime commit --project ."
+    )]
     Commit {
         /// Project folder directory (defaults to current directory).
         #[arg(long = "project", alias = "bundle")]
@@ -359,6 +369,34 @@ pub enum Command {
         /// Optional case-insensitive substring filter for case IDs.
         #[arg(long)]
         filter: Option<String>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum HmiAction {
+    /// The editor's checks over every HMI file: the files load, the bindings resolve in the
+    /// program, and the controls are within the write policy; a problem fails the command.
+    Check {
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
+        /// Emit machine-readable JSON.
+        #[arg(long, action = ArgAction::SetTrue)]
+        json: bool,
+    },
+    /// Every page drawn in headless Chromium and compared with its approved screenshot in
+    /// `hmi/screens/`; a change fails, `--update` approves the new look.
+    Test {
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
+        /// Approve the pages' new look.
+        #[arg(long, action = ArgAction::SetTrue)]
+        update: bool,
+        /// The Chromium to draw with (else `CHROMIUM`, the usual names on the path, or
+        /// Playwright's).
+        #[arg(long)]
+        chromium: Option<PathBuf>,
     },
 }
 

@@ -594,7 +594,7 @@ struct SimulationToml {
 struct SimulationSection {
     enabled: Option<bool>,
     seed: Option<SeedSelection>,
-    time_scale: Option<u32>,
+    time_scale: Option<toml::Value>,
     plant_step_ms: Option<u64>,
     max_plant_substeps_per_cycle: Option<usize>,
     plant_trace_capacity: Option<usize>,
@@ -672,6 +672,24 @@ struct PhysicsJointSection {
     encoder_counts_per_radian: Option<f64>,
 }
 
+/// Reads `[simulation] time_scale`: an absent value is 1. Only whole numbers from 1 to 100 are accepted
+/// (specification 33, §6.1 item 5).
+fn time_scale_from_toml(value: Option<toml::Value>) -> Result<u32, RuntimeError> {
+    let Some(value) = value else {
+        return Ok(1);
+    };
+    let message = match value {
+        toml::Value::Integer(scale) => match crate::scheduler::validate_time_scale(scale) {
+            Ok(scale) => return Ok(scale),
+            Err(message) => message,
+        },
+        other => crate::scheduler::time_scale_not_whole_message(other),
+    };
+    Err(RuntimeError::InvalidConfig(
+        format!("simulation.time_scale {message}").into(),
+    ))
+}
+
 impl SimulationToml {
     fn into_config(self) -> Result<SimulationConfig, RuntimeError> {
         let section = self.simulation.unwrap_or_default();
@@ -719,12 +737,7 @@ impl SimulationToml {
             || has_physics
             || !plant_system.plants.is_empty();
         let enabled = section.enabled.unwrap_or(has_rules);
-        let time_scale = section.time_scale.unwrap_or(1);
-        if time_scale == 0 {
-            return Err(RuntimeError::InvalidConfig(
-                "simulation.time_scale must be >= 1".into(),
-            ));
-        }
+        let time_scale = time_scale_from_toml(section.time_scale)?;
         Ok(SimulationConfig {
             enabled,
             seed: effective_seed,

@@ -42,17 +42,18 @@ rumqttc.workspace = true
 native-tls.workspace = true
 time.workspace = true
 rapier3d.workspace = true
-notify = "8"
 tiny_http = { version = "0.12", features = ["ssl-rustls"] }
 tungstenite = "0.28"
 mdns-sd = "0.18"
 if-addrs = "0.15"
-zenoh = { version = "=1.7.2", default-features = false, features = ["transport_tcp"] }
+zenoh = { version = "=1.7.2", default-features = false, features = ["transport_tcp", "transport_tls", "auth_usrpwd"] }
 base64 = "0.22"
+png = "0.17"
 rand = "0.10"
 getrandom = "0.4"
 ureq = "3"
 sha2 = "0.10"
+hmac = "0.12"
 signal-hook = "0.3.18"
 rustls = "0.23"
 tiverse-mmap = "1.0"

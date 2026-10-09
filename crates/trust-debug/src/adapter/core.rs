@@ -15,11 +15,12 @@ use std::time::{Duration as StdDuration, Instant};
 use serde::Serialize;
 use serde_json::Value;
 
-use trust_runtime::debug::{location_to_line_col, DebugLog, DebugStop};
+use trust_runtime::debug::{location_to_line_col, DebugLog, DebugMode, DebugStop};
 use trust_runtime::error::RuntimeError;
 use trust_runtime::io::IoSnapshot;
+use trust_runtime::simulation::SimulationController;
 use trust_runtime::value::Duration;
-use trust_runtime::RuntimeMetadata;
+use trust_runtime::{Runtime, RuntimeMetadata};
 
 use crate::protocol::{
     Breakpoint, BreakpointEventBody, Event, MessageType, OutputEventBody, Request, Response,
@@ -74,6 +75,32 @@ fn wall_interval_for_cycle(cycle_time: Duration) -> StdDuration {
     }
     let nanos = u64::try_from(nanos).unwrap_or(u64::MAX);
     StdDuration::from_nanos(nanos)
+}
+
+/// Runs one simulator cycle. Process time advances by one exact step only after a cycle that succeeds, so a cycle that
+/// the debugger pauses does not advance it (specification 33, §6.1 items 1 and 4).
+pub(super) fn execute_simulator_cycle(
+    runtime: &mut Runtime,
+    simulation: &mut Option<SimulationController>,
+    cycle_time: Duration,
+) {
+    let now = runtime.current_time();
+    let cycle_result = if let Some(simulation) = simulation.as_mut() {
+        simulation
+            .apply_pre_cycle(now, &mut *runtime)
+            .and_then(|()| runtime.execute_cycle())
+            .and_then(|()| simulation.apply_post_cycle(now, &*runtime))
+    } else {
+        runtime.execute_cycle()
+    };
+    match cycle_result {
+        Ok(()) => runtime.advance_time(cycle_time),
+        Err(err) => {
+            if !matches!(err, RuntimeError::InvalidControlFlow) {
+                eprintln!("runtime cycle error: {err}");
+            }
+        }
+    }
 }
 
 fn sleep_until_or_stopped(stop_flag: &AtomicBool, deadline: Instant) {

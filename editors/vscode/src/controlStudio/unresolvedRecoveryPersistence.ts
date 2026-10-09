@@ -5,6 +5,7 @@ import type { StudioAnalysisSessions } from "./studioAnalysisSessions";
 import { buildWorkflowResultSnapshot, type WorkflowResultSnapshotState } from "./workflowResultSnapshot";
 import { workflowResultStorageKey } from "./panelPersistence";
 import { saveWorkflowResultRevision } from "./workflowResult";
+import { projectStudyStorage } from "./studyStore";
 import type { ManualApplicationCloseRecovery } from "./engineerWorkflowSession";
 
 const pending = new Map<string, Promise<void>>();
@@ -30,7 +31,7 @@ export function preserveUnresolvedRecovery(context: vscode.ExtensionContext, loo
     if (!outcome && !original) throw new Error("The campaign did not provide a terminal outcome; no result was invented.");
     const result = await buildWorkflowResultSnapshot(context, ownerLoop, { ...snapshot,
       commissioning: outcome ?? original, recording: outcome?.recording ?? snapshot.recording });
-    await saveWorkflowResultRevision(context.workspaceState, key, result, 20);
+    await saveWorkflowResultRevision(projectStudyStorage(ownerLoop, "history"), key, result, 20);
   })().finally(() => { if (pending.get(key) === saving) pending.delete(key); });
   pending.set(key, saving);
   void saving.catch(error => vscode.window.showWarningMessage(`Could not retain recovery for ${ownerLoop.name}: ${String(error)}`));

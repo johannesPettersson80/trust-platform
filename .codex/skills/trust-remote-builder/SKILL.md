@@ -1,172 +1,132 @@
 ---
 name: trust-remote-builder
-description: Use when compiling trust-platform, running just/cargo/npm/VS Code gates, synchronizing local work to the shared Hetzner CPU builder, or reporting remote build/test proof.
+description: Runs truST builds and tests on the shared trust-builder machine. Use when compiling, running cargo, just or npm gates, VS Code extension tests or Playwright on the builder, syncing local work there, managing shared cargo targets and disk space, or reporting remote proof.
 ---
 
-# Trust Remote Builder
+# trust-builder
 
-Use `trust-test-authoring` before remote proof work to establish the exact cataloged command,
-required suite, case/evidence binding, and red-green or behavior-lock posture. The builder executes
-that contract; it does not decide the oracle or proof level.
+**Hard rule (AGENTS.md): all logic is in Rust.** Logic is anything whose result is stored, sent to
+a runtime or PLC, or decides an engineering or operator outcome. TypeScript only presents (drawing,
+layout, mouse interaction, view state) and forwards requests to Rust. Never add logic in
+TypeScript. Existing TypeScript logic is debt to move into Rust, not to extend.
 
-## Builder Contract
+Logic is proven on the builder by `cargo` runs. VS Code and Playwright runs prove only wiring and
+rendering.
 
-Use the shared Hetzner CPU builder for heavy Rust and Node gates.
+`trust-builder` is an SSH alias (user `johannes`) for a shared Hetzner CPU machine. It runs:
+- cargo, `just` and npm;
+- the VS Code extension tests;
+- the release gates;
+- headless browser tests.
 
-- SSH alias: `trust-builder`
-- Remote repo path: `/home/johannes/projects/trust-platform`
-- Remote user: `johannes`
-- Purpose: `just`, cargo, npm, VS Code extension tests, release gates, and CPU/headless
-  proof.
-- Not purpose: final GPU/WebGL/WebGPU visual proof when real hardware acceleration matters.
+Two limits:
+- It has no GPU, so final WebGL or WebGPU visual proof needs real hardware.
+- It has no GitHub push credentials, so it fetches and validates only. It pushes only when the user
+  explicitly asks.
 
-Do not store private SSH key material, cloud credentials, or provider tokens in the repo.
+The local Raspberry Pi is too slow for broad gates. Run cheap, narrow checks there only, such as
+formatting or one small crate's tests.
 
-## Sync Rule
+## Getting the code there
 
-Before a remote gate, make the remote checkout match the exact work being validated.
+- **`main`**: the builder's copy is `~/projects/trust-platform`. Fetch through that checkout's
+  configured `origin`; check `git remote -v` first, and do not swap in the workstation's SSH URL.
+- **Uncommitted or feature work**: rsync the local checkout to its own builder copy:
 
-- Inspect `git remote -v` in the remote checkout before fetching.
-- Fetch through that checkout's configured `origin` (normally HTTPS), for example
-  `git fetch origin <branch>`. Do not replace it with a hardcoded SSH URL copied from the local
-  workstation; the builder does not necessarily have the workstation's GitHub SSH credentials.
-- Treat the builder as fetch-and-validation-only unless the user explicitly authorizes a remote
-  push. A local SSH push URL is not evidence that the builder can push.
-- After fetching, verify the exact remote HEAD being tested and repeat the mandatory `AGENTS.md`
-  and `.codex/skills/**` bootstrap verification before building or testing.
+  ```bash
+  rsync -a --delete --exclude /target/ --exclude /fuzz/target/ --exclude '**/node_modules/' \
+    --exclude /.venv-docs/ /path/to/local/checkout/ trust-builder:~/projects/<copy>/
+  ```
 
-## Toolchain Parity Rule
+  - Sync one folder to one folder, with matching trailing slashes. `--delete` aimed at a parent
+    directory has wiped sibling folders before.
+  - If the builder copy has changes of its own, stop and report them instead of overwriting.
+  - `--delete` also removes files that exist only on the builder: formatted sources, built bundles
+    and evidence. Copy those back before the next sync.
+  - A file restored by rsync can keep an old mtime, so cargo may reuse a stale build. `touch` it.
+- **Verification evidence batches** (many audit or evidence reports): regenerate them in a clean,
+  detached builder worktree. Validate every report there, then copy back only the validated reports.
 
-Source parity alone is not CI parity. Before calling a remote result CI-equivalent:
+## Shared cargo targets
 
-1. Inspect whether the workflow pins Rust or floats on `stable`.
-2. Install or refresh the same toolchain immediately before the final gate.
-3. Record `rustc -Vv` and `cargo -V` with the proof.
-4. Run the workflow's exact command and flags, especially full-workspace Clippy.
+Several checkouts build into `~/.cache/codex-targets/<name>` at the same time.
 
-The Linux builder does not prove Windows console encoding, locale, TCP-close, or filesystem
-behavior. Preserve portable harness tests and treat the Windows GitHub job as authoritative for
-those surfaces.
+- Run every cargo-producing command through the lease:
 
-For `trust-runtime` candidates, run the repository's required Windows GNU cross-target warning
-shape on the builder before calling the candidate push-ready:
-`./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross`. Host
-`just clippy` and `just test-all` do not replace this command.
+  ```bash
+  ssh trust-builder 'cd ~/projects/<copy> && T=$HOME/.cache/codex-targets/trust-platform-gate && \
+    scripts/with_cargo_target_lease.sh "$T" env CARGO_TARGET_DIR="$T" just test-all'
+  ```
 
-## Disk Preflight Rule
+- Delete a target only with `scripts/remove_cargo_target_if_idle.sh TARGET`. Exit 75 means another
+  gate holds the target, so keep it. The lease lives in `~/.cache/codex-target-leases`, outside the
+  target, so recreating a target cannot bypass it.
+- Never glob-delete `~/.cache/codex-targets/*`. A single empty `lsof` sample does not prove that a
+  target is idle.
 
-Before running any broad remote gate (`just clippy`, `just test`, `just test-all`, `npm test`, or
-large `cargo test`), check disk first and clean generated junk before the run. The builder is a
-shared finite machine; do not require unrealistic free-space numbers, and do not create a fresh
-cold `target/` tree for every isolated validation copy.
+## Disk
 
-All paths in this section are paths on the remote machine reached through `ssh trust-builder`, not
-paths on the local workstation.
-
-Practical minimums:
-
-- For a cold exact-candidate `just test-all` or large native-dependency change
-  (ADS, OPC UA/OpenSSL, EtherCAT, WebGPU/Scena), require at least 80G free on
-  `trust-builder:/home/johannes` before starting and aim for at least 3G free on
-  `trust-builder:/tmp` after cleanup. The exact-candidate guard enforces the
-  home-space floor because an uncached all-target test build can exceed 55G.
-- For `just clippy`, `just test`, VS Code `npm test`, or focused runtime gates, aim for at least
-  25G free on `trust-builder:/home/johannes`.
-- If the builder has less than that after safe cleanup, do not invent a higher threshold. Report the
-  real free space and either run a narrower gate or ask before deleting large unrelated generated
-  targets.
-
-Run this preflight before syncing or testing:
+Run this preflight before broad gates:
 
 ```bash
 ssh trust-builder 'df -hT /home/johannes /tmp && du -xhd1 "$HOME/projects" 2>/dev/null | sort -h | tail -20 && du -xhd1 "$HOME/.cache" 2>/dev/null | sort -h | tail -20'
 ```
 
-If space is below the minimum, clean stale build outputs before running tests. Prefer deleting
-only generated caches and targets, not source checkouts:
+- **Free-space floors on `/home/johannes`**:
+  - about 25 GB for `just clippy`, `just test`, `npm test` or a focused runtime gate;
+  - 80 GB for a cold exact-candidate `just test-all`, or for large native-dependency changes (ADS,
+    OPC UA/OpenSSL, EtherCAT, WebGPU). The release guard enforces this floor.
+  - Report the real free space; do not invent higher thresholds.
+- **Cleaning up**: delete only generated outputs, never a source worktree. Examples are an isolated
+  copy's `target/`, `fuzz/target/` and `~/.cache/sccache`. Use the idle-target script for shared
+  targets.
+- **Runtime test binaries**: `cargo test --all` builds about 290 runtime test binaries of up to
+  450 MB each, so it can fill the disk. When space is short, run the runtime tests in batches that
+  delete their binaries.
+- **Out of space**: these errors are infrastructure failures, not test results:
+  `No space left on device`, `Disk quota exceeded`, `mold: failed to write` and
+  `couldn't create a temp dir`. Then:
+  1. stop the gate's leftover processes by PID;
+  2. rerun the preflight;
+  3. clean up;
+  4. rerun, and report the failure as an infrastructure failure.
 
-```bash
-ssh trust-builder 'rm -rf "$HOME/projects/<isolated-validation-copy>/target"'
-ssh trust-builder 'rm -rf "$HOME/projects/"*/fuzz/target'
-ssh trust-builder 'for target in "$HOME/.cache/codex-targets/"*; do [[ -d "$target" ]] || continue; "$HOME/projects/trust-platform/scripts/remove_cargo_target_if_idle.sh" "$target" || [[ $? == 75 ]]; done'
-ssh trust-builder 'df -hT /home/johannes /tmp'
-```
+## Running tests there
 
-Never glob-delete `$HOME/.cache/codex-targets/*`. The builder is shared and a
-different checkout can be compiling into any one of those targets even when a
-single `lsof` sample is empty. Run every Cargo-producing command that uses a
-shared target through `scripts/with_cargo_target_lease.sh TARGET COMMAND...`.
-Delete a target only through `scripts/remove_cargo_target_if_idle.sh TARGET`;
-exit 75 means the target is leased and MUST be retained. The lease lives under
-`$HOME/.cache/codex-target-leases`, outside the removable target, so deleting
-and recreating the target cannot bypass an active lock.
+- **`TMPDIR`**: `/tmp` is a quota tmpfs that other jobs fill. If you see odd Chrome or Xvfb failures
+  ("Missing X server", canvases missing edges), `/tmp` is probably full; `echo x > /tmp/.q` tests
+  it. Run tests with `TMPDIR` under home, for example `TMPDIR=$HOME/tmp-<task>`.
+- **VS Code tests need an X display**:
+  - start Xvfb by PID: `Xvfb :<n> -screen 0 1920x1080x24 -nolisten tcp &`;
+  - set `DISPLAY=:<n>`, and kill Xvfb by PID afterwards;
+  - `TRUST_VSCODE_TEST_GREP` selects suites by title (a regular expression);
+  - `ST_LSP_TEST_SERVER=<path>/trust-lsp` reuses a built language server.
+- **Killing processes**: kill by PID or by your own process group, never with `pkill -f` or
+  `killall`.
+- **CPU contention**: never run two timing-sensitive suites at once on the builder.
 
-For isolated validation copies, avoid repeated cold rebuilds by using one warmed target directory
-on the remote builder when practical:
+## CI parity
 
-```bash
-ssh trust-builder 'mkdir -p "$HOME/.cache/codex-targets/trust-platform-gate"'
-ssh trust-builder 'cd "$HOME/projects/<isolated-validation-copy>" && scripts/with_cargo_target_lease.sh "$HOME/.cache/codex-targets/trust-platform-gate" env CARGO_TARGET_DIR="$HOME/.cache/codex-targets/trust-platform-gate" just test-all'
-```
+Source parity is not CI parity. Before you call a result CI-equivalent:
+- **Toolchain**: use the workflow's exact toolchain and command. When CI floats on `stable`, refresh
+  it just before the final gate. Record `rustc -Vv` and `cargo -V`.
+- **Clippy**: run the CI shape, `cargo clippy --all-targets --all-features -- -D warnings`.
+- **`trust-runtime` candidates**: also run
+  `./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross`.
+- **Windows**: the builder does not prove Windows console encoding, locale, TCP close or filesystem
+  behaviour. For those, the Windows GitHub job is authoritative.
 
-Use broad `*/target` cleanup only when the user asked for cleanup or the stale target directories
-are clearly validation/build artifacts. Never remove source worktrees or non-generated files as part
-of disk cleanup.
+## Reporting proof
 
-If a gate fails with `No space left on device`, `Disk quota exceeded`, `mold: failed to write`, or
-`couldn't create a temp dir`, stop. Do not immediately rerun the same gate. First:
+For a new evidence batch, check `hostname` and `pwd` inside the same SSH command, and record:
+- the exact command, inside `ssh trust-builder '…'`;
+- the remote path and its revision, or the local tree it was synced from;
+- the result with counts and duration;
+- the toolchain versions, for CI-equivalent claims;
+- every gate that did not run, and why.
 
-1. Kill any still-running cargo/rustc/linker processes from that gate.
-2. Re-run the disk preflight.
-3. Clean stale generated targets/caches until the minimum is met.
-4. Re-run the gate only after reporting that the previous failure was infrastructure, not a test
-   assertion.
-
-For local uncommitted work:
-
-```bash
-git -C /home/johannes/projects/trust-platform status --short --branch
-ssh trust-builder 'git -C "$HOME/projects/trust-platform" status --short --branch'
-rsync -az --delete \
-  --exclude '/target/' \
-  --exclude '/fuzz/target/' \
-  --exclude '**/node_modules/' \
-  --exclude '/.venv-docs/' \
-  /home/johannes/projects/trust-platform/ \
-  trust-builder:~/projects/trust-platform/
-```
-
-If the remote has unrelated dirty changes, stop and report them instead of overwriting them.
-
-## Gate Commands
-
-Run project gates through SSH:
-
-```bash
-ssh trust-builder 'cd "$HOME/projects/trust-platform" && just fmt'
-ssh trust-builder 'cd "$HOME/projects/trust-platform" && just clippy'
-ssh trust-builder 'cd "$HOME/projects/trust-platform" && just test-all'
-```
-
-Useful focused setup and smoke commands:
-
-```bash
-ssh trust-builder 'cd "$HOME/projects/trust-platform" && just check'
-ssh trust-builder 'cd "$HOME/projects/trust-platform" && just test-fast'
-ssh trust-builder 'cd "$HOME/projects/trust-platform/editors/vscode" && npm ci'
-ssh trust-builder 'cd "$HOME/projects/trust-platform/editors/vscode" && npm test'
-```
-
-## Reporting Proof
-
-Report:
-
-- command run
-- remote host alias and repo path
-- pass/fail status and timing when available
-- Rust and Cargo versions for CI-equivalent proof
-- remote git status and HEAD when relevant
-- any gate not run and the concrete reason
-
-Do not confuse local checkout state, remote builder checkout state, GitHub branch state, and
-published release state.
+Keep these states apart:
+- the local checkout;
+- the builder copy;
+- the GitHub branch;
+- the published release.

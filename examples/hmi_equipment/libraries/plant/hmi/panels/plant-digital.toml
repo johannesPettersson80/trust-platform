@@ -1,0 +1,31 @@
+format = 1
+title = "Signal"
+size = [608, 272]
+pinnable = true
+settings = true
+
+[fields.Value]
+accepts = ["boolean"]
+
+[fields.Quality]
+accepts = ["enumeration"]
+
+[[object]]
+id = "value"
+type = "status"
+label = "Signal"
+at = [24, 24]
+size = [560, 48]
+
+[object.bind]
+state = { path = "$Value", quality = "$Quality" }
+
+[[object]]
+id = "history"
+type = "trend"
+label = "History"
+at = [24, 88]
+size = [560, 160]
+
+[object.bind]
+state = "$Value"

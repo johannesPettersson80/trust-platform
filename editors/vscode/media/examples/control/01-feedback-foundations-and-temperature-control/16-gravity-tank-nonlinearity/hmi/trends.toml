@@ -1,6 +1,0 @@
-title = "Trends"
-kind = "trend"
-icon = "line-chart"
-order = 50
-duration_s = 300
-signals = ["P1.LevelM", "P1.GravityModelLevelM", "P1.ConstantOutflowModelLevelM", "P1.InletFlowM3S"]

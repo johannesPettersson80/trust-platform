@@ -1,8 +1,9 @@
 import type { ControlLoopDefinition } from "../loopDefinition";
 import type { AcquisitionSettings } from "../acquisitionSettings";
 import { displayEngineeringUnit } from "../chartContract";
-import { openCompactNumberEditor } from "../../webview/compactEditor";
+import { openCompactNumberEditor, type CompactEditorIssue } from "../../webview/compactEditor";
 import { loopSignal } from "../loopChannels";
+import { MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS } from "../controlStudioLimits";
 
 export interface StudioExperimentLimits {
   durationSeconds?: number;
@@ -47,7 +48,7 @@ export function editExperimentLimits(loop: ControlLoopDefinition, values: Studio
   const fields = [
     ...inputs.flatMap(signal => rangeFields("input", signal, inputRanges[signal.symbol] ?? boundedInputRange(loop, signal), multichannel, loop)),
     ...outputs.flatMap(signal => rangeFields("output", signal, outputRanges[signal.symbol] ?? signal.range, multichannel, loop)),
-    { key: "durationSeconds", label: "Maximum duration (s)", value: values.durationSeconds, minimum: 2, maximum: 600 },
+    { key: "durationSeconds", label: "Maximum duration", value: values.durationSeconds, minimum: MINIMUM_EXPERIMENT_DURATION_MS / 1_000, maximum: MAXIMUM_EXPERIMENT_DURATION_MS / 1_000, duration: true },
   ];
   openCompactNumberEditor({ title: "Experiment limits", fieldAttribute: "data-studio-limit", cancelled,
     initialIssue: waiting && values.durationSeconds === undefined ? { field: "durationSeconds", message: "Enter the maximum experiment duration." } : undefined, fields: [
@@ -76,15 +77,17 @@ function rangeFields(kind: "input" | "output", signal: { symbol: string; unit: s
   ];
 }
 
-function validateRanges(next: Readonly<Record<string, number>>, inputs: readonly { symbol: string }[], outputs: readonly { symbol: string }[]) {
+/** Every range whose maximum does not exceed its minimum, so Done can mark them all at once. */
+function validateRanges(next: Readonly<Record<string, number>>, inputs: readonly { symbol: string }[], outputs: readonly { symbol: string }[]): CompactEditorIssue[] {
   const multichannel = inputs.length > 1 || outputs.length > 1;
+  const issues: CompactEditorIssue[] = [];
   for (const [kind, signals] of [["input", inputs], ["output", outputs]] as const) {
     for (const signal of signals) {
       const minimum = next[fieldKey(`${kind}Minimum`, signal.symbol, multichannel)], maximum = next[fieldKey(`${kind}Maximum`, signal.symbol, multichannel)];
-      if (minimum >= maximum) return { field: fieldKey(`${kind}Maximum`, signal.symbol, multichannel), message: "Maximum must be greater than minimum." };
+      if (minimum >= maximum) issues.push({ field: fieldKey(`${kind}Maximum`, signal.symbol, multichannel), message: "Maximum must be greater than minimum." });
     }
   }
-  return undefined;
+  return issues;
 }
 
 function fieldKey(prefix: string, symbol: string, multichannel: boolean): string { return multichannel ? `${prefix}:${symbol}` : prefix; }

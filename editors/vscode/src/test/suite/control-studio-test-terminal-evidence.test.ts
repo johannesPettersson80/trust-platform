@@ -1,13 +1,13 @@
 import * as assert from "assert";
 
 suite("Control Studio terminal Test evidence", () => {
-  test("attaches a qualified saturation-return finding to the exact terminal runtime record", async () => {
+  test("retains the exact terminal runtime record and its identification for a completed Test", async () => {
     const api = terminalEvidenceApi();
     assert.strictEqual(typeof api.buildTerminalTestEvidence, "function",
-      "a completed Test must hand its actual runtime record to saturation analysis");
+      "a completed Test must hand its actual runtime record to identification");
     let identified: any;
     const payload = await api.buildTerminalTestEvidence({
-      loop: saturationLoop(),
+      loop: { id: "loop:terminal" },
       plan: { id: "test:saturation", kind: "project_sequence" },
       result: { experiment_id: "test:saturation", status: "completed", stop_reason: "duration_complete", restoration: "restored" },
       stopRecording: async () => recording(),
@@ -24,40 +24,11 @@ suite("Control Studio terminal Test evidence", () => {
     assert.strictEqual(payload.recordingEvidence.observedSampleCount, 7);
     assert.deepStrictEqual(payload.recording.rawSamples, recording().rawSamples,
       "the display must receive the same native samples, without substituting editor observations");
-    assert.deepStrictEqual(payload.saturationWindup, {
-      status: "qualified", limit: "upper", enteredAtSeconds: 0.1,
-      targetReturnAtSeconds: 0.4, releasedAtSeconds: 0.6, recoverySeconds: 0.2,
-      peakRequestedOutput: 125, peakAppliedOutput: 100, maximumMismatch: 25,
-      integralAtEntry: 80, integralAtTargetReturn: 90, integralAtRelease: 90,
-      integralChangeDuringSaturation: 10,
-      recommendation: "Recorded output mismatch and retained-integral change require an anti-windup candidate before this saturation-return case can qualify.",
-    });
-  });
-
-  test("does not invent a saturation finding for a loop without its declared adapter", async () => {
-    const api = terminalEvidenceApi();
-    const loop = saturationLoop();
-    delete loop.controller.saturationEvidence;
-    const payload = await api.buildTerminalTestEvidence({
-      loop,
-      plan: { id: "test:ordinary", kind: "setpoint_step" },
-      result: { experiment_id: "test:ordinary", status: "completed", restoration: "restored" },
-      stopRecording: async () => recording(),
-      recordIdentification: () => ({ experimentId: "test:ordinary", role: "estimation", qualification: "qualified" }),
-    });
-    assert.strictEqual("saturationWindup" in payload, false);
   });
 });
 
 function terminalEvidenceApi(): any {
   try { return require("../../controlStudio/testTerminalEvidence"); } catch { return {}; }
-}
-
-function saturationLoop(): any {
-  return {
-    limits: { outputMinimum: 0, outputMaximum: 100 },
-    controller: { saturationEvidence: { requestedOutputId: "requested-power", integralStateId: "stored-correction" } },
-  };
 }
 
 function recording(): any {

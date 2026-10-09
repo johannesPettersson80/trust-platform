@@ -28,7 +28,8 @@ export async function configureControllerAdapter(loop: ControlLoopDefinition,
   };
   parameterBinding.parameters.forEach(parameter => check(parameter.symbol, parameter.iec_type));
   check(parameterBinding.mode.symbol, "BOOL");
-  const fields = ["project", "stateFeedback", "onOff", "law", "pidInitialization", "manualOutputSignal", "manualOutputType", "manualOutputAddress"];
+  const fields = ["project", "stateFeedback", "onOff", "law", "pidInitialization", "manualOutputSignal", "manualOutputType", "manualOutputAddress",
+    "manualOutputFollowsOutput"];
   const controller = { ...loop.controller, ...Object.fromEntries(fields.filter(field => field in value.controller!).map(field => [field, value.controller![field]])),
     design: "project" as const, modeSignal: parameterBinding.mode.symbol, modeWhenTrue: parameterBinding.mode.manual_value ? "Manual" as const : "Auto" as const };
   if (controller.manualOutputSignal && controller.manualOutputType) check(controller.manualOutputSignal, controller.manualOutputType);

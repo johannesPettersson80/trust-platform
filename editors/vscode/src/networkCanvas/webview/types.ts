@@ -80,6 +80,9 @@ export interface NCRuntime {
   // Projection of the shared selected run target store. This is visual feedback only; the sidebar
   // remains the lifecycle/action owner.
   runTarget?: boolean;
+  // The local simulator's speed while it runs (specification 33, §6.1): configured, and achieved once measured.
+  simulationTimeScale?: number;
+  simulationAchievedTimeScale?: number;
   endpoints: NCEndpoint[];
   plants?: NCPlant[];
 }
@@ -250,6 +253,9 @@ export interface RuntimeNodeData extends Record<string, unknown> {
   managed?: boolean;
   managedName?: string;
   runTarget?: boolean;
+  // The local simulator's speed while it runs (see NCRuntime).
+  simulationTimeScale?: number;
+  simulationAchievedTimeScale?: number;
   plantSimulationSupported: boolean;
   plantDropState?: "eligible" | "current" | "ineligible";
   plantDropLabel?: string;

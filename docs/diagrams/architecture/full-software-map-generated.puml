@@ -82,7 +82,7 @@ package "trust-runtime Current Internal Surfaces" as runtime_surfaces #FFFDE7 {
   component "Legacy/helper eval surface\neval/, helper_eval/" as rt_eval #FFF9C4
   component "Control plane\ncontrol/" as rt_control #FFE0B2
   component "Embedded web/IDE server\nweb/" as rt_web #FFCCBC
-  component "HMI contracts + scaffold\nhmi/" as rt_hmi #FFECB3
+  component "HMI Builder support\nhmi/" as rt_hmi #FFECB3
   component "Terminal UI\nui/" as rt_ui #FFECB3
   component "Runtime cloud\nruntime_cloud/" as rt_cloud #FFCCBC
   component "IO / retain / watchdog / security" as rt_ops #FFF9C4
@@ -92,7 +92,7 @@ package "trust-runtime Current Internal Surfaces" as runtime_surfaces #FFFDE7 {
   rt_core --> rt_ops
   rt_control --> rt_core
   rt_web --> rt_control
-  rt_web --> rt_hmi
+  rt_hmi --> rt_core
   rt_web --> rt_cloud
   rt_ui --> rt_control
   rt_cloud --> rt_control
@@ -242,7 +242,7 @@ package "Runtime Surface Size Overlay (source scan)" as runtime_size #FFF3E0 {
 }
 
 package "trust-runtime CLI Commands (parsed from Command enum)" as cli_commands #FFF0D6 {
-  component "runtime/product\nRun (line 21)\\nPlay (line 48)\\nCtl (line 96)\\nValidate (line 110)\\nBuild (line 119)\\nHmi (line 166)\\nPlcopen (line 174)\\nRegistry (line 179)\\nSetup (line 187)\\nDeploy (line 271)\\nRollback (line 286)\\nCompletions (line 292)\\nBench (line 303)\\nConformance (line 311)" as cli_runtime_product #E8F5E9
+  component "runtime/product\nRun (line 21)\\nPlay (line 48)\\nCtl (line 96)\\nValidate (line 110)\\nBuild (line 119)\\nPlcopen (line 174)\\nRegistry (line 179)\\nSetup (line 187)\\nDeploy (line 271)\\nRollback (line 286)\\nCompletions (line 292)\\nBench (line 303)\\nConformance (line 311)" as cli_runtime_product #E8F5E9
   component "ui/product\nUi (line 75)\\nIde (line 227)\\nConfigUi (line 236)\\nWizard (line 250)" as cli_ui_product #FFF4D6
   component "workbench/dev\nTest (line 132)\\nDocs (line 154)\\nAgent (line 244)\\nCommit (line 259)" as cli_workbench_dev #FFCCBC
 }

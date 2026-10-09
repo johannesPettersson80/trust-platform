@@ -309,34 +309,25 @@ For each tutorial:
 
 ### VS Code Feature Spotlight
 
-- HMI descriptor workflow (`hmi/*.toml`)
-- Process SVG page rendering (`kind = "process"`)
-- Live descriptor refresh for TOML + SVG edits
+- Live Values write/force on mapped `%IX` inputs
+- Runtime build/run against a multi-file project with `VAR_CONFIG` mapping
 
 ### Guided Steps
 
 1. Open `12_hmi_pid_process_dashboard/README.md`.
 2. Build and run the tutorial project.
-3. Open `/hmi` and verify operator pages:
-   - `Operator Overview`
-   - `P&ID Process`
-   - `P&ID Bypass`
-   - `Trends`
-   - `Alarms`
-4. Toggle `%IX0.0` / `%IX0.1` / `%IX0.2` / `%IX0.3` to drive start/stop/spike/bypass scenarios.
-5. Verify setpoint, deviation, and alarm widgets update in overview + process pages.
-6. Edit `hmi/plant.toml` and swap `plant.svg` <-> `plant-minimal.svg`; save and verify live refresh.
-7. Capture one screenshot/GIF using the tutorial media commands.
+3. Toggle `%IX0.0` / `%IX0.1` / `%IX0.2` / `%IX0.3` to drive start/stop/spike/bypass scenarios.
+4. Verify setpoint, deviation, and alarm values update in Live Values.
+5. Read the `%QX` outputs with `trust-runtime ctl ... io-read`.
 
 ### Challenge
 
-- Add one extra instrument ID in `hmi/plant-bypass.svg` and bind it from `P1` in `hmi/plant-bypass.toml`.
+- Add a low-flow alarm while the pump runs and map it to `%QX0.5`.
 
 ### Common Pitfalls
 
-- Selector IDs in `[[bind]]` not matching SVG element IDs.
-- Using unsupported process selectors (must be `#id` style).
-- Renaming PLC symbols without updating HMI bind paths.
+- Writing an input address that is not mapped in `src/config.st`.
+- Forgetting to release a forced input after a scenario check.
 
 ---
 
@@ -362,14 +353,15 @@ and why it matters.
    - use deterministic `simulation.toml` couplings/disturbances/fault events.
 7. `19_safety_commissioning/README.md`
    - verify safe-state outputs, watchdog/fault policy, and restart recovery.
-8. `20_hmi_write_enablement/README.md`
-   - move HMI from read-only to constrained write mode with explicit allowlist.
-9. `21_ci_cd_project_pipeline/README.md`
+8. `21_ci_cd_project_pipeline/README.md`
    - implement CI gates with machine-readable reports and stable exit codes.
-10. `22_neovim_zed_workflow/README.md`
-    - run a complete non-VS-Code workflow with Neovim/Zed plus terminal gates.
-11. `23_observability_historian_prometheus/README.md`
+9. `22_neovim_zed_workflow/README.md`
+   - run a complete non-VS-Code workflow with Neovim/Zed plus terminal gates.
+10. `23_observability_historian_prometheus/README.md`
     - enable historian + Prometheus telemetry and verify runtime observability contracts.
+11. `24_hmi_alarms/README.md`
+    - declare alarms with the Alarm library and operate them in the HMI's runtime display:
+      priorities, acknowledge, shelve, first out on a trip, equipment alarms, own detection.
 
 Suggested sequence for operations engineers:
 
@@ -380,10 +372,10 @@ Suggested sequence for operations engineers:
 5. `14_deploy_and_rollback/README.md`
 6. `16_secure_remote_access/README.md`
 7. `15_multi_plc_discovery_mesh/README.md`
-8. `20_hmi_write_enablement/README.md`
-9. `21_ci_cd_project_pipeline/README.md`
-10. `22_neovim_zed_workflow/README.md`
-11. `23_observability_historian_prometheus/README.md`
+8. `21_ci_cd_project_pipeline/README.md`
+9. `22_neovim_zed_workflow/README.md`
+10. `23_observability_historian_prometheus/README.md`
+11. `24_hmi_alarms/README.md`
 
 ---
 

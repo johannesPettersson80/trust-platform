@@ -12,6 +12,8 @@ suite("Control Studio commissioning starting point", () => {
     if (options.outerMode !== undefined) loop.cascade = { role: "inner", partnerLoopId: "outer-loop",
       referenceHold: { modeSymbol: "Main.OuterAuto", manualValue: false, manualOutputSymbol: "Main.SP" } };
     const bindings: any[] = [];
+    // Each status read is a newer scan 100 ms later on the runtime's clock: the operating-point wait runs in process time (B6.2).
+    let clockTicks = 0;
     const model: any = { kind: "transfer-function", numerator: [1], denominator: [1, 1], delaySeconds: 0,
       revision: "first-order", source: "provided", validation: "validated", evidence: ["bench"],
       normalizedError: 0.01, inputs: [channel("u", "V")], outputs: [channel("y", "m")],
@@ -37,7 +39,7 @@ suite("Control Studio commissioning starting point", () => {
     runtime.bindRuntimeConnection = async () => ({ source: "simulation", request: async (operation: string, params: any) => {
       assert.strictEqual(operation, "control.transfer.status");
       bindings.push(params?.binding);
-      return { program_revision: "program", binding_revision: "transfer", status: "idle", reason: null, transaction: null,
+      return { program_revision: "program", binding_revision: "transfer", status: "idle", reason: null, transaction: null, runtime_time_ns: 100_000_000 * clockTicks++,
         supported_tracking: ["parallel-pid-v1"], values: { "Main.Manual": true, "Main.SP": 2, "Main.ManualCommand": 0,
           "Main.Integral": 0, "Main.PreviousError": 0, "Main.Kp": 1, "Main.Ki": 0, "Main.Kd": 0, "Main.PV": processValue(), "Main.MV": 0,
           // A runtime reports exactly the members the binding declares.
@@ -77,7 +79,7 @@ suite("Control Studio commissioning starting point", () => {
     try {
       await run.applying;
       const last = run.posts[run.posts.length - 1];
-      assert.deepStrictEqual([last?.status, last?.failure?.nextAction], ["failed", "reapply"], String(last?.reason));
+      assert.deepStrictEqual([last?.status, last?.failure?.nextAction?.kind], ["failed", "validate"], String(last?.reason));
       assert.strictEqual(last?.reason, "Put the outer controller in Manual before applying (Main.OuterAuto): its output is this loop's setpoint.");
       assert.ok(!run.posts.some(post => post.activity === "apply-settling"), "the refusal comes before any wait");
       assert.ok(run.bindings.length && run.bindings.every(binding => binding.guards.some((guard: any) =>
@@ -112,8 +114,9 @@ suite("Control Studio commissioning starting point", () => {
       await run.invoke("cancel");
       await run.applying;
       const last = run.posts[run.posts.length - 1];
+      // The next action is typed (Specification 35, A11.2): the page receives its kind and the label of its one button.
       assert.deepStrictEqual([last?.status, last?.reason, last?.failure?.nextAction],
-        ["failed", "Apply cancelled while waiting for the process to settle; nothing was written.", "reapply"]);
+        ["failed", "Apply cancelled while waiting for the process to settle; nothing was written.", { kind: "validate", label: "Validate controller" }]);
       assert.ok(last?.initialization, "An ended wait keeps the verified controller-transfer evidence");
     } finally { run.restore(); }
   });

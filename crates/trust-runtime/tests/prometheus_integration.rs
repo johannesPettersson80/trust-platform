@@ -9,7 +9,7 @@ use std::time::Duration;
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 use trust_runtime::config::{ControlMode, WebAuthMode, WebConfig};
-use trust_runtime::control::{ControlState, HmiRuntimeDescriptor, SourceFile, SourceRegistry};
+use trust_runtime::control::{ControlState, SourceFile, SourceRegistry};
 use trust_runtime::debug::DebugVariableHandles;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
@@ -150,9 +150,6 @@ fn control_state(
         path: PathBuf::from("main.st"),
         text: source.to_string(),
     }]);
-    let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
-        None, &sources,
-    )));
 
     Arc::new(ControlState {
         debug,
@@ -185,9 +182,6 @@ fn control_state(
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
-        hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
-        hmi_persistence: None,
-        hmi_descriptor,
         historian,
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(
@@ -216,6 +210,7 @@ fn start_test_server(state: Arc<ControlState>, auth: WebAuthMode) -> String {
         listen: SmolStr::new(listen.clone()),
         auth,
         tls: false,
+        hmi: Default::default(),
     };
     let _server =
         start_web_server(&config, state, None, None, None, None).expect("start web server");

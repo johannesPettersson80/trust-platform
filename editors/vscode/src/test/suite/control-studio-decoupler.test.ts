@@ -26,10 +26,10 @@ const zones = {
 const member = (index: number) => ({ instance: `P1.Zone${index}`, parameterRecord: `P1.Zone${index}Parameters`,
   processVariable: { symbol: `P1.Zone${index}C`, unit: "degC", minimum: 0, maximum: 100 },
   manipulatedVariable: { symbol: `P1.Heater${index}Pct`, unit: "%", minimum: 0, maximum: 100 },
-  setpoint: { symbol: `P1.Zone${index}SetpointC` }, manualOutput: `P1.Zone${index}ManualPct`, experimentStep: 10 });
+  setpoint: { symbol: `P1.Zone${index}SetpointC` }, manualOutput: `P1.Zone${index}ManualPct` });
 const decoupler = [["P1.D11", "P1.D12"], ["P1.D21", "P1.D22"]];
 const draft = () => ({ ...scope, name: "Zones", action: "direct", mode: { symbol: "P1.ZonesAuto", whenTrue: "Auto" },
-  experimentDurationSeconds: 120, members: [member(1), member(2)], decoupler });
+  members: [member(1), member(2)], decoupler });
 /** Heat crosses the shared wall: x' = A·x + 0.01·u, so K = −A⁻¹·B = [[0.085, 0.026], [0.026, 0.085]] °C/%. */
 const model: any = { kind: "continuous-state-space", revision: "zones", source: "fitted", validation: "validated", evidence: ["recording"], delaySeconds: 0,
   a: [[-0.13, 0.04], [0.04, -0.13]], b: [[0.01, 0], [0, 0.01]], c: [[1, 0], [0, 1]], d: [[0, 0], [0, 0]],
@@ -132,11 +132,11 @@ suite("Control Studio static decoupler", () => {
         const box = view.root.querySelector<HTMLInputElement>(`[data-setup-field="group.${index}.include"]`)!;
         box.checked = true; box.dispatchEvent(new view.dom.window.Event("change", { bubbles: true }));
         for (const [field, value] of [["processVariable.unit", "degC"], ["processVariable.minimum", "0"], ["processVariable.maximum", "100"],
-          ["manipulatedVariable.unit", "%"], ["manipulatedVariable.minimum", "0"], ["manipulatedVariable.maximum", "100"], ["experimentStep", "10"]]) {
+          ["manipulatedVariable.unit", "%"], ["manipulatedVariable.minimum", "0"], ["manipulatedVariable.maximum", "100"]]) {
           view.set(`group.${index}.${field}`, value);
         }
       }
-      for (const [field, value] of [["name", "Zones"], ["group.mode", "P1.ZonesAuto"], ["group.experimentDuration", "120"]]) view.set(field, value);
+      for (const [field, value] of [["name", "Zones"], ["group.mode", "P1.ZonesAuto"]]) view.set(field, value);
       const decoupled = view.root.querySelector<HTMLInputElement>('[data-setup-field="group.decoupled"]')!;
       decoupled.checked = true; decoupled.dispatchEvent(new view.dom.window.Event("change", { bubbles: true }));
       decoupler.forEach((row, i) => row.forEach((symbol, j) => view.set(`group.decoupler.${i}.${j}`, symbol)));
@@ -163,12 +163,12 @@ suite("Control Studio static decoupler", () => {
         for (const [field, value] of [["include", "on"], ["parameterRecord", `P1.Zone${n}Parameters`], ["processVariable", `P1.Zone${n}C`],
           ["processVariable.unit", "degC"], ["processVariable.minimum", "0"], ["processVariable.maximum", "100"], ["manipulatedVariable", `P1.Heater${n}Pct`],
           ["manipulatedVariable.unit", "%"], ["manipulatedVariable.minimum", "0"], ["manipulatedVariable.maximum", "100"], ["setpoint", `P1.Zone${n}SetpointC`],
-          ["manualOutput", `P1.Zone${n}ManualPct`], ["experimentStep", "10"]]) {
+          ["manualOutput", `P1.Zone${n}ManualPct`]]) {
           if (field === "include") { const box = view.root.querySelector<HTMLInputElement>(`[data-setup-field="group.${index}.include"]`)!; box.checked = true; box.dispatchEvent(new view.dom.window.Event("change", { bubbles: true })); }
           else view.set(`group.${index}.${field}`, value);
         }
       }
-      for (const [field, value] of [["name", "Zones"], ["group.mode", "P1.ZonesAuto"], ["group.experimentDuration", "120"]]) view.set(field, value);
+      for (const [field, value] of [["name", "Zones"], ["group.mode", "P1.ZonesAuto"]]) view.set(field, value);
       const box = view.root.querySelector<HTMLInputElement>('[data-setup-field="group.decoupled"]');
       assert.ok(box, "the group offers a decoupler");
       box!.checked = true; box!.dispatchEvent(new view.dom.window.Event("change", { bubbles: true }));

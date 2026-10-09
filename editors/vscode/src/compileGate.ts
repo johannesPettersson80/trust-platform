@@ -55,8 +55,7 @@ export function isSourceDiagnosticPath(filePath: string): boolean {
 }
 
 export function isConfigDiagnosticPath(filePath: string): boolean {
-  return /(^|[/\\])(runtime|trust-lsp)\.toml$/i.test(filePath) ||
-    /[/\\]hmi[/\\].+\.toml$/i.test(filePath);
+  return /(^|[/\\])(runtime|trust-lsp)\.toml$/i.test(filePath);
 }
 
 export function diagnosticsGateReason(

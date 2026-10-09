@@ -160,7 +160,7 @@ impl ModbusPointType {
         }
     }
 
-    fn image_len(self) -> usize {
+    pub(in crate::io) fn image_len(self) -> usize {
         match self {
             Self::Bool => 1,
             Self::U16 | Self::I16 => 2,

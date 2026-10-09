@@ -13,11 +13,32 @@ import {
 import {
   remoteLabelFromEndpoint,
   selectedRuntime,
+  SIMULATOR_RUNTIME_ID,
   type RemoteRuntime,
   type RuntimeModelSnapshot,
   type SelectedRuntime,
 } from "./trustHomeModel";
 import { workspaceHasReadableTrustProject } from "./workspaceProject";
+import {
+  announceSimulationSpeedRead,
+  isRunningSimulator,
+  latestSimulatorSpeedRead,
+  onDidChangeSimulationSpeed,
+  readSelectedSimulatorSpeed,
+  SPEED_REFRESH_INTERVAL_MS,
+} from "./simulationSpeed";
+import {
+  simulationSpeedBehind,
+  simulationSpeedText,
+  type SimulationSpeed,
+} from "./controlStudio/runtimeTarget";
+
+/** What the status bar shows: its text, whether a simulator runs under the selected target, and whether its speed is behind. */
+export interface StatusBarView {
+  readonly text: string;
+  readonly simulatorRunning: boolean;
+  readonly speedBehind: boolean;
+}
 
 type StatusBarRuntime = Pick<
   RuntimeLifecycleSnapshot["status"],
@@ -40,16 +61,53 @@ export function registerRuntimeControls(context: vscode.ExtensionContext): void 
     vscode.StatusBarAlignment.Left,
     100
   );
-  // Click only reveals the truST sidebar — it is not a run control.
+  // Click reveals the truST sidebar, whose Run section shows the speed and Change…. It is never a run control.
   item.command = "trust.home.focus";
   item.tooltip = "Open the truST sidebar";
   context.subscriptions.push(item);
 
+  let speedTimer: NodeJS.Timeout | undefined;
+  let refreshing = false;
+
   async function refresh(): Promise<void> {
-    const snapshot = await runtimeLifecycleService.snapshot();
-    item.text = await statusText(context, snapshot);
-    item.show();
+    refreshing = true;
+    try {
+      const snapshot = await runtimeLifecycleService.snapshot();
+      const view = await statusText(context, snapshot);
+      item.text = view.text;
+      item.command = "trust.home.focus";
+      item.tooltip = view.simulatorRunning ? "Open the truST sidebar to see or change the simulation speed" : "Open the truST sidebar";
+      item.backgroundColor = view.speedBehind
+        ? new vscode.ThemeColor("statusBarItem.warningBackground")
+        : undefined;
+      item.show();
+      followSpeed(view.simulatorRunning);
+    } finally {
+      refreshing = false;
+    }
   }
+
+  // While a simulator runs, its achieved speed is read at the existing 1.5 s canvas cadence; the timer stops with the run.
+  function followSpeed(running: boolean): void {
+    if (running && speedTimer === undefined) {
+      speedTimer = setInterval(() => {
+        if (!refreshing) void refresh();
+      }, SPEED_REFRESH_INTERVAL_MS);
+    } else if (!running && speedTimer !== undefined) {
+      clearInterval(speedTimer);
+      speedTimer = undefined;
+    }
+  }
+  context.subscriptions.push({
+    dispose: () => {
+      if (speedTimer !== undefined) clearInterval(speedTimer);
+    },
+  });
+  context.subscriptions.push(
+    onDidChangeSimulationSpeed(() => {
+      void refresh();
+    })
+  );
 
   context.subscriptions.push(
     runtimeLifecycleService.onDidChange(() => {
@@ -93,14 +151,18 @@ export function registerRuntimeControls(context: vscode.ExtensionContext): void 
 async function statusText(
   context: vscode.ExtensionContext,
   snapshot: RuntimeLifecycleSnapshot
-): Promise<string> {
+): Promise<StatusBarView> {
   if (!(await workspaceHasReadableTrustProject())) {
-    return "$(circle-outline) truST: No project";
+    return { text: "$(circle-outline) truST: No project", simulatorRunning: false, speedBehind: false };
   }
   const connected = connectedRuntimeStatusText(snapshot.status);
   if (connected) {
     const label = snapshot.status.targetLabel?.trim();
-    return label ? `$(plug) truST: ${label} connected` : connected;
+    return {
+      text: label ? `$(plug) truST: ${label} connected` : connected,
+      simulatorRunning: false,
+      speedBehind: false,
+    };
   }
   const remotes = readRemotes();
   const managed = await listManagedRuntimes(context);
@@ -110,7 +172,28 @@ async function statusText(
     managed,
     selectedId: getSelectedRuntimeId(),
   });
-  return selectedStatusText(selected);
+  const speed = isRunningSimulator(selected) ? await readSelectedSimulatorSpeed(snapshot) : undefined;
+  // Each read that gets a status announces it. This read is the only source of the speed event: no timer of its own.
+  if (speed) announceSimulationSpeedRead({ runtimeId: selected.id, ...speed });
+  else if (selected.id === SIMULATOR_RUNTIME_ID && !isRunningSimulator(selected) && latestSimulatorSpeedRead()?.configured !== 1) {
+    // A stopped simulator runs at no speed: its labels drop the speed and keep "Simulation" (specification 35, B9.2).
+    announceSimulationSpeedRead({ runtimeId: selected.id, simulated: true, configured: 1 });
+  }
+  return selectedStatusView(selected, speed);
+}
+
+/** The selected target's status, with the simulator's speed while it runs (specification 35, B9.2: "Simulator ×10"). */
+export function selectedStatusView(selected: SelectedRuntime, speed?: SimulationSpeed): StatusBarView {
+  const running = isRunningSimulator(selected);
+  if (!running || speed === undefined) {
+    return { text: selectedStatusText(selected), simulatorRunning: running, speedBehind: false };
+  }
+  const text = simulationSpeedText(speed);
+  return {
+    text: `$(circle-filled) truST: ${statusTargetLabel(selected)}${text ? ` ${text}` : ""} running`,
+    simulatorRunning: true,
+    speedBehind: simulationSpeedBehind(speed),
+  };
 }
 
 function connectedEndpointLabel(endpoint: string): string {

@@ -5,8 +5,9 @@ import { pollValue } from "./plant-rendered-harness";
 
 type Inner = (body: string) => Promise<string>;
 async function choose(inner: Inner, name: string): Promise<void> {
-  assert.strictEqual(await inner(`const option=d.querySelector('[data-engineer-tuning-method] option[value="analysis:${name}"]');return String(!!option&&!option.disabled&&!option.hidden);`), "true", `${name} is reachable`);
-  await inner(`d.querySelector('[data-engineer-stage-tab=tune]').click();const method=d.querySelector('[data-engineer-tuning-method]');method.value='analysis:${name}';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));d.defaultView.__courseEvents=[];return 'selected';`);
+  const state = JSON.parse(await inner(`d.querySelector('[data-engineer-stage-tab=tune]').click();d.querySelector('[data-studio-analyze]').click();const option=d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool="${name}"]');return JSON.stringify({reachable:!!option&&!option.disabled&&!option.hidden,tools:[...d.querySelectorAll('[data-studio-analyze-list] [data-studio-analysis-tool]')].map(o=>o.dataset.studioAnalysisTool),analyzeHidden:d.querySelector('[data-studio-analyze]').hidden,declared:Boolean(JSON.parse(d.querySelector('[data-studio-three-page]').dataset.studioLoop??'null')?.analysis)});`));
+  assert.strictEqual(state.reachable, true, `${name} is reachable: ${JSON.stringify(state)}`);
+  await inner(`d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool="${name}"]').click();d.defaultView.__courseEvents=[];return 'selected';`);
 }
 async function listen(inner: Inner): Promise<void> {
   await inner("d.defaultView.__courseEvents=[];d.defaultView.addEventListener('message',e=>{if(e.data.kind==='control-studio.engineering.result')d.defaultView.__courseEvents.push(e.data);});return 'listening';");

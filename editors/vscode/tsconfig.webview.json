@@ -12,7 +12,10 @@
     "src/sfc/webview/**/*.tsx",
     "src/networkCanvas/webview/**/*.ts",
     "src/networkCanvas/webview/**/*.tsx",
-    "src/controlStudio/webview/**/*.ts"
+    "src/controlStudio/webview/**/*.ts",
+    "src/hmiBuilder/display/webview/**/*.ts",
+    "src/hmiBuilder/editor/webview/**/*.ts",
+    "src/hmiBuilder/editor/webview/**/*.tsx"
   ],
   "exclude": ["node_modules", ".vscode-test"]
 }

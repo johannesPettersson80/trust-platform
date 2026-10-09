@@ -6,6 +6,7 @@ import type { ControlStudioWorkflowResult } from "./workflowResult";
 import type { LoopRecording } from "./loopMonitor";
 import { decodeIdentificationFormDraft, type IdentificationFormDraft } from "./identificationFormDraft";
 import type { StructureChoice } from "./sensorLagComparison";
+import { RECORDING_SAMPLE_LIMIT } from "./controlStudioLimits";
 
 export interface IdentificationRecording {
   kind: ControlExperimentKind;
@@ -68,8 +69,8 @@ export function decodeIdentificationState(value: unknown): SavedIdentificationSt
 function input(value: unknown): boolean {
   return record(value) && ["Simulation", "Physical"].includes(String(value.source)) &&
     ["automatic", "integrating", "first_order", "fopdt", "second_order", "sopdt"].includes(String(value.requestedKind)) &&
-    Array.isArray(value.estimation) && value.estimation.length <= 12000 && value.estimation.every(sample) &&
-    Array.isArray(value.excluded) && value.excluded.length <= 12000 && value.excluded.every(interval =>
+    Array.isArray(value.estimation) && value.estimation.length <= RECORDING_SAMPLE_LIMIT && value.estimation.every(sample) &&
+    Array.isArray(value.excluded) && value.excluded.length <= RECORDING_SAMPLE_LIMIT && value.excluded.every(interval =>
       record(interval) && finite(interval.startSeconds) && finite(interval.endSeconds) && interval.endSeconds >= interval.startSeconds) &&
     (value.estimationRecordingId === undefined || typeof value.estimationRecordingId === "string" && value.estimationRecordingId.length > 0 && value.estimationRecordingId.length <= 1024) &&
     (value.stepResponseSettings === undefined || validStepResponseSettings(value.stepResponseSettings)) &&
@@ -81,7 +82,7 @@ function recordingMatchesInput(input: Record<string, unknown>): boolean {
   if (input.recording === undefined) return true;
   const value = input.recording;
   if (!record(value) || !["observation", "setpoint_step", "load_step", "mv_step", "mv_pulse", "relay", "prbs", "multisine", "output_step", "project_sequence"].includes(String(value.kind)) ||
-    !record(value.data) || !Array.isArray(value.data.rawSamples) || value.data.rawSamples.length > 12000 ||
+    !record(value.data) || !Array.isArray(value.data.rawSamples) || value.data.rawSamples.length > RECORDING_SAMPLE_LIMIT ||
     !record(value.data.acquisition) || !value.data.rawSamples.every(sample => record(sample) && sample.source === input.source)) return false;
   try {
     const retained = value as unknown as IdentificationRecording;

@@ -14,11 +14,13 @@ pub use ethercat::{
     EthercatIoDriver, EthercatModuleInfo,
 };
 mod gpio;
+mod link_names;
 mod loopback;
 mod registry;
 pub use gpio::{discover_gpio_lines, GpioDriver, GpioLineInfo};
+pub use link_names::{io_link_name, link_protocol};
 pub use loopback::LoopbackIoDriver;
-pub use registry::IoDriverRegistry;
+pub use registry::{is_nonphysical_driver, IoDriverRegistry};
 
 use crate::error::RuntimeError;
 use crate::memory::IoArea;

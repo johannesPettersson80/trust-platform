@@ -38,7 +38,7 @@ export function decoupledGroupDesign(loop: ControlLoopDefinition, model: General
   }));
   const decoupled = { ...model, revision: `${model.revision}:decoupled`, b: mix(model.b), d: mix(model.d) } as GeneralModel;
   const design = designDecentralizedPi(decoupled, members.map(member => ({ inputId: member.inputChannelId, outputId: member.outputChannelId })),
-    task.tuningObjective ?? "balanced");
+    task.tuningObjective ?? "balanced", loop.controller.action);
   const values: Record<string, number> = {};
   members.forEach((member, index) => {
     const field = (name: string) => {

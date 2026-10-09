@@ -1,7 +1,0 @@
-[io]
-driver = "loopback"
-params = {}
-
-[[io.safe_state]]
-address = "%QX0.0"
-value = "FALSE"

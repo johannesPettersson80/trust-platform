@@ -1,0 +1,100 @@
+format = 1
+title = "Overview"
+
+[[object]]
+id = "heading"
+type = "text"
+variant = "heading"
+at = [40, 32]
+size = [800, 40]
+text = "Digital outputs DO0 to DO7"
+
+[[object]]
+id = "do0"
+type = "status"
+at = [40, 104]
+size = [280, 48]
+label = "DO0"
+
+[object.bind]
+state = "P1.DO0"
+
+[[object]]
+id = "do1"
+type = "status"
+at = [340, 104]
+size = [280, 48]
+label = "DO1"
+
+[object.bind]
+state = "P1.DO1"
+
+[[object]]
+id = "do2"
+type = "status"
+at = [640, 104]
+size = [280, 48]
+label = "DO2"
+
+[object.bind]
+state = "P1.DO2"
+
+[[object]]
+id = "do3"
+type = "status"
+at = [940, 104]
+size = [280, 48]
+label = "DO3"
+
+[object.bind]
+state = "P1.DO3"
+
+[[object]]
+id = "do4"
+type = "status"
+at = [40, 176]
+size = [280, 48]
+label = "DO4"
+
+[object.bind]
+state = "P1.DO4"
+
+[[object]]
+id = "do5"
+type = "status"
+at = [340, 176]
+size = [280, 48]
+label = "DO5"
+
+[object.bind]
+state = "P1.DO5"
+
+[[object]]
+id = "do6"
+type = "status"
+at = [640, 176]
+size = [280, 48]
+label = "DO6"
+
+[object.bind]
+state = "P1.DO6"
+
+[[object]]
+id = "do7"
+type = "status"
+at = [940, 176]
+size = [280, 48]
+label = "DO7"
+
+[object.bind]
+state = "P1.DO7"
+
+[[object]]
+id = "heartbeat"
+type = "status"
+at = [40, 264]
+size = [280, 48]
+label = "Heartbeat"
+
+[object.bind]
+state = "P1.heartbeat"

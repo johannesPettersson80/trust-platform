@@ -1,0 +1,57 @@
+format = 1
+title = "Damper"
+block = "Plant.FB_Damper"
+faceplate = "plant-valve"
+symbol = "damper"
+
+[bind]
+open = "Opened"
+fault = "Fault"
+manual = "Manual"
+"out-of-service" = "OutOfService"
+
+[[settings]]
+member = "HasOpenFeedback"
+title = "Has open limit switch"
+key = true
+
+[[settings]]
+member = "HasClosedFeedback"
+title = "Has closed limit switch"
+key = true
+
+[[settings]]
+member = "OpenTimeout"
+title = "Open timeout"
+unit = "s"
+min = 1
+max = 600
+key = true
+
+[[settings]]
+member = "CloseTimeout"
+title = "Close timeout"
+unit = "s"
+min = 1
+max = 600
+key = true
+
+[[io]]
+member = "Solenoid"
+title = "Solenoid"
+direction = "output"
+
+[[io]]
+member = "OpenFeedback"
+title = "Open limit switch"
+direction = "input"
+required_when = "HasOpenFeedback"
+
+[[io]]
+member = "ClosedFeedback"
+title = "Closed limit switch"
+direction = "input"
+required_when = "HasClosedFeedback"
+
+[program]
+position = "actuators"

@@ -1,20 +1,42 @@
 import { RuntimeVerificationExecutionError } from "./verificationClient";
 import { displayEngineeringUnit, formatEngineeringNumber } from "./chartContract";
 import type { RunRequirementResult } from "./runValidation";
+import { PhysicalApprovalRequired } from "./runtimeTarget";
+import { AcquisitionLimitsRequired } from "./acquisitionSettings";
+import { RuntimeControlError, RuntimeTransportError } from "../runtimeControlClient";
 
 /**
- * The Main workflow has four deliberate recovery edges. Keep this small, typed
- * contract at the host boundary so a lower-level error cannot strand an
- * engineer at a generic failure message.
+ * A failure is classified by the type of the error that carries it, never by its message text (A11.2). The next
+ * action is one typed kind; the engineer sees the kind's label on one button, and the message says what differs.
  */
 export type MainWorkflowFailureCause =
   | "model-or-data"
   | "settings"
   | "controller-capability"
   | "task-infeasible"
-  | "implementation";
+  | "implementation"
+  | "runtime"
+  | "approval"
+  | "unclassified";
 
-export type MainWorkflowNextAction =
+/** The typed next actions of A11.2. `wait` and `none` offer no button. */
+export type MainWorkflowNextActionKind =
+  | "connect-runtime"
+  | "open-loop-setup"
+  | "open-limits"
+  | "open-requirements"
+  | "open-channels"
+  | "choose-method"
+  | "identify"
+  | "tune"
+  | "validate"
+  | "approve"
+  | "restore"
+  | "wait"
+  | "none";
+
+/** Values that other modules still throw. `nextActionKind` maps each one to its kind, so those modules keep working. */
+export type LegacyMainWorkflowNextAction =
   | "configure-acquisition"
   | "configure-scenarios"
   | "find-model"
@@ -25,74 +47,168 @@ export type MainWorkflowNextAction =
   | "choose-application-mode"
   | "reapply";
 
+export type MainWorkflowNextAction = MainWorkflowNextActionKind | LegacyMainWorkflowNextAction;
+
+/** A failure as the engineer's session holds it: its kind is always a typed kind, never a legacy value. */
 export interface MainWorkflowFailure {
+  cause: MainWorkflowFailureCause;
+  nextAction: MainWorkflowNextActionKind;
+}
+
+export interface MainWorkflowFailureInput {
   cause: MainWorkflowFailureCause;
   nextAction: MainWorkflowNextAction;
 }
 
+/** A classified failure. `summary` replaces the error's first sentence when the error's own text is not plain words. */
+export interface MainWorkflowClassification extends MainWorkflowFailure {
+  summary?: string;
+}
+
+/** The failure as the page receives it in `engineering.result` (A11.1, A11.2). */
+export interface MainWorkflowFailurePresentation {
+  message: string;
+  detail?: string;
+  nextAction: { kind: MainWorkflowNextActionKind; label: string };
+}
+
 export class MainWorkflowError extends Error {
-  constructor(message: string, readonly failure: MainWorkflowFailure) { super(message); this.name = "MainWorkflowError"; }
+  readonly failure: MainWorkflowFailure;
+  constructor(message: string, failure: MainWorkflowFailureInput) {
+    super(message);
+    this.name = "MainWorkflowError";
+    this.failure = { cause: failure.cause, nextAction: nextActionKind(failure.nextAction) };
+  }
 }
-export function classifyMainWorkflowFailure(action: string, error: unknown): MainWorkflowFailure {
+
+// The runtime's own codes (control-studio-runtime-protocol E0.4). A code not listed here has no typed action.
+// stale_scan: a reloaded program has not completed its first scan yet (A6.7); it clears by itself.
+const WAIT_CODES: readonly string[] = ["experiment_active", "transaction_pending", "controller_write_pending", "experiment_state_unavailable", "stale_scan"];
+const OPEN_LOOP_SETUP_CODES: readonly string[] = ["invalid_target", "invalid_address", "incompatible_binding", "invalid_experiment", "controller_unavailable"];
+const OPEN_LIMITS_CODES: readonly string[] = ["outside_limits"];
+
+/** Maps a value that a module still throws to the typed kind of A11.2. */
+export function nextActionKind(value: MainWorkflowNextAction): MainWorkflowNextActionKind {
+  switch (value) {
+    case "configure-acquisition": return "open-limits";
+    case "configure-scenarios": return "open-requirements";
+    case "find-model": return "identify";
+    case "retune": return "tune";
+    case "choose-controller": return "choose-method";
+    case "revise-requirements": return "open-requirements";
+    case "review-implementation": return "open-loop-setup";
+    case "choose-application-mode": return "none";
+    case "reapply": return "validate";
+    default: return value;
+  }
+}
+
+export function nextActionLabel(kind: MainWorkflowNextActionKind): string {
+  switch (kind) {
+    case "connect-runtime": return "Connect runtime…";
+    case "open-loop-setup": return "Loop setup…";
+    case "open-limits": return "Limits…";
+    case "open-requirements": return "Requirements…";
+    case "open-channels": return "Channels…";
+    case "choose-method": return "Choose another method";
+    case "identify": return "Identify plant";
+    case "tune": return "Tune controller";
+    case "validate": return "Validate controller";
+    case "approve": return "Approve…";
+    case "restore": return "Restore previous settings";
+    case "wait":
+    case "none": return "";
+  }
+}
+
+/** Classifies a failure by the type of its error. Errors this module cannot import without a cycle are classified by their caller. */
+export function classifyMainWorkflowFailure(error: unknown): MainWorkflowClassification {
   if (error instanceof MainWorkflowError) return error.failure;
-  if (action === "verify" && error instanceof RuntimeVerificationExecutionError) return { cause: "implementation", nextAction: "review-implementation" };
-  const reason = explanation(error).toLowerCase();
-  if (has(reason, ["review acquisition", "excitation amplitude", "excitation method", "headroom", "relay direction", "selected acquisition mode", "acquisition duration", "feedback relay", "frequency identification"])) return { cause: "settings", nextAction: "configure-acquisition" };
-  if (has(reason, ["mandatory scenarios", "scenario effect", "scenario requirements", "scenario policy", "invalid mandatory verification", "measurement filter", "reference shaping", "reviewed input disturbance", "reviewed measurement-noise", "constrained recovery"])) return { cause: "settings", nextAction: "configure-scenarios" };
-  if (has(reason, ["no bounded setpoint excitation"])) return { cause: "task-infeasible", nextAction: "revise-requirements" };
-  if (has(reason, ["identifiable", "independent", "model structure", "held-out", "coherence", "excitation headroom", "recorded model", "dynamic state model", "free-running prediction"])) return { cause: "model-or-data", nextAction: "find-model" };
-  if (has(reason, ["st changed controller parameter", "candidate not adopted", "iec type does not match", "state initialization", "state-feedback recovery", "estimator perturbation", "compiled binding", "controller execution fault"])) {
-    return { cause: "implementation", nextAction: "review-implementation" };
+  if (error instanceof PhysicalApprovalRequired) return { cause: "approval", nextAction: "approve", summary: firstSentence(error.message) };
+  if (error instanceof AcquisitionLimitsRequired) return { cause: "settings", nextAction: "open-limits", summary: firstSentence(error.message) };
+  // B5.5: an isolated run that failed keeps its evidence; the reason states what happened and no action is offered.
+  if (error instanceof RuntimeVerificationExecutionError) return { cause: "implementation", nextAction: "none", summary: firstSentence(error.message) };
+  if (error instanceof RuntimeControlError) return runtimeControlFailure(error);
+  // The runtime was not reached or stopped answering: the original text stays as the detail.
+  if (error instanceof RuntimeTransportError) {
+    return { cause: "runtime", nextAction: "connect-runtime", summary: "Control Studio cannot reach the runtime." };
   }
-  if (has(reason, [
-    "multiple input or output channels", "multivariable controller", "no compatible automatic controller candidate", "frequency identification requires", "relay identification requires", "initialization adapter",
-    "controller adapter", "actual st law", "declared proportional law",
-    "parameter and reference bindings", "controller/model declaration", "requires compatible st",
-  ])) return { cause: "controller-capability", nextAction: "choose-controller" };
-  if (has(reason, [
-    "find or supply a model", "selected model", "model channels", "model validation",
-    "identification", "model evidence", "model json", "input and output",
-  ])) return { cause: "model-or-data", nextAction: "find-model" };
-  if (has(reason, [
-    "cannot satisfy the declared", "cannot satisfy the task", "finite proportional gain bounds",
-    "task is infeasible", "outside the actuator", "output limit", "capacity",
-  ])) return { cause: "task-infeasible", nextAction: "revise-requirements" };
-  if (action === "find") return { cause: "model-or-data", nextAction: "find-model" };
-  if (action === "verify" || action === "apply" || has(reason, [
-    "task requirements", "target change", "settling allowance", "run of at most",
-    "duration", "manual proportional gain", "gain selection", "gain must be finite",
-  ])) return { cause: "settings", nextAction: "retune" };
-  return { cause: "settings", nextAction: "retune" };
+  return { cause: "unclassified", nextAction: "none" };
 }
 
-export function mainWorkflowNextActionLabel(nextAction: MainWorkflowNextAction): string {
-  switch (nextAction) {
-    case "configure-acquisition": return "Review identification controls";
-    case "configure-scenarios": return "Review scenario requirements";
-    case "find-model": return "Identify model";
-    case "retune": return "Tune again";
-    case "choose-controller": return "Choose controller";
-    case "revise-requirements": return "Revise requirements or equipment";
-    case "choose-application-mode": return "Choose a supported application mode";
-    case "review-implementation": return "Review ST implementation and bindings";
-    case "reapply": return "Apply again";
+/** The runtime's own code decides the action; its message is kept whole as the detail. */
+function runtimeControlFailure(error: RuntimeControlError): MainWorkflowClassification {
+  const code = error.code ?? "";
+  const runtimeText = code && error.message.startsWith(`${code}: `) ? error.message.slice(code.length + 2) : error.message;
+  const summary = firstSentence(withoutNextSuffix(runtimeText));
+  if (WAIT_CODES.includes(code)) return { cause: "runtime", nextAction: "wait", summary: "Wait for the running operation to finish." };
+  if (code === "physical_approval_required") return { cause: "approval", nextAction: "approve", summary };
+  if (OPEN_LOOP_SETUP_CODES.includes(code)) return { cause: "runtime", nextAction: "open-loop-setup", summary };
+  if (OPEN_LIMITS_CODES.includes(code)) return { cause: "runtime", nextAction: "open-limits", summary };
+  return { cause: "runtime", nextAction: "none", summary };
+}
+
+/**
+ * The failure's presentation: `message` is the error's first sentence without any "Next: …" suffix; `detail` is the full
+ * error text, present only when it says more than the message.
+ */
+export function presentMainWorkflowFailure(text: string, failure: MainWorkflowClassification): MainWorkflowFailurePresentation {
+  const full = withoutNextSuffix(text) || "Control Studio could not complete this step.";
+  const message = failure.summary ?? firstSentence(full);
+  return {
+    message,
+    ...(full !== message ? { detail: full } : {}),
+    nextAction: { kind: failure.nextAction, label: nextActionLabel(failure.nextAction) },
+  };
+}
+
+/**
+ * Binding the runtime to a loop fails when no matching runtime is connected (A11.2): the fix is to connect one. A
+ * cancelled bind keeps its own error, since cancelling is the engineer's choice and not a missing connection.
+ */
+export async function bindingRuntime<T>(bind: () => Promise<T>, cancelled: () => boolean = () => false): Promise<T> {
+  try { return await bind(); }
+  catch (error) {
+    if (error instanceof MainWorkflowError || cancelled()) throw error;
+    throw new MainWorkflowError(error instanceof Error ? error.message : String(error), { cause: "runtime", nextAction: "connect-runtime" });
   }
 }
 
-function has(reason: string, fragments: readonly string[]): boolean {
-  return fragments.some(fragment => reason.includes(fragment));
+/**
+ * The model qualification gate (A11.2, B4.7 "No model → Identify"): a model that does not qualify for the loop is
+ * replaced by identifying one that does. The gate's own messages say what differs; the action is typed here, not read
+ * from those messages. An error that already carries its classification keeps it.
+ */
+export function qualifyModel(check: () => void): void {
+  try { check(); }
+  catch (error) {
+    if (error instanceof MainWorkflowError) throw error;
+    throw new MainWorkflowError(error instanceof Error ? error.message : String(error), { cause: "model-or-data", nextAction: "identify" });
+  }
 }
 
-function explanation(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+/** The sentence that names the next action in a `reason`; empty when the action has no button. */
+export function nextActionSentence(kind: MainWorkflowNextActionKind): string {
+  const label = nextActionLabel(kind);
+  return label ? ` Next: ${label}.` : "";
+}
+
+function withoutNextSuffix(text: string): string {
+  return text.replace(/\s*\bNext: [\s\S]*$/, "").trim();
+}
+
+/** The first sentence: text up to a full stop, question or exclamation mark that ends a word, such as "0.21 °C" stays whole. */
+function firstSentence(text: string): string {
+  const match = /^[\s\S]*?[.!?](?=\s|$)/.exec(text.trim());
+  return (match ? match[0] : text).trim() || "Control Studio could not complete this step.";
 }
 
 /** Missing observations are different from an observed performance failure. */
-export function verificationFailure(results: readonly { id: string; status: string }[]): MainWorkflowFailure {
-  if (results.some(result => result.status !== "Pass" && result.id.includes("fixed-parameter:"))) return { cause: "implementation", nextAction: "review-implementation" };
-  if (results.some(result => result.status === "Inconclusive" && result.id.startsWith("switching-"))) return { cause: "settings", nextAction: "retune" };
-  if (!results.length || results.some(result => result.status === "Inconclusive")) return { cause: "model-or-data", nextAction: "find-model" };
-  return { cause: "settings", nextAction: "retune" };
+export function verificationFailure(results: readonly { id: string; status: string }[]): MainWorkflowClassification {
+  if (results.some(result => result.status !== "Pass" && result.id.includes("fixed-parameter:"))) return { cause: "implementation", nextAction: "open-loop-setup" };
+  if (results.some(result => result.status === "Inconclusive" && result.id.startsWith("switching-"))) return { cause: "settings", nextAction: "tune" };
+  if (!results.length || results.some(result => result.status === "Inconclusive")) return { cause: "model-or-data", nextAction: "none" };
+  return { cause: "settings", nextAction: "tune" };
 }
 
 /** Explain the observed requirement failure without hiding the complete result. */

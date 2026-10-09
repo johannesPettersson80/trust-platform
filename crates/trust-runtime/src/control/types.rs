@@ -144,46 +144,6 @@ pub(super) struct DebugBreakpointLocationsParams {
     pub(super) end_column: Option<u32>,
 }
 
-#[derive(Debug, Deserialize)]
-pub(super) struct HmiValuesParams {
-    pub(super) ids: Option<Vec<String>>,
-}
-
-#[derive(Debug, Default, Deserialize)]
-pub(super) struct HmiTrendsParams {
-    pub(super) ids: Option<Vec<String>>,
-    pub(super) duration_ms: Option<u64>,
-    pub(super) buckets: Option<usize>,
-}
-
-#[derive(Debug, Default, Deserialize)]
-pub(super) struct HmiAlarmsParams {
-    pub(super) limit: Option<usize>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct HmiAlarmAckParams {
-    pub(super) id: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct HmiWriteParams {
-    #[serde(alias = "path", alias = "target")]
-    pub(super) id: String,
-    pub(super) value: serde_json::Value,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct HmiDescriptorUpdateParams {
-    pub(super) descriptor: crate::hmi::HmiDirDescriptor,
-}
-
-#[derive(Debug, Default, Deserialize)]
-pub(super) struct HmiScaffoldResetParams {
-    pub(super) mode: Option<String>,
-    pub(super) style: Option<String>,
-}
-
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct HistorianQueryParams {

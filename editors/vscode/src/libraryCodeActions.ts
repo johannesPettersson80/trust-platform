@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { ADD_LIBRARY_COMMAND } from "./libraries";
 import { parseDependencyEntries } from "./librariesModel";
 
-type CuratedLibraryId = "oscat" | "plcopen_motion";
+type CuratedLibraryId = "oscat" | "plcopen_motion" | "plant";
 
 export interface LibraryCodeActionCandidate {
   readonly id: CuratedLibraryId;
@@ -14,6 +14,7 @@ export interface LibraryCodeActionCandidate {
 const CURATED_SYMBOLS: readonly (LibraryCodeActionCandidate & {
   readonly matches: readonly RegExp[];
 })[] = [
+  {id:"plant",label:"Plant",dependencyName:"Plant",matches:[/^Plant$/i]},
   {
     id: "oscat",
     label: "OSCAT",

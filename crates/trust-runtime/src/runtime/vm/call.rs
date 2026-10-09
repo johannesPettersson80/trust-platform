@@ -16,6 +16,7 @@ use super::stack::OperandStack;
 use super::{materialize_borrowed_value, VmModule, VmNativeSymbolSpec};
 
 mod bindings;
+mod measurement;
 mod stdlib;
 mod symbols;
 
@@ -285,6 +286,67 @@ fn dispatch_native_vm_call(
     }
 }
 
+/// Host HMI entry: already-authorized, typed input values, executed only on the PLC thread.
+/// Reuses the same argument normalization, frame/depth checks and execution budgets as ST.
+pub(super) fn execute_hmi_method(
+    runtime: &mut super::super::core::Runtime,
+    instance_id: InstanceId,
+    method: &str,
+    inputs: &[(SmolStr, Value)],
+    budget: &mut usize,
+) -> Result<Value, RuntimeError> {
+    let module = runtime.vm_module.clone().ok_or_else(|| {
+        RuntimeError::InvalidConfig("HMI method dispatch requires a loaded bytecode module".into())
+    })?;
+    *budget = (*budget).min(module.instruction_budget);
+    let instance = runtime
+        .storage
+        .get_instance(instance_id)
+        .ok_or(RuntimeError::NullReference)?;
+    let type_key = SmolStr::new(instance.type_name.to_ascii_uppercase());
+    let owner = module
+        .function_block_ids
+        .get(&type_key)
+        .or_else(|| module.class_ids.get(&type_key))
+        .copied()
+        .ok_or_else(|| RuntimeError::UndefinedField(instance.type_name.clone()))?;
+    let pou_id = module
+        .resolve_method_pou_id_uppercase(owner, &method.to_ascii_uppercase())
+        .ok_or_else(|| RuntimeError::UndefinedField(method.into()))?;
+    let parameters = module.pou_params(pou_id).ok_or_else(|| {
+        RuntimeError::InvalidConfig("HMI method has no parameter metadata".into())
+    })?;
+    if parameters.iter().any(|p| p.direction != 0) {
+        return Err(RuntimeError::InvalidConfig(
+            "HMI methods accept only input parameters".into(),
+        ));
+    }
+    let args: Vec<_> = inputs
+        .iter()
+        .map(|(name, value)| VmNativeArg {
+            name: Some(name.clone()),
+            value: bindings::VmNativeArgValue::Expr(value.clone()),
+        })
+        .collect();
+    // Input-only values never resolve references in this frame. Construct it using the
+    // existing frame builder to preserve its capacity checks and metadata conventions.
+    let mut frames = FrameStack::default();
+    push_call_frame(&mut frames, &module, pou_id, usize::MAX, Some(instance_id))
+        .map_err(VmTrap::into_runtime_error)?;
+    let mut frame = frames.pop().map_err(VmTrap::into_runtime_error)?;
+    execute_native_vm_pou_call(
+        runtime,
+        &module,
+        &mut frame,
+        pou_id,
+        Some(instance_id),
+        0,
+        budget,
+        &args,
+    )
+    .map_err(VmTrap::into_runtime_error)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn execute_native_vm_pou_call(
     runtime: &mut super::super::core::Runtime,
@@ -296,8 +358,11 @@ fn execute_native_vm_pou_call(
     shared_budget: &mut usize,
     args: &[VmNativeArg],
 ) -> Result<Value, VmTrap> {
-    let (initial_locals, out_bindings) =
+    let (mut initial_locals, out_bindings) =
         bind_vm_call_arguments(runtime, module, caller_frame, pou_id, args)?;
+    if let Some(instance) = entry_instance {
+        measurement::substitute(runtime, module, pou_id, instance, &mut initial_locals);
+    }
     let capture_return = module.pou_has_return_slot(pou_id);
     let result = if let Some(result) =
         super::register_ir::try_execute_pou_with_register_ir_with_locals(

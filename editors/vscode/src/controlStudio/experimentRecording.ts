@@ -1,20 +1,21 @@
 import type { ControlLoopDefinition } from "./loopDefinition";
-import { RecordingCoordinator, type RecordingSession, type RecordingTransition } from "./recordingCoordinator";
+import { RecordingCoordinator, type RecordingRetention, type RecordingSession, type RecordingTransition } from "./recordingCoordinator";
 import type { RecordingOwnerPersistence } from "./runtimeRecording";
 import type { RecordingRecoveryOwner } from "./runtimeRecording";
 import type { LoopRecording } from "./loopMonitor";
+import { RECORDING_DURATION_LIMIT_MS } from "./controlStudioLimits";
 
 /**
  * Owns the runtime acquisition paired with a bounded Test experiment.
  *
- * Manual Record has a separate coordinator. This wrapper deliberately reuses
- * the established recording protocol and recovery persistence contract rather
- * than making Test samples from editor monitor observations.
+ * This wrapper deliberately reuses the established recording protocol and
+ * recovery persistence contract rather than making Test samples from editor
+ * monitor observations.
  */
 export class ExperimentRecordingOwner {
   private readonly coordinator: RecordingCoordinator;
 
-  constructor(start: (loop: ControlLoopDefinition, persistence?: RecordingOwnerPersistence) => Promise<RecordingSession>) {
+  constructor(start: (loop: ControlLoopDefinition, persistence?: RecordingOwnerPersistence, plannedDurationMs?: number) => Promise<RecordingSession>) {
     this.coordinator = new RecordingCoordinator(start);
   }
 
@@ -31,25 +32,39 @@ export class ExperimentRecordingOwner {
     this.coordinator.adoptRecoveredOwner(session, reason);
   }
 
-  async start(loop: ControlLoopDefinition, persistence?: RecordingOwnerPersistence): Promise<RecordingTransition> {
+  async start(loop: ControlLoopDefinition, persistence?: RecordingOwnerPersistence, plannedDurationMs?: number): Promise<RecordingTransition> {
     if (this.coordinator.recording) throw new Error("A Test recording is already active for this loop.");
-    const transition = await this.coordinator.execute("start", loop, persistence);
+    const transition = await this.coordinator.execute("start", loop, persistence, plannedDurationMs);
     if (!transition) throw new Error("The Test recording could not start.");
     return transition;
   }
 
-  async stop(loop: ControlLoopDefinition): Promise<RecordingTransition> {
-    const transition = await this.coordinator.execute("stop", loop);
+  /** `retain` keeps the stopped samples in the study first; the runtime buffer is released only after it resolves (E4.7, E11.6). */
+  async stop(loop: ControlLoopDefinition, retain?: RecordingRetention): Promise<RecordingTransition> {
+    const transition = await this.coordinator.execute("stop", loop, undefined, undefined, retain);
     if (!transition) throw new Error("No matching Test recording is active for this loop.");
     return transition;
   }
 }
 
 /** Begins the runtime-owned acquisition before an approved Test writes anything. */
+/**
+ * The runtime window of a Test recording: its planned duration plus a restoration margin of at least 10 s or 10 % of the
+ * duration, whichever is larger, capped at the recording limit (A7).
+ */
+export function experimentRecordingWindowMs(plannedDurationMs: number): number {
+  return Math.min(RECORDING_DURATION_LIMIT_MS, plannedDurationMs + Math.max(10_000, plannedDurationMs * 0.1));
+}
+
+/**
+ * Starts the recording, then the experiment. The recording identity is journaled by `persistence` before the recording Start is sent
+ * (E11.2), and the experiment's record is journaled before the experiment is sent (E11.2, E11.3). Without a journal nothing is dispatched.
+ */
 export async function startExperimentWithRecording<T>(owner: ExperimentRecordingOwner, loop: ControlLoopDefinition,
-  startExperiment: () => Promise<T>, persistence?: RecordingOwnerPersistence,
-  persistAcknowledgedOwner?: (owner: RecordingRecoveryOwner) => Promise<void>): Promise<T> {
-  const started = await owner.start(loop, persistence);
+  startExperiment: () => Promise<T>, persistence: RecordingOwnerPersistence | undefined,
+  persistAcknowledgedOwner?: (owner: RecordingRecoveryOwner) => Promise<void>, plannedDurationMs?: number): Promise<T> {
+  if (!persistence) throw new Error("The Test recording needs its journal before Start is sent. No runtime request was made.");
+  const started = await owner.start(loop, persistence, plannedDurationMs);
   if (started.kind !== "started") {
     if (owner.recording) {
       try { await owner.stop(loop); }
@@ -84,8 +99,8 @@ export async function startExperimentWithRecording<T>(owner: ExperimentRecording
 
 /** Stops the exact Test acquisition and returns only the runtime-owned record. */
 export async function stopExperimentRecording(owner: ExperimentRecordingOwner,
-  loop: ControlLoopDefinition): Promise<LoopRecording> {
-  const stopped = await owner.stop(loop);
+  loop: ControlLoopDefinition, retain?: RecordingRetention): Promise<LoopRecording> {
+  const stopped = await owner.stop(loop, retain);
   if (stopped.kind !== "stopped") throw new Error("The Test recording did not produce terminal evidence.");
   return stopped.recording;
 }

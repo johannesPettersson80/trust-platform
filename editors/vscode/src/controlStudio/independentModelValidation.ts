@@ -1,9 +1,11 @@
 import { createHash } from "crypto";
 import { isDeepStrictEqual } from "util";
 import { decodeConnectedIdentificationRecord } from "./connectedIdentificationRecord";
+import { evenlySampled } from "./evenSampling";
 import { frozenModelPrediction } from "./frozenModelPrediction";
 import type { GeneralModel } from "./generalModel";
 import type { ValidationPredictionSeries } from "./identifiedStateModel";
+import { independentResponseReason, scoreIndependentResponse } from "./independentModelScore";
 import type { RuntimeVerificationResult } from "./verificationClient";
 import type { RequirementStatus } from "./runValidation";
 
@@ -18,7 +20,8 @@ export interface IndependentModelValidation {
   maximumNormalizedError: number;
   record: RuntimeVerificationResult;
   status: RequirementStatus;
-  rows: readonly { channel: string; normalizedError?: number; limit: number; status: RequirementStatus; reason: string }[];
+  /** Per measured output: the error over the whole response and over its final 10 %; both must be within the limit (B5.2). */
+  rows: readonly { channel: string; normalizedError?: number; finalNormalizedError?: number; limit: number; status: RequirementStatus; reason: string }[];
   predictions: readonly ValidationPredictionSeries[];
 }
 export function recordingFingerprint(run: RuntimeVerificationResult["run"]): string {
@@ -42,11 +45,8 @@ export function validateFrozenModel(model: GeneralModel, estimation: RuntimeVeri
         throw new Error("Model validation channel identities or units differ.");
       }
     }
-    const samples = record.run.samples;
-    if (samples.length < 30) throw new Error("Model validation requires at least 30 complete scans.");
-    const step = samples[1].timeSeconds - samples[0].timeSeconds;
-    if (!(step > 0) || samples.some((sample, i) => Math.abs(sample.timeSeconds - samples[0].timeSeconds - i * step) > 1e-8
-      || i > 0 && sample.sequence !== samples[i - 1].sequence + 1)) throw new Error("The independent recording has missing or irregular scans.");
+    // The comparison grid holds the plant inputs and interpolates the measured outputs between scans (A4.3).
+    const { samples, step } = evenlySampled(record.run.samples, undefined, { linear: channels.outputs.map(channel => channel.symbol) });
     const read = (kind: keyof ModelValidationChannels) => samples.map(sample => channels[kind].map(channel => {
       const measured = sample.values[channel.symbol];
       if (measured?.quality !== "good" || measured.value === null || !Number.isFinite(measured.value)) throw new Error("The independent recording contains unqualified measurements.");
@@ -60,12 +60,9 @@ export function validateFrozenModel(model: GeneralModel, estimation: RuntimeVeri
       points: predicted.values.map((row, k) => ({ timeSeconds: samples[k + predicted.start].timeSeconds,
         measured: outputs[k + predicted.start][i], predicted: row[i], residual: outputs[k + predicted.start][i] - row[i] })) }));
     const rows = predictions.map((series, i) => {
-      const values = series.points.map(point => point.measured);
-      const span = Math.max(...values) - Math.min(...values);
-      const normalizedError = Math.sqrt(series.points.reduce((sum, point) => sum + point.residual ** 2, 0) / series.points.length) / Math.max(span, 1e-9);
-      const status = Number.isFinite(normalizedError) && normalizedError <= maximumNormalizedError ? "Pass" as const : "Fail" as const;
-      return { channel: channels.outputs[i].symbol, normalizedError, limit: maximumNormalizedError, status,
-        reason: status === "Pass" ? "Frozen predictions agree with independent plant measurements." : "The fitted model does not predict the independent plant response within its error limit." };
+      const score = scoreIndependentResponse(series.points, maximumNormalizedError);
+      return { channel: channels.outputs[i].symbol, normalizedError: score.normalizedError, finalNormalizedError: score.finalNormalizedError,
+        limit: maximumNormalizedError, status: score.status, reason: independentResponseReason(score) };
     });
     return { ...base, status: rows.every(row => row.status === "Pass") ? "Pass" : "Fail", rows, predictions };
   } catch (error) {

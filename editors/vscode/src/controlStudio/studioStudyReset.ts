@@ -1,7 +1,12 @@
 import type { StudioAnalysisSessions } from "./studioAnalysisSessions";
 import type { LoopMessageScope } from "./messages";
+import type { EngineerStudy } from "./engineerStudyPersistence";
+import { projectStudyState, startNewWorkingStudy } from "./studyStore";
 
-/** Clears the working study through its owners; runtime adoption/recovery journals remain authoritative. */
+/**
+ * Starts a new working study. The previous working study is kept as history in the project, and the new one is
+ * written before anything in memory is cleared (A8.4). Runtime adoption and recovery journals remain authoritative.
+ */
 export class StudioStudyReset {
   private readonly handled = new Set<string>();
   async handle(message: unknown, scope: LoopMessageScope, sessions: StudioAnalysisSessions, busy: boolean,
@@ -18,12 +23,18 @@ export class StudioStudyReset {
       if (busy) throw new Error("Finish or abort the current operation before resetting the study.");
       sessions.engineer?.assertStudyRestoreAllowed();
       const previous = sessions.engineer?.snapshotStudy();
+      const next: EngineerStudy = { campaigns: [],
+        ...(previous?.channelMapping ? { channelMapping: previous.channelMapping } : {}),
+        ...(previous?.acquisitionSettings ? { acquisitionSettings: previous.acquisitionSettings } : {}) };
+      const identity = { projectId: scope.projectId, id: scope.loopId, revision: scope.loopRevision };
+      // The page last viewed stays where the engineer is; the analysis, results and model do not.
+      const page = projectStudyState(identity).page;
+      await startNewWorkingStudy(identity, { ...(page !== undefined ? { page } : {}),
+        draft: { loopRevision: scope.loopRevision, study: next } });
       sessions.cancelIdentification();
       sessions.identification.restore(undefined);
       sessions.model.restore(undefined);
-      sessions.engineer?.restoreStudy({ campaigns: [],
-        ...(previous?.channelMapping ? { channelMapping: previous.channelMapping } : {}),
-        ...(previous?.acquisitionSettings ? { acquisitionSettings: previous.acquisitionSettings } : {}) });
+      sessions.engineer?.restoreStudy(next);
       sessions.validation.restore(undefined);
       sessions.search?.restore(undefined);
       sessions.leadLag.restore(undefined);

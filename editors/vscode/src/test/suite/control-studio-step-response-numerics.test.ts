@@ -68,9 +68,10 @@ suite("Control Studio step-response numerics", () => {
 
   test("leaves onset unavailable when the output does not change", () => {
     const record = samples().map((sample) => ({ ...sample, output: 35 }));
-    for (const result of [measureStepResponse(record, settings), analyzeStepResponse(record, settings)]) {
-      assert.strictEqual(result.detectableOnsetSeconds, undefined);
-    }
+    // N2.5: an unchanged output has no onset. The fit refuses it: N3.2 normalizes by the output span, which is zero, so no
+    // first-order fit can pass its error check (N3.3). The measurement still reports the onset as unavailable.
+    assert.strictEqual(measureStepResponse(record, settings).detectableOnsetSeconds, undefined);
+    assert.throws(() => analyzeStepResponse(record, settings), /no measurable final change/);
   });
 
   test("matches a small explicit brute-force consistency oracle", () => {

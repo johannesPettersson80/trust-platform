@@ -16,7 +16,7 @@ END_PROGRAM
 "#;
 
 fn state() -> ControlState {
-    crate::control::tests::hmi_test_state(SOURCE)
+    crate::control::tests::control_test_state(SOURCE)
 }
 
 fn result(response: ControlResponse) -> Value {
@@ -107,7 +107,8 @@ fn status_baseline_preserves_runtime_identity_and_modes() {
         value.get("execution_backend_source"),
         Some(&json!("default"))
     );
-    assert_eq!(value.get("hmi_read_only"), Some(&json!(true)));
+    // Specification 39, decision 12: the legacy HMI and its read-only flag are removed.
+    assert_eq!(value.get("hmi_read_only"), None);
 }
 
 #[test]
@@ -151,6 +152,36 @@ fn status_projects_recorded_cycle_fault_and_overrun_metrics() {
     );
     assert_eq!(value.pointer("/metrics/overruns"), Some(&json!(3)));
     assert_eq!(value.pointer("/metrics/faults"), Some(&json!(1)));
+}
+
+#[test]
+fn status_reports_live_simulation_speed_lowest_achieved_speed_and_program_revision() {
+    let state = state();
+    state
+        .settings
+        .lock()
+        .expect("settings")
+        .simulation
+        .time_scale = 7;
+    let value = result(handle_status(4, &state));
+    assert_eq!(value.pointer("/simulation_time_scale"), Some(&json!(7)));
+    assert_eq!(
+        value.pointer("/simulation_achieved_time_scale"),
+        Some(&Value::Null),
+        "null until a speed is measured"
+    );
+    assert!(value["program_revision"].is_string(), "{value}");
+    {
+        let mut metrics = state.metrics.lock().expect("metrics");
+        metrics.set_simulation_achieved_time_scale(1, Some(9.5));
+        metrics.set_simulation_achieved_time_scale(2, Some(7.25));
+    }
+    let value = result(handle_status(5, &state));
+    assert_eq!(
+        value.pointer("/simulation_achieved_time_scale"),
+        Some(&json!(7.25)),
+        "several resources report the lowest achieved speed"
+    );
 }
 
 #[test]

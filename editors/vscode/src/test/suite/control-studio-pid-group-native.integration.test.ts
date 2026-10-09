@@ -2,7 +2,7 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { configuredPlantRequest } from "../../controlStudio/configuredPlantVerification";
+import { configuredPlantRequest, type VerificationPlant } from "../../controlStudio/configuredPlantVerification";
 import { controllerAdapter } from "../../controlStudio/controllerAdapters";
 import { bindRuntimeConnection } from "../../controlStudio/runtimeConnection";
 import { ParameterApplicationClient } from "../../controlStudio/parameterApplication";
@@ -56,14 +56,16 @@ suite("Control Studio native PID group", () => {
       assert.strictEqual(values["P1.SecondaryParameters.ProportionalGain"], 1.5);
       const campaign = engineerVerificationCampaign(loop, model, task, values);
       assert.strictEqual(campaign.length, 3, "Validate the joint response and each reference independently");
+      // This native check runs the project's configured plant directly; the binding rule of B5.3 is covered by control-studio-apply-process-time.test.ts.
+      const configured: VerificationPlant = { kind: "configured", plantId: "project-plant" };
       const results = [];
       for (const scenario of campaign) {
-        const request = configuredPlantRequest(loop, scenario.request);
+        const request = configuredPlantRequest(loop, scenario.request, configured);
         results.push({ id: scenario.id, result: await verification.verify(request, scenario.requirements) });
       }
       assert.strictEqual(campaignStatus(campaign.map(scenario => scenario.id), results), "Pass", JSON.stringify(results.map(item => ({ id: item.id, evaluation: item.result.evaluation }))));
       const initialization = adapter.initialization(model, task, values);
-      assert.strictEqual((await verification.verify(configuredPlantRequest(loop, initialization.request), initialization.requirements)).evaluation.status, "Pass");
+      assert.strictEqual((await verification.verify(configuredPlantRequest(loop, initialization.request, configured), initialization.requirements)).evaluation.status, "Pass");
       assert.deepStrictEqual((await groupParameters.status()).values, before.values, "Tune and Validate must leave the running controllers unchanged");
       const review = await groupParameters.review(values);
       const commissioning = await adapter.commission(model, task, groupParameters, review);

@@ -1,3 +1,4 @@
+import { prepareBundledLibraries } from "./hmiBuilder/editor/libraryEdit";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
@@ -21,7 +22,7 @@ export const ADD_LIBRARY_COMMAND = "trust-lsp.libraries.add";
 export const REMOVE_LIBRARY_COMMAND = "trust-lsp.libraries.remove";
 export const UPDATE_LIBRARY_COMMAND = "trust-lsp.libraries.update";
 
-type CuratedLibraryId = "oscat" | "plcopen_motion";
+type CuratedLibraryId = "oscat" | "plcopen_motion" | "plant";
 
 interface CuratedLibrary {
   readonly id: CuratedLibraryId;
@@ -70,6 +71,14 @@ interface ProjectInfoLibrary {
 }
 
 const CURATED: readonly CuratedLibrary[] = [
+  {
+    id: "plant",
+    label: "Plant",
+    dependencyName: "Plant",
+    folderName: "plant",
+    packagedPath: ["media", "libraries", "plant"],
+    purpose: "Reusable equipment, instruments, sequences and their HMI components",
+  },
   {
     id: "oscat",
     label: "OSCAT",
@@ -387,6 +396,9 @@ class LibrariesPanel {
       gap: 3px;
       text-align: left;
       min-height: 60px;
+      /* A card's description wraps inside it; a button keeps its text on one line otherwise. */
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
     .choice strong,
     .row-title strong { color: var(--trust-text); }
@@ -699,7 +711,7 @@ class LibrariesPanel {
       lastState = state;
       errorEl.innerHTML = state.error ? '<div class="error" role="alert">' + esc(state.error) + ' <button class="trust-button" id="retryAdd">Fix and retry</button></div>' : '';
       const libraries = state.libraries || [];
-      librariesEl.innerHTML = libraries.length ? '<div class="list">' + libraries.map(libraryRow).join('') + '</div>' : '<div class="empty">No libraries added. Add OSCAT, PLCopen Motion, or your own.</div>';
+      librariesEl.innerHTML = libraries.length ? '<div class="list">' + libraries.map(libraryRow).join('') + '</div>' : '<div class="empty">No libraries added. Add Plant, OSCAT, PLCopen Motion, or your own.</div>';
       curatedEl.innerHTML = (state.curated || []).map((item) => '<button class="trust-button choice" data-curated="' + esc(item.id) + '"><strong>' + esc(item.label) + '</strong><span>' + esc(item.purpose) + '</span></button>').join('');
       document.querySelectorAll('[data-curated]').forEach((el) => el.addEventListener('click', () => vscode.postMessage({ type: 'addCurated', id: el.getAttribute('data-curated') })));
       document.querySelectorAll('[data-remove]').forEach((el) => el.addEventListener('click', () => vscode.postMessage({ type: 'remove', name: el.getAttribute('data-remove') })));
@@ -855,6 +867,19 @@ async function addCuratedLibrary(
   id: CuratedLibraryId
 ): Promise<void> {
   const library = curatedById(id);
+  if (id === "plant") {
+    const edit = new vscode.WorkspaceEdit();
+    const verify = await prepareBundledLibraries(
+      root,
+      context.extensionPath,
+      [{ name: "Plant", folder: "plant" }],
+      edit,
+    );
+    await verify();
+    if (!(await vscode.workspace.applyEdit(edit))) throw new Error("The Plant library could not be added.");
+    void vscode.window.showInformationMessage("Plant components added to this project.");
+    return;
+  }
   const source = packagedLibraryPath(context, library);
   if (!fs.existsSync(source)) {
     throw new Error(`Bundled ${library.label} files are missing from the extension.`);

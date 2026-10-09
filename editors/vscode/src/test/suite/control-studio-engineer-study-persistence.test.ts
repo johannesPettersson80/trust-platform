@@ -3,6 +3,7 @@ import { identifiedModelPresentation } from "../../controlStudio/identification"
 import { restoredEngineerView } from "../../controlStudio/restoredEngineerView";
 import * as assert from "assert";
 import { createWorkflowResult, decodeWorkflowResult } from "../../controlStudio/workflowResult";
+import { evaluateRecordedRun } from "../../controlStudio/runValidation";
 
 type EngineerStudyApi = {
   decodeEngineerStudy?: (value: unknown) => unknown;
@@ -199,6 +200,22 @@ suite("Control Studio engineer-study persistence", () => {
     assert.ok(decodeWorkflowResult(workflowWithStudy(failedStudy)), "failure history must retain actual trial records across a project revision change");
     assert.strictEqual(decodeWorkflowResult(workflowWithStudy({ campaigns: [{ ...failedStudy.campaigns[0], status: "completed", reason: undefined }] })), undefined,
       "completed campaigns require one project revision across their qualifying trials");
+  });
+
+  test("keeps a long run that the runtime recorded at a record period as historical evidence (A4.2, A7)", () => {
+    // Five executions averaged two per sample: the samples sit at the mean time of the executions each one averages.
+    const averaged = verification("averaged", 1) as any;
+    const times = [0.5, 2.5, 4];
+    averaged.request.duration_ms = 4000; averaged.request.max_total_cycles = 5; averaged.request.record_every = 2;
+    averaged.run.conditions.durationSeconds = 4; averaged.run.conditions.sampleTimesSeconds = times; averaged.run.conditions.recordEvery = 2;
+    // Each sample carries the last sequence value of the executions it averages (protocol annex E4.4).
+    averaged.run.samples = times.map((timeSeconds, index) => ({ timeSeconds, sequence: [2, 4, 5][index],
+      values: { "Main.PV": { value: index === 0 ? 0 : 1, quality: "good" } } }));
+    const specification = [{ id: "response-error", kind: "error", channel: "Main.PV", window: { start: 2, end: 4 },
+      reference: 1, statistic: "maximum", maximum: 0.1 }];
+    averaged.evaluation = evaluateRecordedRun(averaged.run, specification as never);
+    assert.ok(decodeWorkflowResult(workflowWithStudy({ campaigns: [{ id: "campaign:averaged", status: "failed", reason: "Observed.", runs: [averaged] }] })),
+      "a run averaged two executions per sample keeps its evidence");
   });
 
   test("validates native request limits, zero seed, and selected simulation identity before evaluating saved evidence", () => {

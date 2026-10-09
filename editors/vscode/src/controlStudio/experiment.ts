@@ -2,6 +2,8 @@ import type { ControlLoopDefinition } from "./loopDefinition";
 import type { LoopMonitorSample, LoopRecording, LoopRecordingEvidence } from "./loopMonitor";
 import type { RecordingRecoveryOwner } from "./runtimeRecording";
 import { projectStepRecordingMs } from "./projectExperimentHold";
+import { MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS } from "./controlStudioLimits";
+import { steadyRecordPeriod } from "./recordSequence";
 
 export type ControlExperimentKind = "observation" | "setpoint_step" | "load_step" |
   "mv_step" | "mv_pulse" | "relay" | "prbs" | "multisine" | "output_step" |
@@ -92,7 +94,9 @@ export interface ControlExperimentPlan {
   source: "simulation" | "physical";
   kind: ControlExperimentKind;
   affectedSignal: string;
-  address: string;
+  /** The process-image address the experiment writes; absent when it writes the variable `affectedSignal` by name
+   * (Specification 35 §17.1), such as a manual output or setpoint without an address. */
+  address?: string;
   valueType: string;
   from: number | boolean;
   to: number | boolean;
@@ -101,7 +105,10 @@ export interface ControlExperimentPlan {
   maximum: number;
   durationMs: number;
   expectedScan: number;
-  stopOnStaleMs: number;
+  /** The loop's task, or "$background" for the background programs (Specification 35, A3.5). Absent in plans saved before it. */
+  task?: string;
+  /** The loop's mode signal and the value that means Manual (Specification 35, A6.5). */
+  modeBinding?: { symbol: string; manualValue: boolean };
   stopConditions: string[];
   restorationValue: number | boolean;
   requiresPhysicalApproval: boolean;
@@ -234,10 +241,8 @@ export function identificationSamplesFromRuntimeRecording(
   }
   const samples = recording.rawSamples ?? [];
   if (samples.length < 2) throw new Error("A complete runtime-owned recording requires at least two samples.");
-  for (let index = 1; index < samples.length; index += 1) {
-    if (samples[index].scan !== samples[index - 1].scan + 1) {
-      throw new Error("A complete runtime-owned recording requires contiguous runtime scans.");
-    }
+  if (!steadyRecordPeriod(samples.map(sample => sample.scan), true)) {
+    throw new Error("A complete runtime-owned recording requires its samples at a steady record period, with no missed execution.");
   }
   return mapRuntimeRecordingSamples(plan, samples, true);
 }
@@ -301,7 +306,7 @@ type AutomaticExperimentSelection =
   | { kind: "rejected"; reason: string };
 
 type AvailableLoopSample = Extract<LoopMonitorSample, { availability: "available" }>;
-type ManualCommandBinding = { symbol: string; address: string; iecType: "REAL" | "LREAL" };
+type ManualCommandBinding = { symbol: string; address?: string; iecType: "REAL" | "LREAL" };
 
 /** Uses declared range only for the initial form value; live headroom is checked before review. */
 function automaticDefaultAmplitude(loop: ControlLoopDefinition): number {
@@ -357,9 +362,10 @@ function automaticRejected(reason: string): AutomaticExperimentSelection {
   return { kind: "rejected", reason };
 }
 
+/** The manual output an output step writes: through its address, else by name. */
 function manualCommandBinding(loop: ControlLoopDefinition): ManualCommandBinding | undefined {
   const { manualOutputSignal: symbol, manualOutputAddress: address, manualOutputType: iecType } = loop.controller;
-  return symbol && address && (iecType === "REAL" || iecType === "LREAL") ? { symbol, address, iecType } : undefined;
+  return symbol && (iecType === "REAL" || iecType === "LREAL") ? { symbol, ...(address ? { address } : {}), iecType } : undefined;
 }
 
 interface PlanInput {
@@ -395,8 +401,9 @@ function projectHoldRecording(input: PlanInput): { kind: "accepted"; durationMs?
 }
 
 export function buildControlExperimentPlan(input: PlanInput): ControlExperimentPlanResult {
-  if (!Number.isFinite(input.durationSeconds) || input.durationSeconds < 1 || input.durationSeconds > 3600) {
-    return rejected("Duration must be between 1 and 3600 seconds.");
+  if (!Number.isFinite(input.durationSeconds) || input.durationSeconds < MINIMUM_EXPERIMENT_DURATION_MS / 1_000
+    || input.durationSeconds > MAXIMUM_EXPERIMENT_DURATION_MS / 1_000) {
+    return rejected("Duration must be between 1 s and 24 h.");
   }
   if (input.sample.availability !== "available") {
     return rejected("Fresh synchronized SP, PV, and MV are required.");
@@ -440,8 +447,9 @@ export function buildControlExperimentPlan(input: PlanInput): ControlExperimentP
         maximum: 1,
         durationMs,
         expectedScan: input.sample.scan,
-        stopOnStaleMs: Math.max(500, input.loop.observedSampleTiming.nominalPeriodMs * 5),
-        stopConditions: ["Abort", `${durationMs / 1_000} s timeout`, "Stale runtime data", "Signal force", "Runtime fault",
+        task: experimentTask(input.loop),
+        ...experimentModeBinding(input.loop),
+        stopConditions: ["Abort", `${durationMs / 1_000} s timeout`, "Loop mode changed", "Bad runtime data", "Signal force", "Signal outside its limits", "Runtime fault",
           ...(abort ? [`Abort or failure asserts ${abort.symbol} = ${abort.assertedValue}; normal completion does not.`] : [])],
         ...(abort ? { abortBinding: { symbol: abort.symbol, address: abort.address, valueType: abort.iecType, assertedValue: abort.assertedValue } } : {}),
         restorationValue: false,
@@ -458,8 +466,9 @@ export function buildControlExperimentPlan(input: PlanInput): ControlExperimentP
   const kind = selection.kind;
   const amplitude = selection.amplitude;
   if (!Number.isFinite(amplitude) || (kind !== "observation" && amplitude === 0) ||
-      !Number.isFinite(input.durationSeconds) || input.durationSeconds < 1 || input.durationSeconds > 3_600) {
-    return rejected("Amplitude must be non-zero and duration must be between 1 and 3600 seconds.");
+      !Number.isFinite(input.durationSeconds) || input.durationSeconds < MINIMUM_EXPERIMENT_DURATION_MS / 1_000
+      || input.durationSeconds > MAXIMUM_EXPERIMENT_DURATION_MS / 1_000) {
+    return rejected("Amplitude must be non-zero and duration must be between 1 s and 24 h.");
   }
   const mvExcitation = ["output_step", "mv_step", "mv_pulse", "relay", "prbs", "multisine"].includes(kind);
   // A closed-loop controller must be placed in Manual before its output is
@@ -471,7 +480,7 @@ export function buildControlExperimentPlan(input: PlanInput): ControlExperimentP
   const manualCommand = mvExcitation && input.loop.topology !== "open-loop"
     ? manualCommandBinding(input.loop) : undefined;
   if (mvExcitation && input.loop.topology !== "open-loop" && input.loop.controller.manualOutputSignal && !manualCommand) {
-    return rejected("Output Test requires the declared Manual-command address and REAL or LREAL type.");
+    return rejected("Output Test requires the declared Manual command of REAL or LREAL type.");
   }
   const needsAutomaticController = kind === "setpoint_step" ||
     (kind === "load_step" && input.loop.topology !== "open-loop");
@@ -536,6 +545,8 @@ export function buildControlExperimentPlan(input: PlanInput): ControlExperimentP
   if (kind === "relay" && !relayAddress) {
     return rejected(`The feedback relay switches on the measurement's I/O address, and ${input.sample.processVariable.symbol} has none. Choose another identification method.`);
   }
+  // A manual command is written through its own address or by name, never through the output it commands.
+  const target = manualCommand ? manualCommand.address : signal.address;
   const relayFeedback: ControlRelayFeedbackPlan | undefined = kind === "relay" && relayAddress ? {
     processVariable: input.sample.processVariable.symbol,
     address: relayAddress,
@@ -555,7 +566,7 @@ export function buildControlExperimentPlan(input: PlanInput): ControlExperimentP
         source: input.sample.source === "Physical" ? "physical" : "simulation",
       kind,
       affectedSignal: manualCommand?.symbol ?? signal.symbol,
-      address: manualCommand?.address ?? signal.address,
+      ...(target ? { address: target } : {}),
       valueType: manualCommand?.iecType ?? binding.iecType,
       from: signal.value,
       to: requested,
@@ -564,12 +575,15 @@ export function buildControlExperimentPlan(input: PlanInput): ControlExperimentP
       maximum,
       durationMs,
       expectedScan: input.sample.scan,
-      stopOnStaleMs: Math.max(500, input.loop.observedSampleTiming.nominalPeriodMs * 5),
+      task: experimentTask(input.loop),
+      ...experimentModeBinding(input.loop),
       stopConditions: [
         "Abort",
         `${input.durationSeconds} s timeout`,
-        "Stale runtime data",
+        "Loop mode changed",
+        "Bad runtime data",
         "Signal force",
+        "Signal outside its limits",
         "Runtime fault",
       ],
       restorationValue: signal.value,
@@ -617,18 +631,28 @@ function experimentTrajectory(kind: ControlExperimentKind, from: number, amplitu
   });
 }
 
-/** Automatic identification needs a measured baseline before the held step. */
+/** Automatic identification applies its step at the start and holds it: the runtime restores the value at the end of the
+ * duration, not at half of it (Specification 35, B3.4). The baseline is the campaign's, measured before the experiment starts. */
 function automaticExperimentTrajectory(kind: ControlExperimentKind, from: number, amplitude: number,
   durationMs: number, samplePeriodMs: number): ControlExperimentPoint[] | undefined {
   if (!["setpoint_step", "load_step", "mv_step"].includes(kind)) {
     throw new Error(`Automatic Test selection resolved unsupported ${kind} excitation.`);
   }
-  const onsetMs = Math.max(samplePeriodMs * 3, Math.round(durationMs * 0.1 / samplePeriodMs) * samplePeriodMs);
-  const restorationMs = Math.floor(durationMs / 2);
-  if (onsetMs >= restorationMs) {
-    return undefined;
-  }
-  return [{ atMs: 0, value: from }, { atMs: onsetMs, value: from + amplitude }, { atMs: restorationMs, value: from }];
+  // The step must span a few executions of the task to be measured at all.
+  return durationMs < samplePeriodMs * 3 ? undefined : [{ atMs: 0, value: from + amplitude }];
+}
+
+/** The task the runtime's executor follows: the loop's scheduled task, else the background programs (Specification 35, A3.5). */
+function experimentTask(loop: { parameterBinding?: { task_name: string } }): string {
+  const task = loop.parameterBinding?.task_name;
+  return task && !task.startsWith("$") ? task : "$background";
+}
+
+/** The loop's declared mode signal and its Manual value, as the experiment checks them (Specification 35, A6.5). */
+function experimentModeBinding(loop: { parameterBinding?: { mode?: { symbol: string; manual_value: boolean } } }):
+  { modeBinding?: { symbol: string; manualValue: boolean } } {
+  const mode = loop.parameterBinding?.mode;
+  return mode ? { modeBinding: { symbol: mode.symbol, manualValue: mode.manual_value } } : {};
 }
 
 type RuntimeRequest = (operation: string, params: unknown) => Promise<unknown>;
@@ -642,18 +666,19 @@ export class ControlExperimentClient {
       experiment_id: plan.id,
       source: plan.source,
       kind: plan.kind,
-      address: plan.address,
+      // Exactly one target: the process-image address, else the variable by name (Specification 35 §17.1).
+      ...(plan.address ? { address: plan.address } : { symbol: plan.affectedSignal }),
       value: plan.to,
       restoration_value: plan.restorationValue,
-      ...(plan.abortBinding ? { abort_binding: { address: plan.abortBinding.address, value_type: plan.abortBinding.valueType, asserted_value: plan.abortBinding.assertedValue } } : {}),
+      // A project's abort binding accompanies only an addressed test (Specification 35 §17.3).
+      ...(plan.abortBinding && plan.address ? { abort_binding: { address: plan.abortBinding.address, value_type: plan.abortBinding.valueType, asserted_value: plan.abortBinding.assertedValue } } : {}),
       value_type: plan.valueType,
       minimum: plan.minimum,
       maximum: plan.maximum,
       duration_ms: plan.durationMs,
       expected_scan: plan.expectedScan,
-      stop_on_stale_ms: plan.stopOnStaleMs,
-      controller_mode: ["output_step", "mv_step", "mv_pulse", "relay", "prbs", "multisine"].includes(plan.kind)
-        ? "Manual" : "Auto",
+      task: plan.task ?? "$background",
+      ...(plan.modeBinding ? { mode_binding: { symbol: plan.modeBinding.symbol, manual_value: plan.modeBinding.manualValue } } : {}),
       trajectory: plan.trajectory.map((point) => ({ at_ms: point.atMs,
         value: plan.kind === "project_sequence" && plan.valueType === "BOOL" && (point.value === 0 || point.value === 1)
           ? Boolean(point.value) : point.value })),
@@ -682,6 +707,10 @@ export class ControlExperimentClient {
 
   abort(experimentId: string): Promise<unknown> {
     return this.request("control.experiment.abort", { experiment_id: experimentId });
+  }
+
+  finish(experimentId: string): Promise<unknown> {
+    return this.request("control.experiment.finish", { experiment_id: experimentId });
   }
 }
 
@@ -729,17 +758,23 @@ export function decodeControlExperimentRecovery(
 }
 
 function decodeRecoveryPlan(value: unknown): ControlExperimentPlan | undefined {
-  const required = ["id", "source", "kind", "affectedSignal", "address", "valueType", "from", "to", "unit", "minimum", "maximum",
-    "durationMs", "expectedScan", "stopOnStaleMs", "stopConditions", "restorationValue", "requiresPhysicalApproval", "trajectory"];
-  const allowed = [...required, "abortBinding", "relayFeedback", "intervalMs", "seed", "frequenciesHz"];
+  const required = ["id", "source", "kind", "affectedSignal", "valueType", "from", "to", "unit", "minimum", "maximum",
+    "durationMs", "expectedScan", "stopConditions", "restorationValue", "requiresPhysicalApproval", "trajectory"];
+  // stopOnStaleMs is accepted, and ignored, in plans journalled before the runtime owned staleness.
+  const allowed = [...required, "address", "abortBinding", "relayFeedback", "intervalMs", "seed", "frequenciesHz", "task", "modeBinding", "stopOnStaleMs"];
   if (!record(value) || !required.every(key => key in value) || Object.keys(value).some(key => !allowed.includes(key))) return undefined;
   const candidate = value as Record<string, any>;
   if (typeof candidate.id !== "string" || !candidate.id || (candidate.source !== "simulation" && candidate.source !== "physical") ||
       !["observation", "setpoint_step", "load_step", "mv_step", "mv_pulse", "relay", "prbs", "multisine", "output_step", "project_sequence"].includes(String(candidate.kind)) ||
-      ![candidate.affectedSignal, candidate.address, candidate.valueType, candidate.unit].every(text) || !numberOrBoolean(candidate.from) || !numberOrBoolean(candidate.to) ||
+      ![candidate.affectedSignal, candidate.valueType, candidate.unit].every(text) || !(candidate.address === undefined || text(candidate.address)) ||
+      !(candidate.task === undefined || text(candidate.task)) ||
+      !(candidate.modeBinding === undefined || (record(candidate.modeBinding) && text(candidate.modeBinding.symbol) &&
+        typeof candidate.modeBinding.manualValue === "boolean")) ||
+      !numberOrBoolean(candidate.from) || !numberOrBoolean(candidate.to) ||
       ![candidate.minimum, candidate.maximum].every(finite) || candidate.minimum > candidate.maximum || !Number.isSafeInteger(candidate.durationMs) ||
-      candidate.durationMs < 1_000 || candidate.durationMs > 3_600_000 || !Number.isSafeInteger(candidate.expectedScan) || candidate.expectedScan < 0 ||
-      !Number.isSafeInteger(candidate.stopOnStaleMs) || candidate.stopOnStaleMs <= 0 || !Array.isArray(candidate.stopConditions) ||
+      candidate.durationMs < MINIMUM_EXPERIMENT_DURATION_MS || candidate.durationMs > MAXIMUM_EXPERIMENT_DURATION_MS
+      || !Number.isSafeInteger(candidate.expectedScan) || candidate.expectedScan < 0 ||
+      !Array.isArray(candidate.stopConditions) ||
       candidate.stopConditions.length === 0 || candidate.stopConditions.length > 16 || !candidate.stopConditions.every(text) ||
       !numberOrBoolean(candidate.restorationValue) || typeof candidate.requiresPhysicalApproval !== "boolean" ||
       !Array.isArray(candidate.trajectory) || candidate.trajectory.length > 72_000 || !candidate.trajectory.every((point: unknown) => {

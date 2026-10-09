@@ -5,6 +5,9 @@ import { initializeManualTuneSettings } from "./manualTuneSettings";
 import { renderTunedController } from "./threePageResults";
 import { initializeThreePageStateDesign } from "./threePageStateDesign";
 
+/** How long a manual edit waits for a pause before its predicted response is requested (Specification 35 B9.9). */
+export const MANUAL_PREVIEW_DELAY_MS = 300;
+
 /** Editing preferences stay separate from the host's validated candidate. */
 export class ThreePageTuning {
   private values: Record<string, number> = {};
@@ -16,12 +19,13 @@ export class ThreePageTuning {
   private robustness: unknown;
   private inputRevision = -1;
   private lastMethod: ControllerTuningPreferences["method"] = "automatic";
+  private previewTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly fields;
   private readonly method: HTMLSelectElement;
   private readonly stateDesign;
   constructor(private readonly root: HTMLElement, private readonly loop: ControlLoopDefinition,
     private readonly post: StudioPost, private readonly family: () => string, private readonly choice: () => string = family) {
-    this.fields = initializeManualTuneSettings(root, loop);
+    this.fields = initializeManualTuneSettings(root, loop, value => this.previewLater(value.values));
     this.method = root.querySelector<HTMLSelectElement>("[data-engineer-tuning-method]")!;
     if (loop.controller.stateFeedback) {
       const option = root.ownerDocument.createElement("option"); option.value = "state-design"; option.textContent = "State-space design"; this.method.append(option);
@@ -34,10 +38,19 @@ export class ThreePageTuning {
       ...(loop.controller.stateFeedback.measurementNoise ? { measurementNoise: loop.controller.stateFeedback.measurementNoise } : {}),
     } : undefined;
     this.stateDesign = initializeThreePageStateDesign(root, declaredStateDesign, () => this.edited(), () => this.family() === "automatic" ? loop.controller.stateFeedback?.family ?? "state-feedback" : this.family());
-    this.method.addEventListener("change", () => { if (this.method.value.startsWith("analysis:")) return; this.lastMethod = this.method.value as ControllerTuningPreferences["method"]; this.edited(); this.render(); });
+    this.method.addEventListener("change", () => { this.lastMethod = this.method.value as ControllerTuningPreferences["method"]; this.edited(); this.render(); });
     const area = root.querySelector<HTMLElement>("[data-studio-tuning-result]")!;
     area.addEventListener("input", () => { this.capture(); this.edited(); });
-    area.addEventListener("change", () => { this.capture(); this.edited(); });
+    area.addEventListener("change", event => {
+      // A Keep toggle keeps its calculated value for the next tuning run; it is read before the change is sent.
+      const keep = event.target as HTMLInputElement | null;
+      const symbol = keep?.dataset?.studioKeep;
+      if (symbol) {
+        if (keep!.checked && Number.isFinite(this.values[symbol])) this.pins[symbol] = this.values[symbol];
+        else delete this.pins[symbol];
+      }
+      this.capture(); this.edited();
+    });
     root.querySelector<HTMLSelectElement>("[data-studio-controller]")!.addEventListener("change", () => this.render());
   }
   preferences(validate = false): ControllerTuningPreferences {
@@ -47,6 +60,8 @@ export class ThreePageTuning {
     return { method: this.method.value.startsWith("analysis:") ? this.lastMethod : this.method.value as ControllerTuningPreferences["method"], values: { ...values }, ...(stateDesign ? { stateDesign } : {}), ...(this.loop.controller.stateFeedback ? { stateDesignDraft: this.stateDesign.draft() } : {}) };
   }
   pinnedValues(): Record<string, number> | null { return Object.keys(this.pins).length ? { ...this.pins } : null; }
+  /** Draws the current candidate again, for example once an analysis tool closes and the tuning result returns. */
+  refresh(): void { this.render(); }
   receive(payload: Record<string, unknown>): void {
     if (typeof payload.inputRevision === "number") {
       if (payload.inputRevision < this.inputRevision) return;
@@ -58,7 +73,7 @@ export class ThreePageTuning {
     if (preferences && !this.pending) {
       this.lastMethod = preferences.method;
       this.stateDesign.receive(preferences.stateDesign, preferences.stateDesignDraft);
-      if (!this.method.value.startsWith("analysis:")) this.method.value = preferences.method;
+      this.method.value = preferences.method;
       if (payload.status === "restored" && preferences.method === "manual" && preferences.values) {
         this.values = { ...preferences.values }; this.hasSettings = Object.keys(this.values).length > 0;
       }
@@ -77,6 +92,7 @@ export class ThreePageTuning {
     if (payload.settingsPins !== undefined && !this.pending) this.pins = { ...(payload.settingsPins as { values?: Record<string, number> } | null)?.values };
     if (refused || payload.status === "candidate" || payload.status === "restored" || preferences && !this.pending && !acknowledged) this.render();
   }
+  /** Manual values are read from the editable settings; Keep toggles belong to automatic results only. */
   private capture(): void {
     const fields = Array.from(this.root.querySelectorAll<HTMLInputElement>("[data-studio-manual-value]"));
     if (!fields.length) return;
@@ -84,10 +100,15 @@ export class ThreePageTuning {
       const symbol = input.dataset.studioManualValue!;
       if (Number.isFinite(input.valueAsNumber)) this.values[symbol] = input.valueAsNumber;
       else delete this.values[symbol];
-      const pin = Array.from(this.root.querySelectorAll<HTMLInputElement>("[data-studio-manual-pin]")).find(item => item.dataset.studioManualPin === symbol);
-      if (pin?.checked && Number.isFinite(input.valueAsNumber)) this.pins[symbol] = input.valueAsNumber;
-      else delete this.pins[symbol];
     }
+  }
+  /** A manual edit waits for a 300 ms pause, then asks the host for its predicted response; a newer edit replaces the wait. */
+  private previewLater(values: Record<string, number>): void {
+    if (this.previewTimer !== undefined) clearTimeout(this.previewTimer);
+    this.previewTimer = setTimeout(() => {
+      this.previewTimer = undefined;
+      this.post("control-studio.engineer.manual-preview", { settings: { ...values } });
+    }, MANUAL_PREVIEW_DELAY_MS);
   }
   private edited(): void {
     this.robustness = undefined;
@@ -98,7 +119,6 @@ export class ThreePageTuning {
     this.stateDesign.synchronize();
     const design = this.root.querySelector<HTMLElement>("[data-studio-state-design]");
     if (design) design.hidden = this.method.value !== "state-design";
-    if (this.method.value.startsWith("analysis:")) return;
     if (this.method.value === "manual" && this.family() === "automatic") {
       const area = this.root.querySelector<HTMLElement>("[data-studio-tuning-result]")!; area.replaceChildren(); area.hidden = true; return;
     }

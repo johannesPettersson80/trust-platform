@@ -251,7 +251,18 @@ impl SymbolCollector<'_> {
                     .map(|variant| (variant.name.clone(), variant.type_id))
                     .collect::<Vec<_>>(),
             ),
-            Some(Type::FunctionBlock { .. }) => AggregateTarget::FunctionBlock(resolved),
+            Some(Type::FunctionBlock { .. }) => {
+                if self.deferred_initializers.is_some() && !self.declares_hierarchy(resolved) {
+                    if let Some(deferred) = self.deferred_initializers.as_mut() {
+                        deferred.push(DeferredInitializer {
+                            type_id: resolved,
+                            list: expr.clone(),
+                        });
+                    }
+                    return;
+                }
+                AggregateTarget::FunctionBlock(resolved)
+            }
             Some(Type::Unknown) | None => return,
             _ => {
                 self.diagnostics.error(
@@ -651,6 +662,32 @@ impl SymbolCollector<'_> {
                 "type/member default initializer must be a constant expression",
             ),
         }
+    }
+
+    /// Whether this file's table declares a function block and every base it extends; a block of
+    /// another file is only a carrier type here, without members.
+    fn declares_hierarchy(&self, type_id: TypeId) -> bool {
+        let Some(Type::FunctionBlock { name }) = self.table.type_by_id(type_id) else {
+            return false;
+        };
+        let Some(mut owner) = self.table.resolve_global_or_qualified_name(name.as_str()) else {
+            return false;
+        };
+        let mut seen = FxHashSet::default();
+        while seen.insert(owner) {
+            let Some(base) = self.table.extends_name(owner) else {
+                return true;
+            };
+            let Some(next) = self
+                .table
+                .resolve_oop_reference_for_owner(owner, base.as_str())
+            else {
+                return false;
+            };
+            owner = next;
+        }
+        // A cycle of EXTENDS is reported by the inheritance checks.
+        true
     }
 
     fn function_block_initializer_member_type(

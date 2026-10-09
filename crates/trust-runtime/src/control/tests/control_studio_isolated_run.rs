@@ -1,3 +1,18 @@
+/// One channel's value in a compact sample; the channel order follows the run's `channels`.
+fn channel_value(run: &serde_json::Value, sample: usize, channel: &str) -> serde_json::Value {
+    let position = run["channels"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .position(|candidate| candidate["id"] == channel)
+        .expect("observed channel");
+    run["samples"][sample]["values"][position].clone()
+}
+/// One channel's value in a run's last sample.
+fn last_channel_value(run: &serde_json::Value, channel: &str) -> serde_json::Value {
+    let last = run["samples"].as_array().unwrap().len() - 1;
+    channel_value(run, last, channel)
+}
 fn isolated_run_request(revision: serde_json::Value) -> serde_json::Value {
     json!({"expected_project_revision":revision,"execution":"isolated-simulation","step_ms":100,"duration_ms":2000,"seed":7,"max_total_cycles":21,"wall_budget_ms":5000,"initial_values":{},"events":[],"observations":[{"symbol":"Main.H1","unit":"m"},{"symbol":"Main.H2","unit":"m"}],"parameter_overrides":[]})
 }
@@ -45,12 +60,9 @@ fn isolated_run_starts_at_true_nonequilibrium_initial_state_without_dummy_parame
             assert_eq!(run["evidence"], "ST-executed");
             assert_eq!(run["parameters"], json!({}));
             assert_eq!(run["samples"][0]["timeSeconds"], 0.0);
-            assert_eq!(run["samples"][0]["values"]["Main.H1"]["value"], 0.27);
-            assert_eq!(run["samples"][0]["values"]["Main.H2"]["value"], 0.25);
-            assert_ne!(
-                run["samples"].as_array().unwrap().last().unwrap()["values"]["Main.H1"]["value"],
-                0.27
-            );
+            assert_eq!(channel_value(run, 0, "Main.H1"), 0.27);
+            assert_eq!(channel_value(run, 0, "Main.H2"), 0.25);
+            assert_ne!(last_channel_value(run, "Main.H1"), 0.27);
             break;
         }
         assert_ne!(result["status"], "failed", "{result}");
@@ -135,8 +147,8 @@ outflow_coefficient_m2_sqrt_m_per_s = 0.020
                 ),
                 "configuration identity must hash the exact UTF-8 TOML bytes"
             );
-            assert_eq!(run["samples"][0]["values"]["Main.H1"]["value"], 0.61);
-            assert_eq!(run["samples"][0]["values"]["Main.H2"]["value"], 0.52);
+            assert_eq!(channel_value(run, 0, "Main.H1"), 0.61);
+            assert_eq!(channel_value(run, 0, "Main.H2"), 0.52);
             assert_eq!(
                 result["io_provenance"],
                 "isolated-simulation-no-physical-drivers"
@@ -193,12 +205,11 @@ fn isolated_run_drives_the_selected_plant_through_program_variables_without_addr
         assert!(response.ok, "{:?}", response.error);
         let result = response.result.unwrap();
         if result["status"] == "completed" {
-            let samples = result["run"]["samples"].as_array().unwrap();
-            let last = &samples[samples.len() - 1]["values"];
-            assert_eq!(last["Main.Output"]["value"], 4.0);
+            let run = &result["run"];
+            assert_eq!(last_channel_value(run, "Main.Output"), 4.0);
             assert_eq!(
-                last["Main.Measurement"]["value"], 2.0,
-                "the plant read the output and wrote the measurement: {last}"
+                last_channel_value(run, "Main.Measurement"), 2.0,
+                "the plant read the output and wrote the measurement: {run}"
             );
             break;
         }
@@ -274,13 +285,29 @@ fn isolated_run_names_the_exceeded_recording_bound() {
     );
     let mut request = isolated_run_request(ready["project_revision"].clone());
     request["step_ms"] = json!(20);
-    request["duration_ms"] = json!(200_000);
-    request["max_total_cycles"] = json!(10_001);
+    request["duration_ms"] = json!(1_199_980);
+    request["max_total_cycles"] = json!(60_000);
     request["observations"] = channels(30);
     assert!(
         refusal(request)
-            .contains("10001 samples × 30 channels exceed the limit of 250000 channel samples"),
-        "the refusal names the sample budget"
+            .contains("60000 samples × 30 channels exceed the limit of 1600000 channel samples"),
+        "the refusal names the channel-sample budget"
+    );
+    // A run keeps at most 100000 samples (A7) unless record_every averages them (A4.2).
+    let mut request = isolated_run_request(ready["project_revision"].clone());
+    request["step_ms"] = json!(1);
+    request["duration_ms"] = json!(100_000);
+    request["max_total_cycles"] = json!(100_001);
+    let message = refusal(request);
+    assert!(message.contains("100001 samples per run"), "{message}");
+    assert!(message.contains("100000"), "{message}");
+    let mut request = isolated_run_request(ready["project_revision"].clone());
+    request["step_ms"] = json!(1);
+    request["duration_ms"] = json!(86_400_001);
+    request["max_total_cycles"] = json!(10_000_000);
+    assert!(
+        refusal(request).contains("86400000"),
+        "a duration beyond 24 h is refused by name"
     );
 }
 
@@ -359,10 +386,7 @@ fn isolated_run_parameter_candidates_share_conditions_and_keep_real_parameter_va
         );
     }
     assert_eq!(runs[0]["conditions"], runs[1]["conditions"]);
-    assert_ne!(
-        runs[0]["samples"].as_array().unwrap().last().unwrap()["values"]["Main.PV"]["value"],
-        runs[1]["samples"].as_array().unwrap().last().unwrap()["values"]["Main.PV"]["value"]
-    );
+    assert_ne!(last_channel_value(&runs[0], "Main.PV"), last_channel_value(&runs[1], "Main.PV"));
 }
 
 #[test]
@@ -411,10 +435,7 @@ fn isolated_run_bool_configuration_is_a_fixed_parameter_not_initial_state() {
     }
     assert_eq!(runs[0]["conditions"], runs[1]["conditions"]);
     assert_eq!(runs[0]["conditions"]["initialState"], json!({}));
-    assert_ne!(
-        runs[0]["samples"].as_array().unwrap().last().unwrap()["values"]["Main.PV"]["value"],
-        runs[1]["samples"].as_array().unwrap().last().unwrap()["values"]["Main.PV"]["value"]
-    );
+    assert_ne!(last_channel_value(&runs[0], "Main.PV"), last_channel_value(&runs[1], "Main.PV"));
 }
 
 #[test]
@@ -449,14 +470,8 @@ fn isolated_run_writes_exact_integer_scenario_initial_values_and_events() {
         let result=handle_request_value(json!({"id":8842,"type":"control.simulation.run.status","params":{"job_id":job,"expected_project_revision":revision}}),&state,None).result.unwrap();
         if result["status"] == "completed" {
             assert_eq!(result["run"]["parameters"], json!({}));
-            assert_eq!(
-                result["run"]["samples"][0]["values"]["Main.TrialKind"]["value"],
-                1.0
-            );
-            assert_eq!(
-                result["run"]["samples"][5]["values"]["Main.TrialKind"]["value"],
-                2.0
-            );
+            assert_eq!(channel_value(&result["run"], 0, "Main.TrialKind"), 1.0);
+            assert_eq!(channel_value(&result["run"], 5, "Main.TrialKind"), 2.0);
             break;
         }
         assert_ne!(
@@ -595,8 +610,10 @@ fn isolated_run_fault_retains_the_coherent_prefix_without_claiming_completion() 
     assert_eq!(run["samples"][1]["timeSeconds"], 0.1);
     assert_eq!(run["samples"][0]["sequence"], 0);
     assert_eq!(run["samples"][1]["sequence"], 1);
-    assert_eq!(run["samples"][0]["values"]["Main.PV"]["quality"], "good");
-    assert_eq!(run["samples"][1]["values"]["Main.PV"]["quality"], "good");
+    // Every channel is good, so the compact sample omits its quality array.
+    assert_eq!(run["samples"][0]["values"].as_array().unwrap().len(), 1, "one value per channel");
+    assert!(run["samples"][0].get("quality").is_none());
+    assert!(run["samples"][1].get("quality").is_none());
 }
 #[test]
 fn isolated_run_rejects_search_grid_and_fractional_integer_state() {
@@ -745,10 +762,16 @@ fn isolated_run_cancel_retains_samples_already_received_from_the_worker() {
             .len(),
         12000
     );
+    let mv = run["channels"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .position(|channel| channel["id"] == "Main.MV")
+        .expect("observed MV");
     for (index, row) in rows.iter().enumerate() {
         assert_eq!(row["sequence"], index);
         assert_eq!(row["timeSeconds"], index as f64 / 1000.0);
-        assert_eq!(row["values"]["Main.MV"]["value"], 1.0);
+        assert_eq!(row["values"][mv], 1.0);
     }
 }
 
@@ -831,18 +854,25 @@ fn isolated_run_wall_budget_retains_the_received_prefix_as_failed_evidence() {
             .len(),
         12000
     );
+    let mv = run["channels"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .position(|channel| channel["id"] == "Main.MV")
+        .expect("observed MV");
     for (index, row) in rows.iter().enumerate() {
         assert_eq!(row["sequence"], index);
         assert_eq!(row["timeSeconds"], index as f64 / 1000.0);
-        assert_eq!(row["values"]["Main.MV"]["value"], 1.0);
+        assert_eq!(row["values"][mv], 1.0);
     }
 }
 
 #[test]
-fn isolated_run_checkpoint_budget_fails_with_its_received_prefix() {
+fn isolated_run_long_channel_names_complete_within_the_compact_checkpoint() {
     let (mut state, _root) = search_fixture();
-    let names: Vec<_> = (0..16)
-        .map(|index| format!("Signal{index}_{}", "x".repeat(190)))
+    // 64 channels with 180-byte names: the compact frames name each channel once, in the header.
+    let names: Vec<_> = (0..64)
+        .map(|index| format!("Signal{index}_{}", "x".repeat(180)))
         .collect();
     let declarations = names
         .iter()
@@ -886,13 +916,10 @@ fn isolated_run_checkpoint_budget_fails_with_its_received_prefix() {
         )
         .result
         .unwrap();
-        if result["status"] == "failed" {
+        if result["status"] == "completed" {
             break;
         }
-        assert_ne!(
-            result["status"], "completed",
-            "The test must exceed the checkpoint byte budget"
-        );
+        assert_ne!(result["status"], "failed", "{result}");
         assert!(std::time::Instant::now() < deadline);
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
@@ -904,19 +931,14 @@ fn isolated_run_checkpoint_budget_fails_with_its_received_prefix() {
     )
     .result
     .unwrap();
-    assert_eq!(
-        details["reason"],
-        "worker checkpoint output budget exhausted"
-    );
+    assert_eq!(details["status"], "completed", "the largest valid run fits its budget");
     let run = &details["run"];
     assert_eq!(run["evidence"], "ST-executed");
-    let count = run["samples"].as_array().unwrap().len();
-    assert!(count > 0 && count < 12000);
-    assert_eq!(
-        count as u64,
-        details["captured_sample_count"].as_u64().unwrap()
-    );
-    assert!(serde_json::to_vec(run).unwrap().len() < 15 * 1024 * 1024);
+    let samples = run["samples"].as_array().unwrap();
+    assert_eq!(samples.len(), 12000);
+    assert_eq!(samples[0]["values"].as_array().unwrap().len(), 64);
+    assert!(samples[0].get("quality").is_none(), "every channel is good");
+    assert!(serde_json::to_vec(run).unwrap().len() < 64 * 1024 * 1024);
     assert_eq!(
         run["conditions"]["sampleTimesSeconds"]
             .as_array()
@@ -924,4 +946,75 @@ fn isolated_run_checkpoint_budget_fails_with_its_received_prefix() {
             .len(),
         12000
     );
+}
+
+/// Ten grid points of 1 ms, averaged in periods of three (A4.2): four samples, the last one holding
+/// the single point that remains, each timed at the mean of its grid times.
+#[test]
+fn isolated_run_record_every_averages_each_period_and_keeps_the_partial_last_one() {
+    let (state, _root) = search_fixture();
+    let ready = handle_request_value(
+        json!({"id":8900,"type":"control.search.status","params":{}}),
+        &state,
+        None,
+    )
+    .result
+    .unwrap();
+    let revision = ready["project_revision"].clone();
+    let mut request = isolated_run_request(revision.clone());
+    request["step_ms"] = json!(1);
+    request["duration_ms"] = json!(9);
+    request["max_total_cycles"] = json!(10);
+    request["record_every"] = json!(3);
+    request["observations"] = json!([{"symbol":"Main.SP","unit":"C"}]);
+    let start = handle_request_value(
+        json!({"id":8901,"type":"control.simulation.run.start","params":request}),
+        &state,
+        None,
+    );
+    assert!(start.ok, "{:?}", start.error);
+    let job = start.result.unwrap()["job_id"].clone();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    loop {
+        let result = handle_request_value(
+            json!({"id":8902,"type":"control.simulation.run.status","params":{
+            "job_id":job,"expected_project_revision":revision,"include_results":false}}),
+            &state,
+            None,
+        )
+        .result
+        .unwrap();
+        if result["status"] == "completed" {
+            break;
+        }
+        assert!(
+            matches!(result["status"].as_str(), Some("queued" | "running")),
+            "{result}"
+        );
+        assert!(std::time::Instant::now() < deadline, "{result}");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    let details = handle_request_value(
+        json!({"id":8903,"type":"control.simulation.run.status","params":{
+        "job_id":job,"expected_project_revision":revision,"include_results":true}}),
+        &state,
+        None,
+    )
+    .result
+    .unwrap();
+    let run = &details["run"];
+    assert_eq!(run["conditions"]["recordEvery"], json!(3), "{details}");
+    assert_eq!(
+        run["conditions"]["sampleTimesSeconds"],
+        json!([0.001, 0.004, 0.007, 0.009]),
+        "{details}"
+    );
+    let samples = run["samples"].as_array().expect("run samples");
+    assert_eq!(samples.len(), 4, "{details}");
+    for (index, sample) in samples.iter().enumerate() {
+        assert_eq!(sample["sequence"], json!(index), "{details}");
+        assert_eq!(sample["values"][0], json!(1.0), "{details}");
+        assert!(sample.get("quality").is_none(), "every channel is good: {details}");
+    }
+    assert_eq!(samples[3]["timeSeconds"], json!(0.009), "{details}");
 }

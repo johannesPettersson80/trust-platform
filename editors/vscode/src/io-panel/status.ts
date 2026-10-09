@@ -14,6 +14,7 @@ import {
   type AdsStatusSummary,
 } from "../adsStatusSummary";
 import type { RuntimeAccessPayload, RuntimeStatusPayload } from "./types";
+import { runtimeTargetFromStatus } from "../controlStudio/runtimeTarget";
 
 const ENDPOINT_PROBE_TTL_MS = 2000;
 const ENDPOINT_PROBE_TIMEOUT_MS = 400;
@@ -109,6 +110,8 @@ export async function fetchRuntimeState(
 type RuntimeControlStatusReport = {
   state?: unknown;
   access?: unknown;
+  simulation_enabled?: unknown;
+  simulation_only_io?: unknown;
 };
 
 async function fetchRuntimeStatusReport(
@@ -223,9 +226,15 @@ export async function runtimeStatusPayload(
       statusAuthToken = session.configuration.authToken.trim();
     }
   }
+  // A2.4: the runtime's own report decides. The editor setting and the debug configuration never make a target simulated.
+  let simulated = false;
+  let cycleIntervalMs: number | undefined;
   if (running && statusEndpoint) {
     const report = await fetchRuntimeStatusReport(statusEndpoint, statusAuthToken);
     access = normalizeRuntimeAccess(report?.access);
+    const target = runtimeTargetFromStatus(report);
+    simulated = target.simulated;
+    cycleIntervalMs = target.cycleIntervalMs;
   }
   if (!running && runtimeMode === "online" && endpointConfigured && endpointEnabled) {
     endpointReachable = await probeEndpointReachable(endpoint);
@@ -243,6 +252,8 @@ export async function runtimeStatusPayload(
     running,
     inlineValuesEnabled,
     runtimeMode,
+    simulated,
+    ...(cycleIntervalMs === undefined ? {} : { cycleIntervalMs }),
     runtimeState,
     targetLabel,
     endpoint,
