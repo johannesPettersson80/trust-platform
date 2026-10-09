@@ -20,7 +20,7 @@
       if (!this.sounds) return;
       const active = summary?.active ?? [];
       for (const row of active) {
-        if (row.priority === "medium" && row.unacknowledged && !this.heard.has(raise(row))) {
+        if (row.sound === "once" && !this.heard.has(raise(row))) {
           this.heard.add(raise(row));
           this.sounds.play("medium");
         }
@@ -32,7 +32,7 @@
           this.silenced.delete(key);
         }
       }
-      const loud = active.some((row) => row.priority === "high" && row.unacknowledged && !this.silenced.has(raise(row)));
+      const loud = active.some((row) => row.sound === "continuous" && !this.silenced.has(raise(row)));
       if (loud && !this.loud) this.sounds.play("high");
       else if (!loud && this.loud) this.sounds.stop();
       this.loud = loud;
@@ -40,7 +40,7 @@
     /** Silence: the High alarms sounding now stop and stay unacknowledged. */
     silence(summary) {
       for (const row of summary?.active ?? []) {
-        if (row.priority === "high" && row.unacknowledged) this.silenced.add(raise(row));
+        if (row.sound === "continuous") this.silenced.add(raise(row));
       }
       if (this.loud) this.sounds?.stop();
       this.loud = false;
@@ -1891,7 +1891,6 @@
   }
 
   // src/hmiBuilder/display/alarmActions.ts
-  var SHELVE_FOR = [900, 3600, 14400, 28800, 86400];
   function durationName(seconds) {
     return seconds < 3600 ? say("{minutes} min", { minutes: seconds / 60 }) : say("{hours} h", { hours: seconds / 3600 });
   }
@@ -1915,7 +1914,6 @@
     return named ? say(named) : outcome;
   }
   var TABS = ["active", "shelved", "suppressed", "out_of_service"];
-  var MAX_COMMENT = 120;
   var AlarmActions = class {
     constructor(host2, session, overlay, mark = () => "") {
       this.host = host2;
@@ -1934,7 +1932,7 @@
       const equipment = clicked.closest('[data-part="equipment-alarm"]')?.getAttribute("data-alarm");
       if (equipment) {
         const row = view.summary?.active.find((candidate) => candidate.path === equipment);
-        if (row) this.open(row, "active");
+        if (row) this.open(row, "active", view.summary);
         return true;
       }
       const tab = clicked.closest("[data-alarm-tab]")?.getAttribute("data-alarm-tab");
@@ -1990,7 +1988,7 @@
       const picked = clicked.closest('[data-part="alarm-row"]')?.getAttribute("data-alarm");
       if (picked) {
         const row = rowOf(view, objectId, picked);
-        if (row) this.open(row, view.views[objectId]?.tab ?? "active");
+        if (row) this.open(row, view.views[objectId]?.tab ?? "active", view.summary);
         return true;
       }
       return false;
@@ -2082,8 +2080,8 @@
         this.overlay.notice(`${what}: ${outcomeSaid(reply.outcome, reply.reason)}`);
       }
     }
-    /** The alarm with its facts and the actions its state allows (§5.7, item 4). */
-    open(row, tab) {
+    /** The alarm with its facts and the actions its state allows, as the runtime sends them (§5.7, item 4). */
+    open(row, tab, summary) {
       const dialog = this.overlay.dialog("div", "alarm");
       dialog.setAttribute("aria-label", row.message || row.path);
       const title = element(dialog, "h2", "", "hmi-alarm-title");
@@ -2124,47 +2122,41 @@
         });
         return offered;
       };
-      const engineer = this.session.role === "engineer";
-      if (row.unacknowledged && tab !== "suppressed") actions.append(offer("acknowledge"));
-      if (tab === "active" && row.latching && row.active) actions.append(offer("reset"));
-      if (tab === "shelved") actions.append(offer("unshelve"));
-      if (engineer && tab === "out_of_service") actions.append(offer("return-to-service"));
-      if (engineer && (tab === "active" || tab === "shelved")) actions.append(offer("remove-from-service"));
+      const allowed = row.actions ?? [];
+      for (const action of allowed) {
+        if (action !== "shelve" && action !== "comment") actions.append(offer(action));
+      }
       if (actions.childElementCount > 0) dialog.append(actions);
       dialog.append(equipmentReason);
-      if (tab === "active") {
+      if (allowed.includes("shelve")) {
         dialog.append(element(dialog, "p", say("Shelve for"), "hmi-hint"));
         const shelve = element(dialog, "div", "", "hmi-actions hmi-shelve");
-        for (const seconds of SHELVE_FOR) {
+        for (const seconds of summary?.shelve_for ?? []) {
           const offered = offer("shelve", seconds, durationName(seconds));
           offered.setAttribute("data-shelve", String(seconds));
           shelve.append(offered);
         }
         dialog.append(shelve);
       }
-      const comment = element(dialog, "label", say("Comment"));
-      const input = dialog.ownerDocument.createElement("input");
-      input.name = "comment";
-      input.maxLength = MAX_COMMENT;
-      input.setAttribute("autocomplete", "off");
-      comment.append(input);
-      dialog.append(comment);
-      const error = element(dialog, "p", "", "hmi-error");
-      dialog.append(error);
       const footer = element(dialog, "div", "", "hmi-actions");
       const close = button(dialog, say("Close"), "cancel");
       close.addEventListener("click", () => this.overlay.closeDialog());
-      const add = button(dialog, say("Add comment"), "comment");
-      add.addEventListener("click", () => {
-        const text2 = input.value.trim();
-        if (text2 === "" || text2.length > MAX_COMMENT) {
-          error.textContent = say("Write 1 to {count} characters.", { count: MAX_COMMENT });
-          return;
-        }
-        this.overlay.closeDialog();
-        void this.act(row.path, "comment", text2, row.message);
-      });
-      footer.append(close, add);
+      footer.append(close);
+      if (allowed.includes("comment")) {
+        const comment = element(dialog, "label", say("Comment"));
+        const input = dialog.ownerDocument.createElement("input");
+        input.name = "comment";
+        if (summary?.comment_max_chars) input.maxLength = summary.comment_max_chars;
+        input.setAttribute("autocomplete", "off");
+        comment.append(input);
+        dialog.append(comment);
+        const add = button(dialog, say("Add comment"), "comment");
+        add.addEventListener("click", () => {
+          this.overlay.closeDialog();
+          void this.act(row.path, "comment", input.value.trim(), row.message);
+        });
+        footer.append(add);
+      }
       dialog.append(footer);
     }
   };

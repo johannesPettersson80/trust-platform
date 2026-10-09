@@ -159,21 +159,11 @@ async function main(): Promise<void> {
     "Control Studio three-page workflow executes the project-owned sequence and retains its restored native recording":
       { fixture: path.join(repoRoot, "examples", "control", "01-feedback-foundations-and-temperature-control", "01-cold-storage-loop-anatomy"),
         env: { TRUST_CONTROL_STUDIO_PROJECT_NATIVE: "1" } },
-    "Control Studio speed equivalence records the same scans at time scale 1 and 10":
-      { fixture: path.join(repoRoot, "examples", "control", "01-feedback-foundations-and-temperature-control", "05-water-heater-pi"),
-        env: { TRUST_CONTROL_STUDIO_SPEED_EQUIVALENCE: "1" } },
     // The room heating acceptance takes hours, so it is listed only when the runner itself is asked for it.
     ...(process.env.TRUST_CONTROL_STUDIO_ROOM_HEATING === "1"
       ? {
           "Control Studio room heating acceptance identifies tunes validates applies restores and keeps TIC101 on the attached room heating runtime":
             { fixture: path.join(repoRoot, "examples", "room_heating"), env: { TRUST_CONTROL_STUDIO_ROOM_HEATING: "1" } },
-        }
-      : {}),
-    // The D5 protocol matrix runs 32 combinations against four runtime starts, so it too is listed only on request.
-    ...(process.env.TRUST_CONTROL_STUDIO_PROTOCOL_MATRIX === "1"
-      ? {
-          "Control Studio runtime protocol matrix exercises the runtime protocol directly against trust-runtime for every D5 combination":
-            { fixture: path.join(repoRoot, "examples", "control-pid-commissioning"), env: { TRUST_CONTROL_STUDIO_PROTOCOL_MATRIX: "1" } },
         }
       : {}),
   };

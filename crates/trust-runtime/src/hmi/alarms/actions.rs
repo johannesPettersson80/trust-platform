@@ -30,8 +30,6 @@ pub struct AlarmAction {
 
 /// The longest shelving: 24 hours.
 const MAX_SHELVE_SECONDS: f64 = 86_400.0;
-/// The longest comment, the length of the request field.
-const MAX_COMMENT: usize = 120;
 
 /// A shelving's duration as people say it: whole hours in hours, whole minutes in minutes,
 /// otherwise seconds.
@@ -123,7 +121,7 @@ pub fn alarm_action(action: &str, value: Option<&Json>) -> Result<AlarmAction, S
         "comment" => {
             let text = value
                 .and_then(Json::as_str)
-                .filter(|text| !text.trim().is_empty() && text.chars().count() <= MAX_COMMENT)
+                .filter(|text| !text.trim().is_empty() && text.chars().count() <= super::offers::COMMENT_MAX_CHARS)
                 .ok_or_else(|| "a comment has 1 to 120 characters".to_string())?;
             Ok(AlarmAction {
                 kind: EventKind::Comment,

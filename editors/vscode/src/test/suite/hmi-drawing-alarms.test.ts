@@ -37,6 +37,8 @@ function alarm(
     annunciating: true,
     raise_count: 1,
     since_ms: T0 + minute * 60_000,
+    // What the runtime sends an Operator for an alarm in the active list (§5.7 item 4).
+    actions: unacknowledged ? ["acknowledge", "shelve", "comment"] : ["shelve", "comment"],
     ...extra,
   };
 }

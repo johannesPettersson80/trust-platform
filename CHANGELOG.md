@@ -6,6 +6,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Runtime: an experiment on an addressed signal with a declared type now reports its last applied
+  trajectory point (`last_applied`, Control Studio runtime protocol E5.6). It stayed empty because
+  the value read back was compared with the value in the process image's raw form.
 - Control Studio tunes long processes. Experiments may run for up to 24 h and execute at the
   loop task's executions on the runtime's own time, so a busy computer or a faster simulation
   does not change them. Identify holds its step until the response has settled. At the time
@@ -112,6 +115,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   reason alone, without an "interlocked:" prefix. Trends inside panels placed on a page keep
   their history, the PID panel shows the measurement and draws it in its trend, and a device's
   Reset is enabled only while it has a fault.
+- HMI alarms: the runtime decides which actions an alarm offers each user and how it sounds, and
+  refuses an action the alarm's state does not allow, with its reason. Acknowledging an
+  acknowledged alarm, or shelving one that is not in the active list, is now refused.
 - VS Code: the truST sidebar has an HMI destination, and *truST: Open HMI* opens the project's
   start page in the HMI Builder, or the new-screen dialog for a project without screens.
 - HMI Builder: **My equipment** lists the project's own function blocks in the Components panel;

@@ -67,6 +67,12 @@ impl RuntimeAlarms {
         self.board.path(path)
     }
 
+    /// The latest state of one alarm, by its path as the program declares it.
+    #[must_use]
+    pub fn status(&self, path: &str) -> Option<&super::status::AlarmStatus> {
+        self.board.status(path)
+    }
+
     /// An operator's applied action; returns the records it adds at once (a comment), for the
     /// OpenOT ring.
     pub fn operator_action(&mut self, action: OperatorAction) -> Vec<AlarmEvent> {

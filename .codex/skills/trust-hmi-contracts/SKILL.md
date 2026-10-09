@@ -12,8 +12,8 @@ TypeScript. Existing TypeScript logic is debt to move into Rust, not to extend.
 
 HMI logic is Rust: bindings, commands and writes, authorization, alarms, trends, equipment edits and
 page validation live in the runtime or in `trust-lsp`. The HMI Builder webview and the `/hmi` page
-only render and forward. Known TypeScript debt, listed in AGENTS.md: the alarm action and sound
-rules in `display/`, and the agent's page composition and geometry review in `agent/`. Drawing,
+only render and forward. Known TypeScript debt, listed in AGENTS.md: the HMI agent's authoring
+engine in `agent/` (composition, edits, drafts, reviews, requests), which moves in checklist H4. Drawing,
 drag, snapping and pipe routing are presentation and stay in TypeScript.
 
 **Specification 39** (`docs/specs/39-hmi-builder.md`) defines the HMI:

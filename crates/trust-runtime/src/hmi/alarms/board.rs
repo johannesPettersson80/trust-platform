@@ -5,7 +5,11 @@ use std::collections::{BTreeMap, VecDeque};
 
 use serde::Serialize;
 
+use super::offers::{
+    list_of, offered_actions, sound, AlarmList, AlarmSound, COMMENT_MAX_CHARS, SHELVE_FOR_SECONDS,
+};
 use super::status::{AlarmStatus, Priority};
+use crate::security::AccessRole;
 
 /// What happened to an alarm.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -82,6 +86,12 @@ pub struct AlarmRow {
     /// A limit alarm's value against its limit when it was raised.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub raised: Option<super::status::Raised>,
+    /// How it sounds on the display (specification 39, §5.9 item 2).
+    pub sound: AlarmSound,
+    /// The actions its state allows the session the list is sent to (§5.7 item 4), filled by
+    /// [`AlarmSummary::for_role`].
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub actions: Vec<&'static str>,
 }
 
 /// The alarm list as the display shows it (specification 39, §13.6).
@@ -101,6 +111,29 @@ pub struct AlarmSummary {
     pub annunciating: usize,
     /// The newest annunciating alarm, for the top bar.
     pub newest: Option<AlarmRow>,
+    /// The shelving durations an operator chooses from, in seconds.
+    pub shelve_for: &'static [u32],
+    /// The longest comment, in characters.
+    pub comment_max_chars: usize,
+}
+
+impl AlarmSummary {
+    /// The list as a session with `role` receives it: each alarm with the actions its state allows
+    /// that role (specification 39, §5.7 item 4).
+    #[must_use]
+    pub fn for_role(mut self, role: Option<AccessRole>) -> Self {
+        let rows = self
+            .active
+            .iter_mut()
+            .chain(&mut self.shelved)
+            .chain(&mut self.suppressed)
+            .chain(&mut self.out_of_service)
+            .chain(self.newest.as_mut());
+        for row in rows {
+            row.actions = offered_actions(&row.status, role);
+        }
+        self
+    }
 }
 
 /// The most events kept.
@@ -408,21 +441,25 @@ impl AlarmBoard {
     /// The alarm list: annunciating alarms unacknowledged first, then by priority, then newest
     /// first; out-of-service, shelved and suppressed alarms apart (specification 39, §13.6).
     pub fn summary(&self) -> AlarmSummary {
-        let mut summary = AlarmSummary::default();
+        let mut summary = AlarmSummary {
+            shelve_for: &SHELVE_FOR_SECONDS,
+            comment_max_chars: COMMENT_MAX_CHARS,
+            ..AlarmSummary::default()
+        };
         for entry in self.alarms.values() {
             let row = AlarmRow {
                 status: entry.status.clone(),
                 since_ms: entry.since_ms,
                 raised: entry.raised.clone(),
+                sound: sound(&entry.status),
+                actions: Vec::new(),
             };
-            if entry.status.out_of_service {
-                summary.out_of_service.push(row);
-            } else if entry.status.shelved {
-                summary.shelved.push(row);
-            } else if entry.status.suppressed {
-                summary.suppressed.push(row);
-            } else if entry.status.annunciating {
-                summary.active.push(row);
+            match list_of(&entry.status) {
+                Some(AlarmList::OutOfService) => summary.out_of_service.push(row),
+                Some(AlarmList::Shelved) => summary.shelved.push(row),
+                Some(AlarmList::Suppressed) => summary.suppressed.push(row),
+                Some(AlarmList::Active) => summary.active.push(row),
+                None => {}
             }
         }
         summary.active.sort_by(|a, b| {

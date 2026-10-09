@@ -278,6 +278,50 @@ fn executor_stops_on_a_mode_change_and_confirms_the_restoration() {
     assert_eq!(executor_status(&state)["restoration"], json!("restored"));
 }
 
+/// One scan's I/O with an `LREAL` bound to `%ML8`, as a program's `AT %ML8 : LREAL` declaration decodes it.
+fn real_memory(scan: u64, output: f64) -> crate::io::IoSnapshot {
+    crate::io::IoSnapshot {
+        scan: Some(scan),
+        memory: vec![crate::io::IoSnapshotEntry {
+            name: None,
+            address: crate::io::IoAddress::parse("%ML8").expect("address"),
+            value_type: Some(trust_hir::TypeId::LREAL),
+            value: crate::io::IoSnapshotValue::Value(Value::LReal(output)),
+            source: None,
+        }],
+        ..crate::io::IoSnapshot::default()
+    }
+}
+
+/// Annex E5.6: an addressed step is written in the process image's form and reads back as its binding decodes it; it is
+/// confirmed after the execution that follows the write, and the status reports the value read back.
+#[test]
+fn an_addressed_point_is_confirmed_in_its_binding_type_and_reported_as_read_back() {
+    let state = executor_state();
+    let manual = executor_storage(&state, 10.0, true);
+    state
+        .debug
+        .refresh_snapshot_from_storage(&manual, crate::value::Duration::from_millis(0));
+    *state.io_snapshot.lock().expect("I/O snapshot") = Some(real_memory(0, 10.0));
+    let started = executor_start(
+        &state,
+        json!({
+            "kind": "mv_step", "symbol": null, "address": "%ML8", "value_type": "LREAL", "value": 60.0,
+            "restoration_value": 10.0, "mode_binding": { "symbol": "Main.Manual", "manual_value": true }
+        }),
+    );
+    assert!(started.ok, "start failed: {:?}", started.error);
+    executor_publish(&state, 0, real_memory(1, 10.0), &manual, true);
+    assert_eq!(executor_drained_outputs(&state).len(), 1, "the step is written once");
+    assert!(executor_status(&state)["last_applied"].is_null(), "nothing is applied before it is read back");
+    executor_publish(&state, 10, real_memory(2, 60.0), &manual, true);
+    let status = executor_status(&state);
+    let applied = &status["last_applied"];
+    assert_eq!(applied["index"], json!(0));
+    assert_eq!(applied["value"], json!(60.0), "the value read back, as the binding decodes it");
+    assert_eq!(applied["scan"], json!(2));
+}
+
 #[test]
 fn executor_completes_at_its_duration_and_restores_the_setpoint() {
     let state = executor_state();

@@ -7,6 +7,10 @@ import { click, fill, Host, openedWith, settle } from "./hmiDisplayHost";
 // the newest alarm in the runtime display's top bar.
 
 type Priority = "high" | "medium" | "low";
+type Sound = "continuous" | "once" | "none";
+
+/** How the runtime sounds an unacknowledged active alarm of each priority (§5.9 item 2). */
+const SOUNDS: Record<Priority, Sound> = { high: "continuous", medium: "once", low: "none" };
 
 function row(path: string, message: string, priority: Priority, unacknowledged: boolean, sinceMs: number) {
   return {
@@ -23,6 +27,9 @@ function row(path: string, message: string, priority: Priority, unacknowledged: 
     annunciating: true,
     raise_count: 1,
     since_ms: sinceMs,
+    // What the runtime sends an Operator for an alarm in the active list (§5.7 item 4, §5.9 item 2).
+    sound: unacknowledged ? SOUNDS[priority] : ("none" as Sound),
+    actions: unacknowledged ? ["acknowledge", "shelve", "comment"] : ["shelve", "comment"],
   };
 }
 
@@ -41,6 +48,8 @@ function summary(active: Row[], hidden: { shelved?: Row[]; suppressed?: Row[]; o
     unacknowledged: active.filter((alarm) => alarm.unacknowledged).length,
     annunciating: active.length,
     newest,
+    shelve_for: [900, 3_600, 14_400, 28_800, 86_400],
+    comment_max_chars: 120,
   };
 }
 
@@ -185,8 +194,13 @@ const SHELVED = {
   ...row("Pump.Dry", "Pump running dry", "low", false, Date.UTC(2026, 9, 2, 11, 0, 0)),
   shelved: true,
   annunciating: false,
+  actions: ["unshelve", "comment"],
 };
-const LATCHED = { ...row("Tank.Trip", "Tank trip", "high", false, Date.UTC(2026, 9, 2, 12, 20, 0)), latching: true };
+const LATCHED = {
+  ...row("Tank.Trip", "Tank trip", "high", false, Date.UTC(2026, 9, 2, 12, 20, 0)),
+  latching: true,
+  actions: ["reset", "shelve", "comment"],
+};
 
 async function listOpened(session: unknown = undefined): Promise<{ host: Host; root: HTMLElement; window: any }> {
   const host = new Host(listPage());
@@ -250,7 +264,13 @@ suite("HMI display: alarm sound", () => {
     const second = row("Line.Top2", "Pump overload", "high", true, at + 3000);
     await alarms(host, summary([second, high, medium, low]));
     assert.strictEqual(host.sounding, true, "a High alarm raised later sounds again");
-    const acknowledged = (alarm: Row): Row => ({ ...alarm, unacknowledged: false, state: "ActiveAcknowledged" });
+    const acknowledged = (alarm: Row): Row => ({
+      ...alarm,
+      unacknowledged: false,
+      state: "ActiveAcknowledged",
+      sound: "none",
+      actions: ["shelve", "comment"],
+    });
     await alarms(host, summary([acknowledged(second), acknowledged(high), medium, low]));
     assert.strictEqual(host.sounding, false, "acknowledged, it stops");
   });
@@ -402,8 +422,11 @@ suite("HMI display: alarm list", () => {
 
   test("an Engineer can take an alarm out of service and return it; a shelved alarm can be unshelved", async () => {
     const { host, root, window } = await listOpened(ERIK);
-    const away = { ...LEVEL, out_of_service: true, annunciating: false };
-    await alarms(host, { ...summary([OVERFLOW]), shelved: [SHELVED], out_of_service: [away] });
+    // What the runtime sends an Engineer's session (§5.7 item 4).
+    const overflow = { ...OVERFLOW, actions: ["acknowledge", "remove-from-service", "shelve", "comment"] };
+    const shelved = { ...SHELVED, actions: ["unshelve", "remove-from-service", "comment"] };
+    const away = { ...LEVEL, out_of_service: true, annunciating: false, actions: ["return-to-service", "comment"] };
+    await alarms(host, { ...summary([overflow]), shelved: [shelved], out_of_service: [away] });
     click(window, within(root, '[data-part="alarm-row"][data-alarm="Tank.Overflow"]'));
     await settle(host);
     host.reply("/api/hmi/alarm", { status: 200, body: { id: "x", outcome: "applied" } });
@@ -443,9 +466,7 @@ suite("HMI display: alarm list", () => {
     assert.strictEqual(root.querySelector('[data-part="alarm"]'), null, "the dialog closes");
     click(window, within(root, '[data-part="alarm-row"][data-alarm="Tank.Overflow"]'));
     await settle(host);
-    click(window, buttonNamed(dialog(root), "Add comment") as Element);
-    await settle(host);
-    assert.ok(dialog(root).querySelector(".hmi-error")?.textContent, "an empty comment is not sent");
+    // The runtime checks a comment's length and answers with its reason (specification 40, §4).
     fill(window, dialog(root).querySelector("input") as HTMLInputElement, "Level gauge checked");
     click(window, buttonNamed(dialog(root), "Add comment") as Element);
     await settle(host);

@@ -649,14 +649,17 @@ suite("Control Studio apply and validation in process time", () => {
     test("a Restore reviewed later from Apply's report returns a loop found in Auto to Auto (A6.2, B6.4)", async () => {
       await withFake("pid", true, async fake => {
         fake.recording.mode = "stopped";
-        // Each confirmed transfer carries its transaction record, as the runtime's does (E6.8), so the report can be reviewed.
+        // Each confirmed transfer carries its transaction record, as the runtime's does (E6.8), and is kept among the client's
+        // outcomes, as the client keeps each confirmed transfer (runtimeTransfer.ts), so Apply's report can be reviewed.
         const proto: any = RuntimeTransferClient.prototype;
         const fakeApply = proto.apply;
         proto.apply = async function (values: Record<string, number>, ...rest: unknown[]) {
           const before = { ...fake.world.values };
           const status = await fakeApply.call(this, values, ...rest);
-          return { ...status, transaction: { initial_values: before, applied_values: values, observed_values: { ...fake.world.values },
-            confirmation: "output-image" } };
+          const confirmed = { ...status, transaction: { initial_values: before, applied_values: values,
+            observed_values: { ...fake.world.values }, confirmation: "output-image" } };
+          this.outcomes.push(confirmed);
+          return confirmed;
         };
         const result = await (await reviewedCommissioning(fake)).run();
         assert.strictEqual(result.status, "failed", "a failed requirement keeps the settings applied until the engineer decides");

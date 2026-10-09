@@ -630,7 +630,11 @@ missing.
      priority, state, time, first out and how often it was raised, and the actions its state
      allows (specification 40, §4): acknowledge; shelve for 15 minutes or 1, 4, 8 or 24 hours;
      unshelve; reset, for a latching alarm; a comment; and, for an Engineer, out of service and
-     back in service. Without a session an action asks to log in, as controls do;
+     back in service. Without a session an action asks to log in, as controls do. The runtime
+     decides these actions: each alarm in the list it sends carries the actions its state allows
+     the receiving session (`actions`), and the list carries the shelving durations and the longest
+     comment (`shelve_for`, `comment_max_chars`). The display offers exactly these, and the runtime
+     refuses any other action (specification 40, §4);
    - rows that do not fit are shown in pages, with "1–6 of 9" and buttons for the previous and
      the next page; an empty tab says so, for example "No active alarms";
    - in the editor, without a connected source, the list is empty.
@@ -735,7 +739,8 @@ Planned with the user on 3 October 2026.
    - a search box, and quick filters for priority, equipment and unacknowledged alarms;
    - **sound** on the display (EEMUA 191 practice): a High alarm sounds until it is acknowledged
      or silenced, a Medium alarm once, a Low alarm not at all; **Silence** stops the sound
-     without acknowledging;
+     without acknowledging. The runtime says how each alarm sounds (`sound`: `continuous`, `once`
+     or `none`); the display plays it, and keeps only which raises were heard and silenced;
    - User decision, 4 October 2026: a row's click opens its alarm details. **Show equipment**
      in those details opens the page holding the alarm's equipment, with that equipment
      highlighted for five seconds. Prefer its symbol or placed faceplate, using its instance

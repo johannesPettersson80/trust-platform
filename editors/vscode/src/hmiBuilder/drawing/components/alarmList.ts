@@ -367,7 +367,8 @@ function drawRow(
   formats?: DrawFrame["formats"],
 ): SvgNode {
   const priority = alarmPriority(row.priority);
-  const acknowledge = tab === "active" && row.unacknowledged;
+  // The runtime says whether the alarm's state allows this session to acknowledge it (§5.7 item 4).
+  const acknowledge = tab === "active" && (row.actions?.includes("acknowledge") ?? false);
   const mark = priorityMark(priority, PAD + 10, top + ROW / 2, 20);
   if (row.unacknowledged && !stale) blinking(mark, nowMs);
   const middle = top + ROW / 2 + 5;

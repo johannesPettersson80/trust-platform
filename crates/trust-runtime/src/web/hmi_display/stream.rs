@@ -37,7 +37,7 @@ impl StreamSlot {
     /// A slot, or `None` when the most streams are already open.
     pub(super) fn take() -> Option<Self> {
         OPEN_STREAMS
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |open| {
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |open| {
                 (open < MAX_STREAMS).then_some(open + 1)
             })
             .ok()
@@ -135,6 +135,8 @@ impl Stream {
                 session = session_now();
                 if session.is_none() {
                     send(&mut socket, &session_message(None))?;
+                    // The alarms' actions follow the session: send the list again (§5.7 item 4).
+                    alarm_generation = None;
                 }
             }
             // The simulation the header shows (specification 33, §6.1), sent when it changes.
@@ -187,7 +189,8 @@ impl Stream {
             if let Some(snapshot) = alarms.snapshot(alarm_generation, alarm_seq.unwrap_or(u64::MAX))
             {
                 if let Some(summary) = snapshot.summary {
-                    send(&mut socket, &json!({ "alarms": summary }))?;
+                    let role = session.as_ref().map(|session| session.role);
+                    send(&mut socket, &json!({ "alarms": summary.for_role(role) }))?;
                 }
                 if alarm_seq.is_some() && !snapshot.events.is_empty() {
                     send(&mut socket, &json!({ "events": snapshot.events }))?;

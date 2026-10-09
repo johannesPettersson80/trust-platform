@@ -406,8 +406,32 @@ END_PROGRAM
                 "trust-lsp.hmiProposeSettingsPage",
                 "trust-lsp.hmiRenameInstance",
                 "trust-lsp.controlKeepParameters",
+                "trust-lsp.controlStudioOpen",
+                "trust-lsp.controlStudioStatus",
+                "trust-lsp.controlStudioCancel",
             ]
         );
+    }
+
+    /// The language client registers every command the server advertises as a VS Code command, so
+    /// one that shares a name with a command of the extension stops the client from starting
+    /// (specification 35, §0.1a).
+    #[test]
+    fn advertised_commands_never_share_a_name_with_an_extension_command() {
+        let manifest: serde_json::Value = serde_json::from_str(include_str!("../../../../../editors/vscode/package.json"))
+            .expect("the extension's package.json");
+        let contributed = manifest["contributes"]["commands"]
+            .as_array()
+            .expect("the extension contributes commands")
+            .iter()
+            .filter_map(|command| command["command"].as_str());
+        let activating = manifest["activationEvents"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|event| event.as_str()?.strip_prefix("onCommand:"));
+        let shared: Vec<&str> = contributed.chain(activating).filter(|command| EXECUTE_COMMANDS.contains(command)).collect();
+        assert!(shared.is_empty(), "server commands that the extension also defines: {shared:?}");
     }
 
     /// Specification 39, §7.1: the picker names a configured program instance by the type its

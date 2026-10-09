@@ -5301,6 +5301,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-control"
+version = "0.24.66"
+dependencies = [
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "trust-debug"
 version = "0.24.66"
 dependencies = [
@@ -5385,12 +5396,14 @@ dependencies = [
  "sha2",
  "smol_str",
  "text-size",
+ "thiserror 2.0.18",
  "tokio",
  "toml",
  "tower",
  "tower-lsp",
  "tracing",
  "tracing-subscriber",
+ "trust-control",
  "trust-hir",
  "trust-ide",
  "trust-runtime",

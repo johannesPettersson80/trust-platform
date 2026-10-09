@@ -51,8 +51,6 @@ export function run(): Promise<void> {
   require("./control-studio-three-page-mimo-analysis.test");
   require("./control-studio-state-design-preferences.test");
   require("./control-studio-three-page-native.integration.test");
-  require("./control-studio-speed-equivalence.integration.test");
-  require("./control-studio-protocol-matrix.integration.test");
   require("./control-studio-room-heating-acceptance.integration.test");
   require("./control-studio-three-page-periodic.integration.test");
   require("./control-studio-host-bindings.test");

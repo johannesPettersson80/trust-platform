@@ -26,7 +26,7 @@ use super::{respond, viewer, AlarmService, HmiAlarmContext};
 use crate::control::ControlState;
 use crate::hmi::access::policy::require_role;
 use crate::hmi::access::sessions::SessionInfo;
-use crate::hmi::alarms::{alarm_action, AlarmAction};
+use crate::hmi::alarms::{alarm_action, allows, AlarmAction};
 use crate::hmi::commands::plan::matches;
 use crate::hmi::commands::registry::{Begin, CommandAnswer, CommandRegistry, Outcome};
 use crate::hmi::commands::write::{path_text, Written};
@@ -188,6 +188,20 @@ impl Actions {
             .alarm_path(named)
             .ok_or_else(|| refuse(None, format!("the program has no alarm \"{named}\"")))?;
         require_role(action.role, session.role).map_err(|reason| refuse(None, reason))?;
+        // The same rule that decides what the display offers (specification 40, §4).
+        let allowed = self
+            .alarms
+            .alarm_status(&alarm)
+            .is_some_and(|status| allows(&status, session.role, request.action.trim()));
+        if !allowed {
+            return Err(refuse(
+                None,
+                format!(
+                    "the alarm's state does not allow \"{}\" now",
+                    request.action.trim()
+                ),
+            ));
+        }
         let target = MemberPath::parse(&format!("{alarm}.Request.{}", action.field))
             .map_err(|reason| refuse(None, reason))?;
         match write_point(&self.control_state, &target, action.write.clone()) {
@@ -211,7 +225,7 @@ impl Actions {
     /// After an applied action: confirmation by the instance's state, on a thread of its own.
     fn follow(&self, session: SessionInfo, request: AlarmActionRequest, applied: Applied) {
         if FOLLOWED
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| {
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |count| {
                 (count < MAX_FOLLOWED).then_some(count + 1)
             })
             .is_err()

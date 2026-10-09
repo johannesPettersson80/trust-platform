@@ -4366,7 +4366,7 @@ var TrustHmiDrawing = (() => {
   }
   function drawRow(row, tab, top, width, stale, nowMs, columns, formats) {
     const priority = alarmPriority(row.priority);
-    const acknowledge = tab === "active" && row.unacknowledged;
+    const acknowledge = tab === "active" && (row.actions?.includes("acknowledge") ?? false);
     const mark = priorityMark(priority, PAD + 10, top + ROW / 2, 20);
     if (row.unacknowledged && !stale) blinking(mark, nowMs);
     const middle2 = top + ROW / 2 + 5;

@@ -105,6 +105,9 @@ pub const EXECUTE_COMMANDS: &[&str] = &[
     HMI_PROPOSE_SETTINGS_PAGE_COMMAND,
     HMI_RENAME_INSTANCE_COMMAND,
     CONTROL_KEEP_PARAMETERS_COMMAND,
+    trust_lsp::control_studio::commands::OPEN,
+    trust_lsp::control_studio::commands::STATUS,
+    trust_lsp::control_studio::commands::CANCEL,
 ];
 
 #[derive(Debug, Deserialize)]

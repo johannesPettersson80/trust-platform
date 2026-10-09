@@ -209,13 +209,13 @@ pub(super) fn typed_numeric_value(value: &JsonValue, value_type: &str) -> Result
             value_type.to_ascii_uppercase()
         )
     };
-    let signed = || value.as_i64().ok_or_else(&invalid);
-    let unsigned = || value.as_u64().ok_or_else(&invalid);
+    let signed = || value.as_i64().ok_or_else(invalid);
+    let unsigned = || value.as_u64().ok_or_else(invalid);
     let real = || {
         value
             .as_f64()
             .filter(|number| number.is_finite())
-            .ok_or_else(&invalid)
+            .ok_or_else(invalid)
     };
     match value_type.trim().to_ascii_uppercase().as_str() {
         "BOOL" => value.as_bool().map(Value::Bool).ok_or_else(invalid),

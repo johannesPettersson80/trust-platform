@@ -61,6 +61,9 @@ struct ExperimentRecord {
     /// The period between executions: the task's interval, or the resource cycle for the background programs.
     interval: Duration,
     target: ExperimentTarget,
+    /// The type an addressed value is written as, when the request declares one. A value read back is compared in the form it
+    /// was written, because an address reads back as its binding decodes it.
+    declared_type: Option<TypeId>,
     restoration_value: Value,
     restoration_observed_value: Value,
     reviewed_scan: u64,
@@ -557,6 +560,7 @@ pub(super) fn handle_start(
         task,
         interval,
         target: target.clone(),
+        declared_type,
         restoration_value: restoration_write_value,
         restoration_observed_value,
         reviewed_scan: params.expected_scan,

@@ -20,6 +20,37 @@ interacting loop groups and the other structures of Part C. It never
 hard-codes a domain, plant or lesson: names, units and ranges come from the
 project.
 
+### 0.1a Where Control Studio's logic runs (decided 9 October 2026)
+
+All of Control Studio's logic runs in Rust (AGENTS.md, "Hard rule: all logic is in Rust"). That
+covers the calculations (identification, tuning, analysis, evaluation), the workflow rules (when
+an action is allowed, what Apply and Restore do), the runtime clients and the study storage.
+- The calculations and rules are in the pure crate `trust-control`, which does no I/O.
+- The orchestration is in the language server `trust-lsp`. It runs each stage against the runtime
+  and stores the study. The extension calls it through these commands:
+  - `trust-lsp.controlStudioOpen`, `trust-lsp.controlStudioStatus`, `trust-lsp.controlStudioCancel`;
+  - `…Identify`, `…Tune`, `…Validate`, `…Apply`, `…Restore`, `…Keep`;
+  - `…SetupDiscover`, `…SetupSave`.
+
+  The language client registers every command the server advertises as a VS Code command, so no
+  server command shares a name with one of the extension's own commands (the extension's
+  `trust-lsp.controlStudio.open` opens the panel).
+- A long command answers at once with an operation identifier. Its progress and result follow as
+  the notification `trust/controlStudio/update`, and `.status` reattaches to it after a restart
+  (A8.5).
+- The VS Code extension only presents: it shows the pages, forwards the engineer's actions to these
+  commands, and renders their answers. Its message types are generated from the Rust types. It
+  passes the project folder, the selected runtime with its endpoint and control token, and its
+  storage folder for the operation journals (A8.3); the language server never journals the token.
+- A command answers `{"result": …}` or `{"failure": …}`; a failure carries its cause and next
+  action (A11).
+- The runtime keeps the real-time parts it owns today: recordings, experiments, transfers,
+  parameter transactions and isolated runs (the runtime protocol annex).
+
+The move from the TypeScript implementation follows
+`docs/internal/testing/checklists/rust-logic-migration.md`. Until the switch (its stage V6), the
+TypeScript engine still serves the extension.
+
 ### 0.2 Documents and what each owns
 
 | Document | Owns |
@@ -395,9 +426,11 @@ whose signals still exist are carried over.
 
 **A8.3 Location.** Studies are stored in the project, in
 `control-studio/<loop id>/`: one versioned study document and one file per
-recording. VS Code workspace state holds only operation journals (A8.5) and the
-pointer to the current study, so studies travel with the project and large
-recordings stay out of VS Code's state.
+recording. The extension's storage folder for the workspace holds only the
+operation journals (A8.5), one file per loop, which the language server writes
+(§0.1a). Studies travel with the project, and large recordings stay out of
+VS Code's state. A study file of an earlier format is not read: it moves to
+`history/`, and a new study of the loop starts.
 
 **A8.4 Invalidation.** A change invalidates exactly the results that depend on
 it:
@@ -2133,10 +2166,12 @@ simulation mode and attached, with the loop in Auto: Identify with Automatic
 isolated simulation), Apply with observation, Restore previous settings, and
 Keep in project, each through the actual Control Studio. The evidence names
 the project, controller, runtime build, plant, timing and operations. The
-runtime protocol is also exercised directly against `trust-runtime` for each
-combination of: loop in Manual or in Auto; addressed or unaddressed controller
-output; task period equal to the resource cycle or ten times it; time scale 1
-or 10; runtime launched or attached.
+runtime protocol is also exercised directly against `trust-runtime`, in a Rust
+integration test, for each combination of: loop in Manual or in Auto; addressed
+or unaddressed controller output; task period equal to the resource cycle or ten
+times it; time scale 1 or 10. The two ways VS Code reaches a runtime, launched
+by the extension or attached to one started outside it, are proved by the
+rendered journeys, because they differ only in the extension's wiring.
 
 **D6. Rendered review.** The purpose contract's whole-platform visual review
 applies to every Control Studio screen, including the approval block, the

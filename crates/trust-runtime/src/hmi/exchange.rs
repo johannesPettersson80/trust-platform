@@ -430,6 +430,12 @@ impl HmiExchange {
         self.state().alarms.path(path)
     }
 
+    /// The alarm's state as the program's last `Hmi.Display` call read it.
+    #[must_use]
+    pub fn alarm_status(&self, path: &str) -> Option<crate::hmi::alarms::AlarmStatus> {
+        self.state().alarms.status(path).cloned()
+    }
+
     /// An operator's applied action among the records.
     pub fn alarm_operator(&self, action: OperatorAction) {
         let mut state = self.state();

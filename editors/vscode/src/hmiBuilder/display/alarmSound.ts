@@ -1,7 +1,8 @@
-// Sound on the runtime display (specification 39, §5.9 item 2; EEMUA 191 practice): a High alarm
-// sounds until it is acknowledged or silenced, a Medium alarm once when it is raised, a Low alarm
-// not at all. Silence stops the sound without acknowledging; an alarm raised later sounds again.
-// The display sounds where its top bar shows the alarms, beside which Silence appears.
+// Sound on the runtime display (specification 39, §5.9 item 2; EEMUA 191 practice). The runtime
+// says how each alarm sounds (`sound`): continuous until it is acknowledged or silenced, once for
+// each raise, or not at all. This keeps only which raises were heard and which were silenced:
+// Silence stops the sound without acknowledging, and an alarm raised later sounds again. The
+// display sounds where its top bar shows the alarms, beside which Silence appears.
 
 import type { AlarmRowModel, AlarmSummaryModel } from "../drawing/model";
 
@@ -32,7 +33,7 @@ export class AlarmSound {
     if (!this.sounds) return;
     const active = summary?.active ?? [];
     for (const row of active) {
-      if (row.priority === "medium" && row.unacknowledged && !this.heard.has(raise(row))) {
+      if (row.sound === "once" && !this.heard.has(raise(row))) {
         this.heard.add(raise(row));
         this.sounds.play("medium");
       }
@@ -44,7 +45,7 @@ export class AlarmSound {
         this.silenced.delete(key);
       }
     }
-    const loud = active.some((row) => row.priority === "high" && row.unacknowledged && !this.silenced.has(raise(row)));
+    const loud = active.some((row) => row.sound === "continuous" && !this.silenced.has(raise(row)));
     if (loud && !this.loud) this.sounds.play("high");
     else if (!loud && this.loud) this.sounds.stop();
     this.loud = loud;
@@ -53,7 +54,7 @@ export class AlarmSound {
   /** Silence: the High alarms sounding now stop and stay unacknowledged. */
   silence(summary: AlarmSummaryModel | undefined): void {
     for (const row of summary?.active ?? []) {
-      if (row.priority === "high" && row.unacknowledged) this.silenced.add(raise(row));
+      if (row.sound === "continuous") this.silenced.add(raise(row));
     }
     if (this.loud) this.sounds?.stop();
     this.loud = false;

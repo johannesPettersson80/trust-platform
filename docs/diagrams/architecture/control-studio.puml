@@ -44,6 +44,14 @@ package "VS Code extension host" {
   component "Project loop definitions\ncontrol-loops/<name>.json, never overwritten" as loop_files
 }
 
+package "Rust engine (checklist rust-logic-migration.md: V0 foundation; serves the panel from V6)" {
+  component "trust-control (pure, no I/O)\nloop contract: decode, field rules, relationships,\nparked features refused (V7)\nsignal reads (E3), recordings (E4), study container,\nfailures with next actions (A11), stage status (4.2)" as rust_control
+  component "trust-lsp control_studio\ntrust-lsp.controlStudioOpen / Status / Cancel\nlong operations: operationId at once,\ntrust/controlStudio/update notifications" as rust_commands
+  component "Runtime client (annex E1-E4)\nshared control endpoint with inline values\nrequests checked before sending, answers before use" as rust_client
+  database "Rust study files\ncontrol-studio/[loop id]/study.json + recordings/\nformat 1; earlier formats move to history/" as rust_studies
+  database "Operation journal\nextension storage folder, one file per loop\nidentity journaled before dispatch; never a token" as rust_journal
+}
+
 package "Existing analysis and runtime services" {
   component "Bounded numerical workers\nidentification, tuning and model analysis" as workers
   component "Runtime connection/lifecycle owner\nexact simulator/project binding\nexisting start, cancellation and close ownership" as connection
@@ -149,6 +157,12 @@ experiments --> runtime_executor : start, status, finish, abort
 runtime_executor --> running : writes at the loop task's executions
 apply_obs --> transactions : validated target change
 apply_obs --> journals : observation identity and recording
+
+rust_commands --> rust_control : decode, check, decide
+rust_commands --> rust_client : status, inspect, record
+rust_commands <--> rust_studies : only writer
+rust_commands <--> rust_journal : reattach (A8.5)
+rust_client --> running : control.signals.inspect, control.recording.*
 
 note bottom of journals
   Closing the panel detaches this client only. A running identification

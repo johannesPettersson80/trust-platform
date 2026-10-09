@@ -118,7 +118,7 @@ fn request_uses_body_lane(
 
 fn try_acquire(permits: &AtomicUsize) -> bool {
     permits
-        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |available| {
+        .try_update(Ordering::AcqRel, Ordering::Acquire, |available| {
             available.checked_sub(1)
         })
         .is_ok()

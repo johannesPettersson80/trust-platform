@@ -153,7 +153,6 @@ export const WORDS = [
   "Unsuppressed",
   "User",
   "Value",
-  "Write 1 to {count} characters.",
   "Yes",
   "Your session ended. Log in to operate.",
   "any",

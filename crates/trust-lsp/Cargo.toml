@@ -36,6 +36,8 @@ text-size.workspace = true
 smol_str.workspace = true
 percent-encoding.workspace = true
 trust-runtime.workspace = true
+trust-control.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 expect-test.workspace = true

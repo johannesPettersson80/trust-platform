@@ -185,6 +185,19 @@ Each action is a command (specification 39, §12): it needs a session with the r
 audit log, and its outcome is confirmed when the instance shows the action applied (for example
 `Unacknowledged` FALSE after an acknowledgement).
 
+The alarm's state decides which actions it allows. One rule in the runtime decides both what the
+display offers (specification 39, §5.7 item 4) and what the runtime accepts; it refuses any other
+action, with its reason:
+- Acknowledge, while unacknowledged, except while suppressed.
+- Shelve, while in the active list, for one of 15 min, 1 h, 4 h, 8 h or 24 h on the display.
+- Unshelve, while shelved.
+- Reset, for a latching alarm that is active, while in the active list.
+- Out of service, for an Engineer, while in the active or the shelved list.
+- In service, for an Engineer, while out of service.
+- Comment, always.
+
+Without a session the display offers the Operator's actions, and choosing one asks to log in.
+
 ## 5. The runtime's alarm service
 
 1. **Alarm list:** the runtime lists every instance of a block that extends `Alarm.Alarm`, at any

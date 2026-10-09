@@ -6,6 +6,7 @@ mod actions;
 mod board;
 mod discover;
 mod messages;
+mod offers;
 mod runtime_service;
 mod status;
 
@@ -13,10 +14,13 @@ pub use actions::{alarm_action, AlarmAction};
 pub use board::{AlarmBoard, AlarmEvent, AlarmRow, AlarmSummary, EventKind};
 pub use discover::alarm_paths;
 pub use messages::{alarm_messages, AlarmMessage};
+pub use offers::{allows, AlarmSound};
 pub use runtime_service::{AlarmSnapshot, OperatorAction, RuntimeAlarms};
 pub use status::{read_alarms, AlarmStatus, Priority, Raised};
 
 #[cfg(test)]
 mod actions_tests;
+#[cfg(test)]
+mod offers_tests;
 #[cfg(test)]
 mod tests;

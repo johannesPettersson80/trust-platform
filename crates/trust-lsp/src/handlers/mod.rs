@@ -5,6 +5,7 @@
 mod commands;
 mod config;
 mod context;
+mod control_studio;
 mod diagnostics;
 mod features;
 mod formatting;
@@ -20,6 +21,7 @@ pub(crate) use commands::namespace_move_workspace_edit;
 #[cfg(test)]
 pub(crate) use commands::PROJECT_INFO_COMMAND;
 pub use commands::{execute_command, execute_read_command, EXECUTE_COMMANDS};
+pub use control_studio::new_control_studio;
 #[cfg(test)]
 pub(crate) use diagnostics::document_diagnostic;
 pub(crate) use diagnostics::{document_diagnostic_result, workspace_diagnostic};

@@ -15,7 +15,7 @@ use super::pairing::PairingStore;
 use crate::config::WebAuthMode;
 use crate::control::ControlState;
 use crate::hmi::access::sessions::SessionStore;
-use crate::hmi::alarms::{AlarmSnapshot, EventKind, OperatorAction};
+use crate::hmi::alarms::{AlarmSnapshot, AlarmStatus, EventKind, OperatorAction};
 use crate::hmi::commands::registry::{CommandRegistry, Outcome};
 use crate::scheduler::{ResourceControl, StdClock};
 use crate::security::AccessRole;
@@ -43,6 +43,11 @@ impl AlarmService {
     /// The alarm's path as the program declares it, matched without regard to case.
     pub(super) fn alarm_path(&self, path: &str) -> Option<String> {
         self.resource.hmi_exchange().alarm_path(path)
+    }
+
+    /// The alarm's state, for the check of the actions it allows (specification 40, §4).
+    pub(super) fn alarm_status(&self, path: &str) -> Option<AlarmStatus> {
+        self.resource.hmi_exchange().alarm_status(path)
     }
 
     /// Records a command's final outcome among the records (§5.1).
@@ -121,11 +126,18 @@ fn list(request: Request, ctx: &HmiAlarmContext<'_>) {
         let _ = request.respond(auth_error_response(error));
         return;
     }
+    // Each alarm carries the actions its state allows this request's session (§5.7 item 4).
+    let role = super::hmi_operate::session_token(&request)
+        .and_then(|token| ctx.sessions.session(&token))
+        .map(|session| session.role);
     match ctx.alarms.snapshot(None, 0) {
         Some(snapshot) => respond(
             request,
             200,
-            &json!({ "alarms": snapshot.summary.unwrap_or_default(), "events": snapshot.events }),
+            &json!({
+                "alarms": snapshot.summary.unwrap_or_default().for_role(role),
+                "events": snapshot.events,
+            }),
         ),
         None => respond(
             request,

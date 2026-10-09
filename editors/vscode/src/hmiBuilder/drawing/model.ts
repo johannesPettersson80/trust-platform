@@ -250,6 +250,10 @@ export interface AlarmRowModel {
   equipment?: string;
   /** A limit alarm's value against its limit when it was raised (§5.9 item 2). */
   raised?: { value: number; limit: number; high: boolean; source?: string; unit?: string };
+  /** How it sounds on the display (§5.9 item 2), as the runtime decides it. */
+  sound?: "continuous" | "once" | "none";
+  /** The actions its state allows this session (§5.7 item 4), as the runtime decides them. */
+  actions?: string[];
 }
 
 /** The runtime's alarm list (§13.6, item 3). */
@@ -261,6 +265,10 @@ export interface AlarmSummaryModel {
   unacknowledged: number;
   annunciating: number;
   newest: AlarmRowModel | null;
+  /** The shelving durations an operator chooses from, in seconds. */
+  shelve_for?: number[];
+  /** The longest comment, in characters. */
+  comment_max_chars?: number;
 }
 
 /** One record of the runtime's event window (specification 40, §5.1). */

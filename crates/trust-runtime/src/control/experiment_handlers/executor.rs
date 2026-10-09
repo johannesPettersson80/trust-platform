@@ -213,17 +213,28 @@ fn queue_due_point(record: &mut ExperimentRecord, debug: &DebugControl) {
     record.queued_point = Some(index);
 }
 
-/// Reads back the trajectory point queued at the previous execution; it is applied once this execution has run.
+/// Reads back the trajectory point queued at the previous execution; it is applied once this execution has run (annex E5.6).
+/// An address reads back as its binding decodes it while its value was written in the process image's form, so the value
+/// read back is compared in the written form, and the value read back is what the status reports.
 fn confirm_applied_point(record: &mut ExperimentRecord, view: &ScanView<'_>) {
     let Some(index) = record.queued_point else {
         return;
     };
-    let (at, value) = record.trajectory[index].clone();
-    if record.target.observed(view.io, view.storage).as_ref() == Some(&value) {
+    let Some(observed) = record.target.observed(view.io, view.storage) else {
+        return;
+    };
+    let (at, written) = record.trajectory[index].clone();
+    if record
+        .target
+        .coerce(observed.clone(), record.declared_type)
+        .ok()
+        .as_ref()
+        == Some(&written)
+    {
         record.last_applied = Some(AppliedPoint {
             index,
             at,
-            value,
+            value: observed,
             scan: view.io.scan,
             process_time: view.time,
         });

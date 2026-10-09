@@ -31,9 +31,8 @@ truST's logic is written in Rust. There is no exception without the user's writt
   already exists in TypeScript.
 - **Existing TypeScript logic is debt to remove.** Known debt:
   - most of `editors/vscode/src/controlStudio/` (about 36,000 lines);
-  - in `editors/vscode/src/hmiBuilder/` (about 500 lines): the alarm action and alarm sound rules in
-    `display/alarmActions.ts` and `display/alarmSound.ts`, and the agent's page composition and
-    geometry review in `agent/compose.ts` and `agent/geometryQuality.ts`.
+  - in `editors/vscode/src/hmiBuilder/agent/` (about 3,000 lines): the HMI agent's authoring engine,
+    that is its composition, edits, drafts, reviews and request handling (checklist H4).
 
   Do not extend it. When a task touches it, move the touched logic into Rust within the task, or stop
   and tell the user before changing it. The staged plan is
