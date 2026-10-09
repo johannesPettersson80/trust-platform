@@ -4,6 +4,7 @@ use super::*;
 pub(super) enum RefProvenance {
     Unknown,
     LocalFrame,
+    Staging,
     LongerLived,
     InstanceRoot,
 }
@@ -11,6 +12,24 @@ pub(super) enum RefProvenance {
 pub(super) fn validate_reference_escape(
     tables: &ValidationContext<'_>,
     instructions: &[Instruction],
+    budget: &mut ValidationBudget,
+) -> Result<(), BytecodeError> {
+    validate_reference_escape_inner(tables, instructions, None, budget)
+}
+
+pub(super) fn validate_initializer_reference_escape(
+    tables: &ValidationContext<'_>,
+    instructions: &[Instruction],
+    result_is_local: bool,
+    budget: &mut ValidationBudget,
+) -> Result<(), BytecodeError> {
+    validate_reference_escape_inner(tables, instructions, Some(result_is_local), budget)
+}
+
+fn validate_reference_escape_inner(
+    tables: &ValidationContext<'_>,
+    instructions: &[Instruction],
+    result_is_local: Option<bool>,
     budget: &mut ValidationBudget,
 ) -> Result<(), BytecodeError> {
     let ref_table = tables.ref_table;
@@ -23,7 +42,15 @@ pub(super) fn validate_reference_escape(
             0x21 => {
                 let ref_idx = instruction.operand(0);
                 let value = pop_ref_provenance(&mut stack);
-                reject_local_ref_persistence(ref_table, ref_idx, value)?;
+                if value == RefProvenance::Staging {
+                    return Err(RejectionReason::InitializerReferenceEscape.into());
+                }
+                if !(result_is_local == Some(true)
+                    && ref_table.entries[ref_idx as usize].location
+                        == RefLocation::InitializerResult)
+                {
+                    reject_local_ref_persistence(ref_table, ref_idx, value)?;
+                }
             }
             0x22 => {
                 let ref_idx = instruction.operand(0);
@@ -38,6 +65,7 @@ pub(super) fn validate_reference_escape(
                     &mut stack,
                     match base {
                         RefProvenance::LocalFrame => RefProvenance::LocalFrame,
+                        RefProvenance::Staging => RefProvenance::Staging,
                         RefProvenance::LongerLived | RefProvenance::InstanceRoot => {
                             RefProvenance::LongerLived
                         }
@@ -52,6 +80,7 @@ pub(super) fn validate_reference_escape(
                     &mut stack,
                     match base {
                         RefProvenance::LocalFrame => RefProvenance::LocalFrame,
+                        RefProvenance::Staging => RefProvenance::Staging,
                         RefProvenance::LongerLived => RefProvenance::LongerLived,
                         RefProvenance::Unknown | RefProvenance::InstanceRoot => {
                             RefProvenance::Unknown
@@ -62,13 +91,50 @@ pub(super) fn validate_reference_escape(
             0x33 => {
                 let value = pop_ref_provenance(&mut stack);
                 let reference = pop_ref_provenance(&mut stack);
-                if value == RefProvenance::LocalFrame && reference != RefProvenance::LocalFrame {
+                if value == RefProvenance::Staging {
+                    return Err(RejectionReason::InitializerReferenceEscape.into());
+                }
+                if value == RefProvenance::LocalFrame
+                    && reference != RefProvenance::LocalFrame
+                    && !(result_is_local == Some(true) && reference == RefProvenance::Staging)
+                {
                     return Err(BytecodeError::from(
                         RejectionReason::FrameLocalReferenceCannotBeStoredThroughNonLocalReference,
                     ));
                 }
             }
-            0x64 => {
+            0x09 => {
+                let count = instruction.operand(2) as usize;
+                budget.work(count)?;
+                if result_is_local.is_none()
+                    && stack
+                        .iter()
+                        .rev()
+                        .take(count)
+                        .any(|value| *value == RefProvenance::Staging)
+                {
+                    return Err(RejectionReason::InitializerReferenceEscape.into());
+                }
+                apply_unknown_effect(instruction, &mut stack, RefProvenance::Unknown, budget)?;
+            }
+            crate::bytecode::opcodes::ARRAY_SET | crate::bytecode::opcodes::STRUCT_SET => {
+                let value = pop_ref_provenance(&mut stack);
+                let aggregate = pop_ref_provenance(&mut stack);
+                if value == RefProvenance::Staging || aggregate == RefProvenance::Staging {
+                    return Err(RejectionReason::InitializerReferenceEscape.into());
+                }
+                let provenance = if value == RefProvenance::LocalFrame
+                    || aggregate == RefProvenance::LocalFrame
+                {
+                    RefProvenance::LocalFrame
+                } else {
+                    RefProvenance::Unknown
+                };
+                budget.push(&mut stack, provenance)?;
+            }
+            0x64
+            | crate::bytecode::opcodes::COERCE_INIT_VALUE
+            | crate::bytecode::opcodes::APPLY_INIT_VALUE => {
                 let value = pop_ref_provenance(&mut stack);
                 budget.push(&mut stack, value)?;
             }
@@ -84,6 +150,7 @@ pub(super) fn pop_ref_provenance(stack: &mut Vec<RefProvenance>) -> RefProvenanc
 
 pub(super) fn ref_provenance_for_ref(ref_table: &RefTable, ref_idx: u32) -> RefProvenance {
     match ref_table.entries.get(ref_idx as usize) {
+        Some(entry) if entry.location == RefLocation::InitializerResult => RefProvenance::Staging,
         Some(entry) if entry.location == RefLocation::Local => RefProvenance::LocalFrame,
         Some(_) => RefProvenance::LongerLived,
         None => RefProvenance::Unknown,

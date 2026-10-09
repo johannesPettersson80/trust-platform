@@ -108,9 +108,7 @@ fn write_targets_only_the_selected_process_image_area() {
     interface.outputs_mut()[0] = 2;
     interface.memory_mut()[0] = 3;
 
-    interface
-        .write(&address("%QB0"), Value::Byte(9))
-        .unwrap();
+    interface.write(&address("%QB0"), Value::Byte(9)).unwrap();
 
     assert_eq!(interface.inputs(), &[1]);
     assert_eq!(interface.outputs(), &[9]);
@@ -233,18 +231,9 @@ fn fixed_string_read_stops_at_nul_and_rejects_invalid_utf8_prefix() {
 fn unallocated_multibyte_reads_zero_fill_without_growing() {
     let interface = IoInterface::new();
 
-    assert_eq!(
-        interface.read(&address("%IW10")).unwrap(),
-        Value::Word(0)
-    );
-    assert_eq!(
-        interface.read(&address("%QD20")).unwrap(),
-        Value::DWord(0)
-    );
-    assert_eq!(
-        interface.read(&address("%ML30")).unwrap(),
-        Value::LWord(0)
-    );
+    assert_eq!(interface.read(&address("%IW10")).unwrap(), Value::Word(0));
+    assert_eq!(interface.read(&address("%QD20")).unwrap(), Value::DWord(0));
+    assert_eq!(interface.read(&address("%ML30")).unwrap(), Value::LWord(0));
     assert!(interface.inputs().is_empty());
     assert!(interface.outputs().is_empty());
     assert!(interface.memory().is_empty());

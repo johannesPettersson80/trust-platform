@@ -13,6 +13,7 @@ mod stack;
 
 pub use const_pool::decode_const_pool_entries;
 pub use dispatch_ops::{apply_jump, execute_binary, execute_unary, read_i32, read_u32};
+pub(crate) use dispatch_sizeof::sizeof_primitive_type;
 pub use dispatch_sizeof::sizeof_type_from_table;
 pub use errors::VmTrap;
 pub use frames::{ensure_global_call_depth, FrameStack, VmFrame};

@@ -7,6 +7,37 @@ use core::fmt;
 /// stable machine code and diagnostic text; callers need not write string literals.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RejectionReason {
+    /// storage declaration differs from its POU signature.
+    ConstructionSignatureMismatch,
+    /// storage slots must be dense and unique.
+    NonDenseStorageSlots,
+    /// construction section flags must be zero.
+    ReservedConstructionSectionFlags,
+    /// declared construction demand differs from type demand.
+    ConstructionDemandMismatch,
+    /// An initializer write is not proven to target its private staging storage.
+    InitializerWriteOutsideStaging,
+    /// An initializer native argument encoding does not match its operand list.
+    InvalidInitializerNativeArguments,
+    /// A statically resolved CALL_NATIVE receiver is not an FB.
+    SourceFreeReceiverNotFunctionBlock,
+    /// invalid construction record.
+    InvalidConstructionRecord,
+    /// invalid initializer record.
+    InvalidInitializerRecord,
+    /// initializer result reference outside its owning range.
+    InitializerReferenceScope,
+    /// initializer result reference escapes staging storage.
+    InitializerReferenceEscape,
+    /// construction demand exceeds fixed resource limit.
+    ConstructionDemandOverflow,
+    /// incomplete source-free construction metadata.
+    IncompleteConstructionMetadata,
+    /// initializer reference exceeds declared visibility.
+    InitializerVisibility,
+    /// initializer code range is invalid or overlaps another body.
+    InitializerCodeRange,
+
     /// Internal validator flow work item has no retained entry state.
     MissingBlockEntryState,
     /// Type kind and its payload variant disagree.
@@ -161,6 +192,35 @@ impl RejectionReason {
     /// Existing human-readable diagnostic for this reason.
     pub const fn message(self) -> &'static str {
         match self {
+            Self::InitializerWriteOutsideStaging => "initializer write outside staging storage",
+            Self::InvalidInitializerNativeArguments => {
+                "invalid initializer native argument encoding"
+            }
+            Self::ConstructionDemandMismatch => {
+                "declared construction demand differs from type demand"
+            }
+            Self::ReservedConstructionSectionFlags => "construction section flags must be zero",
+            Self::NonDenseStorageSlots => "storage slots must be dense and unique",
+            Self::ConstructionSignatureMismatch => {
+                "storage declaration differs from its POU signature"
+            }
+            Self::SourceFreeReceiverNotFunctionBlock => {
+                "CALL_NATIVE receiver is not a function block"
+            }
+            Self::InvalidConstructionRecord => "invalid construction record",
+            Self::InvalidInitializerRecord => "invalid initializer record",
+            Self::InitializerReferenceScope => {
+                "initializer result reference outside its owning range"
+            }
+            Self::InitializerReferenceEscape => {
+                "initializer result reference escapes staging storage"
+            }
+            Self::ConstructionDemandOverflow => "construction demand exceeds fixed resource limit",
+            Self::IncompleteConstructionMetadata => "incomplete source-free construction metadata",
+            Self::InitializerVisibility => "initializer reference exceeds declared visibility",
+            Self::InitializerCodeRange => {
+                "initializer code range is invalid or overlaps another body"
+            }
             Self::TypePayloadMismatch => "type kind and payload disagree",
             Self::ArithmeticOpcodeExpectsNumericOperands => {
                 "arithmetic opcode expects numeric operands"

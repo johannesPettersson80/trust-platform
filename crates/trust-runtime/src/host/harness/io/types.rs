@@ -8,11 +8,11 @@ struct IoLeafBinding {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct InstanceBinding {
-    pub(super) reference: crate::value::ValueRef,
-    pub(super) type_id: TypeId,
-    pub(super) address: IoAddress,
-    pub(super) display_name: SmolStr,
+pub(crate) struct InstanceBinding {
+    pub(crate) reference: crate::value::ValueRef,
+    pub(crate) type_id: TypeId,
+    pub(crate) address: IoAddress,
+    pub(crate) display_name: SmolStr,
 }
 
 #[derive(Debug, Clone)]
@@ -21,7 +21,7 @@ enum FieldAddress {
     Absolute(IoAddress),
 }
 
-pub(super) fn bind_value_ref_to_address(
+pub(crate) fn bind_value_ref_to_address(
     io: &mut crate::io::IoInterface,
     registry: &TypeRegistry,
     reference: crate::value::ValueRef,

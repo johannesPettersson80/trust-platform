@@ -12,11 +12,33 @@ fn effect(instruction: &Instruction) -> Result<StackEffect, BytecodeError> {
         0x00..=0x02 | 0x05 | 0x06 | 0x70 => (0, 0),
         0x03 | 0x04 | 0x12 | 0x21 => (1, 0),
         0x09 => (instruction.operand(2) as usize, 1),
-        0x10 | 0x20 | 0x22..=0x25 | 0x60 => (0, 1),
+        0x10
+        | 0x20
+        | 0x22..=0x25
+        | 0x60
+        | crate::bytecode::opcodes::DEFAULT_VALUE
+        | crate::bytecode::opcodes::DEFAULT_TYPED
+        | crate::bytecode::opcodes::ARRAY_NEW
+        | crate::bytecode::opcodes::STRUCT_NEW => (0, 1),
         0x11 => return Ok(StackEffect::Duplicate),
         0x13 => return Ok(StackEffect::Swap),
-        0x30 | 0x32 | 0x45 | 0x49 | 0x61 | 0x62 | 0x64 => (1, 1),
-        0x31 | 0x40..=0x44 | 0x46..=0x48 | 0x4C | 0x50..=0x55 | 0x63 => (2, 1),
+        0x30
+        | 0x32
+        | 0x45
+        | 0x49
+        | 0x61
+        | 0x62
+        | 0x64
+        | crate::bytecode::opcodes::COERCE_INIT_VALUE
+        | crate::bytecode::opcodes::APPLY_INIT_VALUE => (1, 1),
+        0x31
+        | 0x40..=0x44
+        | 0x46..=0x48
+        | 0x4C
+        | 0x50..=0x55
+        | 0x63
+        | crate::bytecode::opcodes::ARRAY_SET
+        | crate::bytecode::opcodes::STRUCT_SET => (2, 1),
         0x33 => (2, 0),
         opcode => return Err(BytecodeError::InvalidOpcode(opcode)),
     };

@@ -1,6 +1,6 @@
 use smol_str::SmolStr;
 
-use crate::memory::{FrameId, InstanceId, IoArea, MemoryLocation};
+use crate::memory::{InstanceId, IoArea, MemoryLocation};
 use crate::value::{ref_indices_from_iter, RefSegment as ValueRefSegment, Value, ValueRef};
 
 use crate::bytecode::{RefEntry, RefLocation, RefSegment};
@@ -65,6 +65,26 @@ impl<'a> BytecodeEncoder<'a> {
         if let Some(reference) = ctx.static_ref(name) {
             return Ok(Some(reference.clone()));
         }
+        if self.authoring.is_some() {
+            if let Some(reference) = ctx
+                .instance_id
+                .and_then(|id| self.construction.bindings.instance(id, name))
+            {
+                return Ok(Some(reference.clone()));
+            }
+            let global = self.construction.bindings.global(name);
+            if let Some(alias) = self.construction.aliases.get(&key) {
+                if global.is_some() {
+                    return Err(BytecodeError::InvalidSection(
+                        "access alias conflicts with global".into(),
+                    ));
+                }
+                if alias.partial.is_none() {
+                    return Ok(Some(alias.reference.clone()));
+                }
+            }
+            return Ok(global.cloned());
+        }
         if let Some(instance_id) = ctx.instance_id {
             if let Some(reference) = self
                 .runtime
@@ -116,7 +136,12 @@ impl<'a> BytecodeEncoder<'a> {
         }
         let (location, owner_id) = match value_ref.location {
             MemoryLocation::Global => (RefLocation::Global, 0),
-            MemoryLocation::Local(FrameId(id)) => (RefLocation::Local, id),
+            MemoryLocation::Local(frame) => {
+                match self.construction.bodies.result_frames.get(&frame) {
+                    Some(initializer) => (RefLocation::InitializerResult, *initializer),
+                    None => (RefLocation::Local, frame.0),
+                }
+            }
             MemoryLocation::Instance(InstanceId(id)) => (RefLocation::Instance, id),
             MemoryLocation::Retain => (RefLocation::Retain, 0),
             MemoryLocation::Io(area) => {

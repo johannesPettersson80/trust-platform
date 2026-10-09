@@ -12,14 +12,35 @@ use super::{BytecodeEncoder, BytecodeError};
 
 impl<'a> BytecodeEncoder<'a> {
     pub(super) fn build_resource_meta(&mut self) -> Result<ResourceMeta, BytecodeError> {
-        let name_idx = self.strings.intern(self.runtime.resource_name().clone());
-        let (inputs, outputs, memory) = process_image_sizes(self.runtime.io());
-        let inputs_size = to_u32(inputs, "inputs size")?;
-        let outputs_size = to_u32(outputs, "outputs size")?;
-        let memory_size = to_u32(memory, "memory size")?;
+        let resource_name = self
+            .authoring
+            .and_then(|input| input.configuration.as_ref())
+            .and_then(|config| config.resource_name.as_ref())
+            .unwrap_or_else(|| self.runtime.resource_name())
+            .clone();
+        let name_idx = self.strings.intern(resource_name);
+        let io = if self.authoring.is_some() {
+            &self.construction.io
+        } else {
+            self.runtime.io()
+        };
+        let (inputs, outputs, memory) = process_image_sizes(io);
+        let inputs_size =
+            to_u32(inputs, "inputs size")?.max(self.construction.direct_image_extents[0]);
+        let outputs_size =
+            to_u32(outputs, "outputs size")?.max(self.construction.direct_image_extents[1]);
+        let memory_size =
+            to_u32(memory, "memory size")?.max(self.construction.direct_image_extents[2]);
 
         let mut tasks = Vec::new();
-        for task in self.runtime.tasks() {
+        let source_tasks = self
+            .authoring
+            .is_some()
+            .then(|| self.construction.tasks.clone());
+        for task in source_tasks
+            .as_deref()
+            .unwrap_or_else(|| self.runtime.tasks())
+        {
             let task_name_idx = self.strings.intern(task.name.clone());
             let single_name_idx = task
                 .single
@@ -55,8 +76,32 @@ impl<'a> BytecodeEncoder<'a> {
     }
 
     pub(super) fn build_io_map(&mut self) -> Result<IoMap, BytecodeError> {
+        // Hosted bindings normalize STRING to its builtin type while Bytes(n)
+        // retains capacity. STBC 2.0 must carry that capacity in TYPE_TABLE.
+        let mut bounded_strings = std::collections::HashMap::new();
+        if self.authoring.is_some() {
+            for (index, entry) in self.types.iter().enumerate() {
+                if let crate::bytecode::TypeData::Primitive {
+                    prim_id: 24,
+                    max_length,
+                } = entry.data
+                {
+                    if max_length != 0 {
+                        bounded_strings
+                            .insert(u32::from(max_length), to_u32(index, "I/O type index")?);
+                    }
+                }
+            }
+        }
         let mut bindings = Vec::new();
-        for binding in self.runtime.io().bindings() {
+        let source_bindings = self
+            .authoring
+            .is_some()
+            .then(|| self.construction.io.bindings().to_vec());
+        for binding in source_bindings
+            .as_deref()
+            .unwrap_or_else(|| self.runtime.io().bindings())
+        {
             let address = format_io_address(&binding.address);
             let address_str_idx = self.strings.intern(address);
             let reference = match &binding.target {
@@ -68,10 +113,23 @@ impl<'a> BytecodeEncoder<'a> {
                     .ok_or_else(|| BytecodeError::InvalidSection("unresolved IO binding".into()))?,
             };
             let ref_idx = self.ref_index_for(&reference)?;
-            let type_id = binding
-                .value_type
-                .map(|type_id| self.type_index(type_id))
-                .transpose()?;
+            let type_id = match (
+                self.authoring.is_some(),
+                binding.value_type,
+                binding.address.size,
+            ) {
+                (true, Some(trust_hir::TypeId::STRING), crate::io::IoSize::Bytes(width)) => {
+                    Some(*bounded_strings.get(&width).ok_or_else(|| {
+                        BytecodeError::InvalidSection(
+                            "bounded STRING I/O declaration type missing".into(),
+                        )
+                    })?)
+                }
+                _ => binding
+                    .value_type
+                    .map(|type_id| self.type_index(type_id))
+                    .transpose()?,
+            };
             bindings.push(IoBinding {
                 address_str_idx,
                 ref_idx,

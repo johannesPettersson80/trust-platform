@@ -57,6 +57,10 @@ impl BytecodeModule {
     pub fn validate(&self) -> Result<(), BytecodeError> {
         self.view().validate()
     }
+    /// Inspect versioned bytecode and initialization records without executing them.
+    pub fn disassemble(&self) -> Result<String, BytecodeError> {
+        self.view().disassemble()
+    }
     /// Extract resource metadata without preparing executable state.
     pub fn metadata(&self) -> Result<BytecodeMetadata, BytecodeError> {
         self.view().metadata()
@@ -84,6 +88,14 @@ impl From<BytecodeModule> for trust_runtime_core::bytecode::BytecodeModule {
 }
 
 impl BytecodeModule {
+    /// Validate the 2.0 source-free format without claiming hosted execution support.
+    pub fn validated_source_free(
+        &self,
+        limits: ValidationLimits,
+    ) -> Result<ValidatedBytecode<'_>, BytecodeError> {
+        self.view().validated_source_free(limits)
+    }
+
     /// Obtain a borrowed validation token before hosted VM materialization.
     pub fn validated(&self) -> Result<ValidatedBytecode<'_>, BytecodeError> {
         self.view().validated()

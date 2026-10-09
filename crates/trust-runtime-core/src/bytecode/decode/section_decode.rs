@@ -8,6 +8,17 @@ pub(super) fn decode_section_data(
     let Some(kind) = SectionId::from_raw(id) else {
         return Ok(SectionData::Raw(payload.to_vec()));
     };
+    if version.major == 1
+        && matches!(
+            kind,
+            SectionId::StorageLayout
+                | SectionId::ConstructionRoots
+                | SectionId::Initializers
+                | SectionId::AccessBindings
+        )
+    {
+        return Ok(SectionData::Raw(payload.to_vec()));
+    }
     let mut reader = BytecodeReader::new(payload);
     let data = match kind {
         SectionId::StringTable | SectionId::DebugStringTable => {
@@ -25,7 +36,7 @@ pub(super) fn decode_section_data(
         }
         SectionId::TypeTable => SectionData::TypeTable(decode_type_table(version, payload)?),
         SectionId::ConstPool => SectionData::ConstPool(decode_const_pool(&mut reader)?),
-        SectionId::RefTable => SectionData::RefTable(decode_ref_table(&mut reader)?),
+        SectionId::RefTable => SectionData::RefTable(decode_ref_table(version, &mut reader)?),
         SectionId::PouIndex => SectionData::PouIndex(decode_pou_index(version, &mut reader)?),
         SectionId::PouBodies => SectionData::PouBodies(payload.to_vec()),
         SectionId::ResourceMeta => SectionData::ResourceMeta(decode_resource_meta(&mut reader)?),
@@ -33,6 +44,10 @@ pub(super) fn decode_section_data(
         SectionId::DebugMap => SectionData::DebugMap(decode_debug_map(&mut reader)?),
         SectionId::VarMeta => SectionData::VarMeta(decode_var_meta(&mut reader)?),
         SectionId::RetainInit => SectionData::RetainInit(decode_retain_init(&mut reader)?),
+        SectionId::StorageLayout
+        | SectionId::ConstructionRoots
+        | SectionId::Initializers
+        | SectionId::AccessBindings => construction::decode_construction(kind, payload)?,
     };
     Ok(data)
 }
@@ -51,7 +66,10 @@ pub(super) fn decode_const_pool(
     Ok(ConstPool { entries })
 }
 
-pub(super) fn decode_ref_table(reader: &mut BytecodeReader<'_>) -> Result<RefTable, BytecodeError> {
+pub(super) fn decode_ref_table(
+    version: BytecodeVersion,
+    reader: &mut BytecodeReader<'_>,
+) -> Result<RefTable, BytecodeError> {
     let count = read_bounded_count_with_limit(reader, 16, BYTECODE_MAX_REFERENCES, "REF_TABLE")?;
     let mut entries = Vec::with_capacity(count);
     for _ in 0..count {
@@ -61,6 +79,9 @@ pub(super) fn decode_ref_table(reader: &mut BytecodeReader<'_>) -> Result<RefTab
         let owner_id = reader.read_u32()?;
         let offset = reader.read_u32()?;
         let segment_count = read_bounded_count(reader, 8, "REF_TABLE segment")?;
+        if location == 5 && version.major != 2 {
+            return Err(RejectionReason::InvalidRefLocation.into());
+        }
         let location = RefLocation::from_raw(location)
             .ok_or_else(|| BytecodeError::from(RejectionReason::InvalidRefLocation))?;
         let mut segments = Vec::with_capacity(segment_count);
@@ -116,7 +137,11 @@ pub(super) fn decode_pou_index(
         }
         let return_type_id = optional_u32(reader.read_u32()?);
         let owner_pou_id = optional_u32(reader.read_u32()?);
-        let parameter_bytes = if version.minor >= 1 { 16 } else { 12 };
+        let parameter_bytes = if version.uses_extended_layout() {
+            16
+        } else {
+            12
+        };
         let param_count = read_bounded_count_with_limit(
             reader,
             parameter_bytes,
@@ -133,7 +158,7 @@ pub(super) fn decode_pou_index(
             let direction = reader.read_u8()?;
             let _flags = reader.read_u8()?;
             let _reserved = reader.read_u16()?;
-            let default_const_idx = if version.minor >= 1 {
+            let default_const_idx = if version.uses_extended_layout() {
                 optional_u32(reader.read_u32()?)
             } else {
                 None

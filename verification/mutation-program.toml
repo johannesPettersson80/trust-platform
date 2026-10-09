@@ -30,11 +30,11 @@ legacy_report_path = "docs/internal/testing/evidence/plc-verification-program/20
 [[shards.mutations]]
 id = "MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS"
 source_file = "crates/trust-runtime-core/src/bytecode/validate/pou_and_instr.rs"
-source_digest = "sha256:5d7eb673ea85e133c42c5d9ffc9b9c4d32ea6735f003786904567c2606c7cfb0"
+source_digest = "sha256:560a66139deb186c8a0c7378a1392e4f0bc1660ea731cdeaf72b23d1d444a7ba"
 function = "validate_pou_index"
 genre = "FnValue"
 replacement = "Ok(())"
-selector_name = "pou_and_instr.rs:8:5: replace validate_pou_index -> Result<(), BytecodeError> with Ok(())"
+selector_name = "pou_and_instr.rs:9:5: replace validate_pou_index -> Result<(), BytecodeError> with Ok(())"
 build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation", "--no-run"]
 test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation"]
 association_ids = [
@@ -47,11 +47,11 @@ association_ids = [
 [[shards.mutations]]
 id = "MUTANT_VALIDATE_STACK_SHAPE_BYPASS"
 source_file = "crates/trust-runtime-core/src/bytecode/validate/stack_shape.rs"
-source_digest = "sha256:699c4e17168948338ff7859ec1be0873ce2858a16ad98e7169240763e71bd523"
+source_digest = "sha256:16dbb957ae406bb1a6bb9148b74d4ef879a0dbef7bebb5ff29b1bec04657c331"
 function = "validate_stack_shape"
 genre = "FnValue"
 replacement = "Ok(())"
-selector_name = "stack_shape.rs:18:5: replace validate_stack_shape -> Result<(), BytecodeError> with Ok(())"
+selector_name = "stack_shape.rs:21:5: replace validate_stack_shape -> Result<(), BytecodeError> with Ok(())"
 build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_vm_core", "--no-run"]
 test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_vm_core", "vm_rejects_stack_underflow", "--", "--exact"]
 association_ids = ["VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C"]

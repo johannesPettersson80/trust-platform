@@ -9,6 +9,23 @@ skinparam ranksep 35
 
 title truST Runtime: VM Execution and Helper Evaluation
 
+package "Opt-in STBC 2.0 authoring (A3)" as sourceFreeAuthoring {
+    component "CompileSession::build_bytecode_module_for_version" as sourceFreeApi
+    component "LoweredApplication\noriginal declarations and Exprs\nno startup evaluation" as loweredApplication
+    component "bytecode::encoder::construction\nreachable templates, actions, shared recipes\nI/O, task and access bindings" as constructionEncoder
+    artifact "STBC 2.0\nTYPE_TABLE + construction metadata\nordinary bytecode initializer bodies" as sourceFreeArtifact
+    sourceFreeApi --> loweredApplication
+    loweredApplication --> constructionEncoder
+    constructionEncoder --> sourceFreeArtifact
+    note bottom of sourceFreeArtifact
+        Portable format and staging-write validation; no HIR in the artifact.
+        Initial and after-restart static contexts remain distinct.
+        Hosted execution rejects 2.0 until A4's shared dispatcher
+        implements typed helpers and runtime lifetime/visibility checks.
+    end note
+}
+
+
 component "trust-runtime-core::numeric::math\nlocked libm primitives\nshared by operators and hosted stdlib" as coreMath
 note right of coreMath
     A1 preserves promotion, narrowing and fault policy.

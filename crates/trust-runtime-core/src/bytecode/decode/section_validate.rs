@@ -4,10 +4,14 @@ pub(super) fn validate_section_entries(
     file_len: usize,
     payload_start: usize,
     entries: &[SectionEntry],
+    version: BytecodeVersion,
 ) -> Result<(), BytecodeError> {
     let mut standardized_ids = alloc::collections::BTreeSet::new();
     for entry in entries {
-        if SectionId::from_raw(entry.id).is_some() && !standardized_ids.insert(entry.id) {
+        if SectionId::from_raw(entry.id).is_some()
+            && (version.major == 2 || entry.id < SectionId::StorageLayout.as_raw())
+            && !standardized_ids.insert(entry.id)
+        {
             return Err(BytecodeError::InvalidSection(
                 format!("duplicate standardized section id 0x{:04X}", entry.id).into(),
             ));

@@ -11,6 +11,8 @@ use super::{
     NATIVE_CALL_KIND_FUNCTION_BLOCK,
 };
 
+mod construction;
+pub use construction::construction_demands;
 mod context;
 use context::*;
 mod instructions;

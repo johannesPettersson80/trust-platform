@@ -36,6 +36,14 @@ pub enum SectionId {
     VarMeta = 0x000B,
     /// Retain Init record.
     RetainInit = 0x000C,
+    /// STBC 2.0 declaration templates.
+    StorageLayout = 0x000D,
+    /// STBC 2.0 persistent root bindings.
+    ConstructionRoots = 0x000E,
+    /// STBC 2.0 executable initializer ranges.
+    Initializers = 0x000F,
+    /// STBC 2.0 named access aliases and permissions.
+    AccessBindings = 0x0010,
 }
 
 impl SectionId {
@@ -55,6 +63,10 @@ impl SectionId {
             0x000A => Some(Self::DebugStringTable),
             0x000B => Some(Self::VarMeta),
             0x000C => Some(Self::RetainInit),
+            0x000D => Some(Self::StorageLayout),
+            0x000E => Some(Self::ConstructionRoots),
+            0x000F => Some(Self::Initializers),
+            0x0010 => Some(Self::AccessBindings),
             _ => None,
         }
     }
@@ -117,6 +129,14 @@ pub enum SectionData {
     VarMeta(VarMeta),
     /// Retain Init record.
     RetainInit(RetainInit),
+    /// STBC 2.0 storage declaration templates.
+    StorageLayout(StorageLayout),
+    /// STBC 2.0 persistent construction roots.
+    ConstructionRoots(ConstructionRoots),
+    /// STBC 2.0 executable initialization plans.
+    Initializers(InitializerIndex),
+    /// STBC 2.0 named access aliases and permissions.
+    AccessBindings(AccessBindings),
     /// Uninterpreted payload for an unknown section.
     Raw(Vec<u8>),
 }

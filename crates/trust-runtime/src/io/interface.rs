@@ -8,7 +8,7 @@ pub struct IoInterface {
     hierarchical: std::collections::HashMap<IoAddressKey, Value>,
 }
 
-pub const PROCESS_IMAGE_AREA_LIMIT: usize = 16 * 1024 * 1024;
+pub use trust_runtime_core::io_address::PROCESS_IMAGE_AREA_LIMIT;
 
 impl IoInterface {
     #[must_use]
@@ -385,8 +385,12 @@ impl IoInterface {
                 } else {
                     &[]
                 };
-                let nul = bytes.iter().position(|byte| *byte == 0).unwrap_or(bytes.len());
-                let text = std::str::from_utf8(&bytes[..nul]).map_err(|_| RuntimeError::TypeMismatch)?;
+                let nul = bytes
+                    .iter()
+                    .position(|byte| *byte == 0)
+                    .unwrap_or(bytes.len());
+                let text =
+                    std::str::from_utf8(&bytes[..nul]).map_err(|_| RuntimeError::TypeMismatch)?;
                 Ok(Value::String(SmolStr::new(text)))
             }
         }
@@ -544,9 +548,9 @@ pub fn validate_process_image_address(address: &IoAddress) -> Result<(), Runtime
             RuntimeError::InvalidIoAddress("process image byte window is too large".into())
         })?,
     };
-    let last_byte = byte.checked_add(extra).ok_or_else(|| {
-        RuntimeError::InvalidIoAddress("process image address overflow".into())
-    })?;
+    let last_byte = byte
+        .checked_add(extra)
+        .ok_or_else(|| RuntimeError::InvalidIoAddress("process image address overflow".into()))?;
     if last_byte >= PROCESS_IMAGE_AREA_LIMIT {
         return process_image_area_limit_error("process image address");
     }
@@ -615,10 +619,16 @@ mod tests {
         label_address.size = IoSize::Bytes(12);
         interface.bind_typed("Label", label_address.clone(), TypeId::STRING);
         interface
-            .write(&IoAddress::parse("%MD0").expect("real address"), Value::DWord(0x3FC0_0000))
+            .write(
+                &IoAddress::parse("%MD0").expect("real address"),
+                Value::DWord(0x3FC0_0000),
+            )
             .expect("write REAL bits");
         interface
-            .write(&IoAddress::parse("%MD4").expect("time address"), Value::DWord(250))
+            .write(
+                &IoAddress::parse("%MD4").expect("time address"),
+                Value::DWord(250),
+            )
             .expect("write TIME millis");
         interface
             .write(&label_address, Value::String(SmolStr::new("Ready")))
@@ -696,9 +706,7 @@ mod tests {
 
             assert_eq!(
                 err,
-                RuntimeError::IoDriver(
-                    "typed REAL process-image value must be finite".into()
-                ),
+                RuntimeError::IoDriver("typed REAL process-image value must be finite".into()),
                 "{value:?}"
             );
             assert_eq!(interface.outputs(), &[0xA5; 4], "{value:?}");

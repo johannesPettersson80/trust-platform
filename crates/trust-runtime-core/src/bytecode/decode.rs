@@ -14,7 +14,7 @@ use super::{
     SectionData, SectionEntry, SectionId, StringTable, TypeData, TypeEntry, TypeKind, TypeTable,
     VarMeta, VarMetaEntry, BYTECODE_MAX_CONTAINER_BYTES, BYTECODE_MAX_LOCALS_PER_POU,
     BYTECODE_MAX_PARAMETERS_PER_POU, BYTECODE_MAX_REFERENCES, HEADER_FLAG_CRC32, HEADER_SIZE,
-    MAGIC, SECTION_ENTRY_SIZE, SUPPORTED_MAJOR_VERSION,
+    MAGIC, SECTION_ENTRY_SIZE,
 };
 
 fn read_bounded_count(
@@ -66,3 +66,5 @@ mod string_type_decode;
 use string_type_decode::*;
 mod section_validate;
 use section_validate::*;
+
+mod construction;

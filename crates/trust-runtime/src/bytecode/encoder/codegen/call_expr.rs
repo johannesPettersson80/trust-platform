@@ -89,11 +89,21 @@ impl<'a> BytecodeEncoder<'a> {
                 ));
             }
         }
-        let default = self.disabled_call_result_default(&target)?;
-        if !self.emit_const_value(&default, code)? {
-            return Err(BytecodeError::InvalidSection(
-                "unsupported CALL_NATIVE disabled result default".into(),
-            ));
+        if self.authoring.is_some() {
+            if let Some(type_id) = self.source_disabled_call_result_type(ctx, &target)? {
+                let initializer = self.intern_default_recipe(type_id)?;
+                code.push(crate::bytecode::opcodes::DEFAULT_VALUE); // crate::bytecode::opcodes::DEFAULT_VALUE executes only on the disabled branch.
+                code.extend_from_slice(&initializer.to_le_bytes());
+            } else {
+                code.push(0x25); // LOAD_NULL for calls without a value result.
+            }
+        } else {
+            let default = self.disabled_call_result_default(&target)?;
+            if !self.emit_const_value(&default, code)? {
+                return Err(BytecodeError::InvalidSection(
+                    "unsupported CALL_NATIVE disabled result default".into(),
+                ));
+            }
         }
         let end_offset = code.len();
         self.patch_jump(code, end_jump, end_offset)?;
@@ -250,6 +260,26 @@ impl<'a> BytecodeEncoder<'a> {
         &self,
         target: &NativeCallTarget<'_>,
     ) -> Result<Value, BytecodeError> {
+        let return_type = self.disabled_call_result_type(target)?;
+        let Some(return_type) = return_type else {
+            return Ok(Value::Null);
+        };
+        crate::harness::initializer::default_value_for_type_id(
+            self.runtime.storage(),
+            self.runtime.registry(),
+            self.runtime.initializer_catalog(),
+            &self.runtime.profile(),
+            None,
+            self.runtime.stdlib(),
+            return_type,
+        )
+        .map_err(|error| BytecodeError::InvalidSection(error.to_string().into()))
+    }
+
+    fn disabled_call_result_type(
+        &self,
+        target: &NativeCallTarget<'_>,
+    ) -> Result<Option<trust_hir::TypeId>, BytecodeError> {
         let return_type = match target.kind {
             NativeTargetKind::Function => {
                 let key = SmolStr::new(target.name.to_ascii_uppercase());
@@ -268,19 +298,7 @@ impl<'a> BytecodeEncoder<'a> {
             NativeTargetKind::FunctionBlock | NativeTargetKind::Stdlib => None,
             NativeTargetKind::Method => self.unique_method_return_type(&target.name)?,
         };
-        let Some(return_type) = return_type else {
-            return Ok(Value::Null);
-        };
-        crate::harness::initializer::default_value_for_type_id(
-            self.runtime.storage(),
-            self.runtime.registry(),
-            self.runtime.initializer_catalog(),
-            &self.runtime.profile(),
-            None,
-            self.runtime.stdlib(),
-            return_type,
-        )
-        .map_err(|error| BytecodeError::InvalidSection(error.to_string().into()))
+        Ok(return_type)
     }
 
     fn unique_method_return_type(
@@ -305,10 +323,8 @@ impl<'a> BytecodeEncoder<'a> {
             if let Some(existing) = resolved {
                 if existing != return_type {
                     return Err(BytecodeError::InvalidSection(
-                        format!(
-                            "ambiguous disabled-call result type for method '{method_name}'"
-                        )
-                        .into(),
+                        format!("ambiguous disabled-call result type for method '{method_name}'")
+                            .into(),
                     ));
                 }
             } else {
@@ -318,11 +334,7 @@ impl<'a> BytecodeEncoder<'a> {
         Ok(resolved.flatten())
     }
 
-    fn resolve_function_call_name(
-        &self,
-        ctx: &CodegenContext,
-        name: &SmolStr,
-    ) -> Option<SmolStr> {
+    fn resolve_function_call_name(&self, ctx: &CodegenContext, name: &SmolStr) -> Option<SmolStr> {
         let key = SmolStr::new(name.to_ascii_uppercase());
         if let Some(function) = self.runtime.functions().get(&key) {
             return Some(function.name.clone());

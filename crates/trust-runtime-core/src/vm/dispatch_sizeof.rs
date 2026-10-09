@@ -86,7 +86,7 @@ fn sizeof_type_from_table_inner(
     result
 }
 
-fn sizeof_primitive_type(prim_id: u16, max_length: u16) -> Result<u64, RuntimeError> {
+pub(crate) fn sizeof_primitive_type(prim_id: u16, max_length: u16) -> Result<u64, RuntimeError> {
     match prim_id {
         1 | 2 | 6 | 10 | 26 => Ok(1),
         3 | 7 | 11 | 27 => Ok(2),

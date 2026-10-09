@@ -48,6 +48,11 @@ impl BytecodeModule {
             ));
         }
 
+        if major == 2 && flags != HEADER_FLAG_CRC32 {
+            return Err(BytecodeError::InvalidHeader(
+                "STBC 2.0 requires CRC32 and no reserved flags".into(),
+            ));
+        }
         if flags & HEADER_FLAG_CRC32 != 0 {
             let actual = crc32fast::hash(&bytes[section_table_off..]);
             if actual != checksum {
@@ -58,7 +63,8 @@ impl BytecodeModule {
             }
         }
 
-        if major != SUPPORTED_MAJOR_VERSION {
+        let version = BytecodeVersion::new(major, minor);
+        if !version.is_supported() {
             return Err(BytecodeError::UnsupportedVersion { major, minor });
         }
 
@@ -77,14 +83,14 @@ impl BytecodeModule {
             });
         }
 
-        validate_section_entries(bytes.len(), table_end, &entries)?;
+        validate_section_entries(bytes.len(), table_end, &entries, version)?;
 
         let mut sections = Vec::new();
         for entry in entries {
             let start = entry.offset as usize;
             let end = start + entry.length as usize;
             let payload = &bytes[start..end];
-            let data = decode_section_data(BytecodeVersion { major, minor }, entry.id, payload)?;
+            let data = decode_section_data(version, entry.id, payload)?;
             sections.push(Section {
                 id: entry.id,
                 flags: entry.flags,
@@ -93,7 +99,7 @@ impl BytecodeModule {
         }
 
         Ok(Self {
-            version: BytecodeVersion { major, minor },
+            version,
             flags,
             sections,
         })

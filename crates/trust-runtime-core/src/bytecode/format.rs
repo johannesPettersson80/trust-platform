@@ -14,3 +14,9 @@ mod pou;
 pub use pou::*;
 mod resource_io_debug;
 pub use resource_io_debug::*;
+
+mod construction;
+pub use construction::*;
+
+/// Named opcodes shared by portable validation and the source producer.
+pub mod opcodes;

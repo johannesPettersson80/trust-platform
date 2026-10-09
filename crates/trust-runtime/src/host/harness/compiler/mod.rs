@@ -28,17 +28,18 @@ pub(super) use dependency_prelude::{
     validate_project_aliases,
 };
 pub(super) use edge::collect_edge_declarations;
-pub(super) use model::{
-    AccessDecl, AccessPart, AccessPath, ConfigInit, GlobalInit, LoweringContext, LoweringInputs,
-    ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
+pub(crate) use model::{
+    AccessDecl, AccessPart, AccessPath, ConfigInit, GlobalInit, ProgramInstanceConfig,
+    ResolvedAccess, WildcardRequirement,
 };
+pub(super) use model::{ConfigModel, LoweringContext, LoweringInputs};
 pub(super) use pou::{
     lower_classes, lower_function_blocks, lower_functions, lower_interfaces, lower_programs,
 };
+pub(crate) use types::{class_type_name, function_block_type_name};
 pub(super) use types::{
-    class_type_name, function_block_type_name, interface_type_name, lower_type_decls,
-    lower_type_ref, predeclare_classes, predeclare_function_blocks, predeclare_interfaces,
-    resolve_named_type, resolve_type_name,
+    interface_type_name, lower_type_decls, lower_type_ref, predeclare_classes,
+    predeclare_function_blocks, predeclare_interfaces, resolve_named_type, resolve_type_name,
 };
 
 #[cfg(test)]

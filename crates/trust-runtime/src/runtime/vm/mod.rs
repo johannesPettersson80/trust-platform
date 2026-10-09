@@ -129,6 +129,11 @@ impl VmModule {
     pub(super) fn from_validated(
         module: &trust_runtime_core::bytecode::ValidatedBytecode<'_>,
     ) -> Result<Self, RuntimeError> {
+        if module.view().version.major != 1 {
+            return Err(invalid_bytecode(
+                "STBC 2.0 construction and initializer execution requires the shared engine",
+            ));
+        }
         let strings = match module.section(SectionId::StringTable) {
             Some(SectionData::StringTable(table)) => table,
             _ => return Err(invalid_bytecode("missing STRING_TABLE")),
@@ -478,6 +483,9 @@ fn decode_vm_ref(entry: &RefEntry, strings: &StringTable) -> Result<VmRef, Runti
 
     let offset = entry.offset as usize;
     match entry.location {
+        RefLocation::InitializerResult => Err(invalid_bytecode(
+            "initializer result has no legacy host binding",
+        )),
         RefLocation::Global => Ok(VmRef::Global { offset, path }),
         RefLocation::Local => Ok(VmRef::Local {
             owner_frame_id: entry.owner_id,

@@ -1,6 +1,6 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.10 — scheduling correction establishes the A1 baseline
+- **Version:** 0.12 — compact construction metadata and staging-write admission
 - **Date:** 9 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
@@ -8,13 +8,13 @@
 - **Source recheck:** `main` at `9a15065725c17da2c912055f1509368d3fd01d6c`, 9 October 2026; the reviewed runtime/core sources, workspace manifests/lockfile, specifications, and native CI workflow are unchanged from the original baseline.
 - **Scope:** A shared Rust execution engine for Linux, Windows, macOS, the NUCLEO-F401RE reference board, and one required ESP32 target, with separately scoped dependency/toolchain modernization and target qualification.
 
-**Revision basis:** This version moves the dependency-free periodic-task phase correction to the start of A1 as a separately reviewed source change sharing A1's existing batch. A1 establishes the corrected scheduling baseline; A4 integrates it into the compiler-free fixture and saved oracle. Specifications 10/11 and the scheduling arithmetic remain unchanged; the reviewed pre-A1 code uses sampled-time baselines; implementation status is recorded below. The four-scope cadence, separate modernization, loader, STBC and numeric decisions remain. A1 source status and validation evidence are recorded separately below; later milestones are not completion claims. [D01–D07]
+**Revision basis:** Incorporates A3 review corrections: statically proven staging writes, reachable standard-block templates, shared immutable default recipes, strict configured paths, stable inspection output and native edge/retain/partial/class coverage. The source-admitted changing-input fixture and four-scope boundary remain; execution and hardware qualification still belong to A4 and the board scopes. Evidence and authorization remain in the checklist. [D01–D07]
 
 **Requirement status:** This is the canonical implementation plan. “Shall” defines required behavior for the stated future profile, not behavior already implemented. Existing identifiers are retained. Specifications 11/12 distinguish current hosted/STBC 1.1 behavior from planned migration. Scope authorization and validation follow AGENTS.md; a milestone description is not authorization or evidence that it passed.
 
 ## 1. Decision and scope
 
-**A1 source status:** The A1 branch implements nominal-deadline readiness, explicit std/no_std collection features, shared libm primitives and target value-slot guards. Its checklist records review and validation separately; none of this establishes compiler-free loading, firmware fit or qualified hardware execution. All later scopes remain pending.
+**A1 source status:** The A1 branch implements nominal-deadline readiness, explicit std/no_std collection features, shared libm primitives and target value-slot guards. Its checklist records review and validation separately; none of this establishes compiler-free loading, firmware fit or qualified hardware execution. The checklist records A2/A3 source work and evidence; shared-engine execution and hardware qualification remain later scopes.
 
 truST shall retain one shared Rust implementation of its PLC execution semantics and its STBC bytecode instruction set. Different processors shall receive different compiled firmware binaries, not independently maintained VMs.
 
@@ -956,6 +956,23 @@ Execute A1 → A2 → A3 → A4. Each is a complete implementation scope with it
 | A3 — STBC 2.0 format and producer | Settle exact layouts before code; add executable initializer and construction metadata, compiler lowering, dual-major compatibility policy, producer/version selection and separate 2.0 fixtures. | 1.x regression and 2.0 encode/decode/validate/round-trip/negative cases. Keep existing hosted execution usable; candidate 2.0 emission is explicit until A4 integrates execution. No compiler-free execution claim yet. |
 | A4 — Shared-engine integration | TYPE_TABLE construction, shared-dispatcher initializers, timers, execution state/context, headless source-free loading and the representative fixture, including A1's corrected periodic scheduling rule. Preserve hosted APIs and tier behavior. | `runtime_core_compiler_free_load`, integrated numeric/state/fault/oracle cases, inherited scheduler regressions, both MCU core graphs and the complete affected format/VM suites. Freeze the integrated saved-artifact oracle here. This closes M2A-H only; hardware remains B/M2E. |
 
+The changing-input local initializer in the shared fixture is a reference to a
+persistent array element selected by a changing method input, as specified in
+specification 12 §11.5.10 and IEC 61131-3 Ed.3 §6.4.4.10.2–3. The producer preserves
+the existing source constant-expression diagnostics. This fixture must demonstrate
+per-call initializer evaluation in A4; acceptance of mutable scalar initializer
+expressions is not introduced by the portability work.
+
+**A3 format acceptance before A4.**
+
+Before A4 depends on STBC 2.0, A3 must statically reject initializer writes whose
+destination is not proven staging across every reachable path, share immutable
+recipes only between equivalent visibility contexts, omit unused standard block
+templates and prove edge/retain/partial/configuration/class authoring with native
+tests. Spec 12 §11.5.8 and §11.5.11 own these rules. The revised saved fixture is
+admission evidence until A4 executes it; runtime checks of mutable reference
+contents remain mandatory.
+
 At the start of A1, apply the reviewed draft's readiness arithmetic and core/case/host test changes, excluding its stale AGENTS.md and unsupported hosted-runner timing claim. Correct the late-sample test comments to describe injected logical time. Add the non-multiple host case in `tests/tasks.rs`: use `set_current_time` plus `execute_cycle` for exact 10 ms samples through 1 s, expecting 40 runs and zero overruns (33 runs follows from the old rule). Add a core case asserting due time 25 ms at sample 30 ms, `last_run = 25 ms`, then due time 50 ms at sample 50 ms with zero missed intervals. Retain jump/backward/saturation coverage. Review this small fix separately, finish the rest of A1 and run its one batch; do not add an intermediate run. A1's accepted baseline shall contain the correction and updated assertions. A4 only adds compiler-free fixture integration and the saved-artifact oracle for this requirement.
 
 Include `cargo +1.95.0 test --locked -p trust-runtime-core` and `cargo +1.95.0 test --locked -p trust-runtime --test tasks --test scheduler_resource` in A1's consolidated builder batch, together with the required runtime vertical and remaining A1 gates; deduplicate overlapping suites. No standalone run is authorized for this correction. Non-blocking verification maintenance alongside A1's native tests adds the `verification/spec-gaps.toml` record and new-test mappings in `verification/runtime-anomaly-taxonomy.toml` beside `ANOM_MAP_WATCHDOG_REVIEW_C5ABDD0A`, using `scripts/verification` generators for IDs. Close implementation/test evidence only after the native assertions pass; metadata is not acceptance evidence itself and does not create another scope or batch.
@@ -1393,6 +1410,8 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 
 | Version | Date | Change |
 |---|---|---|
+| 0.12 | 9 October 2026 | A3 admission proves staging-only writes across control flow; producer prunes unreachable standard blocks and shares recipes only between equivalent contexts. Adds edge/retain/partial/class authoring coverage and preserves the source/wire distinction. Execution remains A4. |
+| 0.11 | 9 October 2026 | Clarifies the shared changing-input fixture as a reference initializer selecting persistent array storage under IEC §6.4.4.10.2–3; preserves existing scalar constant-expression source checks. A4 must prove per-call initialization; A3 authoring is not execution evidence. |
 | 0.10 | 9 October 2026 | Moves the dependency-free SCHED-05 implementation and native regressions to the start of A1, separately reviewed within its existing batch. Removes deferred-defect baseline acceptance; A4 keeps fixture/oracle integration. Four scopes remain; no implementation or validation is asserted. |
 | 0.9 | 9 October 2026 | Folds the periodic scheduling defect into Scope A/A4 as SCHED-05; aligns specifications 10/11, selects nominal deadlines for SCHED-01/CYCLE-03, and adds the 25 ms / 10 ms native and shared-artifact oracle. Implementation, validation, version bump and release remain deferred to the authorized implementation scope. |
 
@@ -1506,8 +1525,10 @@ upgrade/replace/retain decisions, then freeze and qualify the selected graph.
 
 | Review item | Disposition and pending evidence |
 |---|---|
+| A3 external review, 9 October 2026 | All findings and quality recommendations accepted. Spec 12 §11.5.8/11 define staging-write admission, shared contexts, compact templates, stable text and source/wire coverage. Checklist A3-R5/R6 owns implementation evidence; A4 runtime lifetime checks and actual execution remain mandatory. |
 | Periodic-task phase defect, 9 October 2026 | Accepted as SCHED-05 with coordinated spec 10/11 amendments. The initial A4 placement is superseded by the sequencing review below. Reuse the draft readiness/regression changes, add missing non-multiple cases and discard the unsupported 75-runs-in-10-seconds hosted-runner claim. The reviewed pre-A1 code used sampled-time baselines; current implementation and validation status are recorded in the checklist. |
 | Scheduling-fix sequencing review, 9 October 2026 | Accepted the review's four-batch alternative: implement and separately review the dependency-free fix first in A1, with its native regressions sharing A1's existing batch. A1 establishes the corrected scheduling contract for subsequent scopes. A4 keeps only fixture/oracle integration for this fix; metadata remains non-blocking maintenance. No new implementation authorization or fifth batch is inferred from the review. |
+| A3 source-fixture admission, 9 October 2026 | Source checking correctly rejects mutable scalar initializers. Use `REF(history[delta])` against persistent FB storage for the changing-input case; keep those source diagnostics in both producers. The fixture also avoids the reserved STEP identifier. Source authoring and eventual A4 execution remain separate evidence. |
 
 The [review archive](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/notes/runtime-portability/research-notes.md) retains all
 17 v0.4 dispositions and the eight v0.6 follow-up dispositions, including corrected

@@ -3,6 +3,7 @@ use super::*;
 pub(super) fn validate_pou_index(
     tables: &ValidationContext<'_>,
     bodies: &[u8],
+    decoded_instruction_count: &mut usize,
     budget: &mut ValidationBudget,
 ) -> Result<(), BytecodeError> {
     let (strings, types, const_pool, ref_table, index) = (
@@ -12,7 +13,6 @@ pub(super) fn validate_pou_index(
         tables.ref_table,
         tables.index,
     );
-    let mut decoded_instruction_count = 0usize;
     budget.temporary(|budget| validate_pou_local_ref_partition(tables, budget))?;
     for (position, entry) in index.entries.iter().enumerate() {
         budget.work(1)?;
@@ -88,10 +88,26 @@ pub(super) fn validate_pou_index(
         budget.temporary(|budget| {
             let instructions = decode_instructions(
                 code,
-                &mut decoded_instruction_count,
+                decoded_instruction_count,
                 budget,
                 |instruction, budget| {
-                    validate_instruction_operands(tables, entry, instruction, budget)
+                    if matches!(instruction.opcode, 0x20..=0x22)
+                        && tables
+                            .ref_table
+                            .entries
+                            .get(instruction.operand(0) as usize)
+                            .is_some_and(|r| r.location == RefLocation::InitializerResult)
+                    {
+                        return Err(RejectionReason::InitializerReferenceScope.into());
+                    }
+                    if matches!(
+                        instruction.opcode,
+                        crate::bytecode::opcodes::DEFAULT_TYPED
+                            ..=crate::bytecode::opcodes::STRUCT_SET
+                    ) {
+                        return Err(BytecodeError::InvalidOpcode(instruction.opcode));
+                    }
+                    validate_instruction_operands(tables, Some(entry), instruction, budget)
                 },
             )?;
             // The legacy-call rejection follows complete decoding/jump checks, as before.
@@ -102,13 +118,16 @@ pub(super) fn validate_pou_index(
                 }
             }
             budget.temporary(|budget| validate_reference_escape(tables, &instructions, budget))?;
-            budget.temporary(|budget| validate_owner_contract(tables, &instructions, budget))?;
+            if tables.initializers.is_none() {
+                budget
+                    .temporary(|budget| validate_owner_contract(tables, &instructions, budget))?;
+            }
             budget.temporary(|budget| {
                 validate_stack_shape(tables, &instructions, code.len(), budget)
             })?;
             budget.temporary(|budget| validate_const_compat(tables, &instructions, budget))?;
             budget.temporary(|budget| {
-                validate_param_direction_calls(tables, entry, &instructions, budget)
+                validate_param_direction_calls(tables, Some(entry), &instructions, budget)
             })?;
             Ok(())
         })?;
@@ -157,7 +176,7 @@ pub(super) fn validate_pou_local_ref_partition(
 
 pub(super) fn validate_instruction_operands(
     tables: &ValidationContext<'_>,
-    pou: &PouEntry,
+    pou: Option<&PouEntry>,
     instruction: &Instruction,
     budget: &mut ValidationBudget,
 ) -> Result<(), BytecodeError> {
@@ -201,7 +220,14 @@ pub(super) fn validate_instruction_operands(
         }
         0x20..=0x22 => {
             let ref_idx = instruction.operand(0);
-            ensure_pou_ref_operand(tables.ref_table, pou, ref_idx)?;
+            if let Some(pou) = pou {
+                ensure_pou_ref_operand(tables.ref_table, pou, ref_idx)?;
+            } else {
+                ensure_ref_index(tables.ref_table, ref_idx)?;
+                if tables.ref_table.entries[ref_idx as usize].location == RefLocation::Local {
+                    return Err(RejectionReason::InitializerVisibility.into());
+                }
+            }
         }
         0x23 | 0x24 => {}
         0x30 => {
@@ -225,6 +251,44 @@ pub(super) fn validate_instruction_operands(
                 return Err(BytecodeError::from(
                     RejectionReason::ReferenceAttemptExpectsReferenceOrInterfaceTargetType,
                 ));
+            }
+        }
+        crate::bytecode::opcodes::DEFAULT_VALUE => {
+            let initializers = tables.initializers.ok_or(BytecodeError::InvalidOpcode(
+                crate::bytecode::opcodes::DEFAULT_VALUE,
+            ))?;
+            let target = initializers
+                .entries
+                .get(instruction.operand(0) as usize)
+                .ok_or(RejectionReason::InvalidInitializerRecord)?;
+            if target.phase != crate::bytecode::InitializationPhase::ValueDefault
+                || target.body_kind != crate::bytecode::InitializerBodyKind::Action
+            {
+                return Err(RejectionReason::InvalidInitializerRecord.into());
+            }
+        }
+        crate::bytecode::opcodes::DEFAULT_TYPED..=crate::bytecode::opcodes::STRUCT_SET => {
+            if tables.initializers.is_none() {
+                return Err(BytecodeError::InvalidOpcode(opcode));
+            }
+            let operand = instruction.operand(0);
+            match opcode {
+                crate::bytecode::opcodes::DEFAULT_TYPED
+                    ..=crate::bytecode::opcodes::APPLY_INIT_VALUE => {
+                    ensure_type_index(tables.types, operand)?
+                }
+                crate::bytecode::opcodes::ARRAY_NEW | crate::bytecode::opcodes::ARRAY_SET
+                    if operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>
+                {
+                    return Err(RejectionReason::InvalidInitializerRecord.into());
+                }
+                crate::bytecode::opcodes::STRUCT_NEW if operand != 0 => {
+                    return Err(RejectionReason::InvalidInitializerRecord.into())
+                }
+                crate::bytecode::opcodes::STRUCT_SET => {
+                    ensure_string_index(tables.strings, operand)?
+                }
+                _ => {}
             }
         }
         0x70 => {}

@@ -1,6 +1,7 @@
 //! Portable bytecode container, decoding, validation and metadata.
 
 mod decode;
+mod disassemble;
 mod encode;
 mod format;
 mod limits;
@@ -9,6 +10,7 @@ pub use reasons::RejectionReason;
 mod metadata;
 mod module;
 mod validate;
+pub use validate::construction_demands;
 
 use alloc::vec::Vec;
 use smol_str::SmolStr;
@@ -37,9 +39,23 @@ impl BytecodeVersion {
     pub const fn new(major: u16, minor: u16) -> Self {
         Self { major, minor }
     }
+    /// Legacy default producer format during the A3/A4 migration.
+    pub const LEGACY: Self = Self::new(1, 1);
+    /// Complete source-free construction format; execution support is separate.
+    pub const SOURCE_FREE: Self = Self::new(2, 0);
+
+    /// Version support for the dual-major byte-oriented reader.
+    pub const fn is_supported(self) -> bool {
+        self.major == 1 || (self.major == 2 && self.minor == 0)
+    }
+
+    /// All 2.0 common payloads retain the extended 1.1 layout.
+    pub const fn uses_extended_layout(self) -> bool {
+        self.major == 2 || self.minor >= 1
+    }
 }
 
-/// Supported major bytecode version.
+/// Default legacy producer major; reader support also includes STBC 2.0.
 pub const SUPPORTED_MAJOR_VERSION: u16 = 1;
 /// Supported minor bytecode version.
 pub const SUPPORTED_MINOR_VERSION: u16 = 1;

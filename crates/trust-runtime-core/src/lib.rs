@@ -1,13 +1,10 @@
-//! Portable runtime execution core scaffold.
+//! Portable runtime values, scheduling helpers and bytecode boundary.
 //!
-//! `trust-runtime-core` is reserved for behavior-preserving runtime execution
-//! pieces that can move out of the Linux/product host. The crate must not own
-//! host transports, web/HMI/control/cloud adapters, Linux realtime setup,
-//! product CLI wiring, test harness compilation, or external I/O drivers.
-//!
-//! The first scaffold intentionally contains only ownership markers and a
-//! minimal test. Runtime behavior stays in `trust-runtime` until the behavior
-//! locks and full-map doctor gates for the moved slice are green.
+//! The core owns shared value/numeric operations and the STBC representation,
+//! decoder, encoder, budgeted validator and disassembler. Source/HIR lowering,
+//! product transports and hardware drivers remain outside this portable boundary.
+//! The hosted dispatcher still executes legacy STBC; source-free STBC 2.0 execution
+//! is introduced by the separate shared-engine integration scope.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
@@ -31,6 +28,8 @@ pub mod datetime;
 pub mod error;
 /// Stable machine-readable runtime error identifiers.
 pub mod error_code;
+/// Portable direct I/O address syntax.
+pub mod io_address;
 /// Portable runtime memory identity types.
 pub mod memory;
 /// Portable numeric conversion helpers.

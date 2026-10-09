@@ -8,6 +8,11 @@ type InstanceInitContext<'a> = (
 );
 
 impl Runtime {
+    /// Original declaration qualifiers used by source-free artifact authoring.
+    pub(crate) fn edge_inputs_for_pou(&self, owner: &str) -> &[crate::program_model::EdgeInput] {
+        self.edge_inputs.get(owner).map_or(&[], Vec::as_slice)
+    }
+
     pub(crate) fn resource_name(&self) -> &SmolStr {
         &self.resource_name
     }

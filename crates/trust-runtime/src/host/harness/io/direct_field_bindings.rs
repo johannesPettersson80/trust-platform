@@ -1,4 +1,4 @@
-pub(super) fn collect_direct_field_bindings(
+pub(crate) fn collect_direct_field_bindings(
     registry: &TypeRegistry,
     reference: &crate::value::ValueRef,
     type_id: TypeId,

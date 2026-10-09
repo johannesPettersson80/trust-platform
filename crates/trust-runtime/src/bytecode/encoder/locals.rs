@@ -58,11 +58,20 @@ impl<'a> BytecodeEncoder<'a> {
             let ref_idx = self.ref_map.get(reference).copied().ok_or_else(|| {
                 BytecodeError::InvalidSection("declared local ref index missing".into())
             })?;
+            if self.authoring.is_some() {
+                self.construction
+                    .bindings
+                    .types
+                    .insert(reference.clone(), type_id);
+            }
             self.local_var_meta.push(super::PendingLocalVarMeta {
                 name: SmolStr::new(format!("@local/{pou_id}/{}/{name}", reference.offset)),
                 type_id,
                 ref_idx,
             });
+        }
+        if self.authoring.is_some() {
+            self.collect_frame_declarations(pou_id, &scope, return_slot, params, locals)?;
         }
         Ok(scope)
     }

@@ -7,6 +7,7 @@ mod counters;
 mod instance;
 mod registry;
 mod state;
+pub(crate) use state::builtin_state_layout;
 mod timers;
 mod triggers;
 

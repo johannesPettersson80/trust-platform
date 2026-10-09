@@ -10,6 +10,13 @@ Target release: `v0.24.72`
 
 ### Added
 
+- Add explicit STBC 2.0 authoring and portable byte-level validation for declared
+  storage, construction roots, compiled initializer recipes and access bindings.
+  Legacy 1.1 remains the default producer; execution of 2.0 awaits the shared engine.
+  Initializer admission restricts writes to proven staging storage; 2.0 authoring
+  shares equivalent default recipes, omits unused standard block templates and
+  rejects unknown configuration/access path prefixes.
+
 - Persist canonical OpenOT event, loss, and placeholder documents outside the
   PLC scan to a TOML-selected SQLite, PostgreSQL, TimescaleDB, MySQL/MariaDB,
   SQL Server, or InfluxDB 3 backend, with atomic durable checkpoints,

@@ -7,7 +7,9 @@ impl<'a> BytecodeEncoder<'a> {
     where
         T: ClassLike,
     {
-        let owner = explicit_owner.cloned().unwrap_or_else(|| def.name().clone());
+        let owner = explicit_owner
+            .cloned()
+            .unwrap_or_else(|| def.name().clone());
         let parent_pou_id = def
             .base_name()
             .map(|base| {
@@ -39,11 +41,15 @@ impl<'a> BytecodeEncoder<'a> {
 
         let mut mappings = Vec::with_capacity(names.len());
         for name in names {
-            let type_id = self.runtime.registry().lookup(name.as_str()).ok_or_else(|| {
-                BytecodeError::InvalidSection(
-                    format!("unknown implemented interface '{name}' for '{owner}'").into(),
-                )
-            })?;
+            let type_id = self
+                .runtime
+                .registry()
+                .lookup(name.as_str())
+                .ok_or_else(|| {
+                    BytecodeError::InvalidSection(
+                        format!("unknown implemented interface '{name}' for '{owner}'").into(),
+                    )
+                })?;
             let interface_type_id = self.type_index(type_id)?;
             let interface_methods = self.interface_methods_for(&name)?;
             let mut vtable_slots = Vec::with_capacity(interface_methods.len());
@@ -52,7 +58,9 @@ impl<'a> BytecodeEncoder<'a> {
                     .strings
                     .entries
                     .get(interface_method.name_idx as usize)
-                    .ok_or_else(|| BytecodeError::InvalidSection("interface method name missing".into()))?;
+                    .ok_or_else(|| {
+                        BytecodeError::InvalidSection("interface method name missing".into())
+                    })?;
                 let slot = owner_methods
                     .iter()
                     .find(|method| {
@@ -258,13 +266,17 @@ impl<'a> BytecodeEncoder<'a> {
                         insert_self_field(&mut fields, &param.name);
                     }
                     for var in &fb.vars {
-                        insert_self_field(&mut fields, &var.name);
+                        if self.authoring.is_none() || !var.external {
+                            insert_self_field(&mut fields, &var.name);
+                        }
                     }
                     current = def.base_name();
                 }
                 ClassLikeDef::Class(class) => {
                     for var in &class.vars {
-                        insert_self_field(&mut fields, &var.name);
+                        if self.authoring.is_none() || !var.external {
+                            insert_self_field(&mut fields, &var.name);
+                        }
                     }
                     current = class.base.clone();
                 }

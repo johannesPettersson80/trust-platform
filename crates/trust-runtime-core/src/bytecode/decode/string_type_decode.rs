@@ -13,7 +13,7 @@ pub(super) fn decode_string_table(
         let string = core::str::from_utf8(bytes)
             .map_err(|_| BytecodeError::from(RejectionReason::InvalidUtf8))?;
         entries.push(SmolStr::new(string));
-        if version.minor >= 1 {
+        if version.uses_extended_layout() {
             let entry_len = 4usize
                 .checked_add(len)
                 .ok_or(BytecodeError::SectionOutOfBounds)?;
@@ -32,9 +32,13 @@ pub(super) fn decode_type_table(
     payload: &[u8],
 ) -> Result<TypeTable, BytecodeError> {
     let mut reader = BytecodeReader::new(payload);
-    let minimum_entry_bytes = if version.minor >= 1 { 4 } else { 12 };
+    let minimum_entry_bytes = if version.uses_extended_layout() {
+        4
+    } else {
+        12
+    };
     let count = read_bounded_count(&mut reader, minimum_entry_bytes, "TYPE_TABLE")?;
-    if version.minor >= 1 {
+    if version.uses_extended_layout() {
         let mut offsets = Vec::with_capacity(count);
         for _ in 0..count {
             offsets.push(reader.read_u32()?);

@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 
 use super::align4;
 mod buffer;
+mod construction;
 use super::{
     BytecodeError, BytecodeModuleView, BytecodeVersion, SectionData, SectionEntry, TypeData,
     TypeEntry, TypeTable, HEADER_FLAG_CRC32, HEADER_SIZE, MAGIC, SECTION_ENTRY_SIZE,
@@ -93,7 +94,7 @@ fn encode_section_data(
                 let bytes = entry.as_bytes();
                 out.extend_from_slice(&encoded_count(bytes.len())?.to_le_bytes())?;
                 out.extend_from_slice(bytes)?;
-                if version.minor >= 1 {
+                if version.uses_extended_layout() {
                     let entry_len = 4usize.checked_add(bytes.len()).ok_or_else(encoded_extent)?;
                     let padded = align4(entry_len).ok_or_else(encoded_extent)?;
                     let target = out
@@ -164,7 +165,7 @@ fn encode_section_data(
                     out.push(param.direction)?;
                     out.push(0)?;
                     out.extend_from_slice(&0u16.to_le_bytes())?;
-                    if version.minor >= 1 {
+                    if version.uses_extended_layout() {
                         out.extend_from_slice(
                             &param.default_const_idx.unwrap_or(u32::MAX).to_le_bytes(),
                         )?;
@@ -264,6 +265,15 @@ fn encode_section_data(
                 out.extend_from_slice(&entry.const_idx.to_le_bytes())?;
             }
         }
+        SectionData::StorageLayout(_)
+        | SectionData::ConstructionRoots(_)
+        | SectionData::Initializers(_)
+        | SectionData::AccessBindings(_) => {
+            if version != BytecodeVersion::SOURCE_FREE {
+                return Err(crate::bytecode::RejectionReason::InvalidConstructionRecord.into());
+            }
+            construction::encode_construction(data, &mut out)?;
+        }
         SectionData::Raw(raw) => out.extend_from_slice(raw)?,
     }
     Ok(out.into_vec())
@@ -276,7 +286,7 @@ fn encode_type_table(
 ) -> Result<Buffer, BytecodeError> {
     let mut out = Buffer::new(limit);
     out.extend_from_slice(&encoded_count(table.entries.len())?.to_le_bytes())?;
-    if version.minor >= 1 {
+    if version.uses_extended_layout() {
         for offset in type_offsets(&table.entries, limit)? {
             out.extend_from_slice(&offset.to_le_bytes())?;
         }

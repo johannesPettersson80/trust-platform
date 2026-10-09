@@ -99,6 +99,9 @@ fn ref_entry_to_value_ref(
     strings: &StringTable,
 ) -> Result<ValueRef, BytecodeError> {
     let location = match entry.location {
+        RefLocation::InitializerResult => {
+            return Err(RejectionReason::InitializerReferenceScope.into())
+        }
         RefLocation::Global => MemoryLocation::Global,
         RefLocation::Local => MemoryLocation::Local(FrameId(entry.owner_id)),
         RefLocation::Instance => MemoryLocation::Instance(InstanceId(entry.owner_id)),

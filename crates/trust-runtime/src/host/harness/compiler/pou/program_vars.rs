@@ -44,7 +44,10 @@ fn lower_program_var_blocks(
             if qualifiers.constant
                 && matches!(
                     kind,
-                    VarBlockKind::Var | VarBlockKind::Stat | VarBlockKind::Global | VarBlockKind::Temp
+                    VarBlockKind::Var
+                        | VarBlockKind::Stat
+                        | VarBlockKind::Global
+                        | VarBlockKind::Temp
                 )
             {
                 if let Some(expr) = init_expr.as_ref() {
@@ -100,6 +103,7 @@ fn lower_program_var_blocks(
                 VarBlockKind::Global => {
                     for name in parts.names {
                         globals.push(GlobalInit {
+                            constant: qualifiers.constant,
                             name: namespace_qualified_name(&var_block, name.as_str()),
                             type_id,
                             initializer: init_expr.clone(),

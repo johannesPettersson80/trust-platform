@@ -4,7 +4,7 @@ mod bytecode_helpers;
 use bytecode_helpers::{base_module, module_with_debug};
 use trust_runtime_core::bytecode::{
     BytecodeError, BytecodeModule, BytecodeVersion, RefLocation, RetainInit, Section, SectionData,
-    SectionId, VarMeta, SUPPORTED_MAJOR_VERSION,
+    SectionId, VarMeta,
 };
 
 #[test]
@@ -84,7 +84,7 @@ fn checksum_validation() {
 #[test]
 fn version_gate() {
     let mut module = base_module();
-    module.version = BytecodeVersion::new(SUPPORTED_MAJOR_VERSION + 1, 0);
+    module.version = BytecodeVersion::new(BytecodeVersion::SOURCE_FREE.major + 1, 0);
     let bytes = module.encode().expect("encode");
     let err = BytecodeModule::decode(&bytes).unwrap_err();
     assert!(matches!(err, BytecodeError::UnsupportedVersion { .. }));
