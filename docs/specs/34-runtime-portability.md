@@ -1,12 +1,12 @@
 # truST Runtime Portability Specification
 
-**Version:** 0.10 — scheduling correction establishes the A1 baseline  
-**Date:** 9 October 2026  
-**Repository:** `johannesPettersson80/trust-platform`  
-**Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`  
-**Baseline commit date:** 3 September 2026  
-**Source recheck:** `main` at `9a15065725c17da2c912055f1509368d3fd01d6c`, 9 October 2026; the reviewed runtime/core sources, workspace manifests/lockfile, specifications, and native CI workflow are unchanged from the original baseline.  
-**Scope:** A shared Rust execution engine for Linux, Windows, macOS, the NUCLEO-F401RE reference board, and one required ESP32 target, with separately scoped dependency/toolchain modernization and target qualification.
+- **Version:** 0.10 — scheduling correction establishes the A1 baseline
+- **Date:** 9 October 2026
+- **Repository:** `johannesPettersson80/trust-platform`
+- **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
+- **Baseline commit date:** 3 September 2026
+- **Source recheck:** `main` at `9a15065725c17da2c912055f1509368d3fd01d6c`, 9 October 2026; the reviewed runtime/core sources, workspace manifests/lockfile, specifications, and native CI workflow are unchanged from the original baseline.
+- **Scope:** A shared Rust execution engine for Linux, Windows, macOS, the NUCLEO-F401RE reference board, and one required ESP32 target, with separately scoped dependency/toolchain modernization and target qualification.
 
 **Revision basis:** This version moves the dependency-free periodic-task phase correction to the start of A1 as a separately reviewed source change sharing A1's existing batch. A1 establishes the corrected scheduling baseline; A4 integrates it into the compiler-free fixture and saved oracle. Specifications 10/11 and the scheduling arithmetic remain unchanged; the reviewed pre-A1 code uses sampled-time baselines; implementation status is recorded below. The four-scope cadence, separate modernization, loader, STBC and numeric decisions remain. A1 source status and validation evidence are recorded separately below; later milestones are not completion claims. [D01–D07]
 

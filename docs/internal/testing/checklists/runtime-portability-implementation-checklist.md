@@ -12,7 +12,7 @@ it does not create additional product requirements. Existing closed extraction b
 | Updated | 9 October 2026 — A1 verified; bookkeeping corrected after closeout review; A1 committed on the implementation branch |
 | Plan | Specification 34 v0.10; SHA-256 recorded below |
 | Checkout | Implementation: `/home/johannes/projects/trust-platform-portability-a1`, branch `feat/runtime-portability-a1`, base `9a15065725c17da2c912055f1509368d3fd01d6c`. Canonical instructions: `/home/johannes/projects/trust-platform`; all 20 instruction/skill files manually copied and matched before editing. |
-| Working tree | The A1 implementation, specifications, evidence and bookkeeping are committed on `feat/runtime-portability-a1` as a nine-commit series on top of the base. The retained manifest identifies the tested snapshot, which is the committed source. Three release-guard script files stay modified and uncommitted: the `remote_hmi` gate copied from the primary checkout's skills, which needs `scripts/hmi_ci_gate.sh` from `feat/hmi-builder`. |
+| Working tree | The A1 implementation, specifications, evidence and bookkeeping are committed on `feat/runtime-portability-a1` as a commit series on top of the base (`git log 9a1506572..`). The retained manifest identifies the tested snapshot, which is the committed source. Three release-guard script files stay modified and uncommitted: the `remote_hmi` gate copied from the primary checkout's skills, which needs `scripts/hmi_ci_gate.sh` from `feat/hmi-builder`. |
 | Authorization | User authorized A1 and separate read-only review; after failed runs 1 and 2, explicitly authorized one additional consolidated run 3. No automatic run 4. On 9 October the user authorized the commit of the reviewed A1 series and one release-guard run; the guard run is not started (see Next action). No push, no A2. |
 | Scheduling amendment | SCHED-05 source and native core/host regressions passed run 3, including 25 ms / 10 ms with 40 activations and zero overruns. A4 fixture integration remains later work. |
 | Active implementation scope / goal | A1 complete; no subsequent implementation scope authorized. |
@@ -22,7 +22,7 @@ it does not create additional product requirements. Existing closed extraction b
 | Hardware | NUCLEO-F401RE model confirmed by owner. USB discovery on `raspberrypi` (9 October 2026): ST-LINK/V2.1 `0483:374b`; stable serial link `/dev/serial/by-id/usb-STMicroelectronics_STM32_STLink_0671FF575755846687183960-if02` → `/dev/ttyACM0`; OpenOCD installed; current account is in the devices' `plugdev` group. USB enumeration only: SWD/MCU revision, flashing, execution and measurements remain unverified. C6-DevKitC-1 availability unconfirmed. |
 | Open execution records | Runs 1/2 retained as failed historical evidence. Run 3 accepted: `/home/johannes/projects/.artifacts/runtime-portability-a1/a1-closeout.md` with raw logs in adjacent run-3/. |
 
-Plan SHA-256: `9a8912f9e2a23387dc9445362098d5890bd539d5ff8c9b73bf1be89e55ab1356`.
+Plan SHA-256: `ca9c4fb008288639bfe813ad53dd28b9ccc02531f27b50414675a4a065774ec6` (the header was reformatted without trailing whitespace after run 3; run 3 tested `9a8912f9e2a23387dc9445362098d5890bd539d5ff8c9b73bf1be89e55ab1356`, as the frozen manifest records).
 
 ## How to use this checklist
 
