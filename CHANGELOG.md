@@ -24,12 +24,18 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Use the Rust 1.95-compatible atomic update API without deprecated calls on
   current stable Rust, and update concurrently to remove the shell-quote
   command-injection advisory.
+- Preserve numeric operand types when compiling TIME/LTIME scaling, including
+  duration aliases and nested scalar expressions.
 
 - Preserve nominal periodic-task deadlines when the task interval is not a
   multiple of the resource cycle. For exact 10 ms samples, a 25 ms task now
   activates at 30, 50, 80 and 100 ms instead of every 30 ms; missed activations
   remain dropped and counted. These describe the logical scheduling rule,
   not measured hosted wake timing.
+- Route core exponentiation, duration truncation and hosted numerical functions
+  through libm 0.2.16 while retaining their promotion, narrowing and fault policies.
+  Add isolated F401/C6 core build gates and explicit portable ordered-map hashing;
+  this establishes library portability, not qualified board support.
 - Specify runtime clock dispatch name/error identity and deterministic LSP
   diagnostic-override collision precedence, including canonical-key priority
   and alias-only lexical ordering.

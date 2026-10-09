@@ -1,6 +1,6 @@
 //! Portable retain and restart policy records.
 
-use indexmap::IndexMap;
+use crate::collections::OrderedMap as IndexMap;
 use smol_str::SmolStr;
 
 use crate::value::Value;
@@ -112,7 +112,7 @@ mod tests {
 
     #[test]
     fn retain_snapshot_map_round_trip_preserves_order_keys_and_value_tags() {
-        let values: indexmap::IndexMap<SmolStr, Value> = [
+        let values: crate::collections::OrderedMap<SmolStr, Value> = [
             ("Motor".into(), Value::DInt(-7)),
             ("motor".into(), Value::Bool(true)),
             ("Nested".into(), Value::String("exact".into())),

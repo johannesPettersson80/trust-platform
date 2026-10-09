@@ -65,8 +65,10 @@ package "Runtime Core" as runtimeCore #LightGreen {
     component "program_model::InitializerCatalog\n(lowered Expr records)" as runtimeInitCatalog
     component "trust-runtime-core::numeric::kind\nNumericKind + closed widening matrix" as coreNumericKind
     component "trust-runtime-core::numeric\nexecution-domain conversions" as coreNumericConversions
+    component "trust-runtime-core::numeric::math\nlibm 0.2.16 primitives" as coreMath
+    component "trust-runtime-core::collections::OrderedMap\nstd API / no_std explicit FxBuildHasher" as coreOrderedMap
     component "trust-runtime-core::task::config\nportable task metadata" as coreTaskConfig
-    component "trust-runtime-core::task::state\nlogical baseline + overrun state" as coreTaskState
+    component "trust-runtime-core::task::state\nnominal deadline + missed-interval count" as coreTaskState
     component "trust-runtime-core::task::readiness\nevent/periodic readiness decision" as coreTaskReadiness
     runtime ..> runtimeOnlineChange : hot-reload contract owner
     runtimeOnlineChange --> runtimeRestart : prepare before bytecode replacement
@@ -83,6 +85,8 @@ package "Runtime Core" as runtimeCore #LightGreen {
     hirInitCatalog ..> runtimeInitCatalog : compile-time lowering copies/ translates defaults
     initializerService --> runtimeInitCatalog : reads TYPE/member defaults
     coreNumericConversions --> coreNumericKind : target kind identity
+    runtime --> coreMath : shared value operators
+    runtime --> coreOrderedMap : core values and retain snapshots
     runtime --> coreTaskConfig : owns configured tasks
     runtime --> coreTaskState : stores scheduling state
     runtime --> coreTaskReadiness : evaluates each cycle
@@ -950,6 +954,7 @@ runtime --> varStorage
 runtime --> evalCtx : creates
 runtime --> cyclePkg : execute_cycle()
 runtime --> stdlibPkg
+stdlibPkg --> coreMath : named numeric functions
 runtime --> ioPkg
 runtime --> bcApply
 runtime --> hmiControl

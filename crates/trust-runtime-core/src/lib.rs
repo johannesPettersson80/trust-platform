@@ -16,8 +16,13 @@
 
 extern crate alloc;
 
+#[cfg(all(test, not(feature = "std")))]
+extern crate std;
+
 /// Portable bytecode metadata records.
 pub mod bytecode;
+/// Portable insertion-ordered collection aliases.
+pub mod collections;
 /// Portable cycle scheduling helpers.
 pub mod cycle;
 /// Portable date/time calculation helpers.

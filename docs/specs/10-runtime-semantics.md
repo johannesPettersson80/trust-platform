@@ -2014,6 +2014,10 @@ portable runtime applies those operators as follows:
   `RuntimeError::DivisionByZero`, a non-numeric factor returns
   `RuntimeError::TypeMismatch`, and a non-finite or out-of-range result returns
   `RuntimeError::Overflow`.
+  Compiler lowering preserves separate duration and numeric operand contexts:
+  an untyped factor (including unary or parenthesized scalar expressions) must
+  not inherit the result's TIME/LTIME type. Duration aliases follow the same
+  rule; numeric narrowing and duration result width remain unchanged.
 - Ordering compares stored ticks or nanoseconds only when both operands have
   the same runtime family. Cross-family ordering returns
   `RuntimeError::TypeMismatch`.

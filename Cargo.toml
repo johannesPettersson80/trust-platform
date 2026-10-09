@@ -63,7 +63,7 @@ roxmltree = "0.21"
 wasm-bindgen = "0.2"
 
 # Error handling
-thiserror = "2"
+thiserror = { version = "2", default-features = false }
 anyhow = "1"
 
 # Testing
@@ -72,9 +72,10 @@ insta = { version = "1", features = ["glob"] }
 futures-util = "0.3"
 
 # Utilities
-smol_str = "0.2.2"
-rustc-hash = "2.1"
-indexmap = "2"
+smol_str = { version = "0.2.2", default-features = false }
+rustc-hash = { version = "2.1", default-features = false }
+indexmap = { version = "2", default-features = false }
+libm = "=0.2.16"
 drop_bomb = "0.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

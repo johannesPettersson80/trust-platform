@@ -3,6 +3,7 @@
 #![allow(missing_docs)]
 
 use crate::error::RuntimeError;
+use crate::numeric::math;
 use crate::program_model::{apply_binary, BinaryOp};
 use crate::stdlib::helpers::{require_arity, require_min, scale_time, to_f64};
 use crate::stdlib::StandardLibrary;
@@ -54,59 +55,59 @@ fn abs(args: &[Value]) -> Result<Value, RuntimeError> {
         Value::UInt(v) => Ok(Value::UInt(v)),
         Value::UDInt(v) => Ok(Value::UDInt(v)),
         Value::ULInt(v) => Ok(Value::ULInt(v)),
-        Value::Real(v) => Ok(Value::Real(v.abs())),
-        Value::LReal(v) => Ok(Value::LReal(v.abs())),
+        Value::Real(v) => Ok(Value::Real(math::fabsf(v))),
+        Value::LReal(v) => Ok(Value::LReal(math::fabs(v))),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
 
 fn sqrt(args: &[Value]) -> Result<Value, RuntimeError> {
-    unary_real(args, |v| v.sqrt())
+    unary_real(args, math::sqrt)
 }
 
 fn ln(args: &[Value]) -> Result<Value, RuntimeError> {
-    unary_real(args, |v| v.ln())
+    unary_real(args, math::log)
 }
 
 fn log10(args: &[Value]) -> Result<Value, RuntimeError> {
-    unary_real(args, |v| v.log10())
+    unary_real(args, math::log10)
 }
 
 fn exp(args: &[Value]) -> Result<Value, RuntimeError> {
-    unary_real(args, |v| v.exp())
+    unary_real(args, math::exp)
 }
 
 fn sin(args: &[Value]) -> Result<Value, RuntimeError> {
-    unary_real(args, |v| v.sin())
+    unary_real(args, math::sin)
 }
 
 fn cos(args: &[Value]) -> Result<Value, RuntimeError> {
-    unary_real(args, |v| v.cos())
+    unary_real(args, math::cos)
 }
 
 fn tan(args: &[Value]) -> Result<Value, RuntimeError> {
-    unary_real(args, |v| v.tan())
+    unary_real(args, math::tan)
 }
 
 fn asin(args: &[Value]) -> Result<Value, RuntimeError> {
-    unary_real(args, |v| v.asin())
+    unary_real(args, math::asin)
 }
 
 fn acos(args: &[Value]) -> Result<Value, RuntimeError> {
-    unary_real(args, |v| v.acos())
+    unary_real(args, math::acos)
 }
 
 fn atan(args: &[Value]) -> Result<Value, RuntimeError> {
-    unary_real(args, |v| v.atan())
+    unary_real(args, math::atan)
 }
 
 fn atan2(args: &[Value]) -> Result<Value, RuntimeError> {
     require_arity(args, 2)?;
     match (&args[0], &args[1]) {
-        (Value::Real(a), Value::Real(b)) => Ok(Value::Real(a.atan2(*b))),
-        (Value::LReal(a), Value::LReal(b)) => Ok(Value::LReal(a.atan2(*b))),
-        (Value::Real(a), Value::LReal(b)) => Ok(Value::LReal((*a as f64).atan2(*b))),
-        (Value::LReal(a), Value::Real(b)) => Ok(Value::LReal(a.atan2(*b as f64))),
+        (Value::Real(a), Value::Real(b)) => Ok(Value::Real(math::atan2f(*a, *b))),
+        (Value::LReal(a), Value::LReal(b)) => Ok(Value::LReal(math::atan2(*a, *b))),
+        (Value::Real(a), Value::LReal(b)) => Ok(Value::LReal(math::atan2(f64::from(*a), *b))),
+        (Value::LReal(a), Value::Real(b)) => Ok(Value::LReal(math::atan2(*a, f64::from(*b)))),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -177,11 +178,11 @@ fn expt(args: &[Value]) -> Result<Value, RuntimeError> {
     let exp = to_f64(exp)?;
     match base {
         Value::Real(v) => {
-            let result = (*v as f64).powf(exp);
+            let result = math::pow(f64::from(*v), exp);
             checked_real_result(result)
         }
         Value::LReal(v) => {
-            let result = v.powf(exp);
+            let result = math::pow(*v, exp);
             if !result.is_finite() {
                 return Err(RuntimeError::Overflow);
             }

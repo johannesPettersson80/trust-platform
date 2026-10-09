@@ -9,6 +9,13 @@ skinparam ranksep 35
 
 title truST Runtime: VM Execution and Helper Evaluation
 
+component "trust-runtime-core::numeric::math\nlocked libm primitives\nshared by operators and hosted stdlib" as coreMath
+note right of coreMath
+    A1 preserves promotion, narrowing and fault policy.
+    Core value storage uses a portable ordered-map alias.
+    Full source-free engine extraction remains A4.
+end note
+
 package "Production Cycle Entry" as entryPkg #LightBlue {
     component "Runtime::execute_cycle()\n(runtime/cycle.rs)" as cycle
     component "execute_task() /\nexecute_background_programs()" as taskDispatch
@@ -59,6 +66,8 @@ package "Program / FB Execution Inside VM" as vmExecPkg #LightCyan {
     stackExec --> instructionBudget : one original instruction
     regExec --> debugMap
     stackExec --> debugMap
+    regExec --> coreMath : shared arithmetic
+    stackExec --> coreMath : shared arithmetic
 }
 
 note right of regTry

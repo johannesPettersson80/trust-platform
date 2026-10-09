@@ -5851,6 +5851,7 @@ name = "trust-runtime-core"
 version = "0.24.70"
 dependencies = [
  "indexmap 2.14.0",
+ "libm",
  "rustc-hash 2.1.2",
  "smol_str",
  "thiserror 2.0.18",

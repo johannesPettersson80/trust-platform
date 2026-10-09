@@ -850,6 +850,51 @@ An equivalent native `f32` implementation of REAL `+`, `-`, `*`, `/`, or `SQRT` 
 
 Scope A prepares a small numeric fixture with REAL/LREAL, exponentiation, TIME×REAL truncation, a selected nontrivial math import, and a threshold-controlled Boolean output. Freeze exact/tolerance expectations and the old/new oracle identities before A1's numeric batch; A4 integrates that contract with source-free execution. Scope B/M2E measures helper/code size and execution cost. F401 accelerates single precision only; the selected C6 target and the optional C3 target have no hardware floating-point extension, so both widths incur software arithmetic costs. These facts constrain workloads, not IEC type widths. [E25, E56, E57]
 
+#### A1 numeric and layout acceptance record
+
+The A1 finite numerical corpus, under IEC §6.6.2.5.8's implementation-specific
+accuracy requirement, is defined below. It qualifies these inputs only; it is not
+an all-input accuracy bound. The Rust constants and decimal references are fixed
+independently of the new primitive calls in `portable_numeric_contract.rs`.
+
+| Function | Input | Reference |
+|---|---|---|
+| SQRT | 2 | sqrt(2), Rust `SQRT_2` |
+| LN | 2 | ln(2), Rust `LN_2` |
+| LOG | 10 | 1 |
+| EXP | 1 | e, Rust `E` |
+| SIN | 0.5 | 0.479425538604203 |
+| COS | 0.5 | 0.8775825618903728 |
+| TAN | 0.5 | 0.5463024898437905 |
+| ASIN | 0.5 | pi/6 |
+| ACOS | 0.5 | pi/3 |
+| ATAN | 1 | pi/4 |
+
+For these LREAL cases, absolute error shall be at most
+`8 * f64::EPSILON * max(1, abs(reference))`; REAL uses the reference rounded to
+binary32 and `4 * f32::EPSILON * max(1, abs(reference))`. Lower/upper control
+thresholds at reference minus/plus twice that tolerance have fixed greater/less
+outcomes. This specifies test thresholds, not a deadband added to PLC programs.
+The old std math calls remain test-only compatibility references, with old/new
+bit patterns recorded in A1's log; no prior execution is implied by their source.
+
+Exact cases cover SQRT(9) and its equality boundary in actual ST, 2**3, signed
+zero, a retained REAL subnormal, basic REAL rounding, and duration truncation.
+The operator TIME scaling path still truncates toward zero; existing named
+duration helpers retain ties-to-even rounding. Domain/overflow/divide-by-zero
+faults retain their existing call-site policy. The ST fixture also exercises
+fractional exponentiation, SIN, TIME scaling and Boolean outputs. ATAN2 retains
+its binary32 same-width path and binary64 mixed-width path. No f32 fast path,
+fast-math or contraction flag is introduced.
+
+Value-slot build guards are at most 32 bytes on 32-bit targets and 48 bytes on
+64-bit hosts, with alignment at most 8. These are explicit A1 slot budgets, not
+measured whole-runtime footprints or capacity admission for an application.
+The native test records actual host size/alignment; target checks enforce their
+compile-time bounds. Board preparation/heap/stack/FPSCR evidence remains B/E.
+The evidence record identifies compiler/LLVM, features, target sysroot/helper
+hashes and flags; missing platform floating-environment evidence stays unqualified.
+
 ## 13. Migration plan
 
 | Step | Work | Exit gate |

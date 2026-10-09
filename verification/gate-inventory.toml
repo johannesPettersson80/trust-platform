@@ -1404,3 +1404,25 @@ artifact_retention = "none"
 enforcement = "non_executable"
 required_env = []
 rationale = "Nested workflow templates are not executed by GitHub Actions in this repository."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_CI_PORTABLE_CORE"
+discovery_id = "DISC_4B45D9EF64B6AD3DB610"
+source_kind = "github_workflow_job"
+path = ".github/workflows/ci.yml"
+name = "CI / portable-core"
+command = "workflow job .github/workflows/ci.yml#portable-core"
+variant = "isolated F401 and C6 no-default core checks"
+command_role = "entrypoint"
+disposition = "assigned"
+suite_ids = ["pr"]
+owner = "trust-runtime"
+duration_class = "fast"
+environment = "github_ubuntu"
+artifact_kind = "ci_artifact"
+artifact_paths = ["gate-portable-core-${{ matrix.target }}"]
+artifact_retention = "repository_default"
+enforcement = "required"
+required_env = []
+rationale = "Both matrix markers are required by the CI gate report. A1 has builder cross-target evidence; this entry does not claim a GitHub execution."
