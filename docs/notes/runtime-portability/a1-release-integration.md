@@ -126,3 +126,96 @@ After batch completion, the canonical release skill and this candidate both clar
 native-only compiler overrides, explicit unsetting for cross checks, and reading
 prior failure-ledger command corrections before freezing. This is included in the
 complete correction before the next review/commit; no running candidate was changed.
+
+
+## Integration batch 2 and PR #130 corrections
+
+The separately authorized batch on `c1e0f68f9101a7c1fe33cce52d701143ab18a33c`
+passed the exact-SHA guard, corrected Windows LSP compile and skill validation.
+The workspace run reported 8,321 passing tests, zero failures and 24 ignored tests;
+the VS Code run reported 519 passing tests. The unsupported-marker FIFO assertion
+ran successfully. Raw proof is retained under
+`/home/johannes/projects/.artifacts/runtime-portability-a1-integration/run-2/`.
+PR #130 was then pushed. PR #129's v0.24.70 release is independently closed.
+
+All initial PR #130 jobs finished before corrections began. Strict MkDocs rejected
+five links to the missing public projection of specification 34. The projection,
+navigation, reference index and search expectation are now prepared; source-only
+research/checklist links retain their repository destinations. Link warnings and
+strictness are unchanged.
+
+Windows and macOS native suites passed on their first attempts (8,182 and 8,313
+tests respectively). Linux CI's green status concealed a first-attempt failure in
+`managed_runtime_lifecycle_runs_through_the_shipped_cli`: fleet stop reported
+`failed to read control response`. The workflow's second attempt passed. Both
+attempts and its retry-rescued marker are retained under `pr130-native-linux/`;
+this is a blocker requiring a root-cause correction, not clean first-attempt proof.
+The complete failure ledger is retained as `pr130-failure-ledger.json` alongside
+these artifacts; `pr130-retry-rescue-findings.json` records the hidden Linux
+failure with its original log digest. Security review found no issues; general automatic review did
+not run because of its usage limit. Independent review remains separate evidence.
+
+The completed second batch also showed unconditional target deletion before
+workspace tests despite ample free space. The prepared guard correction keeps
+compiled artifacts when the existing 80 GiB floor is met. Below that floor it
+uses the same validated idle-removal helper, prepares the target again and
+rechecks space. Six authored orchestration regressions exercise the real path
+and lease helpers with controlled free-space readings: warm retention, successful
+reclamation, insufficient reclaimed space, a busy lease, invalid readings and a
+failed measurement. No lease, ownership, exact-SHA or capacity rule is relaxed.
+
+The fleet correction belongs to the confirmation phase after one valid shutdown
+acknowledgement. A listener can accept a subsequent status connection while its
+process is exiting; previously any response-read failure aborted stop. A typed
+transport-interruption error now marks only socket write/read failures. During
+post-acknowledgement confirmation these consume the existing 31-probe / 30-sleep
+budget, without resending shutdown. Only a later failed connection confirms
+`stopped`; exhausting the budget reports `stopping` and retains the advisory PID.
+Initial status, authentication, malformed/oversized envelopes, wrong IDs and
+configuration errors remain strict. The CI log does not preserve the underlying
+I/O kind, so it cannot distinguish reset from timeout; the new real-TCP fixture
+forces accepted EOF before refusal to pin the demonstrated lifecycle gap.
+
+Four real-TCP tests cover EOF then refusal, EOF then healthy/protocol failure,
+confirmation exhaustion and strict ordinary/initial status. A fifth unit test
+checks transport error classification without misclassifying configuration I/O.
+Static review caught the initial test setup reserving ports through the
+scaffolding availability check and an unavailable direct `thiserror` dependency;
+both are corrected before any execution. The original shipped-CLI test remains
+unchanged and runs in the guard's workspace suite. These are authored assertions,
+not test results.
+
+### Proposed consolidated follow-up, not yet authorized
+
+Finish all corrections and independent review before committing a new candidate.
+Freeze its SHA and run the release-guard Python suite and skill validator as the
+modified guard's prerequisites. Run the Docs Captures publication sequence on the
+builder in a separate clean checkout of the same SHA with manually verified
+canonical rules, so generated assets cannot dirty the frozen guard checkout:
+media inventory generation, public IA/link and example-link checks,
+`mkdocs build --strict`, assets and search checks. This is the actual failed stage;
+no duplicate browser capture is needed for unchanged rendered assets.
+Then run exact-SHA `prepare` once; its native workspace suite owns the fleet
+regressions and shipped-CLI integration test, with no additional test-all. Retain
+unchanged isolated portable-core and diagram evidence from integration batch 1.
+Collect independent failures, leave dependent stages unrun, and never retry
+automatically. These commands have not run against the prepared corrections.
+
+### Independent correction review
+
+A separate read-only agent reviewed the complete docs/guard correction and the
+fleet correction. The fixture's held-port scaffolding conflict and missing direct
+error-derive dependency were corrected and re-reviewed; no actionable findings
+remain by inspection. Review did not execute tests, a formatter or validators.
+Final fleet source SHA-256 values:
+
+- `lifecycle.rs`: `c9f5fd01a321bca8134e00cef923c033273bf0090fc94f3ae4beed098e7c5126`.
+- `lifecycle/stop_confirmation_tests.rs`: `37d9b34bed1c8ab7fe03589476fd6e141edbfd5168f04dbb3905521f0cf8a459`.
+
+The reviewed canonical release skill SHA-256 is
+`1d8d47f8bf343f7c24400f208e26de360e24b2ca041a3960d78488973fbd9df3`;
+prepare script `3d56278762aa62bd0051373dd5922becde9e13aa04e0c396e2f5bf71b805668b`;
+guard tests `7552db9c89d6859466200cda6ba4b44ddf68c971b787ac180b210dfb673d42d3`.
+This record's final reconciliation and review paragraph were appended after that
+source review. The proposed consolidated follow-up remains unrun and requires
+explicit integration validation authorization.

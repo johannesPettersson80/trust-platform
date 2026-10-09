@@ -4165,6 +4165,18 @@ part of the accepted request and is applied immediately after the response
 write attempt; process teardown must not race the operator-visible
 acknowledgement off the control connection.
 
+After a valid shutdown acknowledgement, fleet stop confirmation probes may race
+process teardown. A connection reset, broken pipe, aborted connection, empty
+EOF, or transport read/write timeout is inconclusive during this confirmation
+only: it consumes the existing bounded polling budget without resending
+shutdown. A subsequent connection failure confirms `stopped` and removes the
+advisory PID; an accepted status response still means reachable. If confirmation
+exhausts its budget, return `stopping` and retain the PID rather than claiming
+success. Authentication failures, malformed or oversized responses, wrong IDs,
+and configuration errors remain errors, including after acknowledgement.
+Ordinary status and the initial stop probe retain their existing strict error
+behavior. A transport interruption alone never proves a completed stop.
+
 `status` and `logs` are read-only and do not create `.trust-runtime` state when
 it is absent. Log tailing retains only the requested final lines in memory
 rather than loading the complete log file. A start operation may create its

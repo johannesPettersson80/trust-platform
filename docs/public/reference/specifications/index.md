@@ -10,6 +10,7 @@ instead of sending readers to GitHub.
 | --- | --- |
 | “What does IEC Structured Text itself allow?” | the language chapters `01` through `09` |
 | “How does truST execute ST programs?” | [10 Runtime Semantics](10-runtime-semantics.md) |
+| “How does the runtime support STM32 and ESP32?” | [34 Runtime Portability](34-runtime-portability.md) |
 | “How is the runtime platform structured?” | [11 Runtime Engine](11-runtime-engine.md) |
 | “What does the bytecode container look like?” | [12 Bytecode](12-bytecode.md) |
 | “How does debugging behave?” | [13 Debug Adapter](13-debug-adapter.md) |
@@ -48,6 +49,7 @@ for task-oriented programming docs.
 - [10 Runtime Semantics](10-runtime-semantics.md)
 - [11 Runtime Engine](11-runtime-engine.md)
 - [12 Bytecode](12-bytecode.md)
+- [34 Runtime Portability](34-runtime-portability.md)
 
 ### Tooling
 

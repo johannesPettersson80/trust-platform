@@ -155,8 +155,13 @@ pub(super) fn stop_runtime(
     )
     .with_context(|| format!("failed to stop runtime '{}'", runtime.name))?;
 
-    let mut last = status_runtime_entry(fleet_root, &runtime, &project_path)?;
-    for _ in 0..30 {
+    let mut last = current;
+    for attempt in 0..=30 {
+        match status_runtime_entry(fleet_root, &runtime, &project_path) {
+            Ok(status) => last = status,
+            Err(error) if interrupted_stop_probe(&error) => {}
+            Err(error) => return Err(error),
+        }
         if last.status != "running" {
             remove_pid_file(fleet_root, runtime.name.as_str());
             return Ok(FleetRuntimeLifecycleResponse {
@@ -165,15 +170,52 @@ pub(super) fn stop_runtime(
                 ..last
             });
         }
-        thread::sleep(Duration::from_millis(200));
-        last = status_runtime_entry(fleet_root, &runtime, &project_path)?;
+        if attempt < 30 {
+            thread::sleep(Duration::from_millis(200));
+        }
     }
 
     Ok(FleetRuntimeLifecycleResponse {
         status: "stopping".to_string(),
-        message: "Stop was requested, but the control endpoint is still reachable.".to_string(),
+        message: "Stop was acknowledged, but endpoint shutdown is not confirmed.".to_string(),
         ..last
     })
+}
+
+// A typed boundary prevents configuration I/O errors from becoming retryable probes.
+#[derive(Debug)]
+struct InterruptedControlTransport(std::io::Error);
+
+impl std::fmt::Display for InterruptedControlTransport {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, formatter)
+    }
+}
+
+impl std::error::Error for InterruptedControlTransport {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0)
+    }
+}
+
+fn control_transport_error(error: std::io::Error) -> anyhow::Error {
+    if matches!(
+        error.kind(),
+        std::io::ErrorKind::ConnectionReset
+            | std::io::ErrorKind::ConnectionAborted
+            | std::io::ErrorKind::BrokenPipe
+            | std::io::ErrorKind::UnexpectedEof
+            | std::io::ErrorKind::TimedOut
+            | std::io::ErrorKind::WouldBlock
+    ) {
+        InterruptedControlTransport(error).into()
+    } else {
+        error.into()
+    }
+}
+
+fn interrupted_stop_probe(error: &anyhow::Error) -> bool {
+    error.downcast_ref::<InterruptedControlTransport>().is_some()
 }
 
 pub(super) fn status_runtime(
@@ -389,7 +431,9 @@ fn exchange_control(
             stream
                 .set_write_timeout(Some(Duration::from_millis(750)))
                 .ok();
-            writeln!(stream, "{payload}").context("failed to send control request")?;
+            writeln!(stream, "{payload}")
+                .map_err(control_transport_error)
+                .context("failed to send control request")?;
             let mut reader = BufReader::new(stream);
             read_control_response(&mut reader)?
         }
@@ -410,7 +454,9 @@ fn exchange_control(
             stream
                 .set_write_timeout(Some(Duration::from_millis(750)))
                 .ok();
-            writeln!(stream, "{payload}").context("failed to send control request")?;
+            writeln!(stream, "{payload}")
+                .map_err(control_transport_error)
+                .context("failed to send control request")?;
             let mut reader = BufReader::new(stream);
             read_control_response(&mut reader)?
         }
@@ -444,9 +490,13 @@ fn read_control_response(reader: &mut impl BufRead) -> anyhow::Result<String> {
     let bytes = reader
         .take((MAX_CONTROL_RESPONSE_BYTES + 1) as u64)
         .read_line(&mut line)
+        .map_err(control_transport_error)
         .context("failed to read control response")?;
     if bytes == 0 {
-        anyhow::bail!("control response was empty");
+        return Err(control_transport_error(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "control response was empty",
+        )));
     }
     if bytes > MAX_CONTROL_RESPONSE_BYTES {
         anyhow::bail!(
@@ -915,3 +965,7 @@ mod tests {
         root
     }
 }
+
+#[cfg(test)]
+#[path = "lifecycle/stop_confirmation_tests.rs"]
+mod stop_confirmation_tests;

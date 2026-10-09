@@ -921,7 +921,7 @@ M4H and M4 may proceed in parallel once their prerequisites are met. Existing te
 
 **PLAN-02.** ESP32 portability shall influence M0/M1 and receive the M2E physical checkpoint. M2E is a bring-up result, not M5 release qualification. Optional H7 work shall neither delay use of the available F401 nor replace the required ESP32 deliverable. Core adoption, bounded execution, and platform release qualification shall remain separately reportable so a difficult hosted service does not conceal progress or erase a remaining gate.
 
-**Execution cadence.** Scope A is the aggregate of four bounded scopes, A1–A4 below, following the explicit 9 October 2026 planning decision. Each has one final validation batch; B and M0U remain separate. Finish the entire authorized scope and necessary test authoring before its batch. Preserve failures and obtain explicit authorization for another run; do not silently subdivide a scope to manufacture extra batches. Selecting these boundaries does not itself start implementation. Milestone labels do not create extra batches, and unrun gates remain unverified. The [implementation checklist](../internal/testing/checklists/runtime-portability-implementation-checklist.md) records the current checkpoint, scope authorization, requirement coverage, and evidence; this specification remains the behavior authority.
+**Execution cadence.** Scope A is the aggregate of four bounded scopes, A1–A4 below, following the explicit 9 October 2026 planning decision. Each has one final validation batch; B and M0U remain separate. Finish the entire authorized scope and necessary test authoring before its batch. Preserve failures and obtain explicit authorization for another run; do not silently subdivide a scope to manufacture extra batches. Selecting these boundaries does not itself start implementation. Milestone labels do not create extra batches, and unrun gates remain unverified. The [implementation checklist](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/internal/testing/checklists/runtime-portability-implementation-checklist.md) records the current checkpoint, scope authorization, requirement coverage, and evidence; this specification remains the behavior authority.
 
 Extraction, value-layout optimization, and intentional behavioral changes shall remain separate reviewable slices with the repository's dependency/architecture checks. The separation of compilation from execution is established in other runtime designs, but their published sizes are not truST targets or estimates. [E22]
 
@@ -1285,7 +1285,7 @@ https://doc.rust-lang.org/rustc/platform-support/thumbv7em-none-eabi.html
 ### Design input references
 
 Historical inputs and artifact hashes are preserved in the
-[research notes](../notes/runtime-portability/research-notes.md). They are
+[research notes](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/notes/runtime-portability/research-notes.md). They are
 non-normative provenance; no build or implementation step depends on files in a
 personal directory.
 
@@ -1297,7 +1297,7 @@ personal directory.
 
 **D04 — Version 0.4 input.** Earlier target/implementation review; superseded decisions are identified in the review archive.
 
-**D05 — Dated dependency snapshot.** [Registry inventory](../notes/runtime-portability/trust-runtime-modernization-inventory-2026-10-09.json), SHA-256 `6a088873d343cced6c536442fdd32e63cf0687017c64bf62ad12cea4d1e9f6d0`. The 9 October snapshot covers 74 direct registry crates, 30 npm packages and five Git declarations across 21 manifests. Refresh candidates in M0U; this is not a resolved upgrade set or advisory audit.
+**D05 — Dated dependency snapshot.** [Registry inventory](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/notes/runtime-portability/trust-runtime-modernization-inventory-2026-10-09.json), SHA-256 `6a088873d343cced6c536442fdd32e63cf0687017c64bf62ad12cea4d1e9f6d0`. The 9 October snapshot covers 74 direct registry crates, 30 npm packages and five Git declarations across 21 manifests. Refresh candidates in M0U; this is not a resolved upgrade set or advisory audit.
 
 **D06 — Version 0.5 and earlier review.** Historical modernization input and the 17-finding v0.4 review; archived with their original evidence limitations.
 
@@ -1391,12 +1391,12 @@ The product requirement identifiers and architecture remain unchanged.
 Version 0.7 separates M0U from Scope A/B, specifies portable map/hashers and full
 bytecode relocation, bounds legacy-version compatibility, retains libm's default
 feature with explicit numeric premises, and separates product requirements from
-dated research. The [complete revision history](../notes/runtime-portability/research-notes.md#revision-history-through-v06)
+dated research. The [complete revision history](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/notes/runtime-portability/research-notes.md#revision-history-through-v06)
 preserves earlier snapshots and decisions.
 
 ## Appendix C — Amendment traceability
 
-The [research amendment mapping](../notes/runtime-portability/research-notes.md#earlier-research-amendment-traceability)
+The [research amendment mapping](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/notes/runtime-portability/research-notes.md#earlier-research-amendment-traceability)
 is historical provenance. Current implementation timing is defined by §13.2;
 requirement identifiers in this specification remain authoritative. Review labels
 such as REV-MODEL-05 are not product requirement identifiers.
@@ -1484,8 +1484,8 @@ For the early implementation scope, the minimum new acceptance set is: fresh-eng
 
 ## Appendix F — Dated dependency candidates
 
-The [candidate table](../notes/runtime-portability/research-notes.md#dated-dependency-candidates)
-and [registry snapshot](../notes/runtime-portability/trust-runtime-modernization-inventory-2026-10-09.json)
+The [candidate table](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/notes/runtime-portability/research-notes.md#dated-dependency-candidates)
+and [registry snapshot](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/notes/runtime-portability/trust-runtime-modernization-inventory-2026-10-09.json)
 are dated research under D05, outside the normative specification directory.
 Section 16 governs the separate modernization scope: refresh metadata, record
 upgrade/replace/retain decisions, then freeze and qualify the selected graph.
@@ -1497,7 +1497,7 @@ upgrade/replace/retain decisions, then freeze and qualify the selected graph.
 | Periodic-task phase defect, 9 October 2026 | Accepted as SCHED-05 with coordinated spec 10/11 amendments. The initial A4 placement is superseded by the sequencing review below. Reuse the draft readiness/regression changes, add missing non-multiple cases and discard the unsupported 75-runs-in-10-seconds hosted-runner claim. The reviewed pre-A1 code used sampled-time baselines; current implementation and validation status are recorded in the checklist. |
 | Scheduling-fix sequencing review, 9 October 2026 | Accepted the review's four-batch alternative: implement and separately review the dependency-free fix first in A1, with its native regressions sharing A1's existing batch. A1 establishes the corrected scheduling contract for subsequent scopes. A4 keeps only fixture/oracle integration for this fix; metadata remains non-blocking maintenance. No new implementation authorization or fifth batch is inferred from the review. |
 
-The [review archive](../notes/runtime-portability/research-notes.md) retains all
+The [review archive](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/notes/runtime-portability/research-notes.md) retains all
 17 v0.4 dispositions and the eight v0.6 follow-up dispositions, including corrected
 claims and unexecuted evidence. Current choices are expressed in the requirements
 and milestones above; historical approval of a plan is not runtime or hardware

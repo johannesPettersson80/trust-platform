@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Confirm managed fleet shutdown across control-connection teardown without
+  mistaking interrupted status probes for a failed shutdown or a confirmed stop.
+  Preserve authentication/protocol errors and retain the PID until stop is confirmed.
+
+- Publish the runtime portability specification in the public reference and preserve
+  warm release-build artifacts when the target filesystem already meets the existing
+  80 GiB capacity requirement.
+
 - Keep the unsupported Git-marker regression executable with long temporary
   directory paths on Unix hosts.
 
