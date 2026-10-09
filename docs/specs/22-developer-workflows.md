@@ -286,6 +286,15 @@ the runtime Web UI source tree so browser-visible runtime changes cannot bypass
 their registered Playwright journeys. Its pull-request and push path filters
 must remain identical.
 
+### Release-candidate build parallelism
+
+Release validation uses Cargo's normal build-job configuration on the builder. The guard
+must not replace an inherited `CARGO_BUILD_JOBS` value or a configured `[build].jobs` limit
+with a hardcoded single-job setting. When the environment is unset, Cargo resolves its
+configuration normally. Build concurrency is an infrastructure resource choice, not a
+change to the selected tests or their assertions. The 80 GiB disk preflight, target lease,
+uncached compilation and target reclamation requirements remain in force.
+
 ### Post-merge release-candidate cleanup audit
 
 The post-merge audit is read-only. It binds the reviewed candidate SHA, branch,

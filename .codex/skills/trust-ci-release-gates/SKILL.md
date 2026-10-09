@@ -133,7 +133,7 @@ that the intended issues are closed after the merge.
   - `RUSTC_WRAPPER` and `CARGO_BUILD_RUSTC_WRAPPER` set to `/usr/bin/env`;
   - `scripts/compiler_passthrough.sh` installed on `PATH` as `sccache`;
   - `CC=cc` and `CXX=c++`;
-  - `CARGO_BUILD_JOBS=1` for the cold `just test-all`;
+  - honor the builder's Cargo job configuration for cold `just test-all`; do not force one job;
   - `TMPDIR` inside the task's own target.
 
   Between Clippy and `just test-all`, reclaim only that validated target, through

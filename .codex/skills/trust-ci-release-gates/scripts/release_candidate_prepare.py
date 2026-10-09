@@ -178,7 +178,7 @@ def remote_validation_commands(
             ),
             (
                 "remote_test_all",
-                leased(f"{target_env} CARGO_BUILD_JOBS=1 just test-all"),
+                leased(f"{target_env} just test-all"),
             ),
             ("remote_clean_after", 'test -z "$(git status --porcelain=v1 --untracked-files=all)"'),
         ]

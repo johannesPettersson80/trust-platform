@@ -1021,6 +1021,8 @@ Target release: `v0.24.70`
 
 ### Changed
 
+- Let release validation honor the builder's configured Cargo job limit instead of forcing a single concurrent build job.
+
 - vscode/docs: documented the shipped product contract for the truST sidebar,
   Live Values, Devices & Connections, examples, libraries, HMI, and visual
   editors; public guides now use the current Compile, Live Values, and direct

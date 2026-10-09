@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import shlex
 import subprocess
 import tempfile
@@ -306,7 +307,36 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn("CARGO_INCREMENTAL=0", vscode_body)
         self.assertIn('TMPDIR="$vscode_tmp"', vscode_body)
         self.assertNotIn("TMPDIR='/tmp/trust target/tmp'", vscode_body)
-        self.assertIn("CARGO_BUILD_JOBS=1", by_id["remote_test_all"])
+        self.assertNotIn("CARGO_BUILD_JOBS=", by_id["remote_test_all"])
+
+    def test_remote_test_all_preserves_builder_job_configuration(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="trust-build-jobs-", dir="/tmp") as temporary:
+            target = Path(temporary)
+            (target / "bin").mkdir()
+            command = dict(candidate_prepare.remote_validation_commands(
+                vscode_changed=False, remote_target=str(target)
+            ))["remote_test_all"]
+            body = shlex.split(command)[-1]
+            # Execute the generated shell boundary without launching Cargo or test-all.
+            just = target / "bin" / "just"
+            just.write_text(
+                '#!/bin/sh\n'
+                'test "$1" = test-all || exit 3\n'
+                'printf "%s" "${CARGO_BUILD_JOBS-unset}"\n',
+                encoding="utf-8",
+            )
+            just.chmod(0o755)
+            for jobs in (None, "1", "6"):
+                with self.subTest(jobs=jobs):
+                    environment = os.environ.copy()
+                    environment.pop("CARGO_BUILD_JOBS", None)
+                    if jobs is not None:
+                        environment["CARGO_BUILD_JOBS"] = jobs
+                    result = subprocess.run(
+                        ["bash", "-c", body], env=environment,
+                        capture_output=True, text=True, check=True,
+                    )
+                    self.assertEqual(result.stdout, jobs or "unset")
 
     def test_remote_validation_requires_eighty_gib_before_cold_gates(self) -> None:
         commands = candidate_prepare.remote_validation_commands(
