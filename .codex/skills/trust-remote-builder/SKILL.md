@@ -50,6 +50,10 @@ formatting or one small crate's tests.
 ## Shared cargo targets
 
 Several checkouts build into `~/.cache/codex-targets/<name>` at the same time.
+An isolated task target can also live under the mounted volume's
+`/mnt/HC_Volume_107089260/builder-storage/cargo-targets/` root. The shared path
+policy checks mount state, ownership and canonical paths; no symlink workaround.
+Use the same lease/removal scripts and preserve unrelated targets.
 
 - Run every cargo-producing command through the lease:
 
@@ -74,7 +78,7 @@ ssh trust-builder 'df -hT /home/johannes /tmp && du -xhd1 "$HOME/projects" 2>/de
 
 - **Free-space floors on `/home/johannes`**:
   - about 25 GB for `just clippy`, `just test`, `npm test` or a focused runtime gate;
-  - 80 GB for a cold exact-candidate `just test-all`, or for large native-dependency changes (ADS,
+  - 80 GB on the selected target filesystem for a cold exact-candidate `just test-all`, or for large native-dependency changes (ADS,
     OPC UA/OpenSSL, EtherCAT, WebGPU). The release guard enforces this floor.
   - Report the real free space; do not invent higher thresholds.
 - **Cleaning up**: delete only generated outputs, never a source worktree. Examples are an isolated

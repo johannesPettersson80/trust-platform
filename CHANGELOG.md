@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Bind release validation capacity checks to the selected generated-target filesystem;
+  support the mounted builder volume with the same leases, ownership checks and
+  80 GiB minimum, avoiding root-disk exhaustion during cold workspace tests.
+
 - Remove deleted project sources from the language server consistently across
   directory notifications, reindexing and concurrent document close/index operations,
   preventing stale duplicate declarations when creating a new project.

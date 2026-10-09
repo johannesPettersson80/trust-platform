@@ -1,5 +1,6 @@
 use super::*;
 use tower_lsp::lsp_types::{DidChangeWatchedFilesParams, FileChangeType, FileEvent, Url};
+use trust_hir::db::SemanticDatabase;
 
 const MAIN: &str = "PROGRAM Main\nEND_PROGRAM\n";
 

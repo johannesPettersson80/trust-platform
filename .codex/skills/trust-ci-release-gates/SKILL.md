@@ -80,7 +80,7 @@ These pushes go through the guard in this skill's `scripts/`:
      - the capture lifecycle, when it applies.
    - Planner and catalog records are advisory.
    - Any commit, base movement or dirty checkout invalidates the artifact.
-   - It needs 80 GiB free under `$HOME` on the builder.
+   - It needs 80 GiB free on the selected target filesystem on the builder.
 2. **Push once.** The shared pre-push hook (`scripts/pre-push`, which `git config core.hooksPath`
    points at) rejects a release-sensitive push that has no passing artifact for the exact head and
    base. Never bypass it.
@@ -128,6 +128,11 @@ that the intended issues are closed after the merge.
   - it runs on pull requests with the same path filters as on `main`;
   - its validation job has read-only contents permission;
   - the job that writes the refresh branch never runs for pull requests.
+- **Target storage**: use a strict descendant of `~/.cache/codex-targets/`, `/tmp/`, or
+  `/mnt/HC_Volume_107089260/builder-storage/cargo-targets/`. The shared path policy
+  requires the volume mount, canonical paths and current-user ownership; leases
+  and idle-only removal apply unchanged. Keep the 80 GiB floor on the target's
+  actual filesystem. Do not substitute a symlink to bypass target-root policy.
 - **Exact-candidate disk bounds**:
   - `CARGO_INCREMENTAL=0`;
   - `RUSTC_WRAPPER` and `CARGO_BUILD_RUSTC_WRAPPER` set to `/usr/bin/env`;

@@ -353,8 +353,56 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         )
         preflight = by_id["remote_disk_preflight"]
         self.assertIn("required_kib=83886080", preflight)
-        self.assertIn('df --output=avail -k "$HOME"', preflight)
-        self.assertIn('df -hT "$HOME" /tmp', preflight)
+        self.assertIn('df --output=avail -k "$probe"', preflight)
+        self.assertIn('df -hT "$HOME" /tmp "$probe"', preflight)
+
+    def test_volume_target_is_a_strict_descendant_of_the_approved_root(self) -> None:
+        root = "/mnt/HC_Volume_107089260/builder-storage/cargo-targets"
+        self.assertEqual(candidate_prepare.validated_remote_target(root + "/candidate"), root + "/candidate")
+        for path in (root, root + "/../checkout", root + "/./candidate", "/mnt/another-volume/candidate"):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                candidate_prepare.validated_remote_target(path)
+
+    def test_disk_preflight_checks_selected_filesystem_and_fails_closed(self) -> None:
+        command = dict(candidate_prepare.remote_validation_commands(
+            vscode_changed=False,
+            remote_target="/mnt/HC_Volume_107089260/builder-storage/cargo-targets/candidate",
+        ))["remote_disk_preflight"]
+        with tempfile.TemporaryDirectory(prefix="trust-disk-policy-", dir="/tmp") as temporary:
+            root = Path(temporary)
+            (root / "scripts").mkdir()
+            (root / "bin").mkdir()
+            policy = root / "scripts" / "cargo_target_path.sh"
+            policy.write_text('echo "$PROBE_PATH"\n', encoding="utf-8")
+            df = root / "bin" / "df"
+            df.write_text(
+                '#!/bin/sh\n'
+                'if [ "$1" = --output=avail ]; then\n'
+                '  printf "%s" "$3" > "$PROBE_LOG"\n'
+                '  printf "Avail\\n%s\\n" "$AVAILABLE_KIB"\n'
+                'fi\n', encoding="utf-8",
+            )
+            df.chmod(0o755)
+            environment = os.environ.copy()
+            environment.update(PATH=str(root / "bin") + os.pathsep + environment["PATH"],
+                               PROBE_PATH=str(root / "not-created-yet"), PROBE_LOG=str(root / "probe.log"))
+            for available, expected in (("83886080", 0), ("83886079", 1)):
+                environment["AVAILABLE_KIB"] = available
+                result = subprocess.run(["bash", "-c", command], cwd=root, env=environment,
+                                        capture_output=True, text=True, check=False)
+                self.assertEqual(result.returncode, expected, result.stderr)
+                self.assertEqual((root / "probe.log").read_text(), str(root))
+            (root / "probe.log").unlink()
+            policy.write_text('exit 2\n', encoding="utf-8")
+            result = subprocess.run(["bash", "-c", command], cwd=root, env=environment,
+                                    capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 2)
+            self.assertFalse((root / "probe.log").exists())
+            policy.write_text('echo "$PROBE_PATH"\n', encoding="utf-8")
+            df.write_text('#!/bin/sh\nexit 9\n', encoding="utf-8")
+            result = subprocess.run(["bash", "-c", command], cwd=root, env=environment,
+                                    capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 9)
 
     def test_compiler_passthrough_executes_argv_without_interpreting_its_name(self) -> None:
         passthrough = Path(__file__).with_name("compiler_passthrough.sh")

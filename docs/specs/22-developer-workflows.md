@@ -295,6 +295,23 @@ configuration normally. Build concurrency is an infrastructure resource choice, 
 change to the selected tests or their assertions. The 80 GiB disk preflight, target lease,
 uncached compilation and target reclamation requirements remain in force.
 
+### Release-candidate target storage
+
+The guard requires at least 80 GiB free on the filesystem that will contain its
+selected generated target, before compilation starts. It reports that filesystem,
+`$HOME` and `/tmp`; moving a target to a mounted volume does not lower the threshold.
+Approved targets are strict descendants of the home Cargo-target cache, `/tmp`, or
+`/mnt/HC_Volume_107089260/builder-storage/cargo-targets`. The volume must actually
+be mounted. Target paths cannot traverse `.` or `..`, alias another path through
+symlinks, or name an existing target/parent owned by another user. The shared
+external lease and idle-only reclamation apply to all approved roots, and policy
+is rechecked after acquiring the lease.
+
+A target migration holds both path leases, copies only the task-owned generated
+target, and verifies file bytes and symlink destinations before removing the
+original through the idle-target helper. Source checkouts, unrelated targets and
+validation evidence are not migration cleanup targets.
+
 ### Post-merge release-candidate cleanup audit
 
 The post-merge audit is read-only. It binds the reviewed candidate SHA, branch,

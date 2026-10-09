@@ -117,11 +117,14 @@ def remote_validation_commands(
         )
 
     disk_preflight = (
-        'available_kib=$(df --output=avail -k "$HOME" | tail -n 1 | tr -d " "); '
+        "set -euo pipefail; "
+        f"probe=$(bash scripts/cargo_target_path.sh {shlex.quote(target)}) || exit $?; "
+        'while [ ! -e "$probe" ]; do probe=$(dirname -- "$probe"); done; '
+        'available_kib=$(df --output=avail -k "$probe" | tail -n 1 | tr -d " "); '
         "required_kib=83886080; "
-        'df -hT "$HOME" /tmp; '
+        'df -hT "$HOME" /tmp "$probe"; '
         'if [ "$available_kib" -lt "$required_kib" ]; then '
-        'printf "exact candidate requires at least 80 GiB free under $HOME; '
+        'printf "exact candidate requires at least 80 GiB free on the target filesystem; '
         'found %s KiB\\n" "$available_kib" >&2; exit 1; fi'
     )
     commands = [
@@ -191,10 +194,11 @@ def validated_remote_target(remote_target: str) -> str:
     generated_roots = (
         PurePosixPath("/home/johannes/.cache/codex-targets"),
         PurePosixPath("/tmp"),
+        PurePosixPath("/mnt/HC_Volume_107089260/builder-storage/cargo-targets"),
     )
     if (
         not path.is_absolute()
-        or ".." in path.parts
+        or any(part in (".", "..") for part in remote_target.split("/"))
         or not any(path != root and path.is_relative_to(root) for root in generated_roots)
     ):
         raise ValueError(f"remote target is not a safe generated-output path: {remote_target}")
