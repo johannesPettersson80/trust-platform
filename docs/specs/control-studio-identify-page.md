@@ -44,7 +44,9 @@ Show these elements, in this order:
    with the same label after a result. Use the Tune tab to change pages.
 6. The identified **model type and plant-model equation**, once available, with
    one plain line of its key numbers and units (for example "Gain 0.21 °C per %,
-   time constant 75 min, delay 12 s").
+   time constant 75 min, delay 12 s"). Durations are shown in s below 2 min, in
+   min below 2 h and in h from 2 h, each with the engineering-number formatter of
+   [Specification 35 B9.5](35-vscode-control-studio.md#b95-numbers).
 7. The **response plot**. Its traces are named by role (Measurement, Output), with
    the symbol on hover; without data it shows one line instead of empty axes.
 

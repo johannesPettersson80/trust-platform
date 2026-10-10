@@ -1,0 +1,17 @@
+[package]
+name = "trust-control-math"
+description = "Control-system mathematics: models, discretization, simulation, sampling and identification"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+nalgebra.workspace = true
+schemars.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

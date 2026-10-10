@@ -9,7 +9,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::Read;
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -142,6 +142,55 @@ fn assign(runtime: &mut Runtime, symbol: &str, number: f64) -> Result<(), String
     }
     Ok(())
 }
+/// The program instance a parameter belongs to: the first segment of its symbol when that names a program of the runtime, as
+/// `P1` in `P1.Parameters.IntegralGain`; `None` for a parameter outside every program.
+fn owning_program(runtime: &Runtime, symbol: &str) -> Option<String> {
+    let first = symbol.split('.').next()?;
+    runtime
+        .programs()
+        .keys()
+        .find(|name| name.eq_ignore_ascii_case(first))
+        .map(ToString::to_string)
+}
+
+/// Keeps the run's parameter values through a scan (protocol annex E8.3). A program may set its own parameter record during
+/// its first execution, its startup, which is the first scan in which its task runs: the run's values are then written again
+/// at the task boundary after that scan, as Apply writes a complete record at a task boundary of a running program, and they
+/// must hold from that boundary to the end of the run. A program that changes one after its first execution would not keep
+/// an applied candidate either, so the run fails. `started` holds the programs that have executed in an earlier scan.
+fn hold_candidate(
+    runtime: &mut Runtime,
+    parameters: &BTreeMap<String, f64>,
+    started: &mut BTreeSet<String>,
+) -> Result<(), String> {
+    let program_names: Vec<String> = runtime.programs().keys().map(ToString::to_string).collect();
+    let starting: BTreeSet<String> = program_names
+        .into_iter()
+        .filter(|name| !started.contains(name) && runtime.program_ran_in_last_cycle(name))
+        .collect();
+    for (symbol, value) in parameters {
+        if read(runtime, symbol)? == *value {
+            continue;
+        }
+        // A parameter outside every program may be set by the startup of whichever program first executes.
+        let in_startup = match owning_program(runtime, symbol) {
+            Some(program) => starting.contains(&program),
+            None => started.is_empty() && !starting.is_empty(),
+        };
+        if !in_startup {
+            return Err(format!(
+                "ST changed controller parameter {symbol}; candidate not adopted"
+            ));
+        }
+        assign(runtime, symbol, *value)?;
+        if read(runtime, symbol)? != *value {
+            return Err("candidate must use exact runtime floating-point representation".into());
+        }
+    }
+    started.extend(starting);
+    Ok(())
+}
+
 fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, String> {
     if input.snapshot.sources.is_empty()
         || input.snapshot.sources.len() > 64
@@ -299,6 +348,9 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
     } else {
         None
     };
+    // The programs that have executed in an earlier scan of the run: a program's writes during its first execution are its
+    // startup (E8.3).
+    let mut started_programs: BTreeSet<String> = BTreeSet::new();
     let executed = (|| -> Result<(), String> {
         for sequence in 0..=n {
             let ms = sequence * input.settings.step_ms;
@@ -326,13 +378,7 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
                     + std::time::Duration::from_millis(input.settings.per_trial_wall_ms.min(100)),
             ));
             runtime.execute_cycle().map_err(|e| e.to_string())?;
-            for (symbol, value) in &input.parameters {
-                if read(&runtime, symbol)? != *value {
-                    return Err(format!(
-                        "ST changed controller parameter {symbol}; candidate not adopted"
-                    ));
-                }
-            }
+            hold_candidate(&mut runtime, &input.parameters, &mut started_programs)?;
             let mut readings = Vec::with_capacity(input.settings.observations.len());
             for channel in &input.settings.observations {
                 readings.push(read(&runtime, &channel.symbol)?);

@@ -25,31 +25,100 @@ project.
 All of Control Studio's logic runs in Rust (AGENTS.md, "Hard rule: all logic is in Rust"). That
 covers the calculations (identification, tuning, analysis, evaluation), the workflow rules (when
 an action is allowed, what Apply and Restore do), the runtime clients and the study storage.
-- The calculations and rules are in the pure crate `trust-control`, which does no I/O.
-- The orchestration is in the language server `trust-lsp`. It runs each stage against the runtime
-  and stores the study. The extension calls it through these commands:
-  - `trust-lsp.controlStudioOpen`, `trust-lsp.controlStudioStatus`, `trust-lsp.controlStudioCancel`;
-  - `…Identify`, `…Tune`, `…Validate`, `…Apply`, `…Restore`, `…Keep`;
-  - `…SetupDiscover`, `…SetupSave`.
-
-  The language client registers every command the server advertises as a VS Code command, so no
-  server command shares a name with one of the extension's own commands (the extension's
-  `trust-lsp.controlStudio.open` opens the panel).
-- A long command answers at once with an operation identifier. Its progress and result follow as
-  the notification `trust/controlStudio/update`, and `.status` reattaches to it after a restart
-  (A8.5).
-- The VS Code extension only presents: it shows the pages, forwards the engineer's actions to these
-  commands, and renders their answers. Its message types are generated from the Rust types. It
-  passes the project folder, the selected runtime with its endpoint and control token, and its
-  storage folder for the operation journals (A8.3); the language server never journals the token.
-- A command answers `{"result": …}` or `{"failure": …}`; a failure carries its cause and next
-  action (A11).
+- The control-system mathematics is in the domain-neutral library `trust-control-math`: linear
+  models, discretization, simulation, sampling and step-response identification. It knows no
+  Control Studio concept and no user-facing text; product limits are its parameters.
+- Control Studio's calculations and rules are in the pure crate `trust-control`, which uses the
+  library and does no I/O.
+- The orchestration is in the crate `trust-control-studio`. It runs each stage against the runtime,
+  stores the study and keeps the operation journal. Its binary, also named `trust-control-studio`,
+  is Control Studio's engine. It has two front ends over the same functions, and neither holds a
+  rule of its own:
+  - `trust-control-studio serve`: JSON-RPC 2.0 on standard input and output, each message framed
+    with a `Content-Length` header as the language server protocol frames its messages. The VS Code
+    extension starts one engine per window and talks to it there.
+  - the command line of 0.1b, for people, scripts and CI.
+- The runtime's control endpoint (E0.1) is reached through the shared client crate
+  `trust-runtime-client`, which the language server's inline values also use.
+- The language server has no part in Control Studio: it serves the Structured Text language, and
+  sharing its process would tie Control Studio's operations to its restarts and its load.
+- The engine's methods, each arriving with its stage: `controlStudio/open`, `controlStudio/status`,
+  `controlStudio/cancel`, `controlStudio/page`; `controlStudio/identify`, `controlStudio/tune`,
+  `controlStudio/preview`, `controlStudio/validate`, `controlStudio/apply`, `controlStudio/restore`,
+  `controlStudio/keep`; `controlStudio/setupDiscover`, `controlStudio/setupSave`. `controlStudio/page`
+  records the page last viewed (A8.1), which `controlStudio/open` returns so reopening shows it
+  (A8.6); it changes nothing else and starts nothing. `controlStudio/preview` answers at once with
+  the predicted response, margins and outcome of entered controller settings on the study's model,
+  as Tune with the manual method would finish, and stores nothing (B4.5).
+- A long method answers at once with an operation identifier. Its progress and result follow as
+  the notification `controlStudio/update`. `controlStudio/status` answers for an operation, and
+  `controlStudio/cancel` cancels it as Cancel does.
+- A method's JSON-RPC result is `{"result": …}` or `{"failure": …}`; a failure carries its cause
+  and next action (A11). A malformed message or an unknown method is a JSON-RPC error.
+- The engine ends when its client closes standard input. Ending it never stops a runtime-owned
+  experiment or recording: the runtime keeps them, and the next engine reattaches through the
+  journal (A8.5, A8.6).
+- The VS Code extension only presents: it starts the engine, shows the pages, forwards the
+  engineer's actions as these methods, and renders their answers. Its message types are generated
+  from the Rust types. It passes the project folder and the selected runtime with its endpoint and
+  control token. The engine keeps the operation journals in the folder of A8.3, which the command
+  line uses too, so either front end reattaches an operation the other started. The engine never
+  journals the token.
 - The runtime keeps the real-time parts it owns today: recordings, experiments, transfers,
   parameter transactions and isolated runs (the runtime protocol annex).
 
 The move from the TypeScript implementation follows
 `docs/internal/testing/checklists/rust-logic-migration.md`. Until the switch (its stage V6), the
 TypeScript engine still serves the extension.
+
+### 0.1b Command line (decided 9 October 2026)
+
+`trust-control-studio` runs Control Studio without VS Code: from a terminal, a script or CI. Each
+verb calls the same function as its method in 0.1a, so every rule, limit, refusal and confirmation
+is the same: a verb adds none and drops none.
+
+- Verbs, each arriving with its stage:
+  - `open`: lists the project's loops, or opens one with `--loop`: its stages and journaled
+    operations;
+  - `identify` (B3): a live campaign with the loop's method, or `--method <method>`;
+    `--recording <id>` fits a kept recording without excitation (B3.6); `--resume` follows a
+    journaled campaign to its end (A8.5); `--reset` starts a new working identification study;
+  - `cancel`: cancels a journaled operation: it reattaches by the journaled identifier (E11.5),
+    ends a running experiment through its restoration path (E5.5) and clears the owner once the
+    outcome is kept (E11.6);
+  - `tune` (B4): designs a candidate for the loop's controller from the study's model, with
+    Automatic or `--method simc|amigo|relay|manual` (`--choice faster|balanced|more-robust` for a
+    formula with a response choice, `--structure p|pi|pd|pid` to fix the structure,
+    `--setting <symbol>=<value>` for each entered setting of the manual method), against the
+    requirements the study holds and the criteria Automatic fills (B4.3); it shows the candidate,
+    its predicted response and its margins, keeps the candidate in the study, and never writes to
+    the controller (B4.1);
+  - `validate` (B5): runs the independent model check when the model is provisional, then the
+    actual-ST validation of the current and the candidate settings in isolated simulations, and
+    prints each requirement's result and whether Apply is available; it never writes to the
+    controller; later stages add `apply`, `restore`, `keep` and `setup`.
+- Common arguments: `--project <folder>` (default: the current folder), `--loop <id>`,
+  `--journal-dir <folder>` (default: truST's folder in the user's local state folder, by the
+  platform's convention, where the extension's engine keeps them too, A8.3), `--json`.
+- The runtime is the project's configured runtime (its `runtime.toml`), or `--endpoint
+  tcp://host:port | unix:///path`. Its control token comes from the environment variable
+  `TRUST_CONTROL_TOKEN` or from `--token-file <file>`, never from an argument: arguments are
+  visible to other users of the computer.
+- Output: each progress update is one line on standard error. The result goes to standard output,
+  as readable text, or with `--json` as the same object the method answers (`{"result": …}` or
+  `{"failure": …}`).
+- Exit status: 0 when the verb finished with its result; 1 when it was refused or failed, with the
+  failure's message and next action printed; 2 for a usage error (an unknown verb, a missing or
+  invalid argument); 130 when an interruption ended it.
+- Confirmation: a verb that changes a plant's controller (`apply`, `restore`, `keep`) needs, given
+  explicitly, the reviewed identity that the panel's single confirmation needs (B6); the verb that
+  produced the review prints it. No option skips a check or an approval. A physical target needs
+  the same reviewed approval as in the panel (A2.5); until that approval exists, live physical
+  identification is refused here as it is in the panel.
+- Interruption: the first Ctrl-C cancels the operation as Cancel does. A live experiment is ended
+  through its restoration path, and the verb waits for the runtime to confirm the restoration. A
+  second Ctrl-C leaves the experiment, its recording and the journal to the runtime, as closing VS
+  Code does (A8.6); `identify --resume` then follows it to its end.
 
 ### 0.2 Documents and what each owns
 
@@ -404,7 +473,7 @@ valid recording or run never reaches.
 | Parameter search, trials per job | 64 |
 | Parameter search, wall time per job | 60 min |
 | Apply observation | 24 h process time |
-| Connection-loss timeout (no newer scan received) | 5 s wall time, or 3 resource cycles when longer |
+| Connection-loss timeout (no newer scan received) | 5 s wall time, or 3 intervals between the samples followed when longer: the record period of a followed recording (A4.2), otherwise the resource cycle |
 | Confirmation of a transfer or parameter change | 10 s wall time, or 3 executions of the loop's task plus the connection-loss timeout when longer |
 | Restoration confirmed by | the 3rd execution of the loop's task after the restoring write |
 | Study storage per loop, recordings included | 256 MiB |
@@ -426,10 +495,10 @@ whose signals still exist are carried over.
 
 **A8.3 Location.** Studies are stored in the project, in
 `control-studio/<loop id>/`: one versioned study document and one file per
-recording. The extension's storage folder for the workspace holds only the
-operation journals (A8.5), one file per loop, which the language server writes
-(§0.1a). Studies travel with the project, and large recordings stay out of
-VS Code's state. A study file of an earlier format is not read: it moves to
+recording. The operation journals (A8.5) stay outside the project, one file per
+loop, in truST's folder in the user's local state folder (§0.1b); the engine
+writes them for both of its front ends (§0.1a). Studies travel with the project,
+and large recordings stay out of VS Code's state. A study file of an earlier format is not read: it moves to
 `history/`, and a new study of the loop starts.
 
 **A8.4 Invalidation.** A change invalidates exactly the results that depend on
@@ -636,9 +705,10 @@ and the identification policy.
   (closed-loop identification). Its size is the larger of 20 times the measured
   noise and 2 % of the measured output's range, capped at 10 % of the range and
   by the headroom to the permitted measured-output range.
-- A loop in Manual, an open-loop experiment loop, or a loop whose policy does not
-  permit closed-loop tests: a **plant input step** in Manual (open-loop). Its size
-  starts at 10 % of the plant input's range, capped by the headroom to the plant
+- A loop in Manual, an open-loop experiment loop, or a loop in Auto without a
+  setpoint binding where open-loop tests are permitted (switched to Manual,
+  B3.4 step 1): a **plant input step** in Manual (open-loop). Its size starts
+  at 10 % of the plant input's range, capped by the headroom to the plant
   input limits. A **pulse** replaces the step when sustained holds are not
   permitted. An on/off actuator steps between its two levels. Several plant
   inputs are stepped one after another in one recording; **PRBS** is used when
@@ -679,7 +749,17 @@ Supplied plant model. Every live method follows B3.4.
 5. **Restoration.** The runtime restores the plant input or setpoint to its
    value from before the experiment and confirms it (A7). Identify does not wait
    for the process to return to its starting point.
-6. **Fit** (B3.5).
+6. **Limits check.** The runtime stops an experiment whose written target
+   leaves its limits (annex E5.4); it does not watch the measured output.
+   Before the fit, every recorded sample of the selected plant inputs and
+   measured outputs is checked against the loop's limits: the plant input
+   range and the permitted measured-output range. A sample outside them, or a
+   recording that is not complete (A4.4), is an experiment stopped at a limit
+   or with missing samples (B3.9): the recording is kept, nothing is fitted,
+   and the refusal names the signal, the time and the value or the gap. The
+   recording is not qualified for a fit: opened again (B3.6), it meets the
+   same check with the same answer.
+7. **Fit** (B3.5).
 
 The recording covers the baseline wait and then the maximum duration, within
 A7's limit, and uses the record period of A4.2 for that span. Identification
@@ -693,7 +773,9 @@ complexity: static gain, first order, first order with delay, integrating (with
 delay), second order, second order with delay, then state models up to the
 policy's maximum order. It keeps every attempt and its reason (A11.1) and
 selects the simplest form whose free-running prediction meets the error limit
-over the whole hold and over its final 10 %. A partial response follows A10.3.
+over the whole hold and over its final 10 %. A resolved delay that improves the
+fit keeps first order with delay ahead of first order (numerical annex N3.3). A
+partial response follows A10.3.
 Closed-loop data is fitted from the recorded plant input to the measured output
 as for any other excitation. The result is a **provisional** model with its
 equation and fit evidence.
@@ -720,12 +802,14 @@ page specification).
 | Physical approval declined | None |
 | Not steady: the measured output still changing (rate given) | Wait; or Setpoint step for a loop in Auto |
 | Mode change refused (the runtime's reason) | As the reason states |
-| Experiment stopped: limit reached, forced signal, mode left, Abort, reload or restart | None; the recording is kept and marked not qualified |
+| Experiment stopped: limit reached, forced signal, mode left, Abort, reload or restart | None; the recording is kept, not qualified for a fit (B3.4 step 6) |
 | Restoration not confirmed | Restore by hand; the study is blocked until it is confirmed |
 | Response too small against the noise (values given) | Open **Limits…** to permit a larger step, or choose another method |
 | Response not settled enough (fraction reached, suggested hold) | Open **Limits…** for a longer maximum duration |
 | Response still a ramp: a slow process cannot yet be told from an integrating one (numerical annex N2.3a) | Open **Limits…** for a longer hold; or a setpoint step in Auto |
 | No adequate model (each form's reason) | Choose another method, a larger step or a longer duration |
+| No input change: the recording holds no nonzero step (numerical annex N2.6) | Choose another method; for a project-scripted loop, open loop setup to check the project's scenario (C12) |
+| Another operation of this loop is running, or journaled and unresolved (named) | Wait; or resume or cancel it |
 | Identified gain sign contradicts the controller action | Open loop setup and check the signals and the action |
 
 ### B4. Tune
@@ -736,7 +820,10 @@ controller.
 
 **B4.2 Inputs.** The model (provisional or qualified), the controller (an
 instance or a group, Part C), the method (Automatic or a named method of the
-numerical annex and Part C), the requirements and the pinned settings.
+numerical annex and Part C), the requirements and the pinned settings. The
+manual method takes the engineer's entered settings as the candidate; the relay
+rule (numerical annex N5.R) applies only to a model fitted from a qualified
+Feedback relay record of the same study.
 
 **B4.3 Requirements.** Declared rows: settling time, overshoot, steady-state
 error and error band, input disturbance, measurement noise (when a filter is
@@ -807,7 +894,12 @@ record (numerical annex):
 Part C names structures that always validate on the model. The scenarios cover
 the applicable setpoint step, load step, noise and model variations, and, for
 Auto commissioning, the Manual-to-Auto entry. Long processes are simulated for
-their full observation (A10.5).
+their full observation (A10.5). The candidate reaches the program as Apply
+delivers it: a program that sets its own parameter record during its first
+execution has the candidate written again at the task boundary after that scan,
+and must keep it from there (protocol annex E8.3). The current settings are the
+record's values as the running controller holds them, read before the runs, and
+reach the program the same way.
 
 **B5.4 Results.** Every requirement reports Pass, Fail or Inconclusive with its
 measured value, limit, unit and source. A scenario that did not run is
@@ -1040,7 +1132,8 @@ full-precision value that is used internally, edited, recorded or exported.
 - One response projection and one chart implementation serve every page.
 - Predictions from the selected model use the reference change, duration,
   controller period and physical operating point of the task. A zero-delay model
-  MUST NOT gain an extra controller-period delay. If the current controller
+  MUST NOT gain an extra controller-period delay. A model delay is realized in
+  whole controller periods, rounded to the nearest. If the current controller
   cannot be modelled, its baseline MUST NOT be a copy of the tuned response.
 - Display data is bounded, but exact underlying samples are retained. Gaps,
   quality, source, channel units, and event and limit identities are preserved.
@@ -1321,7 +1414,7 @@ Aliases and shared global ownership need a different adapter.
 
 #### Setpoint weight, measurement filter and anti-windup
 
-**Setpoint weight β.** A PID law MAY declare `proportionalSetpointWeightSymbol`: one unique bound `REAL` or `LREAL` record field, dimensionless (unit `1`), within 0 to 1. The proportional term is `Kp·(β·SP − PV)`. The integral term uses the full error. Manual PI and PID settings require β beside the gains. Predictions use β. β is written through the same complete record. A calculated candidate writes β = 1 unless β is pinned.
+**Setpoint weight β.** A PID law MAY declare `proportionalSetpointWeightSymbol`: one unique bound `REAL` or `LREAL` record field, dimensionless (unit `1`), within 0 to 1. The proportional term is `Kp·(β·SP − PV)`. The integral term uses the full error. Manual PI and PID settings require β beside the gains. Predictions use β, as the controller does: `Control.PID` without integral action ignores β, so a P or PD law is predicted with β = 1 (specification 32 §3.10). β is written through the same complete record. A calculated candidate writes β = 1 unless β is pinned.
 
 **Measurement filter Tf.** A PID law MAY declare `measurementFilterTimeSymbol`: one unique bound `REAL` or `LREAL` program setting in seconds, not negative. It holds the time Tf of the first-order filter on the measurement that the controller uses.
 
@@ -1357,7 +1450,7 @@ delay margin:  phase margin in radians / ω_c, with ω_c the gain-crossover freq
 Ms:            the largest value of |1 / (1 + L(jω))|
 ```
 
-- A margin the loop does not have is shown as unbounded. This applies when the phase never crosses −180°, when the loop gain stays below one, or, for the delay margin, when there is no gain crossover.
+- A margin the loop does not have over the whole frequency axis is shown as unbounded (B9.5: as infinity). This applies when the phase never crosses −180°, when the loop gain stays below one, or, for the delay margin, when there is no gain crossover. A crossing that a bounded frequency range does not show is reported as not observed in range, never as unbounded (numerical annex N7.8).
 - Margins are only as trustworthy as the model. A switching or other nonlinear law shows no margins.
 - Margins and frequency results need a valid model or a measured frequency response.
 
@@ -1486,7 +1579,7 @@ AMIGO has no response-speed parameter. The response choice changes the compariso
 
 - For a formula with a response choice, Automatic uses the choice nearest the declared one whose predicted response, from the settling-time deadline to the end of the test, stays within the allowed error of the target and within the settling band of its final value. Of two equally near choices, the more robust one is used. The Tune page fixes the declared choice for Automatic at More robust, whether or not criteria were entered.
 - When the requirements declare an input disturbance, each prediction covers it. From the operating point, with the setpoint unchanged, the disturbance is added to the plant input at the start. The output must then stay within the allowed error of the target and within the settling band of its final value, from the deadline to the end of the test.
-- When no choice meets the requirements, and the model is delay-free, first or second order and has no zeros, Automatic places the closed-loop poles with damping 0.8. The first decay rate is `max(4, ln(|Δr|/b)) / Tₛ`. The response envelope then reaches the settling band `b` from the setpoint change `Δr` by the settling time `Tₛ`, and never decays more slowly than the 2 % envelope. Each further placement is 25 % faster. At most eight placements are tried, all with `ωh < 0.2` (the sample-rate limit). The controller's zeros can make the response faster or less damped than the envelope, so each placement is checked by its prediction. The first placement with non-negative gains whose predicted response meets the requirements is used. Otherwise the structure is rejected. The rejection gives the deviation of its fastest predicted response, the deadline, and the limit it misses.
+- When no choice meets the requirements, and the model is delay-free, first or second order and has no zeros, Automatic places the closed-loop poles with damping 0.8. The first decay rate is `max(4, ln(|Δr|/b)) / Tₛ`. The response envelope then reaches the settling band `b` from the setpoint change `Δr` by the settling time `Tₛ`, and never decays more slowly than the 2 % envelope. Each further placement is 25 % faster. At most eight placements are tried, all with `ωh < 0.2` (the sample-rate limit). A structure with fewer gains than the closed-loop poles places what it can: P on a second-order model matches the natural frequency and keeps the model's own damping; PI and PID on a second-order model place the third closed-loop pole at three times the natural frequency. The controller's zeros can make the response faster or less damped than the envelope, so each placement is checked by its prediction. The first placement with non-negative gains whose predicted response meets the requirements is used. Otherwise the structure is rejected. The rejection gives the deviation of its fastest predicted response, the deadline, and the limit it misses.
 - Without a model prediction, the declared choice is used and Validate decides. SIMC or AMIGO selected explicitly calculates its formula unchanged.
 
 **Constrained comparison.** Around the qualified SIMC candidate, Tune evaluates a fixed neighbourhood:
@@ -1751,6 +1844,8 @@ The law is `u = u₀ + N·(r − y₀) − K·(x − x₀)` in identified measur
 ### C5. Laws tuned by a finite search over coefficient variables
 
 The law is a program law whose coefficients Control Studio has no design formula for. Examples are MPC weights, a ratio, split-range break points and override limits.
+
+A notch component of such a law is the discrete second-order section with its zeros at the centre frequency `f`: with `ω = 2π·f·h` (task period `h`, `0 < ω < π`) and `α = sin(ω)/(2Q)` for the quality factor `Q`, `y[n] = b0·u[n] + b1·u[n−1] + b2·u[n−2] − a1·y[n−1] − a2·y[n−2]` with `b0 = b2 = 1/(1 + α)`, `b1 = a1 = −2·cos(ω)/(1 + α)` and `a2 = (1 − α)/(1 + α)`. Its gain is zero at `f` and one at zero frequency and at the Nyquist frequency; its denominator must be strictly stable.
 
 #### Setup
 
@@ -2065,7 +2160,7 @@ This structure has no controller. No controller is designed or written, so the T
 
 #### Identify
 
-- **Excitation.** `control-studio` execution follows B3 and A6.5. `project-scripted` execution is observation only. Its recording covers the declared duration and the project's scenario. Identification of that recording follows B3.5.
+- **Excitation.** `control-studio` execution follows B3 and A6.5. `project-scripted` execution is observation only. Its recording covers the declared duration and the project's scenario. Identification of that recording follows B3.5. Identify (Automatic) runs the project's scenario whatever the controller mode; an explicitly chosen method is refused, because the project owns the experiment kind and Control Studio writes no duplicate excitation.
 - **Timing.** Experiments follow the timing of B3.4, not a fixed fraction of the duration (A10.2).
 - **Review.** The review shows the abort assertion together with the activation and its restoration. Starting an experiment never clears an asserted abort.
 - **Terminations.**

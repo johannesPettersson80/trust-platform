@@ -5309,6 +5309,32 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror 2.0.18",
+ "trust-control-math",
+]
+
+[[package]]
+name = "trust-control-math"
+version = "0.24.66"
+dependencies = [
+ "nalgebra",
+ "schemars 1.2.1",
+ "serde",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "trust-control-studio"
+version = "0.24.66"
+dependencies = [
+ "clap",
+ "parking_lot",
+ "rustc-hash 2.1.2",
+ "serde",
+ "serde_json",
+ "sha2",
+ "signal-hook",
+ "trust-control",
+ "trust-runtime-client",
 ]
 
 [[package]]
@@ -5403,10 +5429,10 @@ dependencies = [
  "tower-lsp",
  "tracing",
  "tracing-subscriber",
- "trust-control",
  "trust-hir",
  "trust-ide",
  "trust-runtime",
+ "trust-runtime-client",
  "trust-syntax",
  "verification-cases",
 ]
@@ -5492,6 +5518,15 @@ dependencies = [
  "urlencoding",
  "verification-cases",
  "zenoh",
+]
+
+[[package]]
+name = "trust-runtime-client"
+version = "0.24.66"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

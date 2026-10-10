@@ -190,20 +190,27 @@ pub struct Range {
     pub maximum: f64,
 }
 
-/// The output's limits.
+/// The output's limits. A loop file may omit an output limit or the expected settling time: the loop still loads, and
+/// Identify refuses to start until the missing limit is set, naming it (B1.4, B3.4 step 1).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Limits {
-    /// The smallest output.
-    pub output_minimum: f64,
-    /// The largest output.
-    pub output_maximum: f64,
+    /// The smallest output, when the file sets it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_minimum: Option<f64>,
+    /// The largest output, when the file sets it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_maximum: Option<f64>,
     /// The largest rise of the output, per second.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rate_up_per_s: Option<f64>,
     /// The largest fall of the output, per second.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rate_down_per_s: Option<f64>,
+    /// The expected settling time, in s, when the loop declares one. The baseline window and the record period follow it
+    /// (B3.4 step 2, A4.2); when present it is positive.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_settling_seconds: Option<f64>,
 }
 
 /// How often the loop's values are observed.
@@ -230,8 +237,9 @@ pub struct Experiment {
     /// A relay's first direction.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub relay_direction: Option<RelayDirection>,
-    /// The experiment's duration, in s.
-    pub duration_seconds: f64,
+    /// The experiment's duration, in s, when the file sets it. Identify names it while it is missing (B3.4 step 1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration_seconds: Option<f64>,
     /// A project experiment's baseline before its activation, in s.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub baseline_seconds: Option<f64>,

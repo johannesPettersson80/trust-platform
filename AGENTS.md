@@ -78,9 +78,12 @@ separately.
   build into them at once. Run cargo through `scripts/with_cargo_target_lease.sh TARGET …`. Delete a
   target only with `scripts/remove_cargo_target_if_idle.sh TARGET`; exit 75 means it is in use, so
   keep it. Never glob-delete that directory.
-- Check disk space before broad runs. You need about 25 GB free on `/home/johannes` for Clippy, tests
-  or `npm test`, and 80 GB for a cold `just test-all`. `/tmp` is a small quota, so set `TMPDIR` to a
-  directory under home for browser and VS Code tests. After `No space left on device`:
+- Before broad runs, check the filesystems holding the selected Cargo target, checkout and
+  `TMPDIR`, plus concurrent builder workloads. Allow about 25 GB for Clippy, tests or `npm test`,
+  and the guard's 80 GiB floor on the selected target filesystem for cold `just test-all`.
+  A free-space snapshot is not a reservation; coordinate large runs sharing that filesystem.
+  Use a task-owned `TMPDIR` on suitable disk storage, not the small `/tmp` quota.
+  After `No space left on device`:
   1. stop the leftover processes by PID;
   2. clean generated targets;
   3. rerun only with the user's explicit authorization for another validation run.
@@ -106,6 +109,11 @@ separately.
   A native executable test then pins the behaviour. Verification metadata cannot create product
   work or block it; that includes catalogs, planners, proof levels and mutation reports. Details are
   in the `trust-test-authoring` skill.
+- **Prepare validation before finishing implementation.** Read the applicable workflows and gate
+  scripts; record required commands, toolchains, targets/features, evidence and prerequisites in
+  the existing task record. Review the complete diff, including tests, imports, feature gates and
+  affected callers/lifecycle paths, before freezing. Use independent review when the scope requires
+  it. Review does not prove compilation, and planning does not authorize extra runs.
 - **Implementation first; one validation batch.** Finish the entire authorized implementation and
   necessary test authoring before running checks. Freeze the implementation, then execute one
   consolidated batch of the required builds, lint, tests, and browser/VS Code or hardware evidence.
@@ -116,9 +124,13 @@ separately.
 - **Failed validation**: retain the complete failure ledger and report failed or unrun checks as
   unverified. Fixes may be prepared within the authorized scope, but another validation run needs
   the user's explicit authorization. Do not weaken tests, bypass release guards, or relabel a retry
-  as a new batch.
-- **Bug fixes**: add the native regression assertion alongside the fix and include it in the
-  consolidated batch. Use existing pre-fix evidence when available; never invent a failing run.
+  as a new batch. Collect all failures reachable by independent steps in the authorized batch;
+  leave dependent steps unrun when their prerequisite fails. Keep the source frozen until the
+  batch finishes, then fix the complete known set and review the corrections before another run.
+  Honor any explicit authorization already given for further runs; do not ask for it again.
+- **Bug fixes**: identify and fix the owning root cause, including affected callers; do not mask
+  failures with weakened assertions, suppressions or unrelated workarounds. Add the native
+  regression assertion alongside the fix and include it in the consolidated batch. Use existing pre-fix evidence when available; never invent a failing run.
   A compile, harness or timeout failure is not evidence of a failed behavior assertion.
 - **Scope**: build the smallest version that ships. Say in one line when a fix needs more scope. Add
   no options, abstractions or settings that nobody asked for.
@@ -144,8 +156,9 @@ separately.
 - **Hardware and protocols**: before pushing, run the specified device-in-the-loop case on the real
   reviewed topology. A simulator or unit test does not replace it.
 - **Real time**: run examples and journeys at 1× unless the user chose another speed.
-- **Reporting**: say what you did, what you verified and how, and what you did not run and why. An
-  unrun or failed check is unverified. Never weaken a test to make it pass.
+- **Reporting**: name the source identity and evidence behind each claim. Scope verification is
+  not release-guard approval; guard approval is not green GitHub CI or merge readiness. Say which
+  stage is active, failed or unrun and what remains. Never weaken a test to make it pass.
 - **Stop** means stop: launch nothing new, safely stop what you started, and record where you
   stopped.
 - Commit, push, tag, merge or open pull requests only when the user asks.
@@ -211,8 +224,10 @@ guard rejects a candidate whose copies differ.
 - A release-notable change bumps `[workspace.package].version` in `Cargo.toml`. Keep
   `editors/vscode/package.json` and the root entries of `editors/vscode/package-lock.json` at the same
   version.
-- Before pushing, run `just fmt`, `just clippy` and `just test-all` on the builder, plus the area
-  checks above.
+- Before pushing, `just fmt`, `just clippy`, `just test-all` and applicable area checks must pass
+  on the builder. For a release-guard candidate, use its prepare run for the commands it covers;
+  do not schedule a duplicate full pre-push batch. Separately authorized scope validation remains
+  scope evidence and does not replace the required exact-SHA release artifact.
 - Integration, release, `main` and version-bump pushes need the exact-SHA artifact from
   `.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py prepare`. The installed
   pre-push hook enforces this; never bypass it.

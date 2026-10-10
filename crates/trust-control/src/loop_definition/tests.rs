@@ -235,6 +235,97 @@ fn accepts_bounded_experiment_defaults_and_rejects_ambiguous_scripted_excitation
 }
 
 #[test]
+fn a_loop_without_an_output_limit_or_a_duration_still_loads() {
+    let mut without_maximum = complete_loop();
+    assert!(
+        without_maximum["limits"]
+            .as_object_mut()
+            .expect("the limits are an object")
+            .remove("outputMaximum")
+            .is_some(),
+        "the fixture declares outputMaximum"
+    );
+    let loaded = decode(&without_maximum)
+        .expect("a missing output limit does not stop the loop from loading (B3.4 step 1)");
+    assert_eq!(loaded.limits.output_minimum, Some(0.0));
+    assert_eq!(loaded.limits.output_maximum, None);
+
+    let without_duration = with(
+        complete_loop(),
+        &["experiment"],
+        json!({
+        "execution": "control-studio", "kind": "setpoint_step", "amplitude": 5, "seed": 1 }),
+    );
+    let loaded = decode(&without_duration)
+        .expect("a missing duration does not stop the loop from loading (B3.4 step 1)");
+    assert_eq!(
+        loaded
+            .experiment
+            .as_ref()
+            .and_then(|experiment| experiment.duration_seconds),
+        None
+    );
+}
+
+#[test]
+fn a_present_output_limit_or_duration_is_still_checked_when_the_loop_loads() {
+    let reversed = with(complete_loop(), &["limits", "outputMinimum"], json!(100));
+    assert!(
+        matches!(decode(&reversed), Err(LoopRejection::Malformed(_))),
+        "the minimum is below the maximum when both are set"
+    );
+    let too_long = with(
+        complete_loop(),
+        &["experiment"],
+        json!({
+        "execution": "control-studio", "kind": "mv_step", "amplitude": 5, "durationSeconds": 86_401, "seed": 1 }),
+    );
+    assert!(
+        matches!(decode(&too_long), Err(LoopRejection::Malformed(_))),
+        "a declared duration lasts 1 s to 24 h (A7)"
+    );
+}
+
+#[test]
+fn the_expected_settling_time_is_optional_and_within_1_s_to_24_h_when_the_loop_declares_one() {
+    // A7: the experiment duration range bounds the expected settling time, and the refusal names that range (B1.4).
+    let declared = with(
+        complete_loop(),
+        &["limits", "expectedSettlingSeconds"],
+        json!(45.0),
+    );
+    let loaded = decode(&declared).expect("a settling time of 45 s is accepted");
+    assert_eq!(loaded.limits.expected_settling_seconds, Some(45.0));
+    let undeclared = decode(&complete_loop()).expect("a loop without a settling time is accepted");
+    assert_eq!(undeclared.limits.expected_settling_seconds, None);
+    for edge in [json!(1.0), json!(86_400.0)] {
+        let inside = with(
+            complete_loop(),
+            &["limits", "expectedSettlingSeconds"],
+            edge,
+        );
+        assert!(
+            decode(&inside).is_ok(),
+            "1 s and 24 h are inside the range (A7)"
+        );
+    }
+    for outside in [json!(0), json!(0.5), json!(-5.0), json!(86_401.0)] {
+        let refused = with(
+            complete_loop(),
+            &["limits", "expectedSettlingSeconds"],
+            outside,
+        );
+        assert!(
+            matches!(
+                decode(&refused),
+                Err(LoopRejection::Malformed(text)) if text.contains("1 s to 24 h")
+            ),
+            "a declared settling time is a duration of 1 s to 24 h (A7)"
+        );
+    }
+}
+
+#[test]
 fn a_project_experiment_reads_every_signal_and_control_studio_writes_the_output() {
     let scripted = |value: Value| {
         with(

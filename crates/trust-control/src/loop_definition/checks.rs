@@ -41,13 +41,17 @@ impl LoopDefinition {
         self.check_controller()?;
         self.check_signals()?;
         let limits = &self.limits;
-        if !(limits.output_minimum.is_finite()
-            && limits.output_maximum.is_finite()
-            && limits.output_minimum < limits.output_maximum
+        if !(output_range_is_valid(limits.output_minimum, limits.output_maximum)
             && optional_nonnegative(limits.rate_up_per_s)
             && optional_nonnegative(limits.rate_down_per_s))
         {
             return Err("the output limits are not a range with nonnegative rates".into());
+        }
+        if !limits
+            .expected_settling_seconds
+            .is_none_or(is_experiment_duration_seconds)
+        {
+            return Err("the expected settling time is a duration of 1 s to 24 h".into());
         }
         let timing = &self.observed_sample_timing;
         if !(timing.nominal_period_ms.is_finite()
@@ -209,7 +213,11 @@ impl LoopDefinition {
         let baseline_ms =
             (experiment.baseline_seconds.unwrap_or(0.0) * 1_000.0 / period).ceil() * period;
         let hold_ms = (hold.maximum * 1_000.0 / period - 1e-9).ceil() * period;
-        if (experiment.duration_seconds * 1_000.0).round() < baseline_ms + hold_ms + period {
+        // A missing duration is named by Identify's precondition (B3.4 step 1); only a declared one is compared here.
+        if experiment
+            .duration_seconds
+            .is_some_and(|duration| (duration * 1_000.0).round() < baseline_ms + hold_ms + period)
+        {
             return Err(
                 "the experiment's duration cannot record the longest permitted hold".into(),
             );
@@ -580,15 +588,10 @@ fn check_law(law: &ControllerLaw, binding: &ParameterBinding) -> Result<(), Stri
 }
 
 fn check_experiment(experiment: &Experiment) -> Result<(), String> {
-    // The duration limits are whole seconds, exact as f64.
-    #[allow(clippy::cast_precision_loss)]
-    let (minimum, maximum) = (
-        MINIMUM_EXPERIMENT_DURATION_MS as f64 / 1_000.0,
-        MAXIMUM_EXPERIMENT_DURATION_MS as f64 / 1_000.0,
-    );
     if !(experiment.amplitude.is_finite()
-        && experiment.duration_seconds.is_finite()
-        && (minimum..=maximum).contains(&experiment.duration_seconds)
+        && experiment
+            .duration_seconds
+            .is_none_or(is_experiment_duration_seconds)
         && (1..=0xffff_ffff).contains(&experiment.seed))
     {
         return Err("the experiment needs a finite amplitude, a duration of 1 s to 24 h and a seed of 1 to 2^32 - 1".into());
@@ -596,7 +599,11 @@ fn check_experiment(experiment: &Experiment) -> Result<(), String> {
     if let Some(baseline) = experiment.baseline_seconds {
         if experiment.execution != Execution::ProjectScripted
             || experiment.activation.is_none()
-            || !(baseline.is_finite() && baseline >= 0.0 && baseline < experiment.duration_seconds)
+            || !(baseline.is_finite()
+                && baseline >= 0.0
+                && experiment
+                    .duration_seconds
+                    .is_none_or(|duration| baseline < duration))
         {
             return Err(
                 "a baseline belongs to an activated project experiment and is shorter than it"
@@ -809,4 +816,22 @@ fn label(name: &str, value: &str) -> Result<(), String> {
 
 fn optional_nonnegative(value: Option<f64>) -> bool {
     value.is_none_or(|value| value.is_finite() && value >= 0.0)
+}
+
+/// Whether a duration in seconds is within the experiment duration range of A7: 1 s to 24 h of process time.
+fn is_experiment_duration_seconds(seconds: f64) -> bool {
+    // The duration limits are whole seconds, exact as f64.
+    #[allow(clippy::cast_precision_loss)]
+    let (minimum, maximum) = (
+        MINIMUM_EXPERIMENT_DURATION_MS as f64 / 1_000.0,
+        MAXIMUM_EXPERIMENT_DURATION_MS as f64 / 1_000.0,
+    );
+    seconds.is_finite() && (minimum..=maximum).contains(&seconds)
+}
+
+/// The output range: each bound the file sets is finite, and when both are set the minimum is below the maximum.
+fn output_range_is_valid(minimum: Option<f64>, maximum: Option<f64>) -> bool {
+    minimum.is_none_or(f64::is_finite)
+        && maximum.is_none_or(f64::is_finite)
+        && minimum.zip(maximum).is_none_or(|(low, high)| low < high)
 }

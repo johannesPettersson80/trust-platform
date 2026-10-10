@@ -84,6 +84,8 @@ pub struct StageEvidence {
     pub validation_has_result: bool,
     /// That result passed.
     pub validation_passed: bool,
+    /// That result is inconclusive: a requirement lacks the evidence to pass or to fail (B5.4).
+    pub validation_inconclusive: bool,
 }
 
 impl Default for StageEvidence {
@@ -99,6 +101,7 @@ impl Default for StageEvidence {
             identification_failed: false,
             validation_has_result: false,
             validation_passed: false,
+            validation_inconclusive: false,
         }
     }
 }
@@ -175,11 +178,23 @@ fn validate_status(evidence: &StageEvidence) -> StageStatus {
             StageStatus::NeedsData
         };
     }
-    match (evidence.validation_has_result, evidence.validation_passed) {
-        (false, _) => StageStatus::Ready,
-        (true, true) => StageStatus::Complete,
-        (true, false) => StageStatus::Failed,
+    match (
+        evidence.validation_has_result,
+        evidence.validation_passed,
+        evidence.validation_inconclusive,
+    ) {
+        (false, _, _) => StageStatus::Ready,
+        (true, true, _) => StageStatus::Complete,
+        (true, false, true) => StageStatus::NeedsData,
+        (true, false, false) => StageStatus::Failed,
     }
+}
+
+/// Whether Apply is available (B5.4): the candidate has a current validation that passed. That result already holds the
+/// model check and every requirement of the candidate (N8.5), so nothing else decides Apply.
+#[must_use]
+pub fn apply_available(evidence: &StageEvidence) -> bool {
+    evidence.has_candidate && evidence.validation_has_result && evidence.validation_passed
 }
 
 #[cfg(test)]
@@ -267,5 +282,33 @@ mod tests {
             (StageStatus::NeedsData, StageStatus::NeedsData)
         );
         assert_eq!(StageStatus::NeedsData.label(), "Needs data");
+    }
+
+    #[test]
+    fn an_inconclusive_validation_needs_data_and_apply_waits_for_a_passed_one() {
+        let candidate = StageEvidence {
+            has_model: true,
+            has_candidate: true,
+            ..StageEvidence::default()
+        };
+        let inconclusive = StageEvidence {
+            validation_has_result: true,
+            validation_inconclusive: true,
+            ..candidate
+        };
+        assert_eq!(
+            status(inconclusive, Stage::Validate),
+            StageStatus::NeedsData,
+            "missing evidence is not a failed run (B5.4)"
+        );
+        assert!(!apply_available(&inconclusive));
+        let passed = StageEvidence {
+            validation_has_result: true,
+            validation_passed: true,
+            ..candidate
+        };
+        assert_eq!(status(passed, Stage::Validate), StageStatus::Complete);
+        assert!(apply_available(&passed));
+        assert!(!apply_available(&candidate), "no validation, no Apply");
     }
 }

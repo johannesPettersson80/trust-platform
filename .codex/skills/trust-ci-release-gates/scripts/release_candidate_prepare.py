@@ -116,13 +116,32 @@ def remote_validation_commands(
             f"{shlex.quote(target)} bash -lc {shlex.quote(command)}"
         )
 
-    disk_preflight = (
-        'available_kib=$(df --output=avail -k "$HOME" | tail -n 1 | tr -d " "); '
+    disk_probe = (
+        "set -euo pipefail; "
+        f"probe=$(bash scripts/cargo_target_path.sh {shlex.quote(target)}) || exit $?; "
+        'while [ ! -e "$probe" ]; do probe=$(dirname -- "$probe"); done; '
+        'available_kib=$(df --output=avail -k "$probe" | tail -n 1 | tr -d " "); '
         "required_kib=83886080; "
-        'df -hT "$HOME" /tmp; '
+        'if ! [[ "$available_kib" =~ ^-?[0-9]+$ ]]; then '
+        'echo "cannot determine available target space" >&2; exit 1; fi; '
+    )
+    disk_floor_check = (
         'if [ "$available_kib" -lt "$required_kib" ]; then '
-        'printf "exact candidate requires at least 80 GiB free under $HOME; '
+        'printf "exact candidate requires at least 80 GiB free on the target filesystem; '
         'found %s KiB\\n" "$available_kib" >&2; exit 1; fi'
+    )
+    disk_preflight = disk_probe + 'df -hT "$HOME" /tmp "$probe"; ' + disk_floor_check
+    conditional_reclaim = (
+        disk_probe
+        + 'if [ "$available_kib" -ge "$required_kib" ]; then '
+        + 'printf "Keeping warm Cargo target: %s (%s KiB available)\\n" '
+        + f'{shlex.quote(target)} "$available_kib"; '
+        + "else "
+        + f"bash scripts/remove_cargo_target_if_idle.sh {shlex.quote(target)} || exit $?; "
+        + f"({prepare_target}) || exit $?; "
+        + disk_probe
+        + disk_floor_check
+        + "; fi"
     )
     commands = [
         ("remote_exact_head", ""),
@@ -142,14 +161,13 @@ def remote_validation_commands(
                 leased(
                     "vscode_tmp=$(mktemp -d /tmp/trust-vscode-candidate.XXXXXX) && "
                     "trap 'rm -rf -- \"$vscode_tmp\"' EXIT && "
-                    "cd editors/vscode && npm ci && npm run lint && "
+                    "cd editors/vscode && npm ci && npm run lint && npm run compile && "
                     f"{vscode_target_env} xvfb-run -a npm test"
                 ),
             )
         )
     commands.extend(
         [
-            ("remote_hmi", leased(f"{target_env} HMI_REUSE_EDITOR_BUILD={int(vscode_changed)} bash scripts/hmi_ci_gate.sh")),
             ("remote_fmt", "just fmt"),
             (
                 "remote_cross_target_warnings",
@@ -174,12 +192,15 @@ def remote_validation_commands(
             ),
             (
                 "remote_reclaim_before_test_all",
-                "bash scripts/remove_cargo_target_if_idle.sh "
-                f"{shlex.quote(target)} && {prepare_target}",
+                conditional_reclaim,
             ),
             (
                 "remote_test_all",
-                leased(f"{target_env} CARGO_BUILD_JOBS=1 just test-all"),
+                leased(f"{target_env} just test-all"),
+            ),
+            (
+                "remote_mp001_parity",
+                leased(f"{target_env} bash scripts/check_mp001_split_parity.sh --verify"),
             ),
             ("remote_clean_after", 'test -z "$(git status --porcelain=v1 --untracked-files=all)"'),
         ]
@@ -192,10 +213,11 @@ def validated_remote_target(remote_target: str) -> str:
     generated_roots = (
         PurePosixPath("/home/johannes/.cache/codex-targets"),
         PurePosixPath("/tmp"),
+        PurePosixPath("/mnt/HC_Volume_107089260/builder-storage/cargo-targets"),
     )
     if (
         not path.is_absolute()
-        or ".." in path.parts
+        or any(part in (".", "..") for part in remote_target.split("/"))
         or not any(path != root and path.is_relative_to(root) for root in generated_roots)
     ):
         raise ValueError(f"remote target is not a safe generated-output path: {remote_target}")

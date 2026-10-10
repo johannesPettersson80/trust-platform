@@ -20,6 +20,20 @@ use crate::limits::{
 use crate::signals::{Quality, SignalBinding};
 use crate::study::canonical_json;
 
+pub mod channels;
+pub mod even_sampling;
+pub mod evidence;
+pub mod opened_channels;
+pub mod page;
+pub mod periodic_source;
+pub mod samples;
+pub mod sequence;
+pub mod start;
+pub mod wire;
+
+#[cfg(test)]
+pub(crate) mod fixtures;
+
 /// The recording file format this crate reads and writes.
 pub const RECORDING_FORMAT: u32 = 1;
 
@@ -247,31 +261,24 @@ pub struct RecordedRun {
 
 impl RecordedRun {
     /// Checks that the run answers `request`: the same identity and bindings, and one value,
-    /// forced flag and quality per binding in every sample.
+    /// forced flag and quality per binding in every sample. Its acquisition claims must agree with
+    /// its samples, and its samples must hold well-formed BOOL values and, when the acquisition is
+    /// complete, step forward (E4.5).
     ///
     /// # Errors
-    /// The run does not answer the request, or a sample is misaligned.
+    /// The run does not answer the request, its claims or samples contradict it, or a sample is misaligned.
     pub fn check_answers(&self, request: &RecordingRequest) -> Result<(), Failure> {
-        let aligned = self.samples.iter().all(|sample| {
-            sample.values.len() == self.bindings.len()
-                && sample.forced.len() == self.bindings.len()
-                && sample.quality.len() == self.bindings.len()
-                && sample
-                    .values
-                    .iter()
-                    .flatten()
-                    .all(|value| value.is_finite())
-        });
         if self.recording_id != request.recording_id
             || self.loop_revision != request.loop_revision
             || self.bindings != request.bindings
             || (request.program_revision.is_some()
                 && self.program_revision != request.program_revision)
-            || !aligned
+            || !samples::aligned(&self.samples, self.bindings.len())
         {
             return Err(Failure::invalid_response("control.recording.stop"));
         }
-        Ok(())
+        evidence::check_acquisition_claims(self)?;
+        evidence::check_run_samples(self)
     }
 }
 
@@ -287,6 +294,11 @@ pub enum EvidenceSource {
 }
 
 /// One recording file of a study: `control-studio/<loop id>/recordings/<id>.json` (A8.3).
+///
+/// The file keeps the verdict on the recording with the run (E4.5, E11.8; [`evidence::RecordingEvidence`]), so a
+/// recording whose start acknowledgement was not confirmed, or whose acquisition is incomplete, stays labelled after it
+/// is reloaded and is never read as complete evidence. The verdict is part of the content, so it is part of the
+/// identifier. A file without a verdict is not read: no earlier format is.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RecordingFile {
@@ -298,27 +310,55 @@ pub struct RecordingFile {
     pub source: EvidenceSource,
     /// The run exactly as the runtime returned it.
     pub run: RecordedRun,
+    /// The verdict on the recording when it was kept: complete or incomplete, and the reason the engineer reads.
+    pub evidence: evidence::RecordingEvidence,
 }
 
 impl RecordingFile {
-    /// The file of a run of loop `loop_id`.
+    /// The file of a run of loop `loop_id`, with the verdict `evidence` on the recording
+    /// ([`evidence::recording_evidence`]).
     #[must_use]
-    pub fn new(loop_id: &str, source: EvidenceSource, run: RecordedRun) -> Self {
+    pub fn new(
+        loop_id: &str,
+        source: EvidenceSource,
+        run: RecordedRun,
+        evidence: evidence::RecordingEvidence,
+    ) -> Self {
         Self {
             format: RECORDING_FORMAT,
             loop_id: loop_id.to_string(),
             source,
             run,
+            evidence,
         }
     }
 
     /// The file's text: canonical JSON.
     ///
     /// # Errors
-    /// The run holds a value JSON cannot carry.
+    /// The verdict says complete although the runtime reported an incomplete acquisition, the run holds a value JSON
+    /// cannot carry, or the text is larger than the storage limit of A7.
     pub fn encode(&self) -> Result<String, Failure> {
+        self.check()?;
         let value = serde_json::to_value(self).map_err(|error| unreadable(&error.to_string()))?;
-        Ok(canonical_json(&value))
+        let text = canonical_json(&value);
+        crate::study::check_size(text.len() as u64)?;
+        Ok(text)
+    }
+
+    /// The verdict only lowers what the runtime claims: a file that calls a recording complete while its acquisition is
+    /// incomplete contradicts itself (E4.5), and is neither written nor read.
+    fn check(&self) -> Result<(), Failure> {
+        if self.evidence.completeness == Completeness::Complete
+            && self.run.acquisition.completeness != Completeness::Complete
+        {
+            return Err(Failure::new(
+                "The recording file is not consistent: its verdict says complete, but the runtime reported the acquisition incomplete.",
+                Cause::Settings,
+                NextAction::None,
+            ));
+        }
+        Ok(())
     }
 
     /// The identifier the file is stored under: `rec-` and 32 hex digits of the SHA-256 of its text.
@@ -333,8 +373,13 @@ impl RecordingFile {
     /// identifier.
     ///
     /// # Errors
-    /// The text is not a recording file of this format, of this loop, or of this identifier.
+    /// The text is larger than the storage limit of A7, is not a recording file of this format, with its verdict, of this
+    /// loop, or of this identifier, or its verdict contradicts its run.
     pub fn decode(text: &str, loop_id: &str, id: &str) -> Result<Self, Failure> {
+        crate::study::check_size(text.len() as u64)?;
+        // Decoded directly, not through `crate::json`: a recording holds up to 1.6 million values (A7), and none of its
+        // types is an untagged or internally tagged enum or flattens a field, so its numbers decode under
+        // `arbitrary_precision` too (the crate's tests run with it).
         let file: Self =
             serde_json::from_str(text).map_err(|error| unreadable(&error.to_string()))?;
         if file.format != RECORDING_FORMAT || file.loop_id != loop_id || file.id()? != id {

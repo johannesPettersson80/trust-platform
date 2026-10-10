@@ -1,6 +1,9 @@
+import hashlib
 import io
 import json
+import os
 import shlex
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -13,14 +16,6 @@ import release_candidate_release as candidate_release
 
 
 class ReleaseCandidateGuardTests(unittest.TestCase):
-    def test_hmi_gate_is_required_and_uses_the_leased_target(self):
-        self.assertIn("remote_hmi", guard.required_command_ids(vscode_changed=False))
-        commands = dict(candidate_prepare.remote_validation_commands(vscode_changed=True, remote_target="/tmp/trust-hmi-target"))
-        command = commands["remote_hmi"]
-        self.assertIn("with_cargo_target_lease.sh", command)
-        self.assertIn("CARGO_TARGET_DIR=", command)
-        self.assertIn("hmi_ci_gate.sh", command)
-
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.repo = Path(self.temp_dir.name)
@@ -167,6 +162,18 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn("remote_test_all", commands)
         self.assertIn("just test-all", commands["remote_test_all"])
 
+    def test_mp001_discovery_parity_is_required_after_native_tests(self) -> None:
+        commands = dict(candidate_prepare.remote_validation_commands(
+            vscode_changed=False, remote_target="/tmp/trust-target",
+        ))
+        self.assertIn("remote_mp001_parity", guard.BASE_REQUIRED_COMMANDS)
+        self.assertIn("bash scripts/check_mp001_split_parity.sh --verify", commands["remote_mp001_parity"])
+        self.assertIn("CARGO_TARGET_DIR=/tmp/trust-target", commands["remote_mp001_parity"])
+        self.assertIn("scripts/with_cargo_target_lease.sh", commands["remote_mp001_parity"])
+        order = list(commands)
+        self.assertLess(order.index("remote_test_all"), order.index("remote_mp001_parity"))
+        self.assertLess(order.index("remote_mp001_parity"), order.index("remote_clean_after"))
+
     def test_remote_validation_runs_required_cross_target_warning_gate_before_clippy(self) -> None:
         commands = candidate_prepare.remote_validation_commands(
             vscode_changed=False, remote_target="/tmp/trust-target"
@@ -242,7 +249,7 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn('export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"', gate)
         self.assertLess(gate.index("export PATH="), gate.index("command -v ast-grep"))
 
-    def test_remote_validation_reclaims_exact_target_before_test_all(self) -> None:
+    def test_remote_validation_checks_target_space_before_test_all(self) -> None:
         commands = candidate_prepare.remote_validation_commands(
             vscode_changed=True, remote_target="/tmp/trust target"
         )
@@ -271,6 +278,7 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             "remote_architecture_safety",
             "remote_clippy",
             "remote_test_all",
+            "remote_mp001_parity",
         )
         for command_id in leased_ids:
             self.assertIn(
@@ -293,14 +301,8 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             ".codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh "
             "'/tmp/trust target/bin/sccache'",
         )
-        self.assertEqual(
-            by_id["remote_reclaim_before_test_all"],
-            "bash scripts/remove_cargo_target_if_idle.sh '/tmp/trust target' && "
-            "mkdir -p -- '/tmp/trust target/tmp' '/tmp/trust target/bin' && "
-            "install -m 755 "
-            ".codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh "
-            "'/tmp/trust target/bin/sccache'",
-        )
+        self.assertIn("required_kib=83886080", reclaim)
+        self.assertIn("Keeping warm Cargo target", reclaim)
         for command_id in ("remote_clippy", "remote_test_all"):
             body = shlex.split(by_id[command_id])[-1]
             self.assertIn("CARGO_INCREMENTAL=0", body)
@@ -314,7 +316,140 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn("CARGO_INCREMENTAL=0", vscode_body)
         self.assertIn('TMPDIR="$vscode_tmp"', vscode_body)
         self.assertNotIn("TMPDIR='/tmp/trust target/tmp'", vscode_body)
-        self.assertIn("CARGO_BUILD_JOBS=1", by_id["remote_test_all"])
+        self.assertNotIn("CARGO_BUILD_JOBS=", by_id["remote_test_all"])
+
+    def run_conditional_reclaim(self, readings, *, busy=False):
+        """Execute the generated boundary with real path/lease cleanup and a fake df."""
+        import fcntl
+
+        source = Path(__file__).parents[4]
+        with tempfile.TemporaryDirectory(prefix="trust-reclaim-", dir="/tmp") as temporary:
+            root = Path(temporary)
+            target = root / "target with spaces"
+            (target / "tmp").mkdir(parents=True)
+            (target / "bin").mkdir()
+            cached = target / "cached-artifact"
+            cached.write_text("compiled output", encoding="utf-8")
+            scripts = root / "scripts"
+            scripts.mkdir()
+            for name in ("cargo_target_path.sh", "remove_cargo_target_if_idle.sh"):
+                shutil.copyfile(source / "scripts" / name, scripts / name)
+            shim_relative = Path(
+                ".codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh"
+            )
+            shim = root / shim_relative
+            shim.parent.mkdir(parents=True)
+            shutil.copyfile(source / shim_relative, shim)
+            shutil.copyfile(shim, target / "bin/sccache")
+
+            probe_bin = root / "probe-bin"
+            probe_bin.mkdir()
+            count = root / "probe-count"
+            df = probe_bin / "df"
+            df.write_text(
+                "#!/usr/bin/env python3\n"
+                "import pathlib, sys\n"
+                "if sys.argv[1:2] != ['--output=avail']:\n"
+                "    print('fixture filesystem'); sys.exit(0)\n"
+                f"counter = pathlib.Path({str(count)!r})\n"
+                "position = int(counter.read_text()) if counter.exists() else 0\n"
+                "counter.write_text(str(position + 1))\n"
+                f"readings = {readings!r}\n"
+                "value = readings[min(position, len(readings) - 1)]\n"
+                "if value is None: sys.exit(42)\n"
+                "print('Avail'); print(value)\n",
+                encoding="utf-8",
+            )
+            df.chmod(0o755)
+            command = dict(candidate_prepare.remote_validation_commands(
+                vscode_changed=False, remote_target=str(target)
+            ))["remote_reclaim_before_test_all"]
+            digest = hashlib.sha256(str(target).encode()).hexdigest()
+            lease = Path.home() / ".cache/codex-target-leases" / f"{digest}.lock"
+            lease.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                with lease.open("a+") as lock:
+                    if busy:
+                        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    result = subprocess.run(
+                        ["bash", "-c", command], cwd=root,
+                        env={**os.environ, "PATH": f"{probe_bin}:{os.environ['PATH']}"},
+                        capture_output=True, text=True, timeout=30, check=False,
+                    )
+                prepared = (target / "tmp").is_dir() and (target / "bin/sccache").is_file()
+                return result, cached.exists(), prepared, int(count.read_text())
+            finally:
+                lease.unlink(missing_ok=True)
+
+    def test_target_at_space_floor_keeps_compiled_artifacts(self) -> None:
+        result, cached, prepared, probes = self.run_conditional_reclaim([83886080])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(cached)
+        self.assertTrue(prepared)
+        self.assertEqual(probes, 1)
+
+    def test_low_space_reclaims_idle_target_and_rechecks_floor(self) -> None:
+        result, cached, prepared, probes = self.run_conditional_reclaim([83886079, 83886080])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(cached)
+        self.assertTrue(prepared)
+        self.assertEqual(probes, 2)
+
+    def test_reclaim_cannot_accept_space_below_floor(self) -> None:
+        result, cached, prepared, probes = self.run_conditional_reclaim([83886079, 83886079])
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertFalse(cached)
+        self.assertTrue(prepared)
+        self.assertEqual(probes, 2)
+        self.assertIn("at least 80 GiB", result.stderr)
+
+    def test_low_space_cannot_remove_a_leased_target(self) -> None:
+        result, cached, prepared, probes = self.run_conditional_reclaim([83886079], busy=True)
+        self.assertEqual(result.returncode, 75, result.stderr)
+        self.assertTrue(cached)
+        self.assertTrue(prepared)
+        self.assertEqual(probes, 1)
+
+    def test_unknown_free_space_does_not_remove_target(self) -> None:
+        result, cached, _, probes = self.run_conditional_reclaim(["unknown"])
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertTrue(cached)
+        self.assertEqual(probes, 1)
+
+    def test_failed_disk_probe_does_not_remove_target(self) -> None:
+        result, cached, _, probes = self.run_conditional_reclaim([None])
+        self.assertEqual(result.returncode, 42, result.stderr)
+        self.assertTrue(cached)
+        self.assertEqual(probes, 1)
+
+    def test_remote_test_all_preserves_builder_job_configuration(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="trust-build-jobs-", dir="/tmp") as temporary:
+            target = Path(temporary)
+            (target / "bin").mkdir()
+            command = dict(candidate_prepare.remote_validation_commands(
+                vscode_changed=False, remote_target=str(target)
+            ))["remote_test_all"]
+            body = shlex.split(command)[-1]
+            # Execute the generated shell boundary without launching Cargo or test-all.
+            just = target / "bin" / "just"
+            just.write_text(
+                '#!/bin/sh\n'
+                'test "$1" = test-all || exit 3\n'
+                'printf "%s" "${CARGO_BUILD_JOBS-unset}"\n',
+                encoding="utf-8",
+            )
+            just.chmod(0o755)
+            for jobs in (None, "1", "6"):
+                with self.subTest(jobs=jobs):
+                    environment = os.environ.copy()
+                    environment.pop("CARGO_BUILD_JOBS", None)
+                    if jobs is not None:
+                        environment["CARGO_BUILD_JOBS"] = jobs
+                    result = subprocess.run(
+                        ["bash", "-c", body], env=environment,
+                        capture_output=True, text=True, check=True,
+                    )
+                    self.assertEqual(result.stdout, jobs or "unset")
 
     def test_remote_validation_requires_eighty_gib_before_cold_gates(self) -> None:
         commands = candidate_prepare.remote_validation_commands(
@@ -331,8 +466,56 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         )
         preflight = by_id["remote_disk_preflight"]
         self.assertIn("required_kib=83886080", preflight)
-        self.assertIn('df --output=avail -k "$HOME"', preflight)
-        self.assertIn('df -hT "$HOME" /tmp', preflight)
+        self.assertIn('df --output=avail -k "$probe"', preflight)
+        self.assertIn('df -hT "$HOME" /tmp "$probe"', preflight)
+
+    def test_volume_target_is_a_strict_descendant_of_the_approved_root(self) -> None:
+        root = "/mnt/HC_Volume_107089260/builder-storage/cargo-targets"
+        self.assertEqual(candidate_prepare.validated_remote_target(root + "/candidate"), root + "/candidate")
+        for path in (root, root + "/../checkout", root + "/./candidate", "/mnt/another-volume/candidate"):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                candidate_prepare.validated_remote_target(path)
+
+    def test_disk_preflight_checks_selected_filesystem_and_fails_closed(self) -> None:
+        command = dict(candidate_prepare.remote_validation_commands(
+            vscode_changed=False,
+            remote_target="/mnt/HC_Volume_107089260/builder-storage/cargo-targets/candidate",
+        ))["remote_disk_preflight"]
+        with tempfile.TemporaryDirectory(prefix="trust-disk-policy-", dir="/tmp") as temporary:
+            root = Path(temporary)
+            (root / "scripts").mkdir()
+            (root / "bin").mkdir()
+            policy = root / "scripts" / "cargo_target_path.sh"
+            policy.write_text('echo "$PROBE_PATH"\n', encoding="utf-8")
+            df = root / "bin" / "df"
+            df.write_text(
+                '#!/bin/sh\n'
+                'if [ "$1" = --output=avail ]; then\n'
+                '  printf "%s" "$3" > "$PROBE_LOG"\n'
+                '  printf "Avail\\n%s\\n" "$AVAILABLE_KIB"\n'
+                'fi\n', encoding="utf-8",
+            )
+            df.chmod(0o755)
+            environment = os.environ.copy()
+            environment.update(PATH=str(root / "bin") + os.pathsep + environment["PATH"],
+                               PROBE_PATH=str(root / "not-created-yet"), PROBE_LOG=str(root / "probe.log"))
+            for available, expected in (("83886080", 0), ("83886079", 1)):
+                environment["AVAILABLE_KIB"] = available
+                result = subprocess.run(["bash", "-c", command], cwd=root, env=environment,
+                                        capture_output=True, text=True, check=False)
+                self.assertEqual(result.returncode, expected, result.stderr)
+                self.assertEqual((root / "probe.log").read_text(), str(root))
+            (root / "probe.log").unlink()
+            policy.write_text('exit 2\n', encoding="utf-8")
+            result = subprocess.run(["bash", "-c", command], cwd=root, env=environment,
+                                    capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 2)
+            self.assertFalse((root / "probe.log").exists())
+            policy.write_text('echo "$PROBE_PATH"\n', encoding="utf-8")
+            df.write_text('#!/bin/sh\nexit 9\n', encoding="utf-8")
+            result = subprocess.run(["bash", "-c", command], cwd=root, env=environment,
+                                    capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 9)
 
     def test_compiler_passthrough_executes_argv_without_interpreting_its_name(self) -> None:
         passthrough = Path(__file__).with_name("compiler_passthrough.sh")

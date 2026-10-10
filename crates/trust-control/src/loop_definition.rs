@@ -152,7 +152,7 @@ impl LoopDefinition {
     /// # Errors
     /// The text is not a loop definition of this format, or breaks one of its rules.
     pub fn decode(text: &str) -> Result<Self, LoopRejection> {
-        let value: Value = serde_json::from_str(text)
+        let value: Value = crate::json::parse_text(text)
             .map_err(|error| LoopRejection::Malformed(error.to_string()))?;
         let version = value.get("schemaVersion").and_then(Value::as_u64);
         if version != Some(u64::from(LOOP_SCHEMA_VERSION)) {
@@ -162,7 +162,7 @@ impl LoopDefinition {
                     .unwrap_or(0),
             ));
         }
-        let mut loop_definition: Self = serde_json::from_value(value)
+        let mut loop_definition: Self = crate::json::decode_value(value)
             .map_err(|error| LoopRejection::Malformed(error.to_string()))?;
         loop_definition
             .check_fields()
@@ -230,7 +230,7 @@ impl LoopDefinition {
     }
 
     /// Whether the Rust engine runs this loop. A loop with a parked feature (checklist V7) stays on
-    /// the TypeScript engine until that feature is ported.
+    /// the `TypeScript` engine until that feature is ported.
     ///
     /// # Errors
     /// The loop uses a feature the Rust engine does not run yet, or has no controller law.

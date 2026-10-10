@@ -6,12 +6,18 @@
 
 #![forbid(unsafe_code)]
 
+pub mod experiment;
 pub mod failure;
+pub mod identification;
+pub mod json;
 pub mod limits;
 pub mod loop_definition;
 pub mod messages;
+pub mod model;
 pub mod recording;
 pub mod runtime;
 pub mod signals;
 pub mod stages;
 pub mod study;
+pub mod tuning;
+pub mod validation;

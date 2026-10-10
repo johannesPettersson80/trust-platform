@@ -250,6 +250,33 @@ mod tests {
     }
 
     #[test]
+    fn the_runtime_codes_of_the_annex_map_to_their_typed_actions_by_code_and_never_by_text() {
+        // The TypeScript table of `control-studio-lifecycle.test.ts`. Every code gets the same text, so only the code decides.
+        let text = "A runtime message.";
+        let action = |code: &str| Failure::from_runtime(code, text).next_action;
+        for code in [
+            "experiment_active",
+            "transaction_pending",
+            "controller_write_pending",
+            "experiment_state_unavailable",
+        ] {
+            assert_eq!(action(code), NextAction::Wait, "{code}");
+        }
+        for code in [
+            "invalid_target",
+            "invalid_address",
+            "incompatible_binding",
+            "invalid_experiment",
+            "controller_unavailable",
+        ] {
+            assert_eq!(action(code), NextAction::OpenLoopSetup, "{code}");
+        }
+        for code in ["job_active", "out_of_limits", "io_unavailable"] {
+            assert_eq!(action(code), NextAction::None, "{code}");
+        }
+    }
+
+    #[test]
     fn every_action_with_a_button_has_a_label() {
         assert_eq!(NextAction::Restore.label(), "Restore previous settings");
         assert_eq!(NextAction::Wait.label(), "");

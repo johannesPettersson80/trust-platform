@@ -406,9 +406,6 @@ END_PROGRAM
                 "trust-lsp.hmiProposeSettingsPage",
                 "trust-lsp.hmiRenameInstance",
                 "trust-lsp.controlKeepParameters",
-                "trust-lsp.controlStudioOpen",
-                "trust-lsp.controlStudioStatus",
-                "trust-lsp.controlStudioCancel",
             ]
         );
     }

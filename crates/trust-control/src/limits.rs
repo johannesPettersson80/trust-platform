@@ -81,9 +81,40 @@ pub fn record_period_executions(
     fits.max(per_settling.min(per_recording)).max(1)
 }
 
+/// The sample period of a recording in ms, which its record period counts executions of (A4.1, A4.2): the loop's task
+/// period when the loop's task is scheduled, so that its executions are sampled; otherwise the resource cycle, or the task
+/// period when the runtime reports no cycle (0).
+#[must_use]
+pub fn sample_period_ms(scheduled: bool, task_period_ms: u64, cycle_interval_ms: u64) -> u64 {
+    if scheduled || cycle_interval_ms == 0 {
+        task_period_ms
+    } else {
+        cycle_interval_ms
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_sample_period_is_the_task_of_a_scheduled_loop_and_the_cycle_otherwise() {
+        assert_eq!(
+            sample_period_ms(true, 100, 10),
+            100,
+            "a scheduled loop samples its task"
+        );
+        assert_eq!(
+            sample_period_ms(false, 100, 10),
+            10,
+            "a background program samples every resource cycle"
+        );
+        assert_eq!(
+            sample_period_ms(false, 100, 0),
+            100,
+            "an unknown cycle keeps the task period"
+        );
+    }
 
     #[test]
     fn the_connection_loss_timeout_is_5_s_or_three_cycles() {

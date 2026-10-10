@@ -4,7 +4,7 @@ use serde_json::Value;
 use smol_str::SmolStr;
 use std::time::Duration;
 use tracing::{debug, warn};
-use trust_lsp::runtime_control::{ControlClient, ControlEndpoint};
+use trust_runtime_client::{ControlClient, ControlEndpoint};
 
 const CONTROL_IO_TIMEOUT: Duration = Duration::from_millis(250);
 

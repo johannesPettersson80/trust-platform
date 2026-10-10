@@ -44,12 +44,13 @@ package "VS Code extension host" {
   component "Project loop definitions\ncontrol-loops/<name>.json, never overwritten" as loop_files
 }
 
-package "Rust engine (checklist rust-logic-migration.md: V0 foundation; serves the panel from V6)" {
-  component "trust-control (pure, no I/O)\nloop contract: decode, field rules, relationships,\nparked features refused (V7)\nsignal reads (E3), recordings (E4), study container,\nfailures with next actions (A11), stage status (4.2)" as rust_control
-  component "trust-lsp control_studio\ntrust-lsp.controlStudioOpen / Status / Cancel\nlong operations: operationId at once,\ntrust/controlStudio/update notifications" as rust_commands
-  component "Runtime client (annex E1-E4)\nshared control endpoint with inline values\nrequests checked before sending, answers before use" as rust_client
-  database "Rust study files\ncontrol-studio/[loop id]/study.json + recordings/\nformat 1; earlier formats move to history/" as rust_studies
-  database "Operation journal\nextension storage folder, one file per loop\nidentity journaled before dispatch; never a token" as rust_journal
+package "Rust engine: process trust-control-studio (checklist rust-logic-migration.md: V0 foundation, V1 Identify, V2 Tune, V3 Validate; serves the panel from V6)" {
+  component "trust-control-math (domain-neutral library)\nlinalg, model (transfer function, state space),\ndiscretize (exact ZOH, Tustin, Euler), simulate, sampling,\nidentify: low-order step-response fits, relay cycles, scoring\nfrequency, margins, SIMC/AMIGO/λ and the half rule, pole placement,\nclosed-loop simulation, polynomials, notch\nnumbers in, typed results out; no product knowledge" as rust_math
+  component "trust-control (pure, no I/O)\nloop contract, signal reads (E3), recordings and their evidence (E4),\nexperiment plans and checks (E5), study container and sections,\nidentification rules: policy, campaign baseline and hold, review,\nmodel selection (N3.3), recorded limits (B3.4), provisional model;\ntuning rules: requirements, formulas, Automatic recommendation,\ndesign to requirements, candidates and pins, Control.PID prediction,\nmargins and robustness; study Tune section (A8.4);\nvalidation rules: plan, scenarios, campaign, run assessment (N8),\nmodel check, plant decision, isolated-run records; Validate section;\nfailures with next actions (A11); json: every decode with normalized numbers" as rust_control
+  component "trust-control-studio (engine crate and program)\nserve: JSON-RPC 2.0 on stdin/stdout, Content-Length frames\ncommand line (§0.1b): open, identify, tune, validate, cancel; token never an argument\nmethods controlStudio/open | status | cancel | page | identify | tune | preview | validate\nIdentify workflow: campaign driver, reconciliation, recovery\nTune: Automatic, SIMC, AMIGO, relay rule, manual settings;\ndesigns from the study model, never writes to the controller;\nthe relay rule reads its recording; preview stores nothing\nValidate: live model check (provisional model), then isolated\nactual-ST runs of current and candidate per scenario (E8.4), journaled\nlong operations: operationId at once, controlStudio/update" as rust_commands
+  component "Runtime client (annex E1-E5) on trust-runtime-client\ncontrol endpoint client shared with trust-lsp inline values\nrequests checked before sending, answers before use\nrecording session; experiment start, status, finish, abort" as rust_client
+  database "Rust study files\ncontrol-studio/[loop id]/study.json + recordings/\nformat 1; earlier formats move to history/\nrecordings keep their evidence verdict" as rust_studies
+  database "Operation journal (A8.3)\ntruST folder in the user's local state folder, one file per loop,\nshared by serve and the command line\nrecording owner, experiment and campaign\njournaled before dispatch; never a token" as rust_journal
 }
 
 package "Existing analysis and runtime services" {
@@ -158,11 +159,17 @@ runtime_executor --> running : writes at the loop task's executions
 apply_obs --> transactions : validated target change
 apply_obs --> journals : observation identity and recording
 
+actor "Engineer, script or CI" as cli_user
+component "trust-lsp inline values\n(no Control Studio part)" as lsp_inline
+cli_user --> rust_commands : trust-control-studio <verb>
+panel ..> rust_commands : from V6: starts serve, JSON-RPC over stdio
+lsp_inline --> rust_client : trust-runtime-client
 rust_commands --> rust_control : decode, check, decide
-rust_commands --> rust_client : status, inspect, record
+rust_control --> rust_math : numbers in, typed results out
+rust_commands --> rust_client : status, inspect, record, experiment
 rust_commands <--> rust_studies : only writer
-rust_commands <--> rust_journal : reattach (A8.5)
-rust_client --> running : control.signals.inspect, control.recording.*
+rust_commands <--> rust_journal : journal before dispatch; reattach (A8.5)
+rust_client --> running : control.signals.inspect, control.recording.*, control.experiment.*
 
 note bottom of journals
   Closing the panel detaches this client only. A running identification

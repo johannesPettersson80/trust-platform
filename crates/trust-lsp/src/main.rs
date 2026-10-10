@@ -38,18 +38,14 @@ pub struct StLanguageServer {
     client: Client,
     /// Server state.
     state: Arc<ServerState>,
-    /// Control Studio's commands and operations.
-    control_studio: Arc<trust_lsp::control_studio::commands::ControlStudio>,
 }
 
 impl StLanguageServer {
     /// Creates a new language server instance.
     fn new(client: Client) -> Self {
-        let control_studio = Arc::new(handlers::new_control_studio(&client));
         Self {
             client,
             state: Arc::new(ServerState::new()),
-            control_studio,
         }
     }
 }
@@ -616,19 +612,6 @@ impl LanguageServer for StLanguageServer {
     }
 
     async fn execute_command(&self, params: ExecuteCommandParams) -> Result<Option<Value>> {
-        if trust_lsp::control_studio::commands::COMMANDS.contains(&params.command.as_str()) {
-            // Control Studio's commands read and write project files: they run on a blocking worker.
-            let control_studio = Arc::clone(&self.control_studio);
-            return tokio::task::spawn_blocking(move || {
-                control_studio.execute(&params.command, &params.arguments)
-            })
-            .await
-            .map_err(|error| tower_lsp::jsonrpc::Error {
-                code: tower_lsp::jsonrpc::ErrorCode::InternalError,
-                message: format!("Command worker failed: {error}").into(),
-                data: None,
-            });
-        }
         if params.command == "trust-lsp.moveNamespace" {
             return Ok(handlers::execute_command(&self.client, &self.state, params).await);
         }

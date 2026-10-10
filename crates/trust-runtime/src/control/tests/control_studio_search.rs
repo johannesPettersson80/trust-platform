@@ -32,8 +32,12 @@ impl Drop for SearchTestRoot {
     }
 }
 fn search_fixture() -> (ControlState, SearchTestRoot) {
+    search_fixture_with("PROGRAM Main VAR Kp : LREAL := 1.0; SP : LREAL := 1.0; PV AT %IL0 : LREAL; MV AT %QL0 : LREAL; END_VAR MV := Kp * (SP - PV); END_PROGRAM")
+}
+/// The search fixture with another program over the same first-order plant (`%QL0` command, `%IL0` feedback).
+fn search_fixture_with(source: &str) -> (ControlState, SearchTestRoot) {
     let serial = SEARCH_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let mut state=control_test_state("PROGRAM Main VAR Kp : LREAL := 1.0; SP : LREAL := 1.0; PV AT %IL0 : LREAL; MV AT %QL0 : LREAL; END_VAR MV := Kp * (SP - PV); END_PROGRAM");
+    let mut state = control_test_state(source);
     let root = SearchTestRoot {
         path: temp_dir(&format!("finite-search-{}", std::process::id())),
         _serial: serial,

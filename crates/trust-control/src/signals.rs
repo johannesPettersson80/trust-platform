@@ -103,7 +103,7 @@ impl InspectionRequest {
     pub fn decode(&self, response: &Value) -> Result<Inspection, Failure> {
         let invalid = || Failure::invalid_response("control.signals.inspect");
         let answer: InspectionAnswer =
-            serde_json::from_value(response.clone()).map_err(|_| invalid())?;
+            crate::json::decode_value(response.clone()).map_err(|_| invalid())?;
         if answer.loop_revision != self.loop_revision
             || answer.program_revision.is_empty()
             || self

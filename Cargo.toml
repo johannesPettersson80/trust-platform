@@ -14,7 +14,10 @@ members = [
     "crates/verification-cases",
     "crates/trust-runtime-core",
     "crates/trust-runtime",
+    "crates/trust-control-math",
     "crates/trust-control",
+    "crates/trust-runtime-client",
+    "crates/trust-control-studio",
     "crates/trust-wasm-analysis",
 ]
 exclude = [
@@ -63,6 +66,9 @@ percent-encoding = "2"
 roxmltree = "0.21"
 wasm-bindgen = "0.2"
 
+# Control-system mathematics (crates/trust-control-math)
+nalgebra = "0.34"
+
 # Error handling
 thiserror = "2"
 anyhow = "1"
@@ -105,7 +111,10 @@ trust-ads-server = { path = "crates/trust-ads-server" }
 verification-cases = { path = "crates/verification-cases" }
 trust-runtime-core = { path = "crates/trust-runtime-core" }
 trust-runtime = { path = "crates/trust-runtime" }
+trust-control-math = { path = "crates/trust-control-math" }
 trust-control = { path = "crates/trust-control" }
+trust-runtime-client = { path = "crates/trust-runtime-client" }
+trust-control-studio = { path = "crates/trust-control-studio" }
 trust-wasm-analysis = { path = "crates/trust-wasm-analysis" }
 
 [workspace.lints.rust]

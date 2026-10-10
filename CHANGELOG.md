@@ -6,6 +6,53 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Control Studio has its own engine, the program `trust-control-studio`, so it also runs without
+  VS Code. `trust-control-studio identify --project <folder> --loop <id>` identifies a loop's plant
+  against its configured runtime and prints the model, its equation and its key numbers (or, with
+  `--json`, the engine's answer); `--recording <id>` fits a kept recording again, `--resume` follows
+  a journaled identification to its end, and `--reset` starts a new study. `open` lists loops and
+  stages, and `cancel` ends a journaled operation through the runtime's restoration path. The
+  control token comes from `TRUST_CONTROL_TOKEN` or `--token-file`, never from an argument. The
+  first Ctrl-C cancels and waits until the runtime confirms the restoration; a second leaves the
+  experiment to the runtime. `trust-control-studio serve` is the same engine for the extension,
+  which uses it from a later release.
+- `trust-control-studio validate --project <folder> --loop <id>` decides whether the tuned candidate
+  may be applied, without writing to the running controller. When the identified model is still
+  provisional, it first records an independent live check with a different excitation and compares
+  the frozen model's prediction with it; a pass qualifies the model. It then runs the current and
+  the candidate settings as the program's actual Structured Text in isolated simulations, against
+  the project's configured simulated plant or the qualified model, for every scenario the
+  requirements and the loop declare, and prints each requirement's result (Pass, Fail or
+  Inconclusive) with its measured value, limit, unit and source, the overall result, and whether
+  Apply is available. A run that does not complete keeps the runtime's reason; missing evidence
+  never passes.
+- `trust-control-studio tune --project <folder> --loop <id>` designs a controller candidate from the
+  study's identified model, without touching the running controller: Automatic chooses the
+  simplest structure that meets the requirements (and lists why the simpler ones were rejected);
+  `--method simc|amigo` with `--choice faster|balanced|more-robust` and `--structure p|pi|pd|pid`
+  calculates that formula unchanged; `--method relay` applies the relay rule to a model identified
+  with a Feedback relay (Kp = 0.45·Ku, Ti = Pu/1.2 from the measured cycles); and `--method manual`
+  with `--setting <symbol>=<value>` predicts your own settings. It prints the structure and gains,
+  the method with its closed-loop time constant, the reason, the gain, phase and delay margins
+  (an unbounded margin as ∞), and the predicted settling time and overshoot; `--json` gives the
+  engine's answer. Pinned settings are kept through every design, and a law's measurement filter
+  time is part of the candidate. The candidate is stored in the study and is no longer current once
+  the model is replaced. SIMC also tunes a second-order model, through Skogestad's half rule, and
+  Automatic places the closed-loop poles of a delay-free model when no formula response meets the
+  requirements. The engine's `controlStudio/preview` predicts entered settings at once and stores
+  nothing.
+- Control Studio's engine identifies with one least-squares fit on every path: the delay and time
+  constants are searched on grids scaled to the recording, with no fixed limit on the delay, so a
+  slow process keeps its real dead time. A model with a clearly resolved delay is preferred to the
+  same model without it. A pulse is fitted with its return to baseline. Before fitting, every
+  recorded sample of the plant input and the measured output is checked against the loop's limits;
+  a recording that left them is kept, not fitted.
+- Runtime: an isolated test run or search now validates a candidate in a program that sets its own
+  parameter record during its first execution, as a program that designs or loads its startup gains
+  does (the first scan in which its task runs). The candidate is written again at the task boundary
+  after that scan, as Apply writes a record into a running program, and must hold from there; before,
+  such a program's candidate was always refused as "not adopted". A program that overwrites the
+  record later is still refused.
 - Runtime: an experiment on an addressed signal with a declared type now reports its last applied
   trajectory point (`last_applied`, Control Studio runtime protocol E5.6). It stayed empty because
   the value read back was compared with the value in the process image's raw form.

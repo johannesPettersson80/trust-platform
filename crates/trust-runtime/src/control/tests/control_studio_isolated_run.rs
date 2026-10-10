@@ -1018,3 +1018,110 @@ fn isolated_run_record_every_averages_each_period_and_keeps_the_partial_last_one
     }
     assert_eq!(samples[3]["timeSeconds"], json!(0.009), "{details}");
 }
+
+/// Starts an isolated run of `request` and polls it until its job is terminal; returns the last status answer.
+fn isolated_run_to_end(state: &ControlState, request: serde_json::Value) -> serde_json::Value {
+    let revision = request["expected_project_revision"].clone();
+    let start = handle_request_value(
+        json!({"id":8900,"type":"control.simulation.run.start","params":request}),
+        state,
+        None,
+    );
+    assert!(start.ok, "{:?}", start.error);
+    let job = start.result.unwrap()["job_id"].clone();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let result = handle_request_value(
+            json!({"id":8901,"type":"control.simulation.run.status","params":{"job_id":job,"expected_project_revision":revision}}),
+            state,
+            None,
+        )
+        .result
+        .unwrap();
+        if matches!(result["status"].as_str(), Some("completed" | "failed" | "cancelled")) {
+            return result;
+        }
+        assert!(std::time::Instant::now() < deadline, "{result}");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}
+
+/// A candidate gain of 2 for `Main.Kp`, over one second of a P loop on the fixture's first-order plant.
+fn startup_candidate_request(state: &ControlState) -> serde_json::Value {
+    startup_candidate_request_for(state, "Main")
+}
+
+/// A candidate gain of 2 for the gain `Kp` of program instance `program`, over one second of a P loop on the fixture's plant.
+fn startup_candidate_request_for(state: &ControlState, program: &str) -> serde_json::Value {
+    let revision = handle_request_value(
+        json!({"id":8902,"type":"control.search.status","params":{}}),
+        state,
+        None,
+    )
+    .result
+    .unwrap()["project_revision"]
+        .clone();
+    let mut request = isolated_run_request(revision);
+    request["step_ms"] = json!(20);
+    request["duration_ms"] = json!(1000);
+    request["max_total_cycles"] = json!(51);
+    request["observations"] = json!([{"symbol":format!("{program}.Kp"),"unit":"ratio"},{"symbol":format!("{program}.PV"),"unit":"C"}]);
+    request["parameter_overrides"] = json!([{"symbol":format!("{program}.Kp"),"iec_type":"LREAL","unit":"ratio","convention":"parallel proportional gain","minimum":0,"maximum":20,"value":2.0}]);
+    request
+}
+
+/// A program that designs its own gain during its first scan, its startup, keeps the candidate that the run writes again at
+/// the task boundary after that scan, as it keeps a record that Apply writes into the running program (E8.3).
+#[test]
+fn isolated_run_adopts_a_candidate_that_the_program_sets_only_during_its_startup_scan() {
+    let (state, _root) = search_fixture_with(
+        "PROGRAM Main VAR Kp : LREAL := 1.0; Started : BOOL := FALSE; SP : LREAL := 1.0; PV AT %IL0 : LREAL; MV AT %QL0 : LREAL; END_VAR IF NOT Started THEN Kp := 0.5; Started := TRUE; END_IF; MV := Kp * (SP - PV); END_PROGRAM",
+    );
+    let result = isolated_run_to_end(&state, startup_candidate_request(&state));
+    assert_eq!(result["status"], "completed", "{result}");
+    let run = &result["run"];
+    assert_eq!(run["parameters"]["Main.Kp"], 2.0);
+    let samples = run["samples"].as_array().unwrap().len();
+    assert_eq!(samples, 51);
+    for sample in 0..samples {
+        assert_eq!(channel_value(run, sample, "Main.Kp"), json!(2.0), "sample {sample}");
+    }
+    // P control with Kp = 2 on the unit-gain plant settles at Kp/(1 + Kp)·SP = 2/3; the startup gain 0.5 would give 1/3.
+    let settled = last_channel_value(run, "Main.PV").as_f64().unwrap();
+    assert!((settled - 2.0 / 3.0).abs() < 0.01, "{settled}");
+}
+
+/// A program that writes its gain at every scan would overwrite a record that Apply writes too, so it does not adopt the
+/// candidate: the run fails once the candidate has been written again after the startup scan (E8.3).
+#[test]
+fn isolated_run_refuses_a_candidate_that_the_program_overwrites_after_its_startup_scan() {
+    let (state, _root) = search_fixture_with(
+        "PROGRAM Main VAR Kp : LREAL := 1.0; SP : LREAL := 1.0; PV AT %IL0 : LREAL; MV AT %QL0 : LREAL; END_VAR Kp := 0.5; MV := Kp * (SP - PV); END_PROGRAM",
+    );
+    let result = isolated_run_to_end(&state, startup_candidate_request(&state));
+    assert_eq!(result["status"], "failed", "{result}");
+    assert!(
+        result["reason"]
+            .as_str()
+            .is_some_and(|reason| reason.contains("ST changed controller parameter Main.Kp; candidate not adopted")),
+        "{result}"
+    );
+}
+
+/// A program of a periodic task first runs one interval after the start, so its startup is the second scan of the run, not the
+/// first: the candidate it overwrites then is written again at the boundary after that scan, and holds from there (E8.3).
+#[test]
+fn isolated_run_adopts_a_candidate_that_a_periodic_task_program_sets_during_its_first_execution() {
+    let (state, _root) = search_fixture_with(
+        "PROGRAM Main VAR Kp : LREAL := 1.0; Started : BOOL := FALSE; SP : LREAL := 1.0; PV AT %IL0 : LREAL; MV AT %QL0 : LREAL; END_VAR IF NOT Started THEN Kp := 0.5; Started := TRUE; END_IF; MV := Kp * (SP - PV); END_PROGRAM CONFIGURATION Config RESOURCE Res ON PLC TASK Fast(INTERVAL := T#20ms, PRIORITY := 1); PROGRAM P1 WITH Fast : Main; END_RESOURCE END_CONFIGURATION",
+    );
+    let result = isolated_run_to_end(&state, startup_candidate_request_for(&state, "P1"));
+    assert_eq!(result["status"], "completed", "{result}");
+    let run = &result["run"];
+    let samples = run["samples"].as_array().unwrap().len();
+    for sample in 0..samples {
+        assert_eq!(channel_value(run, sample, "P1.Kp"), json!(2.0), "sample {sample}");
+    }
+    let settled = last_channel_value(run, "P1.PV").as_f64().unwrap();
+    assert!((settled - 2.0 / 3.0).abs() < 0.01, "{settled}");
+}

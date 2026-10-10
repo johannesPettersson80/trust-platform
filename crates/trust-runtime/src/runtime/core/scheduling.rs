@@ -77,6 +77,35 @@ impl Runtime {
         &self.tasks
     }
 
+    /// Whether program instance `program` ran in the last executed cycle: a program of a task ran when that task was due in the
+    /// cycle, and a program outside every task runs in every cycle. A periodic task first runs one interval after the start,
+    /// so a program's first execution need not be the first cycle.
+    #[must_use]
+    pub fn program_ran_in_last_cycle(&self, program: &str) -> bool {
+        let mut scheduled = false;
+        for task in &self.tasks {
+            if task
+                .programs
+                .iter()
+                .any(|name| name.eq_ignore_ascii_case(program))
+            {
+                scheduled = true;
+                if self
+                    .cycle_task_runs
+                    .iter()
+                    .any(|(name, _)| name.eq_ignore_ascii_case(task.name.as_str()))
+                {
+                    return true;
+                }
+            }
+        }
+        !scheduled
+            && self
+                .programs
+                .keys()
+                .any(|name| name.eq_ignore_ascii_case(program))
+    }
+
     /// Determine whether any programs run outside configured tasks.
     #[must_use]
     pub fn has_background_programs(&self) -> bool {

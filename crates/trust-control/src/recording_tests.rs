@@ -2,7 +2,9 @@
 
 use serde_json::json;
 
+use super::evidence::{recording_evidence, RecordingEvidence, UNCONFIRMED_START_RECOVERED};
 use super::*;
+use crate::limits::STUDY_STORAGE_LIMIT_BYTES;
 
 fn request() -> RecordingRequest {
     RecordingRequest {
@@ -127,10 +129,22 @@ fn a_recorded_run_decodes_from_the_runtimes_stop_answer_and_checks_it_answers_th
     );
 }
 
+/// A complete run of two consecutive samples of one process value.
+fn complete_run() -> RecordedRun {
+    fixtures::run(
+        vec![fixtures::binding("processVariable", "%IL0", "LREAL")],
+        vec![
+            fixtures::sample(1, Some(0), &[Some(2.5)], &[Quality::Good]),
+            fixtures::sample(2, Some(10_000_000), &[Some(2.5)], &[Quality::Good]),
+        ],
+    )
+}
+
 #[test]
 fn a_recording_file_is_named_by_its_content_and_read_back_only_under_that_name() {
     let run: RecordedRun = serde_json::from_value(stopped()).expect("decoded");
-    let file = RecordingFile::new("loop:tank", EvidenceSource::SimulatedPlant, run);
+    let evidence = recording_evidence(&run, None);
+    let file = RecordingFile::new("loop:tank", EvidenceSource::SimulatedPlant, run, evidence);
     let id = file.id().expect("identified");
     assert!(id.starts_with("rec-") && id.len() == 36, "{id}");
     let text = file.encode().expect("encoded");
@@ -153,4 +167,127 @@ fn a_recording_file_is_named_by_its_content_and_read_back_only_under_that_name()
         id,
         "the source is part of the evidence"
     );
+    let mut relabelled = file.clone();
+    relabelled.evidence.reason = "Another reason.".into();
+    assert_ne!(
+        relabelled.id().expect("identified"),
+        id,
+        "the verdict is part of the content"
+    );
+}
+
+#[test]
+fn the_verdict_is_stored_under_its_own_words() {
+    let run = complete_run();
+    let evidence = recording_evidence(&run, None);
+    let file = RecordingFile::new("loop:tank", EvidenceSource::SimulatedPlant, run, evidence);
+    let value = serde_json::to_value(file).expect("json");
+    assert_eq!(
+        value["evidence"],
+        json!({
+            "completeness": "complete",
+            "reason": "Complete recording — runtime captured 2 scans. Stop: stopped."
+        })
+    );
+}
+
+#[test]
+fn an_unconfirmed_start_and_an_incomplete_recording_stay_labelled_after_a_reload() {
+    // A start whose acknowledgement was lost is incomplete whatever the runtime claims (E11.4).
+    let unconfirmed = recording_evidence(&complete_run(), Some(UNCONFIRMED_START_RECOVERED));
+    assert_eq!(unconfirmed.completeness, Completeness::Incomplete);
+    let incomplete: RecordedRun = serde_json::from_value(stopped()).expect("decoded");
+    let cases = [
+        ("an unconfirmed start", complete_run(), unconfirmed),
+        (
+            "an incomplete acquisition",
+            incomplete.clone(),
+            recording_evidence(&incomplete, None),
+        ),
+        (
+            "a complete recording",
+            complete_run(),
+            recording_evidence(&complete_run(), None),
+        ),
+    ];
+    for (label, run, evidence) in cases {
+        let file = RecordingFile::new(
+            "loop:tank",
+            EvidenceSource::SimulatedPlant,
+            run,
+            evidence.clone(),
+        );
+        let id = file.id().expect("identified");
+        let text = file.encode().expect("encoded");
+        let reloaded = RecordingFile::decode(&text, "loop:tank", &id).expect("decoded");
+        assert_eq!(
+            reloaded.evidence, evidence,
+            "{label} keeps its verdict and its reason"
+        );
+    }
+}
+
+#[test]
+fn a_file_without_a_verdict_or_with_one_that_contradicts_its_run_is_neither_written_nor_read() {
+    let incomplete: RecordedRun = serde_json::from_value(stopped()).expect("decoded");
+    let contradicting = RecordingEvidence {
+        completeness: Completeness::Complete,
+        reason: "Complete recording.".into(),
+    };
+    let file = RecordingFile::new(
+        "loop:tank",
+        EvidenceSource::SimulatedPlant,
+        incomplete.clone(),
+        contradicting,
+    );
+    assert!(
+        file.encode()
+            .expect_err("not written")
+            .message
+            .contains("not consistent"),
+        "a complete verdict on an incomplete acquisition contradicts itself (E4.5)"
+    );
+
+    // The same contradiction in a text that carries its own identifier is not read.
+    let honest = RecordingFile::new(
+        "loop:tank",
+        EvidenceSource::SimulatedPlant,
+        incomplete.clone(),
+        recording_evidence(&incomplete, None),
+    );
+    let mut forged = serde_json::to_value(&honest).expect("json");
+    forged["evidence"]["completeness"] = json!("complete");
+    let text = canonical_json(&forged);
+    let id = recording_id_for(&text);
+    assert!(RecordingFile::decode(&text, "loop:tank", &id)
+        .expect_err("not read")
+        .message
+        .contains("not consistent"));
+
+    // The file of the earlier shape, without a verdict, is not read: no earlier format is (D8).
+    let mut earlier = serde_json::to_value(honest).expect("json");
+    earlier
+        .as_object_mut()
+        .expect("an object")
+        .remove("evidence");
+    let text = canonical_json(&earlier);
+    let id = recording_id_for(&text);
+    assert!(RecordingFile::decode(&text, "loop:tank", &id)
+        .expect_err("not read")
+        .message
+        .contains("evidence"));
+}
+
+#[test]
+fn a_recording_file_over_the_storage_limit_is_refused() {
+    // Zero bytes are valid text, and the allocation is not touched until it is read.
+    let limit = usize::try_from(STUDY_STORAGE_LIMIT_BYTES).expect("addressable");
+    let oversize = String::from_utf8(vec![0_u8; limit + 1]).expect("NUL is UTF-8");
+    let failure = RecordingFile::decode(
+        &oversize,
+        "loop:tank",
+        "rec-00000000000000000000000000000000",
+    )
+    .expect_err("over the limit");
+    assert!(failure.message.contains("257 MiB"), "{}", failure.message);
 }

@@ -154,19 +154,43 @@ simplest:
    (SOPDT);
 7. state models, up to the maximum order of N2.7.
 
-The model that is selected is the simplest form that is acceptable under N3.
+The model that is selected is the simplest form that is acceptable under N3, except
+for the resolved delay of N3.3.
 
-**N2.2 Joint gain and dynamics estimation.** A held step is fitted for its gain
-and its dynamics together. The fit does not need a steady final window to fix the
-gain.
+**N2.2 Joint gain and dynamics estimation.** A recorded response is fitted for its
+gain and its dynamics together, by the same least-squares grid fit on every path:
+the held step of a single run, the estimation record of an independent pair
+(N3.4), and any other excitation (N2.6). The fit does not need a steady final
+window to fix the gain. The time a measured output first crosses a threshold
+never sets a fitted delay or time constant (N2.5).
 
 Let `d_k = u_k − u0` be the plant input deviation at hold sample `k = 1, …, K`. The
 hold runs from the step to the end of the hold (B3.4). The step amplitude is
 `Δu = ū_hold − u0`, where `ū_hold` is the mean plant input over the hold. A fit
 with `Δu = 0` is refused, and the refusal names the missing nonzero step (N2.6).
 
-For each candidate dynamic shape `D` on the existing time-constant and delay grids
-of the identification module:
+*Grids.* Let `H` be the fitted span, from the start of the excitation (the step of
+a held step or of a setpoint step; the first change of any other excitation) to the
+last fitted sample (the end of the hold for a held step), and `Ts` the fit's sample
+interval: the median interval of the fitted samples, or the block interval after
+block averaging (N1.4). The grids depend only on the record; no grid is capped by
+a fixed time, so a slow process keeps its long delay.
+
+- *Time constants:* 45 points spaced evenly on a logarithmic scale from `Ts` to
+  `10·H` for a first-order form; 28 points over the same range for each time
+  constant of a second-order form, with `T1 ≥ T2`. A time constant longer than
+  the hold lets a partial response report its fraction (N2.3).
+- *Delays:* from 0 to `0.3·H` in equal steps of `max(Ts, 0.3·H / 50)`, so at most
+  51 points; only 0 for a form without delay.
+- *Refinement:* around the best grid point, the delay is searched again on the
+  whole multiples of `Ts` between its two neighbouring grid delays, together with
+  each time constant on 10 points spaced evenly on a logarithmic scale between its
+  two neighbouring grid values. The refinement runs three passes; each further
+  pass searches the same way between the neighbours of the last pass's best point,
+  so a time constant is resolved to about 0.2 %. The refined point replaces the
+  grid point when its error `E` is smaller.
+
+For each candidate dynamic shape `D` on these grids:
 
 1. Simulate the unit-gain response `s_k` of `D` to the deviation `d_k`, starting
    from the steady baseline (zero deviation). The plant input is held between
@@ -183,7 +207,8 @@ of the identification module:
    E = Σk (y_k − y0 − K·s_k)²
    ```
 
-The fit keeps the candidate with the smallest `E`. Its fitted response is
+The fit keeps the candidate with the smallest `E`; of equal errors, the first in
+grid order (delay, then time constants, each ascending). Its fitted response is
 `ŷ_k = y0 + K·s_k`. For an integrating form, `D` is the unit-rate integrator with
 delay, and the same formulas give `Kprime`.
 
@@ -199,7 +224,8 @@ f = (ȳ_end − y0) / (K · Δu)
 
 `ȳ_end` is the mean measured output over the last 5 % of the hold samples (at least
 three), so a single noisy sample does not decide `f`. `K · Δu` is the fitted final
-change.
+change. With an independent validation record (N3.4), `f` is taken on the
+estimation record, whose hold the gain is fitted from.
 
 A partial response is accepted when both hold:
 
@@ -229,15 +255,25 @@ self-regulating process and of an integrating process both look like a ramp. Whe
 the form selected for a held step is integrating, the first-order-with-delay form is
 also fitted to the same data. If that fit meets the error limit with a time constant
 `T` at least as long as the hold, the data cannot tell the two apart: the fit is
-refused, naming the hold, and Identify suggests a longer hold or a setpoint step in
-Auto. A loop whose identification policy declares `process: "integrating"` skips
+refused, naming the hold, and Identify suggests a longer hold, `L + 3·T` of that
+first-order-with-delay fit (N2.3), or a setpoint step in Auto. A loop whose identification policy declares `process: "integrating"` skips
 this test. A closed-loop fit (a setpoint step in Auto) is not subject to it: the
 controlled output settles, and the plant input's final value tells the two forms
 apart.
 
-**N2.4 Uncertainty and final windows.** The parameter uncertainty is grid-resolved.
-It is the set of grid points `(y0, K, L, T)` on the existing grids that satisfy
-both:
+**N2.4 Uncertainty and final windows.** An automatic identification has no
+configured measurement bound. It reports the resolution of its fit, labelled as
+such: for a single run, a sample-resolution envelope (each time constant within
+one sample interval of its value and not below one interval, the delay from its
+value to one sample interval more, the gain between the gains the record's
+endpoints and its measured change give); for an independent pair, the search
+resolution together with the held-out residuals of the validation record. Neither
+is a confidence interval.
+
+Where an absolute measurement bound `b_m` is configured (a bounded step analysis,
+whose grids are engineering inputs, N2.5), the parameter uncertainty is
+grid-resolved. It is the set of grid points `(y0, K, L, T)` on the analysis's
+grids that satisfy both:
 
 - for every hold sample, `|y_k − ŷ_k| ≤ b_m`, where `b_m` is the configured
   absolute measurement bound;
@@ -252,7 +288,10 @@ Rules for the set:
   are not.
 - The intervals are grid-resolved approximations. They are not statistical
   confidence intervals or profile likelihood, and MUST NOT be labeled as such.
-- One-sided zero-delay findings and search-boundary findings are retained.
+- One-sided zero-delay findings and search-boundary findings are retained. A best
+  delay of zero is one-sided, because a delay is never negative: it is kept with
+  the result and is not a search boundary, so it never refuses an estimate. A best
+  point on any other edge of a grid is a search-boundary finding.
 - A timestamp shift of up to one sample is a sensitivity study. It MUST NOT relax
   any missing-sample check.
 
@@ -279,8 +318,9 @@ three), independently of the sign of the input step.
 
 Here `h` is the configured sustained-onset threshold. An isolated crossing does not
 establish onset. If the measured output does not change, onset is unavailable. The
-configured measurement bound, the threshold, the sample count and every grid
-spacing are engineering inputs. They are not plant coefficients.
+configured measurement bound, the onset threshold and its sample count, and the
+grids of a bounded step analysis are engineering inputs; the grids of an automatic
+identification follow from the record (N2.2). None of them is a plant coefficient.
 
 **N2.6 Windows, closed-loop data and noise.**
 
@@ -383,7 +423,10 @@ samples is
 e_n(S) = sqrt( mean over S of e_k² ) / span
 ```
 
-where `span` is the measured output span of the recording (N1.1). Every low-order
+where `span` is the measured output span (N1.1) over the samples of the fit: from
+the start of the steady baseline window to the last fitted sample. The samples
+checked are the response: from the start of the excitation to the last fitted
+sample (N2.2); the steady baseline before it is not counted. Every low-order
 fit passes two checks:
 
 - `e_n` over the whole response is within the limit;
@@ -402,6 +445,16 @@ The limit is the identification policy's `maximumNormalizedError`. Its default i
 Among acceptable forms, the simplest is selected (N2.1). A more complex form is not
 ranked ahead of a simpler acceptable form only because its error is lower. A fit
 percentage alone never selects a model.
+
+One exception covers a resolved delay. When first order and first order with delay
+are both acceptable, first order with delay is selected if both of these hold:
+
+- its fitted delay `L` is longer than two sample intervals of the fit
+  (`L > 2·Ts`; after block averaging, `Ts` is the block interval of N1.4);
+- its normalized error over the whole response is below 98 % of first order's.
+
+A resolved delay that improves the fit is evidence of dead time. Dropping it would
+make a tuning more aggressive than the plant allows.
 
 **N3.4 Independence.** A model used for tuning or design is fitted on an immutable
 estimation record. It is scored on a distinct immutable validation record that
@@ -600,6 +653,12 @@ Ki = Kp / Ti
 Kd = 0
 ```
 
+A stable second-order model with real poles,
+`K·exp(−θ·s) / ((τ1·s + 1)(τ2·s + 1))` with `τ1 ≥ τ2 > 0`, is first reduced by
+SIMC's half rule (Skogestad 2003): `T = τ1 + τ2/2` and `L = θ + τ2/2`, and then
+tuned as above. A second-order model with complex poles is refused for SIMC, with
+the reason and the advice to choose Automatic or another method (N5.7).
+
 **N5.3 SIMC PI for an integrating model.** Applies to an accepted integrating model
 `Kprime·exp(−L·s) / s` with `|Kprime| > 0` and a resolved positive effective delay
 `L > 0`. `Kprime` has controlled-variable units per manipulated-variable unit per
@@ -703,6 +762,18 @@ rejected. So is an error above the declared error allowance minus the transient
 margin. A PD controller is not rejected merely because it has no integrator. A
 finite error requirement MAY be met. Dynamic requirements still need the actual-ST
 verification of B5.3.
+
+**N5.9a Proportional gain by settling time.** For a stable first-order model with
+time constant `τ` and gain `K`, the smallest loop gain `q = K·Kp` that brings the
+response into the settling band `b` by the settling time `Tset`, from a setpoint
+change `ΔR` at the operating input `u0`, is
+
+```text
+q = τ · ln( max(|ΔR|, |K·u0|) / b ) / Tset − 1
+```
+
+A proportional design takes the largest of this threshold, the steady-error
+threshold of N5.9 and zero.
 
 **N5.10 Constrained comparison.** The constrained comparison is a deterministic,
 bounded neighborhood around the qualified SIMC candidate. It evaluates:
@@ -1116,9 +1187,10 @@ where `r_k` is a constant or a recorded reference.
   declared minimum change threshold.
 - Signal or state bounds: every value in the window lies within the declared bounds.
 - Settling into a target band by a deadline, with a declared hold time: the arrival
-  time is the first sample inside the band at or before the deadline. All observed
-  samples from the arrival time through the window end MUST lie in the band, for at
-  least the declared hold duration. The window MUST extend through the deadline plus
+  time is the first sample of the last stay inside the band, so that every observed
+  sample from it through the window end lies in the band. It MUST be at or before
+  the deadline, and the stay MUST last at least the declared hold duration. An
+  earlier pass through the band that the response leaves again is not an arrival. The window MUST extend through the deadline plus
   the hold duration. Otherwise the requirement is invalid, because late settling
   cannot be fully observed.
 
