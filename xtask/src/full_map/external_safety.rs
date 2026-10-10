@@ -135,6 +135,18 @@ fn scanner() -> Result<String> {
     bail!("ast-grep is required; install ast-grep 0.42.1")
 }
 
+// ast-grep uses exit 1 for a normal empty match set. It is not an error exemption:
+// only the complete, valid empty JSON response with no stderr establishes that case.
+fn decode_scan_output(code: Option<i32>, stdout: &[u8], stderr: &[u8]) -> Result<Vec<Value>> {
+    let facts: Vec<Value> = serde_json::from_slice(stdout).context("parse external AST facts")?;
+    ensure!(
+        code == Some(0) || (code == Some(1) && facts.is_empty() && stderr.is_empty()),
+        "AST scanner failed (exit {code:?}): {}",
+        String::from_utf8_lossy(stderr)
+    );
+    Ok(facts)
+}
+
 fn scan(root: &Path, files: &[PathBuf], tool: &str) -> Result<(Vec<Value>, Vec<Match>, String)> {
     let mut raw_facts = Vec::new();
     let mut matches = BTreeSet::new();
@@ -154,13 +166,8 @@ fn scan(root: &Path, files: &[PathBuf], tool: &str) -> Result<(Vec<Value>, Vec<M
                 .args(batch)
                 .output()
                 .with_context(|| format!("run external AST pattern {rule}"))?;
-            ensure!(
-                output.status.success(),
-                "AST scan {rule} failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-            let facts: Vec<Value> =
-                serde_json::from_slice(&output.stdout).context("parse external AST facts")?;
+            let facts = decode_scan_output(output.status.code(), &output.stdout, &output.stderr)
+                .with_context(|| format!("external AST pattern {rule}"))?;
             for fact in &facts {
                 matches.insert(normalize(
                     rule,
@@ -409,6 +416,22 @@ mod tests {
         assert!(missing.is_empty());
         assert_eq!(unknown, [site("third_party/reviewed_other/lib.rs", 1)]);
     }
+    #[test]
+    fn empty_match_exit_is_accepted_only_with_complete_empty_json_and_no_error() {
+        assert!(decode_scan_output(Some(1), b"[]\n", b"")
+            .unwrap()
+            .is_empty());
+        assert!(decode_scan_output(Some(0), b"[]", b"").unwrap().is_empty());
+        assert_eq!(decode_scan_output(Some(0), b"[{}]", b"").unwrap().len(), 1);
+        assert!(decode_scan_output(Some(0), b"malformed", b"").is_err());
+        assert!(decode_scan_output(Some(1), b"[{}]", b"").is_err());
+        assert!(decode_scan_output(Some(1), b"[]", b"scanner error").is_err());
+        assert!(decode_scan_output(Some(1), b"", b"").is_err());
+        assert!(decode_scan_output(Some(1), b"null", b"").is_err());
+        assert!(decode_scan_output(Some(2), b"[]", b"").is_err());
+        assert!(decode_scan_output(None, b"[]", b"").is_err());
+    }
+
     #[test]
     fn malformed_external_locations_are_rejected_and_type_alias_offsets_are_preserved() {
         assert!(

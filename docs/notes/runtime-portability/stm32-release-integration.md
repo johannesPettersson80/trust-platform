@@ -120,3 +120,22 @@ external AST gate. A focused supplement executes the new Rust gate regressions,
 checks the wrapper syntax and diagram drift, then relinks/inspects the final
 firmware tuple. Portable/32-bit/MCU/native firmware/MSRV/Rustdoc/TLS/provenance
 proof from run 1 remains source-specific reused proof, not a claimed rerun.
+
+
+## Second publication batch and empty-match tool contract
+
+Run 2 at fed5dc457 passed VS Code, formatting, cross warnings and supply chain,
+but its actual external AST gate rejected a normal empty match chunk: ast-grep
+0.42.1 returns exit 1 with the complete JSON array `[]` and empty stderr when a
+chunk has no matching unsafe construct. The independent raw tool observation is
+retained as `run-2/no-match-contract.json`. The four native inventory/admission
+regressions and all eight focused suffix steps passed; all later guard stages
+remain unrun. No physical replay occurred. The final firmware inspection passed.
+
+The corrected Rust normalizer accepts that exit status only after parsing a
+complete empty JSON array and confirming empty stderr. Nonempty facts under
+exit 1, malformed/missing JSON, stderr errors, other statuses and signal termination
+remain failures. A new native regression asserts every branch. Ownership
+registrations, delegated paths, firmware and runtime source remain unchanged.
+
+Root independently accepted the normalizer and requested success/nonempty and malformed-success assertions, both included. Run-3 preparation passed all seven steps; only formatting of this reviewed correction changed. No runtime or firmware source changed. The correction is ready for its exact-SHA guard and final-image supplement; hardware remains gated on software approval.
