@@ -88,6 +88,33 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
+    /// CODESYS DUT inheritance: returns true when `derived` (transitively)
+    /// extends `base`.
+    pub(super) fn struct_inherits_from(&self, derived: &str, base: &str) -> bool {
+        let mut current = SmolStr::new(derived);
+        let mut visited: Vec<SmolStr> = Vec::new();
+        loop {
+            if visited
+                .iter()
+                .any(|name| name.eq_ignore_ascii_case(current.as_str()))
+            {
+                return false;
+            }
+            visited.push(current.clone());
+            let Some(symbol_id) = self.symbols.resolve_global_or_qualified_name(current.as_str())
+            else {
+                return false;
+            };
+            let Some(parent_name) = self.symbols.extends_name(symbol_id) else {
+                return false;
+            };
+            if parent_name.eq_ignore_ascii_case(base) {
+                return true;
+            }
+            current = parent_name.clone();
+        }
+    }
+
     pub(crate) fn is_assignable(&self, target: TypeId, source: TypeId) -> bool {
         let target = self.resolve_alias_type(target);
         let source = self.resolve_alias_type(source);
@@ -222,6 +249,19 @@ impl<'a> TypeChecker<'a> {
                     return false;
                 };
                 self.is_interface_assignable(target_id, source_id)
+            }
+
+            // CODESYS DUT inheritance: a derived STRUCT is assignable to its
+            // base STRUCT type.
+            (
+                Type::Struct {
+                    name: target_name, ..
+                },
+                Type::Struct {
+                    name: source_name, ..
+                },
+            ) => {
+                target_name == source_name || self.struct_inherits_from(source_name, target_name)
             }
 
             // IEC 61131-3 6.6.1.6: implicit conversion preserves value and accuracy.

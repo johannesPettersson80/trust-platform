@@ -8,10 +8,18 @@ use crate::types::{ArrayDimensionExt, StructField, UnionVariant};
 impl SymbolCollector<'_> {
     pub(super) fn collect_type_symbols(&mut self, node: &SyntaxNode) {
         let mut pending: Option<(SmolStr, TextRange)> = None;
+        let mut pending_extends: Option<SmolStr> = None;
         for child in node.children() {
             match child.kind() {
                 SyntaxKind::Name => {
                     pending = name_from_node(&child);
+                }
+                SyntaxKind::ExtendsClause => {
+                    pending_extends = qualified_name_parts(&child).map(|(parts, _)| {
+                        let names: Vec<SmolStr> =
+                            parts.iter().map(|(name, _)| name.clone()).collect();
+                        qualified_name_string(&names)
+                    });
                 }
                 SyntaxKind::StructDef
                 | SyntaxKind::UnionDef
@@ -21,7 +29,12 @@ impl SymbolCollector<'_> {
                     let Some((type_name, name_range)) = pending.take() else {
                         continue;
                     };
-                    self.register_type_symbol(&child, type_name, name_range);
+                    self.register_type_symbol(
+                        &child,
+                        type_name,
+                        name_range,
+                        pending_extends.take(),
+                    );
                 }
                 _ => {}
             }
@@ -33,6 +46,7 @@ impl SymbolCollector<'_> {
         type_def: &SyntaxNode,
         type_name: SmolStr,
         name_range: TextRange,
+        extends_base: Option<SmolStr>,
     ) {
         let qualified_name = self.qualify_current_name(&type_name);
         self.register_type_symbol_with_qualified_name(
@@ -40,6 +54,7 @@ impl SymbolCollector<'_> {
             type_name,
             qualified_name,
             name_range,
+            extends_base,
         );
     }
 
@@ -49,6 +64,7 @@ impl SymbolCollector<'_> {
         type_name: SmolStr,
         qualified_name: SmolStr,
         name_range: TextRange,
+        extends_base: Option<SmolStr>,
     ) {
         let errors_before_formation = self.diagnostics.error_count();
         // Create TYPE symbol first with placeholder type_id, so that nested symbols
@@ -66,6 +82,15 @@ impl SymbolCollector<'_> {
         );
         symbol.parent = self.current_parent();
         let type_symbol_id = self.declare_symbol(symbol);
+
+        // CODESYS DUT inheritance (vendor extension): record the base on the
+        // TYPE symbol so field resolution and subtype checks can walk the
+        // chain, including across files via the project symbol import.
+        if let Some(base) = extends_base {
+            if type_def.kind() == SyntaxKind::StructDef {
+                self.table.set_extends(type_symbol_id, base);
+            }
+        }
 
         // Push TYPE symbol onto parent stack so enum values get it as parent
         self.parent_stack.push(type_symbol_id);

@@ -379,6 +379,36 @@ END_VAR
   variable or component. Omitted aggregate members continue from the preceding
   applicable default rather than being reset to the elementary default.
 
+### 3.5.1 STRUCT inheritance (`EXTENDS`, vendor extension)
+```
+TYPE
+  BaseEntity : STRUCT
+    sID : STRING;
+  END_STRUCT;
+  EntityBinSen EXTENDS BaseEntity : STRUCT
+    bSen : BOOL;
+  END_STRUCT;
+END_TYPE
+```
+
+CODESYS-style DUT inheritance is accepted as a vendor extension (the e!COCKPIT
+import projects it as addData `datatypeinheritance`). It follows the
+function-block inheritance model restricted to field structure:
+
+**Rules**:
+- `EXTENDS` is only valid on STRUCT-based type declarations; enum, union,
+  array, and alias declarations with `EXTENDS` are rejected.
+- The base must name a `STRUCT` type. Field access on a derived variable
+  resolves against the full base chain; a derived value is assignment-
+  compatible with its base type (`base := derived`), but not the reverse.
+- Redeclaring an inherited field name in a derived struct is a duplicate-
+  declaration diagnostic; an inheritance cycle is a cyclic-dependency
+  diagnostic.
+- Only the field structure is inherited: DUTs have no methods, and method
+  override rules do not apply. EXTENDS on DUTs is not an IEC 61131-3
+  feature; it is documented vendor parity, not a deviation from a cited IEC
+  requirement.
+
 ### 3.6 Structures with Relative Addressing (Section 6.4.4.7)
 
 ```
@@ -570,7 +600,6 @@ END_IF;
   `03-variables.md`.
 
 ### 4.3 IEC reference operations and lifetime
-
 IEC 61131-3 Ed.3 §6.4.4.10.3 defines `REF(variable-or-instance)` and forbids
 applying `REF(...)` to temporary storage, explicitly including `VAR_TEMP` and
 variables inside functions. It also specifies that a dereferenced reference is

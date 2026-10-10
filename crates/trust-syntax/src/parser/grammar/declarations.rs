@@ -58,6 +58,11 @@ impl Parser<'_, '_> {
                 continue;
             }
 
+            // CODESYS DUT inheritance (vendor extension): `TYPE x EXTENDS y`.
+            if self.at(TokenKind::KwExtends) {
+                self.parse_extends_clause();
+            }
+
             if self.at(TokenKind::Colon) {
                 self.bump();
                 self.parse_type_def();

@@ -75,6 +75,10 @@ Target release: `v0.24.75`
   hosted values and image writes use checked owner APIs. Rejected queued writes
   report their application failure without turning an invalid request into a PLC fault.
 
+- Support CODESYS-style DUT inheritance (`TYPE Derived EXTENDS Base` on
+  STRUCT types, vendor extension): inherited field access, derived-to-base
+  assignment compatibility, duplicate-field and cycle diagnostics, and
+  cross-file base resolution.
 - Auto-dereference `REFERENCE TO` values (CODESYS parity): member access,
   indexing, arithmetic, and assignment copy through a reference without `^`;
   assignment between two references still rebinds. `POINTER TO` keeps
@@ -1185,6 +1189,10 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Support CODESYS-style DUT inheritance (`TYPE Derived EXTENDS Base` on
+  STRUCT types, vendor extension): inherited field access, derived-to-base
+  assignment compatibility, duplicate-field and cycle diagnostics, and
+  cross-file base resolution.
 - Auto-dereference `REFERENCE TO` values (CODESYS parity): member access,
   indexing, arithmetic, and assignment copy through a reference without `^`;
   assignment between two references still rebinds. `POINTER TO` keeps
@@ -2372,6 +2380,10 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Support CODESYS-style DUT inheritance (`TYPE Derived EXTENDS Base` on
+  STRUCT types, vendor extension): inherited field access, derived-to-base
+  assignment compatibility, duplicate-field and cycle diagnostics, and
+  cross-file base resolution.
 - Auto-dereference `REFERENCE TO` values (CODESYS parity): member access,
   indexing, arithmetic, and assignment copy through a reference without `^`;
   assignment between two references still rebinds. `POINTER TO` keeps
@@ -2773,6 +2785,10 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Support CODESYS-style DUT inheritance (`TYPE Derived EXTENDS Base` on
+  STRUCT types, vendor extension): inherited field access, derived-to-base
+  assignment compatibility, duplicate-field and cycle diagnostics, and
+  cross-file base resolution.
 - Auto-dereference `REFERENCE TO` values (CODESYS parity): member access,
   indexing, arithmetic, and assignment copy through a reference without `^`;
   assignment between two references still rebinds. `POINTER TO` keeps
@@ -2906,6 +2922,10 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Support CODESYS-style DUT inheritance (`TYPE Derived EXTENDS Base` on
+  STRUCT types, vendor extension): inherited field access, derived-to-base
+  assignment compatibility, duplicate-field and cycle diagnostics, and
+  cross-file base resolution.
 - Auto-dereference `REFERENCE TO` values (CODESYS parity): member access,
   indexing, arithmetic, and assignment copy through a reference without `^`;
   assignment between two references still rebinds. `POINTER TO` keeps

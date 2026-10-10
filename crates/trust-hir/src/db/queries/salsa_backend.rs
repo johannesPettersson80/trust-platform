@@ -1,10 +1,11 @@
 use super::collector::SymbolCollector;
 use super::diagnostics::{
     add_unused_symbol_warnings, check_abstract_instantiations, check_class_semantics,
-    check_configuration_semantics, check_cyclomatic_complexity, check_extends_implements_semantics,
-    check_global_external_links_with_project, check_interface_conformance, check_nondeterminism,
-    check_property_accessors, check_shared_global_task_hazards, check_unreachable_statements,
-    check_using_directives, collect_used_symbols, expression_by_id, expression_context,
+    check_configuration_semantics, check_cyclomatic_complexity, check_dut_extends_semantics,
+    check_extends_implements_semantics, check_global_external_links_with_project,
+    check_interface_conformance, check_nondeterminism, check_property_accessors,
+    check_shared_global_task_hazards, check_unreachable_statements, check_using_directives,
+    collect_used_symbols, expression_by_id, expression_context,
     resolve_pending_types_with_table, type_check_file, ExpressionIndex,
 };
 use super::project_types::{
@@ -463,6 +464,7 @@ pub(super) fn analyze_query(
     check_class_semantics(&symbols, &root, &mut builder);
     check_abstract_instantiations(&symbols, &root, &mut builder);
     check_extends_implements_semantics(&symbols, &root, &mut builder);
+    check_dut_extends_semantics(&symbols, &root, &mut builder);
     check_interface_conformance(&symbols, &root, &mut builder);
     check_property_accessors(&symbols, &mut builder);
     diagnostics.extend(builder.finish());

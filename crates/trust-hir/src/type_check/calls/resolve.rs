@@ -631,14 +631,49 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
 
     fn resolve_member_in_base_type(&self, base_type: TypeId, field_name: &str) -> Option<TypeId> {
         match self.checker.symbols.type_by_id(base_type)? {
-            Type::Struct { fields, .. } => fields
+            Type::Struct { fields, name } => fields
                 .iter()
                 .find(|field| field.name.eq_ignore_ascii_case(field_name))
-                .map(|field| field.type_id),
+                .map(|field| field.type_id)
+                .or_else(|| {
+                    self.resolve_inherited_struct_member(name, field_name, &mut Vec::new())
+                }),
             Type::Union { variants, .. } => variants
                 .iter()
                 .find(|variant| variant.name.eq_ignore_ascii_case(field_name))
                 .map(|variant| variant.type_id),
+            _ => None,
+        }
+    }
+
+    /// CODESYS DUT inheritance: walk the `TYPE x EXTENDS y` chain for fields
+    /// not declared by the struct itself (cycle-guarded).
+    fn resolve_inherited_struct_member(
+        &self,
+        struct_name: &SmolStr,
+        field_name: &str,
+        visited: &mut Vec<SmolStr>,
+    ) -> Option<TypeId> {
+        if visited
+            .iter()
+            .any(|name| name.eq_ignore_ascii_case(struct_name))
+        {
+            return None;
+        }
+        visited.push(struct_name.clone());
+        let symbol_id = self
+            .checker
+            .symbols
+            .resolve_global_or_qualified_name(struct_name)?;
+        let base_name = self.checker.symbols.extends_name(symbol_id)?.clone();
+        let base_type = self.checker.symbols.lookup_registered_type_name(&base_name)?;
+        let resolved_base = self.checker.resolve_alias_type(base_type);
+        match self.checker.symbols.type_by_id(resolved_base)? {
+            Type::Struct { fields, name } => fields
+                .iter()
+                .find(|field| field.name.eq_ignore_ascii_case(field_name))
+                .map(|field| field.type_id)
+                .or_else(|| self.resolve_inherited_struct_member(name, field_name, visited)),
             _ => None,
         }
     }
