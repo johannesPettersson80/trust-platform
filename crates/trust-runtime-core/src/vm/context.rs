@@ -96,6 +96,18 @@ pub trait ExecutionContext: super::call::context::CallContext {
         frame: &mut super::VmFrame,
         depth: u32,
     ) -> Result<(), crate::error::RuntimeError>;
+    /// Maximum admitted logical call depth, including the enclosing invocation.
+    fn call_depth_limit(&self) -> usize {
+        super::VM_MAX_CALL_DEPTH
+    }
+    /// Charge continuation storage before fallible allocation and relocation.
+    fn charge_call_storage(
+        &self,
+        _bytes: usize,
+        _work: usize,
+    ) -> Result<(), crate::error::RuntimeError> {
+        Ok(())
+    }
     /// Return the single allowance shared by instructions and nested helpers.
     fn execution_budget(&self) -> &super::budget::ExecutionBudget;
     /// Sample the physical deadline at an entry or successful completion.
@@ -124,8 +136,9 @@ pub trait ExecutionContext: super::call::context::CallContext {
         }
         Ok(())
     }
-    /// Invalidate an invocation and release its owned temporary identities.
-    fn retire_frame(&mut self, frame: &super::VmFrame);
+    /// Invalidate an invocation and release owned temporaries even on budget failure.
+    /// Return the cleanup charge failure only after all identities are retired.
+    fn retire_frame(&mut self, frame: &super::VmFrame) -> Result<(), crate::error::RuntimeError>;
     /// Reject values whose references would escape the returning invocation.
     fn check_frame_return(
         &self,

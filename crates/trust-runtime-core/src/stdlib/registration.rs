@@ -1,149 +1,267 @@
-//! One registration list feeds both allocation-free accounting and construction.
+//! Immutable descriptors shared by every default registry.
 
-use super::{StandardLibrary, StdFunc, StdFunction};
-use crate::error::RuntimeError;
-use smol_str::SmolStr;
+use super::StdFunctionRef;
 
-pub(super) trait Registration {
-    fn register(&mut self, name: &str, params: &[&str], func: StdFunc);
-    fn register_variadic_with_fixed(
-        &mut self,
-        name: &str,
-        fixed: &[&str],
-        prefix: &str,
-        start: usize,
-        min: usize,
-        func: StdFunc,
-    );
-    fn register_variadic(
-        &mut self,
-        name: &str,
-        prefix: &str,
-        start: usize,
-        min: usize,
-        func: StdFunc,
-    ) {
-        self.register_variadic_with_fixed(name, &[], prefix, start, min, func);
-    }
+// Each family owns its single authoritative registration list. Parameter slices
+// live in flash; explicit hosted registration clones only borrowed metadata.
+macro_rules! descriptor {
+    ($name:literal, $params:ident, $func:path) => {
+        (
+            $name,
+            super::StdFunctionRef {
+                params: &super::parameters::$params,
+                func: $func,
+            },
+        )
+    };
 }
+pub(super) use descriptor;
 
-impl Registration for StandardLibrary {
-    fn register(&mut self, name: &str, params: &[&str], func: StdFunc) {
-        StandardLibrary::register(self, name, params, func);
-    }
-    fn register_variadic_with_fixed(
-        &mut self,
-        name: &str,
-        fixed: &[&str],
-        prefix: &str,
-        start: usize,
-        min: usize,
-        func: StdFunc,
-    ) {
-        StandardLibrary::register_variadic_with_fixed(self, name, fixed, prefix, start, min, func);
-    }
-}
+static FAMILIES: &[&[(&str, StdFunctionRef<'static>)]] = &[
+    super::assertions::FUNCTIONS,
+    super::numeric::FUNCTIONS,
+    super::bit::FUNCTIONS,
+    super::selection::FUNCTIONS,
+    super::comparison::FUNCTIONS,
+    super::string::FUNCTIONS,
+    super::time::FUNCTIONS,
+    super::validate::FUNCTIONS,
+];
 
-#[derive(Default)]
-struct Demand {
-    bytes: usize,
-    work: usize,
-    overflow: bool,
-}
-
-impl Demand {
-    fn add(&mut self, name: &str, params: &[&str], prefix: Option<&str>) {
-        let Some(text) = core::iter::once(name)
-            .chain(prefix)
-            .chain(params.iter().copied())
-            .try_fold(0usize, |sum, text| sum.checked_add(text.len()))
-        else {
-            self.overflow = true;
-            return;
-        };
-        let bytes = params
-            .len()
-            .checked_mul(core::mem::size_of::<SmolStr>())
-            .and_then(|bytes| {
-                bytes.checked_add(
-                    core::mem::size_of::<(SmolStr, StdFunction)>()
-                        + 4 * core::mem::size_of::<usize>(),
-                )
-            })
-            .and_then(|bytes| bytes.checked_add(text))
-            .and_then(|bytes| self.bytes.checked_add(bytes));
-        let work = text
-            .checked_add(1)
-            .and_then(|work| self.work.checked_add(work));
-        match (bytes, work) {
-            (Some(bytes), Some(work)) => {
-                self.bytes = bytes;
-                self.work = work;
-            }
-            _ => self.overflow = true,
+pub(super) fn get(name: &str) -> Option<&'static StdFunctionRef<'static>> {
+    // Eight fixed families, each searched logarithmically, without allocating an
+    // uppercase key. Conversion recognition remains algorithmic and separate.
+    for family in FAMILIES {
+        if let Ok(index) = family.binary_search_by(|(key, _)| {
+            key.bytes()
+                .cmp(name.bytes().map(|byte| byte.to_ascii_uppercase()))
+        }) {
+            return Some(&family[index].1);
         }
     }
-}
-
-impl Registration for Demand {
-    fn register(&mut self, name: &str, params: &[&str], _func: StdFunc) {
-        self.add(name, params, None);
-    }
-    fn register_variadic_with_fixed(
-        &mut self,
-        name: &str,
-        fixed: &[&str],
-        prefix: &str,
-        _start: usize,
-        _min: usize,
-        _func: StdFunc,
-    ) {
-        self.add(name, fixed, Some(prefix));
-    }
-}
-
-pub(super) fn preparation_demand() -> Result<(usize, usize), RuntimeError> {
-    let mut demand = Demand::default();
-    register_defaults(&mut demand);
-    if demand.overflow {
-        return Err(RuntimeError::Overflow);
-    }
-    Ok((demand.bytes, demand.work))
-}
-
-pub(super) fn register_defaults(lib: &mut impl Registration) {
-    super::assertions::register_into(lib);
-    super::numeric::register_into(lib);
-    super::bit::register_into(lib);
-    super::selection::register_into(lib);
-    super::comparison::register_into(lib);
-    super::string::register_into(lib);
-    super::time::register_into(lib);
-    super::validate::register_into(lib);
-    // Conversion recognition is algorithmic and registers no stored entries.
+    None
 }
 
 #[cfg(test)]
 mod tests {
+    use super::super::{StandardLibrary, StdParams};
     use super::*;
+    use crate::{error::RuntimeError, value::Value};
+    use alloc::{format, string::String, vec};
+
+    fn custom(_: &[Value]) -> Result<Value, RuntimeError> {
+        Ok(Value::Int(73))
+    }
+
+    // The full stdlib contract suites remain canonical for individual functions.
+    // These successful calls pin registration/binding across every family without
+    // treating machine-code address equality (which ICF may change) as behavior.
+    fn assert_behavior_corpus(library: &StandardLibrary) {
+        use crate::value::Duration;
+        for (name, args, expected) in [
+            ("ABS", vec![Value::Int(-7)], Value::Int(7)),
+            ("SQRT", vec![Value::LReal(4.0)], Value::LReal(2.0)),
+            ("ADD", vec![Value::Int(1), Value::Int(2)], Value::Int(3)),
+            ("SHL", vec![Value::Byte(1), Value::Int(2)], Value::Byte(4)),
+            (
+                "SEL",
+                vec![Value::Bool(false), Value::Int(11), Value::Int(22)],
+                Value::Int(11),
+            ),
+            (
+                "MUX",
+                vec![Value::Int(0), Value::Int(11), Value::Int(22)],
+                Value::Int(11),
+            ),
+            ("GT", vec![Value::Int(2), Value::Int(1)], Value::Bool(true)),
+            ("LEN", vec![Value::String("abc".into())], Value::Int(3)),
+            (
+                "CONCAT",
+                vec![Value::String("a".into()), Value::String("b".into())],
+                Value::String("ab".into()),
+            ),
+            (
+                "ADD_TIME",
+                vec![
+                    Value::Time(Duration::from_millis(1)),
+                    Value::Time(Duration::from_millis(2)),
+                ],
+                Value::Time(Duration::from_millis(3)),
+            ),
+            ("IS_VALID", vec![Value::Real(1.0)], Value::Bool(true)),
+            ("IS_VALID_BCD", vec![Value::Byte(0x12)], Value::Bool(true)),
+            ("ASSERT_TRUE", vec![Value::Bool(true)], Value::Null),
+            (
+                "ASSERT_GREATER",
+                vec![Value::Int(2), Value::Int(1)],
+                Value::Null,
+            ),
+        ] {
+            let mixed = name.to_ascii_lowercase();
+            let found = library.get(&mixed).unwrap();
+            assert_eq!((found.func)(&args), Ok(expected.clone()), "direct {name}");
+            assert_eq!(library.call(&mixed, &args), Ok(expected), "registry {name}");
+        }
+    }
 
     #[test]
-    fn allocation_free_demand_matches_the_constructed_registry() {
+    fn shared_descriptors_preserve_the_pre_static_registration_contract() {
         let library = StandardLibrary::new();
-        let mut bytes = library.functions.len()
-            * (core::mem::size_of::<(SmolStr, StdFunction)>() + 4 * core::mem::size_of::<usize>());
-        let mut work = library.functions.len();
-        for (name, function) in &library.functions {
-            let (params, prefix) = match &function.params {
-                super::super::StdParams::Fixed(params) => (params, None),
-                super::super::StdParams::Variadic { fixed, prefix, .. } => (fixed, Some(prefix)),
-            };
-            bytes += params.len() * core::mem::size_of::<SmolStr>();
-            for text in core::iter::once(name).chain(prefix).chain(params.iter()) {
-                bytes += text.len();
-                work += text.len();
+        let baseline = include_str!("registration-baseline.txt");
+        assert_eq!(
+            FAMILIES.iter().map(|family| family.len()).sum::<usize>(),
+            baseline.lines().count()
+        );
+        for family in FAMILIES {
+            assert!(family.windows(2).all(|pair| pair[0].0 < pair[1].0));
+            for (name, entry) in *family {
+                assert_eq!(
+                    FAMILIES
+                        .iter()
+                        .flat_map(|family| family.iter())
+                        .filter(|(other, _)| name == other)
+                        .count(),
+                    1
+                );
+                let found = library.get(&name.to_ascii_lowercase()).unwrap();
+                assert!(core::ptr::eq(found.params, entry.params));
+                assert_eq!((found.func)(&[]), (entry.func)(&[]));
+                let shape = match entry.params {
+                    StdParams::Fixed(params) => format!(
+                        "fixed({})",
+                        params
+                            .iter()
+                            .map(|p| p.as_str())
+                            .collect::<alloc::vec::Vec<_>>()
+                            .join(",")
+                    ),
+                    StdParams::Variadic {
+                        fixed,
+                        prefix,
+                        start,
+                        min,
+                    } => format!(
+                        "variadic({};{prefix};{start},{min})",
+                        fixed
+                            .iter()
+                            .map(|p| p.as_str())
+                            .collect::<alloc::vec::Vec<_>>()
+                            .join(",")
+                    ),
+                };
+                let expected: String = format!("{name} {shape}");
+                assert!(baseline.lines().any(|line| line == expected), "{expected}");
             }
         }
-        assert_eq!(preparation_demand().unwrap(), (bytes, work));
+        assert_eq!(StandardLibrary::preparation_demand(), (0, 1));
+        assert_behavior_corpus(&library);
+    }
+
+    #[test]
+    fn descriptors_are_pointer_sized_views_of_shared_signatures() {
+        assert_eq!(
+            core::mem::size_of::<(&str, super::super::StdFunctionRef<'_>)>(),
+            4 * core::mem::size_of::<usize>(),
+        );
+        let library = StandardLibrary::new();
+        assert!(core::ptr::eq(
+            library.get("ABS").unwrap().params,
+            library.get("DAY_OF_WEEK").unwrap().params
+        ));
+        assert!(core::ptr::eq(
+            library.get("SUB").unwrap().params,
+            library.get("ADD_TIME").unwrap().params
+        ));
+        assert!(core::ptr::eq(
+            library.get("ADD").unwrap().params,
+            library.get("CONCAT").unwrap().params
+        ));
+        assert!(!core::ptr::eq(
+            library.get("ADD").unwrap().params,
+            library.get("MUX").unwrap().params
+        ));
+    }
+
+    #[test]
+    fn owned_custom_metadata_and_overrides_preserve_case_and_clone_isolation() {
+        let mut library = StandardLibrary::new();
+        let original = library.clone();
+        library.register("aBs", &["custom"], custom);
+        assert_eq!(
+            library.call("AbS", &[Value::Int(-7)]).unwrap(),
+            Value::Int(73)
+        );
+        assert_eq!(
+            original.call("abs", &[Value::Int(-7)]).unwrap(),
+            Value::Int(7)
+        );
+        let StdParams::Fixed(params) = library.get("ABS").unwrap().params else {
+            panic!("fixed override")
+        };
+        assert_eq!(params.as_ref(), &[smol_str::SmolStr::new("CUSTOM")]);
+        library.register_variadic_with_fixed("custom", &["first"], "arg", 3, 2, custom);
+        let StdParams::Variadic {
+            fixed,
+            prefix,
+            start,
+            min,
+        } = library.get("CuStOm").unwrap().params
+        else {
+            panic!("variadic registration")
+        };
+        assert_eq!(fixed.as_ref(), &[smol_str::SmolStr::new("FIRST")]);
+        assert_eq!(prefix, "ARG");
+        assert_eq!((*start, *min), (3, 2));
+        library.register("custom", &[], custom);
+        assert!(
+            matches!(library.get("CUSTOM").unwrap().params, StdParams::Fixed(params) if params.is_empty())
+        );
+        assert!(library.get("äbs").is_none());
+        assert!(library.get(" ABS").is_none());
+    }
+
+    #[test]
+    fn empty_default_and_partial_registration_remain_distinct_from_new() {
+        let mut empty = StandardLibrary::default();
+        assert!(empty.get("ABS").is_none());
+        // Conversion fallback was available even in an empty library.
+        assert_eq!(
+            empty.call("INT_TO_DINT", &[Value::Int(2)]).unwrap(),
+            Value::DInt(2)
+        );
+        super::super::time::register(&mut empty);
+        assert!(empty.get("ADD_TIME").is_some());
+        assert!(empty.get("ABS").is_none());
+        for (name, expected) in super::super::time::FUNCTIONS {
+            let found = empty.get(name).unwrap();
+            assert_eq!(found.params, expected.params);
+            assert_eq!((found.func)(&[]), (expected.func)(&[]));
+        }
+    }
+
+    #[cfg(feature = "hir")]
+    #[test]
+    fn hosted_family_registration_preserves_implementations_and_parameters() {
+        let mut library = StandardLibrary::default();
+        super::super::assertions::register(&mut library);
+        super::super::numeric::register(&mut library);
+        super::super::bit::register(&mut library);
+        super::super::selection::register(&mut library);
+        super::super::comparison::register(&mut library);
+        super::super::string::register(&mut library);
+        super::super::time::register(&mut library);
+        super::super::validate::register(&mut library);
+        assert_eq!(
+            library.functions.len(),
+            include_str!("registration-baseline.txt").lines().count()
+        );
+        for family in FAMILIES {
+            for (name, expected) in *family {
+                let found = library.get(name).unwrap();
+                assert_eq!(found.params, expected.params);
+                assert_eq!((found.func)(&[]), (expected.func)(&[]));
+            }
+        }
+        assert_behavior_corpus(&library);
     }
 }

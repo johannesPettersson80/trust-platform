@@ -1,0 +1,5 @@
+[build]
+target = "thumbv7em-none-eabihf"
+
+[target.thumbv7em-none-eabihf]
+rustflags = ["-C", "target-cpu=cortex-m4", "-C", "llvm-args=-addrsig", "-C", "link-arg=--icf=safe", "-C", "link-arg=-Tlink.x", "-C", "link-arg=-Tprofile.x", "-C", "link-arg=-Map=trust-nucleo-f401re.map"]

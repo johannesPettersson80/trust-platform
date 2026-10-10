@@ -1,0 +1,85 @@
+{
+  "reviewer": "/root/br1_static_registry",
+  "checkout": "/home/johannes/projects/trust-platform-portability-b",
+  "branch": "feat/runtime-portability-b",
+  "base": "df427259cc387a7a79fb81132be23e48ea1493d4",
+  "proof": "read-only source review; no build, test, formatter, validator or hardware execution",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/memory.rs",
+      "sha256": "04f73353e38dfa88be181fc3d3ed6468e8426ceb95a1fccb385e6ddc7c852b33"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/cache.rs",
+      "sha256": "1439ea6eb4a0c35942479cdade375f98725fb6ed1069f60005df3eb4db91bbff"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/execution_frames.rs",
+      "sha256": "9b794807aadb91c8f43597e6930b1ddd2d9ac7495bac28e40f03b734229f2706"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/instances.rs",
+      "sha256": "dc855ecf3b310d05dcda2bf71365d066afb43d2d38dc3b99d7bd4a90d55e8fed"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/live.rs",
+      "sha256": "8a467d617bc76dab315bba0e179f880cca498fd3c6cf6a3d322ae0c94911c6ee"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/live_tests.rs",
+      "sha256": "08628d749114f4bc5c20b9dd1c2ab911f0bcf6a5ea0bde68407a92b893f78fb3"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/storage.rs",
+      "sha256": "81583a6b16fbf7f1f81c5d586aa34af93746382cb2369ff868125ba3d3de7579"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/context.rs",
+      "sha256": "d8f1c1a8961e2b119a22f2bd59419536397fdea9742f5b359897bc5dc6968cea"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/dispatch.rs",
+      "sha256": "3ae2193a212618cfebedfa79c330fbba6cb59d5d23c036d1eb3f63045c9d58d0"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/context.rs",
+      "sha256": "01afc7a79e1178d19a1654bfbb929fe78672e32f2295207586b57bd9d3c8118b"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/destinations.rs",
+      "sha256": "91dafe2892f048d86e4e45154fdf0596f1a840e41bd71378342b26956702dfc8"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/identities.rs",
+      "sha256": "4ec0194fec9672932801a51dd73002f442ad52d7aaa28f11109b5c8461226d49"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/construction.rs",
+      "sha256": "53d918bfd7dd645735e085587cafcb7923eb40c43714323399896313230585be"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/mod.rs",
+      "sha256": "d13f206a5b654f6a1540c7a41a234bb2c07bfcfcbac10233b8ceb80c2d14a017"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/mod.rs",
+      "sha256": "5ad13cdaa85ad1e23cf19bd9775245f50fcaab121a9425bdcffd83694db6393c"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/output_transaction.rs",
+      "sha256": "f3e96fa394a829b49aee3254d8571dfef01ed4265b9ff51415583e3bcfae6726"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/retained_graph.rs",
+      "sha256": "4b8cb8ad095266223ac58a816a376dd45e43ff3f39c758942f427035c7d40ef8"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/storage_tests.rs",
+      "sha256": "c89d773bb7dd6d987afa68bc8dd80df4494aa7e31f76ba0ef380d455ae02ddc4"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/context.rs",
+      "sha256": "042244b485dee54a69bdc47ef39d83730aaf6e5590e357192b5ca57703349027"
+    }
+  ]
+}

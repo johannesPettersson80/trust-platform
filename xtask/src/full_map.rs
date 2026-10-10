@@ -3294,7 +3294,7 @@ fn collect_unsafe_summary(root: &Path, policy: &FullMapPolicy) -> UnsafeSummary 
 
 fn collect_safety_scan_files(root: &Path) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
-    for rel in ["crates", "third_party"] {
+    for rel in ["crates", "third_party", "firmware"] {
         let dir = root.join(rel);
         if dir.exists() {
             collect_safety_scan_files_inner(&dir, &mut files)?;
@@ -3330,6 +3330,8 @@ fn is_test_like_source_path(path: &str) -> bool {
 
 fn is_panic_like_scan_path(path: &str) -> bool {
     path.starts_with("crates/trust-runtime/src/")
+        || path.starts_with("crates/trust-platform-stm32f4/src/")
+        || path.starts_with("firmware/trust-nucleo-f401re/src/")
         || path.starts_with("crates/trust-hir/src/")
         || path.starts_with("crates/trust-lsp/src/")
         || path.starts_with("crates/trust-ide/src/")
@@ -5339,6 +5341,40 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
         let check = check_unsafe_concurrency_summary(&base_map());
 
         assert_eq!(check.status, CheckStatus::Finding);
+    }
+
+    #[test]
+    fn separate_firmware_workspace_safety_sites_are_discovered_without_build_outputs() -> Result<()>
+    {
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "trust-firmware-safety-{}-{suffix}",
+            std::process::id()
+        ));
+        let firmware = root.join("firmware/trust-nucleo-f401re");
+        fs::create_dir_all(firmware.join("src"))?;
+        fs::create_dir_all(firmware.join("target/debug"))?;
+        fs::write(
+            firmware.join("src/main.rs"),
+            "use core::sync::atomic::AtomicU32;\nunsafe fn abort_boundary() {}\n",
+        )?;
+        fs::write(
+            firmware.join("target/debug/generated.rs"),
+            "unsafe fn stale() {}\n",
+        )?;
+        let summary = collect_unsafe_summary(&root, &base_policy());
+        fs::remove_dir_all(&root)?;
+        assert_eq!(summary.production_unsafe_sites.len(), 1);
+        assert_eq!(summary.unregistered_unsafe_sites.len(), 1);
+        assert_eq!(
+            summary.production_unsafe_sites[0].path,
+            "firmware/trust-nucleo-f401re/src/main.rs"
+        );
+        assert_eq!(summary.production_unsafe_sites[0].line, 2);
+        assert_eq!(summary.unregistered_concurrency_boundaries.len(), 1);
+        Ok(())
     }
 
     #[test]

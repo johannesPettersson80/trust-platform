@@ -86,7 +86,7 @@ impl<'a> ValidationContext<'a> {
                 ),
             )?;
         }
-        budget.sort_by(&mut self.declaration_names, |a, b, budget| {
+        budget.sort_by(&mut self.declaration_names, &mut |a, b, budget| {
             Ok(a.0
                 .cmp(&b.0)
                 .then(budget.compare_names(a.1, b.1)?)
@@ -214,11 +214,11 @@ impl<'a> ValidationContext<'a> {
                 }
             }
         }
-        budget.sort_by(&mut tables.pou_ids, |a, b, _| Ok(a.cmp(b)))?;
-        budget.sort_by(&mut tables.var_refs, |a, b, _| Ok(a.cmp(b)))?;
-        budget.sort_by(&mut tables.local_ranges, |a, b, _| Ok(a.cmp(b)))?;
+        budget.sort_by(&mut tables.pou_ids, &mut |a, b, _| Ok(a.cmp(b)))?;
+        budget.sort_by(&mut tables.var_refs, &mut |a, b, _| Ok(a.cmp(b)))?;
+        budget.sort_by(&mut tables.local_ranges, &mut |a, b, _| Ok(a.cmp(b)))?;
         for names in [&mut tables.pou_names, &mut tables.var_names] {
-            budget.sort_by(names, |a, b, budget| {
+            budget.sort_by(names, &mut |a, b, budget| {
                 let kind = a.0.cmp(&b.0);
                 if !kind.is_eq() {
                     return Ok(kind);

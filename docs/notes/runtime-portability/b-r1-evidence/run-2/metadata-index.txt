@@ -1,0 +1,3 @@
+[gate-progress state=started phase=B-R1-metadata-index target=scena-rust-builder pid=1480433 elapsed=0.0s timeout=7200s command='python3 /home/johannes/.cache/trust-portability-b-setup-run-2/prepare-metadata-index.py']
+Candidate registered in an isolated mutation/metadata review index; real index unchanged; no commit
+[gate-progress state=finished phase=B-R1-metadata-index target=scena-rust-builder pid=1480433 elapsed=0.3s timeout=7200s command='python3 /home/johannes/.cache/trust-portability-b-setup-run-2/prepare-metadata-index.py' status=0]

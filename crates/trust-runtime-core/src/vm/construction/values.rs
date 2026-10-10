@@ -93,27 +93,7 @@ fn construct(
                 None
             }
             ValueConstructionMode::Apply(Value::Struct(overrides)) if !intrinsic => {
-                if let Some(recipe) = ctx.type_recipe(type_id) {
-                    let base = ctx.evaluate_recipe(recipe)?;
-                    ctx.check_value(type_id, &base)?;
-                    if let Value::Struct(base) = base {
-                        let name = base.type_name().clone();
-                        let mut fields = owned_fields(ctx, base)?;
-                        let overrides = owned_fields(ctx, overrides)?;
-                        reserve_fields(ctx, overrides.len())?;
-                        for (name, value) in overrides {
-                            ctx.charge_work(1)?;
-                            fields.insert(name, value);
-                        }
-                        Some(Value::Struct(Arc::new(StructValue::from_canonical_parts(
-                            name, fields,
-                        ))))
-                    } else {
-                        Some(Value::Struct(overrides))
-                    }
-                } else {
-                    Some(Value::Struct(overrides))
-                }
+                Some(apply_struct_recipe(ctx, type_id, overrides)?)
             }
             ValueConstructionMode::Apply(value) | ValueConstructionMode::Coerce(value) => {
                 Some(value)
@@ -128,6 +108,37 @@ fn construct(
     });
     ctx.leave_type();
     result
+}
+
+// Recipe overlay maps belong only to aggregate Apply. Do not retain their
+// temporaries in every scalar/POU construction across nested initializer calls.
+#[inline(never)]
+fn apply_struct_recipe(
+    ctx: &mut impl ValueConstructionContext,
+    type_id: u32,
+    overrides: Arc<StructValue>,
+) -> Result<Value, RuntimeError> {
+    if let Some(recipe) = ctx.type_recipe(type_id) {
+        let base = ctx.evaluate_recipe(recipe)?;
+        ctx.check_value(type_id, &base)?;
+        if let Value::Struct(base) = base {
+            let name = base.type_name().clone();
+            let mut fields = owned_fields(ctx, base)?;
+            let overrides = owned_fields(ctx, overrides)?;
+            reserve_fields(ctx, overrides.len())?;
+            for (name, value) in overrides {
+                ctx.charge_work(1)?;
+                fields.insert(name, value);
+            }
+            Ok(Value::Struct(Arc::new(StructValue::from_canonical_parts(
+                name, fields,
+            ))))
+        } else {
+            Ok(Value::Struct(overrides))
+        }
+    } else {
+        Ok(Value::Struct(overrides))
+    }
 }
 
 fn node(
@@ -180,70 +191,11 @@ fn node(
             base_type_id,
             lower,
             upper,
-        } => {
-            let value = input.unwrap_or(Value::LInt(lower));
-            let value = construct(
-                ctx,
-                base_type_id,
-                ValueConstructionMode::Coerce(value),
-                intrinsic,
-                depth + 1,
-            )?;
-            let numeric = scalar::integer(&value).ok_or(RuntimeError::TypeMismatch)?;
-            if numeric < i128::from(lower) || numeric > i128::from(upper) {
-                return Err(RuntimeError::SubrangeViolation {
-                    value: numeric,
-                    lower: i128::from(lower),
-                    upper: i128::from(upper),
-                });
-            }
-            Ok(value)
-        }
+        } => construct_subrange(ctx, base_type_id, lower, upper, input, intrinsic, depth),
         TypeData::Enum {
             base_type_id,
             variants,
-        } => {
-            let name = entry
-                .name_idx
-                .map(|idx| string(ctx, idx))
-                .transpose()?
-                .unwrap_or_default();
-            let variant = match input {
-                None => variants.first().ok_or(RuntimeError::TypeMismatch)?,
-                Some(Value::Enum(value)) => {
-                    if !value.type_name().eq_ignore_ascii_case(&name) {
-                        return Err(RuntimeError::TypeMismatch);
-                    }
-                    ctx.charge_work(variants.len())?;
-                    variants
-                        .iter()
-                        .find(|v| {
-                            v.value == value.numeric_value()
-                                && ctx
-                                    .strings()
-                                    .get(v.name_idx as usize)
-                                    .is_some_and(|n| n.eq_ignore_ascii_case(value.variant_name()))
-                        })
-                        .ok_or(RuntimeError::TypeMismatch)?
-                }
-                Some(_) => return Err(RuntimeError::TypeMismatch),
-            };
-            // Named-value groups are aliases in the artifact. Ordinary enums keep
-            // their closed name/value identity and must fit their declared base.
-            construct(
-                ctx,
-                base_type_id,
-                ValueConstructionMode::Coerce(Value::LInt(variant.value)),
-                true,
-                depth + 1,
-            )?;
-            ctx.charge_allocation(size_of::<EnumValue>())?;
-            Ok(Value::Enum(Box::new(EnumValue::from_canonical_parts(
-                name,
-                string(ctx, variant.name_idx)?,
-                variant.value,
-            ))))
-        }
+        } => construct_enum(ctx, entry.name_idx, base_type_id, variants, input, depth),
         TypeData::Reference { .. } => match input {
             None | Some(Value::Null) => Ok(Value::Reference(None)),
             Some(value @ Value::Reference(_)) => Ok(value),
@@ -262,6 +214,89 @@ fn node(
     }
 }
 
+// Each branch owns its recursive inputs and result validation. A common POU
+// node must not carry these range/variant temporaries into instance initialization.
+#[inline(never)]
+fn construct_subrange(
+    ctx: &mut impl ValueConstructionContext,
+    base_type_id: u32,
+    lower: i64,
+    upper: i64,
+    input: Option<Value>,
+    intrinsic: bool,
+    depth: usize,
+) -> Result<Value, RuntimeError> {
+    let value = input.unwrap_or(Value::LInt(lower));
+    let value = construct(
+        ctx,
+        base_type_id,
+        ValueConstructionMode::Coerce(value),
+        intrinsic,
+        depth + 1,
+    )?;
+    let numeric = scalar::integer(&value).ok_or(RuntimeError::TypeMismatch)?;
+    if numeric < i128::from(lower) || numeric > i128::from(upper) {
+        return Err(RuntimeError::SubrangeViolation {
+            value: numeric,
+            lower: i128::from(lower),
+            upper: i128::from(upper),
+        });
+    }
+    Ok(value)
+}
+
+#[inline(never)]
+fn construct_enum(
+    ctx: &mut impl ValueConstructionContext,
+    name_idx: Option<u32>,
+    base_type_id: u32,
+    variants: Vec<crate::bytecode::EnumVariant>,
+    input: Option<Value>,
+    depth: usize,
+) -> Result<Value, RuntimeError> {
+    let name = name_idx
+        .map(|idx| string(ctx, idx))
+        .transpose()?
+        .unwrap_or_default();
+    let variant = match input {
+        None => variants.first().ok_or(RuntimeError::TypeMismatch)?,
+        Some(Value::Enum(value)) => {
+            if !value.type_name().eq_ignore_ascii_case(&name) {
+                return Err(RuntimeError::TypeMismatch);
+            }
+            ctx.charge_work(variants.len())?;
+            variants
+                .iter()
+                .find(|v| {
+                    v.value == value.numeric_value()
+                        && ctx
+                            .strings()
+                            .get(v.name_idx as usize)
+                            .is_some_and(|n| n.eq_ignore_ascii_case(value.variant_name()))
+                })
+                .ok_or(RuntimeError::TypeMismatch)?
+        }
+        Some(_) => return Err(RuntimeError::TypeMismatch),
+    };
+    // Named-value groups are aliases in the artifact. Ordinary enums keep
+    // their closed name/value identity and must fit their declared base.
+    construct(
+        ctx,
+        base_type_id,
+        ValueConstructionMode::Coerce(Value::LInt(variant.value)),
+        true,
+        depth + 1,
+    )?;
+    ctx.charge_allocation(size_of::<EnumValue>())?;
+    Ok(Value::Enum(Box::new(EnumValue::from_canonical_parts(
+        name,
+        string(ctx, variant.name_idx)?,
+        variant.value,
+    ))))
+}
+
+// Keep aggregate containers out of the common node frame.
+#[inline(never)]
 fn construct_array(
     ctx: &mut impl ValueConstructionContext,
     elem_type_id: u32,
@@ -294,6 +329,7 @@ fn construct_array(
     ))))
 }
 
+#[inline(never)]
 fn construct_struct(
     ctx: &mut impl ValueConstructionContext,
     type_id: u32,
@@ -362,6 +398,9 @@ fn construct_struct(
     ))))
 }
 
+// Metadata lookup, charging and clone-result staging finish before construct
+// enters a recipe or nested type; keep this phase out of the recursive owner.
+#[inline(never)]
 fn entry(ctx: &mut impl ValueConstructionContext, type_id: u32) -> Result<TypeEntry, RuntimeError> {
     let value = ctx
         .types()

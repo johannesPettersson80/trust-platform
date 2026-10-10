@@ -119,7 +119,7 @@ pub enum RegisterCallOpKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RegisterValueOpKind {
     /// A constant value was materialized.
-    ConstLoadClone,
+    LoadConstant,
     /// A register value was cloned.
     #[cfg(feature = "hir")]
     RegisterReadClone,
@@ -127,9 +127,9 @@ pub enum RegisterValueOpKind {
     #[cfg(feature = "hir")]
     RegisterReadMove,
     /// A referenced value was materialized.
-    ReadValueClone,
+    ReadReference,
     /// An expression value was cloned for argument binding.
-    BindingExprClone,
+    BindExpression,
     /// A call result was cloned for copy-back.
-    OutputValueClone,
+    CopyOutput,
 }

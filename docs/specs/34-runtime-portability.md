@@ -1,14 +1,14 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.12 — compact construction metadata and staging-write admission
-- **Date:** 9 October 2026
+- **Version:** 0.13 — full-function F401 placement and footprint plan
+- **Date:** 10 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
 - **Baseline commit date:** 3 September 2026
 - **Source recheck:** `main` at `9a15065725c17da2c912055f1509368d3fd01d6c`, 9 October 2026; the reviewed runtime/core sources, workspace manifests/lockfile, specifications, and native CI workflow are unchanged from the original baseline.
 - **Scope:** A shared Rust execution engine for Linux, Windows, macOS, the NUCLEO-F401RE reference board, and one required ESP32 target, with separately scoped dependency/toolchain modernization and target qualification.
 
-**Revision basis:** Incorporates A3 review corrections: statically proven staging writes, reachable standard-block templates, shared immutable default recipes, strict configured paths, stable inspection output and native edge/retain/partial/class coverage. The source-admitted changing-input fixture and four-scope boundary remain; execution and hardware qualification still belong to A4 and the board scopes. Evidence and authorization remain in the checklist. [D01–D07]
+**Revision basis:** Retains the A3/A4 construction and shared-engine contracts and B-R1's uniform PLC function set. Defines B-R2 sector-0 immutable data, per-region footprint accounting and a 16 KiB upper-region margin. Implementation is authored; qualification and hardware results remain in the execution record. Current source, evidence and authorization remain in the portability checklist; the main-branch baselines above are historical. [D01–D07]
 
 **Requirement status:** This is the canonical implementation plan. “Shall” defines required behavior for the stated future profile, not behavior already implemented. Existing identifiers are retained. Specifications 11/12 distinguish current hosted/STBC 1.1 behavior from planned migration. Scope authorization and validation follow AGENTS.md; a milestone description is not authorization or evidence that it passed.
 
@@ -245,7 +245,7 @@ A feature supported today shall not disappear from the hosted product simply bec
 
 For existing std-exposed value/retain map APIs, retain the current std default-builder type through the alias's std definition, so changing internal spelling does not silently break public concrete return/parameter types. The no_std definition supplies `FxBuildHasher`; both invoke the same value/retain implementation. Internal validator sets/maps use explicit portable containers. Preserve stable acceptance/errors, and bound preparation work and counts rather than treating a fast unkeyed hasher as protection against adversarial input. No new hashbrown dependency is required solely for the existing ordered maps.
 
-Relocation also adds core's direct `crc32fast` edge: disable its workspace default std feature and forward std only from hosted consumers/core's std feature. Add the direct libm edge selected by NUM-05 at its existing lockfile version. Account for alloc imports/formatting in bounded preparation. These portability changes are part of A/M1; Rust/MSRV/edition/Node and broad package upgrades are exclusively M0U. Isolated F401/C6 checks, not a host no-default check, establish the graph. [R03, R25, R36, R37, E45]
+Relocation initially added core's direct `crc32fast` edge with explicit std opt-ins. B-R1 makes that edge optional under core's std feature; no_std builds use the shared compact IEEE CRC-32 implementation with the same wire result. Add the direct libm edge selected by NUM-05 at its existing lockfile version. Account for alloc imports/formatting in bounded preparation. These portability changes are part of A/M1; Rust/MSRV/edition/Node and broad package upgrades are exclusively M0U. Isolated F401/C6 checks, not a host no-default check, establish the graph. [R03, R25, R36, R37, E45]
 
 **BUILD-04.** Bare-metal checks shall be followed by a fully linked firmware build. The firmware shall provide startup, memory layout, interrupt vectors, panic behavior, and allocator support when applicable. A library `cargo check` is not a complete firmware test.
 
@@ -353,13 +353,15 @@ background work. Resource index zero is the only admitted instance selection.
 Hosted 1.x resource handling is unchanged.
 
 Preparation has separate artifact, validation-scratch, logical preparation and
-runtime construction limits. Both byte and decoded-object entry points enforce
-the artifact bound through the same bounded serializer. Byte-input decoding
+runtime construction limits. The byte entry point enforces the artifact bound against the supplied byte length
+before decoding; it shall not serialize the decoded object again. The decoded-object
+entry point uses bounded serialization to check representability and encoded size.
+Both entry points retain the complete validator and execution-profile admission. Byte-input decoding
 charges concrete section and nested-table reservations and payload copies before
 allocation, including zero-length string records; its demand seeds the same
 cumulative preparation budget. A caller-owned decoded object is excluded from
 that initial demand. Preparation accounting
-charges bounded serialization scratch, concrete table records using target
+charges serialization scratch only on the decoded-object route, and concrete table records using target
 `size_of`, owned payload lengths and nested vector elements. Map entries charge
 their key/value payload plus four pointer-sized link/control words; actual bucket
 capacity and allocator node occupancy are excluded. Temporary instance-owner
@@ -401,7 +403,7 @@ A validated constructor is an implementation invariant, not a substitute for fuz
 
 LOAD-04 correction is now in this expanded scope: validation must not retain an operand-stack vector per linear instruction. Retain merge states only at basic-block entries, and enforce explicit preparation scratch/work limits before expanding analysis state. A caller may tighten the default hosted limits; an MCU profile must choose measured limits before admitting bytecode. Memory evidence must distinguish accounted analysis storage from allocator overhead and the decoded artifact itself. No validation of the earlier relocation establishes these new claims.
 
-**A2 compatibility and serialization decision.** Core owns the allocator-backed `BytecodeModule`, its full 1.x decoder/validator, metadata materialization and byte serialization. Serialization stays available without an additional feature; compiler/HIR lowering remains hosted and unused serialization need not be linked into firmware. A borrowed `BytecodeModuleView` shares those read-only operations with the thin hosted container adapter, preserving existing public fields, struct literals and `from_runtime*` constructors without cloning section data. Neither a decoded container nor its view represents executable admission. Semantic analysis uses budgeted portable vectors and borrowed names; framing validation retains a bounded known-section set. Existing input traversal and first-error ordering are preserved except the explicitly added malformed-layout, raw-discriminant and analysis-limit rejections. The locked CRC dependency is crc32fast 1.5.0 with default features disabled in core and explicit std opt-ins for hosted consumers. A2 retains the STBC 1.x format, with the reviewed admission hardening above; version changes and prepared execution remain A3/A4.
+**A2 compatibility and serialization decision.** Core owns the allocator-backed `BytecodeModule`, its full 1.x decoder/validator, metadata materialization and byte serialization. Serialization stays available without an additional feature; compiler/HIR lowering remains hosted and unused serialization need not be linked into firmware. A borrowed `BytecodeModuleView` shares those read-only operations with the thin hosted container adapter, preserving existing public fields, struct literals and `from_runtime*` constructors without cloning section data. Neither a decoded container nor its view represents executable admission. Semantic analysis uses budgeted portable vectors and borrowed names; framing validation retains a bounded known-section set. Existing input traversal and first-error ordering are preserved except the explicitly added malformed-layout, raw-discriminant and analysis-limit rejections. A2 used crc32fast 1.5.0 with explicit std opt-ins; B-R1 retains its hosted acceleration and replaces its embedded use with the shared compact implementation described in Appendix D.1. A2 retains the STBC 1.x format, with the reviewed admission hardening above; version changes and prepared execution remain A3/A4.
 
 Replace the singleton version assumption with explicit reader-supported pairs and an encoder output version; do not blindly change `SUPPORTED_MAJOR_VERSION` to 2 in every test. Preserve legacy fixtures explicitly and add 2.0 cases, rejection matrix, and resource-limit mutations. Audit all version-pair/layout branches, including current comparisons based only on `minor`, CRC defaults, and VM materialization. Six direct version-assumption test surfaces are `bytecode_container`, `bytecode_metadata`, `bytecode_decode_resource_bounds`, `bytecode_sections`, `bytecode_helpers`, and `process_image`; encoder/roundtrip/validation/optional-section and VM tests also remain in scope. Retain the tracked OSCAT 1.1 artifact and generate a separately named reproducible 2.0 fixture rather than replacing compatibility evidence. [R36]
 
@@ -467,6 +469,116 @@ A complete packed representation is not the first extraction step. First separat
 **MEM-10.** Use exclusive ownership of mutable execution state and an explicit borrow of immutable prepared metadata as the initial portable boundary. Prepare dense program/type/member/slot identities so bounded execution does not depend on lazy name-map insertion or OS `RwLock` caches. Host code may own or pin generations with `Arc` outside this boundary where its threading model requires it. Do not replace every host `Arc` with `Rc`, weaken host thread-safety, or duplicate instruction semantics to make one target compile. Audit transitive string/container ownership as well as direct core imports. [R22, R24]
 
 **MEM-11.** Document scalar slots, compound regions, frame/local/temporary reuse, initialization scratch, and copy/drop ownership. Select one bounded representation for hosts and MCUs with application-sized capacities. Scope A/B may retain `SmolStr`/`IndexMap`/`Arc` values under a bounded bring-up heap on F401/C6, recording every remaining scan allocation and refcount/destruction cost; this cannot qualify ARCH-05. Implement measured narrow storage improvements before first hardware evidence where needed. Complete atomic-reference-count retirement and bounded compound copying in M3; only then require optional C3/IMC support. Avoid a throwaway value model solely to pass M1. Retain failed fit evidence and the mandatory fixture. [R24, R30, R31]
+
+### 6.2.1 B-R3 live storage and footprint refinement
+
+B-R3 preserves the complete IEC/truST function set and all stable faults, value-copy,
+reference, rollback and ordering contracts. It changes storage and code generation,
+not bytecode semantics. This is a measured bring-up slice of MEM-03/06/10/11, not
+completion of M3's allocation-free compound-value contract.
+
+- Frame/instance identities retain every bit of their existing monotonic u32 domain.
+  Removed identities stay invalid; capacity follows live entries, not the largest
+  identity ever issued. ID exhaustion remains a checked fault. Sorted live entries
+  use binary search; reserve appends in identity order. Arbitrary public removals
+  remain supported even where ordinary frame retirement is LIFO.
+- Ordinary activation depth and initializer staging storage are distinct. A POU
+  activation remains live while its declaration initializer reserves a result slot
+  at the same logical depth. Do not equate storage entries with max_call_depth.
+  A conservative storage reservation covers ordinary and initializer stacks each
+  bounded by the admitted depth (checked twice-depth capacity); tests exercise an
+  initializer at the deepest admitted call. This does not increase admitted call depth.
+- Instance retirement processes an owner batch with a single storage retain pass;
+  promoted instances survive retirement of their former owner. Side metadata and
+  cached offsets must be invalidated consistently. Account for scanned/shifted entries
+  before fallible work; terminal cleanup must still finish when execution fuel is spent.
+- Sorted collections retain key order, first/last-match and alias deduplication behavior.
+  Journals keep the complete (MemoryLocation, usize slot) key and restore in the existing
+  sorted order. Snapshot only affected destinations; never clone whole storage.
+  Bulk input snapshots resolve references in their original order, then sort and
+  deduplicate destination identities with bounded charged work before copying values.
+  Input writes retain their original order. Charge actual vector relocation/shifts,
+  not the whole collection length for an append; arbitrary input order must not turn
+  the admitted input-binding transaction into quadratic snapshot construction.
+- Once the physical deadline expires in an execution operation, retain that result
+  through unwinding and terminal cleanup. Do not sample the clock again to rediscover
+  an already observed expiry. Reset the latch only at the next operation's existing
+  budget-reset boundary; retain fuel charging and complete terminal cleanup.
+- Portable name lookup may use the existing insertion-ordered variable map's hashed
+  name-to-slot index instead of maintaining duplicate string-tuple caches. Recursive
+  lookup retains parent traversal and shadowing; unknown names stay misses without
+  inserting entries. Hosted cache/public-map compatibility remains behind the shared
+  storage API. This uses existing indexed identities and adds no linear name-table scan.
+- Fallible vector growth and moved-entry work are accounted explicitly. Do not reserve
+  host-scale construction maxima in the MCU heap. Preallocate bounded frame metadata;
+  instance/value storage retains bring-up allocation under existing construction charges
+  and measured allocator capacity. No new claim of a global live-instance bound or
+  allocation-free RUN follows from replacing trees. Record live peaks and residual growth.
+
+Numeric reductions retain full signed/unsigned input domains, finite checks, rounding,
+error precedence and exact results. Calendar era/remainder calculations may use i64
+with a wide final expression where cancellation requires it. Signed/unsigned TIME scaling
+must handle i64::MIN and ULINT_MAX without narrowing unsigned factors. Wide text parsing
+and its TypeMismatch/Overflow distinction stay. Error constructors preserve exact hosted
+rendering and stable codes. A validator inline attribute is an explicitly measured layout
+experiment, not credited savings. No blanket panic removal or reduced validation is allowed.
+
+All selected source changes may share one measurement wave. Keep the default stable
+1.95.0 configuration, safe ICF, overflow checks and the 16 KiB upper-region margin.
+Whole-section sector-0 repacking must preserve vector/data alignment and reserved erase
+regions. Symbol deltas guide interpretation but do not guarantee independently additive
+savings. Candidate trace simplification must preserve the complete bounded UART record
+transaction and byte protocol. Only final maps/ELF and physical measurements establish fit.
+
+### 6.2.2 B-R4 native-stack correction
+
+The F401 physical run exceeded its reserved native stack although its logical call
+count was admitted. B-R4 corrects that shared execution path without changing IEC
+functionality, the admitted call depth, the 72 KiB heap / 16 KiB MSP partition, the
+16 KiB upper-flash margin, or the 2 KiB measured stack-headroom criterion. This is
+an implementation/resource correction; IEC execution and binding semantics are unchanged.
+
+- Compiler-produced function, function-block, method and interface calls on the stack
+  backend shall execute through the existing dispatcher loop and explicit VM frames.
+  Do not hold another Rust dispatcher invocation for each such PLC activation.
+  Typed continuations retain the caller's pending return and output/edge state.
+- Shared prepare/complete call helpers remain the single semantic owner. Hosted
+  register tiers may use their synchronous adapter and existing optimization hooks;
+  they shall not grow a second implementation of argument binding or copyback.
+- Preserve argument evaluation order, supplied-versus-omitted parameters (including
+  supplied NULL), defaults, receiver/interface resolution, return typing, output and
+  IN_OUT alias ordering, atomic failed copyback, edge-input restoration, references
+  to suspended locals, statement/call hooks and existing failure identities.
+- Each deferred callee has isolated operand state. It cannot consume suspended caller
+  operands; successful completion and all failure paths discard only the callee's
+  temporary operands, then restore/retire frames in the established order.
+- Continuation capacity follows admitted live depth, never issued identity values.
+  Reserve fallibly and account new allocation and work before publishing pending state.
+  All nested work shares the enclosing fuel/deadline allowance. Error unwinding must
+  retire every active identity and restore temporary bindings even after fuel expiry.
+- Initializer execution remains on the shared dispatcher and retains staging/lifetime
+  protection. Any remaining synchronous construction/initializer nesting is explicit
+  in the evidence; measured preparation/instantiation stack headroom is mandatory.
+  Passing the fixture is not a whole-profile worst-case native-stack proof or M3 closure.
+- The F401 bring-up composition shall place its long-lived `PreparedModule` owner
+  in the existing measured heap before instantiation, rather than retain its large
+  control object on the limited MSP throughout a fixture. This is one fixed firmware
+  ownership allocation, included in PREP-phase actual heap observations; core PREP
+  logical charges remain separately identified. State borrows the owner and is dropped
+  before it. Standard allocation failure follows the existing terminal safe-output
+  OOM boundary; this is not M3 recoverable/admission or allocation-free qualification.
+  The 72 KiB heap, 16 KiB MSP and all headroom criteria remain unchanged.
+- Preserve independent firmware phase boundaries so unrelated fixture state is not
+  inlined into a persistent outer runner frame. This is measured code generation,
+  not credited savings or a new execution implementation.
+- The hardware harness must stop with a failed record when a reported stack sample
+  misses the existing headroom threshold, before advancing to the next phase/depth.
+  It must not repaint away a failed high-water result or downgrade it into a pass.
+  The unchanged depth-four fixture and final watchdog/safe-output requirements remain.
+
+Complete source/test authoring and independent review precede one authorized consolidated
+software/link/inspection/hardware batch. Preserve previous failed captures. Hardware is
+conditional on passing software and ELF gates; no automatic retry follows a failure.
 
 ### 6.3 References and interfaces
 
@@ -1528,11 +1640,16 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 | E61 | ST DS10086 Rev 5 §3.16/Table 45 and RM0368 Rev 6 §§3.3/3.5: backup registers, erase-sector layout, operation timing and stalled flash reads. | [Official datasheet](https://www.st.com/resource/en/datasheet/stm32f401re.pdf), [Official reference manual](https://www.st.com/resource/en/reference_manual/rm0368-stm32f401xbc-and-stm32f401xde-advanced-armbased-32bit-mcus-stmicroelectronics.pdf) |
 | E62 | IEC 61131-3:2013 §6.6.2.5.8, Tables 28/29; variable/POU initialization context in Tables 14/19/40/47/48. Numerical accuracy dependencies must be stated; no universal ULP bound is prescribed. | Local standard text `docs/internal/standards/iec61131-3.txt`, numerical clause around lines 5762–5890; copyrighted standard is not added to Git. |
 | E63 | Rust Reference numeric types, complementing operation-specific library contracts and recorded floating-point premises. | [Numeric types](https://doc.rust-lang.org/reference/types/numeric.html) |
+| E64 | Pinned cortex-m-rt 0.7.5 linker script: vector placement, `_stext`, read-only data and `.data` load address constraints. | [Startup linker source](https://docs.rs/crate/cortex-m-rt/0.7.5/source/link.x.in) |
+| E65 | LLVM address-significance metadata and LLVM 22.1.2 ELF ICF implementation; section folding is broader than Rust function-pointer comparisons alone. | [Address-significance tables](https://llvm.org/docs/Extensions.html#sht-llvm-addrsig-section-address-significance-table), [LLD ICF source](https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-22.1.2/lld/ELF/ICF.cpp) |
+| E66 | Rust documents that function-pointer address equality is not a unique function identity; this does not prove unrestricted whole-image folding safe. | [fn_addr_eq](https://doc.rust-lang.org/std/ptr/fn.fn_addr_eq.html) |
+| E67 | Rust 1.95 supports source path-prefix remapping. It is a normalization measure, not by itself proof of reproducible firmware. | [Pinned compiler options](https://raw.githubusercontent.com/rust-lang/rust/1.95.0/src/doc/rustc/src/command-line-arguments.md), [Path remapping](https://doc.rust-lang.org/rustc/remap-source-paths.html) |
 
 ## Appendix B — Revision history
 
 | Version | Date | Change |
 |---|---|---|
+| 0.13 | 10 October 2026 | Plans B-R2 sector-0 immutable firmware placement, explicit discontiguous load accounting and a 16 KiB upper-region bring-up margin. Preserves all functions, full admission, stable toolchain and overflow/fault handling. Measurements and implementation remain separately authorized. |
 | 0.12 | 9 October 2026 | A3 admission proves staging-only writes across control flow; producer prunes unreachable standard blocks and shares recipes only between equivalent contexts. Adds edge/retain/partial/class authoring coverage and preserves the source/wire distinction. Execution remains A4. |
 | 0.11 | 9 October 2026 | Clarifies the shared changing-input fixture as a reference initializer selecting persistent array storage under IEC §6.4.4.10.2–3; preserves existing scalar constant-expression source checks. A4 must prove per-call initialization; A3 authoring is not execution evidence. |
 | 0.10 | 9 October 2026 | Moves the dependency-free SCHED-05 implementation and native regressions to the start of A1, separately reviewed within its existing batch. Removes deferred-defect baseline acceptance; A4 keeps fixture/oracle integration. Four scopes remain; no implementation or validation is asserted. |
@@ -1563,7 +1680,7 @@ NUCLEO-F401RE is the selected first reference board. Its role is to establish co
 
 | Area | Initial decision | Evidence or remaining implementation decision |
 |---|---|---|
-| Board identity | NUCLEO-F401RE / STM32F401RE. | Record PCB and silicon revision, probe identity, and actual MCU marking before flashing. Model confirmation is not a physical inspection. |
+| Board identity | NUCLEO-F401RE / STM32F401RE. | Before flashing, record probe identity, electronic device/revision/UID/flash-size registers, and the confirmed board model. Remote bring-up may proceed with PCB revision and package marking explicitly uninspected; do not represent electronic detection as physical inspection. Record those markings when available for final board qualification. |
 | CPU/toolchain | Cortex-M4F; `thumbv7em-none-eabihf`; single-precision hardware floating point. | Pin Rust/LLVM and CPU/FPU flags; record actual clock. Up to 84 MHz is the part limit, not a measured or configured runtime speed. [E25] |
 | HAL/runner | Start with `stm32f4xx-hal` and its `stm32f401` feature, architecture startup support, and one bare-metal runner owning the engine. | Pin compatible HAL/PAC/startup versions. No RTOS is required for the initial GPIO/timer/serial composition; any later executor remains outside PLC semantics. [E28] |
 | SRAM | 96 KiB total device SRAM. | Deduct `.data`/`.bss`, CPU/IRQ stack, loader/preparation storage, all engine regions, queues, I/O buffers, and declared margin. Account for preparation and RUN peaks separately. Do not reserve desktop VM maxima. [E25] |
@@ -1577,11 +1694,130 @@ NUCLEO-F401RE is the selected first reference board. Its role is to establish co
 
 **Feasibility decision.** Start with this board. Scope A establishes host construction and cross-target source/layout evidence; Scope B determines whether the shared application and preparation peak fit with stack/interrupt and driver headroom. Measure nested-call MSP high-water, not just the logical VM frame count. The desired result includes timers, bounded compound state, interface dispatch, and correct faults. No fixed footprint or maximum application size is promised before measurement.
 
+**Scope B reference composition.** Freeze Rust 1.95.0, the hard-float Cortex-M4
+target, HSI/PLL configured to 84 MHz, and the HAL/PAC/startup versions in the
+firmware lockfile. TIM2 supplies 1 MHz monotonic ticks and SysTick supplies a
+1 kHz non-allocating interrupt workload. Serial evidence uses USART2/ST-LINK VCP
+at 230400 baud. Configured clock frequency is not independently calibrated clock
+accuracy. Extend TIM2 rollover and require observations less than one full counter
+period apart; record the reset epoch. GPIO polarity belongs to the board adapter.
+
+The L2 link layout reserves sector 0 for vectors, sector 1 (16 KiB at
+0x08004000) for a separately programmable application bundle, sectors 2 and 3
+(two independent 16 KiB erase units at 0x08008000 and 0x0800C000) for future
+checkpoint slots, and sectors 4–7 (448 KiB from 0x08010000 through 0x0807FFFF)
+for executable firmware. Reserving checkpoint slots does not implement persistence,
+checkpoint capacity admission or interrupted-write recovery. L2 replaces the
+measured, failed L1 layout; its extra 96 KiB is declared capacity, not code reduction. The linker and host ELF inspector reject overlaps; a linked image may
+not consume application or persistence space to conceal a fit failure. RAM
+reserves a 72 KiB allocator arena, a 16 KiB MSP region and up to 8 KiB for other
+statics. Admission work/allocation counters are cumulative logical charges and
+must not be confused with measured live heap or native stack peaks. Report both.
+
+**B-R2 placement contract (qualification pending).** Sector 0 may also hold
+immutable firmware data after the complete, aligned vector table, ending before
+0x08004000. The vectors remain at 0x08000000 and the reset handler/code remain in
+sectors 4–7. This uses otherwise reserved capacity; it is not an engine-size reduction.
+The application and two checkpoint erase units remain unchanged. Sector-0 data belongs
+to the firmware image and must be installed/verified with its matching vectors/code;
+application installation must preserve it. Linker assertions, ELF/load-segment checks
+and the footprint report must account for both firmware regions separately, including
+alignment and the RAM data load image. No segment or flattened firmware image may
+silently program the intervening application/checkpoint sectors. Actual linked ELF
+segments establish placement; equal section flags alone do not establish installability.
+Use explicitly selected read-only sections with an overflow assertion, not an assumed
+linker policy that automatically fills remaining space. [E61, E64]
+
+B-R2's bring-up acceptance floor is 16 KiB free in the upper 448 KiB firmware
+region after all loadable content/alignment, plus a valid sector-0 bound. Report total
+occupied flash and per-region free space independently. This margin is not a promise
+that future persistence/installation functionality fits, nor a release qualification.
+Retain stable Rust 1.95.0, all functions, full admission, overflow checks and panic/fault
+recording. Safe ICF and normalized build paths may be the single default firmware
+configuration after review and measurement; unrestricted ICF, nightly/build-std,
+RUSTC_BOOTSTRAP, immediate-abort panics and capability cuts are outside B-R2. [E65–E67]
+
+The application bundle has magic `TRSTB002`, three little-endian u32 lengths at
+offsets 8/12/16 and their CRC32 values at offsets 20/24/28. Its payload starts at
+byte 32: the unchanged A4 main artifact, unchanged numeric artifact, then a GPIO
+probe artifact. Check every length/range and CRC before preparation. This trusted
+bench installation format is not the release authentication/deployment contract.
+
+The additional GPIO artifact samples `%IX0.0` and publishes `%QX0.0`; it also
+provides one through four nested POU levels for native stack measurement. Keep
+the original A4 artifacts and oracle unchanged. Autonomous tests distinguish
+actual PC13 samples from injected input-image values; both can drive real PA5
+output readback. Unobserved button presses and optical LED inspection remain
+unverified. Repaint only unused stack below the live MSP with interrupts masked,
+preserve earlier peaks, and record at least 2 KiB observed stack/IRQ headroom.
+These finite measurements do not claim exhaustive worst-case stack bounds.
+
+Run the 25 ms tasks on hardware-timed 10 ms samples through 1000 ms and export
+observed logical time, state, nominal deadlines and missed counts. Measure scan
+time separately from serial export. Check BOOT/STOP/FAULT output-off readback,
+then withhold independent-watchdog service deliberately and confirm its reset
+flag and safe boot before declaring the run complete. A partial trace, missing
+reset, explicit fault record, capacity failure or missed oracle row fails this
+bring-up gate; never replace it with a host simulation result.
+
 If the F401 does not fit, preserve the failed map/peak ledger and identify whether executable metadata, duplicated code, compound storage, initialization scratch, native stack, or linked helpers dominate. Prepare a targeted common-core improvement or an explicit application/target decision under the authorized scope; do not automatically rerun validation. The same failed gate remains open until an authorized run succeeds. An H7 may later provide a larger supported profile while the F401 result remains separately visible.
 
 Internal-flash installation and persistence shall not erase the running firmware or the only recovery path. The reserved layout must preserve independent application installation; firmware and PLC application shall not become inseparable simply to fit the first board. A stopped recovery procedure is permitted under DEPLOY-03, but arbitrary power-loss retention of the last scan is not implied.
 
 RM0368 describes four 16 KiB, one 64 KiB, and three 128 KiB sectors for this density; flash reads can stall during erase/program. DS10086 Table 45 lists erase times on a millisecond-to-second scale, with voltage/parallelism-dependent limits. Budget maintenance/watchdog behavior using the selected conditions. The part offers RTC backup registers, not a general backup-SRAM store. Do not reserve “256 KiB firmware + two 128 KiB sectors” before measuring linked size and proving the application/checkpoint recovery scheme fits; a single erase unit alone does not provide two independently recoverable checkpoint slots. [E61]
+
+**Scope B-R1 footprint contract.** Preserve every currently admitted IEC operation,
+standard function, error identity and device-side validation check. Firmware overflow
+checks remain enabled. The expanded B-R1 scope includes compact preparation diagnostics,
+targeted engine/retained-graph key representation reductions and measurement of safe
+identical-code folding. It excludes the full M3 storage redesign and capability cuts. Use one compact CRC-32/ISO-HDLC implementation in
+no_std core and firmware; the hosted std composition may retain crc32fast acceleration.
+Both routes must produce identical wire checksums. Default standard-library descriptors
+shall be immutable shared metadata; preserve custom hosted registration, replacement,
+lookup and parameter signatures. Refactor only measured collection/sort sites with an
+explicit ordering/capacity/work argument and native equivalence tests. Changes must not
+reintroduce quadratic admission work or uncharged input-dependent operations. Dense or
+sorted indexes are chosen per owner, not substituted wholesale for ordered containers.
+The minimum runtime retains its current IEC capabilities throughout this scope.
+
+Preparation/decode/admission diagnostics may use fixed reason identities and bounded
+numeric context instead of allocating formatted text. Preserve rejection conditions,
+stable public error codes and the information needed for hosted diagnostic rendering;
+record any Rust diagnostic-API adaptation. Hosted messages remain available. Dynamic
+application names or values must not be silently discarded when they distinguish a
+fault. Narrow engine keys only with checked, injective encodings preserving identity,
+ordering, generation/lifetime handling and the existing resource-accounting bounds.
+Safe identical-code folding is an explicitly measured build choice, not an assumed
+saving or permission to disable checks. Retain unchanged traces and fault behavior.
+In the allocator-backed no_std API, section diagnostics retain typed reasons/context
+and compare structurally; explicit rendering reproduces the hosted message. Hosted
+`BytecodeError` text payloads and runtime error conversion stay compatible. Native
+regressions shall assert both stable code and rendered detail across compositions.
+`StandardLibrary::get` may return a borrowed function/signature view rather than an
+owned-entry reference; registration, replacement, case matching and all signatures
+stay identical. These are Rust representation adaptations, not PLC feature differences.
+Scheduler sorting consumes the existing shared work budget for actual comparisons and
+swaps; preserve priority/due/index ordering and the same fail-closed exhaustion policy.
+
+
+**Uniform PLC function contract.** Every supported platform composition shall retain
+the same currently supported IEC operations, standard functions, conversion directions
+and truST assertion operations. Neither a device profile nor `no_std` may remove these
+functions to meet footprint limits. This includes REAL/LREAL to and from STRING/WSTRING,
+integer conversions and inferred/generic forms. Hardware resource limits and physical
+I/O bindings remain explicit platform properties; they do not authorize a reduced PLC
+function set. If the full runtime cannot fit a target, report that target as unsupported
+or unqualified until shared implementation improvements satisfy its limits. Never make
+the existing program corpus smaller to manufacture a successful hardware result.
+
+B-R1 evidence shall retain a release linker map even on failure, compare actual total
+and per-family footprint to the first B map, and report allocator peaks separately from
+static reservations. Estimated savings are not acceptance evidence. One final build
+cannot attribute an isolated causal saving to each overlapping source edit. If linked
+firmware passes partition checks, execute the unchanged board corpus in the same batch.
+An informational dependency exception requires an owner, explicit rationale/removal
+condition and expiry of at most 90 days; audit both root and standalone firmware lock
+graphs. No desktop dependency may be hidden by moving the adapter out of the workspace.
 
 ### D.2 ESP32: required second architecture
 

@@ -56,7 +56,7 @@ pub(super) fn validate_edges(
         }
         budget.push(&mut inputs, input_id)?;
     }
-    budget.sort_by(&mut inputs, |a, b, _| Ok(a.cmp(b)))?;
+    budget.sort_by(&mut inputs, &mut |a, b, _| Ok(a.cmp(b)))?;
     for pair in inputs.windows(2) {
         budget.work(1)?;
         if pair[0] == pair[1] {

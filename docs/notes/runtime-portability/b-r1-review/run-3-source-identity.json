@@ -1,0 +1,11 @@
+{
+  "schema": "trust-source-review-v1",
+  "base": "df427259cc387a7a79fb81132be23e48ea1493d4",
+  "files": {
+    "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml": {
+      "baseline_sha256": "9c5ec6b808cb484c46565a599792c18946634a178370e6a67d773ddfa9709edc",
+      "current_sha256": "391fce298f7bded002205d9030adf9d9c2a7877389486b2da22c85549662cb2a",
+      "baseline_basis": "builder source matches run-3 formatted-source-manifest.json"
+    }
+  }
+}

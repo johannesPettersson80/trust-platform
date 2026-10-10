@@ -78,7 +78,7 @@ impl BytecodeModuleView<'_> {
         }
         let mut bytes = bytes.into_vec();
         if self.flags & HEADER_FLAG_CRC32 != 0 {
-            let checksum = crc32fast::hash(&bytes[section_table_off..]);
+            let checksum = crate::crc32::checksum(&bytes[section_table_off..]);
             bytes[20..24].copy_from_slice(&checksum.to_le_bytes());
         }
         Ok(bytes)

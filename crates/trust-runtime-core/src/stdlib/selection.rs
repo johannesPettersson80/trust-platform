@@ -11,16 +11,16 @@ use crate::value::Value;
 /// Register the shared selection functions in a hosted registry.
 #[cfg(feature = "hir")]
 pub fn register(lib: &mut StandardLibrary) {
-    register_into(lib);
+    lib.register_descriptors(FUNCTIONS);
 }
 
-pub(super) fn register_into(lib: &mut impl super::registration::Registration) {
-    lib.register("SEL", &["G", "IN0", "IN1"], sel);
-    lib.register_variadic("MIN", "IN", 1, 2, min);
-    lib.register_variadic("MAX", "IN", 1, 2, max);
-    lib.register("LIMIT", &["MN", "IN", "MX"], limit);
-    lib.register_variadic_with_fixed("MUX", &["K"], "IN", 0, 2, mux);
-}
+pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+    super::registration::descriptor!("LIMIT", MN_IN_MX, limit),
+    super::registration::descriptor!("MAX", VAR_IN_1_2, max),
+    super::registration::descriptor!("MIN", VAR_IN_1_2, min),
+    super::registration::descriptor!("MUX", VAR_K_IN_0_2, mux),
+    super::registration::descriptor!("SEL", G_IN0_IN1, sel),
+];
 
 fn sel(args: &[Value]) -> Result<Value, RuntimeError> {
     require_arity(args, 3)?;

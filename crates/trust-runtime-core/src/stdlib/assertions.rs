@@ -7,37 +7,29 @@ use crate::stdlib::helpers::{
 #[cfg(feature = "hir")]
 use crate::stdlib::StandardLibrary;
 use crate::value::{format_user_value, Value};
-use alloc::{format, string::String};
+use alloc::format;
 
 /// Register the shared assertions functions in a hosted registry.
 #[cfg(feature = "hir")]
 pub fn register(lib: &mut StandardLibrary) {
-    register_into(lib);
+    lib.register_descriptors(FUNCTIONS);
 }
 
-pub(super) fn register_into(lib: &mut impl super::registration::Registration) {
-    lib.register("ASSERT_TRUE", &["IN"], assert_true);
-    lib.register("ASSERT_FALSE", &["IN"], assert_false);
-    lib.register("ASSERT_EQUAL", &["EXPECTED", "ACTUAL"], assert_equal);
-    lib.register(
-        "ASSERT_NOT_EQUAL",
-        &["EXPECTED", "ACTUAL"],
-        assert_not_equal,
-    );
-    lib.register("ASSERT_GREATER", &["VALUE", "BOUND"], assert_greater);
-    lib.register("ASSERT_LESS", &["VALUE", "BOUND"], assert_less);
-    lib.register(
+pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+    super::registration::descriptor!("ASSERT_EQUAL", EXPECTED_ACTUAL, assert_equal),
+    super::registration::descriptor!("ASSERT_FALSE", IN, assert_false),
+    super::registration::descriptor!("ASSERT_GREATER", VALUE_BOUND, assert_greater),
+    super::registration::descriptor!(
         "ASSERT_GREATER_OR_EQUAL",
-        &["VALUE", "BOUND"],
-        assert_greater_or_equal,
-    );
-    lib.register(
-        "ASSERT_LESS_OR_EQUAL",
-        &["VALUE", "BOUND"],
-        assert_less_or_equal,
-    );
-    lib.register("ASSERT_NEAR", &["EXPECTED", "ACTUAL", "DELTA"], assert_near);
-}
+        VALUE_BOUND,
+        assert_greater_or_equal
+    ),
+    super::registration::descriptor!("ASSERT_LESS", VALUE_BOUND, assert_less),
+    super::registration::descriptor!("ASSERT_LESS_OR_EQUAL", VALUE_BOUND, assert_less_or_equal),
+    super::registration::descriptor!("ASSERT_NEAR", EXPECTED_ACTUAL_DELTA, assert_near),
+    super::registration::descriptor!("ASSERT_NOT_EQUAL", EXPECTED_ACTUAL, assert_not_equal),
+    super::registration::descriptor!("ASSERT_TRUE", IN, assert_true),
+];
 
 fn assert_true(args: &[Value]) -> Result<Value, RuntimeError> {
     require_arity(args, 1)?;
@@ -62,68 +54,27 @@ fn assert_false(args: &[Value]) -> Result<Value, RuntimeError> {
 }
 
 fn assert_equal(args: &[Value]) -> Result<Value, RuntimeError> {
-    assert_compare(args, CmpOp::Eq, "ASSERT_EQUAL", |left, right| {
-        format!(
-            "ASSERT_EQUAL failed: expected {}, actual {}",
-            format_user_value(left),
-            format_user_value(right)
-        )
-    })
+    assert_compare(args, CmpOp::Eq)
 }
 
 fn assert_not_equal(args: &[Value]) -> Result<Value, RuntimeError> {
-    assert_compare(args, CmpOp::Ne, "ASSERT_NOT_EQUAL", |left, right| {
-        format!(
-            "ASSERT_NOT_EQUAL failed: values should differ, left {}, right {}",
-            format_user_value(left),
-            format_user_value(right)
-        )
-    })
+    assert_compare(args, CmpOp::Ne)
 }
 
 fn assert_greater(args: &[Value]) -> Result<Value, RuntimeError> {
-    assert_compare(args, CmpOp::Gt, "ASSERT_GREATER", |value, bound| {
-        format!(
-            "ASSERT_GREATER failed: value {} is not greater than bound {}",
-            format_user_value(value),
-            format_user_value(bound)
-        )
-    })
+    assert_compare(args, CmpOp::Gt)
 }
 
 fn assert_less(args: &[Value]) -> Result<Value, RuntimeError> {
-    assert_compare(args, CmpOp::Lt, "ASSERT_LESS", |value, bound| {
-        format!(
-            "ASSERT_LESS failed: value {} is not less than bound {}",
-            format_user_value(value),
-            format_user_value(bound)
-        )
-    })
+    assert_compare(args, CmpOp::Lt)
 }
 
 fn assert_greater_or_equal(args: &[Value]) -> Result<Value, RuntimeError> {
-    assert_compare(
-        args,
-        CmpOp::Ge,
-        "ASSERT_GREATER_OR_EQUAL",
-        |value, bound| {
-            format!(
-                "ASSERT_GREATER_OR_EQUAL failed: value {} is not >= bound {}",
-                format_user_value(value),
-                format_user_value(bound)
-            )
-        },
-    )
+    assert_compare(args, CmpOp::Ge)
 }
 
 fn assert_less_or_equal(args: &[Value]) -> Result<Value, RuntimeError> {
-    assert_compare(args, CmpOp::Le, "ASSERT_LESS_OR_EQUAL", |value, bound| {
-        format!(
-            "ASSERT_LESS_OR_EQUAL failed: value {} is not <= bound {}",
-            format_user_value(value),
-            format_user_value(bound)
-        )
-    })
+    assert_compare(args, CmpOp::Le)
 }
 
 fn assert_near(args: &[Value]) -> Result<Value, RuntimeError> {
@@ -156,12 +107,9 @@ fn assert_near(args: &[Value]) -> Result<Value, RuntimeError> {
     }
 }
 
-fn assert_compare(
-    args: &[Value],
-    op: CmpOp,
-    _name: &str,
-    message: impl Fn(&Value, &Value) -> String,
-) -> Result<Value, RuntimeError> {
+// One shared control-flow body; wrappers retain all public function identities.
+#[inline(never)]
+fn assert_compare(args: &[Value], op: CmpOp) -> Result<Value, RuntimeError> {
     require_arity(args, 2)?;
     let kind = common_kind(args)?;
     let left = coerce_to_common(&args[0], &kind)?;
@@ -169,8 +117,112 @@ fn assert_compare(
     if compare_common(&left, &right, &kind, op)? {
         Ok(Value::Null)
     } else {
-        Err(RuntimeError::AssertionFailed(
-            message(&args[0], &args[1]).into(),
-        ))
+        Err(comparison_failure(op, &args[0], &args[1]))
+    }
+}
+
+#[cold]
+#[inline(never)]
+fn comparison_failure(op: CmpOp, left: &Value, right: &Value) -> RuntimeError {
+    let left = format_user_value(left);
+    let right = format_user_value(right);
+    let message = match op {
+        CmpOp::Eq => format!("ASSERT_EQUAL failed: expected {left}, actual {right}"),
+        CmpOp::Ne => {
+            format!("ASSERT_NOT_EQUAL failed: values should differ, left {left}, right {right}")
+        }
+        CmpOp::Gt => {
+            format!("ASSERT_GREATER failed: value {left} is not greater than bound {right}")
+        }
+        CmpOp::Lt => format!("ASSERT_LESS failed: value {left} is not less than bound {right}"),
+        CmpOp::Ge => {
+            format!("ASSERT_GREATER_OR_EQUAL failed: value {left} is not >= bound {right}")
+        }
+        CmpOp::Le => format!("ASSERT_LESS_OR_EQUAL failed: value {left} is not <= bound {right}"),
+    };
+    RuntimeError::AssertionFailed(message.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shared_comparison_keeps_all_predicates_and_original_operand_messages() {
+        for (function, op, left, right, message) in [
+            (
+                assert_equal as super::super::StdFunc,
+                CmpOp::Eq,
+                1,
+                2,
+                "ASSERT_EQUAL failed: expected 1, actual 2",
+            ),
+            (
+                assert_not_equal,
+                CmpOp::Ne,
+                1,
+                1,
+                "ASSERT_NOT_EQUAL failed: values should differ, left 1, right 1",
+            ),
+            (
+                assert_greater,
+                CmpOp::Gt,
+                1,
+                2,
+                "ASSERT_GREATER failed: value 1 is not greater than bound 2",
+            ),
+            (
+                assert_less,
+                CmpOp::Lt,
+                2,
+                1,
+                "ASSERT_LESS failed: value 2 is not less than bound 1",
+            ),
+            (
+                assert_greater_or_equal,
+                CmpOp::Ge,
+                1,
+                2,
+                "ASSERT_GREATER_OR_EQUAL failed: value 1 is not >= bound 2",
+            ),
+            (
+                assert_less_or_equal,
+                CmpOp::Le,
+                2,
+                1,
+                "ASSERT_LESS_OR_EQUAL failed: value 2 is not <= bound 1",
+            ),
+        ] {
+            assert_eq!(
+                function(&[Value::Int(left), Value::DInt(right)]),
+                Err(RuntimeError::AssertionFailed(message.into()))
+            );
+            let pass = match op {
+                CmpOp::Eq | CmpOp::Ge | CmpOp::Le => [1, 1],
+                CmpOp::Ne | CmpOp::Lt => [1, 2],
+                CmpOp::Gt => [2, 1],
+            };
+            assert_eq!(
+                function(&[Value::Int(pass[0]), Value::Int(pass[1])]),
+                Ok(Value::Null)
+            );
+            assert!(matches!(
+                function(&[]),
+                Err(RuntimeError::InvalidArgumentCount {
+                    expected: 2,
+                    got: 0
+                })
+            ));
+            assert_eq!(
+                function(&[Value::Null, Value::Int(1)]),
+                Err(RuntimeError::TypeMismatch)
+            );
+        }
+        assert_eq!(
+            assert_equal(&[Value::Real(1.0), Value::LReal(2.0)]),
+            Err(RuntimeError::AssertionFailed(
+                "ASSERT_EQUAL failed: expected 1.0, actual 2.0".into()
+            ))
+        );
     }
 }

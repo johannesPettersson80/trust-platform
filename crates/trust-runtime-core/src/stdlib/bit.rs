@@ -11,20 +11,19 @@ use crate::value::Value;
 /// Register the shared bit functions in a hosted registry.
 #[cfg(feature = "hir")]
 pub fn register(lib: &mut StandardLibrary) {
-    register_into(lib);
+    lib.register_descriptors(FUNCTIONS);
 }
 
-pub(super) fn register_into(lib: &mut impl super::registration::Registration) {
-    lib.register("SHL", &["IN", "N"], shl);
-    lib.register("SHR", &["IN", "N"], shr);
-    lib.register("ROL", &["IN", "N"], rol);
-    lib.register("ROR", &["IN", "N"], ror);
-
-    lib.register_variadic("AND", "IN", 1, 2, bit_and);
-    lib.register_variadic("OR", "IN", 1, 2, bit_or);
-    lib.register_variadic("XOR", "IN", 1, 2, bit_xor);
-    lib.register("NOT", &["IN"], bit_not);
-}
+pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+    super::registration::descriptor!("AND", VAR_IN_1_2, bit_and),
+    super::registration::descriptor!("NOT", IN, bit_not),
+    super::registration::descriptor!("OR", VAR_IN_1_2, bit_or),
+    super::registration::descriptor!("ROL", IN_N, rol),
+    super::registration::descriptor!("ROR", IN_N, ror),
+    super::registration::descriptor!("SHL", IN_N, shl),
+    super::registration::descriptor!("SHR", IN_N, shr),
+    super::registration::descriptor!("XOR", VAR_IN_1_2, bit_xor),
+];
 
 fn shl(args: &[Value]) -> Result<Value, RuntimeError> {
     shift(args, ShiftOp::Left)

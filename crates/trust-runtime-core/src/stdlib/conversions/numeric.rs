@@ -97,12 +97,44 @@ pub(super) fn real_to_int(
     if rounded < i128::MIN as f64 || rounded > i128::MAX as f64 {
         return Err(RuntimeError::Overflow);
     }
-    let int = rounded as i128;
-    signed_int_from_i128(int, dst)
+    // The preceding wide bound preserves the old error precedence even for
+    // unsupported destinations. Actual IEC integer results require at most 64 bits.
+    if super::util::is_signed_int_type(dst) {
+        if !(-9_223_372_036_854_775_808.0..9_223_372_036_854_775_808.0).contains(&rounded) {
+            return Err(RuntimeError::Overflow);
+        }
+        signed_int_from_i64(rounded as i64, dst)
+    } else if super::util::is_unsigned_int_type(dst) {
+        if !(0.0..18_446_744_073_709_551_616.0).contains(&rounded) {
+            return Err(RuntimeError::Overflow);
+        }
+        unsigned_int_from_u64(rounded as u64, dst)
+    } else {
+        Err(RuntimeError::TypeMismatch)
+    }
 }
 
 pub(super) fn signed_int_from_i64(value: i64, dst: ConversionType) -> Result<Value, RuntimeError> {
-    signed_int_from_i128(value as i128, dst)
+    match dst {
+        ConversionType::SInt => i8::try_from(value)
+            .map(Value::SInt)
+            .map_err(|_| RuntimeError::Overflow),
+        ConversionType::Int => i16::try_from(value)
+            .map(Value::Int)
+            .map_err(|_| RuntimeError::Overflow),
+        ConversionType::DInt => i32::try_from(value)
+            .map(Value::DInt)
+            .map_err(|_| RuntimeError::Overflow),
+        ConversionType::LInt => Ok(Value::LInt(value)),
+        ConversionType::USInt
+        | ConversionType::UInt
+        | ConversionType::UDInt
+        | ConversionType::ULInt => {
+            let value = u64::try_from(value).map_err(|_| RuntimeError::Overflow)?;
+            unsigned_int_from_u64(value, dst)
+        }
+        _ => Err(RuntimeError::TypeMismatch),
+    }
 }
 
 pub(super) fn signed_int_from_i128(
@@ -160,5 +192,94 @@ pub(super) fn unsigned_int_from_u64(
             signed_int_from_i64(value as i64, dst)
         }
         _ => Err(RuntimeError::TypeMismatch),
+    }
+}
+
+#[cfg(test)]
+mod width_tests {
+    use super::*;
+
+    fn wide_reference(
+        value: f64,
+        dst: ConversionType,
+        mode: ConversionMode,
+    ) -> Result<Value, RuntimeError> {
+        if !value.is_finite() {
+            return Err(RuntimeError::Overflow);
+        }
+        let rounded = match mode {
+            ConversionMode::Round => round_ties_to_even(value),
+            ConversionMode::Trunc => crate::numeric::math::trunc(value),
+        };
+        if rounded < i128::MIN as f64 || rounded > i128::MAX as f64 {
+            return Err(RuntimeError::Overflow);
+        }
+        signed_int_from_i128(rounded as i128, dst)
+    }
+
+    #[test]
+    fn narrowed_float_conversion_matches_wide_reference_at_all_integer_boundaries() {
+        let types = [
+            ConversionType::SInt,
+            ConversionType::Int,
+            ConversionType::DInt,
+            ConversionType::LInt,
+            ConversionType::USInt,
+            ConversionType::UInt,
+            ConversionType::UDInt,
+            ConversionType::ULInt,
+            ConversionType::Bool,
+        ];
+        let points = [
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            -0.0,
+            0.0,
+            -0.5,
+            0.5,
+            -1.5,
+            1.5,
+            2.5,
+            i8::MIN as f64,
+            i8::MAX as f64,
+            u8::MAX as f64,
+            i16::MIN as f64,
+            i16::MAX as f64,
+            u16::MAX as f64,
+            i32::MIN as f64,
+            i32::MAX as f64,
+            u32::MAX as f64,
+            i64::MIN as f64,
+            i64::MAX as f64,
+            u64::MAX as f64,
+            i128::MIN as f64,
+            i128::MAX as f64,
+        ];
+        for point in points {
+            for value in [point.next_down(), point, point.next_up()] {
+                for dst in types {
+                    for mode in [ConversionMode::Round, ConversionMode::Trunc] {
+                        assert_eq!(
+                            real_to_int(value, dst, mode),
+                            wide_reference(value, dst, mode),
+                            "value={value:?} target={dst:?} mode={mode:?}"
+                        );
+                    }
+                }
+            }
+        }
+        for value in [i64::MIN, -1, 0, 1, i64::MAX] {
+            for dst in types {
+                assert_eq!(
+                    signed_int_from_i64(value, dst),
+                    signed_int_from_i128(i128::from(value), dst)
+                );
+            }
+        }
+        assert_eq!(
+            unsigned_int_from_u64(u64::MAX, ConversionType::ULInt),
+            Ok(Value::ULInt(u64::MAX))
+        );
     }
 }

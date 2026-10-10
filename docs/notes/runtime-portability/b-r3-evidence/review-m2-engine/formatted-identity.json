@@ -1,0 +1,62 @@
+{
+  "reviewer": "/root/br1_static_registry",
+  "acceptance": "Inspected entire formatted delta; whitespace, commas, import/module ordering only. All 11 accepted source identities reconcile with retained before-format files (or unchanged sources) and current M2 manifest. Source acceptance for measurement, no compile/test claim.",
+  "formatted_source_manifest_sha256": "a27301e8e9b8d89f9db9b34329508a0274c93b44b04c56768a122b0f8703cf28",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/context.rs",
+      "reviewed_before_format_sha256": "0b371728c46c3f130bfc534972d2dec76cb3e15c52aa37ae6bc3b1d6a7c59e8f",
+      "formatted_sha256": "54e50fbf475ff74058c46ef0f584d11177962057dee2dc038a672c5afc55cf88"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/identities.rs",
+      "reviewed_before_format_sha256": "96fe9f53c28987b1bf89193f722e4a548f1c7b99d135b7a0c3825deac12e96b4",
+      "formatted_sha256": "ba78dd55307dff5c815b09356858f9f08d795d30c46b7b43611d4cb2acc44c19"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/construction.rs",
+      "reviewed_before_format_sha256": "d2d610639e9f8f9cb931d3ef15a8045fc8c1cc4e8f15e570566a9be38cb0bc31",
+      "formatted_sha256": "d7a2014bca3a6641a2577dfb4002ba4f65ba14ee11be9e0801b2d4dbe35bb7aa"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/mod.rs",
+      "reviewed_before_format_sha256": "91311e8d59d8a0be6c668b3f9e2f836b7dd5c3712b8b73c3f35461181e914e29",
+      "formatted_sha256": "91311e8d59d8a0be6c668b3f9e2f836b7dd5c3712b8b73c3f35461181e914e29"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/staging.rs",
+      "reviewed_before_format_sha256": "52a77c999d4d85e80ad4e4d8dda5a3b460d55afb85aa5d36a8ad434a051fd025",
+      "formatted_sha256": "52a77c999d4d85e80ad4e4d8dda5a3b460d55afb85aa5d36a8ad434a051fd025"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/keys.rs",
+      "reviewed_before_format_sha256": "9f61a28b6d130e2f4bf56cf35d5a1274d5c7b5b673647ddf77a468a75a0a4b22",
+      "formatted_sha256": "07c6d46a3c59b61f22f5114dc8166928392098002a88274def3b975fdfa2337f"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/mod.rs",
+      "reviewed_before_format_sha256": "a4b0d880b11fb8c47c3133edd34f677b817fa90ddd946256e98d76c082e3e131",
+      "formatted_sha256": "1347dc66c1b442414fd7280857225505fd550eece0ba7d46ed471c4bce19514a"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/ordered.rs",
+      "reviewed_before_format_sha256": "7ce15909f282fe8e41137fe8aab2d66c1b3cccc11d3185e45f183484942c00ec",
+      "formatted_sha256": "b7193de34b09be70792ad41e1394cf03c03d047054c78b6aac1a037482c571d4"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/policy.rs",
+      "reviewed_before_format_sha256": "0cba8a472d2eac139b495a6a18403991546549f2c8222a5d8da6fc5b7552ec66",
+      "formatted_sha256": "0cba8a472d2eac139b495a6a18403991546549f2c8222a5d8da6fc5b7552ec66"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/retained_graph.rs",
+      "reviewed_before_format_sha256": "d5e574c692d0606d84d77f55d05e9f9e9aed592de7faafa230e630e7439f5606",
+      "formatted_sha256": "b06bce61eeb4a2dd098952d4092572567256e3851f40e517b4a6eed792e39718"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/storage_tests.rs",
+      "reviewed_before_format_sha256": "6127d1f0fe7fcf4d85e09982c7da2b86b78bf8addfad6dd42498babc96b2c475",
+      "formatted_sha256": "bec2fb19772116e0e20edfc002d13f321f8c4e74631f2f94cfbce5789e94c027"
+    }
+  ]
+}

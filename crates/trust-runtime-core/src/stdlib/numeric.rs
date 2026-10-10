@@ -11,31 +11,30 @@ use crate::value::{DateTimeProfile, Value};
 /// Register the shared numeric functions in a hosted registry.
 #[cfg(feature = "hir")]
 pub fn register(lib: &mut StandardLibrary) {
-    register_into(lib);
+    lib.register_descriptors(FUNCTIONS);
 }
 
-pub(super) fn register_into(lib: &mut impl super::registration::Registration) {
-    lib.register("ABS", &["IN"], abs);
-    lib.register("SQRT", &["IN"], sqrt);
-    lib.register("LN", &["IN"], ln);
-    lib.register("LOG", &["IN"], log10);
-    lib.register("EXP", &["IN"], exp);
-    lib.register("SIN", &["IN"], sin);
-    lib.register("COS", &["IN"], cos);
-    lib.register("TAN", &["IN"], tan);
-    lib.register("ASIN", &["IN"], asin);
-    lib.register("ACOS", &["IN"], acos);
-    lib.register("ATAN", &["IN"], atan);
-    lib.register("ATAN2", &["Y", "X"], atan2);
-
-    lib.register_variadic("ADD", "IN", 1, 2, add);
-    lib.register("SUB", &["IN1", "IN2"], sub);
-    lib.register_variadic("MUL", "IN", 1, 2, mul);
-    lib.register("DIV", &["IN1", "IN2"], div);
-    lib.register("MOD", &["IN1", "IN2"], modulo);
-    lib.register("EXPT", &["IN1", "IN2"], expt);
-    lib.register("MOVE", &["IN"], mov);
-}
+pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+    super::registration::descriptor!("ABS", IN, abs),
+    super::registration::descriptor!("ACOS", IN, acos),
+    super::registration::descriptor!("ADD", VAR_IN_1_2, add),
+    super::registration::descriptor!("ASIN", IN, asin),
+    super::registration::descriptor!("ATAN", IN, atan),
+    super::registration::descriptor!("ATAN2", Y_X, atan2),
+    super::registration::descriptor!("COS", IN, cos),
+    super::registration::descriptor!("DIV", IN1_IN2, div),
+    super::registration::descriptor!("EXP", IN, exp),
+    super::registration::descriptor!("EXPT", IN1_IN2, expt),
+    super::registration::descriptor!("LN", IN, ln),
+    super::registration::descriptor!("LOG", IN, log10),
+    super::registration::descriptor!("MOD", IN1_IN2, modulo),
+    super::registration::descriptor!("MOVE", IN, mov),
+    super::registration::descriptor!("MUL", VAR_IN_1_2, mul),
+    super::registration::descriptor!("SIN", IN, sin),
+    super::registration::descriptor!("SQRT", IN, sqrt),
+    super::registration::descriptor!("SUB", IN1_IN2, sub),
+    super::registration::descriptor!("TAN", IN, tan),
+];
 
 fn abs(args: &[Value]) -> Result<Value, RuntimeError> {
     require_arity(args, 1)?;

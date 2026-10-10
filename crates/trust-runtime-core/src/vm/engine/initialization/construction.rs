@@ -52,13 +52,13 @@ impl EngineState<'_> {
                     .get_instance_mut(derived)
                     .ok_or(RuntimeError::InvalidExecutionState)?
                     .parent = Some(instance);
-                self.construction.claimed_roots.insert(index);
+                self.construction.claimed_roots.insert(root_index(index)?);
             } else {
                 let declaration = &prepared.layout.entries[root.declaration_idx as usize];
                 if declaration.role == StorageRole::ProgramRoot {
                     let name = prepared.vm.strings[declaration.name_idx as usize].clone();
                     self.storage.set_global(name, Value::Instance(instance));
-                    self.construction.claimed_roots.insert(index);
+                    self.construction.claimed_roots.insert(root_index(index)?);
                 }
             }
         }
@@ -106,20 +106,42 @@ impl EngineState<'_> {
     ) -> Result<InstanceId, RuntimeError> {
         self.charge_work_units(1)?;
         self.charge_constructed_value()?;
-        let name = self
-            .prepared
-            .vm
-            .pou_name(pou)
-            .ok_or_else(|| invalid_bytecode("unknown instance template"))?;
+        let name = self.prepared.vm.pou_name(pou).ok_or_else(|| {
+            invalid_bytecode(smol_str::SmolStr::new_static("unknown instance template"))
+        })?;
+        let (bytes, moved) = self
+            .storage
+            .instance_insertion_demand()
+            .ok_or(RuntimeError::Overflow)?;
+        self.charge_allocation_bytes(bytes)?;
+        self.charge_work_units(moved)?;
         let instance = self.storage.try_create_instance(name)?;
-        self.construction.instance_templates.insert(instance, pou);
-        self.lifetimes.instance_lifetimes.insert(instance, lifetime);
-        if let Some(owner) = lifetime {
+        // Each fallible metadata insertion is charged before mutation. If any
+        // step fails, the newly issued instance is not exposed or stranded.
+        let metadata = (|| {
+            self.charge_sorted_growth(
+                self.construction
+                    .instance_templates
+                    .insertion_demand(instance),
+            )?;
+            self.construction.instance_templates.insert(instance, pou)?;
+            self.charge_sorted_growth(
+                self.lifetimes.instance_lifetimes.insertion_demand(instance),
+            )?;
             self.lifetimes
-                .owned_instances
-                .entry(owner)
-                .or_default()
-                .push(instance);
+                .instance_lifetimes
+                .insert(instance, lifetime)?;
+            if let Some(owner) = lifetime {
+                self.charge_sorted_growth(self.lifetimes.owned_instances.push_demand(owner))?;
+                self.lifetimes.owned_instances.push(owner, instance)?;
+            }
+            Ok::<_, RuntimeError>(())
+        })();
+        if let Err(error) = metadata {
+            self.storage.remove_instance(instance);
+            self.construction.instance_templates.remove(&instance);
+            self.lifetimes.instance_lifetimes.remove(&instance);
+            return Err(error);
         }
         let prepared = self.prepared;
         for &id in prepared.declarations(StorageOwner::Instance, Some(pou)) {
@@ -152,8 +174,10 @@ impl EngineState<'_> {
         let parent = active.and_then(|active| active.instance);
         let candidates = declaration.map_or(&[][..], |id| self.prepared.root_candidates(id, pou));
         self.charge_work_units(self.prepared.lookup_work().saturating_add(candidates.len()))?;
-        let reserved = candidates.iter().copied().find(|index| {
-            let root = &self.prepared.roots.entries[*index];
+        let mut reserved = None;
+        for &index in candidates {
+            let key = root_index(index)?;
+            let root = &self.prepared.roots.entries[index];
             let root_parent = root.parent_root_idx.and_then(|index| {
                 self.construction
                     .roots
@@ -161,14 +185,17 @@ impl EngineState<'_> {
                     .copied()
                     .flatten()
             });
-            root_parent == parent && !self.construction.claimed_roots.contains(index)
-        });
+            if root_parent == parent && !self.construction.claimed_roots.contains(&key) {
+                reserved = Some(index);
+                break;
+            }
+        }
         let lifetime = active
             .map(|active| active.result)
             .or_else(|| self.lifetimes.live_activations.last().copied());
         let instance = match reserved {
             Some(index) => {
-                self.construction.claimed_roots.insert(index);
+                self.construction.claimed_roots.insert(root_index(index)?);
                 self.construction.roots[index].ok_or(RuntimeError::InvalidExecutionState)?
             }
             None => self.reserve_instance(pou, lifetime)?,
@@ -187,12 +214,7 @@ impl EngineState<'_> {
             {
                 Some(parent) => parent,
                 None => {
-                    let owner = self
-                        .lifetimes
-                        .instance_lifetimes
-                        .get(&current)
-                        .copied()
-                        .flatten();
+                    let owner = self.lifetimes.instance_lifetimes.get(&current).flatten();
                     let parent = self.reserve_instance(parent_pou, owner)?;
                     self.storage
                         .get_instance_mut(current)
@@ -245,7 +267,7 @@ impl EngineState<'_> {
             {
                 self.construction
                     .initialized_declarations
-                    .insert((id, Some(instance)));
+                    .insert((id, Some(instance)))?;
             }
         }
         for &id in prepared.instance_actions(pou) {
@@ -271,7 +293,12 @@ impl EngineState<'_> {
                 self.run_declaration_action(id, Some(instance), None, depth)?;
             }
         }
-        self.construction.initialized_instances.insert(instance);
+        self.charge_sorted_growth(
+            self.construction
+                .initialized_instances
+                .insertion_demand(instance),
+        )?;
+        self.construction.initialized_instances.insert(instance)?;
         Ok(())
     }
 
@@ -299,17 +326,30 @@ impl EngineState<'_> {
             None
         };
         if entry.once != InitializationOnce::None
-            && self.construction.once.contains(&(declaration, once_owner))
+            && self
+                .construction
+                .once
+                .contains(&(declaration, once_owner))?
         {
             return Ok(());
         }
         let value = self.evaluate_initializer(id, frame.as_deref_mut(), instance, depth)?;
-        self.commit_declaration(declaration, instance, frame, value)?;
         let has_explicit = self.prepared.has_explicit_action(id);
-        if entry.once != InitializationOnce::None
-            && (entry.stage == InitializationStage::Explicit || !has_explicit)
-        {
-            self.construction.once.insert((declaration, once_owner));
+        let mark_once = entry.once != InitializationOnce::None
+            && (entry.stage == InitializationStage::Explicit || !has_explicit);
+        if mark_once {
+            self.charge_sorted_growth(
+                self.construction
+                    .once
+                    .insertion_demand((declaration, once_owner)),
+            )?;
+            self.construction
+                .once
+                .prepare_insert((declaration, once_owner))?;
+        }
+        self.commit_declaration(declaration, instance, frame, value)?;
+        if mark_once {
+            self.construction.once.insert((declaration, once_owner))?;
         }
         Ok(())
     }
@@ -369,16 +409,20 @@ impl EngineState<'_> {
             .clone();
         let destination = match declared.owner {
             StorageOwner::Frame => frame.as_ref().and_then(|frame| frame.activation),
-            StorageOwner::Instance => instance.and_then(|id| {
-                self.lifetimes
-                    .instance_lifetimes
-                    .get(&id)
-                    .copied()
-                    .flatten()
-            }),
+            StorageOwner::Instance => {
+                instance.and_then(|id| self.lifetimes.instance_lifetimes.get(&id).flatten())
+            }
             StorageOwner::Global => None,
         };
         self.check_value_lifetime(&value, destination)?;
+        self.charge_sorted_growth(
+            self.construction
+                .initialized_declarations
+                .insertion_demand((declaration, instance)),
+        )?;
+        self.construction
+            .initialized_declarations
+            .prepare_insert((declaration, instance))?;
         match declared.owner {
             StorageOwner::Global => self.storage.set_global(name, value),
             StorageOwner::Instance => {
@@ -400,7 +444,7 @@ impl EngineState<'_> {
         }
         self.construction
             .initialized_declarations
-            .insert((declaration, instance));
+            .insert((declaration, instance))?;
         Ok(())
     }
 
@@ -484,20 +528,22 @@ impl EngineState<'_> {
     ) -> Result<(), RuntimeError> {
         // Traverse borrowed payloads first. Cloning aggregate fields here would
         // allocate before charging and duplicate large arrays merely to find IDs.
-        let mut instances = BTreeSet::new();
+        let mut instances = InstanceSet::default();
         self.collect_owned_instance_graph(value, 0, &mut instances)?;
         for instance in instances {
-            if self.lifetimes.instance_lifetimes.get(&instance) == Some(&Some(source)) {
+            if self.lifetimes.instance_lifetimes.get(&instance) == Some(Some(source)) {
+                // Reserve the new owner's list before changing lifetime. Rollback
+                // restores existing lifetimes without allocating or using fuel.
+                self.charge_sorted_growth(
+                    self.lifetimes.instance_lifetimes.insertion_demand(instance),
+                )?;
+                if let Some(owner) = destination {
+                    self.charge_sorted_growth(self.lifetimes.owned_instances.push_demand(owner))?;
+                    self.lifetimes.owned_instances.push(owner, instance)?;
+                }
                 self.lifetimes
                     .instance_lifetimes
-                    .insert(instance, destination);
-                if let Some(owner) = destination {
-                    self.lifetimes
-                        .owned_instances
-                        .entry(owner)
-                        .or_default()
-                        .push(instance);
-                }
+                    .restore(instance, destination);
             }
         }
         Ok(())
@@ -507,7 +553,7 @@ impl EngineState<'_> {
         &self,
         value: &Value,
         depth: usize,
-        visited: &mut BTreeSet<InstanceId>,
+        visited: &mut InstanceSet,
     ) -> Result<(), RuntimeError> {
         self.charge_work_units(1)?;
         if depth >= self.prepared.limits.max_call_depth.min(128) {
@@ -521,7 +567,8 @@ impl EngineState<'_> {
                 }
                 // Conservative B-tree entry plus possible destination owner entry.
                 self.charge_allocation_bytes(8 * core::mem::size_of::<InstanceId>())?;
-                visited.insert(*instance);
+                self.charge_sorted_growth(visited.insertion_demand(*instance))?;
+                visited.insert(*instance)?;
                 let data = self
                     .storage
                     .get_instance(*instance)
@@ -553,26 +600,67 @@ impl EngineState<'_> {
         Ok(())
     }
 
-    pub(in crate::vm::engine) fn remove_owned_instances(&mut self, owner: FrameId) {
-        let removed = self
-            .lifetimes
-            .owned_instances
-            .remove(&owner)
-            .unwrap_or_default();
-        for instance in removed {
-            if self.lifetimes.instance_lifetimes.get(&instance) != Some(&Some(owner)) {
-                continue;
-            }
-            self.storage.remove_instance(instance);
-            self.lifetimes.instance_lifetimes.remove(&instance);
-            self.construction.instance_templates.remove(&instance);
-            self.construction.initialized_instances.remove(&instance);
-            self.construction
-                .initialized_declarations
-                .retain(|(_, owner)| *owner != Some(instance));
-            self.construction
-                .once
-                .retain(|(_, owner)| *owner != Some(instance));
+    pub(in crate::vm::engine) fn charge_owned_retirement(
+        &self,
+        owner: FrameId,
+    ) -> Result<(), RuntimeError> {
+        let owned = self.lifetimes.owned_instances.count(owner);
+        if owned == 0 {
+            return Ok(());
         }
+        let entries = self
+            .storage
+            .instances()
+            .len()
+            .saturating_add(self.construction.initialized_declarations.len())
+            .saturating_add(self.construction.once.len())
+            .saturating_add(self.construction.instance_templates.len())
+            .saturating_add(self.construction.initialized_instances.len())
+            .saturating_add(self.lifetimes.instance_lifetimes.len())
+            .saturating_add(self.lifetimes.owned_instances.len());
+        let lookup = 12 * (self.lifetimes.instance_lifetimes.len().max(1).ilog2() as usize + 1);
+        self.charge_work_units(
+            entries
+                .saturating_add(owned.saturating_mul(4))
+                .saturating_mul(lookup),
+        )
+    }
+
+    pub(in crate::vm::engine) fn remove_owned_instances(
+        &mut self,
+        owner: FrameId,
+    ) -> Result<(), RuntimeError> {
+        let charged = self.charge_owned_retirement(owner);
+        self.remove_owned_instances_unchecked(owner);
+        charged
+    }
+
+    // Terminal cleanup must complete even after work/deadline failure. Charge at
+    // the fallible boundary before calling this; preserve the original fault.
+    pub(in crate::vm::engine) fn remove_owned_instances_unchecked(&mut self, owner: FrameId) {
+        let mut removed = self.lifetimes.owned_instances.take(owner);
+        if !removed.any(|id| self.lifetimes.instance_lifetimes.get(&id) == Some(Some(owner))) {
+            return;
+        }
+        let lifetimes = &self.lifetimes.instance_lifetimes;
+        self.storage
+            .retain_instances(|id| lifetimes.get(&id) != Some(Some(owner)));
+        self.construction
+            .initialized_declarations
+            .retain(|(_, id)| id.is_none_or(|id| lifetimes.get(&id) != Some(Some(owner))));
+        self.construction
+            .once
+            .retain(|(_, id)| id.is_none_or(|id| lifetimes.get(&id) != Some(Some(owner))));
+        // The same live-owner predicate governs values and side metadata. One
+        // retain pass per collection avoids repeated shifting during retirement.
+        self.construction
+            .instance_templates
+            .retain(|id| lifetimes.get(&id) != Some(Some(owner)));
+        self.construction
+            .initialized_instances
+            .retain(|id| lifetimes.get(&id) != Some(Some(owner)));
+        self.lifetimes
+            .instance_lifetimes
+            .retain(|_, lifetime| lifetime != Some(owner));
     }
 }

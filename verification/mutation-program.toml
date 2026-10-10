@@ -30,7 +30,7 @@ legacy_report_path = "docs/internal/testing/evidence/plc-verification-program/20
 [[shards.mutations]]
 id = "MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS"
 source_file = "crates/trust-runtime-core/src/bytecode/validate/pou_and_instr.rs"
-source_digest = "sha256:560a66139deb186c8a0c7378a1392e4f0bc1660ea731cdeaf72b23d1d444a7ba"
+source_digest = "sha256:e1a58ec33b1090997d8fee216145b4c58ef5602e5bb41f199b7556def0a9aa9e"
 function = "validate_pou_index"
 genre = "FnValue"
 replacement = "Ok(())"
@@ -47,7 +47,7 @@ association_ids = [
 [[shards.mutations]]
 id = "MUTANT_VALIDATE_STACK_SHAPE_BYPASS"
 source_file = "crates/trust-runtime-core/src/bytecode/validate/stack_shape.rs"
-source_digest = "sha256:16dbb957ae406bb1a6bb9148b74d4ef879a0dbef7bebb5ff29b1bec04657c331"
+source_digest = "sha256:a16b0608465c1729847bfa69428530c039dd32903c01cdb246fc5a1b6efa3a4e"
 function = "validate_stack_shape"
 genre = "FnValue"
 replacement = "Ok(())"

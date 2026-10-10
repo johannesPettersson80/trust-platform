@@ -6,6 +6,9 @@ use core::cmp::Ordering;
 
 mod actions;
 mod declarations;
+mod groups;
+pub(super) mod sort;
+use groups::Groups;
 #[cfg(test)]
 mod tests;
 
@@ -16,19 +19,19 @@ pub(super) struct PreparedIndexes {
     globals: Vec<(u32, u32)>,
     type_members: Vec<(u32, u32, u32)>,
     root_owners: Vec<(u32, usize)>,
-    root_candidates: BTreeMap<(u32, u32), Vec<usize>>,
-    program_roots: BTreeMap<u32, Vec<usize>>,
-    edge_declarations: BTreeMap<u32, Vec<u32>>,
-    declarations: BTreeMap<(u8, Option<u32>), Vec<u32>>,
+    root_candidates: Groups<(u32, u32), usize>,
+    program_roots: Groups<u32, usize>,
+    edge_declarations: Groups<u32, u32>,
+    declarations: Groups<(u8, Option<u32>), u32>,
     static_ordinals: Vec<Option<usize>>,
-    retained_declarations: BTreeMap<(u8, Option<u32>), Vec<u32>>,
-    actions: BTreeMap<(Option<u32>, u8, u8), Vec<u32>>,
-    instance_actions: BTreeMap<u32, Vec<u32>>,
+    retained_declarations: Groups<(u8, Option<u32>), u32>,
+    actions: Groups<(Option<u32>, u8, u8), u32>,
+    instance_actions: Groups<u32, u32>,
     resource_actions: Vec<u32>,
     module_statics: Vec<u32>,
     configuration_actions: Vec<u32>,
     explicit_actions: Vec<bool>,
-    edges: BTreeMap<u32, Vec<VmEdgeInput>>,
+    edges: Groups<u32, VmEdgeInput>,
     max_name_bytes: usize,
 }
 
@@ -150,31 +153,25 @@ impl PreparedModule {
         self.indexes
             .root_candidates
             .get(&(declaration, pou))
-            .map_or(&[], Vec::as_slice)
+            .unwrap_or(&[])
     }
     pub(crate) fn program_roots(&self, pou: u32) -> &[usize] {
-        self.indexes
-            .program_roots
-            .get(&pou)
-            .map_or(&[], Vec::as_slice)
+        self.indexes.program_roots.get(&pou).unwrap_or(&[])
     }
     pub(crate) fn edge_declarations(&self, input: u32) -> &[u32] {
-        self.indexes
-            .edge_declarations
-            .get(&input)
-            .map_or(&[], Vec::as_slice)
+        self.indexes.edge_declarations.get(&input).unwrap_or(&[])
     }
     pub(crate) fn declarations(&self, owner: StorageOwner, pou: Option<u32>) -> &[u32] {
         self.indexes
             .declarations
             .get(&(owner as u8, pou))
-            .map_or(&[], Vec::as_slice)
+            .unwrap_or(&[])
     }
     pub(crate) fn retained_declarations(&self, owner: StorageOwner, pou: Option<u32>) -> &[u32] {
         self.indexes
             .retained_declarations
             .get(&(owner as u8, pou))
-            .map_or(&[], Vec::as_slice)
+            .unwrap_or(&[])
     }
     pub(crate) fn static_ordinal(&self, declaration: u32) -> Option<usize> {
         self.indexes
@@ -192,13 +189,10 @@ impl PreparedModule {
         self.indexes
             .actions
             .get(&(owner, phase as u8, trigger as u8))
-            .map_or(&[], Vec::as_slice)
+            .unwrap_or(&[])
     }
     pub(crate) fn instance_actions(&self, pou: u32) -> &[u32] {
-        self.indexes
-            .instance_actions
-            .get(&pou)
-            .map_or(&[], Vec::as_slice)
+        self.indexes.instance_actions.get(&pou).unwrap_or(&[])
     }
     pub(crate) fn resource_actions(&self) -> &[u32] {
         &self.indexes.resource_actions
@@ -217,6 +211,6 @@ impl PreparedModule {
             .unwrap_or(false)
     }
     pub(crate) fn edge_inputs(&self, pou: u32) -> &[VmEdgeInput] {
-        self.indexes.edges.get(&pou).map_or(&[], Vec::as_slice)
+        self.indexes.edges.get(&pou).unwrap_or(&[])
     }
 }

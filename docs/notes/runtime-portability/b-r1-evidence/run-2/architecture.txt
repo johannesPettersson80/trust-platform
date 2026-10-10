@@ -1,0 +1,120 @@
+[gate-progress state=started phase=B-R1-architecture target=scena-rust-builder pid=1487113 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo xtask architecture-doctor --full-map']
+   Compiling xtask v0.24.71 (/home/johannes/projects/trust-platform-portability-b/xtask)
+    Finished `dev` profile [unoptimized] target(s) in 2.56s
+     Running `/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/debug/xtask architecture-doctor --full-map`
+wrote /home/johannes/projects/trust-platform-portability-b/target/gate-artifacts/full-software-map-df427259c/software-map.json
+wrote /home/johannes/projects/trust-platform-portability-b/target/gate-artifacts/full-software-map-df427259c/full-map-report.json
+wrote /home/johannes/projects/trust-platform-portability-b/target/gate-artifacts/full-software-map-df427259c/full-map-report.md
+PASS: FULLMAP-CHECK-01
+  - policy version: 1
+  - review date: 2026-04-30
+  - allowed workspace edges: 36
+PASS: FULLMAP-CHECK-02
+  - workspace edges observed: 34
+  - temporary policy edges: 6
+  - trust-debug -> trust-runtime (normal) owner=runtime/debug
+  - trust-dev -> trust-wasm-analysis (normal) owner=dev tooling/web analysis
+  - trust-lsp -> trust-runtime (normal) owner=LSP/runtime
+  - trust-runtime -> trust-ide (normal) owner=runtime/IDE
+  - trust-runtime -> trust-wasm-analysis (normal) owner=runtime/web
+  - trust-wasm-analysis -> trust-ide (normal) owner=wasm analysis/IDE
+PASS: FULLMAP-CHECK-05
+  - forbidden dependencies: 18
+  - forbidden import modules: 17
+PASS: FULLMAP-CHECK-06
+  - Command variants classified: 26
+  - bin modules classified: 29
+  - nested action enums classified: 14
+  - Command::Play has no same-name bin module 'play'; routes through run handler=run::run_play at crates/trust-runtime/src/bin/trust-runtime/run/commands.rs:39 (compatibility_alias) owner=runtime CLI review_date=2026-04-28 rationale=Command::Play dispatches to run::run_play from the shared runtime launcher module
+  - Command::Ui has no same-name bin module 'ui'; routes through trust_runtime::ui handler=trust_runtime::ui::run_ui at crates/trust-runtime/src/host/ui/mod.rs:59 (library_surface) owner=runtime/UI review_date=2026-04-28 rationale=Command::Ui dispatches to trust_runtime::ui::run_ui from the runtime UI library surface
+  - Command::Validate has no same-name bin module 'validate'; routes through run handler=run::run_validate at crates/trust-runtime/src/bin/trust-runtime/run/commands.rs:74 (shared_handler) owner=runtime CLI review_date=2026-04-28 rationale=Command::Validate dispatches to run::run_validate from the shared runtime launcher module
+  - Command::Ide has no same-name bin module 'ide'; routes through config_ui handler=config_ui::run_ide_serve at crates/trust-runtime/src/bin/trust-runtime/config_ui.rs:41 (shared_handler) owner=runtime/web review_date=2026-04-28 rationale=Command::Ide dispatches to config_ui::run_ide_serve and shares ConfigUiAction with Command::ConfigUi
+  - Command::Rollback has no same-name bin module 'rollback'; routes through deploy handler=deploy::run_rollback at crates/trust-runtime/src/bin/trust-runtime/deploy/commands.rs:114 (shared_handler) owner=runtime/deploy review_date=2026-04-28 rationale=Command::Rollback dispatches to deploy::run_rollback from the deployment module
+  - runtime artifact profile 'release-host-runtime' class=host_runtime binaries=[trust-runtime,trust-dev,trust-bundle-gen] include=[product,ui_product,conformance_benchmark,support,infrastructure,workbench_dev] exclude=[] owner=release engineering review_date=2026-05-01 rationale=current release bundle preserves the existing trust-runtime command surface and ships trust-dev as the workbench destination during the forwarding-alias migration window
+  - runtime artifact profile 'field-runtime-minimal' class=field_runtime binaries=[trust-runtime,trust-bundle-gen] include=[product,ui_product,support,infrastructure] exclude=[workbench_dev,conformance_benchmark] owner=release engineering review_date=2026-05-01 rationale=field runtime artifacts must exclude workbench/dev command implementations; benchmark/conformance commands are runtime-adjacent but not field-minimal
+  - workbench command 'Agent' migrates trust-runtime -> trust-dev compatibility=deprecated_forwarding_alias removal_not_before=2026-10-05 removal_pr_required=true owner=dev tooling review_date=2026-07-05 rationale=agent serve remains available through trust-runtime during the deprecation window while the implementation moves to trust-dev; removal requires a separate behavior-change PR and release notes
+  - workbench command 'Commit' migrates trust-runtime -> trust-dev compatibility=deprecated_forwarding_alias removal_not_before=2026-10-05 removal_pr_required=true owner=dev tooling review_date=2026-07-05 rationale=project git helper belongs to the developer/workbench tool and keeps a trust-runtime compatibility alias during migration; removal requires a separate behavior-change PR and release notes
+  - workbench command 'Docs' migrates trust-runtime -> trust-dev compatibility=deprecated_forwarding_alias removal_not_before=2026-10-05 removal_pr_required=true owner=dev tooling review_date=2026-07-05 rationale=ST API documentation generation belongs to the developer/workbench tool and keeps a trust-runtime compatibility alias during migration; removal requires a separate behavior-change PR and release notes
+  - workbench command 'Test' migrates trust-runtime -> trust-dev compatibility=deprecated_forwarding_alias removal_not_before=2026-10-05 removal_pr_required=true owner=dev tooling review_date=2026-07-05 rationale=ST test discovery/execution belongs to the developer/workbench tool and keeps a trust-runtime compatibility alias during migration; removal requires a separate behavior-change PR and release notes
+PASS: FULLMAP-CHECK-07
+  - approved ports active: true
+  - forbidden edge rules: 3
+  - host-surface owner path rules: 9
+  - host-surface files covered: 255
+  - host-surface owner categories: control_port (runtime/control), control_root (runtime/control), hmi_domain (runtime/HMI), hmi_root (runtime/HMI), runtime_cloud_domain (runtime-cloud), web_adapter (runtime/web), web_root (runtime/web)
+  - direct web runtime-state bypass findings: 0
+  - direct web control-dispatch bypass findings: 0
+PASS: FULLMAP-CHECK-08
+  - cargo audit status=pass owner=release engineering rationale=raw advisories are fixed or explicitly ignored by policy metadata
+  - cargo machete status=pass owner=architecture automation rationale=workspace member paths have no unused direct dependencies
+  - cargo deny status=pass owner=release engineering rationale=project deny.toml policy is present and cargo deny check passes
+  - third_party/tiverse-mmap status=workspace_exclude expected=workspace_exclude
+  - deny.toml present=true
+  - audit allowlist entries=8
+  - machete allowlist entries=0
+FINDING: FULLMAP-CHECK-09
+  - owner: runtime/HIR/release engineering
+  - status: tracked_by_unsafe_concurrency_hardening_board
+  - production unsafe occurrences: 93
+  - production panic-like occurrences: 412
+  - concurrency boundary occurrences: 843
+  - tool gates: unsafe/concurrency baseline rg=pass, cargo geiger advisory=partial, ast-grep unsafe AST cross-check=pass, Miri focused shard=pass, sanitizer smoke=pass, Valgrind startup smoke=pass, Loom/model equivalent=pass
+  - all production hotspots are registered or classified
+FAIL: FULLMAP-CHECK-10
+  - trust-runtime-core::stdlib at crates/trust-runtime-core/src/stdlib has 5044 lines and no module-size owner/split note (threshold 5000)
+PASS: FULLMAP-P6-API
+  - cargo-public-api 0.51.0
+  - public API baseline enforcement is tracked by the full architecture program
+  - trust-runtime baseline=docs/internal/architecture/public-api/trust-runtime.txt lines=3458 command=cargo public-api --manifest-path crates/trust-runtime/Cargo.toml -sss --color never
+  - trust-runtime-core baseline=docs/internal/architecture/public-api/trust-runtime-core.txt lines=929 command=cargo public-api --manifest-path crates/trust-runtime-core/Cargo.toml -sss --color never
+PASS: FULLMAP-PARSERREC
+  - bounded helpers: scan_top_level_ahead, recover_top_level_until
+  - positional diagnostic source definitions: 1
+  - parser recovery tests: test_positional_initializer_recovery_preserves_declaration_boundaries, test_initializer_recovery_property_smoke_for_generated_positional_shapes
+PASS: FULLMAP-HIRZSB
+  - command: python3 scripts/hir_zero_silent_bug_doctor.py
+  - exit code: 0
+  - stdout: HIR zero-silent-bug doctor: 5 warn-only finding(s)
+  - stdout: HIRZSB-WARN-TYPED-SENTINEL crates/trust-hir/src/db/queries/collector/types.rs:59: .unwrap_or(TypeId::UNKNOWN);
+  - stdout: HIRZSB-WARN-TYPED-SENTINEL crates/trust-hir/src/db/queries/collector/validation.rs:380: .unwrap_or(TypeId::UNKNOWN);
+  - stdout: HIRZSB-WARN-LOSSY-RESULT-OPTION crates/trust-hir/src/db/queries/collector/variables.rs:507: try_eval_optional_int_expr_in_scope(&count_expr, &scopes) .ok()
+  - stdout: HIRZSB-WARN-DUPLICATED-RESOLVER crates/trust-hir/src/symbols/table.rs:659: pub fn resolve_enum_value_by_name(&self, name: &str) -> EnumValueResolution {
+  - stdout: HIRZSB-WARN-DUPLICATED-RESOLVER crates/trust-hir/src/types/registry.rs:237: pub fn resolve_enum_value_by_name(&self, name: &str) -> EnumValueResolution {
+PASS: FULLMAP-RUNTIMEBOUND
+  - command: ./scripts/runtime_boundary_fail_closed_ast_grep_gate.sh
+  - exit code: 0
+  - stdout: runtime boundary fail-closed gate: no findings
+  - stdout: artifact=/home/johannes/projects/trust-platform-portability-b/target/gate-artifacts/runtime-boundary-fail-closed-df427259c/runtime-boundary-summary.txt
+PASS: FULLMAP-RUNTIMESAFE
+  - command: ./scripts/runtime_safety_fail_closed_ast_grep_gate.sh
+  - exit code: 0
+  - stdout: runtime safety fail-closed gate: no findings
+  - stdout: gate=runtime-safety-fail-closed
+  - stdout: phase=fail_class
+  - stdout: commit=df427259c
+  - stdout: finding_count=0
+  - stdout: allowlisted_count=0
+  - stdout: max_allowlist_entries=5
+  - stdout: findings=/home/johannes/projects/trust-platform-portability-b/target/gate-artifacts/runtime-safety-fail-closed-df427259c/runtime-safety-findings.txt
+  - stdout: allowlist=/home/johannes/projects/trust-platform-portability-b/docs/internal/architecture/runtime-safety-fail-closed-allowlist.toml
+PARTIAL: FULLMAP-RUNTIMEVM-MUT
+  - expected shards: 14
+  - present shards: 0
+  - call-root: missing target/gate-artifacts/runtime-vm-mutants/call-root/mutants.out/outcomes.json
+  - call-bindings: missing target/gate-artifacts/runtime-vm-mutants/call-bindings/mutants.out/outcomes.json
+  - call-stdlib: missing target/gate-artifacts/runtime-vm-mutants/call-stdlib/mutants.out/outcomes.json
+  - call-symbols: missing target/gate-artifacts/runtime-vm-mutants/call-symbols/mutants.out/outcomes.json
+  - register-ir-root: missing target/gate-artifacts/runtime-vm-mutants/register-ir-root/mutants.out/outcomes.json
+  - register-ir-interpreter: missing target/gate-artifacts/runtime-vm-mutants/register-ir-interpreter/mutants.out/outcomes.json
+  - register-ir-lower-root: missing target/gate-artifacts/runtime-vm-mutants/register-ir-lower-root/mutants.out/outcomes.json
+  - register-ir-lower-decode: missing target/gate-artifacts/runtime-vm-mutants/register-ir-lower-decode/mutants.out/outcomes.json
+  - register-ir-lower-fuse: missing target/gate-artifacts/runtime-vm-mutants/register-ir-lower-fuse/mutants.out/outcomes.json
+  - register-ir-lower-verify: missing target/gate-artifacts/runtime-vm-mutants/register-ir-lower-verify/mutants.out/outcomes.json
+  - register-ir-tier1-root: missing target/gate-artifacts/runtime-vm-mutants/register-ir-tier1-root/mutants.out/outcomes.json
+  - register-ir-tier1-compile: missing target/gate-artifacts/runtime-vm-mutants/register-ir-tier1-compile/mutants.out/outcomes.json
+  - register-ir-tier1-execute: missing target/gate-artifacts/runtime-vm-mutants/register-ir-tier1-execute/mutants.out/outcomes.json
+  - register-ir-tier1-state: missing target/gate-artifacts/runtime-vm-mutants/register-ir-tier1-state/mutants.out/outcomes.json
+PASS: FULLMAP-P7
+  - docs/diagrams/architecture/full-software-map-generated.puml components=120 edges=159
+xtask failed: architecture-doctor --full-map found 1 failing check(s)
+[gate-progress state=finished phase=B-R1-architecture target=scena-rust-builder pid=1487113 elapsed=9.5s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo xtask architecture-doctor --full-map' status=1]

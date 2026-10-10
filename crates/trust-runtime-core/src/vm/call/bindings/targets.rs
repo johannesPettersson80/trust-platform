@@ -202,7 +202,7 @@ impl VmWriteTarget {
                     runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
                     let (value, cloned) = materialize_borrowed_value(value);
                     if cloned {
-                        runtime.record_value_op(RegisterValueOpKind::ReadValueClone);
+                        runtime.record_value_op(RegisterValueOpKind::ReadReference);
                     }
                     value
                 };

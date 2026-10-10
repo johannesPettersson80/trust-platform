@@ -1,0 +1,7 @@
+{
+  "/home/johannes/projects/.artifacts/runtime-portability-b/b-r4/review-linked-image/measurement/firmware.elf": "1be0a4bf7879d8f82886c5466b63dcd3bec4b2c8ca32273915d0db675e238404",
+  "/home/johannes/projects/.artifacts/runtime-portability-b/b-r4/review-linked-image/measurement/firmware.map": "3c4fa4db6f185eafad054d0504c177700bc6c2cff23c962a1a7dd1856a3bf562",
+  "/home/johannes/projects/.artifacts/runtime-portability-b/b-r4/review-linked-image/measurement/footprint.json": "106c22de2d2cc677f36e22010b395bb3abc57d053270e2d33acd76174bb635b7",
+  "/home/johannes/projects/.artifacts/runtime-portability-b/b-r4/review-linked-image/disassembly.txt": "3bfadb6ba201e52b0795ecd4ce696f770f390df701885fed84897058c748c961",
+  "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/run3/measurement/firmware.map": "83f976f1c22c399a5ece0d1ce59249fb5781ccc8b554a64d740c0c2674dfc48b"
+}

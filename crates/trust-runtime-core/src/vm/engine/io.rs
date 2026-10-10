@@ -78,7 +78,9 @@ impl EngineState<'_> {
             .vm
             .strings
             .get(name_idx as usize)
-            .ok_or_else(|| invalid_bytecode("invalid task SINGLE name"))?;
+            .ok_or_else(|| {
+                invalid_bytecode(smol_str::SmolStr::new_static("invalid task SINGLE name"))
+            })?;
         self.charge_work_units(self.prepared.name_lookup_work(name))?;
         let (_, declaration) = self
             .prepared
@@ -117,11 +119,11 @@ impl EngineState<'_> {
         ref_idx: u32,
     ) -> Result<ValueRef, RuntimeError> {
         let prepared = self.prepared;
-        let reference = prepared
-            .vm
-            .refs
-            .get(ref_idx as usize)
-            .ok_or_else(|| invalid_bytecode("invalid persistent reference"))?;
+        let reference = prepared.vm.refs.get(ref_idx as usize).ok_or_else(|| {
+            invalid_bytecode(smol_str::SmolStr::new_static(
+                "invalid persistent reference",
+            ))
+        })?;
         let (location, offset, path) = match reference {
             VmRef::Global { offset, path } => (MemoryLocation::Global, *offset, path),
             VmRef::Retain { offset, path } => (MemoryLocation::Retain, *offset, path),

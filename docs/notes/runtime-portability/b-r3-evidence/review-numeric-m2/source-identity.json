@@ -1,0 +1,18 @@
+{
+  "reviewer": "/root/br1_collections_sort",
+  "identity_sha256": "e5c5a42fd64235051255cb7f1886885db323287f3f3042d1195286bcd10bd20c",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/program_model/ops/numeric_arith.rs",
+      "sha256": "012f95be81803f485bb9008f82c3d2c8ffc5dbbe82e3c5b13cb569b1677f222a"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/construction/values/scalar.rs",
+      "sha256": "48f0b3efaa6d7c0075f55d5ffa6f4fcb887e60fb935eb41ca2fd9474e043f543"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/validate/construction/initializers.rs",
+      "sha256": "78a6cf8bcc51d4cc94a1462c95c7e9078e905d424cabf2f0869378055c03b4fd"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "reviewer": "/root/br1_static_registry",
+  "frozen_manifest_sha256": "ec2cc5372aa76a691df42dc88035de28f7aa9ee38e676bf5f44d38b678d5e0b9",
+  "files": {
+    "crates/trust-runtime-core/src/vm/call/continuation.rs": "4f0c699d65b95520a61e123c45c55223730fb4fd73717e2441ee267aa470ba31",
+    "crates/trust-runtime-core/src/vm/call/mod.rs": "b424567df136d2e16e0fb62660d108dbc9e16a83445f8a048f5b8308f570914e",
+    "crates/trust-runtime-core/src/vm/context.rs": "40904de28ad0b09d2ef90c988e81c6e8424488440da506b111d233f860bb0a1a",
+    "crates/trust-runtime-core/src/vm/dispatch.rs": "580c6d5548b3bfc80b662a54c74bbc51eb612397d8ba36f6deeb59424c68e540",
+    "crates/trust-runtime-core/src/vm/dispatch/continuation.rs": "d46582b636a2ec605eea72155099749bb253fb48b52119f3d7e3894df0a07459",
+    "crates/trust-runtime-core/src/vm/edge.rs": "cb5ea8f157d91bf7868154710d5a60a3c66f2af1a14dd7c41cce5f152601e190",
+    "crates/trust-runtime-core/src/vm/engine/context.rs": "0fa206c5901ccc4e07a40102ec71541143d153324bfa0c70283511e949306f1d",
+    "crates/trust-runtime-core/src/vm/engine/continuation_tests.rs": "d7174a6a135517950407e1945df46a3790e31ab09736838d3929888e0908a581",
+    "crates/trust-runtime-core/src/vm/engine/mod.rs": "1ed024bbdd452e2d37361d193dc984c073818eef485f0bc0d7bc57be541d7ffe",
+    "crates/trust-runtime-core/src/vm/frames.rs": "f8c041adf6a634ffaf8f5d71ef5045edfb61664b09ca97acd041f8551ede1f6a",
+    "crates/trust-runtime-core/src/vm/stack.rs": "8ac2a1399febc6d1a081210d6b05504184d35824ed36f3ad678b1e6d64bb6891",
+    "crates/trust-runtime/src/runtime/vm/dispatch.rs": "19be3e2b7446215155497e0521371c0763f2fdc0c1267939904f41dd32441bc6",
+    "crates/trust-runtime/tests/source_free_execution_cost.rs": "d66ebe77e4f6c591ad9a6df8bbd3f37354876d3000f6f72085c9f6389b89a29f",
+    "firmware/trust-nucleo-f401re/src/lib.rs": "4f42907331cd5ba4e2f0c2484b506bf111cd3ca9c6229405f7317fa83b3b72d2",
+    "firmware/trust-nucleo-f401re/src/runner.rs": "7fb25c30e390e6ba7eeb49704cda29a80e34a8ac9e6b63b7e139fa40c1eeb390",
+    "firmware/trust-nucleo-f401re/src/stack_guard.rs": "747dd348fa690b8df09ba2a94fbe2b1b5fba4e038f3b5289e24c271a2e0e4c80",
+    "firmware/trust-nucleo-f401re/src/trace.rs": "d4dcbf1e4838b954eeaaad9de794af2e5bb8431c78bb294302573f3f8db220f2"
+  }
+}

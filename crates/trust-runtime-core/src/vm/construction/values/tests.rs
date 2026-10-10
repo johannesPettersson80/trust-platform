@@ -12,6 +12,7 @@ struct Recorder {
     member_recipes: Vec<(u32, u32, u32)>,
     responses: Vec<Value>,
     calls: Vec<u32>,
+    checks: Vec<u32>,
     active: Vec<(u32, ValueOperation)>,
     remaining_work: usize,
     remaining_bytes: usize,
@@ -40,6 +41,7 @@ impl Recorder {
             member_recipes: Vec::new(),
             responses: Vec::new(),
             calls: Vec::new(),
+            checks: Vec::new(),
             active: Vec::new(),
             remaining_work: 100_000,
             remaining_bytes: 100_000,
@@ -107,7 +109,8 @@ impl ValueConstructionContext for Recorder {
             .ok_or(RuntimeError::Overflow)?;
         Ok(())
     }
-    fn check_value(&mut self, _: u32, value: &Value) -> Result<(), RuntimeError> {
+    fn check_value(&mut self, type_id: u32, value: &Value) -> Result<(), RuntimeError> {
+        self.checks.push(type_id);
         if self.reject_references && matches!(value, Value::Reference(Some(_))) {
             return Err(RuntimeError::NullReference);
         }
@@ -488,4 +491,96 @@ fn aliases_do_not_add_nodes_but_array_and_scalar_construction_exhaust_at_exact_b
         below.active.is_empty(),
         "failed count still unwinds construction context"
     );
+}
+
+#[test]
+fn array_branch_preserves_exact_work_allocation_and_validation_order() {
+    let types = vec![
+        primitive(7),
+        ty(
+            TypeKind::Array,
+            TypeData::Array {
+                elem_type_id: 0,
+                dims: vec![(1, 3)],
+            },
+        ),
+    ];
+    // One root visit, copied dimension bytes, three elements, and three leaf visits.
+    let work = 1 + size_of::<(i64, i64)>() + 3 + 3;
+    let bytes = size_of::<(i64, i64)>() + 3 * size_of::<Value>() + size_of::<ArrayValue>();
+    let mut exact = Recorder::new(types.clone());
+    exact.remaining_work = work;
+    exact.remaining_bytes = bytes;
+    exact.remaining_values = 4;
+    let result = construct_value(&mut exact, 1, ValueConstructionMode::Default).unwrap();
+    assert_eq!(
+        result,
+        Value::Array(Box::new(ArrayValue::from_canonical_parts(
+            vec![Value::Int(0); 3],
+            vec![(1, 3)],
+        )))
+    );
+    assert_eq!(exact.remaining_work, 0);
+    assert_eq!(exact.remaining_bytes, 0);
+    assert_eq!(exact.remaining_values, 0);
+    assert_eq!(exact.checks, vec![0, 0, 0, 1]);
+    assert!(exact.active.is_empty());
+    for below in 0..3 {
+        let mut context = Recorder::new(types.clone());
+        context.remaining_work = work - usize::from(below == 0);
+        context.remaining_bytes = bytes - usize::from(below == 1);
+        context.remaining_values = 4 - usize::from(below == 2);
+        assert_eq!(
+            construct_value(&mut context, 1, ValueConstructionMode::Default),
+            Err(RuntimeError::Overflow)
+        );
+        assert!(
+            context.active.is_empty(),
+            "every branch failure must leave its type context"
+        );
+    }
+}
+
+#[test]
+fn recipe_overlay_branch_preserves_exact_copy_charges_and_checks() {
+    let mut record = ty(TypeKind::Struct, TypeData::Struct { fields: Vec::new() });
+    record.name_idx = Some(0);
+    // The recipe return is shared with responses: copying its empty map costs one
+    // reserve. Overlay capacity and final canonical fields each cost another one.
+    let field_reserve = size_of::<StructValue>() + 2 * size_of::<usize>();
+    let bytes = 3 * field_reserve + "Record".len();
+    let work = 1 + "Record".len();
+    for below in [None, Some(0), Some(1), Some(2)] {
+        let mut context = Recorder::new(vec![record.clone()]);
+        context.responses = vec![structure(&[])];
+        context.type_recipes = vec![(0, 0)];
+        context.remaining_work = work - usize::from(below == Some(0));
+        context.remaining_bytes = bytes - usize::from(below == Some(1));
+        context.remaining_values = 1 - usize::from(below == Some(2));
+        let result = construct_value(
+            &mut context,
+            0,
+            ValueConstructionMode::Apply(structure(&[])),
+        );
+        assert_eq!(context.calls, vec![0]);
+        assert!(context.active.is_empty());
+        if below.is_none() {
+            assert_eq!(result, Ok(structure(&[])));
+            assert_eq!(
+                context.checks,
+                vec![0, 0],
+                "recipe value is checked before merging and final value afterwards"
+            );
+            assert_eq!(context.remaining_work, 0);
+            assert_eq!(context.remaining_bytes, 0);
+            assert_eq!(context.remaining_values, 0);
+        } else {
+            assert_eq!(result, Err(RuntimeError::Overflow));
+            assert_eq!(
+                context.checks,
+                vec![0],
+                "a failed merge must not publish a final value"
+            );
+        }
+    }
 }

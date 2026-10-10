@@ -111,26 +111,35 @@ impl PreparedIndexes {
                 )?;
             }
         }
-        // In-place sorting retains no additional records. Charge comparison work
-        // for the bounded index sort, including case-insensitive name bytes.
-        budget.charge(
-            0,
-            count
-                .checked_mul(lookup_work(count))
-                .and_then(|n| n.checked_mul(self.max_name_bytes.max(1) + 3))
-                .ok_or(RuntimeError::Overflow)?,
-        )?;
-        self.slots.sort_unstable();
-        self.members.sort_unstable_by(|a, b| {
-            a.0.cmp(&b.0)
-                .then_with(|| compare_names(&vm.strings[a.1 as usize], &vm.strings[b.1 as usize]))
-        });
-        self.globals.sort_unstable_by(|a, b| {
-            compare_names(&vm.strings[a.0 as usize], &vm.strings[b.0 as usize])
-        });
-        for ids in self.declarations.values_mut() {
-            ids.sort_unstable_by_key(|id| layout.entries[*id as usize].slot);
-        }
+        self.declarations.finish(budget)?;
+        self.retained_declarations.finish(budget)?;
+        self.edge_declarations.finish(budget)?;
+        self.edges.finish(budget)?;
+        sort::sort_by(&mut self.slots, budget, &mut |a, b, _| Ok(a.cmp(b)))?;
+        sort::sort_by(&mut self.members, budget, &mut |a, b, budget| {
+            let owner = a.0.cmp(&b.0);
+            if owner.is_eq() {
+                sort::compare_names_charged(
+                    &vm.strings[a.1 as usize],
+                    &vm.strings[b.1 as usize],
+                    budget,
+                )
+            } else {
+                Ok(owner)
+            }
+        })?;
+        sort::sort_by(&mut self.globals, budget, &mut |a, b, budget| {
+            sort::compare_names_charged(
+                &vm.strings[a.0 as usize],
+                &vm.strings[b.0 as usize],
+                budget,
+            )
+        })?;
+        self.declarations.sort_values(budget, |a, b| {
+            layout.entries[*a as usize]
+                .slot
+                .cmp(&layout.entries[*b as usize].slot)
+        })?;
         self.prepare_roots(layout, roots, budget)
     }
 
@@ -164,15 +173,9 @@ impl PreparedIndexes {
                 }
             }
         }
-        budget.charge(
-            0,
-            roots
-                .entries
-                .len()
-                .checked_mul(lookup_work(roots.entries.len()))
-                .ok_or(RuntimeError::Overflow)?,
-        )?;
-        self.root_owners.sort_unstable();
+        sort::sort_by(&mut self.root_owners, budget, &mut |a, b, _| Ok(a.cmp(b)))?;
+        self.root_candidates.finish(budget)?;
+        self.program_roots.finish(budget)?;
         Ok(())
     }
 
@@ -209,40 +212,28 @@ impl PreparedIndexes {
                 }
             }
         }
-        budget.charge(
-            0,
-            count
-                .checked_mul(lookup_work(count))
-                .and_then(|n| n.checked_mul(self.max_name_bytes.max(1)))
-                .ok_or(RuntimeError::Overflow)?,
-        )?;
-        self.type_members.sort_unstable_by(|a, b| {
-            a.0.cmp(&b.0)
-                .then_with(|| compare_names(&vm.strings[a.1 as usize], &vm.strings[b.1 as usize]))
-        });
+        sort::sort_by(&mut self.type_members, budget, &mut |a, b, budget| {
+            let owner = a.0.cmp(&b.0);
+            if owner.is_eq() {
+                sort::compare_names_charged(
+                    &vm.strings[a.1 as usize],
+                    &vm.strings[b.1 as usize],
+                    budget,
+                )
+            } else {
+                Ok(owner)
+            }
+        })?;
         Ok(())
     }
 }
 
-/// Charge map insertion and geometric vector capacity before either can allocate.
-pub(super) fn push_group<K: Ord, V>(
-    map: &mut BTreeMap<K, Vec<V>>,
+/// Append to the bounded build buffer; finish sorts keys without repeated shifts.
+pub(super) fn push_group<K: Copy + Ord, V>(
+    map: &mut Groups<K, V>,
     key: K,
     value: V,
     budget: &mut PreparationBudget,
 ) -> Result<(), RuntimeError> {
-    budget.charge(0, lookup_work(map.len()))?;
-    if !map.contains_key(&key) {
-        budget.map::<K, Vec<V>>(1)?;
-    }
-    let values = map.entry(key).or_default();
-    if values.len() == values.capacity() {
-        let extra = values.capacity().max(1);
-        budget.records::<V>(extra)?;
-        values
-            .try_reserve_exact(extra)
-            .map_err(|_| RuntimeError::Overflow)?;
-    }
-    values.push(value);
-    Ok(())
+    map.push(key, value, budget)
 }

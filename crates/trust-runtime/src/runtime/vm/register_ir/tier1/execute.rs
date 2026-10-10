@@ -28,7 +28,7 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                 if cloned {
                     runtime
                         .vm_register_profile
-                        .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                        .record_value_op(RegisterValueOpKind::LoadConstant);
                 }
                 write_register(registers, *dest, value)?;
             }
@@ -138,7 +138,7 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                     if cloned {
                         runtime
                             .vm_register_profile
-                            .record_value_op(RegisterValueOpKind::ReadValueClone);
+                            .record_value_op(RegisterValueOpKind::ReadReference);
                     }
                     value
                 };
@@ -265,12 +265,12 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                         if left_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                                .record_value_op(RegisterValueOpKind::ReadReference);
                         }
                         if right_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                                .record_value_op(RegisterValueOpKind::ReadReference);
                         }
                         apply_binary(*op, left, right, &runtime.profile)?
                     }
@@ -305,12 +305,12 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                         if left_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                                .record_value_op(RegisterValueOpKind::ReadReference);
                         }
                         if right_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                                .record_value_op(RegisterValueOpKind::LoadConstant);
                         }
                         apply_binary(*op, left, right, &runtime.profile)?
                     }
@@ -345,12 +345,12 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                         if left_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                                .record_value_op(RegisterValueOpKind::LoadConstant);
                         }
                         if right_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                                .record_value_op(RegisterValueOpKind::ReadReference);
                         }
                         apply_binary(*op, left, right, &runtime.profile)?
                     }
@@ -386,12 +386,12 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                         if left_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                                .record_value_op(RegisterValueOpKind::ReadReference);
                         }
                         if right_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                                .record_value_op(RegisterValueOpKind::LoadConstant);
                         }
                         apply_binary(*op, left, right, &runtime.profile)?
                     }

@@ -43,8 +43,11 @@ impl VariableStorage {
         if reset_instance_sequence {
             self.next_instance_id = 0;
         }
-        cache::exclusive(&mut self.instance_field_offsets).clear();
-        cache::exclusive(&mut self.recursive_instance_field_resolutions).clear();
+        #[cfg(feature = "std")]
+        {
+            cache::exclusive(&mut self.instance_field_offsets).clear();
+            cache::exclusive(&mut self.recursive_instance_field_resolutions).clear();
+        }
     }
 }
 
@@ -79,35 +82,48 @@ impl VariableStorage {
         }
         bytes = bytes.checked_add(
             self.execution_frames
-                .len()
+                .capacity()
                 .checked_mul(core::mem::size_of::<(FrameId, Option<Vec<Value>>)>() * 4)?,
         )?;
         for values in self.execution_frames.values().flatten() {
             bytes = bytes.checked_add(values.len().checked_mul(core::mem::size_of::<Value>())?)?;
         }
-        let direct =
-            recover_read_lock(self.instance_field_offsets.read()).map_or(0, |cache| cache.len());
-        let recursive = recover_read_lock(self.recursive_instance_field_resolutions.read())
-            .map_or(0, |cache| cache.len());
-        let declared = recover_read_lock(self.declared_instance_field_offsets.read())
-            .map_or(0, |cache| cache.len());
-        bytes = bytes.checked_add(
-            direct
-                .checked_mul(core::mem::size_of::<((InstanceId, SmolStr), Option<usize>)>())?
-                .checked_mul(4)?,
-        )?;
-        bytes = bytes.checked_add(
-            recursive
-                .checked_mul(core::mem::size_of::<(
-                    (InstanceId, SmolStr),
-                    RecursiveInstanceFieldResolution,
-                )>())?
-                .checked_mul(4)?,
-        )?;
-        bytes.checked_add(
-            declared
-                .checked_mul(core::mem::size_of::<((SmolStr, SmolStr), usize)>())?
-                .checked_mul(4)?,
-        )
+        #[cfg(not(feature = "std"))]
+        {
+            // Clone preserves allocated vector capacity, including spare live slots.
+            bytes = bytes.checked_add(
+                self.instances
+                    .capacity()
+                    .checked_mul(core::mem::size_of::<(InstanceId, InstanceData)>())?,
+            )?;
+            Some(bytes)
+        }
+        #[cfg(feature = "std")]
+        {
+            let direct = recover_read_lock(self.instance_field_offsets.read())
+                .map_or(0, |cache| cache.len());
+            let recursive = recover_read_lock(self.recursive_instance_field_resolutions.read())
+                .map_or(0, |cache| cache.len());
+            let declared = recover_read_lock(self.declared_instance_field_offsets.read())
+                .map_or(0, |cache| cache.len());
+            bytes = bytes.checked_add(
+                direct
+                    .checked_mul(core::mem::size_of::<((InstanceId, SmolStr), Option<usize>)>())?
+                    .checked_mul(4)?,
+            )?;
+            bytes = bytes.checked_add(
+                recursive
+                    .checked_mul(core::mem::size_of::<(
+                        (InstanceId, SmolStr),
+                        RecursiveInstanceFieldResolution,
+                    )>())?
+                    .checked_mul(4)?,
+            )?;
+            bytes.checked_add(
+                declared
+                    .checked_mul(core::mem::size_of::<((SmolStr, SmolStr), usize)>())?
+                    .checked_mul(4)?,
+            )
+        }
     }
 }

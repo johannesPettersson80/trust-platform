@@ -1,13 +1,13 @@
 //! Bytecode validation.
 
-use alloc::{format, string::String, vec::Vec};
+use alloc::{string::String, vec::Vec};
 
 use super::BytecodeReader;
 use super::{
     BytecodeError, BytecodeModuleView, ConstEntry, ConstPool, DebugMap, IoMap, ParamEntry,
     PouEntry, PouIndex, PouKind, RefLocation, RefSegment, RefTable, RejectionReason, ResourceMeta,
-    RetainInit, SectionData, SectionId, StringTable, TypeData, TypeEntry, TypeKind, TypeTable,
-    ValidationLimits, ValidationStats, VarMeta, NATIVE_CALL_KIND_FUNCTION,
+    RetainInit, SectionData, SectionDiagnostic, SectionId, StringTable, TypeData, TypeEntry,
+    TypeKind, TypeTable, ValidationLimits, ValidationStats, VarMeta, NATIVE_CALL_KIND_FUNCTION,
     NATIVE_CALL_KIND_FUNCTION_BLOCK,
 };
 

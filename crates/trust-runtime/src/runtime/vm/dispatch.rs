@@ -1,7 +1,9 @@
 use super::super::core::Runtime;
 use super::errors::VmTrap;
+#[cfg(test)]
 use super::frames::FrameStack;
 use super::register_ir::{try_execute_pou_with_register_ir, RegisterExecutionOutcome};
+#[cfg(test)]
 use super::stack::OperandStack;
 use super::VmModule;
 use crate::error::RuntimeError;
@@ -11,65 +13,44 @@ use crate::value::{Value, ValueRef};
 use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::time::Instant;
+use trust_runtime_core::vm::hosted::dispatch::ExecutionBuffers;
 
 const VM_EXECUTION_POOL_LIMIT: usize = 64;
 
 thread_local! {
-    static VM_OPERAND_STACK_POOL: RefCell<Vec<OperandStack>> = const { RefCell::new(Vec::new()) };
-    static VM_FRAME_STACK_POOL: RefCell<Vec<FrameStack>> = const { RefCell::new(Vec::new()) };
+    static VM_EXECUTION_BUFFER_POOL: RefCell<Vec<ExecutionBuffers>> = const { RefCell::new(Vec::new()) };
 }
 
 #[derive(Debug)]
 struct VmExecutionBuffers {
-    operand_stack: Option<OperandStack>,
-    frames: Option<FrameStack>,
+    buffers: Option<ExecutionBuffers>,
 }
 
 impl VmExecutionBuffers {
     fn acquire() -> Self {
-        let operand_stack = VM_OPERAND_STACK_POOL
-            .with(|pool| pool.borrow_mut().pop())
-            .unwrap_or_default();
-        let frames = VM_FRAME_STACK_POOL
+        let buffers = VM_EXECUTION_BUFFER_POOL
             .with(|pool| pool.borrow_mut().pop())
             .unwrap_or_default();
         Self {
-            operand_stack: Some(operand_stack),
-            frames: Some(frames),
+            buffers: Some(buffers),
         }
     }
 
     #[cfg(test)]
     fn stacks_mut(&mut self) -> (&mut OperandStack, &mut FrameStack) {
-        let operand_stack = self
-            .operand_stack
-            .as_mut()
-            .expect("vm execution buffers missing operand stack");
-        let frames = self
-            .frames
-            .as_mut()
-            .expect("vm execution buffers missing frame stack");
-        (operand_stack, frames)
+        let buffers = self.buffers.as_mut().expect("vm execution buffers missing");
+        (&mut buffers.operand_stack, &mut buffers.frames)
     }
 }
 
 impl Drop for VmExecutionBuffers {
     fn drop(&mut self) {
-        if let Some(mut operand_stack) = self.operand_stack.take() {
-            operand_stack.clear();
-            VM_OPERAND_STACK_POOL.with(|pool| {
+        if let Some(mut buffers) = self.buffers.take() {
+            buffers.clear();
+            VM_EXECUTION_BUFFER_POOL.with(|pool| {
                 let mut pool = pool.borrow_mut();
                 if pool.len() < VM_EXECUTION_POOL_LIMIT {
-                    pool.push(operand_stack);
-                }
-            });
-        }
-        if let Some(mut frames) = self.frames.take() {
-            frames.clear();
-            VM_FRAME_STACK_POOL.with(|pool| {
-                let mut pool = pool.borrow_mut();
-                if pool.len() < VM_EXECUTION_POOL_LIMIT {
-                    pool.push(frames);
+                    pool.push(buffers);
                 }
             });
         }
@@ -187,19 +168,15 @@ use trust_runtime_core::vm::hosted::dispatch::{
     decode_partial_access, partial_access_error_to_runtime,
 };
 
-pub(super) fn take_shared_buffers() -> trust_runtime_core::vm::hosted::dispatch::ExecutionBuffers {
-    let mut pooled = VmExecutionBuffers::acquire();
-    trust_runtime_core::vm::hosted::dispatch::ExecutionBuffers {
-        operand_stack: pooled.operand_stack.take().unwrap_or_default(),
-        frames: pooled.frames.take().unwrap_or_default(),
-    }
+pub(super) fn take_shared_buffers() -> ExecutionBuffers {
+    VmExecutionBuffers::acquire()
+        .buffers
+        .take()
+        .unwrap_or_default()
 }
-pub(super) fn recycle_shared_buffers(
-    buffers: trust_runtime_core::vm::hosted::dispatch::ExecutionBuffers,
-) {
+pub(super) fn recycle_shared_buffers(buffers: ExecutionBuffers) {
     drop(VmExecutionBuffers {
-        operand_stack: Some(buffers.operand_stack),
-        frames: Some(buffers.frames),
+        buffers: Some(buffers),
     });
 }
 
@@ -297,14 +274,12 @@ mod tests {
     }
 
     fn clear_execution_pools() {
-        VM_OPERAND_STACK_POOL.with(|pool| pool.borrow_mut().clear());
-        VM_FRAME_STACK_POOL.with(|pool| pool.borrow_mut().clear());
+        VM_EXECUTION_BUFFER_POOL.with(|pool| pool.borrow_mut().clear());
     }
 
     fn execution_pool_lengths() -> (usize, usize) {
-        let operands = VM_OPERAND_STACK_POOL.with(|pool| pool.borrow().len());
-        let frames = VM_FRAME_STACK_POOL.with(|pool| pool.borrow().len());
-        (operands, frames)
+        let pairs = VM_EXECUTION_BUFFER_POOL.with(|pool| pool.borrow().len());
+        (pairs, pairs)
     }
 
     fn frame() -> super::super::frames::VmFrame {

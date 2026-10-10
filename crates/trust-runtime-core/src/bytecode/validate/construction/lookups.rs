@@ -38,7 +38,7 @@ impl<'a> DeclarationIndex<'a> {
                 )?;
             }
         }
-        budget.sort_by(&mut result.instances, |a, b, _| Ok(a.cmp(b)))?;
+        budget.sort_by(&mut result.instances, &mut |a, b, _| Ok(a.cmp(b)))?;
         for pair in result.instances.windows(2) {
             budget.work(1)?;
             if pair[0].0 == pair[1].0 {
@@ -115,10 +115,10 @@ impl<'a> DeclarationIndex<'a> {
                 }
             }
         }
-        budget.sort_by(&mut result.statics, |a, b, _| Ok(a.cmp(b)))?;
-        budget.sort_by(&mut result.slots, |a, b, _| Ok(a.cmp(b)))?;
-        budget.sort_by(&mut result.globals, |a, b, _| Ok(a.cmp(b)))?;
-        budget.sort_by(&mut result.fields, |a, b, budget| {
+        budget.sort_by(&mut result.statics, &mut |a, b, _| Ok(a.cmp(b)))?;
+        budget.sort_by(&mut result.slots, &mut |a, b, _| Ok(a.cmp(b)))?;
+        budget.sort_by(&mut result.globals, &mut |a, b, _| Ok(a.cmp(b)))?;
+        budget.sort_by(&mut result.fields, &mut |a, b, budget| {
             Ok((a.0, a.1)
                 .cmp(&(b.0, b.1))
                 .then(budget.compare_names(a.2, b.2)?))

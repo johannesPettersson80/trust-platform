@@ -509,7 +509,7 @@ fn standard_library_lookup_and_parameter_metadata_are_case_insensitive() {
     let lib = library();
 
     let fixed = lib.get("aSsErT_NeAr").expect("fixed function metadata");
-    match &fixed.params {
+    match fixed.params {
         StdParams::Fixed(parameters) => {
             assert_eq!(
                 parameters
@@ -523,7 +523,7 @@ fn standard_library_lookup_and_parameter_metadata_are_case_insensitive() {
     }
 
     let variadic = lib.get("mUx").expect("variadic function metadata");
-    match &variadic.params {
+    match variadic.params {
         StdParams::Variadic {
             fixed,
             prefix,

@@ -57,8 +57,8 @@ pub(super) fn integer_to_bit_string(
 ) -> Result<Value, RuntimeError> {
     let width = bit_width_from_type(dst)?;
     let mask = mask_for(width);
-    let bits = (value as i128) & (mask as i128);
-    bit_string_from_u64(bits as u64, dst)
+    let bits = (value as u64) & mask;
+    bit_string_from_u64(bits, dst)
 }
 
 pub(super) fn unsigned_to_bit_string(
@@ -136,4 +136,42 @@ fn sign_extend(value: u64, width: u32) -> Result<i64, RuntimeError> {
     let shift = 64 - width;
     let extended = ((value << shift) as i64) >> shift;
     Ok(extended)
+}
+
+#[cfg(test)]
+mod width_tests {
+    use super::*;
+
+    #[test]
+    fn signed_bit_patterns_keep_the_low_bits_at_every_destination_width() {
+        for value in [
+            i64::MIN,
+            i64::MIN + 1,
+            -65536,
+            -256,
+            -1,
+            0,
+            1,
+            255,
+            65535,
+            i64::MAX,
+        ] {
+            for (dst, width) in [
+                (ConversionType::Byte, 8),
+                (ConversionType::Word, 16),
+                (ConversionType::DWord, 32),
+                (ConversionType::LWord, 64),
+            ] {
+                let expected = ((i128::from(value)) & i128::from(mask_for(width))) as u64;
+                assert_eq!(
+                    integer_to_bit_string(value, dst),
+                    bit_string_from_u64(expected, dst)
+                );
+            }
+        }
+        assert_eq!(
+            integer_to_bit_string(i64::MIN, ConversionType::Real),
+            Err(RuntimeError::TypeMismatch)
+        );
+    }
 }

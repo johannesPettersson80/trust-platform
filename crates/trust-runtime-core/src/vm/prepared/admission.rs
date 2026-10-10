@@ -52,20 +52,26 @@ pub(super) fn check_imports(
             entry.code_offset as usize..(entry.code_offset + entry.code_length) as usize
         }))
     {
-        let code = vm
-            .code
-            .get(range)
-            .ok_or_else(|| invalid_bytecode("invalid executable range"))?;
+        let code = vm.code.get(range).ok_or_else(|| {
+            invalid_bytecode(smol_str::SmolStr::new_static("invalid executable range"))
+        })?;
         let mut pc = 0usize;
         while pc < code.len() {
             budget.charge(0, 1)?;
             let opcode = code[pc];
-            let width = super::super::opcode_operand_len(opcode)
-                .ok_or_else(|| invalid_bytecode("unsupported executable opcode"))?;
+            let width = super::super::opcode_operand_len(opcode).ok_or_else(|| {
+                invalid_bytecode(smol_str::SmolStr::new_static(
+                    "unsupported executable opcode",
+                ))
+            })?;
             let next = pc
                 .checked_add(1 + width)
                 .filter(|end| *end <= code.len())
-                .ok_or_else(|| invalid_bytecode("truncated executable instruction"))?;
+                .ok_or_else(|| {
+                    invalid_bytecode(smol_str::SmolStr::new_static(
+                        "truncated executable instruction",
+                    ))
+                })?;
             if opcode == 0x09 {
                 let operand = |offset: usize| {
                     u32::from_le_bytes(
@@ -86,16 +92,18 @@ pub(super) fn check_imports(
                     ..
                 } = spec
                 else {
-                    return Err(invalid_bytecode("invalid native import descriptor"));
+                    return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+                        "invalid native import descriptor",
+                    )));
                 };
                 let receiver_count = usize::from(matches!(
                     kind,
                     NATIVE_CALL_KIND_FUNCTION_BLOCK | NATIVE_CALL_KIND_METHOD
                 ));
                 if arg_specs.len() + receiver_count != operand(8) as usize {
-                    return Err(invalid_bytecode(
+                    return Err(invalid_bytecode(smol_str::SmolStr::new_static(
                         "native argument descriptor count mismatch",
-                    ));
+                    )));
                 }
                 match kind {
                     NATIVE_CALL_KIND_STDLIB => {
@@ -106,12 +114,16 @@ pub(super) fn check_imports(
                             && !time::is_split_name(name)
                         {
                             return Err(RuntimeError::ProfileUnsupported(
-                                "unsupported native standard-function import".into(),
+                                smol_str::SmolStr::new_static(
+                                    "unsupported native standard-function import",
+                                ),
                             ));
                         }
                         if time::is_runtime_clock_name(name) {
                             if !arg_specs.is_empty() {
-                                return Err(invalid_bytecode("clock import takes no arguments"));
+                                return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+                                    "clock import takes no arguments",
+                                )));
                             }
                         } else if let Some(params) = time::split_parameter_names(name) {
                             let params = crate::stdlib::StdParams::Fixed(
@@ -123,30 +135,36 @@ pub(super) fn check_imports(
                                 .zip(arg_specs)
                                 .any(|(position, arg)| *position != 0 && !arg.is_target)
                             {
-                                return Err(invalid_bytecode(
+                                return Err(invalid_bytecode(smol_str::SmolStr::new_static(
                                     "native output requires a writable target",
-                                ));
+                                )));
                             }
                         } else if conversion_spec.is_some() {
                             check_arguments(
-                                &crate::stdlib::StdParams::Fixed(alloc::vec!["IN".into()]),
+                                &crate::stdlib::StdParams::Fixed(alloc::vec!["IN".into()].into()),
                                 arg_specs,
                                 budget,
                             )?;
                         } else if let Some(entry) = registry.get(name) {
-                            check_arguments(&entry.params, arg_specs, budget)?;
+                            check_arguments(entry.params, arg_specs, budget)?;
                         }
                         wall_clock |= name == "CURRENT_DT";
                     }
                     NATIVE_CALL_KIND_FUNCTION => {
                         if resolved_function_pou_id.is_none() {
-                            return Err(invalid_bytecode("unresolved native function import"));
+                            return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+                                "unresolved native function import",
+                            )));
                         }
                     }
                     // Receiver identity and dynamic interface dispatch remain checked
                     // at execution. Static template contracts are checked below.
                     NATIVE_CALL_KIND_FUNCTION_BLOCK | NATIVE_CALL_KIND_METHOD => {}
-                    _ => return Err(invalid_bytecode("unsupported native call kind")),
+                    _ => {
+                        return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+                            "unsupported native call kind",
+                        )))
+                    }
                 }
             }
             pc = next;
@@ -194,20 +212,32 @@ fn check_builtin_state(
         .filter(|entry| entry.owner_pou_id == Some(pou) && entry.role == StorageRole::NativeState)
         .collect();
     if actual.len() != expected.len() {
-        return Err(invalid_bytecode("native FB state layout mismatch"));
+        return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+            "native FB state layout mismatch",
+        )));
     }
     for (name, primitive) in expected {
         let entry = actual
             .iter()
             .find(|entry| vm.strings[entry.name_idx as usize].as_str() == *name)
-            .ok_or_else(|| invalid_bytecode("missing native FB state slot"))?;
+            .ok_or_else(|| {
+                invalid_bytecode(smol_str::SmolStr::new_static(
+                    "missing native FB state slot",
+                ))
+            })?;
         let ty = entry
             .type_id
             .and_then(|id| crate::vm::type_policy::resolved_alias_type(&vm.types, id, 0))
             .and_then(|id| vm.types.entries.get(id as usize))
-            .ok_or_else(|| invalid_bytecode("untyped native FB state slot"))?;
+            .ok_or_else(|| {
+                invalid_bytecode(smol_str::SmolStr::new_static(
+                    "untyped native FB state slot",
+                ))
+            })?;
         if !matches!(&ty.data,TypeData::Primitive{prim_id,max_length:0} if *prim_id==*primitive) {
-            return Err(invalid_bytecode("native FB state slot type mismatch"));
+            return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+                "native FB state slot type mismatch",
+            )));
         }
     }
     Ok(())
@@ -280,11 +310,13 @@ fn check_builtin_parameters(
             ("ET", 1, duration),
         ],
     };
-    let params = vm
-        .pou_params(pou)
-        .ok_or_else(|| invalid_bytecode("missing native FB signature"))?;
+    let params = vm.pou_params(pou).ok_or_else(|| {
+        invalid_bytecode(smol_str::SmolStr::new_static("missing native FB signature"))
+    })?;
     if params.len() != expected.len() {
-        return Err(invalid_bytecode("native FB signature arity mismatch"));
+        return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+            "native FB signature arity mismatch",
+        )));
     }
     for (name, direction, ty) in expected {
         budget.charge(
@@ -297,11 +329,15 @@ fn check_builtin_parameters(
         let param = params
             .iter()
             .find(|param| param.name.eq_ignore_ascii_case(name))
-            .ok_or_else(|| invalid_bytecode("native FB signature name mismatch"))?;
+            .ok_or_else(|| {
+                invalid_bytecode(smol_str::SmolStr::new_static(
+                    "native FB signature name mismatch",
+                ))
+            })?;
         if param.direction != *direction || primitive(vm, param.type_id) != Some(*ty) {
-            return Err(invalid_bytecode(
+            return Err(invalid_bytecode(smol_str::SmolStr::new_static(
                 "native FB signature type or direction mismatch",
-            ));
+            )));
         }
     }
     Ok(())
@@ -329,17 +365,20 @@ fn check_arguments(
         } => (fixed, fixed.len() + *min, Some((prefix, *start))),
     };
     if args.len() < minimum || (variadic.is_none() && args.len() != minimum) {
-        return Err(invalid_bytecode("native signature argument count mismatch"));
+        return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+            "native signature argument count mismatch",
+        )));
     }
     if args.iter().all(|arg| arg.name.is_none()) {
         return Ok((0..args.len()).collect());
     }
     let mut positions = Vec::with_capacity(args.len());
     for arg in args {
-        let name = arg
-            .name
-            .as_ref()
-            .ok_or_else(|| invalid_bytecode("mixed positional and named native arguments"))?;
+        let name = arg.name.as_ref().ok_or_else(|| {
+            invalid_bytecode(smol_str::SmolStr::new_static(
+                "mixed positional and named native arguments",
+            ))
+        })?;
         budget.charge(
             0,
             fixed
@@ -354,24 +393,33 @@ fn check_arguments(
         {
             index
         } else {
-            let (prefix, start) =
-                variadic.ok_or_else(|| invalid_bytecode("unknown native parameter"))?;
+            let (prefix, start) = variadic.ok_or_else(|| {
+                invalid_bytecode(smol_str::SmolStr::new_static("unknown native parameter"))
+            })?;
             if !name
                 .get(..prefix.len())
                 .is_some_and(|head| head.eq_ignore_ascii_case(prefix))
             {
-                return Err(invalid_bytecode("unknown variadic parameter"));
+                return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+                    "unknown variadic parameter",
+                )));
             }
             let index = name
                 .get(prefix.len()..)
                 .and_then(|suffix| suffix.parse::<usize>().ok())
                 .and_then(|index| index.checked_sub(start))
                 .and_then(|index| index.checked_add(fixed.len()))
-                .ok_or_else(|| invalid_bytecode("invalid variadic parameter index"))?;
+                .ok_or_else(|| {
+                    invalid_bytecode(smol_str::SmolStr::new_static(
+                        "invalid variadic parameter index",
+                    ))
+                })?;
             index
         };
         if position >= args.len() || positions.contains(&position) {
-            return Err(invalid_bytecode("sparse or duplicate native parameters"));
+            return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+                "sparse or duplicate native parameters",
+            )));
         }
         positions.push(position);
     }

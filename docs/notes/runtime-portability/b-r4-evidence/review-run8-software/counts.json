@@ -1,0 +1,14 @@
+{
+  "native-tools": {
+    "groups": 3,
+    "passed": 91
+  },
+  "native-bundle": {
+    "groups": 1,
+    "passed": 2
+  },
+  "provenance-helper-tests": {
+    "groups": 1,
+    "passed": 4
+  }
+}

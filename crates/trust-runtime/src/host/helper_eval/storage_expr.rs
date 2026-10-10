@@ -494,7 +494,7 @@ fn eval_call(
                 profile,
                 current_instance,
                 stdlib,
-                &entry.params,
+                entry.params,
                 args,
             )?
         } else {
@@ -504,7 +504,7 @@ fn eval_call(
     }
 
     if conversions::is_conversion_name(key.as_str()) {
-        let params = StdParams::Fixed(vec![SmolStr::new("IN")]);
+        let params = StdParams::Fixed(vec![SmolStr::new("IN")].into());
         let values = if has_named {
             bind_stdlib_named_args(
                 storage,

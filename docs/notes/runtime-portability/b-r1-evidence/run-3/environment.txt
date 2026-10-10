@@ -1,0 +1,38 @@
+[gate-progress state=started phase=B-R1-environment target=scena-rust-builder pid=1490170 elapsed=0.0s timeout=7200s command='bash -c '"'"'hostname; pwd; date -u +%FT%TZ; git rev-parse HEAD; rustc -Vv; cargo -V; rustup target list --installed; nproc; free -h; df -h "$CARGO_TARGET_DIR" "$TMPDIR" .; ps -eo pid,etimes,args | grep -E "[c]argo|[r]ustc|[c]lippy|[n]pm"; printf "RUSTUP_TOOLCHAIN=%s\nRUSTFLAGS=%s\nCARGO_TARGET_DIR=%s\nCARGO_BUILD_JOBS=%s\nTMPDIR=%s\n" "$RUSTUP_TOOLCHAIN" "$RUSTFLAGS" "$CARGO_TARGET_DIR" "$CARGO_BUILD_JOBS" "$TMPDIR"'"'"'']
+scena-rust-builder
+/home/johannes/projects/trust-platform-portability-b
+2026-10-10T17:06:28Z
+df427259cc387a7a79fb81132be23e48ea1493d4
+rustc 1.95.0 (59807616e 2026-04-14)
+binary: rustc
+commit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860
+commit-date: 2026-04-14
+host: x86_64-unknown-linux-gnu
+release: 1.95.0
+LLVM version: 22.1.2
+cargo 1.95.0 (f2d3ce0bd 2026-03-21)
+i686-unknown-linux-musl
+riscv32imac-unknown-none-elf
+thumbv7em-none-eabihf
+x86_64-pc-windows-gnu
+x86_64-unknown-linux-gnu
+16
+               total        used        free      shared  buff/cache   available
+Mem:            30Gi       1.6Gi       9.1Gi        21Mi        20Gi        29Gi
+Swap:           15Gi       195Mi        15Gi
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sdb        492G  363G  104G  78% /mnt/HC_Volume_107089260
+/dev/sdb        492G  363G  104G  78% /mnt/HC_Volume_107089260
+/dev/sda1       301G  261G   27G  91% /
+1489250     100 flock --close -x /home/johannes/.cache/codex-target-leases/1d371c6c31e6194e6a6e5626b1a987f6f179f3527e260f451c2c0e8de026cd58.lock scripts/cargo_test_fast_link.sh test --release -p trust-control-studio --test control_studio_d5_acceptance --no-run
+1489256     100 /home/johannes/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo test --release -p trust-control-studio --test control_studio_d5_acceptance --no-run
+1489756      28 sccache /home/johannes/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name trust_control_studio --edition=2021 crates/trust-control-studio/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C linker-plugin-lto -C codegen-units=1 --forbid=unsafe_code --warn=clippy::pedantic --warn=clippy::all --check-cfg cfg(docsrs,test) --check-cfg cfg(feature, values()) -C metadata=24ae7649ff6a1f63 -C extra-filename=-30b4632632d0cd5d --out-dir /home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps -C strip=debuginfo -L dependency=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps --extern clap=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libclap-0ff4e2bf7b7e1b74.rmeta --extern parking_lot=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libparking_lot-16ade83622ea4f13.rmeta --extern rustc_hash=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/librustc_hash-c9ed463f0f84dc67.rmeta --extern serde=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libserde-7332d2a0c40ec052.rmeta --extern serde_json=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libserde_json-59bd7a7aa8f750df.rmeta --extern sha2=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libsha2-6ea045329c208ec3.rmeta --extern signal_hook=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libsignal_hook-52b127e12e8d3171.rmeta --extern trust_control=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libtrust_control-3c6021713e312a4a.rmeta --extern trust_runtime_client=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libtrust_runtime_client-72866ff9c7c3eefd.rmeta -C link-arg=-fuse-ld=mold
+1489852      28 /home/johannes/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name trust_control_studio --edition=2021 crates/trust-control-studio/src/lib.rs --error-format json --json diagnostic-rendered-ansi,artifacts,future-incompat --crate-type rlib --emit dep-info,metadata,link -C opt-level=3 -C linker-plugin-lto -C codegen-units=1 --forbid unsafe_code --warn clippy::pedantic --warn clippy::all --check-cfg cfg(docsrs,test) --check-cfg cfg(feature, values()) -C metadata=24ae7649ff6a1f63 -C extra-filename=-30b4632632d0cd5d --out-dir /home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps -C strip=debuginfo -L dependency=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps --extern clap=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libclap-0ff4e2bf7b7e1b74.rmeta --extern parking_lot=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libparking_lot-16ade83622ea4f13.rmeta --extern rustc_hash=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/librustc_hash-c9ed463f0f84dc67.rmeta --extern serde=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libserde-7332d2a0c40ec052.rmeta --extern serde_json=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libserde_json-59bd7a7aa8f750df.rmeta --extern sha2=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libsha2-6ea045329c208ec3.rmeta --extern signal_hook=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libsignal_hook-52b127e12e8d3171.rmeta --extern trust_control=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libtrust_control-3c6021713e312a4a.rmeta --extern trust_runtime_client=/home/johannes/.cache/codex-targets/trust-hmi-builder/release/deps/libtrust_runtime_client-72866ff9c7c3eefd.rmeta -C link-arg=-fuse-ld=mold
+1490169       0 python3 scripts/run_with_progress.py --phase B-R1-environment --target scena-rust-builder --timeout-seconds 7200 --progress-interval-seconds 30 --log /home/johannes/.cache/trust-portability-b-evidence/run-3/environment.txt -- bash -c hostname; pwd; date -u +%FT%TZ; git rev-parse HEAD; rustc -Vv; cargo -V; rustup target list --installed; nproc; free -h; df -h "$CARGO_TARGET_DIR" "$TMPDIR" .; ps -eo pid,etimes,args | grep -E "[c]argo|[r]ustc|[c]lippy|[n]pm"; printf "RUSTUP_TOOLCHAIN=%s\nRUSTFLAGS=%s\nCARGO_TARGET_DIR=%s\nCARGO_BUILD_JOBS=%s\nTMPDIR=%s\n" "$RUSTUP_TOOLCHAIN" "$RUSTFLAGS" "$CARGO_TARGET_DIR" "$CARGO_BUILD_JOBS" "$TMPDIR"
+1490170       0 bash -c hostname; pwd; date -u +%FT%TZ; git rev-parse HEAD; rustc -Vv; cargo -V; rustup target list --installed; nproc; free -h; df -h "$CARGO_TARGET_DIR" "$TMPDIR" .; ps -eo pid,etimes,args | grep -E "[c]argo|[r]ustc|[c]lippy|[n]pm"; printf "RUSTUP_TOOLCHAIN=%s\nRUSTFLAGS=%s\nCARGO_TARGET_DIR=%s\nCARGO_BUILD_JOBS=%s\nTMPDIR=%s\n" "$RUSTUP_TOOLCHAIN" "$RUSTFLAGS" "$CARGO_TARGET_DIR" "$CARGO_BUILD_JOBS" "$TMPDIR"
+RUSTUP_TOOLCHAIN=1.95.0
+RUSTFLAGS=-Dwarnings
+CARGO_TARGET_DIR=/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b
+CARGO_BUILD_JOBS=6
+TMPDIR=/mnt/HC_Volume_107089260/builder-storage/tmp/portability-b
+[gate-progress state=finished phase=B-R1-environment target=scena-rust-builder pid=1490170 elapsed=0.1s timeout=7200s command='bash -c '"'"'hostname; pwd; date -u +%FT%TZ; git rev-parse HEAD; rustc -Vv; cargo -V; rustup target list --installed; nproc; free -h; df -h "$CARGO_TARGET_DIR" "$TMPDIR" .; ps -eo pid,etimes,args | grep -E "[c]argo|[r]ustc|[c]lippy|[n]pm"; printf "RUSTUP_TOOLCHAIN=%s\nRUSTFLAGS=%s\nCARGO_TARGET_DIR=%s\nCARGO_BUILD_JOBS=%s\nTMPDIR=%s\n" "$RUSTUP_TOOLCHAIN" "$RUSTFLAGS" "$CARGO_TARGET_DIR" "$CARGO_BUILD_JOBS" "$TMPDIR"'"'"'' status=0]

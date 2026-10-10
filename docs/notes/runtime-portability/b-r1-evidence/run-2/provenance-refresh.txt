@@ -1,0 +1,34 @@
+[gate-progress state=started phase=B-R1-provenance-refresh target=scena-rust-builder pid=1135213 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b bash scripts/refresh_a4_provenance.sh /home/johannes/.cache/trust-portability-b-evidence/run-2/provenance']
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling version_check v0.9.5
+   Compiling serde_core v1.0.228
+   Compiling quote v1.0.45
+   Compiling typenum v1.20.0
+   Compiling zmij v1.0.21
+   Compiling serde v1.0.228
+   Compiling winnow v1.0.2
+   Compiling generic-array v0.14.7
+   Compiling serde_json v1.0.149
+   Compiling thiserror v2.0.18
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling cfg-if v1.0.4
+   Compiling itoa v1.0.18
+   Compiling syn v2.0.117
+   Compiling memchr v2.8.0
+   Compiling cpufeatures v0.2.17
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling serde_spanned v1.1.1
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_derive v1.0.228
+   Compiling verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/verification-cases)
+    Finished `dev` profile [unoptimized] target(s) in 4.13s
+     Running `/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/debug/examples/refresh_portability_provenance /home/johannes/.cache/trust-portability-b-evidence/run-2/provenance`
+updated verification/mutation-program.toml
+[gate-progress state=finished phase=B-R1-provenance-refresh target=scena-rust-builder pid=1135213 elapsed=4.8s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b bash scripts/refresh_a4_provenance.sh /home/johannes/.cache/trust-portability-b-evidence/run-2/provenance' status=0]

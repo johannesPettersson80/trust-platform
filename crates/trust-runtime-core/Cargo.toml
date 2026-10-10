@@ -9,11 +9,11 @@ rust-version.workspace = true
 
 [features]
 default = ["std"]
-std = ["crc32fast/std", "indexmap/std", "rustc-hash/std", "smol_str/std", "thiserror/std"]
+std = ["dep:crc32fast", "crc32fast/std", "indexmap/std", "rustc-hash/std", "smol_str/std", "thiserror/std"]
 hir = ["std", "dep:trust-hir"]
 
 [dependencies]
-crc32fast.workspace = true
+crc32fast = { workspace = true, optional = true }
 indexmap.workspace = true
 libm.workspace = true
 rustc-hash.workspace = true
@@ -22,4 +22,5 @@ thiserror.workspace = true
 trust-hir = { workspace = true, optional = true }
 
 [dev-dependencies]
+crc32fast.workspace = true
 verification-cases.workspace = true

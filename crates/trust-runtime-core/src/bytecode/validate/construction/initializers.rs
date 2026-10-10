@@ -373,14 +373,14 @@ fn validate_coverage(
         construction.initializers,
         &construction.paths,
     );
-    budget.sort_by(ranges, |a, b, _| Ok(a.cmp(b)))?;
+    budget.sort_by(ranges, &mut |a, b, _| Ok(a.cmp(b)))?;
     for pair in ranges.windows(2) {
         budget.work(1)?;
         if pair[1].0 < pair[0].1 {
             return Err(RejectionReason::InitializerCodeRange.into());
         }
     }
-    budget.sort_by(declarations, |a, b, _| Ok(a.cmp(b)))?;
+    budget.sort_by(declarations, &mut |a, b, _| Ok(a.cmp(b)))?;
     for pair in declarations.windows(2) {
         budget.work(1)?;
         if pair[0] == pair[1] {

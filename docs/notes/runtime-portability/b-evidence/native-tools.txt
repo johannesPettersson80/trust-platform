@@ -1,0 +1,37 @@
+   Compiling quote v1.0.45
+   Compiling serde_core v1.0.228
+   Compiling proc-macro2 v1.0.106
+   Compiling typenum v1.20.0
+   Compiling winnow v1.0.2
+   Compiling crc32fast v1.5.0
+   Compiling serde v1.0.228
+   Compiling object v0.37.3
+   Compiling serde_json v1.0.149
+   Compiling memchr v2.8.0
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling generic-array v0.14.7
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling trust-platform-stm32f4 v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-platform-stm32f4)
+   Compiling digest v0.10.7
+   Compiling syn v2.0.117
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling sha2 v0.10.9
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling serde_derive v1.0.228
+   Compiling xtask v0.24.71 (/home/johannes/projects/trust-platform-portability-b/xtask)
+error: couldn't read `xtask/src/portability/../../../../crates/trust-runtime/tests/fixtures/portability/stbc-2.0/expected-a4-trace.csv`: No such file or directory (os error 2)
+   --> xtask/src/portability/trace.rs:440:26
+    |
+440 |     const ORACLE: &str = include_str!("../../../../crates/trust-runtime/tests/fixtures/portability/stbc-2.0/expected-a4-trace.csv");
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+help: there is a file with the same name in a different directory
+    |
+440 -     const ORACLE: &str = include_str!("../../../../crates/trust-runtime/tests/fixtures/portability/stbc-2.0/expected-a4-trace.csv");
+440 +     const ORACLE: &str = include_str!("../../../crates/trust-runtime/tests/fixtures/portability/stbc-2.0/expected-a4-trace.csv");
+    |
+
+error: could not compile `xtask` (bin "xtask" test) due to 1 previous error

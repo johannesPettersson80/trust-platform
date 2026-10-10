@@ -3,6 +3,26 @@ use super::*;
 use crate::error::RuntimeError;
 
 impl VariableStorage {
+    /// Reserve activation metadata before RUN, including initializer result frames.
+    pub fn reserve_execution_frames(&mut self, capacity: usize) -> Result<(), RuntimeError> {
+        if capacity < self.execution_frames.len() {
+            return Err(RuntimeError::InvalidExecutionState);
+        }
+        self.execution_frames.reserve_capacity(capacity)?;
+        self.execution_frame_limit = Some(capacity);
+        Ok(())
+    }
+
+    /// Bytes reserved for the complete live-frame metadata array, excluding locals.
+    pub fn execution_frame_reservation_charge(capacity: usize) -> Option<usize> {
+        capacity.checked_mul(core::mem::size_of::<(FrameId, Option<Vec<Value>>)>())
+    }
+
+    /// Live entries scanned or shifted by arbitrary frame removal.
+    pub fn execution_frame_count(&self) -> usize {
+        self.execution_frames.len()
+    }
+
     /// Reserve a live identity without reusing one from a completed activation.
     pub fn reserve_execution_frame(&mut self) -> Result<FrameId, RuntimeError> {
         let next = self
@@ -10,8 +30,14 @@ impl VariableStorage {
             .checked_add(1)
             .ok_or(RuntimeError::Overflow)?;
         let id = FrameId(self.next_frame_id);
+        if self
+            .execution_frame_limit
+            .is_some_and(|limit| self.execution_frames.len() >= limit)
+        {
+            return Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error());
+        }
+        self.execution_frames.try_append(id, None)?;
         self.next_frame_id = next;
-        self.execution_frames.insert(id, None);
         Ok(id)
     }
 

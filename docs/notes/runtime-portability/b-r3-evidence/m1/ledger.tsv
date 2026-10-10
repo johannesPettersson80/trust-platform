@@ -1,0 +1,13 @@
+step	class	status	exit	start	end
+environment	required	PASS	0	2026-10-10T19:04:23Z	2026-10-10T19:04:23Z
+preflight	required	PASS	0	-	-
+canonical-parity	required	PASS	0	2026-10-10T19:04:23Z	2026-10-10T19:04:23Z
+staged-index	required	PASS	0	2026-10-10T19:04:23Z	2026-10-10T19:04:23Z
+format-prepare	required	PASS	0	2026-10-10T19:04:23Z	2026-10-10T19:04:30Z
+unsafe-location-refresh	required	PASS	0	2026-10-10T19:04:30Z	2026-10-10T19:04:30Z
+provenance-refresh	advisory	PASS	0	2026-10-10T19:04:30Z	2026-10-10T19:04:31Z
+fixture-inputs	required	PASS	0	2026-10-10T19:04:31Z	2026-10-10T19:04:31Z
+lock-parity	required	PASS	0	2026-10-10T19:04:31Z	2026-10-10T19:04:31Z
+freeze-source	required	PASS	0	2026-10-10T19:04:31Z	2026-10-10T19:04:31Z
+freeze-context	required	PASS	0	2026-10-10T19:04:31Z	2026-10-10T19:04:31Z
+include-format-prepare	required	PASS	0	2026-10-10T19:06:02Z	2026-10-10T19:06:02Z

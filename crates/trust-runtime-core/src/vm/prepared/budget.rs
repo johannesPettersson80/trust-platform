@@ -74,7 +74,11 @@ impl PreparationBudget {
     ) -> Result<(), RuntimeError> {
         let strings = match raw.section(SectionId::StringTable) {
             Some(SectionData::StringTable(v)) => v,
-            _ => return Err(invalid_bytecode("missing STRING_TABLE")),
+            _ => {
+                return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+                    "missing STRING_TABLE",
+                )))
+            }
         };
         for section in &raw.sections {
             self.charge(0, 1)?;
@@ -205,34 +209,35 @@ impl PreparationBudget {
             if entry.kind == PouKind::Method {
                 self.map::<u32, u32>(1)?;
             }
-            // infer_primary_instance_owner visits this actual body and
-            // may retain one owner set entry for each reference opcode.
+            // Owner inference visits this body with scalar state and no owner set.
             let Some(SectionData::PouBodies(code)) = raw.section(SectionId::PouBodies) else {
-                return Err(invalid_bytecode("missing POU_BODIES"));
+                return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+                    "missing POU_BODIES",
+                )));
             };
             let end = entry
                 .code_offset
                 .checked_add(entry.code_length)
                 .ok_or(RuntimeError::Overflow)? as usize;
-            let body = code
-                .get(entry.code_offset as usize..end)
-                .ok_or_else(|| invalid_bytecode("invalid POU body range"))?;
+            let body = code.get(entry.code_offset as usize..end).ok_or_else(|| {
+                invalid_bytecode(smol_str::SmolStr::new_static("invalid POU body range"))
+            })?;
             let mut pc = 0usize;
-            let mut references = 0usize;
             while pc < body.len() {
                 self.charge(0, 1)?;
                 let opcode = body[pc];
-                let width = crate::vm::opcode_operand_len(opcode)
-                    .ok_or_else(|| invalid_bytecode("invalid POU opcode"))?;
-                if matches!(opcode, 0x20..=0x22) {
-                    references += 1;
-                }
+                let width = crate::vm::opcode_operand_len(opcode).ok_or_else(|| {
+                    invalid_bytecode(smol_str::SmolStr::new_static("invalid POU opcode"))
+                })?;
                 pc = pc
                     .checked_add(width + 1)
                     .filter(|next| *next <= body.len())
-                    .ok_or_else(|| invalid_bytecode("invalid POU instruction extent"))?;
+                    .ok_or_else(|| {
+                        invalid_bytecode(smol_str::SmolStr::new_static(
+                            "invalid POU instruction extent",
+                        ))
+                    })?;
             }
-            self.map::<u32, ()>(references)?;
             if let Some(class) = &entry.class_meta {
                 if class.parent_pou_id.is_some() {
                     self.map::<u32, u32>(1)?;
@@ -261,19 +266,22 @@ impl PreparationBudget {
             let address = strings
                 .entries
                 .get(binding.address_str_idx as usize)
-                .ok_or_else(|| invalid_bytecode("missing I/O address"))?;
+                .ok_or_else(|| {
+                    invalid_bytecode(smol_str::SmolStr::new_static("missing I/O address"))
+                })?;
             self.charge(0, address.len())?;
             self.records::<u32>(address.bytes().filter(|byte| *byte == b'.').count() + 1)?;
             if let Some(mut id) = binding.type_id {
                 let Some(SectionData::TypeTable(types)) = raw.section(SectionId::TypeTable) else {
-                    return Err(invalid_bytecode("missing TYPE_TABLE"));
+                    return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+                        "missing TYPE_TABLE",
+                    )));
                 };
                 for _ in 0..=BYTECODE_MAX_CONST_NESTING {
                     self.charge(0, 1)?;
-                    let entry = types
-                        .entries
-                        .get(id as usize)
-                        .ok_or_else(|| invalid_bytecode("invalid I/O type"))?;
+                    let entry = types.entries.get(id as usize).ok_or_else(|| {
+                        invalid_bytecode(smol_str::SmolStr::new_static("invalid I/O type"))
+                    })?;
                     match &entry.data {
                         TypeData::Alias { target_type_id } => id = *target_type_id,
                         TypeData::Subrange { base_type_id, .. } => id = *base_type_id,
@@ -292,12 +300,6 @@ impl PreparationBudget {
         Ok(())
     }
 
-    pub(crate) fn remaining_bytes(&self) -> usize {
-        self.limits.max_preparation_bytes - self.usage.bytes
-    }
-    pub(crate) fn remaining_work(&self) -> usize {
-        self.limits.max_preparation_work - self.usage.work
-    }
     pub(crate) fn usage(&self) -> PreparationUsage {
         self.usage
     }

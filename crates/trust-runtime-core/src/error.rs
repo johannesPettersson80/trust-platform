@@ -2,6 +2,7 @@
 
 #![allow(missing_docs)]
 
+#[cfg(feature = "std")]
 use alloc::string::ToString;
 use smol_str::SmolStr;
 use thiserror::Error;
@@ -10,6 +11,9 @@ use crate::datetime::DateTimeCalcError;
 use crate::value::DateTimeError;
 
 pub use crate::error_code::StableErrorCode;
+
+mod preparation;
+pub use preparation::PreparationDiagnostic;
 
 /// Runtime errors for evaluation and execution.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -213,6 +217,14 @@ pub enum RuntimeError {
         detail: SmolStr,
     },
 
+    /// Structured portable decode/validation error, rendered only on request.
+    #[error("invalid bytecode '{0}'")]
+    BytecodeCause(crate::bytecode::BytecodeError),
+
+    /// Structured portable execution-metadata rejection.
+    #[error("invalid bytecode '{0}'")]
+    PreparationDiagnostic(PreparationDiagnostic),
+
     /// Thread spawn error.
     #[error("thread spawn error '{0}'")]
     ThreadSpawn(SmolStr),
@@ -332,6 +344,8 @@ impl RuntimeError {
             Self::InvalidBytecodeMetadata(_) => StableErrorCode::RuntimeInvalidBytecodeMetadata,
             Self::InvalidBytecode(_) => StableErrorCode::RuntimeInvalidBytecode,
             Self::Bytecode { code, .. } => *code,
+            Self::BytecodeCause(cause) => cause.stable_code(),
+            Self::PreparationDiagnostic(_) => StableErrorCode::VmBytecodeDecode,
             Self::ThreadSpawn(_) => StableErrorCode::RuntimeThreadSpawn,
             Self::WatchdogTimeout => StableErrorCode::RuntimeWatchdogTimeout,
             Self::RestartLimitExceeded { .. } => StableErrorCode::RuntimeRestartLimitExceeded,
@@ -349,8 +363,17 @@ impl RuntimeError {
 }
 
 impl From<crate::bytecode::BytecodeError> for RuntimeError {
+    #[cold]
+    #[inline(never)]
     fn from(error: crate::bytecode::BytecodeError) -> Self {
-        Self::bytecode(error.stable_code(), error.to_string())
+        #[cfg(feature = "std")]
+        {
+            Self::bytecode(error.stable_code(), error.to_string())
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            Self::BytecodeCause(error)
+        }
     }
 }
 
@@ -649,13 +672,20 @@ mod tests {
     fn runtime_error_conversions_preserve_committed_boundaries() {
         let source = BytecodeError::InvalidHeader("section count".into());
         let source_detail = source.to_string();
-        let converted = RuntimeError::from(source);
+        let converted = RuntimeError::from(source.clone());
+        #[cfg(feature = "std")]
         assert_eq!(
             converted,
             RuntimeError::Bytecode {
                 code: StableErrorCode::BytecodeInvalidHeader,
-                detail: source_detail.into(),
+                detail: source_detail.clone().into(),
             }
+        );
+        #[cfg(not(feature = "std"))]
+        assert_eq!(converted, RuntimeError::BytecodeCause(source));
+        assert_eq!(
+            converted.to_string(),
+            alloc::format!("invalid bytecode '{source_detail}'")
         );
         assert_eq!(
             converted.stable_code(),

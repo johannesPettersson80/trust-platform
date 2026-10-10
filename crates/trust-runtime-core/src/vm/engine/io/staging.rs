@@ -14,7 +14,21 @@ enum OutputPatch {
 impl EngineState<'_> {
     pub(in crate::vm::engine) fn sample_input_image(&mut self) -> Result<(), RuntimeError> {
         let prepared = self.prepared;
+        self.charge_work_units(prepared.io_bindings.len())?;
+        let count = prepared
+            .io_bindings
+            .iter()
+            .filter(|binding| matches!(binding.address.area, IoArea::Input | IoArea::Memory))
+            .count();
+        self.charge_allocation_bytes(
+            count
+                .checked_mul(size_of::<(ValueRef, Value)>())
+                .ok_or(RuntimeError::Overflow)?,
+        )?;
         let mut writes = Vec::new();
+        writes
+            .try_reserve_exact(count)
+            .map_err(|_| RuntimeError::Overflow)?;
         for binding in &prepared.io_bindings {
             self.charge_work_units(1)?;
             if !matches!(binding.address.area, IoArea::Input | IoArea::Memory) {
@@ -29,18 +43,12 @@ impl EngineState<'_> {
                 Some(ty) => self.normalize_assignment_value(ty, value)?,
                 None => value,
             };
-            self.charge_allocation_bytes(size_of::<(ValueRef, Value)>())?;
-            writes
-                .try_reserve_exact(1)
-                .map_err(|_| RuntimeError::Overflow)?;
             writes.push((reference, value));
         }
         // Admitted I/O codecs produce scalars or byte strings, never instance or
         // reference roots, so these physical destinations cannot redirect each other.
-        let saved = self.snapshot_destinations(
-            None,
-            writes.iter().map(|(reference, _)| reference.as_view()),
-        )?;
+        let saved = self
+            .snapshot_input_destinations(writes.iter().map(|(reference, _)| reference.as_view()))?;
         for (reference, value) in writes {
             let result = self
                 .charge_storage_path_write(
@@ -65,7 +73,21 @@ impl EngineState<'_> {
 
     pub(in crate::vm::engine) fn publish_output_image(&mut self) -> Result<(), RuntimeError> {
         let prepared = self.prepared;
+        self.charge_work_units(prepared.io_bindings.len())?;
+        let count = prepared
+            .io_bindings
+            .iter()
+            .filter(|binding| matches!(binding.address.area, IoArea::Output | IoArea::Memory))
+            .count();
+        self.charge_allocation_bytes(
+            count
+                .checked_mul(size_of::<OutputPatch>())
+                .ok_or(RuntimeError::Overflow)?,
+        )?;
         let mut patches = Vec::new();
+        patches
+            .try_reserve_exact(count)
+            .map_err(|_| RuntimeError::Overflow)?;
         let mut hierarchical_count = 0usize;
         for binding in &prepared.io_bindings {
             self.charge_work_units(1)?;
@@ -91,10 +113,6 @@ impl EngineState<'_> {
             } else {
                 self.encode_flat_patch(&binding.address, value)?
             };
-            self.charge_allocation_bytes(size_of::<OutputPatch>())?;
-            patches
-                .try_reserve_exact(1)
-                .map_err(|_| RuntimeError::Overflow)?;
             patches.push(patch);
         }
         self.images

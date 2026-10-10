@@ -98,6 +98,9 @@ impl VmTrap {
     }
 
     /// Convert the VM trap into the public runtime error contract.
+    /// Rendering and failure-only moves stay outside recursive execution frames.
+    #[cold]
+    #[inline(never)]
     pub fn into_runtime_error(self) -> RuntimeError {
         let code = self.stable_code();
         match self {
@@ -156,6 +159,13 @@ impl VmTrap {
             Self::BytecodeDecode(message) => RuntimeError::bytecode(code, message),
         }
     }
+}
+
+/// Preserve the field-opcode diagnostic without formatting inside the scan loop.
+#[cold]
+#[inline(never)]
+pub(super) fn invalid_field_string_index(index: u32) -> RuntimeError {
+    VmTrap::BytecodeDecode(format!("invalid index {index} for string").into()).into_runtime_error()
 }
 
 impl From<RuntimeError> for VmTrap {
@@ -265,5 +275,33 @@ mod tests {
             assert_eq!(trap.stable_code(), expected);
             assert_eq!(trap.into_runtime_error().stable_code(), expected);
         }
+    }
+    #[test]
+    fn cold_failure_rendering_keeps_full_field_indices_names_and_saturated_ranges() {
+        use alloc::string::ToString;
+        let error = super::invalid_field_string_index(u32::MAX);
+        assert_eq!(error.stable_code(), StableErrorCode::VmBytecodeDecode);
+        assert_eq!(
+            error.to_string(),
+            "invalid bytecode 'invalid index 4294967295 for string'"
+        );
+        let error = VmTrap::MissingProgram("long_application_program_name_kept_in_full".into())
+            .into_runtime_error();
+        assert_eq!(
+            error.stable_code(),
+            StableErrorCode::RuntimeUndefinedProgram
+        );
+        assert_eq!(
+            error.to_string(),
+            "undefined program 'long_application_program_name_kept_in_full'"
+        );
+        let error = VmTrap::InvalidLocalRef {
+            ref_index: u32::MAX,
+            start: u32::MAX - 1,
+            count: 9,
+        }
+        .into_runtime_error();
+        assert_eq!(error.stable_code(), StableErrorCode::BytecodeInvalidIndex);
+        assert_eq!(error.to_string(), "invalid bytecode 'vm invalid local ref 4294967295 (frame local range 4294967294..4294967295)'");
     }
 }

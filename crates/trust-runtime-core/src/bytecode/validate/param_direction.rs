@@ -17,8 +17,8 @@ pub(super) fn validate_param_direction_metadata(
     for param in &entry.params {
         budget.work(1)?;
         if !matches!(param.direction, 0..=2) {
-            return Err(BytecodeError::InvalidSection(
-                format!("invalid parameter direction {}", param.direction).into(),
+            return Err(BytecodeError::section_diagnostic(
+                SectionDiagnostic::ParameterDirection(param.direction),
             ));
         }
     }
@@ -127,8 +127,8 @@ fn validate_arg_shape_for_param(
             .get(param.name_idx as usize)
             .map(|name| name.as_str())
             .unwrap_or("<invalid>");
-        return Err(BytecodeError::InvalidSection(
-            format!("parameter '{param_name}' requires target argument").into(),
+        return Err(BytecodeError::section_diagnostic(
+            SectionDiagnostic::ParameterTarget(param_name.into()),
         ));
     }
     Ok(())

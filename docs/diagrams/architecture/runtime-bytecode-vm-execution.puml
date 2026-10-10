@@ -122,7 +122,7 @@ note right of instructionBudget
 end note
 
 package "Shared Core Runtime Bridges" as bridgePkg #Lavender {
-    component "call.rs\nCALL_NATIVE dispatch +\nargument binding + output copy-back" as callBridge
+    component "call/mod.rs + continuation.rs\nshared call preparation/completion\nbinding + edge/output restoration" as callBridge
     component "dispatch_refs.rs\nref / deref / dynamic field-index bridge" as refBridge
     component "reference_attempt.rs\n?= live type/interface compatibility" as attemptBridge
     component "frames.rs + stack.rs\nframe stack + operand stacks\n(pooled execution buffers)" as vmStacks
@@ -134,7 +134,8 @@ package "Shared Core Runtime Bridges" as bridgePkg #Lavender {
     stackExec --> refBridge : ref opcodes
     stackExec --> attemptBridge : REFERENCE_ATTEMPT 0x64
     vmEntry --> vmStacks
-    callBridge --> vmStacks : recursive VM calls
+    callBridge --> vmStacks : owned call continuation
+    stackExec --> vmStacks : push / finish / unwind in one loop
     callBridge --> storage : direct field bind / instance reads-writes
     refBridge --> storage : ValueRef-based reads-writes
     attemptBridge --> refBridge : live ValueRef type
@@ -146,7 +147,8 @@ note bottom of callBridge
     - VM native-call argument marshaling
     - FUNCTION_BLOCK parameter binding
     - OUT / IN_OUT copy-back
-    - recursive VM POU execution
+    - iterative stack-VM calls
+    - synchronous hosted optimized adapter
 end note
 
 note bottom of refBridge
@@ -178,6 +180,34 @@ package "Source-free execution (trust-runtime-core)" as portableEngine #LightGre
         retain checkpoint, then output publication.
         A failed restart never publishes its candidate state.
         This diagram is architecture, not hardware qualification.
+    end note
+}
+
+package "Scope B composition: NUCLEO-F401RE" as f401Composition #Wheat {
+    artifact "Independent flash sector 1\nTRSTB002 bundle: A4 main + numeric + GPIO\nlengths and CRCs checked before preparation" as f401Bundle
+    component "firmware/trust-nucleo-f401re\nsingle-owner runner + supervisor\nbounded heap and MSP instrumentation\nL2: code sectors 4–7; checkpoint reserves 2/3" as f401Runner
+    component "trust-platform-stm32f4::Board\nTIM2 monotonic, PC13 sample, PA5 publication\nUSART2, IWDG, reset cookie, identity" as f401Board
+    artifact "Bounded UART trace\nxtask portability verify / inspect\nlogical oracle versus physical observations" as f401Evidence
+    node "STM32F401RE / MB1136\nactual GPIO IDR, hardware time and reset flags" as f401Device
+
+    sourceFreeArtifact --> f401Bundle : stopped bench installation
+    f401Bundle --> f401Runner : independently installed bytes
+    f401Runner --> prepared : source-free admission; no compiler/HIR
+    f401Runner --> portableState : sample image, execute cycle, read committed output
+    f401Runner ..> services : physical deadline adapter; no UTC or retain store
+    f401Runner --> f401Board : publish or safe-off; feed only after accepted work
+    f401Board --> f401Runner : physical input / IDR readback / timer / reset evidence
+    f401Board --> f401Device : owned HAL/PAC peripherals
+    f401Runner --> f401Evidence
+    note bottom of f401Runner
+        Separate firmware workspace composes the same core, not another VM.
+        Core never imports the board adapter; platform has no runtime dependency.
+        SysTick records IRQ activity only; it never executes PLC work.
+        Injected input-image cases remain distinct from physical PC13 samples.
+        72 KiB heap and 16 KiB MSP are bring-up reservations, not fit results.
+        B-R1 keeps all IEC operations and admission checks; shared compact CRC,
+        byte-input preparation without re-encoding, and static default-library metadata.
+        Source/diagrams do not establish hardware, timing or bounded-RUN acceptance.
     end note
 }
 
@@ -249,7 +279,7 @@ legend right
     3. The VM hot path is the combination of:
        - register_ir.rs
        - dispatch.rs
-       - call.rs
+       - call/mod.rs + call/continuation.rs
        - dispatch_refs.rs
        - memory.rs
     4. `helper_eval` handles const/debug/config/init helpers only.
@@ -258,4 +288,22 @@ legend right
     7. Remaining evaluator internals are test-only and are not part of the runtime scan-loop architecture.
 end legend
 
+note as FootprintDetails
+Structured admission diagnostics retain reasons/context;
+text rendering is deferred. Shared compact keys and sorting
+preserve identities, ordering and the uniform PLC function set.
+F401 sector 0 contains vectors and bounded immutable firmware data;
+application/checkpoint erase sectors remain independent.
+Upper-region headroom and total flash use are reported separately.
+Live frames use sorted identities; portable instances use compact live entries.
+Existing variable hash indexes replace duplicate portable name caches.
+Sorted destination journals preserve alias rollback; charged retirement completes
+cleanup even when execution fuel is exhausted.
+Bulk input journals sort/deduplicate physical slots before snapshotting.
+Observed deadline expiry stays latched through cleanup until operation reset.
+Compiled PLC calls use explicit VM continuations with isolated operand floors;
+shared prepare/complete helpers preserve bindings, edges and error cleanup.
+Firmware fixture phases keep independent native frames and stop on failed stack margin.
+Prepared-module control owners live in the measured bring-up heap before instantiation.
+end note
 @enduml

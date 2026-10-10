@@ -1,0 +1,4 @@
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sdb        492G  363G  104G  78% /mnt/HC_Volume_107089260
+/dev/sdb        492G  363G  104G  78% /mnt/HC_Volume_107089260
+/dev/sda1       301G  265G   24G  92% /

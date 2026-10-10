@@ -1,0 +1,6 @@
+{
+  "m1/firmware.map": "bbbb44505304181e2593f11c16b2a7ad6ff93c14f4045c462e59b98bb7300dac",
+  "m1/footprint.json": "a8df60259b0a16e0aa1704bb51642c41a1f453dddf7bfc47060899dfd12aedb7",
+  "final/measurement/firmware.map": "8e309b32489157aabc4ac3986a1f8a5b2d2adf9ee2a708c41c745022b874ccb0",
+  "final/measurement/footprint.json": "eb42fbb466240fd10f0035d9434f0da16db9a1066e332acde09f900096fbb5cd"
+}

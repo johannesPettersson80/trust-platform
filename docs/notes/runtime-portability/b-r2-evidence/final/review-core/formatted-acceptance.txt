@@ -1,0 +1,2 @@
+Root compared every collection/cold-error formatting diff against the independently reviewed preformat source. Only rustfmt whitespace, layout, trailing commas and use/mod ordering changed. Existing HardFault inventory line changed133to144 matching formatted declaration. All409 frozen paths match local source. Native assertions unchanged by preparation.
+Manifest SHA230f05c6020e90a8d08be922a913b1d03758dfd70c64a9086e78f26c6571847b.

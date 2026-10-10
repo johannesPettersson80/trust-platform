@@ -13,6 +13,8 @@
 
 extern crate alloc;
 
+mod sort;
+
 #[cfg(all(test, not(feature = "std")))]
 extern crate std;
 
@@ -20,6 +22,8 @@ extern crate std;
 pub mod bytecode;
 /// Portable insertion-ordered collection aliases.
 pub mod collections;
+/// Shared CRC-32/ISO-HDLC wire checksum, with a compact no_std implementation.
+pub mod crc32;
 /// Portable cycle scheduling helpers.
 pub mod cycle;
 /// Portable date/time calculation helpers.

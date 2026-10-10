@@ -1,0 +1,1 @@
+bash /home/johannes/.cache/trust-portability-br3-setup-run2/measure.sh 

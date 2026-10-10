@@ -351,6 +351,6 @@ impl fmt::Display for RejectionReason {
 
 impl From<RejectionReason> for BytecodeError {
     fn from(reason: RejectionReason) -> Self {
-        Self::InvalidSection(reason.message().into())
+        Self::section_diagnostic(super::SectionDiagnostic::Reason(reason))
     }
 }

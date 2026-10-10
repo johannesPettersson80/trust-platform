@@ -1,0 +1,3 @@
+B-R4 run7 all required software gates PASS. Full hosted corpus additionally retained in run4; run7 core and20 affected hosted suites pass.
+Source e1213d088ec94eb0767cc4ad88c4f402218f06df91caaed29d0f670909aa3aff
+ELF f11b73ae4b6138d253df2aeea386c77c4c5e88d6a493b94d581325699e5f7caf

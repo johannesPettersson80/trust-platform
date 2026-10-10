@@ -53,7 +53,7 @@ impl<'a, 'b> Demands<'a, 'b> {
                 .ok_or(RejectionReason::InvalidConstructionRecord)?;
             budget.push(&mut members, (position_in_index, position))?;
         }
-        budget.sort_by(&mut members, |a, b, _| Ok(a.cmp(b)))?;
+        budget.sort_by(&mut members, &mut |a, b, _| Ok(a.cmp(b)))?;
         Ok(Self {
             tables,
             layout,

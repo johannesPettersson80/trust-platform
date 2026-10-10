@@ -1,0 +1,41 @@
+{
+  "reviewer": "/root/br1_collections_sort",
+  "files": [
+    {
+      "path": "m1/measurement/firmware.map",
+      "sha256": "481b2f8413858795e15ca2496822db757cff297140261f6d8a0303c35314478a"
+    },
+    {
+      "path": "m1/measurement/firmware.elf",
+      "sha256": "f9563acca93a647fa4e7fa90074d7bf8625be0b7fb057a4d0f0a632c9d65dfef"
+    },
+    {
+      "path": "m1/measurement/footprint.json",
+      "sha256": "3e9aad7911f3771390028b2bc5b897ae303c2686a279a1b8644ccc4da5bfdf13"
+    },
+    {
+      "path": "m2/measurement/firmware.map",
+      "sha256": "912363b559ff1300f7a41d28a1b2b85365b1182c5fa1290039e859d6ec5bf9be"
+    },
+    {
+      "path": "m2/measurement/firmware.elf",
+      "sha256": "8eeb3b96893c1c0d116d1d6de8c5ea07970e68563659bbeb259e346de62f3176"
+    },
+    {
+      "path": "m2/measurement/footprint.json",
+      "sha256": "77f13bec4aa9c79c5927a7a9dcfd73189d7a3a0ddd64e4c9a47b7f56856df23f"
+    },
+    {
+      "path": "m2/measurement/ledger.tsv",
+      "sha256": "e96ab4e2e5bf2a357e6d9cbc53b57df06591f474b5253554b07a625e02568837"
+    },
+    {
+      "path": "m2/measurement/build-config.json",
+      "sha256": "851a7d8e9133d11e6c1e6844e6eeb4210634ff9464075b13058d07df91be8ec2"
+    },
+    {
+      "path": "m2/formatted-source-manifest.json",
+      "sha256": "a27301e8e9b8d89f9db9b34329508a0274c93b44b04c56768a122b0f8703cf28"
+    }
+  ]
+}

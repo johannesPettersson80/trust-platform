@@ -75,6 +75,7 @@ mod identity_tests {
     }
 }
 
+#[cfg(feature = "std")]
 use crate::collections::LookupMap as FxHashMap;
 use crate::collections::OrderedMap as IndexMap;
 use crate::value::{
@@ -82,6 +83,7 @@ use crate::value::{
     RefSegment, Value, ValueRef,
 };
 use alloc::vec::Vec;
+#[cfg(feature = "std")]
 use cache::StorageCache as RwLock;
 use smol_str::SmolStr;
 
@@ -116,12 +118,16 @@ struct RecursiveInstanceFieldResolution {
 pub struct VariableStorage {
     globals: IndexMap<SmolStr, Value>,
     frames: Vec<LocalFrame>,
-    execution_frames: FxHashMap<FrameId, Option<Vec<Value>>>,
-    instances: FxHashMap<InstanceId, InstanceData>,
+    execution_frames: live::LiveEntries<FrameId, Option<Vec<Value>>>,
+    execution_frame_limit: Option<usize>,
+    instances: InstanceMap,
     retain: IndexMap<SmolStr, Value>,
+    #[cfg(feature = "std")]
     instance_field_offsets: RwLock<FxHashMap<(InstanceId, SmolStr), Option<usize>>>,
+    #[cfg(feature = "std")]
     recursive_instance_field_resolutions:
         RwLock<FxHashMap<(InstanceId, SmolStr), RecursiveInstanceFieldResolution>>,
+    #[cfg(feature = "std")]
     declared_instance_field_offsets: RwLock<FxHashMap<(SmolStr, SmolStr), usize>>,
     next_frame_id: u32,
     next_instance_id: u32,
@@ -133,18 +139,22 @@ impl Clone for VariableStorage {
             globals: self.globals.clone(),
             frames: self.frames.clone(),
             execution_frames: self.execution_frames.clone(),
+            execution_frame_limit: self.execution_frame_limit,
             instances: self.instances.clone(),
             retain: self.retain.clone(),
+            #[cfg(feature = "std")]
             instance_field_offsets: RwLock::new(
                 recover_read_lock(self.instance_field_offsets.read())
                     .map(|cache| cache.clone())
                     .unwrap_or_default(),
             ),
+            #[cfg(feature = "std")]
             recursive_instance_field_resolutions: RwLock::new(
                 recover_read_lock(self.recursive_instance_field_resolutions.read())
                     .map(|cache| cache.clone())
                     .unwrap_or_default(),
             ),
+            #[cfg(feature = "std")]
             declared_instance_field_offsets: RwLock::new(
                 recover_read_lock(self.declared_instance_field_offsets.read())
                     .map(|cache| cache.clone())
@@ -156,8 +166,16 @@ impl Clone for VariableStorage {
     }
 }
 
+#[cfg(feature = "std")]
 use cache::recover_read_lock;
+#[cfg(feature = "std")]
 mod cache;
+mod live;
+
+#[cfg(feature = "std")]
+pub type InstanceMap = FxHashMap<InstanceId, InstanceData>;
+#[cfg(not(feature = "std"))]
+pub type InstanceMap = live::LiveEntries<InstanceId, InstanceData>;
 
 mod access;
 mod execution_frames;
@@ -168,3 +186,6 @@ mod storage;
 
 #[cfg(all(test, feature = "std"))]
 mod tests;
+
+#[cfg(test)]
+mod live_tests;

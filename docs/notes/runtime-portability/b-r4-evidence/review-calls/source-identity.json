@@ -1,0 +1,15 @@
+{
+  "crates/trust-runtime-core/src/vm/call/continuation.rs": "50305d2c0013f648c5088572d91195f53c49e88715eceb00f7e7dd4f29b6b825",
+  "crates/trust-runtime-core/src/vm/call/mod.rs": "85a7a1c2f5ff18489ab566e8b68668de0d6d9fe050c2cc81ee756198e94b0aaf",
+  "crates/trust-runtime-core/src/vm/context.rs": "27a0d121d4a94b35d2c19fd6290fd67fd9b9708fa3b465e55d89ee85624f841c",
+  "crates/trust-runtime-core/src/vm/dispatch.rs": "524446f8c64f669907386a7a5b3edb84d24b031f757b30f3f8cfd7ec73406c1b",
+  "crates/trust-runtime-core/src/vm/dispatch/continuation.rs": "2f82f94cc3246332adae4da347fb60753ff3445cacfffed876722318db3ddf8a",
+  "crates/trust-runtime-core/src/vm/edge.rs": "cb5ea8f157d91bf7868154710d5a60a3c66f2af1a14dd7c41cce5f152601e190",
+  "crates/trust-runtime-core/src/vm/engine/context.rs": "cd1ec72d5f89ed6fb054d9ea8d966f4b7e8b481aab0d1684c39c365fc851cc37",
+  "crates/trust-runtime-core/src/vm/engine/continuation_tests.rs": "9ea71eb76456e0d3e6a22a2cd2726ffecd10fbba7bb907025df8984281519629",
+  "crates/trust-runtime-core/src/vm/engine/mod.rs": "1ed024bbdd452e2d37361d193dc984c073818eef485f0bc0d7bc57be541d7ffe",
+  "crates/trust-runtime-core/src/vm/frames.rs": "2b5eb8d01ce24f4e3607bfababd7250d6dfb7af0f5d9227ed2e30f03c1bf0d72",
+  "crates/trust-runtime-core/src/vm/stack.rs": "b26b17eadad2191032ad5148a30787774cb755581d7d59d168708d76ca170245",
+  "crates/trust-runtime/src/runtime/vm/dispatch.rs": "ed608fb984ef1f89847df0fe9216063053188d48d03ab7c71add484bb5eea359",
+  "crates/trust-runtime/tests/source_free_execution_cost.rs": "673e7749d226d8993430d6fd6b5931df3e1ca04d07b43bfa9f2ab418ca76ac61"
+}

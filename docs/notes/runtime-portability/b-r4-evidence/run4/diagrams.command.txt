@@ -1,0 +1,1 @@
+bash scripts/render_diagrams.sh 

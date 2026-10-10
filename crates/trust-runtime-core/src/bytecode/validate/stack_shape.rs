@@ -550,11 +550,9 @@ pub(super) fn pop_stack_shape(
     stack: &mut Vec<StackShape>,
     opcode: u8,
 ) -> Result<StackShape, BytecodeError> {
-    stack.pop().ok_or_else(|| {
-        BytecodeError::InvalidSection(
-            format!("operand stack underflow while decoding opcode 0x{opcode:02X}").into(),
-        )
-    })
+    stack
+        .pop()
+        .ok_or_else(|| BytecodeError::section_diagnostic(SectionDiagnostic::StackUnderflow(opcode)))
 }
 
 pub(super) fn const_stack_shape(

@@ -1,0 +1,14 @@
+[package]
+name = "trust-platform-stm32f4"
+description = "Thin NUCLEO-F401RE hardware adapter for the shared truST engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[target.'cfg(all(target_arch = "arm", target_os = "none"))'.dependencies]
+stm32f4xx-hal = { version = "=0.23.0", default-features = false, features = ["stm32f401"] }
+stm32f4 = { version = "=0.16.0", default-features = false, features = ["stm32f401", "critical-section", "rt"] }
+cortex-m = { version = "=0.7.7", features = ["critical-section-single-core"] }
+embedded-hal-nb = "=1.0.0"
+nb = "=1.1.0"

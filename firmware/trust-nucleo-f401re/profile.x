@@ -1,0 +1,10 @@
+ASSERT(__firmware_fixed_tables_end - __firmware_fixed_tables_start == 512, "expected immutable lookup tables were not selected");
+ASSERT(SIZEOF(.vector_table) <= 16K, "vectors overlap independent application sector");
+ASSERT(__firmware_rodata_start >= ADDR(.vector_table) + SIZEOF(.vector_table), "firmware constants overlap vectors");
+ASSERT(__firmware_rodata_start % ALIGNOF(.firmware_rodata) == 0, "immutable firmware data alignment mismatch");
+ASSERT(__firmware_rodata_end <= 0x08004000, "sector-0 firmware constants overlap application");
+ASSERT(ADDR(.text) >= 0x08010000, "firmware overlaps application/checkpoint sectors");
+ASSERT(__sheap <= _stack_end, "static data and 72KiB heap exceed 80KiB budget");
+ASSERT(_stack_start - _stack_end == 16K, "MSP reservation changed");
+__firmware_load_end = MAX(__veneer_limit, MAX(__erodata, SIZEOF(.data) == 0 ? __erodata : LOADADDR(.data) + SIZEOF(.data)));
+ASSERT(__firmware_load_end <= 0x08080000, "firmware load image exceeds L2 code region");

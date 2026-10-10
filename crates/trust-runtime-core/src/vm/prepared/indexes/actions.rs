@@ -15,23 +15,29 @@ impl PreparedIndexes {
             .try_reserve_exact(count)
             .map_err(|_| RuntimeError::Overflow)?;
         self.explicit_actions.resize(count, false);
-        let mut explicit = BTreeMap::new();
+        let mut explicit = Vec::new();
+        budget.records::<(u32, u8, u8)>(count)?;
+        explicit
+            .try_reserve_exact(count)
+            .map_err(|_| RuntimeError::Overflow)?;
         for entry in &initializers.entries {
             budget.charge(0, 1)?;
             if entry.is_action() && entry.stage == InitializationStage::Explicit {
                 if let Some(declaration) = entry.declaration_idx {
-                    budget.map::<(u32, u8, u8), ()>(1)?;
-                    explicit.insert((declaration, entry.phase as u8, entry.trigger as u8), ());
+                    explicit.push((declaration, entry.phase as u8, entry.trigger as u8));
                 }
             }
         }
+        sort::sort_by(&mut explicit, budget, &mut |a, b, _| Ok(a.cmp(b)))?;
         for (id, entry) in initializers.entries.iter().enumerate() {
             budget.charge(0, lookup_work(explicit.len()))?;
             if !entry.is_action() {
                 continue;
             }
             self.explicit_actions[id] = entry.declaration_idx.is_some_and(|declaration| {
-                explicit.contains_key(&(declaration, entry.phase as u8, entry.trigger as u8))
+                explicit
+                    .binary_search(&(declaration, entry.phase as u8, entry.trigger as u8))
+                    .is_ok()
             });
             let id = u32::try_from(id).map_err(|_| RuntimeError::Overflow)?;
             push_group(
@@ -64,6 +70,8 @@ impl PreparedIndexes {
                 }
             }
         }
+        self.actions.finish(budget)?;
+        self.instance_actions.finish(budget)?;
         Ok(())
     }
 }

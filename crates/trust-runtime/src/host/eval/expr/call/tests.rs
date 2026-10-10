@@ -5,7 +5,10 @@ use crate::stdlib::StdParams;
 use crate::value::{DateTimeProfile, Duration, Value};
 use trust_hir::types::TypeRegistry;
 
-fn make_context<'a>(storage: &'a mut VariableStorage, registry: &'a TypeRegistry) -> EvalContext<'a> {
+fn make_context<'a>(
+    storage: &'a mut VariableStorage,
+    registry: &'a TypeRegistry,
+) -> EvalContext<'a> {
     EvalContext {
         storage,
         registry,
@@ -39,7 +42,7 @@ fn bind_stdlib_named_args_rejects_unnamed_arg_without_panic() {
     let mut storage = VariableStorage::new();
     let registry = TypeRegistry::new();
     let mut ctx = make_context(&mut storage, &registry);
-    let params = StdParams::Fixed(vec!["IN".into()]);
+    let params = StdParams::Fixed(vec!["IN".into()].into());
     let args = vec![unnamed_literal_arg(Value::Int(1))];
 
     let result = bind_stdlib_named_args(&mut ctx, &params, &args);

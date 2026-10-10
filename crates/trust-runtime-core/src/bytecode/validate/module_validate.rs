@@ -16,7 +16,11 @@ impl BytecodeModuleView<'_> {
         validate_container_records(self, &mut budget)?;
         let strings = match self.section(SectionId::StringTable) {
             Some(SectionData::StringTable(table)) => table,
-            _ => return Err(BytecodeError::MissingSection("STRING_TABLE".into())),
+            _ => {
+                return Err(BytecodeError::MissingSection(
+                    smol_str::SmolStr::new_static("STRING_TABLE"),
+                ))
+            }
         };
         let debug_strings = match self.section(SectionId::DebugStringTable) {
             Some(SectionData::DebugStringTable(table)) => Some(table),
@@ -24,23 +28,43 @@ impl BytecodeModuleView<'_> {
         };
         let types = match self.section(SectionId::TypeTable) {
             Some(SectionData::TypeTable(table)) => table,
-            _ => return Err(BytecodeError::MissingSection("TYPE_TABLE".into())),
+            _ => {
+                return Err(BytecodeError::MissingSection(
+                    smol_str::SmolStr::new_static("TYPE_TABLE"),
+                ))
+            }
         };
         let const_pool = match self.section(SectionId::ConstPool) {
             Some(SectionData::ConstPool(pool)) => pool,
-            _ => return Err(BytecodeError::MissingSection("CONST_POOL".into())),
+            _ => {
+                return Err(BytecodeError::MissingSection(
+                    smol_str::SmolStr::new_static("CONST_POOL"),
+                ))
+            }
         };
         let ref_table = match self.section(SectionId::RefTable) {
             Some(SectionData::RefTable(table)) => table,
-            _ => return Err(BytecodeError::MissingSection("REF_TABLE".into())),
+            _ => {
+                return Err(BytecodeError::MissingSection(
+                    smol_str::SmolStr::new_static("REF_TABLE"),
+                ))
+            }
         };
         let pou_index = match self.section(SectionId::PouIndex) {
             Some(SectionData::PouIndex(index)) => index,
-            _ => return Err(BytecodeError::MissingSection("POU_INDEX".into())),
+            _ => {
+                return Err(BytecodeError::MissingSection(
+                    smol_str::SmolStr::new_static("POU_INDEX"),
+                ))
+            }
         };
         let pou_bodies = match self.section(SectionId::PouBodies) {
             Some(SectionData::PouBodies(bodies)) => bodies,
-            _ => return Err(BytecodeError::MissingSection("POU_BODIES".into())),
+            _ => {
+                return Err(BytecodeError::MissingSection(
+                    smol_str::SmolStr::new_static("POU_BODIES"),
+                ))
+            }
         };
         let var_meta = match self.section(SectionId::VarMeta) {
             Some(SectionData::VarMeta(meta)) => Some(meta),
@@ -48,11 +72,19 @@ impl BytecodeModuleView<'_> {
         };
         let resource_meta = match self.section(SectionId::ResourceMeta) {
             Some(SectionData::ResourceMeta(meta)) => meta,
-            _ => return Err(BytecodeError::MissingSection("RESOURCE_META".into())),
+            _ => {
+                return Err(BytecodeError::MissingSection(
+                    smol_str::SmolStr::new_static("RESOURCE_META"),
+                ))
+            }
         };
         let io_map = match self.section(SectionId::IoMap) {
             Some(SectionData::IoMap(map)) => map,
-            _ => return Err(BytecodeError::MissingSection("IO_MAP".into())),
+            _ => {
+                return Err(BytecodeError::MissingSection(
+                    smol_str::SmolStr::new_static("IO_MAP"),
+                ))
+            }
         };
 
         budget.work(pou_index.entries.len())?;
@@ -79,8 +111,8 @@ impl BytecodeModuleView<'_> {
             } = entry.data
             {
                 if self.version.major != 2 || max_length != 0 {
-                    return Err(BytecodeError::InvalidSection(
-                        "generic native state requires STBC 2.0".into(),
+                    return Err(BytecodeError::section_static(
+                        "generic native state requires STBC 2.0",
                     ));
                 }
             }
@@ -107,12 +139,20 @@ impl BytecodeModuleView<'_> {
         if self.version.major == 2 {
             let aliases = match self.section(SectionId::AccessBindings) {
                 Some(SectionData::AccessBindings(aliases)) => aliases,
-                _ => return Err(BytecodeError::MissingSection("ACCESS_BINDINGS".into())),
+                _ => {
+                    return Err(BytecodeError::MissingSection(
+                        smol_str::SmolStr::new_static("ACCESS_BINDINGS"),
+                    ))
+                }
             };
             tables.index_declarations(construction::sections(self)?.0, aliases, &mut budget)?;
             tables.initializers = match self.section(SectionId::Initializers) {
                 Some(SectionData::Initializers(index)) => Some(index),
-                _ => return Err(BytecodeError::MissingSection("INITIALIZERS".into())),
+                _ => {
+                    return Err(BytecodeError::MissingSection(
+                        smol_str::SmolStr::new_static("INITIALIZERS"),
+                    ))
+                }
             };
         }
         let mut instruction_count = 0;
@@ -136,7 +176,9 @@ impl BytecodeModuleView<'_> {
         }
         if let Some(SectionData::DebugMap(debug_map)) = self.section(SectionId::DebugMap) {
             if self.version.uses_extended_layout() && debug_strings.is_none() {
-                return Err(BytecodeError::MissingSection("DEBUG_STRING_TABLE".into()));
+                return Err(BytecodeError::MissingSection(
+                    smol_str::SmolStr::new_static("DEBUG_STRING_TABLE"),
+                ));
             }
             let file_strings = debug_strings.unwrap_or(strings);
             validate_debug_map(file_strings, &tables, debug_map, &mut budget)?;
@@ -165,12 +207,13 @@ fn validate_container_records(
         });
     }
     if module.version.major == 2 && module.flags != crate::bytecode::HEADER_FLAG_CRC32 {
-        return Err(BytecodeError::InvalidHeader(
-            "STBC 2.0 requires CRC32 and no reserved flags".into(),
-        ));
+        return Err(BytecodeError::InvalidHeader(smol_str::SmolStr::new_static(
+            "STBC 2.0 requires CRC32 and no reserved flags",
+        )));
     }
-    u16::try_from(module.sections.len())
-        .map_err(|_| BytecodeError::InvalidHeader("section count overflow".into()))?;
+    u16::try_from(module.sections.len()).map_err(|_| {
+        BytecodeError::InvalidHeader(smol_str::SmolStr::new_static("section count overflow"))
+    })?;
     // A source-built module has not passed the decoder. Validate discriminants and extents here.
     let mut ids = 0u32;
     for section in module.sections {
@@ -202,9 +245,9 @@ fn validate_container_records(
             SectionData::AccessBindings(_) => Some(SectionId::AccessBindings),
             SectionData::Raw(bytes) => {
                 if bytes.len() > crate::bytecode::BYTECODE_MAX_CONTAINER_BYTES {
-                    return Err(BytecodeError::InvalidHeader(
-                        "encoded container exceeds fixed resource limit".into(),
-                    ));
+                    return Err(BytecodeError::InvalidHeader(smol_str::SmolStr::new_static(
+                        "encoded container exceeds fixed resource limit",
+                    )));
                 }
                 None
             }
@@ -216,8 +259,8 @@ fn validate_container_records(
         }
         if expected.is_some() {
             if ids & (1u32 << section.id) != 0 {
-                return Err(BytecodeError::InvalidSection(
-                    format!("duplicate standardized section id 0x{:04X}", section.id).into(),
+                return Err(BytecodeError::section_diagnostic(
+                    SectionDiagnostic::DuplicateSection(section.id),
                 ));
             }
             ids |= 1u32 << section.id;

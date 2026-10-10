@@ -1,0 +1,123 @@
+{
+  "reviewer": "/root/br1_static_registry",
+  "verdict": "Hardware acceptance failed; installation proof and partial execution observations retained separately",
+  "proof": "Read-only raw evidence/source reconciliation; no product test, build, link, reset or board command",
+  "files": [
+    {
+      "path": "final-board/application.bin",
+      "sha256": "71cb8c62f8b13462455046cec44e58857cfe82bd33de8ba5c5f996e9258edb61"
+    },
+    {
+      "path": "final-board/artifact-sha256.json",
+      "sha256": "4ab977a3853328e027658fbb9d2b47013ece20718a33ff58298f84f6ebf3a39f"
+    },
+    {
+      "path": "final-board/board-finished.txt",
+      "sha256": "b4513f26d20e97e040a76cad5257f0d266c8487fb749d0e2634402e8ccdf9b6a"
+    },
+    {
+      "path": "final-board/board-started.txt",
+      "sha256": "f57284dcc75d080b9120714e055ca1b65587d1d52d3733fb41e804fee7127891"
+    },
+    {
+      "path": "final-board/capture-exit.txt",
+      "sha256": "ca2ebdf97d7469496b1f4b78958f9dc8447efdcb623953fee7b6996b762f6fff"
+    },
+    {
+      "path": "final-board/checkpoint-after-install.bin",
+      "sha256": "2d864c0b789a43214eee8524d3182075125e5ca2cd527f3582ec87ffd94076bc"
+    },
+    {
+      "path": "final-board/checkpoint-before-install.bin",
+      "sha256": "2d864c0b789a43214eee8524d3182075125e5ca2cd527f3582ec87ffd94076bc"
+    },
+    {
+      "path": "final-board/elf-report.json",
+      "sha256": "ec9a135024ef455f1df3ae48ab732aead1f01590022f65b87b05a60ae42d381d"
+    },
+    {
+      "path": "final-board/firmware-sector0-after-app.bin",
+      "sha256": "f0c7f40c1d8f17f745420826332d47c93744c77975d58b28f4f28d72a9ece737"
+    },
+    {
+      "path": "final-board/firmware-sector0-before-app.bin",
+      "sha256": "f0c7f40c1d8f17f745420826332d47c93744c77975d58b28f4f28d72a9ece737"
+    },
+    {
+      "path": "final-board/firmware-upper-after-app.bin",
+      "sha256": "2698313e15b2bc700bea7f30ce792452583a6ff63a1918b9494155561a73efb8"
+    },
+    {
+      "path": "final-board/firmware-upper-before-app.bin",
+      "sha256": "2698313e15b2bc700bea7f30ce792452583a6ff63a1918b9494155561a73efb8"
+    },
+    {
+      "path": "final-board/firmware.elf",
+      "sha256": "87d622c71fa6f6dab01d13caef9db2671a174f9ccb575b0398d76389b8f61c5b"
+    },
+    {
+      "path": "final-board/installed-application-sector.bin",
+      "sha256": "06ce285f568d6c0aa7061074bd11d8b6758e3cfc15ad51488747af0b5937067b"
+    },
+    {
+      "path": "final-board/installed-sha256.txt",
+      "sha256": "80dbe524fcd4fc284e7a0a1bf7254135f139dc267ebb3ae97b6ac28130183595"
+    },
+    {
+      "path": "final-board/openocd-failure-halt.txt",
+      "sha256": "159c2ef5c538955efa5150ab58a20897e6fc6c5131b48407320a6dcf2fb4e693"
+    },
+    {
+      "path": "final-board/openocd-install.txt",
+      "sha256": "f7319aee7cb22e2a83e7bf962e8a6bdfa41774f9dc137016308b629765683017"
+    },
+    {
+      "path": "final-board/openocd-start.txt",
+      "sha256": "af7a42e19506c8672c880e03f7b7e52cef171acc69046578385fc105972685a0"
+    },
+    {
+      "path": "final-board/preflash-full.bin",
+      "sha256": "df5df0142671f5a96b7b371afef66d595f3b2358cafed651449500e6175b838f"
+    },
+    {
+      "path": "final-board/software-approved.txt",
+      "sha256": "4ed628a14a7390c3baec91c96d5efb7ecd3e8ffe79df6e5e43203aacaef35aa7"
+    },
+    {
+      "path": "final-board/uart-before-reset.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "final-board/uart-capture-stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "final-board/uart-drain-stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "final-board/uart-sha256.txt",
+      "sha256": "e4902385c538e0dc96d17648bb653c7cb056ce22c9079db44d505a15afc57d17"
+    },
+    {
+      "path": "final-board/uart.txt",
+      "sha256": "ec2c27fbbc5a1c25d77a9c972ed0323dd0bd02fdd1e7d62422aae3b25e2cb9ac"
+    },
+    {
+      "path": "run3/ledger.tsv",
+      "sha256": "2ca008283763b12225387cf2d3e647f390bdf04238198948afcac0ede6f8a778"
+    },
+    {
+      "path": "run3/elf-report.json",
+      "sha256": "ec9a135024ef455f1df3ae48ab732aead1f01590022f65b87b05a60ae42d381d"
+    },
+    {
+      "path": "run3/board-trace-verification.txt",
+      "sha256": "b074878521124c9b3f1f3616fc4a5d3f05bb0cea57a996a3505a91085be77d0b"
+    },
+    {
+      "path": "run3/board-trace-verification.command.txt",
+      "sha256": "dd0f3f92e32f5a1cadd641a9ca0a86c4190c72a9370a7506ac3ea70f5d1dcf1a"
+    }
+  ]
+}

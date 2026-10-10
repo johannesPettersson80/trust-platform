@@ -19,6 +19,8 @@ use super::module::{VmModule, VmNativeSymbolSpec};
 use super::stack::OperandStack;
 
 pub(super) mod bindings;
+pub(super) mod continuation;
+use continuation::{NativeCall, PreparedCall};
 pub(super) mod context;
 pub(super) mod stdlib;
 #[cfg(test)]
@@ -62,6 +64,7 @@ pub fn push_call_frame(
 }
 
 /// Dispatch an encoded call through shared binding, lifecycle and native policy hooks.
+#[cfg(feature = "hir")]
 #[allow(clippy::too_many_arguments)]
 pub fn execute_native_call(
     runtime: &mut impl ExecutionContext,
@@ -73,6 +76,37 @@ pub fn execute_native_call(
     symbol_idx: u32,
     arg_count: u32,
 ) -> Result<Value, VmTrap> {
+    let call = prepare_native_call(
+        runtime,
+        module,
+        frame,
+        operand_stack,
+        kind,
+        symbol_idx,
+        arg_count,
+    )?;
+    let result = match call {
+        NativeCall::Immediate(value) => Ok(value),
+        NativeCall::User(call) => {
+            call.execute_sync(runtime, module, frame, caller_depth.saturating_add(1))
+        }
+    };
+    if result.is_ok() && runtime.deadline_exceeded() {
+        return Err(VmTrap::DeadlineExceeded);
+    }
+    result
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn prepare_native_call(
+    runtime: &mut impl ExecutionContext,
+    module: &VmModule,
+    frame: &mut VmFrame,
+    operand_stack: &mut OperandStack,
+    kind: u32,
+    symbol_idx: u32,
+    arg_count: u32,
+) -> Result<NativeCall, VmTrap> {
     if runtime.deadline_exceeded() {
         return Err(VmTrap::DeadlineExceeded);
     }
@@ -141,7 +175,7 @@ pub fn execute_native_call(
         _ => return Err(VmTrap::InvalidNativeCallKind(kind)),
     }
 
-    let result = match kind {
+    match kind {
         NATIVE_CALL_KIND_STDLIB => dispatch_native_stdlib_call(
             runtime,
             frame,
@@ -149,13 +183,13 @@ pub fn execute_native_call(
             normalized_target_name,
             conversion_spec,
             &vm_args,
-        ),
+        )
+        .map(NativeCall::Immediate),
         NATIVE_CALL_KIND_FUNCTION | NATIVE_CALL_KIND_FUNCTION_BLOCK | NATIVE_CALL_KIND_METHOD => {
             dispatch_native_vm_call(
                 runtime,
                 module,
                 frame,
-                caller_depth,
                 kind,
                 target_name,
                 normalized_target_name,
@@ -165,11 +199,7 @@ pub fn execute_native_call(
             )
         }
         _ => Err(VmTrap::InvalidNativeCallKind(kind)),
-    };
-    if result.is_ok() && runtime.deadline_exceeded() {
-        return Err(VmTrap::DeadlineExceeded);
     }
-    result
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -177,20 +207,19 @@ fn dispatch_native_vm_call(
     runtime: &mut impl ExecutionContext,
     module: &VmModule,
     frame: &mut VmFrame,
-    caller_depth: u32,
     kind: u32,
     target_name: &SmolStr,
     normalized_target_name: &SmolStr,
     resolved_function_pou_id: Option<u32>,
     receiver_value: Option<Value>,
     args: &[VmNativeArg],
-) -> Result<Value, VmTrap> {
+) -> Result<NativeCall, VmTrap> {
     match kind {
         NATIVE_CALL_KIND_FUNCTION => {
             let pou_id = resolved_function_pou_id.ok_or_else(|| {
                 VmTrap::Runtime(RuntimeError::UndefinedFunction(target_name.clone()))
             })?;
-            execute_native_vm_pou_call(runtime, module, frame, pou_id, None, caller_depth, args)
+            PreparedCall::function(runtime, module, frame, pou_id, None, args).map(NativeCall::User)
         }
         NATIVE_CALL_KIND_FUNCTION_BLOCK => {
             let Some(Value::Instance(instance_id)) = receiver_value else {
@@ -223,17 +252,17 @@ fn dispatch_native_vm_call(
                     args,
                 )?;
             } else {
-                execute_native_vm_function_block_call(
+                return PreparedCall::function_block(
                     runtime,
                     module,
                     frame,
                     pou_id,
                     instance_id,
-                    caller_depth,
                     args,
-                )?;
+                )
+                .map(NativeCall::User);
             }
-            Ok(Value::Null)
+            Ok(NativeCall::Immediate(Value::Null))
         }
         NATIVE_CALL_KIND_METHOD => {
             let Some(Value::Instance(instance_id)) = receiver_value else {
@@ -257,152 +286,11 @@ fn dispatch_native_vm_call(
                 .ok_or_else(|| {
                     VmTrap::Runtime(RuntimeError::UndefinedField(target_name.clone()))
                 })?;
-            execute_native_vm_pou_call(
-                runtime,
-                module,
-                frame,
-                pou_id,
-                Some(instance_id),
-                caller_depth,
-                args,
-            )
+            PreparedCall::function(runtime, module, frame, pou_id, Some(instance_id), args)
+                .map(NativeCall::User)
         }
         _ => Err(VmTrap::InvalidNativeCallKind(kind)),
     }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn execute_native_vm_pou_call(
-    runtime: &mut impl ExecutionContext,
-    module: &VmModule,
-    caller_frame: &mut VmFrame,
-    pou_id: u32,
-    entry_instance: Option<InstanceId>,
-    caller_depth: u32,
-    args: &[VmNativeArg],
-) -> Result<Value, VmTrap> {
-    let bindings::BoundVmCall {
-        locals: initial_locals,
-        out_bindings,
-        present,
-    } = bind_vm_call_arguments(runtime, module, caller_frame, pou_id, args)?;
-    let capture_return = module.pou_has_return_slot(pou_id);
-    let result = execute_vm_target(
-        runtime,
-        module,
-        caller_frame,
-        pou_id,
-        entry_instance,
-        Some(initial_locals.as_slice()),
-        Some(&present),
-        capture_return,
-        caller_depth.saturating_add(1),
-    )?;
-
-    let mut prepared_outputs = Vec::with_capacity(out_bindings.len());
-    for binding in out_bindings {
-        let value = result
-            .locals
-            .get(binding.slot)
-            .map(|value| {
-                clone_value_with_profile(runtime, value, RegisterValueOpKind::OutputValueClone)
-            })
-            .ok_or_else(|| {
-                VmTrap::InvalidNativeCall(
-                    format!("native call output slot {} out of bounds", binding.slot).into(),
-                )
-            })??;
-        let value = normalize_output_copyback_value(
-            runtime,
-            module,
-            caller_frame,
-            &binding.target,
-            binding.target_type_idx,
-            value,
-        )?;
-        binding.target.check_write(runtime, caller_frame, &value)?;
-        prepared_outputs.push((binding.target, value));
-    }
-    if !prepared_outputs.is_empty() {
-        runtime.with_output_transaction(caller_frame, |runtime, caller_frame| {
-            for (target, value) in prepared_outputs {
-                target.write(runtime, caller_frame, value)?;
-            }
-            Ok(())
-        })?;
-    }
-
-    Ok(result.return_value.unwrap_or(Value::Null))
-}
-
-#[allow(clippy::too_many_arguments)]
-fn execute_native_vm_function_block_call(
-    runtime: &mut impl ExecutionContext,
-    module: &VmModule,
-    caller_frame: &mut VmFrame,
-    pou_id: u32,
-    instance_id: InstanceId,
-    caller_depth: u32,
-    args: &[VmNativeArg],
-) -> Result<(), VmTrap> {
-    runtime.record_call_op(RegisterCallOpKind::FunctionBlockCallEntry);
-    let out_bindings =
-        bind_vm_function_block_arguments(runtime, module, caller_frame, pou_id, instance_id, args)?;
-    let edge_transaction =
-        super::edge::EdgeInputTransaction::begin(runtime, module, pou_id, Some(instance_id))
-            .map_err(VmTrap::Runtime)?;
-    let execution_result = execute_vm_target(
-        runtime,
-        module,
-        caller_frame,
-        pou_id,
-        Some(instance_id),
-        None,
-        None,
-        false,
-        caller_depth.saturating_add(1),
-    );
-    if let Some(edge_transaction) = edge_transaction {
-        edge_transaction.restore(runtime);
-    }
-    execution_result?;
-
-    let mut prepared_outputs = Vec::with_capacity(out_bindings.len());
-    for binding in out_bindings {
-        runtime.record_call_op(RegisterCallOpKind::OutputCopyBack);
-        let value = {
-            let value = binding
-                .source
-                .read_checked(runtime)?
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?;
-            runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
-            let (value, cloned) = materialize_borrowed_value(value);
-            if cloned {
-                runtime.record_value_op(RegisterValueOpKind::OutputValueClone);
-            }
-            value
-        };
-        let value = normalize_output_copyback_value(
-            runtime,
-            module,
-            caller_frame,
-            &binding.target,
-            binding.target_type_idx,
-            value,
-        )?;
-        binding.target.check_write(runtime, caller_frame, &value)?;
-        prepared_outputs.push((binding.target, value));
-    }
-    if !prepared_outputs.is_empty() {
-        runtime.with_output_transaction(caller_frame, |runtime, caller_frame| {
-            for (target, value) in prepared_outputs {
-                target.write(runtime, caller_frame, value)?;
-            }
-            Ok(())
-        })?;
-    }
-
-    Ok(())
 }
 
 fn execute_native_builtin_function_block_call(
@@ -441,7 +329,7 @@ fn execute_native_builtin_function_block_call(
             runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
             let (value, cloned) = materialize_borrowed_value(value);
             if cloned {
-                runtime.record_value_op(RegisterValueOpKind::OutputValueClone);
+                runtime.record_value_op(RegisterValueOpKind::CopyOutput);
             }
             value
         };
@@ -469,6 +357,7 @@ fn native_receiver_count(kind: u32) -> Result<usize, VmTrap> {
 }
 
 /// Preserve caller activation identity while the shared dispatcher runs a callee.
+#[cfg(feature = "hir")]
 #[allow(clippy::too_many_arguments)]
 fn execute_vm_target(
     runtime: &mut impl ExecutionContext,

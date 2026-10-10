@@ -1,0 +1,15 @@
+[gate-progress state=started phase=B-R4-cross-warnings target=scena-rust-builder pid=1703989 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --require-cross']
+[runtime-warning-gate] Host target warning-deny check
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+    Checking trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-ads-core)
+    Checking trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-ads-server)
+    Checking trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime)
+    Finished `dev` profile [unoptimized] target(s) in 26.70s
+[runtime-warning-gate] Windows cross-target warning-deny check (x86_64-pc-windows-gnu)
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+[gate-progress state=running phase=B-R4-cross-warnings target=scena-rust-builder pid=1703989 elapsed=30.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --require-cross']
+    Checking trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-ads-core)
+    Checking trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-ads-server)
+    Checking trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime)
+    Finished `dev` profile [unoptimized] target(s) in 26.41s
+[gate-progress state=finished phase=B-R4-cross-warnings target=scena-rust-builder pid=1703989 elapsed=54.1s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --require-cross' status=0]

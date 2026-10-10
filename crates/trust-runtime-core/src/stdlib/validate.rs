@@ -9,13 +9,13 @@ use crate::value::Value;
 /// Register the shared validate functions in a hosted registry.
 #[cfg(feature = "hir")]
 pub fn register(lib: &mut StandardLibrary) {
-    register_into(lib);
+    lib.register_descriptors(FUNCTIONS);
 }
 
-pub(super) fn register_into(lib: &mut impl super::registration::Registration) {
-    lib.register("IS_VALID", &["IN"], is_valid);
-    lib.register("IS_VALID_BCD", &["IN"], is_valid_bcd);
-}
+pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+    super::registration::descriptor!("IS_VALID", IN, is_valid),
+    super::registration::descriptor!("IS_VALID_BCD", IN, is_valid_bcd),
+];
 
 fn is_valid(args: &[Value]) -> Result<Value, RuntimeError> {
     require_arity(args, 1)?;

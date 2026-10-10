@@ -46,6 +46,8 @@ pub(super) fn string_input(value: &Value) -> Result<&str, RuntimeError> {
     }
 }
 
+// Keep the wide parser: a syntactically valid i128 outside an IEC destination
+// faults with Overflow, while text outside i128 faults with TypeMismatch.
 pub(super) fn parse_int_text(text: &str) -> Result<i128, RuntimeError> {
     let trimmed = text.trim();
     if trimmed.is_empty() {
@@ -98,18 +100,18 @@ pub(super) fn convert_to_char(value: &Value, dst: ConversionType) -> Result<Valu
             }
             Value::String(s) => string_to_char(s.as_str(), false),
             Value::WString(s) => string_to_char(s, false),
-            Value::SInt(v) => numeric_to_char(i128::from(*v), false),
-            Value::Int(v) => numeric_to_char(i128::from(*v), false),
-            Value::DInt(v) => numeric_to_char(i128::from(*v), false),
-            Value::LInt(v) => numeric_to_char(i128::from(*v), false),
-            Value::USInt(v) => numeric_to_char(i128::from(*v), false),
-            Value::UInt(v) => numeric_to_char(i128::from(*v), false),
-            Value::UDInt(v) => numeric_to_char(i128::from(*v), false),
-            Value::ULInt(v) => numeric_to_char(i128::from(*v), false),
-            Value::Byte(v) => numeric_to_char(i128::from(*v), false),
-            Value::Word(v) => numeric_to_char(i128::from(*v), false),
-            Value::DWord(v) => numeric_to_char(i128::from(*v), false),
-            Value::LWord(v) => numeric_to_char(i128::from(*v), false),
+            Value::SInt(v) => numeric_to_char(*v as u64, false),
+            Value::Int(v) => numeric_to_char(*v as u64, false),
+            Value::DInt(v) => numeric_to_char(*v as u64, false),
+            Value::LInt(v) => numeric_to_char(*v as u64, false),
+            Value::USInt(v) => numeric_to_char(*v as u64, false),
+            Value::UInt(v) => numeric_to_char(*v as u64, false),
+            Value::UDInt(v) => numeric_to_char(*v as u64, false),
+            Value::ULInt(v) => numeric_to_char(*v, false),
+            Value::Byte(v) => numeric_to_char(*v as u64, false),
+            Value::Word(v) => numeric_to_char(*v as u64, false),
+            Value::DWord(v) => numeric_to_char(*v as u64, false),
+            Value::LWord(v) => numeric_to_char(*v, false),
             _ => Err(RuntimeError::TypeMismatch),
         },
         ConversionType::WChar => match value {
@@ -117,18 +119,18 @@ pub(super) fn convert_to_char(value: &Value, dst: ConversionType) -> Result<Valu
             Value::Char(c) => Ok(Value::WChar(*c as u16)),
             Value::String(s) => string_to_char(s.as_str(), true),
             Value::WString(s) => string_to_char(s, true),
-            Value::SInt(v) => numeric_to_char(i128::from(*v), true),
-            Value::Int(v) => numeric_to_char(i128::from(*v), true),
-            Value::DInt(v) => numeric_to_char(i128::from(*v), true),
-            Value::LInt(v) => numeric_to_char(i128::from(*v), true),
-            Value::USInt(v) => numeric_to_char(i128::from(*v), true),
-            Value::UInt(v) => numeric_to_char(i128::from(*v), true),
-            Value::UDInt(v) => numeric_to_char(i128::from(*v), true),
-            Value::ULInt(v) => numeric_to_char(i128::from(*v), true),
-            Value::Byte(v) => numeric_to_char(i128::from(*v), true),
-            Value::Word(v) => numeric_to_char(i128::from(*v), true),
-            Value::DWord(v) => numeric_to_char(i128::from(*v), true),
-            Value::LWord(v) => numeric_to_char(i128::from(*v), true),
+            Value::SInt(v) => numeric_to_char(*v as u64, true),
+            Value::Int(v) => numeric_to_char(*v as u64, true),
+            Value::DInt(v) => numeric_to_char(*v as u64, true),
+            Value::LInt(v) => numeric_to_char(*v as u64, true),
+            Value::USInt(v) => numeric_to_char(*v as u64, true),
+            Value::UInt(v) => numeric_to_char(*v as u64, true),
+            Value::UDInt(v) => numeric_to_char(*v as u64, true),
+            Value::ULInt(v) => numeric_to_char(*v, true),
+            Value::Byte(v) => numeric_to_char(*v as u64, true),
+            Value::Word(v) => numeric_to_char(*v as u64, true),
+            Value::DWord(v) => numeric_to_char(*v as u64, true),
+            Value::LWord(v) => numeric_to_char(*v, true),
             _ => Err(RuntimeError::TypeMismatch),
         },
         _ => Err(RuntimeError::TypeMismatch),
@@ -158,12 +160,82 @@ fn string_to_char(text: &str, wide: bool) -> Result<Value, RuntimeError> {
     }
 }
 
-fn numeric_to_char(value: i128, wide: bool) -> Result<Value, RuntimeError> {
+// Signed inputs arrive as their u64 bit patterns. Negative values exceed both
+// character widths, preserving the previous checked-conversion Overflow result.
+fn numeric_to_char(value: u64, wide: bool) -> Result<Value, RuntimeError> {
     if wide {
         let code = u16::try_from(value).map_err(|_| RuntimeError::Overflow)?;
         Ok(Value::WChar(code))
     } else {
         let code = u8::try_from(value).map_err(|_| RuntimeError::Overflow)?;
         Ok(Value::Char(code))
+    }
+}
+
+#[cfg(test)]
+mod width_tests {
+    use super::*;
+
+    #[test]
+    fn character_conversions_preserve_signed_and_unsigned_limits() {
+        for value in [i64::MIN, -1, 0, 1, 255, 256, 65535, 65536, i64::MAX] {
+            assert_eq!(
+                convert_to_char(&Value::LInt(value), ConversionType::Char),
+                u8::try_from(i128::from(value))
+                    .map(Value::Char)
+                    .map_err(|_| RuntimeError::Overflow)
+            );
+            assert_eq!(
+                convert_to_char(&Value::LInt(value), ConversionType::WChar),
+                u16::try_from(i128::from(value))
+                    .map(Value::WChar)
+                    .map_err(|_| RuntimeError::Overflow)
+            );
+        }
+        for value in [0, 255, 256, 65535, 65536, u64::MAX] {
+            assert_eq!(
+                convert_to_char(&Value::ULInt(value), ConversionType::Char),
+                u8::try_from(value)
+                    .map(Value::Char)
+                    .map_err(|_| RuntimeError::Overflow)
+            );
+            assert_eq!(
+                convert_to_char(&Value::ULInt(value), ConversionType::WChar),
+                u16::try_from(value)
+                    .map(Value::WChar)
+                    .map_err(|_| RuntimeError::Overflow)
+            );
+        }
+    }
+
+    #[test]
+    fn retained_wide_text_parser_keeps_radix_sign_and_error_precedence() {
+        for (text, expected) in [
+            ("-9223372036854775808", i64::MIN as i128),
+            ("18446744073709551615", u64::MAX as i128),
+            ("16#-8000_0000_0000_0000", i64::MIN as i128),
+            ("16#FFFF_FFFF_FFFF_FFFF", u64::MAX as i128),
+            ("2#+1010", 10),
+        ] {
+            assert_eq!(parse_int_text(text), Ok(expected));
+        }
+        assert_eq!(
+            super::super::call_conversion(
+                "STRING_TO_ULINT",
+                &[Value::String("18446744073709551616".into())]
+            ),
+            Some(Err(RuntimeError::Overflow))
+        );
+        assert_eq!(
+            super::super::call_conversion(
+                "STRING_TO_ULINT",
+                &[Value::String(
+                    "170141183460469231731687303715884105728".into()
+                )]
+            ),
+            Some(Err(RuntimeError::TypeMismatch))
+        );
+        assert_eq!(parse_int_text("37#1"), Err(RuntimeError::TypeMismatch));
+        assert_eq!(parse_int_text("16#-"), Err(RuntimeError::TypeMismatch));
     }
 }

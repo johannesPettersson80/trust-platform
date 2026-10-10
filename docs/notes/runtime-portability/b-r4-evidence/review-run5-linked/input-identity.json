@@ -1,0 +1,10 @@
+{
+  "frozen_manifest_sha256": "2fb19a24c1d344bf3e991b984a422ba7558314f4eb95ea290a0a77ca263da928",
+  "firmware_sha256": "820b2571053da7dd28caba3d5fafbebc40c82f59211f348926ed71ef895c3871",
+  "files": {
+    "measurement/firmware.map": "f11379dc919fc32b7ac94c418665fe79ecbaf70d5d4bbfcda90630e7a55a5bb6",
+    "measurement/footprint.json": "4f154d64894b9e18398ceb3a27bb3e831c7042369e82a8666d632103a0625f73",
+    "disassembly.txt": "5b17fd84ded96c8f7bdf0c041a7efa697a8388894f0f7c87bc2db00d839378cf",
+    "prologues.txt": "6095fb7b98904fe2a5ca446e82bbba940b96cc60847a279064a7ffc035b373c0"
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "xtask/src/portability/elf.rs": "b84edaff9146c44657fa8147490a5e91724bd14b1defc1caf8dcfe6f3078df9c",
+  "crates/trust-runtime-core/src/stdlib/conversions/string.rs": "d813463c8daa23bf968ba168497cfa65a875d859cc6ecec51aad3c70fe7f2e68"
+}

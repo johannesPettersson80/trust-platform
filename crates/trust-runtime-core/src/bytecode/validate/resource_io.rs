@@ -45,10 +45,12 @@ pub(super) fn validate_resource_meta(
                 )?;
             }
         }
-        budget.sort_by(&mut program_roots, |a, b, budget| {
+        budget.sort_by(&mut program_roots, &mut |a, b, budget| {
             budget.compare_names(a, b)
         })?;
-        budget.sort_by(&mut globals, |a, b, budget| budget.compare_names(a.0, b.0))?;
+        budget.sort_by(&mut globals, &mut |a, b, budget| {
+            budget.compare_names(a.0, b.0)
+        })?;
     }
     for resource in &meta.resources {
         budget.work(1)?;
@@ -94,8 +96,8 @@ pub(super) fn validate_resource_meta(
                         .is_some()
                 };
                 if !exists {
-                    return Err(BytecodeError::InvalidSection(
-                        format!("task references unknown program '{name}'").into(),
+                    return Err(BytecodeError::section_diagnostic(
+                        SectionDiagnostic::UnknownProgram(name.clone()),
                     ));
                 }
             }

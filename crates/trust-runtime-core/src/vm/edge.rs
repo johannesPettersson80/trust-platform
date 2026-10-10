@@ -9,6 +9,7 @@ use crate::value::Value;
 use super::module::VmModule;
 
 /// Original edge inputs saved while a call observes edge-transformed values.
+#[derive(Debug)]
 pub struct EdgeInputTransaction {
     instance_id: InstanceId,
     restores: Vec<(SmolStr, Value)>,

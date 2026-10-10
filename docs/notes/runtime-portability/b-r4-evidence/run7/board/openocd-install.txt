@@ -1,0 +1,48 @@
+Open On-Chip Debugger 0.12.0+dev-snapshot (2026-02-16-16:07)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+srst_only separate srst_nogate srst_open_drain connect_deassert_srst
+Info : STLINK V2J30M19 (API v2) VID:PID 0483:374B
+Info : Target voltage: 3.257143
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+Info : clock speed 1800 kHz
+Info : stlink_dap_op_connect(connect)
+Info : SWD DPIDR 0x2ba01477
+Info : [stm32f4x.cpu] Cortex-M4 r0p1 processor detected
+Info : [stm32f4x.cpu] target has 6 breakpoints, 4 watchpoints
+Info : [stm32f4x.cpu] Examination succeed
+Info : [stm32f4x.cpu] starting gdb server on 3333
+Info : Listening on port 3333 for gdb connections
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+[stm32f4x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08010000 msp: 0x20018000
+Info : Unable to match requested speed 8000 kHz, using 4000 kHz
+Info : Unable to match requested speed 8000 kHz, using 4000 kHz
+dumped 524288 bytes in 15.777507s (32.451 KiB/s)
+FLASH_OPTCR=0xfffaaed
+RCC_CSR=0x4000000
+Info : device id = 0x10016433
+Info : flash size = 512 KiB
+erased sectors 0 through 0 on flash bank 0 in 0.329189s
+erased sectors 4 through 7 on flash bank 0 in 6.885215s
+Info : Flash write discontinued at 0x08003f20, next section at 0x08010000
+wrote 456304 bytes from file /home/johannes/projects/.artifacts/runtime-portability-b/b-r4/run7/board/firmware.elf in 11.268787s (39.544 KiB/s)
+verified 456304 bytes in 0.872964s (510.456 KiB/s)
+dumped 16384 bytes in 0.484198s (33.044 KiB/s)
+dumped 458752 bytes in 13.820058s (32.417 KiB/s)
+erased sectors 1 through 1 on flash bank 0 in 0.338200s
+wrote 14760 bytes from file /home/johannes/projects/.artifacts/runtime-portability-b/b-r4/run7/board/application.bin in 0.473836s (30.420 KiB/s)
+verified 14760 bytes in 0.050672s (284.458 KiB/s)
+dumped 16384 bytes in 0.488397s (32.760 KiB/s)
+dumped 16384 bytes in 0.499764s (32.015 KiB/s)
+dumped 458752 bytes in 13.749549s (32.583 KiB/s)
+dumped 32768 bytes in 1.043494s (30.666 KiB/s)
+REINSTALL_RCC_APB1ENR=0x10000000
+REINSTALL_PWR_CR=0x8100
+PREVIOUS_BKP0R=0x54525255
+PREVIOUS_BKP1R=0xabadadaa
+REINSTALL_COOKIE_CLEARED=1
+shutdown command invoked

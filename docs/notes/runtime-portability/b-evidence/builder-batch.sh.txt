@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -uo pipefail
+cd /home/johannes/projects/trust-platform-portability-b || exit 1
+export RUSTUP_TOOLCHAIN=1.95.0
+export CARGO_TARGET_DIR=/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b
+export TMPDIR=/mnt/HC_Volume_107089260/builder-storage/tmp/portability-b
+export CARGO_BUILD_JOBS=6
+export CARGO_INCREMENTAL=0
+export B_EVIDENCE=/home/johannes/.cache/trust-portability-b-evidence/run-1
+mkdir -p "$B_EVIDENCE" "$TMPDIR"
+LEDGER="$B_EVIDENCE/ledger.tsv"
+if test -e "$B_EVIDENCE/validation-started.txt"; then echo 'Refusing to repeat a batch'; exit 1; fi
+test -s "$B_EVIDENCE/preparation-finished.txt" || exit 1
+date -u +%FT%TZ > "$B_EVIDENCE/validation-started.txt"
+step() {
+  local name=$1 start result
+  shift
+  start=$(date -u +%FT%TZ)
+  printf '%q ' "$@" > "$B_EVIDENCE/$name.command.txt"
+  printf '\n' >> "$B_EVIDENCE/$name.command.txt"
+  "$@" > "$B_EVIDENCE/$name.txt" 2>&1
+  result=$?
+  printf '%s\t%s\t%s\t%s\n' "$name" "$result" "$start" "$(date -u +%FT%TZ)" >> "$LEDGER"
+  echo "$name exit=$result"
+  return "$result"
+}
+lease() { scripts/with_cargo_target_lease.sh "$CARGO_TARGET_DIR" "$@"; }
+step environment bash -c 'hostname; pwd; git rev-parse HEAD; rustc -Vv; cargo -V; df -h "$CARGO_TARGET_DIR" "$TMPDIR" .; env | sort | grep -E "^(CARGO|RUST|CC_|CXX_|TMPDIR)"; rustup target list --installed'
+step prepare-gpio lease cargo run --locked -p trust-runtime --example portability_gpio_fixture
+producer_status=$?
+# Freeze all tracked and new nonignored source paths, plus rule files, after the single preparation.
+step freeze bash -c 'git status --short > "$B_EVIDENCE/git-status.txt"; git diff --binary > "$B_EVIDENCE/source.patch"; git ls-files -co --exclude-standard -z | sort -zu | xargs -0 sha256sum > "$B_EVIDENCE/source-sha256.txt"; sha256sum Cargo.lock firmware/trust-nucleo-f401re/Cargo.lock > "$B_EVIDENCE/locks-sha256.txt"'
+step native-tools lease cargo test --locked -p trust-platform-stm32f4 -p xtask --no-fail-fast
+step native-bundle lease cargo test --locked --manifest-path firmware/trust-nucleo-f401re/Cargo.toml --lib --target x86_64-unknown-linux-gnu
+step runtime-gpio-vertical lease cargo test --locked -p trust-runtime --test portability_f401_gpio --test api_smoke --test debug_control --test complete_program --test runtime_reliability --no-fail-fast
+step f401-adapter lease cargo check --locked -p trust-platform-stm32f4 --target thumbv7em-none-eabihf
+step firmware-link bash -c 'cd firmware/trust-nucleo-f401re && ../../scripts/with_cargo_target_lease.sh "$CARGO_TARGET_DIR" cargo build --locked --release'
+link_status=$?
+step clippy lease cargo clippy --locked -p trust-platform-stm32f4 -p trust-runtime -p xtask --all-targets --all-features -- -D warnings
+step firmware-clippy bash -c 'cd firmware/trust-nucleo-f401re && ../../scripts/with_cargo_target_lease.sh "$CARGO_TARGET_DIR" cargo clippy --locked --release -- -D warnings'
+step cross-warnings lease bash scripts/check_runtime_cross_target_warnings.sh --require-cross
+step supply-chain lease bash scripts/supply_chain_gate.sh
+step architecture lease cargo xtask architecture-doctor --full-map
+arch_status=$?
+if test "$arch_status" = 0; then
+ step diagrams bash scripts/render_diagrams.sh
+ step diagram-drift python3 scripts/check_diagram_drift.py
+else printf 'diagrams: architecture prerequisite failed\n' >> "$B_EVIDENCE/unrun.txt"; fi
+step format-check lease cargo fmt --all -- --check
+step firmware-format-check lease cargo fmt --manifest-path firmware/trust-nucleo-f401re/Cargo.toml --all -- --check
+step diff-check git diff --check
+if test "$producer_status" = 0; then
+ step pack lease cargo xtask portability pack crates/trust-runtime/tests/fixtures/portability/f401/gpio.stbc "$B_EVIDENCE/application.bin"
+else printf 'pack: producer failed\n' >> "$B_EVIDENCE/unrun.txt"; fi
+if test "$link_status" = 0; then
+ cp "$CARGO_TARGET_DIR/thumbv7em-none-eabihf/release/trust-nucleo-f401re" "$B_EVIDENCE/firmware.elf"
+ cp firmware/trust-nucleo-f401re/trust-nucleo-f401re.map "$B_EVIDENCE/firmware.map"
+ step inspect lease cargo xtask portability inspect "$B_EVIDENCE/firmware.elf" "$B_EVIDENCE/elf-report.json"
+else printf 'inspect and physical run: firmware link failed\n' >> "$B_EVIDENCE/unrun.txt"; fi
+# Main and numeric artifacts must remain byte-identical to committed A4.
+step artifact-parity bash -c 'for f in program-v2.stbc numeric-v2.stbc; do p=crates/trust-runtime/tests/fixtures/portability/stbc-2.0/$f; git show HEAD:"$p" | sha256sum; sha256sum "$p"; cmp <(git show HEAD:"$p") "$p" || exit; done'
+date -u +%FT%TZ > "$B_EVIDENCE/builder-finished.txt"

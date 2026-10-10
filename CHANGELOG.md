@@ -10,6 +10,8 @@ Target release: `v0.24.72`
 
 ### Added
 
+- Add the NUCLEO-F401RE reference composition for the shared runtime, with bounded memory, separately installed STBC artifacts, and remote GPIO/watchdog evidence tooling. The full-function F401 bring-up passes saved-artifact traces, numeric checks, GPIO safe outputs, depth-four calls and independent-watchdog reset; production qualification remains separate.
+
 - Add explicit STBC 2.0 authoring and portable byte-level validation for declared
   storage, construction roots, compiled initializer recipes and access bindings.
   Legacy 1.1 remains the default producer. The source-free core now prepares and
@@ -49,6 +51,25 @@ Target release: `v0.24.72`
   directions.
 
 ### Changed
+
+- Use compact live activation storage and portable instance storage without changing
+  PLC identities or functions. Portable field lookup reuses existing hash indexes;
+  output journals keep ordered destination-only rollback. Charge batch retirement
+  while preserving cleanup on exhausted execution budgets. Frame storage includes
+  initializer staging in addition to admitted call depth. F401 fixture bring-up is verified; production storage and timing qualification remain separate.
+
+- Reduce shared-runtime code duplication in numeric conversions, assertion comparison,
+  bounded sorting and engine identity maps while preserving every PLC function and
+  diagnostic. F401 placement uses immutable sector-0 space with separate load-region
+  checks and a 16 KiB upper-region margin requirement; F401 fixture measurements meet the flash and stack margins; production qualification remains separate.
+
+- Reduce portable preparation overhead with shared static standard-library metadata,
+  indexed preparation tables and shared bounded sorting. Byte-input preparation
+  avoids serialization, and embedded CRC uses a compact implementation with identical
+  results. Portable preparation retains structured diagnostic context without eager
+  formatting; hosted messages and fault codes remain. Default-library lookup returns
+  a borrowed metadata view. F401 code uses the 448 KiB L2 region; two reserved checkpoint sectors do
+  not yet provide persistence. All IEC functions and admission checks remain.
 
 - Share STBC 1.x decoding, validation, metadata extraction and serialization with the portable runtime core, preserving hosted bytecode APIs.
 - Route core exponentiation, duration truncation and hosted numerical functions
@@ -130,6 +151,9 @@ Target release: `v0.24.72`
   command-injection advisory.
 - Preserve numeric operand types when compiling TIME/LTIME scaling, including
   duration aliases and nested scalar expressions.
+- Execute compiled PLC call chains through explicit shared VM continuations to bound native dispatcher nesting; stop F401 bring-up when measured stack headroom is insufficient.
+
+- Keep deadline expiry latched through portable execution cleanup and build bulk input rollback snapshots without quadratic insertion work; preserve ordered writes and alias rollback.
 
 - Preserve function-block instance ownership when a body contains a NULL literal, so instance-field accesses bind to the invoked instance.
 

@@ -22,7 +22,16 @@ mod api;
 mod assignment;
 mod context;
 mod cycle;
+mod identities;
 mod initialization;
+mod ordered;
+use identities::{
+    ActivationPous, InstanceLifetimes, InstanceSet, InstanceTemplates, OwnedInstances,
+    RetainedGlobals,
+};
+mod keys;
+use keys::{root_index, LifecycleMarks};
+mod destinations;
 mod io;
 mod output_transaction;
 mod path_write;
@@ -43,30 +52,30 @@ struct ActiveInitializer {
     lexical_frame: Option<FrameId>,
     instance: Option<InstanceId>,
     depth: u32,
-    writable_instances: BTreeSet<InstanceId>,
+    writable_instances: InstanceSet,
 }
 
 /// Activation ownership and reference lifetime tracking.
 struct LifetimeState {
     live_activations: Vec<FrameId>,
-    activation_pous: BTreeMap<FrameId, u32>,
-    instance_lifetimes: BTreeMap<InstanceId, Option<FrameId>>,
-    owned_instances: BTreeMap<FrameId, Vec<InstanceId>>,
+    activation_pous: ActivationPous,
+    instance_lifetimes: InstanceLifetimes,
+    owned_instances: OwnedInstances,
 }
 
 /// Declaration, instance and initializer lifecycle bookkeeping.
 struct ConstructionState {
     roots: Vec<Option<InstanceId>>,
-    claimed_roots: BTreeSet<usize>,
-    instance_templates: BTreeMap<InstanceId, u32>,
-    initialized_instances: BTreeSet<InstanceId>,
-    initialized_declarations: BTreeSet<(u32, Option<InstanceId>)>,
-    once: BTreeSet<(u32, Option<InstanceId>)>,
+    claimed_roots: BTreeSet<u32>,
+    instance_templates: InstanceTemplates,
+    initialized_instances: InstanceSet,
+    initialized_declarations: LifecycleMarks,
+    once: LifecycleMarks,
     after_restart: bool,
     initializers: Vec<ActiveInitializer>,
     frames: Vec<VmFrame>,
     types: Vec<(u32, super::construction::values::ValueOperation)>,
-    retained_globals: BTreeMap<u32, Value>,
+    retained_globals: RetainedGlobals,
 }
 
 /// Published process images and hierarchical binding values.
@@ -135,7 +144,9 @@ impl<'a> EngineState<'a> {
             .resources
             .get(resource_index)
             .cloned()
-            .ok_or_else(|| invalid_bytecode("unknown resource index"))?;
+            .ok_or_else(|| {
+                invalid_bytecode(smol_str::SmolStr::new_static("unknown resource index"))
+            })?;
         let mut state = Self {
             resources: ExecutionResources {
                 buffers: Vec::new(),
@@ -153,21 +164,21 @@ impl<'a> EngineState<'a> {
             construction: ConstructionState {
                 roots: vec![None; prepared.roots.entries.len()],
                 claimed_roots: BTreeSet::new(),
-                instance_templates: BTreeMap::new(),
-                initialized_instances: BTreeSet::new(),
-                initialized_declarations: BTreeSet::new(),
-                once: BTreeSet::new(),
+                instance_templates: InstanceTemplates::default(),
+                initialized_instances: InstanceSet::default(),
+                initialized_declarations: LifecycleMarks::default(),
+                once: LifecycleMarks::default(),
                 after_restart,
                 initializers: Vec::new(),
                 frames: Vec::new(),
                 types: Vec::new(),
-                retained_globals: BTreeMap::new(),
+                retained_globals: RetainedGlobals::default(),
             },
             lifetimes: LifetimeState {
                 live_activations: Vec::new(),
-                activation_pous: BTreeMap::new(),
-                instance_lifetimes: BTreeMap::new(),
-                owned_instances: BTreeMap::new(),
+                activation_pous: ActivationPous::default(),
+                instance_lifetimes: InstanceLifetimes::default(),
+                owned_instances: OwnedInstances::default(),
             },
             prepared,
             services,
@@ -180,6 +191,47 @@ impl<'a> EngineState<'a> {
             fault: None,
         };
         state.check_entry_deadline()?;
+        // Calls and staging results each have their own admitted depth bound.
+        let frame_capacity = prepared
+            .limits
+            .max_call_depth
+            .checked_mul(2)
+            .ok_or(RuntimeError::Overflow)?;
+        let frame_bytes = VariableStorage::execution_frame_reservation_charge(frame_capacity)
+            .ok_or(RuntimeError::Overflow)?;
+        state.charge_allocation_bytes(frame_bytes)?;
+        state.storage.reserve_execution_frames(frame_capacity)?;
+        let activation_bytes = frame_capacity
+            .checked_mul(core::mem::size_of::<FrameId>())
+            .ok_or(RuntimeError::Overflow)?;
+        state.charge_sorted_growth(Ok((activation_bytes, 1)))?;
+        state
+            .lifetimes
+            .live_activations
+            .try_reserve_exact(frame_capacity)
+            .map_err(|_| RuntimeError::Overflow)?;
+        // Ordinary POU identities are bounded by call depth; instance owners may
+        // also be initializer result frames at the same depth.
+        state.charge_sorted_growth(
+            state
+                .lifetimes
+                .activation_pous
+                .reservation_demand(prepared.limits.max_call_depth),
+        )?;
+        state
+            .lifetimes
+            .activation_pous
+            .reserve_capacity(prepared.limits.max_call_depth)?;
+        state.charge_sorted_growth(
+            state
+                .lifetimes
+                .owned_instances
+                .reservation_demand(frame_capacity),
+        )?;
+        state
+            .lifetimes
+            .owned_instances
+            .reserve_capacity(frame_capacity)?;
         state.construct_resource(retained)?;
         state.check_entry_deadline()?;
         Ok(state)
@@ -254,3 +306,8 @@ impl<'a> EngineState<'a> {
 
 #[cfg(test)]
 mod budget_tests;
+#[cfg(test)]
+mod continuation_tests;
+
+#[cfg(test)]
+mod storage_tests;

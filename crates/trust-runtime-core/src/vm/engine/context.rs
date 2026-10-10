@@ -32,7 +32,9 @@ impl ReferenceContext for EngineState<'_> {
         }
         let saved = self.snapshot_destinations(Some(frame), core::iter::once(reference))?;
         if let Some(journal) = self.resources.output_journal.as_mut() {
-            journal.extend(saved);
+            for (key, value) in saved {
+                journal.insert(key, value)?;
+            }
         }
         Ok(())
     }
@@ -216,6 +218,13 @@ impl CallContext for EngineState<'_> {
 }
 
 impl ExecutionContext for EngineState<'_> {
+    fn call_depth_limit(&self) -> usize {
+        self.prepared.limits.max_call_depth
+    }
+    fn charge_call_storage(&self, bytes: usize, work: usize) -> Result<(), RuntimeError> {
+        self.charge_work_units(work)?;
+        self.charge_allocation_bytes(bytes)
+    }
     fn execution_budget(&self) -> &crate::vm::budget::ExecutionBudget {
         &self.resources.work_budget
     }
@@ -231,23 +240,33 @@ impl ExecutionContext for EngineState<'_> {
         let id = self.storage.reserve_execution_frame()?;
         frame.activation = Some(id);
         self.lifetimes.live_activations.push(id);
+        self.charge_sorted_growth(self.lifetimes.activation_pous.insertion_demand(id))?;
         self.lifetimes.activation_pous.insert(
             id,
-            frame
-                .pou_id
-                .ok_or_else(|| invalid_bytecode("ordinary frame has no POU owner"))?,
-        );
+            frame.pou_id.ok_or_else(|| {
+                invalid_bytecode(smol_str::SmolStr::new_static(
+                    "ordinary frame has no POU owner",
+                ))
+            })?,
+        )?;
         self.initialize_frame_declarations(module, frame, depth)
     }
-    fn retire_frame(&mut self, frame: &VmFrame) {
+    fn retire_frame(&mut self, frame: &VmFrame) -> Result<(), RuntimeError> {
         if let Some(id) = frame.activation {
-            self.remove_owned_instances(id);
+            let frame_work = self.charge_work_units(
+                self.storage
+                    .execution_frame_count()
+                    .saturating_add(self.lifetimes.activation_pous.len()),
+            );
+            let owned_work = self.remove_owned_instances(id);
             self.storage.release_execution_frame(id);
             self.lifetimes
                 .live_activations
                 .retain(|candidate| *candidate != id);
             self.lifetimes.activation_pous.remove(&id);
+            frame_work.and(owned_work)?;
         }
+        Ok(())
     }
     fn check_frame_return(&self, frame: &VmFrame, value: &Value) -> Result<(), RuntimeError> {
         let destination = frame
@@ -274,7 +293,9 @@ impl ExecutionContext for EngineState<'_> {
         self.initialization_opcode(frame, opcode, operand, stack, depth)
     }
     fn deadline_exceeded(&self) -> bool {
-        self.services.deadline_exceeded()
+        self.resources
+            .work_budget
+            .observe_deadline(|| self.services.deadline_exceeded())
     }
     fn on_statement(
         &mut self,

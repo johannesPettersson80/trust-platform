@@ -1,5 +1,15 @@
 //! Portable bytecode container, decoding, validation and metadata.
 
+mod diagnostics;
+pub use diagnostics::SectionDiagnostic;
+
+/// Hosted compatibility text; portable builds retain structured diagnostic context.
+#[cfg(feature = "std")]
+pub type SectionDetail = SmolStr;
+/// Portable lazy-rendered section reason and context.
+#[cfg(not(feature = "std"))]
+pub type SectionDetail = SectionDiagnostic;
+
 mod decode;
 pub use decode::DecodeStats;
 mod disassemble;
@@ -109,7 +119,7 @@ pub enum BytecodeError {
     UnexpectedEof,
     /// A section payload is malformed.
     #[error("invalid section data: {0}")]
-    InvalidSection(SmolStr),
+    InvalidSection(SectionDetail),
     /// A required section is missing.
     #[error("missing required section: {0}")]
     MissingSection(SmolStr),

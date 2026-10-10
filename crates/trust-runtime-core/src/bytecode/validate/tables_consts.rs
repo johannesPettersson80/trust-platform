@@ -160,9 +160,7 @@ pub(super) fn validate_const_payload_entry(
                     let payload = reader.read_bytes(reader.remaining())?;
                     budget.work(payload.len())?;
                     core::str::from_utf8(payload).map_err(|err| {
-                        BytecodeError::InvalidSection(
-                            format!("invalid STRING const UTF-8: {err}").into(),
-                        )
+                        BytecodeError::section_diagnostic(SectionDiagnostic::StringUtf8(err))
                     })?;
                 }
                 25 => {
@@ -178,7 +176,7 @@ pub(super) fn validate_const_payload_entry(
                     for decoded in
                         char::decode_utf16(units.iter().map(|chunk| u16::from_le_bytes(*chunk)))
                     {
-                        decoded.map_err(|_| BytecodeError::InvalidSection("invalid WSTRING const UTF-16: invalid utf-16: lone surrogate found".into()))?;
+                        decoded.map_err(|_| BytecodeError::section_static("invalid WSTRING const UTF-16: invalid utf-16: lone surrogate found"))?;
                     }
                 }
                 _ => {
@@ -195,9 +193,11 @@ pub(super) fn validate_const_payload_entry(
             )?;
             let expected = const_array_element_count(dims)?;
             if count != expected {
-                return Err(BytecodeError::InvalidSection(
-                    format!("array constant count mismatch: expected {expected}, got {count}")
-                        .into(),
+                return Err(BytecodeError::section_diagnostic(
+                    SectionDiagnostic::ArrayCount {
+                        expected,
+                        actual: count,
+                    },
                 ));
             }
             let elem = types.entries.get(*elem_type_id as usize).ok_or_else(|| {

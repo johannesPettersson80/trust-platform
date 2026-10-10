@@ -109,11 +109,45 @@ impl FrameStack {
         self.frames.clear();
     }
 
+    pub(super) fn growth_demand(&self) -> Result<(usize, usize), VmTrap> {
+        if self.frames.len() < self.frames.capacity() {
+            return Ok((0, 0));
+        }
+        let capacity = self
+            .frames
+            .capacity()
+            .checked_mul(2)
+            .ok_or(VmTrap::Runtime(crate::error::RuntimeError::Overflow))?
+            .clamp(1, VM_MAX_CALL_DEPTH);
+        if capacity <= self.frames.len() {
+            return Err(VmTrap::CallStackOverflow);
+        }
+        let bytes = capacity
+            .checked_mul(core::mem::size_of::<VmFrame>())
+            .ok_or(VmTrap::Runtime(crate::error::RuntimeError::Overflow))?;
+        Ok((bytes, self.frames.len()))
+    }
+
+    pub(super) fn reserve_for_push(&mut self) -> Result<(), VmTrap> {
+        if self.frames.len() >= VM_MAX_CALL_DEPTH {
+            return Err(VmTrap::CallStackOverflow);
+        }
+        if self.frames.len() == self.frames.capacity() {
+            let (bytes, _) = self.growth_demand()?;
+            let capacity = bytes / core::mem::size_of::<VmFrame>();
+            self.frames
+                .try_reserve_exact(capacity - self.frames.len())
+                .map_err(|_| VmTrap::Runtime(crate::error::RuntimeError::Overflow))?;
+        }
+        Ok(())
+    }
+
     /// Push one frame while enforcing the VM call-depth limit.
     pub fn push(&mut self, frame: VmFrame) -> Result<(), VmTrap> {
         if self.frames.len() >= VM_MAX_CALL_DEPTH {
             return Err(VmTrap::CallStackOverflow);
         }
+        self.reserve_for_push()?;
         self.frames.push(frame);
         Ok(())
     }

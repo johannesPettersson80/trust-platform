@@ -10,7 +10,11 @@ pub(super) fn validate_aliases(
 ) -> Result<(), BytecodeError> {
     let aliases = match module.section(SectionId::AccessBindings) {
         Some(SectionData::AccessBindings(value)) => value,
-        _ => return Err(BytecodeError::MissingSection("ACCESS_BINDINGS".into())),
+        _ => {
+            return Err(BytecodeError::MissingSection(
+                smol_str::SmolStr::new_static("ACCESS_BINDINGS"),
+            ))
+        }
     };
     if aliases.entries.len() > BYTECODE_MAX_CONSTRUCTION_RECORDS {
         return Err(RejectionReason::InvalidConstructionRecord.into());
@@ -26,7 +30,7 @@ pub(super) fn validate_aliases(
             )?;
         }
     }
-    budget.sort_by(&mut globals, |a, b, budget| budget.compare_names(a, b))?;
+    budget.sort_by(&mut globals, &mut |a, b, budget| budget.compare_names(a, b))?;
     for entry in &aliases.entries {
         budget.work(1)?;
         ensure_string_index(tables.strings, entry.name_idx)?;
@@ -94,7 +98,7 @@ pub(super) fn validate_aliases(
             tables.strings.entries[entry.name_idx as usize].as_str(),
         )?;
     }
-    budget.sort_by(&mut names, |a, b, budget| budget.compare_names(a, b))?;
+    budget.sort_by(&mut names, &mut |a, b, budget| budget.compare_names(a, b))?;
     for pair in names.windows(2) {
         if budget.compare_names(pair[0], pair[1])?.is_eq() {
             return Err(RejectionReason::InvalidConstructionRecord.into());

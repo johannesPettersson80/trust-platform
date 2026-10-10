@@ -1,0 +1,19 @@
+{
+  "reviewer": "/root/br1_static_registry",
+  "verdict": "Accepted source-only placement proposal; fresh link/inspection/hardware unrun and require owner authorization",
+  "files": [
+    {
+      "path": "firmware/trust-nucleo-f401re/memory.x",
+      "sha256": "007d9a0384d4c6b93ee6fb0d77974c1ed47fe46359e91137c2ef4ce4683171ce"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/profile.x",
+      "sha256": "04988ebbf8a16462ffa484f06b66c15bfbf51dd885d1600a6287ae1fb46af555"
+    }
+  ],
+  "input_artifacts": {
+    "firmware.map": "86082ecdaa9393d6faa04f9b3b252f95ef207dbf7d53ceeb394a58adddfb0d74",
+    "firmware.elf": "e7dfca7cc576d0234c2b077f926365778cb140438850c435aea926043f28ed7c",
+    "footprint.json": "3262e8d9299b41d0dfd1128f733d3043c0be4ddbc4fd70f8d44111cfc3e34295"
+  }
+}

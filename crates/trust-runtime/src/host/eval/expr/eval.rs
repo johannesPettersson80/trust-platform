@@ -93,14 +93,14 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
                     let has_named = args.iter().any(|arg| arg.name.is_some());
                     if let Some(entry) = stdlib.get(&key) {
                         let values = if has_named {
-                            bind_stdlib_named_args(ctx, &entry.params, args)?
+                            bind_stdlib_named_args(ctx, entry.params, args)?
                         } else {
                             eval_positional_args(ctx, args)?
                         };
                         return (entry.func)(&values);
                     }
                     if conversions::is_conversion_name(key.as_str()) {
-                        let params = StdParams::Fixed(vec![SmolStr::new("IN")]);
+                        let params = StdParams::Fixed(vec![SmolStr::new("IN")].into());
                         let values = if has_named {
                             bind_stdlib_named_args(ctx, &params, args)?
                         } else {

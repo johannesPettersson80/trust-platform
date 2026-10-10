@@ -10,12 +10,12 @@ use crate::bytecode::{
     PouKind, RefEntry, RefLocation, RefTable, SectionData, SectionId, StringTable, TypeTable,
     VarMeta,
 };
-use crate::error::RuntimeError;
+use crate::error::{PreparationDiagnostic, RuntimeError};
 use crate::memory::IoArea;
 use crate::value::{ref_indices_from_iter, RefPath, RefSegment as ValueRefSegment, Value};
 #[cfg(not(feature = "std"))]
 use alloc::collections::{BTreeMap as HashMap, BTreeSet as HashSet};
-use alloc::{format, vec::Vec};
+use alloc::vec::Vec;
 use smol_str::SmolStr;
 #[cfg(feature = "std")]
 use std::collections::{HashMap, HashSet};
@@ -100,9 +100,9 @@ impl VmModule {
         module: &crate::bytecode::ValidatedBytecode<'_>,
     ) -> Result<Self, RuntimeError> {
         if module.view().version.major != 1 {
-            return Err(invalid_bytecode(
+            return Err(invalid_bytecode(SmolStr::new_static(
                 "STBC 2.0 construction and initializer execution requires the shared engine",
-            ));
+            )));
         }
         Self::materialize(module, &mut |_, _| Ok(()))
     }
@@ -112,7 +112,9 @@ impl VmModule {
         budget: &mut super::prepared::PreparationBudget,
     ) -> Result<Self, RuntimeError> {
         if module.view().version.major != 2 {
-            return Err(invalid_bytecode("source-free execution requires STBC 2.0"));
+            return Err(invalid_bytecode(SmolStr::new_static(
+                "source-free execution requires STBC 2.0",
+            )));
         }
         Self::materialize(module, &mut |bytes, work| budget.charge(bytes, work))
     }
@@ -123,27 +125,31 @@ impl VmModule {
     ) -> Result<Self, RuntimeError> {
         let strings = match module.section(SectionId::StringTable) {
             Some(SectionData::StringTable(table)) => table,
-            _ => return Err(invalid_bytecode("missing STRING_TABLE")),
+            _ => {
+                return Err(invalid_bytecode(SmolStr::new_static(
+                    "missing STRING_TABLE",
+                )))
+            }
         };
         let types = match module.section(SectionId::TypeTable) {
             Some(SectionData::TypeTable(table)) => table,
-            _ => return Err(invalid_bytecode("missing TYPE_TABLE")),
+            _ => return Err(invalid_bytecode(SmolStr::new_static("missing TYPE_TABLE"))),
         };
         let const_pool = match module.section(SectionId::ConstPool) {
             Some(SectionData::ConstPool(table)) => table,
-            _ => return Err(invalid_bytecode("missing CONST_POOL")),
+            _ => return Err(invalid_bytecode(SmolStr::new_static("missing CONST_POOL"))),
         };
         let ref_table = match module.section(SectionId::RefTable) {
             Some(SectionData::RefTable(table)) => table,
-            _ => return Err(invalid_bytecode("missing REF_TABLE")),
+            _ => return Err(invalid_bytecode(SmolStr::new_static("missing REF_TABLE"))),
         };
         let pou_index = match module.section(SectionId::PouIndex) {
             Some(SectionData::PouIndex(index)) => index,
-            _ => return Err(invalid_bytecode("missing POU_INDEX")),
+            _ => return Err(invalid_bytecode(SmolStr::new_static("missing POU_INDEX"))),
         };
         let bodies = match module.section(SectionId::PouBodies) {
             Some(SectionData::PouBodies(code)) => code,
-            _ => return Err(invalid_bytecode("missing POU_BODIES")),
+            _ => return Err(invalid_bytecode(SmolStr::new_static("missing POU_BODIES"))),
         };
 
         materialization_limits::validate_materialization_limits(ref_table, pou_index)?;
@@ -193,26 +199,27 @@ impl VmModule {
                 .get(entry.name_idx as usize)
                 .cloned()
                 .ok_or_else(|| {
-                    invalid_bytecode(format!("invalid POU name string index {}", entry.name_idx))
+                    PreparationDiagnostic::InvalidIndex {
+                        kind: "POU name string",
+                        index: entry.name_idx,
+                    }
+                    .into_runtime_error()
                 })?;
             if pou_name_by_id.insert(entry.id, name).is_some() {
-                return Err(invalid_bytecode(format!("duplicate POU id {}", entry.id)));
+                return Err(PreparationDiagnostic::DuplicatePou(entry.id).into_runtime_error());
             }
         }
 
         for entry in &pou_index.entries {
             let name = pou_name_by_id.get(&entry.id).cloned().ok_or_else(|| {
-                invalid_bytecode(format!("missing decoded POU name for id {}", entry.id))
+                PreparationDiagnostic::MissingDecodedPou(entry.id).into_runtime_error()
             })?;
             let code_start = entry.code_offset as usize;
             let code_end = code_start
                 .checked_add(entry.code_length as usize)
-                .ok_or_else(|| invalid_bytecode("POU code range overflow"))?;
+                .ok_or_else(|| invalid_bytecode(SmolStr::new_static("POU code range overflow")))?;
             if code_end > bodies.len() {
-                return Err(invalid_bytecode(format!(
-                    "POU '{}' code range out of bounds",
-                    name
-                )));
+                return Err(PreparationDiagnostic::PouCodeRange(name.clone()).into_runtime_error());
             }
             let mut vm_entry = VmPouEntry {
                 name: SmolStr::new(name.clone()),
@@ -236,10 +243,11 @@ impl VmModule {
                     .get(param.name_idx as usize)
                     .cloned()
                     .ok_or_else(|| {
-                        invalid_bytecode(format!(
-                            "invalid param name string index {}",
-                            param.name_idx
-                        ))
+                        PreparationDiagnostic::InvalidIndex {
+                            kind: "param name string",
+                            index: param.name_idx,
+                        }
+                        .into_runtime_error()
                     })?;
                 params.push(VmParamMeta {
                     name: param_name,
@@ -253,22 +261,36 @@ impl VmModule {
             let key = SmolStr::new(name.to_ascii_uppercase());
             if matches!(entry.kind, PouKind::Program) {
                 if program_ids.insert(key.clone(), entry.id).is_some() {
-                    return Err(invalid_bytecode(format!("duplicate PROGRAM name '{key}'")));
+                    return Err(PreparationDiagnostic::DuplicateName {
+                        kind: "PROGRAM",
+                        name: key.clone(),
+                    }
+                    .into_runtime_error());
                 }
             } else if matches!(entry.kind, PouKind::FunctionBlock) {
                 if function_block_ids.insert(key.clone(), entry.id).is_some() {
-                    return Err(invalid_bytecode(format!(
-                        "duplicate FUNCTION_BLOCK name '{key}'"
-                    )));
+                    return Err(PreparationDiagnostic::DuplicateName {
+                        kind: "FUNCTION_BLOCK",
+                        name: key.clone(),
+                    }
+                    .into_runtime_error());
                 }
             } else if matches!(entry.kind, PouKind::Function) {
                 if function_ids.insert(key.clone(), entry.id).is_some() {
-                    return Err(invalid_bytecode(format!("duplicate FUNCTION name '{key}'")));
+                    return Err(PreparationDiagnostic::DuplicateName {
+                        kind: "FUNCTION",
+                        name: key.clone(),
+                    }
+                    .into_runtime_error());
                 }
             } else if matches!(entry.kind, PouKind::Class)
                 && class_ids.insert(key.clone(), entry.id).is_some()
             {
-                return Err(invalid_bytecode(format!("duplicate CLASS name '{key}'")));
+                return Err(PreparationDiagnostic::DuplicateName {
+                    kind: "CLASS",
+                    name: key.clone(),
+                }
+                .into_runtime_error());
             }
 
             if let Some(class_meta) = &entry.class_meta {
@@ -291,16 +313,19 @@ impl VmModule {
                         .get(method.name_idx as usize)
                         .cloned()
                         .ok_or_else(|| {
-                            invalid_bytecode(format!(
-                                "invalid method name string index {}",
-                                method.name_idx
-                            ))
+                            PreparationDiagnostic::InvalidIndex {
+                                kind: "method name string",
+                                index: method.name_idx,
+                            }
+                            .into_runtime_error()
                         })?;
                     let method_key = SmolStr::new(method_name.to_ascii_uppercase());
                     if table.insert(method_key.clone(), method.pou_id).is_some() {
-                        return Err(invalid_bytecode(format!(
-                            "duplicate METHOD name '{method_key}' for owner POU {owner}"
-                        )));
+                        return Err(PreparationDiagnostic::DuplicateMethod {
+                            name: method_key.clone(),
+                            owner,
+                        }
+                        .into_runtime_error());
                     }
                 }
             }
@@ -393,7 +418,9 @@ pub fn build_ref_type_map(var_meta: Option<&VarMeta>) -> Result<HashMap<u32, u32
     let mut ref_types = HashMap::new();
     for entry in &var_meta.entries {
         if ref_types.insert(entry.ref_idx, entry.type_id).is_some() {
-            return Err(invalid_bytecode("duplicate VAR_META ref index"));
+            return Err(invalid_bytecode(SmolStr::new_static(
+                "duplicate VAR_META ref index",
+            )));
         }
     }
     Ok(ref_types)
@@ -483,7 +510,14 @@ pub enum VmRef {
 }
 
 /// Create a stable VM decode failure with diagnostic detail.
+#[cold]
 pub fn invalid_bytecode(message: impl Into<SmolStr>) -> RuntimeError {
+    invalid_bytecode_detail(message.into())
+}
+
+#[cold]
+#[inline(never)]
+fn invalid_bytecode_detail(message: SmolStr) -> RuntimeError {
     RuntimeError::bytecode(crate::error::StableErrorCode::VmBytecodeDecode, message)
 }
 
@@ -515,7 +549,11 @@ pub fn decode_vm_ref(entry: &RefEntry, strings: &StringTable) -> Result<VmRef, R
                     .get(*name_idx as usize)
                     .cloned()
                     .ok_or_else(|| {
-                        invalid_bytecode(format!("invalid ref field string index {name_idx}"))
+                        PreparationDiagnostic::InvalidIndex {
+                            kind: "ref field string",
+                            index: *name_idx,
+                        }
+                        .into_runtime_error()
                     })?;
                 path.push(ValueRefSegment::Field(name));
             }
@@ -546,9 +584,7 @@ pub fn decode_vm_ref(entry: &RefEntry, strings: &StringTable) -> Result<VmRef, R
                 1 => IoArea::Output,
                 2 => IoArea::Memory,
                 other => {
-                    return Err(invalid_bytecode(format!(
-                        "invalid VM IO owner area {other}"
-                    )));
+                    return Err(PreparationDiagnostic::InvalidIoArea(other).into_runtime_error());
                 }
             };
             Ok(VmRef::Io { area, offset, path })
@@ -562,7 +598,8 @@ pub fn infer_primary_instance_owner(
     code: &[u8],
     refs: &[VmRef],
 ) -> Option<u32> {
-    let mut owners = HashSet::new();
+    let mut owner = None;
+    let mut conflict = false;
     let mut pc = entry.code_start;
     while pc < entry.code_end {
         let opcode = *code.get(pc)?;
@@ -578,15 +615,119 @@ pub fn infer_primary_instance_owner(
                 owner_instance_id, ..
             }) = refs.get(ref_idx as usize)
             {
-                owners.insert(*owner_instance_id);
+                match owner {
+                    None => owner = Some(*owner_instance_id),
+                    Some(previous) if previous != *owner_instance_id => conflict = true,
+                    Some(_) => (),
+                }
             }
         }
         pc += operand_len;
     }
 
-    if owners.len() == 1 {
-        owners.iter().copied().next()
-    } else {
+    if conflict {
         None
+    } else {
+        owner
+    }
+}
+
+#[cfg(test)]
+mod owner_inference_tests {
+    use super::*;
+    use alloc::vec;
+
+    fn infer(code: &[u8], refs: &[VmRef]) -> Option<u32> {
+        let entry = VmPouEntry {
+            name: "Main".into(),
+            code_start: 0,
+            code_end: code.len(),
+            local_ref_start: 0,
+            local_ref_count: 0,
+            primary_instance_owner: None,
+        };
+        infer_primary_instance_owner(&entry, code, refs)
+    }
+
+    #[test]
+    fn scalar_owner_tracking_matches_unique_set_semantics() {
+        let refs = [
+            VmRef::Instance {
+                owner_instance_id: 0,
+                offset: 0,
+                path: RefPath::new(),
+            },
+            VmRef::Instance {
+                owner_instance_id: 0,
+                offset: 1,
+                path: RefPath::new(),
+            },
+            VmRef::Instance {
+                owner_instance_id: u32::MAX,
+                offset: 0,
+                path: RefPath::new(),
+            },
+            VmRef::Global {
+                offset: 0,
+                path: RefPath::new(),
+            },
+        ];
+        for (indices, expected) in [
+            (&[][..], None),
+            (&[0][..], Some(0)),
+            (&[2][..], Some(u32::MAX)),
+            (&[0, 1, 0][..], Some(0)),
+            (&[0, 2, 0][..], None),
+            (&[3, 2, 3][..], Some(u32::MAX)),
+            (&[3][..], None),
+            (&[99][..], None),
+        ] {
+            let mut code = Vec::new();
+            for (position, index) in indices.iter().enumerate() {
+                code.push([0x20, 0x21, 0x22][position % 3]);
+                code.extend_from_slice(&u32::to_le_bytes(*index));
+            }
+            assert_eq!(infer(&code, &refs), expected);
+        }
+    }
+
+    #[test]
+    fn null_literals_do_not_hide_owner_but_unknown_and_truncated_operands_do() {
+        let refs = [VmRef::Instance {
+            owner_instance_id: 42,
+            offset: 0,
+            path: RefPath::new(),
+        }];
+        let mut code = vec![0x25, 0x20, 0, 0, 0, 0, 0x25];
+        assert_eq!(infer(&code, &refs), Some(42));
+        code.push(0xff);
+        assert_eq!(infer(&code, &refs), None);
+        for opcode in [0x20, 0x21, 0x22] {
+            let code = [opcode, 0, 0, 0, 0];
+            for length in 1..5 {
+                assert_eq!(infer(&code[..length], &refs), None);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod invalid_bytecode_tests {
+    use super::invalid_bytecode;
+    use crate::error::StableErrorCode;
+    use alloc::string::ToString;
+    use smol_str::SmolStr;
+
+    #[test]
+    fn shared_decode_error_constructor_preserves_owned_and_borrowed_messages() {
+        let detail = "POU code range overflow";
+        let borrowed = invalid_bytecode(detail);
+        assert_eq!(borrowed.stable_code(), StableErrorCode::VmBytecodeDecode);
+        assert_eq!(
+            borrowed.to_string(),
+            "invalid bytecode 'POU code range overflow'"
+        );
+        assert_eq!(invalid_bytecode(detail.to_string()), borrowed);
+        assert_eq!(invalid_bytecode(SmolStr::new_static(detail)), borrowed);
     }
 }

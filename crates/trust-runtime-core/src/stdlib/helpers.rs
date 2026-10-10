@@ -198,13 +198,13 @@ pub fn compare_common(
                 Ok(compare_float(left, right, op))
             }
             NumericKind::SInt | NumericKind::Int | NumericKind::DInt | NumericKind::LInt => {
-                let left = i128::from(to_i64(a)?);
-                let right = i128::from(to_i64(b)?);
+                let left = to_i64(a)?;
+                let right = to_i64(b)?;
                 Ok(compare_ord(left, right, op))
             }
             NumericKind::USInt | NumericKind::UInt | NumericKind::UDInt | NumericKind::ULInt => {
-                let left = u128::from(to_u64(a)?);
-                let right = u128::from(to_u64(b)?);
+                let left = to_u64(a)?;
+                let right = to_u64(b)?;
                 Ok(compare_ord(left, right, op))
             }
         },
@@ -238,8 +238,8 @@ pub fn compare_common(
             }
         }
         CommonKind::Time(kind) => {
-            let left = time_value_as_i128(a, *kind)?;
-            let right = time_value_as_i128(b, *kind)?;
+            let left = time_value_as_i64(a, *kind)?;
+            let right = time_value_as_i64(b, *kind)?;
             Ok(compare_ord(left, right, op))
         }
         CommonKind::Enum(type_name) => {
@@ -306,16 +306,16 @@ fn compare_float(left: f64, right: f64, op: CmpOp) -> bool {
     }
 }
 
-fn time_value_as_i128(value: &Value, kind: TimeKind) -> Result<i128, RuntimeError> {
+fn time_value_as_i64(value: &Value, kind: TimeKind) -> Result<i64, RuntimeError> {
     match (kind, value) {
-        (TimeKind::Time, Value::Time(duration)) => Ok(duration.as_nanos() as i128),
-        (TimeKind::LTime, Value::LTime(duration)) => Ok(duration.as_nanos() as i128),
-        (TimeKind::Date, Value::Date(date)) => Ok(i128::from(date.ticks())),
-        (TimeKind::LDate, Value::LDate(date)) => Ok(i128::from(date.nanos())),
-        (TimeKind::Tod, Value::Tod(tod)) => Ok(i128::from(tod.ticks())),
-        (TimeKind::LTod, Value::LTod(tod)) => Ok(i128::from(tod.nanos())),
-        (TimeKind::Dt, Value::Dt(dt)) => Ok(i128::from(dt.ticks())),
-        (TimeKind::Ldt, Value::Ldt(dt)) => Ok(i128::from(dt.nanos())),
+        (TimeKind::Time, Value::Time(duration)) => Ok(duration.as_nanos()),
+        (TimeKind::LTime, Value::LTime(duration)) => Ok(duration.as_nanos()),
+        (TimeKind::Date, Value::Date(date)) => Ok(date.ticks()),
+        (TimeKind::LDate, Value::LDate(date)) => Ok(date.nanos()),
+        (TimeKind::Tod, Value::Tod(tod)) => Ok(tod.ticks()),
+        (TimeKind::LTod, Value::LTod(tod)) => Ok(tod.nanos()),
+        (TimeKind::Dt, Value::Dt(dt)) => Ok(dt.ticks()),
+        (TimeKind::Ldt, Value::Ldt(dt)) => Ok(dt.nanos()),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -376,8 +376,11 @@ pub fn scale_time(
     if !result.is_finite() {
         return Err(RuntimeError::Overflow);
     }
-    let nanos = i64::try_from(result as i128).map_err(|_| RuntimeError::Overflow)?;
-    Ok(Duration::from_nanos(nanos))
+    // f64 rounds i64::MAX to 2^63, so the upper bound must be exclusive.
+    if !(-9_223_372_036_854_775_808.0..9_223_372_036_854_775_808.0).contains(&result) {
+        return Err(RuntimeError::Overflow);
+    }
+    Ok(Duration::from_nanos(result as i64))
 }
 
 /// Round a real value to the nearest integer, resolving ties to even.
@@ -393,5 +396,198 @@ pub fn round_ties_to_even(value: f64) -> f64 {
         }
     } else {
         crate::numeric::math::round(value)
+    }
+}
+
+#[cfg(test)]
+mod width_tests {
+    use super::*;
+    use crate::value::{
+        DateTimeValue, DateValue, LDateTimeValue, LDateValue, LTimeOfDayValue, TimeOfDayValue,
+    };
+
+    fn wide_scale_time(
+        duration: Duration,
+        factor: &Value,
+        multiply: bool,
+    ) -> Result<Duration, RuntimeError> {
+        let factor = to_f64(factor)?;
+        if !factor.is_finite() {
+            return Err(RuntimeError::Overflow);
+        }
+        if !multiply && factor == 0.0 {
+            return Err(RuntimeError::DivisionByZero);
+        }
+        let nanos = duration.as_nanos() as f64;
+        let result = round_ties_to_even(if multiply {
+            nanos * factor
+        } else {
+            nanos / factor
+        });
+        if !result.is_finite() {
+            return Err(RuntimeError::Overflow);
+        }
+        i64::try_from(result as i128)
+            .map(Duration::from_nanos)
+            .map_err(|_| RuntimeError::Overflow)
+    }
+
+    #[test]
+    fn time_function_rounding_matches_wide_cast_bounds_and_error_precedence() {
+        let upper = 9_223_372_036_854_775_808.0f64;
+        let factors = [
+            Value::LInt(i64::MIN),
+            Value::ULInt(u64::MAX),
+            Value::Bool(false),
+            Value::Real(0.5),
+            Value::LReal(f64::NEG_INFINITY),
+            Value::LReal(f64::NAN),
+            Value::LReal(f64::INFINITY),
+            Value::LReal(-0.0),
+            Value::LReal(0.0),
+            Value::LReal(-0.5),
+            Value::LReal(0.5),
+            Value::LReal(1.0),
+            Value::LReal(2.0),
+            Value::LReal(upper.next_down()),
+            Value::LReal(upper),
+            Value::LReal(upper.next_up()),
+            Value::LReal((-upper).next_down()),
+            Value::LReal(-upper),
+            Value::LReal((-upper).next_up()),
+        ];
+        for nanos in [
+            i64::MIN,
+            i64::MIN + 1,
+            -5,
+            -3,
+            -1,
+            0,
+            1,
+            3,
+            5,
+            i64::MAX - 1,
+            i64::MAX,
+        ] {
+            for factor in &factors {
+                for multiply in [false, true] {
+                    let duration = Duration::from_nanos(nanos);
+                    assert_eq!(
+                        scale_time(duration, factor, multiply),
+                        wide_scale_time(duration, factor, multiply),
+                        "nanos={nanos}, factor={factor:?}, multiply={multiply}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn narrow_integer_and_time_comparisons_keep_all_relations_at_extremes() {
+        let operations = [
+            CmpOp::Lt,
+            CmpOp::Le,
+            CmpOp::Gt,
+            CmpOp::Ge,
+            CmpOp::Eq,
+            CmpOp::Ne,
+        ];
+        for left in [i64::MIN, -1, 0, 1, i64::MAX] {
+            for right in [i64::MIN, -1, 0, 1, i64::MAX] {
+                for op in operations {
+                    let expected = compare_ord(i128::from(left), i128::from(right), op);
+                    for kind in [
+                        NumericKind::SInt,
+                        NumericKind::Int,
+                        NumericKind::DInt,
+                        NumericKind::LInt,
+                    ] {
+                        assert_eq!(
+                            compare_common(
+                                &Value::LInt(left),
+                                &Value::LInt(right),
+                                &CommonKind::Numeric(kind),
+                                op
+                            ),
+                            Ok(expected)
+                        );
+                    }
+                    let pairs = [
+                        (
+                            TimeKind::Time,
+                            Value::Time(Duration::from_nanos(left)),
+                            Value::Time(Duration::from_nanos(right)),
+                        ),
+                        (
+                            TimeKind::LTime,
+                            Value::LTime(Duration::from_nanos(left)),
+                            Value::LTime(Duration::from_nanos(right)),
+                        ),
+                        (
+                            TimeKind::Date,
+                            Value::Date(DateValue::new(left)),
+                            Value::Date(DateValue::new(right)),
+                        ),
+                        (
+                            TimeKind::LDate,
+                            Value::LDate(LDateValue::new(left)),
+                            Value::LDate(LDateValue::new(right)),
+                        ),
+                        (
+                            TimeKind::Tod,
+                            Value::Tod(TimeOfDayValue::new(left)),
+                            Value::Tod(TimeOfDayValue::new(right)),
+                        ),
+                        (
+                            TimeKind::LTod,
+                            Value::LTod(LTimeOfDayValue::new(left)),
+                            Value::LTod(LTimeOfDayValue::new(right)),
+                        ),
+                        (
+                            TimeKind::Dt,
+                            Value::Dt(DateTimeValue::new(left)),
+                            Value::Dt(DateTimeValue::new(right)),
+                        ),
+                        (
+                            TimeKind::Ldt,
+                            Value::Ldt(LDateTimeValue::new(left)),
+                            Value::Ldt(LDateTimeValue::new(right)),
+                        ),
+                    ];
+                    for (kind, a, b) in pairs {
+                        assert_eq!(
+                            compare_common(&a, &b, &CommonKind::Time(kind), op),
+                            Ok(expected)
+                        );
+                        assert_eq!(
+                            compare_common(&a, &Value::Bool(false), &CommonKind::Time(kind), op),
+                            Err(RuntimeError::TypeMismatch)
+                        );
+                    }
+                }
+            }
+        }
+        for left in [0, 1, 1u64 << 63, u64::MAX] {
+            for right in [0, 1, 1u64 << 63, u64::MAX] {
+                for op in operations {
+                    for kind in [
+                        NumericKind::USInt,
+                        NumericKind::UInt,
+                        NumericKind::UDInt,
+                        NumericKind::ULInt,
+                    ] {
+                        assert_eq!(
+                            compare_common(
+                                &Value::ULInt(left),
+                                &Value::ULInt(right),
+                                &CommonKind::Numeric(kind),
+                                op
+                            ),
+                            Ok(compare_ord(u128::from(left), u128::from(right), op))
+                        );
+                    }
+                }
+            }
+        }
     }
 }

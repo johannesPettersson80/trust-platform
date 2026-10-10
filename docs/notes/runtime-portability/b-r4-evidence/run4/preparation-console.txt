@@ -1,0 +1,81 @@
+[gate-progress state=started phase=B-R4-environment target=scena-rust-builder pid=1749743 elapsed=0.0s timeout=7200s command='bash -c '"'"'hostname; pwd; date -u +%FT%TZ; git rev-parse HEAD; rustc -Vv; cargo -V; rustup target list --installed; nproc; free -h; df -h "$CARGO_TARGET_DIR" "$TMPDIR" .; ps -eo pid,etimes,args | grep -E "[c]argo|[r]ustc|[c]lippy|[n]pm"; printf "RUSTUP_TOOLCHAIN=%s\nRUSTFLAGS=%s\nCARGO_TARGET_DIR=%s\nCARGO_BUILD_JOBS=%s\nTMPDIR=%s\n" "$RUSTUP_TOOLCHAIN" "$RUSTFLAGS" "$CARGO_TARGET_DIR" "$CARGO_BUILD_JOBS" "$TMPDIR"'"'"'']
+scena-rust-builder
+/home/johannes/projects/trust-platform-portability-b
+2026-10-10T20:39:11Z
+df427259cc387a7a79fb81132be23e48ea1493d4
+rustc 1.95.0 (59807616e 2026-04-14)
+binary: rustc
+commit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860
+commit-date: 2026-04-14
+host: x86_64-unknown-linux-gnu
+release: 1.95.0
+LLVM version: 22.1.2
+cargo 1.95.0 (f2d3ce0bd 2026-03-21)
+i686-unknown-linux-musl
+riscv32imac-unknown-none-elf
+thumbv7em-none-eabihf
+x86_64-pc-windows-gnu
+x86_64-unknown-linux-gnu
+16
+               total        used        free      shared  buff/cache   available
+Mem:            30Gi       1.1Gi       3.8Gi        21Mi        26Gi        29Gi
+Swap:           15Gi       194Mi        15Gi
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sdb        492G  364G  103G  78% /mnt/HC_Volume_107089260
+/dev/sdb        492G  364G  103G  78% /mnt/HC_Volume_107089260
+/dev/sda1       301G  257G   32G  90% /
+1749742       0 python3 scripts/run_with_progress.py --phase B-R4-environment --target scena-rust-builder --timeout-seconds 7200 --progress-interval-seconds 30 --log /home/johannes/.cache/trust-portability-b-evidence/b-r4-run4/environment.txt -- bash -c hostname; pwd; date -u +%FT%TZ; git rev-parse HEAD; rustc -Vv; cargo -V; rustup target list --installed; nproc; free -h; df -h "$CARGO_TARGET_DIR" "$TMPDIR" .; ps -eo pid,etimes,args | grep -E "[c]argo|[r]ustc|[c]lippy|[n]pm"; printf "RUSTUP_TOOLCHAIN=%s\nRUSTFLAGS=%s\nCARGO_TARGET_DIR=%s\nCARGO_BUILD_JOBS=%s\nTMPDIR=%s\n" "$RUSTUP_TOOLCHAIN" "$RUSTFLAGS" "$CARGO_TARGET_DIR" "$CARGO_BUILD_JOBS" "$TMPDIR"
+1749743       0 bash -c hostname; pwd; date -u +%FT%TZ; git rev-parse HEAD; rustc -Vv; cargo -V; rustup target list --installed; nproc; free -h; df -h "$CARGO_TARGET_DIR" "$TMPDIR" .; ps -eo pid,etimes,args | grep -E "[c]argo|[r]ustc|[c]lippy|[n]pm"; printf "RUSTUP_TOOLCHAIN=%s\nRUSTFLAGS=%s\nCARGO_TARGET_DIR=%s\nCARGO_BUILD_JOBS=%s\nTMPDIR=%s\n" "$RUSTUP_TOOLCHAIN" "$RUSTFLAGS" "$CARGO_TARGET_DIR" "$CARGO_BUILD_JOBS" "$TMPDIR"
+RUSTUP_TOOLCHAIN=1.95.0
+RUSTFLAGS=-Dwarnings
+CARGO_TARGET_DIR=/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b
+CARGO_BUILD_JOBS=6
+TMPDIR=/mnt/HC_Volume_107089260/builder-storage/tmp/portability-b
+[gate-progress state=finished phase=B-R4-environment target=scena-rust-builder pid=1749743 elapsed=0.1s timeout=7200s command='bash -c '"'"'hostname; pwd; date -u +%FT%TZ; git rev-parse HEAD; rustc -Vv; cargo -V; rustup target list --installed; nproc; free -h; df -h "$CARGO_TARGET_DIR" "$TMPDIR" .; ps -eo pid,etimes,args | grep -E "[c]argo|[r]ustc|[c]lippy|[n]pm"; printf "RUSTUP_TOOLCHAIN=%s\nRUSTFLAGS=%s\nCARGO_TARGET_DIR=%s\nCARGO_BUILD_JOBS=%s\nTMPDIR=%s\n" "$RUSTUP_TOOLCHAIN" "$RUSTFLAGS" "$CARGO_TARGET_DIR" "$CARGO_BUILD_JOBS" "$TMPDIR"'"'"'' status=0]
+[gate-progress state=started phase=B-R4-canonical-parity target=scena-rust-builder pid=1749789 elapsed=0.0s timeout=7200s command='sha256sum -c /home/johannes/.cache/trust-portability-br4-setup-run4/canonical.sha256']
+AGENTS.md: OK
+CLAUDE.md: OK
+.codex/skills/st-lsp-solid/SKILL.md: OK
+.codex/skills/trust-ci-release-gates/SKILL.md: OK
+.codex/skills/trust-ci-release-gates/scripts/__pycache__/release_candidate_cleanup.cpython-313.pyc: OK
+.codex/skills/trust-ci-release-gates/scripts/__pycache__/release_candidate_guard.cpython-313.pyc: OK
+.codex/skills/trust-ci-release-gates/scripts/__pycache__/release_candidate_prepare.cpython-313.pyc: OK
+.codex/skills/trust-ci-release-gates/scripts/__pycache__/release_candidate_release.cpython-313.pyc: OK
+.codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh: OK
+.codex/skills/trust-ci-release-gates/scripts/pre-push: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_cleanup.py: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_cleanup_tests.py: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard_tests.py: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_prepare.py: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_release.py: OK
+.codex/skills/trust-hmi-contracts/SKILL.md: OK
+.codex/skills/trust-lsp-iec/SKILL.md: OK
+.codex/skills/trust-remote-builder/SKILL.md: OK
+.codex/skills/trust-test-authoring/SKILL.md: OK
+.codex/skills/trust-vscode-quality/SKILL.md: OK
+[gate-progress state=finished phase=B-R4-canonical-parity target=scena-rust-builder pid=1749789 elapsed=0.1s timeout=7200s command='sha256sum -c /home/johannes/.cache/trust-portability-br4-setup-run4/canonical.sha256' status=0]
+[gate-progress state=started phase=B-R4-staged-index target=scena-rust-builder pid=1749796 elapsed=0.0s timeout=7200s command='git diff --cached --quiet']
+[gate-progress state=finished phase=B-R4-staged-index target=scena-rust-builder pid=1749796 elapsed=0.1s timeout=7200s command='git diff --cached --quiet' status=0]
+[gate-progress state=started phase=B-R4-format-prepare target=scena-rust-builder pid=1749805 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b bash /home/johannes/.cache/trust-portability-br4-setup-run4/format-once.sh']
+[gate-progress state=finished phase=B-R4-format-prepare target=scena-rust-builder pid=1749805 elapsed=6.2s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b bash /home/johannes/.cache/trust-portability-br4-setup-run4/format-once.sh' status=0]
+[gate-progress state=started phase=B-R4-unsafe-location-refresh target=scena-rust-builder pid=1749882 elapsed=0.0s timeout=7200s command='python3 /home/johannes/.cache/trust-portability-br4-setup-run4/refresh-unsafe-location.py']
+Existing HardFault unsafe-site location rebound to formatted line 133
+[gate-progress state=finished phase=B-R4-unsafe-location-refresh target=scena-rust-builder pid=1749882 elapsed=0.1s timeout=7200s command='python3 /home/johannes/.cache/trust-portability-br4-setup-run4/refresh-unsafe-location.py' status=0]
+[gate-progress state=started phase=B-R4-provenance-refresh target=scena-rust-builder pid=1749889 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b bash scripts/refresh_a4_provenance.sh /home/johannes/.cache/trust-portability-b-evidence/b-r4-run4/provenance']
+    Finished `dev` profile [unoptimized] target(s) in 0.13s
+     Running `/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/debug/examples/refresh_portability_provenance /home/johannes/.cache/trust-portability-b-evidence/b-r4-run4/provenance`
+[gate-progress state=finished phase=B-R4-provenance-refresh target=scena-rust-builder pid=1749889 elapsed=0.7s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b bash scripts/refresh_a4_provenance.sh /home/johannes/.cache/trust-portability-b-evidence/b-r4-run4/provenance' status=0]
+[gate-progress state=started phase=B-R4-fixture-inputs target=scena-rust-builder pid=1750000 elapsed=0.0s timeout=7200s command='sha256sum --check /home/johannes/.cache/trust-portability-br4-setup-run4/fixture-sha256.txt']
+crates/trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc: OK
+crates/trust-runtime/tests/fixtures/portability/stbc-2.0/numeric-v2.stbc: OK
+crates/trust-runtime/tests/fixtures/portability/f401/gpio.stbc: OK
+[gate-progress state=finished phase=B-R4-fixture-inputs target=scena-rust-builder pid=1750000 elapsed=0.1s timeout=7200s command='sha256sum --check /home/johannes/.cache/trust-portability-br4-setup-run4/fixture-sha256.txt' status=0]
+[gate-progress state=started phase=B-R4-lock-parity target=scena-rust-builder pid=1750007 elapsed=0.0s timeout=7200s command='bash -c '"'"'cmp Cargo.lock "$B_EVIDENCE/root-before.lock" && cmp firmware/trust-nucleo-f401re/Cargo.lock "$B_EVIDENCE/firmware-before.lock"'"'"'']
+[gate-progress state=finished phase=B-R4-lock-parity target=scena-rust-builder pid=1750007 elapsed=0.1s timeout=7200s command='bash -c '"'"'cmp Cargo.lock "$B_EVIDENCE/root-before.lock" && cmp firmware/trust-nucleo-f401re/Cargo.lock "$B_EVIDENCE/firmware-before.lock"'"'"'' status=0]
+[gate-progress state=started phase=B-R4-freeze-source target=scena-rust-builder pid=1750015 elapsed=0.0s timeout=7200s command='python3 /home/johannes/.cache/trust-portability-br4-setup-run4/freeze-source.py']
+Frozen 1431 source/deletion records after formatting and digest refresh
+[gate-progress state=finished phase=B-R4-freeze-source target=scena-rust-builder pid=1750015 elapsed=0.2s timeout=7200s command='python3 /home/johannes/.cache/trust-portability-br4-setup-run4/freeze-source.py' status=0]
+[gate-progress state=started phase=B-R4-freeze-context target=scena-rust-builder pid=1750025 elapsed=0.0s timeout=7200s command='bash -c '"'"'git status --short > "$B_EVIDENCE/git-status.txt"; git diff --binary > "$B_EVIDENCE/source.patch"; sha256sum Cargo.lock firmware/trust-nucleo-f401re/Cargo.lock > "$B_EVIDENCE/locks-sha256.txt"; sha256sum "$B_EVIDENCE/formatted-source-manifest.json"; find .codex/skills -type f -print0 | sort -z | xargs -0 sha256sum > "$B_EVIDENCE/skills-sha256.txt"; sha256sum AGENTS.md CLAUDE.md > "$B_EVIDENCE/rules-sha256.txt"'"'"'']
+63138bc047e54224a9ea2edd970cdb323db24d74c4bda12f7c4dddf9fb8f7298  /home/johannes/.cache/trust-portability-b-evidence/b-r4-run4/formatted-source-manifest.json
+[gate-progress state=finished phase=B-R4-freeze-context target=scena-rust-builder pid=1750025 elapsed=0.1s timeout=7200s command='bash -c '"'"'git status --short > "$B_EVIDENCE/git-status.txt"; git diff --binary > "$B_EVIDENCE/source.patch"; sha256sum Cargo.lock firmware/trust-nucleo-f401re/Cargo.lock > "$B_EVIDENCE/locks-sha256.txt"; sha256sum "$B_EVIDENCE/formatted-source-manifest.json"; find .codex/skills -type f -print0 | sort -z | xargs -0 sha256sum > "$B_EVIDENCE/skills-sha256.txt"; sha256sum AGENTS.md CLAUDE.md > "$B_EVIDENCE/rules-sha256.txt"'"'"'' status=0]

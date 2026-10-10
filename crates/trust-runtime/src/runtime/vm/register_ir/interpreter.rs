@@ -68,7 +68,7 @@ pub(super) fn execute_register_block_interpreted(
                         if cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                                .record_value_op(RegisterValueOpKind::LoadConstant);
                         }
                         value
                     })
@@ -161,7 +161,7 @@ pub(super) fn execute_register_block_interpreted(
                     if cloned {
                         runtime
                             .vm_register_profile
-                            .record_value_op(RegisterValueOpKind::ReadValueClone);
+                            .record_value_op(RegisterValueOpKind::ReadReference);
                     }
                     value
                 };
@@ -411,12 +411,12 @@ pub(super) fn execute_register_block_interpreted(
                         if left_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                                .record_value_op(RegisterValueOpKind::ReadReference);
                         }
                         if right_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                                .record_value_op(RegisterValueOpKind::ReadReference);
                         }
                         apply_binary(*op, left, right, &runtime.profile)?
                     }
@@ -451,12 +451,12 @@ pub(super) fn execute_register_block_interpreted(
                         if left_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                                .record_value_op(RegisterValueOpKind::ReadReference);
                         }
                         if right_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                                .record_value_op(RegisterValueOpKind::LoadConstant);
                         }
                         apply_binary(*op, left, right, &runtime.profile)?
                     }
@@ -491,12 +491,12 @@ pub(super) fn execute_register_block_interpreted(
                         if left_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                                .record_value_op(RegisterValueOpKind::LoadConstant);
                         }
                         if right_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                                .record_value_op(RegisterValueOpKind::ReadReference);
                         }
                         apply_binary(*op, left, right, &runtime.profile)?
                     }
@@ -532,12 +532,12 @@ pub(super) fn execute_register_block_interpreted(
                         if left_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                                .record_value_op(RegisterValueOpKind::ReadReference);
                         }
                         if right_cloned {
                             runtime
                                 .vm_register_profile
-                                .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                                .record_value_op(RegisterValueOpKind::LoadConstant);
                         }
                         apply_binary(*op, left, right, &runtime.profile)?
                     }

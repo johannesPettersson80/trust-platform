@@ -1,0 +1,15 @@
+{
+  "reviewer": "/root/br1_static_registry",
+  "checkout": "/home/johannes/projects/trust-platform-portability-b",
+  "scope": "Supplemental source review of one-reservation input/output staging and its native failure regression; supersedes the prior adjacent observation and storage_tests.rs hash only.",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/io/staging.rs",
+      "sha256": "9e23d3ad2843c7de06d354de9f1677c06df9b5486ba144c396fc7265557fb405"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/storage_tests.rs",
+      "sha256": "d25ef93c831ad9f0ef794f3f236a21c384e33bcf51b4c1caa07469c2d400c783"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo tree --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf -e features\,no-dev 

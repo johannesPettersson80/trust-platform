@@ -1,0 +1,19 @@
+[gate-progress state=started phase=B-R1-affected-clippy target=scena-rust-builder pid=1499829 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo clippy --locked -p trust-runtime-core -p trust-runtime -p trust-platform-stm32f4 -p xtask -p verification-cases --all-targets --all-features -- -D warnings']
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+    Checking trust-ide v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-ide)
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime)
+    Checking trust-plcopen v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-plcopen)
+    Checking trust-tcads-native v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-tcads-native)
+    Checking proc-macro2 v1.0.106
+    Checking object v0.37.3
+    Checking verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/verification-cases)
+    Checking quote v1.0.45
+    Checking syn v2.0.117
+    Checking trust-wasm-analysis v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-wasm-analysis)
+    Checking trust-platform-stm32f4 v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-platform-stm32f4)
+    Checking xtask v0.24.71 (/home/johannes/projects/trust-platform-portability-b/xtask)
+    Checking trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-ads-core)
+    Checking trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-ads-server)
+[gate-progress state=running phase=B-R1-affected-clippy target=scena-rust-builder pid=1499829 elapsed=30.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo clippy --locked -p trust-runtime-core -p trust-runtime -p trust-platform-stm32f4 -p xtask -p verification-cases --all-targets --all-features -- -D warnings']
+    Finished `dev` profile [unoptimized] target(s) in 37.78s
+[gate-progress state=finished phase=B-R1-affected-clippy target=scena-rust-builder pid=1499829 elapsed=38.4s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo clippy --locked -p trust-runtime-core -p trust-runtime -p trust-platform-stm32f4 -p xtask -p verification-cases --all-targets --all-features -- -D warnings' status=0]

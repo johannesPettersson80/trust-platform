@@ -91,7 +91,7 @@ pub(super) fn validate_unique(
             )?;
         }
     }
-    budget.sort_by(&mut keys, |left, right, _| Ok(left.cmp(right)))?;
+    budget.sort_by(&mut keys, &mut |left, right, _| Ok(left.cmp(right)))?;
     for pair in keys.windows(2) {
         budget.work(1)?;
         if pair[0] == pair[1] {

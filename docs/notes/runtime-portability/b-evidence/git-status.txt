@@ -1,0 +1,18 @@
+ M .gitignore
+ M CHANGELOG.md
+ M Cargo.lock
+ M Cargo.toml
+ M docs/diagrams/architecture/runtime-bytecode-vm-execution.puml
+ M docs/internal/testing/checklists/runtime-portability-implementation-checklist.md
+ M docs/specs/34-runtime-portability.md
+ M xtask/Cargo.toml
+ M xtask/config/full_map_policy.json
+ M xtask/src/full_map.rs
+ M xtask/src/main.rs
+?? crates/trust-platform-stm32f4/
+?? crates/trust-runtime/examples/portability_gpio_fixture.rs
+?? crates/trust-runtime/tests/fixtures/portability/f401/
+?? crates/trust-runtime/tests/portability_f401_gpio.rs
+?? docs/notes/runtime-portability/b-execution.md
+?? firmware/
+?? xtask/src/portability/

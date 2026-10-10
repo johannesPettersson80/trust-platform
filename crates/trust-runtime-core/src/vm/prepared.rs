@@ -84,13 +84,14 @@ impl PreparedModule {
             limits.max_preparation_work,
         )
         .map_err(RuntimeError::from)?;
-        Self::from_decoded_after_decode(
+        Self::prepare_validated_metadata(
             &raw,
             limits,
             PreparationUsage {
                 bytes: decoded.allocation_bytes,
                 work: decoded.work,
             },
+            bytes.len(),
         )
     }
 
@@ -99,42 +100,51 @@ impl PreparedModule {
         raw: &BytecodeModule,
         limits: PreparationLimits,
     ) -> Result<Self, RuntimeError> {
-        Self::from_decoded_after_decode(raw, limits, PreparationUsage::default())
+        Self::check_limits(limits)?;
+        // Struct-built containers have not passed the byte decoder's framing,
+        // widths and extent checks. Keep their independently bounded serializer.
+        let encoded = raw
+            .encode_with_limit(
+                limits
+                    .max_artifact_bytes
+                    .min(limits.max_preparation_bytes / 4)
+                    .min(limits.max_preparation_work),
+            )
+            .map_err(RuntimeError::from)?;
+        let encoded_len = encoded.len();
+        let usage = PreparationUsage {
+            bytes: encoded_len.checked_mul(4).ok_or(RuntimeError::Overflow)?,
+            work: encoded_len,
+        };
+        drop(encoded);
+        Self::prepare_validated_metadata(raw, limits, usage, encoded_len)
     }
 
-    fn from_decoded_after_decode(
-        raw: &BytecodeModule,
-        limits: PreparationLimits,
-        decoded: PreparationUsage,
-    ) -> Result<Self, RuntimeError> {
+    fn check_limits(limits: PreparationLimits) -> Result<(), RuntimeError> {
         if limits.max_call_depth == 0
             || limits.max_call_depth > super::VM_MAX_CALL_DEPTH
             || limits.max_work == 0
             || limits.max_construction_values == 0
         {
             return Err(RuntimeError::ProfileUnsupported(
-                "invalid preparation profile limits".into(),
+                smol_str::SmolStr::new_static("invalid preparation profile limits"),
             ));
         }
-        // Use the one serializer's checked widths/alignment for struct-built inputs.
-        // Drop transport scratch before materializing the execution representation.
+        Ok(())
+    }
+
+    fn prepare_validated_metadata(
+        raw: &BytecodeModule,
+        limits: PreparationLimits,
+        transport: PreparationUsage,
+        encoded_len: usize,
+    ) -> Result<Self, RuntimeError> {
+        Self::check_limits(limits)?;
+        // Byte inputs already passed framing and checked payload decoding.
+        // Charge the actual route's cumulative transport demand, never a
+        // synthetic re-encoding allocation which the byte route does not make.
         let mut preparation = PreparationBudget::new(limits);
-        preparation.charge(decoded.bytes, decoded.work)?;
-        // Serialization is independently bounded before its first buffer reservation.
-        let encoded = raw
-            .encode_with_limit(
-                limits
-                    .max_artifact_bytes
-                    .min(preparation.remaining_bytes() / 4)
-                    .min(preparation.remaining_work()),
-            )
-            .map_err(RuntimeError::from)?;
-        let encoded_len = encoded.len();
-        preparation.charge(
-            encoded_len.checked_mul(4).ok_or(RuntimeError::Overflow)?,
-            encoded_len,
-        )?;
-        drop(encoded);
+        preparation.charge(transport.bytes, transport.work)?;
         preparation.metadata(raw, encoded_len)?;
         let token = raw
             .validated_with_limits(limits.validation)
@@ -147,7 +157,11 @@ impl PreparedModule {
                 Some(SectionData::StorageLayout(layout)),
                 Some(SectionData::ConstructionRoots(roots)),
             ) => admission::check_construction_demand(layout, roots, limits)?,
-            _ => return Err(invalid_bytecode("missing construction metadata")),
+            _ => {
+                return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+                    "missing construction metadata",
+                )))
+            }
         }
         let mut vm = VmModule::from_source_free(&token, &mut preparation)?;
         for reference in &vm.refs {
@@ -164,15 +178,27 @@ impl PreparedModule {
         vm.instruction_budget = limits.max_work;
         let layout = match token.section(SectionId::StorageLayout) {
             Some(SectionData::StorageLayout(value)) => value.clone(),
-            _ => return Err(invalid_bytecode("missing STORAGE_LAYOUT")),
+            _ => {
+                return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+                    "missing STORAGE_LAYOUT",
+                )))
+            }
         };
         let roots = match token.section(SectionId::ConstructionRoots) {
             Some(SectionData::ConstructionRoots(value)) => value.clone(),
-            _ => return Err(invalid_bytecode("missing CONSTRUCTION_ROOTS")),
+            _ => {
+                return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+                    "missing CONSTRUCTION_ROOTS",
+                )))
+            }
         };
         let initializers = match token.section(SectionId::Initializers) {
             Some(SectionData::Initializers(value)) => value.clone(),
-            _ => return Err(invalid_bytecode("missing INITIALIZERS")),
+            _ => {
+                return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+                    "missing INITIALIZERS",
+                )))
+            }
         };
         let access = match token.section(SectionId::AccessBindings) {
             Some(SectionData::AccessBindings(value)) => value.clone(),
@@ -188,7 +214,9 @@ impl PreparedModule {
         };
         if resources.resources.len() != 1 {
             return Err(RuntimeError::ProfileUnsupported(
-                "source-free execution requires exactly one resource".into(),
+                smol_str::SmolStr::new_static(
+                    "source-free execution requires exactly one resource",
+                ),
             ));
         }
         for resource in &resources.resources {
@@ -208,34 +236,40 @@ impl PreparedModule {
             })
             .collect::<Result<Vec<_>, _>>()?;
         // Count the shared registration lists without allocating, then build once.
-        let (registry_bytes, registry_work) = crate::stdlib::StandardLibrary::preparation_demand()?;
+        let (registry_bytes, registry_work) = crate::stdlib::StandardLibrary::preparation_demand();
         preparation.charge(registry_bytes, registry_work)?;
         let stdlib = crate::stdlib::StandardLibrary::new();
         let requires_wall_clock =
             admission::check_imports(&vm, &initializers, &layout, &stdlib, &mut preparation)?;
-        let method_owners = match token.section(SectionId::PouIndex) {
-            Some(SectionData::PouIndex(index)) => index
-                .entries
-                .iter()
-                .filter(|entry| entry.kind == crate::bytecode::PouKind::Method)
-                .filter_map(|entry| entry.owner_pou_id.map(|owner| (entry.id, owner)))
-                .collect(),
-            _ => BTreeMap::new(),
-        };
+        let mut method_owners = BTreeMap::new();
+        if let Some(SectionData::PouIndex(index)) = token.section(SectionId::PouIndex) {
+            for entry in &index.entries {
+                preparation.charge(0, 1)?;
+                if entry.kind == crate::bytecode::PouKind::Method {
+                    if let Some(owner) = entry.owner_pou_id {
+                        preparation
+                            .charge(0, 12 * (method_owners.len().max(1).ilog2() as usize + 1))?;
+                        method_owners.insert(entry.id, owner);
+                    }
+                }
+            }
+        }
         let mut recipes = Vec::new();
         for (id, entry) in initializers.entries.iter().enumerate() {
             if let Some(type_id) = entry.recipe_type_id {
                 recipes.push((
-                    entry
-                        .context_initializer_idx
-                        .ok_or_else(|| invalid_bytecode("recipe has no context"))?,
+                    entry.context_initializer_idx.ok_or_else(|| {
+                        invalid_bytecode(smol_str::SmolStr::new_static("recipe has no context"))
+                    })?,
                     type_id,
                     entry.recipe_member_idx,
                     u32::try_from(id).map_err(|_| RuntimeError::Overflow)?,
                 ));
             }
         }
-        recipes.sort_unstable_by_key(|entry| (entry.0, entry.1, entry.2));
+        indexes::sort::sort_by(&mut recipes, &mut preparation, &mut |left, right, _| {
+            Ok((left.0, left.1, left.2).cmp(&(right.0, right.1, right.2)))
+        })?;
         let indexes = indexes::PreparedIndexes::build(
             &vm,
             &layout,
@@ -274,7 +308,9 @@ impl PreparedModule {
     ) -> Result<(), RuntimeError> {
         if self.requires_wall_clock && !services.has_wall_clock() {
             return Err(RuntimeError::ProfileUnsupported(
-                "CURRENT_DT requires an admitted platform wall clock".into(),
+                smol_str::SmolStr::new_static(
+                    "CURRENT_DT requires an admitted platform wall clock",
+                ),
             ));
         }
         Ok(())

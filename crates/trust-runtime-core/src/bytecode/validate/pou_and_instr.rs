@@ -17,8 +17,8 @@ pub(super) fn validate_pou_index(
     for (position, entry) in index.entries.iter().enumerate() {
         budget.work(1)?;
         if tables.pou_position(entry.id, budget)? != Some(position) {
-            return Err(BytecodeError::InvalidSection(
-                format!("duplicate POU id {}", entry.id).into(),
+            return Err(BytecodeError::section_diagnostic(
+                SectionDiagnostic::DuplicatePou(entry.id),
             ));
         }
         validate_pou_local_ref_range(ref_table, entry, budget)?;
@@ -164,7 +164,7 @@ pub(super) fn validate_pou_local_ref_partition(
             budget.push(&mut owners, owner)?;
         }
     }
-    budget.sort_by(&mut owners, |a, b, _| Ok(a.cmp(b)))?;
+    budget.sort_by(&mut owners, &mut |a, b, _| Ok(a.cmp(b)))?;
     for pair in owners.windows(2) {
         budget.work(1)?;
         if pair[0] == pair[1] {

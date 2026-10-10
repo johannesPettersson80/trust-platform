@@ -27,15 +27,27 @@ pub(super) fn sections<'a>(
 > {
     let layout = match module.section(SectionId::StorageLayout) {
         Some(SectionData::StorageLayout(v)) => v,
-        _ => return Err(BytecodeError::MissingSection("STORAGE_LAYOUT".into())),
+        _ => {
+            return Err(BytecodeError::MissingSection(
+                smol_str::SmolStr::new_static("STORAGE_LAYOUT"),
+            ))
+        }
     };
     let roots = match module.section(SectionId::ConstructionRoots) {
         Some(SectionData::ConstructionRoots(v)) => v,
-        _ => return Err(BytecodeError::MissingSection("CONSTRUCTION_ROOTS".into())),
+        _ => {
+            return Err(BytecodeError::MissingSection(
+                smol_str::SmolStr::new_static("CONSTRUCTION_ROOTS"),
+            ))
+        }
     };
     let initializers = match module.section(SectionId::Initializers) {
         Some(SectionData::Initializers(v)) => v,
-        _ => return Err(BytecodeError::MissingSection("INITIALIZERS".into())),
+        _ => {
+            return Err(BytecodeError::MissingSection(
+                smol_str::SmolStr::new_static("INITIALIZERS"),
+            ))
+        }
     };
     if [
         layout.entries.len(),

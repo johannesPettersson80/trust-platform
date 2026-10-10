@@ -57,11 +57,14 @@ fn overflowing_pou_extent_is_rejected_before_slicing() {
     };
     index.entries[0].code_offset = 0xffff_fffc;
     index.entries[0].code_length = 8;
+    let error = module.validate().unwrap_err();
     assert_eq!(
-        module.validate(),
-        Err(BytecodeError::InvalidSection(
-            "POU code out of bounds".into()
-        ))
+        error,
+        trust_runtime_core::bytecode::RejectionReason::PouCodeOutOfBounds.into()
+    );
+    assert_eq!(
+        error.to_string(),
+        "invalid section data: POU code out of bounds"
     );
 }
 

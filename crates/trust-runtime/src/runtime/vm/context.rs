@@ -62,7 +62,12 @@ impl trust_runtime_core::vm::hosted::context::ExecutionContext for Runtime {
     fn execution_budget(&self) -> &trust_runtime_core::vm::hosted::budget::ExecutionBudget {
         &self.vm_execution_budget
     }
-    fn retire_frame(&mut self, _frame: &super::frames::VmFrame) {}
+    fn retire_frame(
+        &mut self,
+        _frame: &super::frames::VmFrame,
+    ) -> Result<(), crate::error::RuntimeError> {
+        Ok(())
+    }
     fn check_frame_return(
         &self,
         _frame: &super::frames::VmFrame,

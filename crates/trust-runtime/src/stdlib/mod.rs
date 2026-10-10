@@ -6,5 +6,5 @@ pub use trust_runtime_core::stdlib::hosted::{
     assertions, bit, comparison, helpers, numeric, selection, string, validate,
 };
 pub use trust_runtime_core::stdlib::{
-    conversions, StandardLibrary, StdFunc, StdFunction, StdParams,
+    conversions, StandardLibrary, StdFunc, StdFunction, StdFunctionRef, StdParams,
 };

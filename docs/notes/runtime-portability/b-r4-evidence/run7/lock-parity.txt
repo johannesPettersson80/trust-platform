@@ -1,0 +1,2 @@
+[gate-progress state=started phase=B-R4-lock-parity target=scena-rust-builder pid=1778351 elapsed=0.0s timeout=7200s command='bash -c '"'"'cmp Cargo.lock "$B_EVIDENCE/root-before.lock" && cmp firmware/trust-nucleo-f401re/Cargo.lock "$B_EVIDENCE/firmware-before.lock"'"'"'']
+[gate-progress state=finished phase=B-R4-lock-parity target=scena-rust-builder pid=1778351 elapsed=0.1s timeout=7200s command='bash -c '"'"'cmp Cargo.lock "$B_EVIDENCE/root-before.lock" && cmp firmware/trust-nucleo-f401re/Cargo.lock "$B_EVIDENCE/firmware-before.lock"'"'"'' status=0]

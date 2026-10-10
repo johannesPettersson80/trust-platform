@@ -96,8 +96,8 @@ pub(super) fn validate_roots(
             }
         }
     }
-    budget.sort_by(&mut bindings, |a, b, _| Ok(a.cmp(b)))?;
-    budget.sort_by(&mut root_declarations, |a, b, _| Ok(a.cmp(b)))?;
+    budget.sort_by(&mut bindings, &mut |a, b, _| Ok(a.cmp(b)))?;
+    budget.sort_by(&mut root_declarations, &mut |a, b, _| Ok(a.cmp(b)))?;
     for pair in bindings.windows(2) {
         budget.work(1)?;
         if pair[0] == pair[1] {

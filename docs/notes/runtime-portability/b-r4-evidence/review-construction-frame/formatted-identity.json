@@ -1,0 +1,7 @@
+{
+  "manifest_sha256": "63138bc047e54224a9ea2edd970cdb323db24d74c4bda12f7c4dddf9fb8f7298",
+  "files": {
+    "crates/trust-runtime-core/src/vm/construction/values.rs": "7e8a29ff571e9c1fbd24e1dcfcac52fa0a9bae2d9a050c02023340c1a3699a97",
+    "crates/trust-runtime-core/src/vm/construction/values/tests.rs": "53f8f66005962656f2410a4e8a0ecb2903e22f877d7ea994198b7ea138ef60cf"
+  }
+}

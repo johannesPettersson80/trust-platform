@@ -1,0 +1,354 @@
+[
+  {
+    "diff": "--- retain.rs\n+++ replace RetainSnapshot::from_values -> Self with Default::default()\n@@ -33,17 +33,17 @@\n pub struct RetainSnapshot {\n     values: IndexMap<SmolStr, Value>,\n }\n \n impl RetainSnapshot {\n     /// Create a snapshot from already-collected retained values.\n     #[must_use]\n     pub fn from_values(values: IndexMap<SmolStr, Value>) -> Self {\n-        Self { values }\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n \n     /// Insert or replace a retained value.\n     pub fn insert(&mut self, name: impl Into<SmolStr>, value: Value) {\n         self.values.insert(name.into(), value);\n     }\n \n     /// Return the retained values in snapshot order.\n",
+    "file": "retain.rs",
+    "function": {
+      "function_name": "RetainSnapshot::from_values",
+      "return_type": "-> Self",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 42
+        },
+        "start": {
+          "column": 5,
+          "line": 38
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "retain.rs:41:9: replace RetainSnapshot::from_values -> Self with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 24,
+        "line": 41
+      },
+      "start": {
+        "column": 9,
+        "line": 41
+      }
+    }
+  },
+  {
+    "diff": "--- retain.rs\n+++ replace RetainSnapshot::insert with ()\n@@ -38,17 +38,17 @@\n     /// Create a snapshot from already-collected retained values.\n     #[must_use]\n     pub fn from_values(values: IndexMap<SmolStr, Value>) -> Self {\n         Self { values }\n     }\n \n     /// Insert or replace a retained value.\n     pub fn insert(&mut self, name: impl Into<SmolStr>, value: Value) {\n-        self.values.insert(name.into(), value);\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n     /// Return the retained values in snapshot order.\n     #[must_use]\n     pub fn values(&self) -> &IndexMap<SmolStr, Value> {\n         &self.values\n     }\n \n",
+    "file": "retain.rs",
+    "function": {
+      "function_name": "RetainSnapshot::insert",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 44
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "retain.rs:46:9: replace RetainSnapshot::insert with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 48,
+        "line": 46
+      },
+      "start": {
+        "column": 9,
+        "line": 46
+      }
+    }
+  },
+  {
+    "diff": "--- retain.rs\n+++ replace RetainSnapshot::values -> &IndexMap<SmolStr, Value> with Box::leak(Box::new(Default::default()))\n@@ -44,17 +44,17 @@\n     /// Insert or replace a retained value.\n     pub fn insert(&mut self, name: impl Into<SmolStr>, value: Value) {\n         self.values.insert(name.into(), value);\n     }\n \n     /// Return the retained values in snapshot order.\n     #[must_use]\n     pub fn values(&self) -> &IndexMap<SmolStr, Value> {\n-        &self.values\n+        Box::leak(Box::new(Default::default())) /* ~ changed by cargo-mutants ~ */\n     }\n \n     /// Consume the snapshot and return its retained values.\n     #[must_use]\n     pub fn into_values(self) -> IndexMap<SmolStr, Value> {\n         self.values\n     }\n }\n",
+    "file": "retain.rs",
+    "function": {
+      "function_name": "RetainSnapshot::values",
+      "return_type": "-> &IndexMap<SmolStr, Value>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 53
+        },
+        "start": {
+          "column": 5,
+          "line": 49
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "retain.rs:52:9: replace RetainSnapshot::values -> &IndexMap<SmolStr, Value> with Box::leak(Box::new(Default::default()))",
+    "package": "single_file",
+    "replacement": "Box::leak(Box::new(Default::default()))",
+    "span": {
+      "end": {
+        "column": 21,
+        "line": 52
+      },
+      "start": {
+        "column": 9,
+        "line": 52
+      }
+    }
+  },
+  {
+    "diff": "--- retain.rs\n+++ replace RetainSnapshot::into_values -> IndexMap<SmolStr, Value> with Default::default()\n@@ -50,17 +50,17 @@\n     #[must_use]\n     pub fn values(&self) -> &IndexMap<SmolStr, Value> {\n         &self.values\n     }\n \n     /// Consume the snapshot and return its retained values.\n     #[must_use]\n     pub fn into_values(self) -> IndexMap<SmolStr, Value> {\n-        self.values\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n /// Whether a policy preserves a value across a warm restart.\n pub fn retain_on_warm(policy: RetainPolicy) -> bool {\n     matches!(policy, RetainPolicy::Retain | RetainPolicy::Persistent)\n }\n \n",
+    "file": "retain.rs",
+    "function": {
+      "function_name": "RetainSnapshot::into_values",
+      "return_type": "-> IndexMap<SmolStr, Value>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 59
+        },
+        "start": {
+          "column": 5,
+          "line": 55
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "retain.rs:58:9: replace RetainSnapshot::into_values -> IndexMap<SmolStr, Value> with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 20,
+        "line": 58
+      },
+      "start": {
+        "column": 9,
+        "line": 58
+      }
+    }
+  },
+  {
+    "diff": "--- retain.rs\n+++ replace retain_on_warm -> bool with true\n@@ -56,17 +56,17 @@\n     #[must_use]\n     pub fn into_values(self) -> IndexMap<SmolStr, Value> {\n         self.values\n     }\n }\n \n /// Whether a policy preserves a value across a warm restart.\n pub fn retain_on_warm(policy: RetainPolicy) -> bool {\n-    matches!(policy, RetainPolicy::Retain | RetainPolicy::Persistent)\n+    true /* ~ changed by cargo-mutants ~ */\n }\n \n /// Durable snapshots never serialize live references or instance handles.\n pub fn value_is_retainable(value: &Value) -> bool {\n     match value {\n         Value::Array(array) => array.elements().iter().all(value_is_retainable),\n         Value::Struct(value) => value.fields().values().all(value_is_retainable),\n         Value::Reference(_) | Value::Instance(_) => false,\n",
+    "file": "retain.rs",
+    "function": {
+      "function_name": "retain_on_warm",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 65
+        },
+        "start": {
+          "column": 1,
+          "line": 62
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "retain.rs:64:5: replace retain_on_warm -> bool with true",
+    "package": "single_file",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 70,
+        "line": 64
+      },
+      "start": {
+        "column": 5,
+        "line": 64
+      }
+    }
+  },
+  {
+    "diff": "--- retain.rs\n+++ replace retain_on_warm -> bool with false\n@@ -56,17 +56,17 @@\n     #[must_use]\n     pub fn into_values(self) -> IndexMap<SmolStr, Value> {\n         self.values\n     }\n }\n \n /// Whether a policy preserves a value across a warm restart.\n pub fn retain_on_warm(policy: RetainPolicy) -> bool {\n-    matches!(policy, RetainPolicy::Retain | RetainPolicy::Persistent)\n+    false /* ~ changed by cargo-mutants ~ */\n }\n \n /// Durable snapshots never serialize live references or instance handles.\n pub fn value_is_retainable(value: &Value) -> bool {\n     match value {\n         Value::Array(array) => array.elements().iter().all(value_is_retainable),\n         Value::Struct(value) => value.fields().values().all(value_is_retainable),\n         Value::Reference(_) | Value::Instance(_) => false,\n",
+    "file": "retain.rs",
+    "function": {
+      "function_name": "retain_on_warm",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 65
+        },
+        "start": {
+          "column": 1,
+          "line": 62
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "retain.rs:64:5: replace retain_on_warm -> bool with false",
+    "package": "single_file",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 70,
+        "line": 64
+      },
+      "start": {
+        "column": 5,
+        "line": 64
+      }
+    }
+  },
+  {
+    "diff": "--- retain.rs\n+++ replace value_is_retainable -> bool with true\n@@ -61,22 +61,17 @@\n \n /// Whether a policy preserves a value across a warm restart.\n pub fn retain_on_warm(policy: RetainPolicy) -> bool {\n     matches!(policy, RetainPolicy::Retain | RetainPolicy::Persistent)\n }\n \n /// Durable snapshots never serialize live references or instance handles.\n pub fn value_is_retainable(value: &Value) -> bool {\n-    match value {\n-        Value::Array(array) => array.elements().iter().all(value_is_retainable),\n-        Value::Struct(value) => value.fields().values().all(value_is_retainable),\n-        Value::Reference(_) | Value::Instance(_) => false,\n-        _ => true,\n-    }\n+    true /* ~ changed by cargo-mutants ~ */\n }\n \n #[cfg(test)]\n mod tests {\n     use super::{RestartMode, RetainPolicy, RetainSnapshot};\n     use crate::value::Value;\n     use alloc::vec::Vec;\n     use smol_str::SmolStr;\n",
+    "file": "retain.rs",
+    "function": {
+      "function_name": "value_is_retainable",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 75
+        },
+        "start": {
+          "column": 1,
+          "line": 67
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "retain.rs:69:5: replace value_is_retainable -> bool with true",
+    "package": "single_file",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 74
+      },
+      "start": {
+        "column": 5,
+        "line": 69
+      }
+    }
+  },
+  {
+    "diff": "--- retain.rs\n+++ replace value_is_retainable -> bool with false\n@@ -61,22 +61,17 @@\n \n /// Whether a policy preserves a value across a warm restart.\n pub fn retain_on_warm(policy: RetainPolicy) -> bool {\n     matches!(policy, RetainPolicy::Retain | RetainPolicy::Persistent)\n }\n \n /// Durable snapshots never serialize live references or instance handles.\n pub fn value_is_retainable(value: &Value) -> bool {\n-    match value {\n-        Value::Array(array) => array.elements().iter().all(value_is_retainable),\n-        Value::Struct(value) => value.fields().values().all(value_is_retainable),\n-        Value::Reference(_) | Value::Instance(_) => false,\n-        _ => true,\n-    }\n+    false /* ~ changed by cargo-mutants ~ */\n }\n \n #[cfg(test)]\n mod tests {\n     use super::{RestartMode, RetainPolicy, RetainSnapshot};\n     use crate::value::Value;\n     use alloc::vec::Vec;\n     use smol_str::SmolStr;\n",
+    "file": "retain.rs",
+    "function": {
+      "function_name": "value_is_retainable",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 75
+        },
+        "start": {
+          "column": 1,
+          "line": 67
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "retain.rs:69:5: replace value_is_retainable -> bool with false",
+    "package": "single_file",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 74
+      },
+      "start": {
+        "column": 5,
+        "line": 69
+      }
+    }
+  },
+  {
+    "diff": "--- retain.rs\n+++ delete match arm Value::Array(array) in value_is_retainable\n@@ -62,17 +62,17 @@\n /// Whether a policy preserves a value across a warm restart.\n pub fn retain_on_warm(policy: RetainPolicy) -> bool {\n     matches!(policy, RetainPolicy::Retain | RetainPolicy::Persistent)\n }\n \n /// Durable snapshots never serialize live references or instance handles.\n pub fn value_is_retainable(value: &Value) -> bool {\n     match value {\n-        Value::Array(array) => array.elements().iter().all(value_is_retainable),\n+         /* ~ changed by cargo-mutants ~ */\n         Value::Struct(value) => value.fields().values().all(value_is_retainable),\n         Value::Reference(_) | Value::Instance(_) => false,\n         _ => true,\n     }\n }\n \n #[cfg(test)]\n mod tests {\n",
+    "file": "retain.rs",
+    "function": {
+      "function_name": "value_is_retainable",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 75
+        },
+        "start": {
+          "column": 1,
+          "line": 67
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "retain.rs:70:9: delete match arm Value::Array(array) in value_is_retainable",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 81,
+        "line": 70
+      },
+      "start": {
+        "column": 9,
+        "line": 70
+      }
+    }
+  },
+  {
+    "diff": "--- retain.rs\n+++ delete match arm Value::Struct(value) in value_is_retainable\n@@ -63,17 +63,17 @@\n pub fn retain_on_warm(policy: RetainPolicy) -> bool {\n     matches!(policy, RetainPolicy::Retain | RetainPolicy::Persistent)\n }\n \n /// Durable snapshots never serialize live references or instance handles.\n pub fn value_is_retainable(value: &Value) -> bool {\n     match value {\n         Value::Array(array) => array.elements().iter().all(value_is_retainable),\n-        Value::Struct(value) => value.fields().values().all(value_is_retainable),\n+         /* ~ changed by cargo-mutants ~ */\n         Value::Reference(_) | Value::Instance(_) => false,\n         _ => true,\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::{RestartMode, RetainPolicy, RetainSnapshot};\n",
+    "file": "retain.rs",
+    "function": {
+      "function_name": "value_is_retainable",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 75
+        },
+        "start": {
+          "column": 1,
+          "line": 67
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "retain.rs:71:9: delete match arm Value::Struct(value) in value_is_retainable",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 82,
+        "line": 71
+      },
+      "start": {
+        "column": 9,
+        "line": 71
+      }
+    }
+  },
+  {
+    "diff": "--- retain.rs\n+++ delete match arm Value::Reference(_) | Value::Instance(_) in value_is_retainable\n@@ -64,17 +64,17 @@\n     matches!(policy, RetainPolicy::Retain | RetainPolicy::Persistent)\n }\n \n /// Durable snapshots never serialize live references or instance handles.\n pub fn value_is_retainable(value: &Value) -> bool {\n     match value {\n         Value::Array(array) => array.elements().iter().all(value_is_retainable),\n         Value::Struct(value) => value.fields().values().all(value_is_retainable),\n-        Value::Reference(_) | Value::Instance(_) => false,\n+         /* ~ changed by cargo-mutants ~ */\n         _ => true,\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::{RestartMode, RetainPolicy, RetainSnapshot};\n     use crate::value::Value;\n",
+    "file": "retain.rs",
+    "function": {
+      "function_name": "value_is_retainable",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 75
+        },
+        "start": {
+          "column": 1,
+          "line": 67
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "retain.rs:72:9: delete match arm Value::Reference(_) | Value::Instance(_) in value_is_retainable",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 59,
+        "line": 72
+      },
+      "start": {
+        "column": 9,
+        "line": 72
+      }
+    }
+  }
+]

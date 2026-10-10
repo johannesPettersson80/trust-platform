@@ -11,17 +11,17 @@ use crate::value::Value;
 /// Register the shared comparison functions in a hosted registry.
 #[cfg(feature = "hir")]
 pub fn register(lib: &mut StandardLibrary) {
-    register_into(lib);
+    lib.register_descriptors(FUNCTIONS);
 }
 
-pub(super) fn register_into(lib: &mut impl super::registration::Registration) {
-    lib.register_variadic("GT", "IN", 1, 2, gt);
-    lib.register_variadic("GE", "IN", 1, 2, ge);
-    lib.register_variadic("EQ", "IN", 1, 2, eq);
-    lib.register_variadic("LE", "IN", 1, 2, le);
-    lib.register_variadic("LT", "IN", 1, 2, lt);
-    lib.register("NE", &["IN1", "IN2"], ne);
-}
+pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+    super::registration::descriptor!("EQ", VAR_IN_1_2, eq),
+    super::registration::descriptor!("GE", VAR_IN_1_2, ge),
+    super::registration::descriptor!("GT", VAR_IN_1_2, gt),
+    super::registration::descriptor!("LE", VAR_IN_1_2, le),
+    super::registration::descriptor!("LT", VAR_IN_1_2, lt),
+    super::registration::descriptor!("NE", IN1_IN2, ne),
+];
 
 fn gt(args: &[Value]) -> Result<Value, RuntimeError> {
     compare_chain(args, CmpOp::Gt)

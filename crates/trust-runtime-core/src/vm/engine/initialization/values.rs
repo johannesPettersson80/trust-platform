@@ -29,11 +29,11 @@ impl ValueConstructionContext for EngineState<'_> {
     }
 
     fn evaluate_recipe(&mut self, recipe_id: u32) -> Result<Value, RuntimeError> {
-        let active = self
-            .construction
-            .initializers
-            .last()
-            .ok_or_else(|| invalid_bytecode("default recipe has no active action context"))?;
+        let active = self.construction.initializers.last().ok_or_else(|| {
+            invalid_bytecode(smol_str::SmolStr::new_static(
+                "default recipe has no active action context",
+            ))
+        })?;
         let instance = active.instance;
         let depth = active
             .depth
@@ -85,6 +85,9 @@ impl ValueConstructionContext for EngineState<'_> {
         self.check_value_lifetime(value, destination)
     }
 
+    // Entry policy and reservation finish before recursive type construction;
+    // their temporary error/allocation state does not belong to its live frame.
+    #[inline(never)]
     fn enter_type(&mut self, type_id: u32, operation: ValueOperation) -> Result<(), RuntimeError> {
         self.charge_work_units(1)?;
         let callback_depth = self
@@ -103,7 +106,9 @@ impl ValueConstructionContext for EngineState<'_> {
         }
         self.charge_work_units(self.construction.types.len())?;
         if self.construction.types.contains(&(type_id, operation)) {
-            return Err(invalid_bytecode("cyclic typed default construction"));
+            return Err(invalid_bytecode(smol_str::SmolStr::new_static(
+                "cyclic typed default construction",
+            )));
         }
         self.charge_allocation(size_of::<(u32, ValueOperation)>())?;
         self.construction

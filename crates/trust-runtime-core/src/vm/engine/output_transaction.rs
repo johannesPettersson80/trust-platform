@@ -1,17 +1,118 @@
 //! Output copy-back journals only physical destination slots.
+use super::destinations::Key;
 use super::*;
 use crate::memory::MemoryLocation;
 use crate::value::ValueRefView;
 use crate::vm::VmTrap;
 
-pub(super) type SavedDestinations = BTreeMap<(MemoryLocation, usize), Value>;
+pub(super) use super::destinations::SavedDestinations;
 
 fn lookup_work(count: usize) -> usize {
-    // B-tree nodes compare a bounded number of fixed-size location/slot keys.
+    // Conservative bound for the fixed-size key searches in each journal operation.
     12 * (count.max(1).ilog2() as usize + 1)
 }
 
 impl EngineState<'_> {
+    fn snapshot_key(
+        &self,
+        frame: Option<&VmFrame>,
+        reference: ValueRefView<'_>,
+    ) -> Result<Key, RuntimeError> {
+        self.charge_work_units(reference.path.len() + 1)?;
+        let is_current = frame.is_some_and(|frame| {
+            reference.location == MemoryLocation::Local(frame.reference_frame_id())
+        });
+        let resolved = if is_current {
+            let root = frame
+                .and_then(|frame| frame.locals.get(reference.offset))
+                .ok_or(RuntimeError::NullReference)?;
+            // A current local may itself hold an instance; resolve its first hop.
+            if let (Value::Instance(instance), Some(crate::value::RefSegment::Field(name))) =
+                (root, reference.path.first())
+            {
+                let field = self
+                    .storage
+                    .ref_for_instance_recursive(*instance, name)
+                    .ok_or(RuntimeError::NullReference)?;
+                self.storage
+                    .resolve_reference_parts(field.location, field.offset, &reference.path[1..])
+                    .ok_or(RuntimeError::NullReference)?
+            } else {
+                reference
+            }
+        } else {
+            self.storage
+                .resolve_reference_parts(reference.location, reference.offset, reference.path)
+                .ok_or(RuntimeError::NullReference)?
+        };
+        Ok((resolved.location, resolved.offset))
+    }
+
+    fn snapshot_root<'s>(
+        &'s self,
+        frame: Option<&'s VmFrame>,
+        key: Key,
+    ) -> Result<&'s Value, RuntimeError> {
+        if frame.is_some_and(|frame| key.0 == MemoryLocation::Local(frame.reference_frame_id())) {
+            frame.and_then(|frame| frame.locals.get(key.1))
+        } else {
+            self.storage.read_direct_slot_by_location(key.0, key.1)
+        }
+        .ok_or(RuntimeError::NullReference)
+    }
+
+    /// Resolve input destinations in their original order, then copy each root once.
+    /// Sorting identities before copying avoids quadratic insertion shifts regardless
+    /// of binding order. This never reorders the staged writes themselves.
+    pub(super) fn snapshot_input_destinations<'r>(
+        &self,
+        references: impl ExactSizeIterator<Item = ValueRefView<'r>>,
+    ) -> Result<SavedDestinations, RuntimeError> {
+        if references.len() <= 1 {
+            return self.snapshot_destinations(None, references);
+        }
+        self.charge_allocation_bytes(
+            references
+                .len()
+                .checked_mul(core::mem::size_of::<Key>())
+                .ok_or(RuntimeError::Overflow)?,
+        )?;
+        let mut keys = Vec::new();
+        keys.try_reserve_exact(references.len())
+            .map_err(|_| RuntimeError::Overflow)?;
+        for reference in references {
+            let key = self.snapshot_key(None, reference)?;
+            // Detect the first invalid root before inspecting any later reference.
+            self.snapshot_root(None, key)?;
+            keys.push(key);
+        }
+        crate::sort::heap_sort(keys.len(), &mut |operation| -> Result<bool, RuntimeError> {
+            match operation {
+                crate::sort::Operation::Charge => {
+                    self.charge_work_units(1)?;
+                    Ok(false)
+                }
+                crate::sort::Operation::Less(a, b) => Ok(keys[a] < keys[b]),
+                crate::sort::Operation::Swap(a, b) => {
+                    keys.swap(a, b);
+                    Ok(false)
+                }
+            }
+        })?;
+        self.charge_work_units(keys.len())?;
+        keys.dedup();
+        self.charge_allocation_bytes(SavedDestinations::allocation_bytes(keys.len())?)?;
+        let mut saved = SavedDestinations::with_capacity(keys.len())?;
+        for key in keys {
+            self.charge_work_units(lookup_work(saved.len()))?;
+            let root = self.snapshot_root(None, key)?;
+            self.charge_allocation_bytes(self.value_clone_charge(root, 0)?)?;
+            // Keys are unique and sorted; reserved capacity covers every append.
+            saved.insert(key, root.clone())?;
+        }
+        Ok(saved)
+    }
+
     pub(super) fn snapshot_destinations<'r>(
         &self,
         frame: Option<&VmFrame>,
@@ -19,34 +120,7 @@ impl EngineState<'_> {
     ) -> Result<SavedDestinations, RuntimeError> {
         let mut saved = SavedDestinations::new();
         for reference in references {
-            self.charge_work_units(reference.path.len() + 1)?;
-            let is_current = frame.is_some_and(|frame| {
-                reference.location == MemoryLocation::Local(frame.reference_frame_id())
-            });
-            let resolved = if is_current {
-                let root = frame
-                    .and_then(|frame| frame.locals.get(reference.offset))
-                    .ok_or(RuntimeError::NullReference)?;
-                // A current local may itself hold an instance; resolve its first hop.
-                if let (Value::Instance(instance), Some(crate::value::RefSegment::Field(name))) =
-                    (root, reference.path.first())
-                {
-                    let field = self
-                        .storage
-                        .ref_for_instance_recursive(*instance, name)
-                        .ok_or(RuntimeError::NullReference)?;
-                    self.storage
-                        .resolve_reference_parts(field.location, field.offset, &reference.path[1..])
-                        .ok_or(RuntimeError::NullReference)?
-                } else {
-                    reference
-                }
-            } else {
-                self.storage
-                    .resolve_reference_parts(reference.location, reference.offset, reference.path)
-                    .ok_or(RuntimeError::NullReference)?
-            };
-            let key = (resolved.location, resolved.offset);
+            let key = self.snapshot_key(frame, reference)?;
             let active = self.resources.output_journal.as_ref();
             self.charge_work_units(
                 lookup_work(saved.len()) + active.map_or(0, |journal| lookup_work(journal.len())),
@@ -55,26 +129,26 @@ impl EngineState<'_> {
             {
                 continue;
             }
-            let root = if frame.is_some_and(|frame| {
-                resolved.location == MemoryLocation::Local(frame.reference_frame_id())
-            }) {
-                frame.and_then(|frame| frame.locals.get(resolved.offset))
-            } else {
-                self.storage
-                    .read_direct_slot_by_location(resolved.location, resolved.offset)
-            }
-            .ok_or(RuntimeError::NullReference)?;
-            // Native copy-back transfers the temporary entry into its active
-            // journal; charge both map insertions before either can allocate.
-            let copies = if active.is_some() { 2 } else { 1 };
+            let root = self.snapshot_root(frame, key)?;
+            // Charge whole replacement allocations, relocation and insertion shifts
+            // for both temporary and active journals before cloning or mutation.
+            let (bytes, moved) = saved.insertion_demand(&key)?;
+            let (active_bytes, active_moved) =
+                active.map_or(Ok((0, 0)), |journal| journal.insertion_demand(&key))?;
             self.charge_work_units(
-                lookup_work(saved.len()) + active.map_or(0, |journal| lookup_work(journal.len())),
+                lookup_work(saved.len())
+                    + moved
+                    + active.map_or(0, |journal| lookup_work(journal.len()))
+                    + active_moved,
             )?;
+            let clone_bytes = self.value_clone_charge(root, 0)?;
             self.charge_allocation_bytes(
-                copies * 4 * core::mem::size_of::<((MemoryLocation, usize), Value)>()
-                    + self.value_clone_charge(root, 0)?,
+                bytes
+                    .checked_add(active_bytes)
+                    .and_then(|bytes| bytes.checked_add(clone_bytes))
+                    .ok_or(RuntimeError::Overflow)?,
             )?;
-            saved.insert(key, root.clone());
+            saved.insert(key, root.clone())?;
         }
         Ok(saved)
     }
@@ -122,6 +196,87 @@ mod tests {
     use super::*;
     use crate::memory::MemoryLocation;
     use crate::vm::call::{bindings::VmWriteTarget, context::CallContext};
+
+    #[test]
+    fn bulk_input_snapshots_deduplicate_nested_roots_and_restore_all_values() {
+        let prepared = PreparedModule::from_bytes(
+            include_bytes!(
+                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
+            ),
+            crate::vm::PreparationLimits::default(),
+        )
+        .unwrap();
+        let mut state =
+            EngineState::new(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
+        let original = Value::Array(alloc::boxed::Box::new(
+            crate::value::ArrayValue::from_canonical_parts(
+                vec![Value::DInt(7), Value::DInt(9)],
+                vec![(0, 1)],
+            ),
+        ));
+        state.storage.set_global("bulk_array", original.clone());
+        state.storage.set_global("bulk_scalar", Value::DInt(11));
+        let root = state.storage.ref_for_global("bulk_array").unwrap();
+        let mut first = root.clone();
+        first.path.push(crate::value::RefSegment::Index(vec![0]));
+        let mut second = root.clone();
+        second.path.push(crate::value::RefSegment::Index(vec![1]));
+        let scalar = state.storage.ref_for_global("bulk_scalar").unwrap();
+        let references = [&scalar, &second, &first, &second];
+        let saved = state
+            .snapshot_input_destinations(references.iter().map(|r| r.as_view()))
+            .unwrap();
+        assert_eq!(saved.len(), 2);
+        assert_eq!(
+            saved.keys().copied().collect::<Vec<_>>(),
+            vec![
+                (root.location, root.offset),
+                (scalar.location, scalar.offset)
+            ]
+        );
+        assert!(state.storage.write_by_ref_ref(&second, Value::DInt(90)));
+        assert!(state.storage.write_by_ref_ref(&first, Value::DInt(70)));
+        assert!(state.storage.write_by_ref_ref(&scalar, Value::DInt(110)));
+        state.restore_destinations(None, saved);
+        assert_eq!(state.storage.get_global("bulk_array"), Some(&original));
+        assert_eq!(
+            state.storage.get_global("bulk_scalar"),
+            Some(&Value::DInt(11))
+        );
+    }
+
+    #[test]
+    fn bulk_input_snapshots_stop_at_first_invalid_reference_without_mutation() {
+        let prepared = PreparedModule::from_bytes(
+            include_bytes!(
+                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
+            ),
+            crate::vm::PreparationLimits::default(),
+        )
+        .unwrap();
+        let mut state =
+            EngineState::new(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
+        state.storage.set_global("bulk_probe", Value::DInt(7));
+        let valid = state.storage.ref_for_global("bulk_probe").unwrap();
+        let mut invalid = valid.clone();
+        invalid.offset = usize::MAX;
+        let references = [&valid, &invalid, &valid];
+        let visits = core::cell::Cell::new(0);
+        let result = state.snapshot_input_destinations(references.iter().map(|reference| {
+            visits.set(visits.get() + 1);
+            reference.as_view()
+        }));
+        assert!(matches!(result, Err(RuntimeError::NullReference)));
+        assert_eq!(
+            visits.get(),
+            2,
+            "later references must not be inspected after failure"
+        );
+        assert_eq!(
+            state.storage.get_global("bulk_probe"),
+            Some(&Value::DInt(7))
+        );
+    }
 
     #[test]
     fn exhausted_second_output_rolls_back_global_and_current_frame() {

@@ -100,11 +100,9 @@ pub(in crate::vm) fn coerce(
             }
         }
         14 | 15 => {
-            let number = match value {
-                Value::Real(v) => f64::from(v),
-                Value::LReal(v) => v,
-                _ => integer(&value).ok_or(RuntimeError::TypeMismatch)? as f64,
-            };
+            // Every admitted integer already fits i64 or u64; the shared helper
+            // preserves rounding without first promoting it to i128.
+            let number = crate::numeric::to_f64(&value)?;
             if !number.is_finite() {
                 return Err(RuntimeError::TypeMismatch);
             }
@@ -188,5 +186,84 @@ pub(in crate::vm) fn coerce(
         }
         0x0100 if matches!(value, Value::Null) || integer(&value).is_some() => Ok(value),
         _ => Err(RuntimeError::TypeMismatch),
+    }
+}
+
+#[cfg(test)]
+mod float_width_tests {
+    use super::*;
+
+    #[test]
+    fn scalar_float_coercion_matches_exact_wide_integer_promotion() {
+        let values = [
+            Value::SInt(i8::MIN),
+            Value::SInt(i8::MAX),
+            Value::Int(i16::MIN),
+            Value::Int(i16::MAX),
+            Value::DInt(i32::MIN),
+            Value::DInt(i32::MAX),
+            Value::LInt(i64::MIN),
+            Value::LInt(i64::MAX),
+            Value::USInt(u8::MAX),
+            Value::UInt(u16::MAX),
+            Value::UDInt(u32::MAX),
+            Value::ULInt(u64::MAX),
+            Value::LInt(-(1i64 << 53) - 1),
+            Value::LInt(-(1i64 << 53)),
+            Value::LInt(-(1i64 << 53) + 1),
+            Value::ULInt((1u64 << 53) - 1),
+            Value::ULInt(1u64 << 53),
+            Value::ULInt((1u64 << 53) + 1),
+            Value::Real(-0.0),
+            Value::Real(f32::MIN_POSITIVE),
+            Value::Real(f32::MAX),
+            Value::Real(f32::NAN),
+            Value::Real(f32::INFINITY),
+            Value::LReal(f64::NEG_INFINITY),
+            Value::LReal(f64::NAN),
+            Value::LReal(f64::MAX),
+            Value::LReal(-0.0),
+            Value::Bool(false),
+            Value::LWord(u64::MAX),
+            Value::String("1".into()),
+            Value::Null,
+        ];
+        for value in values {
+            for primitive in [14, 15] {
+                let wide = match &value {
+                    Value::Real(v) => Ok(f64::from(*v)),
+                    Value::LReal(v) => Ok(*v),
+                    _ => integer(&value)
+                        .map(|v| v as f64)
+                        .ok_or(RuntimeError::TypeMismatch),
+                };
+                let expected = wide.and_then(|n| {
+                    if !n.is_finite() {
+                        return Err(RuntimeError::TypeMismatch);
+                    }
+                    if primitive == 14 {
+                        let v = n as f32;
+                        if v.is_finite() {
+                            Ok(Value::Real(v))
+                        } else {
+                            Err(RuntimeError::TypeMismatch)
+                        }
+                    } else {
+                        Ok(Value::LReal(n))
+                    }
+                });
+                let actual = coerce(primitive, 0, value.clone());
+                assert_eq!(actual, expected, "primitive={primitive}, value={value:?}");
+                match (actual, expected) {
+                    (Ok(Value::Real(a)), Ok(Value::Real(b))) => {
+                        assert_eq!(a.to_bits(), b.to_bits())
+                    }
+                    (Ok(Value::LReal(a)), Ok(Value::LReal(b))) => {
+                        assert_eq!(a.to_bits(), b.to_bits())
+                    }
+                    _ => {}
+                }
+            }
+        }
     }
 }

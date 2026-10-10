@@ -1,0 +1,51 @@
+{
+  "schema": "trust-source-review-v1",
+  "base": "df427259cc387a7a79fb81132be23e48ea1493d4",
+  "files": {
+    "crates/trust-runtime-core/src/bytecode/decode/section_validate.rs": {
+      "baseline_sha256": "9952b669aa6fa68239153289afd4df539958db80f024748c2874d28cf0e22d5a",
+      "current_sha256": "8bc46478db7e3f01411e0b5dfee3f29eeecf6803821e02970db6a04ae0a8439c",
+      "baseline_basis": "run-2 frozen manifest"
+    },
+    "crates/trust-runtime-core/src/vm/call/context.rs": {
+      "baseline_sha256": "d778cd33ceb19d5e34d56b4b02eea7a5c825a3f98fa49a32e6885c70bfe70ed2",
+      "current_sha256": "01d957b547ccc9b604749f1b8628588b092aacf364b6c363e73aca3d95e1d34e",
+      "baseline_basis": "unchanged run-2 base df427259cc387a7a79fb81132be23e48ea1493d4"
+    },
+    "crates/trust-runtime-core/src/vm/call/bindings/targets.rs": {
+      "baseline_sha256": "0a28e22aeb54851fba51b1f6d5c6db2c3cfdd9825390e2e152e04df046e1aa1f",
+      "current_sha256": "331d395aaceb53c29e32fe463876320ce95ea75f17169066c9e9b7d7aede4fc4",
+      "baseline_basis": "unchanged run-2 base df427259cc387a7a79fb81132be23e48ea1493d4"
+    },
+    "crates/trust-runtime-core/src/vm/call/bindings.rs": {
+      "baseline_sha256": "1091d9feb15edfad8c8f0cb493ce99ee51c6a2ea0cbd189be7394672bfc2e7a6",
+      "current_sha256": "c2d897bd89859db930f6aecb8ff71fa6b5e185eb411e79fc37af3273429585dc",
+      "baseline_basis": "unchanged run-2 base df427259cc387a7a79fb81132be23e48ea1493d4"
+    },
+    "crates/trust-runtime-core/src/vm/call/mod.rs": {
+      "baseline_sha256": "e4c581dbbfba481d950becbf9a55a4f0eed7c2ae8282d1ff4e28cd216c5d2f40",
+      "current_sha256": "d8b4ba79a83540d342a2f4eeeb33b4af1a920481953b632f4237a1477f782582",
+      "baseline_basis": "unchanged run-2 base df427259cc387a7a79fb81132be23e48ea1493d4"
+    },
+    "crates/trust-runtime/src/runtime/vm/register_ir/interpreter.rs": {
+      "baseline_sha256": "b09a90e57cc0ef4e1b231c051853390032e18f5d01aee0ed7d438fb13e5690ae",
+      "current_sha256": "ecbb6198360ef0f954140deae489d24836a37a8b19ee3d2174cbab1901ecb6f0",
+      "baseline_basis": "unchanged run-2 base df427259cc387a7a79fb81132be23e48ea1493d4"
+    },
+    "crates/trust-runtime/src/runtime/vm/register_ir/tier1/execute.rs": {
+      "baseline_sha256": "5fe6369a25d9e3e5a9a4decd1267d1c401f12913a343fea0e7253367a9d5c93b",
+      "current_sha256": "f22534fb14d28bd15b5eee2c90c1c2b0583d3df794e4813a2816334682004061",
+      "baseline_basis": "unchanged run-2 base df427259cc387a7a79fb81132be23e48ea1493d4"
+    },
+    "crates/trust-runtime/src/runtime/vm/register_ir/profile.rs": {
+      "baseline_sha256": "c77526b96439b8ed57b45cf19440c10486323e2b2e286dfb92976c57a5067248",
+      "current_sha256": "786f5df38cbf7238bca577b907e05978d959e20fae2dbe57baebbd7276357010",
+      "baseline_basis": "unchanged run-2 base df427259cc387a7a79fb81132be23e48ea1493d4"
+    },
+    "xtask/config/full_map_policy.json": {
+      "baseline_sha256": "fb905de5ba558b215e125977b271e30a6628d9bd8254a6ffa616223c875c552a",
+      "current_sha256": "ee40fb1f57ba339ab9c62b62d9ebe5be21b9ea00bdd9f068dd4a5c3bcad42b15",
+      "baseline_basis": "run-2 frozen manifest"
+    }
+  }
+}

@@ -1,0 +1,34 @@
+[gate-progress state=started phase=B-R4-environment target=scena-rust-builder pid=1690914 elapsed=0.0s timeout=7200s command='bash -c '"'"'hostname; pwd; date -u +%FT%TZ; git rev-parse HEAD; rustc -Vv; cargo -V; rustup target list --installed; nproc; free -h; df -h "$CARGO_TARGET_DIR" "$TMPDIR" .; ps -eo pid,etimes,args | grep -E "[c]argo|[r]ustc|[c]lippy|[n]pm"; printf "RUSTUP_TOOLCHAIN=%s\nRUSTFLAGS=%s\nCARGO_TARGET_DIR=%s\nCARGO_BUILD_JOBS=%s\nTMPDIR=%s\n" "$RUSTUP_TOOLCHAIN" "$RUSTFLAGS" "$CARGO_TARGET_DIR" "$CARGO_BUILD_JOBS" "$TMPDIR"'"'"'']
+scena-rust-builder
+/home/johannes/projects/trust-platform-portability-b
+2026-10-10T20:05:50Z
+df427259cc387a7a79fb81132be23e48ea1493d4
+rustc 1.95.0 (59807616e 2026-04-14)
+binary: rustc
+commit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860
+commit-date: 2026-04-14
+host: x86_64-unknown-linux-gnu
+release: 1.95.0
+LLVM version: 22.1.2
+cargo 1.95.0 (f2d3ce0bd 2026-03-21)
+i686-unknown-linux-musl
+riscv32imac-unknown-none-elf
+thumbv7em-none-eabihf
+x86_64-pc-windows-gnu
+x86_64-unknown-linux-gnu
+16
+               total        used        free      shared  buff/cache   available
+Mem:            30Gi       1.0Gi       4.4Gi        21Mi        25Gi        29Gi
+Swap:           15Gi       194Mi        15Gi
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sdb        492G  364G  103G  78% /mnt/HC_Volume_107089260
+/dev/sdb        492G  364G  103G  78% /mnt/HC_Volume_107089260
+/dev/sda1       301G  257G   32G  89% /
+1690913       0 python3 scripts/run_with_progress.py --phase B-R4-environment --target scena-rust-builder --timeout-seconds 7200 --progress-interval-seconds 30 --log /home/johannes/.cache/trust-portability-b-evidence/b-r4-run1/environment.txt -- bash -c hostname; pwd; date -u +%FT%TZ; git rev-parse HEAD; rustc -Vv; cargo -V; rustup target list --installed; nproc; free -h; df -h "$CARGO_TARGET_DIR" "$TMPDIR" .; ps -eo pid,etimes,args | grep -E "[c]argo|[r]ustc|[c]lippy|[n]pm"; printf "RUSTUP_TOOLCHAIN=%s\nRUSTFLAGS=%s\nCARGO_TARGET_DIR=%s\nCARGO_BUILD_JOBS=%s\nTMPDIR=%s\n" "$RUSTUP_TOOLCHAIN" "$RUSTFLAGS" "$CARGO_TARGET_DIR" "$CARGO_BUILD_JOBS" "$TMPDIR"
+1690914       0 bash -c hostname; pwd; date -u +%FT%TZ; git rev-parse HEAD; rustc -Vv; cargo -V; rustup target list --installed; nproc; free -h; df -h "$CARGO_TARGET_DIR" "$TMPDIR" .; ps -eo pid,etimes,args | grep -E "[c]argo|[r]ustc|[c]lippy|[n]pm"; printf "RUSTUP_TOOLCHAIN=%s\nRUSTFLAGS=%s\nCARGO_TARGET_DIR=%s\nCARGO_BUILD_JOBS=%s\nTMPDIR=%s\n" "$RUSTUP_TOOLCHAIN" "$RUSTFLAGS" "$CARGO_TARGET_DIR" "$CARGO_BUILD_JOBS" "$TMPDIR"
+RUSTUP_TOOLCHAIN=1.95.0
+RUSTFLAGS=-Dwarnings
+CARGO_TARGET_DIR=/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b
+CARGO_BUILD_JOBS=6
+TMPDIR=/mnt/HC_Volume_107089260/builder-storage/tmp/portability-b
+[gate-progress state=finished phase=B-R4-environment target=scena-rust-builder pid=1690914 elapsed=0.1s timeout=7200s command='bash -c '"'"'hostname; pwd; date -u +%FT%TZ; git rev-parse HEAD; rustc -Vv; cargo -V; rustup target list --installed; nproc; free -h; df -h "$CARGO_TARGET_DIR" "$TMPDIR" .; ps -eo pid,etimes,args | grep -E "[c]argo|[r]ustc|[c]lippy|[n]pm"; printf "RUSTUP_TOOLCHAIN=%s\nRUSTFLAGS=%s\nCARGO_TARGET_DIR=%s\nCARGO_BUILD_JOBS=%s\nTMPDIR=%s\n" "$RUSTUP_TOOLCHAIN" "$RUSTFLAGS" "$CARGO_TARGET_DIR" "$CARGO_BUILD_JOBS" "$TMPDIR"'"'"'' status=0]

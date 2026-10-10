@@ -1,0 +1,3 @@
+[gate-progress state=started phase=B-R4-freeze-source target=scena-rust-builder pid=1691229 elapsed=0.0s timeout=7200s command='python3 /home/johannes/.cache/trust-portability-br4-setup-run1/freeze-source.py']
+Frozen 1011 source/deletion records after formatting and digest refresh
+[gate-progress state=finished phase=B-R4-freeze-source target=scena-rust-builder pid=1691229 elapsed=0.2s timeout=7200s command='python3 /home/johannes/.cache/trust-portability-br4-setup-run1/freeze-source.py' status=0]

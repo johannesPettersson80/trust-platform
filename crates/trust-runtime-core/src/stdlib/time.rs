@@ -14,77 +14,49 @@ use crate::value::{
 
 /// Register date/time functions using supplied values rather than a host clock.
 pub fn register(lib: &mut StandardLibrary) {
-    register_into(lib);
+    lib.register_descriptors(FUNCTIONS);
 }
 
-pub(super) fn register_into(lib: &mut impl super::registration::Registration) {
-    lib.register("ADD_TIME", &["IN1", "IN2"], add_time);
-    lib.register("ADD_LTIME", &["IN1", "IN2"], add_ltime);
-    lib.register("ADD_TOD_TIME", &["IN1", "IN2"], add_tod_time);
-    lib.register("ADD_LTOD_LTIME", &["IN1", "IN2"], add_ltod_ltime);
-    lib.register("ADD_DT_TIME", &["IN1", "IN2"], add_dt_time);
-    lib.register("ADD_LDT_LTIME", &["IN1", "IN2"], add_ldt_ltime);
-
-    lib.register("SUB_TIME", &["IN1", "IN2"], sub_time);
-    lib.register("SUB_LTIME", &["IN1", "IN2"], sub_ltime);
-    lib.register("SUB_DATE_DATE", &["IN1", "IN2"], sub_date_date);
-    lib.register("SUB_LDATE_LDATE", &["IN1", "IN2"], sub_ldate_ldate);
-    lib.register("SUB_TOD_TIME", &["IN1", "IN2"], sub_tod_time);
-    lib.register("SUB_LTOD_LTIME", &["IN1", "IN2"], sub_ltod_ltime);
-    lib.register("SUB_TOD_TOD", &["IN1", "IN2"], sub_tod_tod);
-    lib.register("SUB_LTOD_LTOD", &["IN1", "IN2"], sub_ltod_ltod);
-    lib.register("SUB_DT_TIME", &["IN1", "IN2"], sub_dt_time);
-    lib.register("SUB_LDT_LTIME", &["IN1", "IN2"], sub_ldt_ltime);
-    lib.register("SUB_DT_DT", &["IN1", "IN2"], sub_dt_dt);
-    lib.register("SUB_LDT_LDT", &["IN1", "IN2"], sub_ldt_ldt);
-
-    lib.register("MUL_TIME", &["IN1", "IN2"], mul_time);
-    lib.register("MUL_LTIME", &["IN1", "IN2"], mul_ltime);
-    lib.register("DIV_TIME", &["IN1", "IN2"], div_time);
-    lib.register("DIV_LTIME", &["IN1", "IN2"], div_ltime);
-
-    lib.register("CONCAT_DATE_TOD", &["DATE", "TOD"], concat_date_tod);
-    lib.register("CONCAT_DATE_LTOD", &["DATE", "LTOD"], concat_date_ltod);
-    lib.register("CONCAT_DATE", &["YEAR", "MONTH", "DAY"], concat_date);
-    lib.register(
-        "CONCAT_TOD",
-        &["HOUR", "MINUTE", "SECOND", "MILLISECOND"],
-        concat_tod,
-    );
-    lib.register(
-        "CONCAT_LTOD",
-        &["HOUR", "MINUTE", "SECOND", "MILLISECOND"],
-        concat_ltod,
-    );
-    lib.register(
+pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+    super::registration::descriptor!("ADD_DT_TIME", IN1_IN2, add_dt_time),
+    super::registration::descriptor!("ADD_LDT_LTIME", IN1_IN2, add_ldt_ltime),
+    super::registration::descriptor!("ADD_LTIME", IN1_IN2, add_ltime),
+    super::registration::descriptor!("ADD_LTOD_LTIME", IN1_IN2, add_ltod_ltime),
+    super::registration::descriptor!("ADD_TIME", IN1_IN2, add_time),
+    super::registration::descriptor!("ADD_TOD_TIME", IN1_IN2, add_tod_time),
+    super::registration::descriptor!("CONCAT_DATE", YEAR_MONTH_DAY, concat_date),
+    super::registration::descriptor!("CONCAT_DATE_LTOD", DATE_LTOD, concat_date_ltod),
+    super::registration::descriptor!("CONCAT_DATE_TOD", DATE_TOD, concat_date_tod),
+    super::registration::descriptor!(
         "CONCAT_DT",
-        &[
-            "YEAR",
-            "MONTH",
-            "DAY",
-            "HOUR",
-            "MINUTE",
-            "SECOND",
-            "MILLISECOND",
-        ],
-        concat_dt,
-    );
-    lib.register(
+        YEAR_MONTH_DAY_HOUR_MINUTE_SECOND_MILLISECOND,
+        concat_dt
+    ),
+    super::registration::descriptor!(
         "CONCAT_LDT",
-        &[
-            "YEAR",
-            "MONTH",
-            "DAY",
-            "HOUR",
-            "MINUTE",
-            "SECOND",
-            "MILLISECOND",
-        ],
-        concat_ldt,
-    );
-
-    lib.register("DAY_OF_WEEK", &["IN"], day_of_week);
-}
+        YEAR_MONTH_DAY_HOUR_MINUTE_SECOND_MILLISECOND,
+        concat_ldt
+    ),
+    super::registration::descriptor!("CONCAT_LTOD", HOUR_MINUTE_SECOND_MILLISECOND, concat_ltod),
+    super::registration::descriptor!("CONCAT_TOD", HOUR_MINUTE_SECOND_MILLISECOND, concat_tod),
+    super::registration::descriptor!("DAY_OF_WEEK", IN, day_of_week),
+    super::registration::descriptor!("DIV_LTIME", IN1_IN2, div_ltime),
+    super::registration::descriptor!("DIV_TIME", IN1_IN2, div_time),
+    super::registration::descriptor!("MUL_LTIME", IN1_IN2, mul_ltime),
+    super::registration::descriptor!("MUL_TIME", IN1_IN2, mul_time),
+    super::registration::descriptor!("SUB_DATE_DATE", IN1_IN2, sub_date_date),
+    super::registration::descriptor!("SUB_DT_DT", IN1_IN2, sub_dt_dt),
+    super::registration::descriptor!("SUB_DT_TIME", IN1_IN2, sub_dt_time),
+    super::registration::descriptor!("SUB_LDATE_LDATE", IN1_IN2, sub_ldate_ldate),
+    super::registration::descriptor!("SUB_LDT_LDT", IN1_IN2, sub_ldt_ldt),
+    super::registration::descriptor!("SUB_LDT_LTIME", IN1_IN2, sub_ldt_ltime),
+    super::registration::descriptor!("SUB_LTIME", IN1_IN2, sub_ltime),
+    super::registration::descriptor!("SUB_LTOD_LTIME", IN1_IN2, sub_ltod_ltime),
+    super::registration::descriptor!("SUB_LTOD_LTOD", IN1_IN2, sub_ltod_ltod),
+    super::registration::descriptor!("SUB_TIME", IN1_IN2, sub_time),
+    super::registration::descriptor!("SUB_TOD_TIME", IN1_IN2, sub_tod_time),
+    super::registration::descriptor!("SUB_TOD_TOD", IN1_IN2, sub_tod_tod),
+];
 
 type SplitDateTime = (i64, i64, i64, i64, i64, i64, i64);
 

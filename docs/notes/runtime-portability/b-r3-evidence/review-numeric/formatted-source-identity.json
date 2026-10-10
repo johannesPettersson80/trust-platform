@@ -1,0 +1,32 @@
+{
+  "reviewer": "/root/br1_collections_sort",
+  "identity_sha256": "cda1fd7b9ed12901b034022d984d9e1ddea69ca54ceb93b317b8c3284ed7fdea",
+  "coordinator_reported_whole_manifest_sha256": "bbea428d5782d333477ea1beb5db234ef2725dc7fb7f6b2cb1fedb19dc674a47",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/datetime.rs",
+      "before_sha256": "3221bd85b2f41730df4878569cb549578e498cf0831fa41cb2644f209a876751",
+      "sha256": "0eb48fc36886791814cbde031e2097e5080deefccf9d6af1a6b652d4f7f052b7"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/program_model/ops/time_ops.rs",
+      "before_sha256": "7750ef96a061f1d976c51142b6bb49e7f639ddba7aa835a9cba5a42bec0c8d39",
+      "sha256": "7750ef96a061f1d976c51142b6bb49e7f639ddba7aa835a9cba5a42bec0c8d39"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/helpers.rs",
+      "before_sha256": "9c7189e81b3b6b96f355c5cf31ac7acc66f989f486b7530dfb3983c94fbd46bc",
+      "sha256": "0e402bd53173445ad35d08bea1c7cfe41f36b308af98844210f92ed0ac07f668"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/module.rs",
+      "before_sha256": "6282fad26f3a2fd539b1d6c104e82d6df26881f51bf258f5b45900a13d7fbb34",
+      "sha256": "157a5247492ceb054f0f39f5104278e7c649e315932de570e63ffb304a9ec8b5"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/validate/construction/initializers.rs",
+      "before_sha256": "8c601a07218701d2f727e9e74f95b828b2b281a3a61e1f3b11f3e3bac0de3a7b",
+      "sha256": "8c601a07218701d2f727e9e74f95b828b2b281a3a61e1f3b11f3e3bac0de3a7b"
+    }
+  ]
+}

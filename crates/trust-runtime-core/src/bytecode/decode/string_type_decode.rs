@@ -3,7 +3,7 @@ use super::*;
 pub(super) fn decode_string_table(
     version: BytecodeVersion,
     reader: &mut BytecodeReader<'_>,
-    context: &str,
+    context: &'static str,
     budget: &mut DecodeBudget,
 ) -> Result<StringTable, BytecodeError> {
     let count = read_bounded_count(reader, 4, context)?;

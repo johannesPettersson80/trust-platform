@@ -1,7 +1,7 @@
 //! Cooperative resource transaction, sharing readiness and ordering with the host.
 use super::*;
 use crate::bytecode::{StorageOwner, StorageRole};
-use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
+use crate::cycle::{try_sort_ready_tasks_by_priority, ReadyTask};
 use crate::retain::RetainSnapshot;
 use crate::task::evaluate_task_readiness;
 use crate::vm::construction::values::ValueConstructionContext;
@@ -46,7 +46,11 @@ impl EngineState<'_> {
                 ready.push(ReadyTask { index, due_at });
             }
         }
-        sort_ready_tasks_by_priority(&mut ready, |index| self.resource.tasks[index].priority);
+        try_sort_ready_tasks_by_priority(
+            &mut ready,
+            |index| self.resource.tasks[index].priority,
+            || self.charge_work_units(1),
+        )?;
         for entry in ready {
             let task = self.resource.tasks[entry.index].clone();
             for name in task.program_name_idx {
@@ -86,10 +90,12 @@ impl EngineState<'_> {
         let (_, declaration) = prepared
             .global(name)
             .filter(|(_, declaration)| declaration.role == StorageRole::ProgramRoot)
-            .ok_or_else(|| invalid_bytecode("missing task program root"))?;
-        let pou = declaration
-            .owner_pou_id
-            .ok_or_else(|| invalid_bytecode("missing program template"))?;
+            .ok_or_else(|| {
+                invalid_bytecode(smol_str::SmolStr::new_static("missing task program root"))
+            })?;
+        let pou = declaration.owner_pou_id.ok_or_else(|| {
+            invalid_bytecode(smol_str::SmolStr::new_static("missing program template"))
+        })?;
         let name = &prepared.vm.strings[declaration.name_idx as usize];
         let instance = match self.storage.get_global(name) {
             Some(Value::Instance(instance)) => *instance,

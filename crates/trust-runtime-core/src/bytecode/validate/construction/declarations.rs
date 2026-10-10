@@ -216,7 +216,7 @@ fn validate_keys(
     static_names: &mut [(Option<u32>, &str)],
     budget: &mut ValidationBudget,
 ) -> Result<(), BytecodeError> {
-    budget.sort_by(slots, |a, b, _| Ok(a.cmp(b)))?;
+    budget.sort_by(slots, &mut |a, b, _| Ok(a.cmp(b)))?;
     let mut previous_owner = None;
     let mut next_slot = 0u32;
     for &(kind, owner, slot, declaration) in slots.iter() {
@@ -238,7 +238,7 @@ fn validate_keys(
             .checked_add(width)
             .ok_or(RejectionReason::ConstructionDemandOverflow)?;
     }
-    budget.sort_by(static_names, |a, b, budget| {
+    budget.sort_by(static_names, &mut |a, b, budget| {
         Ok(a.0.cmp(&b.0).then(budget.compare_names(a.1, b.1)?))
     })?;
     for pair in static_names.windows(2) {
@@ -247,7 +247,7 @@ fn validate_keys(
             return Err(RejectionReason::InvalidConstructionRecord.into());
         }
     }
-    budget.sort_by(names, |a, b, budget| {
+    budget.sort_by(names, &mut |a, b, budget| {
         Ok((a.0, a.1)
             .cmp(&(b.0, b.1))
             .then(budget.compare_names(a.2, b.2)?)
@@ -330,8 +330,8 @@ fn validate_coverage(
     scratch: &mut [(u32, u32, u32)],
     budget: &mut ValidationBudget,
 ) -> Result<(), BytecodeError> {
-    budget.sort_by(declared_refs, |a, b, _| Ok(a.cmp(b)))?;
-    budget.sort_by(scratch, |a, b, _| Ok(a.cmp(b)))?;
+    budget.sort_by(declared_refs, &mut |a, b, _| Ok(a.cmp(b)))?;
+    budget.sort_by(scratch, &mut |a, b, _| Ok(a.cmp(b)))?;
     for pair in scratch.windows(2) {
         budget.work(1)?;
         if pair[0].0 == pair[1].0 && pair[1].1 < pair[0].2 {

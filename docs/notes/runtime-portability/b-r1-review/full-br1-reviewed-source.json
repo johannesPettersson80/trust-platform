@@ -1,0 +1,383 @@
+{
+  "reviewer": "/root/b_independent_review",
+  "utc": "2026-10-10T15:57:03.439890+00:00",
+  "stage": "full source review before final formatting and lock refresh; not validation",
+  "head": "df427259cc387a7a79fb81132be23e48ea1493d4",
+  "files": [
+    {
+      "path": "Cargo.lock",
+      "sha256": "22618108254b8a73cd3cf648357f2aea8959e7259c8dc8999a214ced6b4912a7",
+      "b1_frozen_sha256": "22618108254b8a73cd3cf648357f2aea8959e7259c8dc8999a214ced6b4912a7"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "97f3d0deef4c9604823459ea30c6544db93e7d14e89f371c8c7507aa196e16ff",
+      "b1_frozen_sha256": "97f3d0deef4c9604823459ea30c6544db93e7d14e89f371c8c7507aa196e16ff"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/Cargo.toml",
+      "sha256": "ce51349d4e923b36543161d2b0eeb0a03ce07559f2dae04b53de81fdf98d4ec4",
+      "b1_frozen_sha256": "ce51349d4e923b36543161d2b0eeb0a03ce07559f2dae04b53de81fdf98d4ec4"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/hardware/clock.rs",
+      "sha256": "12380cbb368f8a317fe8acd6851a021e2ad8e62ce562837c57f39a3b44137586",
+      "b1_frozen_sha256": "12380cbb368f8a317fe8acd6851a021e2ad8e62ce562837c57f39a3b44137586"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/hardware/console.rs",
+      "sha256": "81db5055f653f307ec72f4f85c6795d1f41914461950a1181747dd8e4ef2467d",
+      "b1_frozen_sha256": "81db5055f653f307ec72f4f85c6795d1f41914461950a1181747dd8e4ef2467d"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/hardware/emergency.rs",
+      "sha256": "cabb33aa2607673d44b713818ed03476b6ef64ca317551bf350f43bd94a0facb",
+      "b1_frozen_sha256": "cabb33aa2607673d44b713818ed03476b6ef64ca317551bf350f43bd94a0facb"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/hardware/io.rs",
+      "sha256": "ef1ec2b63ee86620d41021f34d874ba30e3940eba5f13e444a4a7baeb88582a9",
+      "b1_frozen_sha256": "ef1ec2b63ee86620d41021f34d874ba30e3940eba5f13e444a4a7baeb88582a9"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/hardware/mod.rs",
+      "sha256": "2af7a2d3184e17d727a682d7a8c88a1bedc5f428b0910f1937fbf959f97459f9",
+      "b1_frozen_sha256": "2af7a2d3184e17d727a682d7a8c88a1bedc5f428b0910f1937fbf959f97459f9"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/hardware/reset.rs",
+      "sha256": "7b15b3c03a2b6c03353754e1e37b4bd8d4ac29602ae1fcc08bec37c437aab96b",
+      "b1_frozen_sha256": "7b15b3c03a2b6c03353754e1e37b4bd8d4ac29602ae1fcc08bec37c437aab96b"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/lib.rs",
+      "sha256": "fac45b40fc9aaaba1ed07953fe5164c2dc4902e132d7c5571602439f97ed2c69",
+      "b1_frozen_sha256": "fac45b40fc9aaaba1ed07953fe5164c2dc4902e132d7c5571602439f97ed2c69"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/profile.rs",
+      "sha256": "e43507ac4d747680143c807ea556e8d8b91da82f0df6e6c8e817af76fbe37c92",
+      "b1_frozen_sha256": "e43507ac4d747680143c807ea556e8d8b91da82f0df6e6c8e817af76fbe37c92"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/time.rs",
+      "sha256": "a8752837c30db685845a2e4cbced6f13d423e8eee7346956a4d17cb4c886798e",
+      "b1_frozen_sha256": "a8752837c30db685845a2e4cbced6f13d423e8eee7346956a4d17cb4c886798e"
+    },
+    {
+      "path": "crates/trust-runtime-core/Cargo.toml",
+      "sha256": "46c7d0a8870ec93a25ce8da1c2e4c85993169f98717be91b72f1e036a20bfe7a",
+      "b1_frozen_sha256": "4cac64174242daa2cc3fc703e9d7b870080bc71b43f9e2556faf695719c22f9e"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/decode/module_decode.rs",
+      "sha256": "434f23400a10a4af2b9ca69196702fa0b305b54275e17048d74d0fa15e827199",
+      "b1_frozen_sha256": "b86561fab98570e7599dcc802dabfa2c53f8922339405159c9dbe69d0a3a61c3"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/encode.rs",
+      "sha256": "02f7b462798ccda3df4664dfbae92608ee07442819861f1ee2e35ffeae9d94fa",
+      "b1_frozen_sha256": "e4692454fccccc9ccb78142dcd6892f22d3fa599a1387e2ac3cffa17b40b4297"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/validate/budget.rs",
+      "sha256": "f81e0d1cfb6d85ae2833bfa7896724b63f73e69e66ca3b50cfa7ca27d8bcf310",
+      "b1_frozen_sha256": "bc0638e22146825ac2d534c929caa35dfafd9641e94dcf8c10feb4ca88391f24"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/crc32.rs",
+      "sha256": "ed72a78637c6509d67c5084f821cc03aaedf76db8f7c91694ff9f6722b20efbd",
+      "b1_frozen_sha256": null
+    },
+    {
+      "path": "crates/trust-runtime-core/src/lib.rs",
+      "sha256": "5428046220e604818556a619c13569bfe3398f46162c17b2919918ee6a456714",
+      "b1_frozen_sha256": "c230f2217a53868b46e3589cd297a5a314a9c5f1758afeb3ece60e508df77cf8"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/sort.rs",
+      "sha256": "7310409187b3a6ee68e657fb6f738a1c43c32501a016aad6a5a055ca324e13f8",
+      "b1_frozen_sha256": null
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/assertions.rs",
+      "sha256": "76622aeb05a6b4e256eb50036227f83a2bf8a2f6dfe617e442eb22a7ca5fcbd1",
+      "b1_frozen_sha256": "849dd69098a91eb25681b6d152810bed3dcc7dd828ddbe7dd7d497debf366e35"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/bit.rs",
+      "sha256": "b50824420c097f88809c05b51eda073b9e3a5deb65afea691a2a3d1975a132ac",
+      "b1_frozen_sha256": "4b966eb4e1153c01feab43bb0316fbb8bb6693494c00b0d8e2310b7dd91c48a1"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/comparison.rs",
+      "sha256": "b816a5b6c8e90e3a077b9d699de9bda9c1049e952e990c7a593fa4baafeb4558",
+      "b1_frozen_sha256": "3fe396bae77a81947cc727eada32de0a7110e1eb18ad4d4ffb5b6c238da0763e"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/mod.rs",
+      "sha256": "13c7b38a3e72c3923cecd49dffb731da3446c9f863d531b7a4c5a6eafc29902f",
+      "b1_frozen_sha256": "9ccc549ea026d7b104e16818d3314f820caaa207f58c856baa9d83dae7f51fc1"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/numeric.rs",
+      "sha256": "33e894dbf68e4c2f9260b30975abfe671cea2e5b24666eae51019a0715ab2d86",
+      "b1_frozen_sha256": "97ff93c9155d74c327dca66b44d2c5e5488daca16e7cf37304bac498e1dfb1ca"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/registration-baseline.txt",
+      "sha256": "d418183961a2f0fbdbaf7804ecfe6a3ebe891c58bca36125b0fffb4acbd0649c",
+      "b1_frozen_sha256": null
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/registration.rs",
+      "sha256": "974062778785dec0321a51782c0d5f16050874f265c1e90334759cd055869f3d",
+      "b1_frozen_sha256": "71a8eafac6c2c961d6510e93c5e3ad14e8abb68ff021a4f15c99f005e5d293b8"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/selection.rs",
+      "sha256": "be9308ed15ca9f21aa90d8c219dd2abc8a854c9f68eafa11a8915cc7c1f2e416",
+      "b1_frozen_sha256": "f176ede6d9184f8b89760884c81ee8e08eb2996d669a7a27a29d4863e49b4a36"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/string.rs",
+      "sha256": "8421357c1c44bf32918c7908c7948ab3af75d3cf68ea604d152bce40a8c5f574",
+      "b1_frozen_sha256": "6dff4514dad3bb2343b23fe8bb3ae8142efc402c34a0fb8364c4cc90c2a7e4cf"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/time.rs",
+      "sha256": "f6af572acf66de28bdbc712ebb235ea142fd34f13f96ddb08137ffd9d550088c",
+      "b1_frozen_sha256": "3e7da9c1bfd7049ee6861122240ee04928a5320495a581f7892bfbb0258b7be2"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/validate.rs",
+      "sha256": "b52d8c5e0d42ad2a78c9d0919340166620925ae3fa41d6add749ff445cb61364",
+      "b1_frozen_sha256": "b05602e6f527a7e25ccfcb256721e0bec2f9f7d42a0d939b6db3969a5b6e92c0"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared.rs",
+      "sha256": "ab62eb57e8319fcf1ae9e3e2406f83eb1bb2c7c54cfba500932e90abd923d11c",
+      "b1_frozen_sha256": "681f42acf848f068f4a4d288ef5e01e2c0e79c77c109cf9af993eebfa0267ffe"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/admission.rs",
+      "sha256": "df03f28ade362abb046c8aed10303d5b16d6ee5c22cfc7459ec37a48a3e29f5a",
+      "b1_frozen_sha256": "d8f71443bd378cd2383e43cf5912212faca16efa2a926bd00ace2b9cca323160"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/budget.rs",
+      "sha256": "cb5bf99ee4fdea61dd8b47c6fda7af61ef53a5838f4fec220e69932d03a8ce66",
+      "b1_frozen_sha256": "2c0a770b822056032863dff03cd95b6c500265d984740b4a82c1c75cff0e6d8c"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/indexes.rs",
+      "sha256": "31e67ef6347f805a35a5a138a944f2b81cf32fc7de9d95b28a2e677228380533",
+      "b1_frozen_sha256": "46c0b28601cb8cb7fdedcae1f69fdb8449cd1827c3f0625cf4224aa24b390169"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/indexes/actions.rs",
+      "sha256": "d4715e6505d73a575e6d1e47a4d4228d471a95e2f32dc268870acbeeb11cd8c1",
+      "b1_frozen_sha256": "c0fa90244d7634332348b5ca88b590320f9e2d43f1193e66781280bb13ba80cf"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/indexes/declarations.rs",
+      "sha256": "3a285ac57e3a6acea6ef4c44df6939133f85a1b8f137b337d88a7ebf48641bc5",
+      "b1_frozen_sha256": "d936eae49b005d1ba6d3ede844304a3943c100d4e52f579cbb537f0f764dc0bb"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/indexes/groups.rs",
+      "sha256": "38604a91013dab0b2100ff0c8369d3bde337d5d8488b10045fcec59f8f2b2299",
+      "b1_frozen_sha256": null
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/indexes/sort.rs",
+      "sha256": "7d69c43c12258c5faf6367230290769e9e2dc31d21274c976bbe6d49bf11823c",
+      "b1_frozen_sha256": null
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/indexes/tests.rs",
+      "sha256": "3c2cdbc1b9e136a5ea5c86572d825c598cfeb5bd1882e77e446aa6ac35c6e0a4",
+      "b1_frozen_sha256": "83171c4d30b3912a48368a5c5c63c9887497a41b3acf32aa75df5d0c59bac00f"
+    },
+    {
+      "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
+      "sha256": "23d3fcaee22bda785fbc6a7584be7db6af3d02d02731e0d23a5ff2600601cc49",
+      "b1_frozen_sha256": null
+    },
+    {
+      "path": "crates/trust-runtime-core/tests/preparation_transport.rs",
+      "sha256": "caa3df919afa00389027bd1ffcf671b2f59d0e4bb7f197b375b4b9b6f512c43c",
+      "b1_frozen_sha256": null
+    },
+    {
+      "path": "crates/trust-runtime/examples/portability_gpio_fixture.rs",
+      "sha256": "c1ce6102965df09acf7bdcb1a9c1efd4685987417229aa66abdb78c5b23bc438",
+      "b1_frozen_sha256": "c1ce6102965df09acf7bdcb1a9c1efd4685987417229aa66abdb78c5b23bc438"
+    },
+    {
+      "path": "crates/trust-runtime/src/host/eval/expr/call/tests.rs",
+      "sha256": "30ce6aa588f0c837a4bf5b6fdb2d3c2fbb1febbceebad5778ba1f78c1974fc83",
+      "b1_frozen_sha256": "2b48ede8b91e5e6603778b8fe1d966346863acdd78e5b8d7af56cb57fa03fe60"
+    },
+    {
+      "path": "crates/trust-runtime/src/host/eval/expr/eval.rs",
+      "sha256": "a5eb8956c6e44c5ed0ed720e578e99d8dc046dac7e873d198b14677fa84e58a6",
+      "b1_frozen_sha256": "61f9db53cc33223112e323e0d60088871037559de49167d61f56a8774f0e4d5a"
+    },
+    {
+      "path": "crates/trust-runtime/src/host/helper_eval/storage_expr.rs",
+      "sha256": "15c31cb6b7b790f51a03c6497354862b6d345819cdedcbd5dbfe2ed4ca3eaeac",
+      "b1_frozen_sha256": "c4bbfec6aa67588ebc5131b71d9e3807a586545d7354820697340f025a78533f"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call/tests/stdlib_binding.rs",
+      "sha256": "b0d8e4726f3e9a594290d569cb809fdfae72f33d0e907afdb2eaf602a4b4514e",
+      "b1_frozen_sha256": "1dc05b1c12ebf4b7b0c312587bcdf1a91a7b50e3e179c8dde1ca125c96d7dbc7"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/local_init/expr.rs",
+      "sha256": "6f8b6deb7478fcefceaf68b956b1abd116bc3895b52680319f38c86c10541bc9",
+      "b1_frozen_sha256": "2bf92730da6bece4147654e59a46caceb6ed9f9fd04a4c676bca2062edd8b045"
+    },
+    {
+      "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
+      "sha256": "a9eb08ed51025d932f6fb5d292e569f1bfc013b61a4a18eaaffc6e18dd2ea6ab",
+      "b1_frozen_sha256": "21b3cd2b6d2851c56fd3ec2cac1518f4d13b648f05a706ecda23333be50a6cfa"
+    },
+    {
+      "path": "crates/trust-runtime/tests/portability_f401_gpio.rs",
+      "sha256": "9c213e8b8509665a59c59f88b7dd4bdb32b914c8f00cb12471c9eefa168974e8",
+      "b1_frozen_sha256": "9c213e8b8509665a59c59f88b7dd4bdb32b914c8f00cb12471c9eefa168974e8"
+    },
+    {
+      "path": "deny.toml",
+      "sha256": "d121f09b58ad9f7bdbda796e145db28639cbe10fad614f8209e2dda4bd57448c",
+      "b1_frozen_sha256": "5b4faa36d921be6d3c2c98ca88e8ecee6b85f2d41e8fc16a270c0d8f7159298f"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/.cargo/config.toml",
+      "sha256": "b431db176599634348f24db3e16fb01635745b63acdd581cae3097624ab1c28e",
+      "b1_frozen_sha256": "b431db176599634348f24db3e16fb01635745b63acdd581cae3097624ab1c28e"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/Cargo.lock",
+      "sha256": "3655950dfbe96f5a677d8c1839e2103b58b0b98af8624a3753ae7ca0cc3a7f3b",
+      "b1_frozen_sha256": "3655950dfbe96f5a677d8c1839e2103b58b0b98af8624a3753ae7ca0cc3a7f3b"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/Cargo.toml",
+      "sha256": "71de29671091d21db9fe73d74b4cbbbffdb2d321f73bb17e4b16eafc9161e718",
+      "b1_frozen_sha256": "5e63fdd176972565eb2f8003791881674d5f098dd07bbeec073891f9a87e6420"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/build.rs",
+      "sha256": "e41e2a07e6ac27363481f19e39b19f96a74c7aadfe9e4117e5e4cc90fac0489f",
+      "b1_frozen_sha256": "e41e2a07e6ac27363481f19e39b19f96a74c7aadfe9e4117e5e4cc90fac0489f"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/memory.x",
+      "sha256": "abbbea65901b9e0515570115bd84432b5540ac4aeacc71ad40d96e65a4fd504e",
+      "b1_frozen_sha256": "359270e6e2a30957b4df953bc3f5b74227005f21aa1d95de4af81398f75878c8"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/profile.x",
+      "sha256": "c6a45bc16ba1e946500c014dd3e8c2c9532458b7f240b361914410a8eaf581d1",
+      "b1_frozen_sha256": "b54e61e14a6a91ee28444e276a59cb1537e2c2031327973204a90668315aa19a"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/rust-toolchain.toml",
+      "sha256": "c5e772cb0daddc24628fe1b82a37dd71971bd15874d6b8b4dab216aa2fe4cc1f",
+      "b1_frozen_sha256": "c5e772cb0daddc24628fe1b82a37dd71971bd15874d6b8b4dab216aa2fe4cc1f"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/application.rs",
+      "sha256": "58023930b32c40a179b1865a2d2f5e2d73a737e27ac8b25226e9d68e69cc977c",
+      "b1_frozen_sha256": "25c7e9433fad20fe299ba704bfedabc4f42928c22e6f7792cb9451e6c159d6e8"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/lib.rs",
+      "sha256": "56c9e82031d1233ff6021406b182a67e23cecce9739b9bf12822379ef2ebe423",
+      "b1_frozen_sha256": "56c9e82031d1233ff6021406b182a67e23cecce9739b9bf12822379ef2ebe423"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/main.rs",
+      "sha256": "ab800e76983aa8cc282ceaaf4bf7e6fc963d5d71a6921a9d9e5b29035a56e67b",
+      "b1_frozen_sha256": "ab800e76983aa8cc282ceaaf4bf7e6fc963d5d71a6921a9d9e5b29035a56e67b"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/memory.rs",
+      "sha256": "735074515c0a8d8e8013de6d514fe67e746f43c9f09f3beeaaa1522664426a97",
+      "b1_frozen_sha256": "735074515c0a8d8e8013de6d514fe67e746f43c9f09f3beeaaa1522664426a97"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/profile.rs",
+      "sha256": "70e5dc419ffd462b0c9fbfb9632ecb27caf1db1fea6534a452731deec39fbe14",
+      "b1_frozen_sha256": "70e5dc419ffd462b0c9fbfb9632ecb27caf1db1fea6534a452731deec39fbe14"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/runner.rs",
+      "sha256": "c9feed521109a6581108e181c1cbb9c880486b7947f82d90a1919e8fdcf2a425",
+      "b1_frozen_sha256": "c9feed521109a6581108e181c1cbb9c880486b7947f82d90a1919e8fdcf2a425"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/trace.rs",
+      "sha256": "381441c0df6916a7d6b6e785b40a09b338a8fc5ce8ab89f75fa3a69395aa9973",
+      "b1_frozen_sha256": "381441c0df6916a7d6b6e785b40a09b338a8fc5ce8ab89f75fa3a69395aa9973"
+    },
+    {
+      "path": "scripts/firmware-cargo-audit-yanked-allowlist.json",
+      "sha256": "ba0fdda7b83ba806521826a8e9bd5a85491873381b4421cc853fe1e623c9da92",
+      "b1_frozen_sha256": null
+    },
+    {
+      "path": "scripts/supply_chain_gate.sh",
+      "sha256": "32076fe9733e4128ccba660a5e11e3a73db3370cf91fee5a470c1941195568c2",
+      "b1_frozen_sha256": "cfe115ec6b52000e62dfa5826211a97b418bc41f634e45a35d0085a0dddc2493"
+    },
+    {
+      "path": "xtask/Cargo.toml",
+      "sha256": "e8c9da5f2ff134bb809f17af0eacfff6fe8e37d6b4daba6b87292d89d1559af7",
+      "b1_frozen_sha256": "e8c9da5f2ff134bb809f17af0eacfff6fe8e37d6b4daba6b87292d89d1559af7"
+    },
+    {
+      "path": "xtask/src/full_map.rs",
+      "sha256": "042d5418555e8be907a4967caa77c22efa65a5dbf1bea801e10cbbc933739d29",
+      "b1_frozen_sha256": "042d5418555e8be907a4967caa77c22efa65a5dbf1bea801e10cbbc933739d29"
+    },
+    {
+      "path": "xtask/src/main.rs",
+      "sha256": "128240c284de7c988d8308541ca5d2dedbf68c53b8784e5ee468d81053ce2ca2",
+      "b1_frozen_sha256": "ca96103656c8851c9c0ad4ca56ec72f83378d7bd8c506db3957ba90de16ea58d"
+    },
+    {
+      "path": "xtask/src/portability/bundle.rs",
+      "sha256": "4c57e6efd20028fa92789625ca99569709a70df799552b290983390aadc3451e",
+      "b1_frozen_sha256": "4c57e6efd20028fa92789625ca99569709a70df799552b290983390aadc3451e"
+    },
+    {
+      "path": "xtask/src/portability/elf.rs",
+      "sha256": "0f58af3d9ffc457f41fcf5daa1f6c75461b55bff9d3d59352edc9e1f1d3858bc",
+      "b1_frozen_sha256": "4bc730e4fb97adee15fe1be0d001c02e14d669ebf695b9342c65adb5bcf06141"
+    },
+    {
+      "path": "xtask/src/portability/map.rs",
+      "sha256": "b60842bc79c122531c1469821908bcc9b304cf48f74368a6f8720c66513d62e8",
+      "b1_frozen_sha256": null
+    },
+    {
+      "path": "xtask/src/portability/mod.rs",
+      "sha256": "53308bb7562f72f3d74758b57b07b7bc310e55637269254a5cee31a22b7bc99b",
+      "b1_frozen_sha256": "d3980b66c0b38bf461e2f87db9197e533d1078f0a76154ece5c2b396045efddd"
+    },
+    {
+      "path": "xtask/src/portability/supply_chain_tests.rs",
+      "sha256": "3425fa8708938df9762dd22bcfdc4e3675308ba572ce4b7db6b612ce43e505e3",
+      "b1_frozen_sha256": null
+    },
+    {
+      "path": "xtask/src/portability/trace.rs",
+      "sha256": "1371f6c74983ffc8c66ab2057d40148eed3a11035318f3c6135edb1d5fbde217",
+      "b1_frozen_sha256": "40d350a23f7660c107cb9fb4bd1a7de66f9d33f6a5fa8e5db69d540330c01d5f"
+    }
+  ]
+}

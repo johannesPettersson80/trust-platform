@@ -1,0 +1,56 @@
+{
+  "application_sector_bytes": 16384,
+  "firmware_code_capacity_bytes": 458752,
+  "firmware_code_free_bytes": 18592,
+  "firmware_code_span_bytes": 440160,
+  "firmware_sha256": "7c5aa689752d2bc199f56f9094b5cd8066a42d6b1a5403a62bf2aca7a41550fb",
+  "flash_load_bytes": 456304,
+  "heap_reserved_bytes": 73728,
+  "load_segments": [
+    [
+      134217728,
+      16160
+    ],
+    [
+      134283264,
+      401840
+    ],
+    [
+      134685104,
+      38304
+    ]
+  ],
+  "other_static_ram_bytes": 60,
+  "persistence_reserved_bytes": 32768,
+  "sections": [
+    {
+      "address": 134217728,
+      "bytes": 404,
+      "name": ".vector_table"
+    },
+    {
+      "address": 134218144,
+      "bytes": 15744,
+      "name": ".firmware_rodata"
+    },
+    {
+      "address": 134283264,
+      "bytes": 401840,
+      "name": ".text"
+    },
+    {
+      "address": 134685104,
+      "bytes": 38304,
+      "name": ".rodata"
+    },
+    {
+      "address": 536870912,
+      "bytes": 73788,
+      "name": ".bss"
+    }
+  ],
+  "sector0_free_bytes": 224,
+  "sector0_span_bytes": 16160,
+  "stack_reserved_bytes": 16384,
+  "static_ram_bytes_including_heap": 73788
+}

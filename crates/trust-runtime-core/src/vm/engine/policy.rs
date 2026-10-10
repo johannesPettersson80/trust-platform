@@ -3,23 +3,17 @@ use super::*;
 use crate::bytecode::{InitializerBodyKind, StorageOwner, StorageRole};
 use crate::memory::MemoryLocation;
 use crate::value::ValueRefView;
+use crate::vm::context::ExecutionContext;
 
 impl EngineState<'_> {
     pub(super) fn check_entry_deadline(&self) -> Result<(), RuntimeError> {
-        if self.services.deadline_exceeded() {
-            Err(crate::vm::VmTrap::DeadlineExceeded.into_runtime_error())
-        } else {
-            Ok(())
-        }
+        self.check_execution_deadline()
     }
     pub(in crate::vm::engine) fn charge_work_units(
         &self,
         units: usize,
     ) -> Result<(), RuntimeError> {
-        if self.resources.work_budget.charge(units)? && self.services.deadline_exceeded() {
-            return Err(super::super::VmTrap::DeadlineExceeded.into_runtime_error());
-        }
-        Ok(())
+        self.charge_execution_work(units)
     }
 
     pub(in crate::vm::engine) fn check_value_lifetime(
@@ -27,7 +21,7 @@ impl EngineState<'_> {
         value: &Value,
         destination: Option<FrameId>,
     ) -> Result<(), RuntimeError> {
-        self.check_value_lifetime_inner(value, destination, 0, &mut BTreeSet::new())
+        self.check_value_lifetime_inner(value, destination, 0, &mut InstanceSet::default())
     }
 
     pub(in crate::vm::engine) fn check_value_lifetime_inner(
@@ -35,7 +29,7 @@ impl EngineState<'_> {
         value: &Value,
         destination: Option<FrameId>,
         depth: usize,
-        visited: &mut BTreeSet<InstanceId>,
+        visited: &mut InstanceSet,
     ) -> Result<(), RuntimeError> {
         self.charge_work_units(1)?;
         if depth >= self.prepared.limits.max_call_depth {
@@ -53,7 +47,8 @@ impl EngineState<'_> {
             Value::Instance(instance) => {
                 self.check_instance_lifetime(*instance, destination)?;
                 self.charge_work_units(visited.len().max(1).ilog2() as usize + 1)?;
-                if visited.insert(*instance) {
+                self.charge_sorted_growth(visited.insertion_demand(*instance))?;
+                if visited.insert(*instance)? {
                     let data = self
                         .storage
                         .get_instance(*instance)
@@ -120,7 +115,7 @@ impl EngineState<'_> {
             return Err(RuntimeError::ReferenceLifetime);
         }
         if let Some(Some(owner)) = self.lifetimes.instance_lifetimes.get(&instance) {
-            self.check_local_lifetime(*owner, destination)?;
+            self.check_local_lifetime(owner, destination)?;
         }
         Ok(())
     }
@@ -133,17 +128,12 @@ impl EngineState<'_> {
         self.check_writable_declaration(reference)?;
         let destination = match reference.location {
             MemoryLocation::Local(id) => Some(id),
-            MemoryLocation::Instance(id) => self
-                .lifetimes
-                .instance_lifetimes
-                .get(&id)
-                .copied()
-                .flatten(),
+            MemoryLocation::Instance(id) => self.lifetimes.instance_lifetimes.get(&id).flatten(),
             _ => None,
         };
         if let Some(initializer) = self.construction.initializers.last() {
             let staging = reference.location == MemoryLocation::Local(initializer.result)
-                || matches!(reference.location, MemoryLocation::Instance(id) if self.lifetimes.instance_lifetimes.get(&id) == Some(&Some(initializer.result)) || initializer.writable_instances.contains(&id));
+                || matches!(reference.location, MemoryLocation::Instance(id) if self.lifetimes.instance_lifetimes.get(&id) == Some(Some(initializer.result)) || initializer.writable_instances.contains(&id));
             if !staging {
                 return Err(RuntimeError::StagingViolation);
             }
@@ -227,7 +217,7 @@ impl EngineState<'_> {
                     if !self
                         .construction
                         .initialized_declarations
-                        .contains(&(index, Some(instance)))
+                        .contains(&(index, Some(instance)))?
                     {
                         return Err(RuntimeError::VisibilityViolation);
                     }

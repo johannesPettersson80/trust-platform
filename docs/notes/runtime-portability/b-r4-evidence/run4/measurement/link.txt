@@ -1,0 +1,6 @@
+    Finished `dev` profile [unoptimized] target(s) in 0.12s
+     Running `/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/debug/xtask portability build-firmware /home/johannes/.cache/trust-portability-b-evidence/b-r4-run4/measurement/build-config.json`
+{"manifest":"/home/johannes/projects/trust-platform-portability-b/firmware/trust-nucleo-f401re/Cargo.toml","note":"Path normalization does not claim cross-checkout binary reproducibility.","profile":"release","rustflags":["-C","target-cpu=cortex-m4","-C","llvm-args=-addrsig","-C","link-arg=--icf=safe","-C","link-arg=-Tlink.x","-C","link-arg=-Tprofile.x","-C","link-arg=-Map=trust-nucleo-f401re.map","--remap-path-prefix=/home/johannes/projects/trust-platform-portability-b=/src","--remap-path-prefix=/home/johannes/.cargo/registry/src=/registry","--remap-path-prefix=/home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust=/rust-src"],"target":"thumbv7em-none-eabihf"}
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+   Compiling trust-nucleo-f401re v0.1.0 (/home/johannes/projects/trust-platform-portability-b/firmware/trust-nucleo-f401re)
+    Finished `release` profile [optimized + debuginfo] target(s) in 17.00s

@@ -16,9 +16,9 @@ impl BytecodeModule {
         let budget = &mut accounting;
         budget.charge(0, bytes.len())?;
         if bytes.len() > BYTECODE_MAX_CONTAINER_BYTES {
-            return Err(BytecodeError::InvalidHeader(
-                "encoded container exceeds fixed resource limit".into(),
-            ));
+            return Err(BytecodeError::InvalidHeader(smol_str::SmolStr::new_static(
+                "encoded container exceeds fixed resource limit",
+            )));
         }
         let mut reader = BytecodeReader::new(bytes);
         let magic = reader.read_bytes(4)?;
@@ -34,15 +34,17 @@ impl BytecodeModule {
         let checksum = reader.read_u32()?;
 
         if header_size < HEADER_SIZE {
-            return Err(BytecodeError::InvalidHeader("header size too small".into()));
+            return Err(BytecodeError::InvalidHeader(smol_str::SmolStr::new_static(
+                "header size too small",
+            )));
         }
         if !header_size.is_multiple_of(4) {
             return Err(BytecodeError::SectionAlignment);
         }
         if section_table_off < header_size as usize {
-            return Err(BytecodeError::InvalidHeader(
-                "section table before header".into(),
-            ));
+            return Err(BytecodeError::InvalidHeader(smol_str::SmolStr::new_static(
+                "section table before header",
+            )));
         }
         if !section_table_off.is_multiple_of(4) {
             return Err(BytecodeError::SectionAlignment);
@@ -50,23 +52,29 @@ impl BytecodeModule {
 
         let table_len = section_count
             .checked_mul(SECTION_ENTRY_SIZE)
-            .ok_or_else(|| BytecodeError::InvalidSectionTable("section table overflow".into()))?;
-        let table_end = section_table_off
-            .checked_add(table_len)
-            .ok_or_else(|| BytecodeError::InvalidSectionTable("section table overflow".into()))?;
+            .ok_or_else(|| {
+                BytecodeError::InvalidSectionTable(smol_str::SmolStr::new_static(
+                    "section table overflow",
+                ))
+            })?;
+        let table_end = section_table_off.checked_add(table_len).ok_or_else(|| {
+            BytecodeError::InvalidSectionTable(smol_str::SmolStr::new_static(
+                "section table overflow",
+            ))
+        })?;
         if table_end > bytes.len() {
             return Err(BytecodeError::InvalidSectionTable(
-                "section table out of bounds".into(),
+                smol_str::SmolStr::new_static("section table out of bounds"),
             ));
         }
 
         if major == 2 && flags != HEADER_FLAG_CRC32 {
-            return Err(BytecodeError::InvalidHeader(
-                "STBC 2.0 requires CRC32 and no reserved flags".into(),
-            ));
+            return Err(BytecodeError::InvalidHeader(smol_str::SmolStr::new_static(
+                "STBC 2.0 requires CRC32 and no reserved flags",
+            )));
         }
         if flags & HEADER_FLAG_CRC32 != 0 {
-            let actual = crc32fast::hash(&bytes[section_table_off..]);
+            let actual = crate::crc32::checksum(&bytes[section_table_off..]);
             if actual != checksum {
                 return Err(BytecodeError::InvalidChecksum {
                     expected: checksum,

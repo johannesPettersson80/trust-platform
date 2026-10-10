@@ -1,0 +1,1 @@
+All587 frozen records match local worktree. Completing the omitted include fragment format changed only program_model/ops/time_ops.rs; prior manifest retained. Other independent formatted review hashes remain applicable. HardFault policy rebound144to133; source fixtures/locks unchanged. No tests or firmware builds have run.

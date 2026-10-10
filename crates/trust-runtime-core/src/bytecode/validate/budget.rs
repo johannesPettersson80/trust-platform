@@ -133,48 +133,28 @@ impl ValidationBudget {
     }
 
     /// In-place heapsort with fallible comparisons: exhaustion stops work immediately.
+    #[inline(never)]
     pub(super) fn sort_by<T>(
         &mut self,
         values: &mut [T],
-        mut compare: impl FnMut(&T, &T, &mut Self) -> Result<core::cmp::Ordering, BytecodeError>,
+        compare: &mut dyn FnMut(&T, &T, &mut Self) -> Result<core::cmp::Ordering, BytecodeError>,
     ) -> Result<(), BytecodeError> {
-        fn sift<T>(
-            values: &mut [T],
-            mut root: usize,
-            budget: &mut ValidationBudget,
-            compare: &mut impl FnMut(
-                &T,
-                &T,
-                &mut ValidationBudget,
-            ) -> Result<core::cmp::Ordering, BytecodeError>,
-        ) -> Result<(), BytecodeError> {
-            while root < values.len() / 2 {
-                let mut child = root * 2 + 1;
-                budget.work(1)?;
-                if child + 1 < values.len()
-                    && compare(&values[child], &values[child + 1], budget)?.is_lt()
-                {
-                    child += 1;
+        crate::sort::heap_sort(values.len(), &mut |operation| {
+            use crate::sort::Operation;
+            match operation {
+                Operation::Charge => {
+                    self.work(1)?;
+                    Ok(false)
                 }
-                budget.work(1)?;
-                if !compare(&values[root], &values[child], budget)?.is_lt() {
-                    break;
+                Operation::Less(left, right) => {
+                    Ok(compare(&values[left], &values[right], self)?.is_lt())
                 }
-                budget.work(1)?;
-                values.swap(root, child);
-                root = child;
+                Operation::Swap(left, right) => {
+                    values.swap(left, right);
+                    Ok(false)
+                }
             }
-            Ok(())
-        }
-        for root in (0..values.len() / 2).rev() {
-            sift(values, root, self, &mut compare)?;
-        }
-        for end in (1..values.len()).rev() {
-            self.work(1)?;
-            values.swap(0, end);
-            sift(&mut values[..end], 0, self, &mut compare)?;
-        }
-        Ok(())
+        })
     }
 
     pub(super) fn lower_bound<T>(
@@ -246,7 +226,9 @@ mod tests {
             let mut expected = values.clone();
             expected.sort_unstable();
             let mut budget = ValidationBudget::new(ValidationLimits::default());
-            budget.sort_by(&mut values, |a, b, _| Ok(a.cmp(b))).unwrap();
+            budget
+                .sort_by(&mut values, &mut |a, b, _| Ok(a.cmp(b)))
+                .unwrap();
             assert_eq!(values, expected);
         }
     }
@@ -261,7 +243,7 @@ mod tests {
         let mut values = [2, 1];
         assert_eq!(
             budget
-                .sort_by(&mut values, |a, b, _| Ok(a.cmp(b)))
+                .sort_by(&mut values, &mut |a, b, _| Ok(a.cmp(b)))
                 .unwrap_err(),
             BytecodeError::from(RejectionReason::ValidationWorkLimit)
         );
@@ -271,6 +253,43 @@ mod tests {
             BytecodeError::from(RejectionReason::ValidationWorkLimit)
         );
         assert_eq!(budget.stats.work, 0);
+    }
+
+    #[test]
+    fn shared_sort_keeps_existing_equal_key_permutation_and_charge_boundaries() {
+        // The former in-place heapsort does not move equal children while building
+        // its heap; its final root swap reverses this equal pair. Preserve that
+        // order and reject before the swap when only two work units are admitted.
+        for (limit, expected, accepted) in [
+            (0, [(1, 10), (1, 20)], false),
+            (1, [(1, 10), (1, 20)], false),
+            (2, [(1, 10), (1, 20)], false),
+            (3, [(1, 20), (1, 10)], true),
+        ] {
+            let mut budget = ValidationBudget::new(ValidationLimits {
+                max_work: limit,
+                ..Default::default()
+            });
+            let mut values = [(1, 10), (1, 20)];
+            let result = budget.sort_by(&mut values, &mut |a, b, _| Ok(a.0.cmp(&b.0)));
+            assert_eq!(result.is_ok(), accepted);
+            assert_eq!(values, expected);
+            assert_eq!(budget.stats.work, limit);
+            assert_eq!(budget.stats.peak_scratch_bytes, 0);
+        }
+    }
+
+    #[test]
+    fn shared_sort_remains_n_log_n_for_large_reversed_input() {
+        let count = 8192usize;
+        let mut values = (0..count).rev().collect::<Vec<_>>();
+        let mut budget = ValidationBudget::new(ValidationLimits::default());
+        budget
+            .sort_by(&mut values, &mut |a, b, _| Ok(a.cmp(b)))
+            .unwrap();
+        assert!(values.iter().copied().eq(0..count));
+        assert!(budget.stats.work < 6 * count * (count.ilog2() as usize + 1));
+        assert_eq!(budget.stats.peak_scratch_bytes, 0);
     }
 
     #[test]

@@ -6,11 +6,11 @@ use alloc::sync::Arc;
 
 struct RetainedGraph<'s, 'p> {
     source: &'s EngineState<'p>,
-    identities: BTreeMap<InstanceId, InstanceId>,
-    copied: BTreeSet<InstanceId>,
-    initialized: BTreeMap<InstanceId, Vec<u32>>,
-    once: BTreeMap<InstanceId, Vec<u32>>,
-    root_indices: BTreeMap<InstanceId, Vec<usize>>,
+    identities: BTreeMap<u32, u32>,
+    copied: BTreeSet<u32>,
+    initialized: BTreeMap<u32, Vec<u32>>,
+    once: BTreeMap<u32, Vec<u32>>,
+    root_indices: BTreeMap<u32, Vec<u32>>,
 }
 
 // A B-tree node scans a bounded number of keys at each logarithmic level.
@@ -20,10 +20,10 @@ fn tree_work(len: usize) -> usize {
 
 fn index_marks(
     target: &EngineState<'_>,
-    marks: &BTreeSet<(u32, Option<InstanceId>)>,
-) -> Result<BTreeMap<InstanceId, Vec<u32>>, RuntimeError> {
-    let mut index: BTreeMap<InstanceId, Vec<u32>> = BTreeMap::new();
-    for &(declaration, owner) in marks {
+    marks: &LifecycleMarks,
+) -> Result<BTreeMap<u32, Vec<u32>>, RuntimeError> {
+    let mut index: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
+    for (declaration, owner) in marks.iter() {
         target.charge_work_units(1)?;
         let Some(owner) = owner else {
             continue;
@@ -32,7 +32,7 @@ fn index_marks(
         target.charge_allocation_bytes(
             core::mem::size_of::<(InstanceId, Vec<u32>)>() * 4 + 2 * core::mem::size_of::<u32>(),
         )?;
-        let declarations = index.entry(owner).or_default();
+        let declarations = index.entry(owner.0).or_default();
         declarations
             .try_reserve(1)
             .map_err(|_| RuntimeError::Overflow)?;
@@ -65,15 +65,15 @@ impl EngineState<'_> {
             if let (Some(old), Some(new)) = (old, new) {
                 self.charge_allocation_bytes(core::mem::size_of::<(InstanceId, InstanceId)>() * 4)?;
                 self.charge_work_units(tree_work(graph.identities.len()))?;
-                graph.identities.insert(*old, *new);
+                graph.identities.insert(old.0, new.0);
                 self.charge_work_units(tree_work(graph.root_indices.len()))?;
                 self.charge_allocation_bytes(
                     core::mem::size_of::<(InstanceId, Vec<usize>)>() * 4
                         + 2 * core::mem::size_of::<usize>(),
                 )?;
-                let indices = graph.root_indices.entry(*new).or_default();
+                let indices = graph.root_indices.entry(new.0).or_default();
                 indices.try_reserve(1).map_err(|_| RuntimeError::Overflow)?;
-                indices.push(index);
+                indices.push(root_index(index)?);
             }
         }
         for (index, declaration) in source.prepared.layout.entries.iter().enumerate() {
@@ -92,17 +92,27 @@ impl EngineState<'_> {
             let value = graph.value(self, declaration.type_id, value, 0)?;
             self.charge_allocation_bytes(self.value_clone_charge(&value, 0)?)?;
             self.storage.set_global(name.clone(), value.clone());
+            let (growth_bytes, growth_work) = self
+                .construction
+                .retained_globals
+                .growth_charge(root_index(index)?)?;
             self.charge_work_units(
                 tree_work(self.construction.retained_globals.len())
+                    + growth_work
                     + tree_work(self.construction.initialized_declarations.len()),
             )?;
-            self.charge_allocation_bytes(core::mem::size_of::<(u32, Value)>() * 8)?;
+            self.charge_allocation_bytes(RetainedGlobals::insertion_charge().max(growth_bytes))?;
             self.construction
                 .retained_globals
-                .insert(index as u32, value);
+                .insert(root_index(index)?, value)?;
+            self.charge_sorted_growth(
+                self.construction
+                    .initialized_declarations
+                    .insertion_demand((root_index(index)?, None)),
+            )?;
             self.construction
                 .initialized_declarations
-                .insert((index as u32, None));
+                .insert((root_index(index)?, None))?;
         }
         Ok(())
     }
@@ -195,7 +205,7 @@ impl RetainedGraph<'_, '_> {
             .lifetimes
             .instance_lifetimes
             .get(&old)
-            .is_some_and(Option::is_some)
+            .is_some_and(|owner| owner.is_some())
         {
             return Err(RuntimeError::ReferenceLifetime);
         }
@@ -206,8 +216,8 @@ impl RetainedGraph<'_, '_> {
             .ok_or(RuntimeError::NullReference)?;
         target
             .charge_work_units(tree_work(self.identities.len()) + tree_work(self.copied.len()))?;
-        let new = if let Some(new) = self.identities.get(&old) {
-            *new
+        let new = if let Some(new) = self.identities.get(&old.0) {
+            InstanceId(*new)
         } else {
             let pou = *self
                 .source
@@ -218,15 +228,15 @@ impl RetainedGraph<'_, '_> {
             let new = target.reserve_instance(pou, None)?;
             target.charge_allocation_bytes(core::mem::size_of::<(InstanceId, InstanceId)>() * 4)?;
             target.charge_work_units(tree_work(self.identities.len()))?;
-            self.identities.insert(old, new);
+            self.identities.insert(old.0, new.0);
             new
         };
-        if self.copied.contains(&old) {
+        if self.copied.contains(&old.0) {
             return Ok(new);
         }
         target.charge_allocation_bytes(core::mem::size_of::<InstanceId>() * 4)?;
         target.charge_work_units(tree_work(self.copied.len()))?;
-        self.copied.insert(old);
+        self.copied.insert(old.0);
         target.charge_allocation_bytes(
             data.variables
                 .len()
@@ -269,9 +279,15 @@ impl RetainedGraph<'_, '_> {
             .parent = parent;
         target.charge_work_units(tree_work(target.construction.initialized_instances.len()))?;
         target.charge_allocation_bytes(core::mem::size_of::<InstanceId>() * 4)?;
-        target.construction.initialized_instances.insert(new);
+        target.charge_sorted_growth(
+            target
+                .construction
+                .initialized_instances
+                .insertion_demand(new),
+        )?;
+        target.construction.initialized_instances.insert(new)?;
         target.charge_work_units(tree_work(self.initialized.len()))?;
-        if let Some(declarations) = self.initialized.get(&old) {
+        if let Some(declarations) = self.initialized.get(&old.0) {
             for &declaration in declarations {
                 target.charge_work_units(
                     1 + tree_work(target.construction.initialized_declarations.len()),
@@ -279,24 +295,36 @@ impl RetainedGraph<'_, '_> {
                 target.charge_allocation_bytes(
                     core::mem::size_of::<(u32, Option<InstanceId>)>() * 4,
                 )?;
+                target.charge_sorted_growth(
+                    target
+                        .construction
+                        .initialized_declarations
+                        .insertion_demand((declaration, Some(new))),
+                )?;
                 target
                     .construction
                     .initialized_declarations
-                    .insert((declaration, Some(new)));
+                    .insert((declaration, Some(new)))?;
             }
         }
         target.charge_work_units(tree_work(self.once.len()))?;
-        if let Some(declarations) = self.once.get(&old) {
+        if let Some(declarations) = self.once.get(&old.0) {
             for &declaration in declarations {
                 target.charge_work_units(1 + tree_work(target.construction.once.len()))?;
                 target.charge_allocation_bytes(
                     core::mem::size_of::<(u32, Option<InstanceId>)>() * 4,
                 )?;
-                target.construction.once.insert((declaration, Some(new)));
+                target.charge_sorted_growth(
+                    target
+                        .construction
+                        .once
+                        .insertion_demand((declaration, Some(new))),
+                )?;
+                target.construction.once.insert((declaration, Some(new)))?;
             }
         }
         target.charge_work_units(tree_work(self.root_indices.len()))?;
-        if let Some(indices) = self.root_indices.get(&new) {
+        if let Some(indices) = self.root_indices.get(&new.0) {
             for &index in indices {
                 target.charge_work_units(1 + tree_work(target.construction.claimed_roots.len()))?;
                 target.charge_allocation_bytes(core::mem::size_of::<usize>() * 4)?;
@@ -314,8 +342,8 @@ impl RetainedGraph<'_, '_> {
     ) -> Result<InstanceId, RuntimeError> {
         Self::step(target, depth)?;
         target.charge_work_units(tree_work(self.identities.len()))?;
-        match self.identities.get(&old) {
-            Some(new) => Ok(*new),
+        match self.identities.get(&old.0) {
+            Some(new) => Ok(InstanceId(*new)),
             // A persistent dynamic object has no artifact root to reconstruct.
             // Keep it alive if its remaining retained link is a reference/interface.
             None => self.instance(target, old, depth + 1),
@@ -412,5 +440,31 @@ mod tests {
         );
         assert!(target.resources.work_budget.remaining() < before);
         assert_eq!(source.resources.work_budget.remaining(), 0);
+    }
+    #[test]
+    fn compact_retained_indexes_preserve_global_separation_full_ids_and_declaration_order() {
+        let prepared = PreparedModule::from_bytes(
+            include_bytes!(
+                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
+            ),
+            crate::vm::PreparationLimits::default(),
+        )
+        .unwrap();
+        let target = EngineState::new(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
+        let mut marks = LifecycleMarks::default();
+        marks
+            .insert((u16::MAX as u32, Some(InstanceId(u32::MAX))))
+            .unwrap();
+        marks.insert((1, Some(InstanceId(0)))).unwrap();
+        marks.insert((0, None)).unwrap();
+        marks.insert((0, Some(InstanceId(u32::MAX)))).unwrap();
+        let index = index_marks(&target, &marks).unwrap();
+        assert_eq!(index.keys().copied().collect::<Vec<_>>(), [0, u32::MAX]);
+        assert_eq!(index[&0], [1]);
+        assert_eq!(index[&u32::MAX], [0, u16::MAX as u32]);
+        assert!(
+            marks.contains(&(0, None)).unwrap(),
+            "indexing must not consume source marks"
+        );
     }
 }

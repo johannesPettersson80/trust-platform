@@ -31,18 +31,25 @@ impl EngineState<'_> {
             .entries
             .get(id as usize)
             .cloned()
-            .ok_or_else(|| invalid_bytecode("unknown initializer"))?;
+            .ok_or_else(|| {
+                invalid_bytecode(smol_str::SmolStr::new_static("unknown initializer"))
+            })?;
         let context = entry.context_initializer_idx.unwrap_or(id);
         let result_type = self
             .prepared
             .vm
             .ref_type(entry.result_ref_idx)
-            .ok_or_else(|| invalid_bytecode("untyped initializer result"))?;
+            .ok_or_else(|| {
+                invalid_bytecode(smol_str::SmolStr::new_static("untyped initializer result"))
+            })?;
         let code_end = (entry.code_offset as usize)
             .checked_add(entry.code_length as usize)
             .ok_or(RuntimeError::Overflow)?;
-        let (seed, backups) = self.initializer_seed(&entry, instance, lexical.as_deref())?;
-        let writable_instances = backups.iter().map(|(id, _)| *id).collect();
+        let staging::InitializerSeed {
+            value: seed,
+            backups,
+            writable_instances,
+        } = self.initializer_seed(&entry, instance, lexical.as_deref())?;
         let result = self.storage.reserve_execution_frame()?;
         let mut slot = vec![seed];
         self.storage.suspend_execution_frame(result, &mut slot)?;
@@ -105,6 +112,20 @@ impl EngineState<'_> {
         if let Some(lexical) = lexical {
             lexical.locals = frame.locals;
         }
+        self.finish_initializer(outcome, result, lexical_frame, instance, backups)
+    }
+
+    // Keep finalization's temporaries out of the evaluator frame that remains
+    // live across synchronous initializer/default-recipe dispatcher entries.
+    #[inline(never)]
+    fn finish_initializer(
+        &mut self,
+        outcome: Result<(), RuntimeError>,
+        result: FrameId,
+        lexical_frame: Option<FrameId>,
+        instance: Option<InstanceId>,
+        backups: Vec<(InstanceId, crate::memory::InstanceData)>,
+    ) -> Result<Value, RuntimeError> {
         let value = outcome.and_then(|()| {
             let mut values = Vec::new();
             self.storage.resume_execution_frame(result, &mut values)?;
@@ -119,20 +140,15 @@ impl EngineState<'_> {
             .map(|parent| parent.result)
             .or(lexical_frame)
             .or_else(|| {
-                instance.and_then(|id| {
-                    self.lifetimes
-                        .instance_lifetimes
-                        .get(&id)
-                        .copied()
-                        .flatten()
-                })
+                instance.and_then(|id| self.lifetimes.instance_lifetimes.get(&id).flatten())
             });
-        let originally_owned = self
-            .lifetimes
-            .owned_instances
-            .get(&result)
-            .cloned()
-            .unwrap_or_default();
+        // Charge before promoting/committing any staged instance; exhaustion
+        // follows the existing rollback path, then cleanup still completes.
+        let cleanup = self
+            .charge_work_units(self.storage.execution_frame_count())
+            .and_then(|()| self.charge_owned_retirement(result));
+        let value = value.and_then(|value| cleanup.map(|()| value));
+        let originally_owned = self.lifetimes.owned_instances.snapshot(result);
         let value = value.and_then(|value| {
             self.promote_constructed_instances(&value, result, destination)?;
             self.check_value_lifetime(&value, destination)?;
@@ -144,7 +160,7 @@ impl EngineState<'_> {
                 if self.lifetimes.instance_lifetimes.contains_key(&instance) {
                     self.lifetimes
                         .instance_lifetimes
-                        .insert(instance, Some(result));
+                        .restore(instance, Some(result));
                 }
             }
         }
@@ -153,7 +169,7 @@ impl EngineState<'_> {
         self.lifetimes
             .live_activations
             .retain(|candidate| *candidate != result);
-        self.remove_owned_instances(result);
+        self.remove_owned_instances_unchecked(result);
         value
     }
 

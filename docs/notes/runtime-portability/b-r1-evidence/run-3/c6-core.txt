@@ -1,0 +1,4 @@
+[gate-progress state=started phase=B-R1-c6-core target=scena-rust-builder pid=1493592 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo check --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf']
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+    Finished `dev` profile [unoptimized] target(s) in 2.28s
+[gate-progress state=finished phase=B-R1-c6-core target=scena-rust-builder pid=1493592 elapsed=2.4s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo check --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf' status=0]

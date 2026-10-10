@@ -14,21 +14,21 @@ use smol_str::SmolStr;
 /// Register the shared string functions in a hosted registry.
 #[cfg(feature = "hir")]
 pub fn register(lib: &mut StandardLibrary) {
-    register_into(lib);
+    lib.register_descriptors(FUNCTIONS);
 }
 
-pub(super) fn register_into(lib: &mut impl super::registration::Registration) {
-    lib.register("LEN", &["IN"], len);
-    lib.register("LEFT", &["IN", "L"], left);
-    lib.register("RIGHT", &["IN", "L"], right);
-    lib.register("MID", &["IN", "L", "P"], mid);
-    lib.register_variadic("CONCAT", "IN", 1, 2, concat);
-    lib.register("INSERT", &["IN1", "IN2", "P"], insert);
-    lib.register("DELETE", &["IN", "L", "P"], delete);
-    lib.register("REPLACE", &["IN1", "IN2", "L", "P"], replace);
-    lib.register("FIND", &["IN1", "IN2"], find);
-    lib.register("__TRUST_LIMIT_STRING", &["IN", "L"], limit_string);
-}
+pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+    super::registration::descriptor!("CONCAT", VAR_IN_1_2, concat),
+    super::registration::descriptor!("DELETE", IN_L_P, delete),
+    super::registration::descriptor!("FIND", IN1_IN2, find),
+    super::registration::descriptor!("INSERT", IN1_IN2_P, insert),
+    super::registration::descriptor!("LEFT", IN_L, left),
+    super::registration::descriptor!("LEN", IN, len),
+    super::registration::descriptor!("MID", IN_L_P, mid),
+    super::registration::descriptor!("REPLACE", IN1_IN2_L_P, replace),
+    super::registration::descriptor!("RIGHT", IN_L, right),
+    super::registration::descriptor!("__TRUST_LIMIT_STRING", IN_L, limit_string),
+];
 
 fn len(args: &[Value]) -> Result<Value, RuntimeError> {
     require_arity(args, 1)?;

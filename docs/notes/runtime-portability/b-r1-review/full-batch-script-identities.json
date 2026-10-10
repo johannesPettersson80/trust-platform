@@ -1,0 +1,30 @@
+[
+  {
+    "path": "README.txt",
+    "sha256": "d7953e3c3ab651852c43a37239653a37742befd47cab47ffb164eabcd7c90cfa"
+  },
+  {
+    "path": "environment.sh",
+    "sha256": "543b87d6c9f14d8e72fc4037f3eb50ffec8f309cd1d8f180822fbd730ca59dec"
+  },
+  {
+    "path": "builder-preparation.sh",
+    "sha256": "cb206641bfc7bad5fc782bab126eadf808348b0cb4180bf8a2db0ecf319eb558"
+  },
+  {
+    "path": "builder-batch.sh",
+    "sha256": "c9929249693d5f0a980f726b163513add44d295b6d6ac38d5758906222752df0"
+  },
+  {
+    "path": "format-once.sh",
+    "sha256": "7fc8fc886cb0f52befd23fcf86fb7d63f4224a6b2b8ef15a1568c0a1c1d6786a"
+  },
+  {
+    "path": "freeze-source.py",
+    "sha256": "a61d85a8b51de914193316e0c850f3e48ab9c184457d8d3cdfe3352daf0892b2"
+  },
+  {
+    "path": "prepare-metadata-index.py",
+    "sha256": "7ebc68aa582b96691613985da78467fddef7c805a22055a64fa60d93c96f602c"
+  }
+]

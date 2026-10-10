@@ -1,0 +1,13 @@
+crates/trust-runtime-core/src/vm/call/continuation.rs
+crates/trust-runtime-core/src/vm/call/mod.rs
+crates/trust-runtime-core/src/vm/context.rs
+crates/trust-runtime-core/src/vm/dispatch.rs
+crates/trust-runtime-core/src/vm/dispatch/continuation.rs
+crates/trust-runtime-core/src/vm/engine/context.rs
+crates/trust-runtime-core/src/vm/engine/continuation_tests.rs
+crates/trust-runtime-core/src/vm/engine/initialization/tests.rs
+crates/trust-runtime-core/src/vm/frames.rs
+crates/trust-runtime-core/src/vm/stack.rs
+crates/trust-runtime/src/runtime/vm/dispatch.rs
+crates/trust-runtime/tests/source_free_execution_cost.rs
+firmware/trust-nucleo-f401re/src/stack_guard.rs

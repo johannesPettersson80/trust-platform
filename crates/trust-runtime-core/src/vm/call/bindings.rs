@@ -214,7 +214,7 @@ pub fn bind_builtin_function_block_arguments(
                             runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
                             let (value, cloned) = materialize_borrowed_value(value);
                             if cloned {
-                                runtime.record_value_op(RegisterValueOpKind::ReadValueClone);
+                                runtime.record_value_op(RegisterValueOpKind::ReadReference);
                             }
                             value
                         } else {
@@ -335,7 +335,7 @@ pub fn bind_vm_function_block_arguments(
                             runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
                             let (value, cloned) = materialize_borrowed_value(value);
                             if cloned {
-                                runtime.record_value_op(RegisterValueOpKind::ReadValueClone);
+                                runtime.record_value_op(RegisterValueOpKind::ReadReference);
                             }
                             value
                         } else if let Some(default_const_idx) = param.default_const_idx {
@@ -346,7 +346,7 @@ pub fn bind_vm_function_block_arguments(
                             runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
                             let (value, cloned) = materialize_borrowed_value(value);
                             if cloned {
-                                runtime.record_value_op(RegisterValueOpKind::ConstLoadClone);
+                                runtime.record_value_op(RegisterValueOpKind::LoadConstant);
                             }
                             value
                         } else {
@@ -460,7 +460,7 @@ pub fn bind_vm_call_arguments(
                     }) => clone_value_with_profile(
                         runtime,
                         value,
-                        RegisterValueOpKind::BindingExprClone,
+                        RegisterValueOpKind::BindExpression,
                     )?,
                     Some(VmNativeArg {
                         value: VmNativeArgValue::Target(reference),
@@ -475,7 +475,7 @@ pub fn bind_vm_call_arguments(
                                     clone_value_with_profile(
                                         runtime,
                                         value,
-                                        RegisterValueOpKind::ConstLoadClone,
+                                        RegisterValueOpKind::LoadConstant,
                                     )
                                 })
                                 .ok_or(VmTrap::InvalidConstIndex(default_const_idx))??
@@ -501,7 +501,7 @@ pub fn bind_vm_call_arguments(
                             clone_value_with_profile(
                                 runtime,
                                 value,
-                                RegisterValueOpKind::ConstLoadClone,
+                                RegisterValueOpKind::LoadConstant,
                             )
                         })
                         .ok_or(VmTrap::InvalidConstIndex(default_const_idx))??
@@ -688,7 +688,7 @@ pub fn resolve_vm_arg_value(
 ) -> Result<Value, VmTrap> {
     match &arg.value {
         VmNativeArgValue::Expr(value) => {
-            clone_value_with_profile(runtime, value, RegisterValueOpKind::BindingExprClone)
+            clone_value_with_profile(runtime, value, RegisterValueOpKind::BindExpression)
         }
         VmNativeArgValue::Target(reference) => read_vm_target_value(runtime, frame, reference),
     }
@@ -754,7 +754,7 @@ pub fn read_vm_reference(
             runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
             let (value, cloned) = materialize_borrowed_value(value);
             if cloned {
-                runtime.record_value_op(RegisterValueOpKind::ReadValueClone);
+                runtime.record_value_op(RegisterValueOpKind::ReadReference);
             }
             Ok(value)
         }

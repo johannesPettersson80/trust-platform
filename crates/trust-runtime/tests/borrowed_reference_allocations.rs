@@ -77,3 +77,30 @@ fn hosted_field_load_and_store_do_not_allocate_reference_paths() {
         "borrowed policy/traversal must not materialize paths"
     );
 }
+
+#[test]
+fn default_standard_library_construction_clone_and_lookup_allocate_nothing() {
+    use trust_runtime_core::stdlib::StandardLibrary;
+
+    ALLOCATIONS.with(|count| count.set(0));
+    ENABLED.with(|enabled| enabled.set(true));
+    let library = StandardLibrary::new();
+    let clone = library.clone();
+    let original = library.get("aSsErT_Greater_OR_equal");
+    let copied = clone.get("ASSERT_GREATER_OR_EQUAL");
+    let absent = library.get("a_very_long_function_name_which_does_not_exist");
+    let sum = library.call("aDd", &[Value::Int(1), Value::Int(2)]);
+    ENABLED.with(|enabled| enabled.set(false));
+
+    let original = original.unwrap();
+    let copied = copied.unwrap();
+    assert!(std::ptr::eq(original.params, copied.params));
+    assert!(std::ptr::fn_addr_eq(original.func, copied.func));
+    assert!(absent.is_none());
+    assert_eq!(sum.unwrap(), Value::Int(3));
+    assert_eq!(
+        ALLOCATIONS.with(Cell::get),
+        0,
+        "immutable default descriptors must remain shared without registry allocations"
+    );
+}

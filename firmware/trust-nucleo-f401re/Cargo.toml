@@ -1,0 +1,28 @@
+[package]
+name = "trust-nucleo-f401re"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.95"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[workspace]
+resolver = "2"
+
+[dependencies]
+trust-runtime-core = { path = "../../crates/trust-runtime-core", default-features = false }
+trust-platform-stm32f4 = { path = "../../crates/trust-platform-stm32f4" }
+cortex-m = { version = "=0.7.7", features = ["critical-section-single-core"] }
+cortex-m-rt = { version = "=0.7.5", features = ["paint-stack", "set-sp", "set-vtor"] }
+embedded-alloc = { version = "=0.7.0", default-features = false, features = ["llff"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+debug = 1
+panic = "abort"
+overflow-checks = true
+
+[profile.dev]
+panic = "abort"

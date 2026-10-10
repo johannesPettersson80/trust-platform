@@ -1,0 +1,1 @@
+/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/debug/xtask portability verify /home/johannes/.cache/trust-portability-b-evidence/b-r4-run8/validation2/../board-attempt2/uart.txt /home/johannes/.cache/trust-portability-b-evidence/b-r4-run8/validation2/../board-report.json 

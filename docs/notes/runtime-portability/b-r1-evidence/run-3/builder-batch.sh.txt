@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -uo pipefail
+source /home/johannes/.cache/trust-portability-b-setup-run-3/environment.sh
+if [[ -e "$B_EVIDENCE/validation-started.txt" ]]; then echo 'Refusing automatic B-R1 validation rerun'; exit 91; fi
+[[ -s "$B_EVIDENCE/preparation-finished.txt" ]] || { echo 'Preparation/freeze incomplete'; exit 92; }
+# Root records independent approval of this exact post-format/provenance manifest.
+[[ -s "$B_EVIDENCE/review-approved.txt" ]] || { echo 'Exact frozen-source review incomplete'; exit 93; }
+[[ $(cat "$B_EVIDENCE/review-approved.txt") == $(sha256sum "$B_EVIDENCE/formatted-source-manifest.json" | cut -d' ' -f1) ]] || { echo 'Review does not match frozen source manifest'; exit 93; }
+date -u +%FT%TZ > "$B_EVIDENCE/validation-started.txt"
+# Preparation froze implementation, unchanged inputs and refreshed provenance before these suites.
+cargo_step core-all-features cargo test --locked --no-fail-fast -p trust-runtime-core --all-features -- --nocapture --test-threads=1
+cargo_step core-portable cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features -- --nocapture --test-threads=1
+cargo_step f401-core cargo check --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf
+cargo_step c6-core cargo check --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf
+cargo_step runtime-unit cargo test --locked --no-fail-fast -p trust-runtime --lib -- --nocapture --test-threads=1
+cargo_step runtime-vertical cargo test --locked --no-fail-fast -p trust-runtime --test api_smoke --test debug_control --test complete_program --test runtime_reliability -- --nocapture --test-threads=1
+cargo_step affected-clippy cargo clippy --locked -p trust-runtime-core -p trust-runtime -p trust-platform-stm32f4 -p xtask -p verification-cases --all-targets --all-features -- -D warnings
+cargo_step portable-clippy cargo clippy --locked -p trust-runtime-core --no-default-features --all-targets -- -D warnings
+cargo_step cross-warnings env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --require-cross
+run_step metadata-index required python3 "$B_SETUP/prepare-metadata-index.py"
+metadata_index_status=$?
+run_step mutation-tooling required env -u GIT_INDEX_FILE python3 -m unittest scripts.verification.focused_mutation_runner_tests
+if (( metadata_index_status == 0 )); then
+ run_step mutation-contracts required env GIT_INDEX_FILE="$B_EVIDENCE/review-index" python3 -m unittest scripts.verification.mutation_program_contract_tests
+ run_step metadata advisory env GIT_INDEX_FILE="$B_EVIDENCE/review-index" python3 scripts/validate_verification_metadata.py
+else unrun mutation-contracts 'Metadata review-index creation failed'; fi
+cargo_step architecture cargo xtask architecture-doctor --full-map
+architecture_status=$?
+if (( architecture_status == 0 )); then
+ run_step diagrams required bash scripts/render_diagrams.sh
+ if (( $? == 0 )); then run_step diagram-drift required python3 scripts/check_diagram_drift.py; else unrun diagram-drift 'Diagram rendering failed'; fi
+else unrun diagrams 'Architecture prerequisite failed'; unrun diagram-drift 'Architecture prerequisite failed'; fi
+cargo_step format-check bash "$B_SETUP/format-once.sh" --check
+run_step diff-check required git diff --check
+run_step artifact-parity required bash -c 'sha256sum --check "$B_SETUP/fixture-sha256.txt" || exit; for f in program-v2.stbc numeric-v2.stbc; do p=crates/trust-runtime/tests/fixtures/portability/stbc-2.0/$f; git show HEAD:"$p" | sha256sum; sha256sum "$p"; cmp <(git show HEAD:"$p") "$p" || exit; done'
+# Hardware remains open even if every software check passes.
+required_failures=$(awk -F '\t' 'NR>1 && $2=="required" && $3!="PASS" {n++} END {print n+0}' "$B_EVIDENCE/ledger.tsv")
+software_failures=$(awk -F '\t' 'NR>1 && $2=="required" && $1!="inspect" && $1!="hardware" && $3!="PASS" {n++} END {print n+0}' "$B_EVIDENCE/ledger.tsv")
+printf 'software_required_failures=%s\nrequired_failed_or_unrun=%s\nhardware_size_prerequisite=FAIL-retained-evidence\n' "$software_failures" "$required_failures" > "$B_EVIDENCE/result.txt"
+date -u +%FT%TZ > "$B_EVIDENCE/builder-finished.txt"
+cat "$B_EVIDENCE/ledger.tsv"
+(( required_failures == 0 ))

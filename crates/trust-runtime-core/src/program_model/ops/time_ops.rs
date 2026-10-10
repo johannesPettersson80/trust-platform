@@ -241,18 +241,45 @@ fn time_scale(op: BinaryOp, left: &Value, right: &Value) -> Option<Result<Value,
 
 fn scale_duration(time: Duration, factor: &Value, op: BinaryOp) -> Result<Duration, RuntimeError> {
     let factor = numeric_factor(factor)?;
-    let nanos = i128::from(time.as_nanos());
+    let nanos = time.as_nanos();
     let result = match factor {
-        NumericFactor::Integer(value) => match op {
+        NumericFactor::Signed(value) => match op {
             BinaryOp::Mul => nanos.checked_mul(value).ok_or(RuntimeError::Overflow)?,
             BinaryOp::Div => {
                 if value == 0 {
                     return Err(RuntimeError::DivisionByZero);
                 }
-                nanos / value
+                nanos.checked_div(value).ok_or(RuntimeError::Overflow)?
             }
             _ => return Err(RuntimeError::TypeMismatch),
         },
+        NumericFactor::Unsigned(value) => {
+            let magnitude = match op {
+                BinaryOp::Mul => nanos
+                    .unsigned_abs()
+                    .checked_mul(value)
+                    .ok_or(RuntimeError::Overflow)?,
+                BinaryOp::Div => {
+                    if value == 0 {
+                        return Err(RuntimeError::DivisionByZero);
+                    }
+                    nanos.unsigned_abs() / value
+                }
+                _ => return Err(RuntimeError::TypeMismatch),
+            };
+            // The one magnitude beyond i64::MAX is representable only when
+            // negative. No unsigned factor is truncated, including ULINT_MAX.
+            if nanos < 0 && magnitude == (1u64 << 63) {
+                i64::MIN
+            } else {
+                let magnitude = i64::try_from(magnitude).map_err(|_| RuntimeError::Overflow)?;
+                if nanos < 0 {
+                    -magnitude
+                } else {
+                    magnitude
+                }
+            }
+        }
         NumericFactor::Real(value) => {
             if matches!(op, BinaryOp::Div) && value == 0.0 {
                 return Err(RuntimeError::DivisionByZero);
@@ -266,18 +293,18 @@ fn scale_duration(time: Duration, factor: &Value, op: BinaryOp) -> Result<Durati
             if !truncated.is_finite() {
                 return Err(RuntimeError::Overflow);
             }
-            if truncated < i128::MIN as f64 || truncated > i128::MAX as f64 {
+            if !(-9_223_372_036_854_775_808.0..9_223_372_036_854_775_808.0).contains(&truncated) {
                 return Err(RuntimeError::Overflow);
             }
-            truncated as i128
+            return Ok(Duration::from_nanos(truncated as i64));
         }
     };
-    let nanos = i64::try_from(result).map_err(|_| RuntimeError::Overflow)?;
-    Ok(Duration::from_nanos(nanos))
+    Ok(Duration::from_nanos(result))
 }
 
 enum NumericFactor {
-    Integer(i128),
+    Signed(i64),
+    Unsigned(u64),
     Real(f64),
 }
 
@@ -285,14 +312,14 @@ fn numeric_factor(value: &Value) -> Result<NumericFactor, RuntimeError> {
     match value {
         Value::Real(v) => Ok(NumericFactor::Real(*v as f64)),
         Value::LReal(v) => Ok(NumericFactor::Real(*v)),
-        Value::SInt(v) => Ok(NumericFactor::Integer(i128::from(*v))),
-        Value::Int(v) => Ok(NumericFactor::Integer(i128::from(*v))),
-        Value::DInt(v) => Ok(NumericFactor::Integer(i128::from(*v))),
-        Value::LInt(v) => Ok(NumericFactor::Integer(i128::from(*v))),
-        Value::USInt(v) => Ok(NumericFactor::Integer(i128::from(*v))),
-        Value::UInt(v) => Ok(NumericFactor::Integer(i128::from(*v))),
-        Value::UDInt(v) => Ok(NumericFactor::Integer(i128::from(*v))),
-        Value::ULInt(v) => Ok(NumericFactor::Integer(i128::from(*v))),
+        Value::SInt(v) => Ok(NumericFactor::Signed(i64::from(*v))),
+        Value::Int(v) => Ok(NumericFactor::Signed(i64::from(*v))),
+        Value::DInt(v) => Ok(NumericFactor::Signed(i64::from(*v))),
+        Value::LInt(v) => Ok(NumericFactor::Signed(*v)),
+        Value::USInt(v) => Ok(NumericFactor::Unsigned(u64::from(*v))),
+        Value::UInt(v) => Ok(NumericFactor::Unsigned(u64::from(*v))),
+        Value::UDInt(v) => Ok(NumericFactor::Unsigned(u64::from(*v))),
+        Value::ULInt(v) => Ok(NumericFactor::Unsigned(*v)),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -302,8 +329,9 @@ fn duration_to_ticks(time: Duration, profile: &DateTimeProfile) -> Result<i64, R
     if resolution == 0 {
         return Err(RuntimeError::Overflow);
     }
-    let ticks = i128::from(time.as_nanos()) / i128::from(resolution);
-    i64::try_from(ticks).map_err(|_| RuntimeError::Overflow)
+    time.as_nanos()
+        .checked_div(resolution)
+        .ok_or(RuntimeError::Overflow)
 }
 
 fn ticks_to_duration(ticks: i128, profile: &DateTimeProfile) -> Result<Duration, RuntimeError> {
@@ -312,4 +340,147 @@ fn ticks_to_duration(ticks: i128, profile: &DateTimeProfile) -> Result<Duration,
         .ok_or(RuntimeError::Overflow)?;
     let nanos = i64::try_from(nanos).map_err(|_| RuntimeError::Overflow)?;
     Ok(Duration::from_nanos(nanos))
+}
+
+#[cfg(test)]
+mod width_tests {
+    use super::*;
+
+    #[test]
+    fn narrow_tick_division_matches_wide_arithmetic_including_minimum_duration() {
+        for nanos in [i64::MIN, -1, 0, 1, i64::MAX] {
+            for resolution in [i64::MIN, -1, 0, 1, 1000, i64::MAX] {
+                let profile = DateTimeProfile {
+                    resolution: Duration::from_nanos(resolution),
+                    ..Default::default()
+                };
+                let expected = if resolution == 0 {
+                    Err(RuntimeError::Overflow)
+                } else {
+                    i64::try_from(i128::from(nanos) / i128::from(resolution))
+                        .map_err(|_| RuntimeError::Overflow)
+                };
+                assert_eq!(
+                    duration_to_ticks(Duration::from_nanos(nanos), &profile),
+                    expected
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn real_duration_scaling_keeps_wide_conversion_bounds_and_fault_precedence() {
+        for nanos in [i64::MIN, -1, 0, 1, i64::MAX] {
+            for factor in [
+                f64::NEG_INFINITY,
+                f64::NAN,
+                f64::INFINITY,
+                -1.0,
+                -0.5,
+                -0.0,
+                0.0,
+                0.5,
+                1.0,
+                2.0,
+            ] {
+                for op in [BinaryOp::Mul, BinaryOp::Div] {
+                    let expected = if matches!(op, BinaryOp::Div) && factor == 0.0 {
+                        Err(RuntimeError::DivisionByZero)
+                    } else {
+                        let value = if matches!(op, BinaryOp::Mul) {
+                            nanos as f64 * factor
+                        } else {
+                            nanos as f64 / factor
+                        };
+                        let value = crate::numeric::math::trunc(value);
+                        if !value.is_finite()
+                            || value < i128::MIN as f64
+                            || value > i128::MAX as f64
+                        {
+                            Err(RuntimeError::Overflow)
+                        } else {
+                            i64::try_from(value as i128)
+                                .map(Duration::from_nanos)
+                                .map_err(|_| RuntimeError::Overflow)
+                        }
+                    };
+                    assert_eq!(
+                        scale_duration(Duration::from_nanos(nanos), &Value::LReal(factor), op),
+                        expected
+                    );
+                }
+            }
+        }
+        assert_eq!(
+            scale_duration(Duration::ZERO, &Value::ULInt(u64::MAX), BinaryOp::Mul),
+            Ok(Duration::ZERO)
+        );
+        assert_eq!(
+            scale_duration(
+                Duration::from_nanos(i64::MIN),
+                &Value::ULInt(u64::MAX),
+                BinaryOp::Div
+            ),
+            Ok(Duration::ZERO)
+        );
+    }
+    #[test]
+    fn integer_duration_scaling_matches_wide_formula_for_signed_and_unsigned_domains() {
+        let factors = [
+            (Value::SInt(i8::MIN), i128::from(i8::MIN)),
+            (Value::SInt(i8::MAX), i128::from(i8::MAX)),
+            (Value::Int(i16::MIN), i128::from(i16::MIN)),
+            (Value::Int(i16::MAX), i128::from(i16::MAX)),
+            (Value::DInt(i32::MIN), i128::from(i32::MIN)),
+            (Value::DInt(i32::MAX), i128::from(i32::MAX)),
+            (Value::LInt(i64::MIN), i128::from(i64::MIN)),
+            (Value::LInt(i64::MAX), i128::from(i64::MAX)),
+            (Value::LInt(-1), -1),
+            (Value::LInt(0), 0),
+            (Value::LInt(1), 1),
+            (Value::USInt(u8::MAX), i128::from(u8::MAX)),
+            (Value::UInt(u16::MAX), i128::from(u16::MAX)),
+            (Value::UDInt(u32::MAX), i128::from(u32::MAX)),
+            (Value::ULInt(u64::MAX), i128::from(u64::MAX)),
+            (Value::ULInt(1u64 << 63), 1i128 << 63),
+            (Value::ULInt((1u64 << 63) + 1), (1i128 << 63) + 1),
+            (Value::ULInt(0), 0),
+            (Value::ULInt(1), 1),
+            (Value::ULInt(2), 2),
+        ];
+        for nanos in [
+            i64::MIN,
+            i64::MIN + 1,
+            -3,
+            -1,
+            0,
+            1,
+            3,
+            i64::MAX - 1,
+            i64::MAX,
+        ] {
+            for (factor, wide) in &factors {
+                for op in [BinaryOp::Mul, BinaryOp::Div, BinaryOp::Add] {
+                    let expected = match op {
+                        BinaryOp::Mul => i64::try_from(i128::from(nanos) * wide)
+                            .map_err(|_| RuntimeError::Overflow),
+                        BinaryOp::Div if *wide == 0 => Err(RuntimeError::DivisionByZero),
+                        BinaryOp::Div => i64::try_from(i128::from(nanos) / wide)
+                            .map_err(|_| RuntimeError::Overflow),
+                        _ => Err(RuntimeError::TypeMismatch),
+                    }
+                    .map(Duration::from_nanos);
+                    assert_eq!(
+                        scale_duration(Duration::from_nanos(nanos), factor, op),
+                        expected,
+                        "nanos={nanos}, factor={factor:?}, op={op:?}"
+                    );
+                }
+            }
+        }
+        assert_eq!(
+            scale_duration(Duration::ZERO, &Value::Bool(false), BinaryOp::Div),
+            Err(RuntimeError::TypeMismatch)
+        );
+    }
 }

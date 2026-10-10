@@ -1,6 +1,7 @@
 //! Shared stack-bytecode dispatcher. Platform services enter through ExecutionContext.
 use super::call::context::RegisterCallOpKind;
-use super::call::{execute_native_call, push_call_frame};
+use super::call::push_call_frame;
+mod continuation;
 use super::context::ExecutionContext;
 use super::dispatch_ops::{apply_jump, execute_binary, execute_unary, read_i32, read_u32};
 use super::dispatch_refs::{
@@ -17,7 +18,8 @@ use crate::program_model::{BinaryOp, UnaryOp};
 use crate::value::{
     read_partial_access, write_partial_access, PartialAccess, PartialAccessError, Value,
 };
-use alloc::{format, vec::Vec};
+use alloc::vec::Vec;
+use continuation::{CallContinuation, CallStart};
 
 /// Returned value and final local slots from one stack invocation.
 #[derive(Debug, Clone)]
@@ -35,6 +37,16 @@ pub struct ExecutionBuffers {
     pub operand_stack: OperandStack,
     /// Reusable stack-frame storage, cleared between root entries.
     pub frames: FrameStack,
+    continuations: Vec<CallContinuation>,
+}
+
+impl ExecutionBuffers {
+    /// Clear already-unwound execution state while retaining all scratch capacities.
+    pub fn clear(&mut self) {
+        self.operand_stack.clear();
+        self.frames.clear();
+        self.continuations.clear();
+    }
 }
 
 /// Execute one POU through the shared stack dispatcher with optional initial locals.
@@ -76,7 +88,7 @@ pub fn execute_pou_stack_with_parameter_presence(
     entry: super::budget::ExecutionEntry,
 ) -> Result<VmPouStackResult, RuntimeError> {
     let mut buffers = runtime.take_execution_buffers();
-    let result = execute_with_buffers(
+    let mut result = execute_with_buffers(
         runtime,
         module,
         Some(pou_id),
@@ -86,13 +98,11 @@ pub fn execute_pou_stack_with_parameter_presence(
         depth_offset,
         entry,
         &mut buffers,
-        None,
+        &mut None,
         parameter_values_present,
     );
-    buffers.operand_stack.clear();
-    while let Ok(frame) = buffers.frames.pop() {
-        runtime.retire_frame(&frame);
-    }
+    continuation::unwind(runtime, &mut buffers, &mut result);
+    buffers.clear();
     runtime.recycle_execution_buffers(buffers);
     if result.is_ok() {
         runtime.check_execution_deadline()?;
@@ -112,6 +122,7 @@ pub fn execute_initializer_body(
     let locals = core::mem::take(&mut frame.locals);
     let mut staged_frame = frame.clone();
     staged_frame.locals = locals;
+    let mut staged_frame = Some(staged_frame);
     let result = execute_with_buffers(
         runtime,
         module,
@@ -122,7 +133,7 @@ pub fn execute_initializer_body(
         depth,
         super::budget::ExecutionEntry::Nested,
         &mut buffers,
-        Some(staged_frame),
+        &mut staged_frame,
         None,
     );
     let outcome = match result {
@@ -133,19 +144,50 @@ pub fn execute_initializer_body(
         Err(error) => {
             // Validated initializer bodies cannot issue direct/user calls. Preserve
             // lexical locals on traps, including a failing coercion callback.
-            if let Ok(active) = buffers.frames.pop() {
+            if let Some(active) = buffers.frames.pop().ok().or_else(|| staged_frame.take()) {
                 frame.locals = active.locals;
             }
             Err(error)
         }
     };
-    buffers.operand_stack.clear();
-    buffers.frames.clear();
+    buffers.clear();
     runtime.recycle_execution_buffers(buffers);
     if outcome.is_ok() {
         runtime.check_execution_deadline()?;
     }
     outcome
+}
+
+// Root and deferred entries share one input-copy body. Keep its temporaries out
+// of the dispatcher frame that remains live during synchronous initialization.
+#[inline(never)]
+fn copy_call_inputs(
+    runtime: &impl ExecutionContext,
+    frame: &mut super::VmFrame,
+    initial_locals: Option<&[Value]>,
+    parameter_values_present: Option<&[bool]>,
+) -> Result<(), RuntimeError> {
+    if let Some(initial_locals) = initial_locals {
+        if initial_locals.len() > frame.locals.len() {
+            return Err(VmTrap::BytecodeDecode(
+                "vm call initial local payload exceeds frame local capacity".into(),
+            )
+            .into_runtime_error());
+        }
+        for (index, value) in initial_locals.iter().enumerate() {
+            runtime.before_value_clone(value)?;
+            frame.locals[index] = value.clone();
+        }
+    }
+    if let Some(present) = parameter_values_present {
+        if present.len() > frame.locals.len() {
+            return Err(super::module::invalid_bytecode(
+                "parameter presence exceeds frame capacity",
+            ));
+        }
+        frame.parameter_values_present = present.to_vec();
+    }
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -159,15 +201,29 @@ fn execute_with_buffers(
     depth_offset: u32,
     entry: super::budget::ExecutionEntry,
     buffers: &mut ExecutionBuffers,
-    initializer_frame: Option<super::VmFrame>,
+    initializer_frame: &mut Option<super::VmFrame>,
     parameter_values_present: Option<&[bool]>,
 ) -> Result<VmPouStackResult, RuntimeError> {
     runtime.begin_execution(entry, module.instruction_budget)?;
     ensure_global_call_depth(depth_offset, 1).map_err(VmTrap::into_runtime_error)?;
     let operand_stack = &mut buffers.operand_stack;
     let frames = &mut buffers.frames;
+    let continuations = &mut buffers.continuations;
     let is_initializer = initializer_frame.is_some();
-    let mut pc = if let Some(frame) = initializer_frame {
+    if (depth_offset as usize)
+        .saturating_add(frames.len())
+        .saturating_add(1)
+        > runtime.call_depth_limit()
+    {
+        return Err(VmTrap::CallStackOverflow.into_runtime_error());
+    }
+    let (frame_bytes, frame_work) = frames.growth_demand().map_err(VmTrap::into_runtime_error)?;
+    runtime.charge_call_storage(frame_bytes, frame_work)?;
+    // Retain initializer ownership until every fallible entry/capacity check is done.
+    frames
+        .reserve_for_push()
+        .map_err(VmTrap::into_runtime_error)?;
+    let mut pc = if let Some(frame) = initializer_frame.take() {
         let start = frame.code_start;
         frames.push(frame).map_err(VmTrap::into_runtime_error)?;
         start
@@ -182,34 +238,23 @@ fn execute_with_buffers(
         .map_err(VmTrap::into_runtime_error)?
     };
     runtime.record_call_op(RegisterCallOpKind::FramePush);
-    if let Some(initial_locals) = initial_locals {
+    if initial_locals.is_some() || !is_initializer {
         let frame = frames
             .current_mut()
             .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
-        if initial_locals.len() > frame.locals.len() {
-            return Err(VmTrap::BytecodeDecode(
-                "vm call initial local payload exceeds frame local capacity".into(),
-            )
-            .into_runtime_error());
+        copy_call_inputs(
+            runtime,
+            frame,
+            initial_locals,
+            if is_initializer {
+                None
+            } else {
+                parameter_values_present
+            },
+        )?;
+        if !is_initializer {
+            runtime.initialize_frame(module, frame, depth_offset)?;
         }
-        for (index, value) in initial_locals.iter().enumerate() {
-            runtime.before_value_clone(value)?;
-            frame.locals[index] = value.clone();
-        }
-    }
-    if !is_initializer {
-        let frame = frames
-            .current_mut()
-            .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
-        if let Some(present) = parameter_values_present {
-            if present.len() > frame.locals.len() {
-                return Err(super::module::invalid_bytecode(
-                    "parameter presence exceeds frame capacity",
-                ));
-            }
-            frame.parameter_values_present = present.to_vec();
-        }
-        runtime.initialize_frame(module, frame, depth_offset)?;
     }
 
     loop {
@@ -234,13 +279,14 @@ fn execute_with_buffers(
             if frames.is_empty() {
                 return finish_stack_result(runtime, finished, capture_return, !is_initializer);
             }
-            runtime.retire_frame(&finished);
-            runtime.resume_frame(
-                frames
-                    .current_mut()
-                    .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?,
+            pc = continuation::finish_call(
+                runtime,
+                module,
+                frames,
+                operand_stack,
+                continuations,
+                finished,
             )?;
-            pc = finished.return_pc;
             continue;
         }
 
@@ -289,12 +335,25 @@ fn execute_with_buffers(
                 }
             }
             0x05 => {
+                if is_initializer {
+                    return Err(RuntimeError::StagingViolation);
+                }
                 runtime.check_execution_deadline()?;
                 let callee = read_u32(&module.code, &mut pc).map_err(VmTrap::into_runtime_error)?;
                 let inherited_instance = frames.current().and_then(|frame| frame.runtime_instance);
                 let return_pc = pc;
                 ensure_global_call_depth(depth_offset, frames.len().saturating_add(1))
                     .map_err(VmTrap::into_runtime_error)?;
+                if (depth_offset as usize)
+                    .saturating_add(frames.len())
+                    .saturating_add(1)
+                    > runtime.call_depth_limit()
+                {
+                    return Err(VmTrap::CallStackOverflow.into_runtime_error());
+                }
+                let (frame_bytes, frame_work) =
+                    frames.growth_demand().map_err(VmTrap::into_runtime_error)?;
+                runtime.charge_call_storage(frame_bytes, frame_work)?;
                 runtime.suspend_frame(
                     frames
                         .current_mut()
@@ -316,41 +375,43 @@ fn execute_with_buffers(
                 if frames.is_empty() {
                     return finish_stack_result(runtime, finished, capture_return, !is_initializer);
                 }
-                runtime.retire_frame(&finished);
-                runtime.resume_frame(
-                    frames
-                        .current_mut()
-                        .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?,
+                pc = continuation::finish_call(
+                    runtime,
+                    module,
+                    frames,
+                    operand_stack,
+                    continuations,
+                    finished,
                 )?;
-                pc = finished.return_pc;
             }
             0x07 => return Err(VmTrap::UnsupportedOpcode("CALL_METHOD").into_runtime_error()),
             0x08 => return Err(VmTrap::UnsupportedOpcode("CALL_VIRTUAL").into_runtime_error()),
             0x09 => {
                 let kind = read_u32(&module.code, &mut pc).map_err(VmTrap::into_runtime_error)?;
+                if is_initializer && kind != crate::bytecode::NATIVE_CALL_KIND_STDLIB {
+                    return Err(RuntimeError::StagingViolation);
+                }
                 let symbol_idx =
                     read_u32(&module.code, &mut pc).map_err(VmTrap::into_runtime_error)?;
                 let arg_count =
                     read_u32(&module.code, &mut pc).map_err(VmTrap::into_runtime_error)?;
-                let caller_depth =
-                    depth_offset.saturating_add(frames.len().saturating_sub(1) as u32);
-                let frame = frames
-                    .current_mut()
-                    .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
-                let result = execute_native_call(
+                match continuation::start_call(
                     runtime,
                     module,
-                    frame,
+                    frames,
                     operand_stack,
-                    caller_depth,
+                    continuations,
+                    depth_offset,
+                    pc,
                     kind,
                     symbol_idx,
                     arg_count,
-                )
-                .map_err(VmTrap::into_runtime_error)?;
-                operand_stack
-                    .push(result)
-                    .map_err(VmTrap::into_runtime_error)?;
+                )? {
+                    CallStart::Immediate(value) => operand_stack
+                        .push(value)
+                        .map_err(VmTrap::into_runtime_error)?,
+                    CallStart::Deferred(entry_pc) => pc = entry_pc,
+                }
             }
             0x10 => {
                 let const_idx =
@@ -447,12 +508,7 @@ fn execute_with_buffers(
                     .strings
                     .get(field_idx as usize)
                     .cloned()
-                    .ok_or_else(|| {
-                        VmTrap::BytecodeDecode(
-                            format!("invalid index {field_idx} for string").into(),
-                        )
-                        .into_runtime_error()
-                    })?;
+                    .ok_or_else(|| super::errors::invalid_field_string_index(field_idx))?;
                 let base = operand_stack.pop().map_err(VmTrap::into_runtime_error)?;
                 let next = match base {
                     Value::Reference(Some(reference)) => {
@@ -647,7 +703,7 @@ fn finish_stack_result(
     };
     if let Err(error) = checked_copy {
         if retire {
-            runtime.retire_frame(&frame);
+            let _ = runtime.retire_frame(&frame);
         }
         return Err(error);
     }
@@ -661,10 +717,13 @@ fn finish_stack_result(
     } else {
         Ok(())
     };
-    if retire {
-        runtime.retire_frame(&frame);
-    }
+    let cleanup = if retire {
+        runtime.retire_frame(&frame)
+    } else {
+        Ok(())
+    };
     checked?;
+    cleanup?;
     Ok(VmPouStackResult {
         return_value,
         locals: frame.locals,
