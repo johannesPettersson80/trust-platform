@@ -406,3 +406,12 @@ metadata commit prepares version 0.24.73, following fetched main's 0.24.72, with
 changing dependencies or source semantics. Its exact committed candidate still needs
 the release guard before any push; no guard, push, merge or release is included in
 this commit instruction. The primary checkout and board image remain untouched.
+
+The Scope B checkpoint is `f756ddd9a` on `feat/runtime-portability-b`. Release
+metadata changes only package versions: 16 workspace records and the two firmware
+path-dependency records, synchronized with the VS Code root manifests and changelog.
+Both `cargo metadata --locked --offline --no-deps --format-version 1` invocations
+(root and firmware manifest) pass on trust-builder under the target lease. No
+dependency versions, features or Rust sources changed, and no new compilation,
+hardware run or release guard is claimed by these metadata checks. The record's
+Scope B acceptance remains tied to the original frozen source and physical ELF.

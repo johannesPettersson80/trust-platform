@@ -437,7 +437,7 @@ dependencies = [
 
 [[package]]
 name = "trust-platform-stm32f4"
-version = "0.24.71"
+version = "0.24.73"
 dependencies = [
  "cortex-m",
  "embedded-hal-nb",
@@ -448,7 +448,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.71"
+version = "0.24.73"
 dependencies = [
  "indexmap",
  "libm",
