@@ -21,6 +21,21 @@ fn reference_parser_accepts_ref_to_user_type() {
 }
 
 #[test]
+fn reference_parser_accepts_reference_to_elementary_type() {
+    assert_reference_parses("PROGRAM P\nVAR r : REFERENCE TO INT; END_VAR\nEND_PROGRAM");
+}
+
+#[test]
+fn reference_parser_accepts_reference_to_user_type() {
+    assert_reference_parses("TYPE S : STRUCT x : INT; END_STRUCT END_TYPE\nPROGRAM P\nVAR r : REFERENCE TO S; END_VAR\nEND_PROGRAM");
+}
+
+#[test]
+fn reference_parser_rejects_reference_to_without_target_type() {
+    assert_reference_rejected("PROGRAM P\nVAR r : REFERENCE TO; END_VAR\nEND_PROGRAM");
+}
+
+#[test]
 fn reference_parser_accepts_pointer_to_elementary_type() {
     assert_reference_parses("PROGRAM P\nVAR p : POINTER TO INT; END_VAR\nEND_PROGRAM");
 }

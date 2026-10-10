@@ -579,3 +579,16 @@ END_PROGRAM
 "#,
     );
 }
+
+#[test]
+fn test_reference_to_spelling_is_ref_to_alias() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REFERENCE TO INT; END_VAR
+    r := REF(x);
+    r^ := 5;
+END_PROGRAM
+"#,
+    );
+}

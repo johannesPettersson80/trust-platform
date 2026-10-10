@@ -73,6 +73,7 @@ impl TokenKind {
                 | Self::KwPointer
                 | Self::KwRef
                 | Self::KwRefTo
+                | Self::KwReference
                 | Self::KwTo
                 | Self::KwExtends
                 | Self::KwImplements

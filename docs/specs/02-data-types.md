@@ -517,6 +517,10 @@ refInt^ := 100;  // myInt is now 100
 - `REF_TO` and `POINTER TO` are distinct type families. `REF(...)` produces
   `REF_TO T`; `ADR(...)` produces `POINTER TO T`. Neither ordinary assignment
   nor assignment attempt implicitly converts one family to the other.
+- The CODESYS-style spelling `REFERENCE TO T` is accepted as a vendor-style
+  alias for `REF_TO T` and denotes the same IEC reference type. A `REFERENCE
+  TO` declaration follows every `REF_TO` rule in this section, including the
+  required target type.
 - Assignment attempt `target ?= source` performs the dynamic interface or
   downcast compatibility check. It overwrites `target` with the compatible
   reference on success and with `NULL` on failure, irrespective of the

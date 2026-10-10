@@ -574,6 +574,16 @@ impl Parser<'_, '_> {
             self.bump();
             self.parse_type_ref();
             self.finish_node();
+        } else if self.at(TokenKind::KwReference) {
+            self.start_node(SyntaxKind::ReferenceType);
+            self.bump();
+            if self.at(TokenKind::KwTo) {
+                self.bump();
+            } else {
+                self.error("expected TO after REFERENCE");
+            }
+            self.parse_type_ref();
+            self.finish_node();
         } else if self.at(TokenKind::KwString) || self.at(TokenKind::KwWString) {
             self.start_node(SyntaxKind::StringType);
             self.bump();
