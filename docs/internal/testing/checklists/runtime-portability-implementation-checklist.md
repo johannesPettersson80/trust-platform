@@ -9,16 +9,16 @@ it does not create additional product requirements. Existing closed extraction b
 
 | Field | Recorded state |
 |---|---|
-| Updated | A2 release integration final preparation passed, 10 October 2026. Historical expanded A2 scope remains verified through runs 6–8; integrated native tests/exact-SHA guard remain unrun. |
-| Checkout | `/home/johannes/projects/trust-platform-portability-a2-integration`, branch `integrate/runtime-portability-a2`, based on released main `258fe24b8c3706d566f5f05c25cfcd75e5b297c3`. Original A2 commit `9f62fd09181c222ae6f8802128600708e3a304ea` and its worktree/evidence are preserved. |
+| Updated | A2 integration batch 1 finished with two required failures, 10 October 2026. Historical expanded A2 scope remains verified through runs 6–8; integration corrections are prepared but unvalidated. |
+| Checkout | `/home/johannes/projects/trust-platform-portability-a2-integration`, branch `integrate/runtime-portability-a2`, committed candidate `e461e0f9d6d36b9e95a66183134cb482c07e7635` on released main `258fe24b8c3706d566f5f05c25cfcd75e5b297c3`, with uncommitted corrections. Original A2 commit `9f62fd09181c222ae6f8802128600708e3a304ea` and its worktree/evidence are preserved. |
 | Bootstrap | Canonical AGENTS.md and full .codex/skills manually copied from `/home/johannes/projects/trust-platform`; current integration local/reviewer/builder canonical-file parity verified. Builder 269-record source identity matched before and after preparation; no source bytes changed. |
 | Authorization | User authorized agent-led A1 then A2 integration, review, validation, push, guarded merge and release, including necessary reviewed correction cycles. Complete each correction before one consolidated batch; no piecemeal tests, unreviewed reruns or bypasses. |
 | Scope | Full shared 1.x loader/validator/container/metadata/serialization; hosted compatibility preserved. STBC 2.0, executable preparation and board execution remain later work. |
-| Status | Original verified A2 changes are independently reviewed on released A1 main. All seven final-preparation steps passed without source changes. Local commit and exact-SHA proof remain pending; preparation is not release approval. |
+| Status | Candidate e461e0f9d failed the stale decoder-source oracle and mutation-report setup blocked by historical IO proof bindings. All planned independent supplements/docs finished; source remained frozen. Three owning line changes are prepared; the guard artifact remains failed. |
 | Source identity | Run-8 frozen 252-record manifest SHA-256 `3415c33e97675a74840273f472c006ab01888aa45815593d57367430887c7815`; all matched local source before closeout-only edits. See A2-R6/R7/R8. |
-| Limitations | No A2 integration guard or push yet. Historical scope proof is not native current-head Windows/macOS CI, firmware linking, board/WCET/MCU peak-memory evidence, STBC 2.0 or source-free engine qualification. |
+| Limitations | No A2 push. The guard stopped after 6,977 passing tests and one failure, leaving later workspace binaries/MP-001 unrun; report class setup left 18 tooling tests unrun. Passing portable/32-bit/MCU compilation and docs do not replace the failed guard or provide board evidence. |
 | Integration | A1 PR #130 merged as 258fe24b8 and v0.24.71 is fully released: main CI, annotated tag, Release/Latest/assets and all Marketplace targets passed; local/builder cleanup audits are clean. A2 version is 0.24.72. |
-| Next action | Narrow review of the two preparation-record updates, then local commit and one exact-SHA guard plus deduplicated required supplements. Product/generated source remains byte-identical to the reviewed pre-preparation snapshot. |
+| Next action | Independent review of the architecture-oracle boundary and two source-revision evidence bindings; then authorized/coordinated final preparation, correction commit and one new exact-SHA guard with focused report/proof-binding tests. Retain unchanged passing supplemental proof; no automatic rerun. |
 
 Current plan SHA-256: `2a896118b750ca0a0e840d3aa9a2712f53e092f1fc8c40273cb1753bbc8fcb8d`.
 

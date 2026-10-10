@@ -16,9 +16,11 @@ the separately bootstrapped builder checkout.
 
 The user authorized A1 then A2 integration, independent review, consolidated
 validation, push, guarded merge and release, with necessary reviewed correction
-cycles. Final source preparation passed; no A2 integration native test,
-exact-SHA guard, commit or push has run at this checkpoint. The release target
-is 0.24.72, following main's completed 0.24.71 release.
+cycles. Final source preparation passed and candidate
+`e461e0f9d6d36b9e95a66183134cb482c07e7635` was committed locally. Its first
+integration guard/supplement batch failed two required checks; corrections are
+prepared but unvalidated. No A2 push has occurred. The release target is 0.24.72,
+following main's completed 0.24.71 release.
 
 ## Complete overlap and source mapping
 
@@ -109,7 +111,7 @@ and `check-retained-evidence-6.py` SHA256
 `631b64902729b74fa0ac880bf3b3d312da2881c09b9eb4a9fb58c394b0d968e1`.
 The preparation script passed all seven steps: environment, workspace formatting,
 fragment formatting, real selector discovery, architecture/full-map, canonical
-diagrams and source-diff retention. The supplemental script is unexecuted.
+diagrams and source-diff retention. The supplemental script subsequently ran as part of batch 1 (results below).
 The preparation helper refreshes
 selectors only after both formatting steps pass; independent architecture still
 runs after other failures, while rendering requires architecture success. Capture
@@ -123,5 +125,48 @@ and the pre-preparation manifest both contain 269 records with aggregate SHA256
 formatting, selector discovery and rendering changed no source bytes. Existing
 source reviews therefore still cover the product and generated output. Only
 this note and the checklist were subsequently updated to record preparation;
-those two documentation changes require the final narrow review before commit.
+root independently reviewed them before candidate e461e0f9d was committed.
 This preparation does not claim native-test, firmware or exact-SHA guard success.
+
+## First integration batch and prepared correction
+
+The complete batch at `e461e0f9d6d36b9e95a66183134cb482c07e7635` is retained
+under the artifact directory's `run-1/`, including `guard-artifact.json`,
+`guard-logs/`, both supplemental ledgers and `FAILURE-LEDGER.md`. Source stayed
+frozen until all reachable checks finished. No retry occurred.
+
+The full workspace run passed 6,977 tests, failed one architecture oracle and
+ignored 16 before Cargo stopped. The oracle searched for the removed
+`opcode_operand_len_for_lowering` shim to delimit `decode_pou`; the prepared
+correction uses the actual next decoder entry point, `collect_block_leaders`,
+while preserving both no-Vec/no-to_vec assertions. Later workspace binaries
+and the guard's subsequent MP-001/final-clean stages were unrun. The separate
+supplement's final-clean check passed; it does not repair the failed artifact.
+
+The mutation tooling ran 84 tests, but the 18 report tests were blocked in class
+setup by two historical IO proof rows incorrectly bound to the current contract.
+The prepared metadata change sets only their `proof_contract_binding` to
+`source_revision`. Commits `ba719ec1bff31245ad3fcd78d8ea83d76cc33930` and
+`79be3970b18c1d6fee34d546d51d539d06de9b76` contain the recorded case-file hash
+`5651bab7a19964e2f3e037947628d2fd32c8b6a737fea523b53a5ba0aead009b`.
+All measured dates, results, contract/artifact hashes and case digests are preserved;
+this does not claim a current measurement. `historical-io-source-map.json` records
+the source comparison. The same stale bindings account for the planner/catalog
+and final metadata advisories.
+
+Passing batch proof includes VS Code (519 tests), formatting, native/Windows
+warnings, supply chain, architecture/full-map and Clippy; isolated no_std tests
+(58) and i686-musl tests (172); F401/C6 core compilation and no-dev feature trees;
+Windows LSP, all eight one-attempt TLS iterations, hygiene and diagram checks;
+all 132 retained evidence hashes; and all 11 strict-docs steps. These do not close
+the two failed requirements or establish MCU firmware/hardware execution.
+
+After independent correction review and builder-slot coordination, prepare the
+final formatter output, review any changes and commit the correction. A new
+consolidated exact-SHA guard must run the complete mandatory workspace/VS Code
+proof, including the formerly unreached suites and MP-001 stage. Its distinct
+supplement is `python3 -m unittest scripts.verification.mutation_program_report_tests
+scripts.verification.metadata_validator.evidence_proof_tests`, plus advisory metadata.
+Reuse the unchanged portable/i686/MCU, TLS, Windows-LSP, diagrams and public-docs
+proof from batch 1; their source/configuration inputs are unchanged. No automatic
+rerun, source edit during execution, or push without passing required proof is allowed.
