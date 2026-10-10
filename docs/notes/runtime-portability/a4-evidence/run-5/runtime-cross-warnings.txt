@@ -1,0 +1,15 @@
+[gate-progress state=started phase=A4-runtime-cross-warnings target=scena-rust-builder pid=2696855 elapsed=0.0s timeout=5400s command='env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross']
+[runtime-warning-gate] Host target warning-deny check
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime-core)
+    Checking trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-ads-core)
+    Checking trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-ads-server)
+    Checking trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime)
+    Finished `dev` profile [unoptimized] target(s) in 27.08s
+[runtime-warning-gate] Windows cross-target warning-deny check (x86_64-pc-windows-gnu)
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime-core)
+[gate-progress state=running phase=A4-runtime-cross-warnings target=scena-rust-builder pid=2696855 elapsed=30.0s timeout=5400s command='env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross']
+    Checking trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-ads-core)
+    Checking trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-ads-server)
+    Checking trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime)
+    Finished `dev` profile [unoptimized] target(s) in 26.36s
+[gate-progress state=finished phase=A4-runtime-cross-warnings target=scena-rust-builder pid=2696855 elapsed=54.4s timeout=5400s command='env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross' status=0]

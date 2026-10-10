@@ -63,6 +63,10 @@ impl BytecodeModule {
     pub fn encode(&self) -> Result<Vec<u8>, BytecodeError> {
         self.view().encode()
     }
+    /// Serialize within an application-selected artifact bound.
+    pub fn encode_with_limit(&self, limit: usize) -> Result<Vec<u8>, BytecodeError> {
+        self.view().encode_with_limit(limit)
+    }
     /// Validate container semantics without preparing executable state.
     pub fn validate(&self) -> Result<(), BytecodeError> {
         self.view().validate()

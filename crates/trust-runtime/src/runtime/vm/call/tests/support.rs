@@ -43,26 +43,29 @@ fn manual_vm_function_block_module(params: Vec<VmParamMeta>) -> (VmModule, u32) 
     let mut pou_params = HashMap::new();
     pou_params.insert(pou_id, params);
     (
-        VmModule {
-            code: Vec::new(),
-            strings: Vec::new(),
-            types: TypeTable::default(),
-            refs: Vec::new(),
-            consts: Vec::new(),
-            pou_by_id,
-            program_ids: HashMap::new(),
-            function_ids: HashMap::new(),
-            function_block_ids,
-            class_ids: HashMap::new(),
-            parent_pou_ids: HashMap::new(),
-            interface_type_ids_by_pou: HashMap::new(),
-            native_symbol_specs: Vec::new(),
-            pou_params,
-            pou_has_return_slot: HashSet::new(),
-            method_table_by_owner: HashMap::new(),
-            ref_types: HashMap::new(),
-            debug_map: super::super::debug_map::VmDebugMap::default(),
-            instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
+        {
+            let mut legacy = VmModule::legacy(
+                crate::bytecode::BytecodeVersion::new(1, 1),
+                Vec::new(),
+                Vec::new(),
+                TypeTable::default(),
+                Vec::new(),
+                Vec::new(),
+            )
+            .expect("legacy fixture metadata");
+            let mut entries = pou_by_id;
+            let mut signatures = pou_params;
+            for (_, id) in function_block_ids {
+                legacy.define_legacy_pou(
+                    id,
+                    crate::bytecode::PouKind::FunctionBlock,
+                    entries.remove(&id).expect("fixture POU"),
+                    signatures.remove(&id).unwrap_or_default(),
+                    false,
+                );
+            }
+            legacy.set_legacy_instruction_budget(super::super::DEFAULT_INSTRUCTION_BUDGET);
+            legacy
         },
         pou_id,
     )
@@ -95,26 +98,30 @@ fn manual_vm_function_module(
         pou_has_return_slot.insert(pou_id);
     }
     (
-        VmModule {
-            code: Vec::new(),
-            strings: Vec::new(),
-            types: TypeTable::default(),
-            refs: Vec::new(),
-            consts: Vec::new(),
-            pou_by_id,
-            program_ids: HashMap::new(),
-            function_ids,
-            function_block_ids: HashMap::new(),
-            class_ids: HashMap::new(),
-            parent_pou_ids: HashMap::new(),
-            interface_type_ids_by_pou: HashMap::new(),
-            native_symbol_specs: Vec::new(),
-            pou_params,
-            pou_has_return_slot,
-            method_table_by_owner: HashMap::new(),
-            ref_types: HashMap::new(),
-            debug_map: super::super::debug_map::VmDebugMap::default(),
-            instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
+        {
+            let mut legacy = VmModule::legacy(
+                crate::bytecode::BytecodeVersion::new(1, 1),
+                Vec::new(),
+                Vec::new(),
+                TypeTable::default(),
+                Vec::new(),
+                Vec::new(),
+            )
+            .expect("legacy fixture metadata");
+            let mut entries = pou_by_id;
+            let mut signatures = pou_params;
+            let returns = pou_has_return_slot;
+            for (_, id) in function_ids {
+                legacy.define_legacy_pou(
+                    id,
+                    crate::bytecode::PouKind::Function,
+                    entries.remove(&id).expect("fixture POU"),
+                    signatures.remove(&id).unwrap_or_default(),
+                    returns.contains(&id),
+                );
+            }
+            legacy.set_legacy_instruction_budget(super::super::DEFAULT_INSTRUCTION_BUDGET);
+            legacy
         },
         pou_id,
     )
@@ -136,7 +143,9 @@ fn target_arg(name: Option<&str>, reference: ValueRef) -> super::VmNativeArg {
 
 fn empty_caller_frame() -> VmFrame {
     VmFrame {
-        pou_id: 0,
+        parameter_values_present: Vec::new(),
+        activation: None,
+        pou_id: Some(0),
         return_pc: 0,
         code_start: 0,
         code_end: 0,

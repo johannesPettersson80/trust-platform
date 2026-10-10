@@ -109,12 +109,12 @@ result_artifact_path = "docs/internal/testing/evidence/2026-10-09/runtime-portab
 
 [[shards.mutations]]
 id = "MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON"
-source_file = "crates/trust-runtime/src/stdlib/conversions/dispatch.rs"
-source_digest = "sha256:fb2e1b934cdb72c148901935fb8fd66c395b9edcb1d4bb1fe29d31cac1a17c27"
+source_file = "crates/trust-runtime-core/src/stdlib/conversions/dispatch.rs"
+source_digest = "sha256:5fe17b20259394915f5f2e8411d47001f41dba6db357d1ecf803e4e00ce1baf7"
 function = "convert_value"
 genre = "BinaryOperator"
 replacement = "!="
-selector_name = "dispatch.rs:78:16: replace == with != in convert_value"
+selector_name = "dispatch.rs:86:16: replace == with != in convert_value"
 build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "stdlib_conv", "--no-run"]
 test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "stdlib_conv", "conversion_functions", "--", "--exact"]
 association_ids = ["DISC_11144C19050BB255758E"]
@@ -202,12 +202,12 @@ result_artifact_path = "docs/internal/testing/evidence/2026-10-09/runtime-portab
 
 [[shards.mutations]]
 id = "MUTANT_RETAIN_ON_WARM_FALSE"
-source_file = "crates/trust-runtime/src/runtime/retain_snapshot.rs"
-source_digest = "sha256:daad61f7fed7b3205be8695f7179e023e7491fbaeecccb86fe6fad89e65214f3"
+source_file = "crates/trust-runtime-core/src/retain.rs"
+source_digest = "sha256:cf5ec211b84ad4756712ebff47489fb280ee2995703a32237fea7b3cb5902efd"
 function = "retain_on_warm"
 genre = "FnValue"
 replacement = "false"
-selector_name = "retain_snapshot.rs:683:5: replace retain_on_warm -> bool with false"
+selector_name = "retain.rs:64:5: replace retain_on_warm -> bool with false"
 build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "runtime_restart", "--no-run"]
 test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "runtime_restart", "warm_restart_preserves_retain_and_initializes_nonretain", "--", "--exact"]
 association_ids = ["DISC_83FE96819CB25F21CA77"]

@@ -65,7 +65,13 @@ fn duration_formatter_chooses_shortest_exact_unit_and_preserves_sign() {
     ];
 
     for (prefix, nanos, expected) in cases {
-        assert_eq!(format_duration(prefix, nanos), expected);
+        let duration = Duration::from_nanos(nanos);
+        let value = match prefix {
+            "T" => Value::Time(duration),
+            "LT" => Value::LTime(duration),
+            _ => panic!("unexpected duration prefix"),
+        };
+        assert_eq!(format_user_value(&value), expected);
     }
 }
 
@@ -99,10 +105,13 @@ fn calendar_families_render_stored_ticks_or_nanoseconds() {
 
 #[test]
 fn structured_text_string_quoting_escapes_dollars_and_quotes_in_order() {
-    assert_eq!(quote_st_string("plain"), "'plain'");
-    assert_eq!(quote_st_string("pump$'a"), "'pump$$$'a'");
-    assert_eq!(quote_st_string("$$"), "'$$$$'");
-    assert_eq!(quote_st_string("''"), "'$'$''");
+    assert_eq!(format_user_value(&Value::String("plain".into())), "'plain'");
+    assert_eq!(
+        format_user_value(&Value::String("pump$'a".into())),
+        "'pump$$$'a'"
+    );
+    assert_eq!(format_user_value(&Value::String("$$".into())), "'$$$$'");
+    assert_eq!(format_user_value(&Value::String("''".into())), "'$'$''");
 }
 
 #[test]

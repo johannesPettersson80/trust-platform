@@ -1,0 +1,1535 @@
+{
+  "description": "Verified copies of historical raw artifacts. Original per-run artifact indexes remain immutable; resolve missing archive paths using this map. No validation result was regenerated.",
+  "files": [
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/preparation-manifest.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/preparation-manifest.json",
+      "bytes": 65133,
+      "sha256": "72b581a145696bf44c493bcded3f6bad5ecded1bd703584482bf83a071075ece"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/pre-format-source.tar.gz",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/pre-format-source.tar.gz",
+      "bytes": 836877,
+      "sha256": "425d11f341e55bca59c94a07584eda2faed29770e847194c84801760611156b4"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-3/format-once.sh",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-3/format-once.sh",
+      "bytes": 1129,
+      "sha256": "7cbcf1b0aa72c382a0e499d0a7d2d4dfe5a032d182d40a6ab62add122cd68f30"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-3/prepare-metadata-index.py",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-3/prepare-metadata-index.py",
+      "bytes": 518,
+      "sha256": "5e7f15ee6afc11ef9281568659604b1e638dab31a40244d4c5f95b037d4876ec"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-3/run-on-builder.sh",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-3/run-on-builder.sh",
+      "bytes": 10378,
+      "sha256": "befcce8b0b29f43bc662dd5e4521b921ebd8d7d05c7494490c4b7e595e8c7b1f"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-3/freeze-source.py",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-3/freeze-source.py",
+      "bytes": 560,
+      "sha256": "5fac6f2ea9158ef4c84e83e04d7a86b857a945f46816677b32cb12363d556572"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-4/format-once.sh",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-4/format-once.sh",
+      "bytes": 1129,
+      "sha256": "7cbcf1b0aa72c382a0e499d0a7d2d4dfe5a032d182d40a6ab62add122cd68f30"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-4/prepare-metadata-index.py",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-4/prepare-metadata-index.py",
+      "bytes": 518,
+      "sha256": "c3d4c8b519bcd39a5d469aca27b686f67a01c07bc6e0cba6fd7de917c384cde6"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-4/run-on-builder.sh",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-4/run-on-builder.sh",
+      "bytes": 10378,
+      "sha256": "5d8536a1a0acfca6c2098642327d00f630726022e0bec9e5c28e0ace780fe193"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-4/freeze-source.py",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-4/freeze-source.py",
+      "bytes": 560,
+      "sha256": "6accda1394af14dcb47ca95db43914bde290fc302818a14590ae38c60dd7b43b"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/pre-format-untracked.tar.gz",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/pre-format-untracked.tar.gz",
+      "bytes": 173967,
+      "sha256": "43fb3a5531597e8cf44715d471e921518c8ba4484ec046498155ce8bc6e28fe9"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/pre-format.patch",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/pre-format.patch",
+      "bytes": 576453,
+      "sha256": "3295d652e360ffbef429199bddfcbe26cbe65c8d6a609807b8883aca06e8316b"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/preparation-manifest.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/preparation-manifest.json",
+      "bytes": 56876,
+      "sha256": "ece28ddc28e59db83c2412f70d0a0599ee56144d5f28554f365f736e631800a2"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-2/format-once.sh",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-2/format-once.sh",
+      "bytes": 1129,
+      "sha256": "7cbcf1b0aa72c382a0e499d0a7d2d4dfe5a032d182d40a6ab62add122cd68f30"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-2/prepare-metadata-index.py",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-2/prepare-metadata-index.py",
+      "bytes": 507,
+      "sha256": "bcb5d82ade52a9164b18e5187bed99a74a4961858999ed2bf30ffa57a3f59236"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-2/run-on-builder.sh",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-2/run-on-builder.sh",
+      "bytes": 9903,
+      "sha256": "656a5c5f574374c8d24aeee01965953b470982e5adeb419f67fadd5a95dec045"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-2/freeze-source.py",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-2/freeze-source.py",
+      "bytes": 560,
+      "sha256": "1ea4d910a2740068641e25572c6bfb58d754761f6be641c0f461d36a10a098d6"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/preparation-manifest.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/preparation-manifest.json",
+      "bytes": 47914,
+      "sha256": "b422182af6f5b921644dae998a5262c979c568831c973b1a997ca1195071df5b"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-5/format-once.sh",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-5/format-once.sh",
+      "bytes": 1129,
+      "sha256": "7cbcf1b0aa72c382a0e499d0a7d2d4dfe5a032d182d40a6ab62add122cd68f30"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-5/prepare-metadata-index.py",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-5/prepare-metadata-index.py",
+      "bytes": 518,
+      "sha256": "97adf6ccb3ef90c7c99806eaefa1eb7fbab19dda431ccbaa6f145a95497938b0"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-5/run-on-builder.sh",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-5/run-on-builder.sh",
+      "bytes": 10378,
+      "sha256": "27f84652acf595454c9756f9d7c288f38410e7e1fab57a3f4154e5665a67525f"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup-run-5/freeze-source.py",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup-run-5/freeze-source.py",
+      "bytes": 560,
+      "sha256": "37b8832e584be2e7bbc280ebd61df1ccd33f27fa964c4a9c10e99171fff329b2"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup/format-once.sh",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup/format-once.sh",
+      "bytes": 1129,
+      "sha256": "7cbcf1b0aa72c382a0e499d0a7d2d4dfe5a032d182d40a6ab62add122cd68f30"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup/prepare-metadata-index.py",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup/prepare-metadata-index.py",
+      "bytes": 507,
+      "sha256": "2a642875d9aac204e94634e4b104c432f2fc008888f8cb506369c50623e7ec42"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup/run-on-builder.sh",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup/run-on-builder.sh",
+      "bytes": 9817,
+      "sha256": "f61581ec6cbe534e598f2a46ed87947662ce510c3345060c41b4339c7d9cba6e"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup/a3-base.bundle",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup/a3-base.bundle",
+      "bytes": 1670523,
+      "sha256": "cce132caf1919009d80995c3e9565f5b8a159ae67cac34b0b221ec91eae00864"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/setup/freeze-source.py",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/setup/freeze-source.py",
+      "bytes": 560,
+      "sha256": "bc0065203277ac91e5a98283a0e400315be9221f79133272003a0f1e33c5790d"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/generated-fixture-sha256.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/generated-fixture-sha256.txt",
+      "bytes": 278,
+      "sha256": "8619e75961162f8df827a296426c8d381e29270fdc96b4bb2080f36f88dee5f6"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/runtime-cross-warnings.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/runtime-cross-warnings.txt",
+      "bytes": 20191,
+      "sha256": "b02c26bd4d7d22135b133cdb26001c2ce6b0c09276ec372129f588217d49b9e9"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/f401-core.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/f401-core.txt",
+      "bytes": 633,
+      "sha256": "6dfee4ea537e601883b81a2ba9ee550173edcf2b231a23b10b5ccebf57541d5f"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/architecture.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/architecture.txt",
+      "bytes": 32078,
+      "sha256": "a27c265dc8684c536b3d79269cbb660d36239e5824aa87c150274b4c307b9e57"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/staged-index.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/staged-index.txt",
+      "bytes": 316,
+      "sha256": "7e265fb1d3c925e9575f689dca45ba9e9ef768505866c193d735bf5ee25d17c6"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/provenance-helper-tests.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/provenance-helper-tests.txt",
+      "bytes": 1226,
+      "sha256": "c9d4aa6598490a769678898d03b0e42bbc6467fa1827db8f77d0f6358c0a9461"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/ledger.tsv",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/ledger.tsv",
+      "bytes": 965,
+      "sha256": "34c4c437a50cb10e93304a7ec38b6e016f23285bde567a3472e657fddb5ac36a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/f401-features.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/f401-features.txt",
+      "bytes": 2713,
+      "sha256": "3fe14d26eee468fd5600ad9ac5ce8b6d986d9b63e7c475b7d601a36615b6363d"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/mutation-contracts.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/mutation-contracts.txt",
+      "bytes": 721,
+      "sha256": "6acfa3a7e8715fab522cf5350aede3ff26c6d980b8a6000929604232e933937d"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/original-fixture-parity.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/original-fixture-parity.txt",
+      "bytes": 606,
+      "sha256": "5161ae2c872b9687395ca0be43da5411fee8812925ae31922019c755db9b8ba7"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/diagram-drift.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/diagram-drift.txt",
+      "bytes": 344,
+      "sha256": "2ab6065181406df664d52ebada1577a2866bb78251b6838bd869ea446c85df2d"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/metadata.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/metadata.txt",
+      "bytes": 583,
+      "sha256": "d1eba5d6da323f5b756b4ca143a7c835e9963907091a835bb54325ad52949501"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/diagrams.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/diagrams.txt",
+      "bytes": 320,
+      "sha256": "4f8718ba06d6c57be969d502176c03ac39282b420be5061807d11cb6ba6a79cb"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/FINISHED",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/FINISHED",
+      "bytes": 21,
+      "sha256": "a65dda5012f48a60a49cbbbd08bf9854124b52ad1a311e3891221c72217c2213"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/core-portable.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/core-portable.txt",
+      "bytes": 31737,
+      "sha256": "f2738cf4da9a4ecbf69c65bdfb9eefed9fe90f3ed8bc66f1cefb93c8ab2bf4e6"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/core-all-features.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/core-all-features.txt",
+      "bytes": 35414,
+      "sha256": "43bc38fdab1ceb411828fdcb9b366375dbff074ed9011fb48169881e72831bd9"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/source-snapshot.tar.gz",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/source-snapshot.tar.gz",
+      "bytes": 764060,
+      "sha256": "d22ae3362ce3707ca6e98833a28853f23b5b6216871d3f7b3b6c8eacf03ad136"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/format-check.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/format-check.txt",
+      "bytes": 430,
+      "sha256": "36bbe814e83f9ea91b569cc68f7bbcfab2d638abc2d6f3a73ec72e6536e2ba00"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/format-prepare.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/format-prepare.txt",
+      "bytes": 418,
+      "sha256": "2d595c15a20f2f90ea5f93da8e4c75b62d98689a8dfe8827a038e59521f7d5a9"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/environment.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/environment.txt",
+      "bytes": 914,
+      "sha256": "57aad364470ba3fbc091c8b7a6cad1edc9be5f1aca43946470ba77fbafa637f2"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/result.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/result.txt",
+      "bytes": 20,
+      "sha256": "12de79d9025ec3ab09b8179ac010e343346a25f10b4db62436b8f8257901ae80"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/c6-features.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/c6-features.txt",
+      "bytes": 2723,
+      "sha256": "67bb3f78c95b62cd416a2c4040e2bbcf67a604eada8df30510e0ea49f60a79c2"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/core-i686.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/core-i686.txt",
+      "bytes": 19598,
+      "sha256": "995c8d8a059d06f98cf302fa57b6d7e3349ee005cc1172d4420d91d1a085f6a1"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/diff-integrity.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/diff-integrity.txt",
+      "bytes": 302,
+      "sha256": "a804869ded103cdf95a30dd9bac0c85d60fb9c961a56c3a36864f921b9de9b73"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/affected-clippy.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/affected-clippy.txt",
+      "bytes": 1527,
+      "sha256": "c2c5a7bed14d9c96c7e0f4a374abd9795574c04a2fc8e2955cdd3c53be27ae8d"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/runtime-unit.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/runtime-unit.txt",
+      "bytes": 414632,
+      "sha256": "14414b726c8d3e142ac6977f7ebe0fdb93f6ae443524027882335bee48e08793"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/snapshot-exclusions.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/snapshot-exclusions.json",
+      "bytes": 15383,
+      "sha256": "9f6bb918085088769f469f8f9c05065e4631551c5df7064fd8bcdd532d66b296"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/supply-chain.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/supply-chain.txt",
+      "bytes": 321430,
+      "sha256": "1ca9a664f49e436481fd8f536e4d57ece9f8c5f1c8f20c1193d17f1cf1f6781a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/STARTED",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/STARTED",
+      "bytes": 21,
+      "sha256": "485faac5a158738778b6da88e1eec99cd1c07add062cbc110fa6132c352ba53e"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/mutation-tooling.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/mutation-tooling.txt",
+      "bytes": 623,
+      "sha256": "65b7edf5b0778fffdefde364756ea20170432767c160705ac794581f48cb7fa0"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/provenance-refresh.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/provenance-refresh.txt",
+      "bytes": 756,
+      "sha256": "97192ecfa3e898f1d8f46a4d133559a7b6ca3b3defa1879e56904351268bd67c"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/commands.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/commands.txt",
+      "bytes": 4585,
+      "sha256": "c21300dbb1c5c71430f685e7cb3e324a475c3b5dc45fab76e98c4d9dd5569b13"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/source-fixtures.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/source-fixtures.txt",
+      "bytes": 1257,
+      "sha256": "90d3c1af094134823001e33e035030dd459e0cd6aa7293368e855bb85acc165a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/runtime-integration.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/runtime-integration.txt",
+      "bytes": 62375,
+      "sha256": "8d3aac9c03703f63a8b4389705bfa6a8f38d622d4ac7bbd2309cf11e065d1e6d"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/metadata-index.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/metadata-index.txt",
+      "bytes": 546,
+      "sha256": "794e36336f785c8dc61346f3c3119655bce1b34f9e385bf0dc34887e89ebf15c"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/freeze-source.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/freeze-source.txt",
+      "bytes": 497,
+      "sha256": "84b1616469d3b2562acecd3348b4391d412e398c27a8576189d91552f121b506"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/original-program-v2.stbc",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/original-program-v2.stbc",
+      "bytes": 6164,
+      "sha256": "0a09a7190f26bbe3481ca7ae5b7f16a130ae4dcb2ee21937b456dd8581a87e5a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/c6-core.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/c6-core.txt",
+      "bytes": 643,
+      "sha256": "8c064803c222b37b819e3be8c8cf65795b54eb897df3afc055a2d852098ed2f7"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/formatted-source-manifest.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/formatted-source-manifest.json",
+      "bytes": 45954,
+      "sha256": "88835281049ef84eea7fd8d27f8e296a1df642c96dad986cb98d0d7d98b71f3a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/provenance/MUTANT_VALIDATE_STACK_SHAPE_BYPASS-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/provenance/MUTANT_VALIDATE_STACK_SHAPE_BYPASS-selectors.json",
+      "bytes": 203833,
+      "sha256": "2b745de201483415a76ddffaaadcfb06039b26621673d8f9725f7555e0b9ae87"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/provenance/MUTANT_PARSER_RECOVERY_EOF_COMPARISON-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/provenance/MUTANT_PARSER_RECOVERY_EOF_COMPARISON-selectors.json",
+      "bytes": 123089,
+      "sha256": "51f7e9163a35c306b37029737c4ae0359de2d5e0c93b97e92416477419225d5f"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/provenance/MUTANT_HIR_SUBRANGE_DIAGNOSTIC_NOOP-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/provenance/MUTANT_HIR_SUBRANGE_DIAGNOSTIC_NOOP-selectors.json",
+      "bytes": 118545,
+      "sha256": "62c728db22fc3a4ec4ff2afe46d4b87ad9d7687075053d9324b95a7b565b9bfa"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/provenance/MUTANT_ADS_STATUS_DEGRADED_COMPARISON-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/provenance/MUTANT_ADS_STATUS_DEGRADED_COMPARISON-selectors.json",
+      "bytes": 31118,
+      "sha256": "ba178c02325eea18410f6ff6250b7b3eb5827169d216b8fbedba80ab5c628f8e"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/provenance/MUTANT_RETAIN_ON_WARM_FALSE-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/provenance/MUTANT_RETAIN_ON_WARM_FALSE-selectors.json",
+      "bytes": 15871,
+      "sha256": "53ec032f91f59b7178666edbb25e273e8f3dc44846c94b52b402cd7b2b862c3a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/provenance/MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/provenance/MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON-selectors.json",
+      "bytes": 36176,
+      "sha256": "80df5747ba28820c8282de45d5a0a58669492dfd21b950e22dddb87e46159d74"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-3/raw/provenance/MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-3/raw/provenance/MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS-selectors.json",
+      "bytes": 192889,
+      "sha256": "6fafc35740618a932fafdd0a26c7ec2bbd149f0a386f83905395a2ea0df74931"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/generated-fixture-sha256.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/generated-fixture-sha256.txt",
+      "bytes": 278,
+      "sha256": "8619e75961162f8df827a296426c8d381e29270fdc96b4bb2080f36f88dee5f6"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/runtime-cross-warnings.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/runtime-cross-warnings.txt",
+      "bytes": 1935,
+      "sha256": "ca69edf6c689ac140a4cb21f4500f89ab88e1aa99b4adb8722794e7f81236c4d"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/f401-core.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/f401-core.txt",
+      "bytes": 633,
+      "sha256": "ad4374316391be2208ee11b62516edbdbbf439bd456a9e60e02586e091df85a7"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/architecture.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/architecture.txt",
+      "bytes": 32078,
+      "sha256": "e2120c520bdc1dc22ddcff71b984b1d6b5d286a3dfc5dfdd0227a9af97c47d56"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/staged-index.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/staged-index.txt",
+      "bytes": 316,
+      "sha256": "b08b04f7f71adeb4333083ac434ec72e15f9cf7663b64969311d70e2a0f71b0d"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/provenance-helper-tests.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/provenance-helper-tests.txt",
+      "bytes": 1349,
+      "sha256": "e81c4faf58238de91381bf5820e109f303a0a72473bfd2616ea2daecc8b58aff"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/ledger.tsv",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/ledger.tsv",
+      "bytes": 957,
+      "sha256": "6f82c1c8ec59d74bf30827073d2a67ea96bf6a265079dba0494dd586790dce75"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/f401-features.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/f401-features.txt",
+      "bytes": 2713,
+      "sha256": "095df1c36252096535ffc1b55d5829c90de85785d181dbe82e589490faa89e04"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/mutation-contracts.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/mutation-contracts.txt",
+      "bytes": 721,
+      "sha256": "f74051a08e4803bd5c23d8d8260c665bc29da27c04c55a2f68c95a6abadfb135"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/original-fixture-parity.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/original-fixture-parity.txt",
+      "bytes": 606,
+      "sha256": "8e5854f6d898d7927b0c61ae0ce9c1100359c5763d76f502dda08f5e07c65027"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/diagram-drift.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/diagram-drift.txt",
+      "bytes": 344,
+      "sha256": "cffc0460ec95562380c96a37987def0ebbcfbd864412f8b3fef4d9e4fa3b200f"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/metadata.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/metadata.txt",
+      "bytes": 847,
+      "sha256": "7eac717680624f7b0bdd9557caa3660d7836b42cf29f46114797b1907628a352"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/diagrams.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/diagrams.txt",
+      "bytes": 320,
+      "sha256": "49a2a91fb5cec0911a35f92e9f0a0a8ea0afa82375869c90c54b817e20ceedff"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/FINISHED",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/FINISHED",
+      "bytes": 21,
+      "sha256": "7267ce47dbb8da7618abfdd12f2bf6032b98f096f1c184168d11183e33be0f4f"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/core-portable.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/core-portable.txt",
+      "bytes": 31052,
+      "sha256": "899a89e56f2235a806073c3065edeac7e6a0f481b7170abdbab95761b0a487de"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/core-all-features.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/core-all-features.txt",
+      "bytes": 34729,
+      "sha256": "bbab2c5c1c26a544d6acacc0320241669fe4d9c221e6d5e2213399102b4f84ad"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/source-snapshot.tar.gz",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/source-snapshot.tar.gz",
+      "bytes": 772417,
+      "sha256": "922e9b6db321abbb9c1cabc3fff0d3a13a49d9f67fd62d9a594a7ee08bec7c99"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/format-check.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/format-check.txt",
+      "bytes": 430,
+      "sha256": "59dc670d166c9bfe6a37eec405275196d72b8a65b808bc8fb5e9a4dc22dea9e9"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/format-prepare.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/format-prepare.txt",
+      "bytes": 418,
+      "sha256": "ee7683c6b41cccdf127ed161dfd3e0281c38ec851bc9467ea4f9e14772128c4a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/environment.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/environment.txt",
+      "bytes": 914,
+      "sha256": "25723665732c8e0543897e4a0d1b29a0825de197d7ddffc27567ac1af61e121a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/result.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/result.txt",
+      "bytes": 20,
+      "sha256": "a563c5eb90b2f50a77a2792cc1865626dae8c8bfc0f3606d8eb0d29772796310"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/c6-features.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/c6-features.txt",
+      "bytes": 2723,
+      "sha256": "46a7f0e80501642fa0894e358b0b42351cb2daeccc0def14ce5fa3e60c73efe5"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/core-i686.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/core-i686.txt",
+      "bytes": 19598,
+      "sha256": "c3cc77c017066cdc3424dc4403ad1695ca21be6d9e75cb822d1b34274e472d1f"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/diff-integrity.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/diff-integrity.txt",
+      "bytes": 302,
+      "sha256": "ed08a9681c32dc870b4f9e7f19a25afcf684092d95f526891aafb2d6c3bcc01c"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/affected-clippy.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/affected-clippy.txt",
+      "bytes": 1437,
+      "sha256": "d66748e5a798ea507171725fd4c4d90aaeb381c2fe3b0c54cfa1806cf1bb7bcd"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/runtime-unit.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/runtime-unit.txt",
+      "bytes": 414076,
+      "sha256": "148ada1b707c06f63fe971426f68a48ba9811505fcfd8b2d38deebbe221cf5c7"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/snapshot-exclusions.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/snapshot-exclusions.json",
+      "bytes": 23063,
+      "sha256": "c9343f531459098ecf2ad35d8c79f3732a57669a19e4016b56eaa83789295705"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/supply-chain.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/supply-chain.txt",
+      "bytes": 321430,
+      "sha256": "acb90f8b5dc3b0de960ced07f01eae898c76bfb5560f584e04219e40626e0a7a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/STARTED",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/STARTED",
+      "bytes": 21,
+      "sha256": "5e61fdfe699dfd758222cb0391473ce25afeff18f7234670523c671dbce2ce6c"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/mutation-tooling.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/mutation-tooling.txt",
+      "bytes": 623,
+      "sha256": "577a37cdad9c745de9e22d9d62da4ff875b2bf9198492c4d8dec13e237b8e13a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/provenance-refresh.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/provenance-refresh.txt",
+      "bytes": 879,
+      "sha256": "ef4089720cdd6a951733565bde2822c8ba3f58017c909fa7e4ac491242fbe7ae"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/commands.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/commands.txt",
+      "bytes": 4585,
+      "sha256": "152b0430512d0f67d77d04f77c346251da085f061a9bd78cbc79ba25004c6e69"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/source-fixtures.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/source-fixtures.txt",
+      "bytes": 1060,
+      "sha256": "3c9000765690eb7a7e09b9af13e9126fb66becc54d05e1e4bffe258482f4c58c"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/runtime-integration.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/runtime-integration.txt",
+      "bytes": 56943,
+      "sha256": "12f734af28908413abd828b11b5c2869994326bc1bd0d0a0b8a35640df49f23f"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/metadata-index.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/metadata-index.txt",
+      "bytes": 546,
+      "sha256": "81ef5f2b8bba55780e913d403c4d563bfe24a21c1d25645d7903c017273dbb79"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/freeze-source.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/freeze-source.txt",
+      "bytes": 497,
+      "sha256": "1e92cd518cc03aa43211872a4d43fff636cde747383d3e20832685d60ca9f8e0"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/original-program-v2.stbc",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/original-program-v2.stbc",
+      "bytes": 6164,
+      "sha256": "0a09a7190f26bbe3481ca7ae5b7f16a130ae4dcb2ee21937b456dd8581a87e5a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/c6-core.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/c6-core.txt",
+      "bytes": 643,
+      "sha256": "4dc1f2c28deb2b7e72eb8d582e1023cae6f5c89f366c6fc3b63d312a58c88374"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/formatted-source-manifest.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/formatted-source-manifest.json",
+      "bytes": 54477,
+      "sha256": "5cf6dc4305451ceeb3c68742ea7c3f81189a4906d454d166813de99154a815c0"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/provenance/MUTANT_VALIDATE_STACK_SHAPE_BYPASS-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/provenance/MUTANT_VALIDATE_STACK_SHAPE_BYPASS-selectors.json",
+      "bytes": 203833,
+      "sha256": "2b745de201483415a76ddffaaadcfb06039b26621673d8f9725f7555e0b9ae87"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/provenance/MUTANT_PARSER_RECOVERY_EOF_COMPARISON-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/provenance/MUTANT_PARSER_RECOVERY_EOF_COMPARISON-selectors.json",
+      "bytes": 123089,
+      "sha256": "51f7e9163a35c306b37029737c4ae0359de2d5e0c93b97e92416477419225d5f"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/provenance/MUTANT_HIR_SUBRANGE_DIAGNOSTIC_NOOP-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/provenance/MUTANT_HIR_SUBRANGE_DIAGNOSTIC_NOOP-selectors.json",
+      "bytes": 118545,
+      "sha256": "62c728db22fc3a4ec4ff2afe46d4b87ad9d7687075053d9324b95a7b565b9bfa"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/provenance/MUTANT_ADS_STATUS_DEGRADED_COMPARISON-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/provenance/MUTANT_ADS_STATUS_DEGRADED_COMPARISON-selectors.json",
+      "bytes": 31118,
+      "sha256": "ba178c02325eea18410f6ff6250b7b3eb5827169d216b8fbedba80ab5c628f8e"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/provenance/MUTANT_RETAIN_ON_WARM_FALSE-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/provenance/MUTANT_RETAIN_ON_WARM_FALSE-selectors.json",
+      "bytes": 15871,
+      "sha256": "53ec032f91f59b7178666edbb25e273e8f3dc44846c94b52b402cd7b2b862c3a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/provenance/MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/provenance/MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON-selectors.json",
+      "bytes": 36176,
+      "sha256": "80df5747ba28820c8282de45d5a0a58669492dfd21b950e22dddb87e46159d74"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-4/raw/provenance/MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-4/raw/provenance/MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS-selectors.json",
+      "bytes": 192889,
+      "sha256": "6fafc35740618a932fafdd0a26c7ec2bbd149f0a386f83905395a2ea0df74931"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/runtime-cross-warnings.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/runtime-cross-warnings.txt",
+      "bytes": 6188,
+      "sha256": "fce014e2c48c98568850c4a9842cffdc34e2a6943fc8f4a15c140939de7b3b4a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/f401-core.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/f401-core.txt",
+      "bytes": 1968,
+      "sha256": "1f7b7ca7d815b22ef550c204dcc1941dea3b31f2bfc2000df0316e70c1942a94"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/architecture.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/architecture.txt",
+      "bytes": 13029,
+      "sha256": "a1cf7a9f867f14f078ac2322e82464f22039a68d6ca3dd33d2c63c0c9349d605"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/staged-index.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/staged-index.txt",
+      "bytes": 316,
+      "sha256": "2297e8c52b8b22ec03c6be657b59a7f9e000d694369e5b770af3b01e1d73eaad"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/provenance-helper-tests.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/provenance-helper-tests.txt",
+      "bytes": 2075,
+      "sha256": "b6e22af29215e2ad756f1f4cee27a8d1f6f33be080b63404f74a922deb47f0b9"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/ledger.tsv",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/ledger.tsv",
+      "bytes": 988,
+      "sha256": "71ee32d8e71d49ca14429e0d3e5176933869b4114a5b6b896c9dde00849ac415"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/f401-features.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/f401-features.txt",
+      "bytes": 2713,
+      "sha256": "ae55f7dbd1a0e6e616dc228ce3990d27c31f36ad1c67dba33b9590ea7fb6f491"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/formatted-source-snapshot.tar.gz",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/formatted-source-snapshot.tar.gz",
+      "bytes": 583296,
+      "sha256": "8780116538a9b82eebbe5cacf3e909acb3025a8859b48de20c4c768af17824e3"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/metadata.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/metadata.txt",
+      "bytes": 2162,
+      "sha256": "f5db8f420d4be3fb34e2de3901a44c476bd03b3be94f9fa867033d78e75fd04e"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/FINISHED",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/FINISHED",
+      "bytes": 21,
+      "sha256": "7457100d61cebd09c064c49efa42e11a777eb2c2b0c2f626d000d2f4bfca6e24"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/core-portable.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/core-portable.txt",
+      "bytes": 2311,
+      "sha256": "df9d0e76d66df570ec39bc984fcdc70f56825a48e836e7a50423f5950fa47cf1"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/core-all-features.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/core-all-features.txt",
+      "bytes": 3220,
+      "sha256": "9d63fa4efda140fe505a9c43ec095203a509f310aedcf66c0d1cace9787559dc"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/format-check.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/format-check.txt",
+      "bytes": 430,
+      "sha256": "cb0900945fa321a7535c9306212d9eaeacffd8fa4d6fa01a3a92515e49d2ec05"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/format-prepare.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/format-prepare.txt",
+      "bytes": 418,
+      "sha256": "d75ef5c08923e61fc492953df58959115b880e426dffd731ca79f235bb9df233"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/review-index",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/review-index",
+      "bytes": 803053,
+      "sha256": "3ac211ce2025d75d9b84a167b6e376f36c9fe4c88a119c21789f4dd49943d735"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/environment.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/environment.txt",
+      "bytes": 914,
+      "sha256": "f250fa63c2477abe09fba70a37d427437256500a9aa0af3e040dddc8ffb4bc03"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/result.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/result.txt",
+      "bytes": 21,
+      "sha256": "8dd510a7662fee0732d46bb3a8352f2226c90ae0f6abb00b860e8e583024bc32"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/c6-features.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/c6-features.txt",
+      "bytes": 2723,
+      "sha256": "4df42daad358e2bb4791b9f3a5caa0b6a03ea14394f82b28c9e19ed4fa7b09a5"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/core-i686.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/core-i686.txt",
+      "bytes": 4045,
+      "sha256": "dd8b29f4fb640c6f64833c27461842dced99bef431a4d4ac4f1731152f58775f"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/diff-integrity.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/diff-integrity.txt",
+      "bytes": 302,
+      "sha256": "c62cb59de6c8bc24bb15dca11f0a3216098193d330db2ce115e0e167b4feec5e"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/affected-clippy.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/affected-clippy.txt",
+      "bytes": 11284,
+      "sha256": "e6febda4525f2bbe910abc3da03b90b77023269c1a26ea55848a9eb54c144987"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/runtime-unit.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/runtime-unit.txt",
+      "bytes": 2950,
+      "sha256": "2b3cb36b34d3c659ea5e369946eb7e81831371cd31ee04724a0abefe677c784e"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/supply-chain.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/supply-chain.txt",
+      "bytes": 9057,
+      "sha256": "e2a492d519d752d5ea964cd876072d0914fc11789251c8b65cebbdce25d730f0"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/STARTED",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/STARTED",
+      "bytes": 21,
+      "sha256": "d633142068b45e117f65a8d45e131b352ac6c4b685b855062df2f521de1eec90"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/mutation-tooling.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/mutation-tooling.txt",
+      "bytes": 579,
+      "sha256": "f61c4c3fc8c343fe2ff2d7790a85185e1eb1c3609cbbc33da208c05eb63d04c3"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/provenance-refresh.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/provenance-refresh.txt",
+      "bytes": 944,
+      "sha256": "994ed3cdb68ae67cb8a904306313373fe4255c11c32a34d333fe4b4bb1fa94d8"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/commands.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/commands.txt",
+      "bytes": 4319,
+      "sha256": "fecc540eb8fb054abb94c90fe73812e8529f63608e57f8c3f7e83f37b6caa17d"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/source-fixtures.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/source-fixtures.txt",
+      "bytes": 15772,
+      "sha256": "d5ac38d9e71445368fca3a227a2c47b9ba9cb6f1835def54cb1a451b0a2652b8"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/runtime-integration.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/runtime-integration.txt",
+      "bytes": 6248,
+      "sha256": "651ad000b05dc6bd70bdcf345a0c9788b1e960a5fdee71759d03f5346bd2063a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/metadata-index.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/metadata-index.txt",
+      "bytes": 535,
+      "sha256": "e94f393d9ac67e412e827f5fff604e3c1779c97c64f8d4c0b3a1100740bb656f"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/freeze-source.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/freeze-source.txt",
+      "bytes": 497,
+      "sha256": "84e7bd951baa5cb74272cb31cb966bb627dd64213a37c271df18a6cca98a65ba"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/original-program-v2.stbc",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/original-program-v2.stbc",
+      "bytes": 6164,
+      "sha256": "0a09a7190f26bbe3481ca7ae5b7f16a130ae4dcb2ee21937b456dd8581a87e5a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/c6-core.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/c6-core.txt",
+      "bytes": 1978,
+      "sha256": "b2c11f985d590173dfa1799403b25195e9afc60606f6ba2b26a63a491f288d3b"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/formatted-source-manifest.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/formatted-source-manifest.json",
+      "bytes": 28551,
+      "sha256": "ee0fd1f77ba7d1d846dccb270feabfad881d12e63b292e9859b154c8a759ccf8"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/provenance/MUTANT_VALIDATE_STACK_SHAPE_BYPASS-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/provenance/MUTANT_VALIDATE_STACK_SHAPE_BYPASS-selectors.json",
+      "bytes": 203833,
+      "sha256": "2b745de201483415a76ddffaaadcfb06039b26621673d8f9725f7555e0b9ae87"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/provenance/MUTANT_PARSER_RECOVERY_EOF_COMPARISON-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/provenance/MUTANT_PARSER_RECOVERY_EOF_COMPARISON-selectors.json",
+      "bytes": 123089,
+      "sha256": "51f7e9163a35c306b37029737c4ae0359de2d5e0c93b97e92416477419225d5f"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/provenance/MUTANT_HIR_SUBRANGE_DIAGNOSTIC_NOOP-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/provenance/MUTANT_HIR_SUBRANGE_DIAGNOSTIC_NOOP-selectors.json",
+      "bytes": 118545,
+      "sha256": "62c728db22fc3a4ec4ff2afe46d4b87ad9d7687075053d9324b95a7b565b9bfa"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/provenance/MUTANT_RETAIN_ON_WARM_FALSE-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/provenance/MUTANT_RETAIN_ON_WARM_FALSE-selectors.json",
+      "bytes": 209973,
+      "sha256": "ed48239fb1bb266ec6f1c2a2b830b71b21b1059c102a8a0209fc243ecca2a209"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/provenance/MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/provenance/MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON-selectors.json",
+      "bytes": 36176,
+      "sha256": "80df5747ba28820c8282de45d5a0a58669492dfd21b950e22dddb87e46159d74"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-1/raw/provenance/MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-1/raw/provenance/MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS-selectors.json",
+      "bytes": 192889,
+      "sha256": "6fafc35740618a932fafdd0a26c7ec2bbd149f0a386f83905395a2ea0df74931"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/generated-fixture-sha256.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/generated-fixture-sha256.txt",
+      "bytes": 278,
+      "sha256": "8619e75961162f8df827a296426c8d381e29270fdc96b4bb2080f36f88dee5f6"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/runtime-cross-warnings.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/runtime-cross-warnings.txt",
+      "bytes": 1935,
+      "sha256": "9d1774a1119dfee189baad68f67116656f97ab74be2d60cd7b8ab8a31a848f41"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/f401-core.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/f401-core.txt",
+      "bytes": 633,
+      "sha256": "68dc1205222387733e1d6143b912bc4e7e08ae359e52419f9e733c389628cb8a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/architecture.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/architecture.txt",
+      "bytes": 32078,
+      "sha256": "37ac323d0f069c71f842f41175cb47274d7bc2daba27e75e8e89bffd143e13e5"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/staged-index.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/staged-index.txt",
+      "bytes": 316,
+      "sha256": "af9acdd7125cf2c794a52892b10ef8f88e9d5b03524d09d65e7c826383f10bea"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/provenance-helper-tests.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/provenance-helper-tests.txt",
+      "bytes": 1226,
+      "sha256": "2f50249e7285ae38791f9f7f8ed6613ba8142ae4f1a27dd839568a23b4682927"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/ledger.tsv",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/ledger.tsv",
+      "bytes": 955,
+      "sha256": "0f97a4d9066fdc33a97da10df54431562f210ac384223ed1cf5fa7a70f260c61"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/f401-features.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/f401-features.txt",
+      "bytes": 2713,
+      "sha256": "59055928ad8e6ede12afee1caf71c651effb3ff8deac0f692282ec3cd3113db4"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/mutation-contracts.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/mutation-contracts.txt",
+      "bytes": 721,
+      "sha256": "a8e170fcc3a595e993da5b94597a03b94b4a9ffaa0b45b4975ba0c91211376e6"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/original-fixture-parity.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/original-fixture-parity.txt",
+      "bytes": 606,
+      "sha256": "2414b309fbe85d70110171f9c1cca5f25ea83c99160273ea17aa45ce8b60b3c2"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/diagram-drift.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/diagram-drift.txt",
+      "bytes": 344,
+      "sha256": "8b9930e7c47f2faca5702dc67d6fc0dd7dd061f5abc62b21ce5eaf927b30d525"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/metadata.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/metadata.txt",
+      "bytes": 583,
+      "sha256": "db64ca4ab843625df807e2b17c275063ea94db96e556ae8e1e6130e65dd86719"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/diagrams.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/diagrams.txt",
+      "bytes": 320,
+      "sha256": "aedef31a7cd044dc802b5b0bef7f5818fff1079299caebe4493a0e38bb19a45d"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/FINISHED",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/FINISHED",
+      "bytes": 21,
+      "sha256": "732000632b9e13d13f385a8dfd3b8bbbcb517864e0fbf55430a2f46700681a4d"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/core-portable.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/core-portable.txt",
+      "bytes": 31286,
+      "sha256": "551324cf8152004218dfc18ec49b3c711aaadc1cdeb915eb50c296e3ece6487f"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/core-all-features.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/core-all-features.txt",
+      "bytes": 34963,
+      "sha256": "1a7c0f888da5116edab9bd50e7155c8cf7ea99e43755282b90d55b1648e49184"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/source-snapshot.tar.gz",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/source-snapshot.tar.gz",
+      "bytes": 776481,
+      "sha256": "014970fdbb4a06e7dec1eb63c59349624617bf7d021b9d824272ada8a99302cd"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/format-check.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/format-check.txt",
+      "bytes": 430,
+      "sha256": "48fd3c179b3954069b788d2f5e879593e4fdb8dafe293b5765b2405aceeecac9"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/format-prepare.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/format-prepare.txt",
+      "bytes": 418,
+      "sha256": "8dd7af8370470153ce4ec77b022c6b07b58b0c10b57e62bd7f2845ef5a600275"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/environment.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/environment.txt",
+      "bytes": 914,
+      "sha256": "15211d48602427ac47cd372824a4c1952fa2423f850b1fcfbd9a84bada03b1c0"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/result.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/result.txt",
+      "bytes": 20,
+      "sha256": "a26697e233ddbbf8b21de55d2fe2814ac6d9e29594e887ad757df28bb76991f1"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/c6-features.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/c6-features.txt",
+      "bytes": 2723,
+      "sha256": "81d467d88611259cd08110f3505089d4e275a8e0e97aac79f5b4c1b800c70d04"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/core-i686.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/core-i686.txt",
+      "bytes": 19832,
+      "sha256": "ff96c745f8884be2dd71c5e464026ea5e3f4201dbc8128c347031ea153407225"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/diff-integrity.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/diff-integrity.txt",
+      "bytes": 302,
+      "sha256": "c8b9af8f452b328213f99fca9052e8fe19c3711293f9a7c9a00675ec2be0f257"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/affected-clippy.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/affected-clippy.txt",
+      "bytes": 1314,
+      "sha256": "b8aaf3960314bfa1043c89aa1a7b8ece6612829e5d55e39d33b3910953c13522"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/runtime-unit.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/runtime-unit.txt",
+      "bytes": 414294,
+      "sha256": "9437f497c0b218d23517959b2328003418026b2f3981722789290be0b6adeb25"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/snapshot-exclusions.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/snapshot-exclusions.json",
+      "bytes": 30743,
+      "sha256": "d19a658bc4caf965b52eec49f484e8642a786b50b56506f186f9a7fe1bcb1329"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/supply-chain.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/supply-chain.txt",
+      "bytes": 321430,
+      "sha256": "4896fbd0804d703111ffeceb92dc2505b2ac288f920b93fb27dae301ed4cdf91"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/STARTED",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/STARTED",
+      "bytes": 21,
+      "sha256": "733bf6c272d6f20c63a805deac53048e96eb5c75c18d31f25f81d9c8f67daadc"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/mutation-tooling.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/mutation-tooling.txt",
+      "bytes": 623,
+      "sha256": "cb9ef104ec28c3b1763032278c65d4eb8845debfd3808a97a6b0920714314508"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/provenance-refresh.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/provenance-refresh.txt",
+      "bytes": 756,
+      "sha256": "f5502d59e256026d0685a6942931fa428b064077d81d69efe7145cd45ef7e0c4"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/commands.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/commands.txt",
+      "bytes": 4585,
+      "sha256": "4144d560cb03ebe128025de8b21ed5f72c0b8f351380f1dba5f4676ac337d219"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/source-fixtures.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/source-fixtures.txt",
+      "bytes": 1060,
+      "sha256": "2ef551fe44d394b803424dec8dfff98fc570813da0014aa2a6c027afb4c0c151"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/runtime-integration.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/runtime-integration.txt",
+      "bytes": 55973,
+      "sha256": "f8dd5e7facf7e0aea0b8bb7fa2b1b405a1fd50436b87746df86592c66c94d73b"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/metadata-index.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/metadata-index.txt",
+      "bytes": 546,
+      "sha256": "4a3c1b84419777eff9ac093fd1b1e3438bd0f28933a774770d1d032fbba371ea"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/freeze-source.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/freeze-source.txt",
+      "bytes": 497,
+      "sha256": "0ca280aef0726c4100f39a699761fe606e53a712ae7ef49e1116689f6391d6e9"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/original-program-v2.stbc",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/original-program-v2.stbc",
+      "bytes": 6164,
+      "sha256": "0a09a7190f26bbe3481ca7ae5b7f16a130ae4dcb2ee21937b456dd8581a87e5a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/c6-core.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/c6-core.txt",
+      "bytes": 643,
+      "sha256": "6c4f1cd30fafef5a335cb3cbef752ed1fcb893da227a58f15483fe6b58380523"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/formatted-source-manifest.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/formatted-source-manifest.json",
+      "bytes": 62734,
+      "sha256": "c14b104c6b93d047148b87af4beb26a1fb20d920687dc8f26011f0cdbc8a9458"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/provenance/MUTANT_VALIDATE_STACK_SHAPE_BYPASS-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/provenance/MUTANT_VALIDATE_STACK_SHAPE_BYPASS-selectors.json",
+      "bytes": 203833,
+      "sha256": "2b745de201483415a76ddffaaadcfb06039b26621673d8f9725f7555e0b9ae87"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/provenance/MUTANT_PARSER_RECOVERY_EOF_COMPARISON-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/provenance/MUTANT_PARSER_RECOVERY_EOF_COMPARISON-selectors.json",
+      "bytes": 123089,
+      "sha256": "51f7e9163a35c306b37029737c4ae0359de2d5e0c93b97e92416477419225d5f"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/provenance/MUTANT_HIR_SUBRANGE_DIAGNOSTIC_NOOP-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/provenance/MUTANT_HIR_SUBRANGE_DIAGNOSTIC_NOOP-selectors.json",
+      "bytes": 118545,
+      "sha256": "62c728db22fc3a4ec4ff2afe46d4b87ad9d7687075053d9324b95a7b565b9bfa"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/provenance/MUTANT_ADS_STATUS_DEGRADED_COMPARISON-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/provenance/MUTANT_ADS_STATUS_DEGRADED_COMPARISON-selectors.json",
+      "bytes": 31118,
+      "sha256": "ba178c02325eea18410f6ff6250b7b3eb5827169d216b8fbedba80ab5c628f8e"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/provenance/MUTANT_RETAIN_ON_WARM_FALSE-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/provenance/MUTANT_RETAIN_ON_WARM_FALSE-selectors.json",
+      "bytes": 15871,
+      "sha256": "53ec032f91f59b7178666edbb25e273e8f3dc44846c94b52b402cd7b2b862c3a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/provenance/MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/provenance/MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON-selectors.json",
+      "bytes": 36176,
+      "sha256": "80df5747ba28820c8282de45d5a0a58669492dfd21b950e22dddb87e46159d74"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-5/raw/provenance/MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-5/raw/provenance/MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS-selectors.json",
+      "bytes": 192889,
+      "sha256": "6fafc35740618a932fafdd0a26c7ec2bbd149f0a386f83905395a2ea0df74931"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/runtime-cross-warnings.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/runtime-cross-warnings.txt",
+      "bytes": 8777,
+      "sha256": "ebfe45a0584b3552609b1fe22b2c037ba9c3be1b5195bb317b58ef7253a4f1bd"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/f401-core.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/f401-core.txt",
+      "bytes": 633,
+      "sha256": "01f98f2d9173558f0bc8b3a43f3911e132e1bb4af5e164768b82e12bd08b2bf7"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/architecture.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/architecture.txt",
+      "bytes": 32078,
+      "sha256": "ac9e0503f6608626fc41d76da554b5b21bd72ef34fd79a4e659d98c9e4b3d5e8"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/staged-index.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/staged-index.txt",
+      "bytes": 316,
+      "sha256": "94a1ed5616573c8a3af3f33f822c304b885bfe5d5f37b30c7a37c6b0599fce1c"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/provenance-helper-tests.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/provenance-helper-tests.txt",
+      "bytes": 1349,
+      "sha256": "41b90cfcfb4fc50d115634a116bf14e9c107bf71609d76f7fb45bceefa078d87"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/ledger.tsv",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/ledger.tsv",
+      "bytes": 958,
+      "sha256": "7b9578f97f3f7c2bbcf9810853fdfdc7d81dda2c7702681da964db49480063de"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/f401-features.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/f401-features.txt",
+      "bytes": 2713,
+      "sha256": "061e8016c39c0aee927794c28697e5b1305a026de619275a614f5662d85c4098"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/diagram-drift.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/diagram-drift.txt",
+      "bytes": 344,
+      "sha256": "df71d7de06aef73bf7a0f629974e25ac5df98dade4143dfe8fb0c22090f4c337"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/metadata.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/metadata.txt",
+      "bytes": 583,
+      "sha256": "8d8415e69b9c3e4b7f8fa9ec2f244d4542581bdccb8647b8d246f6e60437ad84"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/diagrams.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/diagrams.txt",
+      "bytes": 320,
+      "sha256": "ee562b6b7d4833175064051a68360299563036a90727063d23571e7fa4bc1ff3"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/FINISHED",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/FINISHED",
+      "bytes": 21,
+      "sha256": "fa021d3d3df594f94eddfb65d8bd5bf5d379a7dca50745e474b36d7cd4edcfed"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/core-portable.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/core-portable.txt",
+      "bytes": 31447,
+      "sha256": "fbe9d9d659b4ab28c3402ae9415459f6ac9d1e6da2904a7583439e060bc43855"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/core-all-features.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/core-all-features.txt",
+      "bytes": 35124,
+      "sha256": "5909c971b2ac8639baf0c3ddda878e38b35deef64e52e16fea1fab6fd4fd7822"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/source-snapshot.tar.gz",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/source-snapshot.tar.gz",
+      "bytes": 653534,
+      "sha256": "363e954fcb8edd8fd4fdcf2e64cecc5fec5528a1e978b45e9499bef0e547b2a1"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/format-check.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/format-check.txt",
+      "bytes": 430,
+      "sha256": "88ffe8e76682f5cfe0bfed10928be5fb4576fb906dbe12d0cf7fd9e487b77321"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/format-prepare.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/format-prepare.txt",
+      "bytes": 418,
+      "sha256": "71819a426c3b4a0a749ccc0bb2ba190a419b5674bd7290e1e70b05190ec676cb"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/review-index",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/review-index",
+      "bytes": 810322,
+      "sha256": "e0505df290ad1b1853d204885ca155762e8f2f15fdbbb70130c4b0526d75233b"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/environment.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/environment.txt",
+      "bytes": 914,
+      "sha256": "63431963fb1b29b0efd3abd981c8cc77073bf74fffd8306fc8d5000d382ba2e6"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/result.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/result.txt",
+      "bytes": 21,
+      "sha256": "6b30d74d508e57682a8f83584f22e1e933a7c8a48c3e9a49f6eec8329c74ccc7"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/c6-features.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/c6-features.txt",
+      "bytes": 2723,
+      "sha256": "6febfbfdce65470efed1b3b698f17cb8dbf3b4e5032a49e305d495300d6453ac"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/core-i686.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/core-i686.txt",
+      "bytes": 19598,
+      "sha256": "93342d0f9a0c0c87817b2164fe396b5456ba02cdc5ae8ae7c1441fc7cd2be7e7"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/resource-pause.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/resource-pause.txt",
+      "bytes": 436,
+      "sha256": "306d6005bbbfd7a6ca9aad28ab22378aea160279bed25668d873cf5dc24b63e7"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/diff-integrity.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/diff-integrity.txt",
+      "bytes": 302,
+      "sha256": "cbfa0519f0e21365cfd931ca072659d3735f1ab8acffea2e3245ab2cf3385a10"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/affected-clippy.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/affected-clippy.txt",
+      "bytes": 4389,
+      "sha256": "7b4b5f813822c21d22ea19d2b0f315970257c3a1284214e55d03ff265df595e5"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/runtime-unit.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/runtime-unit.txt",
+      "bytes": 5254,
+      "sha256": "b75870ede66e6b37195a0cd45237e848353ada2a164c2e82f8304d863457c19c"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/snapshot-exclusions.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/snapshot-exclusions.json",
+      "bytes": 8185,
+      "sha256": "fca5088022b0a9a410f38824840cd3f541b9473fb57841db4e912a55cbc214b2"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/supply-chain.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/supply-chain.txt",
+      "bytes": 321430,
+      "sha256": "237006d38a8d92d11180339caf24aefd5d7ce7d0778e19cafe806d5071f64933"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/STARTED",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/STARTED",
+      "bytes": 21,
+      "sha256": "c9e101307669e3bda3a31b8dede326b48ab975a0b1fea14442d21406e2dee4fb"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/mutation-tooling.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/mutation-tooling.txt",
+      "bytes": 4277,
+      "sha256": "7546672de23db5f162c80fc9160ad177646a03df36120a89079f9591b37011a5"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/provenance-refresh.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/provenance-refresh.txt",
+      "bytes": 1230,
+      "sha256": "938b39a2aa079b67433fd4666b3330b9a3dade51a9dd686e0575ff6b5bc7df0a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/commands.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/commands.txt",
+      "bytes": 4445,
+      "sha256": "a5d094ba6daa700f44b2a3a2cca4e9b9f79ae38da42b74f1d5625b013f60cf85"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/source-fixtures.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/source-fixtures.txt",
+      "bytes": 8677,
+      "sha256": "0e2d8b243b8366b29f5f42f02997370ebced86707a2f8cc6ebb49b64109d5058"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/runtime-integration.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/runtime-integration.txt",
+      "bytes": 6584,
+      "sha256": "03fc1441f43112dc42d74e805ba4d22a4efeca9db72fa0eb0b96412551b98b81"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/metadata-index.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/metadata-index.txt",
+      "bytes": 535,
+      "sha256": "9012f5ed8401a3d30c977c1b8c37b1cb4f9e9fc2574cacc65e3209aedaf9284c"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/freeze-source.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/freeze-source.txt",
+      "bytes": 497,
+      "sha256": "3742be7f7be42b14491c1cb704809dd2fe5e47af77621f463ef6997683d4e63c"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/original-program-v2.stbc",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/original-program-v2.stbc",
+      "bytes": 6164,
+      "sha256": "0a09a7190f26bbe3481ca7ae5b7f16a130ae4dcb2ee21937b456dd8581a87e5a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/c6-core.txt",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/c6-core.txt",
+      "bytes": 643,
+      "sha256": "8c6d4040890e7060a8f36bfa4f657bb2b3bce6ef490f1afdb041354b36ceb46c"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/formatted-source-manifest.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/formatted-source-manifest.json",
+      "bytes": 37132,
+      "sha256": "2a87b88edd0e38f58291339719d46cc81776bed7ea70db55126a66c96984d4c0"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/provenance/MUTANT_VALIDATE_STACK_SHAPE_BYPASS-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/provenance/MUTANT_VALIDATE_STACK_SHAPE_BYPASS-selectors.json",
+      "bytes": 203833,
+      "sha256": "2b745de201483415a76ddffaaadcfb06039b26621673d8f9725f7555e0b9ae87"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/provenance/MUTANT_PARSER_RECOVERY_EOF_COMPARISON-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/provenance/MUTANT_PARSER_RECOVERY_EOF_COMPARISON-selectors.json",
+      "bytes": 123089,
+      "sha256": "51f7e9163a35c306b37029737c4ae0359de2d5e0c93b97e92416477419225d5f"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/provenance/MUTANT_HIR_SUBRANGE_DIAGNOSTIC_NOOP-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/provenance/MUTANT_HIR_SUBRANGE_DIAGNOSTIC_NOOP-selectors.json",
+      "bytes": 118545,
+      "sha256": "62c728db22fc3a4ec4ff2afe46d4b87ad9d7687075053d9324b95a7b565b9bfa"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/provenance/MUTANT_ADS_STATUS_DEGRADED_COMPARISON-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/provenance/MUTANT_ADS_STATUS_DEGRADED_COMPARISON-selectors.json",
+      "bytes": 31118,
+      "sha256": "ba178c02325eea18410f6ff6250b7b3eb5827169d216b8fbedba80ab5c628f8e"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/provenance/MUTANT_RETAIN_ON_WARM_FALSE-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/provenance/MUTANT_RETAIN_ON_WARM_FALSE-selectors.json",
+      "bytes": 15871,
+      "sha256": "53ec032f91f59b7178666edbb25e273e8f3dc44846c94b52b402cd7b2b862c3a"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/provenance/MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/provenance/MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON-selectors.json",
+      "bytes": 36176,
+      "sha256": "80df5747ba28820c8282de45d5a0a58669492dfd21b950e22dddb87e46159d74"
+    },
+    {
+      "original_path": ".artifacts/runtime-portability-a4/run-2/raw/provenance/MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS-selectors.json",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/.artifacts/runtime-portability-a4/run-2/raw/provenance/MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS-selectors.json",
+      "bytes": 192889,
+      "sha256": "6fafc35740618a932fafdd0a26c7ec2bbd149f0a386f83905395a2ea0df74931"
+    },
+    {
+      "original_path": "docs/notes/runtime-portability/a4-evidence/run-2/source-snapshot.tar.gz",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/docs/notes/runtime-portability/a4-evidence/run-2/source-snapshot.tar.gz",
+      "bytes": 653534,
+      "sha256": "363e954fcb8edd8fd4fdcf2e64cecc5fec5528a1e978b45e9499bef0e547b2a1"
+    },
+    {
+      "original_path": "docs/notes/runtime-portability/a4-evidence/run-5/source-snapshot.tar.gz",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/docs/notes/runtime-portability/a4-evidence/run-5/source-snapshot.tar.gz",
+      "bytes": 776481,
+      "sha256": "014970fdbb4a06e7dec1eb63c59349624617bf7d021b9d824272ada8a99302cd"
+    },
+    {
+      "original_path": "docs/notes/runtime-portability/a4-evidence/run-1/formatted-source-snapshot.tar.gz",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/docs/notes/runtime-portability/a4-evidence/run-1/formatted-source-snapshot.tar.gz",
+      "bytes": 583296,
+      "sha256": "8780116538a9b82eebbe5cacf3e909acb3025a8859b48de20c4c768af17824e3"
+    },
+    {
+      "original_path": "docs/notes/runtime-portability/a4-evidence/run-4/source-snapshot.tar.gz",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/docs/notes/runtime-portability/a4-evidence/run-4/source-snapshot.tar.gz",
+      "bytes": 772417,
+      "sha256": "922e9b6db321abbb9c1cabc3fff0d3a13a49d9f67fd62d9a594a7ee08bec7c99"
+    },
+    {
+      "original_path": "docs/notes/runtime-portability/a4-evidence/run-3/source-snapshot.tar.gz",
+      "external_path": "/home/johannes/projects/.artifacts/runtime-portability-a4/preserved-worktree-artifacts/docs/notes/runtime-portability/a4-evidence/run-3/source-snapshot.tar.gz",
+      "bytes": 764060,
+      "sha256": "d22ae3362ce3707ca6e98833a28853f23b5b6216871d3f7b3b6c8eacf03ad136"
+    }
+  ]
+}

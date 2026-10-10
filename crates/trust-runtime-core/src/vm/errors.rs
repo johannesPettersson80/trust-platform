@@ -4,35 +4,63 @@ use smol_str::SmolStr;
 
 use crate::error::{RuntimeError, StableErrorCode};
 
+/// Failure raised by the shared dispatcher or a hosted execution adapter.
 #[derive(Debug)]
 pub enum VmTrap {
+    /// Unknown instruction byte.
     InvalidOpcode(u8),
+    /// Branch destination is outside the current body or not an instruction boundary.
     InvalidJumpTarget(i64),
+    /// Reference-table index does not exist.
     InvalidRefIndex(u32),
+    /// Constant-pool index does not exist.
     InvalidConstIndex(u32),
+    /// Reference is outside the active frame local range.
     InvalidLocalRef {
+        /// Requested reference-table index.
         ref_index: u32,
+        /// First reference index owned by the frame.
         start: u32,
+        /// Number of references owned by the frame.
         count: u32,
     },
+    /// Instruction requires more operands than are available.
     StackUnderflow,
+    /// Operand stack exceeds its admitted limit.
     StackOverflow,
+    /// Execution has no active call frame.
     CallStackUnderflow,
+    /// Nested execution exceeds the admitted call depth.
     CallStackOverflow,
+    /// Known instruction has no execution implementation.
     UnsupportedOpcode(&'static str),
+    /// Reference location is unavailable in this execution composition.
     UnsupportedRefLocation(&'static str),
+    /// Branch condition is not a BOOL value.
     ConditionNotBool,
+    /// A dereferenced value or storage location does not exist.
     NullReference,
+    /// Physical execution deadline has elapsed.
     DeadlineExceeded,
+    /// Shared logical execution work allowance is exhausted.
     BudgetExceeded,
+    /// FOR loop step is zero.
     ForStepZero,
+    /// Requested POU identity is absent.
     MissingPou(u32),
+    /// Named program is absent.
     MissingProgram(SmolStr),
+    /// Named function block is absent.
     MissingFunctionBlock(SmolStr),
+    /// Native call kind is not supported.
     InvalidNativeCallKind(u32),
+    /// Native symbol descriptor index is invalid.
     InvalidNativeSymbolIndex(u32),
+    /// Native call payload violates its contract.
     InvalidNativeCall(SmolStr),
+    /// Execution metadata could not be decoded.
     BytecodeDecode(SmolStr),
+    /// Propagate a typed runtime failure without changing its stable identity.
     Runtime(RuntimeError),
 }
 

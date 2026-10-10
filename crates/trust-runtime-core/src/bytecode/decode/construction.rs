@@ -14,6 +14,7 @@ fn optional(reader: &mut BytecodeReader<'_>) -> Result<Option<u32>, BytecodeErro
 pub(super) fn decode_construction(
     kind: SectionId,
     payload: &[u8],
+    budget: &mut DecodeBudget,
 ) -> Result<SectionData, BytecodeError> {
     let mut reader = BytecodeReader::new(payload);
     let width = match kind {
@@ -31,8 +32,7 @@ pub(super) fn decode_construction(
     let invalid = || BytecodeError::from(RejectionReason::InvalidConstructionRecord);
     let data = match kind {
         SectionId::StorageLayout => {
-            let mut entries = Vec::new();
-            entries.try_reserve_exact(count).map_err(|_| invalid())?;
+            let mut entries = budget.vector(count)?;
             for _ in 0..count {
                 entries.push(StorageDeclaration {
                     owner: StorageOwner::from_raw(reader.read_u8()?).ok_or_else(invalid)?,
@@ -53,8 +53,7 @@ pub(super) fn decode_construction(
             SectionData::StorageLayout(StorageLayout { entries })
         }
         SectionId::ConstructionRoots => {
-            let mut entries = Vec::new();
-            entries.try_reserve_exact(count).map_err(|_| invalid())?;
+            let mut entries = budget.vector(count)?;
             for _ in 0..count {
                 entries.push(ConstructionRoot {
                     declaration_idx: reader.read_u32()?,
@@ -68,8 +67,7 @@ pub(super) fn decode_construction(
             SectionData::ConstructionRoots(ConstructionRoots { entries })
         }
         SectionId::Initializers => {
-            let mut entries = Vec::new();
-            entries.try_reserve_exact(count).map_err(|_| invalid())?;
+            let mut entries = budget.vector(count)?;
             for _ in 0..count {
                 entries.push(InitializerEntry {
                     declaration_idx: optional(&mut reader)?,
@@ -101,8 +99,7 @@ pub(super) fn decode_construction(
             SectionData::Initializers(InitializerIndex { entries })
         }
         SectionId::AccessBindings => {
-            let mut entries = Vec::new();
-            entries.try_reserve_exact(count).map_err(|_| invalid())?;
+            let mut entries = budget.vector(count)?;
             for _ in 0..count {
                 entries.push(AccessBindingEntry {
                     name_idx: reader.read_u32()?,

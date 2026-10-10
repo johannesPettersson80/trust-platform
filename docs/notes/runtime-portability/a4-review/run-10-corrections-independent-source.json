@@ -1,0 +1,33 @@
+{
+  "base": "77b91381fcf1b1850611f88b397bbfe8d45e3523",
+  "run10_manifest_sha256": "f04283f6b39067c84478b3e675572b4fd796b994baa4d2832fc00a4c908e4844",
+  "artifact_index_sha256": "74adad677d41bacb6408c32c0903f388dfd276b27c7bbdf1ef315d5910820c4a",
+  "review": "Independent read-only evidence and source review; no executions",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/vm/type_policy.rs",
+      "failed_candidate_sha256": "e7d6a5f53e1feb907ce1a0d37cd1cc08b0acbe94faa287d316f79814e47ea580",
+      "corrected_sha256": "514a9a1421bf589f6f3642232872418ba3692ea6d1455cfaddd14fc3028af1df"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/type_policy/tests.rs",
+      "failed_candidate_sha256": "c6e505a9e15636304a46cf2b0c537d7e919e8f4a4518b70d86086704dd4739c0",
+      "corrected_sha256": "f8a76b810c72dd3866130b12196d8533af55a954d037e1892fc4dcceb5d39da7"
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_blocks_and_io.rs",
+      "failed_candidate_sha256": "19a8758736db654777c0e004f82394599a4b07bc87da60f3bbe7a17b46393253",
+      "corrected_sha256": "501a8e941db74ef3454976f9ee64e3386e4bec8fcf0e5ac9100b96d739896945"
+    },
+    {
+      "path": "docs/specs/12-bytecode.md",
+      "failed_candidate_sha256": "c01edcd1d321cd436da03c467fb9e3edb09502013a4edc5a5ff823a0360b9134",
+      "corrected_sha256": "0653c474a70fa52fc387d4f6995a6558b44ae70211b80882c39f0c3802edb71c"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "failed_candidate_sha256": "bfb7f231f1953b94461d2cc4806d92dcfd2bdcf251c6b7b693402c1f93fa7aad",
+      "corrected_sha256": "e0eae53321530e53f3fc46e4fe1d2d763f50a2b8fd216f5c9a7d50af5bb4fc06"
+    }
+  ]
+}

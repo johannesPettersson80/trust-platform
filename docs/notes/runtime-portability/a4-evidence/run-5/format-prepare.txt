@@ -1,0 +1,2 @@
+[gate-progress state=started phase=A4-format-prepare target=scena-rust-builder pid=2669771 elapsed=0.0s timeout=5400s command='bash /home/johannes/.cache/trust-portability-a4-setup-run-5/format-once.sh']
+[gate-progress state=finished phase=A4-format-prepare target=scena-rust-builder pid=2669771 elapsed=3.2s timeout=5400s command='bash /home/johannes/.cache/trust-portability-a4-setup-run-5/format-once.sh' status=0]

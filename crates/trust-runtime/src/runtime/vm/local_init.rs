@@ -23,10 +23,13 @@ pub(super) fn initialize_declared_locals(
     module: &VmModule,
     frame: &mut VmFrame,
 ) -> Result<(), RuntimeError> {
-    let Some(plan) = runtime
-        .vm_local_init_plan_cache
-        .plan_for(runtime, module, frame.pou_id)
-    else {
+    let Some(plan) = runtime.vm_local_init_plan_cache.plan_for(
+        runtime,
+        module,
+        frame
+            .pou_id
+            .ok_or_else(|| super::invalid_bytecode("legacy frame has no POU owner"))?,
+    ) else {
         return Ok(());
     };
     if frame.locals.is_empty() {
@@ -374,7 +377,7 @@ fn build_init_plan_for_pou(
     let pou = module.pou(pou_id)?;
     let key = SmolStr::new(pou.name.to_ascii_uppercase());
 
-    if module.program_ids.get(&key).copied() == Some(pou_id) {
+    if module.program_ids().get(&key).copied() == Some(pou_id) {
         return programs
             .values()
             .find(|program| {
@@ -388,7 +391,7 @@ fn build_init_plan_for_pou(
                 locals: program.temps.clone(),
             });
     }
-    if module.function_ids.get(&key).copied() == Some(pou_id) {
+    if module.function_ids().get(&key).copied() == Some(pou_id) {
         return functions.get(&key).map(|function| VmPouInitPlan::Function {
             frame_owner: function.name.clone(),
             params: function.params.clone(),
@@ -397,7 +400,7 @@ fn build_init_plan_for_pou(
             return_slot: (function.name.clone(), function.return_type),
         });
     }
-    if module.function_block_ids.get(&key).copied() == Some(pou_id) {
+    if module.function_block_ids().get(&key).copied() == Some(pou_id) {
         return function_blocks
             .get(&key)
             .map(|function_block| VmPouInitPlan::FunctionBlock {
@@ -407,10 +410,10 @@ fn build_init_plan_for_pou(
     }
 
     for (owner_key, function_block) in function_blocks {
-        let Some(owner_id) = module.function_block_ids.get(owner_key).copied() else {
+        let Some(owner_id) = module.function_block_ids().get(owner_key).copied() else {
             continue;
         };
-        let Some(method_table) = module.method_table_by_owner.get(&owner_id) else {
+        let Some(method_table) = module.method_table_by_owner().get(&owner_id) else {
             continue;
         };
         for method in &function_block.methods {
@@ -429,10 +432,10 @@ fn build_init_plan_for_pou(
     }
 
     for (owner_key, class_def) in classes {
-        let Some(owner_id) = module.class_ids.get(owner_key).copied() else {
+        let Some(owner_id) = module.class_ids().get(owner_key).copied() else {
             continue;
         };
-        let Some(method_table) = module.method_table_by_owner.get(&owner_id) else {
+        let Some(method_table) = module.method_table_by_owner().get(&owner_id) else {
             continue;
         };
         for method in &class_def.methods {
@@ -712,7 +715,9 @@ mod tests {
 
     fn frame_with_slots(count: usize) -> VmFrame {
         VmFrame {
-            pou_id: 1,
+            parameter_values_present: Vec::new(),
+            activation: None,
+            pou_id: Some(1),
             return_pc: 0,
             code_start: 0,
             code_end: 0,

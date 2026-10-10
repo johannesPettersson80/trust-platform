@@ -12,10 +12,23 @@ Target release: `v0.24.72`
 
 - Add explicit STBC 2.0 authoring and portable byte-level validation for declared
   storage, construction roots, compiled initializer recipes and access bindings.
-  Legacy 1.1 remains the default producer; execution of 2.0 awaits the shared engine.
+  Legacy 1.1 remains the default producer. The source-free core now prepares and
+  executes 2.0 through the shared bytecode dispatcher, including compiled initializers,
+  typed storage, timers, process images and nominal-deadline task scheduling.
+  Warm restart remaps retained objects transactionally; failed initialization or
+  output copy-back does not publish partial replacement state or output destinations.
+  Hardware execution and timing qualification remain separate bring-up work.
+  Prepared declaration indexes and destination-only output journals keep execution
+  costs independent of unrelated application storage. Hosted reference checks borrow
+  paths without allocation. Runtime protection, profile admission and decoder-limit
+  failures now have distinct stable diagnostic codes.
+  Generic CTU/CTD/CTUD construction preserves their unbound integer state until
+  the native call selects its concrete integer width.
   Initializer admission restricts writes to proven staging storage; 2.0 authoring
   shares equivalent default recipes, omits unused standard block templates and
   rejects unknown configuration/access path prefixes.
+  The opt-in 2.0 producer supports staged member overrides on function-static FB
+  instances at initial construction and after restart; legacy 1.x acceptance is unchanged.
 
 - Persist canonical OpenOT event, loss, and placeholder documents outside the
   PLC scan to a TOML-selected SQLite, PostgreSQL, TimescaleDB, MySQL/MariaDB,

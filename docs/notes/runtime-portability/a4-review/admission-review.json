@@ -1,0 +1,39 @@
+{
+  "reviewer": "monitor_merge_129",
+  "scope": "A4 admission, charged decoder, public state encapsulation, provenance helper",
+  "review_kind": "independent source review only",
+  "verdict": "no remaining actionable blocker found in reviewed paths",
+  "validation": "not run; compilation and behavior remain unverified",
+  "resolved_findings": [
+    "Per-table decoder reservations replace inadequate four-times-wire pre-decode bound. Byte-entry preparation accumulates DecodeStats before serializer/VM materialization.",
+    "Public RuntimeState private EngineState wrapper removes ReferenceContext::storage_mut escape; no Deref or public mutable-inner access."
+  ],
+  "limitations": [
+    "PreparationUsage is logical cumulative accounting, not measured allocator overhead or memory peak.",
+    "Provenance writes are staged after discovery, not atomic across files on I/O failure.",
+    "Own retained-graph implementation is excluded from this independent verdict."
+  ],
+  "files": {
+    "crates/trust-runtime-core/src/vm/prepared.rs": "4703ae9ebcdb907eb2c81a144298bf7579803eb6d02d08d4d3cf8248d4d57eec",
+    "crates/trust-runtime-core/src/vm/prepared/admission.rs": "2185ec7bce5cb1c241488578536f8d9a4c1e7b8a0f871d650e1d8945d2802ae4",
+    "crates/trust-runtime-core/src/vm/prepared/budget.rs": "2719dc2de34aee034d631a177d962de4ab0e396fe7a5ab1d3afac6098aa18da2",
+    "crates/trust-runtime-core/src/vm/module.rs": "7e3cac74dc710e09f061fbb2621d090cd673745c35fb40b5dcfe07937d59203f",
+    "crates/trust-runtime-core/src/vm/const_pool.rs": "da1e658a5133709ecc12138b3d46cc4b9487088329b88f736a2860180d9b3362",
+    "crates/trust-runtime-core/src/bytecode/mod.rs": "81dba91b2364793138c4c39ebc1bbbdeee32d6ec50dd4c54cda954708b0a0061",
+    "crates/trust-runtime-core/src/bytecode/decode.rs": "5049235276939cafbfecfa34d929ed55fbcd284f752d3dfd28830943609f01ed",
+    "crates/trust-runtime-core/src/bytecode/decode/budget.rs": "930396d8040fc0756bfa56773bf3efb5e139289bd3d085d87b010d791459559f",
+    "crates/trust-runtime-core/src/bytecode/decode/module_decode.rs": "ad68c297093b8fcfc7508fe28dcb27178d920ebd87254bd7c62592d113d6e6ab",
+    "crates/trust-runtime-core/src/bytecode/decode/string_type_decode.rs": "76d4c8539dbbebc32e149f4044cc1dbab5734a99ad39f879b9b9014591ad84f2",
+    "crates/trust-runtime-core/src/bytecode/decode/section_decode.rs": "975684eb382ac710aa88ca16694585ba438732b4ae4160101e594f2d9c552e50",
+    "crates/trust-runtime-core/src/bytecode/decode/section_validate.rs": "3a19b3ec3699e8807f60410331ec7db26271bd2db7b0a26c522e59e97a9d56e2",
+    "crates/trust-runtime-core/src/bytecode/decode/construction.rs": "3dfc589d5820ae85330bde1a92ebc31dc22a3e2b50db0490eb45b9650a7aa962",
+    "crates/trust-runtime-core/src/bytecode/encode.rs": "f488a15df273442e18cf970e03b875f1f577ebc5e5472d31fced8a240e3fa960",
+    "crates/trust-runtime-core/src/bytecode/encode/buffer.rs": "f6aac76956ef30d1019b1c2d8fa55ded3b23d4d7cc16b3c51c3c00f145502bc5",
+    "crates/trust-runtime-core/tests/preparation_profile.rs": "feb0323cc755c5f72b2b27d45d54db17185da72d6c9993b2a4b7fcfdb2b0484a",
+    "crates/trust-runtime-core/src/vm/engine/api.rs": "79985b30054533cf20d0da5a807c4bc40d23c459d845faf77151e1c2d8385822",
+    "crates/trust-runtime-core/src/vm/engine/mod.rs": "2d54b12fdaf9aaacd1870da4795e7131e906d4bdc971926d6854ca1ffd97ca07",
+    "crates/trust-runtime-core/src/vm/mod.rs": "cdd0224057ce4fe27e2037956393bc93352df173b27233d6a76ea4ee2948416f",
+    "crates/verification-cases/examples/refresh_portability_provenance.rs": "f3f94d7899ec48973dcd54b54c851bbab4c32468effaad638eb37f78f3999310",
+    "scripts/refresh_a4_provenance.sh": "5d1ef6813120ed8d297097a5570dff07fa5d8b078e94f02c77e7f72451f1d79a"
+  }
+}

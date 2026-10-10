@@ -99,7 +99,7 @@ fn diagnostic_find_fallback_opcodes_in_corpus() {
                             _ => continue,
                         };
                         if let Some(VmRef::Local { path, .. }) =
-                            vm_module.refs.get(ref_idx as usize)
+                            vm_module.refs().get(ref_idx as usize)
                         {
                             if !path.is_empty() {
                                 complex_refs.push(ref_idx);

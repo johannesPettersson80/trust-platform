@@ -11,7 +11,7 @@ pub(in crate::runtime::vm::register_ir) fn compile_tier1_block(
             RegisterInstr::Nop => Tier1CompiledInstr::Nop,
             RegisterInstr::LoadConst { dest, const_idx } => {
                 let value = module
-                    .consts
+                    .consts()
                     .get(*const_idx as usize)
                     .cloned()
                     .ok_or_else(|| "invalid_const_idx".to_string())?;
@@ -22,7 +22,7 @@ pub(in crate::runtime::vm::register_ir) fn compile_tier1_block(
             RegisterInstr::LoadSuper { dest } => Tier1CompiledInstr::LoadSuper { dest: *dest },
             RegisterInstr::LoadSelfFieldDynamic { field_idx, dest } => {
                 let field = module
-                    .strings
+                    .strings()
                     .get(*field_idx as usize)
                     .cloned()
                     .ok_or_else(|| format!("invalid_string_index:{field_idx}"))?;
@@ -30,7 +30,7 @@ pub(in crate::runtime::vm::register_ir) fn compile_tier1_block(
             }
             RegisterInstr::StoreSelfFieldDynamic { field_idx, value } => {
                 let field = module
-                    .strings
+                    .strings()
                     .get(*field_idx as usize)
                     .cloned()
                     .ok_or_else(|| format!("invalid_string_index:{field_idx}"))?;
@@ -72,7 +72,7 @@ pub(in crate::runtime::vm::register_ir) fn compile_tier1_block(
                 dest,
             } => {
                 let field = module
-                    .strings
+                    .strings()
                     .get(*field_idx as usize)
                     .cloned()
                     .ok_or_else(|| "invalid_string_idx".to_string())?;

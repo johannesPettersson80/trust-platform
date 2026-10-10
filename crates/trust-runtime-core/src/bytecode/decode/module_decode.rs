@@ -3,6 +3,18 @@ use super::*;
 impl BytecodeModule {
     /// Decode container framing and typed section payloads. Call `validated` before preparation.
     pub fn decode(bytes: &[u8]) -> Result<Self, BytecodeError> {
+        Self::decode_with_limits(bytes, usize::MAX, usize::MAX).map(|(module, _)| module)
+    }
+
+    /// Decode using caller-selected payload allocation/work limits before reservation.
+    pub fn decode_with_limits(
+        bytes: &[u8],
+        max_allocation_bytes: usize,
+        max_work: usize,
+    ) -> Result<(Self, DecodeStats), BytecodeError> {
+        let mut accounting = DecodeBudget::new(max_allocation_bytes, max_work);
+        let budget = &mut accounting;
+        budget.charge(0, bytes.len())?;
         if bytes.len() > BYTECODE_MAX_CONTAINER_BYTES {
             return Err(BytecodeError::InvalidHeader(
                 "encoded container exceeds fixed resource limit".into(),
@@ -68,7 +80,7 @@ impl BytecodeModule {
             return Err(BytecodeError::UnsupportedVersion { major, minor });
         }
 
-        let mut entries = Vec::with_capacity(section_count);
+        let mut entries = budget.vector(section_count)?;
         let mut table_reader = BytecodeReader::new(&bytes[section_table_off..table_end]);
         for _ in 0..section_count {
             let id = table_reader.read_u16()?;
@@ -83,14 +95,14 @@ impl BytecodeModule {
             });
         }
 
-        validate_section_entries(bytes.len(), table_end, &entries, version)?;
+        validate_section_entries(bytes.len(), table_end, &entries, version, budget)?;
 
-        let mut sections = Vec::new();
+        let mut sections = budget.vector(section_count)?;
         for entry in entries {
             let start = entry.offset as usize;
             let end = start + entry.length as usize;
             let payload = &bytes[start..end];
-            let data = decode_section_data(version, entry.id, payload)?;
+            let data = decode_section_data(version, entry.id, payload, budget)?;
             sections.push(Section {
                 id: entry.id,
                 flags: entry.flags,
@@ -98,10 +110,11 @@ impl BytecodeModule {
             });
         }
 
-        Ok(Self {
+        let module = Self {
             version,
             flags,
             sections,
-        })
+        };
+        Ok((module, budget.stats()))
     }
 }

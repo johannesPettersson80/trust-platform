@@ -146,7 +146,7 @@ pub(super) fn register_field_name(
     module: &VmModule,
     field_idx: u32,
 ) -> Result<&smol_str::SmolStr, RuntimeError> {
-    module.strings.get(field_idx as usize).ok_or_else(|| {
+    module.strings().get(field_idx as usize).ok_or_else(|| {
         VmTrap::BytecodeDecode(format!("invalid index {field_idx} for string").into())
             .into_runtime_error()
     })

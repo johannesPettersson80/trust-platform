@@ -1,6 +1,7 @@
 //! Portable bytecode container, decoding, validation and metadata.
 
 mod decode;
+pub use decode::DecodeStats;
 mod disassemble;
 mod encode;
 mod format;
@@ -74,6 +75,12 @@ pub enum BytecodeError {
         /// Observed minor version.
         minor: u16,
     },
+    /// Decoder reservations exceed the admitted allocation budget.
+    #[error("decoder memory limit exceeded")]
+    DecodeMemoryLimit,
+    /// Decoder processing exceeds the admitted work budget.
+    #[error("decoder work limit exceeded")]
+    DecodeWorkLimit,
     /// Header fields are internally inconsistent.
     #[error("invalid bytecode header: {0}")]
     InvalidHeader(SmolStr),
@@ -130,6 +137,8 @@ impl BytecodeError {
     #[must_use]
     pub const fn stable_code(&self) -> StableErrorCode {
         match self {
+            Self::DecodeMemoryLimit => StableErrorCode::BytecodeDecodeMemoryLimit,
+            Self::DecodeWorkLimit => StableErrorCode::BytecodeDecodeWorkLimit,
             Self::InvalidMagic => StableErrorCode::BytecodeInvalidMagic,
             Self::UnsupportedVersion { .. } => StableErrorCode::BytecodeUnsupportedVersion,
             Self::InvalidHeader(_) => StableErrorCode::BytecodeInvalidHeader,

@@ -361,6 +361,11 @@ impl StructValue {
         Self { type_name, fields }
     }
 
+    /// Consume an owned aggregate without cloning its member values.
+    pub fn into_canonical_parts(self) -> (SmolStr, IndexMap<SmolStr, Value>) {
+        (self.type_name, self.fields)
+    }
+
     #[must_use]
     pub fn type_name(&self) -> &SmolStr {
         &self.type_name

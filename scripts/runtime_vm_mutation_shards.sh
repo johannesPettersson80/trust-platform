@@ -9,8 +9,12 @@ SHARD_FILTER="${2:-}"
 export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.95}"
 
 OUT_ROOT="${OUT_DIR:-target/gate-artifacts/runtime-vm-mutants}"
+# Shared VM mutations live in core; hosted regression tests exercise those
+# implementations through the adapter. Register-IR mutations remain hosted.
 COMMON_ARGS=(
+  -p trust-runtime-core
   -p trust-runtime
+  --test-package trust-runtime
   --timeout 120
   --minimum-test-timeout 20
   --baseline skip
@@ -35,7 +39,7 @@ list_shard() {
   local regex="$3"
   mkdir -p "$OUT_ROOT/lists"
   local list_path="$OUT_ROOT/lists/$name.json"
-  cargo mutants -p trust-runtime --file "$file" --re "$regex" --list --json \
+  cargo mutants -p trust-runtime-core -p trust-runtime --file "$file" --re "$regex" --list --json \
     | tee "$list_path" \
     | jq -r --arg name "$name" --arg file "$file" '"\($name)\t\(length)\t\($file)"'
 }
@@ -96,46 +100,46 @@ ALL_MUTANTS='.'
 
 with_shard \
   call-root \
-  crates/trust-runtime/src/runtime/vm/call.rs \
+  crates/trust-runtime-core/src/vm/call/mod.rs \
   "$ALL_MUTANTS" \
   test:bytecode_vm_core
 
 with_shard \
   call-bindings \
-  crates/trust-runtime/src/runtime/vm/call/bindings.rs \
+  crates/trust-runtime-core/src/vm/call/bindings.rs \
   "$ALL_MUTANTS" \
   lib \
   runtime::vm::call::tests
 
 with_shard \
   call-stdlib \
-  crates/trust-runtime/src/runtime/vm/call/stdlib.rs \
+  crates/trust-runtime-core/src/vm/call/stdlib.rs \
   "$ALL_MUTANTS" \
   lib \
   runtime::vm::call::tests
 
 with_shard \
   call-symbols \
-  crates/trust-runtime/src/runtime/vm/call/symbols.rs \
+  crates/trust-runtime-core/src/vm/symbols.rs \
   "$ALL_MUTANTS" \
   lib \
   runtime::vm::call::tests
 
 with_shard \
   dispatch-root \
-  crates/trust-runtime/src/runtime/vm/dispatch.rs \
+  crates/trust-runtime-core/src/vm/dispatch.rs \
   "$ALL_MUTANTS" \
   test:bytecode_vm_core
 
 with_shard \
   dispatch-refs \
-  crates/trust-runtime/src/runtime/vm/dispatch_refs.rs \
+  crates/trust-runtime-core/src/vm/dispatch_refs.rs \
   "$ALL_MUTANTS" \
   test:bytecode_vm_core
 
 with_shard \
   dispatch-sizeof \
-  crates/trust-runtime/src/runtime/vm/dispatch_sizeof.rs \
+  crates/trust-runtime-core/src/vm/dispatch_sizeof.rs \
   "$ALL_MUTANTS" \
   test:bytecode_vm_core
 
@@ -211,18 +215,18 @@ with_shard \
 
 with_shard \
   vm-stack \
-  crates/trust-runtime/src/runtime/vm/stack.rs \
+  crates/trust-runtime-core/src/vm/stack.rs \
   "$ALL_MUTANTS" \
   test:bytecode_vm_core
 
 with_shard \
   memory-references \
-  crates/trust-runtime/src/memory/references.rs \
+  crates/trust-runtime-core/src/memory/references.rs \
   "$ALL_MUTANTS" \
   test:bytecode_vm_core
 
 with_shard \
   memory-frames \
-  crates/trust-runtime/src/memory/frames.rs \
+  crates/trust-runtime-core/src/memory/frames.rs \
   "$ALL_MUTANTS" \
   test:bytecode_vm_core

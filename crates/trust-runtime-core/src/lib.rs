@@ -3,8 +3,8 @@
 //! The core owns shared value/numeric operations and the STBC representation,
 //! decoder, encoder, budgeted validator and disassembler. Source/HIR lowering,
 //! product transports and hardware drivers remain outside this portable boundary.
-//! The hosted dispatcher still executes legacy STBC; source-free STBC 2.0 execution
-//! is introduced by the separate shared-engine integration scope.
+//! The shared dispatcher executes legacy hosted STBC through a host context and
+//! source-free STBC 2.0 through artifact-backed preparation and single-owner state.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
@@ -30,6 +30,8 @@ pub mod error;
 pub mod error_code;
 /// Portable direct I/O address syntax.
 pub mod io_address;
+/// Shared process-image address and value codecs.
+pub mod io_image;
 /// Portable runtime memory identity types.
 pub mod memory;
 /// Portable numeric conversion helpers.
@@ -50,3 +52,6 @@ pub mod value;
 pub mod vm;
 /// Portable watchdog, retain-mode, and fault-policy model records.
 pub mod watchdog;
+
+/// Portable standard library execution.
+pub mod stdlib;

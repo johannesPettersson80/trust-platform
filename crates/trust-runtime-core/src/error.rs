@@ -50,6 +50,42 @@ pub enum RuntimeError {
     #[error("invalid I/O address '{0}'")]
     InvalidIoAddress(SmolStr),
 
+    /// Write to a constant declaration.
+    #[error("write to a constant declaration")]
+    ConstantWrite,
+
+    /// Write outside initializer staging storage.
+    #[error("write outside initializer staging storage")]
+    StagingViolation,
+
+    /// Read outside the initializer visibility frontier.
+    #[error("read outside the initializer visibility frontier")]
+    VisibilityViolation,
+
+    /// Reference outlived its activation or instance.
+    #[error("reference outlived its activation or instance")]
+    ReferenceLifetime,
+
+    /// Program-root replacement is forbidden.
+    #[error("program-root replacement is forbidden")]
+    ProgramRootReplacement,
+
+    /// Invalid storage alias use.
+    #[error("invalid storage alias use")]
+    InvalidAlias,
+
+    /// Preparation resource limit exceeded.
+    #[error("preparation resource limit exceeded")]
+    PreparationLimit,
+
+    /// Admitted execution metadata is inconsistent.
+    #[error("admitted execution metadata is inconsistent")]
+    InvalidExecutionState,
+
+    /// A valid artifact requires a capability absent from the selected profile.
+    #[error("unsupported execution profile: {0}")]
+    ProfileUnsupported(SmolStr),
+
     /// Type mismatch between values.
     #[error("type mismatch")]
     TypeMismatch,
@@ -258,6 +294,15 @@ impl RuntimeError {
             Self::UndefinedField(_) => StableErrorCode::RuntimeUndefinedField,
             Self::InvalidTaskSingle(_) => StableErrorCode::RuntimeInvalidTaskSingle,
             Self::InvalidIoAddress(_) => StableErrorCode::RuntimeInvalidIoAddress,
+            Self::ConstantWrite => StableErrorCode::RuntimeConstantWrite,
+            Self::StagingViolation => StableErrorCode::RuntimeStagingViolation,
+            Self::VisibilityViolation => StableErrorCode::RuntimeVisibilityViolation,
+            Self::ReferenceLifetime => StableErrorCode::RuntimeReferenceLifetime,
+            Self::ProgramRootReplacement => StableErrorCode::RuntimeProgramRootReplacement,
+            Self::InvalidAlias => StableErrorCode::RuntimeInvalidAlias,
+            Self::PreparationLimit => StableErrorCode::RuntimePreparationLimit,
+            Self::InvalidExecutionState => StableErrorCode::RuntimeInvalidExecutionState,
+            Self::ProfileUnsupported(_) => StableErrorCode::RuntimeProfileUnsupported,
             Self::TypeMismatch => StableErrorCode::RuntimeTypeMismatch,
             Self::InvalidArgumentCount { .. } => StableErrorCode::RuntimeInvalidArgumentCount,
             Self::InvalidArgumentName(_) => StableErrorCode::RuntimeInvalidArgumentName,
@@ -329,6 +374,53 @@ mod tests {
     use crate::bytecode::BytecodeError;
     use crate::datetime::DateTimeCalcError;
     use crate::value::DateTimeError;
+
+    #[test]
+    fn protection_and_profile_faults_have_distinct_stable_codes() {
+        let faults = [
+            (
+                RuntimeError::ConstantWrite,
+                StableErrorCode::RuntimeConstantWrite,
+            ),
+            (
+                RuntimeError::StagingViolation,
+                StableErrorCode::RuntimeStagingViolation,
+            ),
+            (
+                RuntimeError::VisibilityViolation,
+                StableErrorCode::RuntimeVisibilityViolation,
+            ),
+            (
+                RuntimeError::ReferenceLifetime,
+                StableErrorCode::RuntimeReferenceLifetime,
+            ),
+            (
+                RuntimeError::ProgramRootReplacement,
+                StableErrorCode::RuntimeProgramRootReplacement,
+            ),
+            (
+                RuntimeError::InvalidAlias,
+                StableErrorCode::RuntimeInvalidAlias,
+            ),
+            (
+                RuntimeError::PreparationLimit,
+                StableErrorCode::RuntimePreparationLimit,
+            ),
+            (
+                RuntimeError::InvalidExecutionState,
+                StableErrorCode::RuntimeInvalidExecutionState,
+            ),
+            (
+                RuntimeError::ProfileUnsupported("resource count".into()),
+                StableErrorCode::RuntimeProfileUnsupported,
+            ),
+        ];
+        for (fault, expected) in faults {
+            assert_eq!(fault.stable_code(), expected);
+            assert_ne!(expected, StableErrorCode::RuntimeTypeMismatch);
+            assert_ne!(expected, StableErrorCode::RuntimeNullReference);
+        }
+    }
 
     #[test]
     fn runtime_error_stable_codes_cover_every_committed_variant() {

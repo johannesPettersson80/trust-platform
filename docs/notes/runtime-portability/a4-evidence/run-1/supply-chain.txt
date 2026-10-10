@@ -1,0 +1,118 @@
+[gate-progress state=started phase=A4-supply-chain target=scena-rust-builder pid=2171384 elapsed=0.0s timeout=5400s command='bash scripts/supply_chain_gate.sh']
+dependency-exception-check: PASS (7 owned exceptions)
+Switched to branch 'main'
+Deleted branch fix/example (was 800b963).
+.Switched to branch 'main'
+Deleted branch fix/example (was a4eef71).
+.Switched to branch 'main'
+Deleted branch fix/example (was a4eef71).
+.Switched to branch 'main'
+Deleted branch fix/example (was a4eef71).
+.Switched to branch 'main'
+Deleted branch fix/example (was a4eef71).
+.Switched to branch 'main'
+Deleted branch fix/example (was a4eef71).
+.Switched to branch 'main'
+Deleted branch fix/example (was 5af3d0c).
+.Switched to branch 'main'
+Deleted branch fix/example (was 5af3d0c).
+..usage: python3 -m unittest verify-release [-h] --candidate-head CANDIDATE_HEAD
+                                          --branch BRANCH
+                                          [--main-ref MAIN_REF]
+python3 -m unittest verify-release: error: the following arguments are required: --candidate-head, --branch
+.........E...EE.....E..............EE....
+======================================================================
+ERROR: test_failed_disk_probe_does_not_remove_target (release_candidate_guard_tests.ReleaseCandidateGuardTests.test_failed_disk_probe_does_not_remove_target)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/johannes/projects/trust-platform-portability-a4/.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard_tests.py", line 420, in test_failed_disk_probe_does_not_remove_target
+    result, cached, _, probes = self.run_conditional_reclaim([None])
+                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "/home/johannes/projects/trust-platform-portability-a4/.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard_tests.py", line 336, in run_conditional_reclaim
+    shutil.copyfile(source / "scripts" / name, scripts / name)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/shutil.py", line 313, in copyfile
+    with open(src, 'rb') as fsrc:
+         ~~~~^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/johannes/projects/trust-platform-portability-a4/scripts/cargo_target_path.sh'
+
+======================================================================
+ERROR: test_low_space_cannot_remove_a_leased_target (release_candidate_guard_tests.ReleaseCandidateGuardTests.test_low_space_cannot_remove_a_leased_target)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/johannes/projects/trust-platform-portability-a4/.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard_tests.py", line 407, in test_low_space_cannot_remove_a_leased_target
+    result, cached, prepared, probes = self.run_conditional_reclaim([83886079], busy=True)
+                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/johannes/projects/trust-platform-portability-a4/.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard_tests.py", line 336, in run_conditional_reclaim
+    shutil.copyfile(source / "scripts" / name, scripts / name)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/shutil.py", line 313, in copyfile
+    with open(src, 'rb') as fsrc:
+         ~~~~^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/johannes/projects/trust-platform-portability-a4/scripts/cargo_target_path.sh'
+
+======================================================================
+ERROR: test_low_space_reclaims_idle_target_and_rechecks_floor (release_candidate_guard_tests.ReleaseCandidateGuardTests.test_low_space_reclaims_idle_target_and_rechecks_floor)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/johannes/projects/trust-platform-portability-a4/.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard_tests.py", line 392, in test_low_space_reclaims_idle_target_and_rechecks_floor
+    result, cached, prepared, probes = self.run_conditional_reclaim([83886079, 83886080])
+                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/johannes/projects/trust-platform-portability-a4/.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard_tests.py", line 336, in run_conditional_reclaim
+    shutil.copyfile(source / "scripts" / name, scripts / name)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/shutil.py", line 313, in copyfile
+    with open(src, 'rb') as fsrc:
+         ~~~~^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/johannes/projects/trust-platform-portability-a4/scripts/cargo_target_path.sh'
+
+======================================================================
+ERROR: test_reclaim_cannot_accept_space_below_floor (release_candidate_guard_tests.ReleaseCandidateGuardTests.test_reclaim_cannot_accept_space_below_floor)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/johannes/projects/trust-platform-portability-a4/.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard_tests.py", line 399, in test_reclaim_cannot_accept_space_below_floor
+    result, cached, prepared, probes = self.run_conditional_reclaim([83886079, 83886079])
+                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/johannes/projects/trust-platform-portability-a4/.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard_tests.py", line 336, in run_conditional_reclaim
+    shutil.copyfile(source / "scripts" / name, scripts / name)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/shutil.py", line 313, in copyfile
+    with open(src, 'rb') as fsrc:
+         ~~~~^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/johannes/projects/trust-platform-portability-a4/scripts/cargo_target_path.sh'
+
+======================================================================
+ERROR: test_target_at_space_floor_keeps_compiled_artifacts (release_candidate_guard_tests.ReleaseCandidateGuardTests.test_target_at_space_floor_keeps_compiled_artifacts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/johannes/projects/trust-platform-portability-a4/.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard_tests.py", line 385, in test_target_at_space_floor_keeps_compiled_artifacts
+    result, cached, prepared, probes = self.run_conditional_reclaim([83886080])
+                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "/home/johannes/projects/trust-platform-portability-a4/.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard_tests.py", line 336, in run_conditional_reclaim
+    shutil.copyfile(source / "scripts" / name, scripts / name)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/shutil.py", line 313, in copyfile
+    with open(src, 'rb') as fsrc:
+         ~~~~^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/johannes/projects/trust-platform-portability-a4/scripts/cargo_target_path.sh'
+
+======================================================================
+ERROR: test_unknown_free_space_does_not_remove_target (release_candidate_guard_tests.ReleaseCandidateGuardTests.test_unknown_free_space_does_not_remove_target)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/johannes/projects/trust-platform-portability-a4/.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard_tests.py", line 414, in test_unknown_free_space_does_not_remove_target
+    result, cached, _, probes = self.run_conditional_reclaim(["unknown"])
+                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/home/johannes/projects/trust-platform-portability-a4/.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard_tests.py", line 336, in run_conditional_reclaim
+    shutil.copyfile(source / "scripts" / name, scripts / name)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/shutil.py", line 313, in copyfile
+    with open(src, 'rb') as fsrc:
+         ~~~~^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/johannes/projects/trust-platform-portability-a4/scripts/cargo_target_path.sh'
+
+----------------------------------------------------------------------
+Ran 50 tests in 3.169s
+
+FAILED (errors=6)
+[gate-progress state=finished phase=A4-supply-chain target=scena-rust-builder pid=2171384 elapsed=3.4s timeout=5400s command='bash scripts/supply_chain_gate.sh' status=1]

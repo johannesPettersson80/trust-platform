@@ -80,6 +80,7 @@ pub struct Runtime {
     pub(super) vm_local_init_plan_cache: super::vm::VmLocalInitPlanCacheState,
     pub(super) vm_register_lowering_cache: super::vm::RegisterLoweringCacheState,
     pub(super) vm_register_profile: super::vm::RegisterProfileState,
+    pub(super) vm_execution_budget: trust_runtime_core::vm::hosted::budget::ExecutionBudget,
     pub(super) vm_tier1_specialized_executor: super::vm::RegisterTier1SpecializedExecutorState,
 }
 

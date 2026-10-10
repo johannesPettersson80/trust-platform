@@ -1367,6 +1367,10 @@ errors as executable expressions, with the following closed behavior:
   or bounds error; and
 - `SIZEOF` returns DINT, rejects an unknown or unsupported type as a type
   mismatch, and reports overflow when the byte size does not fit DINT.
+  Runtime-value sizing permits at most 128 nested values, counting the leaf;
+  the first excess returns the same type-mismatch fault. Hosted and portable
+  consumers use this shared traversal limit. This is a truST execution bound,
+  not an IEC type-size rule.
 
 An initialization failure identifies the owning POU and variable and aborts
 the call before the first instruction. It does not leave a partially
@@ -1789,6 +1793,11 @@ and non-retained program inputs reset their associated phase state.
 elementary type. max_length is zero; intrinsic construction yields NULL until the
 native counter binds its integer width from the call. Its construction demand is
 one Value slot. It has no constant-pool payload and is rejected in legacy 1.x.
+Construction and shared assignment validation accept NULL or a concrete SINT,
+INT, DINT, LINT, USINT, UINT, UDINT or ULINT value for this descriptor, including
+through an alias. Validation preserves the concrete integer width; it does not
+coerce Boolean, bit-string, real, enumeration, reference or aggregate values into
+counter state. This is the product's internal native-state representation contract.
 The source producer uses it only for existing generic native-counter declarations;
 ordinary unsupported generic source declarations remain rejected. Execution still
 requires A4's matching native import admission contract.
@@ -1807,6 +1816,16 @@ The producer obtains internal slot names/types from the same built-in FB registr
 that owns the native implementation. A4 import admission must match the declared
 native state layout before execution; a successful A3 format validation is not
 native-import admission. Hidden native state is not exposed as a user parameter.
+
+A4 separately caps cumulative typed construction nodes for each construction,
+restart, cycle or between-cycle access entry. Scalar and aggregate helper visits
+and temporary aggregate-builder slots consume this budget; alias traversal adds
+no value and an FB/class identity is charged only at reservation. Retiring a
+frame or staging value does not refund the entry's budget. Fixed declarations
+and persistent roots are also checked against the profile using independently
+validated TYPE_TABLE construction demand before instance execution. Copy work
+and allocation demand have their separate pre-copy charges.
+
 
 #### 11.5.6 Access aliases
 
@@ -1943,6 +1962,22 @@ argument encodings must match the operand count; input arguments cannot expose
 staging references. Dynamic values still pass the runtime visibility/write checks. A4 must prove those checks before
 admitting source-free execution.
 
+For source-free execution, runtime protection failures have distinct stable identities:
+`runtime_reference_lifetime`, `runtime_visibility_violation`,
+`runtime_staging_violation`, `runtime_constant_write`,
+`runtime_program_root_replacement` and `runtime_invalid_alias`. Actual value-type
+mismatches and null dereferences retain their existing type/null codes. A valid
+artifact unsupported by the selected profile reports `runtime_profile_unsupported`;
+preparation-limit exhaustion reports `runtime_preparation_limit`. Decoder allocation
+and work exhaustion report `bytecode_decode_memory_limit` and
+`bytecode_decode_work_limit`, rather than malformed-header errors. Defensive
+violations of already-admitted execution metadata report `runtime_invalid_execution_state`.
+These are truST diagnostic contracts, not changes to IEC language rules.
+
+These runtime checks supplement bytecode admission and do not grant access merely
+because a value was previously validated. A reference to an ancestor local remains
+live while a nested call executes, and writes through it update the same caller local.
+
 #### 11.5.9 Function-static startup and restart contexts
 
 Initial source construction defaults all function statics, then evaluates their
@@ -1964,6 +1999,15 @@ module-owned function static, validates their visibility separately and rejects
 trigger 1 on unrelated declarations. A3 source tests pin emitted contexts; A4
 must replay initial load, warm/cold restart and a failing first invocation before
 claiming equivalent static initialization.
+
+The opt-in STBC 2.0 producer also accepts explicit member overrides on
+function-static FB instances. It compiles them into the same staged Explicit
+actions for Ordinary and AfterRestart triggers; a failed override does not
+publish partially updated member fields. This is a 2.0 authoring capability:
+legacy 1.x hosted construction continues to reject explicit initializers on
+function-static FB instances. Explicit function-static class-instance initializers
+remain unsupported. This producer distinction is a truST contract, not a change
+to IEC source lifetime rules.
 
 Inherited method statics belong to their declaring template and its concrete
 ancestor instance. STBC 2.0 resolves that physical owner instead of creating a
@@ -2094,3 +2138,51 @@ paths (IEC 61131-3 Ed.3 Table 62); a `%B` selection in such a target is rejected
 Native tests distinguish source partial-access aliases and whole-value configuration
 writes from explicitly constructed lowered partial configuration actions. A wire
 capability does not silently expand accepted IEC source syntax.
+
+#### 11.5.12 Ordinary aggregate assignments
+
+The source-free external global-write API accepts mutable resource-variable
+declarations only. Program roots and function-static lifecycle slots cannot be
+replaced through that engineering API; VAR_ACCESS retains its declared binding
+and permission checks.
+
+Source-free ordinary assignments, call bindings and external engineering writes
+validate the complete destination TYPE_TABLE shape before committing. Array bounds
+and element count (wildcard formal dimensions preserve the supplied concrete bounds), structure/union identity and complete case-insensitive member
+sets, enum type/name/value identity, and nested reference/instance compatibility
+must agree. Scalar/string normalization applies recursively, including declared
+string capacities and subranges. This operation never evaluates type/member
+initializers or fills missing members with defaults. A failed assignment leaves
+the destination unchanged. Recursive traversal and copied values consume the
+admitted work/allocation limits, and reference lifetime checks remain mandatory.
+
+Partial field/element writes charge any copy-on-write structure backing and owned
+array fields copied by that operation before mutation, including newly shared
+children after an ancestor copy. String-element replacement charges its character
+buffer and replacement text. These failures retain their budget/deadline error;
+a multi-output copyback failure restores every destination in that output group.
+
+The source-free runtime enforces STORAGE_LAYOUT constant declarations at every
+ordinary store boundary, including static/dynamic bytecode stores and native
+output copyback. Selecting a member or element does not make constant storage
+writable. Compiler acceptance is not an authority to bypass this check: a
+structurally admitted forged artifact faults before modifying the constant.
+Private initializer-result staging and explicit lifecycle declaration commits
+remain the construction paths; ordinary execution cannot use them to overwrite
+an initialized constant.
+Construction-only program-root identities also reject ordinary stores, even
+when their reference has no TYPE_TABLE identity. Only lifecycle construction
+installs or replaces these roots.
+
+External binding records allocate no physical slot. Runtime slot/type/visibility
+and constant-permission lookup excludes them, even if an admitted External record
+carries the same owner/slot as a physical declaration. Record ordering cannot
+change the physical declaration's type, initialization status or write permission.
+
+Typed reference checks resolve each selected path segment from the admitted
+construction declarations as well as TYPE_TABLE. POU members include inherited
+members; an untyped program-root binding starts from its declared program template.
+External aliases cannot replace a physical member's type. Equivalent direct-instance
+and global-root-plus-member references have the same selected type. Traversal uses
+the active operation's work/deadline budget; restart queries charge the staged
+replacement, not the state being preserved.

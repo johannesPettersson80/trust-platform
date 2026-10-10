@@ -1,0 +1,73 @@
+[gate-progress state=started phase=A4-core-i686 target=scena-rust-builder pid=2166797 elapsed=0.0s timeout=5400s command='env '"'"'RUSTFLAGS=-Dwarnings -C linker=/home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld -C link-self-contained=yes'"'"' cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features --target i686-unknown-linux-musl --lib --test bytecode_decode_resource_bounds --test bytecode_source_free --test preparation_profile --test runtime_core_compiler_free_load --test portable_process_image -- --nocapture --test-threads=1']
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling serde_core v1.0.228
+   Compiling version_check v0.9.5
+   Compiling typenum v1.20.0
+   Compiling thiserror v2.0.18
+   Compiling cfg-if v1.0.4
+   Compiling zmij v1.0.21
+   Compiling generic-array v0.14.7
+   Compiling libm v0.2.16
+   Compiling serde_json v1.0.149
+   Compiling serde v1.0.228
+   Compiling crc32fast v1.5.0
+   Compiling winnow v1.0.2
+   Compiling syn v2.0.117
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling cpufeatures v0.2.17
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling equivalent v1.0.2
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.0
+   Compiling hashbrown v0.17.0
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling smol_str v0.2.2
+   Compiling indexmap v2.14.0
+   Compiling rustc-hash v2.1.2
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_derive v1.0.228
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime-core)
+error: unused import: `InstanceId`
+ --> crates/trust-runtime-core/src/vm/dispatch_refs.rs:4:21
+  |
+4 | use crate::memory::{InstanceId, MemoryLocation};
+  |                     ^^^^^^^^^^
+  |
+  = note: `-D unused-imports` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error[E0063]: missing field `parameter_values_present` in initializer of `vm::frames::VmFrame`
+  --> crates/trust-runtime-core/src/vm/call/mod.rs:47:17
+   |
+47 |     let frame = VmFrame {
+   |                 ^^^^^^^ missing `parameter_values_present`
+
+   Compiling verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/verification-cases)
+error: unused variable: `declaration`
+   --> crates/trust-runtime-core/src/vm/engine/initialization/construction.rs:285:18
+    |
+285 |         for (id, declaration) in
+    |                  ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_declaration`
+    |
+    = note: `-D unused-variables` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(unused_variables)]`
+
+error: unused import: `vec::Vec`
+ --> crates/trust-runtime-core/src/vm/debug_map.rs:4:18
+  |
+4 | use alloc::{vec, vec::Vec};
+  |                  ^^^^^^^^
+
+For more information about this error, try `rustc --explain E0063`.
+error: could not compile `trust-runtime-core` (lib) due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `trust-runtime-core` (lib test) due to 4 previous errors
+[gate-progress state=finished phase=A4-core-i686 target=scena-rust-builder pid=2166797 elapsed=6.6s timeout=5400s command='env '"'"'RUSTFLAGS=-Dwarnings -C linker=/home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld -C link-self-contained=yes'"'"' cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features --target i686-unknown-linux-musl --lib --test bytecode_decode_resource_bounds --test bytecode_source_free --test preparation_profile --test runtime_core_compiler_free_load --test portable_process_image -- --nocapture --test-threads=1' status=101]

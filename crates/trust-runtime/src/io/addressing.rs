@@ -6,11 +6,7 @@ pub enum IoTarget {
     Reference(ValueRef),
 }
 
-#[derive(Debug, Clone)]
-struct IoEnumBinding {
-    type_name: SmolStr,
-    variants: Vec<(SmolStr, i64)>,
-}
+use trust_runtime_core::io_image::IoEnumBinding;
 
 #[derive(Debug, Clone, Default)]
 struct IoBindingCodec {

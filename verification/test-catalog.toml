@@ -23,7 +23,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_SUBRANGE_001.toml"
-case_file_digest = "sha256:b4fa0c17e297089eb1aca2c83e7a4b9b134a53865e37c2518340737dcf877466"
+case_file_digest = "sha256:7693c2d31c76b5a8fc537b50aa514fb572d080b4f806864c10c78f4ed2c40b23"
 last_reviewed = "2026-07-13"
 
 [[tests]]
@@ -454,7 +454,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml"
-case_file_digest = "sha256:6a9ce7a1a4885787c6d4da925abdb01f1ca8c4279da3c4d68665fd014b7544cc"
+case_file_digest = "sha256:4c00077f91fe7f5694ad150195eeb960c2e79c44f24b0c6829ea3695f9ec3a70"
 last_reviewed = "2026-07-13"
 
 [[tests]]
@@ -789,7 +789,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml"
-case_file_digest = "sha256:1824d7ca9494ef19a1d834cc7234f225492a7326255d10f96efc7429370ee63a"
+case_file_digest = "sha256:aaad595abb4834da9c77e47128fcb7fe146817a81dee1adfdc7b825a81782625"
 last_reviewed = "2026-07-09"
 
 [[tests]]
@@ -2176,7 +2176,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml"
-case_file_digest = "sha256:6a9ce7a1a4885787c6d4da925abdb01f1ca8c4279da3c4d68665fd014b7544cc"
+case_file_digest = "sha256:4c00077f91fe7f5694ad150195eeb960c2e79c44f24b0c6829ea3695f9ec3a70"
 mapping_behavior_refs = ["VM_SEAM_DECLARED_TYPE_001#behavior:0", "VM_SEAM_DECLARED_TYPE_001#behavior:1", "VM_SEAM_DECLARED_TYPE_001#behavior:10", "VM_SEAM_DECLARED_TYPE_001#behavior:11", "VM_SEAM_DECLARED_TYPE_001#behavior:12", "VM_SEAM_DECLARED_TYPE_001#behavior:13", "VM_SEAM_DECLARED_TYPE_001#behavior:2", "VM_SEAM_DECLARED_TYPE_001#behavior:3", "VM_SEAM_DECLARED_TYPE_001#behavior:4", "VM_SEAM_DECLARED_TYPE_001#behavior:5", "VM_SEAM_DECLARED_TYPE_001#behavior:6", "VM_SEAM_DECLARED_TYPE_001#behavior:7", "VM_SEAM_DECLARED_TYPE_001#behavior:8", "VM_SEAM_DECLARED_TYPE_001#behavior:9"]
 last_reviewed = "2026-07-17"
 
@@ -2203,7 +2203,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml"
-case_file_digest = "sha256:1824d7ca9494ef19a1d834cc7234f225492a7326255d10f96efc7429370ee63a"
+case_file_digest = "sha256:aaad595abb4834da9c77e47128fcb7fe146817a81dee1adfdc7b825a81782625"
 mapping_behavior_refs = ["VM_SEAM_STRING_BOUND_001#behavior:0", "VM_SEAM_STRING_BOUND_001#behavior:1", "VM_SEAM_STRING_BOUND_001#behavior:3", "VM_SEAM_STRING_BOUND_001#behavior:4"]
 last_reviewed = "2026-07-17"
 
@@ -2230,7 +2230,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_SUBRANGE_001.toml"
-case_file_digest = "sha256:b4fa0c17e297089eb1aca2c83e7a4b9b134a53865e37c2518340737dcf877466"
+case_file_digest = "sha256:7693c2d31c76b5a8fc537b50aa514fb572d080b4f806864c10c78f4ed2c40b23"
 mapping_behavior_refs = ["VM_SEAM_SUBRANGE_001#behavior:0", "VM_SEAM_SUBRANGE_001#behavior:1", "VM_SEAM_SUBRANGE_001#behavior:2", "VM_SEAM_SUBRANGE_001#behavior:3"]
 last_reviewed = "2026-07-17"
 

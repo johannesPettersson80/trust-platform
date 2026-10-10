@@ -1,0 +1,12 @@
+{
+  "FINISHED": "22ae8e30b62bff729ab6e5b955d907a5b47ecfa34e7ec5fd73bd6b9bec38a9c0",
+  "README.md": "e476dadf9f39d5528ad510960d3bf105943f763b83e54bcf08535a350dd6c82f",
+  "STARTED": "2373a1641f5ff22c8201ea4eecd4662c4416abe344dbb1dcc2da8f7af10fdc5a",
+  "artifact-sha256.json": "7cea457bc9286d2ba5dd67ac28841a79d7ddb40652cc45bda14886b176d79830",
+  "commands.txt": "97b119953b17cbf82319de2121dd2262eb7a0352ef3d50557dc351485a745a07",
+  "environment.txt": "d83c5e94ad766a253898ff429190db2528b3cec54bbfb82abf8ea58d2b5c6c22",
+  "external-root.json": "3ed190bf46daacd0aabf27bcc4349a1a74abe4f3f5dcfd62836e0ffec9015b04",
+  "formatted-source-manifest.json": "3a41ebb08ae3990a7754decd366af48632ec904bd59bacb1197f32f7e6be7681",
+  "ledger.tsv": "a9324517909ce16d1b7ba9272128dd46a19ce38cf324c026c0c94e1cb4e90125",
+  "result.txt": "2f64ac9ab7263df08effaf28cc044cb5151d845c12d9c82334094ca04850d1e6"
+}

@@ -1,0 +1,28 @@
+git diff --cached --quiet 
+bash /home/johannes/.cache/trust-portability-a4-setup-run-4/format-once.sh 
+cargo test --locked -p verification-cases --example refresh_portability_provenance -- --nocapture 
+bash scripts/refresh_a4_provenance.sh /home/johannes/.cache/trust-portability-a4-evidence/run-4/provenance 
+cargo run --locked -p trust-runtime --example portability_fixture 
+cmp /home/johannes/.cache/trust-portability-a4-evidence/run-4/original-program-v2.stbc crates/trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc 
+python3 /home/johannes/.cache/trust-portability-a4-setup-run-4/freeze-source.py 
+cargo test --locked --no-fail-fast -p trust-runtime-core --all-features -- --nocapture --test-threads=1 
+cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features -- --nocapture --test-threads=1 
+env RUSTFLAGS=-Dwarnings\ -C\ linker=/home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld\ -C\ link-self-contained=yes cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features --target i686-unknown-linux-musl --lib --test bytecode_decode_resource_bounds --test bytecode_source_free --test preparation_profile --test runtime_core_compiler_free_load --test portable_process_image -- --nocapture --test-threads=1 
+cargo check --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf 
+cargo check --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf 
+cargo tree --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf -e features\,no-dev 
+cargo tree --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf -e features\,no-dev 
+cargo test --locked --no-fail-fast -p trust-runtime --lib -- --nocapture --test-threads=1 
+cargo test --locked --no-fail-fast -p trust-runtime --test runtime_core_compiler_free_load --test bytecode_source_free_authoring --test source_free_assignment --test source_free_cycle_contract --test source_free_restart_graph --test source_free_readonly --test bytecode_container --test bytecode_metadata --test bytecode_decode_resource_bounds --test bytecode_sections --test bytecode_optional_sections --test bytecode_encoder --test bytecode_roundtrip --test bytecode_validation --test bytecode_verification_cases --test bytecode_vm_core --test bytecode_vm_differential --test phase11_seam_contract --test runtime_core_behavior_lock --test vm_resource_limit_cases --test runtime_restart --test runtime_restart_trace_cases --test vars_retain --test vars_access --test tasks --test tasks_fb --test scheduler_resource --test var_init --test init_fail_closed --test initializer_architecture --test user_type_runtime_contract --test struct_initializers --test pou_interface --test pou_oop --test portable_numeric_contract --test stdlib_core_contract --test stdlib_conversion_contract --test stdlib_helper_contract --test stdlib_fb_contract --test stdlib_split_locals --test stdlib_enum_validate --test stdlib_assertions --test stdlib_numeric --test stdlib_numeric_full --test stdlib_conv --test stdlib_conv_full --test stdlib_bit_full --test stdlib_select --test stdlib_select_full --test stdlib_string --test stdlib_string_full --test string_binding_bounds --test process_image --test io_address --test io_cycle --test io_struct_array --test io_wildcard --test io_fb_vars --test io_hierarchy --test io_driver --test api_smoke --test debug_control --test complete_program --test runtime_reliability -- --nocapture --test-threads=1 
+python3 /home/johannes/.cache/trust-portability-a4-setup-run-4/prepare-metadata-index.py 
+env -u GIT_INDEX_FILE python3 -m unittest scripts.verification.focused_mutation_runner_tests 
+env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-a4-evidence/run-4/review-index python3 -m unittest scripts.verification.mutation_program_contract_tests 
+cargo clippy --locked -p trust-runtime-core -p trust-runtime -p verification-cases --all-targets --all-features -- -D warnings 
+env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross 
+bash scripts/supply_chain_gate.sh 
+cargo run --locked -p xtask -- architecture-doctor --full-map 
+bash scripts/render_diagrams.sh 
+python3 scripts/check_diagram_drift.py 
+bash /home/johannes/.cache/trust-portability-a4-setup-run-4/format-once.sh --check 
+git diff --check 
+env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-a4-evidence/run-4/review-index python3 scripts/validate_verification_metadata.py 

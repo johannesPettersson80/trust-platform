@@ -3,7 +3,7 @@ use alloc::{boxed::Box, format, string::String, sync::Arc, vec::Vec};
 use crate::collections::OrderedMap as IndexMap;
 use smol_str::SmolStr;
 
-use crate::bytecode::{ConstEntry, ConstPool, StringTable, TypeData, TypeEntry, TypeTable};
+use crate::bytecode::{ConstPool, StringTable, TypeData, TypeEntry, TypeTable};
 use crate::error::RuntimeError;
 use crate::value::{
     ArrayValue, DateTimeValue, DateValue, Duration, EnumValue, LDateTimeValue, LDateValue,
@@ -11,14 +11,39 @@ use crate::value::{
 };
 
 /// Decode every bytecode constant-pool entry into runtime core values.
+#[cfg(any(feature = "hir", test))]
 pub fn decode_const_pool_entries(
     const_pool: &ConstPool,
     types: &TypeTable,
     strings: &StringTable,
 ) -> Result<Vec<Value>, RuntimeError> {
+    decode_const_pool_entries_charged(const_pool, types, strings, &mut |_, _| Ok(()))
+}
+
+pub(crate) fn decode_const_pool_entries_charged(
+    const_pool: &ConstPool,
+    types: &TypeTable,
+    strings: &StringTable,
+    charge: &mut impl FnMut(usize, usize) -> Result<(), RuntimeError>,
+) -> Result<Vec<Value>, RuntimeError> {
+    charge(
+        const_pool
+            .entries
+            .len()
+            .checked_mul(core::mem::size_of::<Value>())
+            .ok_or(RuntimeError::Overflow)?,
+        const_pool.entries.len(),
+    )?;
     let mut out = Vec::with_capacity(const_pool.entries.len());
     for entry in &const_pool.entries {
-        out.push(decode_const_value(entry, types, strings)?);
+        out.push(decode_const_payload(
+            types,
+            strings,
+            entry.type_id,
+            &entry.payload,
+            0,
+            charge,
+        )?);
     }
     Ok(out)
 }
@@ -36,23 +61,33 @@ fn decode_const_payload(
     type_id: u32,
     payload: &[u8],
     depth: u8,
+    charge: &mut impl FnMut(usize, usize) -> Result<(), RuntimeError>,
 ) -> Result<Value, RuntimeError> {
+    charge(core::mem::size_of::<Value>(), 1)?;
     if depth > crate::bytecode::BYTECODE_MAX_CONST_NESTING {
         return Err(invalid_bytecode("const type recursion overflow"));
     }
     let entry = const_type_entry(types, type_id)?;
     match &entry.data {
-        TypeData::Primitive { prim_id, .. } => decode_primitive_constant(*prim_id, payload),
+        TypeData::Primitive { prim_id, .. } => {
+            charge(
+                payload.len().checked_mul(4).ok_or(RuntimeError::Overflow)?,
+                payload.len(),
+            )?;
+            decode_primitive_constant(*prim_id, payload)
+        }
         TypeData::Enum { variants, .. } => {
             let bytes = read_exact::<8>(payload, "enum const payload")?;
             let numeric_value = i64::from_le_bytes(bytes);
             let enum_name = string_at(strings, entry.name_idx, "enum const type name")?;
+            charge(0, variants.len())?;
             let variant = variants
                 .iter()
                 .find(|variant| variant.value == numeric_value)
                 .ok_or_else(|| invalid_bytecode("enum const variant value missing"))?;
             let variant_name =
                 string_at(strings, Some(variant.name_idx), "enum const variant name")?;
+            charge(core::mem::size_of::<EnumValue>(), 1)?;
             Ok(Value::Enum(Box::new(EnumValue::from_canonical_parts(
                 enum_name,
                 variant_name,
@@ -60,10 +95,10 @@ fn decode_const_payload(
             ))))
         }
         TypeData::Alias { target_type_id } => {
-            decode_const_payload(types, strings, *target_type_id, payload, depth + 1)
+            decode_const_payload(types, strings, *target_type_id, payload, depth + 1, charge)
         }
         TypeData::Subrange { base_type_id, .. } => {
-            decode_const_payload(types, strings, *base_type_id, payload, depth + 1)
+            decode_const_payload(types, strings, *base_type_id, payload, depth + 1, charge)
         }
         TypeData::Array { elem_type_id, dims } => {
             let mut reader = ConstPayloadReader::new(payload);
@@ -74,6 +109,16 @@ fn decode_const_payload(
                     "ARRAY const element count mismatch: expected {expected}, got {count}"
                 )));
             }
+            charge(
+                count
+                    .checked_mul(core::mem::size_of::<Value>())
+                    .and_then(|n| {
+                        n.checked_add(dims.len().checked_mul(core::mem::size_of::<(i64, i64)>())?)
+                    })
+                    .and_then(|n| n.checked_add(core::mem::size_of::<ArrayValue>()))
+                    .ok_or(RuntimeError::Overflow)?,
+                count,
+            )?;
             let mut elements = Vec::with_capacity(count);
             for _ in 0..count {
                 let child = reader.read_child("ARRAY const element")?;
@@ -83,6 +128,7 @@ fn decode_const_payload(
                     *elem_type_id,
                     child,
                     depth + 1,
+                    charge,
                 )?);
             }
             reader.finish("ARRAY const payload")?;
@@ -100,11 +146,24 @@ fn decode_const_payload(
                     fields.len()
                 )));
             }
+            charge(
+                fields
+                    .len()
+                    .checked_mul(
+                        4 * (core::mem::size_of::<Value>()
+                            + core::mem::size_of::<SmolStr>()
+                            + core::mem::size_of::<usize>()),
+                    )
+                    .and_then(|n| n.checked_add(core::mem::size_of::<StructValue>()))
+                    .ok_or(RuntimeError::Overflow)?,
+                fields.len(),
+            )?;
             let mut values = IndexMap::with_capacity_and_hasher(fields.len(), Default::default());
             for field in fields {
                 let name = string_at(strings, Some(field.name_idx), "const field name")?;
                 let child = reader.read_child("struct/union const field")?;
-                let value = decode_const_payload(types, strings, field.type_id, child, depth + 1)?;
+                let value =
+                    decode_const_payload(types, strings, field.type_id, child, depth + 1, charge)?;
                 values.insert(name, value);
             }
             reader.finish("struct/union const payload")?;
@@ -128,14 +187,6 @@ fn decode_const_payload(
             "unsupported const type kind at index {type_id}"
         ))),
     }
-}
-
-fn decode_const_value(
-    entry: &ConstEntry,
-    types: &TypeTable,
-    strings: &StringTable,
-) -> Result<Value, RuntimeError> {
-    decode_const_payload(types, strings, entry.type_id, &entry.payload, 0)
 }
 
 fn string_at(
@@ -343,4 +394,67 @@ fn read_exact<const N: usize>(payload: &[u8], kind: &str) -> Result<[u8; N], Run
 
 fn invalid_bytecode(message: impl Into<SmolStr>) -> RuntimeError {
     RuntimeError::bytecode(crate::error::StableErrorCode::VmBytecodeDecode, message)
+}
+
+#[cfg(test)]
+mod preparation_budget_tests {
+    use super::*;
+    use crate::bytecode::{ConstEntry, TypeKind};
+    use alloc::vec;
+    #[test]
+    fn array_reservation_is_charged_before_child_payload_expansion() {
+        let types = TypeTable {
+            offsets: vec![],
+            entries: vec![
+                TypeEntry {
+                    kind: TypeKind::Primitive,
+                    name_idx: None,
+                    data: TypeData::Primitive {
+                        prim_id: 7,
+                        max_length: 0,
+                    },
+                },
+                TypeEntry {
+                    kind: TypeKind::Array,
+                    name_idx: None,
+                    data: TypeData::Array {
+                        elem_type_id: 0,
+                        dims: vec![(1, 1024)],
+                    },
+                },
+            ],
+        };
+        // The declared count is valid, but children are deliberately absent.
+        // A rejected reservation must win before the decoder visits a child.
+        let constants = ConstPool {
+            entries: vec![ConstEntry {
+                type_id: 1,
+                payload: 1024u32.to_le_bytes().to_vec(),
+            }],
+        };
+        let mut charges = Vec::new();
+        let error = decode_const_pool_entries_charged(
+            &constants,
+            &types,
+            &StringTable::default(),
+            &mut |bytes, work| {
+                charges.push((bytes, work));
+                if bytes > 1024 {
+                    Err(crate::vm::VmTrap::BudgetExceeded.into_runtime_error())
+                } else {
+                    Ok(())
+                }
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            error,
+            crate::vm::VmTrap::BudgetExceeded.into_runtime_error()
+        );
+        assert_eq!(
+            charges.len(),
+            3,
+            "pool, root, then complete array reservation"
+        );
+    }
 }

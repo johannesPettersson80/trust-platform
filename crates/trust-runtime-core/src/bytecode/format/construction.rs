@@ -455,3 +455,40 @@ impl PartialAccessSpec {
         (Self::SPECS[kind], index as u32)
     }
 }
+
+impl StorageDeclaration {
+    /// Whether a warm restart preserves this declaration (RETAIN or PERSISTENT).
+    pub fn is_retained(&self) -> bool {
+        matches!(self.retain, 1 | 3)
+    }
+    /// Whether this record owns a physical slot rather than an external alias.
+    pub fn owns_storage(&self) -> bool {
+        self.role != StorageRole::External
+    }
+    /// Whether writes after initialization are forbidden.
+    pub fn is_constant(&self) -> bool {
+        self.flags & 1 != 0
+    }
+    /// Whether an edge-phase record represents a rising edge.
+    pub fn is_rising_edge(&self) -> bool {
+        self.flags & 16 != 0
+    }
+}
+impl InitializerEntry {
+    /// Whether this record commits a declaration/configuration action.
+    pub fn is_action(&self) -> bool {
+        self.body_kind == InitializerBodyKind::Action
+    }
+}
+impl ConstructionRoot {
+    /// Whether this root is the inherited parent of another instance.
+    pub fn is_inheritance_parent(&self) -> bool {
+        self.flags & 1 != 0
+    }
+}
+impl AccessBindingEntry {
+    /// Whether engineering writes are permitted through this alias.
+    pub fn is_writable(&self) -> bool {
+        self.flags & 1 != 0
+    }
+}

@@ -20,8 +20,15 @@ package "Opt-in STBC 2.0 authoring (A3)" as sourceFreeAuthoring {
     note bottom of sourceFreeArtifact
         Portable format and staging-write validation; no HIR in the artifact.
         Initial and after-restart static contexts remain distinct.
-        Hosted execution rejects 2.0 until A4's shared dispatcher
-        implements typed helpers and runtime lifetime/visibility checks.
+        Legacy Runtime import stays 1.x; PreparedModule admits 2.0.
+        RuntimeState executes typed helpers and lifetime/visibility checks.
+        Prepared indexes and one immutable native registry are built at admission.
+        Mutable state separates lifetimes, construction, images and resource accounting.
+        Stores use indexed declarations; output groups journal destination slots only.
+        I/O stages bound values; publication work follows bindings, not image size.
+        One execution allowance covers instructions and helper work across nested calls.
+        Physical deadlines are polled at boundaries and a bounded work stride.
+        Borrowed reference checks do not allocate reference paths.
     end note
 }
 
@@ -30,7 +37,7 @@ component "trust-runtime-core::numeric::math\nlocked libm primitives\nshared by 
 note right of coreMath
     A1 preserves promotion, narrowing and fault policy.
     Core value storage uses a portable ordered-map alias.
-    Full source-free engine extraction remains A4.
+    The shared core dispatcher serves hosted and source-free adapters.
 end note
 
 package "Production Cycle Entry" as entryPkg #LightBlue {
@@ -45,7 +52,7 @@ package "Production Cycle Entry" as entryPkg #LightBlue {
 package "Lazy VM Module Materialization" as modulePkg #LightYellow {
     artifact "BytecodeModule::from_runtime*\n(runtime -> STBC sections)" as bytecodeBuild
     component "trust-runtime-core::bytecode\nBytecodeModule::decode() + validated()\n(shared decode + bounded analysis)" as bytecodeGuard
-    component "VmModule::from_validated()\n(runtime/vm/mod.rs)" as vmModule
+    component "VmModule::from_validated()\n(trust-runtime-core/vm/module.rs)" as vmModule
     component "VmModule cached on Runtime\nstrings, refs, consts, pou tables,\nnative symbol specs, debug map" as vmModuleState
 
     ensureVm --> bytecodeBuild : when vm_module missing
@@ -54,7 +61,8 @@ package "Lazy VM Module Materialization" as modulePkg #LightYellow {
     note left of bytecodeGuard
         Core owns container, byte serialization, CRC and metadata.
         Host compatibility view borrows sections without cloning.
-        Compiler/HIR lowering and executable state remain hosted.
+        Compiler/HIR lowering remains hosted.
+        Source-free executable state is owned by core RuntimeState.
         Real modules share compact decoded instructions and stack effects.
         Module context builds sorted lookup indexes once; ranges are intervals.
         Block-entry stack states use fallible bounded scratch storage.
@@ -80,7 +88,7 @@ package "Program / FB Execution Inside VM" as vmExecPkg #LightCyan {
     component "vm::dispatch::execute_program_by_name() /\nexecute_function_block_ref()" as vmEntry
     component "try_execute_pou_with_register_ir_with_locals()\n(register path + lowering cache)" as regTry
     component "execute_register_program()\n(register executor + tier1)" as regExec
-    component "execute_pou_stack_with_locals()\n(stack-bytecode execution path)" as stackExec
+    component "trust-runtime-core::vm::dispatch\nexecute_pou_stack_with_locals()" as stackExec
     component "instruction budget\n(original bytecode costs, shared by nested calls)" as instructionBudget
     component "debug_map.rs\n(pc -> source / symbol lookup)" as debugMap
 
@@ -113,12 +121,12 @@ note right of instructionBudget
     existing execution-timeout category.
 end note
 
-package "Hot Runtime Bridges" as bridgePkg #Lavender {
+package "Shared Core Runtime Bridges" as bridgePkg #Lavender {
     component "call.rs\nCALL_NATIVE dispatch +\nargument binding + output copy-back" as callBridge
     component "dispatch_refs.rs\nref / deref / dynamic field-index bridge" as refBridge
     component "reference_attempt.rs\n?= live type/interface compatibility" as attemptBridge
     component "frames.rs + stack.rs\nframe stack + operand stacks\n(pooled execution buffers)" as vmStacks
-    component "VariableStorage\n(memory.rs)" as storage
+    component "VariableStorage\n(trust-runtime-core/memory.rs)" as storage
 
     regExec --> callBridge : CALL_NATIVE
     stackExec --> callBridge : CALL_NATIVE
@@ -148,6 +156,30 @@ note bottom of refBridge
     - instance-field resolution
     - storage read/write cloning pressure
 end note
+
+package "Source-free execution (trust-runtime-core)" as portableEngine #LightGreen {
+    component "PreparedModule\nvalidated artifact + profile admission\nimmutable VM and construction metadata" as prepared
+    component "RuntimeState\nowned storage + process images\nnominal-deadline tasks + latched fault" as portableState
+    component "initialization/\nTYPE_TABLE values and STBC initializer bodies\nstaged writes + recursive lifetime checks" as portableInit
+    interface "ExecutionServices\nphysical deadline, UTC, retain persistence" as services
+    component "Shared stdlib/\nscalar functions + storage-backed timers/FBs" as portableStdlib
+    sourceFreeArtifact --> prepared
+    prepared --> bytecodeGuard
+    prepared --> portableState : instantiate
+    portableState --> portableInit : construction / frame entry / restart
+    portableInit --> stackExec : same dispatcher and shared fuel
+    portableState --> stackExec : scheduled + background POUs
+    portableState --> storage
+    portableState --> services
+    callBridge --> portableStdlib
+    portableState --> instructionBudget
+    note bottom of portableState
+        Single-owner execution; input sample, due tasks, background,
+        retain checkpoint, then output publication.
+        A failed restart never publishes its candidate state.
+        This diagram is architecture, not hardware qualification.
+    end note
+}
 
 package "Stable Machine Error Boundary" as errorPkg #HoneyDew {
     component "StableErrorCode\n(trust-runtime-core/error_code.rs)" as stableCode
@@ -181,7 +213,7 @@ package "Helper Evaluation\n(non-cycle helper flows only)" as helperPkg #MistyRo
     component "helper_eval::storage_expr\ndebug/config/init reads" as storageEval
     component "helper_eval::storage_lvalue\ndebug pending writes" as storageWrite
     component "harness::initializer\nstartup/default materialization" as initService
-    component "runtime/vm/local_init.rs\nVM local/static initializer plans" as vmLocalInit
+    component "runtime/vm/local_init.rs\nlegacy 1.x HIR local/static initializer plans" as vmLocalInit
     component "DebugRuntimeContext\n(debug/hook.rs)" as debugCtx
 
     runtimeEval --> storageEval

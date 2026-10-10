@@ -82,17 +82,14 @@ impl BytecodeEncoder<'_> {
                 .function_id(&function.name)
                 .ok_or_else(|| BytecodeError::InvalidSection("function owner missing".into()))?;
             for local in &function.static_locals {
+                // FB member overrides use the same staged explicit actions as
+                // other declarations, including first invocation after restart.
                 if local.initializer.is_some()
-                    && (crate::harness::function_block_type_name(
-                        local.type_id,
-                        self.runtime.registry(),
-                    )
-                    .is_some()
-                        || crate::harness::class_type_name(local.type_id, self.runtime.registry())
-                            .is_some())
+                    && crate::harness::class_type_name(local.type_id, self.runtime.registry())
+                        .is_some()
                 {
                     return Err(BytecodeError::InvalidSection(
-                        "function VAR_STAT instances cannot have initializers".into(),
+                        "function VAR_STAT class instances cannot have initializers".into(),
                     ));
                 }
                 let name = crate::program_model::static_storage_name(&function.name, &local.name);

@@ -122,7 +122,7 @@ fn execute_single_compiled_tier1_instruction(
     };
     let mut frames = super::FrameStack::default();
     let mut native_call_stack = super::OperandStack::default();
-    let mut budget = 16;
+    runtime.vm_execution_budget.reset(16);
     let Tier1BlockExecutionOutcome::Executed(outcome) = execute_tier1_compiled_block(
         runtime,
         module,
@@ -132,7 +132,6 @@ fn execute_single_compiled_tier1_instruction(
         registers,
         &mut native_call_stack,
         &compiled,
-        &mut budget,
         0,
     )?;
     Ok(outcome)
@@ -228,29 +227,31 @@ fn tier1_compiler_accepts_load_super_dynamic_block() {
     );
     let mut program_ids = HashMap::new();
     program_ids.insert(SmolStr::new("MAIN"), pou_id);
-    let module = VmModule {
-        code,
-        strings: vec![SmolStr::new("COUNT")],
-        types: TypeTable::default(),
-        refs: vec![VmRef::Global {
-            offset: 0,
-            path: RefPath::new(),
-        }],
-        consts: Vec::new(),
-        pou_by_id,
-        program_ids,
-        function_ids: HashMap::new(),
-        function_block_ids: HashMap::new(),
-        class_ids: HashMap::new(),
-        parent_pou_ids: HashMap::new(),
-        interface_type_ids_by_pou: HashMap::new(),
-        native_symbol_specs: Vec::new(),
-        pou_params: HashMap::new(),
-        pou_has_return_slot: HashSet::new(),
-        method_table_by_owner: HashMap::new(),
-        ref_types: HashMap::new(),
-        debug_map: super::super::debug_map::VmDebugMap::default(),
-        instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
+    let module = {
+        let mut legacy = VmModule::legacy(
+            crate::bytecode::BytecodeVersion::LEGACY,
+            code,
+            vec![SmolStr::new("COUNT")],
+            TypeTable::default(),
+            vec![VmRef::Global {
+                offset: 0,
+                path: RefPath::new(),
+            }],
+            Vec::new(),
+        )
+        .expect("legacy fixture metadata");
+        let mut entries = pou_by_id;
+        for (_, id) in program_ids {
+            legacy.define_legacy_pou(
+                id,
+                crate::bytecode::PouKind::Program,
+                entries.remove(&id).expect("fixture POU"),
+                Vec::new(),
+                false,
+            );
+        }
+        legacy.set_legacy_instruction_budget(super::super::DEFAULT_INSTRUCTION_BUDGET);
+        legacy
     };
 
     let lowered = lower_pou_to_register_ir(&module, pou_id).expect("lower register ir");
@@ -303,29 +304,31 @@ fn register_executor_tier1_specialized_executor_executes_load_super_block() {
     );
     let mut program_ids = HashMap::new();
     program_ids.insert(SmolStr::new("MAIN"), pou_id);
-    let module = VmModule {
-        code,
-        strings: vec![SmolStr::new("COUNT")],
-        types: TypeTable::default(),
-        refs: vec![VmRef::Global {
-            offset: 0,
-            path: RefPath::new(),
-        }],
-        consts: Vec::new(),
-        pou_by_id,
-        program_ids,
-        function_ids: HashMap::new(),
-        function_block_ids: HashMap::new(),
-        class_ids: HashMap::new(),
-        parent_pou_ids: HashMap::new(),
-        interface_type_ids_by_pou: HashMap::new(),
-        native_symbol_specs: Vec::new(),
-        pou_params: HashMap::new(),
-        pou_has_return_slot: HashSet::new(),
-        method_table_by_owner: HashMap::new(),
-        ref_types: HashMap::new(),
-        debug_map: super::super::debug_map::VmDebugMap::default(),
-        instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
+    let module = {
+        let mut legacy = VmModule::legacy(
+            crate::bytecode::BytecodeVersion::LEGACY,
+            code,
+            vec![SmolStr::new("COUNT")],
+            TypeTable::default(),
+            vec![VmRef::Global {
+                offset: 0,
+                path: RefPath::new(),
+            }],
+            Vec::new(),
+        )
+        .expect("legacy fixture metadata");
+        let mut entries = pou_by_id;
+        for (_, id) in program_ids {
+            legacy.define_legacy_pou(
+                id,
+                crate::bytecode::PouKind::Program,
+                entries.remove(&id).expect("fixture POU"),
+                Vec::new(),
+                false,
+            );
+        }
+        legacy.set_legacy_instruction_budget(super::super::DEFAULT_INSTRUCTION_BUDGET);
+        legacy
     };
 
     let mut runtime = Runtime::new();

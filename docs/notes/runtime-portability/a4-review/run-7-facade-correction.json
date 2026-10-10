@@ -1,0 +1,33 @@
+{
+  "status": "Authored correction for independent review; no validation executed",
+  "aggregate_sha256": "bd7e249c8cc4f8c97d7009283a1567beed26e7b9de59bd2e0386838b9e915b27",
+  "framing": "sorted relative path NUL raw content NUL",
+  "records": [
+    {
+      "path": "crates/trust-runtime-core/src/vm/budget.rs",
+      "sha256": "84bc0d39c447ea0e53319f774454ba3dbd74396bd2a762162207587ee7b58563",
+      "bytes": 2965
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/call/context.rs",
+      "sha256": "d778cd33ceb19d5e34d56b4b02eea7a5c825a3f98fa49a32e6885c70bfe70ed2",
+      "bytes": 5113
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/mod.rs",
+      "sha256": "3d763268950ca7afc745002455886b16e8bf804f322fabf94b7df6c1eb431d0b",
+      "bytes": 21552
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/module.rs",
+      "sha256": "e1c1f29a236ad0ef74a42848ea2b333b10d1b463dec0ea11b12ca35e51ba23a2",
+      "bytes": 22318
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/budget.rs",
+      "sha256": "2c0a770b822056032863dff03cd95b6c500265d984740b4a82c1c75cff0e6d8c",
+      "bytes": 13045
+    }
+  ],
+  "behavior": "Hosted-only retained name/debug metadata and register-tier profiling gated by hir; transient function-name resolution and raw debug validation remain universal; native portable budget/debug unit fixtures remain compiled."
+}

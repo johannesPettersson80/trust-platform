@@ -231,7 +231,7 @@ pub(in crate::runtime::vm::register_ir) fn decode_pou(
     let mut decoded = Vec::new();
     let mut pc = code_start;
     while pc < code_end {
-        let opcode = module.code.get(pc).copied().ok_or_else(|| {
+        let opcode = module.code().get(pc).copied().ok_or_else(|| {
             invalid_bytecode("register-ir decode instruction fetch out of bounds")
         })?;
         let operand_len = opcode_operand_len(opcode).ok_or_else(|| {
@@ -249,7 +249,7 @@ pub(in crate::runtime::vm::register_ir) fn decode_pou(
             )));
         }
         let mut operands = [0_u8; MAX_INLINE_OPERAND_BYTES];
-        operands[..operand_len].copy_from_slice(&module.code[(pc + 1)..next_pc]);
+        operands[..operand_len].copy_from_slice(&module.code()[(pc + 1)..next_pc]);
         decoded.push(DecodedInstr {
             pc,
             next_pc,

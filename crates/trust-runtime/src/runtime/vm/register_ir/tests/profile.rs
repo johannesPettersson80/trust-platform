@@ -115,26 +115,28 @@ fn register_executor_profile_records_dynamic_ref_and_instance_lookup_counters() 
             path: RefPath::new(),
         },
     ];
-    let module = VmModule {
-        code,
-        strings: vec![SmolStr::new("VALUE"), SmolStr::new("ACC")],
-        types: TypeTable::default(),
-        refs,
-        consts: vec![Value::DInt(11), Value::DInt(13)],
-        pou_by_id,
-        program_ids,
-        function_ids: HashMap::new(),
-        function_block_ids: HashMap::new(),
-        class_ids: HashMap::new(),
-        parent_pou_ids: HashMap::new(),
-        interface_type_ids_by_pou: HashMap::new(),
-        native_symbol_specs: Vec::new(),
-        pou_params: HashMap::new(),
-        pou_has_return_slot: HashSet::new(),
-        method_table_by_owner: HashMap::new(),
-        ref_types: HashMap::new(),
-        debug_map: super::super::debug_map::VmDebugMap::default(),
-        instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
+    let module = {
+        let mut legacy = VmModule::legacy(
+            crate::bytecode::BytecodeVersion::LEGACY,
+            code,
+            vec![SmolStr::new("VALUE"), SmolStr::new("ACC")],
+            TypeTable::default(),
+            refs,
+            vec![Value::DInt(11), Value::DInt(13)],
+        )
+        .expect("legacy fixture metadata");
+        let mut entries = pou_by_id;
+        for (_, id) in program_ids {
+            legacy.define_legacy_pou(
+                id,
+                crate::bytecode::PouKind::Program,
+                entries.remove(&id).expect("fixture POU"),
+                Vec::new(),
+                false,
+            );
+        }
+        legacy.set_legacy_instruction_budget(super::super::DEFAULT_INSTRUCTION_BUDGET);
+        legacy
     };
 
     let mut runtime = Runtime::new();

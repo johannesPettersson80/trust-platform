@@ -48,7 +48,7 @@ impl BytecodeEncoder<'_> {
             if self.is_stdlib_fb(&fb.name) {
                 let kind = crate::stdlib::fbs::builtin_kind(&fb.name).ok_or_else(missing_owner)?;
                 for (name, ty) in crate::stdlib::fbs::builtin_state_layout(kind) {
-                    self.add_native_state(owner, name, *ty)?;
+                    self.add_native_state(owner, name, ty)?;
                 }
             }
         }

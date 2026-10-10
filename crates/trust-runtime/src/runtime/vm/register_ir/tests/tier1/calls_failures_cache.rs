@@ -24,9 +24,10 @@ fn tier1_compiler_accepts_call_native_function_blocks() {
         "#;
 
     let bytecode = bytecode_module_from_source(source).expect("compile bytecode");
-    let vm_module = VmModule::from_bytecode(&bytecode).expect("decode vm module");
+    let vm_module =
+        crate::runtime::vm::materialize_test_module(&bytecode).expect("decode vm module");
     let main_pou_id = vm_module
-        .program_ids
+        .program_ids()
         .get(&SmolStr::new("MAIN"))
         .copied()
         .expect("main pou id");
@@ -302,4 +303,3 @@ fn register_executor_tier1_specialized_executor_cache_hits_reuse_compiled_block_
 
     assert!(std::sync::Arc::ptr_eq(&compiled, &fetched));
 }
-

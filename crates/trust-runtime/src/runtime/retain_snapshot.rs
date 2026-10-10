@@ -18,7 +18,9 @@ use crate::value::{
 
 use super::core::Runtime;
 use super::restart::PreparedRestart;
-use super::types::{RetainPolicy, RetainSnapshot};
+#[cfg(test)]
+use super::types::RetainPolicy;
+use super::types::RetainSnapshot;
 
 pub(super) struct PreparedRetainSnapshot {
     storage: VariableStorage,
@@ -679,18 +681,7 @@ fn retain_value_error(error: crate::value::ValueConstructionError) -> error::Run
     error::RuntimeError::RetainStore(format!("invalid retained value: {error}").into())
 }
 
-pub(super) fn retain_on_warm(policy: RetainPolicy) -> bool {
-    matches!(policy, RetainPolicy::Retain | RetainPolicy::Persistent)
-}
-
-pub(super) fn value_is_retainable(value: &Value) -> bool {
-    match value {
-        Value::Array(array) => array.elements().iter().all(value_is_retainable),
-        Value::Struct(value) => value.fields().values().all(value_is_retainable),
-        Value::Reference(_) | Value::Instance(_) => false,
-        _ => true,
-    }
-}
+pub(super) use trust_runtime_core::retain::{retain_on_warm, value_is_retainable};
 
 #[cfg(test)]
 mod contract_tests {

@@ -18,10 +18,17 @@ package "Opt-in STBC 2.0 authoring (A3)" as sourceFreeAuthoring {
     loweredApplication --> constructionEncoder
     constructionEncoder --> sourceFreeArtifact
     note bottom of sourceFreeArtifact
-        Full portable byte-level validation; no HIR in the artifact.
+        Portable format and staging-write validation; no HIR in the artifact.
         Initial and after-restart static contexts remain distinct.
-        Hosted execution rejects 2.0 until A4's shared dispatcher
-        implements typed helpers and runtime lifetime/visibility checks.
+        Legacy Runtime import stays 1.x; PreparedModule admits 2.0.
+        RuntimeState executes typed helpers and lifetime/visibility checks.
+        Prepared indexes and one immutable native registry are built at admission.
+        Mutable state separates lifetimes, construction, images and resource accounting.
+        Stores use indexed declarations; output groups journal destination slots only.
+        I/O stages bound values; publication work follows bindings, not image size.
+        One execution allowance covers instructions and helper work across nested calls.
+        Physical deadlines are polled at boundaries and a bounded work stride.
+        Borrowed reference checks do not allocate reference paths.
     end note
 }
 
@@ -838,14 +845,15 @@ note right of bcModule
     Hosted constructors delegate through a borrowed view.
     **Bytecode Constants:**
     MAGIC: [u8; 4] = "STBC"
-    VERSION: 1.1
+    VERSIONS: legacy 1.1 / source-free 2.0
     HEADER_SIZE: 24 bytes
     FLAG_CRC32: 0x0001
 end note
 
 note right of bytecodePkg
-    Bytecode is currently a container
-    + metadata format (not a VM).
+    Core validation admits bytecode structure.
+    PreparedModule adds source-free profile admission;
+    RuntimeState executes through the shared VM.
 end note
 
 package "Bytecode Apply" as bcApply #Wheat {
@@ -962,6 +970,28 @@ package "I/O Interface" as ioPkg #LightGray {
         until the runtime rebuilds the driver
         instead of retrying allocation in
         scan-cycle retry windows.
+    end note
+}
+
+package "Portable source-free core" as sourceFreeCore #LightGreen {
+    component "PreparedModule\nSTBC 2.0 admission + immutable metadata" as preparedCore
+    component "RuntimeState\nresource cycle + staged restart" as stateCore
+    component "Shared dispatcher / calls / references\nordinary POUs and initializer bodies" as dispatchCore
+    component "TYPE_TABLE construction\nframe identities + assignment/lifetime checks" as constructionCore
+    interface "ExecutionServices\ndeadline, UTC and retain adapter" as platformServices
+    sourceFreeArtifact --> preparedCore
+    preparedCore --> stateCore
+    stateCore --> dispatchCore
+    stateCore --> constructionCore
+    constructionCore --> dispatchCore
+    stateCore --> platformServices
+    stateCore --> varStorage
+    stateCore --> stdlibPkg
+    runtime --> dispatchCore : hosted context adapter / stack fallback
+    note bottom of stateCore
+        VariableStorage and storage-backed stdlib live in core.
+        Host wrappers retain debugger, optimized tier and legacy HIR init.
+        Physical board execution and memory/timing evidence remain Scope B.
     end note
 }
 

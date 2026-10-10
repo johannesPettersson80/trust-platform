@@ -1,4 +1,7 @@
-use trust_hir::types::{TypeRegistry, POINTER_REFERENCE_HANDLE_SIZE_BYTES};
+#[cfg(feature = "hir")]
+use trust_hir::types::TypeRegistry;
+const POINTER_REFERENCE_HANDLE_SIZE_BYTES: u64 = core::mem::size_of::<usize>() as u64;
+#[cfg(feature = "hir")]
 use trust_hir::{Type, TypeId};
 
 use crate::value::{string_element_count, Value};
@@ -10,6 +13,7 @@ pub enum SizeOfError {
     Overflow,
 }
 
+#[cfg(feature = "hir")]
 pub fn size_of_type(type_id: TypeId, registry: &TypeRegistry) -> Result<u64, SizeOfError> {
     let ty = registry.get(type_id).ok_or(SizeOfError::UnknownType)?;
     match ty {
@@ -60,7 +64,47 @@ pub fn size_of_type(type_id: TypeId, registry: &TypeRegistry) -> Result<u64, Siz
     }
 }
 
+#[cfg(feature = "hir")]
 pub fn size_of_value(registry: &TypeRegistry, value: &Value) -> Result<u64, SizeOfError> {
+    size_of_value_with(
+        value,
+        &mut |name| {
+            let type_id = registry.lookup(name).ok_or(SizeOfError::UnsupportedType)?;
+            size_of_type(type_id, registry)
+        },
+        &mut |_| Ok(()),
+    )
+}
+
+/// Shared runtime-value traversal; enum storage size comes from immutable type metadata.
+/// The visitor permits the portable execution context to charge traversal work.
+pub fn size_of_value_with<E: From<SizeOfError>>(
+    value: &Value,
+    enum_size: &mut impl FnMut(&str) -> Result<u64, E>,
+    visit: &mut impl FnMut(usize) -> Result<(), E>,
+) -> Result<u64, E> {
+    size_of_value_inner(value, enum_size, visit, 0)
+}
+
+impl From<SizeOfError> for crate::error::RuntimeError {
+    fn from(error: SizeOfError) -> Self {
+        match error {
+            SizeOfError::Overflow => Self::Overflow,
+            SizeOfError::UnknownType | SizeOfError::UnsupportedType => Self::TypeMismatch,
+        }
+    }
+}
+
+fn size_of_value_inner<E: From<SizeOfError>>(
+    value: &Value,
+    enum_size: &mut impl FnMut(&str) -> Result<u64, E>,
+    visit: &mut impl FnMut(usize) -> Result<(), E>,
+    depth: usize,
+) -> Result<u64, E> {
+    if depth >= 128 {
+        return Err(SizeOfError::UnsupportedType.into());
+    }
+    visit(1)?;
     let size = match value {
         Value::Bool(_) => 1,
         Value::SInt(_) | Value::USInt(_) | Value::Byte(_) | Value::Char(_) => 1,
@@ -69,34 +113,36 @@ pub fn size_of_value(registry: &TypeRegistry, value: &Value) -> Result<u64, Size
         Value::LInt(_) | Value::ULInt(_) | Value::LWord(_) | Value::LReal(_) => 8,
         Value::Time(_) | Value::Date(_) | Value::Tod(_) | Value::Dt(_) => 4,
         Value::LTime(_) | Value::LDate(_) | Value::LTod(_) | Value::Ldt(_) => 8,
-        Value::String(value) => string_element_count(value.as_str()) as u64,
-        Value::WString(value) => (string_element_count(value.as_str()) as u64) * 2,
+        Value::String(value) => {
+            visit(value.len())?;
+            string_element_count(value.as_str()) as u64
+        }
+        Value::WString(value) => {
+            visit(value.len())?;
+            (string_element_count(value.as_str()) as u64) * 2
+        }
         Value::Array(array) => {
             let element_size = match array.elements().first() {
-                Some(value) => size_of_value(registry, value)?,
+                Some(value) => size_of_value_inner(value, enum_size, visit, depth + 1)?,
                 None => 0,
             };
+            visit(array.dimensions().len())?;
             let len = array_len_bits(array.dimensions()).ok_or(SizeOfError::UnsupportedType)?;
             element_size.checked_mul(len).ok_or(SizeOfError::Overflow)?
         }
         Value::Struct(struct_value) => {
             let mut total = 0u64;
             for value in struct_value.fields().values() {
-                let size = size_of_value(registry, value)?;
+                let size = size_of_value_inner(value, enum_size, visit, depth + 1)?;
                 total = total.checked_add(size).ok_or(SizeOfError::Overflow)?;
             }
             total
         }
-        Value::Enum(enum_value) => {
-            let type_id = registry
-                .lookup(enum_value.type_name().as_str())
-                .ok_or(SizeOfError::UnsupportedType)?;
-            size_of_type(type_id, registry)?
-        }
+        Value::Enum(enum_value) => enum_size(enum_value.type_name().as_str())?,
         Value::Reference(_) => POINTER_REFERENCE_HANDLE_SIZE_BYTES,
         Value::Instance(_) => u64::try_from(core::mem::size_of::<crate::memory::InstanceId>())
             .map_err(|_| SizeOfError::Overflow)?,
-        Value::Null => return Err(SizeOfError::UnsupportedType),
+        Value::Null => return Err(SizeOfError::UnsupportedType.into()),
     };
     Ok(size)
 }
@@ -113,7 +159,7 @@ fn array_len_bits(dimensions: &[(i64, i64)]) -> Option<u64> {
     u64::try_from(total).ok()
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "hir"))]
 mod tests {
     use super::{array_len_bits, size_of_type, size_of_value, SizeOfError};
     use crate::value::{ArrayValue, StructValue, Value};
@@ -122,6 +168,7 @@ mod tests {
     use trust_hir::types::{
         StructField, TypeRegistry, UnionVariant, POINTER_REFERENCE_HANDLE_SIZE_BYTES,
     };
+    #[cfg(feature = "hir")]
     use trust_hir::{Type, TypeId};
 
     #[test]

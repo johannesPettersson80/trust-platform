@@ -1,0 +1,40 @@
+[gate-progress state=started phase=A4-provenance-helper-tests target=scena-rust-builder pid=2145491 elapsed=0.0s timeout=5400s command='cargo test --locked -p verification-cases --example refresh_portability_provenance -- --nocapture']
+   Compiling proc-macro2 v1.0.106
+   Compiling version_check v0.9.5
+   Compiling serde_core v1.0.228
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling typenum v1.20.0
+   Compiling zmij v1.0.21
+   Compiling generic-array v0.14.7
+   Compiling serde_json v1.0.149
+   Compiling serde v1.0.228
+   Compiling winnow v1.0.2
+   Compiling thiserror v2.0.18
+   Compiling cpufeatures v0.2.17
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling cfg-if v1.0.4
+   Compiling memchr v2.8.0
+   Compiling syn v2.0.117
+   Compiling itoa v1.0.18
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_derive v1.0.228
+   Compiling verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/verification-cases)
+    Finished `test` profile [unoptimized] target(s) in 4.13s
+     Running unittests examples/refresh_portability_provenance.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/examples/refresh_portability_provenance-a294ec33ebe6977a)
+
+running 2 tests
+test tests::shared_source_digests_refresh_once_without_accepting_missing_or_conflicting_pins ... ok
+test tests::discovery_includes_unit_and_integration_pin_files_in_both_crates ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[gate-progress state=finished phase=A4-provenance-helper-tests target=scena-rust-builder pid=2145491 elapsed=4.2s timeout=5400s command='cargo test --locked -p verification-cases --example refresh_portability_provenance -- --nocapture' status=0]

@@ -24,7 +24,7 @@ fn vm_module_materialization_requires_every_execution_section() {
         missing
             .sections
             .retain(|section| section.id != required.as_raw());
-        let error = VmModule::from_bytecode(&missing)
+        let error = crate::runtime::vm::materialize_test_module(&missing)
             .expect_err("missing required execution section must reject");
         assert_eq!(error.stable_code(), StableErrorCode::BytecodeMissingSection);
     }
@@ -70,12 +70,12 @@ fn vm_module_materialization_preserves_case_insensitive_pou_metadata() {
         ],
     );
 
-    let materialized = VmModule::from_bytecode(&module).unwrap();
+    let materialized = crate::runtime::vm::materialize_test_module(&module).unwrap();
 
-    assert_eq!(materialized.program_ids.get("MAINPROGRAM"), Some(&1));
-    assert_eq!(materialized.function_ids.get("COMPUTE"), Some(&2));
-    assert_eq!(materialized.function_block_ids.get("MOTORFB"), Some(&3));
-    assert_eq!(materialized.class_ids.get("MOTORCLASS"), Some(&4));
+    assert_eq!(materialized.program_ids().get("MAINPROGRAM"), Some(&1));
+    assert_eq!(materialized.function_ids().get("COMPUTE"), Some(&2));
+    assert_eq!(materialized.function_block_ids().get("MOTORFB"), Some(&3));
+    assert_eq!(materialized.class_ids().get("MOTORCLASS"), Some(&4));
     assert_eq!(materialized.pou_name(1), Some("MainProgram"));
     assert!(materialized.pou_has_return_slot(2));
     let params = materialized.pou_params(2).expect("function parameters");
@@ -100,7 +100,7 @@ fn vm_module_materialization_rejects_duplicate_pou_ids_and_kind_names() {
         vec!["First".into(), "Second".into()],
         vec![pou(1, 0, PouKind::Program), pou(1, 1, PouKind::Function)],
     );
-    let error = VmModule::from_bytecode(&duplicate_id)
+    let error = crate::runtime::vm::materialize_test_module(&duplicate_id)
         .expect_err("one POU id cannot identify two declarations");
     assert_eq!(error.stable_code(), StableErrorCode::BytecodeInvalidSection);
     assert!(error.to_string().contains("duplicate POU id"));
@@ -109,7 +109,7 @@ fn vm_module_materialization_rejects_duplicate_pou_ids_and_kind_names() {
         vec!["Main".into(), "mAiN".into()],
         vec![pou(1, 0, PouKind::Program), pou(2, 1, PouKind::Program)],
     );
-    let error = VmModule::from_bytecode(&duplicate_name)
+    let error = crate::runtime::vm::materialize_test_module(&duplicate_name)
         .expect_err("one case-insensitive kind name cannot identify two POUs");
     assert_eq!(error.stable_code(), StableErrorCode::VmBytecodeDecode);
     assert!(error.to_string().contains("duplicate PROGRAM name"));
@@ -147,7 +147,7 @@ fn vm_module_materialization_rejects_duplicate_owner_local_method_names() {
         ],
     );
 
-    let error = VmModule::from_bytecode(&module)
+    let error = crate::runtime::vm::materialize_test_module(&module)
         .expect_err("one owner cannot expose duplicate case-insensitive method names");
     assert_eq!(error.stable_code(), StableErrorCode::VmBytecodeDecode);
     assert!(error.to_string().contains("duplicate METHOD name"));

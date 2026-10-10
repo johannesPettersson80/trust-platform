@@ -1,0 +1,2242 @@
+[
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace StmtChecker<'a, 'b>::check_return_stmt with ()\n@@ -1,54 +1,12 @@\n impl<'a, 'b> StmtChecker<'a, 'b> {\n \n     fn check_return_stmt(&mut self, node: &SyntaxNode) {\n-        let return_expr = node.children().find(|n| is_expression_kind(n.kind()));\n-        if return_expr.is_some() {\n-            self.checker.saw_return_value = true;\n-            self.checker.return_value_definitely_assigned = true;\n-        }\n-\n-        match (self.checker.current_function_return, return_expr) {\n-            (Some(expected), Some(expr)) if expected != TypeId::VOID => {\n-                let actual = self.check_expression(&expr);\n-                if !self.checker.is_assignable(expected, actual)\n-                    && !self.checker.is_contextual_int_literal(expected, &expr)\n-                    && !self.checker.is_contextual_real_literal(expected, &expr)\n-                {\n-                    self.checker.diagnostics.error(\n-                        DiagnosticCode::InvalidReturnType,\n-                        expr.text_range(),\n-                        format!(\n-                            \"return type mismatch: expected '{}', found '{}'\",\n-                            self.checker.type_name(expected),\n-                            self.checker.type_name(actual)\n-                        ),\n-                    );\n-                }\n-            }\n-            (Some(expected), None)\n-                if expected != TypeId::VOID\n-                    && !self.checker.return_value_definitely_assigned =>\n-            {\n-                self.checker.diagnostics.error(\n-                    DiagnosticCode::MissingReturn,\n-                    node.text_range(),\n-                    \"missing return value\",\n-                );\n-            }\n-            (None, Some(expr)) | (Some(TypeId::VOID), Some(expr)) => {\n-                self.checker.diagnostics.error(\n-                    DiagnosticCode::InvalidReturnType,\n-                    expr.text_range(),\n-                    \"unexpected return value in procedure\",\n-                );\n-            }\n-            _ => {}\n-        }\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n \n     /// Emits missing return diagnostics after statement checks.\n     pub fn finish_return_checks(&mut self, node: &SyntaxNode) {\n         if let Some(expected) = self.checker.current_function_return {\n             if expected != TypeId::VOID && !self.checker.saw_return_value {\n                 self.checker.diagnostics.error(\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_return_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 3
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "stmt_impl_part_04.rs:4:9: replace StmtChecker<'a, 'b>::check_return_stmt with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 46
+      },
+      "start": {
+        "column": 9,
+        "line": 4
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ delete match arm (None, Some(expr)) |(Some(TypeId::VOID), Some(expr)) in StmtChecker<'a, 'b>::check_return_stmt\n@@ -30,23 +30,17 @@\n                     && !self.checker.return_value_definitely_assigned =>\n             {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::MissingReturn,\n                     node.text_range(),\n                     \"missing return value\",\n                 );\n             }\n-            (None, Some(expr)) | (Some(TypeId::VOID), Some(expr)) => {\n-                self.checker.diagnostics.error(\n-                    DiagnosticCode::InvalidReturnType,\n-                    expr.text_range(),\n-                    \"unexpected return value in procedure\",\n-                );\n-            }\n+             /* ~ changed by cargo-mutants ~ */\n             _ => {}\n         }\n     }\n \n \n     /// Emits missing return diagnostics after statement checks.\n     pub fn finish_return_checks(&mut self, node: &SyntaxNode) {\n         if let Some(expected) = self.checker.current_function_return {\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_return_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 3
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "stmt_impl_part_04.rs:38:13: delete match arm (None, Some(expr)) |(Some(TypeId::VOID), Some(expr)) in StmtChecker<'a, 'b>::check_return_stmt",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 14,
+        "line": 44
+      },
+      "start": {
+        "column": 13,
+        "line": 38
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace match guard expected != TypeId::VOID with true in StmtChecker<'a, 'b>::check_return_stmt\n@@ -3,17 +3,17 @@\n     fn check_return_stmt(&mut self, node: &SyntaxNode) {\n         let return_expr = node.children().find(|n| is_expression_kind(n.kind()));\n         if return_expr.is_some() {\n             self.checker.saw_return_value = true;\n             self.checker.return_value_definitely_assigned = true;\n         }\n \n         match (self.checker.current_function_return, return_expr) {\n-            (Some(expected), Some(expr)) if expected != TypeId::VOID => {\n+            (Some(expected), Some(expr)) if true /* ~ changed by cargo-mutants ~ */ => {\n                 let actual = self.check_expression(&expr);\n                 if !self.checker.is_assignable(expected, actual)\n                     && !self.checker.is_contextual_int_literal(expected, &expr)\n                     && !self.checker.is_contextual_real_literal(expected, &expr)\n                 {\n                     self.checker.diagnostics.error(\n                         DiagnosticCode::InvalidReturnType,\n                         expr.text_range(),\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_return_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 3
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "stmt_impl_part_04.rs:11:45: replace match guard expected != TypeId::VOID with true in StmtChecker<'a, 'b>::check_return_stmt",
+    "package": "single_file",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 69,
+        "line": 11
+      },
+      "start": {
+        "column": 45,
+        "line": 11
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace match guard expected != TypeId::VOID with false in StmtChecker<'a, 'b>::check_return_stmt\n@@ -3,17 +3,17 @@\n     fn check_return_stmt(&mut self, node: &SyntaxNode) {\n         let return_expr = node.children().find(|n| is_expression_kind(n.kind()));\n         if return_expr.is_some() {\n             self.checker.saw_return_value = true;\n             self.checker.return_value_definitely_assigned = true;\n         }\n \n         match (self.checker.current_function_return, return_expr) {\n-            (Some(expected), Some(expr)) if expected != TypeId::VOID => {\n+            (Some(expected), Some(expr)) if false /* ~ changed by cargo-mutants ~ */ => {\n                 let actual = self.check_expression(&expr);\n                 if !self.checker.is_assignable(expected, actual)\n                     && !self.checker.is_contextual_int_literal(expected, &expr)\n                     && !self.checker.is_contextual_real_literal(expected, &expr)\n                 {\n                     self.checker.diagnostics.error(\n                         DiagnosticCode::InvalidReturnType,\n                         expr.text_range(),\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_return_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 3
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "stmt_impl_part_04.rs:11:45: replace match guard expected != TypeId::VOID with false in StmtChecker<'a, 'b>::check_return_stmt",
+    "package": "single_file",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 69,
+        "line": 11
+      },
+      "start": {
+        "column": 45,
+        "line": 11
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace match guard expected != TypeId::VOID && !self.checker.return_value_definitely_assigned with true in StmtChecker<'a, 'b>::check_return_stmt\n@@ -21,18 +21,17 @@\n                             \"return type mismatch: expected '{}', found '{}'\",\n                             self.checker.type_name(expected),\n                             self.checker.type_name(actual)\n                         ),\n                     );\n                 }\n             }\n             (Some(expected), None)\n-                if expected != TypeId::VOID\n-                    && !self.checker.return_value_definitely_assigned =>\n+                if true /* ~ changed by cargo-mutants ~ */ =>\n             {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::MissingReturn,\n                     node.text_range(),\n                     \"missing return value\",\n                 );\n             }\n             (None, Some(expr)) | (Some(TypeId::VOID), Some(expr)) => {\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_return_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 3
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "stmt_impl_part_04.rs:29:20: replace match guard expected != TypeId::VOID && !self.checker.return_value_definitely_assigned with true in StmtChecker<'a, 'b>::check_return_stmt",
+    "package": "single_file",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 70,
+        "line": 30
+      },
+      "start": {
+        "column": 20,
+        "line": 29
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace match guard expected != TypeId::VOID && !self.checker.return_value_definitely_assigned with false in StmtChecker<'a, 'b>::check_return_stmt\n@@ -21,18 +21,17 @@\n                             \"return type mismatch: expected '{}', found '{}'\",\n                             self.checker.type_name(expected),\n                             self.checker.type_name(actual)\n                         ),\n                     );\n                 }\n             }\n             (Some(expected), None)\n-                if expected != TypeId::VOID\n-                    && !self.checker.return_value_definitely_assigned =>\n+                if false /* ~ changed by cargo-mutants ~ */ =>\n             {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::MissingReturn,\n                     node.text_range(),\n                     \"missing return value\",\n                 );\n             }\n             (None, Some(expr)) | (Some(TypeId::VOID), Some(expr)) => {\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_return_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 3
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "stmt_impl_part_04.rs:29:20: replace match guard expected != TypeId::VOID && !self.checker.return_value_definitely_assigned with false in StmtChecker<'a, 'b>::check_return_stmt",
+    "package": "single_file",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 70,
+        "line": 30
+      },
+      "start": {
+        "column": 20,
+        "line": 29
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace != with == in StmtChecker<'a, 'b>::check_return_stmt\n@@ -3,17 +3,17 @@\n     fn check_return_stmt(&mut self, node: &SyntaxNode) {\n         let return_expr = node.children().find(|n| is_expression_kind(n.kind()));\n         if return_expr.is_some() {\n             self.checker.saw_return_value = true;\n             self.checker.return_value_definitely_assigned = true;\n         }\n \n         match (self.checker.current_function_return, return_expr) {\n-            (Some(expected), Some(expr)) if expected != TypeId::VOID => {\n+            (Some(expected), Some(expr)) if expected == /* ~ changed by cargo-mutants ~ */ TypeId::VOID => {\n                 let actual = self.check_expression(&expr);\n                 if !self.checker.is_assignable(expected, actual)\n                     && !self.checker.is_contextual_int_literal(expected, &expr)\n                     && !self.checker.is_contextual_real_literal(expected, &expr)\n                 {\n                     self.checker.diagnostics.error(\n                         DiagnosticCode::InvalidReturnType,\n                         expr.text_range(),\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_return_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 3
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:11:54: replace != with == in StmtChecker<'a, 'b>::check_return_stmt",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 56,
+        "line": 11
+      },
+      "start": {
+        "column": 54,
+        "line": 11
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace && with || in StmtChecker<'a, 'b>::check_return_stmt\n@@ -7,17 +7,17 @@\n             self.checker.return_value_definitely_assigned = true;\n         }\n \n         match (self.checker.current_function_return, return_expr) {\n             (Some(expected), Some(expr)) if expected != TypeId::VOID => {\n                 let actual = self.check_expression(&expr);\n                 if !self.checker.is_assignable(expected, actual)\n                     && !self.checker.is_contextual_int_literal(expected, &expr)\n-                    && !self.checker.is_contextual_real_literal(expected, &expr)\n+                    || /* ~ changed by cargo-mutants ~ */ !self.checker.is_contextual_real_literal(expected, &expr)\n                 {\n                     self.checker.diagnostics.error(\n                         DiagnosticCode::InvalidReturnType,\n                         expr.text_range(),\n                         format!(\n                             \"return type mismatch: expected '{}', found '{}'\",\n                             self.checker.type_name(expected),\n                             self.checker.type_name(actual)\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_return_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 3
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:15:21: replace && with || in StmtChecker<'a, 'b>::check_return_stmt",
+    "package": "single_file",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 23,
+        "line": 15
+      },
+      "start": {
+        "column": 21,
+        "line": 15
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace && with || in StmtChecker<'a, 'b>::check_return_stmt\n@@ -6,17 +6,17 @@\n             self.checker.saw_return_value = true;\n             self.checker.return_value_definitely_assigned = true;\n         }\n \n         match (self.checker.current_function_return, return_expr) {\n             (Some(expected), Some(expr)) if expected != TypeId::VOID => {\n                 let actual = self.check_expression(&expr);\n                 if !self.checker.is_assignable(expected, actual)\n-                    && !self.checker.is_contextual_int_literal(expected, &expr)\n+                    || /* ~ changed by cargo-mutants ~ */ !self.checker.is_contextual_int_literal(expected, &expr)\n                     && !self.checker.is_contextual_real_literal(expected, &expr)\n                 {\n                     self.checker.diagnostics.error(\n                         DiagnosticCode::InvalidReturnType,\n                         expr.text_range(),\n                         format!(\n                             \"return type mismatch: expected '{}', found '{}'\",\n                             self.checker.type_name(expected),\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_return_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 3
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:14:21: replace && with || in StmtChecker<'a, 'b>::check_return_stmt",
+    "package": "single_file",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 23,
+        "line": 14
+      },
+      "start": {
+        "column": 21,
+        "line": 14
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ delete ! in StmtChecker<'a, 'b>::check_return_stmt\n@@ -5,17 +5,17 @@\n         if return_expr.is_some() {\n             self.checker.saw_return_value = true;\n             self.checker.return_value_definitely_assigned = true;\n         }\n \n         match (self.checker.current_function_return, return_expr) {\n             (Some(expected), Some(expr)) if expected != TypeId::VOID => {\n                 let actual = self.check_expression(&expr);\n-                if !self.checker.is_assignable(expected, actual)\n+                if  /* ~ changed by cargo-mutants ~ */self.checker.is_assignable(expected, actual)\n                     && !self.checker.is_contextual_int_literal(expected, &expr)\n                     && !self.checker.is_contextual_real_literal(expected, &expr)\n                 {\n                     self.checker.diagnostics.error(\n                         DiagnosticCode::InvalidReturnType,\n                         expr.text_range(),\n                         format!(\n                             \"return type mismatch: expected '{}', found '{}'\",\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_return_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 3
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "stmt_impl_part_04.rs:13:20: delete ! in StmtChecker<'a, 'b>::check_return_stmt",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 21,
+        "line": 13
+      },
+      "start": {
+        "column": 20,
+        "line": 13
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ delete ! in StmtChecker<'a, 'b>::check_return_stmt\n@@ -6,17 +6,17 @@\n             self.checker.saw_return_value = true;\n             self.checker.return_value_definitely_assigned = true;\n         }\n \n         match (self.checker.current_function_return, return_expr) {\n             (Some(expected), Some(expr)) if expected != TypeId::VOID => {\n                 let actual = self.check_expression(&expr);\n                 if !self.checker.is_assignable(expected, actual)\n-                    && !self.checker.is_contextual_int_literal(expected, &expr)\n+                    &&  /* ~ changed by cargo-mutants ~ */self.checker.is_contextual_int_literal(expected, &expr)\n                     && !self.checker.is_contextual_real_literal(expected, &expr)\n                 {\n                     self.checker.diagnostics.error(\n                         DiagnosticCode::InvalidReturnType,\n                         expr.text_range(),\n                         format!(\n                             \"return type mismatch: expected '{}', found '{}'\",\n                             self.checker.type_name(expected),\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_return_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 3
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "stmt_impl_part_04.rs:14:24: delete ! in StmtChecker<'a, 'b>::check_return_stmt",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 25,
+        "line": 14
+      },
+      "start": {
+        "column": 24,
+        "line": 14
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ delete ! in StmtChecker<'a, 'b>::check_return_stmt\n@@ -7,17 +7,17 @@\n             self.checker.return_value_definitely_assigned = true;\n         }\n \n         match (self.checker.current_function_return, return_expr) {\n             (Some(expected), Some(expr)) if expected != TypeId::VOID => {\n                 let actual = self.check_expression(&expr);\n                 if !self.checker.is_assignable(expected, actual)\n                     && !self.checker.is_contextual_int_literal(expected, &expr)\n-                    && !self.checker.is_contextual_real_literal(expected, &expr)\n+                    &&  /* ~ changed by cargo-mutants ~ */self.checker.is_contextual_real_literal(expected, &expr)\n                 {\n                     self.checker.diagnostics.error(\n                         DiagnosticCode::InvalidReturnType,\n                         expr.text_range(),\n                         format!(\n                             \"return type mismatch: expected '{}', found '{}'\",\n                             self.checker.type_name(expected),\n                             self.checker.type_name(actual)\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_return_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 3
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "stmt_impl_part_04.rs:15:24: delete ! in StmtChecker<'a, 'b>::check_return_stmt",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 25,
+        "line": 15
+      },
+      "start": {
+        "column": 24,
+        "line": 15
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace && with || in StmtChecker<'a, 'b>::check_return_stmt\n@@ -22,17 +22,17 @@\n                             self.checker.type_name(expected),\n                             self.checker.type_name(actual)\n                         ),\n                     );\n                 }\n             }\n             (Some(expected), None)\n                 if expected != TypeId::VOID\n-                    && !self.checker.return_value_definitely_assigned =>\n+                    || /* ~ changed by cargo-mutants ~ */ !self.checker.return_value_definitely_assigned =>\n             {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::MissingReturn,\n                     node.text_range(),\n                     \"missing return value\",\n                 );\n             }\n             (None, Some(expr)) | (Some(TypeId::VOID), Some(expr)) => {\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_return_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 3
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:30:21: replace && with || in StmtChecker<'a, 'b>::check_return_stmt",
+    "package": "single_file",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 23,
+        "line": 30
+      },
+      "start": {
+        "column": 21,
+        "line": 30
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace != with == in StmtChecker<'a, 'b>::check_return_stmt\n@@ -21,17 +21,17 @@\n                             \"return type mismatch: expected '{}', found '{}'\",\n                             self.checker.type_name(expected),\n                             self.checker.type_name(actual)\n                         ),\n                     );\n                 }\n             }\n             (Some(expected), None)\n-                if expected != TypeId::VOID\n+                if expected == /* ~ changed by cargo-mutants ~ */ TypeId::VOID\n                     && !self.checker.return_value_definitely_assigned =>\n             {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::MissingReturn,\n                     node.text_range(),\n                     \"missing return value\",\n                 );\n             }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_return_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 3
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:29:29: replace != with == in StmtChecker<'a, 'b>::check_return_stmt",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 31,
+        "line": 29
+      },
+      "start": {
+        "column": 29,
+        "line": 29
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ delete ! in StmtChecker<'a, 'b>::check_return_stmt\n@@ -22,17 +22,17 @@\n                             self.checker.type_name(expected),\n                             self.checker.type_name(actual)\n                         ),\n                     );\n                 }\n             }\n             (Some(expected), None)\n                 if expected != TypeId::VOID\n-                    && !self.checker.return_value_definitely_assigned =>\n+                    &&  /* ~ changed by cargo-mutants ~ */self.checker.return_value_definitely_assigned =>\n             {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::MissingReturn,\n                     node.text_range(),\n                     \"missing return value\",\n                 );\n             }\n             (None, Some(expr)) | (Some(TypeId::VOID), Some(expr)) => {\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_return_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 47
+        },
+        "start": {
+          "column": 5,
+          "line": 3
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "stmt_impl_part_04.rs:30:24: delete ! in StmtChecker<'a, 'b>::check_return_stmt",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 25,
+        "line": 30
+      },
+      "start": {
+        "column": 24,
+        "line": 30
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace StmtChecker<'a, 'b>::finish_return_checks with ()\n@@ -44,25 +44,17 @@\n             }\n             _ => {}\n         }\n     }\n \n \n     /// Emits missing return diagnostics after statement checks.\n     pub fn finish_return_checks(&mut self, node: &SyntaxNode) {\n-        if let Some(expected) = self.checker.current_function_return {\n-            if expected != TypeId::VOID && !self.checker.saw_return_value {\n-                self.checker.diagnostics.error(\n-                    DiagnosticCode::MissingReturn,\n-                    node.text_range(),\n-                    \"missing return value\",\n-                );\n-            }\n-        }\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n \n     fn check_expr_stmt(&mut self, node: &SyntaxNode) {\n         // Just type-check the expression to catch any errors\n         if let Some(expr) = node.children().next() {\n             self.check_expression(&expr);\n         }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::finish_return_checks",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 61
+        },
+        "start": {
+          "column": 5,
+          "line": 50
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "stmt_impl_part_04.rs:52:9: replace StmtChecker<'a, 'b>::finish_return_checks with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 60
+      },
+      "start": {
+        "column": 9,
+        "line": 52
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace && with || in StmtChecker<'a, 'b>::finish_return_checks\n@@ -45,17 +45,17 @@\n             _ => {}\n         }\n     }\n \n \n     /// Emits missing return diagnostics after statement checks.\n     pub fn finish_return_checks(&mut self, node: &SyntaxNode) {\n         if let Some(expected) = self.checker.current_function_return {\n-            if expected != TypeId::VOID && !self.checker.saw_return_value {\n+            if expected != TypeId::VOID || /* ~ changed by cargo-mutants ~ */ !self.checker.saw_return_value {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::MissingReturn,\n                     node.text_range(),\n                     \"missing return value\",\n                 );\n             }\n         }\n     }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::finish_return_checks",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 61
+        },
+        "start": {
+          "column": 5,
+          "line": 50
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:53:41: replace && with || in StmtChecker<'a, 'b>::finish_return_checks",
+    "package": "single_file",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 43,
+        "line": 53
+      },
+      "start": {
+        "column": 41,
+        "line": 53
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace != with == in StmtChecker<'a, 'b>::finish_return_checks\n@@ -45,17 +45,17 @@\n             _ => {}\n         }\n     }\n \n \n     /// Emits missing return diagnostics after statement checks.\n     pub fn finish_return_checks(&mut self, node: &SyntaxNode) {\n         if let Some(expected) = self.checker.current_function_return {\n-            if expected != TypeId::VOID && !self.checker.saw_return_value {\n+            if expected == /* ~ changed by cargo-mutants ~ */ TypeId::VOID && !self.checker.saw_return_value {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::MissingReturn,\n                     node.text_range(),\n                     \"missing return value\",\n                 );\n             }\n         }\n     }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::finish_return_checks",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 61
+        },
+        "start": {
+          "column": 5,
+          "line": 50
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:53:25: replace != with == in StmtChecker<'a, 'b>::finish_return_checks",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 53
+      },
+      "start": {
+        "column": 25,
+        "line": 53
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ delete ! in StmtChecker<'a, 'b>::finish_return_checks\n@@ -45,17 +45,17 @@\n             _ => {}\n         }\n     }\n \n \n     /// Emits missing return diagnostics after statement checks.\n     pub fn finish_return_checks(&mut self, node: &SyntaxNode) {\n         if let Some(expected) = self.checker.current_function_return {\n-            if expected != TypeId::VOID && !self.checker.saw_return_value {\n+            if expected != TypeId::VOID &&  /* ~ changed by cargo-mutants ~ */self.checker.saw_return_value {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::MissingReturn,\n                     node.text_range(),\n                     \"missing return value\",\n                 );\n             }\n         }\n     }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::finish_return_checks",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 61
+        },
+        "start": {
+          "column": 5,
+          "line": 50
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "stmt_impl_part_04.rs:53:44: delete ! in StmtChecker<'a, 'b>::finish_return_checks",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 45,
+        "line": 53
+      },
+      "start": {
+        "column": 44,
+        "line": 53
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace StmtChecker<'a, 'b>::check_expr_stmt with ()\n@@ -58,19 +58,17 @@\n                 );\n             }\n         }\n     }\n \n \n     fn check_expr_stmt(&mut self, node: &SyntaxNode) {\n         // Just type-check the expression to catch any errors\n-        if let Some(expr) = node.children().next() {\n-            self.check_expression(&expr);\n-        }\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n \n     fn check_statement_children(&mut self, node: &SyntaxNode) {\n         for child in node.children() {\n             if is_statement_kind(child.kind()) {\n                 self.check_statement(&child);\n             }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_expr_stmt",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 69
+        },
+        "start": {
+          "column": 5,
+          "line": 64
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "stmt_impl_part_04.rs:66:9: replace StmtChecker<'a, 'b>::check_expr_stmt with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 68
+      },
+      "start": {
+        "column": 9,
+        "line": 66
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace StmtChecker<'a, 'b>::check_statement_children with ()\n@@ -65,21 +65,17 @@\n         // Just type-check the expression to catch any errors\n         if let Some(expr) = node.children().next() {\n             self.check_expression(&expr);\n         }\n     }\n \n \n     fn check_statement_children(&mut self, node: &SyntaxNode) {\n-        for child in node.children() {\n-            if is_statement_kind(child.kind()) {\n-                self.check_statement(&child);\n-            }\n-        }\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n \n     fn check_statement_children_with_state(&mut self, node: &SyntaxNode, initial_state: bool) -> bool {\n         let saved = self.checker.return_value_definitely_assigned;\n         self.checker.return_value_definitely_assigned = initial_state;\n         self.check_statement_children(node);\n         let exit_state = self.checker.return_value_definitely_assigned;\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_statement_children",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 78
+        },
+        "start": {
+          "column": 5,
+          "line": 72
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "stmt_impl_part_04.rs:73:9: replace StmtChecker<'a, 'b>::check_statement_children with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 77
+      },
+      "start": {
+        "column": 9,
+        "line": 73
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace StmtChecker<'a, 'b>::check_statement_children_with_state -> bool with true\n@@ -74,22 +74,17 @@\n             if is_statement_kind(child.kind()) {\n                 self.check_statement(&child);\n             }\n         }\n     }\n \n \n     fn check_statement_children_with_state(&mut self, node: &SyntaxNode, initial_state: bool) -> bool {\n-        let saved = self.checker.return_value_definitely_assigned;\n-        self.checker.return_value_definitely_assigned = initial_state;\n-        self.check_statement_children(node);\n-        let exit_state = self.checker.return_value_definitely_assigned;\n-        self.checker.return_value_definitely_assigned = saved;\n-        exit_state\n+        true /* ~ changed by cargo-mutants ~ */\n     }\n \n \n     pub(super) fn check_loop_restriction(&mut self, symbol_id: SymbolId, range: TextRange) {\n         for ctx in &self.checker.loop_stack {\n             if ctx.restricted.contains(&symbol_id) {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::InvalidOperation,\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_statement_children_with_state",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 88
+        },
+        "start": {
+          "column": 5,
+          "line": 81
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "stmt_impl_part_04.rs:82:9: replace StmtChecker<'a, 'b>::check_statement_children_with_state -> bool with true",
+    "package": "single_file",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 87
+      },
+      "start": {
+        "column": 9,
+        "line": 82
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace StmtChecker<'a, 'b>::check_statement_children_with_state -> bool with false\n@@ -74,22 +74,17 @@\n             if is_statement_kind(child.kind()) {\n                 self.check_statement(&child);\n             }\n         }\n     }\n \n \n     fn check_statement_children_with_state(&mut self, node: &SyntaxNode, initial_state: bool) -> bool {\n-        let saved = self.checker.return_value_definitely_assigned;\n-        self.checker.return_value_definitely_assigned = initial_state;\n-        self.check_statement_children(node);\n-        let exit_state = self.checker.return_value_definitely_assigned;\n-        self.checker.return_value_definitely_assigned = saved;\n-        exit_state\n+        false /* ~ changed by cargo-mutants ~ */\n     }\n \n \n     pub(super) fn check_loop_restriction(&mut self, symbol_id: SymbolId, range: TextRange) {\n         for ctx in &self.checker.loop_stack {\n             if ctx.restricted.contains(&symbol_id) {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::InvalidOperation,\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_statement_children_with_state",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 88
+        },
+        "start": {
+          "column": 5,
+          "line": 81
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "stmt_impl_part_04.rs:82:9: replace StmtChecker<'a, 'b>::check_statement_children_with_state -> bool with false",
+    "package": "single_file",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 87
+      },
+      "start": {
+        "column": 9,
+        "line": 82
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace StmtChecker<'a, 'b>::check_loop_restriction with ()\n@@ -84,26 +84,17 @@\n         self.check_statement_children(node);\n         let exit_state = self.checker.return_value_definitely_assigned;\n         self.checker.return_value_definitely_assigned = saved;\n         exit_state\n     }\n \n \n     pub(super) fn check_loop_restriction(&mut self, symbol_id: SymbolId, range: TextRange) {\n-        for ctx in &self.checker.loop_stack {\n-            if ctx.restricted.contains(&symbol_id) {\n-                self.checker.diagnostics.error(\n-                    DiagnosticCode::InvalidOperation,\n-                    range,\n-                    \"FOR loop control variables must not be modified in the loop body\",\n-                );\n-                break;\n-            }\n-        }\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n \n     fn record_case_label_value(\n         &mut self,\n         tracker: &mut CaseLabelTracker,\n         value: i64,\n         range: TextRange,\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_loop_restriction",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 102
+        },
+        "start": {
+          "column": 5,
+          "line": 91
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "stmt_impl_part_04.rs:92:9: replace StmtChecker<'a, 'b>::check_loop_restriction with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 101
+      },
+      "start": {
+        "column": 9,
+        "line": 92
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace StmtChecker<'a, 'b>::record_case_label_value with ()\n@@ -103,31 +103,17 @@\n \n \n     fn record_case_label_value(\n         &mut self,\n         tracker: &mut CaseLabelTracker,\n         value: i64,\n         range: TextRange,\n     ) {\n-        if tracker.ints.contains_key(&value)\n-            || tracker\n-                .ranges\n-                .iter()\n-                .any(|(lower, upper)| value >= *lower && value <= *upper)\n-        {\n-            self.checker.diagnostics.error(\n-                DiagnosticCode::InvalidOperation,\n-                range,\n-                \"duplicate CASE label\",\n-            );\n-            return;\n-        }\n-\n-        tracker.ints.insert(value, range);\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n \n     fn record_case_label_range(\n         &mut self,\n         tracker: &mut CaseLabelTracker,\n         start: i64,\n         end: i64,\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_value",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 126
+        },
+        "start": {
+          "column": 5,
+          "line": 105
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "stmt_impl_part_04.rs:111:9: replace StmtChecker<'a, 'b>::record_case_label_value with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 43,
+        "line": 125
+      },
+      "start": {
+        "column": 9,
+        "line": 111
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace || with && in StmtChecker<'a, 'b>::record_case_label_value\n@@ -104,17 +104,17 @@\n \n     fn record_case_label_value(\n         &mut self,\n         tracker: &mut CaseLabelTracker,\n         value: i64,\n         range: TextRange,\n     ) {\n         if tracker.ints.contains_key(&value)\n-            || tracker\n+            && /* ~ changed by cargo-mutants ~ */ tracker\n                 .ranges\n                 .iter()\n                 .any(|(lower, upper)| value >= *lower && value <= *upper)\n         {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"duplicate CASE label\",\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_value",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 126
+        },
+        "start": {
+          "column": 5,
+          "line": 105
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:112:13: replace || with && in StmtChecker<'a, 'b>::record_case_label_value",
+    "package": "single_file",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 112
+      },
+      "start": {
+        "column": 13,
+        "line": 112
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace && with || in StmtChecker<'a, 'b>::record_case_label_value\n@@ -107,17 +107,17 @@\n         tracker: &mut CaseLabelTracker,\n         value: i64,\n         range: TextRange,\n     ) {\n         if tracker.ints.contains_key(&value)\n             || tracker\n                 .ranges\n                 .iter()\n-                .any(|(lower, upper)| value >= *lower && value <= *upper)\n+                .any(|(lower, upper)| value >= *lower || /* ~ changed by cargo-mutants ~ */ value <= *upper)\n         {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"duplicate CASE label\",\n             );\n             return;\n         }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_value",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 126
+        },
+        "start": {
+          "column": 5,
+          "line": 105
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:115:55: replace && with || in StmtChecker<'a, 'b>::record_case_label_value",
+    "package": "single_file",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 57,
+        "line": 115
+      },
+      "start": {
+        "column": 55,
+        "line": 115
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace >= with < in StmtChecker<'a, 'b>::record_case_label_value\n@@ -107,17 +107,17 @@\n         tracker: &mut CaseLabelTracker,\n         value: i64,\n         range: TextRange,\n     ) {\n         if tracker.ints.contains_key(&value)\n             || tracker\n                 .ranges\n                 .iter()\n-                .any(|(lower, upper)| value >= *lower && value <= *upper)\n+                .any(|(lower, upper)| value < /* ~ changed by cargo-mutants ~ */ *lower && value <= *upper)\n         {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"duplicate CASE label\",\n             );\n             return;\n         }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_value",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 126
+        },
+        "start": {
+          "column": 5,
+          "line": 105
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:115:45: replace >= with < in StmtChecker<'a, 'b>::record_case_label_value",
+    "package": "single_file",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 47,
+        "line": 115
+      },
+      "start": {
+        "column": 45,
+        "line": 115
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace <= with > in StmtChecker<'a, 'b>::record_case_label_value\n@@ -107,17 +107,17 @@\n         tracker: &mut CaseLabelTracker,\n         value: i64,\n         range: TextRange,\n     ) {\n         if tracker.ints.contains_key(&value)\n             || tracker\n                 .ranges\n                 .iter()\n-                .any(|(lower, upper)| value >= *lower && value <= *upper)\n+                .any(|(lower, upper)| value >= *lower && value > /* ~ changed by cargo-mutants ~ */ *upper)\n         {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"duplicate CASE label\",\n             );\n             return;\n         }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_value",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 126
+        },
+        "start": {
+          "column": 5,
+          "line": 105
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:115:64: replace <= with > in StmtChecker<'a, 'b>::record_case_label_value",
+    "package": "single_file",
+    "replacement": ">",
+    "span": {
+      "end": {
+        "column": 66,
+        "line": 115
+      },
+      "start": {
+        "column": 64,
+        "line": 115
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace StmtChecker<'a, 'b>::record_case_label_range with ()\n@@ -128,44 +128,17 @@\n \n     fn record_case_label_range(\n         &mut self,\n         tracker: &mut CaseLabelTracker,\n         start: i64,\n         end: i64,\n         range: TextRange,\n     ) {\n-        if start > end {\n-            self.checker.diagnostics.error(\n-                DiagnosticCode::InvalidOperation,\n-                range,\n-                \"CASE range lower bound exceeds upper bound\",\n-            );\n-            return;\n-        }\n-        let (lower, upper) = (start, end);\n-        let overlaps_value = tracker\n-            .ints\n-            .keys()\n-            .any(|value| *value >= lower && *value <= upper);\n-        let overlaps_range = tracker\n-            .ranges\n-            .iter()\n-            .any(|(r_lower, r_upper)| !(upper < *r_lower || lower > *r_upper));\n-\n-        if overlaps_value || overlaps_range {\n-            self.checker.diagnostics.error(\n-                DiagnosticCode::InvalidOperation,\n-                range,\n-                \"duplicate CASE label\",\n-            );\n-            return;\n-        }\n-\n-        tracker.ranges.push((lower, upper));\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n \n     fn check_ref_assignment(&mut self, target: &SyntaxNode, value: &SyntaxNode) {\n         let target_type = self.checker.expr().check_expression(target);\n         let value_type = self.checker.expr().check_expression(value);\n \n         if target_type == TypeId::UNKNOWN || value_type == TypeId::UNKNOWN {\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "stmt_impl_part_04.rs:136:9: replace StmtChecker<'a, 'b>::record_case_label_range with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 45,
+        "line": 163
+      },
+      "start": {
+        "column": 9,
+        "line": 136
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace > with == in StmtChecker<'a, 'b>::record_case_label_range\n@@ -128,17 +128,17 @@\n \n     fn record_case_label_range(\n         &mut self,\n         tracker: &mut CaseLabelTracker,\n         start: i64,\n         end: i64,\n         range: TextRange,\n     ) {\n-        if start > end {\n+        if start == /* ~ changed by cargo-mutants ~ */ end {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"CASE range lower bound exceeds upper bound\",\n             );\n             return;\n         }\n         let (lower, upper) = (start, end);\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:136:18: replace > with == in StmtChecker<'a, 'b>::record_case_label_range",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 136
+      },
+      "start": {
+        "column": 18,
+        "line": 136
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace > with < in StmtChecker<'a, 'b>::record_case_label_range\n@@ -128,17 +128,17 @@\n \n     fn record_case_label_range(\n         &mut self,\n         tracker: &mut CaseLabelTracker,\n         start: i64,\n         end: i64,\n         range: TextRange,\n     ) {\n-        if start > end {\n+        if start < /* ~ changed by cargo-mutants ~ */ end {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"CASE range lower bound exceeds upper bound\",\n             );\n             return;\n         }\n         let (lower, upper) = (start, end);\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:136:18: replace > with < in StmtChecker<'a, 'b>::record_case_label_range",
+    "package": "single_file",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 136
+      },
+      "start": {
+        "column": 18,
+        "line": 136
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace > with >= in StmtChecker<'a, 'b>::record_case_label_range\n@@ -128,17 +128,17 @@\n \n     fn record_case_label_range(\n         &mut self,\n         tracker: &mut CaseLabelTracker,\n         start: i64,\n         end: i64,\n         range: TextRange,\n     ) {\n-        if start > end {\n+        if start >= /* ~ changed by cargo-mutants ~ */ end {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"CASE range lower bound exceeds upper bound\",\n             );\n             return;\n         }\n         let (lower, upper) = (start, end);\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:136:18: replace > with >= in StmtChecker<'a, 'b>::record_case_label_range",
+    "package": "single_file",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 136
+      },
+      "start": {
+        "column": 18,
+        "line": 136
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace && with || in StmtChecker<'a, 'b>::record_case_label_range\n@@ -140,17 +140,17 @@\n                 \"CASE range lower bound exceeds upper bound\",\n             );\n             return;\n         }\n         let (lower, upper) = (start, end);\n         let overlaps_value = tracker\n             .ints\n             .keys()\n-            .any(|value| *value >= lower && *value <= upper);\n+            .any(|value| *value >= lower || /* ~ changed by cargo-mutants ~ */ *value <= upper);\n         let overlaps_range = tracker\n             .ranges\n             .iter()\n             .any(|(r_lower, r_upper)| !(upper < *r_lower || lower > *r_upper));\n \n         if overlaps_value || overlaps_range {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:148:42: replace && with || in StmtChecker<'a, 'b>::record_case_label_range",
+    "package": "single_file",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 44,
+        "line": 148
+      },
+      "start": {
+        "column": 42,
+        "line": 148
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace >= with < in StmtChecker<'a, 'b>::record_case_label_range\n@@ -140,17 +140,17 @@\n                 \"CASE range lower bound exceeds upper bound\",\n             );\n             return;\n         }\n         let (lower, upper) = (start, end);\n         let overlaps_value = tracker\n             .ints\n             .keys()\n-            .any(|value| *value >= lower && *value <= upper);\n+            .any(|value| *value < /* ~ changed by cargo-mutants ~ */ lower && *value <= upper);\n         let overlaps_range = tracker\n             .ranges\n             .iter()\n             .any(|(r_lower, r_upper)| !(upper < *r_lower || lower > *r_upper));\n \n         if overlaps_value || overlaps_range {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:148:33: replace >= with < in StmtChecker<'a, 'b>::record_case_label_range",
+    "package": "single_file",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 148
+      },
+      "start": {
+        "column": 33,
+        "line": 148
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace <= with > in StmtChecker<'a, 'b>::record_case_label_range\n@@ -140,17 +140,17 @@\n                 \"CASE range lower bound exceeds upper bound\",\n             );\n             return;\n         }\n         let (lower, upper) = (start, end);\n         let overlaps_value = tracker\n             .ints\n             .keys()\n-            .any(|value| *value >= lower && *value <= upper);\n+            .any(|value| *value >= lower && *value > /* ~ changed by cargo-mutants ~ */ upper);\n         let overlaps_range = tracker\n             .ranges\n             .iter()\n             .any(|(r_lower, r_upper)| !(upper < *r_lower || lower > *r_upper));\n \n         if overlaps_value || overlaps_range {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:148:52: replace <= with > in StmtChecker<'a, 'b>::record_case_label_range",
+    "package": "single_file",
+    "replacement": ">",
+    "span": {
+      "end": {
+        "column": 54,
+        "line": 148
+      },
+      "start": {
+        "column": 52,
+        "line": 148
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ delete ! in StmtChecker<'a, 'b>::record_case_label_range\n@@ -144,17 +144,17 @@\n         let (lower, upper) = (start, end);\n         let overlaps_value = tracker\n             .ints\n             .keys()\n             .any(|value| *value >= lower && *value <= upper);\n         let overlaps_range = tracker\n             .ranges\n             .iter()\n-            .any(|(r_lower, r_upper)| !(upper < *r_lower || lower > *r_upper));\n+            .any(|(r_lower, r_upper)|  /* ~ changed by cargo-mutants ~ */(upper < *r_lower || lower > *r_upper));\n \n         if overlaps_value || overlaps_range {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"duplicate CASE label\",\n             );\n             return;\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "stmt_impl_part_04.rs:152:39: delete ! in StmtChecker<'a, 'b>::record_case_label_range",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 40,
+        "line": 152
+      },
+      "start": {
+        "column": 39,
+        "line": 152
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace || with && in StmtChecker<'a, 'b>::record_case_label_range\n@@ -144,17 +144,17 @@\n         let (lower, upper) = (start, end);\n         let overlaps_value = tracker\n             .ints\n             .keys()\n             .any(|value| *value >= lower && *value <= upper);\n         let overlaps_range = tracker\n             .ranges\n             .iter()\n-            .any(|(r_lower, r_upper)| !(upper < *r_lower || lower > *r_upper));\n+            .any(|(r_lower, r_upper)| !(upper < *r_lower && /* ~ changed by cargo-mutants ~ */ lower > *r_upper));\n \n         if overlaps_value || overlaps_range {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"duplicate CASE label\",\n             );\n             return;\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:152:58: replace || with && in StmtChecker<'a, 'b>::record_case_label_range",
+    "package": "single_file",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 60,
+        "line": 152
+      },
+      "start": {
+        "column": 58,
+        "line": 152
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace < with == in StmtChecker<'a, 'b>::record_case_label_range\n@@ -144,17 +144,17 @@\n         let (lower, upper) = (start, end);\n         let overlaps_value = tracker\n             .ints\n             .keys()\n             .any(|value| *value >= lower && *value <= upper);\n         let overlaps_range = tracker\n             .ranges\n             .iter()\n-            .any(|(r_lower, r_upper)| !(upper < *r_lower || lower > *r_upper));\n+            .any(|(r_lower, r_upper)| !(upper == /* ~ changed by cargo-mutants ~ */ *r_lower || lower > *r_upper));\n \n         if overlaps_value || overlaps_range {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"duplicate CASE label\",\n             );\n             return;\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:152:47: replace < with == in StmtChecker<'a, 'b>::record_case_label_range",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 48,
+        "line": 152
+      },
+      "start": {
+        "column": 47,
+        "line": 152
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace < with > in StmtChecker<'a, 'b>::record_case_label_range\n@@ -144,17 +144,17 @@\n         let (lower, upper) = (start, end);\n         let overlaps_value = tracker\n             .ints\n             .keys()\n             .any(|value| *value >= lower && *value <= upper);\n         let overlaps_range = tracker\n             .ranges\n             .iter()\n-            .any(|(r_lower, r_upper)| !(upper < *r_lower || lower > *r_upper));\n+            .any(|(r_lower, r_upper)| !(upper > /* ~ changed by cargo-mutants ~ */ *r_lower || lower > *r_upper));\n \n         if overlaps_value || overlaps_range {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"duplicate CASE label\",\n             );\n             return;\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:152:47: replace < with > in StmtChecker<'a, 'b>::record_case_label_range",
+    "package": "single_file",
+    "replacement": ">",
+    "span": {
+      "end": {
+        "column": 48,
+        "line": 152
+      },
+      "start": {
+        "column": 47,
+        "line": 152
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace < with <= in StmtChecker<'a, 'b>::record_case_label_range\n@@ -144,17 +144,17 @@\n         let (lower, upper) = (start, end);\n         let overlaps_value = tracker\n             .ints\n             .keys()\n             .any(|value| *value >= lower && *value <= upper);\n         let overlaps_range = tracker\n             .ranges\n             .iter()\n-            .any(|(r_lower, r_upper)| !(upper < *r_lower || lower > *r_upper));\n+            .any(|(r_lower, r_upper)| !(upper <= /* ~ changed by cargo-mutants ~ */ *r_lower || lower > *r_upper));\n \n         if overlaps_value || overlaps_range {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"duplicate CASE label\",\n             );\n             return;\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:152:47: replace < with <= in StmtChecker<'a, 'b>::record_case_label_range",
+    "package": "single_file",
+    "replacement": "<=",
+    "span": {
+      "end": {
+        "column": 48,
+        "line": 152
+      },
+      "start": {
+        "column": 47,
+        "line": 152
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace > with == in StmtChecker<'a, 'b>::record_case_label_range\n@@ -144,17 +144,17 @@\n         let (lower, upper) = (start, end);\n         let overlaps_value = tracker\n             .ints\n             .keys()\n             .any(|value| *value >= lower && *value <= upper);\n         let overlaps_range = tracker\n             .ranges\n             .iter()\n-            .any(|(r_lower, r_upper)| !(upper < *r_lower || lower > *r_upper));\n+            .any(|(r_lower, r_upper)| !(upper < *r_lower || lower == /* ~ changed by cargo-mutants ~ */ *r_upper));\n \n         if overlaps_value || overlaps_range {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"duplicate CASE label\",\n             );\n             return;\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:152:67: replace > with == in StmtChecker<'a, 'b>::record_case_label_range",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 68,
+        "line": 152
+      },
+      "start": {
+        "column": 67,
+        "line": 152
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace > with < in StmtChecker<'a, 'b>::record_case_label_range\n@@ -144,17 +144,17 @@\n         let (lower, upper) = (start, end);\n         let overlaps_value = tracker\n             .ints\n             .keys()\n             .any(|value| *value >= lower && *value <= upper);\n         let overlaps_range = tracker\n             .ranges\n             .iter()\n-            .any(|(r_lower, r_upper)| !(upper < *r_lower || lower > *r_upper));\n+            .any(|(r_lower, r_upper)| !(upper < *r_lower || lower < /* ~ changed by cargo-mutants ~ */ *r_upper));\n \n         if overlaps_value || overlaps_range {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"duplicate CASE label\",\n             );\n             return;\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:152:67: replace > with < in StmtChecker<'a, 'b>::record_case_label_range",
+    "package": "single_file",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 68,
+        "line": 152
+      },
+      "start": {
+        "column": 67,
+        "line": 152
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace > with >= in StmtChecker<'a, 'b>::record_case_label_range\n@@ -144,17 +144,17 @@\n         let (lower, upper) = (start, end);\n         let overlaps_value = tracker\n             .ints\n             .keys()\n             .any(|value| *value >= lower && *value <= upper);\n         let overlaps_range = tracker\n             .ranges\n             .iter()\n-            .any(|(r_lower, r_upper)| !(upper < *r_lower || lower > *r_upper));\n+            .any(|(r_lower, r_upper)| !(upper < *r_lower || lower >= /* ~ changed by cargo-mutants ~ */ *r_upper));\n \n         if overlaps_value || overlaps_range {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"duplicate CASE label\",\n             );\n             return;\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:152:67: replace > with >= in StmtChecker<'a, 'b>::record_case_label_range",
+    "package": "single_file",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 68,
+        "line": 152
+      },
+      "start": {
+        "column": 67,
+        "line": 152
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace || with && in StmtChecker<'a, 'b>::record_case_label_range\n@@ -146,17 +146,17 @@\n             .ints\n             .keys()\n             .any(|value| *value >= lower && *value <= upper);\n         let overlaps_range = tracker\n             .ranges\n             .iter()\n             .any(|(r_lower, r_upper)| !(upper < *r_lower || lower > *r_upper));\n \n-        if overlaps_value || overlaps_range {\n+        if overlaps_value && /* ~ changed by cargo-mutants ~ */ overlaps_range {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::InvalidOperation,\n                 range,\n                 \"duplicate CASE label\",\n             );\n             return;\n         }\n \n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::record_case_label_range",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 164
+        },
+        "start": {
+          "column": 5,
+          "line": 129
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:154:27: replace || with && in StmtChecker<'a, 'b>::record_case_label_range",
+    "package": "single_file",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 29,
+        "line": 154
+      },
+      "start": {
+        "column": 27,
+        "line": 154
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace StmtChecker<'a, 'b>::check_ref_assignment with ()\n@@ -160,72 +160,17 @@\n             return;\n         }\n \n         tracker.ranges.push((lower, upper));\n     }\n \n \n     fn check_ref_assignment(&mut self, target: &SyntaxNode, value: &SyntaxNode) {\n-        let target_type = self.checker.expr().check_expression(target);\n-        let value_type = self.checker.expr().check_expression(value);\n-\n-        if target_type == TypeId::UNKNOWN || value_type == TypeId::UNKNOWN {\n-            return;\n-        }\n-\n-        let Some(target_ref) = self.reference_attempt_operand(target_type) else {\n-            self.checker.diagnostics.error(\n-                DiagnosticCode::TypeMismatch,\n-                target.text_range(),\n-                \"reference assignment requires REF_TO or POINTER TO target\",\n-            );\n-            return;\n-        };\n-\n-        if value_type == TypeId::NULL {\n-            return;\n-        }\n-\n-        let Some(source_ref) = self.reference_attempt_operand(value_type) else {\n-            self.checker.diagnostics.error(\n-                DiagnosticCode::TypeMismatch,\n-                value.text_range(),\n-                \"reference assignment requires REF_TO or POINTER TO source\",\n-            );\n-            return;\n-        };\n-\n-        let compatible = match (target_ref, source_ref) {\n-            (ReferenceAttemptOperand::Pointer(target), ReferenceAttemptOperand::Pointer(source)) => {\n-                self.checker.resolve_alias_type(target)\n-                    == self.checker.resolve_alias_type(source)\n-            }\n-            (ReferenceAttemptOperand::Pointer(_), _)\n-            | (_, ReferenceAttemptOperand::Pointer(_)) => false,\n-            (target, source) => {\n-                let target = target.target();\n-                let source = source.target();\n-                self.checker.reference_types_compatible(target, source)\n-                    || self.checker.reference_types_compatible(source, target)\n-            }\n-        };\n-\n-        if !compatible {\n-            let target_name = self.checker.type_name(target_ref.target());\n-            let source_name = self.checker.type_name(source_ref.target());\n-            self.checker.diagnostics.error(\n-                DiagnosticCode::TypeMismatch,\n-                value.text_range(),\n-                format!(\n-                    \"reference assignment requires compatible types: '{}' vs '{}'\",\n-                    target_name, source_name\n-                ),\n-            );\n-        }\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n     fn reference_attempt_operand(&self, type_id: TypeId) -> Option<ReferenceAttemptOperand> {\n         let resolved = self.checker.resolve_alias_type(type_id);\n         match self.checker.symbols.type_by_id(resolved)? {\n             Type::Reference { target } => Some(ReferenceAttemptOperand::Reference(*target)),\n             Type::Pointer { target } => Some(ReferenceAttemptOperand::Pointer(*target)),\n             Type::Class { .. } | Type::FunctionBlock { .. } | Type::Interface { .. } => {\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_ref_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 167
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "stmt_impl_part_04.rs:168:9: replace StmtChecker<'a, 'b>::check_ref_assignment with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 223
+      },
+      "start": {
+        "column": 9,
+        "line": 168
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace || with && in StmtChecker<'a, 'b>::check_ref_assignment\n@@ -163,17 +163,17 @@\n         tracker.ranges.push((lower, upper));\n     }\n \n \n     fn check_ref_assignment(&mut self, target: &SyntaxNode, value: &SyntaxNode) {\n         let target_type = self.checker.expr().check_expression(target);\n         let value_type = self.checker.expr().check_expression(value);\n \n-        if target_type == TypeId::UNKNOWN || value_type == TypeId::UNKNOWN {\n+        if target_type == TypeId::UNKNOWN && /* ~ changed by cargo-mutants ~ */ value_type == TypeId::UNKNOWN {\n             return;\n         }\n \n         let Some(target_ref) = self.reference_attempt_operand(target_type) else {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::TypeMismatch,\n                 target.text_range(),\n                 \"reference assignment requires REF_TO or POINTER TO target\",\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_ref_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 167
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:171:43: replace || with && in StmtChecker<'a, 'b>::check_ref_assignment",
+    "package": "single_file",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 45,
+        "line": 171
+      },
+      "start": {
+        "column": 43,
+        "line": 171
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace == with != in StmtChecker<'a, 'b>::check_ref_assignment\n@@ -163,17 +163,17 @@\n         tracker.ranges.push((lower, upper));\n     }\n \n \n     fn check_ref_assignment(&mut self, target: &SyntaxNode, value: &SyntaxNode) {\n         let target_type = self.checker.expr().check_expression(target);\n         let value_type = self.checker.expr().check_expression(value);\n \n-        if target_type == TypeId::UNKNOWN || value_type == TypeId::UNKNOWN {\n+        if target_type != /* ~ changed by cargo-mutants ~ */ TypeId::UNKNOWN || value_type == TypeId::UNKNOWN {\n             return;\n         }\n \n         let Some(target_ref) = self.reference_attempt_operand(target_type) else {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::TypeMismatch,\n                 target.text_range(),\n                 \"reference assignment requires REF_TO or POINTER TO target\",\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_ref_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 167
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:171:24: replace == with != in StmtChecker<'a, 'b>::check_ref_assignment",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 26,
+        "line": 171
+      },
+      "start": {
+        "column": 24,
+        "line": 171
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace == with != in StmtChecker<'a, 'b>::check_ref_assignment\n@@ -163,17 +163,17 @@\n         tracker.ranges.push((lower, upper));\n     }\n \n \n     fn check_ref_assignment(&mut self, target: &SyntaxNode, value: &SyntaxNode) {\n         let target_type = self.checker.expr().check_expression(target);\n         let value_type = self.checker.expr().check_expression(value);\n \n-        if target_type == TypeId::UNKNOWN || value_type == TypeId::UNKNOWN {\n+        if target_type == TypeId::UNKNOWN || value_type != /* ~ changed by cargo-mutants ~ */ TypeId::UNKNOWN {\n             return;\n         }\n \n         let Some(target_ref) = self.reference_attempt_operand(target_type) else {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::TypeMismatch,\n                 target.text_range(),\n                 \"reference assignment requires REF_TO or POINTER TO target\",\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_ref_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 167
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:171:57: replace == with != in StmtChecker<'a, 'b>::check_ref_assignment",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 59,
+        "line": 171
+      },
+      "start": {
+        "column": 57,
+        "line": 171
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace == with != in StmtChecker<'a, 'b>::check_ref_assignment\n@@ -176,17 +176,17 @@\n             self.checker.diagnostics.error(\n                 DiagnosticCode::TypeMismatch,\n                 target.text_range(),\n                 \"reference assignment requires REF_TO or POINTER TO target\",\n             );\n             return;\n         };\n \n-        if value_type == TypeId::NULL {\n+        if value_type != /* ~ changed by cargo-mutants ~ */ TypeId::NULL {\n             return;\n         }\n \n         let Some(source_ref) = self.reference_attempt_operand(value_type) else {\n             self.checker.diagnostics.error(\n                 DiagnosticCode::TypeMismatch,\n                 value.text_range(),\n                 \"reference assignment requires REF_TO or POINTER TO source\",\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_ref_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 167
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:184:23: replace == with != in StmtChecker<'a, 'b>::check_ref_assignment",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 25,
+        "line": 184
+      },
+      "start": {
+        "column": 23,
+        "line": 184
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace == with != in StmtChecker<'a, 'b>::check_ref_assignment\n@@ -192,17 +192,17 @@\n                 \"reference assignment requires REF_TO or POINTER TO source\",\n             );\n             return;\n         };\n \n         let compatible = match (target_ref, source_ref) {\n             (ReferenceAttemptOperand::Pointer(target), ReferenceAttemptOperand::Pointer(source)) => {\n                 self.checker.resolve_alias_type(target)\n-                    == self.checker.resolve_alias_type(source)\n+                    != /* ~ changed by cargo-mutants ~ */ self.checker.resolve_alias_type(source)\n             }\n             (ReferenceAttemptOperand::Pointer(_), _)\n             | (_, ReferenceAttemptOperand::Pointer(_)) => false,\n             (target, source) => {\n                 let target = target.target();\n                 let source = source.target();\n                 self.checker.reference_types_compatible(target, source)\n                     || self.checker.reference_types_compatible(source, target)\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_ref_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 167
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:200:21: replace == with != in StmtChecker<'a, 'b>::check_ref_assignment",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 23,
+        "line": 200
+      },
+      "start": {
+        "column": 21,
+        "line": 200
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace || with && in StmtChecker<'a, 'b>::check_ref_assignment\n@@ -200,17 +200,17 @@\n                     == self.checker.resolve_alias_type(source)\n             }\n             (ReferenceAttemptOperand::Pointer(_), _)\n             | (_, ReferenceAttemptOperand::Pointer(_)) => false,\n             (target, source) => {\n                 let target = target.target();\n                 let source = source.target();\n                 self.checker.reference_types_compatible(target, source)\n-                    || self.checker.reference_types_compatible(source, target)\n+                    && /* ~ changed by cargo-mutants ~ */ self.checker.reference_types_compatible(source, target)\n             }\n         };\n \n         if !compatible {\n             let target_name = self.checker.type_name(target_ref.target());\n             let source_name = self.checker.type_name(source_ref.target());\n             self.checker.diagnostics.error(\n                 DiagnosticCode::TypeMismatch,\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_ref_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 167
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:208:21: replace || with && in StmtChecker<'a, 'b>::check_ref_assignment",
+    "package": "single_file",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 23,
+        "line": 208
+      },
+      "start": {
+        "column": 21,
+        "line": 208
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ delete ! in StmtChecker<'a, 'b>::check_ref_assignment\n@@ -204,17 +204,17 @@\n             (target, source) => {\n                 let target = target.target();\n                 let source = source.target();\n                 self.checker.reference_types_compatible(target, source)\n                     || self.checker.reference_types_compatible(source, target)\n             }\n         };\n \n-        if !compatible {\n+        if  /* ~ changed by cargo-mutants ~ */compatible {\n             let target_name = self.checker.type_name(target_ref.target());\n             let source_name = self.checker.type_name(source_ref.target());\n             self.checker.diagnostics.error(\n                 DiagnosticCode::TypeMismatch,\n                 value.text_range(),\n                 format!(\n                     \"reference assignment requires compatible types: '{}' vs '{}'\",\n                     target_name, source_name\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_ref_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 167
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "stmt_impl_part_04.rs:212:12: delete ! in StmtChecker<'a, 'b>::check_ref_assignment",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 13,
+        "line": 212
+      },
+      "start": {
+        "column": 12,
+        "line": 212
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace StmtChecker<'a, 'b>::reference_attempt_operand -> Option<ReferenceAttemptOperand> with None\n@@ -219,25 +219,17 @@\n                     \"reference assignment requires compatible types: '{}' vs '{}'\",\n                     target_name, source_name\n                 ),\n             );\n         }\n     }\n \n     fn reference_attempt_operand(&self, type_id: TypeId) -> Option<ReferenceAttemptOperand> {\n-        let resolved = self.checker.resolve_alias_type(type_id);\n-        match self.checker.symbols.type_by_id(resolved)? {\n-            Type::Reference { target } => Some(ReferenceAttemptOperand::Reference(*target)),\n-            Type::Pointer { target } => Some(ReferenceAttemptOperand::Pointer(*target)),\n-            Type::Class { .. } | Type::FunctionBlock { .. } | Type::Interface { .. } => {\n-                Some(ReferenceAttemptOperand::Object(resolved))\n-            }\n-            _ => None,\n-        }\n+        None /* ~ changed by cargo-mutants ~ */\n     }\n \n \n     fn check_subrange_assignment(\n         &mut self,\n         target_type: TypeId,\n         value: &SyntaxNode,\n         value_type: TypeId,\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::reference_attempt_operand",
+      "return_type": "-> Option<ReferenceAttemptOperand>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 236
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "stmt_impl_part_04.rs:227:9: replace StmtChecker<'a, 'b>::reference_attempt_operand -> Option<ReferenceAttemptOperand> with None",
+    "package": "single_file",
+    "replacement": "None",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 235
+      },
+      "start": {
+        "column": 9,
+        "line": 227
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace StmtChecker<'a, 'b>::reference_attempt_operand -> Option<ReferenceAttemptOperand> with Some(Default::default())\n@@ -219,25 +219,17 @@\n                     \"reference assignment requires compatible types: '{}' vs '{}'\",\n                     target_name, source_name\n                 ),\n             );\n         }\n     }\n \n     fn reference_attempt_operand(&self, type_id: TypeId) -> Option<ReferenceAttemptOperand> {\n-        let resolved = self.checker.resolve_alias_type(type_id);\n-        match self.checker.symbols.type_by_id(resolved)? {\n-            Type::Reference { target } => Some(ReferenceAttemptOperand::Reference(*target)),\n-            Type::Pointer { target } => Some(ReferenceAttemptOperand::Pointer(*target)),\n-            Type::Class { .. } | Type::FunctionBlock { .. } | Type::Interface { .. } => {\n-                Some(ReferenceAttemptOperand::Object(resolved))\n-            }\n-            _ => None,\n-        }\n+        Some(Default::default()) /* ~ changed by cargo-mutants ~ */\n     }\n \n \n     fn check_subrange_assignment(\n         &mut self,\n         target_type: TypeId,\n         value: &SyntaxNode,\n         value_type: TypeId,\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::reference_attempt_operand",
+      "return_type": "-> Option<ReferenceAttemptOperand>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 236
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "stmt_impl_part_04.rs:227:9: replace StmtChecker<'a, 'b>::reference_attempt_operand -> Option<ReferenceAttemptOperand> with Some(Default::default())",
+    "package": "single_file",
+    "replacement": "Some(Default::default())",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 235
+      },
+      "start": {
+        "column": 9,
+        "line": 227
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ delete match arm Type::Reference{target} in StmtChecker<'a, 'b>::reference_attempt_operand\n@@ -221,17 +221,17 @@\n                 ),\n             );\n         }\n     }\n \n     fn reference_attempt_operand(&self, type_id: TypeId) -> Option<ReferenceAttemptOperand> {\n         let resolved = self.checker.resolve_alias_type(type_id);\n         match self.checker.symbols.type_by_id(resolved)? {\n-            Type::Reference { target } => Some(ReferenceAttemptOperand::Reference(*target)),\n+             /* ~ changed by cargo-mutants ~ */\n             Type::Pointer { target } => Some(ReferenceAttemptOperand::Pointer(*target)),\n             Type::Class { .. } | Type::FunctionBlock { .. } | Type::Interface { .. } => {\n                 Some(ReferenceAttemptOperand::Object(resolved))\n             }\n             _ => None,\n         }\n     }\n \n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::reference_attempt_operand",
+      "return_type": "-> Option<ReferenceAttemptOperand>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 236
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "stmt_impl_part_04.rs:229:13: delete match arm Type::Reference{target} in StmtChecker<'a, 'b>::reference_attempt_operand",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 93,
+        "line": 229
+      },
+      "start": {
+        "column": 13,
+        "line": 229
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ delete match arm Type::Pointer{target} in StmtChecker<'a, 'b>::reference_attempt_operand\n@@ -222,17 +222,17 @@\n             );\n         }\n     }\n \n     fn reference_attempt_operand(&self, type_id: TypeId) -> Option<ReferenceAttemptOperand> {\n         let resolved = self.checker.resolve_alias_type(type_id);\n         match self.checker.symbols.type_by_id(resolved)? {\n             Type::Reference { target } => Some(ReferenceAttemptOperand::Reference(*target)),\n-            Type::Pointer { target } => Some(ReferenceAttemptOperand::Pointer(*target)),\n+             /* ~ changed by cargo-mutants ~ */\n             Type::Class { .. } | Type::FunctionBlock { .. } | Type::Interface { .. } => {\n                 Some(ReferenceAttemptOperand::Object(resolved))\n             }\n             _ => None,\n         }\n     }\n \n \n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::reference_attempt_operand",
+      "return_type": "-> Option<ReferenceAttemptOperand>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 236
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "stmt_impl_part_04.rs:230:13: delete match arm Type::Pointer{target} in StmtChecker<'a, 'b>::reference_attempt_operand",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 89,
+        "line": 230
+      },
+      "start": {
+        "column": 13,
+        "line": 230
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ delete match arm Type::Class{..} | Type::FunctionBlock{..} | Type::Interface{..} in StmtChecker<'a, 'b>::reference_attempt_operand\n@@ -223,19 +223,17 @@\n         }\n     }\n \n     fn reference_attempt_operand(&self, type_id: TypeId) -> Option<ReferenceAttemptOperand> {\n         let resolved = self.checker.resolve_alias_type(type_id);\n         match self.checker.symbols.type_by_id(resolved)? {\n             Type::Reference { target } => Some(ReferenceAttemptOperand::Reference(*target)),\n             Type::Pointer { target } => Some(ReferenceAttemptOperand::Pointer(*target)),\n-            Type::Class { .. } | Type::FunctionBlock { .. } | Type::Interface { .. } => {\n-                Some(ReferenceAttemptOperand::Object(resolved))\n-            }\n+             /* ~ changed by cargo-mutants ~ */\n             _ => None,\n         }\n     }\n \n \n     fn check_subrange_assignment(\n         &mut self,\n         target_type: TypeId,\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::reference_attempt_operand",
+      "return_type": "-> Option<ReferenceAttemptOperand>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 236
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "stmt_impl_part_04.rs:231:13: delete match arm Type::Class{..} | Type::FunctionBlock{..} | Type::Interface{..} in StmtChecker<'a, 'b>::reference_attempt_operand",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 14,
+        "line": 233
+      },
+      "start": {
+        "column": 13,
+        "line": 231
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace StmtChecker<'a, 'b>::check_subrange_assignment with ()\n@@ -237,35 +237,17 @@\n \n \n     fn check_subrange_assignment(\n         &mut self,\n         target_type: TypeId,\n         value: &SyntaxNode,\n         value_type: TypeId,\n     ) {\n-        let Some((_, lower, upper)) = self.checker.subrange_bounds(target_type) else {\n-            return;\n-        };\n-\n-        if let Some((_, value_lower, value_upper)) = self.checker.subrange_bounds(value_type) {\n-            if value_lower >= lower && value_upper <= upper {\n-                return;\n-            }\n-        }\n-\n-        if let Some(value_int) = self.checker.eval_const_int_expr_or_report(value) {\n-            if value_int < lower || value_int > upper {\n-                self.checker.diagnostics.error(\n-                    DiagnosticCode::OutOfRange,\n-                    value.text_range(),\n-                    format!(\"value {} outside subrange {}..{}\", value_int, lower, upper),\n-                );\n-            }\n-        }\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n }\n \n #[derive(Clone, Copy)]\n enum ReferenceAttemptOperand {\n     Reference(TypeId),\n     Pointer(TypeId),\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_subrange_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 264
+        },
+        "start": {
+          "column": 5,
+          "line": 239
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "stmt_impl_part_04.rs:245:9: replace StmtChecker<'a, 'b>::check_subrange_assignment with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 263
+      },
+      "start": {
+        "column": 9,
+        "line": 245
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace && with || in StmtChecker<'a, 'b>::check_subrange_assignment\n@@ -242,17 +242,17 @@\n         value: &SyntaxNode,\n         value_type: TypeId,\n     ) {\n         let Some((_, lower, upper)) = self.checker.subrange_bounds(target_type) else {\n             return;\n         };\n \n         if let Some((_, value_lower, value_upper)) = self.checker.subrange_bounds(value_type) {\n-            if value_lower >= lower && value_upper <= upper {\n+            if value_lower >= lower || /* ~ changed by cargo-mutants ~ */ value_upper <= upper {\n                 return;\n             }\n         }\n \n         if let Some(value_int) = self.checker.eval_const_int_expr_or_report(value) {\n             if value_int < lower || value_int > upper {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::OutOfRange,\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_subrange_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 264
+        },
+        "start": {
+          "column": 5,
+          "line": 239
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:250:37: replace && with || in StmtChecker<'a, 'b>::check_subrange_assignment",
+    "package": "single_file",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 39,
+        "line": 250
+      },
+      "start": {
+        "column": 37,
+        "line": 250
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace >= with < in StmtChecker<'a, 'b>::check_subrange_assignment\n@@ -242,17 +242,17 @@\n         value: &SyntaxNode,\n         value_type: TypeId,\n     ) {\n         let Some((_, lower, upper)) = self.checker.subrange_bounds(target_type) else {\n             return;\n         };\n \n         if let Some((_, value_lower, value_upper)) = self.checker.subrange_bounds(value_type) {\n-            if value_lower >= lower && value_upper <= upper {\n+            if value_lower < /* ~ changed by cargo-mutants ~ */ lower && value_upper <= upper {\n                 return;\n             }\n         }\n \n         if let Some(value_int) = self.checker.eval_const_int_expr_or_report(value) {\n             if value_int < lower || value_int > upper {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::OutOfRange,\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_subrange_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 264
+        },
+        "start": {
+          "column": 5,
+          "line": 239
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:250:28: replace >= with < in StmtChecker<'a, 'b>::check_subrange_assignment",
+    "package": "single_file",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 250
+      },
+      "start": {
+        "column": 28,
+        "line": 250
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace <= with > in StmtChecker<'a, 'b>::check_subrange_assignment\n@@ -242,17 +242,17 @@\n         value: &SyntaxNode,\n         value_type: TypeId,\n     ) {\n         let Some((_, lower, upper)) = self.checker.subrange_bounds(target_type) else {\n             return;\n         };\n \n         if let Some((_, value_lower, value_upper)) = self.checker.subrange_bounds(value_type) {\n-            if value_lower >= lower && value_upper <= upper {\n+            if value_lower >= lower && value_upper > /* ~ changed by cargo-mutants ~ */ upper {\n                 return;\n             }\n         }\n \n         if let Some(value_int) = self.checker.eval_const_int_expr_or_report(value) {\n             if value_int < lower || value_int > upper {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::OutOfRange,\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_subrange_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 264
+        },
+        "start": {
+          "column": 5,
+          "line": 239
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:250:52: replace <= with > in StmtChecker<'a, 'b>::check_subrange_assignment",
+    "package": "single_file",
+    "replacement": ">",
+    "span": {
+      "end": {
+        "column": 54,
+        "line": 250
+      },
+      "start": {
+        "column": 52,
+        "line": 250
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace || with && in StmtChecker<'a, 'b>::check_subrange_assignment\n@@ -248,17 +248,17 @@\n \n         if let Some((_, value_lower, value_upper)) = self.checker.subrange_bounds(value_type) {\n             if value_lower >= lower && value_upper <= upper {\n                 return;\n             }\n         }\n \n         if let Some(value_int) = self.checker.eval_const_int_expr_or_report(value) {\n-            if value_int < lower || value_int > upper {\n+            if value_int < lower && /* ~ changed by cargo-mutants ~ */ value_int > upper {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::OutOfRange,\n                     value.text_range(),\n                     format!(\"value {} outside subrange {}..{}\", value_int, lower, upper),\n                 );\n             }\n         }\n     }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_subrange_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 264
+        },
+        "start": {
+          "column": 5,
+          "line": 239
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:256:34: replace || with && in StmtChecker<'a, 'b>::check_subrange_assignment",
+    "package": "single_file",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 36,
+        "line": 256
+      },
+      "start": {
+        "column": 34,
+        "line": 256
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace < with == in StmtChecker<'a, 'b>::check_subrange_assignment\n@@ -248,17 +248,17 @@\n \n         if let Some((_, value_lower, value_upper)) = self.checker.subrange_bounds(value_type) {\n             if value_lower >= lower && value_upper <= upper {\n                 return;\n             }\n         }\n \n         if let Some(value_int) = self.checker.eval_const_int_expr_or_report(value) {\n-            if value_int < lower || value_int > upper {\n+            if value_int == /* ~ changed by cargo-mutants ~ */ lower || value_int > upper {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::OutOfRange,\n                     value.text_range(),\n                     format!(\"value {} outside subrange {}..{}\", value_int, lower, upper),\n                 );\n             }\n         }\n     }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_subrange_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 264
+        },
+        "start": {
+          "column": 5,
+          "line": 239
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:256:26: replace < with == in StmtChecker<'a, 'b>::check_subrange_assignment",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 256
+      },
+      "start": {
+        "column": 26,
+        "line": 256
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace < with > in StmtChecker<'a, 'b>::check_subrange_assignment\n@@ -248,17 +248,17 @@\n \n         if let Some((_, value_lower, value_upper)) = self.checker.subrange_bounds(value_type) {\n             if value_lower >= lower && value_upper <= upper {\n                 return;\n             }\n         }\n \n         if let Some(value_int) = self.checker.eval_const_int_expr_or_report(value) {\n-            if value_int < lower || value_int > upper {\n+            if value_int > /* ~ changed by cargo-mutants ~ */ lower || value_int > upper {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::OutOfRange,\n                     value.text_range(),\n                     format!(\"value {} outside subrange {}..{}\", value_int, lower, upper),\n                 );\n             }\n         }\n     }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_subrange_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 264
+        },
+        "start": {
+          "column": 5,
+          "line": 239
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:256:26: replace < with > in StmtChecker<'a, 'b>::check_subrange_assignment",
+    "package": "single_file",
+    "replacement": ">",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 256
+      },
+      "start": {
+        "column": 26,
+        "line": 256
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace < with <= in StmtChecker<'a, 'b>::check_subrange_assignment\n@@ -248,17 +248,17 @@\n \n         if let Some((_, value_lower, value_upper)) = self.checker.subrange_bounds(value_type) {\n             if value_lower >= lower && value_upper <= upper {\n                 return;\n             }\n         }\n \n         if let Some(value_int) = self.checker.eval_const_int_expr_or_report(value) {\n-            if value_int < lower || value_int > upper {\n+            if value_int <= /* ~ changed by cargo-mutants ~ */ lower || value_int > upper {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::OutOfRange,\n                     value.text_range(),\n                     format!(\"value {} outside subrange {}..{}\", value_int, lower, upper),\n                 );\n             }\n         }\n     }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_subrange_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 264
+        },
+        "start": {
+          "column": 5,
+          "line": 239
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:256:26: replace < with <= in StmtChecker<'a, 'b>::check_subrange_assignment",
+    "package": "single_file",
+    "replacement": "<=",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 256
+      },
+      "start": {
+        "column": 26,
+        "line": 256
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace > with == in StmtChecker<'a, 'b>::check_subrange_assignment\n@@ -248,17 +248,17 @@\n \n         if let Some((_, value_lower, value_upper)) = self.checker.subrange_bounds(value_type) {\n             if value_lower >= lower && value_upper <= upper {\n                 return;\n             }\n         }\n \n         if let Some(value_int) = self.checker.eval_const_int_expr_or_report(value) {\n-            if value_int < lower || value_int > upper {\n+            if value_int < lower || value_int == /* ~ changed by cargo-mutants ~ */ upper {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::OutOfRange,\n                     value.text_range(),\n                     format!(\"value {} outside subrange {}..{}\", value_int, lower, upper),\n                 );\n             }\n         }\n     }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_subrange_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 264
+        },
+        "start": {
+          "column": 5,
+          "line": 239
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:256:47: replace > with == in StmtChecker<'a, 'b>::check_subrange_assignment",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 48,
+        "line": 256
+      },
+      "start": {
+        "column": 47,
+        "line": 256
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace > with < in StmtChecker<'a, 'b>::check_subrange_assignment\n@@ -248,17 +248,17 @@\n \n         if let Some((_, value_lower, value_upper)) = self.checker.subrange_bounds(value_type) {\n             if value_lower >= lower && value_upper <= upper {\n                 return;\n             }\n         }\n \n         if let Some(value_int) = self.checker.eval_const_int_expr_or_report(value) {\n-            if value_int < lower || value_int > upper {\n+            if value_int < lower || value_int < /* ~ changed by cargo-mutants ~ */ upper {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::OutOfRange,\n                     value.text_range(),\n                     format!(\"value {} outside subrange {}..{}\", value_int, lower, upper),\n                 );\n             }\n         }\n     }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_subrange_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 264
+        },
+        "start": {
+          "column": 5,
+          "line": 239
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:256:47: replace > with < in StmtChecker<'a, 'b>::check_subrange_assignment",
+    "package": "single_file",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 48,
+        "line": 256
+      },
+      "start": {
+        "column": 47,
+        "line": 256
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace > with >= in StmtChecker<'a, 'b>::check_subrange_assignment\n@@ -248,17 +248,17 @@\n \n         if let Some((_, value_lower, value_upper)) = self.checker.subrange_bounds(value_type) {\n             if value_lower >= lower && value_upper <= upper {\n                 return;\n             }\n         }\n \n         if let Some(value_int) = self.checker.eval_const_int_expr_or_report(value) {\n-            if value_int < lower || value_int > upper {\n+            if value_int < lower || value_int >= /* ~ changed by cargo-mutants ~ */ upper {\n                 self.checker.diagnostics.error(\n                     DiagnosticCode::OutOfRange,\n                     value.text_range(),\n                     format!(\"value {} outside subrange {}..{}\", value_int, lower, upper),\n                 );\n             }\n         }\n     }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "StmtChecker<'a, 'b>::check_subrange_assignment",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 264
+        },
+        "start": {
+          "column": 5,
+          "line": 239
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "stmt_impl_part_04.rs:256:47: replace > with >= in StmtChecker<'a, 'b>::check_subrange_assignment",
+    "package": "single_file",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 48,
+        "line": 256
+      },
+      "start": {
+        "column": 47,
+        "line": 256
+      }
+    }
+  },
+  {
+    "diff": "--- stmt_impl_part_04.rs\n+++ replace ReferenceAttemptOperand::target -> TypeId with Default::default()\n@@ -269,13 +269,11 @@\n enum ReferenceAttemptOperand {\n     Reference(TypeId),\n     Pointer(TypeId),\n     Object(TypeId),\n }\n \n impl ReferenceAttemptOperand {\n     fn target(self) -> TypeId {\n-        match self {\n-            Self::Reference(target) | Self::Pointer(target) | Self::Object(target) => target,\n-        }\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n }\n",
+    "file": "stmt_impl_part_04.rs",
+    "function": {
+      "function_name": "ReferenceAttemptOperand::target",
+      "return_type": "-> TypeId",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 280
+        },
+        "start": {
+          "column": 5,
+          "line": 276
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "stmt_impl_part_04.rs:277:9: replace ReferenceAttemptOperand::target -> TypeId with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 279
+      },
+      "start": {
+        "column": 9,
+        "line": 277
+      }
+    }
+  }
+]

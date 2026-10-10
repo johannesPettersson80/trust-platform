@@ -167,3 +167,6 @@ docs/internal/testing/evidence/*
 !docs/internal/references/PLCopenMotion/
 conformance/reports/*
 !conformance/reports/.gitkeep
+
+# Task-owned raw validation artifacts live outside the source tree.
+/.artifacts/

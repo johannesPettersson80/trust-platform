@@ -1,0 +1,111 @@
+[gate-progress state=started phase=A4-runtime-unit target=scena-rust-builder pid=2592029 elapsed=0.0s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --lib -- --nocapture --test-threads=1']
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime)
+error: unused import: `trust_runtime_core::numeric::*`
+  --> crates/trust-runtime/src/lib.rs:85:13
+   |
+85 |     pub use trust_runtime_core::numeric::*;
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error: private item shadows public glob re-export
+ --> crates/trust-runtime/src/stdlib/fbs/mod.rs:4:1
+  |
+4 | mod state;
+  | ^^^^^^^^^^
+  |
+note: the name `state` in the type namespace is supposed to be publicly re-exported here
+ --> crates/trust-runtime/src/stdlib/fbs/mod.rs:8:9
+  |
+8 | pub use trust_runtime_core::stdlib::fbs::*;
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: but the private item here shadows it
+ --> crates/trust-runtime/src/stdlib/fbs/mod.rs:4:1
+  |
+4 | mod state;
+  | ^^^^^^^^^^
+  = note: `-D hidden-glob-reexports` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(hidden_glob_reexports)]`
+
+error: unused import: `VmPouStackResult`
+   --> crates/trust-runtime/src/runtime/vm/dispatch.rs:190:36
+    |
+190 |     execute_pou_stack_with_locals, VmPouStackResult,
+    |                                    ^^^^^^^^^^^^^^^^
+
+error: unused import: `VmRef`
+ --> crates/trust-runtime/src/runtime/vm/dispatch_refs.rs:2:33
+  |
+2 | use super::{frames::FrameStack, VmRef};
+  |                                 ^^^^^
+
+error[E0425]: cannot find function `format_duration` in this scope
+  --> crates/trust-runtime/src/value/display/contract_tests.rs:68:20
+   |
+68 |         assert_eq!(format_duration(prefix, nanos), expected);
+   |                    ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `quote_st_string` in this scope
+   --> crates/trust-runtime/src/value/display/contract_tests.rs:102:16
+    |
+102 |     assert_eq!(quote_st_string("plain"), "'plain'");
+    |                ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `quote_st_string` in this scope
+   --> crates/trust-runtime/src/value/display/contract_tests.rs:103:16
+    |
+103 |     assert_eq!(quote_st_string("pump$'a"), "'pump$$$'a'");
+    |                ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `quote_st_string` in this scope
+   --> crates/trust-runtime/src/value/display/contract_tests.rs:104:16
+    |
+104 |     assert_eq!(quote_st_string("$$"), "'$$$$'");
+    |                ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `quote_st_string` in this scope
+   --> crates/trust-runtime/src/value/display/contract_tests.rs:105:16
+    |
+105 |     assert_eq!(quote_st_string("''"), "'$'$''");
+    |                ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `read_value_path_borrowed` in this scope
+  --> crates/trust-runtime/src/runtime/vm/dispatch_refs.rs:81:13
+   |
+81 |             read_value_path_borrowed(frame.locals.first().expect("local slot"), &reference.path)
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `single_ref_index` in this scope
+   --> crates/trust-runtime/src/runtime/vm/dispatch_refs.rs:132:29
+    |
+132 |         reference.path.push(single_ref_index(0));
+    |                             ^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `single_ref_index` in this scope
+   --> crates/trust-runtime/src/runtime/vm/dispatch_refs.rs:175:29
+    |
+175 |         reference.path.push(single_ref_index(0));
+    |                             ^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `read_value_path_borrowed` in this scope
+   --> crates/trust-runtime/src/runtime/vm/dispatch_refs.rs:200:20
+    |
+200 |         let read = read_value_path_borrowed(&value, &path).expect("read extreme lower bound");
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `read_value_path_borrowed` in this scope
+   --> crates/trust-runtime/src/runtime/vm/dispatch_refs.rs:205:13
+    |
+205 |             read_value_path_borrowed(&value, &path).expect("read updated extreme lower bound");
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `materialize_value_path` in this scope
+   --> crates/trust-runtime/src/runtime/vm/dispatch_refs.rs:214:20
+    |
+214 |         let read = materialize_value_path(&value, &path).expect("read non-ascii string element");
+    |                    ^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+For more information about this error, try `rustc --explain E0425`.
+error: could not compile `trust-runtime` (lib test) due to 15 previous errors
+[gate-progress state=finished phase=A4-runtime-unit target=scena-rust-builder pid=2592029 elapsed=29.9s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --lib -- --nocapture --test-threads=1' status=101]

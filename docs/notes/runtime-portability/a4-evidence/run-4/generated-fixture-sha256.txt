@@ -1,0 +1,2 @@
+66f64b2793e7a45988c9ff93bbac5dbf219282fb576f0b3e63103ec9c0a05588  crates/trust-runtime/tests/fixtures/portability/stbc-2.0/numeric-v2.stbc
+0a09a7190f26bbe3481ca7ae5b7f16a130ae4dcb2ee21937b456dd8581a87e5a  crates/trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc

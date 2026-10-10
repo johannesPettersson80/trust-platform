@@ -17,9 +17,9 @@ use trust_runtime::bytecode::{
 use trust_runtime::error::RuntimeError;
 use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::TestHarness;
+use trust_runtime::runtime_core::vm::hosted::ensure_global_call_depth;
 use trust_runtime::runtime_core::vm::{
-    ensure_global_call_depth, VM_MAX_CALL_DEPTH as MAX_CALL_DEPTH,
-    VM_MAX_OPERAND_STACK as MAX_OPERAND_STACK,
+    VM_MAX_CALL_DEPTH as MAX_CALL_DEPTH, VM_MAX_OPERAND_STACK as MAX_OPERAND_STACK,
 };
 use trust_runtime::Runtime;
 use verification_cases::{

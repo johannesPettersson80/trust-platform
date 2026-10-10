@@ -14,6 +14,12 @@ use buffer::{encoded_count, encoded_extent, Buffer};
 impl BytecodeModuleView<'_> {
     /// Serialize a bounded container; counts, extents and alignment are checked before writes.
     pub fn encode(&self) -> Result<Vec<u8>, BytecodeError> {
+        self.encode_with_limit(super::BYTECODE_MAX_CONTAINER_BYTES)
+    }
+
+    /// Serialize with a caller-selected container bound, checked before reservation.
+    pub fn encode_with_limit(&self, limit: usize) -> Result<Vec<u8>, BytecodeError> {
+        let limit = limit.min(super::BYTECODE_MAX_CONTAINER_BYTES);
         let section_count = u16::try_from(self.sections.len())
             .map_err(|_| BytecodeError::InvalidHeader("section count overflow".into()))?;
         let section_table_off = HEADER_SIZE as usize;
@@ -28,9 +34,7 @@ impl BytecodeModuleView<'_> {
                 .ok_or_else(encoded_extent)?,
         )
         .ok_or_else(encoded_extent)?;
-        let mut remaining = super::BYTECODE_MAX_CONTAINER_BYTES
-            .checked_sub(offset)
-            .ok_or_else(encoded_extent)?;
+        let mut remaining = limit.checked_sub(offset).ok_or_else(encoded_extent)?;
         let mut payloads = Vec::new();
         let mut entries = Vec::new();
         payloads
@@ -52,7 +56,7 @@ impl BytecodeModuleView<'_> {
             offset = offset.checked_add(padded).ok_or_else(encoded_extent)?;
             payloads.push(data);
         }
-        let mut bytes = Buffer::new(super::BYTECODE_MAX_CONTAINER_BYTES);
+        let mut bytes = Buffer::new(limit);
         bytes.extend_from_slice(&MAGIC)?;
         bytes.extend_from_slice(&self.version.major.to_le_bytes())?;
         bytes.extend_from_slice(&self.version.minor.to_le_bytes())?;

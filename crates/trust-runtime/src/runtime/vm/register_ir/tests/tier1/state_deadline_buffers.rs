@@ -103,7 +103,10 @@ fn register_executor_tier1_state_reset_clears_cache_and_counters() {
     assert_eq!(after.compile_failures, 0, "snapshot={after:?}");
     assert_eq!(after.cache_evictions, 0, "snapshot={after:?}");
     assert_eq!(after.block_executions, 0, "snapshot={after:?}");
-    assert!(after.compile_failure_reasons.is_empty(), "snapshot={after:?}");
+    assert!(
+        after.compile_failure_reasons.is_empty(),
+        "snapshot={after:?}"
+    );
 }
 
 fn restore_env_vars<const N: usize>(saved: [(&'static str, Option<std::ffi::OsString>); N]) {
@@ -116,15 +119,12 @@ fn restore_env_vars<const N: usize>(saved: [(&'static str, Option<std::ffi::OsSt
 }
 
 #[test]
-fn register_deadline_stride_checks_first_and_stride_boundaries() {
-    assert!(super::should_check_register_deadline(0));
-    assert!(!super::should_check_register_deadline(1));
-    assert!(super::should_check_register_deadline(
-        super::REGISTER_DEADLINE_CHECK_STRIDE
-    ));
-    assert!(super::should_check_register_deadline(
-        super::REGISTER_DEADLINE_CHECK_STRIDE * 2
-    ));
+fn register_deadline_stride_carries_remaining_work_between_blocks() {
+    let budget = trust_runtime_core::vm::hosted::budget::ExecutionBudget::new(64);
+    assert!(!budget.charge(17).unwrap());
+    assert!(!budget.charge(14).unwrap());
+    assert!(budget.charge(1).unwrap());
+    assert_eq!(budget.remaining(), 32);
 }
 
 #[test]
@@ -138,7 +138,9 @@ fn register_execution_buffers_reuse_clears_frames_and_register_files() {
         let (frames, registers, remaining_reads, _) = buffers.buffers_mut();
         frames
             .push(super::super::frames::VmFrame {
-                pou_id: 1,
+                parameter_values_present: Vec::new(),
+                activation: None,
+                pou_id: Some(1),
                 return_pc: 2,
                 code_start: 3,
                 code_end: 4,

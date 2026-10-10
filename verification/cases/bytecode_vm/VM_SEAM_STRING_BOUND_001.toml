@@ -7,7 +7,7 @@ status = "planned"
 invariant = "VM_SEAM_STRING_BOUND_001"
 generator = "gen_cases.py v1"
 generator_digest = "sha256:72778cbbe0dfdeb8945fab41987ce77a8d81ed8c1d18f2a2d77fa8ce5a2934a3"
-source_digest = "sha256:e51198e3618b25bcfd3f88d29c0143458bed7dbf1fad92fbe1d7fc31e8f70424"
+source_digest = "sha256:d666542c815503c386f549b48128bde06b236379d9cba9fe094ec8aef6a3bd79"
 last_reviewed = "2026-07-27"
 
 [[case]]

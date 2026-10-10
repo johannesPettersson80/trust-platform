@@ -156,24 +156,9 @@ pub(in crate::runtime::vm) enum RegisterRefOpKind {
     InstanceFieldLookup,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(in crate::runtime::vm) enum RegisterCallOpKind {
-    FramePush,
-    FramePop,
-    FunctionBlockCallEntry,
-    ParameterBinding,
-    OutputCopyBack,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(in crate::runtime::vm) enum RegisterValueOpKind {
-    ConstLoadClone,
-    RegisterReadClone,
-    RegisterReadMove,
-    ReadValueClone,
-    BindingExprClone,
-    OutputValueClone,
-}
+pub(in crate::runtime::vm) use trust_runtime_core::vm::hosted::call::context::{
+    RegisterCallOpKind, RegisterValueOpKind,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 struct RegisterLoweringCacheKey {

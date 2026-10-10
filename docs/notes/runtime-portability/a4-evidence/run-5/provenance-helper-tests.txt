@@ -1,0 +1,13 @@
+[gate-progress state=started phase=A4-provenance-helper-tests target=scena-rust-builder pid=2669910 elapsed=0.0s timeout=5400s command='cargo test --locked -p verification-cases --example refresh_portability_provenance -- --nocapture']
+    Finished `test` profile [unoptimized] target(s) in 0.18s
+     Running unittests examples/refresh_portability_provenance.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/examples/refresh_portability_provenance-a294ec33ebe6977a)
+
+running 4 tests
+test tests::shared_source_digests_refresh_once_without_accepting_missing_or_conflicting_pins ... ok
+test tests::selection_preserves_exact_operator_identity_and_reports_ambiguity ... ok
+test tests::missing_owner_reports_zero_matches_and_unique_relocation_remains_supported ... ok
+test tests::discovery_includes_unit_and_integration_pin_files_in_both_crates ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[gate-progress state=finished phase=A4-provenance-helper-tests target=scena-rust-builder pid=2669910 elapsed=0.3s timeout=5400s command='cargo test --locked -p verification-cases --example refresh_portability_provenance -- --nocapture' status=0]

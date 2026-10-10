@@ -1,25 +1,47 @@
 //! Portable VM execution helpers.
 
-#![allow(missing_docs)]
+/// Compatibility hooks for the HIR-backed hosted runtime; not source-free admission.
+#[cfg(feature = "hir")]
+pub mod hosted;
 
+mod budget;
+mod call;
 mod const_pool;
+mod construction;
+mod context;
+mod dispatch;
+mod dispatch_refs;
+mod edge;
+mod engine;
+mod module;
+mod prepared;
+mod reference_attempt;
+pub use engine::{ExecutionServices, RuntimeState};
+pub use prepared::{PreparationLimits, PreparationUsage, PreparedModule};
+#[cfg(any(feature = "hir", test))]
+mod debug_map;
 mod dispatch_ops;
 mod dispatch_sizeof;
 mod errors;
 mod frames;
 mod helpers;
 mod limits;
+mod materialization_limits;
 mod stack;
+mod symbols;
+mod type_policy;
 
-pub use const_pool::decode_const_pool_entries;
-pub use dispatch_ops::{apply_jump, execute_binary, execute_unary, read_i32, read_u32};
+#[cfg(test)]
+pub(crate) use const_pool::decode_const_pool_entries;
+#[cfg(test)]
+pub(crate) use dispatch_ops::{apply_jump, execute_binary, execute_unary, read_i32, read_u32};
 pub(crate) use dispatch_sizeof::sizeof_primitive_type;
-pub use dispatch_sizeof::sizeof_type_from_table;
+pub use dispatch_sizeof::{sizeof_type_from_table, sizeof_type_from_table_with};
 pub use errors::VmTrap;
-pub use frames::{ensure_global_call_depth, FrameStack, VmFrame};
-pub use helpers::{materialize_borrowed_value, opcode_operand_len};
+pub(crate) use frames::{ensure_global_call_depth, FrameStack, VmFrame};
+pub(crate) use helpers::{materialize_borrowed_value, opcode_operand_len};
 pub use limits::{VM_MAX_CALL_DEPTH, VM_MAX_EXECUTED_INSTRUCTIONS, VM_MAX_OPERAND_STACK};
-pub use stack::OperandStack;
+pub(crate) use stack::OperandStack;
 
 #[cfg(test)]
 mod tests {
@@ -95,7 +117,9 @@ mod tests {
 
     fn test_frame() -> VmFrame {
         VmFrame {
-            pou_id: 7,
+            parameter_values_present: Vec::new(),
+            activation: None,
+            pou_id: Some(7),
             return_pc: 11,
             code_start: 3,
             code_end: 19,
@@ -576,7 +600,7 @@ mod tests {
 
         frames.push(test_frame()).unwrap();
         assert_eq!(frames.len(), 1);
-        assert_eq!(frames.current().unwrap().pou_id, 7);
+        assert_eq!(frames.current().unwrap().pou_id, Some(7));
         frames.current_mut().unwrap().return_pc = 99;
         assert_eq!(frames.pop().unwrap().return_pc, 99);
         assert!(matches!(frames.pop(), Err(VmTrap::CallStackUnderflow)));

@@ -10,7 +10,6 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
     registers: &mut [Value],
     native_call_stack: &mut OperandStack,
     block: &Tier1CompiledBlock,
-    budget: &mut usize,
     depth_offset: u32,
 ) -> Result<Tier1BlockExecutionOutcome, RuntimeError> {
     let mut control_target = None;
@@ -20,12 +19,7 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
             .get(instruction_index)
             .copied()
             .ok_or_else(|| invalid_bytecode("tier-1 instruction cost missing"))?;
-        crate::runtime::vm::budget::consume_instruction_budget(budget, instruction_cost)?;
-        if should_check_register_deadline(instruction_index)
-            && deadline_exceeded(runtime.effective_execution_deadline())
-        {
-            return Err(VmTrap::DeadlineExceeded.into_runtime_error());
-        }
+        runtime.charge_execution_work(instruction_cost)?;
 
         match instruction {
             Tier1CompiledInstr::Nop => {}
@@ -126,7 +120,6 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                     frame,
                     native_call_stack,
                     caller_depth,
-                    budget,
                     *kind,
                     *symbol_idx,
                     arg_count,
@@ -155,8 +148,8 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                 runtime
                     .vm_register_profile
                     .record_ref_op(RegisterRefOpKind::LoadRefAddr);
-                let reference =
-                    load_ref_addr(module, frames, *ref_idx).map_err(VmTrap::into_runtime_error)?;
+                let reference = load_ref_addr(runtime, module, frames, *ref_idx)
+                    .map_err(VmTrap::into_runtime_error)?;
                 write_register(registers, *dest, Value::Reference(Some(reference)))?;
             }
             Tier1CompiledInstr::StoreRef { ref_idx, src } => {
@@ -295,7 +288,7 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                     let left = peek_ref(runtime, module, frames, *left_ref_idx)
                         .map_err(VmTrap::into_runtime_error)?;
                     let right = module
-                        .consts
+                        .consts()
                         .get(*const_idx as usize)
                         .ok_or(VmTrap::InvalidConstIndex(*const_idx))
                         .map_err(VmTrap::into_runtime_error)?;
@@ -333,7 +326,7 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
             } => {
                 let eval = {
                     let left = module
-                        .consts
+                        .consts()
                         .get(*const_idx as usize)
                         .ok_or(VmTrap::InvalidConstIndex(*const_idx))
                         .map_err(VmTrap::into_runtime_error)?;
@@ -376,7 +369,7 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                     let left = peek_ref(runtime, module, frames, *ref_idx)
                         .map_err(VmTrap::into_runtime_error)?;
                     let right = module
-                        .consts
+                        .consts()
                         .get(*const_idx as usize)
                         .ok_or(VmTrap::InvalidConstIndex(*const_idx))
                         .map_err(VmTrap::into_runtime_error)?;

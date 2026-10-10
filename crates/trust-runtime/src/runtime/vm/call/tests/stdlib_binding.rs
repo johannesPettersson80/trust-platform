@@ -282,7 +282,11 @@ fn bind_vm_call_arguments_keeps_omitted_middle_named_input_as_null() {
         ],
         false,
     );
-    let (locals, out_bindings) = super::bind_vm_call_arguments(
+    let trust_runtime_core::vm::hosted::call::bindings::BoundVmCall {
+        locals,
+        out_bindings,
+        ..
+    } = super::bind_vm_call_arguments(
         &mut runtime,
         &module,
         &empty_caller_frame(),

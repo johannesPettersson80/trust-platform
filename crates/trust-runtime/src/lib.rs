@@ -81,9 +81,6 @@ pub mod mesh;
 /// Runtime metrics collection.
 #[path = "host/metrics.rs"]
 pub mod metrics;
-mod numeric {
-    pub use trust_runtime_core::numeric::*;
-}
 /// OPC UA profile and IEC-to-OPC UA mapping helpers.
 #[path = "host/opcua/mod.rs"]
 pub mod opcua;

@@ -337,6 +337,44 @@ Debug/source sections may be omitted when genuinely optional. Required symbol, t
 
 STBC integrity checks and CRCs shall not be described as authentication. Production deployment requires an explicit trust model, such as physical commissioning authorization or authenticated update access; signatures are required where the product's threat model requires them.
 
+The initial source-free execution profile rejects raw `REF_TABLE` storage domains
+`Retain` and `Io` during preparation, before any initializer or POU executes.
+These domains have no shared executable storage implementation in Scope A4.
+This restriction does not reject `RETAIN` declaration flags on ordinary global
+or instance storage, or `IO_MAP` addresses bound to that storage. Process images
+and hierarchical direct addresses retain their separate codec and cycle-boundary
+synchronization. Future raw-domain support requires an explicit consumer contract;
+a structurally valid wire record alone is not execution-profile admission.
+
+The A4 cooperative source-free composition admits exactly one resource. The
+2.0 storage/root tables do not encode cross-resource ownership; accepting a
+second resource would incorrectly turn its unscheduled program roots into
+background work. Resource index zero is the only admitted instance selection.
+Hosted 1.x resource handling is unchanged.
+
+Preparation has separate artifact, validation-scratch, logical preparation and
+runtime construction limits. Both byte and decoded-object entry points enforce
+the artifact bound through the same bounded serializer. Byte-input decoding
+charges concrete section and nested-table reservations and payload copies before
+allocation, including zero-length string records; its demand seeds the same
+cumulative preparation budget. A caller-owned decoded object is excluded from
+that initial demand. Preparation accounting
+charges bounded serialization scratch, concrete table records using target
+`size_of`, owned payload lengths and nested vector elements. Map entries charge
+their key/value payload plus four pointer-sized link/control words; actual bucket
+capacity and allocator node occupancy are excluded. Temporary instance-owner
+sets are bounded by the number of reference instructions in each actual POU
+body. Expanded constants are additionally charged before vector/map reservations
+and scalar/string copies. Work charges serialized bytes, actual metadata/body
+visits, lookup comparisons and expanded constant visits. These cumulative logical charges are deliberately
+conservative admission metrics, not allocator peak, RSS, elapsed time or WCET;
+allocator overhead, error diagnostics and native stack still require measured
+profile headroom in Scope B. Validation retains its independent scratch/work
+limits. Executable native imports must resolve to the shared standard-library or
+POU implementation; built-in FB signatures and hidden state must match the native
+contract. CURRENT_DT additionally requires an explicitly supplied wall-clock
+service before instance construction; a logical-only composition rejects it.
+
 ### 5.3 Validated construction and admission evidence
 
 **LOAD-07.** A prepared module eligible for execution shall be constructible only after successful artifact validation, capability/resource admission, and preparation. Raw decoded objects shall not be executable. Constructors, deserialization, test helpers, and embedding APIs shall not expose an accidental production bypass of this transition.
@@ -344,6 +382,12 @@ STBC integrity checks and CRCs shall not be described as authentication. Product
 **LOAD-08.** Timing admission shall follow Sections 4.4 and 8.4. The loader or installation manager shall verify that the selected timing evidence matches the application, configuration, engine/adapter build, and platform envelope. The device need not reproduce an entire off-device analysis, but it shall independently enforce its capability/resource limits, reject mismatched evidence, and refuse a stronger claim than the evidence supports. A memory-fit result shall not be reported as timing admission.
 
 **LOAD-09.** Candidate validation and preparation shall be transactional with respect to the installed generation: failure shall not corrupt or publish a partially prepared replacement. Work, allocations, reference expansion, and failure reporting shall remain bounded by the preparation profile. Excess demand shall fail before switching.
+
+The public source-free state surface does not implement the internal mutable
+storage/dispatcher adapter traits. Its private execution state is reached only
+through admitted construction, typed engineering access, cycle and restart methods;
+a trait-qualified call must not expose an untyped storage mutation bypass. The
+shared host adapter traits remain available for compatibility compositions.
 
 A validated constructor is an implementation invariant, not a substitute for fuzzing or an assertion that the validator is correct. Artifact and deployment-metadata mutation tests are mandatory under Section 14.
 
@@ -373,6 +417,14 @@ Replace the singleton version assumption with explicit reader-supported pairs an
 | Native/standard-library imports | Resolve only typed, versioned implementations admitted by LOAD-06. | Required timer/math imports resolve; unavailable or mismatched imports fail before RUN. |
 
 **LOAD-11.** Prepare immutable bytecode initialization plans and storage before RUN; execute dynamic initializers at their required call/first-use/restart boundary. Scope/frame visibility, declaration order, parameter preservation, static once-state, instance construction, bounds, faults, and value copies follow specification 12 §7.11. Use the same executor and nested work budget as the POU body. Replace module-address cache identity with the admitted module/generation identity; remove the Expr initializer execution path from migrated runtime execution once the corresponding coverage is complete. HIR may remain in the compiler, but neither a serialized AST interpreter nor a first-use lowering cache belongs in the portable engine. [R29]
+
+Source-free native output copy-back is one transaction: all output conversions and
+writes either complete or leave all caller destinations unchanged, including on
+budget exhaustion or a physical deadline during commit. This covers split-date/time
+native outputs as well as user POU and function-block outputs. It does not roll back
+the callee's preceding execution or unrelated PLC state mutations. The legacy hosted
+composition keeps its existing compatibility policy until its migration.
+
 
 M2A shall include the construction rows exercised by its representative fixture, including a changing-input local initializer and initialized compound/FB state. The entire map shall be covered by M2B/M3 before broad parity or bounded-profile claims. Removing the `trust-hir` dependency while leaving a hidden harness initializer path does not close this work.
 
@@ -718,6 +770,23 @@ The core shall continue to decide which state is retained and how cold/warm rest
 **RETAIN-01.** Checkpoints shall be coherent snapshots with a format version, application/schema identity, checkpoint sequence/generation, integrity check, and completion indication. Record the applicable execution-generation identity where needed for compatibility, and do not confuse checkpoint sequence numbers with execution-generation lifetime tokens. Native pointers or raw Rust struct layout shall not be the durable format.
 
 **RETAIN-02.** A restart shall load only a complete, valid, compatible checkpoint. An interrupted write shall not replace the last known-good checkpoint with a partially written one.
+
+An in-process restart preserves the sampled logical resource time before executing
+replacement initializers; it does not expose a temporary zero-time epoch. Task
+registration uses that same sample as its new nominal-deadline baseline. A failed
+replacement leaves the installed state and its clock unchanged. This is a product
+lifecycle contract, distinct from restoring time after a power cycle.
+Warm in-process restart transfers retained global object graphs into replacement
+storage, preserving aliasing and cycles while remapping instance and global
+references to replacement identities. Owning POU-typed links retain object state; interface-typed links (including
+aggregate members) are nonowning bindings, like references. A reference alone to a non-retained artifact root preserves its binding but
+observes that root's reset state. Retained resource-variable globals are visible to replacement
+initializers. Function statics retain their distinct AfterRestart initialization
+policy; RETAIN does not turn a static into a retained resource-global root. Program-local retained scalar/aggregate values and edge phases
+keep the existing hosted restoration order and retainability policy. Live
+activation-local references cannot cross restart. Graph transfer consumes the
+same admitted construction/work limits and commits only with successful full
+replacement; this is not a durable serialization promise for live handles.
 
 **RETAIN-03.** The product shall document its persistence guarantee: periodic checkpoint, stop checkpoint, or a stronger hardware-backed mechanism. “RETAIN supported” shall not imply that every last scan survives arbitrary power loss.
 
@@ -1208,7 +1277,61 @@ M0U is a separate implementation scope, normally after A/B and before broad M2B.
 
 The modernization deliverable is complete when every in-scope dependency/tool has a current disposition, all selected migrations and lockfiles are implemented, the support/MSRV/tool documentation agrees, and the applicable evidence passes. Report retained versions and exceptions plainly; do not label a qualified subset “all packages latest.” Saved PLC traces and NUM-05 outcomes must remain compatible across the selected build changes. Attribute performance changes according to PERF-01 rather than presenting compiler gains as evidence for extraction.
 
+### A4 execution-cost and diagnostic contract
+
+Preparation builds immutable owner/slot/member, initializer, edge-input and root
+indexes once, and accounts their memory/work against preparation limits. An ordinary
+store or reference lookup must not scan the complete program layout; frame entry
+must not rescan the entire initializer table. Lookup work is bounded by the selected
+index, inheritance/path depth and the values actually processed. One prepared
+standard-library registry is reused for admission, instantiation and restart.
+
+A native output transaction preserves atomic copy-back by staging or journaling
+only its actual destination values, including aliases and suspended-frame targets.
+Sampling stages only input-bound values. Output publication is charged per binding
+and data actually encoded, never per unused byte of the admitted image. A 3,000-
+declaration program executing 2,000 scalar stores in a scan, a resource sampling
+2,000 distinct scalar input bindings, and a resource with a 1 MiB marker image
+and sparse bindings must run under the default work limit;
+raising that limit is not a substitute for removing whole-state work.
+
+There is one authoritative work budget per execution entry, shared across nested
+calls, initializers and helpers. Allocation charges remain a separate quantity.
+Physical deadline checks use a bounded work stride and explicit entry/completion
+checks; charging each individual work unit does not itself call the physical clock.
+For a cycle or typed engineering write, the completion deadline is checked after
+fallible staging and immediately before committing outputs or the destination.
+A failed deadline check must leave publication/destination state unchanged; there
+is no fallible post-publication deadline check that reports failure after commit.
+Native callbacks still cannot be forcibly interrupted by these cooperative checks.
+Borrowed reference loads/stores must not allocate an owned path merely to run a
+policy check. Native allocation assertions cover the hosted field-reference path.
+
+Optional no_std caches are accelerators: a failed interior borrow is a cache miss,
+not a runtime panic. Dedicated fault identities in spec 12 §11.5.8 distinguish
+storage protections, lifetime/visibility violations and profile/resource rejection.
+Runtime state groups lifecycle, work, process-image and construction bookkeeping;
+internal VM representation is exposed only through the hosted compatibility facade
+and documented portable entry points.
+
+A4 correction evidence includes 2.0 execution of TOF, TP, counters, triggers,
+bistables, falling edges, hierarchical I/O, an injected mid-cycle deadline and a
+forged dynamic initializer store denied outside staging. Physical board replay
+belongs to scopes B/E and does not form part of RTP-A4-02 software closure.
+
 ## 17. Rust design patterns for this runtime
+
+A4 execution ownership: each source-free invocation has a checked, non-reused live
+activation identity. A nested call temporarily transfers its caller's local vector
+into the engine's reference-addressable storage, then restores that same vector on
+both successful and failed return. No local snapshot is substituted for live aliasing.
+References to the current activation resolve against its active frame; references to
+suspended ancestors resolve against the transferred storage. Releasing an activation
+invalidates its references. Initialization staging has a distinct activation identity,
+and recursive aggregate lifetime checks apply before writes, returns and commits.
+Legacy hosted sentinel references remain confined to the 1.x compatibility adapter.
+
+
 
 The **Rust Design Patterns** book is a useful community reference for tradeoffs and idiomatic implementation. Rust's API Guidelines, Edition Guide, and Embedded Rust Book provide complementary guidance. The choices below are truST design recommendations derived from those sources and the reviewed code; the books do not prescribe a PLC architecture or prove this implementation. [E48–E55]
 

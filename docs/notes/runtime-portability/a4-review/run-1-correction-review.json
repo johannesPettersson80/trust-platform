@@ -1,0 +1,68 @@
+{
+  "review": "A4 run-1 correction independent source review",
+  "head": "77b91381fcf1b1850611f88b397bbfe8d45e3523",
+  "verdict": "No actionable findings in reviewed correction delta; execution unverified",
+  "framing": "SHA256 of sorted UTF-8 relative path, NUL, raw file content, NUL",
+  "aggregate_sha256": "ed1c583387e92fd8cd66a3d349c97c93623ac0e27242520ab60a0f178280dc51",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/assignment.rs",
+      "sha256": "29abc7fdcfe1689094197047024b6746b7b5e7feb5741a55d18e519db2133897",
+      "bytes": 9256
+    },
+    {
+      "path": "crates/verification-cases/examples/refresh_portability_provenance.rs",
+      "sha256": "d3328c07ca88f407ebe84638fd38664b4ff6c31e28289fc3d65f608198fe2952",
+      "bytes": 12302
+    },
+    {
+      "path": "docs/notes/runtime-portability/a4-review/provenance-correction.md",
+      "sha256": "8a353ecf523d4051012ab746eed9010488354d0978c56600d3e112bcdcc6748a",
+      "bytes": 1783
+    },
+    {
+      "path": "scripts/cargo_target_path.sh",
+      "sha256": "7a7f9c4bd5fbc99f8fb61831ec6d7abf9ae1f267c3217eb049f86a1b6bc7e911",
+      "bytes": 1395
+    },
+    {
+      "path": "scripts/remove_cargo_target_if_idle.sh",
+      "sha256": "723cf116e638562b026d1f94e0964ddc4f43a25d2c73338fbd96750b0f8e7876",
+      "bytes": 553
+    },
+    {
+      "path": "scripts/verification/mutation_program_contract.py",
+      "sha256": "1bfdef29604eb9d78a896da25e74f0b36d844d190e2b1a26c136a5690dbe4d2d",
+      "bytes": 41943
+    },
+    {
+      "path": "scripts/verification/mutation_program_contract_tests.py",
+      "sha256": "34b66cc037cb253ac563c909c687891ecf4ce8916c6c8e6105e066e6e368f9f2",
+      "bytes": 18337
+    },
+    {
+      "path": "scripts/with_cargo_target_lease.sh",
+      "sha256": "65d172f05a936668d6b2e45f6f28419046d28818a9ebec9a6d8f0d0ff004402d",
+      "bytes": 844
+    },
+    {
+      "path": "verification/mutation-program.toml",
+      "sha256": "5c5400f67ecf20a840af4ebabcc63e7780ac27d8062c87d7a4641a780e78617a",
+      "bytes": 11652
+    },
+    {
+      "path": "xtask/config/full_map_policy.json",
+      "sha256": "d028fbf7037def82976a693184e759c7cbd8e4b702d193eeef083292e07dca10",
+      "bytes": 93071
+    }
+  ],
+  "excluded_own_implementation": [
+    "crates/trust-runtime-core/src/vm/call/mod.rs",
+    "crates/trust-runtime-core/src/vm/dispatch_refs.rs",
+    "crates/trust-runtime-core/src/vm/debug_map.rs",
+    "crates/trust-runtime-core/src/vm/engine/initialization/construction.rs",
+    "crates/trust-runtime-core/src/vm/prepared/budget.rs",
+    "crates/trust-runtime-core/src/vm/construction/values.rs"
+  ],
+  "validation": "No tests, builds, formatters, validators, shell lease helpers, mutation discovery, or provenance refresh executed by reviewer."
+}

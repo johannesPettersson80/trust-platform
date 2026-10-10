@@ -59,6 +59,9 @@ fn read_bounded_count_with_limit(
     Ok(count)
 }
 
+mod budget;
+use budget::DecodeBudget;
+pub use budget::DecodeStats;
 mod module_decode;
 mod section_decode;
 use section_decode::*;

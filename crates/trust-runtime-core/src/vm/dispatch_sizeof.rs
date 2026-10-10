@@ -8,15 +8,26 @@ const SIZEOF_TYPE_MAX_DEPTH: usize = 128;
 
 /// Compute `SIZEOF` for a bytecode type-table entry.
 pub fn sizeof_type_from_table(types: &TypeTable, type_idx: u32) -> Result<u64, RuntimeError> {
+    sizeof_type_from_table_with(types, type_idx, &mut |_| Ok(()))
+}
+
+/// Shared type-size traversal with caller-owned work/deadline charging.
+pub fn sizeof_type_from_table_with(
+    types: &TypeTable,
+    type_idx: u32,
+    visit: &mut impl FnMut(usize) -> Result<(), RuntimeError>,
+) -> Result<u64, RuntimeError> {
     let mut stack = Vec::new();
-    sizeof_type_from_table_inner(types, type_idx, &mut stack)
+    sizeof_type_from_table_inner(types, type_idx, &mut stack, visit)
 }
 
 fn sizeof_type_from_table_inner(
     types: &TypeTable,
     type_idx: u32,
     stack: &mut Vec<u32>,
+    visit: &mut impl FnMut(usize) -> Result<(), RuntimeError>,
 ) -> Result<u64, RuntimeError> {
+    visit(1 + stack.len())?;
     if stack.len() >= SIZEOF_TYPE_MAX_DEPTH {
         return Err(RuntimeError::bytecode(
             StableErrorCode::VmBytecodeDecode,
@@ -44,20 +55,21 @@ fn sizeof_type_from_table_inner(
             max_length,
         } => sizeof_primitive_type(*prim_id, *max_length),
         TypeData::Array { elem_type_id, dims } => {
+            visit(dims.len())?;
             if dims
                 .iter()
                 .any(|(lower, upper)| *lower == 0 && *upper == i64::MAX)
             {
                 return Err(RuntimeError::TypeMismatch);
             }
-            let elem_size = sizeof_type_from_table_inner(types, *elem_type_id, stack)?;
+            let elem_size = sizeof_type_from_table_inner(types, *elem_type_id, stack, visit)?;
             let len = type_array_len(dims).ok_or(RuntimeError::TypeMismatch)?;
             elem_size.checked_mul(len).ok_or(RuntimeError::Overflow)
         }
         TypeData::Struct { fields } => {
             let mut total = 0u64;
             for field in fields {
-                let size = sizeof_type_from_table_inner(types, field.type_id, stack)?;
+                let size = sizeof_type_from_table_inner(types, field.type_id, stack, visit)?;
                 total = total.checked_add(size).ok_or(RuntimeError::Overflow)?;
             }
             Ok(total)
@@ -65,19 +77,19 @@ fn sizeof_type_from_table_inner(
         TypeData::Union { fields } => {
             let mut max_size = 0u64;
             for field in fields {
-                let size = sizeof_type_from_table_inner(types, field.type_id, stack)?;
+                let size = sizeof_type_from_table_inner(types, field.type_id, stack, visit)?;
                 max_size = max_size.max(size);
             }
             Ok(max_size)
         }
         TypeData::Enum { base_type_id, .. } => {
-            sizeof_type_from_table_inner(types, *base_type_id, stack)
+            sizeof_type_from_table_inner(types, *base_type_id, stack, visit)
         }
         TypeData::Alias { target_type_id } => {
-            sizeof_type_from_table_inner(types, *target_type_id, stack)
+            sizeof_type_from_table_inner(types, *target_type_id, stack, visit)
         }
         TypeData::Subrange { base_type_id, .. } => {
-            sizeof_type_from_table_inner(types, *base_type_id, stack)
+            sizeof_type_from_table_inner(types, *base_type_id, stack, visit)
         }
         TypeData::Reference { .. } => Ok(POINTER_REFERENCE_HANDLE_SIZE_BYTES),
         TypeData::Pou { .. } | TypeData::Interface { .. } => Err(RuntimeError::TypeMismatch),

@@ -1,6 +1,6 @@
 [package]
 name = "trust-runtime-core"
-description = "Portable execution core scaffold for the truST runtime"
+description = "Portable bytecode execution core for the truST runtime"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

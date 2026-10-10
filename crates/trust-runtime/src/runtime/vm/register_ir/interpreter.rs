@@ -46,7 +46,6 @@ pub(super) fn execute_register_block_interpreted(
     remaining_register_reads: &mut [u32],
     native_call_stack: &mut OperandStack,
     block: &RegisterBlock,
-    budget: &mut usize,
     depth_offset: u32,
 ) -> Result<RegisterBlockExecutionOutcome, RuntimeError> {
     let mut control_target = None;
@@ -56,18 +55,13 @@ pub(super) fn execute_register_block_interpreted(
             .get(instruction_index)
             .copied()
             .ok_or_else(|| invalid_bytecode("register-ir instruction cost missing"))?;
-        crate::runtime::vm::budget::consume_instruction_budget(budget, instruction_cost)?;
-        if should_check_register_deadline(instruction_index)
-            && deadline_exceeded(runtime.effective_execution_deadline())
-        {
-            return Err(VmTrap::DeadlineExceeded.into_runtime_error());
-        }
+        runtime.charge_execution_work(instruction_cost)?;
 
         match instruction {
             RegisterInstr::Nop => {}
             RegisterInstr::LoadConst { dest, const_idx } => {
                 let value = module
-                    .consts
+                    .consts()
                     .get(*const_idx as usize)
                     .map(|value| {
                         let (value, cloned) = materialize_borrowed_value(value);
@@ -177,8 +171,8 @@ pub(super) fn execute_register_block_interpreted(
                 runtime
                     .vm_register_profile
                     .record_ref_op(RegisterRefOpKind::LoadRefAddr);
-                let reference =
-                    load_ref_addr(module, frames, *ref_idx).map_err(VmTrap::into_runtime_error)?;
+                let reference = load_ref_addr(runtime, module, frames, *ref_idx)
+                    .map_err(VmTrap::into_runtime_error)?;
                 write_register(registers, *dest, Value::Reference(Some(reference)))?;
             }
             RegisterInstr::StoreRef { ref_idx, src } => {
@@ -225,7 +219,6 @@ pub(super) fn execute_register_block_interpreted(
                     frame,
                     native_call_stack,
                     caller_depth,
-                    budget,
                     *kind,
                     *symbol_idx,
                     arg_count,
@@ -234,8 +227,12 @@ pub(super) fn execute_register_block_interpreted(
                 write_register(registers, *dest, result)?;
             }
             RegisterInstr::SizeOfType { type_idx, dest } => {
-                let size = sizeof_type_from_table(&module.types, *type_idx)
-                    .map_err(|err| VmTrap::Runtime(err).into_runtime_error())?;
+                let size = trust_runtime_core::vm::sizeof_type_from_table_with(
+                    module.types(),
+                    *type_idx,
+                    &mut |units| runtime.charge_execution_work(units),
+                )
+                .map_err(|err| VmTrap::Runtime(err).into_runtime_error())?;
                 let size = i32::try_from(size)
                     .map_err(|_| VmTrap::Runtime(RuntimeError::Overflow).into_runtime_error())?;
                 write_register(registers, *dest, Value::DInt(size))?;
@@ -263,7 +260,7 @@ pub(super) fn execute_register_block_interpreted(
                     .vm_register_profile
                     .record_ref_op(RegisterRefOpKind::RefField);
                 let field = module
-                    .strings
+                    .strings()
                     .get(*field_idx as usize)
                     .cloned()
                     .ok_or_else(|| {
@@ -437,7 +434,7 @@ pub(super) fn execute_register_block_interpreted(
                     let left = peek_ref(runtime, module, frames, *left_ref_idx)
                         .map_err(VmTrap::into_runtime_error)?;
                     let right = module
-                        .consts
+                        .consts()
                         .get(*const_idx as usize)
                         .ok_or(VmTrap::InvalidConstIndex(*const_idx))
                         .map_err(VmTrap::into_runtime_error)?;
@@ -475,7 +472,7 @@ pub(super) fn execute_register_block_interpreted(
             } => {
                 let eval = {
                     let left = module
-                        .consts
+                        .consts()
                         .get(*const_idx as usize)
                         .ok_or(VmTrap::InvalidConstIndex(*const_idx))
                         .map_err(VmTrap::into_runtime_error)?;
@@ -518,7 +515,7 @@ pub(super) fn execute_register_block_interpreted(
                     let left = peek_ref(runtime, module, frames, *ref_idx)
                         .map_err(VmTrap::into_runtime_error)?;
                     let right = module
-                        .consts
+                        .consts()
                         .get(*const_idx as usize)
                         .ok_or(VmTrap::InvalidConstIndex(*const_idx))
                         .map_err(VmTrap::into_runtime_error)?;

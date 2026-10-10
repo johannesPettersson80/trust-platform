@@ -1,0 +1,25 @@
+{
+  "scope": "Independent review of three other-author run-2 correction files only",
+  "verdict": "No actionable source findings; unverified by execution",
+  "aggregate_sha256": "688313b070213780efda64b0559c88092a998583cceb9ab1c93ef738a9a930e9",
+  "framing": "sorted relative UTF-8 path/NUL/raw bytes/NUL SHA256",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/assignment.rs",
+      "sha256": "02e1e424a5d11125ea86612221ee7994e08d1c3b446f3fb4312f646c72c894cd",
+      "bytes": 9172
+    },
+    {
+      "path": "crates/trust-runtime-core/tests/source_free_profile_admission.rs",
+      "sha256": "470b97fc4b866284b6be9bf950e88807eaa3715974da967be274b32571076682",
+      "bytes": 3358
+    },
+    {
+      "path": "scripts/verification/mutation_program_contract_tests.py",
+      "sha256": "4528f92b4c955ec65fab5491c833b94f8eb9ebc71175ef37a304c8a5f2c33424",
+      "bytes": 19272
+    }
+  ],
+  "exclusions": "Reviewer-authored thirteen-file host/core cleanup excluded; earlier own A4 code not approved",
+  "validation": "None executed"
+}
