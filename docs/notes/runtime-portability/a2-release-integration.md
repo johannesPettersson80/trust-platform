@@ -170,3 +170,37 @@ scripts.verification.metadata_validator.evidence_proof_tests`, plus advisory met
 Reuse the unchanged portable/i686/MCU, TLS, Windows-LSP, diagrams and public-docs
 proof from batch 1; their source/configuration inputs are unchanged. No automatic
 rerun, source edit during execution, or push without passing required proof is allowed.
+
+## Second integration batch and original-proof restoration
+
+Candidate `e01c9250820c21852f960dcb14479a872ed64005` completed its exact-SHA
+release guard successfully: 8,392 native/doc tests passed, zero failed and 24
+were ignored; VS Code passed 519 tests. MP-001 and final clean-tree checks passed.
+The separate report/proof supplement passed 45 tests but failed report-class
+setup, leaving 18 report tests unrun. Advisory metadata reported the same cause.
+The candidate is therefore not ready to push despite its passing guard artifact.
+All results, commands and source identities are retained under `run-2/`.
+
+The first correction checked the historical case-file bytes but missed that
+commit `dd476a78f` had rewritten both July I/O proof-contract digests without
+changing their recorded run IDs, source revisions or measured results. Original
+baseline record commit `79be3970b18c1d6fee34d546d51d539d06de9b76` and comparison
+record commit `d3a0c799607c858eedc0fdb30b69712d07d49783` both contain digest
+`sha256:4fd0f346be3c4eaf3b85e83ffbc03ae89946ddd4b8ef91e671cef27a94680241`.
+Reconstructing the complete catalog and invariant contract at each recorded
+measurement revision yields that same original digest. The contract projection
+and hashing implementations are byte-identical between those revisions and today.
+`run-2/historical-original-proof-audit.json` retains the original records and
+reconstruction details.
+
+The prepared correction restores exactly those two original measured digest
+values while retaining `source_revision` binding. It preserves the run IDs,
+dates, source commits, result summaries, artifact hashes and case-file hashes;
+it neither fabricates a new measurement nor binds historical proof to current
+behavior. No validator rule, assertion or metadata requirement is relaxed.
+
+After independent review, commit this metadata/documentation correction and
+coordinate one consolidated exact-SHA guard plus the same focused report/proof
+supplement and advisory metadata check. Keep all unchanged batch-1 supplemental
+proof. A4 owns the builder while this correction is prepared; no new validation
+has run for the restored metadata.

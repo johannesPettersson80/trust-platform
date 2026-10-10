@@ -9,16 +9,16 @@ it does not create additional product requirements. Existing closed extraction b
 
 | Field | Recorded state |
 |---|---|
-| Updated | A2 integration batch 1 finished with two required failures, 10 October 2026. Historical expanded A2 scope remains verified through runs 6–8; integration corrections are prepared but unvalidated. |
-| Checkout | `/home/johannes/projects/trust-platform-portability-a2-integration`, branch `integrate/runtime-portability-a2`, committed candidate `e461e0f9d6d36b9e95a66183134cb482c07e7635` on released main `258fe24b8c3706d566f5f05c25cfcd75e5b297c3`, with uncommitted corrections. Original A2 commit `9f62fd09181c222ae6f8802128600708e3a304ea` and its worktree/evidence are preserved. |
-| Bootstrap | Canonical AGENTS.md and full .codex/skills manually copied from `/home/johannes/projects/trust-platform`; current integration local/reviewer/builder canonical-file parity verified. Builder 269-record source identity matched before and after preparation; no source bytes changed. |
+| Updated | A2 integration batch 2 finished, 10 October 2026. Exact-SHA guard passed; one required supplemental setup error remains. Original-proof restoration is prepared, not validated. |
+| Checkout | `/home/johannes/projects/trust-platform-portability-a2-integration`, branch `integrate/runtime-portability-a2`, candidate `e01c9250820c21852f960dcb14479a872ed64005` on released main `258fe24b8c3706d566f5f05c25cfcd75e5b297c3`, with the metadata/documentation correction described below. Original A2 commit `9f62fd09181c222ae6f8802128600708e3a304ea` and evidence are preserved. |
+| Bootstrap | Canonical AGENTS.md and complete skills manually copied from `/home/johannes/projects/trust-platform`; 21-file local/builder parity verified before the frozen batch. |
 | Authorization | User authorized agent-led A1 then A2 integration, review, validation, push, guarded merge and release, including necessary reviewed correction cycles. Complete each correction before one consolidated batch; no piecemeal tests, unreviewed reruns or bypasses. |
 | Scope | Full shared 1.x loader/validator/container/metadata/serialization; hosted compatibility preserved. STBC 2.0, executable preparation and board execution remain later work. |
-| Status | Candidate e461e0f9d failed the stale decoder-source oracle and mutation-report setup blocked by historical IO proof bindings. All planned independent supplements/docs finished; source remained frozen. Three owning line changes are prepared; the guard artifact remains failed. |
-| Source identity | Run-8 frozen 252-record manifest SHA-256 `3415c33e97675a74840273f472c006ab01888aa45815593d57367430887c7815`; all matched local source before closeout-only edits. See A2-R6/R7/R8. |
-| Limitations | No A2 push. The guard stopped after 6,977 passing tests and one failure, leaving later workspace binaries/MP-001 unrun; report class setup left 18 tooling tests unrun. Passing portable/32-bit/MCU compilation and docs do not replace the failed guard or provide board evidence. |
-| Integration | A1 PR #130 merged as 258fe24b8 and v0.24.71 is fully released: main CI, annotated tag, Release/Latest/assets and all Marketplace targets passed; local/builder cleanup audits are clean. A2 version is 0.24.72. |
-| Next action | Independent review of the architecture-oracle boundary and two source-revision evidence bindings; then authorized/coordinated final preparation, correction commit and one new exact-SHA guard with focused report/proof-binding tests. Retain unchanged passing supplemental proof; no automatic rerun. |
+| Status | Candidate e01c92508 guard passed: 8,392 native/doc tests, 519 VS Code tests, MP-001 and final clean. Focused supplement passed 45 tests but report-class setup failed, leaving 18 tests unrun. No push. |
+| Source identity | Historical run-8 frozen 252-record manifest SHA-256 `3415c33e97675a74840273f472c006ab01888aa45815593d57367430887c7815`; integration candidate and new correction are recorded separately in the release integration note. |
+| Limitations | Historical I/O contract digests had been rewritten after their recorded measurements. Restoring the two original digests is prepared; further proof remains required. MCU checks do not establish firmware or hardware execution. |
+| Integration | A1 PR #130 merged as 258fe24b8 and v0.24.71 is fully released. A2 version is 0.24.72. Batch-1 portable/32-bit/MCU/TLS/Windows-LSP/diagram/strict-docs proof remains unchanged and passing. |
+| Next action | Independently review restoration of the two original measured proof-contract digests and these records; commit, coordinate the builder slot, then run one consolidated exact-SHA guard plus focused report/proof tests and advisory metadata. Preserve all failed evidence. |
 
 Current plan SHA-256: `2a896118b750ca0a0e840d3aa9a2712f53e092f1fc8c40273cb1753bbc8fcb8d`.
 
