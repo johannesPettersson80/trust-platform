@@ -9,18 +9,18 @@ it does not create additional product requirements. Existing closed extraction b
 
 | Field | Recorded state |
 |---|---|
-| Updated | A1 integration batch 2 passed at c1e0f68f9; PR #130 requires docs and lifecycle corrections after complete CI collection. No follow-up validation authorized. |
+| Updated | A1 integration batch 3 passed all tests and gates except exact-SHA final cleanliness: two formatter line wraps. Corrections copied back for review; no runtime/assertion failure. |
 | Plan | Specification 34 v0.10; SHA-256 recorded below. A2 and A3 are separately committed; A4 is under development in another worktree. |
 | Checkout | Release candidate: `/home/johannes/projects/trust-platform-portability-a1-integration`, branch `integrate/runtime-portability-a1`, rebased onto main `ecbcb08ddd12360d057c8e25b6502b9f9d6772c3`. Original A1 and A2 worktrees and evidence are preserved. Canonical rules come from `/home/johannes/projects/trust-platform`, manually copied and byte-verified. |
-| Working tree | Preparing PR #130 corrections after all initial checks completed. Strict docs publication failed; Linux native CI passed only after its automatic retry rescued a fleet-stop read failure. Guard cache reclamation is being made conditional on the unchanged space floor. No A3/A4 changes included. |
+| Working tree | Preparing the final formatter-output correction after b703482be. All 8,326 native tests, 519 VS Code tests and strict documentation checks passed; the guard requires a new clean committed SHA. Canonical final-preparation guidance is included. |
 | Authorization | User authorized agents to continue integration, push and merge using the lessons from #129. Implementation/review precede each consolidated batch; collect every reachable failure before correction, and never retry automatically. A failed integration batch needs applicable integration retry authorization; A3-specific approval does not apply. |
 | Scheduling amendment | SCHED-05 passed historical A1 run 3, including 25 ms / 10 ms with 40 activations and zero overruns. A4 fixture execution remains later work. |
 | Active scope | A1 release integration, then A2 in a separate candidate. No A4 work. |
-| Last accepted implementation gate | Historical A1 run 3 and exact-SHA integration batch 2 at c1e0f68f9; current corrections are unverified until their reviewed, separately authorized batch. |
-| Next action | Docs publication, warm-target guard and fleet lifecycle corrections have independent source review. Commit the reviewed candidate, then request explicit authorization for one consolidated follow-up batch. No automatic retries. PR #129 release 0.24.70 is verified closed; A1 merge still requires passing current-head proof and guarded merge. |
+| Last accepted implementation gate | Historical A1 scope run 3; integration batch 3 behavioral proof passes after two formatter wraps, but its exact-SHA artifact fails final cleanliness. Current committed release-candidate proof remains required. |
+| Next action | Review copied-back formatter output and the authorized final-preparation skill amendment, commit the corrected candidate, then run one consolidated exact-SHA follow-up after A4 releases the builder slot. The user explicitly authorized necessary reviewed correction/validation cycles; no piecemeal checks or guard bypass. Push and merge only after required passing proof. |
 | Extraction baseline | Rust 1.95.0, edition 2021, resolver 2; floating-stable CI is a separate compatibility lane. Broad modernization remains U. |
 | Hardware | NUCLEO-F401RE USB enumeration previously confirmed. No firmware link, execution or physical qualification is claimed by A1. |
-| Open execution records | Historical scope runs 1/2 failed and run 3 passed. Release integration batch 1 failed, batch 2 passed at c1e0f68f9, and PR #130 CI requires corrections; the release integration command map is in `docs/notes/runtime-portability/a1-release-integration.md`. |
+| Open execution records | Historical scope runs 1/2 failed and run 3 passed. Release integration batch 1 failed, batch 2 passed at c1e0f68f9, PR #130 CI corrections passed batch 3, whose final clean check failed on formatter output; the release integration command map is in `docs/notes/runtime-portability/a1-release-integration.md`. |
 
 Plan SHA-256: `987906bb48da97fe4a021c6b1a354120129024356124b628695b0bea82d52f66` (the public-source links were made usable from both repository and published documentation; after run 3 the header was reformatted without trailing whitespace and the security-update paragraph reworded for the rebase; run 3 tested `9a8912f9e2a23387dc9445362098d5890bd539d5ff8c9b73bf1be89e55ab1356`, as the frozen manifest records).
 

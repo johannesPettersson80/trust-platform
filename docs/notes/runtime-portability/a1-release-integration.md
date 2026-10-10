@@ -219,3 +219,41 @@ guard tests `7552db9c89d6859466200cda6ba4b44ddf68c971b787ac180b210dfb673d42d3`.
 This record's final reconciliation and review paragraph were appended after that
 source review. The proposed consolidated follow-up remains unrun and requires
 explicit integration validation authorization.
+
+
+## Integration batch 3 and final source preparation
+
+The user authorized the additional consolidated batch at
+`b703482bed30a0ef2cf664982c2a4a143962c083`. All 12 supplemental steps passed,
+including 39 guard-tooling tests, skill validation and the actual strict docs
+publication/search sequence. The guard passed its mandatory local checks,
+VS Code (519 tests), cross-target warnings, supply chain, architecture/full map,
+Clippy, native workspace tests (8,326 passed, zero failed, 24 ignored) and MP
+parity. All five fleet regressions and the original shipped-CLI lifecycle test
+passed. Planner/catalog findings remain advisory.
+
+The sole required failure was the final clean-tree check. The guard's `just fmt`
+wrapped two expressions in `lifecycle.rs` and its classification test. The exact
+patch and complete logs/artifact are preserved in release integration `run-3/`,
+including `FAILURE-LEDGER.md`. Nothing was restored during the running guard.
+Native tests therefore prove the formatter's output, not a clean b703482be
+artifact; this candidate was not pushed. An unrelated HMI compilation/test
+session overlapped part of the native phase and was recorded, without attributing
+any failure to it. The warm target was retained at 202,471,148 KiB available.
+
+After the batch finished, those two formatted files were copied back. The user
+explicitly authorized necessary reviewed correction/validation cycles and the
+release-skill amendment: perform final source formatting and required generation
+once, on the guard's toolchain/configuration, before final review and commit;
+then the exact-SHA guard must leave that committed source unchanged. No extra
+AGENTS rule or dependency was added. The updated skill SHA-256 is
+`836f788c9ac846f33c792cc641ecbce4cd4538a8b7a7dc95573dee7cea2e0615`.
+
+The next consolidated batch follows independent correction review and commit.
+It runs exact-SHA `prepare` once; the passed, unchanged docs and guard-tooling
+proof remains retained. The root agent separately validated the final skill
+update with skill-creator's validator; no duplicate skill check is needed.
+A4 has the heavy builder slot first. No source change, speculative focused test
+or automatic retry is authorized during either frozen batch. Any further
+correction follows complete failure collection and review under the user's
+standing continuation instruction.

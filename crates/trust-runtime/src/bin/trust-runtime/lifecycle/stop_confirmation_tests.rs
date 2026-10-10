@@ -176,7 +176,9 @@ fn only_transport_boundary_errors_are_inconclusive_stop_probes() {
         std::io::ErrorKind::WouldBlock,
     ] {
         let transport = control_transport_error(std::io::Error::from(kind));
-        assert!(interrupted_stop_probe(&transport.context("control exchange")));
+        assert!(interrupted_stop_probe(
+            &transport.context("control exchange")
+        ));
         let configuration = anyhow::Error::from(std::io::Error::from(kind));
         assert!(!interrupted_stop_probe(&configuration));
     }

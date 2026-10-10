@@ -37,8 +37,16 @@ For a related candidate, read the preceding failure ledger and its corrected com
 including compiler environment, temporary-path and platform prerequisites; carry those
 corrections into the new command map before freezing.
 
-Choose the release path before scheduling commands. If an exact-SHA guard is required, commit only
-when authorized, then use `prepare` for the checks it already runs. Do not run `just test-all` once
+Choose the release path before scheduling commands. Once implementation is complete, perform the
+single final formatting and required generated-file preparation on the builder with the guard's exact
+toolchain and configuration, including touched `include!` fragments. This is the preparation phase of the
+planned batch, not a per-edit check or another full test run. Copy back and review its complete diff
+before the authorized commit. The exact-SHA guard then validates that clean committed source;
+its formatting step must leave the tree unchanged. Never restore formatter output during a running
+guard to make the final cleanliness check pass.
+
+If an exact-SHA guard is required, commit only when authorized, then use `prepare` for the checks it
+already runs. Do not run `just test-all` once
 before the commit and again inside prepare merely to satisfy two descriptions of the same gate.
 Required scope batches remain distinct when explicitly authorized; their evidence cannot substitute
 for the exact-SHA artifact. A commit, rebase or source change requires evidence for the new candidate.

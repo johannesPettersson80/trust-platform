@@ -215,7 +215,9 @@ fn control_transport_error(error: std::io::Error) -> anyhow::Error {
 }
 
 fn interrupted_stop_probe(error: &anyhow::Error) -> bool {
-    error.downcast_ref::<InterruptedControlTransport>().is_some()
+    error
+        .downcast_ref::<InterruptedControlTransport>()
+        .is_some()
 }
 
 pub(super) fn status_runtime(
