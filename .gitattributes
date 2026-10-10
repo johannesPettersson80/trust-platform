@@ -1,2 +1,3 @@
 # Retained validation logs are byte copies with recorded digests; never reformat them.
 docs/notes/runtime-portability/a1-evidence/** -whitespace
+docs/notes/runtime-portability/a2-evidence/** -whitespace

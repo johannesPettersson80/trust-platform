@@ -1,0 +1,62 @@
+[gate-progress state=started phase=A2-portable-loader-tests target=scena-rust-builder pid=925995 elapsed=0.0s timeout=3600s command='cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features --test bytecode_container --test bytecode_decode_resource_bounds --test bytecode_sections --test bytecode_portable_load -- --nocapture --test-threads=1']
+   Compiling crc32fast v1.5.0
+   Compiling verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/verification-cases)
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime-core)
+    Finished `test` profile [unoptimized] target(s) in 2.39s
+     Running tests/bytecode_container.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/bytecode_container-e3e96f808555ff53)
+
+running 8 tests
+test checksum_validation ... ok
+test duplicate_standard_section_ids_are_rejected ... ok
+test header_validation ... ok
+test section_end_beyond_32_bit_address_space_is_rejected ... ok
+test section_table_validation ... ok
+test truncated_reference_owner_field_is_rejected ... ok
+test unsupported_reference_location_tag_is_rejected ... ok
+test version_gate ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bytecode_decode_resource_bounds.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/bytecode_decode_resource_bounds-fd1c8e6f6ad86681)
+
+running 8 tests
+test allocation_pressure_from_declared_counts_fails_before_reservation ... ok
+test fixed_section_entry_counts_must_fit_before_allocation ... ok
+test nested_pou_counts_must_fit_before_allocation ... ok
+test nested_reference_counts_must_fit_before_allocation ... ok
+test nested_resource_counts_must_fit_before_allocation ... ok
+test nested_type_counts_must_fit_before_allocation ... ok
+test string_table_count_must_fit_section_before_allocation ... ok
+test type_table_count_must_fit_offset_table_before_allocation ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bytecode_portable_load.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/bytecode_portable_load-7ed4bc2837558cf0)
+
+running 5 tests
+test decoded_container_is_not_semantically_validated_by_parsing ... ok
+test jump_overflow_and_non_instruction_targets_are_rejected ... ok
+test legacy_1_0_and_1_1_serialization_preserve_their_byte_layouts ... ok
+test overflowing_pou_extent_is_rejected_before_slicing ... ok
+test saved_container_materializes_task_metadata_without_host_or_hir ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bytecode_sections.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/bytecode_sections-b0290a0d69d80c40)
+
+running 11 tests
+test const_pool_decode ... ok
+test debug_map_decode ... ok
+test debug_string_table_decode ... ok
+test io_map_decode ... ok
+test pou_index_decode ... ok
+test ref_table_decode ... ok
+test resource_meta_decode ... ok
+test string_table_decode ... ok
+test string_table_padding ... ok
+test type_table_decode ... ok
+test var_meta_decode ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[gate-progress state=finished phase=A2-portable-loader-tests target=scena-rust-builder pid=925995 elapsed=2.5s timeout=3600s command='cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features --test bytecode_container --test bytecode_decode_resource_bounds --test bytecode_sections --test bytecode_portable_load -- --nocapture --test-threads=1' status=0]

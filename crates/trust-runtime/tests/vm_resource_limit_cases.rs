@@ -1,3 +1,4 @@
+#[path = "common/bytecode_helpers.rs"]
 mod bytecode_helpers;
 
 use std::collections::{BTreeMap, HashSet};
@@ -29,7 +30,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_VM_RESOURCE_LIMIT_CASES_001";
 const CASE_FILE: &str = "verification/cases/bytecode_vm/VM_SEAM_DETERMINISM_LIMITS_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:b1b2e994813b9b089d6386964ddf6134949d623bb1b60064075b2a5f38d24289";
+    "sha256:43b9709939e005fcc9b13203f5ffdd1134f47d7ff4ce2e225fa5374b006184f2";
 
 const EXECUTION_BUDGET_SOURCE: &str = r#"
 PROGRAM Main

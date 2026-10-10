@@ -1,0 +1,41 @@
+[gate-progress state=started phase=A2-native-pin-tests target=scena-rust-builder pid=1072905 elapsed=0.0s timeout=3600s command='cargo test --locked --no-fail-fast -p trust-runtime --test vm_resource_limit_cases --test phase11_seam_contract -- --nocapture --test-threads=1']
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime)
+    Finished `test` profile [unoptimized] target(s) in 2.32s
+     Running tests/phase11_seam_contract.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/phase11_seam_contract-23301a74a5850bd5)
+
+running 24 tests
+test computed_subrange_assignment_fails_visibly_without_committing_out_of_range_value ... ok
+test computed_subrange_fb_input_binding_fails_visibly_without_committing_out_of_range_value ... ok
+test computed_subrange_ref_write_fails_visibly_without_committing_out_of_range_value ... ok
+test crafted_frame_local_ref_cannot_persist_to_global_storage ... ok
+test crafted_multi_owner_instance_refs_are_rejected_before_execution ... ok
+test declared_dint_conversion_matches_iec_on_stack_register_and_tier1_paths ... ok
+test declared_dint_keeps_dint_width_after_int_assignment ... ok
+test declared_real_conversion_matches_iec_on_stack_register_and_tier1_paths ... ok
+test declared_real_keeps_real_semantics_after_integer_assignment ... ok
+test literal_context_coercions_stay_declared_width_and_type ... ok
+test parameter_copy_in_materializes_declared_numeric_widening ... ok
+test ref_return_name_is_rejected_before_runtime_lowering ... ok
+test unsupported_array_initializer_assignment_fails_build_instead_of_nop ... ok
+test validator_rejects_bool_operands_for_arithmetic_opcode ... ok
+test validator_rejects_const_type_incompatible_with_store_ref_target ... ok
+test validator_rejects_inout_parameter_bound_to_literal_argument ... ok
+test validator_rejects_invalid_parameter_direction_metadata ... ok
+test validator_rejects_leftover_stack_at_pou_return ... ok
+test validator_rejects_legacy_call_opcode_even_when_target_exists ... ok
+test validator_rejects_multi_owner_instance_ref_contract ... ok
+test validator_rejects_persistent_frame_local_ref_escape ... ok
+test validator_rejects_stack_underflow_store_ref ... ok
+test vm_seam_case_support::vm_owner_trace_cases ... ok
+test vm_seam_case_support::vm_ref_escape_trace_cases ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.96s
+
+     Running tests/vm_resource_limit_cases.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/vm_resource_limit_cases-15e28976153586b3)
+
+running 1 test
+test vm_resource_limit_trace_cases ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.25s
+
+[gate-progress state=finished phase=A2-native-pin-tests target=scena-rust-builder pid=1072905 elapsed=4.7s timeout=3600s command='cargo test --locked --no-fail-fast -p trust-runtime --test vm_resource_limit_cases --test phase11_seam_contract -- --nocapture --test-threads=1' status=0]

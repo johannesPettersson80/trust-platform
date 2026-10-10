@@ -27,13 +27,22 @@ package "Production Cycle Entry" as entryPkg #LightBlue {
 
 package "Lazy VM Module Materialization" as modulePkg #LightYellow {
     artifact "BytecodeModule::from_runtime*\n(runtime -> STBC sections)" as bytecodeBuild
-    component "BytecodeModule::decode() + validate()\n(fixed container/table/instruction/stack limits)" as bytecodeGuard
-    component "VmModule::from_bytecode()\n(runtime/vm/mod.rs)" as vmModule
+    component "trust-runtime-core::bytecode\nBytecodeModule::decode() + validated()\n(shared decode + bounded analysis)" as bytecodeGuard
+    component "VmModule::from_validated()\n(runtime/vm/mod.rs)" as vmModule
     component "VmModule cached on Runtime\nstrings, refs, consts, pou tables,\nnative symbol specs, debug map" as vmModuleState
 
     ensureVm --> bytecodeBuild : when vm_module missing
     bytecodeBuild --> bytecodeGuard
-    bytecodeGuard --> vmModule : validated complete candidate
+    bytecodeGuard --> vmModule : immutable ValidatedBytecode token
+    note left of bytecodeGuard
+        Core owns container, byte serialization, CRC and metadata.
+        Host compatibility view borrows sections without cloning.
+        Compiler/HIR lowering and executable state remain hosted.
+        Real modules share compact decoded instructions and stack effects.
+        Module context builds sorted lookup indexes once; ranges are intervals.
+        Block-entry stack states use fallible bounded scratch storage.
+        All POUs and metadata share one analysis work budget.
+    end note
     vmModule --> vmModuleState
 }
 

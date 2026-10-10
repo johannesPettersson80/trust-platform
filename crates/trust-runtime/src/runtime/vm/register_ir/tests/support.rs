@@ -6,7 +6,7 @@ use indexmap::IndexMap;
 use smol_str::SmolStr;
 
 use crate::bundle_builder::collect_project_source_files;
-use crate::bytecode::{SectionData, SectionId, TypeTable};
+use crate::bytecode::TypeTable;
 use crate::config::RuntimeConfig;
 use crate::error::RuntimeError;
 use crate::execution_backend::ExecutionBackend;
@@ -610,7 +610,11 @@ fn assert_no_fallback(program: &RegisterProgram) {
     );
 }
 
-fn test_register_block(id: u32, start_pc: usize, instructions: Vec<RegisterInstr>) -> RegisterBlock {
+fn test_register_block(
+    id: u32,
+    start_pc: usize,
+    instructions: Vec<RegisterInstr>,
+) -> RegisterBlock {
     let bytecode_instruction_count = instructions.len();
     let instruction_costs = vec![1; instructions.len()];
     RegisterBlock {
@@ -793,7 +797,10 @@ fn next_linear_block_target_uses_following_block_not_current_block() {
 fn register_read_helpers_preserve_bool_and_null_reference_errors() {
     let bool_registers = vec![Value::Bool(true), Value::Bool(false), Value::DInt(1)];
     assert_eq!(read_bool_register(&bool_registers, RegisterId(0)), Ok(true));
-    assert_eq!(read_bool_register(&bool_registers, RegisterId(1)), Ok(false));
+    assert_eq!(
+        read_bool_register(&bool_registers, RegisterId(1)),
+        Ok(false)
+    );
     assert!(matches!(
         read_bool_register(&bool_registers, RegisterId(2)),
         Err(RuntimeError::ConditionNotBool)
@@ -870,11 +877,8 @@ fn block_index_from_id_rejects_missing_and_mismatched_blocks() {
         "missing block id 2",
     );
 
-    let mismatched = test_register_program(vec![test_register_block(
-        7,
-        0,
-        vec![RegisterInstr::Return],
-    )]);
+    let mismatched =
+        test_register_program(vec![test_register_block(7, 0, vec![RegisterInstr::Return])]);
     assert_invalid_bytecode_contains(
         block_index_from_id(&mismatched, 0).expect_err("mismatched block id must fail"),
         "block id/index mismatch",
@@ -902,12 +906,19 @@ fn register_statement_location_resolves_vm_debug_map_entries() {
         register_statement_location(&runtime, &module, pou_id, 0),
         Some(location)
     );
-    assert_eq!(register_statement_location(&runtime, &module, pou_id, 99), None);
+    assert_eq!(
+        register_statement_location(&runtime, &module, pou_id, 99),
+        None
+    );
 }
 
 #[test]
 fn deadline_exceeded_distinguishes_missing_past_and_future_deadlines() {
     assert!(!deadline_exceeded(None));
-    assert!(deadline_exceeded(Some(Instant::now() - Duration::from_secs(1))));
-    assert!(!deadline_exceeded(Some(Instant::now() + Duration::from_secs(3600))));
+    assert!(deadline_exceeded(Some(
+        Instant::now() - Duration::from_secs(1)
+    )));
+    assert!(!deadline_exceeded(Some(
+        Instant::now() + Duration::from_secs(3600)
+    )));
 }

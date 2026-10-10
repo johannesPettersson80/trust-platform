@@ -22,7 +22,7 @@ rustc-hash = { workspace = true, features = ["std"] }
 text-size.workspace = true
 indexmap = { workspace = true, features = ["std", "serde"] }
 tracing.workspace = true
-crc32fast.workspace = true
+crc32fast = { workspace = true, features = ["std"] }
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true

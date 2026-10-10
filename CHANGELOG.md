@@ -6,43 +6,31 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-- Confirm managed fleet shutdown across control-connection teardown without
-  mistaking interrupted status probes for a failed shutdown or a confirmed stop.
-  Preserve authentication/protocol errors and retain the PID until stop is confirmed.
+Target release: `v0.24.72`
 
-- Publish the runtime portability specification in the public reference and preserve
-  warm release-build artifacts when the target filesystem already meets the existing
-  80 GiB capacity requirement.
+### Added
 
-- Keep the unsupported Git-marker regression executable with long temporary
-  directory paths on Unix hosts.
+- Persist canonical OpenOT event, loss, and placeholder documents outside the
+  PLC scan to a TOML-selected SQLite, PostgreSQL, TimescaleDB, MySQL/MariaDB,
+  SQL Server, or InfluxDB 3 backend, with atomic durable checkpoints,
+  idempotent replay, TLS/secret boundaries, InfluxDB outage spooling, runtime
+  status, complete examples, and real-vendor conformance coverage.
+- Expose typed logging objects with descriptive names such as
+  `logged_values`, `alarm_history`, `message_log`, `state_history`, and
+  `audit_log`; normal reports no longer require OpenOT field arrays or JSON
+  paths, while canonical JSON remains internal recovery authority. Every
+  backend and the InfluxDB spool initialize the same first schema generation,
+  1, directly. Because database persistence has not previously shipped,
+  incompatible pre-release development schemas fail closed without migration,
+  backfill, reconstruction, or automatic repair. Runtime status reports this
+  shared contract as `schema_generation`, not a backend-specific version.
+- Support MQTT tag mappings that bind fully qualified scalar program variables
+  directly to broker topics with explicit PLC-relative `read` and `write`
+  directions.
 
-- Bind release validation capacity checks to the selected generated-target filesystem;
-  support the mounted builder volume with the same leases, ownership checks and
-  80 GiB minimum, avoiding root-disk exhaustion during cold workspace tests.
+### Changed
 
-- Remove deleted project sources from the language server consistently across
-  directory notifications, reindexing and concurrent document close/index operations,
-  preventing stale duplicate declarations when creating a new project. Retain
-  registered file identity after text eviction so deletion and rename also work
-  through filesystem aliases on macOS and Windows.
-
-- Protect I/O credentials in IDE, configuration-text and remote proxy reads;
-  preserve stored secrets (including a literal `<redacted>`) on unchanged saves,
-  and prevent generic IDE symlink/rename aliases from bypassing redaction.
-  Retained MQTT passwords are bound to their broker and authentication context;
-  changing that context requires explicit replacement credentials.
-- Use the Rust 1.95-compatible atomic update API without deprecated calls on
-  current stable Rust, and update concurrently to remove the shell-quote
-  command-injection advisory.
-- Preserve numeric operand types when compiling TIME/LTIME scaling, including
-  duration aliases and nested scalar expressions.
-
-- Preserve nominal periodic-task deadlines when the task interval is not a
-  multiple of the resource cycle. For exact 10 ms samples, a 25 ms task now
-  activates at 30, 50, 80 and 100 ms instead of every 30 ms; missed activations
-  remain dropped and counted. These describe the logical scheduling rule,
-  not measured hosted wake timing.
+- Share STBC 1.x decoding, validation, metadata extraction and serialization with the portable runtime core, preserving hosted bytecode APIs.
 - Route core exponentiation, duration truncation and hosted numerical functions
   through libm 0.2.16 while retaining their promotion, narrowing and fault policies.
   Add isolated F401/C6 core build gates and explicit portable ordered-map hashing;
@@ -89,29 +77,54 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.71`
-
-### Added
-
-- Persist canonical OpenOT event, loss, and placeholder documents outside the
-  PLC scan to a TOML-selected SQLite, PostgreSQL, TimescaleDB, MySQL/MariaDB,
-  SQL Server, or InfluxDB 3 backend, with atomic durable checkpoints,
-  idempotent replay, TLS/secret boundaries, InfluxDB outage spooling, runtime
-  status, complete examples, and real-vendor conformance coverage.
-- Expose typed logging objects with descriptive names such as
-  `logged_values`, `alarm_history`, `message_log`, `state_history`, and
-  `audit_log`; normal reports no longer require OpenOT field arrays or JSON
-  paths, while canonical JSON remains internal recovery authority. Every
-  backend and the InfluxDB spool initialize the same first schema generation,
-  1, directly. Because database persistence has not previously shipped,
-  incompatible pre-release development schemas fail closed without migration,
-  backfill, reconstruction, or automatic repair. Runtime status reports this
-  shared contract as `schema_generation`, not a backend-specific version.
-- Support MQTT tag mappings that bind fully qualified scalar program variables
-  directly to broker topics with explicit PLC-relative `read` and `write`
-  directions.
-
 ### Fixed
+
+- Confirm managed fleet shutdown across control-connection teardown without
+  mistaking interrupted status probes for a failed shutdown or a confirmed stop.
+  Preserve authentication/protocol errors and retain the PID until stop is confirmed.
+
+- Publish the runtime portability specification in the public reference and preserve
+  warm release-build artifacts when the target filesystem already meets the existing
+  80 GiB capacity requirement.
+
+- Keep the unsupported Git-marker regression executable with long temporary
+  directory paths on Unix hosts.
+
+- Bind release validation capacity checks to the selected generated-target filesystem;
+  support the mounted builder volume with the same leases, ownership checks and
+  80 GiB minimum, avoiding root-disk exhaustion during cold workspace tests.
+
+- Remove deleted project sources from the language server consistently across
+  directory notifications, reindexing and concurrent document close/index operations,
+  preventing stale duplicate declarations when creating a new project. Retain
+  registered file identity after text eviction so deletion and rename also work
+  through filesystem aliases on macOS and Windows.
+
+- Protect I/O credentials in IDE, configuration-text and remote proxy reads;
+  preserve stored secrets (including a literal `<redacted>`) on unchanged saves,
+  and prevent generic IDE symlink/rename aliases from bypassing redaction.
+  Retained MQTT passwords are bound to their broker and authentication context;
+  changing that context requires explicit replacement credentials.
+- Use the Rust 1.95-compatible atomic update API without deprecated calls on
+  current stable Rust, and update concurrently to remove the shell-quote
+  command-injection advisory.
+- Preserve numeric operand types when compiling TIME/LTIME scaling, including
+  duration aliases and nested scalar expressions.
+
+- Preserve function-block instance ownership when a body contains a NULL literal, so instance-field accesses bind to the invoked instance.
+
+- Bound bytecode validation scratch storage and work across instructions and metadata,
+  retaining stack states only at control-flow block entries. Reject section payloads
+  that overlap container headers/tables, misaligned headers, raw record discriminant
+  mismatches and encoder count/extent overflow before preparing executable state.
+
+- Reject overflowing byte-reader lengths and section/POU extents and relative jump targets before slicing or advancing the reader.
+
+- Preserve nominal periodic-task deadlines when the task interval is not a
+  multiple of the resource cycle. For exact 10 ms samples, a 25 ms task now
+  activates at 30, 50, 80 and 100 ms instead of every 30 ms; missed activations
+  remain dropped and counted. These describe the logical scheduling rule,
+  not measured hosted wake timing.
 
 - Security: update `rustls` to 0.23.45 (RUSTSEC-2026-0285, TLS 1.3 handshake messages accepted
   across encryption levels) and `salsa` to 0.28.5 (RUSTSEC-2026-0308, use-after-free in interned

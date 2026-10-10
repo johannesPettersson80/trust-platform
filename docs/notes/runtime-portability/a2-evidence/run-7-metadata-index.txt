@@ -1,0 +1,3 @@
+[gate-progress state=started phase=A2-metadata-index target=scena-rust-builder pid=59443 elapsed=0.0s timeout=3600s command='python3 /home/johannes/.cache/trust-portability-a2-setup/prepare-metadata-index-7.py']
+Candidate registered in an isolated metadata-only index; real index unchanged; no commit
+[gate-progress state=finished phase=A2-metadata-index target=scena-rust-builder pid=59443 elapsed=0.1s timeout=3600s command='python3 /home/johannes/.cache/trust-portability-a2-setup/prepare-metadata-index-7.py' status=0]

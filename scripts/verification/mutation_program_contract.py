@@ -26,13 +26,15 @@ from .test_catalog_validation import check_supported_schema_keywords
 MUTATION_PROGRAM_PATH = "verification/mutation-program.toml"
 MUTATION_PROGRAM_SCHEMA_PATH = "verification/schemas/mutation-program.schema.json"
 MUTATION_PROGRAM_SCHEMA_SEMANTIC_DIGEST = (
-    "5aa5e3fb5871e52337746f0679f9ad30cc2a3e15b154dc8a572523b4cdeacc43"
+    "6111bf7f03bce339d0916d6eb1a3d26df8d06e0242b17ce3e2ca6b4b007ff624"
 )
 LEGACY_TEST_ID = "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"
 LEGACY_REPORT_PATH = (
     "docs/internal/testing/evidence/plc-verification-program/2026-07-08/"
     "p1b-bytecode-validator-mutation-report.json"
 )
+# Historical measurement is pinned separately from the relocated, unmeasured selectors.
+LEGACY_REPORT_SHA256 = "ea49674613d05b9272d5bd9eadfe2fdc46bb249607b2ce9e56da86d14326ee11"
 REQUIRED_SHARD_IDS = (
     "MUTATION_SHARD_BYTECODE_VALIDATOR_001",
     "MUTATION_SHARD_RUNTIME_VALUE_CONVERSION_001",
@@ -80,11 +82,18 @@ SHARD_FIELDS = {
     "mutations",
     "associated_tests",
 }
+# Preserved dated records, not evidence for active selectors or current ancestry.
+HISTORICAL_FOCUSED_ARTIFACTS = {
+    "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-runtime-value-conversion-mutation.json": "dcfe38dad50f4e2008bec764335ff920c63065731b2015d9f8d4e834ec637940",
+    "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-hir-subrange-diagnostics-mutation.json": "2bc818fc124bd12f9f21f139ee15fa459fe8eb4e03409e50b221809dcf429871",
+    "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-parser-recovery-mutation.json": "dac3bdd7a7aabea76123b9fe21ae083a048ff7d9f77a062143ff1a2ae7f2b2ec",
+    "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-retain-restart-mutation.json": "e02958b1559f62fb92b9ff8f32d9e16a32ef003cb7803bdec1d5cc41a1b97481"
+}
 RESULT_ARTIFACT_PATHS = {
-    REQUIRED_SHARD_IDS[1]: "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-runtime-value-conversion-mutation.json",
-    REQUIRED_SHARD_IDS[2]: "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-hir-subrange-diagnostics-mutation.json",
-    REQUIRED_SHARD_IDS[3]: "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-parser-recovery-mutation.json",
-    REQUIRED_SHARD_IDS[4]: "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-retain-restart-mutation.json",
+    REQUIRED_SHARD_IDS[1]: "docs/internal/testing/evidence/2026-10-09/runtime-portability-mutation-requalification/value-conversion.json",
+    REQUIRED_SHARD_IDS[2]: "docs/internal/testing/evidence/2026-10-09/runtime-portability-mutation-requalification/hir-diagnostics.json",
+    REQUIRED_SHARD_IDS[3]: "docs/internal/testing/evidence/2026-10-09/runtime-portability-mutation-requalification/parser-recovery.json",
+    REQUIRED_SHARD_IDS[4]: "docs/internal/testing/evidence/2026-10-09/runtime-portability-mutation-requalification/retain-restart.json",
 }
 MUTATION_FIELDS = {
     "id",
@@ -138,14 +147,14 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
         "title": "Bytecode validator",
         "area": "bytecode_vm",
         "invariant_ids": ["VM_SEAM_VALID_001"],
-        "execution_status": "measured",
+        "execution_status": "planned",
         "owner": "trust-runtime",
         "delivered_build_requirement": "not_applicable_source_mutation",
         "mutations": [
             _mutation(
                 "MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS",
-                "crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs",
-                "validate_instruction_stream",
+                "crates/trust-runtime-core/src/bytecode/validate/pou_and_instr.rs",
+                "validate_pou_index",
                 "FnValue",
                 "Ok(())",
                 ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation", "--no-run"],
@@ -159,7 +168,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
             ),
             _mutation(
                 "MUTANT_VALIDATE_STACK_SHAPE_BYPASS",
-                "crates/trust-runtime/src/bytecode/validate/stack_shape.rs",
+                "crates/trust-runtime-core/src/bytecode/validate/stack_shape.rs",
                 "validate_stack_shape",
                 "FnValue",
                 "Ok(())",
@@ -176,7 +185,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
         "title": "Runtime value and type conversion",
         "area": "bytecode_vm",
         "invariant_ids": ["VM_SEAM_DECLARED_TYPE_001"],
-        "execution_status": "measured",
+        "execution_status": "planned",
         "owner": "trust-runtime",
         "result_artifact_path": RESULT_ARTIFACT_PATHS[REQUIRED_SHARD_IDS[1]],
         "delivered_build_requirement": "not_applicable_source_mutation",
@@ -200,7 +209,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
         "title": "HIR subrange diagnostics",
         "area": "compiler_iec",
         "invariant_ids": ["IEC_SUBRANGE_001"],
-        "execution_status": "measured",
+        "execution_status": "planned",
         "owner": "trust-hir",
         "result_artifact_path": RESULT_ARTIFACT_PATHS[REQUIRED_SHARD_IDS[2]],
         "delivered_build_requirement": "not_applicable_source_mutation",
@@ -224,7 +233,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
         "title": "Parser recovery",
         "area": "compiler_iec",
         "invariant_ids": ["IEC_PARSE_RECOVER_001"],
-        "execution_status": "measured",
+        "execution_status": "planned",
         "owner": "trust-syntax",
         "result_artifact_path": RESULT_ARTIFACT_PATHS[REQUIRED_SHARD_IDS[3]],
         "delivered_build_requirement": "not_applicable_source_mutation",
@@ -249,7 +258,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
         "title": "Retain and restart",
         "area": "runtime_safety",
         "invariant_ids": ["RT_SAFE_RESTART_001", "RT_SAFE_RETAIN_001"],
-        "execution_status": "measured",
+        "execution_status": "planned",
         "owner": "trust-runtime",
         "result_artifact_path": RESULT_ARTIFACT_PATHS[REQUIRED_SHARD_IDS[4]],
         "delivered_build_requirement": "not_applicable_source_mutation",
@@ -506,7 +515,7 @@ def _validate_shard(
         failures.append(f"mutation shard {label} must remain association-only")
     if shard_id == REQUIRED_SHARD_IDS[0]:
         if value.get("legacy_catalog_test_id") != LEGACY_TEST_ID or value.get("legacy_report_path") != LEGACY_REPORT_PATH:
-            failures.append("measured bytecode shard must bind the exact legacy catalog test and report")
+            failures.append("bytecode shard must preserve the exact legacy catalog identity and historical report")
     elif "legacy_catalog_test_id" in value or "legacy_report_path" in value:
         failures.append(f"planned mutation shard {label} cannot claim legacy measurement")
     if shard_id != REQUIRED_SHARD_IDS[5] and (
@@ -633,14 +642,19 @@ def _validate_legacy_shard(
         return set()
     try:
         contract = load_mutation_contract(LEGACY_TEST_ID, root=root)
-        report = json.loads((root / LEGACY_REPORT_PATH).read_text())
+        report_bytes = (root / LEGACY_REPORT_PATH).read_bytes()
+        report = json.loads(report_bytes)
     except Exception as exc:
-        failures.append(f"measured bytecode mutation contract cannot be loaded: {exc}")
+        failures.append(f"bytecode mutation contract or historical report cannot be loaded: {exc}")
         return set()
-    for message in validate_mutation_report(report, contract):
-        failures.append(f"measured bytecode mutation report: {message}")
+    active_measured = shards[0].get("execution_status") == "measured"
+    if active_measured:
+        for message in validate_mutation_report(report, contract):
+            failures.append(f"measured bytecode mutation report: {message}")
+    elif hashlib.sha256(report_bytes).hexdigest() != LEGACY_REPORT_SHA256:
+        failures.append("historical bytecode mutation report digest mismatch")
     if not isinstance(report, Mapping):
-        failures.append("measured bytecode legacy report root must be an object")
+        failures.append("historical bytecode legacy report root must be an object")
         return set()
     row = shards[0]
     mutations = row.get("mutations")
@@ -677,12 +691,12 @@ def _validate_legacy_shard(
             for item in contract.mutations
         ]
         if manifest_core != legacy_core:
-            failures.append("measured bytecode shard does not exactly match its catalog mutation selectors")
+            failures.append("active bytecode shard does not exactly match its catalog mutation selectors")
     associated = row.get("associated_tests")
     associated_ids = [item.get("id") for item in associated if isinstance(item, Mapping)] if isinstance(associated, list) else []
     legacy_case_ids = [case_id for mutation in contract.mutations for case_id in mutation.related_case_ids]
     if associated_ids != legacy_case_ids:
-        failures.append("measured bytecode shard associations do not match committed case IDs")
+        failures.append("active bytecode shard associations do not match committed case IDs")
     summary = report.get("summary")
     if (
         report.get("status") != "complete"
@@ -691,7 +705,9 @@ def _validate_legacy_shard(
         or not isinstance(summary, Mapping)
         or summary.get("total") != len(contract.mutations)
     ):
-        failures.append("measured bytecode legacy report does not match its focused shard")
+        failures.append("historical bytecode legacy report does not match its focused shard")
+    if not active_measured:
+        return set()  # The historical run supplies no result for the active selectors.
     survivors = report.get("survivors")
     if not isinstance(survivors, list):
         return set()
@@ -710,6 +726,14 @@ def _validate_focused_shards(
     artifact_exempt_shard_id: str | None = None,
 ) -> set[tuple[str, str]]:
     survivors: set[tuple[str, str]] = set()
+    for relative, expected in HISTORICAL_FOCUSED_ARTIFACTS.items():
+        try:
+            raw = (root / relative).read_bytes()
+        except OSError as exc:
+            failures.append(f"historical mutation record cannot be read: {relative}: {exc}")
+            continue
+        if hashlib.sha256(raw).hexdigest() != expected:
+            failures.append(f"historical mutation record digest mismatch: {relative}")
     for shard in shards[1:5]:
         if not isinstance(shard, Mapping) or shard.get("execution_status") != "measured":
             continue

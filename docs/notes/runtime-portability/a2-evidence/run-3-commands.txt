@@ -1,0 +1,4 @@
+cargo fmt --all -- --check 
+python3 /home/johannes/.cache/trust-portability-a2-setup/prepare-evidence-3.py 
+cargo test --locked --no-fail-fast -p trust-runtime --test vm_resource_limit_cases --test phase11_seam_contract -- --nocapture --test-threads=1 
+git diff --check 

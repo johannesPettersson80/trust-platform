@@ -21,12 +21,12 @@ use crate::value::ValueRef;
 use trust_hir::TypeId;
 
 use self::util::normalize_name;
-use super::encode::compute_type_offsets_for_entries;
 use super::{
     BytecodeError, BytecodeModule, BytecodeVersion, ConstEntry, ConstPool, DebugMap,
     InterfaceMethod, MethodEntry, RefEntry, RefTable, Section, SectionData, SectionId, StringTable,
     TypeEntry, TypeTable, SUPPORTED_MAJOR_VERSION, SUPPORTED_MINOR_VERSION,
 };
+use trust_runtime_core::bytecode::compute_type_offsets_for_entries;
 
 /// Build a bytecode module from the current host runtime state.
 pub fn build_module_from_runtime(
@@ -400,7 +400,7 @@ impl<'a> BytecodeEncoder<'a> {
         let io_map = self.build_io_map()?;
         let var_meta = self.build_var_meta()?;
         let retain_init = self.build_retain_init(&var_meta)?;
-        let type_offsets = compute_type_offsets_for_entries(&self.types);
+        let type_offsets = compute_type_offsets_for_entries(&self.types)?;
         let type_table = TypeTable {
             offsets: type_offsets,
             entries: self.types,

@@ -12,7 +12,7 @@ contract_kind = "state_machine"
 source_refs = [
   "crates/trust-runtime-core/src/vm",
   "crates/trust-runtime/src/runtime/vm",
-  "crates/trust-runtime/src/bytecode/decode",
+  "crates/trust-runtime-core/src/bytecode/decode",
 ]
 tests = ["TEST_AUTO_24F5361F09E346062428", "TEST_AUTO_2EEF1852335396B08229", "TEST_AUTO_4BABD0A9C6328EC16A6A", "TEST_AUTO_4E8E4144D9AEFFEEE9C4", "TEST_AUTO_FEFED9A28C00D7D4A293", "TEST_VM_RESOURCE_LIMIT_CASES_001"]
 gates = ["veryquick", "pr"]

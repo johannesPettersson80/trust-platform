@@ -756,3 +756,40 @@ fn vm_opcode_positive_path_covers_sizeof_type_and_storage_operands() {
     harness.assert_eq("out_size_type_int", 2i32);
     harness.assert_eq("out_size_var_s", 5i32);
 }
+
+#[test]
+fn vm_null_literal_preserves_function_block_instance_owner() {
+    let source = r#"
+        FUNCTION_BLOCK NullCounter
+        VAR_INPUT
+            seed : DINT;
+        END_VAR
+        VAR_OUTPUT
+            count : DINT;
+        END_VAR
+        VAR
+            null_ref : REF_TO DINT;
+        END_VAR
+        null_ref := NULL;
+        count := seed + 1;
+        END_FUNCTION_BLOCK
+
+        PROGRAM Main
+        VAR
+            first : NullCounter;
+            second : NullCounter;
+            first_count : DINT;
+            second_count : DINT;
+        END_VAR
+        first(seed := 10);
+        second(seed := 100);
+        first_count := first.count;
+        second_count := second.count;
+        END_PROGRAM
+    "#;
+    let mut harness = vm_harness(source);
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+    harness.assert_eq("first_count", 11i32);
+    harness.assert_eq("second_count", 101i32);
+}

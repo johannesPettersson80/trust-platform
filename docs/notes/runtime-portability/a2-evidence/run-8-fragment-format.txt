@@ -1,0 +1,2 @@
+[gate-progress state=started phase=A2-fragment-format target=scena-rust-builder pid=78121 elapsed=0.0s timeout=3600s command='rustfmt --edition 2021 crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs']
+[gate-progress state=finished phase=A2-fragment-format target=scena-rust-builder pid=78121 elapsed=0.1s timeout=3600s command='rustfmt --edition 2021 crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs' status=0]

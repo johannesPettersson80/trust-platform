@@ -777,9 +777,9 @@ package "Expression AST" as exprPkg #Lavender {
 ' ============================================================
 ' BYTECODE FORMAT
 ' ============================================================
-package "Bytecode Format" as bytecodePkg #LightYellow {
+package "Portable Bytecode Format (trust-runtime-core)" as bytecodePkg #LightYellow {
 
-    class "BytecodeModule" as bcModule <<bytecode/format.rs:494-499>> {
+    class "BytecodeModule" as bcModule <<trust-runtime-core/bytecode/module.rs>> {
         version: BytecodeVersion
         flags: u32
         sections: Vec<Section>
@@ -817,6 +817,8 @@ package "Bytecode Format" as bytecodePkg #LightYellow {
 }
 
 note right of bcModule
+    Core owns decode, validate, encode and metadata.
+    Hosted constructors delegate through a borrowed view.
     **Bytecode Constants:**
     MAGIC: [u8; 4] = "STBC"
     VERSION: 1.1

@@ -1,0 +1,4 @@
+cargo fmt --all 
+rustfmt --edition 2021 crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/verifier_and_parity.rs crates/trust-runtime/src/runtime/vm/register_ir/lower/decode.rs crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs 
+cargo fmt --all -- --check 
+python3 /home/johannes/.cache/trust-portability-a2-setup/prepare-evidence-5.py 

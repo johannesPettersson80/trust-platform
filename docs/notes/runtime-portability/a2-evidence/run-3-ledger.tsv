@@ -1,0 +1,5 @@
+step	class	status	exit
+format-check	required	PASS	0
+freeze-source	required	PASS	0
+native-pin-tests	required	PASS	0
+diff-integrity	required	PASS	0

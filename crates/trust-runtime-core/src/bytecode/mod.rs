@@ -1,7 +1,14 @@
-//! Portable bytecode metadata records.
+//! Portable bytecode container, decoding, validation and metadata.
 
+mod decode;
+mod encode;
 mod format;
 mod limits;
+mod reasons;
+pub use reasons::RejectionReason;
+mod metadata;
+mod module;
+mod validate;
 
 use alloc::vec::Vec;
 use smol_str::SmolStr;
@@ -10,8 +17,10 @@ use thiserror::Error;
 use crate::error_code::StableErrorCode;
 use crate::task::TaskConfig;
 
+pub use encode::compute_type_offsets_for_entries;
 pub use format::*;
 pub use limits::*;
+pub use module::{BytecodeModule, BytecodeModuleView, ValidatedBytecode};
 
 /// Bytecode format version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -152,7 +161,7 @@ impl<'a> BytecodeReader<'a> {
 
     /// Read a borrowed byte range of length `len`.
     pub fn read_bytes(&mut self, len: usize) -> Result<&'a [u8], BytecodeError> {
-        if self.cursor + len > self.data.len() {
+        if len > self.remaining() {
             return Err(BytecodeError::UnexpectedEof);
         }
         let start = self.cursor;
@@ -200,10 +209,13 @@ impl<'a> BytecodeReader<'a> {
     }
 }
 
-/// Return `value` rounded up to the next 4-byte boundary.
+/// Return the next 4-byte boundary, or `None` when rounding would overflow.
 #[must_use]
-pub const fn align4(value: usize) -> usize {
-    (value + 3) & !3
+pub const fn align4(value: usize) -> Option<usize> {
+    match value.checked_add(3) {
+        Some(value) => Some(value & !3),
+        None => None,
+    }
 }
 
 /// Pad `bytes` with zeroes until it reaches `target` length.
@@ -320,6 +332,18 @@ mod tests {
     }
 
     #[test]
+    fn bytecode_reader_rejects_length_overflow_without_advancing() {
+        let mut reader = super::BytecodeReader::new(&[1, 2]);
+        assert_eq!(reader.read_u8().unwrap(), 1);
+        assert_eq!(
+            reader.read_bytes(usize::MAX),
+            Err(super::BytecodeError::UnexpectedEof)
+        );
+        assert_eq!(reader.pos(), 1);
+        assert_eq!(reader.read_u8().unwrap(), 2);
+    }
+
+    #[test]
     fn bytecode_error_variants_have_exact_stable_codes() {
         let errors = [
             (super::BytecodeError::InvalidMagic, "bytecode_invalid_magic"),
@@ -396,10 +420,11 @@ mod tests {
 
     #[test]
     fn bytecode_alignment_helpers_preserve_zero_padding_contract() {
-        assert_eq!(super::align4(0), 0);
-        assert_eq!(super::align4(1), 4);
-        assert_eq!(super::align4(4), 4);
-        assert_eq!(super::align4(5), 8);
+        assert_eq!(super::align4(0), Some(0));
+        assert_eq!(super::align4(1), Some(4));
+        assert_eq!(super::align4(4), Some(4));
+        assert_eq!(super::align4(5), Some(8));
+        assert_eq!(super::align4(usize::MAX), None);
 
         let mut bytes = vec![1, 2, 3];
         super::pad_to(&mut bytes, 6);

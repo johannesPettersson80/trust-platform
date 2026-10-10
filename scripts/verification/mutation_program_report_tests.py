@@ -72,29 +72,37 @@ class MutationProgramReportTests(unittest.TestCase):
 
     def test_report_distinguishes_measured_from_planned(self) -> None:
         self.assertEqual(6, self.payload["summary"]["shards"])
-        self.assertEqual(5, self.payload["summary"]["measured_shards"])
-        self.assertEqual(1, self.payload["summary"]["planned_shards"])
-        self.assertEqual(6, self.payload["summary"]["measured_mutants"])
-        self.assertEqual(6, self.payload["summary"]["caught"])
+        self.assertEqual(0, self.payload["summary"]["measured_shards"])
+        self.assertEqual(6, self.payload["summary"]["planned_shards"])
+        self.assertEqual(0, self.payload["summary"]["measured_mutants"])
+        self.assertEqual(0, self.payload["summary"]["caught"])
         self.assertEqual(0, self.payload["summary"]["survived"])
         self.assertEqual([], self.payload["survivors"])
-        for result in self.payload["shards"][0]["results"]:
-            self.assertEqual(
-                next(
-                    mutation["association_ids"]
-                    for mutation in self.payload["shards"][0]["mutations"]
-                    if mutation["id"] == result["id"]
-                ),
-                result["association_ids"],
-            )
-            self.assertNotIn("related_case_ids", result)
-            self.assertNotIn("survivor_action", result)
-        for row in self.payload["shards"][1:5]:
-            self.assertEqual("measured", row["execution_status"])
-            self.assertEqual(1, len(row["results"]))
-            self.assertEqual("caught", row["results"][0]["result"])
-        self.assertEqual("planned", self.payload["shards"][5]["execution_status"])
-        self.assertEqual([], self.payload["shards"][5]["results"])
+        for row in self.payload["shards"]:
+            self.assertEqual("planned", row["execution_status"])
+            self.assertEqual([], row["results"])
+            self.assertIsNone(row["result_artifact"])
+
+    def measured_fixture(self) -> dict:
+        """Synthetic report-contract fixture, never a live measurement claim."""
+        payload = copy.deepcopy(self.payload)
+        row = payload["shards"][1]
+        historical = json.loads((ROOT / "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-runtime-value-conversion-mutation.json").read_text())
+        result = _normalize_focused_result(historical["mutations"][0])
+        mutation = row["mutations"][0]
+        for key in ("id", "source_file", "function", "genre", "replacement", "generated_mutant_name", "build_command", "test_command", "association_ids"):
+            result[key] = copy.deepcopy(mutation[key])
+        row["execution_status"] = "measured"
+        row["results"] = [result]
+        row["result_artifact"] = {"path": "synthetic-fixture.json", "sha256": "sha256:" + "0" * 64}
+        payload["summary"].update(measured_shards=1, planned_shards=5, measured_mutants=1, caught=1)
+        return payload
+
+    def test_planned_shards_cannot_inherit_historical_results(self) -> None:
+        corrupted = self.measured_fixture()
+        corrupted["shards"][1]["execution_status"] = "planned"
+        failures = validate_report_payload(corrupted)
+        self.assertTrue(any("planned shard must not" in item for item in failures), failures)
 
     def test_focused_artifact_results_are_normalized_without_raw_logs(self) -> None:
         result = _normalize_focused_result(
@@ -128,7 +136,7 @@ class MutationProgramReportTests(unittest.TestCase):
 
     def test_program_boundaries_create_no_proof_coverage_or_release_claim(self) -> None:
         self.assertEqual(
-            "validated_bytecode_pilot_and_four_source_execution_artifacts",
+            "active_selector_execution_artifacts",
             self.payload["scope"]["measured_basis"],
         )
         self.assertEqual(
@@ -150,10 +158,10 @@ class MutationProgramReportTests(unittest.TestCase):
         self.assertTrue(any("live Phase 10" in item for item in failures), failures)
 
     def test_survivor_requires_resolved_allowed_disposition_and_durable_ref(self) -> None:
-        corrupted = copy.deepcopy(self.payload)
+        corrupted = self.measured_fixture()
         survivor = {
-            "shard_id": corrupted["shards"][0]["id"],
-            "mutation_id": corrupted["shards"][0]["results"][0]["id"],
+            "shard_id": corrupted["shards"][1]["id"],
+            "mutation_id": corrupted["shards"][1]["results"][0]["id"],
             "owner": "verification",
             "action": "consider_later",
             "resolution_status": "open",
@@ -166,8 +174,8 @@ class MutationProgramReportTests(unittest.TestCase):
         self.assertTrue(any("survivor" in item for item in failures), failures)
 
     def test_infrastructure_and_impossible_phase_outcomes_are_rejected(self) -> None:
-        corrupted = copy.deepcopy(self.payload)
-        result = corrupted["shards"][0]["results"][0]
+        corrupted = self.measured_fixture()
+        result = corrupted["shards"][1]["results"][0]
         result["result"] = "caught"
         result["build_exit_status"] = -9
         failures = validate_report_payload(corrupted)
@@ -178,10 +186,10 @@ class MutationProgramReportTests(unittest.TestCase):
         self.assertTrue(any("after build" in item or "derived" in item for item in failures), failures)
 
     def test_delivered_binary_result_requires_digest_and_direct_execution(self) -> None:
-        corrupted = copy.deepcopy(self.payload)
+        corrupted = self.measured_fixture()
         row = corrupted["shards"][5]
         row["execution_status"] = "measured"
-        row["results"] = copy.deepcopy(corrupted["shards"][0]["results"][:1])
+        row["results"] = copy.deepcopy(corrupted["shards"][1]["results"][:1])
         row["delivered_build_confirmation"] = None
         failures = validate_report_payload(corrupted)
         self.assertTrue(any("delivered" in item for item in failures), failures)
@@ -212,15 +220,15 @@ class MutationProgramReportTests(unittest.TestCase):
             self.assertNotIn("const", summary[field])
 
     def test_generic_report_represents_a_resolved_future_survivor(self) -> None:
-        future = copy.deepcopy(self.payload)
-        result = future["shards"][0]["results"][0]
+        future = self.measured_fixture()
+        result = future["shards"][1]["results"][0]
         result["test_exit_status"] = 0
         result["result"] = "survived"
         future["summary"]["caught"] -= 1
         future["summary"]["survived"] += 1
         future["survivors"] = [
             {
-                "shard_id": future["shards"][0]["id"],
+                "shard_id": future["shards"][1]["id"],
                 "mutation_id": result["id"],
                 "owner": "trust-runtime",
                 "action": "add_test",
@@ -293,9 +301,9 @@ class MutationProgramReportTests(unittest.TestCase):
         candidate = copy.deepcopy(self.payload)
         candidate["shards"][0]["results"] = None
         mutations.append(candidate)
-        candidate = copy.deepcopy(self.payload)
-        candidate["shards"][0]["id"] = {}
-        candidate["shards"][0]["results"][0]["id"] = {}
+        candidate = self.measured_fixture()
+        candidate["shards"][1]["id"] = {}
+        candidate["shards"][1]["results"][0]["id"] = {}
         mutations.append(candidate)
         candidate = copy.deepcopy(self.payload)
         candidate["shards"][0]["execution_status"] = {}

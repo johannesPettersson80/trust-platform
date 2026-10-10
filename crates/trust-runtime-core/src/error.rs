@@ -323,6 +323,8 @@ impl From<DateTimeCalcError> for RuntimeError {
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::ToString;
+
     use super::{RuntimeError, StableErrorCode};
     use crate::bytecode::BytecodeError;
     use crate::datetime::DateTimeCalcError;

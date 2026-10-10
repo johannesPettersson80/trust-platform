@@ -33,7 +33,7 @@ class MutationProgramContractTests(unittest.TestCase):
         )
         self.assertEqual(6, len(self.program["shards"]))
         self.assertEqual(
-            ["measured", "measured", "measured", "measured", "measured", "planned"],
+            ["planned"] * 6,
             [row["execution_status"] for row in self.program["shards"]],
         )
         self.assertEqual(
@@ -82,10 +82,10 @@ class MutationProgramContractTests(unittest.TestCase):
     def test_source_shards_reserve_exact_durable_artifact_paths(self) -> None:
         self.assertEqual(
             [
-                "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-runtime-value-conversion-mutation.json",
-                "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-hir-subrange-diagnostics-mutation.json",
-                "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-parser-recovery-mutation.json",
-                "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-retain-restart-mutation.json",
+                "docs/internal/testing/evidence/2026-10-09/runtime-portability-mutation-requalification/value-conversion.json",
+                "docs/internal/testing/evidence/2026-10-09/runtime-portability-mutation-requalification/hir-diagnostics.json",
+                "docs/internal/testing/evidence/2026-10-09/runtime-portability-mutation-requalification/parser-recovery.json",
+                "docs/internal/testing/evidence/2026-10-09/runtime-portability-mutation-requalification/retain-restart.json",
             ],
             [row["result_artifact_path"] for row in self.program["shards"][1:5]],
         )
@@ -98,6 +98,9 @@ class MutationProgramContractTests(unittest.TestCase):
 
     def test_measured_source_shard_requires_its_bound_artifact(self) -> None:
         shards = copy.deepcopy(self.program["shards"])
+        # Exercise strict measured-evidence handling explicitly; live rows are planned.
+        shards[1]["execution_status"] = "measured"
+        shards[4]["execution_status"] = "measured"
         retain_shard_id = "MUTATION_SHARD_RETAIN_RESTART_001"
         shards[4]["result_artifact_path"] = (
             "docs/internal/testing/evidence/plc-verification-program/2026-07-16/"
@@ -170,6 +173,14 @@ class MutationProgramContractTests(unittest.TestCase):
             any("references an unknown mutation" in item for item in preexecution_failures),
             preexecution_failures,
         )
+
+    def test_historical_focused_records_are_preserved_without_current_results(self) -> None:
+        failures: list[str] = []
+        with mock.patch.dict(contract_module.HISTORICAL_FOCUSED_ARTIFACTS,
+                             {next(iter(contract_module.HISTORICAL_FOCUSED_ARTIFACTS)): "0" * 64}):
+            survivors = contract_module._validate_focused_shards(ROOT, self.program["shards"], failures)
+        self.assertEqual(set(), survivors)
+        self.assertTrue(any("historical mutation record digest mismatch" in item for item in failures), failures)
 
     def test_shard_execution_preflight_does_not_require_old_execution_artifacts(self) -> None:
         with (
@@ -340,6 +351,18 @@ class MutationProgramContractTests(unittest.TestCase):
         ):
             contract_module._scan_reviewed_facts(ROOT, failures)
         self.assertTrue(any("duplicate discovery ID" in item for item in failures), failures)
+
+    def test_changed_bytecode_selectors_cannot_claim_the_historical_measurement(self) -> None:
+        corrupted = copy.deepcopy(self.program)
+        corrupted["shards"][0]["execution_status"] = "measured"
+        failures = validate_mutation_program_contract(ROOT, corrupted)
+        self.assertTrue(any("execution_status" in failure for failure in failures), failures)
+
+    def test_historical_bytecode_report_is_content_bound_for_planned_selectors(self) -> None:
+        failures: list[str] = []
+        with mock.patch.object(contract_module, "LEGACY_REPORT_SHA256", "0" * 64):
+            contract_module._validate_legacy_shard(ROOT, self.program["shards"], failures)
+        self.assertTrue(any("historical bytecode mutation report digest mismatch" in item for item in failures), failures)
 
     def test_hostile_legacy_report_shapes_fail_without_traceback(self) -> None:
         for report in ([], {"summary": []}):

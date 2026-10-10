@@ -124,7 +124,7 @@ ALLOWED_SURVIVOR_ACTIONS = {
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 ASSOCIATED_TEST_FIELDS = {"id_kind", "id", "source_kind", "path", "name", "ignore_state"}
 REPORT_SCHEMA_SEMANTIC_DIGEST = (
-    "9e3ccc6e21ac925b768f7ad1b359f3d9d2d3ee9d8f20219fbecd2076e5633629"
+    "9f094797b316b25a715cd47bc0dce2a664adcd486c6b84e128b53f312c9ce0cf"
 )
 
 

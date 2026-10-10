@@ -93,6 +93,13 @@ Section table rules:
   needs an unknown section to be mandatory must use a separately reviewed
   versioned contract; it cannot encode that requirement in a version 1.x file.
 
+The common reader rejects byte ranges beyond the supplied input, including address-size
+overflow, with `UnexpectedEof` and without advancing its cursor. Invalid section extents return
+`SectionOutOfBounds`. The declared header size must be 4-byte aligned, the section
+table must start at or after the declared header, and payloads must start at or after
+the end of the section table. Payloads may not alias unprotected header/table bytes. These are architecture-independent requirements; MCU compilation alone
+does not constitute execution evidence for the 32-bit overflow branch.
+
 #### 4.3 Section Flags
 
 | Bit | Name | Meaning |
@@ -153,7 +160,57 @@ the existing execution-timeout category; it does not define a stable public
 error identifier. Deadline/watchdog checks remain independent and may fault an
 invocation before its instruction budget is exhausted.
 
-##### 4.6.1 Exact Boundaries and Counter Arithmetic
+##### 4.6.1 Validation Analysis Budgets
+
+Validation is separate from execution admission. The portable API accepts explicit
+`ValidationLimits`; the hosted default is 64 MiB of accounted scratch storage and
+67,108,864 logical work units per complete candidate, shared by all POUs and metadata.
+Embedded profiles must select smaller measured limits. Exhaustion rejects the entire
+candidate with `bytecode_invalid_section`, using the typed `ValidationStorageLimit` or
+`ValidationWorkLimit` reason. No partially validated token or runtime is returned.
+
+Lookup indexes for POU identifiers, case-insensitive POU/variable names, local-reference
+intervals and reference types are built once per candidate. Sorting and lookup work is
+charged; repeated instruction/debug/variable checks must not scan entire metadata tables or
+rebuild maps per POU. Duplicate/name matching retains original declaration order. Local-range
+validation uses sorted intervals, checking overflow/bounds before overlap and ownership.
+Limits are independent upper bounds, not a guarantee that every Cartesian combination fits
+one profile. Native scale fixtures must reach the one-million-instruction and 65,536-reference
+limits with many POUs/debug records and prove admission under the hosted analysis defaults.
+
+The instruction stream is decoded once. Semantic passes share that representation and
+a borrowed table context. Stack dataflow retains states only at basic-block entries,
+merges toward unknown types, and terminates unchanged loops without replaying them.
+Every retained instruction, block-state, analysis stack, lookup vector and temporary
+name buffer is reserved fallibly within the scratch budget before allocation. Work
+accounting covers decoded/visited instructions, metadata and nested entries, type-chain
+steps, compared string bytes, and copied/moved analysis elements. An exhausted budget
+stops the analysis before that charged operation. The accounting is deterministic for
+a given target layout and input; it is not CPU time or WCET.
+
+Scratch accounting covers requested collection capacity, not allocator headers,
+transient realloc copies, error diagnostics, the decoded artifact itself or native
+stack. Diagnostic construction preserves the actual rejection reason even when no analysis
+budget remains; budget charges apply to retained analysis, including temporary qualified names. Constant/type traversal depth remains bounded separately. Tests must include
+an isolated native process memory measurement as well as exact accounting boundaries;
+neither replaces MCU preparation-peak measurements. This contract closes the prior
+per-instruction full-stack allocation defect without claiming a heap-free loader.
+
+Raw struct-built modules must obey the same known section-id/payload and type-kind/
+payload agreements as decoded modules. `validated()` returns an immutable borrowed
+`ValidatedBytecode` token only after validation; host VM materialization requires that
+token. It is not an executable module or proof of a profile's memory/time admission.
+Existing `validate()` and hosted container construction remain available. Stable error
+codes and existing diagnostic text remain compatible; new code uses named rejection
+reasons instead of duplicating static diagnostic strings.
+
+Serialization rejects count conversion, extent and alignment overflow before writing
+truncated data, and rejects output above the encoded-container limit. The portable
+`align4` helper returns `None` on overflow; `compute_type_offsets_for_entries` returns a
+fallible result. Owned host/core conversions move sections without cloning, and a
+borrowed view's section reference lives as long as the borrowed section slice.
+
+##### 4.6.2 Exact Boundaries and Counter Arithmetic
 
 An empty `REF_TABLE` and an empty `POU_INDEX` are valid inputs to declared
 resource-limit validation. For every fixed declared-count limit, the exact
@@ -872,6 +929,13 @@ at their allocation or execution boundary. Their diagnostic text remains
 non-normative even though the enclosing error category has a stable machine
 identifier.
 
+POU body extents use checked arithmetic and reject overflow as
+`InvalidSection("POU code out of bounds")`. Relative jumps use checked signed arithmetic;
+an unrepresentable target returns `InvalidJumpTarget` carrying the encoded displacement.
+Representable invalid targets continue to report the target. Debug and release builds must
+reject these malformed inputs without panicking. Struct-built modules must also reject code
+positions/lengths outside the validator's signed-offset representation.
+
 #### 7.4.1 VM Trap Identifiers
 
 VM traps that represent malformed executable state retain a stable identifier
@@ -1235,6 +1299,16 @@ writable-target arguments, optional formal names, conversion identity, and
 resolved function POU. A parse failure is retained as a failure and produces
 `vm_invalid_native_call` when selected; it is not reparsed into a different
 result during execution.
+
+##### 7.10.1 LOAD_NULL and instance-owner inference
+
+The shared operand-width table includes `LOAD_NULL` (0x25) as a zero-operand instruction.
+Owner inference must continue beyond NULL literals. A function-block body assigning NULL to
+a reference and reading an instance field must resolve that field against the invoked instance,
+including when two instances of the same FB are called. This corrects the former hosted scan
+abort at LOAD_NULL; it is a recorded A2 execution correction, not merely loader relocation.
+NULL reference semantics are unchanged; this is a product-specific bytecode owner-inference
+correction, not a change to IEC reference semantics. Register lowering uses the same width table without an override.
 
 #### 7.11 Declared Local and Static Initialization
 

@@ -61,11 +61,11 @@ impl Runtime {
         module: &crate::bytecode::BytecodeModule,
         resource_name: Option<&str>,
     ) -> Result<(), error::RuntimeError> {
-        module.validate().map_err(error::RuntimeError::from)?;
+        let validated = module.validated().map_err(error::RuntimeError::from)?;
         let metadata = module.metadata().map_err(error::RuntimeError::from)?;
         // Materialize VM module before mutating runtime metadata so failures do not
         // leave runtime state updated without a corresponding executable module.
-        let vm_module = Arc::new(super::vm::VmModule::from_bytecode(module)?);
+        let vm_module = Arc::new(super::vm::VmModule::from_validated(&validated)?);
         self.apply_bytecode_metadata(&metadata, resource_name)?;
         self.vm_module = Some(vm_module);
         Ok(())
