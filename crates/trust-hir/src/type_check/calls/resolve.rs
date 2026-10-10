@@ -77,6 +77,13 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
                 param_owner: symbol_id,
                 kind: symbol_kind,
             }),
+            // CODESYS textual action invocation (vendor extension): actions
+            // take no arguments and return nothing.
+            SymbolKind::Action => Some(CallTargetInfo {
+                return_type: TypeId::VOID,
+                param_owner: symbol_id,
+                kind: symbol_kind,
+            }),
             SymbolKind::Property { .. } => None,
             _ => self
                 .resolve_function_block_instance(symbol_type)

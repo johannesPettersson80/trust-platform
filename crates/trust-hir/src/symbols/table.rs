@@ -1069,6 +1069,7 @@ fn declaration_kind_for_symbol(kind: &SymbolKind) -> DeclarationKind {
         SymbolKind::Type => DeclarationKind::Type,
         SymbolKind::EnumValue { .. } => DeclarationKind::EnumValue,
         SymbolKind::Parameter { .. } => DeclarationKind::Parameter,
+        SymbolKind::Action => DeclarationKind::Action,
     }
 }
 
@@ -1085,6 +1086,7 @@ fn semantic_role_for_symbol(kind: &SymbolKind) -> SemanticRole {
         | SymbolKind::Class
         | SymbolKind::Interface => SemanticRole::Type,
         SymbolKind::Function { .. } | SymbolKind::Method { .. } => SemanticRole::Callable,
+        SymbolKind::Action => SemanticRole::Callable,
         SymbolKind::Namespace => SemanticRole::Namespace,
         SymbolKind::Program
         | SymbolKind::Configuration

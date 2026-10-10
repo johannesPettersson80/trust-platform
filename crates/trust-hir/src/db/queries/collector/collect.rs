@@ -62,6 +62,7 @@ impl SymbolCollector<'_> {
     pub(super) fn visit_node(&mut self, node: &SyntaxNode) {
         match node.kind() {
             SyntaxKind::Program => self.collect_pou(node, SymbolKind::Program, TypeId::VOID),
+            SyntaxKind::Action => self.collect_action(node),
             SyntaxKind::Configuration => self.collect_configuration(node),
             SyntaxKind::Resource => self.collect_resource(node),
             SyntaxKind::TaskConfig => self.collect_task_config(node),
@@ -256,6 +257,26 @@ impl SymbolCollector<'_> {
         // Pop scope and parent
         self.parent_stack.pop();
         self.table.pop_scope();
+    }
+
+    /// CODESYS textual action (vendor extension): an invocable child symbol
+    /// of its owning program/function block. Actions live outside the
+    /// owning scope so a variable of the same name keeps shadowing them;
+    /// resolution goes through the POU child scan in call position. The
+    /// body itself is type-checked separately.
+    fn collect_action(&mut self, node: &SyntaxNode) {
+        let Some((name, range)) = name_from_node(node) else {
+            return;
+        };
+        let mut symbol = Symbol::new(
+            SymbolId::UNKNOWN,
+            name,
+            SymbolKind::Action,
+            TypeId::VOID,
+            range,
+        );
+        symbol.parent = self.current_parent();
+        self.table.add_symbol_raw(symbol);
     }
 
     fn collect_configuration(&mut self, node: &SyntaxNode) {

@@ -770,9 +770,17 @@ END_ACTION
 9. A bare `RETURN;` in an action body has the containing program or function
    block as its IEC control context. A return value is invalid because neither
    kind of owner returns a value.
-10. A textual action name is not a callable ST function, method, or function
-    block instance. `action_name()` does not invoke the action. Action
-    association and qualifiers belong to the unsupported textual-SFC profile.
+10. Textual action invocation (CODESYS vendor extension): an action is
+    callable by its bare name inside its owning POU, qualified by the owning
+    program (`POU.action_name()`), or through a function-block instance
+    (`instance.action_name()`). An action call takes no arguments, returns no
+    value, and is invalid in value position. An action name does not
+    participate in ordinary variable resolution: a variable with the same
+    spelling keeps shadowing the action for value and assignment contexts,
+    and the action remains invocable by name in call position. SFC action
+    association and qualifiers remain in the unsupported textual-SFC
+    profile, and the runtime compiler still does not implement action
+    control.
 
 ### Parser acceptance and recovery boundary
 

@@ -81,6 +81,9 @@ pub enum SymbolKind {
     Task,
     /// A program instance declared in a CONFIGURATION/RESOURCE.
     ProgramInstance,
+    /// A textual ACTION of a program or function block (CODESYS vendor
+    /// extension: invocable by name).
+    Action,
     /// A namespace.
     Namespace,
     /// A function.

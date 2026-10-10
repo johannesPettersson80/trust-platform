@@ -145,6 +145,28 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                 return result;
             }
 
+            // CODESYS textual action call (vendor extension): an action
+            // of the enclosing POU is callable by its bare name.
+            if let Some(pou_id) = self.checker.current_pou_symbol {
+                if let Some(action_id) = self.checker.symbols.resolve_child_symbol(pou_id, &name) {
+                    if matches!(
+                        self.checker.symbols.get(action_id).map(|s| &s.kind),
+                        Some(SymbolKind::Action)
+                    ) {
+                        if let Some(call_target) =
+                            self.checker.resolve_ref().resolve_call_target(action_id)
+                        {
+                            self.check_call_arguments(
+                                call_target.param_owner,
+                                &call_target.kind,
+                                node,
+                            );
+                            return self.checked_call_result_type(node, &call_target);
+                        }
+                    }
+                }
+            }
+
             return self.checker.legacy_diagnostic_type(
                 DiagnosticCode::UndefinedFunction,
                 callee.text_range(),

@@ -389,6 +389,8 @@ pub enum DeclarationKind {
     EnumValue,
     /// Formal parameter declaration.
     Parameter,
+    /// Textual ACTION declaration (CODESYS vendor extension).
+    Action,
 }
 
 /// Kind of a retained declaration reference.
