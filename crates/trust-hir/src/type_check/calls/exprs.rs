@@ -143,6 +143,16 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         if let Some(symbol_id) = self
             .checker
             .resolve_ref()
+            .resolve_program_qualified_member(node)
+        {
+            if let Some(symbol) = self.checker.symbols.get(symbol_id) {
+                return SemanticOutcome::Resolved(symbol.type_id);
+            }
+        }
+
+        if let Some(symbol_id) = self
+            .checker
+            .resolve_ref()
             .resolve_namespace_qualified_symbol(node)
             && let Some(symbol) = self.checker.symbols.get(symbol_id)
         {

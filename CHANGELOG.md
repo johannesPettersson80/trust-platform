@@ -75,6 +75,10 @@ Target release: `v0.24.75`
   hosted values and image writes use checked owner APIs. Rejected queued writes
   report their application failure without turning an invalid request into a PLC fault.
 
+- Support CODESYS program-singleton access (vendor extension):
+  `Program.member` reads/writes across programs (including function-block
+  instances), and `ProgramName();` invokes another program body; a bare
+  program name in value position remains rejected.
 - Support CODESYS-style DUT inheritance (`TYPE Derived EXTENDS Base` on
   STRUCT types, vendor extension): inherited field access, derived-to-base
   assignment compatibility, duplicate-field and cycle diagnostics, and
@@ -1189,6 +1193,10 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Support CODESYS program-singleton access (vendor extension):
+  `Program.member` reads/writes across programs (including function-block
+  instances), and `ProgramName();` invokes another program body; a bare
+  program name in value position remains rejected.
 - Support CODESYS-style DUT inheritance (`TYPE Derived EXTENDS Base` on
   STRUCT types, vendor extension): inherited field access, derived-to-base
   assignment compatibility, duplicate-field and cycle diagnostics, and
@@ -2380,6 +2388,10 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Support CODESYS program-singleton access (vendor extension):
+  `Program.member` reads/writes across programs (including function-block
+  instances), and `ProgramName();` invokes another program body; a bare
+  program name in value position remains rejected.
 - Support CODESYS-style DUT inheritance (`TYPE Derived EXTENDS Base` on
   STRUCT types, vendor extension): inherited field access, derived-to-base
   assignment compatibility, duplicate-field and cycle diagnostics, and
@@ -2785,6 +2797,10 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Support CODESYS program-singleton access (vendor extension):
+  `Program.member` reads/writes across programs (including function-block
+  instances), and `ProgramName();` invokes another program body; a bare
+  program name in value position remains rejected.
 - Support CODESYS-style DUT inheritance (`TYPE Derived EXTENDS Base` on
   STRUCT types, vendor extension): inherited field access, derived-to-base
   assignment compatibility, duplicate-field and cycle diagnostics, and
@@ -2922,6 +2938,10 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Support CODESYS program-singleton access (vendor extension):
+  `Program.member` reads/writes across programs (including function-block
+  instances), and `ProgramName();` invokes another program body; a bare
+  program name in value position remains rejected.
 - Support CODESYS-style DUT inheritance (`TYPE Derived EXTENDS Base` on
   STRUCT types, vendor extension): inherited field access, derived-to-base
   assignment compatibility, duplicate-field and cycle diagnostics, and

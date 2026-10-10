@@ -220,6 +220,18 @@ impl<'a> TypeChecker<'a> {
                 }
             }
             SyntaxKind::FieldExpr => {
+                // CODESYS program-singleton access keeps target resolution
+                // (and with it the assignability checks) working.
+                if let Some(member_id) = self
+                    .resolve_ref()
+                    .resolve_program_qualified_member(node)
+                {
+                    let accessible = self.resolve().check_member_access(member_id, node.text_range());
+                    return Some(ResolvedSymbol {
+                        id: member_id,
+                        accessible,
+                    });
+                }
                 if let Some(symbol_id) = self.resolve_ref().resolve_namespace_qualified_symbol(node)
                 {
                     let accessible = self

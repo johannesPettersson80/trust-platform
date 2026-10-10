@@ -409,6 +409,28 @@ Table 47 adopts the Table 40 textual edge-input form for programs. A program
 samples each edge-qualified `BOOL` input once per executed program cycle and
 the program body observes only the resulting one-cycle pulse.
 
+### Program-singleton access (vendor extension)
+
+```
+PROGRAM Main
+  seen := Producer.counter;   // read another program's member
+  Consumer.setpoint := 5;     // write another program's member
+  I18nConfig();               // invoke another program body
+END_PROGRAM
+```
+
+CODESYS treats task programs as implicit singletons. truST accepts the same
+access shape as a vendor extension, parallel to the namespaced-GVL
+vendor-parity extension in `03-variables.md`:
+
+- A program name used as the qualifier of a field expression resolves the
+  member (variable, function-block instance, or action) among that program's
+  own declarations, including across files. The program name alone in value
+  position remains rejected ("program cannot be used as a value").
+- A program name invoked as a statement (`Name();`) invokes the program body.
+  A program call takes no arguments and produces no value; using the call
+  result is rejected like a void call.
+
 ## 5. CLASS Declaration (Table 48, Section 6.6.5)
 
 ### Syntax

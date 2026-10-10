@@ -153,6 +153,18 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         }
 
         if callee.kind() == SyntaxKind::FieldExpr {
+            // CODESYS program-singleton access: `ProgramName.fbInst(...)`.
+            if let Some(member_id) = self
+                .checker
+                .resolve_ref()
+                .resolve_program_qualified_member(callee)
+            {
+                if let Some(call_target) = self.checker.resolve_ref().resolve_call_target(member_id)
+                {
+                    self.check_call_arguments(call_target.param_owner, &call_target.kind, node);
+                    return self.checked_call_result_type(node, &call_target);
+                }
+            }
             if let Some(symbol_id) = self
                 .checker
                 .resolve_ref()

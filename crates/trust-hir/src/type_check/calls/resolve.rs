@@ -70,6 +70,13 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
                 param_owner: symbol_id,
                 kind: symbol_kind,
             }),
+            // CODESYS cross-program invocation: calling a PROGRAM runs its
+            // body (vendor extension).
+            SymbolKind::Program => Some(CallTargetInfo {
+                return_type: TypeId::VOID,
+                param_owner: symbol_id,
+                kind: symbol_kind,
+            }),
             SymbolKind::Property { .. } => None,
             _ => self
                 .resolve_function_block_instance(symbol_type)
@@ -126,6 +133,28 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
     ) -> Option<SymbolId> {
         let parts = self.qualified_name_from_field_expr(node)?;
         self.checker.symbols.resolve_qualified(&parts)
+    }
+
+    /// CODESYS program-singleton access: `ProgramName.member` resolves the
+    /// member among the program's own children (vendor extension).
+    pub(in crate::type_check) fn resolve_program_qualified_member(
+        &self,
+        node: &SyntaxNode,
+    ) -> Option<SymbolId> {
+        let parts = self.qualified_name_from_field_expr(node)?;
+        if parts.len() != 2 {
+            return None;
+        }
+        let program_id = self.checker.symbols.lookup(parts[0].as_str())?;
+        if !matches!(
+            self.checker.symbols.get(program_id)?.kind,
+            SymbolKind::Program
+        ) {
+            return None;
+        }
+        self.checker
+            .symbols
+            .resolve_child_symbol(program_id, &parts[1])
     }
 
     fn resolve_using_in_scope(&self, scope_id: ScopeId, name: &str) -> UsingResolution {

@@ -391,6 +391,16 @@ impl SymbolTable {
         Some(current)
     }
 
+    /// Resolves `name` among the direct children of `owner` (CODESYS
+    /// program-singleton member access and POU-qualified actions).
+    #[must_use]
+    pub fn resolve_child_symbol(&self, owner: SymbolId, name: &str) -> Option<SymbolId> {
+        self.symbols
+            .values()
+            .find(|sym| sym.parent == Some(owner) && sym.name.eq_ignore_ascii_case(name))
+            .map(|sym| sym.id)
+    }
+
     /// Looks up a symbol by name in a specific scope.
     #[must_use]
     pub fn lookup_in_scope(&self, scope_id: ScopeId, name: &str) -> Option<SymbolId> {
