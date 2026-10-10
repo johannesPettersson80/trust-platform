@@ -18,3 +18,6 @@ docs/notes/runtime-portability/b-r3-evidence/** -whitespace
 
 # Preserve byte-exact B-R4 validation evidence.
 docs/notes/runtime-portability/b-r4-evidence/** -whitespace
+
+# Retained publication proof is copied byte-for-byte with recorded digests.
+docs/notes/runtime-portability/publication-evidence/** -whitespace

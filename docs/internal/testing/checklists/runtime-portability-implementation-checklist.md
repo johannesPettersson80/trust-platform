@@ -27,7 +27,14 @@ verification. None of this is A4 scope evidence.
 | Integration | A1/#130/v0.24.71 complete. A2/#131 merged at `3bed89b47b4e0ed8ecc11410b592228fff5f0112`; v0.24.72 release verification is complete (tag, Release workflow, assets/checksums and all five Marketplace targets). No B publication. |
 | Next action | Scope B remote bring-up and independent evidence reconciliation are complete. Retain this result for the next separately authorized scope. Scope B local checkpoint is `f756ddd9a`; the following metadata commit targets 0.24.73. The subsequently authorized publication scope validates the exact integrated SHA, replays its final firmware, and then handles push, guarded merge and release; later implementation scopes remain separate. Printed markings, manual button actuation and optical LED observation remain explicitly unverified; M3 allocation-free/worst-case qualification remains separate. |
 
-Publication is now authorized and isolated on `integrate/runtime-portability-stm32`.
+Publication is authorized and isolated on `integrate/runtime-portability-stm32`.
+Its reviewed source checkpoint `ca205132e` passed the exact-SHA guard and fresh
+0.24.73 physical F401 replay: 101 samples/40 activations/zero misses, upper flash
+free 18,720 B, heap peak 28,272 B and MSP free 2,788 B.
+[Retained publication proof](../../../notes/runtime-portability/publication-evidence/README.md)
+records the source/image identities and independent reconciliation. A docs/evidence
+closeout follows; its successor exact-head guard is required before push. GitHub
+CI, merge and release remain pending, so this is not a claim of publication.
 [Release integration command map](../../../notes/runtime-portability/stm32-release-integration.md)
 owns the exact-SHA guard, fresh final-image hardware replay, push, guarded merge and release.
 Earlier source checkpoints and hardware evidence remain unchanged.

@@ -1,0 +1,20 @@
+{
+  "README.md": "46a53a77d75c15db6ca95627b40407c4168b18f73a8ef6b7b41965ff6368b8c3",
+  "capture-exit.txt": "ca2ebdf97d7469496b1f4b78958f9dc8447efdcb623953fee7b6996b762f6fff",
+  "elf-report.json": "7fdc970d6cf5c207363fd6e9d4cbbc190722d59778ec5216b084761a2394787f",
+  "final-build-config.json": "f5fc5cb0c133c441639d1161e023df9dc790b0388c1b68b2b9fa0839180adf08",
+  "final-image-ledger.tsv": "fdb8e66b22fa97d5d9834286fc9dbac47595452f2e11f91b25d76d64738c09e7",
+  "guard-artifact-ca205132e.json": "98c5283c6f5c72c573564c76287b1d6f90e273420c8558c91833b77b10f53b1c",
+  "installed-sha256.txt": "5da8830dc34a5bbfde0c6db86ccfb1d47f2c8f1b5fede2576986ffe9a10a16e6",
+  "missing-map-observation.md": "f2305be343bed78708fa86531e20e7d42951644dea7c92fcf1abdfc7ccc5674a",
+  "mp001-parity.txt": "5880053e789f5dac9a94e2f9f9750a4250f90466ab440ba2bfa6cef5cdcddc03",
+  "native-test-all.txt": "96de13ba3aaa26ced8fc4dc4df96f5773274c11c68b08f71b6f58ef712846283",
+  "pack-application.txt": "78f1a8d62eddd0ea1c1ba6025cb2b73d940534b7683299b3b5bfc6b7f0b2e032",
+  "physical-report.json": "e4cc8c537dbc0a09052659d2ff0345d7e63c5548c4bbdd98caa25c46ca0f7826",
+  "portable-supplement-run1.tsv": "0f4ca4397e23e2de1f55cf9071f65cbf2da97190a6a0d8e997d691672ace23e7",
+  "public-docs-run1.tsv": "37eb3574eeb78421629c42a892b9333e1d700722096af35a7e039412c4571640",
+  "run1-failure-ledger.md": "2100ad9b0c019ddf7bdc39ede74e94086928c6cdfa5e3f425cfadc25508f9dc7",
+  "run2-failure-ledger.md": "0857ea14212665309543a8db369a7b955de34c3ee67902ff08596954c1c015ab",
+  "uart.txt": "1a15c7b9c615e6893699addc04988f836f6dbc84e7a0135eb1c64df5bd18171b",
+  "vscode-tests.txt": "0054018b57f7c3e114a4871fec65935eab3070402a022904262225e4689e9beb"
+}

@@ -139,3 +139,24 @@ remain failures. A new native regression asserts every branch. Ownership
 registrations, delegated paths, firmware and runtime source remain unchanged.
 
 Root independently accepted the normalizer and requested success/nonempty and malformed-success assertions, both included. Run-3 preparation passed all seven steps; only formatting of this reviewed correction changed. No runtime or firmware source changed. The correction is ready for its exact-SHA guard and final-image supplement; hardware remains gated on software approval.
+
+
+## Reviewed publication proof and final evidence freeze
+
+The corrected exact-SHA guard passed at
+`ca205132e0f5626046353ffbe13fe402246da38f`: all required commands passed,
+including 8,689 native assertions (315 result blocks; 24 ignored), 519 VS Code
+assertions, Clippy, both-lock supply chain, cross warnings, real AST ownership,
+MP parity and source cleanliness. Planner/catalog results remain advisory.
+The final-image retention suffix passed seven steps; it corrects the map-copy
+collector's omitted failure accounting without changing product source.
+
+The final 0.24.73 image passed a fresh physical replay with the reviewed B-R4
+protocol. The Rust verifier and independent root reconciliation agree on all
+101 oracle samples, 40 activations/zero misses, numeric checks, GPIO safe outputs,
+depth/IRQ probes, memory margins and IWDG reset/DONE. ELF and raw UART identities,
+retained ledgers and explicit limitations are in [publication evidence](publication-evidence/README.md).
+The new closeout consists only of documents and byte copies of that evidence;
+all product/fixture/firmware bytes are unchanged. The successor exact-head guard
+remains required before its push. GitHub native platform checks, guarded merge
+and full public release verification remain separate stages.
