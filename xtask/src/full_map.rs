@@ -16,6 +16,9 @@ use crate::software_map::{
     WorkspaceEdge,
 };
 
+mod external_safety;
+pub use external_safety::external_safety_gate;
+
 pub fn architecture_doctor_full_map(root: &Path) -> Result<()> {
     let policy = FullMapPolicy::load(root)?;
     let mut map = build_software_map(root, &policy)?;

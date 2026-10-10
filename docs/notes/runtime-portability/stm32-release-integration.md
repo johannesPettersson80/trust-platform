@@ -77,3 +77,46 @@ not a claim of complete 32-bit corpus coverage.
 
 Current stage: final reviewed publication record ready for commit and exact-SHA batch. No guard, final-image board replay or push
 has occurred.
+
+
+## First publication batch and unsafe inventory correction
+
+Run 1 at 5b7f2ea55 retained one required guard failure: the external AST scanner
+excluded firmware and all test files while the reviewed unsafe-site policy
+registered eleven firmware and seven hosted allocation-probe sites. Each site
+exists at its exact line; deleting registrations would hide the owning defect.
+All 22 required supplemental gates and their advisory metadata check passed,
+as did all twelve public-docs steps. The isolated native no_std suite passed
+362 tests; the selected i686 lib/five-suite lane passed 270; firmware tests passed
+two. The fresh 0.24.73 image passed inspection with 18,720 bytes upper flash free.
+Hardware remains unrun because the guard failed. Guard Clippy, full workspace,
+MP parity and final cleanliness were unrun after the architecture prerequisite.
+VS Code passed 519 tests, with formatting, cross warnings and both-lock supply
+chain checks passing before that failure. Complete raw ledgers remain outside Git.
+
+The correction moves the touched external scanner inventory and admission decision
+into Rust xtask. It reuses the doctor's existing crate/third-party/firmware file
+inventory, preserves the old external test exclusions exactly, and additionally
+scans only exact registered excluded test paths. The existing six AST patterns,
+raw/normalized/unregistered/missing/unsupported reports, exact line ownership
+and delegated-path conditions remain. Shell is a command wrapper. Native fixtures
+cover firmware and exact registered test inclusion, unrelated test exclusion,
+unregistered firmware rejection, missing/shifted registrations, and malformed
+external locations. No unsafe registrations or delegations are removed.
+
+The correction preparation compiled the new Rust gate and formatted it, but the
+full-map doctor caught the former single-file module owner path: adding a child
+module changes its modeled path from `xtask/src/full_map.rs` to `xtask/src/full_map`.
+Only that existing owner-path binding is corrected; the size allowance, rationale,
+unsafe sites and delegation rules remain unchanged. Diagram rendering stayed
+unrun until this prerequisite is corrected. This failed preparation is retained.
+
+Root independently accepted the formatted correction and the sole owner-path
+rebind. The recorded preparation suffix passed architecture/full-map and canonical
+diagram rendering; final generated outputs were copied back. No runtime, core,
+adapter or firmware source changed during the correction. The next exact-SHA
+guard covers the previously unreached Clippy/workspace/MP stages and the actual
+external AST gate. A focused supplement executes the new Rust gate regressions,
+checks the wrapper syntax and diagram drift, then relinks/inspects the final
+firmware tuple. Portable/32-bit/MCU/native firmware/MSRV/Rustdoc/TLS/provenance
+proof from run 1 remains source-specific reused proof, not a claimed rerun.

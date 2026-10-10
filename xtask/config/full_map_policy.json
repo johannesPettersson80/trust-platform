@@ -1430,7 +1430,7 @@
       {
         "crate_name": "xtask",
         "module_name": "full_map",
-        "path": "xtask/src/full_map.rs",
+        "path": "xtask/src/full_map",
         "owner": "architecture automation",
         "rationale": "full-map doctor owns the architecture-program policy checks and generated report logic",
         "review_date": "2026-05-02",
