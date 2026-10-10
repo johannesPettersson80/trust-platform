@@ -30,7 +30,16 @@ Standard functions are predefined functions available in all IEC 61131-3 impleme
 ### Function Characteristics
 
 - No internal state (stateless)
-- Same inputs always produce same outputs
+- For deterministic stateless operations, identical inputs under the same fixed
+  execution/numeric contract produce the same specified result. Host-clock
+  extensions have their own environmental input contract.
+- Standard function results follow their input semantics under the declared
+  numerical accuracy contract; this is not a promise of identical floating-point
+  bits for unspecified-precision operations, even within one build. IEC
+  61131-3:2013 §6.6.2.5.8 requires
+  implementation-specific accuracy dependencies to be stated. The planned shared
+  runtime contract and its exact/tolerance-qualified claims are defined in
+  [specification 34 §12](34-runtime-portability.md#12-compatibility-and-numeric-behavior).
 - Can be overloaded for different types
 - Some have extensible inputs (e.g., ADD can take 2+ arguments)
 

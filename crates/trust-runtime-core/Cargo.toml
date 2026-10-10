@@ -9,11 +9,12 @@ rust-version.workspace = true
 
 [features]
 default = ["std"]
-std = []
+std = ["indexmap/std", "rustc-hash/std", "smol_str/std", "thiserror/std"]
 hir = ["std", "dep:trust-hir"]
 
 [dependencies]
 indexmap.workspace = true
+libm.workspace = true
 rustc-hash.workspace = true
 smol_str.workspace = true
 thiserror.workspace = true

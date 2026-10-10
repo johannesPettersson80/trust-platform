@@ -1,0 +1,4992 @@
+{
+  "repository": "/home/johannes/projects/trust-platform",
+  "head": "9a15065725c17da2c912055f1509368d3fd01d6c",
+  "manifests": [
+    "Cargo.toml",
+    "crates/trust-ads-core/Cargo.toml",
+    "crates/trust-ads-server/Cargo.toml",
+    "crates/trust-ads-server/fuzz/Cargo.toml",
+    "crates/trust-debug/Cargo.toml",
+    "crates/trust-dev/Cargo.toml",
+    "crates/trust-hir/Cargo.toml",
+    "crates/trust-ide/Cargo.toml",
+    "crates/trust-lsp/Cargo.toml",
+    "crates/trust-plcopen/Cargo.toml",
+    "crates/trust-runtime-core/Cargo.toml",
+    "crates/trust-runtime/Cargo.toml",
+    "crates/trust-runtime/web/ide-frontend/package.json",
+    "crates/trust-syntax/Cargo.toml",
+    "crates/trust-tcads-native/Cargo.toml",
+    "crates/trust-wasm-analysis/Cargo.toml",
+    "crates/verification-cases/Cargo.toml",
+    "editors/vscode/package.json",
+    "fuzz/Cargo.toml",
+    "scripts/captures/package.json",
+    "xtask/Cargo.toml"
+  ],
+  "rust": {
+    "edition": "2021",
+    "msrv": "1.95",
+    "resolver": "2",
+    "root_toolchain_pin": false
+  },
+  "cargo_registry_dependencies": [
+    {
+      "name": "ads",
+      "locked_versions": [
+        "0.4.4"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "ads",
+          "requirement": "=0.4.4",
+          "features": [],
+          "default_features": true,
+          "optional": true
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/ads",
+        "latest_stable": "0.4.4",
+        "rust_version": "1.63",
+        "released_at": "2024-10-03T13:06:56.894885Z",
+        "license": "MIT/Apache-2.0",
+        "repository": "https://github.com/birkenfeld/ads-rs",
+        "features": {}
+      }
+    },
+    {
+      "name": "anyhow",
+      "locked_versions": [
+        "1.0.103"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "anyhow",
+          "requirement": "1",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/anyhow",
+        "latest_stable": "1.0.104",
+        "rust_version": "1.68",
+        "released_at": "2026-07-18T20:59:37.656167Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/dtolnay/anyhow",
+        "features": {
+          "backtrace": [],
+          "default": [
+            "std"
+          ],
+          "std": []
+        }
+      }
+    },
+    {
+      "name": "base64",
+      "locked_versions": [
+        "0.13.1",
+        "0.21.7",
+        "0.22.1"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-dev/Cargo.toml",
+          "group": "dependencies",
+          "alias": "base64",
+          "requirement": "0.22",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        },
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "base64",
+          "requirement": "0.22",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/base64",
+        "latest_stable": "0.23.1",
+        "rust_version": "1.71.0",
+        "released_at": "2026-08-04T12:34:31.976297Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/marshallpierce/rust-base64",
+        "features": {
+          "alloc": [],
+          "default": [
+            "std",
+            "simd-unsafe"
+          ],
+          "simd-unsafe": [],
+          "std": [
+            "alloc"
+          ]
+        }
+      }
+    },
+    {
+      "name": "boxcar",
+      "locked_versions": [
+        "0.2.14"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-hir/Cargo.toml",
+          "group": "target.cfg(loom).dependencies",
+          "alias": "boxcar",
+          "requirement": "0.2.14",
+          "features": [
+            "loom"
+          ],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/boxcar",
+        "latest_stable": "0.2.14",
+        "rust_version": "1.72.0",
+        "released_at": "2025-08-13T05:27:15.623055Z",
+        "license": "MIT",
+        "repository": "https://github.com/ibraheemdev/boxcar",
+        "features": {}
+      }
+    },
+    {
+      "name": "clap",
+      "locked_versions": [
+        "4.6.1"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "clap",
+          "requirement": "4",
+          "features": [
+            "derive"
+          ],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/clap",
+        "latest_stable": "4.6.7",
+        "rust_version": "1.85",
+        "released_at": "2026-09-14T18:40:28.474794Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/clap-rs/clap",
+        "features": {
+          "cargo": [
+            "clap_builder/cargo"
+          ],
+          "color": [
+            "clap_builder/color"
+          ],
+          "debug": [
+            "clap_builder/debug",
+            "clap_derive?/debug"
+          ],
+          "default": [
+            "std",
+            "color",
+            "help",
+            "usage",
+            "error-context",
+            "suggestions"
+          ],
+          "deprecated": [
+            "clap_builder/deprecated",
+            "clap_derive?/deprecated"
+          ],
+          "derive": [
+            "dep:clap_derive"
+          ],
+          "env": [
+            "clap_builder/env"
+          ],
+          "error-context": [
+            "clap_builder/error-context"
+          ],
+          "help": [
+            "clap_builder/help"
+          ],
+          "std": [
+            "clap_builder/std"
+          ],
+          "string": [
+            "clap_builder/string"
+          ],
+          "suggestions": [
+            "clap_builder/suggestions"
+          ],
+          "unicode": [
+            "clap_builder/unicode"
+          ],
+          "unstable-derive-ui-tests": [],
+          "unstable-doc": [
+            "clap_builder/unstable-doc",
+            "derive"
+          ],
+          "unstable-ext": [
+            "clap_builder/unstable-ext"
+          ],
+          "unstable-markdown": [
+            "clap_derive/unstable-markdown"
+          ],
+          "unstable-styles": [
+            "clap_builder/unstable-styles"
+          ],
+          "unstable-v5": [
+            "clap_builder/unstable-v5",
+            "clap_derive?/unstable-v5",
+            "deprecated"
+          ],
+          "usage": [
+            "clap_builder/usage"
+          ],
+          "wrap_help": [
+            "clap_builder/wrap_help"
+          ]
+        }
+      }
+    },
+    {
+      "name": "clap_complete",
+      "locked_versions": [
+        "4.6.3"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "clap_complete",
+          "requirement": "4",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/clap_complete",
+        "latest_stable": "4.6.11",
+        "rust_version": "1.85",
+        "released_at": "2026-09-15T16:32:44.599836Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/clap-rs/clap",
+        "features": {
+          "debug": [
+            "clap/debug"
+          ],
+          "default": [],
+          "unstable-doc": [
+            "unstable-dynamic"
+          ],
+          "unstable-dynamic": [
+            "dep:clap_lex",
+            "dep:shlex",
+            "dep:is_executable",
+            "clap/unstable-ext"
+          ],
+          "unstable-shell-tests": [
+            "dep:completest",
+            "dep:completest-pty"
+          ]
+        }
+      }
+    },
+    {
+      "name": "crc32fast",
+      "locked_versions": [
+        "1.5.0"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "crc32fast",
+          "requirement": "1",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/crc32fast",
+        "latest_stable": "1.5.2",
+        "rust_version": "1.63",
+        "released_at": "2026-09-12T18:41:46.923561Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/srijs/rust-crc32fast",
+        "features": {
+          "default": [
+            "std"
+          ],
+          "nightly": [],
+          "std": []
+        }
+      }
+    },
+    {
+      "name": "crossbeam-channel",
+      "locked_versions": [
+        "0.5.15"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "crossbeam-channel",
+          "requirement": "0.5",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/crossbeam-channel",
+        "latest_stable": "0.5.17",
+        "rust_version": "1.60",
+        "released_at": "2026-09-05T17:47:21.507092Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/crossbeam-rs/crossbeam",
+        "features": {
+          "default": [
+            "std"
+          ],
+          "std": [
+            "crossbeam-utils/std"
+          ]
+        }
+      }
+    },
+    {
+      "name": "crossterm",
+      "locked_versions": [
+        "0.29.0"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "crossterm",
+          "requirement": "0.29",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/crossterm",
+        "latest_stable": "0.29.0",
+        "rust_version": "1.63.0",
+        "released_at": "2025-04-05T15:21:48.500601Z",
+        "license": "MIT",
+        "repository": "https://github.com/crossterm-rs/crossterm",
+        "features": {
+          "bracketed-paste": [],
+          "default": [
+            "bracketed-paste",
+            "events",
+            "windows",
+            "derive-more"
+          ],
+          "derive-more": [
+            "dep:derive_more"
+          ],
+          "event-stream": [
+            "dep:futures-core",
+            "events"
+          ],
+          "events": [
+            "dep:mio",
+            "dep:signal-hook",
+            "dep:signal-hook-mio"
+          ],
+          "osc52": [
+            "dep:base64"
+          ],
+          "serde": [
+            "dep:serde",
+            "bitflags/serde"
+          ],
+          "use-dev-tty": [
+            "filedescriptor",
+            "rustix/process"
+          ],
+          "windows": [
+            "dep:winapi",
+            "dep:crossterm_winapi"
+          ]
+        }
+      }
+    },
+    {
+      "name": "dialoguer",
+      "locked_versions": [
+        "0.12.0"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "dialoguer",
+          "requirement": "0.12",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/dialoguer",
+        "latest_stable": "0.12.0",
+        "rust_version": "1.66",
+        "released_at": "2025-08-23T15:37:51.581957Z",
+        "license": "MIT",
+        "repository": "https://github.com/console-rs/dialoguer",
+        "features": {
+          "completion": [],
+          "default": [
+            "editor",
+            "password"
+          ],
+          "editor": [
+            "tempfile"
+          ],
+          "fuzzy-select": [
+            "fuzzy-matcher"
+          ],
+          "history": [],
+          "password": [
+            "zeroize"
+          ]
+        }
+      }
+    },
+    {
+      "name": "drop_bomb",
+      "locked_versions": [
+        "0.1.5"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "drop_bomb",
+          "requirement": "0.1",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/drop_bomb",
+        "latest_stable": "0.1.5",
+        "rust_version": null,
+        "released_at": "2020-07-31T12:23:13.625176Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/matklad/drop_bomb",
+        "features": {}
+      }
+    },
+    {
+      "name": "ethercrab",
+      "locked_versions": [
+        "0.6.0"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "target.cfg(unix).dependencies",
+          "alias": "ethercrab",
+          "requirement": "0.6",
+          "features": [],
+          "default_features": true,
+          "optional": true
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/ethercrab",
+        "latest_stable": "0.7.1",
+        "rust_version": "1.85",
+        "released_at": "2026-03-23T16:03:00.029186Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/ethercrab-rs/ethercrab",
+        "features": {
+          "default": [
+            "std",
+            "io-uring"
+          ],
+          "defmt": [
+            "dep:defmt",
+            "embedded-io-async/defmt-03",
+            "heapless/defmt-03",
+            "ethercrab-wire/defmt-03"
+          ],
+          "io-uring": [
+            "dep:io-uring"
+          ],
+          "log": [
+            "dep:log"
+          ],
+          "serde": [
+            "dep:serde",
+            "bitflags/serde"
+          ],
+          "std": [
+            "dep:pnet_datalink",
+            "dep:async-io",
+            "log",
+            "futures-lite/std",
+            "embedded-io-async/std",
+            "ethercrab-wire/std",
+            "spin/std"
+          ],
+          "xdp": [
+            "dep:xsk-rs"
+          ]
+        }
+      }
+    },
+    {
+      "name": "expect-test",
+      "locked_versions": [
+        "1.5.1"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "expect-test",
+          "requirement": "1.5",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/expect-test",
+        "latest_stable": "1.5.1",
+        "rust_version": "1.60.0",
+        "released_at": "2024-12-21T13:05:32.571711Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/rust-analyzer/expect-test",
+        "features": {}
+      }
+    },
+    {
+      "name": "futures-util",
+      "locked_versions": [
+        "0.3.32"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "futures-util",
+          "requirement": "0.3",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/futures-util",
+        "latest_stable": "0.3.34",
+        "rust_version": "1.71",
+        "released_at": "2026-08-11T12:13:19.272525Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/rust-lang/futures-rs",
+        "features": {
+          "alloc": [
+            "futures-core/alloc",
+            "futures-task/alloc",
+            "slab"
+          ],
+          "async-await": [],
+          "async-await-macro": [
+            "async-await",
+            "futures-macro"
+          ],
+          "bilock": [],
+          "cfg-target-has-atomic": [],
+          "channel": [
+            "std",
+            "futures-channel"
+          ],
+          "compat": [
+            "std",
+            "futures_01",
+            "libc"
+          ],
+          "default": [
+            "std",
+            "async-await",
+            "async-await-macro"
+          ],
+          "io": [
+            "std",
+            "futures-io",
+            "memchr"
+          ],
+          "io-compat": [
+            "io",
+            "compat",
+            "tokio-io",
+            "libc"
+          ],
+          "portable-atomic": [
+            "futures-core/portable-atomic",
+            "portable_atomic_crate"
+          ],
+          "portable-atomic-alloc": [
+            "portable-atomic-util/alloc",
+            "portable-atomic"
+          ],
+          "sink": [
+            "futures-sink"
+          ],
+          "std": [
+            "alloc",
+            "futures-core/std",
+            "futures-task/std",
+            "slab/std"
+          ],
+          "unstable": [
+            "futures-core/unstable",
+            "futures-task/unstable"
+          ],
+          "write-all-vectored": [
+            "io"
+          ]
+        }
+      }
+    },
+    {
+      "name": "glob",
+      "locked_versions": [
+        "0.3.3"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "glob",
+          "requirement": "0.3",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/glob",
+        "latest_stable": "0.3.4",
+        "rust_version": "1.63.0",
+        "released_at": "2026-07-21T14:53:49.688341Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/rust-lang/glob",
+        "features": {}
+      }
+    },
+    {
+      "name": "gpio-cdev",
+      "locked_versions": [
+        "0.6.0"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "target.cfg(target_os = \"linux\").dependencies",
+          "alias": "gpio-cdev",
+          "requirement": "0.6",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/gpio-cdev",
+        "latest_stable": "0.6.0",
+        "rust_version": null,
+        "released_at": "2023-09-12T07:11:42.655643Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/rust-embedded/gpio-cdev",
+        "features": {
+          "async-tokio": [
+            "tokio",
+            "futures"
+          ],
+          "default": []
+        }
+      }
+    },
+    {
+      "name": "if-addrs",
+      "locked_versions": [
+        "0.15.0"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "if-addrs",
+          "requirement": "0.15",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/if-addrs",
+        "latest_stable": "0.15.0",
+        "rust_version": null,
+        "released_at": "2026-02-08T05:55:03.911864Z",
+        "license": "MIT OR BSD-3-Clause",
+        "repository": "https://github.com/messense/if-addrs",
+        "features": {
+          "link-local": []
+        }
+      }
+    },
+    {
+      "name": "indexmap",
+      "locked_versions": [
+        "1.9.3",
+        "2.14.0"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "indexmap",
+          "requirement": "2",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/indexmap",
+        "latest_stable": "2.14.2",
+        "rust_version": "1.85",
+        "released_at": "2026-09-05T01:53:48.019655Z",
+        "license": "Apache-2.0 OR MIT",
+        "repository": "https://github.com/indexmap-rs/indexmap",
+        "features": {
+          "default": [
+            "std"
+          ],
+          "serde": [
+            "dep:serde_core",
+            "dep:serde"
+          ],
+          "std": [],
+          "test_debug": []
+        }
+      }
+    },
+    {
+      "name": "indicatif",
+      "locked_versions": [
+        "0.18.4"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "indicatif",
+          "requirement": "0.18",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/indicatif",
+        "latest_stable": "0.18.6",
+        "rust_version": "1.85",
+        "released_at": "2026-07-01T13:45:24.733589Z",
+        "license": "MIT",
+        "repository": "https://github.com/console-rs/indicatif",
+        "features": {
+          "default": [
+            "unicode-width",
+            "wasmbind"
+          ],
+          "futures": [
+            "dep:futures-core"
+          ],
+          "improved_unicode": [
+            "unicode-segmentation",
+            "unicode-width"
+          ],
+          "in_memory": [
+            "vt100"
+          ],
+          "unicode-width": [
+            "dep:unicode-width",
+            "console/unicode-width"
+          ],
+          "wasmbind": [
+            "dep:web-time"
+          ]
+        }
+      }
+    },
+    {
+      "name": "insta",
+      "locked_versions": [
+        "1.47.2"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "insta",
+          "requirement": "1",
+          "features": [
+            "glob"
+          ],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/insta",
+        "latest_stable": "1.49.0",
+        "rust_version": "1.66.0",
+        "released_at": "2026-10-03T01:12:59.795476Z",
+        "license": "Apache-2.0",
+        "repository": "https://github.com/mitsuhiko/insta",
+        "features": {
+          "_cargo_insta_internal": [
+            "clap"
+          ],
+          "colors": [
+            "console"
+          ],
+          "csv": [
+            "dep:csv",
+            "serde"
+          ],
+          "default": [
+            "colors"
+          ],
+          "filters": [
+            "regex",
+            "strip-ansi-escapes"
+          ],
+          "glob": [
+            "walkdir",
+            "globset"
+          ],
+          "json": [
+            "serde"
+          ],
+          "redactions": [
+            "pest",
+            "pest_derive",
+            "serde"
+          ],
+          "ron": [
+            "dep:ron",
+            "serde"
+          ],
+          "toml": [
+            "dep:toml_edit",
+            "dep:toml_writer",
+            "serde"
+          ],
+          "yaml": [
+            "serde"
+          ]
+        }
+      }
+    },
+    {
+      "name": "libfuzzer-sys",
+      "locked_versions": [],
+      "uses": [
+        {
+          "manifest": "crates/trust-ads-server/fuzz/Cargo.toml",
+          "group": "dependencies",
+          "alias": "libfuzzer-sys",
+          "requirement": "0.4",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        },
+        {
+          "manifest": "fuzz/Cargo.toml",
+          "group": "dependencies",
+          "alias": "libfuzzer-sys",
+          "requirement": "0.4",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/libfuzzer-sys",
+        "latest_stable": "0.4.13",
+        "rust_version": null,
+        "released_at": "2026-06-04T18:55:34.718132Z",
+        "license": "(MIT OR Apache-2.0) AND NCSA",
+        "repository": "https://github.com/rust-fuzz/libfuzzer",
+        "features": {
+          "arbitrary-derive": [
+            "arbitrary/derive"
+          ],
+          "default": [
+            "link_libfuzzer"
+          ],
+          "link_libfuzzer": []
+        }
+      }
+    },
+    {
+      "name": "libloading",
+      "locked_versions": [
+        "0.8.9"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-tcads-native/Cargo.toml",
+          "group": "target.cfg(target_os = \"windows\").dependencies",
+          "alias": "libloading",
+          "requirement": "0.8.9",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/libloading",
+        "latest_stable": "0.9.0",
+        "rust_version": "1.88.0",
+        "released_at": "2025-11-05T23:15:12.937093Z",
+        "license": "ISC",
+        "repository": "https://github.com/nagisa/rust_libloading/",
+        "features": {
+          "default": [
+            "std"
+          ],
+          "std": []
+        }
+      }
+    },
+    {
+      "name": "logos",
+      "locked_versions": [
+        "0.16.1"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "logos",
+          "requirement": "0.16",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/logos",
+        "latest_stable": "0.16.1",
+        "rust_version": "1.80.0",
+        "released_at": "2026-01-30T13:55:20.724734Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/maciejhirsz/logos",
+        "features": {
+          "debug": [
+            "logos-derive?/debug"
+          ],
+          "default": [
+            "export_derive",
+            "std"
+          ],
+          "export_derive": [
+            "logos-derive"
+          ],
+          "forbid_unsafe": [
+            "logos-derive?/forbid_unsafe"
+          ],
+          "state_machine_codegen": [
+            "logos-derive?/state_machine_codegen"
+          ],
+          "std": []
+        }
+      }
+    },
+    {
+      "name": "lsp-types",
+      "locked_versions": [
+        "0.94.1",
+        "0.97.0"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "lsp-types",
+          "requirement": "0.97",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/lsp-types",
+        "latest_stable": "0.97.0",
+        "rust_version": null,
+        "released_at": "2024-06-04T12:38:56.735619Z",
+        "license": "MIT",
+        "repository": "https://github.com/gluon-lang/lsp-types",
+        "features": {
+          "default": [],
+          "proposed": []
+        }
+      }
+    },
+    {
+      "name": "mdns-sd",
+      "locked_versions": [
+        "0.18.2"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "mdns-sd",
+          "requirement": "0.18",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/mdns-sd",
+        "latest_stable": "0.21.5",
+        "rust_version": "1.71.0",
+        "released_at": "2026-10-05T05:31:45.494424Z",
+        "license": "Apache-2.0 OR MIT",
+        "repository": "https://github.com/keepsimple1/mdns-sd",
+        "features": {
+          "async": [
+            "flume/async"
+          ],
+          "default": [
+            "async",
+            "logging"
+          ],
+          "logging": [
+            "log"
+          ],
+          "serde": [
+            "dep:serde"
+          ],
+          "unstable-fuzz-api": []
+        }
+      }
+    },
+    {
+      "name": "mysql",
+      "locked_versions": [
+        "28.0.2"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "mysql",
+          "requirement": "28.0.2",
+          "features": [
+            "minimal-rust",
+            "rustls-tls"
+          ],
+          "default_features": false,
+          "optional": true
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/mysql",
+        "latest_stable": "28.0.3",
+        "rust_version": null,
+        "released_at": "2026-09-27T08:45:47.067671Z",
+        "license": "MIT/Apache-2.0",
+        "repository": "https://github.com/blackbeam/rust-mysql-simple",
+        "features": {
+          "bigdecimal": [
+            "mysql_common/bigdecimal"
+          ],
+          "binlog": [
+            "mysql_common/binlog"
+          ],
+          "buffer-pool": [],
+          "chrono": [
+            "mysql_common/chrono"
+          ],
+          "client_ed25519": [
+            "mysql_common/client_ed25519"
+          ],
+          "client_parsec": [
+            "mysql_common/client_parsec"
+          ],
+          "default": [
+            "minimal",
+            "derive",
+            "buffer-pool"
+          ],
+          "default-rust": [
+            "minimal-rust",
+            "derive",
+            "buffer-pool"
+          ],
+          "derive": [
+            "mysql_common/derive"
+          ],
+          "frunk": [
+            "mysql_common/frunk"
+          ],
+          "minimal": [
+            "flate2/zlib"
+          ],
+          "minimal-rust": [
+            "flate2/rust_backend"
+          ],
+          "native-tls": [
+            "dep:native-tls"
+          ],
+          "nightly": [],
+          "rust_decimal": [
+            "mysql_common/rust_decimal"
+          ],
+          "rustls": [
+            "dep:rustls",
+            "rustls/logging",
+            "rustls/std",
+            "rustls/tls12",
+            "webpki",
+            "webpki-roots",
+            "rustls-pemfile"
+          ],
+          "rustls-tls": [
+            "rustls",
+            "rustls/aws_lc_rs"
+          ],
+          "rustls-tls-ring": [
+            "rustls",
+            "rustls/ring"
+          ],
+          "time": [
+            "mysql_common/time"
+          ]
+        }
+      }
+    },
+    {
+      "name": "native-tls",
+      "locked_versions": [
+        "0.2.18"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "native-tls",
+          "requirement": "0.2.18",
+          "features": [
+            "alpn",
+            "vendored"
+          ],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/native-tls",
+        "latest_stable": "0.2.18",
+        "rust_version": "1.80",
+        "released_at": "2026-02-18T17:46:54.517554Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/rust-native-tls/rust-native-tls",
+        "features": {
+          "alpn": [
+            "security-framework/alpn"
+          ],
+          "alpn-accept": [],
+          "default": [],
+          "vendored": [
+            "openssl/vendored"
+          ]
+        }
+      }
+    },
+    {
+      "name": "notify",
+      "locked_versions": [
+        "8.2.0"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "notify",
+          "requirement": "8",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/notify",
+        "latest_stable": "8.2.0",
+        "rust_version": "1.77",
+        "released_at": "2025-08-03T14:54:41.092775Z",
+        "license": "CC0-1.0",
+        "repository": "https://github.com/notify-rs/notify.git",
+        "features": {
+          "default": [
+            "macos_fsevent"
+          ],
+          "macos_fsevent": [
+            "fsevent-sys"
+          ],
+          "macos_kqueue": [
+            "kqueue",
+            "mio"
+          ],
+          "serde": [
+            "notify-types/serde"
+          ],
+          "serialization-compat-6": [
+            "notify-types/serialization-compat-6"
+          ]
+        }
+      }
+    },
+    {
+      "name": "once_cell",
+      "locked_versions": [
+        "1.21.4"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "once_cell",
+          "requirement": "1.21",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/once_cell",
+        "latest_stable": "1.21.4",
+        "rust_version": "1.65",
+        "released_at": "2026-03-12T10:59:52.512992Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/matklad/once_cell",
+        "features": {
+          "alloc": [
+            "race"
+          ],
+          "atomic-polyfill": [
+            "critical-section"
+          ],
+          "critical-section": [
+            "dep:critical-section",
+            "portable-atomic"
+          ],
+          "default": [
+            "std"
+          ],
+          "parking_lot": [
+            "dep:parking_lot_core"
+          ],
+          "portable-atomic": [
+            "dep:portable-atomic"
+          ],
+          "race": [],
+          "std": [
+            "alloc"
+          ],
+          "unstable": []
+        }
+      }
+    },
+    {
+      "name": "opcua",
+      "locked_versions": [
+        "0.12.0"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "opcua",
+          "requirement": "0.12",
+          "features": [
+            "server",
+            "client",
+            "vendored-openssl"
+          ],
+          "default_features": false,
+          "optional": true
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/opcua",
+        "latest_stable": "0.12.0",
+        "rust_version": null,
+        "released_at": "2024-01-01T17:27:09.637361Z",
+        "license": "MPL-2.0",
+        "repository": "https://github.com/locka99/opcua",
+        "features": {
+          "all": [
+            "server",
+            "client",
+            "console-logging",
+            "http"
+          ],
+          "client": [],
+          "console-logging": [
+            "env_logger"
+          ],
+          "default": [
+            "server",
+            "client"
+          ],
+          "discovery-server-registration": [
+            "client"
+          ],
+          "generated-address-space": [],
+          "http": [
+            "actix-files",
+            "actix-web"
+          ],
+          "server": [
+            "generated-address-space",
+            "discovery-server-registration"
+          ],
+          "test-vendored-openssl": [
+            "all",
+            "vendored-openssl"
+          ],
+          "vendored-openssl": [
+            "openssl/vendored"
+          ]
+        }
+      }
+    },
+    {
+      "name": "owo-colors",
+      "locked_versions": [
+        "4.3.0"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "owo-colors",
+          "requirement": "4",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/owo-colors",
+        "latest_stable": "4.4.0",
+        "rust_version": "1.83",
+        "released_at": "2026-08-27T17:55:12.229073Z",
+        "license": "MIT",
+        "repository": "https://github.com/owo-colors/owo-colors",
+        "features": {
+          "alloc": [],
+          "supports-colors": [
+            "dep:supports-color-2",
+            "supports-color"
+          ]
+        }
+      }
+    },
+    {
+      "name": "parking_lot",
+      "locked_versions": [
+        "0.12.5"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "parking_lot",
+          "requirement": "0.12",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/parking_lot",
+        "latest_stable": "0.12.5",
+        "rust_version": "1.71",
+        "released_at": "2025-10-03T23:34:14.078935Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/Amanieu/parking_lot",
+        "features": {
+          "arc_lock": [
+            "lock_api/arc_lock"
+          ],
+          "deadlock_detection": [
+            "parking_lot_core/deadlock_detection"
+          ],
+          "default": [],
+          "hardware-lock-elision": [],
+          "nightly": [
+            "parking_lot_core/nightly",
+            "lock_api/nightly"
+          ],
+          "owning_ref": [
+            "lock_api/owning_ref"
+          ],
+          "send_guard": [],
+          "serde": [
+            "lock_api/serde"
+          ]
+        }
+      }
+    },
+    {
+      "name": "percent-encoding",
+      "locked_versions": [
+        "1.0.1",
+        "2.3.2"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "percent-encoding",
+          "requirement": "2",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/percent-encoding",
+        "latest_stable": "2.3.2",
+        "rust_version": "1.51",
+        "released_at": "2025-08-21T08:46:50.131801Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/servo/rust-url/",
+        "features": {
+          "alloc": [],
+          "default": [
+            "std"
+          ],
+          "std": [
+            "alloc"
+          ]
+        }
+      }
+    },
+    {
+      "name": "postgres",
+      "locked_versions": [
+        "0.19.14"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "postgres",
+          "requirement": "0.19.14",
+          "features": [],
+          "default_features": true,
+          "optional": true
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/postgres",
+        "latest_stable": "0.19.14",
+        "rust_version": "1.85",
+        "released_at": "2026-06-12T15:39:41.253741Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/rust-postgres/rust-postgres",
+        "features": {
+          "array-impls": [
+            "tokio-postgres/array-impls"
+          ],
+          "with-bit-vec-0_6": [
+            "tokio-postgres/with-bit-vec-0_6"
+          ],
+          "with-bit-vec-0_7": [
+            "tokio-postgres/with-bit-vec-0_7"
+          ],
+          "with-bit-vec-0_8": [
+            "tokio-postgres/with-bit-vec-0_8"
+          ],
+          "with-bit-vec-0_9": [
+            "tokio-postgres/with-bit-vec-0_9"
+          ],
+          "with-chrono-0_4": [
+            "tokio-postgres/with-chrono-0_4"
+          ],
+          "with-cidr-0_2": [
+            "tokio-postgres/with-cidr-0_2"
+          ],
+          "with-cidr-0_3": [
+            "tokio-postgres/with-cidr-0_3"
+          ],
+          "with-eui48-0_4": [
+            "tokio-postgres/with-eui48-0_4"
+          ],
+          "with-eui48-1": [
+            "tokio-postgres/with-eui48-1"
+          ],
+          "with-geo-types-0_6": [
+            "tokio-postgres/with-geo-types-0_6"
+          ],
+          "with-geo-types-0_7": [
+            "tokio-postgres/with-geo-types-0_7"
+          ],
+          "with-jiff-0_1": [
+            "tokio-postgres/with-jiff-0_1"
+          ],
+          "with-jiff-0_2": [
+            "tokio-postgres/with-jiff-0_2"
+          ],
+          "with-serde_json-1": [
+            "tokio-postgres/with-serde_json-1"
+          ],
+          "with-smol_str-01": [
+            "tokio-postgres/with-smol_str-01"
+          ],
+          "with-time-0_2": [
+            "tokio-postgres/with-time-0_2"
+          ],
+          "with-time-0_3": [
+            "tokio-postgres/with-time-0_3"
+          ],
+          "with-uuid-0_8": [
+            "tokio-postgres/with-uuid-0_8"
+          ],
+          "with-uuid-1": [
+            "tokio-postgres/with-uuid-1"
+          ]
+        }
+      }
+    },
+    {
+      "name": "postgres-native-tls",
+      "locked_versions": [
+        "0.5.3"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "postgres-native-tls",
+          "requirement": "0.5.3",
+          "features": [],
+          "default_features": true,
+          "optional": true
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/postgres-native-tls",
+        "latest_stable": "0.5.3",
+        "rust_version": "1.85",
+        "released_at": "2026-03-30T02:16:34.106625Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/rust-postgres/rust-postgres",
+        "features": {
+          "default": [
+            "runtime"
+          ],
+          "runtime": [
+            "tokio-postgres/runtime"
+          ]
+        }
+      }
+    },
+    {
+      "name": "proc-macro2",
+      "locked_versions": [
+        "1.0.106"
+      ],
+      "uses": [
+        {
+          "manifest": "xtask/Cargo.toml",
+          "group": "dependencies",
+          "alias": "proc-macro2",
+          "requirement": "1",
+          "features": [
+            "span-locations"
+          ],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/proc-macro2",
+        "latest_stable": "1.0.107",
+        "rust_version": "1.71",
+        "released_at": "2026-07-19T00:18:25.189787Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/dtolnay/proc-macro2",
+        "features": {
+          "default": [
+            "proc-macro"
+          ],
+          "nightly": [],
+          "proc-macro": [],
+          "span-locations": []
+        }
+      }
+    },
+    {
+      "name": "qrcode",
+      "locked_versions": [
+        "0.14.1"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "qrcode",
+          "requirement": "0.14",
+          "features": [
+            "svg"
+          ],
+          "default_features": false,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/qrcode",
+        "latest_stable": "0.14.1",
+        "rust_version": "1.67.1",
+        "released_at": "2024-07-05T18:14:40.515096Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/kennytm/qrcode-rust",
+        "features": {
+          "bench": [],
+          "default": [
+            "image",
+            "svg",
+            "pic"
+          ],
+          "pic": [],
+          "svg": []
+        }
+      }
+    },
+    {
+      "name": "rand",
+      "locked_versions": [
+        "0.10.1",
+        "0.8.6",
+        "0.9.4"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "rand",
+          "requirement": "0.10",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/rand",
+        "latest_stable": "0.10.3",
+        "rust_version": "1.85",
+        "released_at": "2026-09-20T06:37:47.850624Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/rust-random/rand",
+        "features": {
+          "alloc": [],
+          "chacha": [
+            "dep:chacha20"
+          ],
+          "default": [
+            "std",
+            "std_rng",
+            "sys_rng",
+            "thread_rng"
+          ],
+          "log": [],
+          "serde": [
+            "dep:serde"
+          ],
+          "simd_support": [],
+          "std": [
+            "alloc",
+            "getrandom?/std"
+          ],
+          "std_rng": [
+            "dep:chacha20"
+          ],
+          "sys_rng": [
+            "dep:getrandom",
+            "getrandom/sys_rng"
+          ],
+          "thread_rng": [
+            "std",
+            "std_rng",
+            "sys_rng"
+          ],
+          "unbiased": []
+        }
+      }
+    },
+    {
+      "name": "rapier3d",
+      "locked_versions": [
+        "0.32.0"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "rapier3d",
+          "requirement": "0.32.0",
+          "features": [
+            "dim3",
+            "f32",
+            "enhanced-determinism"
+          ],
+          "default_features": false,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/rapier3d",
+        "latest_stable": "0.36.0",
+        "rust_version": "1.86",
+        "released_at": "2026-09-25T08:16:15.092537Z",
+        "license": "Apache-2.0",
+        "repository": "https://github.com/dimforge/rapier",
+        "features": {
+          "alloc": [
+            "nalgebra/alloc",
+            "parry3d/alloc",
+            "serde?/alloc"
+          ],
+          "block-solver": [],
+          "bytemuck": [
+            "dep:bytemuck"
+          ],
+          "debug-disable-legitimate-fe-exceptions": [],
+          "debug-render": [],
+          "default": [
+            "dim3",
+            "f32",
+            "std"
+          ],
+          "dev-remove-slow-accessors": [],
+          "dim3": [],
+          "enhanced-determinism": [
+            "simba/libm_force",
+            "parry3d/enhanced-determinism"
+          ],
+          "f32": [],
+          "fem": [],
+          "parallel": [
+            "dep:rayon",
+            "std",
+            "parry3d/parallel"
+          ],
+          "profiler": [
+            "dep:web-time"
+          ],
+          "serde-serialize": [
+            "arrayvec/serde",
+            "nalgebra/serde-serialize",
+            "parry3d/serde-serialize",
+            "dep:serde",
+            "std"
+          ],
+          "simd8": [
+            "parry3d/simd8"
+          ],
+          "solver-bounds-checks": [],
+          "std": [
+            "alloc",
+            "parry3d/std",
+            "nalgebra/std",
+            "simba/std",
+            "num-traits/std",
+            "approx/std",
+            "thiserror/std",
+            "wide/std",
+            "serde?/std"
+          ],
+          "unsync-callbacks": []
+        }
+      }
+    },
+    {
+      "name": "ratatui",
+      "locked_versions": [
+        "0.30.0"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "ratatui",
+          "requirement": "0.30",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/ratatui",
+        "latest_stable": "0.30.2",
+        "rust_version": "1.88.0",
+        "released_at": "2026-06-19T08:56:46.628604Z",
+        "license": "MIT",
+        "repository": "https://github.com/ratatui/ratatui",
+        "features": {
+          "all-widgets": [
+            "widget-calendar"
+          ],
+          "crossterm": [
+            "dep:ratatui-crossterm",
+            "std"
+          ],
+          "crossterm_0_28": [
+            "crossterm",
+            "ratatui-crossterm/crossterm_0_28"
+          ],
+          "crossterm_0_29": [
+            "crossterm",
+            "ratatui-crossterm/crossterm_0_29"
+          ],
+          "default": [
+            "all-widgets",
+            "crossterm",
+            "layout-cache",
+            "macros",
+            "underline-color"
+          ],
+          "layout-cache": [
+            "ratatui-core/layout-cache"
+          ],
+          "macros": [
+            "dep:ratatui-macros"
+          ],
+          "palette": [
+            "dep:palette",
+            "ratatui-core/palette"
+          ],
+          "portable-atomic": [
+            "ratatui-core/portable-atomic"
+          ],
+          "scrolling-regions": [
+            "ratatui-core/scrolling-regions",
+            "ratatui-crossterm?/scrolling-regions",
+            "ratatui-termina?/scrolling-regions",
+            "ratatui-termion?/scrolling-regions",
+            "ratatui-termwiz?/scrolling-regions"
+          ],
+          "serde": [
+            "dep:serde",
+            "ratatui-core/serde",
+            "ratatui-crossterm?/serde",
+            "ratatui-termina?/serde",
+            "ratatui-termion?/serde",
+            "ratatui-termwiz?/serde",
+            "ratatui-widgets/serde"
+          ],
+          "std": [
+            "ratatui-core/std",
+            "ratatui-widgets/std",
+            "serde?/std"
+          ],
+          "termina": [
+            "dep:ratatui-termina",
+            "std"
+          ],
+          "termion": [
+            "dep:ratatui-termion",
+            "std"
+          ],
+          "termwiz": [
+            "dep:ratatui-termwiz",
+            "std"
+          ],
+          "underline-color": [
+            "ratatui-core/underline-color",
+            "ratatui-crossterm?/underline-color",
+            "ratatui-termina?/underline-color",
+            "ratatui-termwiz?/underline-color"
+          ],
+          "unstable": [
+            "unstable-backend-writer",
+            "unstable-rendered-line-info",
+            "unstable-widget-ref"
+          ],
+          "unstable-backend-writer": [
+            "ratatui-crossterm?/unstable-backend-writer",
+            "ratatui-termina?/unstable-backend-writer",
+            "ratatui-termion?/unstable-backend-writer"
+          ],
+          "unstable-rendered-line-info": [
+            "ratatui-widgets/unstable-rendered-line-info"
+          ],
+          "unstable-widget-ref": [],
+          "widget-calendar": [
+            "ratatui-widgets/calendar"
+          ]
+        }
+      }
+    },
+    {
+      "name": "region",
+      "locked_versions": [
+        "3.0.2"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "region",
+          "requirement": "3.0",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/region",
+        "latest_stable": "4.0.1",
+        "rust_version": "1.85",
+        "released_at": "2026-09-23T05:29:49.589278Z",
+        "license": "MIT",
+        "repository": "https://github.com/darfink/region-rs",
+        "features": {
+          "default": [
+            "std"
+          ],
+          "std": [
+            "bitflags/std"
+          ]
+        }
+      }
+    },
+    {
+      "name": "rowan",
+      "locked_versions": [
+        "0.16.1"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "rowan",
+          "requirement": "0.16",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/rowan",
+        "latest_stable": "0.17.0",
+        "rust_version": null,
+        "released_at": "2026-08-02T03:32:08.277318Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/rust-analyzer/rowan",
+        "features": {
+          "serde1": [
+            "serde",
+            "text-size/serde"
+          ]
+        }
+      }
+    },
+    {
+      "name": "roxmltree",
+      "locked_versions": [
+        "0.21.1"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "roxmltree",
+          "requirement": "0.21",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/roxmltree",
+        "latest_stable": "0.21.1",
+        "rust_version": "1.60",
+        "released_at": "2025-10-12T10:48:17.396836Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/RazrFalcon/roxmltree",
+        "features": {
+          "default": [
+            "std",
+            "positions"
+          ],
+          "positions": [],
+          "std": [
+            "memchr/std"
+          ]
+        }
+      }
+    },
+    {
+      "name": "rumqttc",
+      "locked_versions": [
+        "0.25.1"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "rumqttc",
+          "requirement": "0.25",
+          "features": [
+            "use-native-tls"
+          ],
+          "default_features": false,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/rumqttc",
+        "latest_stable": "0.25.1",
+        "rust_version": "1.64.0",
+        "released_at": "2025-11-21T17:51:15.795498Z",
+        "license": "Apache-2.0",
+        "repository": "https://github.com/bytebeamio/rumqtt",
+        "features": {
+          "default": [
+            "use-rustls"
+          ],
+          "proxy": [
+            "dep:async-http-proxy"
+          ],
+          "use-native-tls": [
+            "dep:tokio-native-tls",
+            "dep:native-tls"
+          ],
+          "use-rustls": [
+            "use-rustls-no-provider",
+            "tokio-rustls/default"
+          ],
+          "use-rustls-no-provider": [
+            "dep:tokio-rustls",
+            "dep:rustls-webpki",
+            "dep:rustls-pemfile",
+            "dep:rustls-native-certs"
+          ],
+          "websocket": [
+            "dep:async-tungstenite",
+            "dep:ws_stream_tungstenite",
+            "dep:http"
+          ]
+        }
+      }
+    },
+    {
+      "name": "rusqlite",
+      "locked_versions": [
+        "0.40.2"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "rusqlite",
+          "requirement": "0.40.2",
+          "features": [
+            "bundled"
+          ],
+          "default_features": true,
+          "optional": true
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/rusqlite",
+        "latest_stable": "0.40.2",
+        "rust_version": null,
+        "released_at": "2026-08-08T14:21:52.570893Z",
+        "license": "MIT",
+        "repository": "https://github.com/rusqlite/rusqlite",
+        "features": {
+          "array": [
+            "vtab",
+            "pointer"
+          ],
+          "backup": [],
+          "blob": [],
+          "buildtime_bindgen": [
+            "libsqlite3-sys?/buildtime_bindgen",
+            "sqlite-wasm-rs?/bindgen"
+          ],
+          "bundled": [
+            "libsqlite3-sys?/bundled",
+            "modern_sqlite"
+          ],
+          "bundled-full": [
+            "modern-full",
+            "bundled"
+          ],
+          "bundled-sqlcipher": [
+            "libsqlite3-sys?/bundled-sqlcipher",
+            "bundled"
+          ],
+          "bundled-sqlcipher-vendored-openssl": [
+            "libsqlite3-sys?/bundled-sqlcipher-vendored-openssl",
+            "bundled-sqlcipher"
+          ],
+          "bundled-windows": [
+            "libsqlite3-sys?/bundled-windows"
+          ],
+          "cache": [
+            "hashlink"
+          ],
+          "collation": [],
+          "column_decltype": [],
+          "column_metadata": [
+            "libsqlite3-sys?/column_metadata"
+          ],
+          "csvtab": [
+            "csv",
+            "vtab"
+          ],
+          "default": [
+            "cache",
+            "ffi-sqlite-wasm-rs"
+          ],
+          "extra_check": [],
+          "fallible_uint": [],
+          "ffi-sqlite-wasm-rs": [
+            "dep:sqlite-wasm-rs"
+          ],
+          "functions": [],
+          "hooks": [],
+          "i128_blob": [],
+          "in_gecko": [
+            "modern_sqlite",
+            "libsqlite3-sys?/in_gecko"
+          ],
+          "limits": [],
+          "load_extension": [],
+          "loadable_extension": [
+            "libsqlite3-sys?/loadable_extension"
+          ],
+          "modern-full": [
+            "array",
+            "backup",
+            "blob",
+            "modern_sqlite",
+            "chrono",
+            "collation",
+            "column_metadata",
+            "column_decltype",
+            "csvtab",
+            "extra_check",
+            "functions",
+            "hooks",
+            "i128_blob",
+            "jiff",
+            "limits",
+            "load_extension",
+            "serde_json",
+            "serialize",
+            "series",
+            "time",
+            "trace",
+            "unlock_notify",
+            "url",
+            "uuid",
+            "vtab",
+            "window"
+          ],
+          "modern_sqlite": [
+            "libsqlite3-sys?/bundled_bindings"
+          ],
+          "pointer": [],
+          "preupdate_hook": [
+            "libsqlite3-sys?/preupdate_hook",
+            "hooks"
+          ],
+          "serialize": [],
+          "series": [
+            "vtab"
+          ],
+          "session": [
+            "libsqlite3-sys?/session",
+            "hooks"
+          ],
+          "sqlcipher": [
+            "libsqlite3-sys?/sqlcipher"
+          ],
+          "trace": [],
+          "unlock_notify": [
+            "libsqlite3-sys?/unlock_notify"
+          ],
+          "vtab": [],
+          "wasm32-wasi-vfs": [
+            "libsqlite3-sys?/wasm32-wasi-vfs"
+          ],
+          "window": [
+            "functions"
+          ],
+          "with-asan": [
+            "libsqlite3-sys?/with-asan"
+          ]
+        }
+      }
+    },
+    {
+      "name": "rustc-hash",
+      "locked_versions": [
+        "1.1.0",
+        "2.1.2"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "rustc-hash",
+          "requirement": "2.1",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/rustc-hash",
+        "latest_stable": "2.1.3",
+        "rust_version": "1.77",
+        "released_at": "2026-07-02T19:13:03.150587Z",
+        "license": "Apache-2.0 OR MIT",
+        "repository": "https://github.com/rust-lang/rustc-hash",
+        "features": {
+          "default": [
+            "std"
+          ],
+          "nightly": [],
+          "rand": [
+            "dep:rand",
+            "std"
+          ],
+          "std": []
+        }
+      }
+    },
+    {
+      "name": "rustix",
+      "locked_versions": [
+        "0.38.44",
+        "1.1.4"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "target.cfg(target_os = \"linux\").dependencies",
+          "alias": "rustix",
+          "requirement": "1.1.4",
+          "features": [
+            "mm",
+            "thread"
+          ],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/rustix",
+        "latest_stable": "1.1.5",
+        "rust_version": "1.65",
+        "released_at": "2026-09-16T23:05:02.319690Z",
+        "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+        "repository": "https://github.com/bytecodealliance/rustix",
+        "features": {
+          "all-apis": [
+            "event",
+            "fs",
+            "io_uring",
+            "mm",
+            "mount",
+            "net",
+            "param",
+            "pipe",
+            "process",
+            "pty",
+            "rand",
+            "runtime",
+            "shm",
+            "stdio",
+            "system",
+            "termios",
+            "thread",
+            "time"
+          ],
+          "alloc": [],
+          "default": [
+            "std"
+          ],
+          "event": [],
+          "fs": [],
+          "io_uring": [
+            "event",
+            "fs",
+            "net",
+            "thread",
+            "linux-raw-sys/io_uring"
+          ],
+          "linux_4_11": [],
+          "linux_5_1": [
+            "linux_4_11"
+          ],
+          "linux_5_11": [
+            "linux_5_1"
+          ],
+          "linux_latest": [
+            "linux_5_11"
+          ],
+          "mm": [],
+          "mount": [],
+          "net": [
+            "linux-raw-sys/net",
+            "linux-raw-sys/netlink",
+            "linux-raw-sys/if_ether",
+            "linux-raw-sys/xdp"
+          ],
+          "param": [],
+          "pipe": [],
+          "process": [
+            "linux-raw-sys/prctl"
+          ],
+          "pty": [
+            "fs"
+          ],
+          "rand": [],
+          "runtime": [
+            "linux-raw-sys/prctl"
+          ],
+          "rustc-dep-of-std": [
+            "core",
+            "rustc-std-workspace-alloc",
+            "linux-raw-sys/rustc-dep-of-std",
+            "bitflags/rustc-dep-of-std"
+          ],
+          "shm": [
+            "fs"
+          ],
+          "std": [
+            "bitflags/std",
+            "alloc",
+            "libc?/std",
+            "libc_errno?/std"
+          ],
+          "stdio": [],
+          "system": [
+            "linux-raw-sys/system"
+          ],
+          "termios": [],
+          "thread": [
+            "linux-raw-sys/prctl"
+          ],
+          "time": [],
+          "try_close": [],
+          "use-explicitly-provided-auxv": [],
+          "use-libc": [
+            "libc_errno",
+            "libc"
+          ],
+          "use-libc-auxv": []
+        }
+      }
+    },
+    {
+      "name": "rustls",
+      "locked_versions": [
+        "0.20.9",
+        "0.23.40"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "rustls",
+          "requirement": "0.23",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/rustls",
+        "latest_stable": "0.23.45",
+        "rust_version": "1.71",
+        "released_at": "2026-09-14T15:11:17.808465Z",
+        "license": "Apache-2.0 OR ISC OR MIT",
+        "repository": "https://github.com/rustls/rustls",
+        "features": {
+          "aws-lc-rs": [
+            "aws_lc_rs"
+          ],
+          "aws_lc_rs": [
+            "dep:aws-lc-rs",
+            "webpki/aws-lc-rs",
+            "aws-lc-rs/aws-lc-sys",
+            "aws-lc-rs/prebuilt-nasm"
+          ],
+          "brotli": [
+            "dep:brotli",
+            "dep:brotli-decompressor",
+            "std"
+          ],
+          "custom-provider": [],
+          "default": [
+            "aws_lc_rs",
+            "logging",
+            "prefer-post-quantum",
+            "std",
+            "tls12"
+          ],
+          "fips": [
+            "aws_lc_rs",
+            "aws-lc-rs?/fips",
+            "webpki/aws-lc-rs-fips"
+          ],
+          "logging": [
+            "log"
+          ],
+          "prefer-post-quantum": [
+            "aws_lc_rs"
+          ],
+          "read_buf": [
+            "rustversion",
+            "std"
+          ],
+          "ring": [
+            "dep:ring",
+            "webpki/ring"
+          ],
+          "std": [
+            "webpki/std",
+            "pki-types/std",
+            "once_cell/std"
+          ],
+          "tls12": [],
+          "zlib": [
+            "dep:zlib-rs"
+          ]
+        }
+      }
+    },
+    {
+      "name": "salsa",
+      "locked_versions": [
+        "0.26.1"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "salsa",
+          "requirement": "0.26",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/salsa",
+        "latest_stable": "0.28.5",
+        "rust_version": "1.88",
+        "released_at": "2026-09-24T09:56:30.677174Z",
+        "license": "Apache-2.0 OR MIT",
+        "repository": "https://github.com/salsa-rs/salsa",
+        "features": {
+          "accumulator": [
+            "salsa-macro-rules/accumulator"
+          ],
+          "default": [
+            "salsa_unstable",
+            "rayon",
+            "macros",
+            "inventory",
+            "accumulator"
+          ],
+          "detailed-trace": [],
+          "inventory": [
+            "dep:inventory"
+          ],
+          "macros": [
+            "dep:salsa-macros"
+          ],
+          "persistence": [
+            "dep:serde",
+            "dep:erased-serde",
+            "salsa-macros/persistence",
+            "thin-vec/serde"
+          ],
+          "salsa_unstable": [],
+          "shuttle": [
+            "dep:shuttle"
+          ]
+        }
+      }
+    },
+    {
+      "name": "serde",
+      "locked_versions": [
+        "1.0.228"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "serde",
+          "requirement": "1",
+          "features": [
+            "derive"
+          ],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/serde",
+        "latest_stable": "1.0.229",
+        "rust_version": "1.56",
+        "released_at": "2026-07-18T23:05:13.266456Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/serde-rs/serde",
+        "features": {
+          "alloc": [
+            "serde_core/alloc"
+          ],
+          "default": [
+            "std"
+          ],
+          "derive": [
+            "serde_derive"
+          ],
+          "rc": [
+            "serde_core/rc"
+          ],
+          "std": [
+            "serde_core/std"
+          ],
+          "unstable": [
+            "serde_core/unstable"
+          ]
+        }
+      }
+    },
+    {
+      "name": "serde_json",
+      "locked_versions": [
+        "1.0.149"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "serde_json",
+          "requirement": "1",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        },
+        {
+          "manifest": "fuzz/Cargo.toml",
+          "group": "dependencies",
+          "alias": "serde_json",
+          "requirement": "1",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/serde_json",
+        "latest_stable": "1.0.151",
+        "rust_version": "1.71",
+        "released_at": "2026-07-20T05:54:44.078083Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/serde-rs/json",
+        "features": {
+          "alloc": [
+            "serde_core/alloc"
+          ],
+          "arbitrary_precision": [],
+          "default": [
+            "std"
+          ],
+          "float_roundtrip": [],
+          "preserve_order": [
+            "indexmap",
+            "std"
+          ],
+          "raw_value": [],
+          "std": [
+            "memchr/std",
+            "serde_core/std"
+          ],
+          "unbounded_depth": []
+        }
+      }
+    },
+    {
+      "name": "sha2",
+      "locked_versions": [
+        "0.10.9",
+        "0.11.0"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "sha2",
+          "requirement": "0.10",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        },
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "sha2",
+          "requirement": "0.10",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/sha2",
+        "latest_stable": "0.11.0",
+        "rust_version": "1.85",
+        "released_at": "2026-03-25T15:05:27.949444Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/RustCrypto/hashes",
+        "features": {
+          "alloc": [
+            "digest/alloc"
+          ],
+          "default": [
+            "alloc",
+            "oid"
+          ],
+          "oid": [
+            "digest/oid"
+          ],
+          "zeroize": [
+            "digest/zeroize"
+          ]
+        }
+      }
+    },
+    {
+      "name": "signal-hook",
+      "locked_versions": [
+        "0.3.18"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "signal-hook",
+          "requirement": "0.3.18",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/signal-hook",
+        "latest_stable": "0.4.5",
+        "rust_version": "1.66",
+        "released_at": "2026-10-04T13:50:34.597843Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/vorner/signal-hook",
+        "features": {
+          "channel": [],
+          "default": [
+            "channel",
+            "iterator"
+          ],
+          "extended-siginfo": [
+            "channel",
+            "iterator",
+            "extended-siginfo-raw"
+          ],
+          "extended-siginfo-raw": [
+            "cc"
+          ],
+          "iterator": [
+            "channel"
+          ]
+        }
+      }
+    },
+    {
+      "name": "smol_str",
+      "locked_versions": [
+        "0.2.2"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "smol_str",
+          "requirement": "0.2.2",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/smol_str",
+        "latest_stable": "0.3.6",
+        "rust_version": "1.89",
+        "released_at": "2026-03-04T06:27:06.114096Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/rust-lang/rust-analyzer/tree/master/lib/smol_str",
+        "features": {
+          "default": [
+            "std"
+          ],
+          "serde": [
+            "dep:serde_core"
+          ],
+          "std": [
+            "serde_core?/std",
+            "borsh?/std"
+          ]
+        }
+      }
+    },
+    {
+      "name": "syn",
+      "locked_versions": [
+        "1.0.109",
+        "2.0.117"
+      ],
+      "uses": [
+        {
+          "manifest": "xtask/Cargo.toml",
+          "group": "dependencies",
+          "alias": "syn",
+          "requirement": "2",
+          "features": [
+            "full",
+            "visit"
+          ],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/syn",
+        "latest_stable": "3.0.6",
+        "rust_version": "1.71",
+        "released_at": "2026-09-16T22:31:12.314477Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/dtolnay/syn",
+        "features": {
+          "clone-impls": [],
+          "default": [
+            "derive",
+            "parsing",
+            "printing",
+            "clone-impls",
+            "proc-macro"
+          ],
+          "derive": [],
+          "extra-traits": [],
+          "fold": [],
+          "full": [],
+          "parsing": [],
+          "printing": [
+            "dep:quote"
+          ],
+          "proc-macro": [
+            "proc-macro2/proc-macro",
+            "quote?/proc-macro"
+          ],
+          "test": [
+            "syn-test-suite/all-features"
+          ],
+          "visit": [],
+          "visit-mut": []
+        }
+      }
+    },
+    {
+      "name": "text-size",
+      "locked_versions": [
+        "1.1.1"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "text-size",
+          "requirement": "1.1",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/text-size",
+        "latest_stable": "1.1.1",
+        "rust_version": null,
+        "released_at": "2023-06-30T07:23:50.229813Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/rust-analyzer/text-size",
+        "features": {}
+      }
+    },
+    {
+      "name": "thiserror",
+      "locked_versions": [
+        "1.0.69",
+        "2.0.18"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "thiserror",
+          "requirement": "2",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/thiserror",
+        "latest_stable": "2.0.21",
+        "rust_version": "1.77",
+        "released_at": "2026-09-23T20:24:07.771104Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/dtolnay/thiserror",
+        "features": {
+          "default": [
+            "std"
+          ],
+          "std": []
+        }
+      }
+    },
+    {
+      "name": "tiberius",
+      "locked_versions": [
+        "0.12.3"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "tiberius",
+          "requirement": "0.12.3",
+          "features": [
+            "tds73",
+            "native-tls"
+          ],
+          "default_features": false,
+          "optional": true
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/tiberius",
+        "latest_stable": "0.13.0",
+        "rust_version": "1.88",
+        "released_at": "2026-09-25T11:57:12.141803Z",
+        "license": "MIT/Apache-2.0",
+        "repository": "https://github.com/prisma/tiberius",
+        "features": {
+          "all": [
+            "chrono",
+            "time",
+            "tds73",
+            "tds80",
+            "sql-browser-tokio",
+            "sql-browser-smol",
+            "integrated-auth-gssapi",
+            "rust_decimal",
+            "bigdecimal",
+            "native-tls",
+            "serde",
+            "sspi-rs"
+          ],
+          "bigdecimal": [
+            "bigdecimal_"
+          ],
+          "default": [
+            "tds80",
+            "winauth",
+            "native-tls"
+          ],
+          "integrated-auth-gssapi": [
+            "libgssapi"
+          ],
+          "native-tls": [
+            "async-native-tls",
+            "rustls-pki-types"
+          ],
+          "rustls": [
+            "tokio-rustls",
+            "tokio-util",
+            "rustls-native-certs",
+            "rustls-webpki",
+            "rustls-pki-types"
+          ],
+          "rustls-webpki-roots": [
+            "rustls",
+            "dep:webpki-roots"
+          ],
+          "serde": [
+            "dep:serde",
+            "uuid/serde"
+          ],
+          "sql-browser-smol": [
+            "async-io",
+            "async-net",
+            "futures-lite"
+          ],
+          "sql-browser-tokio": [
+            "tokio",
+            "tokio-util"
+          ],
+          "sspi-rs": [
+            "sspi"
+          ],
+          "tds73": [],
+          "tds80": [
+            "tds73"
+          ],
+          "vendored-openssl": [
+            "opentls",
+            "rustls-pki-types"
+          ]
+        }
+      }
+    },
+    {
+      "name": "time",
+      "locked_versions": [
+        "0.3.47"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "time",
+          "requirement": "0.3.47",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/time",
+        "latest_stable": "0.3.55",
+        "rust_version": "1.88.0",
+        "released_at": "2026-08-01T08:08:34.139758Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/time-rs/time",
+        "features": {
+          "alloc": [
+            "serde_core?/alloc"
+          ],
+          "default": [
+            "std"
+          ],
+          "formatting": [
+            "std",
+            "time-macros?/formatting"
+          ],
+          "large-dates": [
+            "time-core/large-dates",
+            "time-macros?/large-dates"
+          ],
+          "local-offset": [
+            "std",
+            "dep:libc",
+            "dep:num_threads"
+          ],
+          "macros": [
+            "dep:time-macros"
+          ],
+          "parsing": [
+            "time-macros?/parsing"
+          ],
+          "quickcheck": [
+            "dep:quickcheck",
+            "alloc",
+            "deranged/quickcheck"
+          ],
+          "rand": [
+            "rand08",
+            "rand09",
+            "rand010"
+          ],
+          "rand010": [
+            "dep:rand010",
+            "deranged/rand010"
+          ],
+          "rand08": [
+            "dep:rand08",
+            "deranged/rand08"
+          ],
+          "rand09": [
+            "dep:rand09",
+            "deranged/rand09"
+          ],
+          "serde": [
+            "dep:serde_core",
+            "time-macros?/serde",
+            "deranged/serde"
+          ],
+          "serde-human-readable": [
+            "serde",
+            "formatting",
+            "parsing"
+          ],
+          "serde-well-known": [
+            "serde",
+            "formatting",
+            "parsing"
+          ],
+          "std": [
+            "alloc"
+          ],
+          "wasm-bindgen": [
+            "dep:js-sys"
+          ]
+        }
+      }
+    },
+    {
+      "name": "tiny_http",
+      "locked_versions": [
+        "0.12.0"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "tiny_http",
+          "requirement": "0.12",
+          "features": [
+            "ssl-rustls"
+          ],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/tiny_http",
+        "latest_stable": "0.12.0",
+        "rust_version": null,
+        "released_at": "2022-10-06T16:24:54.189062Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/tiny-http/tiny-http",
+        "features": {
+          "default": [],
+          "ssl": [
+            "ssl-openssl"
+          ],
+          "ssl-openssl": [
+            "openssl",
+            "zeroize"
+          ],
+          "ssl-rustls": [
+            "rustls",
+            "rustls-pemfile",
+            "zeroize"
+          ]
+        }
+      }
+    },
+    {
+      "name": "tiverse-mmap",
+      "locked_versions": [],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "tiverse-mmap",
+          "requirement": "1.0",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/tiverse-mmap",
+        "latest_stable": "1.0.0",
+        "rust_version": "1.70",
+        "released_at": "2025-10-30T22:30:04.214727Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/TIVerse/mmap-rs",
+        "features": {
+          "async": [
+            "tokio"
+          ],
+          "default": [],
+          "huge-pages": [],
+          "numa": [],
+          "serde-support": [
+            "serde"
+          ],
+          "zerocopy-views": [
+            "zerocopy",
+            "bytemuck"
+          ]
+        }
+      }
+    },
+    {
+      "name": "tokio",
+      "locked_versions": [
+        "1.52.1"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "tokio",
+          "requirement": "1",
+          "features": [
+            "full"
+          ],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/tokio",
+        "latest_stable": "1.53.2",
+        "rust_version": "1.71",
+        "released_at": "2026-10-03T11:18:32.487780Z",
+        "license": "MIT",
+        "repository": "https://github.com/tokio-rs/tokio",
+        "features": {
+          "default": [],
+          "fs": [],
+          "full": [
+            "fs",
+            "io-util",
+            "io-std",
+            "macros",
+            "net",
+            "parking_lot",
+            "process",
+            "rt",
+            "rt-multi-thread",
+            "signal",
+            "sync",
+            "time"
+          ],
+          "io-std": [],
+          "io-uring": [
+            "dep:io-uring",
+            "libc",
+            "mio/os-poll",
+            "mio/os-ext",
+            "dep:slab"
+          ],
+          "io-util": [
+            "bytes"
+          ],
+          "macros": [
+            "tokio-macros"
+          ],
+          "net": [
+            "libc",
+            "mio/os-poll",
+            "mio/os-ext",
+            "mio/net",
+            "socket2",
+            "windows-sys/Win32_Foundation",
+            "windows-sys/Win32_Security",
+            "windows-sys/Win32_Storage_FileSystem",
+            "windows-sys/Win32_System_Pipes",
+            "windows-sys/Win32_System_SystemServices"
+          ],
+          "process": [
+            "bytes",
+            "libc",
+            "mio/os-poll",
+            "mio/os-ext",
+            "mio/net",
+            "signal-hook-registry",
+            "windows-sys/Win32_Foundation",
+            "windows-sys/Win32_System_Threading",
+            "windows-sys/Win32_System_WindowsProgramming"
+          ],
+          "rt": [],
+          "rt-multi-thread": [
+            "rt"
+          ],
+          "schedule-latency": [],
+          "signal": [
+            "libc",
+            "mio/os-poll",
+            "mio/net",
+            "mio/os-ext",
+            "signal-hook-registry",
+            "windows-sys/Win32_Foundation",
+            "windows-sys/Win32_System_Console"
+          ],
+          "sync": [],
+          "taskdump": [
+            "dep:backtrace"
+          ],
+          "test-util": [
+            "rt",
+            "sync",
+            "time"
+          ],
+          "time": []
+        }
+      }
+    },
+    {
+      "name": "tokio-util",
+      "locked_versions": [
+        "0.7.18"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "tokio-util",
+          "requirement": "0.7",
+          "features": [
+            "compat"
+          ],
+          "default_features": true,
+          "optional": true
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/tokio-util",
+        "latest_stable": "0.7.19",
+        "rust_version": "1.71",
+        "released_at": "2026-07-21T12:10:46.915710Z",
+        "license": "MIT",
+        "repository": "https://github.com/tokio-rs/tokio",
+        "features": {
+          "__docs_rs": [
+            "futures-util"
+          ],
+          "codec": [
+            "libc"
+          ],
+          "compat": [
+            "futures-io"
+          ],
+          "default": [],
+          "full": [
+            "codec",
+            "compat",
+            "io-util",
+            "time",
+            "net",
+            "rt",
+            "join-map"
+          ],
+          "io": [],
+          "io-util": [
+            "io",
+            "tokio/rt",
+            "tokio/io-util"
+          ],
+          "join-map": [
+            "rt",
+            "hashbrown"
+          ],
+          "net": [
+            "tokio/net"
+          ],
+          "rt": [
+            "tokio/rt",
+            "tokio/sync",
+            "futures-util"
+          ],
+          "time": [
+            "tokio/time",
+            "slab"
+          ]
+        }
+      }
+    },
+    {
+      "name": "toml",
+      "locked_versions": [
+        "1.1.2+spec-1.1.0"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "toml",
+          "requirement": "1.0",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/toml",
+        "latest_stable": "0.9.8",
+        "rust_version": "1.76",
+        "released_at": "2025-10-09T21:45:39.652543Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/toml-rs/toml",
+        "features": {
+          "debug": [
+            "std",
+            "toml_parser?/debug",
+            "dep:anstream",
+            "dep:anstyle"
+          ],
+          "default": [
+            "std",
+            "serde",
+            "parse",
+            "display"
+          ],
+          "display": [
+            "dep:toml_writer"
+          ],
+          "fast_hash": [
+            "preserve_order",
+            "dep:foldhash"
+          ],
+          "parse": [
+            "dep:toml_parser",
+            "dep:winnow"
+          ],
+          "preserve_order": [
+            "dep:indexmap",
+            "std"
+          ],
+          "serde": [
+            "dep:serde_core",
+            "toml_datetime/serde",
+            "serde_spanned/serde"
+          ],
+          "std": [
+            "indexmap?/std",
+            "serde_core?/std",
+            "toml_parser?/std",
+            "toml_writer?/std",
+            "toml_datetime/std",
+            "serde_spanned/std"
+          ],
+          "unbounded": []
+        }
+      }
+    },
+    {
+      "name": "toml_edit",
+      "locked_versions": [
+        "0.25.11+spec-1.1.0"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "toml_edit",
+          "requirement": "0.25",
+          "features": [
+            "serde"
+          ],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/toml_edit",
+        "latest_stable": "0.23.9",
+        "rust_version": "1.76",
+        "released_at": "2025-12-06T12:15:59.353201Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/toml-rs/toml",
+        "features": {
+          "debug": [
+            "toml_parser?/debug",
+            "dep:anstream",
+            "dep:anstyle",
+            "display"
+          ],
+          "default": [
+            "parse",
+            "display"
+          ],
+          "display": [
+            "dep:toml_writer"
+          ],
+          "parse": [
+            "dep:toml_parser",
+            "dep:winnow"
+          ],
+          "serde": [
+            "dep:serde_core",
+            "toml_datetime/serde",
+            "dep:serde_spanned"
+          ],
+          "unbounded": []
+        }
+      }
+    },
+    {
+      "name": "tower",
+      "locked_versions": [
+        "0.4.13"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "tower",
+          "requirement": "0.4",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/tower",
+        "latest_stable": "0.5.3",
+        "rust_version": "1.64.0",
+        "released_at": "2026-01-12T18:43:05.227461Z",
+        "license": "MIT",
+        "repository": "https://github.com/tower-rs/tower",
+        "features": {
+          "balance": [
+            "discover",
+            "load",
+            "ready-cache",
+            "make",
+            "slab",
+            "util"
+          ],
+          "buffer": [
+            "tokio/sync",
+            "tokio/rt",
+            "tokio-util",
+            "tracing",
+            "pin-project-lite"
+          ],
+          "discover": [
+            "futures-core",
+            "pin-project-lite"
+          ],
+          "filter": [
+            "futures-util",
+            "pin-project-lite"
+          ],
+          "full": [
+            "balance",
+            "buffer",
+            "discover",
+            "filter",
+            "hedge",
+            "limit",
+            "load",
+            "load-shed",
+            "make",
+            "ready-cache",
+            "reconnect",
+            "retry",
+            "spawn-ready",
+            "steer",
+            "timeout",
+            "util"
+          ],
+          "hedge": [
+            "util",
+            "filter",
+            "futures-util",
+            "hdrhistogram",
+            "tokio/time",
+            "tracing"
+          ],
+          "limit": [
+            "tokio/time",
+            "tokio/sync",
+            "tokio-util",
+            "tracing",
+            "pin-project-lite"
+          ],
+          "load": [
+            "tokio/time",
+            "tracing",
+            "pin-project-lite"
+          ],
+          "load-shed": [
+            "pin-project-lite"
+          ],
+          "log": [
+            "tracing/log"
+          ],
+          "make": [
+            "pin-project-lite",
+            "tokio"
+          ],
+          "ready-cache": [
+            "futures-core",
+            "futures-util",
+            "indexmap",
+            "tokio/sync",
+            "tracing",
+            "pin-project-lite"
+          ],
+          "reconnect": [
+            "make",
+            "tracing"
+          ],
+          "retry": [
+            "tokio/time",
+            "util"
+          ],
+          "spawn-ready": [
+            "futures-util",
+            "tokio/sync",
+            "tokio/rt",
+            "util",
+            "tracing"
+          ],
+          "steer": [],
+          "timeout": [
+            "pin-project-lite",
+            "tokio/time"
+          ],
+          "tokio-stream": [],
+          "util": [
+            "futures-core",
+            "futures-util",
+            "pin-project-lite",
+            "sync_wrapper"
+          ]
+        }
+      }
+    },
+    {
+      "name": "tower-lsp",
+      "locked_versions": [
+        "0.20.0"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "tower-lsp",
+          "requirement": "0.20",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/tower-lsp",
+        "latest_stable": "0.20.0",
+        "rust_version": "1.64.0",
+        "released_at": "2023-08-11T03:28:08.462481Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/ebkalderon/tower-lsp",
+        "features": {
+          "default": [
+            "runtime-tokio"
+          ],
+          "proposed": [
+            "lsp-types/proposed"
+          ],
+          "runtime-agnostic": [
+            "async-codec-lite"
+          ],
+          "runtime-tokio": [
+            "tokio",
+            "tokio-util"
+          ]
+        }
+      }
+    },
+    {
+      "name": "tracing",
+      "locked_versions": [
+        "0.1.44"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "tracing",
+          "requirement": "0.1",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/tracing",
+        "latest_stable": "0.1.44",
+        "rust_version": "1.65.0",
+        "released_at": "2025-12-18T14:26:12.360139Z",
+        "license": "MIT",
+        "repository": "https://github.com/tokio-rs/tracing",
+        "features": {
+          "async-await": [],
+          "attributes": [
+            "tracing-attributes"
+          ],
+          "default": [
+            "std",
+            "attributes"
+          ],
+          "log-always": [
+            "log"
+          ],
+          "max_level_debug": [],
+          "max_level_error": [],
+          "max_level_info": [],
+          "max_level_off": [],
+          "max_level_trace": [],
+          "max_level_warn": [],
+          "release_max_level_debug": [],
+          "release_max_level_error": [],
+          "release_max_level_info": [],
+          "release_max_level_off": [],
+          "release_max_level_trace": [],
+          "release_max_level_warn": [],
+          "std": [
+            "tracing-core/std"
+          ],
+          "valuable": [
+            "tracing-core/valuable"
+          ]
+        }
+      }
+    },
+    {
+      "name": "tracing-subscriber",
+      "locked_versions": [
+        "0.3.23"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "tracing-subscriber",
+          "requirement": "0.3",
+          "features": [
+            "env-filter"
+          ],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/tracing-subscriber",
+        "latest_stable": "0.3.23",
+        "rust_version": "1.65.0",
+        "released_at": "2026-03-13T10:04:15.571048Z",
+        "license": "MIT",
+        "repository": "https://github.com/tokio-rs/tracing",
+        "features": {
+          "alloc": [],
+          "ansi": [
+            "fmt",
+            "nu-ansi-term"
+          ],
+          "default": [
+            "smallvec",
+            "fmt",
+            "ansi",
+            "tracing-log",
+            "std"
+          ],
+          "env-filter": [
+            "matchers",
+            "once_cell",
+            "tracing",
+            "std",
+            "thread_local",
+            "dep:regex-automata"
+          ],
+          "fmt": [
+            "registry",
+            "std"
+          ],
+          "json": [
+            "tracing-serde",
+            "serde",
+            "serde_json"
+          ],
+          "local-time": [
+            "time/local-offset"
+          ],
+          "nu-ansi-term": [
+            "dep:nu-ansi-term"
+          ],
+          "regex": [],
+          "registry": [
+            "sharded-slab",
+            "thread_local",
+            "std"
+          ],
+          "std": [
+            "alloc",
+            "tracing-core/std"
+          ],
+          "valuable": [
+            "tracing-core/valuable",
+            "valuable_crate",
+            "valuable-serde",
+            "tracing-serde/valuable"
+          ]
+        }
+      }
+    },
+    {
+      "name": "tungstenite",
+      "locked_versions": [
+        "0.28.0"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "tungstenite",
+          "requirement": "0.28",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/tungstenite",
+        "latest_stable": "0.30.0",
+        "rust_version": "1.85",
+        "released_at": "2026-07-11T12:50:30.264231Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/snapview/tungstenite-rs",
+        "features": {
+          "__rustls-tls": [
+            "rustls",
+            "rustls-pki-types"
+          ],
+          "default": [
+            "handshake"
+          ],
+          "handshake": [
+            "data-encoding",
+            "http",
+            "httparse",
+            "sha1"
+          ],
+          "native-tls": [
+            "native-tls-crate"
+          ],
+          "native-tls-vendored": [
+            "native-tls",
+            "native-tls-crate/vendored"
+          ],
+          "rustls-tls-native-roots": [
+            "__rustls-tls",
+            "rustls-native-certs"
+          ],
+          "rustls-tls-webpki-roots": [
+            "__rustls-tls",
+            "webpki-roots"
+          ],
+          "url": [
+            "dep:url"
+          ]
+        }
+      }
+    },
+    {
+      "name": "ureq",
+      "locked_versions": [
+        "3.3.0"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "ureq",
+          "requirement": "3",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/ureq",
+        "latest_stable": "3.4.2",
+        "rust_version": "1.85",
+        "released_at": "2026-09-13T13:47:40.862114Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/algesten/ureq",
+        "features": {
+          "_doc": [
+            "rustls?/aws-lc-rs"
+          ],
+          "_ring": [
+            "rustls?/ring"
+          ],
+          "_rustls": [],
+          "_test": [],
+          "_tls": [
+            "dep:rustls-pki-types"
+          ],
+          "_url": [
+            "dep:url"
+          ],
+          "brotli": [
+            "dep:brotli-decompressor"
+          ],
+          "charset": [
+            "dep:encoding_rs"
+          ],
+          "cookies": [
+            "dep:cookie_store",
+            "_url"
+          ],
+          "default": [
+            "rustls",
+            "gzip"
+          ],
+          "gzip": [
+            "dep:flate2"
+          ],
+          "json": [
+            "dep:serde",
+            "dep:serde_json",
+            "cookie_store?/serde_json"
+          ],
+          "multipart": [
+            "dep:mime_guess",
+            "dep:getrandom"
+          ],
+          "native-tls": [
+            "native-tls-no-default",
+            "dep:der",
+            "_tls",
+            "native-tls-webpki-roots"
+          ],
+          "native-tls-no-default": [
+            "dep:native-tls",
+            "dep:der",
+            "_tls"
+          ],
+          "native-tls-webpki-roots": [
+            "dep:webpki-root-certs"
+          ],
+          "platform-verifier": [
+            "dep:rustls-platform-verifier"
+          ],
+          "rustls": [
+            "rustls-no-provider",
+            "_ring",
+            "rustls-webpki-roots"
+          ],
+          "rustls-no-provider": [
+            "dep:rustls",
+            "_tls",
+            "_rustls"
+          ],
+          "rustls-webpki-roots": [
+            "dep:webpki-roots"
+          ],
+          "socks-proxy": [
+            "dep:socks"
+          ],
+          "vendored": [
+            "native-tls?/vendored"
+          ],
+          "win-system-proxy": [
+            "dep:winreg"
+          ]
+        }
+      }
+    },
+    {
+      "name": "urlencoding",
+      "locked_versions": [
+        "2.1.3"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "urlencoding",
+          "requirement": "2",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/urlencoding",
+        "latest_stable": "2.1.3",
+        "rust_version": null,
+        "released_at": "2023-07-21T15:12:17.534094Z",
+        "license": "MIT",
+        "repository": "https://github.com/kornelski/rust_urlencoding",
+        "features": {}
+      }
+    },
+    {
+      "name": "wasm-bindgen",
+      "locked_versions": [
+        "0.2.121"
+      ],
+      "uses": [
+        {
+          "manifest": "Cargo.toml",
+          "group": "workspace.dependencies",
+          "alias": "wasm-bindgen",
+          "requirement": "0.2",
+          "features": [],
+          "default_features": true,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/wasm-bindgen",
+        "latest_stable": "0.2.129",
+        "rust_version": "1.81",
+        "released_at": "2026-09-25T07:13:40.367031Z",
+        "license": "MIT OR Apache-2.0",
+        "repository": "https://github.com/wasm-bindgen/wasm-bindgen",
+        "features": {
+          "default": [
+            "std"
+          ],
+          "enable-interning": [
+            "std"
+          ],
+          "gg-alloc": [],
+          "msrv": [],
+          "rustversion": [],
+          "serde-serialize": [
+            "serde",
+            "serde_json",
+            "std"
+          ],
+          "spans": [],
+          "std": [],
+          "strict-macro": [
+            "wasm-bindgen-macro/strict-macro"
+          ],
+          "xxx_debug_only_print_generated_code": []
+        }
+      }
+    },
+    {
+      "name": "zenoh",
+      "locked_versions": [
+        "1.7.2"
+      ],
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/Cargo.toml",
+          "group": "dependencies",
+          "alias": "zenoh",
+          "requirement": "=1.7.2",
+          "features": [
+            "transport_tcp"
+          ],
+          "default_features": false,
+          "optional": false
+        }
+      ],
+      "registry": {
+        "source_url": "https://crates.io/api/v1/crates/zenoh",
+        "latest_stable": "1.10.1",
+        "rust_version": "1.75.0",
+        "released_at": "2026-09-07T11:54:58.075390Z",
+        "license": "EPL-2.0 OR Apache-2.0",
+        "repository": "https://github.com/eclipse-zenoh/zenoh",
+        "features": {
+          "auth_pubkey": [
+            "zenoh-transport/auth_pubkey"
+          ],
+          "auth_usrpwd": [
+            "zenoh-transport/auth_usrpwd"
+          ],
+          "default": [
+            "auth_pubkey",
+            "auth_usrpwd",
+            "transport_compression",
+            "transport_multilink",
+            "transport_quic",
+            "transport_quic_datagram",
+            "transport_tcp",
+            "transport_tls",
+            "transport_udp",
+            "transport_unixsock-stream",
+            "transport_ws"
+          ],
+          "internal": [
+            "zenoh-config/internal",
+            "zenoh-keyexpr/internal",
+            "zenoh-protocol/internal"
+          ],
+          "internal_config": [],
+          "plugins": [],
+          "runtime_plugins": [
+            "plugins"
+          ],
+          "shared-memory": [
+            "zenoh-buffers/shared-memory",
+            "zenoh-protocol/shared-memory",
+            "zenoh-shm",
+            "zenoh-transport/shared-memory"
+          ],
+          "stats": [
+            "zenoh-stats",
+            "zenoh-transport/stats"
+          ],
+          "test": [
+            "zenoh-transport/test"
+          ],
+          "tracing-instrument": [
+            "zenoh-runtime/tracing-instrument",
+            "zenoh-task/tracing-instrument"
+          ],
+          "transport_compression": [
+            "zenoh-transport/transport_compression"
+          ],
+          "transport_multilink": [
+            "zenoh-transport/transport_multilink"
+          ],
+          "transport_quic": [
+            "zenoh-transport/transport_quic"
+          ],
+          "transport_quic_datagram": [
+            "zenoh-transport/transport_quic_datagram"
+          ],
+          "transport_serial": [
+            "zenoh-transport/transport_serial"
+          ],
+          "transport_tcp": [
+            "zenoh-config/transport_tcp",
+            "zenoh-transport/transport_tcp"
+          ],
+          "transport_tls": [
+            "zenoh-transport/transport_tls"
+          ],
+          "transport_udp": [
+            "zenoh-transport/transport_udp"
+          ],
+          "transport_unixpipe": [
+            "zenoh-transport/transport_unixpipe"
+          ],
+          "transport_unixsock-stream": [
+            "zenoh-transport/transport_unixsock-stream"
+          ],
+          "transport_vsock": [
+            "zenoh-transport/transport_vsock"
+          ],
+          "transport_ws": [
+            "zenoh-transport/transport_ws"
+          ],
+          "unstable": [
+            "zenoh-config/unstable",
+            "zenoh-keyexpr/unstable",
+            "zenoh-protocol/unstable",
+            "zenoh-transport/unstable"
+          ],
+          "uring": [
+            "zenoh-transport/uring"
+          ]
+        }
+      }
+    }
+  ],
+  "cargo_git_dependencies": [
+    {
+      "manifest": "crates/trust-runtime/Cargo.toml",
+      "group": "dependencies",
+      "alias": "open-ot-definition",
+      "requirement": null,
+      "features": [],
+      "default_features": true,
+      "optional": false,
+      "package": "open-ot-definition",
+      "git": "https://github.com/johannesPettersson80/open-ot-experiments.git",
+      "rev": "137f0e765f085c262651f479be35298b836ac891",
+      "tag": null
+    },
+    {
+      "manifest": "crates/trust-runtime/Cargo.toml",
+      "group": "dependencies",
+      "alias": "open-ot-document",
+      "requirement": null,
+      "features": [],
+      "default_features": true,
+      "optional": false,
+      "package": "open-ot-document",
+      "git": "https://github.com/johannesPettersson80/open-ot-experiments.git",
+      "rev": "137f0e765f085c262651f479be35298b836ac891",
+      "tag": null
+    },
+    {
+      "manifest": "crates/trust-runtime/Cargo.toml",
+      "group": "dependencies",
+      "alias": "open-ot-carriage",
+      "requirement": null,
+      "features": [],
+      "default_features": true,
+      "optional": false,
+      "package": "open-ot-carriage",
+      "git": "https://github.com/johannesPettersson80/open-ot-experiments.git",
+      "rev": "137f0e765f085c262651f479be35298b836ac891",
+      "tag": null
+    },
+    {
+      "manifest": "crates/trust-runtime/Cargo.toml",
+      "group": "target.cfg(unix).dependencies",
+      "alias": "open-ot-shm",
+      "requirement": null,
+      "features": [],
+      "default_features": true,
+      "optional": false,
+      "package": "open-ot-shm",
+      "git": "https://github.com/johannesPettersson80/open-ot-experiments.git",
+      "rev": "137f0e765f085c262651f479be35298b836ac891",
+      "tag": null
+    },
+    {
+      "manifest": "crates/trust-runtime/Cargo.toml",
+      "group": "target.cfg(unix).dev-dependencies",
+      "alias": "open-ot-conformance",
+      "requirement": null,
+      "features": [],
+      "default_features": true,
+      "optional": false,
+      "package": "open-ot-conformance",
+      "git": "https://github.com/johannesPettersson80/open-ot-experiments.git",
+      "rev": "137f0e765f085c262651f479be35298b836ac891",
+      "tag": null
+    }
+  ],
+  "npm_registry_dependencies": [
+    {
+      "name": "@codemirror/autocomplete",
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/web/ide-frontend/package.json",
+          "group": "dependencies",
+          "requirement": "6.20.0",
+          "locked_version": "6.20.0"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40codemirror%2Fautocomplete/latest",
+        "latest_tag_version": "6.20.3",
+        "engines": {},
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://code.haverbeke.berlin/codemirror/autocomplete.git",
+          "type": "git"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "@codemirror/commands",
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/web/ide-frontend/package.json",
+          "group": "dependencies",
+          "requirement": "6.10.2",
+          "locked_version": "6.10.2"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40codemirror%2Fcommands/latest",
+        "latest_tag_version": "6.11.1",
+        "engines": {},
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://code.haverbeke.berlin/codemirror/commands.git",
+          "type": "git"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "@codemirror/lint",
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/web/ide-frontend/package.json",
+          "group": "dependencies",
+          "requirement": "6.9.4",
+          "locked_version": "6.9.4"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40codemirror%2Flint/latest",
+        "latest_tag_version": "6.9.7",
+        "engines": {},
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://code.haverbeke.berlin/codemirror/lint.git",
+          "type": "git"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "@codemirror/state",
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/web/ide-frontend/package.json",
+          "group": "dependencies",
+          "requirement": "6.5.4",
+          "locked_version": "6.5.4"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40codemirror%2Fstate/latest",
+        "latest_tag_version": "6.7.6",
+        "engines": {},
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://code.haverbeke.berlin/codemirror/state.git",
+          "type": "git"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "@codemirror/view",
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/web/ide-frontend/package.json",
+          "group": "dependencies",
+          "requirement": "6.39.14",
+          "locked_version": "6.39.14"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40codemirror%2Fview/latest",
+        "latest_tag_version": "6.43.14",
+        "engines": {},
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://code.haverbeke.berlin/codemirror/view.git",
+          "type": "git"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "@playwright/test",
+      "uses": [
+        {
+          "manifest": "scripts/captures/package.json",
+          "group": "devDependencies",
+          "requirement": "^1.53.0",
+          "locked_version": "1.59.1"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40playwright%2Ftest/latest",
+        "latest_tag_version": "1.64.0",
+        "engines": {
+          "node": ">=20"
+        },
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/microsoft/playwright.git",
+          "type": "git"
+        },
+        "license": "Apache-2.0"
+      }
+    },
+    {
+      "name": "@types/mocha",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "devDependencies",
+          "requirement": "^10.0.10",
+          "locked_version": "10.0.10"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40types%2Fmocha/latest",
+        "latest_tag_version": "10.0.10",
+        "engines": {},
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+          "type": "git",
+          "directory": "types/mocha"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "@types/node",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "devDependencies",
+          "requirement": "^25.3.0",
+          "locked_version": "25.3.2"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40types%2Fnode/latest",
+        "latest_tag_version": "26.6.4",
+        "engines": {},
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+          "type": "git",
+          "directory": "types/node"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "@types/react",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "devDependencies",
+          "requirement": "^19.2.14",
+          "locked_version": "19.2.14"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40types%2Freact/latest",
+        "latest_tag_version": "19.3.0",
+        "engines": {},
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+          "type": "git",
+          "directory": "types/react"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "@types/react-dom",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "devDependencies",
+          "requirement": "^19.2.3",
+          "locked_version": "19.2.3"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40types%2Freact-dom/latest",
+        "latest_tag_version": "19.3.0",
+        "engines": {},
+        "peer_dependencies": {
+          "@types/react": "^19.3.0"
+        },
+        "deprecated": null,
+        "repository": {
+          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+          "type": "git",
+          "directory": "types/react-dom"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "@types/vscode",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "devDependencies",
+          "requirement": "^1.109.0",
+          "locked_version": "1.109.0"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40types%2Fvscode/latest",
+        "latest_tag_version": "1.140.0",
+        "engines": {},
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+          "type": "git",
+          "directory": "types/vscode"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "@typescript-eslint/eslint-plugin",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "devDependencies",
+          "requirement": "^8.56.0",
+          "locked_version": "8.56.1"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40typescript-eslint%2Feslint-plugin/latest",
+        "latest_tag_version": "8.71.1",
+        "engines": {
+          "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+        },
+        "peer_dependencies": {
+          "eslint": "^8.57.0 || ^9.0.0 || ^10.0.0",
+          "typescript": ">=4.8.4 <6.1.0",
+          "@typescript-eslint/parser": "^8.71.1"
+        },
+        "deprecated": null,
+        "repository": {
+          "url": "https://github.com/typescript-eslint/typescript-eslint.git",
+          "type": "git",
+          "directory": "packages/eslint-plugin"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "@typescript-eslint/parser",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "devDependencies",
+          "requirement": "^8.56.0",
+          "locked_version": "8.56.1"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40typescript-eslint%2Fparser/latest",
+        "latest_tag_version": "8.71.1",
+        "engines": {
+          "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+        },
+        "peer_dependencies": {
+          "eslint": "^8.57.0 || ^9.0.0 || ^10.0.0",
+          "typescript": ">=4.8.4 <6.1.0"
+        },
+        "deprecated": null,
+        "repository": {
+          "url": "https://github.com/typescript-eslint/typescript-eslint.git",
+          "type": "git",
+          "directory": "packages/parser"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "@vscode/codicons",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "dependencies",
+          "requirement": "^0.0.44",
+          "locked_version": "0.0.44"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40vscode%2Fcodicons/latest",
+        "latest_tag_version": "0.0.46-24",
+        "engines": {},
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/microsoft/vscode-codicons.git",
+          "type": "git"
+        },
+        "license": "CC-BY-4.0"
+      }
+    },
+    {
+      "name": "@vscode/test-electron",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "devDependencies",
+          "requirement": "^2.5.2",
+          "locked_version": "2.5.2"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40vscode%2Ftest-electron/latest",
+        "latest_tag_version": "3.1.0",
+        "engines": {
+          "node": ">=22"
+        },
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/Microsoft/vscode-test.git",
+          "type": "git"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "@xyflow/react",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "dependencies",
+          "requirement": "^12.10.1",
+          "locked_version": "12.10.1"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/%40xyflow%2Freact/latest",
+        "latest_tag_version": "12.12.0",
+        "engines": {},
+        "peer_dependencies": {
+          "react": ">=17",
+          "react-dom": ">=17",
+          "@types/react": ">=17",
+          "@types/react-dom": ">=17"
+        },
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/xyflow/xyflow.git",
+          "type": "git",
+          "directory": "packages/react"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "blockly",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "dependencies",
+          "requirement": "^11.1.1",
+          "locked_version": "11.2.2"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/blockly/latest",
+        "latest_tag_version": "13.3.0",
+        "engines": {
+          "node": ">=22"
+        },
+        "peer_dependencies": {
+          "jsdom": ">=27.4.0 <30.0.0"
+        },
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/RaspberryPiFoundation/blockly.git",
+          "type": "git"
+        },
+        "license": "Apache-2.0"
+      }
+    },
+    {
+      "name": "clsx",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "dependencies",
+          "requirement": "^2.1.1",
+          "locked_version": "2.1.1"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/clsx/latest",
+        "latest_tag_version": "2.1.1",
+        "engines": {
+          "node": ">=6"
+        },
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/lukeed/clsx.git",
+          "type": "git"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "concurrently",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "devDependencies",
+          "requirement": "^9.2.4",
+          "locked_version": "9.2.4"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/concurrently/latest",
+        "latest_tag_version": "10.0.6",
+        "engines": {
+          "node": ">=22"
+        },
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/open-cli-tools/concurrently.git",
+          "type": "git"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "esbuild",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "devDependencies",
+          "requirement": "^0.28.1",
+          "locked_version": "0.28.1"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/esbuild/latest",
+        "latest_tag_version": "0.28.2",
+        "engines": {
+          "node": ">=18"
+        },
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/evanw/esbuild.git",
+          "type": "git"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "eslint",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "devDependencies",
+          "requirement": "^10.0.0",
+          "locked_version": "10.0.2"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/eslint/latest",
+        "latest_tag_version": "10.12.0",
+        "engines": {
+          "node": "^20.19.0 || ^22.13.0 || >=24"
+        },
+        "peer_dependencies": {
+          "jiti": "*"
+        },
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/eslint/eslint.git",
+          "type": "git"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "konva",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "dependencies",
+          "requirement": "^9.3.22",
+          "locked_version": "9.3.22"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/konva/latest",
+        "latest_tag_version": "10.7.1",
+        "engines": {},
+        "peer_dependencies": {
+          "canvas": "^3.0.0",
+          "skia-canvas": "^3.0.0"
+        },
+        "deprecated": null,
+        "repository": {
+          "url": "git://github.com/konvajs/konva.git",
+          "type": "git"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "lucide-react",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "dependencies",
+          "requirement": "^0.575.0",
+          "locked_version": "0.575.0"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/lucide-react/latest",
+        "latest_tag_version": "1.53.0",
+        "engines": {},
+        "peer_dependencies": {
+          "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0",
+          "@types/react": "*"
+        },
+        "deprecated": null,
+        "repository": {
+          "url": "https://github.com/lucide-icons/lucide.git",
+          "type": "git",
+          "directory": "packages/lucide-react"
+        },
+        "license": "ISC"
+      }
+    },
+    {
+      "name": "mocha",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "devDependencies",
+          "requirement": "^11.7.6",
+          "locked_version": "11.7.6"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/mocha/latest",
+        "latest_tag_version": "12.0.3",
+        "engines": {
+          "node": "^20.19.0 || >=22.12.0"
+        },
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/mochajs/mocha.git",
+          "type": "git"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "monaco-editor",
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/web/ide-frontend/package.json",
+          "group": "dependencies",
+          "requirement": "0.55.1",
+          "locked_version": "0.55.1"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/monaco-editor/latest",
+        "latest_tag_version": "0.57.0",
+        "engines": {},
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/microsoft/monaco-editor.git",
+          "type": "git"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "react",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "dependencies",
+          "requirement": "^19.2.4",
+          "locked_version": "19.2.4"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/react/latest",
+        "latest_tag_version": "19.3.0",
+        "engines": {
+          "node": ">=0.10.0"
+        },
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/react/react.git",
+          "type": "git",
+          "directory": "packages/react"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "react-dom",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "dependencies",
+          "requirement": "^19.2.4",
+          "locked_version": "19.2.4"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/react-dom/latest",
+        "latest_tag_version": "19.3.0",
+        "engines": {},
+        "peer_dependencies": {
+          "react": "^19.3.0"
+        },
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/react/react.git",
+          "type": "git",
+          "directory": "packages/react-dom"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "typescript",
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/web/ide-frontend/package.json",
+          "group": "devDependencies",
+          "requirement": "5.9.3",
+          "locked_version": "5.9.3"
+        },
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "devDependencies",
+          "requirement": "^5.9.3",
+          "locked_version": "5.9.3"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/typescript/latest",
+        "latest_tag_version": "7.0.2",
+        "engines": {
+          "node": ">=16.20.0"
+        },
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/microsoft/TypeScript.git",
+          "type": "git"
+        },
+        "license": "Apache-2.0"
+      }
+    },
+    {
+      "name": "vite",
+      "uses": [
+        {
+          "manifest": "crates/trust-runtime/web/ide-frontend/package.json",
+          "group": "devDependencies",
+          "requirement": "7.3.1",
+          "locked_version": "7.3.1"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/vite/latest",
+        "latest_tag_version": "8.3.4",
+        "engines": {
+          "node": "^20.19.0 || >=22.12.0"
+        },
+        "peer_dependencies": {
+          "tsx": "^4.8.1",
+          "jiti": ">=1.21.0",
+          "less": "^4.0.0",
+          "sass": "^1.70.0",
+          "yaml": "^2.4.2",
+          "stylus": ">=0.54.8",
+          "terser": "^5.16.0",
+          "esbuild": "^0.27.0 || ^0.28.0",
+          "sugarss": "^5.0.0",
+          "@types/node": "^20.19.0 || >=22.12.0",
+          "sass-embedded": "^1.70.0",
+          "@vitejs/devtools": "^0.7.1"
+        },
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/vitejs/vite.git",
+          "type": "git",
+          "directory": "packages/vite"
+        },
+        "license": "MIT"
+      }
+    },
+    {
+      "name": "vscode-languageclient",
+      "uses": [
+        {
+          "manifest": "editors/vscode/package.json",
+          "group": "dependencies",
+          "requirement": "^9.0.1",
+          "locked_version": "9.0.1"
+        }
+      ],
+      "registry": {
+        "source_url": "https://registry.npmjs.org/vscode-languageclient/latest",
+        "latest_tag_version": "10.1.2",
+        "engines": {
+          "vscode": "^1.91.0"
+        },
+        "peer_dependencies": {},
+        "deprecated": null,
+        "repository": {
+          "url": "git+https://github.com/Microsoft/vscode-languageserver-node.git",
+          "type": "git",
+          "directory": "client"
+        },
+        "license": "MIT"
+      }
+    }
+  ],
+  "consulted_date": "2026-10-09",
+  "evidence_class": "Read-only manifest and registry research; no resolution, install, build, or compatibility test.",
+  "coverage_note": "Discovered nonignored first-party manifests; excludes vendored code and ignored prototype manifests. Root Cargo.lock supplies resolved versions, which may include unrelated transitive lines. Latest is a registry candidate, not a compatibility recommendation."
+}

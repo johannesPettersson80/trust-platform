@@ -74,7 +74,9 @@ fn time_cmp(op: BinaryOp, left: &Value, right: &Value) -> Option<Result<Value, R
     }
     let result = match (left, right) {
         (Value::Time(lhs), Value::Time(rhs)) => time_cmp_values(op, lhs.as_nanos(), rhs.as_nanos()),
-        (Value::LTime(lhs), Value::LTime(rhs)) => time_cmp_values(op, lhs.as_nanos(), rhs.as_nanos()),
+        (Value::LTime(lhs), Value::LTime(rhs)) => {
+            time_cmp_values(op, lhs.as_nanos(), rhs.as_nanos())
+        }
         (Value::Date(lhs), Value::Date(rhs)) => time_cmp_values(op, lhs.ticks(), rhs.ticks()),
         (Value::LDate(lhs), Value::LDate(rhs)) => time_cmp_values(op, lhs.nanos(), rhs.nanos()),
         (Value::Tod(lhs), Value::Tod(rhs)) => time_cmp_values(op, lhs.ticks(), rhs.ticks()),
@@ -260,7 +262,7 @@ fn scale_duration(time: Duration, factor: &Value, op: BinaryOp) -> Result<Durati
                 BinaryOp::Div => (nanos as f64) / value,
                 _ => return Err(RuntimeError::TypeMismatch),
             };
-            let truncated = result.trunc();
+            let truncated = crate::numeric::math::trunc(result);
             if !truncated.is_finite() {
                 return Err(RuntimeError::Overflow);
             }

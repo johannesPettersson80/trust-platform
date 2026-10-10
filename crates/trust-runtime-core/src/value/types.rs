@@ -1,8 +1,8 @@
 #![allow(missing_docs)]
 
+use crate::collections::OrderedMap as IndexMap;
 use alloc::{boxed::Box, string::String, sync::Arc, vec::Vec};
 use core::fmt;
-use indexmap::IndexMap;
 use smol_str::SmolStr;
 #[cfg(feature = "hir")]
 use trust_hir::types::TypeRegistry;
@@ -302,7 +302,7 @@ impl StructValue {
         fields: IndexMap<SmolStr, Value>,
     ) -> Result<Self, ValueConstructionError> {
         let struct_type = struct_type_parts(registry, type_id)?;
-        let mut canonical_fields = IndexMap::new();
+        let mut canonical_fields = IndexMap::default();
         for field in &struct_type.fields {
             let Some((_, value)) = fields
                 .iter()

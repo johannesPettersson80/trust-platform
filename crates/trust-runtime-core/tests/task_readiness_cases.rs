@@ -229,7 +229,7 @@ fn execute_scenario(scenario: &str) -> Result<(Vec<Observation>, Vec<Observation
             );
             (
                 vec![observed],
-                vec![Observation::new(Some(10), 2, false, 35, u64::MAX)],
+                vec![Observation::new(Some(10), 2, false, 30, u64::MAX)],
             )
         }
         other => return Err(format!("unreviewed task readiness scenario {other}")),

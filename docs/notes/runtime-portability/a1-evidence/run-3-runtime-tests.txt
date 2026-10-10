@@ -1,0 +1,227 @@
+[gate-progress state=started phase=A1-runtime-tests target=scena-rust-builder pid=540023 elapsed=0.0s timeout=3600s command='cargo test --locked --no-fail-fast -p trust-runtime --test tasks --test scheduler_resource --test runtime_core_behavior_lock --test bytecode_vm_core --test bytecode_vm_differential --test portable_numeric_contract --test stdlib_numeric --test stdlib_numeric_full --test stdlib_helper_contract --test api_smoke --test debug_control --test complete_program --test runtime_reliability --test web_tls_integration -- --nocapture --test-threads=1']
+   Compiling trust-wasm-analysis v0.24.70 (/home/johannes/projects/trust-platform-portability-a1/crates/trust-wasm-analysis)
+   Compiling trust-runtime v0.24.70 (/home/johannes/projects/trust-platform-portability-a1/crates/trust-runtime)
+[gate-progress state=running phase=A1-runtime-tests target=scena-rust-builder pid=540023 elapsed=30.0s timeout=3600s command='cargo test --locked --no-fail-fast -p trust-runtime --test tasks --test scheduler_resource --test runtime_core_behavior_lock --test bytecode_vm_core --test bytecode_vm_differential --test portable_numeric_contract --test stdlib_numeric --test stdlib_numeric_full --test stdlib_helper_contract --test api_smoke --test debug_control --test complete_program --test runtime_reliability --test web_tls_integration -- --nocapture --test-threads=1']
+    Finished `test` profile [unoptimized] target(s) in 45.86s
+     Running tests/api_smoke.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/api_smoke-4c767d5f89448503)
+
+running 3 tests
+test loads_runtime ... ok
+test runtime_execution_backend_defaults_and_lazy_vm_materialization ... ok
+test runtime_metrics_snapshot_tracks_vm_backend_selection ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/bytecode_vm_core.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/bytecode_vm_core-169959f2cd92b8ff)
+
+running 43 tests
+test vm_call_native_builtin_function_block_executes_body_and_copies_outputs ... ok
+test vm_call_native_direct_binding_module_swap_reloads_default_metadata ... ok
+test vm_call_native_direct_binding_preserves_named_default_out_and_inout_contracts ... ok
+test vm_call_native_method_polymorphic_receiver_dispatch_remains_correct ... ok
+test vm_encoder_fail_closed_trace_cases ... ok
+test vm_enforces_execution_deadline ... ok
+test vm_enforces_instruction_budget ... ok
+test vm_executes_program_with_stack_and_pc_progression ... ok
+test vm_forward_only_instruction_stream_enforces_execution_deadline ... ok
+test vm_lowering_rejects_unsupported_c5_edge_case_stmt_paths ... ok
+test vm_lowering_supports_exit_and_continue_in_loop_stmt_paths ... ok
+test vm_malformed_bytecode_fuzz_smoke_budget ... ok
+test vm_opcode_positive_path_covers_arith_logical_branch_jump_load_store_ref ... ok
+test vm_opcode_positive_path_covers_call_native_oop_dispatch ... ok
+test vm_opcode_positive_path_covers_call_native_stdlib_dispatch ... ok
+test vm_opcode_positive_path_covers_dynamic_reference_and_nested_chains ... ok
+test vm_opcode_positive_path_covers_nested_field_chain_assignments ... ok
+test vm_opcode_positive_path_covers_nested_field_index_assignments ... ok
+test vm_opcode_positive_path_covers_non_ascii_string_and_wstring_index_reads ... ok
+test vm_opcode_positive_path_covers_sizeof_type_and_storage_operands ... ok
+test vm_opcode_positive_path_covers_string_and_wstring_index_reads ... ok
+test vm_opcode_positive_path_covers_string_and_wstring_literals ... ok
+test vm_rejects_invalid_call_native_method_missing_receiver_payload ... ok
+test vm_rejects_invalid_call_native_symbol_index ... ok
+test vm_rejects_invalid_jump_target ... ok
+test vm_rejects_invalid_opcode ... ok
+test vm_rejects_invalid_string_const_utf8_payload ... ok
+test vm_rejects_invalid_wstring_const_utf16_payload ... ok
+test vm_rejects_legacy_sizeof_value_opcode_with_empty_stack ... ok
+test vm_rejects_load_dynamic_with_non_reference_operand ... ok
+test vm_rejects_malformed_operands ... ok
+test vm_rejects_sizeof_type_with_excessive_non_cyclic_alias_depth ... ok
+test vm_rejects_stack_overflow ... ok
+test vm_rejects_stack_underflow ... ok
+test vm_validator_accepts_local_path_ref_for_pou_owned_local_slot ... ok
+test vm_validator_rejects_duplicate_pou_ids ... ok
+test vm_validator_rejects_invalid_const_index_operand ... ok
+test vm_validator_rejects_invalid_ref_field_string_index ... ok
+test vm_validator_rejects_invalid_ref_index_operand ... ok
+test vm_validator_rejects_invalid_sizeof_type_index ... ok
+test vm_validator_rejects_legacy_call_even_when_target_exists ... ok
+test vm_validator_rejects_local_ref_outside_pou_local_range ... ok
+test vm_validator_rejects_unsupported_call_method_opcode ... ok
+
+test result: ok. 43 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.50s
+
+     Running tests/bytecode_vm_differential.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/bytecode_vm_differential-6d1f44f63c1d56d9)
+
+running 8 tests
+test register_and_stack_paths_match_for_case_insensitive_oscat_style_calls ... ok
+test register_and_stack_paths_match_for_composite_value_program ... ok
+test register_and_stack_paths_match_for_deep_ref_chain_field_index_parity ... ok
+test register_and_stack_paths_match_for_string_wstring_edge_indices ... ok
+test register_and_stack_paths_match_for_unqualified_enum_case_labels ... ok
+test register_and_stack_paths_surface_same_deep_ref_chain_index_trap ... ok
+test register_and_stack_paths_surface_same_modulo_by_zero_error ... ok
+test register_and_stack_paths_surface_same_string_wstring_index_traps ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+
+     Running tests/complete_program.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/complete_program-1e0f23b3c417d532)
+
+running 1 test
+test complete_program_compiles_without_errors ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+
+     Running tests/debug_control.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/debug_control-943435e6f8514f86)
+
+running 20 tests
+test breakpoint_emits_stop_event ... ok
+test breakpoint_generation_increments_on_clear ... ok
+test breakpoint_pauses_execution ... ok
+test conditional_breakpoint_pauses_when_true ... ok
+test conditional_breakpoint_skips_when_false ... ok
+test frame_location_tracks_current_frame ... ok
+test hit_count_breakpoint_pauses_on_threshold ... ok
+test logpoint_emits_output_without_pausing ... ok
+test logpoint_sender_drop_buffers_log_in_debug_control ... ok
+test pause_preserves_task_order ... ok
+test resolve_breakpoint_next_statement ... ok
+test resolve_breakpoint_prefers_inner_statement ... ok
+test runtime_event_sender_drop_buffers_event_in_debug_control ... ok
+test runtime_resolves_breakpoint_position_to_statement_start ... ok
+test runtime_resolves_breakpoint_using_index ... ok
+test statement_locations_use_first_token_in_if_block ... ok
+test step_once_pauses_again ... ok
+test step_out_pauses_after_return ... ok
+test step_over_pauses_at_same_depth ... ok
+test watch_changes_reported_between_stops ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.65s
+
+     Running tests/portable_numeric_contract.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/portable_numeric_contract-6c316ec3012ffaca)
+
+running 6 tests
+test atan2_retains_width_promotion_and_signed_zero_quadrant ... ok
+test duration_scaling_preserves_numeric_operand_context_and_duration_width ... ok
+test duration_scaling_rejects_reversed_division ... ok
+test numeric_fixture_preserves_plc_control_outputs ... ok
+test numeric_reference_corpus_preserves_width_accuracy_and_control_outcomes ... SQRT input=4000000000000000 old=3ff6a09e667f3bcd portable=3ff6a09e667f3bcd
+LN input=4000000000000000 old=3fe62e42fefa39ef portable=3fe62e42fefa39ef
+LOG input=4024000000000000 old=3ff0000000000000 portable=3ff0000000000000
+EXP input=3ff0000000000000 old=4005bf0a8b145769 portable=4005bf0a8b14576a
+SIN input=3fe0000000000000 old=3fdeaee8744b05f0 portable=3fdeaee8744b05f0
+COS input=3fe0000000000000 old=3fec1528065b7d50 portable=3fec1528065b7d50
+TAN input=3fe0000000000000 old=3fe17b4f5bf3474a portable=3fe17b4f5bf3474a
+ASIN input=3fe0000000000000 old=3fe0c152382d7366 portable=3fe0c152382d7366
+ACOS input=3fe0000000000000 old=3ff0c152382d7366 portable=3ff0c152382d7366
+ATAN input=3ff0000000000000 old=3fe921fb54442d18 portable=3fe921fb54442d18
+ok
+test numeric_special_values_and_faults_preserve_the_existing_policy ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+
+     Running tests/runtime_core_behavior_lock.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/runtime_core_behavior_lock-16d2728bc7ca6ffe)
+
+running 7 tests
+test cycle_boundary_latches_inputs_once_and_commits_outputs_after_ready_programs ... ok
+test cycle_boundary_reads_every_driver_before_any_driver_writes_outputs ... ok
+test stable_bytecode_fixture_loads_on_runtime_core_path ... ok
+test vm_fixture_execution_image_status_and_values_are_stable ... ok
+test watchdog_and_fault_policy_decisions_are_stable ... ok
+test watchdog_and_fault_policy_state_updates_are_stable ... ok
+test watchdog_timeout_preserves_fault_snapshot_and_safe_state_contract ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests/runtime_reliability.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/runtime_reliability-c7e0547dea91f147)
+
+running 4 tests
+test e2e_retain_roundtrip_restart ... ok
+test e2e_startup_io_restart ... ok
+test retain_power_loss_does_not_persist_unsaved ... ok
+test watchdog_faults_resource_on_overrun ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/scheduler_resource.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/scheduler_resource-21db6747bea66c3c)
+
+running 1 test
+test resource_runs_in_thread ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/stdlib_helper_contract.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/stdlib_helper_contract-f9fae6cde596edd2)
+
+running 17 tests
+test arity_helpers_report_required_and_observed_counts ... ok
+test bit_masks_cover_exact_low_width_and_saturate_at_64 ... ok
+test bit_value_round_trips_all_supported_declared_widths ... ok
+test char_values_join_their_matching_string_family ... ok
+test cloned_standard_libraries_have_independent_registries ... ok
+test common_bit_kind_uses_widest_width_and_zero_extends ... ok
+test common_comparison_supports_all_relations_after_coercion ... ok
+test common_numeric_coercion_rejects_out_of_range_value ... ok
+test common_numeric_kind_widens_compatible_values_and_rejects_mixed_sign ... ok
+test current_dt_returns_a_nonnegative_unix_millisecond_value ... ok
+test custom_standard_library_registration_normalizes_names_and_metadata ... ok
+test duration_scaling_rejects_zero_non_finite_and_overflow ... ok
+test duration_scaling_rounds_nanoseconds_ties_to_even ... ok
+test floating_common_comparison_retains_ieee_nan_relations ... ok
+test runtime_clock_dispatch_preserves_logical_time_and_rejects_unknown_names ... ok
+test ties_to_even_rounding_handles_both_signs ... ok
+test time_common_kind_requires_the_identical_runtime_family ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/stdlib_numeric.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/stdlib_numeric-b782301bf90d6adc)
+
+running 2 tests
+test numeric_functions ... ok
+test real_named_numeric_functions_reject_single_width_overflow ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/stdlib_numeric_full.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/stdlib_numeric_full-a02cd6e5d96a948b)
+
+running 2 tests
+test numeric_full ... ok
+test split_functions ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/tasks.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/tasks-3401c6d9fa991f81)
+
+running 12 tests
+test background_programs ... ok
+test event_edge_coalescing_between_samples ... ok
+test event_single_rise ... ok
+test fifo_order_by_due_time_within_priority ... ok
+test interval_zero_disables_periodic ... ok
+test periodic_interval ... ok
+test periodic_task_keeps_its_interval_when_cycles_start_late ... ok
+test periodic_task_non_multiple_interval_preserves_nominal_deadlines ... ok
+test priority_order ... ok
+test simulation_time_advance_saturates_at_duration_limit ... ok
+test single_blocks_periodic ... ok
+test task_overrun_drops_missed_intervals ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/web_tls_integration.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/web_tls_integration-5468cab01410c564)
+
+running 1 test
+test web_tls_handshake_and_downgrade_prevention ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+[gate-progress state=finished phase=A1-runtime-tests target=scena-rust-builder pid=540023 elapsed=51.2s timeout=3600s command='cargo test --locked --no-fail-fast -p trust-runtime --test tasks --test scheduler_resource --test runtime_core_behavior_lock --test bytecode_vm_core --test bytecode_vm_differential --test portable_numeric_contract --test stdlib_numeric --test stdlib_numeric_full --test stdlib_helper_contract --test api_smoke --test debug_control --test complete_program --test runtime_reliability --test web_tls_integration -- --nocapture --test-threads=1' status=0]

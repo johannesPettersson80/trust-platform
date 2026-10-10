@@ -116,16 +116,32 @@ def remote_validation_commands(
             f"{shlex.quote(target)} bash -lc {shlex.quote(command)}"
         )
 
-    disk_preflight = (
+    disk_probe = (
         "set -euo pipefail; "
         f"probe=$(bash scripts/cargo_target_path.sh {shlex.quote(target)}) || exit $?; "
         'while [ ! -e "$probe" ]; do probe=$(dirname -- "$probe"); done; '
         'available_kib=$(df --output=avail -k "$probe" | tail -n 1 | tr -d " "); '
         "required_kib=83886080; "
-        'df -hT "$HOME" /tmp "$probe"; '
+        'if ! [[ "$available_kib" =~ ^-?[0-9]+$ ]]; then '
+        'echo "cannot determine available target space" >&2; exit 1; fi; '
+    )
+    disk_floor_check = (
         'if [ "$available_kib" -lt "$required_kib" ]; then '
         'printf "exact candidate requires at least 80 GiB free on the target filesystem; '
         'found %s KiB\\n" "$available_kib" >&2; exit 1; fi'
+    )
+    disk_preflight = disk_probe + 'df -hT "$HOME" /tmp "$probe"; ' + disk_floor_check
+    conditional_reclaim = (
+        disk_probe
+        + 'if [ "$available_kib" -ge "$required_kib" ]; then '
+        + 'printf "Keeping warm Cargo target: %s (%s KiB available)\\n" '
+        + f'{shlex.quote(target)} "$available_kib"; '
+        + "else "
+        + f"bash scripts/remove_cargo_target_if_idle.sh {shlex.quote(target)} || exit $?; "
+        + f"({prepare_target}) || exit $?; "
+        + disk_probe
+        + disk_floor_check
+        + "; fi"
     )
     commands = [
         ("remote_exact_head", ""),
@@ -176,8 +192,7 @@ def remote_validation_commands(
             ),
             (
                 "remote_reclaim_before_test_all",
-                "bash scripts/remove_cargo_target_if_idle.sh "
-                f"{shlex.quote(target)} && {prepare_target}",
+                conditional_reclaim,
             ),
             (
                 "remote_test_all",

@@ -9,6 +9,10 @@ Unchecked `ARCHIDX-*` rows are recurring guard checks for each resume, not archi
 
 ## Current Board Pointer
 
+- Runtime portability work (9 October 2026): use
+  [runtime-portability-implementation-checklist.md](runtime-portability-implementation-checklist.md)
+  and specification 34. This dedicated workstream does not reopen the closed core/host extraction
+  or replace the separate runtime safety board. Current AGENTS.md controls validation cadence.
 - Current active follow-up board: `runtime-safety-fail-closed-checklist.md`.
 - Current concrete step: Phase 0 doctor/checklist/contract inventory for runtime-internal safety paths; do not apply old ignored drafts or stash patches as source of truth.
 - Previous completed board: `architecture-post-closeout-gap-closure-checklist.md` at commit `91255e672`, plus umbrella cleanup and deferred modernization audit (`ARCHPROG-E-04`, `ARCHPROG-EXIT-08`, `ARCHPROG-EXIT-09`, `ARCHPROG-EXIT-11`, `ARCHPROG-FOLLOW-01`).

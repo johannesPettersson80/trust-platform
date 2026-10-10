@@ -33,9 +33,20 @@ record, map each required job to its command, toolchain, targets/features, evide
 Distinguish the pinned/MSRV compiler from floating CI stable; record the actual versions used. Keep
 native Windows/macOS proof separate from Linux cross-compilation. Review new tests and their imports,
 feature gates and registrations as part of the full diff before spending the batch.
+For a related candidate, read the preceding failure ledger and its corrected commands,
+including compiler environment, temporary-path and platform prerequisites; carry those
+corrections into the new command map before freezing.
 
-Choose the release path before scheduling commands. If an exact-SHA guard is required, commit only
-when authorized, then use `prepare` for the checks it already runs. Do not run `just test-all` once
+Choose the release path before scheduling commands. Once implementation is complete, perform the
+single final formatting and required generated-file preparation on the builder with the guard's exact
+toolchain and configuration, including touched `include!` fragments. This is the preparation phase of the
+planned batch, not a per-edit check or another full test run. Copy back and review its complete diff
+before the authorized commit. The exact-SHA guard then validates that clean committed source;
+its formatting step must leave the tree unchanged. Never restore formatter output during a running
+guard to make the final cleanliness check pass.
+
+If an exact-SHA guard is required, commit only when authorized, then use `prepare` for the checks it
+already runs. Do not run `just test-all` once
 before the commit and again inside prepare merely to satisfy two descriptions of the same gate.
 Required scope batches remain distinct when explicitly authorized; their evidence cannot substitute
 for the exact-SHA artifact. A commit, rebase or source change requires evidence for the new candidate.
@@ -109,6 +120,10 @@ These pushes go through the guard in this skill's `scripts/`:
    - Fix the complete known set, including defects in new tests, and review the full correction.
      Refreeze and run the consolidated correction batch only under the user's current authorization.
      Do not automatically rerun, or ask again when that authorization already exists.
+   - Inspect native and VS Code job logs and `*-retry-rescued.txt` artifacts even
+     when GitHub marks the job green. A passing automatic retry does not close
+     the first failure: retain it, identify its cause and obtain the applicable
+     correction/validation authorization before merge.
    - Never push corrections from partial results.
 4. **Merge** only with `release_candidate_guard.py check-merge --pr <number> --execute`.
 5. **Release a version change.**
@@ -159,7 +174,11 @@ that the intended issues are closed after the merge.
 - **Docs Captures**:
   - it runs on pull requests with the same path filters as on `main`;
   - its validation job has read-only contents permission;
-  - the job that writes the refresh branch never runs for pull requests.
+  - the job that writes the refresh branch never runs for pull requests;
+  - a newly linked public specification needs its snippet page, navigation and
+    index/search entries. Include the workflow's strict MkDocs build and public
+    docs checks in the candidate batch; capture-lifecycle tests do not cover
+    publication or cross-page links.
 - **Target storage**: use a strict descendant of `~/.cache/codex-targets/`, `/tmp/`, or
   `/mnt/HC_Volume_107089260/builder-storage/cargo-targets/`. The shared path policy
   requires the volume mount, canonical paths and current-user ownership; leases
@@ -169,12 +188,19 @@ that the intended issues are closed after the merge.
   - `CARGO_INCREMENTAL=0`;
   - `RUSTC_WRAPPER` and `CARGO_BUILD_RUSTC_WRAPPER` set to `/usr/bin/env`;
   - `scripts/compiler_passthrough.sh` installed on `PATH` as `sccache`;
-  - `CC=cc` and `CXX=c++`;
+  - `CC=cc` and `CXX=c++` for native builds only;
+  - cross-compilation commands use `env -u CC -u CXX` so native overrides cannot
+    select a host compiler for the target; reuse the guard's separate native and
+    cross-target environments in supplemental commands;
   - honor the builder's Cargo job configuration for cold `just test-all`; do not force one job;
   - `TMPDIR` inside the task's own target.
 
-  Between Clippy and `just test-all`, reclaim only that validated target, through
-  `scripts/remove_cargo_target_if_idle.sh`.
+  Between Clippy and `just test-all`, recheck available space on the validated
+  target filesystem. Preserve the warm target when the existing 80 GiB floor is
+  met. Otherwise reclaim only that target through
+  `scripts/remove_cargo_target_if_idle.sh`, prepare its directories again and
+  recheck the same floor. A busy target, unreadable space measurement or still
+  insufficient space fails the stage; never delete an active target or lower the floor.
 - **Script style**: gate scripts fail fast and pass shellcheck (`set -euo pipefail`). With `set -u`,
   do not expand arrays that may be empty.
 - **Regression tests for gate tooling**: name the focused test so that

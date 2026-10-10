@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any
 
 from .runtime_anomaly_contract import (
+    ALLOCATION_REQUIRED_TEXT,
     ASSOCIATION_KINDS,
     CLASS_IDS,
     DISCOVERY_SOURCE_KINDS,
@@ -301,10 +302,7 @@ def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
         "outcome": "written_contract_present",
         "source_ref": "SPEC_RUNTIME_ENGINE_001",
         "source_path": "docs/specs/11-runtime-engine.md",
-        "required_text": [
-            "dynamic allocation in hot path",
-            "No heap allocation during execution",
-        ],
+        "required_text": list(ALLOCATION_REQUIRED_TEXT),
     }.items():
         if allocation_properties.get(field, {}).get("const") != expected:
             failures.append(f"runtime-anomaly report allocation const for {field} drifts")
@@ -480,10 +478,7 @@ def _validate_spec_gap_reviews(value: Any, failures: list[str]) -> dict[str, Any
         "outcome": "written_contract_present",
         "source_ref": "SPEC_RUNTIME_ENGINE_001",
         "source_path": "docs/specs/11-runtime-engine.md",
-        "required_text": [
-            "dynamic allocation in hot path",
-            "No heap allocation during execution",
-        ],
+        "required_text": list(ALLOCATION_REQUIRED_TEXT),
     }
     if not isinstance(allocation, Mapping):
         failures.append("scan_cycle_allocation_policy report review must be an object")

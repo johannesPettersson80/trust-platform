@@ -348,7 +348,7 @@ pub fn scale_time(
 }
 
 pub fn round_ties_to_even(value: f64) -> f64 {
-    let truncated = value.trunc();
+    let truncated = crate::numeric::math::trunc(value);
     let frac = value - truncated;
     if frac.abs() == 0.5 {
         let is_even = truncated.rem_euclid(2.0) == 0.0;
@@ -358,6 +358,6 @@ pub fn round_ties_to_even(value: f64) -> f64 {
             truncated + frac.signum()
         }
     } else {
-        value.round()
+        crate::numeric::math::round(value)
     }
 }

@@ -30,9 +30,9 @@ tracing-subscriber.workspace = true
 anyhow.workspace = true
 glob.workspace = true
 parking_lot.workspace = true
-rustc-hash.workspace = true
+rustc-hash = { workspace = true, features = ["std"] }
 text-size.workspace = true
-smol_str.workspace = true
+smol_str = { workspace = true, features = ["std"] }
 percent-encoding.workspace = true
 trust-runtime.workspace = true
 

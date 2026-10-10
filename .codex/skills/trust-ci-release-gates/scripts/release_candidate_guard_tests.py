@@ -1,7 +1,9 @@
+import hashlib
 import io
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -247,7 +249,7 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn('export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"', gate)
         self.assertLess(gate.index("export PATH="), gate.index("command -v ast-grep"))
 
-    def test_remote_validation_reclaims_exact_target_before_test_all(self) -> None:
+    def test_remote_validation_checks_target_space_before_test_all(self) -> None:
         commands = candidate_prepare.remote_validation_commands(
             vscode_changed=True, remote_target="/tmp/trust target"
         )
@@ -299,14 +301,8 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             ".codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh "
             "'/tmp/trust target/bin/sccache'",
         )
-        self.assertEqual(
-            by_id["remote_reclaim_before_test_all"],
-            "bash scripts/remove_cargo_target_if_idle.sh '/tmp/trust target' && "
-            "mkdir -p -- '/tmp/trust target/tmp' '/tmp/trust target/bin' && "
-            "install -m 755 "
-            ".codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh "
-            "'/tmp/trust target/bin/sccache'",
-        )
+        self.assertIn("required_kib=83886080", reclaim)
+        self.assertIn("Keeping warm Cargo target", reclaim)
         for command_id in ("remote_clippy", "remote_test_all"):
             body = shlex.split(by_id[command_id])[-1]
             self.assertIn("CARGO_INCREMENTAL=0", body)
@@ -321,6 +317,110 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn('TMPDIR="$vscode_tmp"', vscode_body)
         self.assertNotIn("TMPDIR='/tmp/trust target/tmp'", vscode_body)
         self.assertNotIn("CARGO_BUILD_JOBS=", by_id["remote_test_all"])
+
+    def run_conditional_reclaim(self, readings, *, busy=False):
+        """Execute the generated boundary with real path/lease cleanup and a fake df."""
+        import fcntl
+
+        source = Path(__file__).parents[4]
+        with tempfile.TemporaryDirectory(prefix="trust-reclaim-", dir="/tmp") as temporary:
+            root = Path(temporary)
+            target = root / "target with spaces"
+            (target / "tmp").mkdir(parents=True)
+            (target / "bin").mkdir()
+            cached = target / "cached-artifact"
+            cached.write_text("compiled output", encoding="utf-8")
+            scripts = root / "scripts"
+            scripts.mkdir()
+            for name in ("cargo_target_path.sh", "remove_cargo_target_if_idle.sh"):
+                shutil.copyfile(source / "scripts" / name, scripts / name)
+            shim_relative = Path(
+                ".codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh"
+            )
+            shim = root / shim_relative
+            shim.parent.mkdir(parents=True)
+            shutil.copyfile(source / shim_relative, shim)
+            shutil.copyfile(shim, target / "bin/sccache")
+
+            probe_bin = root / "probe-bin"
+            probe_bin.mkdir()
+            count = root / "probe-count"
+            df = probe_bin / "df"
+            df.write_text(
+                "#!/usr/bin/env python3\n"
+                "import pathlib, sys\n"
+                "if sys.argv[1:2] != ['--output=avail']:\n"
+                "    print('fixture filesystem'); sys.exit(0)\n"
+                f"counter = pathlib.Path({str(count)!r})\n"
+                "position = int(counter.read_text()) if counter.exists() else 0\n"
+                "counter.write_text(str(position + 1))\n"
+                f"readings = {readings!r}\n"
+                "value = readings[min(position, len(readings) - 1)]\n"
+                "if value is None: sys.exit(42)\n"
+                "print('Avail'); print(value)\n",
+                encoding="utf-8",
+            )
+            df.chmod(0o755)
+            command = dict(candidate_prepare.remote_validation_commands(
+                vscode_changed=False, remote_target=str(target)
+            ))["remote_reclaim_before_test_all"]
+            digest = hashlib.sha256(str(target).encode()).hexdigest()
+            lease = Path.home() / ".cache/codex-target-leases" / f"{digest}.lock"
+            lease.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                with lease.open("a+") as lock:
+                    if busy:
+                        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    result = subprocess.run(
+                        ["bash", "-c", command], cwd=root,
+                        env={**os.environ, "PATH": f"{probe_bin}:{os.environ['PATH']}"},
+                        capture_output=True, text=True, timeout=30, check=False,
+                    )
+                prepared = (target / "tmp").is_dir() and (target / "bin/sccache").is_file()
+                return result, cached.exists(), prepared, int(count.read_text())
+            finally:
+                lease.unlink(missing_ok=True)
+
+    def test_target_at_space_floor_keeps_compiled_artifacts(self) -> None:
+        result, cached, prepared, probes = self.run_conditional_reclaim([83886080])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(cached)
+        self.assertTrue(prepared)
+        self.assertEqual(probes, 1)
+
+    def test_low_space_reclaims_idle_target_and_rechecks_floor(self) -> None:
+        result, cached, prepared, probes = self.run_conditional_reclaim([83886079, 83886080])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(cached)
+        self.assertTrue(prepared)
+        self.assertEqual(probes, 2)
+
+    def test_reclaim_cannot_accept_space_below_floor(self) -> None:
+        result, cached, prepared, probes = self.run_conditional_reclaim([83886079, 83886079])
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertFalse(cached)
+        self.assertTrue(prepared)
+        self.assertEqual(probes, 2)
+        self.assertIn("at least 80 GiB", result.stderr)
+
+    def test_low_space_cannot_remove_a_leased_target(self) -> None:
+        result, cached, prepared, probes = self.run_conditional_reclaim([83886079], busy=True)
+        self.assertEqual(result.returncode, 75, result.stderr)
+        self.assertTrue(cached)
+        self.assertTrue(prepared)
+        self.assertEqual(probes, 1)
+
+    def test_unknown_free_space_does_not_remove_target(self) -> None:
+        result, cached, _, probes = self.run_conditional_reclaim(["unknown"])
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertTrue(cached)
+        self.assertEqual(probes, 1)
+
+    def test_failed_disk_probe_does_not_remove_target(self) -> None:
+        result, cached, _, probes = self.run_conditional_reclaim([None])
+        self.assertEqual(result.returncode, 42, result.stderr)
+        self.assertTrue(cached)
+        self.assertEqual(probes, 1)
 
     def test_remote_test_all_preserves_builder_job_configuration(self) -> None:
         with tempfile.TemporaryDirectory(prefix="trust-build-jobs-", dir="/tmp") as temporary:

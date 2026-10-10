@@ -17,7 +17,7 @@ fn numeric_arith(op: BinaryOp, left: Value, right: Value) -> Result<Value, Runti
                 BinaryOp::Sub => a - b,
                 BinaryOp::Mul => a * b,
                 BinaryOp::Div => a / b,
-                BinaryOp::Pow => a.powf(b),
+                BinaryOp::Pow => crate::numeric::math::pow(a, b),
                 _ => return Err(RuntimeError::TypeMismatch),
             };
             if !result.is_finite() {

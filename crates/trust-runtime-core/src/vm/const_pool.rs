@@ -1,6 +1,6 @@
 use alloc::{boxed::Box, format, string::String, sync::Arc, vec::Vec};
 
-use indexmap::IndexMap;
+use crate::collections::OrderedMap as IndexMap;
 use smol_str::SmolStr;
 
 use crate::bytecode::{ConstEntry, ConstPool, StringTable, TypeData, TypeEntry, TypeTable};
@@ -100,7 +100,7 @@ fn decode_const_payload(
                     fields.len()
                 )));
             }
-            let mut values = IndexMap::with_capacity(fields.len());
+            let mut values = IndexMap::with_capacity_and_hasher(fields.len(), Default::default());
             for field in fields {
                 let name = string_at(strings, Some(field.name_idx), "const field name")?;
                 let child = reader.read_child("struct/union const field")?;

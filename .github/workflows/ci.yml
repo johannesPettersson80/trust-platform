@@ -13,6 +13,37 @@ env:
   RUSTC_WRAPPER: ""
 
 jobs:
+  portable-core:
+    name: Portable core (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [thumbv7em-none-eabihf, riscv32imac-unknown-none-elf]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: portable-core-${{ matrix.target }}
+      - name: Check isolated no_std core and value layout
+        run: cargo check --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }}
+      - name: Record resolved target features
+        run: cargo tree --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }} -e features
+      - name: Mark gate success
+        if: ${{ success() }}
+        run: |
+          mkdir -p gate-artifacts
+          echo "job=portable-core target=${{ matrix.target }} result=success" > gate-artifacts/portable-core.txt
+      - name: Upload gate marker
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-portable-core-${{ matrix.target }}
+          path: gate-artifacts/portable-core.txt
+
   fmt:
     name: Format
     runs-on: ubuntu-latest
@@ -715,7 +746,7 @@ jobs:
   release-gate-report:
     name: Release Gate Report
     runs-on: ubuntu-latest
-    needs: [fmt, clippy, test, conformance, architecture-safety, msrv, docs, browser-analysis, vscode-extension, editor-expansion, mp001-parity, supply-chain, version-release-guard]
+    needs: [portable-core, fmt, clippy, test, conformance, architecture-safety, msrv, docs, browser-analysis, vscode-extension, editor-expansion, mp001-parity, supply-chain, version-release-guard]
     if: ${{ always() }}
     steps:
       - uses: actions/checkout@v6
@@ -732,6 +763,7 @@ jobs:
 
       - name: Generate release gate report
         env:
+          NEED_PORTABLE_CORE: ${{ needs['portable-core'].result }}
           NEED_FMT: ${{ needs.fmt.result }}
           NEED_CLIPPY: ${{ needs.clippy.result }}
           NEED_TEST: ${{ needs.test.result }}
@@ -749,6 +781,8 @@ jobs:
           python3 scripts/generate_release_gate_report.py \
             --output-dir gate-report \
             --gate-artifacts-dir gate-artifacts \
+            --required-gate gate-portable-core-thumbv7em-none-eabihf \
+            --required-gate gate-portable-core-riscv32imac-unknown-none-elf \
             --required-gate gate-fmt \
             --required-gate gate-clippy \
             --required-gate gate-test-ubuntu-latest \
@@ -765,6 +799,7 @@ jobs:
             --required-gate gate-supply-chain \
             --required-gate gate-version-release-guard \
             --job-status "fmt=${NEED_FMT}" \
+            --job-status "portable-core=${NEED_PORTABLE_CORE}" \
             --job-status "clippy=${NEED_CLIPPY}" \
             --job-status "test=${NEED_TEST}" \
             --job-status "conformance=${NEED_CONFORMANCE}" \

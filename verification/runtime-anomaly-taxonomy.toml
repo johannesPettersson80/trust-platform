@@ -13,10 +13,10 @@ outcome = "written_contract_present"
 source_ref = "SPEC_RUNTIME_ENGINE_001"
 source_path = "docs/specs/11-runtime-engine.md"
 required_text = [
-  "dynamic allocation in hot path",
-  "No heap allocation during execution",
+  "Allocation-free control paths are an acceptance requirement for the bounded",
+  "profiles in specification 34, including fault/first-use paths",
 ]
-rationale = "The active normative runtime-engine contract already excludes dynamic allocation from the scan hot path and heap allocation from execution. Allocation-failure and OOM testing outside that scope remains unmapped test debt and does not make this written scan-cycle policy absent."
+rationale = "The runtime-engine contract defines allocation-free control paths as acceptance requirements for specification 34 bounded profiles, including fault and first-use paths. This is not a claim that every current hosted path is allocation-free; outside-profile allocation and OOM testing remains separate test debt."
 
 [spec_gap_reviews.restart_timebase]
 outcome = "resolved_source"
@@ -1183,6 +1183,32 @@ injection_mechanism = "test_harness"
 assertion_summary = "The reviewed test drives a watchdog or overrun boundary and asserts the resulting fault, output, event, or restart policy."
 limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
 last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_PERIODIC_DEADLINE_F5088094"
+class_id = "watchdog"
+discovery_id = "DISC_1CDD5F04E9FCF5088094"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/tasks.rs"
+name = "periodic_task_keeps_its_interval_when_cycles_start_late"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "Injected logical samples preserve nominal periodic deadlines without accumulating phase drift or inventing missed intervals."
+limitations = ["Native assertions passed A1 run 3; see docs/notes/runtime-portability/a1-evidence/run-3-runtime-tests.txt. Logical-time samples do not establish physical timing or independent watchdog behavior."]
+last_reviewed = "2026-10-09"
+
+[[mappings]]
+id = "ANOM_MAP_PERIODIC_DEADLINE_26D9F65F"
+class_id = "watchdog"
+discovery_id = "DISC_EAB1B860AA3426D9F65F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/tasks.rs"
+name = "periodic_task_non_multiple_interval_preserves_nominal_deadlines"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "Injected logical samples preserve nominal periodic deadlines without accumulating phase drift or inventing missed intervals."
+limitations = ["Native assertions passed A1 run 3; see docs/notes/runtime-portability/a1-evidence/run-3-runtime-tests.txt. Logical-time samples do not establish physical timing or independent watchdog behavior."]
+last_reviewed = "2026-10-09"
 
 [[mappings]]
 id = "ANOM_MAP_SLOW_DEVICE_REVIEW_DCF6125A"

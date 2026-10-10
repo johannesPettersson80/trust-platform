@@ -15,7 +15,7 @@ dialoguer.workspace = true
 owo-colors.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-smol_str.workspace = true
+smol_str = { workspace = true, features = ["std"] }
 toml.workspace = true
 trust-runtime.workspace = true
 trust-syntax.workspace = true

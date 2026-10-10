@@ -22,8 +22,8 @@ pub use stack::OperandStack;
 
 #[cfg(test)]
 mod tests {
+    use crate::collections::OrderedMap as IndexMap;
     use alloc::{boxed::Box, sync::Arc, vec, vec::Vec};
-    use indexmap::IndexMap;
     use smol_str::SmolStr;
 
     use crate::{
@@ -354,7 +354,7 @@ mod tests {
         };
 
         let decoded = super::decode_const_pool_entries(&const_pool, &types, &strings).unwrap();
-        let mut fields = IndexMap::new();
+        let mut fields = IndexMap::default();
         fields.insert(
             SmolStr::new("Values"),
             Value::Array(Box::new(ArrayValue::from_canonical_parts(

@@ -17,10 +17,10 @@ trust-tcads-native.workspace = true
 trust-ads-server = { workspace = true, optional = true }
 trust-runtime-core = { workspace = true, features = ["hir"] }
 trust-wasm-analysis.workspace = true
-smol_str.workspace = true
-rustc-hash.workspace = true
+smol_str = { workspace = true, features = ["std"] }
+rustc-hash = { workspace = true, features = ["std"] }
 text-size.workspace = true
-indexmap = { workspace = true, features = ["serde"] }
+indexmap = { workspace = true, features = ["std", "serde"] }
 tracing.workspace = true
 crc32fast.workspace = true
 serde.workspace = true
@@ -54,7 +54,7 @@ rand = "0.10"
 ureq = "3"
 sha2 = "0.10"
 signal-hook = "0.3.18"
-rustls = "0.23"
+rustls = "0.23.45"
 tiverse-mmap = "1.0"
 region = "3.0"
 rusqlite = { version = "0.40.2", features = ["bundled"], optional = true }

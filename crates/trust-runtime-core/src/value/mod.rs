@@ -5,6 +5,7 @@
 pub mod datetime;
 #[cfg(feature = "hir")]
 pub mod defaults;
+pub mod layout;
 pub mod partial_access;
 mod reference;
 #[cfg(feature = "hir")]

@@ -74,7 +74,7 @@ The runtime scheduler uses a `Clock` for time and pacing. Thread creation and mu
 | `sleep_until` | Paces resource cycles in real threads |
 | `wake` | Allows clean shutdown of resource threads |
 
-Notably absent: file I/O (bytecode loaded at init), networking (handled separately via I/O abstraction), explicit mutex APIs (runtime uses `RwLock`/`Mutex` internally), dynamic allocation in hot path.
+The clock interface excludes file I/O (bytecode loaded at init), networking (handled separately via I/O abstraction), and explicit mutex APIs (runtime uses `RwLock`/`Mutex` internally). Control-path allocation requirements are profile-specific, as described in §6.1 and specification 34; this interface does not establish allocation-free hosted execution.
 
 ### 5. Clock Implementations
 
@@ -152,20 +152,38 @@ Deterministic replay excludes programs that read `CURRENT_DT` unless the
 environment controls the host clock. The complete callable contract is in
 `docs/specs/07-standard-functions.md#host-civil-clock-current_dt`.
 
-#### 5.3 Embedded Clock (Planned)
+#### 5.3 Embedded Runtime and Clock (Planned)
 
-An RTOS-backed clock (e.g., FreeRTOS) is planned for embedded targets. The runtime core remains unchanged; only the `Clock` implementation differs.
+Embedded execution requires the shared-engine migration defined in
+[Runtime Portability](34-runtime-portability.md), not only another `Clock`
+implementation. The current hosted dispatcher depends on `Runtime`, hosted
+storage/services, initialization metadata, and OS timing. The migration extracts
+compiler-free construction, initialization, execution, storage, and supervision
+boundaries while retaining common IEC semantics and supported hosted behavior.
+
+Board adapters supply time, process-image I/O, persistence, watchdog, and startup
+mechanisms. A bare-metal or RTOS-backed clock is a composition choice; it does not
+change common PLC scheduling. The first reference board is NUCLEO-F401RE; the
+provisional second target is ESP32-C6. Neither is qualified by this specification
+update. Current hosted behavior remains authoritative until the corresponding
+planned profile is implemented and validated.
 
 ### 6. Runtime Components
 
 #### 6.1 Executor
 
-Interprets compiled ST bytecode. Operates on the process image. Pure computation with no platform dependencies.
+Executes compiled ST bytecode against runtime variable/instance storage and the
+I/O process image. The current hosted VM has a stack path and an optimized
+register-IR/tier-1 path; both use shared value operations, budgets, and error
+contracts. Current host ownership, allocation, and timing dependencies are not
+proof of portable or allocation-free execution.
 
-**Design decisions:**
-- Stack-based bytecode VM (simpler than register-based)
-- No heap allocation during execution (predictable timing)
-- All state in process image (inspectable, serializable)
+The planned portable engine preserves those semantics and supported optimized
+execution while separating immutable prepared metadata from mutable state.
+Allocation-free control paths are an acceptance requirement for the bounded
+profiles in specification 34, including fault/first-use paths. They are not a
+claim about every existing hosted execution path, and all PLC state is not
+required to reside inside the byte-oriented I/O image.
 
 #### 6.2 Task Manager (Resource Scheduler)
 
@@ -227,6 +245,14 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 
 ##### Task readiness and overrun accounting
 
+**A1 implementation:** the nominal-deadline rule below is implemented in source under
+[specification 34 Scope A, A1](34-runtime-portability.md#131-first-implementation-scopes)
+before its first validation batch and accepted scheduler baseline. The pre-A1 code used the
+sampled-time baseline; validation status remains in the portability checklist.
+Source implementation is not validation evidence. IEC 61131-3 Ed.3 §6.8.2(b) requires
+periodic scheduling at the specified interval; §6.8.2 permits implementation-specific
+interval resolution and execution later than the scheduled instant.
+
 For each scheduler sample, the portable readiness boundary observes one
 `SINGLE` value and one logical `now`. A FALSE-to-TRUE `SINGLE` transition makes
 the task due at `now`, updates the saved edge state, and does not advance the
@@ -237,39 +263,61 @@ IEC task configuration uses zero for disabled periodic scheduling and a
 positive duration for periodic scheduling; a negative portable metadata value
 is conservatively treated as disabled. (IEC 61131-3 Ed.3 section 6.8.2 a-b.)
 
-With `SINGLE` FALSE and a positive interval, a task is not due until `now` is
-at least `last_run + interval`. A backward logical-clock sample does not move
-`last_run`, create an overrun, or make the task due; periodic readiness resumes
-only when a later sample reaches the next deadline relative to the unchanged
-baseline. When exactly one interval is due, the returned due time is that
-nominal deadline, the missed-interval count is zero, and `last_run` advances to
-the sampled `now`.
+Task registration records the current logical time as the initial periodic
+baseline. After a periodic activation, `last_run` denotes the latest nominal
+deadline accounted for, not the sampled execution time. With `SINGLE` FALSE and
+a positive interval, a task is not due until `now` is at least
+`last_run + interval`. A backward logical-clock sample does not move `last_run`,
+create an overrun, or make the task due; periodic readiness resumes only when a
+later sample reaches the next deadline relative to the unchanged baseline.
+When exactly one interval is due, the returned due time is that nominal
+deadline, the missed-interval count is zero, and `last_run` advances to that
+deadline. A late sample does not move later deadlines: the task is selected in
+the first cycle sampled at or after its deadline and executes in that cycle's
+normal priority order, subject to the existing fault/STOP policy.
 
 If a forward jump spans `n > 1` complete intervals, the scheduler emits one
 activation rather than replaying work. Its due time remains the first nominal
 deadline, the per-sample missed count is `n - 1`, the cumulative overrun count
-adds that value with saturation, and `last_run` advances to `now`. Deadline
-addition also saturates at the representable signed-nanosecond bound. Event
+adds that value with saturation, and `last_run` advances to the last nominal
+deadline at or before `now`: the first due deadline plus `n - 1` intervals.
+Equivalently, with the previous baseline `b`, compute
+`n = saturating_sub(now, b) / interval` and set
+`last_run = saturating_add(b, saturating_mul(n, interval))` when periodic work
+is due. Deadline arithmetic saturates at the representable signed-nanosecond
+bound. Missed activations are dropped, counted, and never replayed. Event
 readiness never changes those periodic counters. These due-time and accounting
 rules are truST bookkeeping beyond the IEC task-trigger definition; they make
 host-pause, simulation, and test-clock behavior deterministic. They are
 specified here as a truST runtime contract, not as an IEC deviation.
+
+For a task registered at 0 ms with a 25 ms interval and samples exactly every
+10 ms, nominal deadlines 25, 50, 75 and 100 ms produce activations at 30, 50,
+80 and 100 ms. The periodic baseline becomes 25, 50, 75 and 100 ms respectively;
+no interval is missed. This preserves the configured mean period instead of
+the pre-A1 sampled-time implementation's 30 ms period. The sampling lateness
+bound applies to this fixed-grid case; actual task start and completion also
+depend on load, priority and platform delays.
 
 ##### Resource-runner cycle transaction
 
 One resource tick samples the current injected clock and task inputs, then
 executes each due periodic or rising-edge event program once in the
 deterministic scheduler order. In the reviewed combined case, the initial
-zero-time tick executes neither program, the ten-millisecond tick executes the
-periodic program and one rising-edge event activation, and the following
-ten-millisecond tick executes only the periodic program after the event input
-falls.
+zero-time tick executes neither program, the tick at 10 ms executes the
+10 ms periodic program and one rising-edge event activation, and the tick at
+20 ms executes only the periodic program after the event input falls. These
+exact-deadline observations are unchanged by the baseline correction.
 
 A backward manual-clock sample does not replay periodic work or create an
 overrun. A later sample that reaches the next deadline resumes from the
 unchanged periodic baseline. A forward jump spanning multiple complete
 intervals executes the periodic program once and records the remaining
-intervals as missed, as defined by the readiness contract above.
+intervals as missed, as defined by the readiness contract above. Under the
+nominal-deadline rule, a 10 ms task first sampled at 35 ms reports due time 10 ms,
+one activation and two missed intervals, advances its baseline to 30 ms, and
+is next due at 40 ms. The pre-A1 sampled-time implementation instead advanced
+that baseline to 35 ms and is next due at 45 ms.
 
 If due task execution returns an error, the tick returns that typed error and
 latches the runtime fault state. A later tick rejects as
@@ -4116,6 +4164,18 @@ control response before it signals the resource stop. The stop signal remains
 part of the accepted request and is applied immediately after the response
 write attempt; process teardown must not race the operator-visible
 acknowledgement off the control connection.
+
+After a valid shutdown acknowledgement, fleet stop confirmation probes may race
+process teardown. A connection reset, broken pipe, aborted connection, empty
+EOF, or transport read/write timeout is inconclusive during this confirmation
+only: it consumes the existing bounded polling budget without resending
+shutdown. A subsequent connection failure confirms `stopped` and removes the
+advisory PID; an accepted status response still means reachable. If confirmation
+exhausts its budget, return `stopping` and retain the PID rather than claiming
+success. Authentication failures, malformed or oversized responses, wrong IDs,
+and configuration errors remain errors, including after acknowledgement.
+Ordinary status and the initial stop probe retain their existing strict error
+behavior. A transport interruption alone never proves a completed stop.
 
 `status` and `logs` are read-only and do not create `.trust-runtime` state when
 it is absent. Log tailing retains only the requested final lines in memory

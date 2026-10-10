@@ -9,6 +9,7 @@ purpose = "Direct inventory of current pull-request jobs and their gate-script h
 duration_class = "medium"
 environment = "github_matrix"
 commands = [
+  "workflow job .github/workflows/ci.yml#portable-core",
   "workflow job .github/workflows/ci.yml#fmt",
   "workflow job .github/workflows/ci.yml#clippy",
   "workflow job .github/workflows/ci.yml#test",
@@ -26,6 +27,7 @@ commands = [
   "workflow job .github/workflows/verification-gate.yml#verification-report",
 ]
 command_bindings = [
+  "GATE_JOB_CI_PORTABLE_CORE",
   "GATE_JOB_CI_FMT",
   "GATE_JOB_CI_CLIPPY",
   "GATE_JOB_CI_TEST",
@@ -52,6 +54,7 @@ inventory_ids = [
   "GATE_JOB_CI_FMT",
   "GATE_JOB_CI_MP001_PARITY",
   "GATE_JOB_CI_MSRV",
+  "GATE_JOB_CI_PORTABLE_CORE",
   "GATE_JOB_CI_SUPPLY_CHAIN",
   "GATE_JOB_CI_TEST",
   "GATE_JOB_CI_VSCODE_EXTENSION",

@@ -58,8 +58,8 @@ INJECTION_MECHANISMS = ("ordinary_input", "test_harness", "external_harness")
 DISCOVERY_SOURCE_KINDS = ("rust_integration_test", "rust_unit_test")
 RESTART_SOURCE_AUTHORITIES = SOURCE_AUTHORITIES - {"public_claim"}
 ALLOCATION_REQUIRED_TEXT = (
-    "dynamic allocation in hot path",
-    "No heap allocation during execution",
+    "Allocation-free control paths are an acceptance requirement for the bounded",
+    "profiles in specification 34, including fault/first-use paths",
 )
 
 ROOT_FIELDS = {
