@@ -204,3 +204,30 @@ coordinate one consolidated exact-SHA guard plus the same focused report/proof
 supplement and advisory metadata check. Keep all unchanged batch-1 supplemental
 proof. A4 owns the builder while this correction is prepared; no new validation
 has run for the restored metadata.
+
+## Third integration batch and current-proof lifecycle correction
+
+Candidate `4f5a8fb1b06ab863ec20261fba6bdeea62dc6ebb` passed its complete exact-SHA
+guard: 8,392 native/doc tests, zero failed, 24 ignored; 519 VS Code tests;
+MP-001 and final clean-tree checks. The historical contract digest errors are
+resolved. The focused supplement again passed 45 tests but left 18 report tests
+unrun because current invariant promotion still claimed `implemented` / `G1`
+using only historical proof. Advisory metadata reported the same lifecycle error.
+All commands and failures are retained under `run-3/`; no push occurred.
+
+The complete source audit now covers invariant validation, promotion evidence,
+seed lifecycle, catalog/evidence references, semantic digest projection and the
+mutation report's full-validator prerequisite. Existing schema supports the honest
+current state: `RT_SAFE_IO_001` becomes `gap_open` / `S0`, with
+`current_targeted_contract_proof` explicitly missing. Its implementation, native
+assertions, behavior, coverage statements, written oracle and historical evidence
+remain intact. The seed remains `execution_ready`, catalog entries remain mapped,
+and no gate, test or validator is weakened. These lifecycle fields are excluded
+from semantic digests, so the current case contract and static pins are unchanged.
+This is a proof-status correction, not a product defect or new specification gap.
+
+The successful broad native suite is recorded above; it is not relabeled as a
+new targeted provenance measurement. After concrete independent review, commit
+this complete lifecycle correction and coordinate one exact-SHA guard with the
+same focused report/proof supplement and advisory validator. Keep the unchanged
+passing batch-1 supplementary proof. No validation has run on this correction.

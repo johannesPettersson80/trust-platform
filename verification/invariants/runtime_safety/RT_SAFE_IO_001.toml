@@ -3,11 +3,13 @@ id = "RT_SAFE_IO_001"
 title = "Device work remains outside the scan-cycle critical path"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "implemented"
+# Implementation and native assertions exist; historical evidence does not
+# establish targeted proof for the current contract.
+status = "gap_open"
 owner = "trust-runtime"
 last_reviewed = "2026-07-14"
 claim = "Slow device and protocol work must not block the scan-cycle critical path."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/io", "crates/trust-runtime/src/runtime"]
 tests = [
@@ -22,7 +24,7 @@ evidence_refs = [
   "EVID_TEST_RUNTIME_IO_BOUND_TRACE_001_LOCK_BASELINE",
   "EVID_TEST_RUNTIME_IO_BOUND_TRACE_001_LOCK_COMPARE",
 ]
-missing = ["non_modbus_slow_device_matrix", "hardware_lab_latency"]
+missing = ["current_targeted_contract_proof", "non_modbus_slow_device_matrix", "hardware_lab_latency"]
 
 [spec]
 status = "specified"

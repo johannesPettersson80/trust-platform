@@ -9,16 +9,16 @@ it does not create additional product requirements. Existing closed extraction b
 
 | Field | Recorded state |
 |---|---|
-| Updated | A2 integration batch 2 finished, 10 October 2026. Exact-SHA guard passed; one required supplemental setup error remains. Original-proof restoration is prepared, not validated. |
-| Checkout | `/home/johannes/projects/trust-platform-portability-a2-integration`, branch `integrate/runtime-portability-a2`, candidate `e01c9250820c21852f960dcb14479a872ed64005` on released main `258fe24b8c3706d566f5f05c25cfcd75e5b297c3`, with the metadata/documentation correction described below. Original A2 commit `9f62fd09181c222ae6f8802128600708e3a304ea` and evidence are preserved. |
+| Updated | A2 integration batch 3 finished, 10 October 2026. Exact-SHA guard passed; one required supplemental setup error remains. Current-proof lifecycle correction is prepared, not validated. |
+| Checkout | `/home/johannes/projects/trust-platform-portability-a2-integration`, branch `integrate/runtime-portability-a2`, candidate `4f5a8fb1b06ab863ec20261fba6bdeea62dc6ebb` on released main `258fe24b8c3706d566f5f05c25cfcd75e5b297c3`, with the metadata/documentation correction described below. Original A2 commit `9f62fd09181c222ae6f8802128600708e3a304ea` and evidence are preserved. |
 | Bootstrap | Canonical AGENTS.md and complete skills manually copied from `/home/johannes/projects/trust-platform`; 21-file local/builder parity verified before the frozen batch. |
 | Authorization | User authorized agent-led A1 then A2 integration, review, validation, push, guarded merge and release, including necessary reviewed correction cycles. Complete each correction before one consolidated batch; no piecemeal tests, unreviewed reruns or bypasses. |
 | Scope | Full shared 1.x loader/validator/container/metadata/serialization; hosted compatibility preserved. STBC 2.0, executable preparation and board execution remain later work. |
-| Status | Candidate e01c92508 guard passed: 8,392 native/doc tests, 519 VS Code tests, MP-001 and final clean. Focused supplement passed 45 tests but report-class setup failed, leaving 18 tests unrun. No push. |
+| Status | Candidate 4f5a8fb1b guard passed: 8,392 native/doc tests, 519 VS Code tests, MP-001 and final clean. Focused supplement passed 45 tests but report-class setup failed, leaving 18 tests unrun. No push. |
 | Source identity | Historical run-8 frozen 252-record manifest SHA-256 `3415c33e97675a74840273f472c006ab01888aa45815593d57367430887c7815`; integration candidate and new correction are recorded separately in the release integration note. |
-| Limitations | Historical I/O contract digests had been rewritten after their recorded measurements. Restoring the two original digests is prepared; further proof remains required. MCU checks do not establish firmware or hardware execution. |
+| Limitations | Historical I/O contract digests are restored and validated. Current invariant promotion still incorrectly claims targeted proof from historical-only evidence; gap_open/S0 with an explicit current-proof obligation is prepared. MCU checks do not establish firmware or hardware execution. |
 | Integration | A1 PR #130 merged as 258fe24b8 and v0.24.71 is fully released. A2 version is 0.24.72. Batch-1 portable/32-bit/MCU/TLS/Windows-LSP/diagram/strict-docs proof remains unchanged and passing. |
-| Next action | Independently review restoration of the two original measured proof-contract digests and these records; commit, coordinate the builder slot, then run one consolidated exact-SHA guard plus focused report/proof tests and advisory metadata. Preserve all failed evidence. |
+| Next action | Independently review the complete current-proof lifecycle correction and these records; commit, coordinate the builder slot, then run one consolidated exact-SHA guard plus focused report/proof tests and advisory metadata. Preserve all failed evidence. |
 
 Current plan SHA-256: `2a896118b750ca0a0e840d3aa9a2712f53e092f1fc8c40273cb1753bbc8fcb8d`.
 
