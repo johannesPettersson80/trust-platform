@@ -74,6 +74,7 @@ impl TokenKind {
                 | Self::KwRef
                 | Self::KwRefTo
                 | Self::KwReference
+                | Self::KwRefBind
                 | Self::KwTo
                 | Self::KwExtends
                 | Self::KwImplements

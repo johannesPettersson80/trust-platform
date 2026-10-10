@@ -22,6 +22,7 @@ macro_rules! for_each_token_kind {
             Assign,
             Arrow,
             RefAssign,
+            KwRefBind,
             Eq,
             Neq,
             Lt,

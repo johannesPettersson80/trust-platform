@@ -358,11 +358,14 @@ impl Parser<'_, '_> {
         self.parse_expression();
 
         if is_assign {
-            if self.at(TokenKind::Assign) || self.at(TokenKind::RefAssign) {
+            if self.at(TokenKind::Assign)
+                || self.at(TokenKind::RefAssign)
+                || self.at(TokenKind::KwRefBind)
+            {
                 self.bump();
                 self.parse_expression();
             } else {
-                self.error("expected := or ?=");
+                self.error("expected :=, ?= or REF=");
             }
         }
 

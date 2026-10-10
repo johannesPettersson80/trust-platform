@@ -36,6 +36,26 @@ fn reference_parser_rejects_reference_to_without_target_type() {
 }
 
 #[test]
+fn reference_parser_accepts_ref_bind_assignment() {
+    assert_reference_parses("PROGRAM P\nVAR x : INT; r : REFERENCE TO INT; END_VAR\nr REF= x;\nEND_PROGRAM");
+}
+
+#[test]
+fn reference_parser_accepts_ref_bind_between_references() {
+    assert_reference_parses("PROGRAM P\nVAR r1 : REF_TO INT; r2 : REF_TO INT; END_VAR\nr2 REF= r1;\nEND_PROGRAM");
+}
+
+#[test]
+fn reference_parser_accepts_ref_bind_null() {
+    assert_reference_parses("PROGRAM P\nVAR r : REF_TO INT; END_VAR\nr REF= NULL;\nEND_PROGRAM");
+}
+
+#[test]
+fn reference_parser_rejects_ref_bind_without_source() {
+    assert_reference_rejected("PROGRAM P\nVAR r : REF_TO INT; END_VAR\nr REF= ;\nEND_PROGRAM");
+}
+
+#[test]
 fn reference_parser_accepts_pointer_to_elementary_type() {
     assert_reference_parses("PROGRAM P\nVAR p : POINTER TO INT; END_VAR\nEND_PROGRAM");
 }

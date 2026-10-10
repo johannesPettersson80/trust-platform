@@ -592,3 +592,43 @@ END_PROGRAM
 "#,
     );
 }
+
+#[test]
+fn test_ref_bind_rebinds_to_variable_storage() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR x : INT; y : INT; r1 : REF_TO INT; r2 : REF_TO INT; END_VAR
+    r1 REF= x;
+    r2 REF= r1;
+    r1 REF= NULL;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_ref_bind_rejects_value_target() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REF_TO INT; END_VAR
+    x REF= r;
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
+#[test]
+fn test_ref_bind_rejects_computed_source() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REF_TO INT; END_VAR
+    r REF= x + 1;
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}

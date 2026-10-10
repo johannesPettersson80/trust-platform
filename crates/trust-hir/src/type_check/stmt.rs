@@ -12,3 +12,9 @@ fn assignment_is_ref(node: &SyntaxNode) -> bool {
         .filter_map(|e| e.into_token())
         .any(|token| token.kind() == SyntaxKind::RefAssign)
 }
+
+fn assignment_is_ref_bind(node: &SyntaxNode) -> bool {
+    node.children_with_tokens()
+        .filter_map(|e| e.into_token())
+        .any(|token| token.kind() == SyntaxKind::KwRefBind)
+}

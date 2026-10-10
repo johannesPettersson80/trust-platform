@@ -10,7 +10,7 @@ The ST language statements are:
 
 | Category | Statements |
 |----------|------------|
-| Assignment | `:=`, `?=` |
+| Assignment | `:=`, `?=`, `REF=` (vendor extension) |
 | Call | Function, Function Block, Method |
 | Control | `RETURN` |
 | Selection | `IF...THEN...END_IF`, `CASE...OF...END_CASE` |
@@ -89,6 +89,32 @@ Checks if assignment is valid (for interface references). If the instance implem
 - Assignment attempt may store `NULL`; callers must test before dereference.
   A null dereference reports a runtime error before the target statement makes
   any write.
+
+### Reference Rebinding (`REF=` vendor extension)
+
+```
+refInt REF= someInt;
+refA REF= refB;
+refInt REF= NULL;
+```
+
+CODESYS-style reference rebinding is accepted as a vendor extension. `REF=`
+rebinds which storage a `REFERENCE TO` variable denotes; it never copies the
+pointed-to value and never performs the `?=` checked-copy fallback.
+
+**Rules**:
+- The left side of `REF=` must be a `REFERENCE TO` variable. Applying `REF=`
+  to a value or to a `POINTER TO` target is a compile-time error.
+- `ref REF= variable` rebinds `ref` to the storage of `variable`; the source
+  must be a valid assignment lvalue and must not be `CONSTANT`-qualified.
+  Pointer notation: `ref := REF(variable)`.
+- `ref1 REF= ref2` rebinds `ref1` to the same storage as `ref2`; the two
+  reference target types must be compatible in either direction.
+- `ref REF= NULL` (or the integer literal `0`) clears the reference; the
+  variable is invalid until it is rebound.
+- `REF=` follows the ordinary assignment-statement guards for its target
+  (constant and accessibility checks); it is not accepted as a declaration
+  initializer in this profile.
 
 ## 3. Call Statements (Section 7.3.3.2.4)
 

@@ -494,6 +494,7 @@ END_TYPE
 | 3 | Null check | `ref = NULL` | Check if reference is null |
 | 4 | Assignment | `ref := REF(var)` | Assign reference |
 | 5 | Assignment attempt | `ref ?= other_ref` | Attempt to assign reference; result may be `NULL` |
+| 6 | Rebinding | `ref REF= value` (vendor extension) | Rebind reference to `value`'s storage; see `06-statements.md` |
 
 **Example**:
 ```

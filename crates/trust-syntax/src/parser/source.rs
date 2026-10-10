@@ -125,7 +125,7 @@ impl<'t, 'src> Source<'t, 'src> {
                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),
                 TokenKind::LBracket => bracket_depth += 1,
                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),
-                TokenKind::Assign | TokenKind::RefAssign
+                TokenKind::Assign | TokenKind::RefAssign | TokenKind::KwRefBind
                     if paren_depth == 0 && bracket_depth == 0 =>
                 {
                     return true;
