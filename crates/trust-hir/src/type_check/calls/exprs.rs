@@ -15,6 +15,15 @@ impl<'a, 'b> CallChecker<'a, 'b> {
 
         let base_type = self.checker.expr().check_expression(&children[0]);
         let resolved_base = self.checker.resolve_alias_type(base_type);
+        // CODESYS-style reference auto-deref: indexing a reference to an
+        // array/string indexes the referenced value.
+        let (base_type, resolved_base) = match self.checker.symbols.type_by_id(resolved_base) {
+            Some(Type::Reference { target }) => {
+                let deref_type = *target;
+                (deref_type, self.checker.resolve_alias_type(deref_type))
+            }
+            _ => (base_type, resolved_base),
+        };
         let index_count = children.len().saturating_sub(1);
         let mut index_exprs = Vec::new();
 
@@ -168,6 +177,16 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                 .checker
                 .suppressed_type_outcome(DiagnosticCode::CannotResolve, base.text_range());
         }
+
+        // CODESYS-style reference auto-deref: member access on a reference
+        // resolves against the referenced type.
+        let (base_type, resolved_base) = match self.checker.symbols.type_by_id(resolved_base) {
+            Some(Type::Reference { target }) => {
+                let deref_type = *target;
+                (deref_type, self.checker.resolve_alias_type(deref_type))
+            }
+            _ => (base_type, resolved_base),
+        };
 
         if let Some(ty) = self.checker.symbols.type_by_id(resolved_base) {
             match ty {

@@ -235,6 +235,9 @@ impl<'a> TypeChecker<'a> {
                     return None;
                 }
                 let base_type = self.expr().check_expression(&children[0]);
+                // Reference auto-deref keeps target resolution (and with it
+                // accessibility/constant checks) working through references.
+                let base_type = self.deref_reference_type(base_type);
                 let Some(field_name) = self.resolve_ref().get_name_from_ref(&children[1]) else {
                     return self.resolve().resolve_lvalue_root(node);
                 };

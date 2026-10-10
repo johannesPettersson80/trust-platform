@@ -78,6 +78,16 @@ impl<'a> TypeChecker<'a> {
         )
     }
 
+    /// CODESYS-style auto-dereference: a `REFERENCE TO T` in value position
+    /// denotes `T`. Pointers are deliberately excluded.
+    pub(super) fn deref_reference_type(&self, type_id: TypeId) -> TypeId {
+        let resolved = self.resolve_alias_type(type_id);
+        match self.symbols.type_by_id(resolved) {
+            Some(Type::Reference { target }) => *target,
+            _ => type_id,
+        }
+    }
+
     pub(crate) fn is_assignable(&self, target: TypeId, source: TypeId) -> bool {
         let target = self.resolve_alias_type(target);
         let source = self.resolve_alias_type(source);
@@ -174,6 +184,22 @@ impl<'a> TypeChecker<'a> {
 
             // NULL assignment to references/pointers
             (Type::Pointer { .. } | Type::Reference { .. }, Type::Null) => true,
+
+            // CODESYS reference copy-through: with exactly one reference side,
+            // the reference denotes the referenced value. Reference-to-
+            // reference above rebinds; `REF=` rebinds explicitly.
+            (Type::Reference { target: tt }, source) => {
+                let Some(deref) = self.symbols.type_by_id(self.resolve_alias_type(*tt)) else {
+                    return false;
+                };
+                self.types_compatible(deref, source)
+            }
+            (target, Type::Reference { target: ts }) => {
+                let Some(deref) = self.symbols.type_by_id(self.resolve_alias_type(*ts)) else {
+                    return false;
+                };
+                self.types_compatible(target, deref)
+            }
 
             // Interface assignment compatibility
             (Type::Interface { .. }, Type::Null) => true,
