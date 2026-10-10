@@ -17,8 +17,8 @@ DEFAULT_JSON_PATH = Path("target/gate-artifacts/verification/mutation-survivor-r
 DEFAULT_MARKDOWN_PATH = Path("target/gate-artifacts/verification/mutation-survivor-report.md")
 SCOPE = {
     "mutation_basis": "six_exact_focused_shards_and_seven_single_file_selectors",
-    "measured_basis": "validated_bytecode_pilot_and_four_source_execution_artifacts",
-    "planned_basis": "connector_selector_binding_without_delivered_execution",
+    "measured_basis": "active_selector_execution_artifacts",
+    "planned_basis": "active_selectors_without_matching_execution_artifacts",
     "survivor_basis": "derived_survived_outcomes_with_resolved_durable_action",
     "coverage_basis": "zero_runs_no_fabricated_percentage",
 }
@@ -32,7 +32,7 @@ BOUNDARIES = {
     "ci_enforcement_changed": False,
 }
 LIMITATIONS = (
-    "The bytecode-validator pilot and four source-only shards are measured; the connector-projection shard remains planned with an empty result array.",
+    "Only artifacts matching active selectors contribute measured results; the historical bytecode pilot does not measure the relocated validator. Planned shards have empty result arrays.",
     "Report generation resolves selectors but executes no mutation or coverage command; source outcomes come only from separately committed clean-HEAD execution artifacts.",
     "Caught and survived are derived from raw build/test exit and timeout fields; infrastructure failures are errors and cannot count as caught or unviable.",
     "Associated scanner and case identities are traceability labels, not claims that a specific test or blocked case killed a mutant.",
@@ -129,8 +129,8 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
         f"Generated JSON SHA-256: `{json_digest}`",
         f"Input SHA-256: `{payload['input_digest']}`",
         "",
-        "This report separates five validated measured shards from one planned connector",
-        "shard. It creates no proof, invariant coverage, spec-gap closure, release",
+        f"This report separates {summary['measured_shards']} measured shards from {summary['planned_shards']} planned shards.",
+        "It creates no proof, invariant coverage, spec-gap closure, release",
         "evidence, product behavior, or CI enforcement change.",
         "",
         "## Summary",

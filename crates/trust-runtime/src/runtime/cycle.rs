@@ -361,8 +361,8 @@ impl Runtime {
             return Ok(());
         }
         let module = self.build_vm_module()?;
-        module.validate().map_err(error::RuntimeError::from)?;
-        let vm_module = Arc::new(super::vm::VmModule::from_bytecode(&module)?);
+        let validated = module.validated().map_err(error::RuntimeError::from)?;
+        let vm_module = Arc::new(super::vm::VmModule::from_validated(&validated)?);
         self.vm_module = Some(vm_module);
         Ok(())
     }

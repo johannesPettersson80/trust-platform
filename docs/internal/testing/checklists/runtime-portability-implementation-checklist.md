@@ -9,20 +9,53 @@ it does not create additional product requirements. Existing closed extraction b
 
 | Field | Recorded state |
 |---|---|
-| Updated | A1 integration batch 3 passed all tests and gates except exact-SHA final cleanliness: two formatter line wraps. Corrections copied back for review; no runtime/assertion failure. |
-| Plan | Specification 34 v0.10; SHA-256 recorded below. A2 and A3 are separately committed; A4 is under development in another worktree. |
-| Checkout | Release candidate: `/home/johannes/projects/trust-platform-portability-a1-integration`, branch `integrate/runtime-portability-a1`, rebased onto main `ecbcb08ddd12360d057c8e25b6502b9f9d6772c3`. Original A1 and A2 worktrees and evidence are preserved. Canonical rules come from `/home/johannes/projects/trust-platform`, manually copied and byte-verified. |
-| Working tree | Preparing the final formatter-output correction after b703482be. All 8,326 native tests, 519 VS Code tests and strict documentation checks passed; the guard requires a new clean committed SHA. Canonical final-preparation guidance is included. |
-| Authorization | User authorized agents to continue integration, push and merge using the lessons from #129. Implementation/review precede each consolidated batch; collect every reachable failure before correction, and never retry automatically. A failed integration batch needs applicable integration retry authorization; A3-specific approval does not apply. |
-| Scheduling amendment | SCHED-05 passed historical A1 run 3, including 25 ms / 10 ms with 40 activations and zero overruns. A4 fixture execution remains later work. |
-| Active scope | A1 release integration, then A2 in a separate candidate. No A4 work. |
-| Last accepted implementation gate | Historical A1 scope run 3; integration batch 3 behavioral proof passes after two formatter wraps, but its exact-SHA artifact fails final cleanliness. Current committed release-candidate proof remains required. |
-| Next action | Review copied-back formatter output and the authorized final-preparation skill amendment, commit the corrected candidate, then run one consolidated exact-SHA follow-up after A4 releases the builder slot. The user explicitly authorized necessary reviewed correction/validation cycles; no piecemeal checks or guard bypass. Push and merge only after required passing proof. |
-| Extraction baseline | Rust 1.95.0, edition 2021, resolver 2; floating-stable CI is a separate compatibility lane. Broad modernization remains U. |
-| Hardware | NUCLEO-F401RE USB enumeration previously confirmed. No firmware link, execution or physical qualification is claimed by A1. |
-| Open execution records | Historical scope runs 1/2 failed and run 3 passed. Release integration batch 1 failed, batch 2 passed at c1e0f68f9, PR #130 CI corrections passed batch 3, whose final clean check failed on formatter output; the release integration command map is in `docs/notes/runtime-portability/a1-release-integration.md`. |
+| Updated | A2 integration batch 3 finished, 10 October 2026. Exact-SHA guard passed; one required supplemental setup error remains. Current-proof lifecycle correction is prepared, not validated. |
+| Checkout | `/home/johannes/projects/trust-platform-portability-a2-integration`, branch `integrate/runtime-portability-a2`, candidate `4f5a8fb1b06ab863ec20261fba6bdeea62dc6ebb` on released main `258fe24b8c3706d566f5f05c25cfcd75e5b297c3`, with the metadata/documentation correction described below. Original A2 commit `9f62fd09181c222ae6f8802128600708e3a304ea` and evidence are preserved. |
+| Bootstrap | Canonical AGENTS.md and complete skills manually copied from `/home/johannes/projects/trust-platform`; 21-file local/builder parity verified before the frozen batch. |
+| Authorization | User authorized agent-led A1 then A2 integration, review, validation, push, guarded merge and release, including necessary reviewed correction cycles. Complete each correction before one consolidated batch; no piecemeal tests, unreviewed reruns or bypasses. |
+| Scope | Full shared 1.x loader/validator/container/metadata/serialization; hosted compatibility preserved. STBC 2.0, executable preparation and board execution remain later work. |
+| Status | Candidate 4f5a8fb1b guard passed: 8,392 native/doc tests, 519 VS Code tests, MP-001 and final clean. Focused supplement passed 45 tests but report-class setup failed, leaving 18 tests unrun. No push. |
+| Source identity | Historical run-8 frozen 252-record manifest SHA-256 `3415c33e97675a74840273f472c006ab01888aa45815593d57367430887c7815`; integration candidate and new correction are recorded separately in the release integration note. |
+| Limitations | Historical I/O contract digests are restored and validated. Current invariant promotion still incorrectly claims targeted proof from historical-only evidence; gap_open/S0 with an explicit current-proof obligation is prepared. MCU checks do not establish firmware or hardware execution. |
+| Integration | A1 PR #130 merged as 258fe24b8 and v0.24.71 is fully released. A2 version is 0.24.72. Batch-1 portable/32-bit/MCU/TLS/Windows-LSP/diagram/strict-docs proof remains unchanged and passing. |
+| Next action | Independently review the complete current-proof lifecycle correction and these records; commit, coordinate the builder slot, then run one consolidated exact-SHA guard plus focused report/proof tests and advisory metadata. Preserve all failed evidence. |
 
-Plan SHA-256: `987906bb48da97fe4a021c6b1a354120129024356124b628695b0bea82d52f66` (the public-source links were made usable from both repository and published documentation; after run 3 the header was reformatted without trailing whitespace and the security-update paragraph reworded for the rebase; run 3 tested `9a8912f9e2a23387dc9445362098d5890bd539d5ff8c9b73bf1be89e55ab1356`, as the frozen manifest records).
+Current plan SHA-256: `2a896118b750ca0a0e840d3aa9a2712f53e092f1fc8c40273cb1753bbc8fcb8d`.
+
+A1 historical evidence remains in `docs/notes/runtime-portability/a1-execution.md`.
+A2 evidence and full failure history: [execution record](../../../notes/runtime-portability/a2-execution.md).
+Current integration decisions and deduplicated command map: [release integration](../../../notes/runtime-portability/a2-release-integration.md).
+
+Historical pre-run-4 correction review: 116 source/config/spec/diagram paths, SHA-256
+`30ec65ad4ae1827fb9cab98e561e737cf711260fe2ff24bbfd6765d482f98008`
+(sorted path/NUL/content-or-`<deleted>`/NUL; excludes evolving execution notes/checklist).
+That historical review does not certify the current post-run-4 corrections.
+Prepared batch command/script is recorded in the execution note. Checkboxes stay open until
+reviewed implementation and required evidence agree.
+
+## Expanded A2 review correction scope
+
+The owner explicitly requested all findings and recommendations implemented, including the larger
+refactors. This supersedes the initial suggestion to defer them. The expanded corrections are now verified through A2-R6/R7/R8;
+run-3 evidence remains historical for the original relocation.
+
+- [x] RTP-A2-R01: Commit-safe evidence, complete manifests, accurate status/format/target claims.
+- [x] RTP-A2-R02: Real bytecode modules and documented public API; hosted owned conversions,
+  public borrowed view and slice-bound lifetime; canonical shared pure test corpus and common helpers.
+- [x] RTP-A2-R03: One decoded instruction representation/context, structured rejections, remove
+  no-op/dead passes, preserve semantic checks and error precedence where required.
+- [x] RTP-A2-R04: Bound validator analysis storage/work; branch-entry stack states and native
+  adversarial-budget assertions; checked serializer/jump arithmetic and header/table exclusion.
+- [x] RTP-A2-R05: Validated borrowed marker required at host VM materialization, while later
+  profile admission/executable preparation remain A4; native positive and rejection tests.
+- [x] RTP-A2-R07: Document and regress LOAD_NULL instance ownership; index tables once, bound
+  lookup work, compact decoded instructions, share stack effects, remove validator panic paths,
+  and admit the maximum-instruction/reference scale fixture within default limits.
+- [x] RTP-A2-R06: Independent review of entire correction, then explicitly authorized consolidated
+  batch including 32-bit native execution, both MCU checks, host corpus/runtime vertical,
+  lint/format (including remaining touched fragments), architecture/diagrams and provenance checks.
+
+No new validation batch or commit/push is authorized by this scope record.
 
 ## How to use this checklist
 
@@ -94,13 +127,15 @@ items below organize implementation without replacing that contract.
 
 ### A2 — Shared loader and validator
 
-- [ ] RTP-A2-01: Relocate the complete container, decoder, validator and metadata materialization
+These items closed after reviewed corrections and A2-R6/R7/R8. Runs 1–3 certify only the historical relocation; failed runs 4–7 are retained, with subsequent passing evidence explicitly identified.
+
+- [x] RTP-A2-01: Relocate the complete container, decoder, validator and metadata materialization
   boundary into core with portable collections and the required locked CRC edge. Decide byte
   serialization ownership without moving compiler/HIR lowering into core; preserve host re-exports.
-- [ ] RTP-A2-02: Move the native assertions with their code; preserve 1.x decode/error behavior,
+- [x] RTP-A2-02: Move the native assertions with their code; preserve 1.x decode/error behavior,
   bounds, CRC and malformed-section cases. Author missing native rejection assertions where the
   owning contract requires them; raw or partly validated data must not become executable.
-- [ ] RTP-A2-03: Complete review and A2's batch against the relocated corpus and both target graphs.
+- [x] RTP-A2-03: Complete review and A2's batch against the relocated corpus and both target graphs.
   Saved 1.x parsing is not proof of source-free state construction or 2.0 execution.
 
 ### A3 — STBC 2.0 format and producer
@@ -163,7 +198,7 @@ evidence run on their actual platforms; a Linux builder cannot substitute for th
 | Batch | Required native/build coverage |
 |---|---|
 | A1 | Separate `thumbv7em-none-eabihf` and `riscv32imac-unknown-none-elf` core checks/feature graphs; core tests including corrected readiness/case assertions and target layout assertions; `tasks` (draft late-sample and new 25 ms / 10 ms case), `scheduler_resource`; numeric/control/fault assertions; `runtime_core_behavior_lock`, `bytecode_vm_core`, `bytecode_vm_differential`; required runtime vertical. SCHED-05 shares this one final batch. |
-| A2 | Both isolated core targets; core/moved unit tests; `bytecode_container`, `bytecode_metadata`, `bytecode_decode_resource_bounds`, `bytecode_sections`, `bytecode_helpers`, `process_image`, `bytecode_validation`, `bytecode_optional_sections`; affected round-trip/VM behavior and runtime vertical. |
+| A2 | Both isolated core targets; core/moved unit tests; `bytecode_container`, `bytecode_metadata`, `bytecode_decode_resource_bounds`, `bytecode_sections`, `process_image`, `bytecode_validation`, `bytecode_optional_sections`; affected round-trip/VM behavior and runtime vertical. |
 | A3 | Both isolated core targets; core/format/version tests; A2 format corpus as affected plus `bytecode_encoder`, `bytecode_roundtrip`, `bytecode_verification_cases`; affected compiler/disassembler assertions and runtime vertical. |
 | A4 | Both isolated core targets, core tests, `runtime_core_compiler_free_load` (new, including the 25 ms / 10 ms trace), complete affected format corpus, `runtime_core_behavior_lock`, `bytecode_vm_core`, `bytecode_vm_differential`, `runtime_restart`, inherited `tasks` / `scheduler_resource` regressions, `vars_retain`, numeric/initializer cases and runtime vertical. |
 | Every changed runtime boundary | Runtime vertical = `api_smoke`, `debug_control`, `complete_program`, `runtime_reliability`; add `simulation_workflow` if simulation changes. Include architecture-doctor `--full-map`, affected diagrams/render/drift, formatting and lint. Deduplicate suites included by a required full gate. |
@@ -191,11 +226,11 @@ proof and this bookkeeping cannot invent product work or block it by itself.
 | Requirement | Implementation / qualification route | Evidence and state |
 |---|---|---|
 | ARCH-01 | A1–A4, B/E/H/C; QH/QF/QE | A1 partial: shared numeric/control and scheduler assertions pass (R3-N, R3-S); full artifact/platform parity remains open. |
-| ARCH-02 | A1–A4, B/E/H/C; QH/QF/QE | A1 partial: existing core extended without a platform fork (R3-B); shared loader/executor and adapters remain open. |
+| ARCH-02 | A1–A4, B/E/H/C; QH/QF/QE | A1 partial: existing core extended without a platform fork (R3-B); shared loader is now qualified in A2-R6/R7/R8; shared executor and adapters remain open. |
 | ARCH-03 | A1–A4, B/E/H/C; QH/QF/QE | A1 partial: core dependency boundary compiles on both targets (R3-B); complete execution-boundary extraction remains open. |
 | ARCH-04 | A1–A4, B/E/H/C; QH/QF/QE | A1 foundations only (R3-B/N); complete profile and platform claims remain open. |
 | ARCH-05 | C; QH/QF/QE | pending — open |
-| ARCH-06 | A2/A3/A4/C; QH/QF/QE | pending — open |
+| ARCH-06 | A2/A3/A4/C; QH/QF/QE | A2 partial: raw container and borrowed validated token are distinct types (A2-R6); preparation/admission and mutable execution-state separation remain A3/A4/C. |
 | ARCH-07 | B/E; QF/QE | pending — open |
 | ARCH-08 | A1/A4/H; QH | A1 partial: selected hosted regression corpus passes (R3-N/S); full hosted migration remains open. |
 | ARCH-09 | H; QH | pending — open |
@@ -204,15 +239,15 @@ proof and this bookkeeping cannot invent product work or block it by itself.
 | MODEL-02 | A2/A3/A4/H/C; QH/QF/QE | pending — open |
 | MODEL-03 | A2/A3/A4/H/C; QH/QF/QE | pending — open |
 | MODEL-04 | A2/A3/A4/H/C; QH/QF/QE | pending — open |
-| BUILD-01 | A1/A2/A4/H/U; QH/QF/QE | A1 core no-default graphs pass (R3-B); compiler-free loader/executor construction remains A2/A4. |
-| BUILD-02 | A1/A2/A4/H/U; QH/QF/QE | A1 graph/default-feature audit and independent target invocations pass (R3-B); repeat for later extracted components. |
-| BUILD-03 | A1/A2; U on modernization | A1 feature inheritance/host opt-ins and explicit no_std hasher implemented; portable_foundations and MCU checks pass (R3-B). A2 CRC/loader graph remains open. Narrow security exception is recorded in spec 34. |
-| BUILD-04 | A1/A2/A4/H/U; QH/QF/QE | Library checks/assembly pass (R3-B); firmware linkage, startup and hardware execution remain open. |
-| BUILD-05 | A1/A2/A4/H/U; QH/QF/QE | A1 uses shared libm/core code and inspected emitted assembly (R3-N); no platform semantic fork added. Later platform code remains open. |
-| BUILD-06 | A1/A2/A4/H/U; QH/QF/QE | A1 host std composition and selected regressions pass (R3-B/N); service extraction remains later work. |
+| BUILD-01 | A1/A2/A4/H/U; QH/QF/QE | A1/A2 no-default core compilation passes on F401/C6 (R3-B, A2-R6). Source-free engine construction remains A4. |
+| BUILD-02 | A1/A2/A4/H/U; QH/QF/QE | Separate F401/C6 library checks and no-dev feature graphs pass (A2-R6); host procedural-macro features are distinct from MCU library dependencies. |
+| BUILD-03 | A1/A2; U on modernization | A1 feature/map split preserved; locked portable CRC edge qualified in A2-R6. Toolchain/edition modernization remains U. |
+| BUILD-04 | A1/A2/A4/H/U; QH/QF/QE | A1 assembly and A2 library checks cover core target compilation only. Firmware link/startup/board execution remain B/E. |
+| BUILD-05 | A1/A2/A4/H/U; QH/QF/QE | Complete byte-oriented implementation and full validator are shared; both MCU graphs pass (A2-R6). Shared executor remains A4/H. |
+| BUILD-06 | A1/A2/A4/H/U; QH/QF/QE | Hosted API/format/runtime corpus and unit tests pass (A2-R6/R7/R8); compiler lowering remains hosted and product compositions remain H. |
 | BUILD-07 | A4/H; QH | pending — open |
 | BUILD-08 | H/U; QH | pending — open |
-| BUILD-09 | A1/A2/A3/A4; C for optional no-CAS | A1 F401/C6 graphs and CI lanes pass locally (R3-B); later graph and atomic-retirement gates remain open; no C3 qualification. |
+| BUILD-09 | A1/A2/A3/A4; C for optional no-CAS | F401/C6 no-default core builds pass (A2-R6). No C3/no-CAS or atomic-retirement qualification claimed. |
 | HOST-01 | A4/H/C; QH | pending — open |
 | HOST-02 | A4/H/C; QH | pending — open |
 | HOST-03 | A4/H/C; QH | pending — open |
@@ -226,13 +261,13 @@ proof and this bookkeeping cannot invent product work or block it by itself.
 | SCHED-03 | A4/H/C; QH/QF/QE | pending — open |
 | SCHED-04 | A4/H/C; QH/QF/QE | pending — open |
 | SCHED-05 | A1 fix/native evidence; A4 fixture; B/E/H/QH/QF/QE parity | A1 implementation and native validation complete (R3-S): 25 ms / 10 ms yields 40 activations and zero overruns. A4 saved fixture and B/E/H parity remain open. |
-| LOAD-01 | A2/A3/A4/C; QH/QF/QE | pending — open |
-| LOAD-02 | A2/A3/A4/C; QH/QF/QE | pending — open |
-| LOAD-03 | A2/A3/A4/C; QH/QF/QE | pending — open |
-| LOAD-04 | A2/A3/A4/C; QH/QF/QE | pending — open |
+| LOAD-01 | A2/A3/A4/C; QH/QF/QE | A2 partial: full portable 1.x decoding and task metadata pass without HIR, including native 32-bit execution (A2-R6). Fresh executable state remains A3/A4. |
+| LOAD-02 | A2/A3/A4/C; QH/QF/QE | Open: existing 1.x metadata handling is preserved (A2-R1); missing initializer/root construction metadata remains A3. |
+| LOAD-03 | A2/A3/A4/C; QH/QF/QE | A2 partial: header/range/struct-built overflow and rejection corpus passes on 32/64-bit hosts (A2-R6); profile capability admission remains later work. |
+| LOAD-04 | A2/A3/A4/C; QH/QF/QE | A2 analysis budget/index/CFG changes pass native exhaustion, peak-memory and maximum-instruction/reference fixtures (A2-R6). MCU preparation budgets and measurements remain C/QF/QE. |
 | LOAD-05 | A2/A3/A4/C; QH/QF/QE | pending — open |
 | LOAD-06 | A2/A3/A4/C; QH/QF/QE | pending — open |
-| LOAD-07 | A2/A3/A4/C; QH/QF/QE | pending — open |
+| LOAD-07 | A2/A3/A4/C; QH/QF/QE | Immutable borrowed validation token and compile-fail borrow assertion pass; host materializer consumes token (A2-R6/R7/R8). Prepared-module/profile admission remains A4. |
 | LOAD-08 | A2/A3/A4/C; QH/QF/QE | pending — open |
 | LOAD-09 | A2/A3/A4/C; QH/QF/QE | pending — open |
 | LOAD-10 | A3/A4; B/E/QH/QF/QE | pending — open |
@@ -309,11 +344,11 @@ proof and this bookkeeping cannot invent product work or block it by itself.
 | PERF-02 | A1/A4/B/E/U/H/C; QH/QF/QE | A1 host Value slot and target bounds recorded (R3-M); firmware sizes, stacks, memory regions and preparation/run peaks remain open. |
 | PERF-03 | A1/A4/B/E/U/H/C; QH/QF/QE | No physical latency/timing distribution measured in A1; logical-time tests are R3-S, not timing qualification. Requirement remains open. |
 | PERF-04 | A1/A4/B/E/U/H/C; QH/QF/QE | A1 reports bounded evidence and no speed/WCET claim (R3); performance acceptance remains open. |
-| TEST-01 | A2/A3/A4/B/E/H/C; QH/QF/QE | pending — open |
+| TEST-01 | A2/A3/A4/B/E/H/C; QH/QF/QE | A2 partial: portable/host malformed-container, range, jump and budget assertions pass (A2-R6/R8); deployment/rollback and full fuzz/mutation qualification remain open. |
 | TEST-02 | B/E/H/U/C; QH/QF/QE | pending — open |
 | TEST-03 | QH/QF/QE | pending — open |
 | TEST-04 | QH/QF/QE | pending — open |
-| TEST-05 | A2/A3/C; QH/QF/QE | pending — open |
+| TEST-05 | A2/A3/C; QH/QF/QE | A2 partial: portable/host malformed-container, range, jump and budget assertions pass (A2-R6/R8); deployment/rollback and full fuzz/mutation qualification remain open. |
 | MOD-01 | U; QH/QF/QE for changed tuples | pending — open |
 | MOD-02 | U; QH/QF/QE for changed tuples | pending — open |
 | MOD-03 | U; QH/QF/QE for changed tuples | pending — open |
@@ -323,6 +358,12 @@ proof and this bookkeeping cannot invent product work or block it by itself.
 | DESIGN-01 | A1–A4/B/E/U/H/C; QH/QF/QE | A1 source reviewed for simple shared collections/numeric/operand-context changes; no unresolved findings (R3-R). Later designs remain open. |
 | DESIGN-02 | A1–A4/B/E/U/H/C; QH/QF/QE | A1 preserves host type identity, coercion and fault assertions (R3-B/N); admission/generation/bounded-resource APIs remain open. |
 | DESIGN-03 | A1–A4/B/E/U/H/C; QH/QF/QE | A1 independent review, architecture and diagram checks pass (R3-R); later shared-engine/platform extraction remains open. |
+
+### A2 evidence keys
+
+A2-R1/R2/R3 (historical relocation only): [execution and failure record](../../../notes/runtime-portability/a2-execution.md), frozen manifest and full batch-1 logs. Runs 2 and 3 closed the original relocation gates only; subsequent corrections reopened A2 and are closed by A2-R6/R7/R8.
+
+A2-R4: [run-4 ledger](../../../notes/runtime-portability/a2-evidence/run-4-ledger.tsv) and [execution record](../../../notes/runtime-portability/a2-execution.md). Failed expanded correction batch; post-run-4 changes were unverified at that checkpoint, then qualified in A2-R6/R7/R8.
 
 ### A1 evidence keys
 
@@ -336,6 +377,9 @@ All R3 references identify the unchanged **tested source snapshot**, not a new v
 - **R3-R**: [review messages](../../../notes/runtime-portability/a1-evidence/review-record.md), architecture/diagram/CI check statuses in the run-3 ledger.
 
 ## Batch, review and failure record
+
+A2 batch 1 is retained as failed: 15 required PASS, 2 FAIL (Clippy, unnecessary architecture exemption), 2 UNRUN (diagrams/drift); advisory metadata failed. All 381 native assertions passed. Independent source review completed before the batch. Separately authorized run 2 closed lint/architecture/diagrams but failed three native artifact pins. Separately authorized run 3 passed 25 affected native tests and format/diff checks; the original relocation snapshot was verified, before the expanded corrections reopened A2. Full failures and reviewed corrections remain in A2-R1/R2/R3.
+
 
 Three explicitly authorized A1 batches ran. This table records their outcomes; the field list below remains the template for later scopes.
 
@@ -361,7 +405,7 @@ Historical document-setup evidence (superseded for A1 execution by the records a
 [research archive](../../../notes/runtime-portability/README.md) records v0.8 document consistency
 only. The v0.9 scheduling amendment was reviewed against the current sources, draft diff and
 IEC §6.8.2; v0.10 corrects its placement to A1 following the sequencing review. No validation
-batch, tests, generators or commits were run for either amendment. A2 and later implementation gates remain open; A1 subsequently passed run 3.
+batch, tests, generators or commits were run for either amendment. A2 and later implementation gates were open at that document checkpoint; A1 subsequently passed run 3 and A2 closed through A2-R6/R7/R8.
 
 ## Resume and goal use
 
@@ -376,6 +420,37 @@ Use one goal per authorized scope. Goals preserve an objective across turns; thi
 holds detailed progress and evidence across sessions/reviewers. A goal cannot waive scope, STOP,
 validation or publication rules. See [OpenAI's goal guidance](https://developers.openai.com/cookbook/examples/codex/using_goals_in_codex).
 
-A1 is complete, committed and rebased. The next step is the release-guard run after `fix/io-config-auth` lands, or a separately scoped A2 goal. Neither action is activated by this checklist.
+A2 expanded corrections are verified through A2-R6/R7/R8. Resume from the current checkpoint; no A3 or A2 commit/push is authorized. A1 publication and #129 integration are separate from A2 implementation.
 
-A1 accepted evidence: [execution record](../../../notes/runtime-portability/a1-execution.md) in the A1 implementation checkout; full logs/requirement audit are linked there. Three batches were explicitly authorized separately; none was an automatic retry. Checkmarks cover A1 only.
+A1 accepted evidence: [execution record](../../../notes/runtime-portability/a1-execution.md) in the A1 implementation checkout; full logs/requirement audit are linked there. Three batches were explicitly authorized separately; none was an automatic retry. That execution record covers A1 only; A2 checkmarks use the final A2-R6/R7/R8 allocation; earlier A2 records are historical.
+
+
+### Historical post-run-4 correction review checkpoint
+
+Latest external-review corrections are implemented and incrementally reviewed without running
+checks. The explicit [130-path manifest](../../../notes/runtime-portability/a2-evidence/pre-run-5-review-manifest.json)
+has SHA-256 `98670d41d8846c0200d4050933c24439d632779667cbb75691d5035f7b6992b9`;
+the independent reviewer reproduced its records and complete exclusion list. This is source
+review only, not a fresh all-file audit or test result. At that checkpoint A2 items remained open and run 5 awaited authorization. The subsequent
+authorizations and executed corrections are recorded below and in the final execution note.
+
+A2-R5: [complete stopped-run ledger](../../../notes/runtime-portability/a2-evidence/run-5-complete-ledger.tsv); source-freeze preparation failed before all native checks. It did not close A2; later A2-R6/R7/R8 did.
+
+
+### A2 final evidence keys
+
+- A2-R6: [ledger](../../../notes/runtime-portability/a2-evidence/run-6-ledger.tsv): core 204,
+  portable 53, i686 167 assertions pass; both MCU checks, no-dev graphs, supply chain,
+  architecture and rendered diagrams pass. Other failures preserved.
+- A2-R7: [ledger](../../../notes/runtime-portability/a2-evidence/run-7-ledger.tsv): runtime
+  unit 3,858 and tooling 102 assertions pass; Clippy/cross-target/metadata pass. Two failures retained.
+- A2-R8: [ledger](../../../notes/runtime-portability/a2-evidence/run-8-ledger.tsv): all nine
+  required steps pass; VM 44 assertions close the corrected NULL fixture; formatting complete.
+
+[Final execution record](../../../notes/runtime-portability/a2-execution.md) explains the
+passing union, exact identities and unrun later scopes. No single earlier failed batch is
+relabeled passed. Only evidence and closeout documents changed after the final source copy.
+
+The user subsequently authorized the local A2 commit and starting A3 on a separate branch.
+Shared release-guard parity files already owned by #129 are excluded from this A2 commit;
+they remain preserved locally and will be inherited through upstream integration.

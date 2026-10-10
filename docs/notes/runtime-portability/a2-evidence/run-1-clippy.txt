@@ -1,0 +1,42 @@
+[gate-progress state=started phase=A2-clippy target=scena-rust-builder pid=935088 elapsed=0.0s timeout=3600s command='cargo clippy --locked --all-targets --all-features -- -D warnings']
+    Checking trust-syntax v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-syntax)
+    Checking verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/verification-cases)
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime)
+    Checking tiverse-mmap v1.0.0 (/home/johannes/projects/trust-platform-portability-a2/third_party/tiverse-mmap)
+    Checking trust-tcads-native v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-tcads-native)
+    Checking xtask v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/xtask)
+    Checking trust-hir v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-hir)
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime-core)
+    Checking trust-ide v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-ide)
+    Checking trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-ads-core)
+    Checking trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-ads-server)
+    Checking trust-wasm-analysis v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-wasm-analysis)
+    Checking trust-plcopen v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-plcopen)
+[gate-progress state=running phase=A2-clippy target=scena-rust-builder pid=935088 elapsed=30.1s timeout=3600s command='cargo clippy --locked --all-targets --all-features -- -D warnings']
+    Checking trust-lsp v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-lsp)
+    Checking trust-debug v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-debug)
+    Checking trust-dev v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-dev)
+[gate-progress state=running phase=A2-clippy target=scena-rust-builder pid=935088 elapsed=60.1s timeout=3600s command='cargo clippy --locked --all-targets --all-features -- -D warnings']
+error: duplicated attribute
+ --> crates/trust-runtime-core/tests/bytecode_helpers.rs:1:10
+  |
+1 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> crates/trust-runtime-core/tests/bytecode_decode_resource_bounds.rs:1:9
+  |
+1 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> crates/trust-runtime-core/tests/bytecode_helpers.rs:1:10
+  |
+1 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#duplicated_attributes
+  = note: `-D clippy::duplicated-attributes` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(clippy::duplicated_attributes)]`
+
+error: could not compile `trust-runtime-core` (test "bytecode_decode_resource_bounds") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+[gate-progress state=finished phase=A2-clippy target=scena-rust-builder pid=935088 elapsed=89.0s timeout=3600s command='cargo clippy --locked --all-targets --all-features -- -D warnings' status=101]

@@ -14,3 +14,33 @@ pub const BYTECODE_MAX_PARAMETERS_PER_POU: usize = 1_024;
 pub const BYTECODE_MAX_NATIVE_ARGUMENTS: usize = 1_024;
 /// Maximum nested type references while validating or materializing one constant payload.
 pub const BYTECODE_MAX_CONST_NESTING: u8 = 64;
+
+/// Limits for temporary semantic analysis, excluding the caller-owned decoded artifact.
+/// Accounted bytes cover requested analysis capacities and retained qualified-name scratch.
+/// Error diagnostics, allocator metadata/rounding, transient reallocation copies and native stack
+/// are excluded and need profile headroom. Diagnostics preserve the original rejection reason.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ValidationLimits {
+    /// Maximum simultaneously accounted analysis storage in bytes.
+    pub max_scratch_bytes: usize,
+    /// Maximum logical work units across all POUs (visits and examined/copied slots/bytes).
+    pub max_work: usize,
+}
+
+impl Default for ValidationLimits {
+    fn default() -> Self {
+        Self {
+            max_scratch_bytes: 64 * 1024 * 1024,
+            max_work: 64 * 1024 * 1024,
+        }
+    }
+}
+
+/// Deterministic analysis accounting, not a measurement of allocator overhead or WCET.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ValidationStats {
+    /// Maximum simultaneously accounted analysis storage.
+    pub peak_scratch_bytes: usize,
+    /// Total charged analysis work units.
+    pub work: usize,
+}

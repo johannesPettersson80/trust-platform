@@ -9,11 +9,11 @@ use super::*;
 
 const OWNER_CASE_FILE: &str = "verification/cases/bytecode_vm/VM_SEAM_OWNER_001.toml";
 const OWNER_CASE_DIGEST: &str =
-    "sha256:96b44cff96659e58bdad83bdf7f47fffb1d49eb5cf85addf0cf83b240f562484";
+    "sha256:bb58e2d2c0a3e913431e16ceee2cc103bf04c6d4ea7d3371baccd17dd4d515b2";
 const OWNER_TEST_ID: &str = "TEST_VM_OWNER_TRACE_001";
 const REF_CASE_FILE: &str = "verification/cases/bytecode_vm/VM_SEAM_REF_001.toml";
 const REF_CASE_DIGEST: &str =
-    "sha256:7b3611fd7f35176dc7690518ad5d118cb617afc4b2545ec309ecbb847fce29cb";
+    "sha256:4fc9474818b7aa1d72c6d65b0534417a6d1d3159b97851bc9f42ea2deec89a68";
 const REF_TEST_ID: &str = "TEST_VM_REF_ESCAPE_TRACE_001";
 
 const LOCAL_RANGE_SOURCE: &str = r#"

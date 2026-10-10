@@ -119,58 +119,17 @@ fn register_ir_lowering_rejects_invalid_jump_target() {
             PROGRAM Main
             END_PROGRAM
         "#;
-    let mut bytecode = bytecode_module_from_source(source).expect("compile bytecode");
-    let main_id = {
-        let strings = match bytecode.section(SectionId::StringTable) {
-            Some(SectionData::StringTable(strings)) => strings,
-            _ => panic!("missing string table"),
-        };
-        let index = match bytecode.section(SectionId::PouIndex) {
-            Some(SectionData::PouIndex(index)) => index,
-            _ => panic!("missing pou index"),
-        };
-        index
-            .entries
-            .iter()
-            .find(|entry| strings.entries[entry.name_idx as usize].eq_ignore_ascii_case("MAIN"))
-            .map(|entry| entry.id)
-            .expect("main entry id")
-    };
+    let (mut vm_module, pou_id) = vm_module_and_main_pou(source);
+    // Admission now rejects malformed bytecode before materialization. Inject the
+    // fault into an already constructed test module to exercise lowering itself.
+    let start = vm_module.code.len();
+    vm_module.code.push(0x02);
+    vm_module.code.extend_from_slice(&4096_i32.to_le_bytes());
+    vm_module.code.push(0x06);
+    let entry = vm_module.pou_by_id.get_mut(&pou_id).expect("main POU");
+    entry.code_start = start;
+    entry.code_end = vm_module.code.len();
 
-    let mut body = Vec::new();
-    body.push(0x02);
-    body.extend_from_slice(&(4096_i32).to_le_bytes());
-    body.push(0x06);
-
-    let new_offset =
-        if let Some(SectionData::PouBodies(code)) = bytecode.section_mut(SectionId::PouBodies) {
-            let offset = code.len() as u32;
-            code.extend_from_slice(&body);
-            offset
-        } else {
-            panic!("missing POU_BODIES");
-        };
-    if let Some(SectionData::PouIndex(index)) = bytecode.section_mut(SectionId::PouIndex) {
-        for entry in &mut index.entries {
-            if entry.id == main_id {
-                entry.code_offset = new_offset;
-                entry.code_length = body.len() as u32;
-            }
-        }
-    } else {
-        panic!("missing POU_INDEX");
-    }
-    bytecode.sections.retain(|section| {
-        section.id != SectionId::DebugMap.as_raw()
-            && section.id != SectionId::DebugStringTable.as_raw()
-    });
-
-    let vm_module = VmModule::from_bytecode(&bytecode).expect("decode vm module");
-    let pou_id = vm_module
-        .program_ids
-        .get(&SmolStr::new("MAIN"))
-        .copied()
-        .expect("main pou id");
     let err = lower_pou_to_register_ir(&vm_module, pou_id).expect_err("invalid jump must fail");
     let RuntimeError::Bytecode {
         detail: message, ..

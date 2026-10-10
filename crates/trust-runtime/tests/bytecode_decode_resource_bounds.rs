@@ -1,3 +1,4 @@
+#[path = "common/bytecode_helpers.rs"]
 mod bytecode_helpers;
 
 use bytecode_helpers::base_module;

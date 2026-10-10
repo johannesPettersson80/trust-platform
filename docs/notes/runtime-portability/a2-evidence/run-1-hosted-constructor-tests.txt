@@ -1,0 +1,16 @@
+[gate-progress state=started phase=A2-hosted-constructor-tests target=scena-rust-builder pid=931941 elapsed=0.0s timeout=3600s command='cargo test --locked -p trust-runtime --lib bytecode::encoder:: -- --nocapture --test-threads=1']
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime)
+[gate-progress state=running phase=A2-hosted-constructor-tests target=scena-rust-builder pid=931941 elapsed=30.1s timeout=3600s command='cargo test --locked -p trust-runtime --lib bytecode::encoder:: -- --nocapture --test-threads=1']
+    Finished `test` profile [unoptimized] target(s) in 54.08s
+     Running unittests src/lib.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/trust_runtime-786e4df97cab93e0)
+
+running 5 tests
+test bytecode::encoder::codegen::tests::lowering_support_predicates_cover_nested_call_sizeof_and_lvalue_shapes ... ok
+test bytecode::encoder::codegen::tests::partial_access_lowering_emits_exact_opcode_and_typed_operand ... ok
+test bytecode::encoder::codegen::tests::return_and_ref_builtin_lowering_preserve_exact_fail_closed_boundaries ... ok
+test bytecode::encoder::refs::tests::literal_indices_preserve_integer_widths_and_reject_nonliteral_or_overflow ... ok
+test bytecode::encoder::tests::public_module_constructors_preserve_source_and_path_projection ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 3853 filtered out; finished in 0.02s
+
+[gate-progress state=finished phase=A2-hosted-constructor-tests target=scena-rust-builder pid=931941 elapsed=54.2s timeout=3600s command='cargo test --locked -p trust-runtime --lib bytecode::encoder:: -- --nocapture --test-threads=1' status=0]

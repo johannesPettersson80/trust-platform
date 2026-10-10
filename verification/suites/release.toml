@@ -9,6 +9,7 @@ purpose = "Release entrypoints whose outputs are named CI artifacts or public re
 duration_class = "long"
 environment = "github_release_matrix"
 commands = [
+  "workflow job .github/workflows/release.yml#openot-real-databases",
   "workflow job .github/workflows/ci.yml#release-gate-report",
   "workflow job .github/workflows/ci.yml#version-release-guard",
   "workflow job .github/workflows/release.yml#release-preflight",
@@ -17,6 +18,7 @@ commands = [
   "workflow job .github/workflows/release.yml#runtime-vm-validation",
 ]
 command_bindings = [
+  "GATE_JOB_RELEASE_OPENOT",
   "GATE_JOB_CI_RELEASE_GATE_REPORT",
   "GATE_JOB_CI_VERSION_RELEASE_GUARD",
   "GATE_JOB_RELEASE_PREFLIGHT",
@@ -28,10 +30,12 @@ inventory_ids = [
   "GATE_JOB_CI_RELEASE_GATE_REPORT",
   "GATE_JOB_CI_VERSION_RELEASE_GUARD",
   "GATE_JOB_RELEASE_BUILD",
+  "GATE_JOB_RELEASE_OPENOT",
   "GATE_JOB_RELEASE_PREFLIGHT",
   "GATE_JOB_RELEASE_PUBLISH",
   "GATE_JOB_RELEASE_RUNTIME_VM_VALIDATION",
   "GATE_SCRIPT_GENERATE_RELEASE_GATE_REPORT",
+  "GATE_SCRIPT_OPENOT_REAL_DATABASE",
   "GATE_SCRIPT_RUNTIME_VM_BENCH",
   "GATE_SCRIPT_RUNTIME_VM_DETERMINISM_RELIABILITY",
 ]

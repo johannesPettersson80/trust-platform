@@ -226,7 +226,7 @@ fn register_ir_decode_uses_inline_operand_storage() {
         read_workspace_file("crates/trust-runtime/src/runtime/vm/register_ir/lower/decode.rs");
     let decode_body = source
         .split_once("fn decode_pou(")
-        .and_then(|(_, rest)| rest.split_once("fn opcode_operand_len_for_lowering"))
+        .and_then(|(_, rest)| rest.split_once("fn collect_block_leaders"))
         .map(|(body, _)| body)
         .expect("decode_pou body");
 

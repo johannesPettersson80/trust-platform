@@ -234,7 +234,7 @@ pub(in crate::runtime::vm::register_ir) fn decode_pou(
         let opcode = module.code.get(pc).copied().ok_or_else(|| {
             invalid_bytecode("register-ir decode instruction fetch out of bounds")
         })?;
-        let operand_len = opcode_operand_len_for_lowering(opcode).ok_or_else(|| {
+        let operand_len = opcode_operand_len(opcode).ok_or_else(|| {
             invalid_bytecode(format!("register-ir decode invalid opcode 0x{opcode:02X}"))
         })?;
         let next_pc = pc + 1 + operand_len;
@@ -260,13 +260,6 @@ pub(in crate::runtime::vm::register_ir) fn decode_pou(
         pc = next_pc;
     }
     Ok(decoded)
-}
-
-fn opcode_operand_len_for_lowering(opcode: u8) -> Option<usize> {
-    opcode_operand_len(opcode).or(match opcode {
-        0x25 => Some(0),
-        _ => None,
-    })
 }
 
 pub(in crate::runtime::vm::register_ir) fn collect_block_leaders(

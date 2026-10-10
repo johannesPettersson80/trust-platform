@@ -9,7 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-crc32fast.workspace = true
+crc32fast = { workspace = true, features = ["std"] }
 roxmltree.workspace = true
 serde.workspace = true
 serde_json.workspace = true

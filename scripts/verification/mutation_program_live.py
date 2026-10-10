@@ -30,6 +30,8 @@ from .mutation_program_contract import (
     MUTATION_PROGRAM_PATH,
     MUTATION_PROGRAM_SCHEMA_PATH,
     REQUIRED_SHARD_IDS,
+    LEGACY_REPORT_SHA256,
+    HISTORICAL_FOCUSED_ARTIFACTS,
     load_mutation_program,
     validate_mutation_program_contract,
 )
@@ -54,6 +56,7 @@ REQUIRED_OPEN_ROWS = (
 )
 REQUIRED_OPEN_POLICY_ROWS = ("VERIF-STOP-014",)
 REPORT_CONTRACT_PATHS = {
+    *HISTORICAL_FOCUSED_ARTIFACTS,
     ".cargo/config.toml",
     "Cargo.lock",
     "Cargo.toml",
@@ -344,13 +347,12 @@ def _load_pilot_report(root: Path) -> tuple[dict[str, Any], str]:
     path = root / PILOT_REPORT_PATH
     try:
         report = json.loads(path.read_text())
-        contract = load_mutation_contract(PILOT_TEST_ID, root=root)
     except (OSError, json.JSONDecodeError, MutationContractError) as exc:
         raise ValueError(f"bytecode mutation pilot cannot be loaded: {exc}") from exc
-    failures = validate_mutation_report(report, contract)
-    if failures:
-        raise ValueError("bytecode mutation pilot is invalid: " + "; ".join(failures))
     digest = "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+    # This pilot predates the portable validator; it is historical provenance only.
+    if digest != "sha256:" + LEGACY_REPORT_SHA256 or not isinstance(report, dict):
+        raise ValueError("historical bytecode mutation pilot digest or shape is invalid")
     return report, digest
 
 
@@ -387,10 +389,15 @@ def _build_shard_rows(
         if index == 0:
             if shard.get("legacy_report_path") != PILOT_REPORT_PATH:
                 raise ValueError("bytecode shard legacy report path drifted")
-            results = [_normalize_pilot_result(item) for item in pilot_report["mutations"]]
-            artifact = {"path": PILOT_REPORT_PATH, "sha256": pilot_digest}
-            if [item["id"] for item in results] != [item["id"] for item in mutations]:
-                raise ValueError("bytecode pilot outcomes do not match configured program mutants")
+            if shard.get("execution_status") == "measured":
+                contract = load_mutation_contract(PILOT_TEST_ID, root=root)
+                failures = validate_mutation_report(pilot_report, contract)
+                if failures:
+                    raise ValueError("bytecode pilot does not measure active selectors: " + "; ".join(failures))
+                results = [_normalize_pilot_result(item) for item in pilot_report["mutations"]]
+                artifact = {"path": PILOT_REPORT_PATH, "sha256": pilot_digest}
+                if [item["id"] for item in results] != [item["id"] for item in mutations]:
+                    raise ValueError("bytecode pilot outcomes do not match configured program mutants")
         elif index < 5 and shard.get("execution_status") == "measured":
             payload, digest = _load_focused_artifact(root, shard)
             results = [

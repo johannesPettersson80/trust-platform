@@ -1,3 +1,4 @@
+#[path = "common/bytecode_helpers.rs"]
 mod bytecode_helpers;
 
 use bytecode_helpers::{base_module, module_with_debug};
@@ -128,4 +129,26 @@ fn decode_raw_section(section_id: SectionId, payload: Vec<u8>) -> BytecodeError 
     }];
     let bytes = module.encode().expect("encode raw section");
     BytecodeModule::decode(&bytes).expect_err("malformed raw section must be rejected")
+}
+
+#[test]
+fn hosted_core_conversions_preserve_owned_sections_and_borrowed_views() {
+    let hosted = base_module();
+    let ptr = hosted.sections.as_ptr();
+    let bytes = hosted.encode().unwrap();
+    let core: trust_runtime_core::bytecode::BytecodeModule = hosted.into();
+    assert_eq!(core.sections.as_ptr(), ptr);
+    assert_eq!(core.encode().unwrap(), bytes);
+    let hosted = BytecodeModule::from(core);
+    assert_eq!(hosted.sections.as_ptr(), ptr);
+    let body = {
+        let view = hosted.view();
+        view.section(SectionId::PouBodies).unwrap()
+    };
+    assert!(matches!(body, SectionData::PouBodies(_)));
+    let validated = hosted.validated().unwrap();
+    assert!(std::ptr::eq(
+        body,
+        validated.section(SectionId::PouBodies).unwrap()
+    ));
 }

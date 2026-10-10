@@ -75,7 +75,7 @@ class MutationContractTests(unittest.TestCase):
         contract = load_mutation_contract(TEST_ID, root=ROOT)
         record = copy.deepcopy(contract.record)
         record["mutations"][0]["source_file"] = (
-            "crates/trust-runtime/src/bytecode/validate/../../../../../Cargo.toml"
+            "crates/trust-runtime-core/src/bytecode/validate/../../../../../Cargo.toml"
         )
 
         failures = validate_mutation_test_record(record, root=ROOT)
@@ -94,7 +94,7 @@ class MutationContractTests(unittest.TestCase):
 class MutantAdapterTests(unittest.TestCase):
     def test_selector_requires_exactly_one_generated_mutant(self) -> None:
         config = {
-            "function": "validate_instruction_stream",
+            "function": "validate_pou_index",
             "genre": "FnValue",
             "replacement": "Ok(())",
         }
@@ -105,6 +105,20 @@ class MutantAdapterTests(unittest.TestCase):
             select_generated_mutant([], config)
         with self.assertRaisesRegex(MutationContractError, "found 2"):
             select_generated_mutant([candidate, candidate], config)
+
+    def test_expression_selector_keeps_the_exact_site_when_function_has_multiple_matches(self) -> None:
+        function = "Parser<'t, 'src>::recover_top_level_until"
+        names = [f"parser.rs:{line}:21: replace == with != in {function}" for line in (238, 244, 248)]
+        candidates = [
+            {"name": name, "function": {"function_name": function},
+             "genre": "BinaryOperator", "replacement": "!="}
+            for name in names
+        ]
+        selector = {"function": function, "genre": "BinaryOperator", "replacement": "!=", "selector_name": names[0]}
+        self.assertEqual(select_generated_mutant(candidates, selector), candidates[0])
+        del selector["selector_name"]
+        with self.assertRaisesRegex(MutationContractError, "found 3"):
+            select_generated_mutant(candidates, selector)
 
     def test_apply_generated_mutant_uses_one_based_line_and_column_spans(self) -> None:
         source = "fn check() {\n    risky_call()?;\n    Ok(())\n}\n"
@@ -151,7 +165,7 @@ class MutantAdapterTests(unittest.TestCase):
             clean_mutation_target(Path("/workspace"), {"CARGO_TARGET_DIR": "/target"}, 30.0)
 
         run.assert_called_once_with(
-            ("cargo", "clean", "-p", "trust-runtime"),
+            ("cargo", "clean", "-p", "trust-runtime-core", "-p", "trust-runtime"),
             cwd=Path("/workspace"),
             env={"CARGO_TARGET_DIR": "/target"},
             timeout=30.0,
@@ -406,10 +420,10 @@ def generated_mutant(
     end_column: int = 18,
 ) -> dict[str, object]:
     return {
-        "name": "replace validate_instruction_stream with Ok(())",
+        "name": "replace validate_pou_index with Ok(())",
         "genre": "FnValue",
         "replacement": replacement,
-        "function": {"function_name": "validate_instruction_stream"},
+        "function": {"function_name": "validate_pou_index"},
         "span": {
             "start": {"line": start_line, "column": start_column},
             "end": {"line": end_line, "column": end_column},

@@ -1,0 +1,5 @@
+[gate-progress state=started phase=A2-metadata target=scena-rust-builder pid=1215736 elapsed=0.0s timeout=3600s command='env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-a2-evidence/run-4/review-index python3 scripts/validate_verification_metadata.py']
+[gate-progress state=running phase=A2-metadata target=scena-rust-builder pid=1215736 elapsed=30.0s timeout=3600s command='env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-a2-evidence/run-4/review-index python3 scripts/validate_verification_metadata.py']
+[gate-progress state=running phase=A2-metadata target=scena-rust-builder pid=1215736 elapsed=60.1s timeout=3600s command='env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-a2-evidence/run-4/review-index python3 scripts/validate_verification_metadata.py']
+verification metadata validated: 1029 records
+[gate-progress state=finished phase=A2-metadata target=scena-rust-builder pid=1215736 elapsed=64.1s timeout=3600s command='env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-a2-evidence/run-4/review-index python3 scripts/validate_verification_metadata.py' status=0]

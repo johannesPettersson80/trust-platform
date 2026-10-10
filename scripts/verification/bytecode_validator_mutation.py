@@ -219,13 +219,13 @@ def execute_shard(
 
 def clean_mutation_target(cwd: Path, env: dict[str, str], timeout: float) -> None:
     result = run_command(
-        ("cargo", "clean", "-p", "trust-runtime"),
+        ("cargo", "clean", "-p", "trust-runtime-core", "-p", "trust-runtime"),
         cwd=cwd,
         env=env,
         timeout=timeout,
     )
     if result.timed_out or result.returncode != 0:
-        raise MutationContractError("failed to clean trust-runtime mutation outputs")
+        raise MutationContractError("failed to clean runtime core and host mutation outputs")
 
 
 def outcome_record(
