@@ -70,8 +70,8 @@ construction and assertions, Bash 3.2-compatible audit argument transport with
 unchanged four-check policy, and staged process-image carry-over before ordered
 restart initialization. Required native cases cover empty and populated audit
 exceptions, both restart modes, flat/hierarchical image targets, overlapping action
-order, unconfigured values and failed replacement. All remain unrun until the
-completed correction is reviewed, formatted and frozen.
+order, unconfigured values and failed replacement. At that allocation, all remained unrun pending complete review, formatting
+and freeze; the corrected run-5 outcomes are recorded below.
 
 The owner explicitly authorized as many necessary publication tests and retests
 as required. After independent review, the consolidated correction uses the
@@ -88,7 +88,8 @@ full-map architecture, diagram rendering and complete diff retention. It changed
 only the reviewed Rust formatting and the rendered execution diagram/manifest.
 The completed source and scripts have independent read-only acceptance; their
 source review does not claim compilation or execution of the new regression.
-The correction is pending exact-SHA software validation and fresh physical proof.
+At the pre-validation checkpoint the correction was pending exact-SHA software
+validation and fresh physical proof; its completed run-5 outcome is below.
 
 Run 5 preparation records the complete formatter/provenance/full-map/render diff
 before the correction commit. The new guard owns all default native suites; the
@@ -106,9 +107,12 @@ Builder source is isolated at the same named checkout. Reuse the idle leased tar
 `/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a1-integration`.
 The builder currently reports Rust stable 1.99.0; the portability and firmware lanes
 remain pinned to Rust 1.95.0, edition 2021. Native compiler overrides are unset for
-cross checks. Raw logs, binaries, maps and source archives remain outside Git under
+cross checks. Complete CI job logs, binaries, maps and source archives remain
+external under
 `/home/johannes/projects/.artifacts/runtime-portability-publication/` and the builder's
-corresponding task-owned evidence directory. Preserve every failed/unrun stage.
+corresponding task-owned evidence directory. Selected test outputs and small proof
+files are also retained byte-for-byte in the tracked publication-evidence tree.
+Preserve every failed/unrun stage.
 
 Independent root review accepted the integrated source at 07e01c777. It verified all
 286 core/adapter/firmware/xtask files against Scope B and checked the preserved main
@@ -211,3 +215,34 @@ all product/fixture/firmware bytes were unchanged by that closeout. Its successo
 exact-head guard passed at `75b42a667`, and PR #132 was pushed. Its first native
 platform checks and automatic review produced the complete correction allocation
 above; guarded merge and full public release verification remain pending.
+
+
+## Corrected candidate qualification and evidence successor
+
+Run 5 at `a8937a07c12042fa655297a53338fa787c1a978c` passed the exact-SHA
+guard: 8,690 native tests, 315 result blocks, 24 pre-existing ignored and 519
+VS Code tests; every required command passed. The independent preparation/source
+review was completed before the commit. The 20-command pinned supplement, its
+advisory metadata step and twelve strict documentation steps passed. The new
+ordered direct-I/O restart case executed successfully in default native,
+no-default and selected i686 lanes. Native Windows/macOS execution still belongs
+to the upcoming corrected PR head, not these Linux cross checks.
+
+The fresh seven-step pinned image suffix passed; inspected ELF
+`4761d2bc5153b3892da352ca1f0be1f7041f421457158bfc2a9682ddbbb39a61`
+passed physical install/replay and the separate Rust UART verifier. Actual UART
+`1a15c7b9c615e6893699addc04988f836f6dbc84e7a0135eb1c64df5bd18171b`
+again has 101 oracle samples, 40 activations/zero misses, numeric/GPIO/depth/IRQ
+and complete IWDG reset/DONE. Flash free is 18,720 bytes, heap peak 28,272 of
+73,728, and MSP peak 13,596 of 16,384 with 2,788 free. Region/checkpoint
+comparisons and hardware protocol readbacks passed. These are fixture measurements
+and bring-up qualification; manual observations and production/C6 gates stay open.
+
+The retained run-5 closeout modifies only documents/evidence. Product Rust, saved
+artifacts, firmware configuration and version remain byte-identical to tested
+`a8937a07c`. Independent read-only reconciliation accepted all retained hashes, source bytes,
+raw software counts and physical preservation/readback proof before this metadata
+commit. Its clean successor requires another exact-SHA guard and fresh link/image-identity
+check before the correction push. All first CI failures and prior checkpoints
+remain retained. PR #132's green native platform checks, guarded merge and full
+release verification remain pending, with existing correction/retest authority.

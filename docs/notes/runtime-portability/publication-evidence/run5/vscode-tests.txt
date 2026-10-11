@@ -1,0 +1,1072 @@
+npm WARN deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+npm WARN deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+added 299 packages, and audited 300 packages in 2s
+
+80 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+
+> trust-lsp@0.24.73 lint
+> eslint src --ext ts,tsx
+
+
+> trust-lsp@0.24.73 compile
+> npm run build:panel && npm run build:statechart && npm run build:blockly && npm run build:ladder && npm run build:sfc && npm run build:network-canvas && npm run clean:out && tsc -p ./ && npm run typecheck:webview
+
+
+> trust-lsp@0.24.73 build:panel
+> node ./scripts/build-io-panel.js
+
+Wrote media/ioPanel.js (1597 lines)
+
+> trust-lsp@0.24.73 build:statechart
+> node ./scripts/build-statechart-webview.js
+
+
+  media/stateChartWebview.js       402.7kb
+  media/stateChartWebview.css       37.6kb
+  media/stateChartWebview.js.map     1.8mb
+  media/stateChartWebview.css.map   68.9kb
+
+⚡ Done in 63ms
+✅ StateChart webview built successfully
+
+> trust-lsp@0.24.73 build:blockly
+> node ./scripts/build-blockly-webview.js
+
+
+  media/blocklyWebview.js       875.4kb
+  media/blocklyWebview.css       30.9kb
+  media/blocklyWebview.js.map     4.0mb
+  media/blocklyWebview.css.map   58.2kb
+
+⚡ Done in 168ms
+✅ Blockly webview built successfully
+
+> trust-lsp@0.24.73 build:ladder
+> node ./scripts/build-ladder-webview.js
+
+
+  media/ladderWebview.js       444.4kb
+  media/ladderWebview.css       25.9kb
+  media/ladderWebview.js.map     1.8mb
+  media/ladderWebview.css.map   48.4kb
+
+⚡ Done in 59ms
+✅ Ladder webview built successfully
+
+> trust-lsp@0.24.73 build:sfc
+> node ./scripts/build-sfc-webview.js
+
+
+  media/sfcWebview.js       406.1kb
+  media/sfcWebview.css       37.7kb
+  media/sfcWebview.js.map     1.8mb
+  media/sfcWebview.css.map   69.3kb
+
+⚡ Done in 65ms
+✅ SFC webview built successfully
+
+> trust-lsp@0.24.73 build:network-canvas
+> node ./scripts/build-network-canvas-webview.js
+
+
+  media/networkCanvasWebview.js       519.1kb
+  media/networkCanvasWebview.css       36.8kb
+  media/networkCanvasWebview.js.map     2.2mb
+  media/networkCanvasWebview.css.map   67.2kb
+
+⚡ Done in 67ms
+✅ Network Canvas webview built successfully
+
+> trust-lsp@0.24.73 clean:out
+> node -e "require('fs').rmSync('out', { recursive: true, force: true })"
+
+
+> trust-lsp@0.24.73 typecheck:webview
+> tsc -p ./tsconfig.webview.json
+
+
+> trust-lsp@0.24.73 test
+> npm run compile && npm run check:canvas-geometry && node ./out/test/runTest.js
+
+
+> trust-lsp@0.24.73 compile
+> npm run build:panel && npm run build:statechart && npm run build:blockly && npm run build:ladder && npm run build:sfc && npm run build:network-canvas && npm run clean:out && tsc -p ./ && npm run typecheck:webview
+
+
+> trust-lsp@0.24.73 build:panel
+> node ./scripts/build-io-panel.js
+
+Wrote media/ioPanel.js (1597 lines)
+
+> trust-lsp@0.24.73 build:statechart
+> node ./scripts/build-statechart-webview.js
+
+
+  media/stateChartWebview.js       402.7kb
+  media/stateChartWebview.css       37.6kb
+  media/stateChartWebview.js.map     1.8mb
+  media/stateChartWebview.css.map   68.9kb
+
+⚡ Done in 63ms
+✅ StateChart webview built successfully
+
+> trust-lsp@0.24.73 build:blockly
+> node ./scripts/build-blockly-webview.js
+
+
+  media/blocklyWebview.js       875.4kb
+  media/blocklyWebview.css       30.9kb
+  media/blocklyWebview.js.map     4.0mb
+  media/blocklyWebview.css.map   58.2kb
+
+⚡ Done in 170ms
+✅ Blockly webview built successfully
+
+> trust-lsp@0.24.73 build:ladder
+> node ./scripts/build-ladder-webview.js
+
+
+  media/ladderWebview.js       444.4kb
+  media/ladderWebview.css       25.9kb
+  media/ladderWebview.js.map     1.8mb
+  media/ladderWebview.css.map   48.4kb
+
+⚡ Done in 61ms
+✅ Ladder webview built successfully
+
+> trust-lsp@0.24.73 build:sfc
+> node ./scripts/build-sfc-webview.js
+
+
+  media/sfcWebview.js       406.1kb
+  media/sfcWebview.css       37.7kb
+  media/sfcWebview.js.map     1.8mb
+  media/sfcWebview.css.map   69.3kb
+
+⚡ Done in 60ms
+✅ SFC webview built successfully
+
+> trust-lsp@0.24.73 build:network-canvas
+> node ./scripts/build-network-canvas-webview.js
+
+
+  media/networkCanvasWebview.js       519.1kb
+  media/networkCanvasWebview.css       36.8kb
+  media/networkCanvasWebview.js.map     2.2mb
+  media/networkCanvasWebview.css.map   67.2kb
+
+⚡ Done in 69ms
+✅ Network Canvas webview built successfully
+
+> trust-lsp@0.24.73 clean:out
+> node -e "require('fs').rmSync('out', { recursive: true, force: true })"
+
+
+> trust-lsp@0.24.73 typecheck:webview
+> tsc -p ./tsconfig.webview.json
+
+
+> trust-lsp@0.24.73 check:canvas-geometry
+> node ./scripts/network-canvas-overlap-check.js --require-browser
+
+[canvas-geometry] ✓ single (view): no overlaps (5 nodes)
+[canvas-geometry] ✓ single (edit): no overlaps (8 nodes)
+[canvas-geometry] ✓ dense fleet (edit): no overlaps (28 nodes)
+[canvas-geometry] ✓ status truth (view): no overlaps (20 nodes)
+[canvas-geometry] ✓ status truth (view): rendered status contract
+[canvas-geometry] OK
+   Compiling trust-runtime-core v0.24.73 (/home/johannes/projects/trust-platform-portability-release/crates/trust-runtime-core)
+   Compiling trust-wasm-analysis v0.24.73 (/home/johannes/projects/trust-platform-portability-release/crates/trust-wasm-analysis)
+   Compiling trust-ads-core v0.24.73 (/home/johannes/projects/trust-platform-portability-release/crates/trust-ads-core)
+   Compiling trust-ads-server v0.24.73 (/home/johannes/projects/trust-platform-portability-release/crates/trust-ads-server)
+   Compiling trust-runtime v0.24.73 (/home/johannes/projects/trust-platform-portability-release/crates/trust-runtime)
+   Compiling trust-lsp v0.24.73 (/home/johannes/projects/trust-platform-portability-release/crates/trust-lsp)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 41.14s
+   Compiling trust-runtime v0.24.73 (/home/johannes/projects/trust-platform-portability-release/crates/trust-runtime)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 30.27s
+   Compiling trust-dev v0.24.73 (/home/johannes/projects/trust-platform-portability-release/crates/trust-dev)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.48s
+   Compiling trust-debug v0.24.73 (/home/johannes/projects/trust-platform-portability-release/crates/trust-debug)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.47s
+- Resolving version...
+✔ Validated version: 1.141.0
+- Found at https://update.code.visualstudio.com/1.141.0/linux-x64/stable?released=true
+✔ Found at https://update.code.visualstudio.com/1.141.0/linux-x64/stable?released=true
+- Downloading (343.79 MB)
+✔ Downloaded VS Code into /home/johannes/projects/trust-platform-portability-release/editors/vscode/.vscode-test/vscode-linux-x64-1.141.0
+[90m[main 2026-10-11T00:14:13.833Z][0m [node-compile-cache] main: packaged cache inactive (status: disabled, configured: /home/johannes/projects/trust-platform-portability-release/editors/vscode/.vscode-test/vscode-linux-x64-1.141.0/resources/app/node-compile-cache/main, active: none)
+[90m[main 2026-10-11T00:14:13.869Z][0m StorageMainService: creating application shared storage
+[90m[main 2026-10-11T00:14:13.943Z][0m [shared storage] Creating shared storage database at ':memory:' (wasCreated: true)
+[90m[main 2026-10-11T00:14:13.943Z][0m [shared storage] Initializing fallback application storage (path: in-memory)
+[1958712:1011/001413.957486:ERROR:gpu/ipc/client/command_buffer_proxy_impl.cc:285] ContextResult::kTransientFailure: Failed to send GpuControl.CreateCommandBuffer.
+[90m[main 2026-10-11T00:14:13.971Z][0m [shared storage] Fallback application storage initialized with 3 items
+[90m[main 2026-10-11T00:14:13.972Z][0m update#setState disabled
+[90m[main 2026-10-11T00:14:13.972Z][0m update#ctor - updates are disabled by the environment
+[RemoteAgentHost] Reconciling: desired=[], current=[]
+[AgentHost:renderer] Acquiring MessagePort to agent host...
+[90m[main 2026-10-11T00:14:14.998Z][0m AgentHostProcessManager: agent host started
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey=undefined conversationKey=undefined modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+[91m[main 2026-10-11T00:14:15.360Z][0m [AgentHost:stderr] (node:1958753) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `exe --trace-deprecation ...` to show where the warning was created)
+
+[AgentHost:renderer] MessagePort acquired, creating client...
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/OTkzNzA4MjAtMmE3NS00NTIzLTlhNWItYjI3ZmQyNGQ2ZmY1" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+[RemoteAgentHostProtocol] Sending initialize: address=local clientId=ff25156c-3466-402a-8df5-66212f9d92df requestId=1
+Started local extension host with pid 1958815.
+[RemoteAgentHostProtocol] Initialized: address=local clientId=ff25156c-3466-402a-8df5-66212f9d92df durationMs=420
+[AgentHost:renderer] Protocol connection established; clientId=ff25156c-3466-402a-8df5-66212f9d92df
+Started initializing default profile extensions in extensions installation folder. file:///tmp/trust-vscode-candidate.JZkie9/trust-lsp-vscode-extensions-DR37WE
+Completed initializing default profile extensions in extensions installation folder. file:///tmp/trust-vscode-candidate.JZkie9/trust-lsp-vscode-extensions-DR37WE
+Loading development extension at /home/johannes/projects/trust-platform-portability-release/editors/vscode
+Extension 'github.copilot-chat' appears in product.json but enables LESS API proposals than the extension wants.
+package.json (LOSES): agentSessionsWorkspace
+agentsWindowConfiguration
+chatDebug
+chatHooks
+envIsConnectionMetered
+extensionsAny
+newSymbolNamesProvider
+interactive
+codeActionAI
+activeComment
+commentReveal
+contribCommentThreadAdditionalMenu
+contribCommentsViewThreadMenus
+contribChatEditorInlineGutterMenu
+documentFiltersExclusive
+embeddings
+findTextInFiles
+findTextInFiles2
+languageModelToolSupportsModel
+findFiles2
+textSearchProvider
+terminalDataWriteEvent
+terminalExecuteCommandEvent
+terminalSelection
+terminalQuickFixProvider
+mappedEditsProvider
+aiRelatedInformation
+aiSettingsSearch
+chatParticipantAdditions
+defaultChatParticipant
+contribSourceControlInputBoxMenu
+authLearnMore
+authIssuers
+testObserver
+aiTextSearchProvider
+chatParticipantPrivate
+chatProvider
+contribDebugCreateConfiguration
+chatReferenceDiagnostic
+textSearchProvider2
+chatReferenceBinaryData
+languageModelSystem
+languageModelCapabilities
+languageModelPricing
+inlineCompletionsAdditions
+chatStatusItem
+chatInputNotification
+taskProblemMatcherStatus
+contribLanguageModelToolSets
+textDocumentChangeReason
+resolvers
+taskExecutionTerminal
+dataChannels
+languageModelThinkingPart
+chatSessionsProvider
+devDeviceId
+contribEditorContentMenu
+chatPromptFiles
+mcpServerDefinitions
+tabInputMultiDiff
+workspaceTrust
+environmentPower
+terminalTitle
+toolInvocationApproveCombination
+chatSessionCustomizationProvider
+product.json (WINS): agentSessionsWorkspace
+agentsWindowConfiguration
+interactive
+terminalDataWriteEvent
+terminalExecuteCommandEvent
+terminalSelection
+terminalQuickFixProvider
+chatParticipantAdditions
+defaultChatParticipant
+embeddings
+chatProvider
+mappedEditsProvider
+aiRelatedInformation
+aiSettingsSearch
+codeActionAI
+findTextInFiles
+findTextInFiles2
+textSearchProvider
+textSearchProvider2
+activeComment
+commentReveal
+contribSourceControlInputBoxMenu
+contribCommentEditorActionsMenu
+contribCommentThreadAdditionalMenu
+contribCommentsViewThreadMenus
+contribChatEditorInlineGutterMenu
+extensionAffinity
+newSymbolNamesProvider
+findFiles2
+chatReferenceDiagnostic
+extensionsAny
+authLearnMore
+testObserver
+aiTextSearchProvider
+documentFiltersExclusive
+chatParticipantPrivate
+contribDebugCreateConfiguration
+inlineCompletionsAdditions
+chatReferenceBinaryData
+languageModelSystem
+languageModelCapabilities
+languageModelThinkingPart
+languageModelToolSupportsModel
+chatStatusItem
+taskProblemMatcherStatus
+contribLanguageModelToolSets
+textDocumentChangeReason
+resolvers
+taskExecutionTerminal
+dataChannels
+chatSessionsProvider
+chatSessionCustomizationProvider
+devDeviceId
+contribEditorContentMenu
+tokenInformation
+toolInvocationApproveCombination
+chatPromptFiles
+mcpServerDefinitions
+tabInputMultiDiff
+workspaceTrust
+chatHooks
+chatDebug
+envIsConnectionMetered
+environmentPower
+terminalTitle
+languageModelPricing
+chatInputNotification
+DELTA: authIssuers
+Proceeding with EXTRA proposals (authIssuers) because extension is in development mode. Still, this EXTENSION WILL BE BROKEN unless product.json is updated.
+[AccountPolicyGate] apply: state=inactive, reason=undefined, isRestricted=false
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/OTkzNzA4MjAtMmE3NS00NTIzLTlhNWItYjI3ZmQyNGQ2ZmY1" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/OTkzNzA4MjAtMmE3NS00NTIzLTlhNWItYjI3ZmQyNGQ2ZmY1" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/OTkzNzA4MjAtMmE3NS00NTIzLTlhNWItYjI3ZmQyNGQ2ZmY1" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+Unknown channel: agentHostClientByokLm
+Unknown channel: agentHostClientProxy
+[RemoteAgentHost] Reconciling: desired=[], current=[]
+Settings Sync: Account status changed from uninitialized to unavailable
+Unknown channel: agentHostClientProxy
+[0m[0m
+[0m  Diagnostics IEC explainers[0m
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+  [32m  ✔[0m[90m augments diagnostics with IEC reference and spec link[0m
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+  [32m  ✔[0m[90m skips IEC augmentation when disabled[0m
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[0m  Compile diagnostics integration (VS Code)[0m
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+(node:1958815) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `exe --trace-deprecation ...` to show where the warning was created)
+  [32m  ✔[0m[90m Compile diagnostics use the truST Problems source[0m[33m (38ms)[0m
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/OTkzNzA4MjAtMmE3NS00NTIzLTlhNWItYjI3ZmQyNGQ2ZmY1" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+  [32m  ✔[0m[90m Compile reports an actionable missing runtime binary[0m[31m (167ms)[0m
+  [32m  ✔[0m[90m Compile reports an actionable runtime report version mismatch[0m[33m (60ms)[0m
+[0m  Debug/IO DRY flows[0m
+  [32m  ✔[0m[90m unit: interactive vs auto folder selection[0m
+  [32m  ✔[0m[90m integration: auto default configuration creation[0m
+[File Watcher (node.js)] Watcher shutdown because watched path got deleted
+  [32m  ✔[0m[90m integration: settings update persists values[0m[31m (743ms)[0m
+  [32m  ✔[0m[90m integration: debug command surface is registered[0m
+  [32m  ✔[0m[90m integration: stop command returns false without active structured-text session[0m
+  [32m  ✔[0m[90m integration: reload command returns failure without active structured-text session[0m
+  [32m  ✔[0m[90m integration: io and expression commands are callable and reject without session[0m
+  [32m  ✔[0m[90m unit: Live Values I/O force/release use attach-safe custom requests[0m
+  [32m  ✔[0m[90m unit: Live Values I/O retries transient runtime busy responses[0m[31m (76ms)[0m
+  [32m  ✔[0m[90m unit: Live Values transport errors use recovery text, not raw socket copy[0m
+Unknown channel: agentHostClientProxy
+  [32m  ✔[0m[90m integration: VM debug session returns non-empty stackTrace at stopOnEntry[0m[31m (508ms)[0m
+[0m  HMI preview integration (VS Code)[0m
+  [32m  ✔[0m[90m panel open + schema/value refresh pipeline[0m[31m (94ms)[0m
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/OTkzNzA4MjAtMmE3NS00NTIzLTlhNWItYjI3ZmQyNGQ2ZmY1" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+  [32m  ✔[0m[90m widget navigation resolves declaration location[0m[31m (81ms)[0m
+  [32m  ✔[0m[90m layout persistence accepts valid payload and rejects invalid page IDs[0m
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/OTkzNzA4MjAtMmE3NS00NTIzLTlhNWItYjI3ZmQyNGQ2ZmY1" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/OTkzNzA4MjAtMmE3NS00NTIzLTlhNWItYjI3ZmQyNGQ2ZmY1" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+  [32m  ✔[0m[90m descriptor refreshes open panel on hmi toml and svg changes[0m[31m (346ms)[0m
+  [32m  ✔[0m[90m panel keeps section metadata for dashboard layouts[0m[31m (98ms)[0m
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/OTkzNzA4MjAtMmE3NS00NTIzLTlhNWItYjI3ZmQyNGQ2ZmY1" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+  [32m  ✔[0m[90m panel process page loads local svg asset and keeps bindings metadata[0m[31m (96ms)[0m
+  [32m  ✔[0m[90m LM HMI tools provide layout snapshot and dry-run patch conflicts[0m
+  [32m  ✔[0m[90m LM HMI get_bindings routes workspace executeCommand and validates inputs[0m
+  [32m  ✔[0m[90m LM HMI Phase 6 plan_intent writes deterministic _intent.toml[0m
+  [32m  ✔[0m[90m LM HMI Phase 6 validate emits _lock.json evidence and prunes retention[0m
+  [32m  ✔[0m[90m LM HMI Phase 6 generate_candidates is deterministic and writes candidates evidence[0m
+  [32m  ✔[0m[90m LM HMI Phase 6 trace_capture writes scenario traces and preview_snapshot writes viewport artifacts[0m
+  [32m  ✔[0m[90m LM HMI Phase 6 run_journey executes API/event flow and explain_widget reports provenance[0m
+  [32m  ✔[0m[90m LM HMI tools honor cancellation tokens[0m
+[0m  LSP integration (VS Code)[0m
+  [32m  ✔[0m[90m completion returns top-level keywords[0m[33m (69ms)[0m
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/OTkzNzA4MjAtMmE3NS00NTIzLTlhNWItYjI3ZmQyNGQ2ZmY1" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+  [32m  ✔[0m[90m method calls surface VAR_INPUT completions and signature help[0m[31m (141ms)[0m
+  [32m  ✔[0m[90m dependent diagnostics refresh across open files after edits[0m[31m (520ms)[0m
+  [32m  ✔[0m[90m formatting applies canonical layout[0m[31m (81ms)[0m
+  [32m  ✔[0m[90m code actions surface undefined variable quick fix[0m[31m (268ms)[0m
+[AccountPolicyGate] apply: state=inactive, reason=undefined, isRestricted=false
+  [32m  ✔[0m[90m executeCommand relocates namespaces across files[0m[31m (565ms)[0m
+  [32m  ✔[0m[90m code actions surface interface stub generation[0m[33m (75ms)[0m
+  [32m  ✔[0m[90m code actions surface inline variable[0m[31m (124ms)[0m
+[0m  Runtime default settings integration (VS Code)[0m
+  [32m  ✔[0m[90m activation does not seed runtime control endpoint into workspace folder settings[0m
+  [32m  ✔[0m[90m product Settings keys feed runtime config with trust-lsp fallback[0m[31m (86ms)[0m
+[0m  Language model tool contract (VS Code)[0m
+  [32m  ✔[0m[90m manifest declarations match activation events and registered tool names[0m
+  [32m  ✔[0m[90m synthetic registration drift is detected by the contract check[0m
+  [32m  ✔[0m[90m HMI page listing excludes scene view payload TOML[0m
+[0m  truST sidebar — selected target model[0m
+  [32m  ✔[0m[90m remote labels keep the port so same-host runtimes are distinguishable[0m
+  [32m  ✔[0m[90m simulator: stopped → Start, running → Stop, starting → disabled (no action)[0m
+  [32m  ✔[0m[90m primary Start can be disabled with a visible reason without hiding the affordance[0m
+  [32m  ✔[0m[90m compile/update gates use one shared user-facing reason model[0m
+  [32m  ✔[0m[90m remote: not connected → Connect, connected → Disconnect[0m
+  [32m  ✔[0m[90m unreachable selected remote: Connect is DISABLED with a reason (never a button that just fails)[0m
+  [32m  ✔[0m[90m HONESTY: a connected remote NEVER renders Stop[0m
+  [32m  ✔[0m[90m remote Connect verifies control auth before opening an attach session[0m
+  [32m  ✔[0m[90m dropdown is SELECT-ONLY: simulator first, then remotes — NO Add/Connect sentinel; invalid selection falls back to simulator[0m
+  [32m  ✔[0m[90m managed local runtime: projected into the dropdown; Start when stopped, Stop when running (we own it)[0m
+[0m  Managed local runtime model (Phase 9)[0m
+  [32m  ✔[0m[90m normalizeManagedState + label[0m
+  [32m  ✔[0m[90m lifecycle success is HONEST: Start only at 'running', Stop only at 'stopped'[0m
+  [32m  ✔[0m[90m managed starting state is shown as Starting with lifecycle action disabled[0m
+  [32m  ✔[0m[90m managed stopping state is shown as Stopping with lifecycle action disabled[0m
+  [32m  ✔[0m[90m toManagedRuntimes merges fleet list + per-name status[0m
+  [32m  ✔[0m[90m managed local runtime auth token is parsed only from runtime.control[0m
+  [32m  ✔[0m[90m managed local runtime auth token parser accepts top-level dotted runtime.control form[0m
+  [32m  ✔[0m[90m managed runtime logs are formatted for humans instead of raw JSON[0m
+[0m  Canvas runtime-node controls — honest per-runtime lifecycle (§8 P3b)[0m
+  [32m  ✔[0m[90m local simulator: stopped → Start, running → Stop, starting → disabled[0m
+  [32m  ✔[0m[90m remote: not attached → Connect, attached → Disconnect; Connect disabled without an endpoint[0m
+  [32m  ✔[0m[90m HONESTY: a remote runtime NEVER renders Start or Stop (we don't own its process)[0m
+  [32m  ✔[0m[90m runtime node offers Set as run target + Settings; Logs only when a log backend exists[0m
+  [32m  ✔[0m[90m remote auth failures make Set auth token the primary recovery without changing lifecycle ownership[0m
+  [32m  ✔[0m[90m Devices & Connections wires remote auth recovery through the SecretStorage command[0m
+  [32m  ✔[0m[90m S-14: node inspector caps visible secondary actions at two with an overflow disclosure[0m
+  [32m  ✔[0m[90m managed local runtime node: Start when stopped, Stop when running — never Connect (we own it)[0m
+[0m  truST sidebar — control surface contract[0m
+  [32m  ✔[0m[90m exactly one truST activity container + one view, and the view is a WebviewView[0m
+  [32m  ✔[0m[90m no status-bar / palette Start/Stop commands (one run surface)[0m
+  [32m  ✔[0m[90m the status bar is passive: it only reveals the sidebar, never starts/stops[0m
+  [32m  ✔[0m[90m the status bar follows the selected target, not a separate simulator-only state[0m
+  [32m  ✔[0m[90m stopping a runtime emits a fresh lifecycle refresh after the session is gone[0m
+  [32m  ✔[0m[90m the status bar does not pretend a simulator target exists before a project exists[0m
+  [32m  ✔[0m[90m Live Values normalizes runtime debug values before webview rendering[0m
+  [32m  ✔[0m[90m simulator launch keeps raw adapter logs out of the first-run surface[0m
+  [32m  ✔[0m[90m ERR-04 control-endpoint override is test-mode only[0m
+  [32m  ✔[0m[90m attach sessions keep raw adapter logs out of canvas and Live Values workflows[0m
+  [32m  ✔[0m[90m unreachable runtime messages are human-facing and do not expose local socket paths[0m
+  [32m  ✔[0m[90m remote attach refuses debug-disabled runtimes before reporting connected[0m
+  [32m  ✔[0m[90m Connect failures show state-specific next actions, not auth for every failure[0m
+  [32m  ✔[0m[90m Start compiles first and does not launch after a failed Compile[0m
+  [32m  ✔[0m[90m Start and Update disable with reasons when compile/config validity cannot succeed[0m
+  [32m  ✔[0m[90m simulator Start treats a failed I/O probe as a failed launch[0m
+  [32m  ✔[0m[90m background I/O refresh failures do not persist as sidebar start failures[0m
+  [32m  ✔[0m[90m sidebar renders start failure messages even after simulator stays stopped[0m
+  [32m  ✔[0m[90m no ST editor-title Run/Stop controls[0m
+  [32m  ✔[0m[90m the truST panel is a WebviewView with examples-first onboarding and a compact action surface[0m
+  [32m  ✔[0m[90m stopRuntime is idempotent (a disappeared session after Stop is success, not a warning)[0m
+  [32m  ✔[0m[90m managed Stop disconnects Live Values even when fleet stop omits the endpoint[0m
+  [32m  ✔[0m[90m Update running simulation cannot hang forever on a stuck stReload request[0m
+[0m  Phase 1 — palette cleanup (v5 shell)[0m
+  [32m  ✔[0m[90m the leaked core commands are hidden from the command palette (when:false)[0m
+  [32m  ✔[0m[90m retired Communication and ADS panel commands are removed, not hidden escapes[0m
+  [32m  ✔[0m[90m hidden commands are still registered where the surface contract keeps them[0m
+  [32m  ✔[0m[90m retired 3D twin surface is absent from the VS Code product surface[0m
+  [32m  ✔[0m[90m no palette-visible command embeds a 'Structured Text:' category prefix (one truST category)[0m
+  [32m  ✔[0m[90m advanced refactor commands use self-explanatory Structured Text wording[0m
+  [32m  ✔[0m[90m the Communication panel is no longer user-facing[0m
+[0m  Phases 2–3 — naming + nav (v5 shell)[0m
+  [32m  ✔[0m[90m the graph is user-facing 'Devices & Connections', never 'Network Canvas'[0m
+  [32m  ✔[0m[90m NO user-facing command title contains the jargon 'Network Canvas'[0m
+  [32m  ✔[0m[90m native Testing view explains empty Structured Text test workspaces[0m
+  [32m  ✔[0m[90m package contribution labels and descriptions use current product names[0m
+  [32m  ✔[0m[90m Discover exposes Modbus host and subnet targets separately[0m
+  [32m  ✔[0m[90m Discover result cards show runtime endpoints and candidate confidence[0m
+  [32m  ✔[0m[90m Discover copy stays first-user-facing and avoids rejected network jargon[0m
+  [32m  ✔[0m[90m Discover hardware scans are disabled with a reason until an origin can run them[0m
+  [32m  ✔[0m[90m Discover Adopt preserves the runtime label and focuses the adopted node[0m
+[0m  Phase 5b — examples manifest + bundle (v5 shell)[0m
+  [32m  ✔[0m[90m the manifest parses and ships the curated starters[0m
+  [32m  ✔[0m[90m every example folder is a runnable scaffold (the 4 files), bundled in media/[0m
+  [32m  ✔[0m[90m every bundled example has a native truST Simulator debug configuration[0m
+  [32m  ✔[0m[90m every bundled example hides the native debug status selector[0m
+  [32m  ✔[0m[90m new project scaffolding writes the same native debug configuration[0m
+  [32m  ✔[0m[90m journey batch strips raw helper PNG output before validation[0m
+  [32m  ✔[0m[90m debug journey fixture has a native truST Simulator launch configuration[0m
+  [32m  ✔[0m[90m every example runtime.toml has the sections the runtime parser requires[0m
+  [32m  ✔[0m[90m every example instantiates its program in a configuration[0m
+  [32m  ✔[0m[90m hardware badges map to the user-facing requirement labels[0m
+  [32m  ✔[0m[90m example gallery entries carry hardware badges[0m
+  [32m  ✔[0m[90m example gallery has scalable search plus hardware and tag filters[0m
+  [32m  ✔[0m[90m example gallery separates hardware requirements from category labels[0m
+  [32m  ✔[0m[90m example copy keeps native prompts and exposes only an acceptance-runner prompt override[0m
+  [32m  ✔[0m[90m starter descriptions are compact enough for gallery cards[0m
+  [32m  ✔[0m[90m the PLCopen Motion starter is portable outside the repository[0m
+  [32m  ✔[0m[90m no secrets in example fixtures (no tokens/passwords/keys)[0m
+[0m  Phase 0 — packaged runtime tools (v5 shell)[0m
+  [32m  ✔[0m[90m release VSIX bundles trust-dev beside the other runtime tools[0m
+[0m  Phase 4 — Live Values (v5 shell)[0m
+  [32m  ✔[0m[90m the values surface is named 'Live Values' (not 'Structured Text Runtime')[0m
+  [32m  ✔[0m[90m write / force / release are preserved (NOT read-only)[0m
+  [32m  ✔[0m[90m Live Values does not force a stale split beside Devices & Connections[0m
+  [32m  ✔[0m[90m Release all forces exists end-to-end (button + message + host loop)[0m
+  [32m  ✔[0m[90m row write force and release wait for the next runtime scan before refreshing rows[0m
+  [32m  ✔[0m[90m Force/Unforce work on remote attach too — the old 'not available' gate is removed[0m
+  [32m  ✔[0m[90m viewer Live Values permissions disable Write/Force before a backend rejection[0m
+  [32m  ✔[0m[90m non-simulator force is explicitly armed before pinning a value[0m
+  [32m  ✔[0m[90m forced values are always visibly marked[0m
+  [32m  ✔[0m[90m Live Values exposes a forced-values inventory filter[0m
+  [32m  ✔[0m[90m Live Values uses explicit safety verbs for row actions[0m
+  [32m  ✔[0m[90m Live Values explains disabled program-driven writes[0m
+  [32m  ✔[0m[90m Live Values renders visible data-type labels instead of hidden value inference[0m
+  [32m  ✔[0m[90m Live Values keeps BOOL rows compact and contextual[0m
+  [32m  ✔[0m[90m Live Values keeps operation feedback visible in the sticky header[0m
+  [32m  ✔[0m[90m Live Values makes the active target and table columns visible[0m
+  [32m  ✔[0m[90m Live Values can display word-like values as decimal hex or binary[0m
+  [32m  ✔[0m[90m Live Values action buttons do not wrap safety verbs[0m
+  [32m  ✔[0m[90m Live Values long signal names cannot collapse the table columns[0m
+  [32m  ✔[0m[90m Live Values uses the shared truST product theme tokens[0m
+  [32m  ✔[0m[90m stopped/no-session state is beginner-facing and clears stale values[0m
+  [32m  ✔[0m[90m Live Values does not expose runtime lifecycle controls[0m
+  [32m  ✔[0m[90m attached runtimes are labelled Connected, not Stopped or Running[0m
+  [32m  ✔[0m[90m Live Values lifecycle pill is lifecycle-only and does not fake remote running[0m
+  [32m  ✔[0m[90m Live Values clears connected UI immediately when a debug session terminates[0m
+  [32m  ✔[0m[90m Structured Text Stop waits for termination before callers capture the UI[0m
+  [32m  ✔[0m[90m Structured Text debugger exposes a named truST simulator configuration[0m
+  [32m  ✔[0m[90m Live Values uses the selected runtime label instead of exposing raw endpoints[0m
+  [32m  ✔[0m[90m Live Values mirrors runtime lifecycle without re-polling every I/O event[0m
+[0m  Phase 7 — Devices & Connections (shared run-target + naming)[0m
+  [32m  ✔[0m[90m the canvas panel is user-facing 'Devices & Connections', never 'Network Canvas'[0m
+  [32m  ✔[0m[90m Devices & Connections never opens as a blank webview while loading[0m
+  [32m  ✔[0m[90m no user-facing 'Network Canvas' anywhere it renders or reaches the user (bundle + runtime strings)[0m
+  [32m  ✔[0m[90m ONE selected-run-target store, written by the dropdown AND the graph[0m
+  [32m  ✔[0m[90m selected run target persists across VS Code restart with a workspace-scoped fallback[0m
+  [32m  ✔[0m[90m Connect on a runtime node ALSO sets the active Target[0m
+  [32m  ✔[0m[90m Set as run target selects WITHOUT connecting[0m
+  [32m  ✔[0m[90m 'Set up runtime…' wizard is capability-gated (Install/Docker gated in v1)[0m
+  [32m  ✔[0m[90m host runtime setup slot uses the self-explanatory setup wording[0m
+  [32m  ✔[0m[90m 'Set up runtime…' wizard uses the shared product inspector chrome[0m
+  [32m  ✔[0m[90m Connect existing runtime stores tokens securely and uses shared chrome[0m
+  [32m  ✔[0m[90m runtime setup task panes keep the Devices & Connections breadcrumb[0m
+  [32m  ✔[0m[90m endpoint edit pane uses task-name breadcrumbs instead of role badges[0m
+  [32m  ✔[0m[90m refresh does not post through a disposed canvas panel[0m
+  [32m  ✔[0m[90m node inspector maps raw health ids to user-facing labels[0m
+  [32m  ✔[0m[90m starting a new canvas drawer clears stale apply errors[0m
+  [32m  ✔[0m[90m EtherCAT channel browse saves through EtherCAT config, not ADS import[0m
+[0m  Phases 8–10 — honest backend gating (no fakes, no dead buttons)[0m
+  [32m  ✔[0m[90m Deploy is visible in the action row but disabled with a reason until supported[0m
+  [32m  ✔[0m[90m Compile state uses icon + token role, and clean compile settles to neutral[0m
+  [32m  ✔[0m[90m sidebar four-button state table is explicit and has one primary source of truth[0m
+  [32m  ✔[0m[90m Live Values does not show stale compile diagnostics before a real result[0m
+  [32m  ✔[0m[90m managed local runtimes are projected into the sidebar Target from the fleet lifecycle[0m
+  [32m  ✔[0m[90m managed runtime tokens are imported into SecretStorage before attach[0m
+[0m  Phase 6 — Update running simulation (simulator-only)[0m
+  [32m  ✔[0m[90m Update running simulation is sim-only, gated on a real source change, wired to the update command[0m
+  [32m  ✔[0m[90m debug reload LM tool reports command failure honestly[0m
+[0m  R4 — runtime auth tokens in SecretStorage (security)[0m
+  [32m  ✔[0m[90m pickAuthToken: SecretStorage value wins; empty falls back to the legacy setting[0m
+  [32m  ✔[0m[90m token read paths use the SecretStorage-backed store, not the raw plaintext setting[0m
+  [32m  ✔[0m[90m legacy plaintext token setting is not contributed to native Settings[0m
+[0m  Phase 8 — Compile (authoritative project validation)[0m
+  [32m  ✔[0m[90m summarizeCheck: passed vs failed wording[0m
+  [32m  ✔[0m[90m Compile is a fixed sidebar action plus palette escape hatch, not a Project bucket item[0m
+  [32m  ✔[0m[90m project switching is not hidden in the sidebar project name[0m
+  [32m  ✔[0m[90m project-open sidebar renders the project name as an identity row[0m
+  [32m  ✔[0m[90m truST sidebar title exposes only Settings as a visible icon; New diagram stays in overflow[0m
+  [32m  ✔[0m[90m native Settings contribution uses product-language setting keys and titles[0m
+  [32m  ✔[0m[90m action row has a real narrow-width collapse rule[0m
+[0m  S-24 — Libraries surface contract[0m
+  [32m  ✔[0m[90m Libraries is reachable from the sidebar and the command palette escape hatch[0m
+  [32m  ✔[0m[90m Libraries uses the shared truST theme instead of a private token layer[0m
+  [32m  ✔[0m[90m curated libraries are packaged and catalog remains gated[0m
+  [32m  ✔[0m[90m Libraries failures stay visible with a recovery action but clear after success[0m
+  [32m  ✔[0m[90m curated library updates compare the vendored project copy[0m
+  [32m  ✔[0m[90m library symbol counts use real singular/plural copy[0m
+  [32m  ✔[0m[90m library symbol browser supports search, pagination, detail, and insertion[0m
+  [32m  ✔[0m[90m library row actions use user-facing verbs and versioned updates[0m
+[0m  VIS — visual editors follow the shared Run + Live Values model[0m
+  [32m  ✔[0m[90m visual editors do not render the legacy embedded runtime/I/O panel[0m
+  [32m  ✔[0m[90m product webviews share the same truST theme source[0m
+  [32m  ✔[0m[90m primary buttons use VS Code button tokens, not the focus/accent token as fill[0m
+  [32m  ✔[0m[90m shared truST theme has an explicit high-contrast token contract[0m
+  [32m  ✔[0m[90m VS Code extension test runner honors CARGO_TARGET_DIR[0m
+  [32m  ✔[0m[90m development binary resolver honors CARGO_TARGET_DIR[0m
+  [32m  ✔[0m[90m HMI preview uses shared truST product theme roles[0m
+  [32m  ✔[0m[90m HMI preview formats live values like the rest of truST[0m
+  [32m  ✔[0m[90m HMI preview schedules descriptor refreshes from edit save and watcher events[0m
+  [32m  ✔[0m[90m React Flow canvas controls use the shared Devices & Connections treatment[0m
+  [32m  ✔[0m[90m Devices & Connections protocol identity colors use shared theme roles[0m
+  [32m  ✔[0m[90m Devices & Connections refits when endpoint children appear after managed Start[0m
+  [32m  ✔[0m[90m endpoint removal is a deliberate two-step action[0m
+  [32m  ✔[0m[90m empty runtime guidance points to + Add, not hidden Edit mode[0m
+  [32m  ✔[0m[90m endpoint edit drafts are not reset by identical topology refreshes[0m
+  [32m  ✔[0m[90m endpoint disable is available from the inspector and writes through offline comm apply[0m
+  [32m  ✔[0m[90m visual editor right panes use the shared product chrome, not private sidebars[0m
+  [32m  ✔[0m[90m ladder contacts and coils show symbols with addresses using neutral edit strokes[0m
+  [32m  ✔[0m[90m visual editors reserve dashed strokes for product draft semantics[0m
+  [32m  ✔[0m[90m visual editor right panes share Tools Edit View IA and one zoom placement[0m
+  [32m  ✔[0m[90m invalid visual model cards can escape to the text editor[0m
+  [32m  ✔[0m[90m Blockly uses the shared truST theme instead of raw toy hues[0m
+  [32m  ✔[0m[90m Blockly status counts visible blocks, not serialized top-level stacks[0m
+  [32m  ✔[0m[90m Devices & Connections add pane uses the shared product chrome baseline[0m
+  [32m  ✔[0m[90m Devices & Connections add pane follows the accepted S-09 picker taxonomy[0m
+  [32m  ✔[0m[90m schema json_array fields render as list editors, not raw one-line JSON[0m
+  [32m  ✔[0m[90m browse tree shows plain access labels, not protocol shorthand[0m
+  [32m  ✔[0m[90m browse add action disables honestly when there is nothing valid to add[0m
+  [32m  ✔[0m[90m ADS route recovery stays in the Browse pane and exposes Create route[0m
+  [32m  ✔[0m[90m OPC UA browse auth warnings have an inline credential recovery action[0m
+  [32m  ✔[0m[90m remote browse uses one configured client connection for ADS and OPC UA[0m
+  [32m  ✔[0m[90m ADS Add tags can import into a stopped project[0m
+  [32m  ✔[0m[90m server endpoint summaries hide advanced transport limits by default[0m
+  [32m  ✔[0m[90m ADS server allowed clients render through the humanized summary, not raw JSON pins[0m
+  [32m  ✔[0m[90m network-canvas notifications do not expose backend protocol ids or awkward plurals[0m
+  [32m  ✔[0m[90m add-device form does not reset user edits on schema refresh[0m
+  [32m  ✔[0m[90m add-device Test success does not render raw lifecycle tokens[0m
+  [32m  ✔[0m[90m successful add-device Save lands on the saved node without clearing the result[0m
+  [32m  ✔[0m[90m Devices & Connections header reports active form field errors[0m
+  [32m  ✔[0m[90m Devices & Connections filter panel uses plain status wording[0m
+  [32m  ✔[0m[90m Devices & Connections node summaries use the shared product chrome baseline[0m
+  [32m  ✔[0m[90m protocol add/edit forms use the shared product chrome baseline[0m
+  [32m  ✔[0m[90m SFC toolbar add actions reframe the canvas so the result is visible[0m
+  [32m  ✔[0m[90m SFC transition routing avoids stacking non-linear labels through the center line[0m
+  [32m  ✔[0m[90m Statechart import and add actions reframe the canvas inside the shared editor shell[0m
+  [32m  ✔[0m[90m visual-editor chrome does not add private hardcoded colours[0m
+  [32m  ✔[0m[90m canvas grid backgrounds use the shared truST product grid role[0m
+  [32m  ✔[0m[90m Blockly toolbox labels use normal foreground tokens, not accent-button text[0m
+  [32m  ✔[0m[90m Blockly generated-code actions use shared button chrome and no emoji glyphs[0m
+  [32m  ✔[0m[90m dead execution panels with embedded runtime controls are removed[0m
+  [32m  ✔[0m[90m visual editor parse errors use user-facing recovery language[0m
+  [32m  ✔[0m[90m server-expose examples drive the exposed global from ST, not a static initializer[0m
+[0m  opcua client model[0m
+  [32m  ✔[0m[90m var name is deterministic and folds non-identifier chars[0m
+  [32m  ✔[0m[90m display type prefers resolved data_type, falls back to raw type[0m
+  [32m  ✔[0m[90m write access requires server-writable AND user opt-in[0m
+  [32m  ✔[0m[90m point round-trips the raw node_id and apply-ready type[0m
+  [32m  ✔[0m[90m a leaf with no raw node_id cannot be saved (guards pre-B1 sanitized-only ids)[0m
+  [32m  ✔[0m[90m nodeKey prefers the raw node_id, then the React id, then the path[0m
+  [32m  ✔[0m[90m two leaves sharing a path but different node_id are NOT conflated (B1 integrity)[0m
+  [32m  ✔[0m[90m leaves whose sanitized id collides stay distinct by nodeKey (React-key safety)[0m
+  [32m  ✔[0m[90m selectedLeaves returns only chosen leaves in tree order[0m
+  [32m  ✔[0m[90m buildOpcuaConnection assembles connection + points from target[0m
+  [32m  ✔[0m[90m buildOpcuaConnection returns undefined with no usable points or endpoint[0m
+  [32m  ✔[0m[90m username auth carries credentials; anonymous does not[0m
+  [32m  ✔[0m[90m connection name slugs from endpoint when label is the raw protocol id[0m
+  [32m  ✔[0m[90m browse errors map to exactly one recovery action[0m
+  [32m  ✔[0m[90m browse error details are user-facing recovery text, not raw status tokens[0m
+[0m  New project command (VS Code)[0m
+  [32m  ✔[0m[90m creates scaffold in an empty target directory[0m[31m (132ms)[0m
+  [32m  ✔[0m[90m cancel at each prompt stage leaves filesystem unchanged[0m
+  [32m  ✔[0m[90m existing target requires explicit confirmation behavior[0m[31m (131ms)[0m
+  [32m  ✔[0m[90m generated ST parses cleanly and TOML is usable by build[0m[31m (606ms)[0m
+  [32m  ✔[0m[90m works in single-root and multi-root workspace setups[0m[31m (478ms)[0m
+[0m  PLCopen export command (VS Code)[0m
+  [32m  ✔[0m[90m exports a project to PLCopen XML[0m
+  [32m  ✔[0m[90m cancel paths do not perform export[0m
+  [32m  ✔[0m[90m missing project path is rejected[0m
+  [32m  ✔[0m[90m existing output requires explicit overwrite[0m
+[0m  PLCopen import command (VS Code)[0m
+  [32m  ✔[0m[90m imports OpenPLC XML into a target project folder[0m
+  [32m  ✔[0m[90m cancel paths do not perform import[0m
+  [32m  ✔[0m[90m existing non-empty target requires explicit overwrite[0m
+  [32m  ✔[0m[90m missing input file is rejected[0m
+  [32m  ✔[0m[90m malformed XML reports actionable import error message[0m
+  [32m  ✔[0m[90m missing runtime binary reports actionable import launch error[0m[33m (72ms)[0m
+[0m  PLCopen LD interop[0m
+  [32m  ✔[0m[90m exports schema v2 ladder and imports it back as schema v2[0m
+  [32m  ✔[0m[90m reports unsupported constructs during import[0m
+  [32m  ✔[0m[90m emits diagnostics for malformed node payloads[0m
+  [32m  ✔[0m[90m does not silently coerce invalid node enum attributes[0m
+[0m  PLCopen runtime error formatting[0m
+  [32m  ✔[0m[90m import launch errors distinguish missing trust-runtime binary[0m
+  [32m  ✔[0m[90m import command failures distinguish malformed XML[0m
+  [32m  ✔[0m[90m export command failures remain generic[0m
+[0m  BlocklyEngine[0m
+  [32m  ✔[0m[90m generates complete connected statement chains[0m
+  [32m  ✔[0m[90m supports IF0/DO0 input slots from Blockly control blocks[0m
+  [32m  ✔[0m[90m generates ST for Blockly while/until blocks[0m
+  [32m  ✔[0m[90m resolves Blockly variable ids and infers untyped numeric variables[0m
+[0m  LadderEngine[0m
+  [32m  ✔[0m[90m validates deterministic series NO/NC contact semantics[0m
+  [32m  ✔[0m[90m drives outputs correctly for parallel branch + NC rung[0m
+  [32m  ✔[0m[90m supports parallel branch semantics via topology edges[0m
+  [32m  ✔[0m[90m keeps buffered write commit semantics across networks[0m
+  [32m  ✔[0m[90m executes all coil modes (NORMAL/SET/RESET/NEGATED)[0m
+  [32m  ✔[0m[90m rejects unsupported coil symbol types[0m
+  [32m  ✔[0m[90m executes compare and math blocks for all configured operations[0m
+  [32m  ✔[0m[90m implements TON and TOF timer behaviors[0m
+  [32m  ✔[0m[90m implements TP pulse timer and counter FB behavior[0m
+  [32m  ✔[0m[90m resolves local/global symbols with local-first precedence[0m
+  [32m  ✔[0m[90m supports symbolic input force/write against declared variables[0m
+  [32m  ✔[0m[90m supports numeric symbol operands and outputs for compare/math nodes[0m
+  [32m  ✔[0m[90m emits diagnostics for unresolved symbols and non-assignable coil targets[0m
+  [32m  ✔[0m[90m rejects invalid topology with actionable diagnostics[0m
+[0m  Ladder schema v2 fixtures[0m
+  [32m  ✔[0m[90m accepts schema v2 fixtures[0m
+  [32m  ✔[0m[90m rejects legacy schema fixtures with actionable error[0m
+  [32m  ✔[0m[90m rejects invalid enum symbols with actionable error[0m
+  [32m  ✔[0m[90m requires declared symbols for all ladder example node references[0m
+[0m  Ladder webview editor operations[0m
+  [32m  ✔[0m[90m auto-routes network wires with deterministic edge geometry[0m
+  [32m  ✔[0m[90m auto-routes all program networks[0m
+  [32m  ✔[0m[90m replaces ladder symbols across variables and node fields[0m
+  [32m  ✔[0m[90m reconciles contact variable declarations without keeping typing artifacts[0m
+  [32m  ✔[0m[90m keeps explicit local bool declarations that are not implicit defaults[0m
+  [32m  ✔[0m[90m pastes an element into a network with new id and offset[0m
+  [32m  ✔[0m[90m pastes a rung and reorders layout/order fields[0m
+  [32m  ✔[0m[90m creates a parallel contact branch from a selected series contact[0m
+  [32m  ✔[0m[90m creates parallel branch on auto-routed simple topology[0m
+  [32m  ✔[0m[90m routes branch edges through split/merge node x positions[0m
+  [32m  ✔[0m[90m rejects parallel shortcut when there is no horizontal space[0m
+  [32m  ✔[0m[90m adds repeated parallel contact legs on existing branch[0m
+  [32m  ✔[0m[90m pushes lower rungs down when branch depth increases[0m
+[0m  Ladder runtime I/O panel mapping[0m
+  [32m  ✔[0m[90m maps local symbols to FB-qualified write targets[0m
+  [32m  ✔[0m[90m updates existing symbolic row by write target without duplicates[0m
+  [32m  ✔[0m[90m keeps symbolic debug addresses case-preserved while canonicalizing direct I/O[0m
+  [32m  ✔[0m[90m marks write operations pending until matching runtime I/O confirmation arrives[0m
+  [32m  ✔[0m[90m confirms symbolic memory force immediately without stIoState roundtrip[0m
+  [32m  ✔[0m[90m syncs in-memory ladder program to disk before runtime start[0m
+[0m  Visual ST companion generation[0m
+  [32m  ✔[0m[90m maps visual source files to sibling .st companions[0m
+  [32m  ✔[0m[90m generates runtime entry wrapper with configuration and program binding[0m
+  [32m  ✔[0m[90m maps ladder globals with addresses into runtime entry wrapper[0m
+  [32m  ✔[0m[90m maps raw direct ladder operands into runtime entry wrapper globals[0m
+  [32m  ✔[0m[90m generates ladder companion as function block[0m
+  [32m  ✔[0m[90m declares global and local ladder symbols in companion function block[0m
+  [32m  ✔[0m[90m rejects undeclared ladder symbols in companion function block[0m
+  [32m  ✔[0m[90m lowers branch topology so outputs change state for dfg parallel path[0m
+  [32m  ✔[0m[90m generates blockly companion as function block[0m
+  [32m  ✔[0m[90m generates statechart companion with event inputs and actions[0m
+  [32m  ✔[0m[90m generates sfc companion as function block[0m
+  [32m  ✔[0m[90m all visual examples generate companions and runtime wrappers[0m
+[0m  Visual runtime controller[0m
+  [32m  ✔[0m[90m tracks mode/start/stop transitions[0m
+  [32m  ✔[0m[90m captures start failures in runtime state[0m
+  [32m  ✔[0m[90m routes runtime panel and settings actions[0m
+  [32m  ✔[0m[90m runtime message schema guard accepts shared payloads[0m
+[0m  Visual runtime panel bridge[0m
+  [32m  ✔[0m[90m validates shared runtime panel message schema[0m
+  [32m  ✔[0m[90m maps runtime mode consistently[0m
+  [32m  ✔[0m[90m derives runtime status payload from shared runtime ui state[0m
+[0m  Visual right pane resize[0m
+  [32m  ✔[0m[90m clamps widths to configured bounds[0m
+  [32m  ✔[0m[90m prefers VS Code webview state over local storage[0m
+  [32m  ✔[0m[90m falls back to local storage when VS Code state is missing[0m
+  [32m  ✔[0m[90m falls back to default width for invalid persisted values[0m
+  [32m  ✔[0m[90m builds stable storage keys[0m
+[0m  Visual webview VS Code API singleton[0m
+  [32m  ✔[0m[90m acquires VS Code API only once per webview runtime[0m
+  [32m  ✔[0m[90m returns a stable no-op API when VS Code API is unavailable[0m
+[0m  StateChart editor lifecycle[0m
+  [32m  ✔[0m[90m disposes running execution session when panel is closed[0m
+[0m  StateMachineEngine[0m
+🎯 StateMachine initialized in hardware mode
+🔌 [HW] idleEntry → FORCE false on %QX0.0
+🔌 [HW] idleExit → FORCE false on %QX0.1
+🔌 [HW] transitionAction → FORCE true on %QX0.2
+🔌 [HW] runningEntry → FORCE true on %QX0.3
+Transitioned from Idle to Running via GO
+  [32m  ✔[0m[90m awaits hardware actions before transition completes[0m[33m (62ms)[0m
+🎯 StateMachine initialized in hardware mode
+Evaluating guard: INVALID_GUARD
+No valid I/O address found in guard: INVALID_GUARD
+Guard INVALID_GUARD blocked transition
+  [32m  ✔[0m[90m fails closed when guard expression is invalid in hardware mode[0m
+🎯 StateMachine initialized in hardware mode
+Evaluating guard: %IX0.0 == TRUE
+Guard %IX0.0 == TRUE blocked transition
+Error evaluating guard: %IX0.0 == TRUE Error: io read failed
+	at Context.<anonymous> (/home/johannes/projects/trust-platform-portability-release/editors/vscode/out/test/suite/statechart-engine.test.js:148:47)
+	at callFn (/home/johannes/projects/trust-platform-portability-release/editors/vscode/node_modules/mocha/lib/runnable.js:366:21)
+	at Runnable.run (/home/johannes/projects/trust-platform-portability-release/editors/vscode/node_modules/mocha/lib/runnable.js:354:5)
+	at Runner.runTest (/home/johannes/projects/trust-platform-portability-release/editors/vscode/node_modules/mocha/lib/runner.js:719:10)
+	at /home/johannes/projects/trust-platform-portability-release/editors/vscode/node_modules/mocha/lib/runner.js:842:12
+	at next (/home/johannes/projects/trust-platform-portability-release/editors/vscode/node_modules/mocha/lib/runner.js:634:14)
+	at /home/johannes/projects/trust-platform-portability-release/editors/vscode/node_modules/mocha/lib/runner.js:644:7
+	at next (/home/johannes/projects/trust-platform-portability-release/editors/vscode/node_modules/mocha/lib/runner.js:527:14)
+	at Immediate.<anonymous> (/home/johannes/projects/trust-platform-portability-release/editors/vscode/node_modules/mocha/lib/runner.js:612:5)
+	at process.processImmediate (node:internal/timers:574:21)
+  [32m  ✔[0m[90m fails closed when guard I/O read errors in hardware mode[0m
+[0m  SfcEngine[0m
+  [32m  ✔[0m[90m accepts valid parallel split/join topology[0m
+  [32m  ✔[0m[90m rejects split with fewer than two branches[0m
+  [32m  ✔[0m[90m rejects join with missing/invalid continuation[0m
+[0m  RuntimeClient[0m
+  [32m  ✔[0m[90m cleans request listeners when a request times out[0m
+[0m  Runtime Shared Utilities[0m
+  [32m  ✔[0m[90m parseControlEndpoint accepts valid tcp endpoints[0m
+❌ Failed to read from %IX0.0: Error: Request 1 timed out
+	at /home/johannes/projects/trust-platform-portability-release/editors/vscode/out/statechart/runtimeClient.js:137:37
+	at settle (/home/johannes/projects/trust-platform-portability-release/editors/vscode/out/statechart/runtimeClient.js:134:17)
+	at Timeout.<anonymous> (/home/johannes/projects/trust-platform-portability-release/editors/vscode/out/statechart/runtimeClient.js:137:17)
+	at listOnTimeout (node:internal/timers:685:17)
+	at process.processTimers (node:internal/timers:618:7)
+  [32m  ✔[0m[90m parseControlEndpoint rejects invalid tcp endpoints[0m
+  [32m  ✔[0m[90m parseControlEndpoint handles unix endpoints on non-windows[0m
+  [32m  ✔[0m[90m isLocalControlEndpoint only accepts local addresses[0m
+  [32m  ✔[0m[90m normalizeStringArray trims and filters non-string values[0m
+  [32m  ✔[0m[90m buildRuntimeSourceOptions applies defaults when include globs missing[0m
+  [32m  ✔[0m[90m buildRuntimeSourceOptions preserves explicit include globs[0m
+[0m  Runtime control client[0m
+  [32m  ✔[0m[90m sends one JSON-line request and resolves successful responses[0m
+  [32m  ✔[0m[90m classifies auth failures from control responses[0m
+  [32m  ✔[0m[90m distinguishes missing auth token responses[0m
+  [32m  ✔[0m[90m probes endpoint reachability without sending a request[0m
+[0m  Runtime target[0m
+  [32m  ✔[0m[90m classifies simulate mode without probing endpoint[0m
+  [32m  ✔[0m[90m reports missing endpoint when online runtime has no active endpoint[0m
+  [32m  ✔[0m[90m reports missing endpoint when configured endpoint is disabled[0m
+  [32m  ✔[0m[90m reports online reachable when probe and status succeed[0m
+  [32m  ✔[0m[90m reports online unreachable when endpoint probe fails[0m
+  [32m  ✔[0m[90m reports online unreachable when status request fails after probe[0m
+  [32m  ✔[0m[90m reports auth failed when status request is rejected by auth[0m
+  [32m  ✔[0m[90m reports missing auth token as a distinct auth failure[0m
+  [32m  ✔[0m[90m classifies credential forwarding trust from endpoint shape[0m
+  [32m  ✔[0m[90m runtime pane command is the existing runtime panel command[0m
+[0m  Network Canvas[0m
+  [32m  ✔[0m[90m package contributes the Network Canvas command[0m
+  [32m  ✔[0m[90m stage progression alone never fabricates a running runtime or connected device[0m
+  [32m  ✔[0m[90m runtime goes green only from runtime lifecycle evidence[0m
+  [32m  ✔[0m[90m device goes connected only after real I/O values are reported[0m
+  [32m  ✔[0m[90m runtime rolls health up from raw endpoint evidence; host stays reachability[0m
+  [32m  ✔[0m[90m fleet host headlines are user-facing, not raw lab machine names[0m
+  [32m  ✔[0m[90m unreachable configured peers keep their configured label, not 'This computer'[0m
+  [32m  ✔[0m[90m fleet search never hides degraded endpoints from the runtime rollup[0m
+  [32m  ✔[0m[90m connector status surface flows into endpoint graph metadata[0m
+  [32m  ✔[0m[90m ADS tag import enables the runtime ADS subsystem[0m
+  [32m  ✔[0m[90m connector status presentation uses first-user vocabulary[0m
+  [32m  ✔[0m[90m fleet search dims external counterparts and wires without hiding warnings[0m
+  [32m  ✔[0m[90m editing a rejected add form hides stale apply faults without hiding real faults[0m
+  [32m  ✔[0m[90m buildCanvasGraph maps a real fleet to host/runtime/endpoint nodes + links[0m
+  [32m  ✔[0m[90m degraded and error fleet-link status and detail survive full canvas projection[0m
+  [32m  ✔[0m[90m buildCanvasGraph does not duplicate a runtime as an external system[0m
+  [32m  ✔[0m[90m buildCanvasGraph never emits an edge to a node that does not exist[0m
+  [32m  ✔[0m[90m draft/pending wire links render dashed, connected links stay solid (honest: not yet a live link)[0m
+  [32m  ✔[0m[90m draft/pending mesh peers drop a dashed bus wire; connected peers stay solid[0m
+  [32m  ✔[0m[90m an all-proven degraded/error mesh renders solid[0m
+  [32m  ✔[0m[90m production-shaped mesh links retain each configured peer status and detail on the shared fabric[0m
+  [32m  ✔[0m[90m single-peer mesh fabric suppresses redundant bus label[0m
+  [32m  ✔[0m[90m external protocol nodes render display names, not raw driver ids[0m
+  [32m  ✔[0m[90m OPC UA client links label the external counterpart as an OPC UA server[0m
+  [32m  ✔[0m[90m OPC UA server links label the external counterpart as an OPC UA client[0m
+  [32m  ✔[0m[90m server endpoint summaries answer where the server is and what it exposes[0m
+  [32m  ✔[0m[90m ADS server live client count survives topology to endpoint node data[0m
+  [32m  ✔[0m[90m ADS client links label the external counterpart as an ADS server[0m
+  [32m  ✔[0m[90m protocol filtering reports hidden degraded/faulted endpoints instead of silently losing them[0m
+  [32m  ✔[0m[90m mergeFleetTopologies aggregates multiple runtimes: a host appears once with unioned runtimes[0m
+  [32m  ✔[0m[90m mergeFleetTopologies keeps configured endpoints on the same live runtime[0m
+  [32m  ✔[0m[90m configured ADS overlay on a live simulator says restart required, not stopped[0m
+  [32m  ✔[0m[90m a configured-but-unreachable fleet peer synthesizes an UNKNOWN node (not 'stopped'), never green[0m
+  [32m  ✔[0m[90m buildCanvasGraph shows added fleet peers even on the stopped local-simulator view[0m
+  [32m  ✔[0m[90m buildCanvasGraph renders peer topology failures without hiding the local view[0m
+  [32m  ✔[0m[90m auth-failed synthetic runtime nodes keep control endpoint for inspector actions[0m
+  [32m  ✔[0m[90m a new project with no configured runtime shows the local simulator node, not an empty screen[0m
+  [32m  ✔[0m[90m a stopped local control socket renders neutral stopped state, not an alarm fault[0m
+  [32m  ✔[0m[90m a running local simulator renders as a connected runtime node[0m
+  [32m  ✔[0m[90m a live local simulator topology replaces the stopped project overlay instead of twinning[0m
+  [32m  ✔[0m[90m a live local simulator topology hides raw ST resource names even when mode is missing[0m
+  [32m  ✔[0m[90m managed local runtimes are injected under the existing This computer host[0m
+  [32m  ✔[0m[90m managed starting runtime is pending with an Updating control[0m
+  [32m  ✔[0m[90m managed stopping runtime is pending with an Updating control[0m
+  [32m  ✔[0m[90m managed unavailable runtime fails closed with Start disabled[0m
+  [32m  ✔[0m[90m selected run target is projected onto the graph node and rendered node data[0m
+  [32m  ✔[0m[90m a managed runtime already shown via fleet.topology is NOT doubled, and the surviving node stays OWNED (managed)[0m
+  [32m  ✔[0m[90m managed status overrides stale health on an existing fleet topology node[0m
+  [32m  ✔[0m[90m live managed topology preserves the stopped project runtime instead of morphing the canvas[0m
+  [32m  ✔[0m[90m a runtime start failure renders an error node + retry banner, not a failure screen[0m
+  [32m  ✔[0m[90m classifyRuntimeStartFailure maps real error strings to actionable kinds[0m
+  [32m  ✔[0m[90m OPC UA client test failures render user-facing recovery text, not raw backend tokens[0m
+  [32m  ✔[0m[90m Network Canvas owns comms in-canvas — no Communication-panel command, import, or copy[0m
+  [32m  ✔[0m[90m conditional schema fields render and validate only for the selected backend[0m
+[0m  Network Canvas — add picker taxonomy[0m
+  [32m  ✔[0m[90m groups protocols by user intent in the S-09 order[0m
+  [32m  ✔[0m[90m omits empty groups and keeps advanced choices separate[0m
+  [32m  ✔[0m[90m does not render runtime discovery as a protocol card[0m
+  [32m  ✔[0m[90m routes unknown protocols to a trailing advanced Other choices group and never drops anything[0m
+  [32m  ✔[0m[90m server and client pairs have distinct badges and direction copy[0m
+  [32m  ✔[0m[90m advanced picker copy is user-facing and not backend review prose[0m
+  [32m  ✔[0m[90m canvas protocol names spell ADS direction instead of relying on the role band[0m
+  [32m  ✔[0m[90m local I/O endpoint titles leave the I/O role to the node band[0m
+  [32m  ✔[0m[90m ADD_PICKER_GROUPS is the canonical S-09 group order[0m
+[0m  Network Canvas — expose globals apply params[0m
+  [32m  ✔[0m[90m drops topology-only evidence fields before re-applying ADS/OPC UA server config[0m
+[0m  Network Canvas GitHub issues #94-#97[0m
+  [32m  ✔[0m[90m #94 symbol selection preserves native pointer and keyboard activation[0m
+  [32m  ✔[0m[90m #95 refresh coordinator commits slow active work and coalesces pending refreshes[0m
+  [32m  ✔[0m[90m #95 refresh requested at drain completion is not stranded[0m
+  [32m  ✔[0m[90m #95 invalidated discovery requests cannot publish stale cards[0m
+  [32m  ✔[0m[90m #95 stale or unsupported discovery cards are disabled with a reason[0m
+  [32m  ✔[0m[90m #95 panel visibility recovery refreshes instead of polling a suspended webview[0m
+  [32m  ✔[0m[90m #95 polling waits for refresh completion before scheduling the next cycle[0m
+  [32m  ✔[0m[90m #95 canvas renders cached state before concurrent runtime enrichment[0m
+  [32m  ✔[0m[90m #95 peer connector failures survive the refresh coordinator[0m
+  [32m  ✔[0m[90m #95 runtime I/O events use cached canvas rendering instead of full refresh[0m
+  [32m  ✔[0m[90m #96 write-enabled offline refusal is complete and actionable[0m
+  [32m  ✔[0m[90m #97 ADS ports validate and round-trip on discovered candidates[0m
+  [32m  ✔[0m[90m #97 visual browse flow groups discovered ADS ports[0m
+[0m  ADS multi-port discovery and existing Live Values contract[0m
+  [32m  ✔[0m[90m the configurable scan list has the common ADS ports and normalizes user settings[0m
+  [32m  ✔[0m[90m only ADS services that answer are reported on one discovered device[0m
+  [32m  ✔[0m[90m one ADS import request keeps selections grouped by responding port[0m
+  [32m  ✔[0m[90m the ADS inspector summarizes devices and ports instead of dumping raw connections[0m
+  [32m  ✔[0m[90m ADS discovery and tag browsing expose one purposeful multi-port workflow[0m
+  [32m  ✔[0m[90m per-port imports keep distinct connection identities and prior snapshots[0m
+  [32m  ✔[0m[90m repeated ADS imports preserve prior snapshots and enable runtime.toml once[0m
+  [32m  ✔[0m[90m ADS globals reuse the existing Live Values write force release actions[0m
+  [32m  ✔[0m[90m Live Values feedback keeps a fixed layout slot[0m
+  [32m  ✔[0m[90m Boolean drafts survive scans and forced rows keep their value controls[0m
+[0m  ADS discovery rendered results[0m
+  [32m  ✔[0m[90m an identity without a verified ADS port never renders a fallback card[0m[31m (122ms)[0m
+[0m  Live Values rendered interactions[0m
+  [32m  ✔[0m[90m rendered checks discover an installed Chrome-family browser[0m
+  [32m  ✔[0m[90m a live scan cannot interrupt a Boolean toggle gesture[0m
+  [32m  ✔[0m[90m a live scan preserves the highlight of the row under the pointer[0m
+  [32m  ✔[0m[90m a stale scan cannot visually roll back a pending Boolean force[0m
+  [32m  ✔[0m[90m a live scan cannot swallow a Boolean Write action[0m
+  [32m  ✔[0m[90m a live scan cannot swallow a Boolean Force action[0m
+  [32m  ✔[0m[90m I/O and ADS rows use the same rendered column positions[0m[31m (406ms)[0m
+[0m  ADS tag rendered selection[0m
+  [32m  ✔[0m[90m a successful ads.toml add keeps the tag checked and reversible[0m[33m (64ms)[0m
+[0m  ADS tag config mutation[0m
+  [32m  ✔[0m[90m unchecking removes the tag from matching ADS connections only[0m
+  [32m  ✔[0m[90m tag removal regenerates ADS ST from the updated config and all snapshots[0m
+  [32m  ✔[0m[90m checking merges with the existing port connection instead of duplicating it[0m
+[0m  Network Canvas session models[0m
+  [32m  ✔[0m[90m ADS browse opens the default port without an extra confirmation[0m
+  [32m  ✔[0m[90m non-ADS and local browse plans retain their immediate request behavior[0m
+  [32m  ✔[0m[90m browse reducer clears request data and retains completed data when the drawer closes[0m
+  [32m  ✔[0m[90m browse responses are scoped to the current webview request[0m
+  [32m  ✔[0m[90m endpoint browse keeps OPC UA and groups configured ADS ports[0m
+  [32m  ✔[0m[90m discover model derives honest origins, protocols, and device drafts[0m
+  [32m  ✔[0m[90m missing discovery capability never contradicts retained session activity[0m
+[0m  Network Canvas fleet identity[0m
+  [32m  ✔[0m[90m legacy mesh identity normalization covers topology schemas v2 through v4[0m
+  [32m  ✔[0m[90m same-host and container-owned legacy mesh peers keep lossless owner identity[0m
+  [32m  ✔[0m[90m a cross-runtime link resolves and scopes each endpoint independently[0m
+  [32m  ✔[0m[90m a singleton legacy snapshot is normalized idempotently through display ingress[0m
+  [32m  ✔[0m[90m repeated snapshots from one complete owner deduplicate[0m
+  [32m  ✔[0m[90m ambiguous ownership omits only affected references[0m
+[0m  ADS status summary[0m
+  [32m  ✔[0m[90m summarizes device and degraded counts for runtime pane and ADS panel[0m
+  [32m  ✔[0m[90m handles missing and empty status reports[0m
+[0m  connector status contract[0m
+  [32m  ✔[0m[90m maps every canonical state and health without changing wire meaning[0m
+  [32m  ✔[0m[90m rejects unknown state and health instead of rendering healthy[0m
+  [32m  ✔[0m[90m rejects unknown discovery confidence instead of projecting a peer[0m
+  [32m  ✔[0m[90m keeps peer topology and reports invalid connector vocabulary[0m
+[0m  Libraries model[0m
+  [32m  ✔[0m[90m adds dependencies without rewriting existing project manifest shape[0m
+  [32m  ✔[0m[90m updates and removes dependency entries in place[0m
+  [32m  ✔[0m[90m parses path and git dependencies[0m
+  [32m  ✔[0m[90m formats git dependency with exactly one pin selector[0m
+  [32m  ✔[0m[90m classifies git pins and normalizes paths[0m
+  [32m  ✔[0m[90m reads package version and groups library symbols[0m
+[0m  Library code actions[0m
+  [32m  ✔[0m[90m offers OSCAT for known OSCAT symbols when the dependency is missing[0m
+  [32m  ✔[0m[90m does not offer OSCAT when the project already depends on it[0m
+  [32m  ✔[0m[90m offers PLCopen Motion for MC symbols and ignores unknown symbols[0m
+[0m  Snippet contributions (VS Code)[0m
+  [32m  ✔[0m[90m snippet JSON file is valid and includes required patterns[0m
+  [32m  ✔[0m[90m snippet contribution is registered with identifier-friendly aliases[0m
+  [32m  ✔[0m[90m expanded snippet bodies are syntactically valid ST[0m[31m (404ms)[0m
+[0m  ST test workflow integration (VS Code)[0m
+  [32m  ✔[0m[90m discovers TEST_PROGRAM and TEST_FUNCTION_BLOCK declarations[0m
+  [32m  ✔[0m[90m run all and run single commands execute expected tests[0m[33m (57ms)[0m
+  [32m  ✔[0m[90m state updates track pass/fail results for UI decorations[0m
+  [32m  ✔[0m[90m refresh preserves results for tests that still exist[0m[31m (591ms)[0m
+  [32m  ✔[0m[90m refresh clears stale results when a file no longer contains tests[0m[31m (520ms)[0m
+[0m  VS Code test selection[0m
+  [32m  ✔[0m[90m uses an opt-in grep while preserving the unfiltered default[0m
+[92m [0m[32m 519 passing[0m[90m (10s)[0m
+[90m[main 2026-10-11T00:14:26.892Z][0m Extension host with pid 1958815 exited with code: 0, signal: unknown.
+Exit code:   0

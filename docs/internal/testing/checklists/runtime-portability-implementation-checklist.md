@@ -24,7 +24,7 @@ verification. None of this is A4 scope evidence.
 | Status | Run 8 reviewed candidate passes ELF inspection and corrected validation2 (17 required software gates, one advisory); physical attempt 2 passes all 156 records and the Rust verifier. Upper flash free 18,720 B; peak heap 28,272 B / 73,728 B; peak MSP 13,596 B / 16,384 B, leaving 2,788 B. First metadata precheck and first installation failures remain retained. |
 | Source identity | A4 base `df427259cc387a7a79fb81132be23e48ea1493d4`; run-8 frozen manifest `a95bcff98b5d4a51e70acf7e29cf0113b585ac69bcfc39c4cc5fbac6b1e8337c`; ELF `a0e6ed2d7f725fd17746d30c229d02e5b0125c00c494015f3be40322e293ec1e`; UART `9601cceef51d46170961c74e0afe2aba33b44250d3795225f6df60055a315704`. Runtime/firmware/tooling source is unchanged from the tested candidate; closeout documents/evidence and a separate 0.24.73 release-metadata commit follow the freeze. Historical hardware evidence retains its 0.24.71 tuple. |
 | Limitations | Electronic board identity available; printed PCB/package markings, physical button actuation and optical LED observation unavailable. No claim of external-plant operation, durable retain, release qualification or worst-case timing proof. |
-| Integration | A1/#130/v0.24.71 complete. A2/#131 merged at `3bed89b47b4e0ed8ecc11410b592228fff5f0112`; v0.24.72 release verification is complete (tag, Release workflow, assets/checksums and all five Marketplace targets). No B publication. |
+| Integration | A1/#130/v0.24.71 complete. A2/#131 merged at `3bed89b47b4e0ed8ecc11410b592228fff5f0112`; v0.24.72 release verification is complete (tag, Release workflow, assets/checksums and all five Marketplace targets). A3/A4/B publication is PR #132; merge/release remain pending. |
 | Next action | Scope B remote bring-up and independent evidence reconciliation are complete. Retain this result for the next separately authorized scope. Scope B local checkpoint is `f756ddd9a`; the following metadata commit targets 0.24.73. The subsequently authorized publication scope validates the exact integrated SHA, replays its final firmware, and then handles push, guarded merge and release; later implementation scopes remain separate. Printed markings, manual button actuation and optical LED observation remain explicitly unverified; M3 allocation-free/worst-case qualification remains separate. |
 
 Publication is authorized and isolated on `integrate/runtime-portability-stm32`.
@@ -37,10 +37,14 @@ closeout `75b42a667` passed its successor exact-head guard and image identity ch
 and was pushed as PR #132. Its complete first CI attempt found native Windows
 remapping-fixture and macOS system-Bash audit-wrapper failures; Linux and area
 checks passed. Automatic review found direct-I/O restart initialization overwritten
-by image carry-over. All three publication corrections are being implemented
-together, with new native cases, independent review and a consolidated corrected
-guard/portable/firmware/physical batch. Current correction evidence is pending;
-historical source checkpoints above remain preserved. Merge and release are pending.
+by image carry-over. All three corrections were implemented together and independently reviewed.
+Corrected source `a8937a07c` passed the exact-SHA guard (8,690 native/519 VS Code),
+all 20 required pinned supplement steps, strict documentation and fresh physical
+F401 replay with the same verified memory margins and 101-sample oracle.
+The new restart regression passed default/no-default/selected i686 execution.
+Its retained docs/evidence successor requires its own clean exact-SHA guard and
+image-identity check before correcting PR #132. Native Windows/macOS execution,
+guarded merge and full release remain pending; prior checkpoints are preserved.
 [Release integration command map](../../../notes/runtime-portability/stm32-release-integration.md)
 owns the exact-SHA guard, fresh final-image hardware replay, push, guarded merge and release.
 Earlier source checkpoints and hardware evidence remain unchanged.

@@ -1,0 +1,7 @@
+# Board acquisition script path-only acceptance
+
+Accepted: board-run5.sh is byte-identical to the previously root-reviewed board-run3.sh after the sole replacement of the task evidence directory run-3/board with run-5/board. Independent complete diff inspection and literal byte comparison confirmed there are no other changes. board-script-identity.json pins both script identities.
+
+Preserved acquisition protocol: exact ST-Link serial and UART endpoint; no automatic repeat marker; required firmware/application/ELF report/software-approved files; full preflash backup; reset and HardFault vector catch 0x401 readback before installation; firmware and application write/verify; lower and upper firmware preservation comparisons across application installation; checkpoint preservation; two-word phase-cookie clear and readbacks; stale UART drain while halted; vector-catch clear with 0x7f1 mask readback before the sole commanded reset/run; bounded 25-second UART acquisition with timeout status recorded separately from firmware qualification.
+
+This is script identity acceptance only, not hardware authorization or physical proof. The publication agent must require all software, guard, supplement, docs and retained final-ELF inspection stages to pass before populating software-approved.txt and launching acquisition. The separate Rust physical-trace verifier remains mandatory after acquisition; timeout 124 or board-finished.txt is not qualification. No hardware, source edit, tests, builds, formatter or gate execution was performed by this reviewer.
