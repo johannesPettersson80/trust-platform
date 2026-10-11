@@ -758,3 +758,7 @@ fn unix_time_ns() -> u64 {
 #[cfg(all(test, unix))]
 #[path = "service_tests.rs"]
 mod tests;
+
+#[cfg(all(test, unix, feature = "openot-database-influxdb3"))]
+#[path = "service_initial_open_tests.rs"]
+mod initial_open_tests;

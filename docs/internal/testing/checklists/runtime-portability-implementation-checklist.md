@@ -42,9 +42,15 @@ Corrected source `a8937a07c` passed the exact-SHA guard (8,690 native/519 VS Cod
 all 20 required pinned supplement steps, strict documentation and fresh physical
 F401 replay with the same verified memory margins and 101-sample oracle.
 The new restart regression passed default/no-default/selected i686 execution.
-Its retained docs/evidence successor requires its own clean exact-SHA guard and
-image-identity check before correcting PR #132. Native Windows/macOS execution,
-guarded merge and full release remain pending; prior checkpoints are preserved.
+Its docs/evidence successor `15391576e` passed fresh image identity/inspection,
+but the exact-SHA guard found a pre-existing initial-Influx retry-fixture race
+(`Starting` before an actual remote failure). Complete remaining-native collection
+passed on that frozen SHA with no additional failure. The owning unavailable-peer
+fixtures are being corrected without changing production retry classification or
+the one-second behavior window; run 7 requires independent review, final source
+preparation and its exact-SHA guard/image identity before the correction push.
+Native Windows/macOS execution, guarded merge and full release remain pending;
+prior checkpoints and failed attempts are preserved.
 [Release integration command map](../../../notes/runtime-portability/stm32-release-integration.md)
 owns the exact-SHA guard, fresh final-image hardware replay, push, guarded merge and release.
 Earlier source checkpoints and hardware evidence remain unchanged.

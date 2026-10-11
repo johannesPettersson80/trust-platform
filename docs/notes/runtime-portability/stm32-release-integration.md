@@ -246,3 +246,55 @@ commit. Its clean successor requires another exact-SHA guard and fresh link/imag
 check before the correction push. All first CI failures and prior checkpoints
 remain retained. PR #132's green native platform checks, guarded merge and full
 release verification remain pending, with existing correction/retest authority.
+
+## Metadata-successor failure and owned transport-fixture correction
+
+The exact-SHA guard at `15391576e1387c00174d48b495780e54ca42f203`
+failed one pre-existing runtime unit case:
+`service_retries_unreachable_influxdb_during_initial_open` observed `Starting`
+and zero retries at its one-second timer. The other 3,858 runtime unit cases
+passed. All other reachable guard commands passed, including 519 VS Code cases.
+The native workspace command stopped at that failed library; its remaining
+runtime binaries/integration targets and remaining workspace packages were then
+collected on the same frozen SHA with `--no-fail-fast`. Both commands passed,
+with no additional failure. The complete guard artifact, native outputs, commands
+and ledger remain under the external publication `run-6` evidence directory.
+The independent source trace is `run-6/review/openot-fixture-trace-review.md`.
+
+Specification 33's startup and typed transport-error contract is already covered;
+this is a test-harness correction, not a changed retry policy. The old fixture
+released its ephemeral port and timed asynchronous TLS/spool preparation as if an
+actual remote failure had already happened. The exact slow preparation subphase
+was not measured. The shared replacement owns its listener until teardown,
+observes actual request/ClientHello bytes, and transfers the held connection to
+the test. Startup must have returned while that peer is held, with `Starting`,
+zero retries and zero committed cursor/documents. The existing post-start record
+publication stays in place. Direct socket closure then starts the unchanged
+one-second retry assertion window; retry count, pending/head/cursor and shutdown
+preservation assertions stay intact. The standalone HTTP classification case
+uses the same real disconnect and keeps its typed connection-error assertion.
+No mocks, dependencies, production error reclassification or longer behavior
+window were introduced. Listener/read waits are interruptible and teardown joins
+the fixture thread, including during assertion unwinding.
+
+Run 7 command allocation: independently review the complete fixture/module/test
+correction; prepare the stable formatter plus touched fragments/pinned firmware
+formatter, architecture/full-map and derived diagrams on the builder; review and
+commit the prepared source. Run the canonical exact-SHA guard for all native,
+Clippy, cross-warning, supply-chain and VS Code commands, with no duplicate full
+native batch. Fresh pinned final-image linking, required retention and inspection
+must prove byte identity against physically replayed ELF
+`4761d2bc5153b3892da352ca1f0be1f7041f421457158bfc2a9682ddbbb39a61`.
+If identity holds, that actual physical replay remains applicable; otherwise a
+fresh reviewed hardware replay is required after software/ELF prerequisites.
+Unchanged portable core, public-doc and fixture bytes retain their explicitly
+recorded run-5 scope evidence. Native Windows/macOS still require the corrected
+PR checks. No run-7 result is claimed before execution; unlimited reviewed
+correction/retest authorization remains in force, and merge/release are pending.
+
+Run-7 preparation passed all five stages: environment, the single final formatter
+(including explicit fragments and Rust-1.95 firmware), architecture/full-map,
+derived diagrams and complete source-diff retention. Derived diagrams did not
+change. Formatter output reordered imports in the new test module and rewrapped the
+remaining imports in `service_tests.rs`; the prepared eight-path correction
+requires final independent reconciliation before commit. Native assertions remain unrun on this correction until the exact-SHA guard.
