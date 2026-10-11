@@ -305,6 +305,13 @@ END_FUNCTION_BLOCK
    `IMPLEMENTS` with one or more interface names; the parser preserves the
    complete ordered interface list for semantic validation (IEC 61131-3 Ed.3
    §6.6.7.1, Table 52).
+8. **VAR_INPUT members are writable** (CODESYS parity, vendor extension): the
+   owning body and external POUs may assign a function-block or program
+   `VAR_INPUT` member between calls (`fbInst.input := value`), matching the
+   IEC input-transfer model where input values are set by the caller.
+   Function and method parameters remain call-local and read-only, and
+   pointer/reference input slots stay read-only per the truST indirect-write
+   policy (`02-data-types.md` section 4.4).
 
 Table 40 permits input, output, in-out, external, ordinary, and temporary
 sections. truST also accepts `VAR_STAT` as ordinary persistent instance

@@ -169,12 +169,35 @@ impl<'a> TypeChecker<'a> {
             SymbolKind::Parameter {
                 direction: ParamDirection::In,
             } => {
-                self.diagnostics.error(
-                    DiagnosticCode::InvalidAssignmentTarget,
-                    node.text_range(),
-                    format!("cannot assign to input parameter '{}'", symbol.name),
+                // CODESYS parity (vendor extension): VAR_INPUT members of a
+                // FUNCTION_BLOCK or PROGRAM are writable between calls and
+                // by the owning body. Function/method parameters are
+                // call-local, and pointer/reference input slots stay
+                // read-only per the truST indirect-write policy (spec
+                // 02-data-types section 4.4).
+                let owner_kind = symbol
+                    .parent
+                    .and_then(|id| self.symbols.get(id))
+                    .map(|owner| owner.kind.clone());
+                let is_instance_member = matches!(
+                    owner_kind,
+                    Some(SymbolKind::FunctionBlock) | Some(SymbolKind::Program)
                 );
-                false
+                let slot_type = self.symbols.resolve_alias_type(symbol.type_id);
+                let is_indirect_slot = matches!(
+                    self.symbols.type_by_id(slot_type),
+                    Some(Type::Pointer { .. } | Type::Reference { .. })
+                );
+                if is_instance_member && !is_indirect_slot {
+                    true
+                } else {
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidAssignmentTarget,
+                        node.text_range(),
+                        format!("cannot assign to input parameter '{}'", symbol.name),
+                    );
+                    false
+                }
             }
             SymbolKind::Property { has_set, .. } => {
                 if has_set {
