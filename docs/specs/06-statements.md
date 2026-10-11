@@ -163,6 +163,11 @@ Shared rules:
 - `=>` is only valid for `VAR_OUTPUT` / `ENO` bindings and is invalid for
   non-output parameters. `:=` is valid only for `VAR_INPUT`, `VAR_IN_OUT`, and
   `EN`. (IEC 61131-3 Ed.3, 6.6.1.4.2)
+- A dangling output binding — `output =>` with no target, at the end of the
+  argument list or before a comma — is accepted as a CODESYS vendor
+  extension and explicitly discards that output; the output stays
+  unconnected and no missing-binding diagnostic fires. A dangling target
+  after `:=` or `?=` remains a parse error.
 - A named parameter may appear at most once and must belong to the selected
   callable.
 - The same caller storage, including overlapping aggregate projections, cannot
@@ -188,8 +193,8 @@ that ordering valid. Named `:=` and `=>` forms preserve their operator and
 target syntax, including selected, indexed, and dereferenced output targets.
 
 The parser rejects a leading comma, a doubled trailing comma, a missing comma
-between actuals, a named input without its expression, a named output without
-its target, an unclosed argument list, or a call statement without its required
+between actuals, a named input without its expression, an unclosed argument
+list, or a call statement without its required
 terminator. Recovery stops at the bounded call or statement boundary and must
 not reinterpret a malformed actual as a sibling statement.
 

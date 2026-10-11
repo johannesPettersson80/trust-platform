@@ -75,6 +75,11 @@ Target release: `v0.24.75`
   hosted values and image writes use checked owner APIs. Rejected queued writes
   report their application failure without turning an invalid request into a PLC fault.
 
+- Accept a dangling output binding `out =>` (no target) in call argument
+  lists as a CODESYS vendor extension: the output is explicitly discarded
+  and the call stays valid; a dangling target after `:=` remains an error.
+  Named `:=` binding to `VAR_IN_OUT` pins was already supported and stays
+  locked by the acceptance contracts.
 - Accept enum-typed array subscripts (enum values and enum-typed variables)
   as a CODESYS vendor extension, alongside the IEC ANY_INT subscripts.
 - Accept `RETAIN PERSISTENT` in state-owning variable sections as a
@@ -1203,6 +1208,11 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Accept a dangling output binding `out =>` (no target) in call argument
+  lists as a CODESYS vendor extension: the output is explicitly discarded
+  and the call stays valid; a dangling target after `:=` remains an error.
+  Named `:=` binding to `VAR_IN_OUT` pins was already supported and stays
+  locked by the acceptance contracts.
 - Accept enum-typed array subscripts (enum values and enum-typed variables)
   as a CODESYS vendor extension, alongside the IEC ANY_INT subscripts.
 - Accept `RETAIN PERSISTENT` in state-owning variable sections as a
@@ -2408,6 +2418,11 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Accept a dangling output binding `out =>` (no target) in call argument
+  lists as a CODESYS vendor extension: the output is explicitly discarded
+  and the call stays valid; a dangling target after `:=` remains an error.
+  Named `:=` binding to `VAR_IN_OUT` pins was already supported and stays
+  locked by the acceptance contracts.
 - Accept enum-typed array subscripts (enum values and enum-typed variables)
   as a CODESYS vendor extension, alongside the IEC ANY_INT subscripts.
 - Accept `RETAIN PERSISTENT` in state-owning variable sections as a
@@ -2827,6 +2842,11 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Accept a dangling output binding `out =>` (no target) in call argument
+  lists as a CODESYS vendor extension: the output is explicitly discarded
+  and the call stays valid; a dangling target after `:=` remains an error.
+  Named `:=` binding to `VAR_IN_OUT` pins was already supported and stays
+  locked by the acceptance contracts.
 - Accept enum-typed array subscripts (enum values and enum-typed variables)
   as a CODESYS vendor extension, alongside the IEC ANY_INT subscripts.
 - Accept `RETAIN PERSISTENT` in state-owning variable sections as a
@@ -2978,6 +2998,11 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Accept a dangling output binding `out =>` (no target) in call argument
+  lists as a CODESYS vendor extension: the output is explicitly discarded
+  and the call stays valid; a dangling target after `:=` remains an error.
+  Named `:=` binding to `VAR_IN_OUT` pins was already supported and stays
+  locked by the acceptance contracts.
 - Accept enum-typed array subscripts (enum values and enum-typed variables)
   as a CODESYS vendor extension, alongside the IEC ANY_INT subscripts.
 - Accept `RETAIN PERSISTENT` in state-owning variable sections as a
