@@ -54,7 +54,8 @@ Target release: `v0.24.74`
 
 - Modernize the supported build baseline to Rust 1.99 (edition 2024, resolver 3)
   and Node 24.21.0; refresh dependency families while retaining compatible LSP
-  and editor API pairs. Scope U qualification remains pending.
+  and editor API pairs. Software and full-function F401 fixture qualification pass;
+  production and ESP32 hardware qualification remain separate.
 - Test configuration no longer mutates process-wide environment variables;
   verification, register executor, OPC UA and persistence tests supply values
   directly through their owning configuration boundaries.
@@ -129,6 +130,12 @@ Target release: `v0.24.74`
 
 - Make PostgreSQL and TimescaleDB release-runner TLS mounts accessible to the
   service UID under restrictive host umasks, while keeping server keys private.
+- Preserve source-free restart initialization of direct input, output and marker
+  image addresses. Warm and cold restart carry previous images into staging before
+  ordered configuration actions, keeping unconfigured values and transactional
+  failure behavior.
+- Support system Bash 3.2 in the shared dependency-audit wrapper, including empty
+  exception lists, and preserve native path separators in firmware remapping.
 
 - Confirm managed fleet shutdown across control-connection teardown without
   mistaking interrupted status probes for a failed shutdown or a confirmed stop.

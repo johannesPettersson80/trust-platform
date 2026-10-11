@@ -993,3 +993,46 @@ all 41 guard regressions passed. The retained ladder bundle remains
 `df2e551576704abb7fc627ba859ed34eb1f3aeebc6327f25d80e49fbae6b13de`.
 The agent will retain a reviewed local U checkpoint for the separately authorized
 H development, then integrate main and validate the final committed candidate.
+
+Publication integration preserves the clean local U checkpoint
+`19f3b6787ef1e2d8fd434851684c463baab645e9` on
+`feat/runtime-portability-modernization` for H. A separate
+`integrate/runtime-modernization` checkout integrates main `b7d8ffbf2` without
+rewriting that checkpoint. Conflict resolution retains U's tested SDK environment
+fixture, cargo-deny 0.20 argument ordering, AST scanner/version handling and native
+assertions. All files under crates, xtask, scripts, firmware and skills, plus every
+diagram source/render/manifest, remain byte-identical to the reviewed U checkpoint.
+Published main evidence is retained, both changelog correction groups are present,
+and the publication-log and ladder-license whitespace attributes coexist. The
+stale changelog qualification sentence now reports the measured software/F401
+fixture result; production and ESP32 hardware remain separate.
+
+The shared `just test-all` recipe adds Cargo's `--no-fail-fast` so one native
+test-binary failure does not prevent collecting failures from independent binaries.
+The suite selection, assertions and nonzero failure result remain unchanged.
+
+### Publication command allocation
+
+The clean builder candidate is
+`/home/johannes/projects/trust-platform-runtime-modernization-release`.
+The selected target is
+`/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-u`,
+with task TMPDIR under that target and target leases around compilation/testing.
+Guard forwarding supplies Cargo home
+`/home/johannes/.cache/trust-portability-u-tools/cargo-home` and the complete PATH
+`/home/johannes/.cache/trust-portability-u-tools/cargo-home/bin:/home/johannes/.cache/trust-portability-u-tools/node/node-v24.21.0-linux-x64/bin:/home/johannes/.cargo/bin:/usr/local/bin:/usr/bin:/bin`.
+Rust comes from the committed 1.99.0 toolchain; Cargo jobs remain six. The guard
+uses its reviewed native CC/CXX and separate cross environments. Every attempt
+retains exact commands, statuses, compiler/tool identities and source SHA.
+
+| Allocation | Commands and evidence | Prerequisites |
+|---|---|---|
+| Exact-SHA guard | `release_candidate_guard.py prepare --intent feature --remote-worktree <candidate> --remote-target <target> --remote-tool-path <PATH> --remote-cargo-home <Cargo home>`; canonical parity, clean head/base, diff, maintenance, editor lint/compile/unfiltered tests, fmt, cross warnings, supply chain, architecture, Clippy, one `just test-all`, MP-001 parity and final source cleanliness. | Reviewed clean committed candidate, main ancestry, 80 GiB floor and correct private tools. |
+| Portable qualification | `cargo test --locked -p trust-runtime-core --no-default-features --no-fail-fast`; selected i686 musl lib and portable foundations/load/source-free/cycle/frame suites with self-contained linker and warnings denied; F401/C6 core checks and `cargo tree -e features,no-dev`. | Same exact candidate and compiler; i686 and MCU targets installed. Native default suites belong to the guard. |
+| Firmware tuple | Host firmware library tests, adapter MCU check, firmware release Clippy; `xtask portability build-firmware`, retained ELF/map identity, `inspect`, `footprint` and `pack` for the saved three artifacts. | Same full-function composition, overflow checks, safe ICF and admission limits; map/ELF retained by the owning Rust command. Inspection requires successful retained pair; no stale-map fallback. |
+| Remaining dependency roots | Both locked fuzz graph deny/audit/check commands and npm audits for extension, runtime frontend and captures. | Private cargo-deny 0.20 and reviewed exception policy; locked Node graphs. Root and firmware audits belong to the guard. |
+| Protocol and project workflows | Eight mesh/TLS stability iterations with attempts one, corrected real-database gate, conformance and existing CI-green project build/validate/ST tests. | Guard native binaries available; reviewed disposable products/CA. Tutorial 21 is an inherited mismatch and is not an acceptance fixture or compiler-projection mandate. |
+| WASM and browser/editor composition | Browser-analysis WASM build, worker/import/shipped-bundle contracts, Chromium WASM capture, canvas checks, minimum SDK 1.109 and browser/code-server captures. | Successful binaries/assets and isolated Node/browser prerequisites. Guard owns its full default SDK run; minimum SDK is a separate composition check. No retry filters. |
+| Documentation/platform | Pinned Docker compiler qualification, strict MkDocs/public-document checks and applicable capture lifecycle. | Generated source frozen; tracked or untracked source drift fails. Rendered outputs retain separate identities. Guard-covered capture lifecycle runs once. Native Windows/macOS require GitHub CI. |
+| Physical final image | Reviewed board protocol with fresh evidence/one-use marker, discontiguous installation, checkpoint/app/firmware byte comparisons, reinstall-cookie readback, cleared run catches, bounded UART and Rust verifier. | All required software and exact final ELF inspection pass. Preserve 16 KiB flash and 2 KiB stack margins, 72 KiB heap/16 KiB MSP, full functions and existing oracle. |
+| Publication | Guarded push, PR complete-failure collection including retry-rescue logs, reviewed root-cause corrections and exact-head revalidation as needed, `check-merge --execute`, annotated main tag and `verify-release`/cleanup. | Passing exact-head artifact and current checks/reviews; no partial-result correction push. Scope/guard/CI/merge/release remain distinct states. |
