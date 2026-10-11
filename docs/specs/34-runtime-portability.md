@@ -1409,7 +1409,15 @@ M0U is a separate implementation scope, normally after A/B and before broad M2B.
 Modernization evidence shall freeze the actual tracked and nonignored new source,
 deleted paths, and canonical instruction sources. Regenerate tracked assets shipped
 inside the runtime or extension before freezing; their bytes remain source inputs.
-Reject changed bytes or added source paths during validation. Expected rendered diagrams and public-document
+Reject changed bytes, added source paths, file-kind changes and Unix executable-bit
+changes during validation. Freeze regular-file versus symbolic-link identity and
+the link target as well as resolved content; retain explicit missing-file records.
+Unix executable bits come from the working tree, not only the Git index. Hosts
+without Unix mode bits record that absence explicitly. A byte-only historical
+snapshot lacks this identity contract and shall not be accepted by the current
+checker. Instruction-directory inventory shall reject symbolic-link directories,
+including configured roots and their ancestors inside the checkout, rather than
+following them. Expected rendered diagrams and public-document
 images are separate generated outputs with their own identities. Rust owns this
 comparison. Source-freeze manifests shall be stored outside the canonical source
 checkout; both creation and checking reject destinations that resolve inside it,

@@ -1,4 +1,4 @@
-//! Freeze source bytes separately from expected rendered validation outputs.
+//! Freeze source bytes and file identity separately from rendered validation outputs.
 use anyhow::{ensure, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -19,6 +19,33 @@ const GENERATED: [&str; 3] = [
 struct FileIdentity {
     path: String,
     sha256: Option<String>,
+    state: FileState,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum FileState {
+    Missing,
+    Regular {
+        executable_bits: Option<u32>,
+    },
+    Symlink {
+        target: PathBuf,
+        executable_bits: Option<u32>,
+    },
+}
+
+fn executable_bits(metadata: &fs::Metadata) -> Option<u32> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        Some(metadata.permissions().mode() & 0o111)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = metadata;
+        None
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -51,15 +78,18 @@ fn additional_paths(root: &Path, directory: &Path, paths: &mut BTreeSet<String>)
         if entry.file_name() == "__pycache__" {
             continue;
         }
-        if path.is_dir() {
+        let file_type = entry.file_type()?;
+        if file_type.is_dir() {
             additional_paths(root, &path, paths)?;
-        } else if path.is_file() {
+        } else if file_type.is_file() || file_type.is_symlink() {
             paths.insert(
                 path.strip_prefix(root)?
                     .to_str()
                     .context("instruction path is not UTF-8")?
                     .replace('\\', "/"),
             );
+        } else {
+            anyhow::bail!("unsupported additional source file type");
         }
     }
     Ok(())
@@ -92,18 +122,56 @@ fn inventory(root: &Path) -> Result<Vec<FileIdentity>> {
         ".codex/skills",
         "docs/internal/prototypes/browser_analysis_wasm_spike/web",
     ] {
-        additional_paths(root, &root.join(directory), &mut paths)?;
+        let directory = root.join(directory);
+        for ancestor in directory
+            .ancestors()
+            .take_while(|ancestor| *ancestor != root)
+        {
+            ensure!(
+                fs::symlink_metadata(ancestor)?.is_dir(),
+                "additional source directories must not be symbolic links"
+            );
+        }
+        additional_paths(root, &directory, &mut paths)?;
     }
     paths
         .into_iter()
         .map(|path| {
             let file = root.join(&path);
-            let sha256 = match fs::read(file) {
+            let state = match fs::symlink_metadata(&file) {
+                Ok(metadata) if metadata.is_file() => FileState::Regular {
+                    executable_bits: executable_bits(&metadata),
+                },
+                Ok(metadata) if metadata.file_type().is_symlink() => {
+                    let executable_bits = match fs::metadata(&file) {
+                        Ok(target) => {
+                            ensure!(target.is_file(), "unsupported frozen source link target");
+                            executable_bits(&target)
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+                        Err(error) => {
+                            return Err(error).context("read frozen source link metadata")
+                        }
+                    };
+                    FileState::Symlink {
+                        target: fs::read_link(&file)?,
+                        executable_bits,
+                    }
+                }
+                Ok(_) => anyhow::bail!("unsupported frozen source file type"),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => FileState::Missing,
+                Err(error) => return Err(error).context("read frozen source metadata"),
+            };
+            let sha256 = match fs::read(&file) {
                 Ok(bytes) => Some(super::digest(&bytes)),
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
                 Err(error) => return Err(error).context("read frozen source"),
             };
-            Ok(FileIdentity { path, sha256 })
+            Ok(FileIdentity {
+                path,
+                sha256,
+                state,
+            })
         })
         .collect()
 }
@@ -184,7 +252,7 @@ pub(super) fn check(root: &Path, input: &str) -> Result<()> {
 fn verify_files(expected: &[FileIdentity], current: &[FileIdentity]) -> Result<()> {
     ensure!(
         expected == current,
-        "source paths or bytes differ from freeze"
+        "source paths, bytes, file kinds or executable bits differ from freeze"
     );
     Ok(())
 }
@@ -302,6 +370,94 @@ mod tests {
     }
 
     #[test]
+    fn source_freeze_rejects_replaced_file_kinds_and_byte_only_snapshots() {
+        let fixture = Fixture::new();
+        let root = fixture.checkout();
+        let output = fixture.0.join("source-freeze.json");
+        freeze(&root, output.to_str().unwrap()).unwrap();
+        let mut legacy: serde_json::Value =
+            serde_json::from_slice(&fs::read(&output).unwrap()).unwrap();
+        for record in legacy["files"].as_array_mut().unwrap() {
+            record.as_object_mut().unwrap().remove("state");
+        }
+        let legacy_path = fixture.0.join("byte-only.json");
+        fs::write(&legacy_path, serde_json::to_vec(&legacy).unwrap()).unwrap();
+        assert!(check(&root, legacy_path.to_str().unwrap()).is_err());
+        check(&root, output.to_str().unwrap()).unwrap();
+        fs::remove_file(root.join("source.rs")).unwrap();
+        fs::create_dir(root.join("source.rs")).unwrap();
+        assert!(check(&root, output.to_str().unwrap()).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn source_freeze_rejects_each_working_tree_executable_bit() {
+        use std::os::unix::fs::PermissionsExt;
+        let fixture = Fixture::new();
+        let root = fixture.checkout();
+        let source = root.join("source.rs");
+        fs::set_permissions(&source, fs::Permissions::from_mode(0o644)).unwrap();
+        let output = fixture.0.join("source-freeze.json");
+        freeze(&root, output.to_str().unwrap()).unwrap();
+        for bit in [0o100, 0o010, 0o001] {
+            fs::set_permissions(&source, fs::Permissions::from_mode(0o644 | bit)).unwrap();
+            assert_eq!(fs::read(&source).unwrap(), b"source bytes");
+            assert!(check(&root, output.to_str().unwrap()).is_err());
+            fs::set_permissions(&source, fs::Permissions::from_mode(0o644)).unwrap();
+            check(&root, output.to_str().unwrap()).unwrap();
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn source_freeze_rejects_same_byte_links_retargeting_and_target_modes() {
+        use std::os::unix::fs::{symlink, PermissionsExt};
+        let fixture = Fixture::new();
+        let root = fixture.checkout();
+        let source = root.join("source.rs");
+        let first = fixture.0.join("first.rs");
+        let second = fixture.0.join("second.rs");
+        for target in [&first, &second] {
+            fs::write(target, b"source bytes").unwrap();
+            fs::set_permissions(target, fs::Permissions::from_mode(0o644)).unwrap();
+        }
+        let output = fixture.0.join("source-freeze.json");
+        freeze(&root, output.to_str().unwrap()).unwrap();
+        fs::remove_file(&source).unwrap();
+        symlink(&first, &source).unwrap();
+        assert_eq!(fs::read(&source).unwrap(), b"source bytes");
+        assert!(check(&root, output.to_str().unwrap()).is_err());
+        let link_output = fixture.0.join("link-freeze.json");
+        freeze(&root, link_output.to_str().unwrap()).unwrap();
+        check(&root, link_output.to_str().unwrap()).unwrap();
+        fs::remove_file(&source).unwrap();
+        symlink(&second, &source).unwrap();
+        assert_eq!(fs::read(&source).unwrap(), b"source bytes");
+        assert!(check(&root, link_output.to_str().unwrap()).is_err());
+        fs::remove_file(&source).unwrap();
+        symlink(&first, &source).unwrap();
+        fs::set_permissions(&first, fs::Permissions::from_mode(0o744)).unwrap();
+        assert!(check(&root, link_output.to_str().unwrap()).is_err());
+
+        let instruction_root = root.join(".codex/skills");
+        fs::remove_dir(&instruction_root).unwrap();
+        let directory_target = fixture.0.join("other-skills");
+        fs::create_dir(&directory_target).unwrap();
+        symlink(&directory_target, &instruction_root).unwrap();
+        let directory_output = fixture.0.join("directory-freeze.json");
+        let error = freeze(&root, directory_output.to_str().unwrap()).unwrap_err();
+        assert!(error.to_string().contains("must not be symbolic links"));
+        assert!(!directory_output.exists());
+        fs::remove_file(&instruction_root).unwrap();
+        fs::remove_dir(root.join(".codex")).unwrap();
+        fs::create_dir(directory_target.join("skills")).unwrap();
+        symlink(&directory_target, root.join(".codex")).unwrap();
+        let error = freeze(&root, directory_output.to_str().unwrap()).unwrap_err();
+        assert!(error.to_string().contains("must not be symbolic links"));
+        assert!(!directory_output.exists());
+    }
+
+    #[test]
     fn only_expected_rendered_outputs_are_excluded() {
         for path in [
             "docs/diagrams/generated/flow.svg",
@@ -327,6 +483,13 @@ mod tests {
         let record = |path: &str, bytes: Option<&[u8]>| FileIdentity {
             path: path.to_owned(),
             sha256: bytes.map(super::super::digest),
+            state: if bytes.is_some() {
+                FileState::Regular {
+                    executable_bits: None,
+                }
+            } else {
+                FileState::Missing
+            },
         };
         let expected = vec![record("source.rs", Some(b"source"))];
         assert!(verify_files(&expected, &[record("source.rs", Some(b"source"))]).is_ok());

@@ -1222,3 +1222,57 @@ assertions are unchanged by formatting. This paragraph and the checklist status
 are the only later source-document edits. No new native assertion, editor suite,
 platform CI or hardware execution is implied by preparation. The next action is
 the authorized successor commit, exact-SHA guard and recorded supplement.
+
+### Third public wave: source-mode identity finding
+
+Candidate `a5b61b633abebc1790dc56c1842a67ebaeeef95a` passed its exact-SHA
+release guard: 316 native result blocks, 8,713 passed, zero failed, 24 ignored,
+including all three external-manifest regressions; full default editor 519 passed.
+All 16 supplement stages passed, including locked CFT 156, all four canvas cases,
+stable/minimum SDK 519 each, strict isolated documentation and its external
+8,480-record source comparison. Independent reconciliation accepted the receipts
+and unchanged crates/firmware/Cargo/compiler inputs; existing d823 physical proof
+remains its original tuple. Artifact and supplement digests are retained under
+external `attempt-4`, not relabelled as evidence for a successor.
+
+Every third-wave job finished successfully before source changes. Native raw
+artifacts recount Linux 8,712 passed/23 ignored, macOS 8,705/24, Windows 8,563/20,
+all zero failures. Native builds and suites passed on attempt 1; full editor 519
+passed on attempt 1. No retry-rescued artifact was present. The first Windows
+`gh run view --log` retrieval failed with an invalid-ZIP error; that empty file
+and receipt remain retained, and the direct GitHub job-log endpoint supplied the
+complete 36,964,744-byte raw log. This retrieval failure is not a CI test failure.
+
+Both current-head automatic reviews completed. Security reports no issue. Code
+review P2 comment 4241745208 correctly identifies that byte-only `FileIdentity`
+misses executable-mode changes. MOD-06 now specifies working-tree file kind,
+resolved content, link target and Unix executable bits. The Rust inventory uses
+non-following metadata for entry kind, records executable bits from the actual
+regular file or symlink target, keeps missing records explicit and rejects
+unsupported kinds. Instruction-directory walking does not follow symlink
+directories. Current identity records require this metadata; old byte-only freezes
+stay historical and are rejected rather than silently treated as complete proof.
+Three native regressions are authored for file-kind and old-schema refusal, each
+Unix executable bit, same-byte link replacement/retargeting and target permissions.
+They are unrun. Existing inventory membership, generated-output exclusions,
+external-manifest contract, function set and hardware margins remain intact.
+
+Allocation: independent full correction review, one workspace formatting and
+architecture/diagram preparation with returned-output review, authorized clean
+successor commit, exact-SHA guard and the same deduplicated 16-stage supplement
+with a fresh isolated docs checkout/external manifest. No full native suite is
+scheduled outside the guard. Native Windows/macOS behavior and all fresh automatic
+reviews remain required after corrective push; collect the complete terminal wave
+before further fixes or merge. Standing owner authorization covers required fixes
+and retests. Canonical rules remain unchanged; coordinate builder jobs with H.
+
+Independent final source review accepted six owners, including the configured
+instruction-root/ancestor symlink refusal and native assertions. Preparation4
+passed 5/5. Final eight-path identity
+`a3e837ee9c0a7b18f81b6b675d4458b28f8475ac8fc84ff67bbd7a7119048848`
+was independently reconciled against the accepted source archive: only Rustfmt
+wrapping plus the expected SVG/manifest changed. The final white-background PNG
+was viewed directly; identity fields and external-create/check labels are readable.
+This paragraph and the checklist preparation status are the only later source-
+document edits. No native tests, successor guard or new physical replay are claimed
+by preparation. Next is the authorized commit and exact-SHA guard allocation.

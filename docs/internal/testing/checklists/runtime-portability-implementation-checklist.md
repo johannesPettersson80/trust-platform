@@ -7,7 +7,30 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
-**U checkpoint `19f3b6787` is scope-verified; PR #133 requires a tooling correction.**
+**U checkpoint `19f3b6787` is scope-verified; PR #133 requires a second source-identity correction.**
+Candidate `a5b61b633` passed its exact-SHA guard (8,713 native passes, 24 ignored;
+519 default editor passes) and all 16 successor supplement stages. Locked-browser
+stable/minimum SDK suites each passed 519 tests; strict isolated documentation and
+external source checking passed. Independent source/software reconciliation
+accepted the complete receipts. All five third-wave GitHub workflows succeeded;
+Linux/macOS/Windows passed 8,712/8,705/8,563 native tests, with zero failures and
+first-attempt build/test success. Both automatic reviews completed; security found
+no issue, while code review added P2 comment 4241745208: a byte-only source identity
+misses executable-bit changes. The owning Rust correction now records file kinds,
+link targets and actual Unix executable bits, with missing-mode absence explicit
+on other hosts. Native permission, kind, link and byte-only-snapshot regressions
+are authored but unrun. Complete logs/reviews remain external; independent review,
+one preparation and a clean successor exact-SHA guard precede another push.
+No merge or release is claimed. The preceding correction history follows.
+
+Independent review accepted the complete mode/type contract, including refusal
+of symlink instruction roots and ancestors. Preparation passed 5/5. Final eight-
+path identity `a3e837ee…` was reconciled against the accepted source archive;
+only Rust wrapping and the expected SVG/manifest changed. The final diagram was
+viewed directly. This paragraph and the matching execution status follow that
+prepared identity. Next: clean successor commit, exact-SHA guard and fresh
+16-stage supplement; the three new native regressions remain unrun.
+
 Candidate `0f066c9fb` passed its exact-SHA guard (8,710 native passes, 24 ignored;
 519 default editor passes) and all 13 correction supplement stages. Full locked
 browser stable/minimum SDK suites each passed 519 tests. All five GitHub workflows
