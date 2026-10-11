@@ -51,6 +51,9 @@ prepare_postgres_tls() {
   uid=$(docker run --rm --label "$ownership_label" --entrypoint sh "$image" -c 'id -u postgres')
   gid=$(docker run --rm --label "$ownership_label" --entrypoint sh "$image" -c 'id -g postgres')
   mkdir -p "$directory"
+  # The bind mount is entered as postgres, independently of the host's umask.
+  # The directory is accessible; the key stays private to its service UID.
+  chmod 755 "$directory"
   cp "$state_dir/tls/server.crt" "$directory/server.crt"
   cp "$state_dir/tls/server.key" "$directory/server.key"
   chmod 644 "$directory/server.crt"

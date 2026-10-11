@@ -44,19 +44,16 @@ pub(super) fn record_audit(
         client: record.client.map(SmolStr::new),
         details: record.details,
     };
-    if let Some(sender) = &state.audit_tx {
-        if let Err(err) = sender.send(event) {
-            if let Ok(mut events) = state.events.lock() {
-                events.push_back(crate::debug::RuntimeEvent::AuditDropped {
-                    request_id: record.request_id,
-                    request_type: record.request_type,
-                    error: err.to_string(),
-                    time: crate::value::Duration::from_millis(
-                        timestamp_ms.min(i64::MAX as u128) as i64
-                    ),
-                });
-            }
-        }
+    if let Some(sender) = &state.audit_tx
+        && let Err(err) = sender.send(event)
+        && let Ok(mut events) = state.events.lock()
+    {
+        events.push_back(crate::debug::RuntimeEvent::AuditDropped {
+            request_id: record.request_id,
+            request_type: record.request_type,
+            error: err.to_string(),
+            time: crate::value::Duration::from_millis(timestamp_ms.min(i64::MAX as u128) as i64),
+        });
     }
     Some(event_id)
 }

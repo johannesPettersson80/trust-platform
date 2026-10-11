@@ -47,25 +47,25 @@ impl ReferenceContext for EngineState<'_> {
         self.charge_work_units(self.prepared.lookup_work())
             .map_err(VmTrap::Runtime)?;
         let root = self.prepared.root_for_instance_owner(encoded);
-        if frame.instance_owner == Some(encoded) {
-            if let Some(mut instance) = frame.runtime_instance {
-                let template = root.and_then(|(_, root)| root.template_pou_id).or_else(|| {
-                    frame
-                        .pou_id
-                        .and_then(|pou| self.prepared.method_owners.get(&pou).copied())
-                });
-                for _ in 0..=self.prepared.vm.pou_by_id.len() {
-                    if template.is_none()
-                        || self.construction.instance_templates.get(&instance).copied() == template
-                    {
-                        return Ok(instance);
-                    }
-                    instance = self
-                        .storage
-                        .get_instance(instance)
-                        .and_then(|value| value.parent)
-                        .ok_or(VmTrap::NullReference)?;
+        if frame.instance_owner == Some(encoded)
+            && let Some(mut instance) = frame.runtime_instance
+        {
+            let template = root.and_then(|(_, root)| root.template_pou_id).or_else(|| {
+                frame
+                    .pou_id
+                    .and_then(|pou| self.prepared.method_owners.get(&pou).copied())
+            });
+            for _ in 0..=self.prepared.vm.pou_by_id.len() {
+                if template.is_none()
+                    || self.construction.instance_templates.get(&instance).copied() == template
+                {
+                    return Ok(instance);
                 }
+                instance = self
+                    .storage
+                    .get_instance(instance)
+                    .and_then(|value| value.parent)
+                    .ok_or(VmTrap::NullReference)?;
             }
         }
         root.and_then(|(index, _)| self.construction.roots[index])

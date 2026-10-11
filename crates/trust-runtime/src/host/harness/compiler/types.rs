@@ -475,10 +475,10 @@ pub(crate) fn resolve_type_name(
     if let Some(id) = ctx.registry.lookup(name) {
         return Ok(id);
     }
-    if !name.contains('.') {
-        if let Some(id) = resolve_using_type(ctx.registry, name, &ctx.using)? {
-            return Ok(id);
-        }
+    if !name.contains('.')
+        && let Some(id) = resolve_using_type(ctx.registry, name, &ctx.using)?
+    {
+        return Ok(id);
     }
     Err(CompileError::new(format!("unknown type '{name}'")))
 }
@@ -514,12 +514,12 @@ pub(crate) fn resolve_named_type(
             .type_name(id)
             .ok_or_else(|| CompileError::new("unknown type"));
     }
-    if !type_name.contains('.') {
-        if let Some(id) = resolve_using_type(registry, type_name, using)? {
-            return registry
-                .type_name(id)
-                .ok_or_else(|| CompileError::new("unknown type"));
-        }
+    if !type_name.contains('.')
+        && let Some(id) = resolve_using_type(registry, type_name, using)?
+    {
+        return registry
+            .type_name(id)
+            .ok_or_else(|| CompileError::new("unknown type"));
     }
     Err(CompileError::new(format!("unknown type '{type_name}'")))
 }

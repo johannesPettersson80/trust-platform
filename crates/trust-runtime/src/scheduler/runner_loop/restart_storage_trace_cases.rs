@@ -65,7 +65,11 @@ fn runtime_restart_storage_trace_cases() {
             )
         })
         .collect::<Vec<_>>();
-    assert!(failed.is_empty(), "restart storage failures: {}", failed.join("; "));
+    assert!(
+        failed.is_empty(),
+        "restart storage failures: {}",
+        failed.join("; ")
+    );
 }
 
 fn run_restart_case(
@@ -109,11 +113,8 @@ fn run_restart_case(
             )
         }
         "AUTOMATIC_FAULT_RESTART_STORAGE" => {
-            let mut runner = ResourceRunner::new(
-                harness.into_runtime(),
-                TraceClock,
-                Duration::from_millis(1),
-            );
+            let mut runner =
+                ResourceRunner::new(harness.into_runtime(), TraceClock, Duration::from_millis(1));
             let mut limiter = AutomaticRestartLimiter::default();
             let resource_state = Arc::new(Mutex::new(ResourceState::Running));
             let resource_error = Arc::new(Mutex::new(None));
@@ -133,9 +134,21 @@ fn run_restart_case(
                 "present".to_string()
             };
             (
-                runner.runtime().storage().get_global("retained_value").cloned(),
-                runner.runtime().storage().get_global("transient_value").cloned(),
-                runner.runtime().storage().get_global("ordinary_value").cloned(),
+                runner
+                    .runtime()
+                    .storage()
+                    .get_global("retained_value")
+                    .cloned(),
+                runner
+                    .runtime()
+                    .storage()
+                    .get_global("transient_value")
+                    .cloned(),
+                runner
+                    .runtime()
+                    .storage()
+                    .get_global("ordinary_value")
+                    .cloned(),
                 state.to_lowercase(),
                 last_error,
             )
@@ -143,7 +156,11 @@ fn run_restart_case(
         other => return Err(format!("unreviewed restart scenario {other}")),
     };
 
-    let expected_retain = if scenario == "COLD_RESTART_STORAGE" { 1 } else { 42 };
+    let expected_retain = if scenario == "COLD_RESTART_STORAGE" {
+        1
+    } else {
+        42
+    };
     let passed = retained == Some(Value::DInt(expected_retain))
         && transient == Some(Value::DInt(2))
         && ordinary == Some(Value::DInt(3))

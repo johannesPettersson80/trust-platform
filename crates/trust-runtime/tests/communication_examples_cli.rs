@@ -111,14 +111,14 @@ fn normalize_runtime_endpoint_for_platform(project: &Path) {
     };
 
     let mut changed = false;
-    if let Some(endpoint) = control.get("endpoint").and_then(toml::Value::as_str) {
-        if endpoint.starts_with("unix://") {
-            control.insert(
-                "endpoint".to_string(),
-                toml::Value::String("tcp://127.0.0.1:18082".to_string()),
-            );
-            changed = true;
-        }
+    if let Some(endpoint) = control.get("endpoint").and_then(toml::Value::as_str)
+        && endpoint.starts_with("unix://")
+    {
+        control.insert(
+            "endpoint".to_string(),
+            toml::Value::String("tcp://127.0.0.1:18082".to_string()),
+        );
+        changed = true;
     }
 
     let has_auth_token = control

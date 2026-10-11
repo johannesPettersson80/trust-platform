@@ -15,15 +15,14 @@ pub(super) fn handle_debug_evaluate(
         None => return ControlResponse::error(id, "no snapshot available".into()),
     };
     let frame_id = params.frame_id.map(crate::memory::FrameId);
-    if let Some(frame_id) = frame_id {
-        if !snapshot
+    if let Some(frame_id) = frame_id
+        && !snapshot
             .storage
             .frames()
             .iter()
             .any(|frame| frame.id == frame_id)
-        {
-            return ControlResponse::error(id, "unknown frame id".into());
-        }
+    {
+        return ControlResponse::error(id, "unknown frame id".into());
     }
     let (using, mut registry, profile) = {
         let metadata = match state.metadata.lock() {
@@ -108,15 +107,17 @@ pub(super) fn handle_debug_breakpoint_locations(
             if loc_line < params.line || loc_line > max_line {
                 continue;
             }
-            if let Some(min_col) = params.column {
-                if loc_line == params.line && loc_col < min_col {
-                    continue;
-                }
+            if let Some(min_col) = params.column
+                && loc_line == params.line
+                && loc_col < min_col
+            {
+                continue;
             }
-            if let Some(max_col) = params.end_column {
-                if loc_line == max_line && loc_col > max_col {
-                    continue;
-                }
+            if let Some(max_col) = params.end_column
+                && loc_line == max_line
+                && loc_col > max_col
+            {
+                continue;
             }
             breakpoints.push(json!({ "line": loc_line, "column": loc_col }));
         }

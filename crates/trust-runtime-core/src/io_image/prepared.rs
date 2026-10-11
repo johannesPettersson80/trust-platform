@@ -109,10 +109,10 @@ impl IoValueCodec {
     pub fn address(&self, mut address: IoAddress) -> Result<IoAddress, RuntimeError> {
         if let Some(capacity) = self.string_capacity {
             address.size = IoSize::Bytes(u32::from(capacity));
-        } else if let Some(ty) = self.wire_type {
-            if expected_size_for_type(ty) != Some(address.size) {
-                return Err(RuntimeError::TypeMismatch);
-            }
+        } else if let Some(ty) = self.wire_type
+            && expected_size_for_type(ty) != Some(address.size)
+        {
+            return Err(RuntimeError::TypeMismatch);
         }
         validate_process_image_address(&address)?;
         Ok(address)

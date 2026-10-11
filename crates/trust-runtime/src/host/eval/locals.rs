@@ -5,7 +5,9 @@ pub(crate) fn static_storage_value_ref(
     let (instance_id, owner) = static_storage_binding(ctx, name)?;
     let key = static_storage_name(&owner, name);
     match instance_id {
-        Some(instance_id) => ctx.storage.ref_for_instance_recursive(instance_id, key.as_ref()),
+        Some(instance_id) => ctx
+            .storage
+            .ref_for_instance_recursive(instance_id, key.as_ref()),
         None => ctx.storage.ref_for_global(key.as_ref()),
     }
 }
@@ -230,7 +232,11 @@ fn ensure_static_storage(ctx: &mut EvalContext<'_>, local: &VarDef) -> Result<()
     let key = static_storage_name(&owner, &local.name);
 
     if let Some(instance_id) = instance_id {
-        if ctx.storage.get_instance_var(instance_id, key.as_ref()).is_none() {
+        if ctx
+            .storage
+            .get_instance_var(instance_id, key.as_ref())
+            .is_none()
+        {
             let value = if let Some(expr) = &local.initializer {
                 crate::harness::initializer::evaluate_initializer(
                     ctx.storage,
@@ -299,10 +305,10 @@ fn static_storage_binding(
     let frame = ctx.storage.current_frame()?;
     if let Some(functions) = ctx.functions {
         let key = SmolStr::new(frame.owner.to_ascii_uppercase());
-        if let Some(function) = functions.get(&key) {
-            if contains_var_named(&function.static_locals, name) {
-                return Some((None, function.name.clone()));
-            }
+        if let Some(function) = functions.get(&key)
+            && contains_var_named(&function.static_locals, name)
+        {
+            return Some((None, function.name.clone()));
         }
     }
 
@@ -325,17 +331,17 @@ fn method_static_owner_label(
     let instance = ctx.storage.get_instance(instance_id)?;
     let key = SmolStr::new(instance.type_name.to_ascii_uppercase());
 
-    if let Some(function_blocks) = ctx.function_blocks {
-        if let Some(function_block) = function_blocks.get(&key) {
-            let classes = ctx.classes?;
-            return method_static_owner_label_in_fb(
-                function_blocks,
-                classes,
-                function_block,
-                method_name,
-                local_name,
-            );
-        }
+    if let Some(function_blocks) = ctx.function_blocks
+        && let Some(function_block) = function_blocks.get(&key)
+    {
+        let classes = ctx.classes?;
+        return method_static_owner_label_in_fb(
+            function_blocks,
+            classes,
+            function_block,
+            method_name,
+            local_name,
+        );
     }
 
     let classes = ctx.classes?;

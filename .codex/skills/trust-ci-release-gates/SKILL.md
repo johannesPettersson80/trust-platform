@@ -97,6 +97,13 @@ These pushes go through the guard in this skill's `scripts/`:
      prepare --remote-worktree '<clean exact-SHA trust-builder worktree>'
    ```
 
+   For isolated, pinned builder tools, append
+   `--remote-tool-path '<complete remote PATH>' --remote-cargo-home '<private Cargo home>'`.
+   These optional values apply to every recorded remote command, including initial
+   VS Code installation/compilation and formatting before the internal target prefixes.
+   Record the exact values in the candidate command map; preserve the native/cross
+   compiler environments and leave shared machine tools unchanged.
+
    - It records the required commands:
      - parity of `AGENTS.md` and `.codex/skills/` with the primary checkout;
      - a clean candidate and base, and diff integrity;

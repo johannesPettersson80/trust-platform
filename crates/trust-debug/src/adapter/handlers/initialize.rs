@@ -338,10 +338,10 @@ impl DebugAdapter {
             return None;
         }
         let mut force_launch = false;
-        if let Some(since) = self.launch_state.pending_since() {
-            if since.elapsed() >= CONFIGURATION_DONE_TIMEOUT {
-                force_launch = true;
-            }
+        if let Some(since) = self.launch_state.pending_since()
+            && since.elapsed() >= CONFIGURATION_DONE_TIMEOUT
+        {
+            force_launch = true;
         }
         if !force_launch && !is_configuration_request(command) {
             force_launch = true;
@@ -437,12 +437,11 @@ impl DebugAdapter {
                 self.start_remote_polling();
                 events
                     .push(self.debug_output_message("[trust-debug] attach: connected".to_string()));
-                if let Some(state) = state {
-                    if state.paused {
-                        if let Some(stop) = state.last_stop {
-                            events.extend(self.remote_stop_events(stop));
-                        }
-                    }
+                if let Some(state) = state
+                    && state.paused
+                    && let Some(stop) = state.last_stop
+                {
+                    events.extend(self.remote_stop_events(stop));
                 }
                 DispatchOutcome {
                     responses: vec![self.ok_response::<Value>(&request, None)],

@@ -49,19 +49,15 @@ fn lower_program_var_blocks(
                         | VarBlockKind::Global
                         | VarBlockKind::Temp
                 )
+                && let Some(expr) = init_expr.as_ref()
             {
-                if let Some(expr) = init_expr.as_ref() {
-                    let value = ctx.eval_compile_time_const_initializer(expr, type_id)?;
-                    for name in &parts.names {
-                        if matches!(kind, VarBlockKind::Global) {
-                            let qualified = namespace_qualified_name(&var_block, name.as_str());
-                            ctx.register_global_compile_time_const(
-                                qualified.as_str(),
-                                value.clone(),
-                            );
-                        } else {
-                            ctx.register_compile_time_const(name.as_str(), value.clone());
-                        }
+                let value = ctx.eval_compile_time_const_initializer(expr, type_id)?;
+                for name in &parts.names {
+                    if matches!(kind, VarBlockKind::Global) {
+                        let qualified = namespace_qualified_name(&var_block, name.as_str());
+                        ctx.register_global_compile_time_const(qualified.as_str(), value.clone());
+                    } else {
+                        ctx.register_compile_time_const(name.as_str(), value.clone());
                     }
                 }
             }

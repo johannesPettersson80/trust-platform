@@ -347,20 +347,20 @@ fn apply_opcua_client_protocol(
         );
     }
     if let Some(opcua_client_text) = opcua_client_text {
-        if let Some(parent) = opcua_client_path.parent() {
-            if let Err(error) = std::fs::create_dir_all(parent) {
-                return blocked_response(
-                    protocol,
-                    String::new(),
-                    request.action,
-                    vec![field_error(
-                        "_",
-                        format!("failed to create {}: {error}", parent.display()),
-                    )],
-                    Some(opcua_client_path.display().to_string()),
-                    None,
-                );
-            }
+        if let Some(parent) = opcua_client_path.parent()
+            && let Err(error) = std::fs::create_dir_all(parent)
+        {
+            return blocked_response(
+                protocol,
+                String::new(),
+                request.action,
+                vec![field_error(
+                    "_",
+                    format!("failed to create {}: {error}", parent.display()),
+                )],
+                Some(opcua_client_path.display().to_string()),
+                None,
+            );
         }
         if let Err(error) = std::fs::write(&opcua_client_path, opcua_client_text) {
             return blocked_response(
@@ -607,20 +607,20 @@ fn apply_ads_protocol(
         );
     }
     if let Some(ads_text) = ads_text {
-        if let Some(parent) = ads_path.parent() {
-            if let Err(error) = std::fs::create_dir_all(parent) {
-                return blocked_response(
-                    protocol,
-                    String::new(),
-                    request.action,
-                    vec![field_error(
-                        "_",
-                        format!("failed to create {}: {error}", parent.display()),
-                    )],
-                    Some(ads_path.display().to_string()),
-                    None,
-                );
-            }
+        if let Some(parent) = ads_path.parent()
+            && let Err(error) = std::fs::create_dir_all(parent)
+        {
+            return blocked_response(
+                protocol,
+                String::new(),
+                request.action,
+                vec![field_error(
+                    "_",
+                    format!("failed to create {}: {error}", parent.display()),
+                )],
+                Some(ads_path.display().to_string()),
+                None,
+            );
         }
         if let Err(error) = std::fs::write(&ads_path, ads_text) {
             return blocked_response(
@@ -827,10 +827,8 @@ fn patch_ads_server_runtime_section(
         .is_none_or(Vec::is_empty);
 
     let mut table = edit_table_from_toml(params);
-    if should_preserve_clients {
-        if let Some(clients) = previous_clients {
-            table.insert("clients", clients);
-        }
+    if should_preserve_clients && let Some(clients) = previous_clients {
+        table.insert("clients", clients);
     }
     runtime.insert("ads_server", Item::Table(table));
     Ok(())

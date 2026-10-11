@@ -71,10 +71,10 @@ pub fn create_fb_instance(
     };
 
     let instance_id = storage.create_instance(fb.name.clone());
-    if let Some(parent_id) = parent_id {
-        if let Some(instance) = storage.get_instance_mut(instance_id) {
-            instance.parent = Some(parent_id);
-        }
+    if let Some(parent_id) = parent_id
+        && let Some(instance) = storage.get_instance_mut(instance_id)
+    {
+        instance.parent = Some(parent_id);
     }
 
     init_param_defaults(
@@ -179,10 +179,10 @@ pub fn create_class_instance(
     };
 
     let instance_id = storage.create_instance(class_def.name.clone());
-    if let Some(parent_id) = parent_id {
-        if let Some(instance) = storage.get_instance_mut(instance_id) {
-            instance.parent = Some(parent_id);
-        }
+    if let Some(parent_id) = parent_id
+        && let Some(instance) = storage.get_instance_mut(instance_id)
+    {
+        instance.parent = Some(parent_id);
     }
 
     init_var_defaults(

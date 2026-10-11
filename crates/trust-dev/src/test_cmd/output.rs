@@ -172,17 +172,17 @@ fn render_human_output(
 }
 
 fn render_no_tests_message(output: &mut String, filter: Option<&str>, discovered_total: usize) {
-    if let (Some(filter), total) = (filter, discovered_total) {
-        if total > 0 {
-            let _ = writeln!(
-                output,
-                "{}",
-                style::warning(format!(
-                    "0 tests matched filter \"{filter}\" ({total} tests discovered, all filtered out)"
-                ))
-            );
-            return;
-        }
+    if let (Some(filter), total) = (filter, discovered_total)
+        && total > 0
+    {
+        let _ = writeln!(
+            output,
+            "{}",
+            style::warning(format!(
+                "0 tests matched filter \"{filter}\" ({total} tests discovered, all filtered out)"
+            ))
+        );
+        return;
     }
     let _ = writeln!(output, "{}", style::warning("No ST tests discovered."));
 }

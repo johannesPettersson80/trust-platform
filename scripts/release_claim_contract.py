@@ -181,7 +181,7 @@ def audit_vsix() -> dict[str, Any]:
     _require(
         release,
         [
-            "npx vsce package --target ${{ matrix.platform }}",
+            "npx --no-install vsce package --target ${{ matrix.platform }}",
             "cp target/${{ matrix.target }}/release/trust-lsp",
             "cp target/${{ matrix.target }}/release/trust-debug",
             "cp target/${{ matrix.target }}/release/trust-runtime",

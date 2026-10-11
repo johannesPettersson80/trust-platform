@@ -7,7 +7,7 @@
 [![Release](https://img.shields.io/github/v/release/johannesPettersson80/trust-platform?display_name=tag)](https://github.com/johannesPettersson80/trust-platform/releases/latest)
 [![CI](https://github.com/johannesPettersson80/trust-platform/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/johannesPettersson80/trust-platform/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
-[![Rust](https://img.shields.io/badge/rust-1.95%2B-orange.svg)](Cargo.toml)
+[![Rust](https://img.shields.io/badge/rust-1.99%2B-orange.svg)](Cargo.toml)
 
 Documentation: <https://johannespettersson80.github.io/trust-platform/>
 
@@ -86,7 +86,7 @@ code --install-extension trust-platform.trust-lsp
 - Runtime + debugger: pre-1.0; behavior claims are locked by their written
   product specifications and direct native executable tests, with proof class
   stated separately where environment-specific evidence is required
-- Rust MSRV: 1.95+
+- Rust MSRV: 1.99+
 
 ## Help
 

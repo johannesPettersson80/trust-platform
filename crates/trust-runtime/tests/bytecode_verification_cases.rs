@@ -90,7 +90,10 @@ impl StateProbe for RuntimeProbe {
             }),
         );
         Ok(StateSnapshot {
-            process_image_hash: Some(format!("sha256:{:x}", Sha256::digest(process_image))),
+            process_image_hash: Some(format!(
+                "sha256:{}",
+                hex::encode(Sha256::digest(process_image))
+            )),
             retain_hash: None,
             target: Some(serde_json::json!({"module": "baseline-valid"})),
             siblings,
@@ -111,7 +114,7 @@ fn case_bytes(case: &CaseRecord) -> Result<Vec<u8>, String> {
         .get("mutated_digest")
         .and_then(toml::Value::as_str)
         .ok_or_else(|| format!("{} is missing input.mutated_digest", case.id))?;
-    let actual_digest = format!("sha256:{:x}", Sha256::digest(&bytes));
+    let actual_digest = format!("sha256:{}", hex::encode(Sha256::digest(&bytes)));
     if actual_digest != expected_digest {
         return Err(format!(
             "{} byte digest mismatch: expected {expected_digest}, actual {actual_digest}",

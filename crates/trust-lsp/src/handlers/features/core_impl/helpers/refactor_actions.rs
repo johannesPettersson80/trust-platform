@@ -37,13 +37,11 @@ pub(in super::super) fn convert_call_style_text_edit(
         .collect::<Vec<_>>();
 
     let mut edits = Vec::new();
-    if ordering_error {
-        if let Some(text) = build_positional_first_call(&args, &params) {
-            edits.push((
-                "Reorder to positional-first call".to_string(),
-                replace_arg_list_edit(&doc.content, &arg_list, text),
-            ));
-        }
+    if ordering_error && let Some(text) = build_positional_first_call(&args, &params) {
+        edits.push((
+            "Reorder to positional-first call".to_string(),
+            replace_arg_list_edit(&doc.content, &arg_list, text),
+        ));
     }
     if let Some(text) = build_formal_call(&args, &params) {
         edits.push((
@@ -235,52 +233,52 @@ pub(in super::super) fn extract_actions(
 
     let mut actions = Vec::new();
 
-    if let Some(result) = state.with_database(|db| extract_method(db, doc.file_id, range)) {
-        if let Some(changes) = rename_result_to_changes(state, result.edits) {
-            let action = CodeAction {
-                title: "Extract method".to_string(),
-                kind: Some(CodeActionKind::REFACTOR_EXTRACT),
-                edit: Some(WorkspaceEdit {
-                    changes: Some(changes),
-                    document_changes: None,
-                    change_annotations: None,
-                }),
-                ..Default::default()
-            };
-            actions.push(CodeActionOrCommand::CodeAction(action));
-        }
+    if let Some(result) = state.with_database(|db| extract_method(db, doc.file_id, range))
+        && let Some(changes) = rename_result_to_changes(state, result.edits)
+    {
+        let action = CodeAction {
+            title: "Extract method".to_string(),
+            kind: Some(CodeActionKind::REFACTOR_EXTRACT),
+            edit: Some(WorkspaceEdit {
+                changes: Some(changes),
+                document_changes: None,
+                change_annotations: None,
+            }),
+            ..Default::default()
+        };
+        actions.push(CodeActionOrCommand::CodeAction(action));
     }
 
-    if let Some(result) = state.with_database(|db| extract_property(db, doc.file_id, range)) {
-        if let Some(changes) = rename_result_to_changes(state, result.edits) {
-            let action = CodeAction {
-                title: "Extract property".to_string(),
-                kind: Some(CodeActionKind::REFACTOR_EXTRACT),
-                edit: Some(WorkspaceEdit {
-                    changes: Some(changes),
-                    document_changes: None,
-                    change_annotations: None,
-                }),
-                ..Default::default()
-            };
-            actions.push(CodeActionOrCommand::CodeAction(action));
-        }
+    if let Some(result) = state.with_database(|db| extract_property(db, doc.file_id, range))
+        && let Some(changes) = rename_result_to_changes(state, result.edits)
+    {
+        let action = CodeAction {
+            title: "Extract property".to_string(),
+            kind: Some(CodeActionKind::REFACTOR_EXTRACT),
+            edit: Some(WorkspaceEdit {
+                changes: Some(changes),
+                document_changes: None,
+                change_annotations: None,
+            }),
+            ..Default::default()
+        };
+        actions.push(CodeActionOrCommand::CodeAction(action));
     }
 
-    if let Some(result) = state.with_database(|db| extract_pou(db, doc.file_id, range)) {
-        if let Some(changes) = rename_result_to_changes(state, result.edits) {
-            let action = CodeAction {
-                title: "Extract function".to_string(),
-                kind: Some(CodeActionKind::REFACTOR_EXTRACT),
-                edit: Some(WorkspaceEdit {
-                    changes: Some(changes),
-                    document_changes: None,
-                    change_annotations: None,
-                }),
-                ..Default::default()
-            };
-            actions.push(CodeActionOrCommand::CodeAction(action));
-        }
+    if let Some(result) = state.with_database(|db| extract_pou(db, doc.file_id, range))
+        && let Some(changes) = rename_result_to_changes(state, result.edits)
+    {
+        let action = CodeAction {
+            title: "Extract function".to_string(),
+            kind: Some(CodeActionKind::REFACTOR_EXTRACT),
+            edit: Some(WorkspaceEdit {
+                changes: Some(changes),
+                document_changes: None,
+                change_annotations: None,
+            }),
+            ..Default::default()
+        };
+        actions.push(CodeActionOrCommand::CodeAction(action));
     }
 
     actions

@@ -468,11 +468,11 @@ fn ads_server_runtime_is_running(state: &ControlState) -> bool {
 fn recently_refused_clients_from_state(state: &ControlState) -> serde_json::Value {
     #[cfg(feature = "ads-server")]
     {
-        if let Ok(runtime) = state.ads_server_runtime.lock() {
-            if let Some(runtime) = runtime.as_ref() {
-                return serde_json::to_value(runtime.policy().recently_refused_clients())
-                    .unwrap_or_else(|_| json!([]));
-            }
+        if let Ok(runtime) = state.ads_server_runtime.lock()
+            && let Some(runtime) = runtime.as_ref()
+        {
+            return serde_json::to_value(runtime.policy().recently_refused_clients())
+                .unwrap_or_else(|_| json!([]));
         }
     }
     #[cfg(not(feature = "ads-server"))]

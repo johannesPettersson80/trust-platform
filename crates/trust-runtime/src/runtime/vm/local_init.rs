@@ -48,14 +48,14 @@ fn initialize_declared_locals_direct(
     let mut slot = 0usize;
 
     if let Some((_, return_type)) = plan.return_slot() {
-        if matches!(initialized_frame.locals.get(slot), Some(Value::Null) | None) {
-            if let Some(slot_ref) = initialized_frame.locals.get_mut(slot) {
-                let (return_name, _) = plan
-                    .return_slot()
-                    .expect("return slot checked before default initialization");
-                *slot_ref = default_value_for_type_id(return_type, runtime.registry(), &profile)
-                    .map_err(|err| init_failed_debug(plan.frame_owner(), return_name, err))?;
-            }
+        if matches!(initialized_frame.locals.get(slot), Some(Value::Null) | None)
+            && let Some(slot_ref) = initialized_frame.locals.get_mut(slot)
+        {
+            let (return_name, _) = plan
+                .return_slot()
+                .expect("return slot checked before default initialization");
+            *slot_ref = default_value_for_type_id(return_type, runtime.registry(), &profile)
+                .map_err(|err| init_failed_debug(plan.frame_owner(), return_name, err))?;
         }
         slot = slot.saturating_add(1);
     }

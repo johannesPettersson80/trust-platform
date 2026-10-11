@@ -10,11 +10,7 @@ fn import_project_model_to_sources(
     let mut stats = ImportProjectModelStats::default();
     let mut configurations = Vec::new();
 
-    collect_incomplete_project_model_diagnostics(
-        root,
-        unsupported_diagnostics,
-        loss_warnings,
-    );
+    collect_incomplete_project_model_diagnostics(root, unsupported_diagnostics, loss_warnings);
 
     for instances in root
         .children()

@@ -59,10 +59,10 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
         &self,
         node: &SyntaxNode,
     ) -> Option<SymbolId> {
-        if node.kind() == SyntaxKind::ParenExpr {
-            if let Some(inner) = node.children().next() {
-                return self.resolve_simple_symbol(&inner);
-            }
+        if node.kind() == SyntaxKind::ParenExpr
+            && let Some(inner) = node.children().next()
+        {
+            return self.resolve_simple_symbol(&inner);
         }
 
         if node.kind() != SyntaxKind::NameRef {

@@ -380,20 +380,20 @@ fn run_step<W: AdsOnboardingWire>(
             let Some(target) = context.target.as_ref() else {
                 return internal_missing_step(step_id, "target identity");
             };
-            if let Some(expected) = options.expected_target_ams_net_id.as_deref() {
-                if target.ams_net_id != expected {
-                    return failed_step(
-                        step_id,
-                        "Target AMS identity",
-                        OnboardingWireError::new(
-                            OnboardingWireErrorKind::WrongAmsNetId,
-                            format!(
-                                "detected target AMS Net ID '{}' but expected '{expected}'",
-                                target.ams_net_id
-                            ),
+            if let Some(expected) = options.expected_target_ams_net_id.as_deref()
+                && target.ams_net_id != expected
+            {
+                return failed_step(
+                    step_id,
+                    "Target AMS identity",
+                    OnboardingWireError::new(
+                        OnboardingWireErrorKind::WrongAmsNetId,
+                        format!(
+                            "detected target AMS Net ID '{}' but expected '{expected}'",
+                            target.ams_net_id
                         ),
-                    );
-                }
+                    ),
+                );
             }
             match wire.verify_ams_target(target) {
                 Ok(()) => pass_step(
@@ -772,10 +772,9 @@ fn build_report(
     if report.overall == DoctorOverall::Pass
         && production_vantage(options.ran_from)
         && options.live_deployed_status_available
+        && let Some(evidence) = options.production_evidence
     {
-        if let Some(evidence) = options.production_evidence {
-            report = report.with_evidence(evidence);
-        }
+        report = report.with_evidence(evidence);
     }
     let summary = summary_for(&report);
     report.with_summary(summary)

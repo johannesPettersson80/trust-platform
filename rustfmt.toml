@@ -1,7 +1,9 @@
 # Rustfmt configuration for truST Platform
 # https://rust-lang.github.io/rustfmt/
 
-edition = "2021"
+edition = "2024"
+# Preserve the existing formatting convention while migrating language semantics.
+style_edition = "2021"
 max_width = 100
 hard_tabs = false
 tab_spaces = 4

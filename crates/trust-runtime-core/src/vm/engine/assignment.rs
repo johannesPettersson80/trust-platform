@@ -91,20 +91,19 @@ impl EngineState<'_> {
                     prim_id: 24 | 25,
                     max_length,
                 } = entry.data
+                    && max_length != 0
                 {
-                    if max_length != 0 {
-                        let text = match &value {
-                            Value::String(text) => Some(text.as_str()),
-                            Value::WString(text) => Some(text.as_str()),
-                            _ => None,
-                        };
-                        if let Some(text) = text {
-                            // Truncation constructs a String; SmolStr may then copy it again.
-                            self.charge_work_units(text.len())?;
-                            self.charge_allocation_bytes(
-                                text.len().checked_mul(2).ok_or(RuntimeError::Overflow)?,
-                            )?;
-                        }
+                    let text = match &value {
+                        Value::String(text) => Some(text.as_str()),
+                        Value::WString(text) => Some(text.as_str()),
+                        _ => None,
+                    };
+                    if let Some(text) = text {
+                        // Truncation constructs a String; SmolStr may then copy it again.
+                        self.charge_work_units(text.len())?;
+                        self.charge_allocation_bytes(
+                            text.len().checked_mul(2).ok_or(RuntimeError::Overflow)?,
+                        )?;
                     }
                 }
                 self.charge_allocation_bytes(self.value_clone_charge(&value, 0)?)?;

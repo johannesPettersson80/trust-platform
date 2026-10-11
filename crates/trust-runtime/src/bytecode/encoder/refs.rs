@@ -19,10 +19,10 @@ impl<'a> BytecodeEncoder<'a> {
         if target.contains_index() {
             return Ok(None);
         }
-        if let Some(qualified) = target.qualified_name() {
-            if let Some(reference) = self.resolve_name_ref(ctx, &qualified)? {
-                return Ok(Some(reference));
-            }
+        if let Some(qualified) = target.qualified_name()
+            && let Some(reference) = self.resolve_name_ref(ctx, &qualified)?
+        {
+            return Ok(Some(reference));
         }
         match target {
             LValue::Name(name) => self.resolve_name_ref(ctx, name),
@@ -85,8 +85,8 @@ impl<'a> BytecodeEncoder<'a> {
             }
             return Ok(global.cloned());
         }
-        if let Some(instance_id) = ctx.instance_id {
-            if let Some(reference) = self
+        if let Some(instance_id) = ctx.instance_id
+            && let Some(reference) = self
                 .runtime
                 .storage()
                 .ref_for_instance_recursive(instance_id, name.as_ref())
@@ -97,9 +97,8 @@ impl<'a> BytecodeEncoder<'a> {
                             .ref_for_instance_recursive(instance_id, key.as_ref())
                     })?
                 })
-            {
-                return Ok(Some(reference));
-            }
+        {
+            return Ok(Some(reference));
         }
         let access_binding = self
             .runtime
@@ -113,19 +112,19 @@ impl<'a> BytecodeEncoder<'a> {
             .or_else(|| {
                 (key != *name).then(|| self.runtime.storage().ref_for_global(key.as_ref()))?
             });
-        if let Some(binding) = access_binding {
-            if binding.partial.is_none() {
-                if global_ref.is_some() {
-                    return Err(BytecodeError::InvalidSection(
-                        format!(
-                            "VAR_ACCESS declaration '{}' conflicts with a global declaration",
-                            binding.name
-                        )
-                        .into(),
-                    ));
-                }
-                return Ok(Some(binding.reference.clone()));
+        if let Some(binding) = access_binding
+            && binding.partial.is_none()
+        {
+            if global_ref.is_some() {
+                return Err(BytecodeError::InvalidSection(
+                    format!(
+                        "VAR_ACCESS declaration '{}' conflicts with a global declaration",
+                        binding.name
+                    )
+                    .into(),
+                ));
             }
+            return Ok(Some(binding.reference.clone()));
         }
         Ok(global_ref)
     }

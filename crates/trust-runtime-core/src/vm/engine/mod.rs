@@ -126,6 +126,7 @@ impl<'a> EngineState<'a> {
             services,
             false,
             None,
+            None,
             Duration::ZERO,
         )
     }
@@ -136,6 +137,7 @@ impl<'a> EngineState<'a> {
         services: &'a dyn ExecutionServices,
         after_restart: bool,
         retained: Option<&EngineState<'_>>,
+        prior_images: Option<&ProcessImages>,
         now: Duration,
     ) -> Result<Self, RuntimeError> {
         prepared.validate_services(services)?;
@@ -232,6 +234,9 @@ impl<'a> EngineState<'a> {
             .lifetimes
             .owned_instances
             .reserve_capacity(frame_capacity)?;
+        if let Some(images) = prior_images {
+            state.copy_process_images(images)?;
+        }
         state.construct_resource(retained)?;
         state.check_entry_deadline()?;
         Ok(state)
@@ -309,5 +314,7 @@ mod budget_tests;
 #[cfg(test)]
 mod continuation_tests;
 
+#[cfg(test)]
+mod restart_tests;
 #[cfg(test)]
 mod storage_tests;

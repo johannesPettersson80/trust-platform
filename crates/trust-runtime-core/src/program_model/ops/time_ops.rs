@@ -56,10 +56,10 @@ fn time_arith(
         _ => {}
     }
 
-    if matches!(op, BinaryOp::Mul | BinaryOp::Div) {
-        if let Some(result) = time_scale(op, left, right) {
-            return Some(result);
-        }
+    if matches!(op, BinaryOp::Mul | BinaryOp::Div)
+        && let Some(result) = time_scale(op, left, right)
+    {
+        return Some(result);
     }
 
     None

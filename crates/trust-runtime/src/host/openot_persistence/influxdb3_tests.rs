@@ -2,12 +2,24 @@ use super::*;
 
 #[test]
 fn initial_http_transport_failure_is_retryable_connection_error() {
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("reserve local port");
-    let address = listener.local_addr().expect("read reserved local port");
-    drop(listener);
-    let transport = ureq::get(&format!("http://{address}/health"))
-        .call()
-        .expect_err("closed local port must refuse the request");
+    let transport = std::thread::scope(|scope| {
+        // Keep the fixture inside the scope so panic cleanup closes the connection
+        // before the scope joins its HTTP caller.
+        let endpoint = super::super::transport_failure_fixture::TransportFailureEndpoint::new()
+            .expect("own unavailable local endpoint");
+        let address = endpoint.address();
+        let request = scope.spawn(move || {
+            ureq::get(&format!("http://{address}/health"))
+                .call()
+                .expect_err("disconnected peer must fail the real health request")
+        });
+        let connection = endpoint.wait_for_request();
+        connection
+            .shutdown(std::net::Shutdown::Both)
+            .expect("close observed health request");
+        drop(connection);
+        request.join().expect("join health request")
+    });
 
     let classified = http_error("initial health request")(transport);
 

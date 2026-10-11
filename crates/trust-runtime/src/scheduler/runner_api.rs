@@ -236,13 +236,13 @@ fn run_guarded_resource_thread(
     body: impl FnOnce(),
 ) {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        if let Some(hook) = thread_init_hook.as_ref() {
-            if let Err(err) = hook() {
-                set_last_error(&last_error, err.clone());
-                set_resource_state(&state, ResourceState::Faulted);
-                let _ = id_tx.send(Err(err));
-                return;
-            }
+        if let Some(hook) = thread_init_hook.as_ref()
+            && let Err(err) = hook()
+        {
+            set_last_error(&last_error, err.clone());
+            set_resource_state(&state, ResourceState::Faulted);
+            let _ = id_tx.send(Err(err));
+            return;
         }
         let _ = id_tx.send(Ok(thread::current().id()));
         body();

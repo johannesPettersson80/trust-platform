@@ -43,36 +43,38 @@ rumqttc.workspace = true
 native-tls.workspace = true
 time.workspace = true
 rapier3d.workspace = true
-notify = "8"
-tiny_http = { version = "0.12", features = ["ssl-rustls"] }
-tungstenite = "0.28"
-mdns-sd = "0.18"
-if-addrs = "0.15"
+notify = "8.2.0"
+tiny_http = { version = "0.12.0", features = ["ssl-rustls"] }
+tungstenite = "0.30.0"
+mdns-sd = "0.21.5"
+if-addrs = "0.15.0"
+# The mesh client/router/plugin family is a qualified deployment contract.
 zenoh = { version = "=1.7.2", default-features = false, features = ["transport_tcp"] }
-base64 = "0.22"
-rand = "0.10"
-ureq = "3"
-sha2 = "0.10"
-signal-hook = "0.3.18"
+base64 = "0.23.1"
+rand = "0.10.3"
+ureq = "3.4.2"
+sha2.workspace = true
+hex.workspace = true
+signal-hook = "0.4.5"
 rustls = "0.23.45"
-tiverse-mmap = "1.0"
-region = "3.0"
+tiverse-mmap = "1.0.0"
+region = "4.0.1"
 rusqlite = { version = "0.40.2", features = ["bundled"], optional = true }
 postgres = { version = "0.19.14", optional = true }
 postgres-native-tls = { version = "0.5.3", optional = true }
-mysql = { version = "28.0.2", default-features = false, features = ["minimal-rust", "rustls-tls"], optional = true }
+mysql = { version = "28.0.3", default-features = false, features = ["minimal-rust", "rustls-tls"], optional = true }
 open-ot-definition = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
 open-ot-document = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
 open-ot-carriage = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
-opcua = { version = "0.12", default-features = false, features = ["server", "client", "vendored-openssl"], optional = true }
+opcua = { version = "0.12.0", default-features = false, features = ["server", "client", "vendored-openssl"], optional = true }
 ads = { version = "=0.4.4", optional = true }
 crossbeam-channel.workspace = true
 tokio = { workspace = true, optional = true }
-tokio-util = { version = "0.7", features = ["compat"], optional = true }
-tiberius = { version = "0.12.3", default-features = false, features = ["tds73", "native-tls"], optional = true }
+tokio-util = { version = "0.7.20", features = ["compat"], optional = true }
+tiberius = { version = "0.13.0", default-features = false, features = ["tds73", "native-tls"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
-ethercrab = { version = "0.6", optional = true }
+ethercrab = { version = "0.7.1", optional = true }
 # OpenOT Rust crates are pinned so fresh source builds do not need a sibling
 # checkout. scripts/checkout_openot_ref.sh is still used for OpenOT IEC example
 # sources and conformance fixtures that are not Cargo crates.
@@ -85,8 +87,8 @@ verification-cases.workspace = true
 open-ot-conformance = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-gpio-cdev = "0.6"
-rustix = { version = "1.1.4", features = ["mm", "thread"] }
+gpio-cdev = "0.6.0"
+rustix = { version = "1.1.5", features = ["mm", "thread"] }
 
 [features]
 default = [

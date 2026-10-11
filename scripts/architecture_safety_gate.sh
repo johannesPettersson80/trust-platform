@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+# Respect the caller's pinned tools; keep Cargo's default bin as a fallback.
+export PATH="$PATH:${CARGO_HOME:-$HOME/.cargo}/bin"
 
 if ! command -v rg >/dev/null 2>&1; then
   sudo apt-get update
@@ -9,11 +10,11 @@ if ! command -v rg >/dev/null 2>&1; then
 fi
 
 if ! command -v ast-grep >/dev/null 2>&1; then
-  cargo install ast-grep --version 0.42.1 --locked
+  cargo install ast-grep --version 0.50.0 --locked
 fi
 
 if ! cargo public-api --version >/dev/null 2>&1; then
-  cargo install cargo-public-api --version 0.51.0 --locked
+  cargo install cargo-public-api --version 0.52.0 --locked
 fi
 
 ./scripts/architecture_external_safety_ast_grep_gate.sh

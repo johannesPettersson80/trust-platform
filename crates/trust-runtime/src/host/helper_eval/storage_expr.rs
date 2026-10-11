@@ -179,10 +179,10 @@ pub(crate) fn eval_storage_expr_with_stdlib(
             read_indices(target_value, &index_values)
         }
         Expr::Field { target, field } => {
-            if let Some(qualified) = qualified_field_expr_name(expr) {
-                if let Ok(value) = read_name(storage, current_instance, &qualified) {
-                    return Ok(value);
-                }
+            if let Some(qualified) = qualified_field_expr_name(expr)
+                && let Ok(value) = read_name(storage, current_instance, &qualified)
+            {
+                return Ok(value);
             }
             let target_value = eval_storage_expr_with_stdlib(
                 storage,
@@ -279,12 +279,10 @@ fn resolve_lvalue_reference(
             if let Some(qualified) = target
                 .qualified_name()
                 .map(|prefix| SmolStr::new(format!("{prefix}.{field}")))
-            {
-                if let Some(reference) =
+                && let Some(reference) =
                     resolve_name_reference(storage, current_instance, &qualified)
-                {
-                    return Ok(reference);
-                }
+            {
+                return Ok(reference);
             }
             let base_value =
                 read_storage_lvalue(storage, registry, profile, current_instance, target)?;
@@ -333,10 +331,10 @@ fn resolve_name_reference(
     if let Some(reference) = storage.ref_for_local(name.as_str()) {
         return Some(reference);
     }
-    if let Some(instance_id) = current_instance {
-        if let Some(reference) = storage.ref_for_instance_recursive(instance_id, name.as_str()) {
-            return Some(reference);
-        }
+    if let Some(instance_id) = current_instance
+        && let Some(reference) = storage.ref_for_instance_recursive(instance_id, name.as_str())
+    {
+        return Some(reference);
     }
     storage.ref_for_global(name.as_str())
 }
@@ -798,10 +796,10 @@ fn read_name(
     if let Some(value) = storage.get_local(name.as_ref()) {
         return Ok(value.clone());
     }
-    if let Some(instance_id) = current_instance {
-        if let Some(value) = storage.get_instance_var_recursive(instance_id, name.as_ref()) {
-            return Ok(value.clone());
-        }
+    if let Some(instance_id) = current_instance
+        && let Some(value) = storage.get_instance_var_recursive(instance_id, name.as_ref())
+    {
+        return Ok(value.clone());
     }
     if let Some(value) = storage.get_global(name.as_ref()) {
         return Ok(value.clone());

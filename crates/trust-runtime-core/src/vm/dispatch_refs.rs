@@ -300,22 +300,21 @@ pub fn dynamic_ref_index(
         let base_path = &reference.path[..reference.path.len().saturating_sub(1)];
         if let Value::Array(array) =
             peek_dynamic_ref_path(runtime, frames, reference.as_view(), base_path)?
+            && existing.len() < array.dimensions().len()
         {
-            if existing.len() < array.dimensions().len() {
-                let (lower, upper) = array.dimensions()[existing.len()];
-                if index < lower || index > upper {
-                    return Err(VmTrap::Runtime(RuntimeError::IndexOutOfBounds {
-                        index,
-                        lower,
-                        upper,
-                    }));
-                }
-                let mut combined = existing.clone();
-                combined.push(index);
-                if let Some(RefSegment::Index(indices)) = reference.path.last_mut() {
-                    *indices = combined;
-                    return Ok(reference);
-                }
+            let (lower, upper) = array.dimensions()[existing.len()];
+            if index < lower || index > upper {
+                return Err(VmTrap::Runtime(RuntimeError::IndexOutOfBounds {
+                    index,
+                    lower,
+                    upper,
+                }));
+            }
+            let mut combined = existing.clone();
+            combined.push(index);
+            if let Some(RefSegment::Index(indices)) = reference.path.last_mut() {
+                *indices = combined;
+                return Ok(reference);
             }
         }
     }

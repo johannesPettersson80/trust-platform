@@ -16,10 +16,10 @@ impl<'a> TypeChecker<'a> {
             SemanticOutcome::Resolved(type_id) => type_id,
             _ => type_id,
         };
-        if self.symbols.is_named_value_type(resolved) {
-            if let Some(Type::Enum { base, .. }) = self.symbols.type_by_id(resolved) {
-                return self.resolve_alias_type(*base);
-            }
+        if self.symbols.is_named_value_type(resolved)
+            && let Some(Type::Enum { base, .. }) = self.symbols.type_by_id(resolved)
+        {
+            return self.resolve_alias_type(*base);
         }
         match self.symbols.type_by_id(resolved) {
             Some(Type::Subrange { base, .. }) => *base,

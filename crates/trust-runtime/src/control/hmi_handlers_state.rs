@@ -87,10 +87,10 @@ pub(super) fn hmi_event_matches_descriptor(event: &Event, project_root: &Path) -
         if path.starts_with(canonical_hmi_dir) {
             return true;
         }
-        if let Ok(canonical_path) = std::fs::canonicalize(path) {
-            if canonical_path.starts_with(canonical_hmi_dir) {
-                return true;
-            }
+        if let Ok(canonical_path) = std::fs::canonicalize(path)
+            && canonical_path.starts_with(canonical_hmi_dir)
+        {
+            return true;
         }
         path.parent()
             .and_then(|parent| std::fs::canonicalize(parent).ok())
@@ -101,10 +101,10 @@ pub(super) fn hmi_event_matches_descriptor(event: &Event, project_root: &Path) -
 fn load_runtime_snapshot(state: &ControlState) -> Option<crate::debug::DebugSnapshot> {
     let (tx, rx) = std::sync::mpsc::channel();
     let request = ResourceCommand::Snapshot { respond_to: tx };
-    if state.resource.send_command(request).is_ok() {
-        if let Ok(snapshot) = rx.recv_timeout(std::time::Duration::from_millis(250)) {
-            return Some(snapshot);
-        }
+    if state.resource.send_command(request).is_ok()
+        && let Ok(snapshot) = rx.recv_timeout(std::time::Duration::from_millis(250))
+    {
+        return Some(snapshot);
     }
     state.debug.snapshot()
 }

@@ -75,18 +75,18 @@ pub(crate) struct ExternalFixData {
 pub(crate) fn collect_external_diagnostics(config: &ProjectConfig, uri: &Url) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for path in &config.diagnostic_external_paths {
-        if let Ok(contents) = fs::read_to_string(path) {
-            if let Ok(parsed) = serde_json::from_str::<ExternalDiagnosticsFile>(&contents) {
-                let entries = match parsed {
-                    ExternalDiagnosticsFile::List(list) => list,
-                    ExternalDiagnosticsFile::Wrapper { diagnostics } => diagnostics,
-                };
-                for entry in entries {
-                    if let Some(target_uri) = entry_uri(&config.root, &entry) {
-                        if &target_uri == uri {
-                            diagnostics.push(entry_to_lsp(entry));
-                        }
-                    }
+        if let Ok(contents) = fs::read_to_string(path)
+            && let Ok(parsed) = serde_json::from_str::<ExternalDiagnosticsFile>(&contents)
+        {
+            let entries = match parsed {
+                ExternalDiagnosticsFile::List(list) => list,
+                ExternalDiagnosticsFile::Wrapper { diagnostics } => diagnostics,
+            };
+            for entry in entries {
+                if let Some(target_uri) = entry_uri(&config.root, &entry)
+                    && &target_uri == uri
+                {
+                    diagnostics.push(entry_to_lsp(entry));
                 }
             }
         }

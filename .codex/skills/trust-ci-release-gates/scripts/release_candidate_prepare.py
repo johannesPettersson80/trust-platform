@@ -76,7 +76,17 @@ def synthetic_record(command_id: str, command: str, failures: Sequence[str]) -> 
     }
 
 
-def remote_command(host: str, worktree: str, command: str) -> list[str]:
+def remote_command(
+    host: str, worktree: str, command: str, *, tool_path: str | None = None,
+    cargo_home: str | None = None,
+) -> list[str]:
+    environment = []
+    if tool_path is not None:
+        environment.append(f"PATH={tool_path}")
+    if cargo_home is not None:
+        environment.append(f"CARGO_HOME={cargo_home}")
+    if environment:
+        command = f"env {shlex.join(environment)} bash -c {shlex.quote(command)}"
     return ["ssh", host, f"cd {shlex.quote(worktree)} && {command}"]
 
 
@@ -410,7 +420,11 @@ def prepare(args: Any) -> int:
         records.append(
             command_record(
                 command_id,
-                remote_command(args.remote_host, args.remote_worktree, command),
+                remote_command(
+                    args.remote_host, args.remote_worktree, command,
+                    tool_path=getattr(args, "remote_tool_path", None),
+                    cargo_home=getattr(args, "remote_cargo_home", None),
+                ),
                 cwd=repo,
                 scope=args.remote_host,
                 log_dir=log_dir,

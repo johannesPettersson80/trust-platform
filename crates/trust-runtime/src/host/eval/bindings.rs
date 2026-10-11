@@ -35,13 +35,13 @@ fn prepare_bindings(
                 let eno_param = params.iter().find(|p| {
                     p.name.eq_ignore_ascii_case("ENO") && matches!(p.direction, ParamDirection::Out)
                 });
-                if let Some(eno_param) = eno_param {
-                    if let Some(arg) = find_arg_target(args, &eno_param.name) {
-                        out_targets.push(OutputBinding::Value {
-                            target: arg.clone(),
-                            value: Value::Bool(false),
-                        });
-                    }
+                if let Some(eno_param) = eno_param
+                    && let Some(arg) = find_arg_target(args, &eno_param.name)
+                {
+                    out_targets.push(OutputBinding::Value {
+                        target: arg.clone(),
+                        value: Value::Bool(false),
+                    });
                 }
                 return Ok(PreparedBindings {
                     should_execute: false,

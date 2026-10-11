@@ -10,12 +10,12 @@ pub(super) fn apply_program_retain_overrides(
             continue;
         };
         let type_name = super::resolve_program_type_name(program_defs, &program.type_name, using)?;
-        if let Some(existing) = retain_by_type.insert(type_name.clone(), policy) {
-            if existing != policy {
-                return Err(CompileError::new(
-                    "conflicting RETAIN/NON_RETAIN qualifiers for program type",
-                ));
-            }
+        if let Some(existing) = retain_by_type.insert(type_name.clone(), policy)
+            && existing != policy
+        {
+            return Err(CompileError::new(
+                "conflicting RETAIN/NON_RETAIN qualifiers for program type",
+            ));
         }
     }
 

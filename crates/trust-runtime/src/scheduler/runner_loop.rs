@@ -18,10 +18,7 @@ fn scaled_sleep_interval(interval: Duration, scale: u32) -> Duration {
     Duration::from_nanos(scaled)
 }
 
-fn cycle_deadline_from(
-    start: std::time::Instant,
-    timeout: Duration,
-) -> Option<std::time::Instant> {
+fn cycle_deadline_from(start: std::time::Instant, timeout: Duration) -> Option<std::time::Instant> {
     if timeout.as_nanos() <= 0 {
         return Some(start);
     }
@@ -115,10 +112,10 @@ fn run_resource_loop_core<C, F>(
             if let Err(err) = runner.runtime.apply_io_safe_state() {
                 stop_error = Some(err);
             }
-            if let Err(err) = runner.runtime.save_retain_store() {
-                if stop_error.is_none() {
-                    stop_error = Some(err);
-                }
+            if let Err(err) = runner.runtime.save_retain_store()
+                && stop_error.is_none()
+            {
+                stop_error = Some(err);
             }
             if let Some(err) = stop_error {
                 set_last_error(&last_error, err);
@@ -318,28 +315,32 @@ fn try_automatic_restart<C: Clock + Clone>(
     true
 }
 
-fn apply_automatic_restart_backoff<C: Clock + Clone>(
-    runner: &ResourceRunner<C>,
-    attempt: u32,
-) {
+fn apply_automatic_restart_backoff<C: Clock + Clone>(runner: &ResourceRunner<C>, attempt: u32) {
     let backoff = automatic_restart_backoff(runner.cycle_interval, attempt);
     if backoff.as_nanos() <= 0 {
         thread::yield_now();
         return;
     }
-    let deadline = Duration::from_nanos(runner.clock.now().as_nanos().saturating_add(backoff.as_nanos()));
+    let deadline = Duration::from_nanos(
+        runner
+            .clock
+            .now()
+            .as_nanos()
+            .saturating_add(backoff.as_nanos()),
+    );
     runner.clock.sleep_until(deadline);
 }
 
 fn automatic_restart_backoff(cycle_interval: Duration, attempt: u32) -> Duration {
-    let base = cycle_interval
-        .as_nanos()
-        .clamp(
-            AUTOMATIC_RESTART_BACKOFF_FLOOR_NANOS,
-            AUTOMATIC_RESTART_BACKOFF_CAP_NANOS,
-        );
+    let base = cycle_interval.as_nanos().clamp(
+        AUTOMATIC_RESTART_BACKOFF_FLOOR_NANOS,
+        AUTOMATIC_RESTART_BACKOFF_CAP_NANOS,
+    );
     let multiplier = 1_i64 << attempt.saturating_sub(1).min(8);
-    Duration::from_nanos(base.saturating_mul(multiplier).min(AUTOMATIC_RESTART_BACKOFF_CAP_NANOS))
+    Duration::from_nanos(
+        base.saturating_mul(multiplier)
+            .min(AUTOMATIC_RESTART_BACKOFF_CAP_NANOS),
+    )
 }
 
 #[derive(Debug)]
@@ -380,10 +381,10 @@ where
             simulation.apply_pre_cycle(now, &mut runner.runtime)?;
         }
         let mut result = execute_cycle(&mut runner.runtime);
-        if result.is_ok() {
-            if let Some(simulation) = runner.simulation.as_mut() {
-                result = simulation.apply_post_cycle(now, &runner.runtime);
-            }
+        if result.is_ok()
+            && let Some(simulation) = runner.simulation.as_mut()
+        {
+            result = simulation.apply_post_cycle(now, &runner.runtime);
         }
         result
     }));
@@ -395,7 +396,9 @@ where
         }
         Err(payload) => {
             debug_assert!(sentinel.panicked_mid_cycle());
-            Err(runner.runtime.resource_panic(panic_payload_message(payload)))
+            Err(runner
+                .runtime
+                .resource_panic(panic_payload_message(payload)))
         }
     }
 }
@@ -664,11 +667,8 @@ END_PROGRAM
         harness.set_input("transient_value", Value::DInt(70));
         harness.set_input("ordinary_value", Value::DInt(80));
 
-        let mut runner = ResourceRunner::new(
-            harness.into_runtime(),
-            TestClock,
-            Duration::from_millis(1),
-        );
+        let mut runner =
+            ResourceRunner::new(harness.into_runtime(), TestClock, Duration::from_millis(1));
         let mut limiter = AutomaticRestartLimiter::default();
         let state = Arc::new(Mutex::new(ResourceState::Running));
         let last_error = Arc::new(Mutex::new(None));
@@ -731,10 +731,7 @@ END_PROGRAM
 
         assert!(matches!(
             err,
-            RuntimeError::RestartLimitExceeded {
-                attempts: 3,
-                ..
-            }
+            RuntimeError::RestartLimitExceeded { attempts: 3, .. }
         ));
     }
 
@@ -746,10 +743,7 @@ END_PROGRAM
 
         assert!(first.as_nanos() > 0);
         assert!(second >= first);
-        assert_eq!(
-            capped.as_nanos(),
-            AUTOMATIC_RESTART_BACKOFF_CAP_NANOS
-        );
+        assert_eq!(capped.as_nanos(), AUTOMATIC_RESTART_BACKOFF_CAP_NANOS);
     }
 }
 

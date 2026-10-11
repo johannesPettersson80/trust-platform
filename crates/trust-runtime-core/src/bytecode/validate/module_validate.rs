@@ -92,29 +92,25 @@ impl BytecodeModuleView<'_> {
         validate_type_table(strings, types, &mut budget)?;
         for entry in &types.entries {
             budget.work(1)?;
-            if self.version.major == 2 {
-                if let TypeData::Primitive {
+            if self.version.major == 2
+                && let TypeData::Primitive {
                     prim_id,
                     max_length,
                 } = entry.data
-                {
-                    if !matches!(prim_id, 1..=27 | 0x0100)
-                        || (!matches!(prim_id, 24 | 25) && max_length != 0)
-                    {
-                        return Err(RejectionReason::InvalidConstructionRecord.into());
-                    }
-                }
+                && (!matches!(prim_id, 1..=27 | 0x0100)
+                    || (!matches!(prim_id, 24 | 25) && max_length != 0))
+            {
+                return Err(RejectionReason::InvalidConstructionRecord.into());
             }
             if let TypeData::Primitive {
                 prim_id: 0x0100,
                 max_length,
             } = entry.data
+                && (self.version.major != 2 || max_length != 0)
             {
-                if self.version.major != 2 || max_length != 0 {
-                    return Err(BytecodeError::section_static(
-                        "generic native state requires STBC 2.0",
-                    ));
-                }
+                return Err(BytecodeError::section_static(
+                    "generic native state requires STBC 2.0",
+                ));
             }
         }
         validate_const_pool(types, const_pool, &mut budget)?;

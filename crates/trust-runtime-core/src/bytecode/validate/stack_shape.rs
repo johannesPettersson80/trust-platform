@@ -54,10 +54,10 @@ fn validate_stack_shape_inner(
     is_leader[0] = true;
     for (index, instruction) in instructions.iter().enumerate() {
         budget.work(1)?;
-        if let Some(pc) = instruction.jump_target()? {
-            if pc != code_len {
-                is_leader[instruction_index(instructions, pc, budget)?] = true;
-            }
+        if let Some(pc) = instruction.jump_target()?
+            && pc != code_len
+        {
+            is_leader[instruction_index(instructions, pc, budget)?] = true;
         }
         if matches!(instruction.opcode, 0x02..=0x04 | 0x06) && index + 1 < instructions.len() {
             is_leader[index + 1] = true;

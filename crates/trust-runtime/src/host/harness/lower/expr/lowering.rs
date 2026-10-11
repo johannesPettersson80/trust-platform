@@ -352,10 +352,10 @@ fn lower_sizeof_operand_type(
 ) -> Result<TypeId, CompileError> {
     // Namespace-qualified type operands like Demo.Packet parse as FieldExpr,
     // so prefer the type path before semantic value typing for that shape.
-    if node.kind() == SyntaxKind::FieldExpr {
-        if let Some(type_id) = lower_sizeof_named_type_operand(node, ctx)? {
-            return Ok(type_id);
-        }
+    if node.kind() == SyntaxKind::FieldExpr
+        && let Some(type_id) = lower_sizeof_named_type_operand(node, ctx)?
+    {
+        return Ok(type_id);
     }
     if let Some(type_id) = lower_sizeof_value_operand_type(node, ctx)? {
         return Ok(type_id);
@@ -460,7 +460,11 @@ fn offset_for_type_lookup(node: &SyntaxNode) -> u32 {
     let range = node.text_range();
     let end = u32::from(range.end());
     let start = u32::from(range.start());
-    if end > start { end - 1 } else { start }
+    if end > start {
+        end - 1
+    } else {
+        start
+    }
 }
 
 pub(in crate::harness) fn lower_expression_type(

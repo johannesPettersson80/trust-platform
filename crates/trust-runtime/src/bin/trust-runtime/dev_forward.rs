@@ -51,12 +51,12 @@ fn resolve_trust_dev_binary() -> PathBuf {
         return PathBuf::from(path);
     }
     let file_name = format!("trust-dev{}", std::env::consts::EXE_SUFFIX);
-    if let Ok(current_exe) = std::env::current_exe() {
-        if let Some(parent) = current_exe.parent() {
-            let sibling = parent.join(&file_name);
-            if is_executable_regular_file(&sibling) {
-                return sibling;
-            }
+    if let Ok(current_exe) = std::env::current_exe()
+        && let Some(parent) = current_exe.parent()
+    {
+        let sibling = parent.join(&file_name);
+        if is_executable_regular_file(&sibling) {
+            return sibling;
         }
     }
     PathBuf::from(file_name)

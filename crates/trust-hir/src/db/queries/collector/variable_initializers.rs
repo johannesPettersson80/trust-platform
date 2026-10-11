@@ -278,21 +278,19 @@ impl SymbolCollector<'_> {
                     .then_some(InitializerConstViolation::Ambiguous(name));
             }
             InitializerReferenceResolution::NotFound => {
-                if parts.len() > 1 {
-                    if let InitializerReferenceResolution::Found(base_id) =
+                if parts.len() > 1
+                    && let InitializerReferenceResolution::Found(base_id) =
                         self.resolve_initializer_reference(&parts[..1], scope)
-                    {
-                        if self.table.get(base_id).is_some_and(|symbol| {
-                            matches!(
-                                symbol.kind,
-                                SymbolKind::Variable { .. }
-                                    | SymbolKind::Parameter { .. }
-                                    | SymbolKind::Property { .. }
-                            )
-                        }) {
-                            return Some(InitializerConstViolation::Mutable(parts[0].clone()));
-                        }
-                    }
+                    && self.table.get(base_id).is_some_and(|symbol| {
+                        matches!(
+                            symbol.kind,
+                            SymbolKind::Variable { .. }
+                                | SymbolKind::Parameter { .. }
+                                | SymbolKind::Property { .. }
+                        )
+                    })
+                {
+                    return Some(InitializerConstViolation::Mutable(parts[0].clone()));
                 }
                 return report_resolution_failure
                     .then_some(InitializerConstViolation::Undefined(name));
@@ -357,13 +355,13 @@ impl SymbolCollector<'_> {
             if let Some(symbol_id) = self.table.lookup_in_scope(current, name.as_str()) {
                 return InitializerReferenceResolution::Found(symbol_id);
             }
-            if matches!(scope_data.kind, ScopeKind::Class | ScopeKind::FunctionBlock) {
-                if let Some(symbol_id) = scope_data.owner.and_then(|owner| {
+            if matches!(scope_data.kind, ScopeKind::Class | ScopeKind::FunctionBlock)
+                && let Some(symbol_id) = scope_data.owner.and_then(|owner| {
                     self.table
                         .resolve_member_symbol_in_hierarchy(owner, name.as_str())
-                }) {
-                    return InitializerReferenceResolution::Found(symbol_id);
-                }
+                })
+            {
+                return InitializerReferenceResolution::Found(symbol_id);
             }
             match self.table.resolve_using_in_scope(scope_data, name.as_str()) {
                 UsingResolution::Single(symbol_id) => {

@@ -12,19 +12,18 @@ pub fn hover(state: &ServerState, params: HoverParams) -> Option<Hover> {
         trust_ide::hover_with_filter(db, doc.file_id, TextSize::from(offset), &stdlib_filter)
     })?;
 
-    if let Some(docs) = state.library_docs_for_uri(uri) {
-        if !docs.is_empty() {
-            let symbol_name = state.with_database(|db| {
-                trust_ide::symbol_name_at_position(db, doc.file_id, TextSize::from(offset))
-            });
-            if let Some(name) = symbol_name {
-                if let Some(extra) = doc_for_name(docs.as_ref(), name.as_str()) {
-                    if !result.contents.contains(extra) {
-                        result.contents.push_str("\n\n---\n\n");
-                        result.contents.push_str(extra);
-                    }
-                }
-            }
+    if let Some(docs) = state.library_docs_for_uri(uri)
+        && !docs.is_empty()
+    {
+        let symbol_name = state.with_database(|db| {
+            trust_ide::symbol_name_at_position(db, doc.file_id, TextSize::from(offset))
+        });
+        if let Some(name) = symbol_name
+            && let Some(extra) = doc_for_name(docs.as_ref(), name.as_str())
+            && !result.contents.contains(extra)
+        {
+            result.contents.push_str("\n\n---\n\n");
+            result.contents.push_str(extra);
         }
     }
 
@@ -132,12 +131,12 @@ fn completion_with_ticket(
         })
         .collect();
 
-    if let Some(docs) = state.library_docs_for_uri(uri) {
-        if !docs.is_empty() {
-            for item in &mut lsp_items {
-                if let Some(extra) = doc_for_name(docs.as_ref(), &item.label) {
-                    append_completion_doc(item, extra);
-                }
+    if let Some(docs) = state.library_docs_for_uri(uri)
+        && !docs.is_empty()
+    {
+        for item in &mut lsp_items {
+            if let Some(extra) = doc_for_name(docs.as_ref(), &item.label) {
+                append_completion_doc(item, extra);
             }
         }
     }
@@ -173,15 +172,16 @@ pub fn completion_resolve(_state: &ServerState, mut item: CompletionItem) -> Com
             item.detail = Some(detail.to_string());
         }
     }
-    if item.documentation.is_none() && item.insert_text_format == Some(InsertTextFormat::SNIPPET) {
-        if let Some(insert_text) = item.insert_text.as_deref() {
-            let snippet = insert_text.replace('\t', "    ");
-            let value = format!("```st\n{}\n```", snippet);
-            item.documentation = Some(Documentation::MarkupContent(MarkupContent {
-                kind: MarkupKind::Markdown,
-                value,
-            }));
-        }
+    if item.documentation.is_none()
+        && item.insert_text_format == Some(InsertTextFormat::SNIPPET)
+        && let Some(insert_text) = item.insert_text.as_deref()
+    {
+        let snippet = insert_text.replace('\t', "    ");
+        let value = format!("```st\n{}\n```", snippet);
+        item.documentation = Some(Documentation::MarkupContent(MarkupContent {
+            kind: MarkupKind::Markdown,
+            value,
+        }));
     }
     item
 }

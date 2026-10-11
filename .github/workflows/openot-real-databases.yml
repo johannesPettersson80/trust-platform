@@ -16,7 +16,7 @@ jobs:
     env:
       TRUST_OPENOT_EVIDENCE_DIR: ${{ github.workspace }}/openot-real-database-evidence
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Provision pinned real products and CA files
         run: scripts/openot_database_runner_prepare.sh
       - name: Materialize ephemeral CA certificates

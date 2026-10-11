@@ -96,10 +96,10 @@ impl MqttWorker {
                 state.health = mqtt_policy_health("mqtt input refresh pending", self.policy);
                 state.last_error = Some(SmolStr::new("mqtt input refresh pending"));
             }
-            if state.completed_input_seq >= seq {
-                if let Some(error) = state.input_error.clone() {
-                    return Err(error);
-                }
+            if state.completed_input_seq >= seq
+                && let Some(error) = state.input_error.clone()
+            {
+                return Err(error);
             }
         }
         if let Some(result) = self.copy_latest_inputs(inputs) {
@@ -193,26 +193,25 @@ fn run_mqtt_worker(
 ) {
     let mut driver = MqttIoDriver::new_sync_for_worker(config, factory);
     while !shutdown.load(Ordering::SeqCst) {
-        if reconnect_ready(&shared) {
-            if let Some((seq, outputs)) = take_mqtt_pending_output(&shared) {
-                let result = driver.write_outputs(&outputs);
-                let health = driver.health();
-                let mut state = shared.lock().unwrap_or_else(|err| err.into_inner());
-                state.output_inflight = false;
-                state.completed_output_seq = seq;
-                state.health = health;
-                if !matches!(state.health, IoDriverHealth::Ok) {
-                    state.next_reconnect = Instant::now() + driver.config.reconnect;
-                    state.last_error = mqtt_health_error(&state.health);
-                }
-                if let Err(error) = result {
-                    if matches!(state.health, IoDriverHealth::Ok) {
-                        state.health =
-                            mqtt_policy_health(error.to_string(), driver.config.on_error);
-                        state.next_reconnect = Instant::now() + driver.config.reconnect;
-                        state.last_error = mqtt_health_error(&state.health);
-                    }
-                }
+        if reconnect_ready(&shared)
+            && let Some((seq, outputs)) = take_mqtt_pending_output(&shared)
+        {
+            let result = driver.write_outputs(&outputs);
+            let health = driver.health();
+            let mut state = shared.lock().unwrap_or_else(|err| err.into_inner());
+            state.output_inflight = false;
+            state.completed_output_seq = seq;
+            state.health = health;
+            if !matches!(state.health, IoDriverHealth::Ok) {
+                state.next_reconnect = Instant::now() + driver.config.reconnect;
+                state.last_error = mqtt_health_error(&state.health);
+            }
+            if let Err(error) = result
+                && matches!(state.health, IoDriverHealth::Ok)
+            {
+                state.health = mqtt_policy_health(error.to_string(), driver.config.on_error);
+                state.next_reconnect = Instant::now() + driver.config.reconnect;
+                state.last_error = mqtt_health_error(&state.health);
             }
         }
 

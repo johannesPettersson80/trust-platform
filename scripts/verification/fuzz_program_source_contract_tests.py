@@ -103,10 +103,11 @@ class FuzzProgramSourceContractTests(unittest.TestCase):
         self.assertNotIn("default-members", workspace["workspace"])
         sources = dict(self.sources)
         sources["Cargo.toml"] = sources["Cargo.toml"].replace(
-            b"resolver = \"2\"\n",
-            b"resolver = \"2\"\ndefault-members = [\"crates/trust-runtime\"]\n",
+            b"[workspace]\n",
+            b"[workspace]\ndefault-members = [\"crates/trust-runtime\"]\n",
             1,
         )
+        self.assertNotEqual(sources["Cargo.toml"], self.sources["Cargo.toml"])
         with mock.patch(
             "scripts.verification.fuzz_program_source_contract._load_execution_sources",
             return_value=sources,

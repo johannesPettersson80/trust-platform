@@ -16,19 +16,20 @@ use crate::value::{DateTimeProfile, RefPath, RefSegment, StructValue, Value};
 use crate::{RestartMode, Runtime};
 
 use super::super::{VmPouEntry, VmRef};
+use super::environment::{parse_bool, parse_number};
 use super::{
     block_index_from_id, collect_block_leaders, compute_block_entry_stack_depths,
     deadline_exceeded, decode_pou, execute_register_block_interpreted,
     execute_tier1_compiled_block, fuse_register_block_instructions,
     fuse_register_block_instructions_with_costs, instruction_reads_register, invalid_bytecode,
     lower_pou_to_register_ir, next_linear_block_target, normalize_stack_for_block_exit,
-    parse_env_bool, parse_tier1_env_bool, parse_tier1_env_usize, prepare_register_file,
-    read_bool_register, read_reference_register, read_reference_register_with_counts,
-    read_register_with_counts, register_statement_location, try_execute_pou_with_register_ir,
-    try_execute_pou_with_register_ir_with_locals, verify_register_program, BlockTarget,
-    RegisterBlock, RegisterBlockExecutionOutcome, RegisterExecutionBuffers,
-    RegisterExecutionOutcome, RegisterId, RegisterInstr, RegisterProfileState, RegisterProgram,
-    Tier1BlockExecutionOutcome, Tier1CompiledBlock, Tier1CompiledInstr, VmModule,
+    prepare_register_file, read_bool_register, read_reference_register,
+    read_reference_register_with_counts, read_register_with_counts, register_statement_location,
+    try_execute_pou_with_register_ir, try_execute_pou_with_register_ir_with_locals,
+    verify_register_program, BlockTarget, RegisterBlock, RegisterBlockExecutionOutcome,
+    RegisterExecutionBuffers, RegisterExecutionOutcome, RegisterId, RegisterInstr,
+    RegisterProfileState, RegisterProgram, Tier1BlockExecutionOutcome, Tier1CompiledBlock,
+    Tier1CompiledInstr, VmModule,
 };
 
 fn vm_module_and_main_pou(source: &str) -> (VmModule, u32) {
@@ -740,23 +741,23 @@ fn prepare_register_file_resizes_truncates_and_preserves_values() {
 
 #[test]
 fn parse_env_bool_accepts_explicit_true_false_and_defaults() {
-    let key = "TRUST_TEST_REGISTER_IR_PARSE_ENV_BOOL";
-    std::env::remove_var(key);
-    assert!(parse_env_bool(key, true));
-    assert!(!parse_env_bool(key, false));
+    assert!(parse_bool(None, true));
+    assert!(!parse_bool(None, false));
 
     for value in ["1", "true", "YES", " on "] {
-        std::env::set_var(key, value);
-        assert!(parse_env_bool(key, false), "expected true for {value:?}");
+        assert!(
+            parse_bool(Some(value), false),
+            "expected true for {value:?}"
+        );
     }
     for value in ["0", "false", "NO", " off "] {
-        std::env::set_var(key, value);
-        assert!(!parse_env_bool(key, true), "expected false for {value:?}");
+        assert!(
+            !parse_bool(Some(value), true),
+            "expected false for {value:?}"
+        );
     }
-    std::env::set_var(key, "maybe");
-    assert!(parse_env_bool(key, true));
-    assert!(!parse_env_bool(key, false));
-    std::env::remove_var(key);
+    assert!(parse_bool(Some("maybe"), true));
+    assert!(!parse_bool(Some("maybe"), false));
 }
 
 #[test]

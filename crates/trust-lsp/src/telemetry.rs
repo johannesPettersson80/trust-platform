@@ -92,10 +92,10 @@ impl TelemetryCollector {
             .map(|sink| sink.path != path || sink.flush_every != config.flush_every)
             .unwrap_or(true);
         if needs_reset {
-            if let Some(sink) = guard.as_mut() {
-                if !sink.flush() {
-                    return;
-                }
+            if let Some(sink) = guard.as_mut()
+                && !sink.flush()
+            {
+                return;
             }
             *guard = Some(TelemetrySink::new(path, config.flush_every));
         }
@@ -108,19 +108,19 @@ impl TelemetryCollector {
     }
 
     pub fn flush(&self) {
-        if let Some(sink) = self.sink.lock().as_mut() {
-            if sink.flush() {
-                sink.reset();
-            }
+        if let Some(sink) = self.sink.lock().as_mut()
+            && sink.flush()
+        {
+            sink.reset();
         }
     }
 
     fn disable(&self) {
         let mut guard = self.sink.lock();
-        if let Some(sink) = guard.as_mut() {
-            if !sink.flush() {
-                return;
-            }
+        if let Some(sink) = guard.as_mut()
+            && !sink.flush()
+        {
+            return;
         }
         *guard = None;
     }
@@ -180,14 +180,14 @@ impl TelemetrySink {
         if self.metrics.is_empty() {
             return true;
         }
-        if let Some(parent) = self.path.parent() {
-            if let Err(err) = std::fs::create_dir_all(parent) {
-                warn!(
-                    "Failed to create telemetry directory {}: {err}",
-                    parent.display()
-                );
-                return false;
-            }
+        if let Some(parent) = self.path.parent()
+            && let Err(err) = std::fs::create_dir_all(parent)
+        {
+            warn!(
+                "Failed to create telemetry directory {}: {err}",
+                parent.display()
+            );
+            return false;
         }
 
         let timestamp = SystemTime::now()

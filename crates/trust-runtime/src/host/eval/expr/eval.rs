@@ -79,14 +79,11 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
                     if let Some(func) = functions.get(&key) {
                         return crate::eval::call_function(ctx, func, args);
                     }
-                    if !name.contains('.') {
-                        if let Some(using) = ctx.using {
-                            if let Some(func) =
-                                resolve_using_function(functions, name.as_str(), using)
-                            {
-                                return crate::eval::call_function(ctx, func, args);
-                            }
-                        }
+                    if !name.contains('.')
+                        && let Some(using) = ctx.using
+                        && let Some(func) = resolve_using_function(functions, name.as_str(), using)
+                    {
+                        return crate::eval::call_function(ctx, func, args);
                     }
                 }
                 if let Some(stdlib) = ctx.stdlib {
@@ -117,18 +114,17 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
             } = &**target
             {
                 let base_value = eval_expr(ctx, base)?;
-                if let Value::Instance(id) = base_value {
-                    if let Some(method) = resolve_instance_method(ctx, id, field) {
-                        return crate::eval::call_method(ctx, &method, id, args);
-                    }
+                if let Value::Instance(id) = base_value
+                    && let Some(method) = resolve_instance_method(ctx, id, field)
+                {
+                    return crate::eval::call_method(ctx, &method, id, args);
                 }
             }
-            if let Expr::Name(name) = &**target {
-                if let Some(instance_id) = ctx.current_instance {
-                    if let Some(method) = resolve_instance_method(ctx, instance_id, name) {
-                        return crate::eval::call_method(ctx, &method, instance_id, args);
-                    }
-                }
+            if let Expr::Name(name) = &**target
+                && let Some(instance_id) = ctx.current_instance
+                && let Some(method) = resolve_instance_method(ctx, instance_id, name)
+            {
+                return crate::eval::call_method(ctx, &method, instance_id, args);
             }
 
             let target_value = eval_expr(ctx, target)?;
@@ -179,10 +175,10 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
             read_indices(target_value, &index_values)
         }
         Expr::Field { target, field } => {
-            if let Some(qualified) = qualified_field_expr_name(expr) {
-                if let Ok(value) = read_name(ctx, &qualified) {
-                    return Ok(value);
-                }
+            if let Some(qualified) = qualified_field_expr_name(expr)
+                && let Ok(value) = read_name(ctx, &qualified)
+            {
+                return Ok(value);
             }
             let target_value = eval_expr(ctx, target)?;
             read_field(ctx, target_value, field)

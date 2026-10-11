@@ -72,11 +72,11 @@ fn dispatch_hook(target: &HookTarget, event: &HistorianAlertEvent) {
             if let Some(parent) = path.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
-            if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
-                if let Ok(line) = serde_json::to_string(event) {
-                    let _ = file.write_all(line.as_bytes());
-                    let _ = file.write_all(b"\n");
-                }
+            if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path)
+                && let Ok(line) = serde_json::to_string(event)
+            {
+                let _ = file.write_all(line.as_bytes());
+                let _ = file.write_all(b"\n");
             }
         }
         HookTarget::Webhook(url) => {

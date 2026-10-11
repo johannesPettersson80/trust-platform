@@ -101,24 +101,19 @@ fn lower_literal_with_context(
         } else {
             resolve_type_name(&prefix, ctx)?
         };
-        if let Some(ident) = ident_literal {
-            if let Some(value) = enum_literal_value(&ident, type_id, ctx.registry) {
-                return Ok(Expr::Literal(value));
-            }
+        if let Some(ident) = ident_literal
+            && let Some(value) = enum_literal_value(&ident, type_id, ctx.registry)
+        {
+            return Ok(Expr::Literal(value));
         }
         if value == Value::Null {
             return Err(CompileError::new("invalid typed literal"));
         }
         value = coerce_value_to_type(value, type_id)?;
-    } else if let Some(type_id) = expected_type {
-        if value != Value::Null {
-            value = coerce_evaluated_initializer_value(
-                value,
-                type_id,
-                ctx.registry,
-                &ctx.profile,
-            )?;
-        }
+    } else if let Some(type_id) = expected_type
+        && value != Value::Null
+    {
+        value = coerce_evaluated_initializer_value(value, type_id, ctx.registry, &ctx.profile)?;
     }
 
     Ok(Expr::Literal(value))
@@ -612,7 +607,11 @@ fn expression_scope_context(symbols: &SymbolTable, node: &SyntaxNode) -> Express
     }
 }
 
-fn class_owner_from_type(symbols: &SymbolTable, type_id: TypeId, allow_interface: bool) -> Option<SymbolId> {
+fn class_owner_from_type(
+    symbols: &SymbolTable,
+    type_id: TypeId,
+    allow_interface: bool,
+) -> Option<SymbolId> {
     let base_type = symbols.resolve_alias_type(type_id);
     let name = match symbols.type_by_id(base_type)? {
         Type::FunctionBlock { name } | Type::Class { name } => name,
@@ -627,13 +626,13 @@ fn current_class_owner(
     current_pou_symbol: Option<SymbolId>,
     this_type: Option<TypeId>,
 ) -> Option<SymbolId> {
-    if let Some(pou_id) = current_pou_symbol {
-        if let Some(symbol) = symbols.get(pou_id) {
-            match symbol.kind {
-                SymbolKind::Class | SymbolKind::FunctionBlock => return Some(pou_id),
-                SymbolKind::Method { .. } | SymbolKind::Property { .. } => return symbol.parent,
-                _ => {}
-            }
+    if let Some(pou_id) = current_pou_symbol
+        && let Some(symbol) = symbols.get(pou_id)
+    {
+        match symbol.kind {
+            SymbolKind::Class | SymbolKind::FunctionBlock => return Some(pou_id),
+            SymbolKind::Method { .. } | SymbolKind::Property { .. } => return symbol.parent,
+            _ => {}
         }
     }
 
@@ -676,10 +675,10 @@ fn resolve_name_symbol_in_scope(
         scope_id = scope.parent;
     }
 
-    if let Some(owner_id) = current_class_owner(symbols, current_pou_symbol, this_type) {
-        if let Some(member_id) = symbols.resolve_member_symbol_in_hierarchy(owner_id, name) {
-            return Some(member_id);
-        }
+    if let Some(owner_id) = current_class_owner(symbols, current_pou_symbol, this_type)
+        && let Some(member_id) = symbols.resolve_member_symbol_in_hierarchy(owner_id, name)
+    {
+        return Some(member_id);
     }
 
     if let Some(class_sid) = class_scope_id {

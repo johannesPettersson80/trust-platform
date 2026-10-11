@@ -41,10 +41,10 @@ pub(crate) fn matches_breakpoint(
             continue;
         }
         breakpoint.hits = breakpoint.hits.saturating_add(1);
-        if let Some(hit_condition) = breakpoint.hit_condition {
-            if !hit_condition.is_met(breakpoint.hits) {
-                continue;
-            }
+        if let Some(hit_condition) = breakpoint.hit_condition
+            && !hit_condition.is_met(breakpoint.hits)
+        {
+            continue;
         }
         if let Some(condition) = &breakpoint.condition {
             let Some(eval_ctx) = ctx.as_deref_mut() else {

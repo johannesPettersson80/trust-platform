@@ -217,10 +217,10 @@ pub fn directed_broadcast_targets_from_candidates(
             .map(ToString::to_string)
             .or_else(|| directed_broadcast_target(&candidate.ip, candidate.prefix_len?))
             .filter(|target| target != &candidate.ip);
-        if let Some(target) = target {
-            if !targets.contains(&target) {
-                targets.push(target);
-            }
+        if let Some(target) = target
+            && !targets.contains(&target)
+        {
+            targets.push(target);
         }
     }
     targets

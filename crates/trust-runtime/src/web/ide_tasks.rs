@@ -91,13 +91,13 @@ pub(super) fn ide_task_snapshot(
 
 fn ide_task_append_output(store: &Arc<Mutex<HashMap<u64, IdeTaskJob>>>, job_id: u64, chunk: &str) {
     const MAX_OUTPUT_BYTES: usize = 512 * 1024;
-    if let Ok(mut guard) = store.lock() {
-        if let Some(job) = guard.get_mut(&job_id) {
-            job.output.push_str(chunk);
-            if job.output.len() > MAX_OUTPUT_BYTES {
-                let excess = job.output.len() - MAX_OUTPUT_BYTES;
-                job.output.drain(..excess);
-            }
+    if let Ok(mut guard) = store.lock()
+        && let Some(job) = guard.get_mut(&job_id)
+    {
+        job.output.push_str(chunk);
+        if job.output.len() > MAX_OUTPUT_BYTES {
+            let excess = job.output.len() - MAX_OUTPUT_BYTES;
+            job.output.drain(..excess);
         }
     }
 }
@@ -108,14 +108,14 @@ fn ide_task_finish(
     success: bool,
     tail_message: &str,
 ) {
-    if let Ok(mut guard) = store.lock() {
-        if let Some(job) = guard.get_mut(&job_id) {
-            job.status = "completed".to_string();
-            job.success = Some(success);
-            job.finished_ms = Some(now_ms());
-            if !tail_message.is_empty() {
-                job.output.push_str(tail_message);
-            }
+    if let Ok(mut guard) = store.lock()
+        && let Some(job) = guard.get_mut(&job_id)
+    {
+        job.status = "completed".to_string();
+        job.success = Some(success);
+        job.finished_ms = Some(now_ms());
+        if !tail_message.is_empty() {
+            job.output.push_str(tail_message);
         }
     }
 }

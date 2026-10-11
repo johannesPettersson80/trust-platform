@@ -1,8 +1,11 @@
 //! Host-side packaging and evidence checks for the F401 reference composition.
 mod build;
+mod build_artifacts;
 mod bundle;
+mod database_runner;
 mod elf;
 mod map;
+mod source_identity;
 #[cfg(all(test, unix))]
 mod supply_chain_tests;
 mod trace;
@@ -16,6 +19,9 @@ const FIXTURES: &str = "crates/trust-runtime/tests/fixtures/portability/stbc-2.0
 
 pub(super) fn run(root: &Path, args: Vec<String>) -> Result<()> {
     match args.as_slice() {
+        [action, output] if action == "freeze-source" => source_identity::freeze(root, output),
+        [action, input] if action == "check-source" => source_identity::check(root, input),
+        [action, input] if action == "database-gate" => database_runner::run(root, input),
         [action, output] if action == "build-firmware" => build::firmware(root, output),
         [action, gpio, output] if action == "pack" => {
             let main = fs::read(root.join(FIXTURES).join("program-v2.stbc"))?;
@@ -45,7 +51,7 @@ pub(super) fn run(root: &Path, args: Vec<String>) -> Result<()> {
             report["uart_sha256"] = digest(&raw).into();
             write_report(output, report)
         }
-        _ => bail!("expected portability build-firmware <config.json>, pack <gpio.stbc> <application.bin>, inspect <firmware.elf> <report.json>, verify <uart.txt> <report.json>, or footprint <current.map> <baseline.map> <report.json>"),
+        _ => bail!("expected portability build-firmware <config.json>, pack <gpio.stbc> <application.bin>, inspect <firmware.elf> <report.json>, verify <uart.txt> <report.json>, footprint <current.map> <baseline.map> <report.json>, freeze-source <manifest.json>, check-source <manifest.json>, or database-gate <generated-environment>"),
     }
 }
 
@@ -56,5 +62,16 @@ fn write_report(path: &str, report: Value) -> Result<()> {
 }
 
 fn digest(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    hex::encode(Sha256::digest(bytes))
+}
+
+#[cfg(test)]
+mod digest_tests {
+    #[test]
+    fn artifact_digest_preserves_standard_lowercase_sha256() {
+        assert_eq!(
+            super::digest(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
 }

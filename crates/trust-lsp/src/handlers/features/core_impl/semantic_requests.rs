@@ -34,16 +34,15 @@ pub fn semantic_tokens_full_delta(
     let previous = state.semantic_tokens_cache(uri);
     let result_id = state.store_semantic_tokens(uri.clone(), data.clone(), request_ticket)?;
 
-    if let Some(previous) = previous {
-        if previous.result_id == params.previous_result_id {
-            if let Some(edits) = semantic_tokens_delta_edits(&previous.tokens, &data) {
-                let delta = SemanticTokensDelta {
-                    result_id: Some(result_id),
-                    edits,
-                };
-                return Some(SemanticTokensFullDeltaResult::TokensDelta(delta));
-            }
-        }
+    if let Some(previous) = previous
+        && previous.result_id == params.previous_result_id
+        && let Some(edits) = semantic_tokens_delta_edits(&previous.tokens, &data)
+    {
+        let delta = SemanticTokensDelta {
+            result_id: Some(result_id),
+            edits,
+        };
+        return Some(SemanticTokensFullDeltaResult::TokensDelta(delta));
     }
 
     Some(SemanticTokensFullDeltaResult::Tokens(SemanticTokens {

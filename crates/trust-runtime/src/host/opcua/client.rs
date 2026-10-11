@@ -98,8 +98,13 @@ pub fn opcua_client_pki_dir() -> std::path::PathBuf {
 
 pub fn list_trusted_opcua_client_server_certificates(
 ) -> Result<Vec<OpcUaTrustedCertificate>, RuntimeError> {
-    let pki_dir = opcua_client_pki_dir();
-    if !certificate_directory_is_safe(pki_dir.as_path())? {
+    list_trusted_certificates_in(&opcua_client_pki_dir())
+}
+
+fn list_trusted_certificates_in(
+    pki_dir: &Path,
+) -> Result<Vec<OpcUaTrustedCertificate>, RuntimeError> {
+    if !certificate_directory_is_safe(pki_dir)? {
         return Ok(Vec::new());
     }
     let trusted_root = pki_dir.join("trusted");
@@ -110,7 +115,11 @@ pub fn list_trusted_opcua_client_server_certificates(
 }
 
 pub fn clear_trusted_opcua_client_server_certificates() -> Result<usize, RuntimeError> {
-    let certs = list_trusted_opcua_client_server_certificates()?;
+    clear_trusted_certificates_in(&opcua_client_pki_dir())
+}
+
+fn clear_trusted_certificates_in(pki_dir: &Path) -> Result<usize, RuntimeError> {
+    let certs = list_trusted_certificates_in(pki_dir)?;
     let mut cleared = 0usize;
     for cert in certs {
         if cert.path.is_file() {
@@ -130,8 +139,11 @@ pub fn clear_trusted_opcua_client_server_certificates() -> Result<usize, Runtime
 }
 
 fn promote_rejected_opcua_client_server_certificates() -> Result<usize, RuntimeError> {
-    let pki_dir = opcua_client_pki_dir();
-    if !certificate_directory_is_safe(pki_dir.as_path())? {
+    promote_rejected_certificates_in(&opcua_client_pki_dir())
+}
+
+fn promote_rejected_certificates_in(pki_dir: &Path) -> Result<usize, RuntimeError> {
+    if !certificate_directory_is_safe(pki_dir)? {
         return Ok(0);
     }
     let rejected_root = pki_dir.join("rejected");

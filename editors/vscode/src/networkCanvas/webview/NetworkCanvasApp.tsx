@@ -5,6 +5,7 @@ import {
   Controls,
   type Edge,
   type Node,
+  type OnNodeDrag,
   ReactFlow,
   ReactFlowProvider,
   useEdgesState,
@@ -468,7 +469,7 @@ function Canvas() {
     setSearchDraft(graph.searchQuery ?? "");
   }, [graph.searchQuery]);
 
-  const onNodeDragStop = useCallback((_evt: React.MouseEvent, node: Node) => {
+  const onNodeDragStop = useCallback<OnNodeDrag<Node>>((_evt, node) => {
     if (node.parentId) {
       return;
     }

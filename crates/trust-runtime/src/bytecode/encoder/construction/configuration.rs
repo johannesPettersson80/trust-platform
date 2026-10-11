@@ -143,22 +143,21 @@ impl BytecodeEncoder<'_> {
                     if address.wildcard || init.address.is_some() {
                         return Err(invalid("invalid direct configuration target"));
                     }
-                    if init.initializer.is_some() {
-                        if let Some(end) = address
+                    if init.initializer.is_some()
+                        && let Some(end) = address
                             .flat_byte_end()
                             .map_err(|_| invalid("direct image extent overflow"))?
-                        {
-                            if end as usize > crate::io::PROCESS_IMAGE_AREA_LIMIT {
-                                return Err(invalid("direct image limit exceeded"));
-                            }
-                            let area = match address.area {
-                                crate::memory::IoArea::Input => 0,
-                                crate::memory::IoArea::Output => 1,
-                                crate::memory::IoArea::Memory => 2,
-                            };
-                            self.construction.direct_image_extents[area] =
-                                self.construction.direct_image_extents[area].max(end);
+                    {
+                        if end as usize > crate::io::PROCESS_IMAGE_AREA_LIMIT {
+                            return Err(invalid("direct image limit exceeded"));
                         }
+                        let area = match address.area {
+                            crate::memory::IoArea::Input => 0,
+                            crate::memory::IoArea::Output => 1,
+                            crate::memory::IoArea::Memory => 2,
+                        };
+                        self.construction.direct_image_extents[area] =
+                            self.construction.direct_image_extents[area].max(end);
                     }
                     (
                         None,

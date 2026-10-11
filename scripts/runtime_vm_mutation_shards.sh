@@ -6,7 +6,7 @@ cd "$ROOT_DIR"
 
 MODE="${1:---list}"
 SHARD_FILTER="${2:-}"
-export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.95}"
+export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.99.0}"
 
 OUT_ROOT="${OUT_DIR:-target/gate-artifacts/runtime-vm-mutants}"
 # Shared VM mutations live in core; hosted regression tests exercise those

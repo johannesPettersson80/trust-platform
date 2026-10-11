@@ -181,12 +181,11 @@ fn finalize_report(
     .with_steps(steps);
     report.writes_enabled = input.config.writes_enabled;
 
-    if let Some(snapshot) = symbol_snapshot {
-        if let Ok(evidence) =
+    if let Some(snapshot) = symbol_snapshot
+        && let Ok(evidence) =
             build_server_evidence(input, &local, snapshot.as_ref(), &status, discoverable)
-        {
-            report = report.with_evidence(evidence);
-        }
+    {
+        report = report.with_evidence(evidence);
     }
     report.summary = summary_for_report(&report);
     report

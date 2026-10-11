@@ -122,10 +122,10 @@ pub(super) fn validate_roots(
             RefLocation::Global | RefLocation::Retain | RefLocation::Instance
         ) {
             let (_, ty) = binding_type(tables, layout, declarations, reference, budget)?;
-            if let Some(recorded) = tables.ref_type(id as u32, budget)? {
-                if ty != Some(recorded) {
-                    return Err(RejectionReason::InvalidConstructionRecord.into());
-                }
+            if let Some(recorded) = tables.ref_type(id as u32, budget)?
+                && ty != Some(recorded)
+            {
+                return Err(RejectionReason::InvalidConstructionRecord.into());
             }
         }
     }

@@ -12,8 +12,15 @@ component "Runtime communications\nconformance gate" as runtimeCommsGate
 node "Real Mosquitto broker\n+ mosquitto_sub client" as mosquitto
 component "GitHub Release workflow" as release
 component "Release candidate guard" as releaseGuard
+component "Rust xtask external unsafe gate\nproduction + exact registered test inventory\nownership and stale-site decision" as unsafeGate
+artifact "ast-grep / rg raw facts\nretained normalized and rejected sites" as unsafeFacts
 component "Docs capture launcher" as captureLauncher
 artifact "Owned capture session\nand code-server container" as captureProcesses
+component "Modernization builder batch\nseparate from publication guard" as modernizationBatch
+component "Rust xtask source identity\ntracked, new, deleted and instruction inputs" as sourceIdentity
+component "Rust xtask database runner bridge\nsettings as data; child environment only" as databaseBridge
+artifact "Disposable runner environment\ncredentials never printed" as databaseEnvironment
+component "Existing real-database gate" as databaseGate
 database "Local candidate state\nbranches and worktrees" as candidateState
 component "Dependency exception check" as dependencyPolicy
 component "VS Code npm audit" as npmAudit
@@ -27,6 +34,11 @@ database "Verification metadata\nspecs, gaps, invariants, proof" as verification
 author --> productionDiff
 author --> specificationDiff
 author --> nativeTestDiff
+author --> modernizationBatch : complete implementation and review
+modernizationBatch --> sourceIdentity : freeze then verify source stability
+modernizationBatch --> databaseBridge : qualify affected driver graph
+databaseEnvironment --> databaseBridge : decode and reject invalid entries
+databaseBridge --> databaseGate : existing pinned products and CA
 productionDiff --> prVerification
 specificationDiff --> prVerification
 nativeTestDiff --> prVerification
@@ -37,6 +49,8 @@ mosquitto --> runtimeCommsGate : three topics change true and false\nno trust/io
 runtimeCommsGate --> conformanceInput : executable broker evidence
 maintainer --> release : annotated tag
 maintainer --> releaseGuard : verify release, then audit exact candidate
+releaseGuard --> unsafeGate : require exact-source architecture evidence
+unsafeGate --> unsafeFacts : external facts; Rust admission decision
 releaseGuard --> captureLauncher : require exact-SHA capture result
 captureLauncher --> captureProcesses : start and own
 captureProcesses --> captureLauncher : reap on success, failure, or signal

@@ -69,12 +69,7 @@ fn live_stop_receiver_gets_one_owned_copy_and_buffer_is_retained() {
         let (lock, _) = &*control.state;
         let mut state = lock.lock().expect("state");
         state.stop_tx = Some(tx);
-        emit_stop(
-            &mut state,
-            DebugStopReason::Pause,
-            Some(location),
-            None,
-        );
+        emit_stop(&mut state, DebugStopReason::Pause, Some(location), None);
     }
 
     let delivered = rx.try_recv().expect("delivered stop");
@@ -239,11 +234,7 @@ fn running_context_hook_does_not_invent_paused_snapshot() {
     let mut storage = VariableStorage::new();
     let mut ctx = context(&mut storage, &registry, 0);
     let mut hook = control.clone();
-    hook.on_statement_with_context(
-        &mut ctx,
-        Some(&SourceLocation::new(1, 0, 1)),
-        0,
-    );
+    hook.on_statement_with_context(&mut ctx, Some(&SourceLocation::new(1, 0, 1)), 0);
     assert!(control.snapshot().is_none());
 }
 

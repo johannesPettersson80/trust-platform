@@ -13,10 +13,10 @@ pub(super) fn to_bcd(
     dst: ConversionType,
 ) -> Result<Value, RuntimeError> {
     let actual_src = value_type_id(value).ok_or(RuntimeError::TypeMismatch)?;
-    if let Some(expected) = src {
-        if actual_src != expected {
-            return Err(RuntimeError::TypeMismatch);
-        }
+    if let Some(expected) = src
+        && actual_src != expected
+    {
+        return Err(RuntimeError::TypeMismatch);
     }
     if !is_unsigned_int_type(actual_src) {
         return Err(RuntimeError::TypeMismatch);
@@ -36,10 +36,10 @@ pub(super) fn from_bcd(
     dst: ConversionType,
 ) -> Result<Value, RuntimeError> {
     let actual_src = value_type_id(value).ok_or(RuntimeError::TypeMismatch)?;
-    if let Some(expected) = src {
-        if actual_src != expected {
-            return Err(RuntimeError::TypeMismatch);
-        }
+    if let Some(expected) = src
+        && actual_src != expected
+    {
+        return Err(RuntimeError::TypeMismatch);
     }
     if !is_bit_string_type(actual_src) || actual_src == ConversionType::Bool {
         return Err(RuntimeError::TypeMismatch);

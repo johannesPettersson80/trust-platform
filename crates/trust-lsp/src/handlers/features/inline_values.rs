@@ -92,13 +92,12 @@ pub fn inline_value(state: &ServerState, params: InlineValueParams) -> Option<Ve
     let frame_id = u32::try_from(params.context.frame_id).ok();
     let mut owner_hints = Vec::new();
     for target in &data.targets {
-        if let Some(owner) = target.owner.as_ref() {
-            if !owner_hints
+        if let Some(owner) = target.owner.as_ref()
+            && !owner_hints
                 .iter()
                 .any(|name: &SmolStr| name.eq_ignore_ascii_case(owner))
-            {
-                owner_hints.push(owner.clone());
-            }
+        {
+            owner_hints.push(owner.clone());
         }
     }
     let (override_endpoint, override_auth) = runtime_control_override(state);

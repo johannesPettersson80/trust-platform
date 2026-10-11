@@ -22,10 +22,10 @@ impl StructuralBindings {
         let mut parts = parts;
         // Qualifiers are recognized in order; unknown names are never discarded.
         for qualifier in [&self.configuration_name, &self.resource_name] {
-            if let (Some(qualifier), Some(AccessPart::Name(name))) = (qualifier, parts.first()) {
-                if qualifier.eq_ignore_ascii_case(name) {
-                    parts = &parts[1..];
-                }
+            if let (Some(qualifier), Some(AccessPart::Name(name))) = (qualifier, parts.first())
+                && qualifier.eq_ignore_ascii_case(name)
+            {
+                parts = &parts[1..];
             }
         }
         {

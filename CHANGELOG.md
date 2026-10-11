@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.73`
+Target release: `v0.24.74`
 
 ### Added
 
@@ -51,6 +51,13 @@ Target release: `v0.24.73`
   directions.
 
 ### Changed
+
+- Modernize the supported build baseline to Rust 1.99 (edition 2024, resolver 3)
+  and Node 24.21.0; refresh dependency families while retaining compatible LSP
+  and editor API pairs. Scope U qualification remains pending.
+- Test configuration no longer mutates process-wide environment variables;
+  verification, register executor, OPC UA and persistence tests supply values
+  directly through their owning configuration boundaries.
 
 - Use compact live activation storage and portable instance storage without changing
   PLC identities or functions. Portable field lookup reuses existing hash indexes;
@@ -119,6 +126,9 @@ Target release: `v0.24.73`
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
 ### Fixed
+
+- Make PostgreSQL and TimescaleDB release-runner TLS mounts accessible to the
+  service UID under restrictive host umasks, while keeping server keys private.
 
 - Confirm managed fleet shutdown across control-connection teardown without
   mistaking interrupted status probes for a failed shutdown or a confirmed stop.

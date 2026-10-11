@@ -1,4 +1,4 @@
-FROM rust:1.84-bookworm
+FROM rust:1.99.0-bookworm@sha256:114c7a4425406451c2866b6aafe69fe29b1b298832db1277d411ac73c82d04d6
 
 ENV CARGO_TERM_COLOR=always
 WORKDIR /workspace

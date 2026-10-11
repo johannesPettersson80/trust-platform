@@ -117,10 +117,10 @@ fn attach_explainers(
         };
 
         if let Some(explainer) = diagnostic_explainer(&code, &diagnostic.message) {
-            if diagnostic.code_description.is_none() {
-                if let Some(href) = spec_url(state, explainer.spec_path) {
-                    diagnostic.code_description = Some(CodeDescription { href });
-                }
+            if diagnostic.code_description.is_none()
+                && let Some(href) = spec_url(state, explainer.spec_path)
+            {
+                diagnostic.code_description = Some(CodeDescription { href });
             }
             data.insert(
                 "explain".to_string(),

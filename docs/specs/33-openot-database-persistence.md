@@ -643,6 +643,11 @@ MUST call those repository scripts directly. Runner registration is an
 explicit operational prerequisite and MUST be verified before a release tag is
 pushed; a release MUST NOT be left waiting for an unregistered label.
 
+TLS bind-mount directories MUST permit traversal by the database service UID,
+independently of the provisioning process's umask. Server private keys MUST
+remain readable only by that service UID; the runner state and CA private-key
+directory remain private to the provisioning user.
+
 Every Docker container and network created by the prepare script MUST carry an
 ownership label whose value is the validated per-run resource prefix. Teardown
 MUST discover and remove only resources bearing that exact ownership label,

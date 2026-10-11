@@ -109,10 +109,11 @@ impl<'a> ValidationContext<'a> {
                     .then(budget.compare_names(entry.1, name)?)
                     .is_lt())
             })?;
-            if let Some(entry) = self.declaration_names.get(at) {
-                if entry.0 == owner && budget.compare_names(entry.1, name)?.is_eq() {
-                    return Ok(Some(entry.3));
-                }
+            if let Some(entry) = self.declaration_names.get(at)
+                && entry.0 == owner
+                && budget.compare_names(entry.1, name)?.is_eq()
+            {
+                return Ok(Some(entry.3));
             }
             let Some(id) = owner else {
                 return Ok(None);
@@ -261,10 +262,11 @@ impl<'a> ValidationContext<'a> {
         let at = budget.lower_bound(names, |entry, budget| {
             Ok(entry.0 < kind || (entry.0 == kind && budget.compare_names(entry.1, name)?.is_lt()))
         })?;
-        if let Some(entry) = names.get(at) {
-            if entry.0 == kind && budget.compare_names(entry.1, name)?.is_eq() {
-                return Ok(Some(entry.2));
-            }
+        if let Some(entry) = names.get(at)
+            && entry.0 == kind
+            && budget.compare_names(entry.1, name)?.is_eq()
+        {
+            return Ok(Some(entry.2));
         }
         Ok(None)
     }

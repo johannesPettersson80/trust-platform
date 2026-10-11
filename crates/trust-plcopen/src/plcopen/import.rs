@@ -35,13 +35,13 @@ pub fn import_xml_to_project_with_options(
     let mut loss_warnings = 0usize;
     let mut imported_data_types = 0usize;
 
-    if let Some(namespace) = root.tag_name().namespace() {
-        if namespace != PLCOPEN_NAMESPACE {
-            warnings.push(format!(
-                "unexpected namespace '{}'; expected '{}'",
-                namespace, PLCOPEN_NAMESPACE
-            ));
-        }
+    if let Some(namespace) = root.tag_name().namespace()
+        && namespace != PLCOPEN_NAMESPACE
+    {
+        warnings.push(format!(
+            "unexpected namespace '{}'; expected '{}'",
+            namespace, PLCOPEN_NAMESPACE
+        ));
     }
 
     inspect_unsupported_structure(
@@ -509,7 +509,10 @@ fn reject_source_tree_symlinks(root: &Path) -> anyhow::Result<()> {
     let metadata = std::fs::symlink_metadata(root)
         .with_context(|| format!("failed to inspect source root '{}'", root.display()))?;
     if metadata.file_type().is_symlink() {
-        anyhow::bail!("symbolic link is not allowed in source tree: {}", root.display());
+        anyhow::bail!(
+            "symbolic link is not allowed in source tree: {}",
+            root.display()
+        );
     }
     if !metadata.is_dir() {
         anyhow::bail!("source root is not a directory: {}", root.display());
@@ -521,7 +524,10 @@ fn reject_source_tree_symlinks(root: &Path) -> anyhow::Result<()> {
         let child_metadata = std::fs::symlink_metadata(&path)
             .with_context(|| format!("failed to inspect source path '{}'", path.display()))?;
         if child_metadata.file_type().is_symlink() {
-            anyhow::bail!("symbolic link is not allowed in source tree: {}", path.display());
+            anyhow::bail!(
+                "symbolic link is not allowed in source tree: {}",
+                path.display()
+            );
         }
         if child_metadata.is_dir() {
             reject_source_tree_symlinks(&path)?;

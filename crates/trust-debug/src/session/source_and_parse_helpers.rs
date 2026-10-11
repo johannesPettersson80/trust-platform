@@ -109,14 +109,11 @@ fn apply_project_io_config(
             resolved_drivers.push(resolved_driver);
             continue;
         }
-        if driver.name.eq_ignore_ascii_case("mqtt")
-            || driver.name.eq_ignore_ascii_case("mqtt-tcp")
+        if driver.name.eq_ignore_ascii_case("mqtt") || driver.name.eq_ignore_ascii_case("mqtt-tcp")
         {
-            resolved_driver.params = trust_runtime::io::resolve_mqtt_tag_mappings(
-                runtime,
-                &resolved_driver.params,
-            )
-            .map_err(|err| CompileError::new(format!("failed to load io.toml: {err}")))?;
+            resolved_driver.params =
+                trust_runtime::io::resolve_mqtt_tag_mappings(runtime, &resolved_driver.params)
+                    .map_err(|err| CompileError::new(format!("failed to load io.toml: {err}")))?;
         }
         if let Some(spec) = registry
             .build(resolved_driver.name.as_str(), &resolved_driver.params)
@@ -215,10 +212,10 @@ fn resolve_project_root_for_config(
     if parent.join("io.toml").is_file() || parent.join("runtime.toml").is_file() {
         return Ok(Some(parent.to_path_buf()));
     }
-    if let Some(project_root) = parent.parent() {
-        if project_root.join("io.toml").is_file() || project_root.join("runtime.toml").is_file() {
-            return Ok(Some(project_root.to_path_buf()));
-        }
+    if let Some(project_root) = parent.parent()
+        && (project_root.join("io.toml").is_file() || project_root.join("runtime.toml").is_file())
+    {
+        return Ok(Some(project_root.to_path_buf()));
     }
     Ok(None)
 }

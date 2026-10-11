@@ -33,12 +33,13 @@ fn lower_class_var_blocks(
                     })
                 })
                 .transpose()?;
-            if qualifiers.constant && matches!(kind, VarBlockKind::Var | VarBlockKind::Stat) {
-                if let Some(expr) = init_expr.as_ref() {
-                    let value = ctx.eval_compile_time_const_initializer(expr, type_id)?;
-                    for name in &parts.names {
-                        ctx.register_compile_time_const(name.as_str(), value.clone());
-                    }
+            if qualifiers.constant
+                && matches!(kind, VarBlockKind::Var | VarBlockKind::Stat)
+                && let Some(expr) = init_expr.as_ref()
+            {
+                let value = ctx.eval_compile_time_const_initializer(expr, type_id)?;
+                for name in &parts.names {
+                    ctx.register_compile_time_const(name.as_str(), value.clone());
                 }
             }
             let address_info = parts

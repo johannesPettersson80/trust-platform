@@ -166,18 +166,31 @@ impl Default for RegisterTier1SpecializedExecutorState {
 
 impl RegisterTier1SpecializedExecutorState {
     pub(in crate::runtime) fn from_env() -> Self {
-        let mut state = Self::default();
-        state.enabled = parse_env_bool("TRUST_VM_TIER1_SPECIALIZED_EXECUTOR", false);
-        state.hot_block_threshold = parse_env_u64(
-            "TRUST_VM_TIER1_SPECIALIZED_EXECUTOR_HOT_THRESHOLD",
-            state.hot_block_threshold,
-        );
-        state.cache_capacity = parse_env_usize(
-            "TRUST_VM_TIER1_SPECIALIZED_EXECUTOR_CACHE_CAP",
-            state.cache_capacity,
-        )
-        .max(1);
-        state
+        Self::from_environment(|name| std::env::var(name).ok())
+    }
+
+    pub(in crate::runtime::vm::register_ir) fn from_environment(
+        mut read: impl FnMut(&str) -> Option<String>,
+    ) -> Self {
+        use super::super::environment::{parse_bool, parse_number};
+
+        let defaults = Self::default();
+        Self {
+            enabled: parse_bool(
+                read("TRUST_VM_TIER1_SPECIALIZED_EXECUTOR").as_deref(),
+                false,
+            ),
+            hot_block_threshold: parse_number(
+                read("TRUST_VM_TIER1_SPECIALIZED_EXECUTOR_HOT_THRESHOLD").as_deref(),
+                defaults.hot_block_threshold,
+            ),
+            cache_capacity: parse_number(
+                read("TRUST_VM_TIER1_SPECIALIZED_EXECUTOR_CACHE_CAP").as_deref(),
+                defaults.cache_capacity,
+            )
+            .max(1),
+            ..defaults
+        }
     }
 
     pub(in crate::runtime) fn set_enabled(&mut self, enabled: bool) {
@@ -299,29 +312,4 @@ impl RegisterTier1SpecializedExecutorState {
     pub(super) fn record_block_execution(&mut self) {
         self.block_executions = self.block_executions.saturating_add(1);
     }
-}
-
-pub(in crate::runtime::vm::register_ir) fn parse_env_bool(name: &str, default: bool) -> bool {
-    match std::env::var(name) {
-        Ok(value) => match value.trim().to_ascii_lowercase().as_str() {
-            "1" | "true" | "yes" | "on" => true,
-            "0" | "false" | "no" | "off" => false,
-            _ => default,
-        },
-        Err(_) => default,
-    }
-}
-
-fn parse_env_u64(name: &str, default: u64) -> u64 {
-    std::env::var(name)
-        .ok()
-        .and_then(|value| value.trim().parse::<u64>().ok())
-        .unwrap_or(default)
-}
-
-pub(in crate::runtime::vm::register_ir) fn parse_env_usize(name: &str, default: usize) -> usize {
-    std::env::var(name)
-        .ok()
-        .and_then(|value| value.trim().parse::<usize>().ok())
-        .unwrap_or(default)
 }

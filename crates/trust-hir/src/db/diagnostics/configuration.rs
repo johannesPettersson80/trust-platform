@@ -130,56 +130,56 @@ fn check_task_priority(
         return;
     }
 
-    if let Some(expr) = fields.priority_expr {
-        if parse_unsigned_int_literal(&expr).is_none_or(|value| value > u64::from(u32::MAX)) {
-            let expression = expr.text().to_string();
-            let message = if expression.trim_start().starts_with('-') {
-                format!("TASK PRIORITY must be non-negative (task '{task_name}')")
-            } else if expression
-                .replace('_', "")
-                .trim()
-                .chars()
-                .all(|character| character.is_ascii_digit())
-            {
-                format!("TASK '{task_name}' PRIORITY is outside the supported u32 range")
-            } else {
-                format!("TASK '{task_name}' PRIORITY must be an unsigned integer literal")
-            };
-            diagnostics.error(
-                DiagnosticCode::InvalidTaskConfig,
-                expr.text_range(),
-                message,
-            );
-        }
+    if let Some(expr) = fields.priority_expr
+        && parse_unsigned_int_literal(&expr).is_none_or(|value| value > u64::from(u32::MAX))
+    {
+        let expression = expr.text().to_string();
+        let message = if expression.trim_start().starts_with('-') {
+            format!("TASK PRIORITY must be non-negative (task '{task_name}')")
+        } else if expression
+            .replace('_', "")
+            .trim()
+            .chars()
+            .all(|character| character.is_ascii_digit())
+        {
+            format!("TASK '{task_name}' PRIORITY is outside the supported u32 range")
+        } else {
+            format!("TASK '{task_name}' PRIORITY must be an unsigned integer literal")
+        };
+        diagnostics.error(
+            DiagnosticCode::InvalidTaskConfig,
+            expr.text_range(),
+            message,
+        );
     }
 
-    if let Some(expr) = fields.single_expr {
-        if !is_bool_storage_reference(symbols, &expr) {
-            let detail = name_from_node(&expr)
-                .filter(|(name, _)| symbols.lookup(name.as_str()).is_none())
-                .map(|(name, _)| format!("references unknown variable '{name}'"))
-                .unwrap_or_else(|| "must name a visible BOOL storage variable".to_owned());
-            diagnostics.error(
-                DiagnosticCode::InvalidTaskConfig,
-                expr.text_range(),
-                format!("TASK '{task_name}' SINGLE {detail}"),
-            );
-        }
+    if let Some(expr) = fields.single_expr
+        && !is_bool_storage_reference(symbols, &expr)
+    {
+        let detail = name_from_node(&expr)
+            .filter(|(name, _)| symbols.lookup(name.as_str()).is_none())
+            .map(|(name, _)| format!("references unknown variable '{name}'"))
+            .unwrap_or_else(|| "must name a visible BOOL storage variable".to_owned());
+        diagnostics.error(
+            DiagnosticCode::InvalidTaskConfig,
+            expr.text_range(),
+            format!("TASK '{task_name}' SINGLE {detail}"),
+        );
     }
 
-    if let Some(expr) = fields.interval_expr {
-        if !is_nonnegative_time_literal(&expr) {
-            let detail = if expr.text().to_string().contains('-') {
-                "must be non-negative"
-            } else {
-                "must be a TIME literal"
-            };
-            diagnostics.error(
-                DiagnosticCode::InvalidTaskConfig,
-                expr.text_range(),
-                format!("TASK '{task_name}' INTERVAL {detail}"),
-            );
-        }
+    if let Some(expr) = fields.interval_expr
+        && !is_nonnegative_time_literal(&expr)
+    {
+        let detail = if expr.text().to_string().contains('-') {
+            "must be non-negative"
+        } else {
+            "must be a TIME literal"
+        };
+        diagnostics.error(
+            DiagnosticCode::InvalidTaskConfig,
+            expr.text_range(),
+            format!("TASK '{task_name}' INTERVAL {detail}"),
+        );
     }
 }
 
@@ -224,10 +224,10 @@ fn task_init_fields(node: &SyntaxNode) -> TaskInitFields {
                 expr_node = Some(node.clone());
                 break;
             }
-            if let Some(token) = elements[j].as_token() {
-                if matches!(token.kind(), SyntaxKind::Comma | SyntaxKind::RParen) {
-                    break;
-                }
+            if let Some(token) = elements[j].as_token()
+                && matches!(token.kind(), SyntaxKind::Comma | SyntaxKind::RParen)
+            {
+                break;
             }
             j += 1;
         }
@@ -357,15 +357,15 @@ pub(super) fn program_config_task_name(node: &SyntaxNode) -> Option<(SmolStr, Te
     let elements: Vec<SyntaxElement> = node.children_with_tokens().collect();
     let mut idx = 0;
     while idx < elements.len() {
-        if let Some(token) = elements[idx].as_token() {
-            if token.kind() == SyntaxKind::KwWith {
-                for element in elements.iter().skip(idx + 1) {
-                    if let Some(name_node) = element
-                        .as_node()
-                        .filter(|node| node.kind() == SyntaxKind::Name)
-                    {
-                        return name_from_node(name_node);
-                    }
+        if let Some(token) = elements[idx].as_token()
+            && token.kind() == SyntaxKind::KwWith
+        {
+            for element in elements.iter().skip(idx + 1) {
+                if let Some(name_node) = element
+                    .as_node()
+                    .filter(|node| node.kind() == SyntaxKind::Name)
+                {
+                    return name_from_node(name_node);
                 }
             }
         }

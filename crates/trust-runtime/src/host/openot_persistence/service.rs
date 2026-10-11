@@ -33,12 +33,14 @@ fn open_runtime_worker(
     bundle_root: &Path,
     source_path: &Path,
     definition: &open_ot_definition::DefinitionFile,
+    environment: &dyn Fn(&str) -> Result<String, std::env::VarError>,
 ) -> Result<(RuntimePersistenceWorker, u32), PersistenceError> {
     let consumer = OpenOtPersistenceConsumer::new(definition.clone(), None)?;
-    let mut sink = OpenOtDocumentSink::open_with_definitions(
+    let mut sink = OpenOtDocumentSink::open_with_environment(
         persistence,
         bundle_root,
         std::slice::from_ref(definition),
+        environment,
     )?;
     let schema_version = sink.schema_version()?;
     let source = SharedMemoryOpenOtSource::open_with_limits(
@@ -56,6 +58,7 @@ fn open_runtime_worker(
 fn validate_startup_artifacts(
     config: &OpenOtTelemetryConfig,
     bundle_root: &Path,
+    environment: &dyn Fn(&str) -> Result<String, std::env::VarError>,
 ) -> Result<
     (
         open_ot_definition::DefinitionFile,
@@ -65,7 +68,7 @@ fn validate_startup_artifacts(
     PersistenceError,
 > {
     OpenOtDocumentSink::validate_backend_available(&config.persistence)?;
-    OpenOtDocumentSink::validate_required_environment(&config.persistence)?;
+    OpenOtDocumentSink::validate_required_environment(&config.persistence, environment)?;
     validate_database_ca(&config.persistence, bundle_root)?;
     let definition_path = bundle_root.join("openot-definition.json");
     let definition_bytes = std::fs::read(&definition_path).map_err(|error| {
@@ -381,11 +384,20 @@ impl OpenOtPersistenceService {
         config: &OpenOtTelemetryConfig,
         bundle_root: &Path,
     ) -> Result<Option<Self>, PersistenceError> {
+        Self::start_with_environment(config, bundle_root, |name| std::env::var(name))
+    }
+
+    #[cfg(unix)]
+    fn start_with_environment(
+        config: &OpenOtTelemetryConfig,
+        bundle_root: &Path,
+        environment: impl Fn(&str) -> Result<String, std::env::VarError> + Send + 'static,
+    ) -> Result<Option<Self>, PersistenceError> {
         if !config.persistence.enabled {
             return Ok(None);
         }
         let (definition, source_path, persistence_config) =
-            validate_startup_artifacts(config, bundle_root)?;
+            validate_startup_artifacts(config, bundle_root, &environment)?;
         let source_observer = SharedMemoryOpenOtSourceObserver::open(&source_path)?;
         // Definition parsing and shared-memory carriage availability are local
         // bundle artifacts and therefore remain synchronous startup checks.
@@ -483,6 +495,7 @@ impl OpenOtPersistenceService {
                             &reconnect_bundle_root,
                             &reconnect_source_path,
                             &reconnect_definition,
+                            &environment,
                         ) {
                             Ok((reconnected, schema_version)) => {
                                 worker = Some(reconnected);
@@ -758,3 +771,7 @@ fn unix_time_ns() -> u64 {
 #[cfg(all(test, unix))]
 #[path = "service_tests.rs"]
 mod tests;
+
+#[cfg(all(test, unix, feature = "openot-database-influxdb3"))]
+#[path = "service_initial_open_tests.rs"]
+mod initial_open_tests;

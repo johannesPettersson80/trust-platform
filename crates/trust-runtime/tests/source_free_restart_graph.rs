@@ -122,7 +122,8 @@ fn restart_initializers_observe_preserved_time_and_failure_is_transactional() {
         r#"
 VAR_GLOBAL RETAIN divisor : INT := INT#1; END_VAR
 VAR_GLOBAL stamp : TIME := T#0ms; quotient : INT := INT#8 / INT#1; END_VAR
-PROGRAM Main END_PROGRAM
+VAR_GLOBAL incoming AT %IB0 : BYTE; outgoing AT %QB0 : BYTE; END_VAR
+PROGRAM Main outgoing := BYTE#42; END_PROGRAM
 "#,
     );
     // Source initializers intentionally exclude native calls. Exercise the wider
@@ -226,6 +227,7 @@ PROGRAM Main END_PROGRAM
     let bytes = module.encode().unwrap();
     let prepared = PreparedModule::from_bytes(&bytes, PreparationLimits::default()).unwrap();
     let mut state = prepared.instantiate(0).unwrap();
+    state.inputs_mut()[0] = 0x5a;
     state.execute_cycle(Duration::from_millis(50)).unwrap();
     state.restart(RestartMode::Warm).unwrap();
     assert_eq!(
@@ -234,6 +236,9 @@ PROGRAM Main END_PROGRAM
     );
     state.write_global("divisor", Value::Int(0)).unwrap();
     let before = state.storage().globals().clone();
+    let before_inputs = state.inputs_mut().to_vec();
+    let before_outputs = state.outputs().to_vec();
+    assert_eq!(before_outputs, [42]);
     let tasks = state
         .task_states()
         .iter()
@@ -241,6 +246,8 @@ PROGRAM Main END_PROGRAM
         .collect::<Vec<_>>();
     assert!(state.restart(RestartMode::Warm).is_err());
     assert_eq!(state.storage().globals(), &before);
+    assert_eq!(&*state.inputs_mut(), before_inputs.as_slice());
+    assert_eq!(state.outputs(), before_outputs.as_slice());
     assert_eq!(
         state
             .task_states()

@@ -169,12 +169,12 @@ fn verify_src(src: &RegisterId, defined: &BTreeSet<RegisterId>) -> Result<(), Ru
 }
 
 fn verify_target(target: &BlockTarget, known_blocks: &HashSet<u32>) -> Result<(), RuntimeError> {
-    if let BlockTarget::Block(id) = target {
-        if !known_blocks.contains(id) {
-            return Err(invalid_bytecode(format!(
-                "register-ir unknown block target {id}",
-            )));
-        }
+    if let BlockTarget::Block(id) = target
+        && !known_blocks.contains(id)
+    {
+        return Err(invalid_bytecode(format!(
+            "register-ir unknown block target {id}",
+        )));
     }
     Ok(())
 }

@@ -323,12 +323,10 @@ fn replace_symlink(link: &Path, target: &Path) -> anyhow::Result<()> {
     {
         let backup = scratch_path(link, "old");
         let had_link = matches!(pointer_state(link)?, PointerState::Link(_));
-        if had_link {
-            if let Err(error) = fs::rename(link, &backup) {
-                let _ = fs::remove_file(&staged);
-                return Err(error)
-                    .with_context(|| format!("backup deployment pointer '{}'", link.display()));
-            }
+        if had_link && let Err(error) = fs::rename(link, &backup) {
+            let _ = fs::remove_file(&staged);
+            return Err(error)
+                .with_context(|| format!("backup deployment pointer '{}'", link.display()));
         }
         if let Err(error) = fs::rename(&staged, link) {
             let restore = if had_link {

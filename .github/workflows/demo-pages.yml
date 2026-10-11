@@ -10,6 +10,7 @@ on:
       - "conformance/**"
       - "docs/internal/assets/**"
       - "mkdocs.yml"
+      - "docs/requirements.txt"
       - "README.md"
       - "docs/README.md"
       - "examples/README.md"
@@ -44,18 +45,18 @@ jobs:
     name: Build Pages Artifact
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.12.15"
       - name: Install docs toolchain
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install mkdocs-material mkdocs-mermaid2-plugin
+          python -m pip install --upgrade pip==26.2.1
+          python -m pip install -r docs/requirements.txt
       - name: Generate docs media
         run: |
           python scripts/generate_public_docs_media.py
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
         with:
           enablement: true
       - name: Check docs links
@@ -76,7 +77,7 @@ jobs:
           test -f site/public/operate/compile-validate-reload/index.html
           test -f site/public/reference/agent-api/v1/index.html
           touch site/public/.nojekyll
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site/public
 
@@ -88,12 +89,12 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.12.15"
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
       - name: Verify deployed pages
         run: |
           python scripts/verify_public_docs_deploy.py --base-url "${{ steps.deployment.outputs.page_url }}"

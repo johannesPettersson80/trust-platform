@@ -145,10 +145,10 @@ impl EngineState<'_> {
         &self,
         reference: ValueRefView<'_>,
     ) -> Result<(), RuntimeError> {
-        if let MemoryLocation::Local(id) = reference.location {
-            if !self.storage.execution_frame_is_live(id) {
-                return Err(RuntimeError::ReferenceLifetime);
-            }
+        if let MemoryLocation::Local(id) = reference.location
+            && !self.storage.execution_frame_is_live(id)
+        {
+            return Err(RuntimeError::ReferenceLifetime);
         }
         let Some(active) = self.construction.initializers.last() else {
             return Ok(());
@@ -170,20 +170,19 @@ impl EngineState<'_> {
                 if let Some((index, declaration)) =
                     self.prepared
                         .declaration(StorageOwner::Global, None, reference.offset)
+                    && declaration.role == StorageRole::Static
                 {
-                    if declaration.role == StorageRole::Static {
-                        if active.entry.body_kind != InitializerBodyKind::Action
-                            || declaration.owner_pou_id != active.entry.owner_pou_id
-                        {
-                            return Err(RuntimeError::VisibilityViolation);
-                        }
-                        let ordinal = self
-                            .prepared
-                            .static_ordinal(index)
-                            .ok_or(RuntimeError::InvalidExecutionState)?;
-                        if ordinal >= active.entry.visible_static_count as usize {
-                            return Err(RuntimeError::VisibilityViolation);
-                        }
+                    if active.entry.body_kind != InitializerBodyKind::Action
+                        || declaration.owner_pou_id != active.entry.owner_pou_id
+                    {
+                        return Err(RuntimeError::VisibilityViolation);
+                    }
+                    let ordinal = self
+                        .prepared
+                        .static_ordinal(index)
+                        .ok_or(RuntimeError::InvalidExecutionState)?;
+                    if ordinal >= active.entry.visible_static_count as usize {
+                        return Err(RuntimeError::VisibilityViolation);
                     }
                 }
             }

@@ -6,6 +6,7 @@
 
 use std::borrow::Cow;
 use std::collections::BTreeMap;
+use std::ffi::OsString;
 use std::fmt::Display;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -49,11 +50,25 @@ impl RunConfig {
         case_file: impl Into<PathBuf>,
         case_file_digest: impl Into<String>,
     ) -> Self {
+        Self::from_environment(
+            test_id,
+            case_file,
+            case_file_digest,
+            std::env::var_os("TRUST_VERIFY_ARTIFACT_DIR"),
+        )
+    }
+
+    fn from_environment(
+        test_id: impl Into<String>,
+        case_file: impl Into<PathBuf>,
+        case_file_digest: impl Into<String>,
+        artifact_dir: Option<OsString>,
+    ) -> Self {
         Self {
             test_id: test_id.into(),
             case_file: case_file.into(),
             case_file_digest: case_file_digest.into(),
-            artifact_dir: default_artifact_dir(),
+            artifact_dir: default_artifact_dir(artifact_dir),
         }
     }
 
@@ -64,8 +79,8 @@ impl RunConfig {
     }
 }
 
-fn default_artifact_dir() -> PathBuf {
-    std::env::var_os("TRUST_VERIFY_ARTIFACT_DIR").map_or_else(
+fn default_artifact_dir(value: Option<OsString>) -> PathBuf {
+    value.map_or_else(
         || workspace_root().join("target/gate-artifacts/cases"),
         PathBuf::from,
     )
@@ -161,7 +176,22 @@ pub enum CaseRunError {
 pub fn run_case_file<P, E, F>(
     config: &RunConfig,
     probe: &mut P,
+    runner: F,
+) -> Result<CaseRunArtifact, CaseRunError>
+where
+    P: StateProbe,
+    P::Error: Display,
+    E: Display,
+    F: FnMut(&CaseRecord, &mut P) -> Result<CaseExecution, E>,
+{
+    run_case_file_with_environment(config, probe, runner, |name| std::env::var_os(name))
+}
+
+fn run_case_file_with_environment<P, E, F>(
+    config: &RunConfig,
+    probe: &mut P,
     mut runner: F,
+    read: impl FnMut(&str) -> Option<OsString>,
 ) -> Result<CaseRunArtifact, CaseRunError>
 where
     P: StateProbe,
@@ -192,7 +222,7 @@ where
     }
     let (case_provenance_kind, trace_definition_digest) =
         validate_case_file_provenance(&case_file)?;
-    let stamp = read_trust_verify_stamp(config, &digest)?;
+    let stamp = read_trust_verify_stamp(config, &digest, read)?;
 
     let mut entries = Vec::with_capacity(case_file.cases.len());
     for case in &case_file.cases {
@@ -240,7 +270,7 @@ pub fn case_file_digest(path: impl AsRef<Path>) -> Result<String, CaseRunError> 
 
 fn digest_bytes(bytes: &[u8]) -> String {
     let digest = Sha256::digest(canonical_case_file_bytes(bytes));
-    format!("sha256:{digest:x}")
+    format!("sha256:{}", hex::encode(digest))
 }
 
 fn canonical_case_file_bytes(bytes: &[u8]) -> Cow<'_, [u8]> {
@@ -333,16 +363,38 @@ fn write_artifact(config: &RunConfig, artifact: &CaseRunArtifact) -> Result<(), 
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn digest_keeps_the_standard_sha256_lowercase_encoding() {
+        assert_eq!(
+            super::digest_bytes(b"abc"),
+            "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
     use std::collections::BTreeMap;
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU64, Ordering};
-    use std::sync::{Mutex, MutexGuard, OnceLock};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use serde_json::json;
 
-    use crate::{run_case_file, CaseExecution, CaseResult, RunConfig, StateProbe, StateSnapshot};
+    use crate::{CaseExecution, CaseResult, RunConfig, StateProbe, StateSnapshot};
+    use std::ffi::OsString;
+
+    fn run_case_file<P, E, F>(
+        config: &RunConfig,
+        probe: &mut P,
+        runner: F,
+    ) -> Result<crate::CaseRunArtifact, crate::CaseRunError>
+    where
+        P: StateProbe,
+        P::Error: std::fmt::Display,
+        E: std::fmt::Display,
+        F: FnMut(&crate::CaseRecord, &mut P) -> Result<CaseExecution, E>,
+    {
+        crate::run_case_file_with_environment(config, probe, runner, |_| None)
+    }
 
     #[test]
     fn workspace_absolute_case_path_is_recorded_as_committed_relative_identity() {
@@ -379,7 +431,6 @@ mod tests {
 
     #[test]
     fn blocked_cases_are_recorded_without_executing_the_runner() {
-        let _env = lock_trust_verify_env();
         let dir = temp_dir("blocked");
         let case_file = dir.join("blocked.toml");
         fs::write(
@@ -434,7 +485,6 @@ spec_gap_ref = "SPEC_GAP_VALUE"
 
     #[test]
     fn runnable_cases_capture_snapshots_and_state_delta() {
-        let _env = lock_trust_verify_env();
         let dir = temp_dir("runnable");
         let case_file = dir.join("runnable.toml");
         fs::write(
@@ -493,7 +543,6 @@ expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME#case" }
 
     #[test]
     fn expected_case_file_digest_is_enforced_before_execution() {
-        let _env = lock_trust_verify_env();
         let dir = temp_dir("digest");
         let case_file = dir.join("digest.toml");
         fs::write(
@@ -565,7 +614,6 @@ spec_gap_ref = "SPEC_GAP_VALUE"
 
     #[test]
     fn schema_version_mismatch_is_rejected_before_execution() {
-        let _env = lock_trust_verify_env();
         let dir = temp_dir("schema");
         let case_file = dir.join("schema.toml");
         fs::write(
@@ -613,12 +661,12 @@ spec_gap_ref = "SPEC_GAP_VALUE"
 
     #[test]
     fn default_artifact_dir_is_workspace_target_gate_artifacts() {
-        let _env = lock_trust_verify_env();
         let digest = "sha256:dummy";
-        let config = RunConfig::new(
+        let config = RunConfig::from_environment(
             "TEST_DEFAULT_DIR",
             "verification/cases/example.toml",
             digest,
+            None,
         );
 
         assert!(config.artifact_dir.is_absolute());
@@ -628,14 +676,15 @@ spec_gap_ref = "SPEC_GAP_VALUE"
 
     #[test]
     fn stamped_artifact_dir_overrides_compile_time_workspace_path() {
-        let _env = lock_trust_verify_env();
+        let mut environment = BTreeMap::<String, OsString>::new();
         let dir = temp_dir("stamped_default_dir").join("artifacts");
-        std::env::set_var("TRUST_VERIFY_ARTIFACT_DIR", &dir);
+        environment.insert("TRUST_VERIFY_ARTIFACT_DIR".to_owned(), OsString::from(&dir));
 
-        let config = RunConfig::new(
+        let config = RunConfig::from_environment(
             "TEST_STAMPED_DEFAULT_DIR",
             "verification/cases/example.toml",
             "sha256:dummy",
+            environment.get("TRUST_VERIFY_ARTIFACT_DIR").cloned(),
         );
 
         assert_eq!(config.artifact_dir, dir);
@@ -643,19 +692,25 @@ spec_gap_ref = "SPEC_GAP_VALUE"
 
     #[test]
     fn trust_verify_env_stamps_are_recorded_in_artifact() {
-        let _env = lock_trust_verify_env();
+        let mut environment = BTreeMap::<String, OsString>::new();
         let dir = temp_dir("verify_stamp");
         let case_file = dir.join("stamp.toml");
         write_blocked_case_file(&case_file);
         let digest = crate::case_file_digest(&case_file).unwrap();
         let artifact_dir = dir.join("artifacts");
 
-        std::env::set_var("TRUST_VERIFY_TEST_ID", "TEST_STAMP");
-        std::env::set_var("TRUST_VERIFY_RUN_ID", "run-123");
-        std::env::set_var("TRUST_VERIFY_CASE_FILE_DIGEST", &digest);
-        std::env::set_var(
-            "TRUST_VERIFY_ARTIFACT_DIR",
-            artifact_dir.to_string_lossy().as_ref(),
+        environment.insert(
+            "TRUST_VERIFY_TEST_ID".to_owned(),
+            OsString::from("TEST_STAMP"),
+        );
+        environment.insert("TRUST_VERIFY_RUN_ID".to_owned(), OsString::from("run-123"));
+        environment.insert(
+            "TRUST_VERIFY_CASE_FILE_DIGEST".to_owned(),
+            OsString::from(&digest),
+        );
+        environment.insert(
+            "TRUST_VERIFY_ARTIFACT_DIR".to_owned(),
+            OsString::from(artifact_dir.to_string_lossy().as_ref()),
         );
 
         let mut probe = Probe::default();
@@ -665,9 +720,14 @@ spec_gap_ref = "SPEC_GAP_VALUE"
             case_file_digest: digest.clone(),
             artifact_dir: artifact_dir.clone(),
         };
-        let artifact = run_case_file(&config, &mut probe, |_, _| -> Result<_, String> {
-            panic!("blocked cases must not execute");
-        })
+        let artifact = crate::run_case_file_with_environment(
+            &config,
+            &mut probe,
+            |_, _| -> Result<_, String> {
+                panic!("blocked cases must not execute");
+            },
+            |name| environment.get(name).cloned(),
+        )
         .unwrap();
 
         assert_eq!(artifact.trust_verify_test_id.as_deref(), Some("TEST_STAMP"));
@@ -694,13 +754,16 @@ spec_gap_ref = "SPEC_GAP_VALUE"
 
     #[test]
     fn partial_trust_verify_env_stamps_fail_before_execution() {
-        let _env = lock_trust_verify_env();
+        let mut environment = BTreeMap::<String, OsString>::new();
         let dir = temp_dir("verify_partial");
         let case_file = dir.join("partial.toml");
         write_runnable_case_file(&case_file);
         let digest = crate::case_file_digest(&case_file).unwrap();
 
-        std::env::set_var("TRUST_VERIFY_TEST_ID", "TEST_PARTIAL");
+        environment.insert(
+            "TRUST_VERIFY_TEST_ID".to_owned(),
+            OsString::from("TEST_PARTIAL"),
+        );
 
         assert_stamp_failure_before_execution(
             &dir,
@@ -708,24 +771,31 @@ spec_gap_ref = "SPEC_GAP_VALUE"
             &case_file,
             digest,
             "incomplete TRUST_VERIFY",
+            &environment,
         );
     }
 
     #[test]
     fn mismatched_trust_verify_test_id_fails_before_execution() {
-        let _env = lock_trust_verify_env();
+        let mut environment = BTreeMap::<String, OsString>::new();
         let dir = temp_dir("verify_test_id_mismatch");
         let case_file = dir.join("test_id_mismatch.toml");
         write_runnable_case_file(&case_file);
         let digest = crate::case_file_digest(&case_file).unwrap();
         let artifact_dir = dir.join("artifacts");
 
-        std::env::set_var("TRUST_VERIFY_TEST_ID", "OTHER_TEST");
-        std::env::set_var("TRUST_VERIFY_RUN_ID", "run-456");
-        std::env::set_var("TRUST_VERIFY_CASE_FILE_DIGEST", &digest);
-        std::env::set_var(
-            "TRUST_VERIFY_ARTIFACT_DIR",
-            artifact_dir.to_string_lossy().as_ref(),
+        environment.insert(
+            "TRUST_VERIFY_TEST_ID".to_owned(),
+            OsString::from("OTHER_TEST"),
+        );
+        environment.insert("TRUST_VERIFY_RUN_ID".to_owned(), OsString::from("run-456"));
+        environment.insert(
+            "TRUST_VERIFY_CASE_FILE_DIGEST".to_owned(),
+            OsString::from(&digest),
+        );
+        environment.insert(
+            "TRUST_VERIFY_ARTIFACT_DIR".to_owned(),
+            OsString::from(artifact_dir.to_string_lossy().as_ref()),
         );
 
         assert_stamp_failure_before_execution(
@@ -734,24 +804,31 @@ spec_gap_ref = "SPEC_GAP_VALUE"
             &case_file,
             digest,
             "TRUST_VERIFY_TEST_ID mismatch",
+            &environment,
         );
     }
 
     #[test]
     fn mismatched_trust_verify_case_file_digest_fails_before_execution() {
-        let _env = lock_trust_verify_env();
+        let mut environment = BTreeMap::<String, OsString>::new();
         let dir = temp_dir("verify_digest_mismatch");
         let case_file = dir.join("digest_mismatch.toml");
         write_runnable_case_file(&case_file);
         let digest = crate::case_file_digest(&case_file).unwrap();
         let artifact_dir = dir.join("artifacts");
 
-        std::env::set_var("TRUST_VERIFY_TEST_ID", "TEST_MISMATCH");
-        std::env::set_var("TRUST_VERIFY_RUN_ID", "run-456");
-        std::env::set_var("TRUST_VERIFY_CASE_FILE_DIGEST", "sha256:wrong");
-        std::env::set_var(
-            "TRUST_VERIFY_ARTIFACT_DIR",
-            artifact_dir.to_string_lossy().as_ref(),
+        environment.insert(
+            "TRUST_VERIFY_TEST_ID".to_owned(),
+            OsString::from("TEST_MISMATCH"),
+        );
+        environment.insert("TRUST_VERIFY_RUN_ID".to_owned(), OsString::from("run-456"));
+        environment.insert(
+            "TRUST_VERIFY_CASE_FILE_DIGEST".to_owned(),
+            OsString::from("sha256:wrong"),
+        );
+        environment.insert(
+            "TRUST_VERIFY_ARTIFACT_DIR".to_owned(),
+            OsString::from(artifact_dir.to_string_lossy().as_ref()),
         );
 
         assert_stamp_failure_before_execution(
@@ -760,23 +837,30 @@ spec_gap_ref = "SPEC_GAP_VALUE"
             &case_file,
             digest,
             "TRUST_VERIFY_CASE_FILE_DIGEST mismatch",
+            &environment,
         );
     }
 
     #[test]
     fn mismatched_trust_verify_artifact_dir_fails_before_execution() {
-        let _env = lock_trust_verify_env();
+        let mut environment = BTreeMap::<String, OsString>::new();
         let dir = temp_dir("verify_artifact_dir_mismatch");
         let case_file = dir.join("artifact_dir_mismatch.toml");
         write_runnable_case_file(&case_file);
         let digest = crate::case_file_digest(&case_file).unwrap();
 
-        std::env::set_var("TRUST_VERIFY_TEST_ID", "TEST_MISMATCH");
-        std::env::set_var("TRUST_VERIFY_RUN_ID", "run-456");
-        std::env::set_var("TRUST_VERIFY_CASE_FILE_DIGEST", &digest);
-        std::env::set_var(
-            "TRUST_VERIFY_ARTIFACT_DIR",
-            dir.join("different-artifacts").to_string_lossy().as_ref(),
+        environment.insert(
+            "TRUST_VERIFY_TEST_ID".to_owned(),
+            OsString::from("TEST_MISMATCH"),
+        );
+        environment.insert("TRUST_VERIFY_RUN_ID".to_owned(), OsString::from("run-456"));
+        environment.insert(
+            "TRUST_VERIFY_CASE_FILE_DIGEST".to_owned(),
+            OsString::from(&digest),
+        );
+        environment.insert(
+            "TRUST_VERIFY_ARTIFACT_DIR".to_owned(),
+            OsString::from(dir.join("different-artifacts").to_string_lossy().as_ref()),
         );
 
         assert_stamp_failure_before_execution(
@@ -785,6 +869,29 @@ spec_gap_ref = "SPEC_GAP_VALUE"
             &case_file,
             digest,
             "TRUST_VERIFY_ARTIFACT_DIR mismatch",
+            &environment,
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn non_utf8_trust_verify_stamp_fails_before_execution() {
+        use std::os::unix::ffi::OsStringExt;
+        let dir = temp_dir("verify_non_utf8");
+        let case_file = dir.join("non_utf8.toml");
+        write_runnable_case_file(&case_file);
+        let digest = crate::case_file_digest(&case_file).unwrap();
+        let environment = BTreeMap::from([(
+            "TRUST_VERIFY_TEST_ID".to_owned(),
+            OsString::from_vec(vec![0xff]),
+        )]);
+        assert_stamp_failure_before_execution(
+            &dir,
+            "TEST_NON_UTF8",
+            &case_file,
+            digest,
+            "not valid UTF-8",
+            &environment,
         );
     }
 
@@ -864,6 +971,7 @@ expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME#case" }
         case_file: &Path,
         digest: String,
         expected_error: &str,
+        environment: &BTreeMap<String, OsString>,
     ) {
         let mut probe = Probe::default();
         let mut runner_called = false;
@@ -873,53 +981,24 @@ expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME#case" }
             case_file_digest: digest,
             artifact_dir: dir.join("artifacts"),
         };
-        let error = run_case_file(&config, &mut probe, |_, _| -> Result<_, String> {
-            runner_called = true;
-            Ok(CaseExecution {
-                result: CaseResult::Passed,
-                observed_error: None,
-                observed_status: Some("should-not-run".to_string()),
-            })
-        })
+        let error = crate::run_case_file_with_environment(
+            &config,
+            &mut probe,
+            |_, _| -> Result<_, String> {
+                runner_called = true;
+                Ok(CaseExecution {
+                    result: CaseResult::Passed,
+                    observed_error: None,
+                    observed_status: Some("should-not-run".to_string()),
+                })
+            },
+            |name| environment.get(name).cloned(),
+        )
         .unwrap_err();
 
         assert!(error.to_string().contains(expected_error));
         assert_eq!(probe.step, 0);
         assert!(!runner_called);
         assert!(!dir.join(format!("artifacts/{test_id}.json")).exists());
-    }
-
-    struct TrustVerifyEnvGuard {
-        _guard: MutexGuard<'static, ()>,
-    }
-
-    impl Drop for TrustVerifyEnvGuard {
-        fn drop(&mut self) {
-            clear_trust_verify_env();
-        }
-    }
-
-    fn lock_trust_verify_env() -> TrustVerifyEnvGuard {
-        let guard = env_lock()
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        clear_trust_verify_env();
-        TrustVerifyEnvGuard { _guard: guard }
-    }
-
-    fn env_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
-
-    fn clear_trust_verify_env() {
-        for name in [
-            "TRUST_VERIFY_TEST_ID",
-            "TRUST_VERIFY_RUN_ID",
-            "TRUST_VERIFY_CASE_FILE_DIGEST",
-            "TRUST_VERIFY_ARTIFACT_DIR",
-        ] {
-            std::env::remove_var(name);
-        }
     }
 }

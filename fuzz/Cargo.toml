@@ -1,20 +1,22 @@
 [package]
 name = "trust-fuzz"
 version = "0.0.0"
+license = "MIT OR Apache-2.0"
 publish = false
-edition = "2021"
+edition = "2024"
+rust-version = "1.99"
 
 [package.metadata]
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.4"
+libfuzzer-sys = "0.4.13"
 trust-hir = { path = "../crates/trust-hir" }
 trust-lsp = { path = "../crates/trust-lsp" }
 trust-plcopen = { path = "../crates/trust-plcopen" }
 trust-runtime = { path = "../crates/trust-runtime" }
 trust-syntax = { path = "../crates/trust-syntax" }
-serde_json = "1"
+serde_json = "1.0.152"
 
 [[bin]]
 name = "syntax_parse"
@@ -65,3 +67,4 @@ test = false
 doc = false
 
 [workspace]
+resolver = "3"

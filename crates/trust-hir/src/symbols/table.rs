@@ -153,10 +153,10 @@ impl SymbolTable {
 
     /// Pops the current scope and returns to the parent.
     pub fn pop_scope(&mut self) {
-        if let Some(scope) = self.scopes.get(self.current_scope.0 as usize) {
-            if let Some(parent) = scope.parent {
-                self.current_scope = parent;
-            }
+        if let Some(scope) = self.scopes.get(self.current_scope.0 as usize)
+            && let Some(parent) = scope.parent
+        {
+            self.current_scope = parent;
         }
     }
 
@@ -252,10 +252,10 @@ impl SymbolTable {
             let Some(symbol_id) = self.resolve_qualified(&parts) else {
                 continue;
             };
-            if let Some(symbol) = self.get(symbol_id) {
-                if matches!(symbol.kind, SymbolKind::Namespace) {
-                    continue;
-                }
+            if let Some(symbol) = self.get(symbol_id)
+                && matches!(symbol.kind, SymbolKind::Namespace)
+            {
+                continue;
             }
             if matches.insert(symbol_id) {
                 first.get_or_insert(symbol_id);

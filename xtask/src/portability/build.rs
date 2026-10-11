@@ -22,19 +22,32 @@ pub(super) fn firmware(root: &Path, report: &str) -> Result<()> {
     );
     let sysroot = String::from_utf8(output.stdout)?;
     let library = Path::new(sysroot.trim()).join("lib/rustlib/src/rust");
-    let flags = flags(&config, &root, &cargo_home, &library)?;
-    super::write_report(
-        report,
-        serde_json::json!({
-            "target": TARGET, "profile": "release", "rustflags": flags,
-            "manifest": directory.join("Cargo.toml"),
-            "note": "Path normalization does not claim cross-checkout binary reproducibility."
-        }),
-    )?;
+    let artifacts = super::build_artifacts::Artifacts::prepare(Path::new(report))?;
+    let mut flags = flags(&config, &root, &cargo_home, &library)?;
+    let binary_flags = artifacts.map_flags(&mut flags)?;
+    let report = artifacts.report.to_str().context("non-UTF-8 report path")?;
+    let mut configuration = serde_json::json!({
+        "target": TARGET, "profile": "release", "rustflags": flags,
+        "binary_rustflags": binary_flags, "manifest": directory.join("Cargo.toml"),
+        "status": "started",
+        "note": "Path normalization does not claim cross-checkout binary reproducibility."
+    });
+    super::write_report(report, configuration.clone())?;
     let mut command = Command::new("cargo");
     command
         .current_dir(directory)
-        .args(["build", "--locked", "--release", "--target", TARGET])
+        .args([
+            "rustc",
+            "--locked",
+            "--release",
+            "--target",
+            TARGET,
+            "--bin",
+            "trust-nucleo-f401re",
+            "--message-format=json-render-diagnostics",
+            "--",
+        ])
+        .args(&binary_flags)
         .env("CARGO_ENCODED_RUSTFLAGS", flags.join("\x1f"));
     // The checked-in profile/target flags own the composition. Host validation
     // environments must not silently disable checks or replace the linker scripts.
@@ -47,12 +60,18 @@ pub(super) fn firmware(root: &Path, report: &str) -> Result<()> {
     for key in ["RUSTFLAGS", "RUSTC_BOOTSTRAP", "CC", "CXX"] {
         command.env_remove(key);
     }
-    let status = command.status().context("build reference firmware")?;
+    let output = command.output().context("build reference firmware")?;
+    use std::io::Write;
+    std::io::stderr().write_all(&output.stderr)?;
+    fs::write(&artifacts.cargo_log, &output.stdout)?;
     ensure!(
-        status.success(),
-        "reference firmware build failed: {status}"
+        output.status.success(),
+        "reference firmware build failed: {}",
+        output.status
     );
-    Ok(())
+    configuration["artifacts"] = artifacts.retain(std::str::from_utf8(&output.stdout)?)?;
+    configuration["status"] = "linked".into();
+    super::write_report(report, configuration)
 }
 
 fn flags(config: &str, root: &Path, cargo_home: &Path, library: &Path) -> Result<Vec<String>> {
@@ -72,7 +91,7 @@ fn flags(config: &str, root: &Path, cargo_home: &Path, library: &Path) -> Result
         .collect::<Result<Vec<_>>>()?;
     for (source, normalized) in [
         (root.to_path_buf(), "/src"),
-        (cargo_home.join("registry/src"), "/registry"),
+        (cargo_home.join("registry").join("src"), "/registry"),
         (library.to_path_buf(), "/rust-src"),
     ] {
         let source = source.to_str().context("non-UTF-8 build source path")?;
@@ -92,20 +111,45 @@ mod tests {
     #[test]
     fn remapping_preserves_all_reviewed_target_flags_and_space_boundaries() {
         let config = include_str!("../../../firmware/trust-nucleo-f401re/.cargo/config.toml");
+        #[cfg(windows)]
+        let (root, cargo_home, library, expected) = (
+            r"C:\task source",
+            r"C:\cargo home",
+            r"C:\rust library",
+            [
+                r"--remap-path-prefix=C:\task source=/src",
+                r"--remap-path-prefix=C:\cargo home\registry\src=/registry",
+                r"--remap-path-prefix=C:\rust library=/rust-src",
+            ],
+        );
+        #[cfg(not(windows))]
+        let (root, cargo_home, library, expected) = (
+            "/task source",
+            "/cargo home",
+            "/rust library",
+            [
+                "--remap-path-prefix=/task source=/src",
+                "--remap-path-prefix=/cargo home/registry/src=/registry",
+                "--remap-path-prefix=/rust library=/rust-src",
+            ],
+        );
         let flags = flags(
             config,
-            Path::new("/task source"),
-            Path::new("/cargo home"),
-            Path::new("/rust library"),
+            Path::new(root),
+            Path::new(cargo_home),
+            Path::new(library),
         )
         .unwrap();
         assert!(flags.windows(2).any(|p| p == ["-C", "link-arg=--icf=safe"]));
         assert!(flags
             .windows(2)
             .any(|p| p == ["-C", "link-arg=-Tprofile.x"]));
-        assert!(flags.contains(&"--remap-path-prefix=/task source=/src".into()));
-        assert!(flags.contains(&"--remap-path-prefix=/cargo home/registry/src=/registry".into()));
-        assert!(flags.contains(&"--remap-path-prefix=/rust library=/rust-src".into()));
+        for expected in expected {
+            assert!(
+                flags.contains(&expected.into()),
+                "missing intact flag {expected}"
+            );
+        }
         assert!(!flags.iter().any(|flag| flag.contains("icf=all")));
     }
 }

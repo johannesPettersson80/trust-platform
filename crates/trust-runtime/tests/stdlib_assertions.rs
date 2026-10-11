@@ -141,7 +141,7 @@ fn assertion_failure_messages_use_user_facing_value_strings() {
 fn assert_assertion_message(error: RuntimeError, expected: &str) {
     match error {
         RuntimeError::AssertionFailed(message) => {
-            assert_eq!(message.as_ref(), expected);
+            assert_eq!(message.as_str(), expected);
             assert!(!message.contains("Int("), "{message}");
             assert!(!message.contains("Real("), "{message}");
             assert!(!message.contains("Bool("), "{message}");

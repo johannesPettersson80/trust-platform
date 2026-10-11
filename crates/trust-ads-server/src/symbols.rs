@@ -198,10 +198,10 @@ impl SymbolVersionCounter {
                 cause: source.to_string(),
             }
         })?;
-        if let Some(previous) = self.last_layout_json.as_deref() {
-            if previous != json {
-                self.version = self.version.wrapping_add(1).max(1);
-            }
+        if let Some(previous) = self.last_layout_json.as_deref()
+            && previous != json
+        {
+            self.version = self.version.wrapping_add(1).max(1);
         }
         self.last_layout_json = Some(json);
         Ok(self.version)

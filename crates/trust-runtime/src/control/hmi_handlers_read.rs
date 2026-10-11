@@ -102,9 +102,9 @@ pub(super) fn handle_hmi_alarms_get(
 }
 
 fn persist_hmi_live_state(state: &ControlState, live: &crate::hmi::HmiLiveState) {
-    if let Some(service) = state.hmi_persistence.as_ref() {
-        if let Err(err) = service.persist_state(live) {
-            tracing::warn!("hmi persistence update failed: {err}");
-        }
+    if let Some(service) = state.hmi_persistence.as_ref()
+        && let Err(err) = service.persist_state(live)
+    {
+        tracing::warn!("hmi persistence update failed: {err}");
     }
 }

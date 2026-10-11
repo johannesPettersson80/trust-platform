@@ -56,10 +56,10 @@ pub fn prepare_type_hierarchy(
             })
             .filter(|id| symbols.get(*id).is_some_and(|symbol| symbol.is_type()));
 
-    if symbol_id.is_none() {
-        if let Some(name_node) = type_name_node_at_position(&root, position) {
-            symbol_id = resolve_type_symbol_at_node(&symbols, &root, &name_node);
-        }
+    if symbol_id.is_none()
+        && let Some(name_node) = type_name_node_at_position(&root, position)
+    {
+        symbol_id = resolve_type_symbol_at_node(&symbols, &root, &name_node);
     }
 
     let symbol_id = symbol_id?;
@@ -87,41 +87,32 @@ pub fn supertypes(db: &Database, item: &TypeHierarchyItem) -> Vec<TypeHierarchyI
     if let Some(base) = symbols.extends_reference(symbol.id) {
         let base_name = base.name().display();
         if let Some(base_id) = resolve_type_symbol_in_scope(&symbols, base_name.as_str(), scope_id)
+            && let Some(key) = symbol_key(&symbols, base_id, item.file_id)
+            && let Some(item) = type_hierarchy_item_for_key(db, key)
         {
-            if let Some(key) = symbol_key(&symbols, base_id, item.file_id) {
-                if let Some(item) = type_hierarchy_item_for_key(db, key) {
-                    items.push(item);
-                }
-            }
+            items.push(item);
         }
     }
 
     for interface in symbols.implements_references(symbol.id) {
         let name = interface.name().display();
         if let Some(interface_id) = resolve_type_symbol_in_scope(&symbols, name.as_str(), scope_id)
+            && let Some(key) = symbol_key(&symbols, interface_id, item.file_id)
+            && let Some(item) = type_hierarchy_item_for_key(db, key)
         {
-            if let Some(key) = symbol_key(&symbols, interface_id, item.file_id) {
-                if let Some(item) = type_hierarchy_item_for_key(db, key) {
-                    items.push(item);
-                }
-            }
+            items.push(item);
         }
     }
 
-    if matches!(symbol.kind, SymbolKind::Type) {
-        if let Some(Type::Alias { target, .. }) = symbols.type_by_id(symbol.type_id) {
-            if let Some(target_name) = symbols.type_name(*target) {
-                if let Some(target_id) =
-                    resolve_type_symbol_in_scope(&symbols, target_name.as_str(), scope_id)
-                {
-                    if let Some(key) = symbol_key(&symbols, target_id, item.file_id) {
-                        if let Some(item) = type_hierarchy_item_for_key(db, key) {
-                            items.push(item);
-                        }
-                    }
-                }
-            }
-        }
+    if matches!(symbol.kind, SymbolKind::Type)
+        && let Some(Type::Alias { target, .. }) = symbols.type_by_id(symbol.type_id)
+        && let Some(target_name) = symbols.type_name(*target)
+        && let Some(target_id) =
+            resolve_type_symbol_in_scope(&symbols, target_name.as_str(), scope_id)
+        && let Some(key) = symbol_key(&symbols, target_id, item.file_id)
+        && let Some(item) = type_hierarchy_item_for_key(db, key)
+    {
+        items.push(item);
     }
 
     items
@@ -149,10 +140,10 @@ pub fn subtypes(db: &Database, item: &TypeHierarchyItem) -> Vec<TypeHierarchyIte
                 continue;
             }
 
-            if is_subtype_of(&symbols, symbol, target_key, item) {
-                if let Some(item) = type_hierarchy_item_for_key(db, key) {
-                    items.push(item);
-                }
+            if is_subtype_of(&symbols, symbol, target_key, item)
+                && let Some(item) = type_hierarchy_item_for_key(db, key)
+            {
+                items.push(item);
             }
         }
     }
@@ -171,38 +162,32 @@ fn is_subtype_of(
         .unwrap_or(ScopeId::GLOBAL);
     if let Some(base) = symbols.extends_reference(symbol.id) {
         let base_name = base.name().display();
-        if let Some(base_id) = resolve_type_symbol_in_scope(symbols, base_name.as_str(), scope_id) {
-            if let Some(key) = symbol_key(symbols, base_id, target_item.file_id) {
-                if key == target_key {
-                    return true;
-                }
-            }
+        if let Some(base_id) = resolve_type_symbol_in_scope(symbols, base_name.as_str(), scope_id)
+            && let Some(key) = symbol_key(symbols, base_id, target_item.file_id)
+            && key == target_key
+        {
+            return true;
         }
     }
 
     for interface in symbols.implements_references(symbol.id) {
         let name = interface.name().display();
-        if let Some(interface_id) = resolve_type_symbol_in_scope(symbols, name.as_str(), scope_id) {
-            if let Some(key) = symbol_key(symbols, interface_id, target_item.file_id) {
-                if key == target_key {
-                    return true;
-                }
-            }
+        if let Some(interface_id) = resolve_type_symbol_in_scope(symbols, name.as_str(), scope_id)
+            && let Some(key) = symbol_key(symbols, interface_id, target_item.file_id)
+            && key == target_key
+        {
+            return true;
         }
     }
 
-    if matches!(symbol.kind, SymbolKind::Type) {
-        if let Some(Type::Alias { target, .. }) = symbols.type_by_id(symbol.type_id) {
-            if let Some(target_name) = symbols.type_name(*target) {
-                if let Some(target_id) =
-                    resolve_type_symbol_in_scope(symbols, target_name.as_str(), scope_id)
-                {
-                    if let Some(key) = symbol_key(symbols, target_id, target_item.file_id) {
-                        return key == target_key;
-                    }
-                }
-            }
-        }
+    if matches!(symbol.kind, SymbolKind::Type)
+        && let Some(Type::Alias { target, .. }) = symbols.type_by_id(symbol.type_id)
+        && let Some(target_name) = symbols.type_name(*target)
+        && let Some(target_id) =
+            resolve_type_symbol_in_scope(symbols, target_name.as_str(), scope_id)
+        && let Some(key) = symbol_key(symbols, target_id, target_item.file_id)
+    {
+        return key == target_key;
     }
 
     false

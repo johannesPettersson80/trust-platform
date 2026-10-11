@@ -280,11 +280,10 @@ fn info_to_entry(info: &ServiceInfo) -> DiscoveryEntry {
 
 fn parse_port(listen: Option<&str>) -> Option<u16> {
     let listen = listen?;
-    let port = listen
+    listen
         .rsplit(':')
         .next()
-        .and_then(|value| value.parse::<u16>().ok());
-    port
+        .and_then(|value| value.parse::<u16>().ok())
 }
 
 fn format_endpoint(endpoint: &ControlEndpoint) -> String {

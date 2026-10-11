@@ -832,7 +832,7 @@ artifact_paths = ["gate-msrv"]
 artifact_retention = "repository_default"
 enforcement = "required"
 required_env = []
-rationale = "Required PR job checks all targets on Rust 1.95."
+rationale = "Required PR job checks all targets on the pinned Rust 1.99 baseline."
 
 [[surfaces]]
 schema_version = 1

@@ -22,10 +22,11 @@ impl PreparedIndexes {
             .map_err(|_| RuntimeError::Overflow)?;
         for entry in &initializers.entries {
             budget.charge(0, 1)?;
-            if entry.is_action() && entry.stage == InitializationStage::Explicit {
-                if let Some(declaration) = entry.declaration_idx {
-                    explicit.push((declaration, entry.phase as u8, entry.trigger as u8));
-                }
+            if entry.is_action()
+                && entry.stage == InitializationStage::Explicit
+                && let Some(declaration) = entry.declaration_idx
+            {
+                explicit.push((declaration, entry.phase as u8, entry.trigger as u8));
             }
         }
         sort::sort_by(&mut explicit, budget, &mut |a, b, _| Ok(a.cmp(b)))?;
@@ -63,11 +64,10 @@ impl PreparedIndexes {
             if matches!(
                 entry.phase,
                 InitializationPhase::Instance | InitializationPhase::Static
-            ) {
-                if let Some(owner) = entry.owner_pou_id {
-                    let physical = methods.get(&owner).copied().unwrap_or(owner);
-                    push_group(&mut self.instance_actions, physical, id, budget)?;
-                }
+            ) && let Some(owner) = entry.owner_pou_id
+            {
+                let physical = methods.get(&owner).copied().unwrap_or(owner);
+                push_group(&mut self.instance_actions, physical, id, budget)?;
             }
         }
         self.actions.finish(budget)?;

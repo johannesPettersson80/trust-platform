@@ -339,12 +339,11 @@ END_PROGRAM
                 cmd.title, "References: 0",
                 "zero-reference code lenses add clutter without helping navigation"
             );
-            if let Some(count_str) = cmd.title.strip_prefix("References: ") {
-                if let Ok(count) = count_str.trim().parse::<usize>() {
-                    if count >= 2 {
-                        found = true;
-                    }
-                }
+            if let Some(count_str) = cmd.title.strip_prefix("References: ")
+                && let Ok(count) = count_str.trim().parse::<usize>()
+                && count >= 2
+            {
+                found = true;
             }
         }
     }

@@ -140,14 +140,13 @@ pub(super) fn handle_prompt_key(
             if state.prompt.showing_suggestions
                 && state.prompt.mode == PromptMode::Normal
                 && !state.prompt.input.trim().contains(' ')
+                && let Some(selected) = state.prompt.selected_suggestion()
             {
-                if let Some(selected) = state.prompt.selected_suggestion() {
-                    let cmd = format!("/{}", selected.cmd);
-                    state.prompt.push_history(cmd.clone());
-                    state.prompt.deactivate();
-                    state.prompt.clear_suggestions();
-                    return execute_command(&cmd, client, state);
-                }
+                let cmd = format!("/{}", selected.cmd);
+                state.prompt.push_history(cmd.clone());
+                state.prompt.deactivate();
+                state.prompt.clear_suggestions();
+                return execute_command(&cmd, client, state);
             }
             let input = state.prompt.input.trim().to_string();
             state.prompt.push_history(input.clone());

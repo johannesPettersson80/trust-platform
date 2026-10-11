@@ -58,6 +58,7 @@ impl OpenOtDocumentSink {
     #[cfg(unix)]
     pub(crate) fn validate_required_environment(
         config: &OpenOtPersistenceConfig,
+        environment: &dyn Fn(&str) -> Result<String, std::env::VarError>,
     ) -> Result<(), PersistenceError> {
         let backend = config.backend.ok_or_else(|| {
             PersistenceError::InvalidConfig(
@@ -116,7 +117,7 @@ impl OpenOtDocumentSink {
             }
         };
         for name in required {
-            let value = std::env::var(name).map_err(|_| {
+            let value = environment(name).map_err(|_| {
                 PersistenceError::InvalidConfig(format!("environment variable '{name}' is not set"))
             })?;
             if value.is_empty() {
@@ -197,6 +198,19 @@ impl OpenOtDocumentSink {
         bundle_root: &Path,
         definitions: &[open_ot_definition::DefinitionFile],
     ) -> Result<Self, PersistenceError> {
+        Self::open_with_environment(config, bundle_root, definitions, &|name| {
+            std::env::var(name)
+        })
+    }
+
+    pub(super) fn open_with_environment(
+        config: &OpenOtPersistenceConfig,
+        bundle_root: &Path,
+        definitions: &[open_ot_definition::DefinitionFile],
+        environment: &dyn Fn(&str) -> Result<String, std::env::VarError>,
+    ) -> Result<Self, PersistenceError> {
+        // SQLite-only compositions do not resolve secret-bearing variables.
+        let _ = environment;
         if !config.enabled {
             return Err(PersistenceError::InvalidConfig(
                 "runtime.openot.persistence is disabled".to_string(),
@@ -232,8 +246,8 @@ impl OpenOtDocumentSink {
                         "runtime.openot.persistence.postgresql is required".to_string(),
                     )
                 })?;
-                let connection_url = std::env::var(postgresql.connection_url_env.as_str())
-                    .map_err(|_| {
+                let connection_url =
+                    environment(postgresql.connection_url_env.as_str()).map_err(|_| {
                         PersistenceError::InvalidConfig(format!(
                             "environment variable '{}' is not set",
                             postgresql.connection_url_env
@@ -267,8 +281,8 @@ impl OpenOtDocumentSink {
                         "runtime.openot.persistence.timescaledb is required".to_string(),
                     )
                 })?;
-                let connection_url = std::env::var(timescaledb.connection_url_env.as_str())
-                    .map_err(|_| {
+                let connection_url =
+                    environment(timescaledb.connection_url_env.as_str()).map_err(|_| {
                         PersistenceError::InvalidConfig(format!(
                             "environment variable '{}' is not set",
                             timescaledb.connection_url_env
@@ -303,7 +317,7 @@ impl OpenOtDocumentSink {
                     )
                 })?;
                 let connection_url =
-                    std::env::var(mysql.connection_url_env.as_str()).map_err(|_| {
+                    environment(mysql.connection_url_env.as_str()).map_err(|_| {
                         PersistenceError::InvalidConfig(format!(
                             "environment variable '{}' is not set",
                             mysql.connection_url_env
@@ -337,7 +351,7 @@ impl OpenOtDocumentSink {
                     )
                 })?;
                 let connection_url =
-                    std::env::var(sqlserver.connection_url_env.as_str()).map_err(|_| {
+                    environment(sqlserver.connection_url_env.as_str()).map_err(|_| {
                         PersistenceError::InvalidConfig(format!(
                             "environment variable '{}' is not set",
                             sqlserver.connection_url_env
@@ -365,7 +379,7 @@ impl OpenOtDocumentSink {
             OpenOtPersistenceBackend::SqlServer => Err(backend_unavailable("sqlserver")),
             #[cfg(feature = "openot-database-influxdb3")]
             OpenOtPersistenceBackend::InfluxDb3 => {
-                open_influxdb3(config, bundle_root, definitions).map(Self::InfluxDb3)
+                open_influxdb3(config, bundle_root, definitions, environment).map(Self::InfluxDb3)
             }
             #[cfg(not(feature = "openot-database-influxdb3"))]
             OpenOtPersistenceBackend::InfluxDb3 => Err(backend_unavailable("influxdb3")),
@@ -396,6 +410,7 @@ fn open_influxdb3(
     config: &OpenOtPersistenceConfig,
     bundle_root: &Path,
     definitions: &[open_ot_definition::DefinitionFile],
+    environment: &dyn Fn(&str) -> Result<String, std::env::VarError>,
 ) -> Result<InfluxDb3DocumentSink, PersistenceError> {
     let influx = config.influxdb3.as_ref().ok_or_else(|| {
         PersistenceError::InvalidConfig(
@@ -403,7 +418,7 @@ fn open_influxdb3(
         )
     })?;
     let required_env = |name: &str| {
-        std::env::var(name).map_err(|_| {
+        environment(name).map_err(|_| {
             PersistenceError::InvalidConfig(format!("environment variable '{name}' is not set"))
         })
     };

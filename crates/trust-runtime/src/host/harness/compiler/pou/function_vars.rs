@@ -15,7 +15,12 @@ fn lower_function_var_blocks(
     {
         let kind = var_block_kind(&var_block)?;
         let qualifiers = var_block_qualifiers(&var_block)?;
-        validate_retention_policy("function or method", kind, qualifiers, &[VarBlockKind::Stat])?;
+        validate_retention_policy(
+            "function or method",
+            kind,
+            qualifiers,
+            &[VarBlockKind::Stat],
+        )?;
         for var_decl in var_block
             .children()
             .filter(|child| child.kind() == SyntaxKind::VarDecl)
@@ -33,13 +38,15 @@ fn lower_function_var_blocks(
                 })
                 .transpose()?;
             if qualifiers.constant
-                && matches!(kind, VarBlockKind::Var | VarBlockKind::Stat | VarBlockKind::Temp)
+                && matches!(
+                    kind,
+                    VarBlockKind::Var | VarBlockKind::Stat | VarBlockKind::Temp
+                )
+                && let Some(expr) = init_expr.as_ref()
             {
-                if let Some(expr) = init_expr.as_ref() {
-                    let value = ctx.eval_compile_time_const_initializer(expr, type_id)?;
-                    for name in &parts.names {
-                        ctx.register_compile_time_const(name.as_str(), value.clone());
-                    }
+                let value = ctx.eval_compile_time_const_initializer(expr, type_id)?;
+                for name in &parts.names {
+                    ctx.register_compile_time_const(name.as_str(), value.clone());
                 }
             }
             let address_info = parts

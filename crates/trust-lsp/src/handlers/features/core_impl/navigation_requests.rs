@@ -193,22 +193,22 @@ pub async fn references_with_progress(
     let result = references(state, params);
 
     let streamed_partials = partial_token.is_some();
-    if let Some(locations) = result.as_ref() {
-        if streamed_partials {
-            let total = locations.len().max(1);
-            let mut emitted = 0usize;
-            for chunk in locations.chunks(PARTIAL_CHUNK_SIZE) {
-                send_partial_result(client, &partial_token, chunk.to_vec()).await;
-                emitted = emitted.saturating_add(chunk.len());
-                let percentage = ((emitted as f64 / total as f64) * 100.0).round() as u32;
-                send_work_done_report(
-                    client,
-                    &work_done_token,
-                    Some(format!("References: {emitted}/{total}")),
-                    Some(percentage.min(100)),
-                )
-                .await;
-            }
+    if let Some(locations) = result.as_ref()
+        && streamed_partials
+    {
+        let total = locations.len().max(1);
+        let mut emitted = 0usize;
+        for chunk in locations.chunks(PARTIAL_CHUNK_SIZE) {
+            send_partial_result(client, &partial_token, chunk.to_vec()).await;
+            emitted = emitted.saturating_add(chunk.len());
+            let percentage = ((emitted as f64 / total as f64) * 100.0).round() as u32;
+            send_work_done_report(
+                client,
+                &work_done_token,
+                Some(format!("References: {emitted}/{total}")),
+                Some(percentage.min(100)),
+            )
+            .await;
         }
     }
 

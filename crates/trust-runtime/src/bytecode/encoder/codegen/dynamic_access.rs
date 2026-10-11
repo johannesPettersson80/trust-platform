@@ -6,39 +6,36 @@ impl<'a> BytecodeEncoder<'a> {
         value: &crate::program_model::Expr,
         code: &mut Vec<u8>,
     ) -> Result<bool, BytecodeError> {
-        if let crate::program_model::LValue::Name(name) = target {
-            if ctx.local_ref(name).is_none()
-                && ctx.static_ref(name).is_none()
-                && ctx.self_field_name(name).is_none()
-            {
-                if let Some(alias) = self
-                    .construction
-                    .aliases
-                    .get(&super::util::normalize_name(name))
-                    .cloned()
-                {
-                    let key = super::util::normalize_name(name);
-                    let writable = self.construction.access.entries.iter().any(|entry| {
-                        self.strings.entries[entry.name_idx as usize].eq_ignore_ascii_case(&key)
-                            && entry.flags & 1 != 0
-                    });
-                    if !writable {
-                        return Err(BytecodeError::InvalidSection(
-                            "assignment through read-only access alias".into(),
-                        ));
-                    }
-                    if let Some(partial) = alias.partial {
-                        let start = code.len();
-                        self.emit_load_ref(&alias.reference, code)?;
-                        if !self.emit_expr(ctx, value, code)? {
-                            code.truncate(start);
-                            return Ok(false);
-                        }
-                        self.emit_partial_write(partial, code);
-                        self.emit_store_ref(&alias.reference, code)?;
-                        return Ok(true);
-                    }
+        if let crate::program_model::LValue::Name(name) = target
+            && ctx.local_ref(name).is_none()
+            && ctx.static_ref(name).is_none()
+            && ctx.self_field_name(name).is_none()
+            && let Some(alias) = self
+                .construction
+                .aliases
+                .get(&super::util::normalize_name(name))
+                .cloned()
+        {
+            let key = super::util::normalize_name(name);
+            let writable = self.construction.access.entries.iter().any(|entry| {
+                self.strings.entries[entry.name_idx as usize].eq_ignore_ascii_case(&key)
+                    && entry.flags & 1 != 0
+            });
+            if !writable {
+                return Err(BytecodeError::InvalidSection(
+                    "assignment through read-only access alias".into(),
+                ));
+            }
+            if let Some(partial) = alias.partial {
+                let start = code.len();
+                self.emit_load_ref(&alias.reference, code)?;
+                if !self.emit_expr(ctx, value, code)? {
+                    code.truncate(start);
+                    return Ok(false);
                 }
+                self.emit_partial_write(partial, code);
+                self.emit_store_ref(&alias.reference, code)?;
+                return Ok(true);
             }
         }
         if let Some(emitted) = self.emit_partial_assign(ctx, target, value, code)? {

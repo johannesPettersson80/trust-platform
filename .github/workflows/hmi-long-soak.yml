@@ -50,14 +50,14 @@ jobs:
     runs-on: [self-hosted, linux]
     timeout-minutes: 1800
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
 
       - uses: Swatinem/rust-cache@v2
 

@@ -484,7 +484,7 @@ fn hash_u16_trace(trace: &[u16]) -> String {
     for value in trace {
         hasher.update(value.to_le_bytes());
     }
-    format!("{:x}", hasher.finalize())
+    hex::encode(hasher.finalize())
 }
 
 fn write_simulation_physics_artifact(

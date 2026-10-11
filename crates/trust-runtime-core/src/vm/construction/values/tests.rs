@@ -81,10 +81,10 @@ impl ValueConstructionContext for Recorder {
     }
     fn evaluate_recipe(&mut self, id: u32) -> Result<Value, RuntimeError> {
         self.calls.push(id);
-        if let Some((recipe, ty)) = self.recurse {
-            if recipe == id {
-                return construct_value(self, ty, ValueConstructionMode::Default);
-            }
+        if let Some((recipe, ty)) = self.recurse
+            && recipe == id
+        {
+            return construct_value(self, ty, ValueConstructionMode::Default);
         }
         self.responses
             .get(id as usize)

@@ -1,5 +1,4 @@
 impl DebugAdapter {
-
     fn to_session_breakpoints(&self, mut args: SetBreakpointsArguments) -> SetBreakpointsArguments {
         let adjust_line = |line: u32| -> u32 {
             if self.coordinate.lines_start_at1() {
@@ -33,7 +32,6 @@ impl DebugAdapter {
 
         args
     }
-
 
     fn to_client_breakpoints(
         &self,
@@ -71,7 +69,6 @@ impl DebugAdapter {
 
         response
     }
-
 
     fn set_breakpoints_remote(
         &mut self,
@@ -116,10 +113,10 @@ impl DebugAdapter {
         };
         match response {
             Ok((mut breakpoints, file_id, generation)) => {
-                if let (Some(file_id), Some(generation)) = (file_id, generation) {
-                    if let Ok(mut guard) = self.remote_breakpoints.lock() {
-                        guard.insert(file_id, generation);
-                    }
+                if let (Some(file_id), Some(generation)) = (file_id, generation)
+                    && let Ok(mut guard) = self.remote_breakpoints.lock()
+                {
+                    guard.insert(file_id, generation);
                 }
                 for breakpoint in &mut breakpoints {
                     if let Some(line) = breakpoint.line.as_mut() {
@@ -142,7 +139,6 @@ impl DebugAdapter {
         self.location_to_client(&location)
     }
 
-
     pub(super) fn location_to_client(
         &self,
         location: &trust_runtime::debug::SourceLocation,
@@ -157,34 +153,27 @@ impl DebugAdapter {
         ))
     }
 
-
     pub(super) fn to_client_line(&self, line: u32) -> u32 {
         self.coordinate.to_client_line(line)
     }
-
 
     pub(super) fn to_client_column(&self, column: u32) -> u32 {
         self.coordinate.to_client_column(column)
     }
 
-
     pub(super) fn to_runtime_line(&self, line: u32) -> Option<u32> {
         self.coordinate.to_runtime_line(line)
     }
-
 
     pub(super) fn to_runtime_column(&self, column: u32) -> Option<u32> {
         self.coordinate.to_runtime_column(column)
     }
 
-
     pub(super) fn default_line(&self) -> u32 {
         self.coordinate.default_line()
     }
 
-
     pub(super) fn default_column(&self) -> u32 {
         self.coordinate.default_column()
     }
-
 }

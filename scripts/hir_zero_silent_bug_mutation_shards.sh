@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 MODE="${1:---list}"
-export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.95}"
+export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.99.0}"
 
 OUT_ROOT="target/gate-artifacts/hir-zero-mutants"
 COMMON_ARGS=(

@@ -296,14 +296,14 @@ impl CodegenContext {
         self_fields: HashMap<SmolStr, SmolStr>,
         for_temp_pairs: Vec<(SmolStr, SmolStr)>,
     ) -> Self {
-        if let Some(return_name) = return_name.as_ref() {
-            if let Some((_, leaf)) = return_name.rsplit_once('.') {
-                let qualified_key = normalize_name(return_name);
-                if let Some(reference) = locals.get(&qualified_key).cloned() {
-                    locals
-                        .entry(normalize_name(&SmolStr::new(leaf)))
-                        .or_insert(reference);
-                }
+        if let Some(return_name) = return_name.as_ref()
+            && let Some((_, leaf)) = return_name.rsplit_once('.')
+        {
+            let qualified_key = normalize_name(return_name);
+            if let Some(reference) = locals.get(&qualified_key).cloned() {
+                locals
+                    .entry(normalize_name(&SmolStr::new(leaf)))
+                    .or_insert(reference);
             }
         }
         Self {

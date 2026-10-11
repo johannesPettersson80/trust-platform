@@ -4351,13 +4351,13 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_24F5361F09E346062428"
+discovery_id = "DISC_45C7EDEC1165A02CE9CC"
 discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/runtime/vm/budget.rs"
-name = "budget_accepts_exact_remaining_work_and_rejects_the_next_instruction"
+path = "crates/trust-runtime-core/src/vm/budget.rs"
+name = "work_charges_poll_at_stride_and_do_not_refund_a_failed_charge"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-10-11"
 
 [[reviews]]
 discovery_id = "DISC_251A2BD74865B4BDB6A6"

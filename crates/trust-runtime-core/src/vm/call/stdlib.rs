@@ -73,12 +73,12 @@ pub fn bind_conversion_value(
         }));
     }
     let arg = &args[0];
-    if let Some(name) = arg.name.as_ref() {
-        if !name.eq_ignore_ascii_case("IN") {
-            return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
-                name.clone(),
-            )));
-        }
+    if let Some(name) = arg.name.as_ref()
+        && !name.eq_ignore_ascii_case("IN")
+    {
+        return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
+            name.clone(),
+        )));
     }
     resolve_vm_arg_value(runtime, frame, arg)
 }

@@ -142,12 +142,12 @@ fn validate_point_shape(
     data_type: MqttPointType,
     image_bit: Option<u8>,
 ) -> Result<(), RuntimeError> {
-    if let Some(bit) = image_bit {
-        if bit > 7 {
-            return Err(RuntimeError::InvalidConfig(
-                format!("mqtt {context}.image_bit must be between 0 and 7").into(),
-            ));
-        }
+    if let Some(bit) = image_bit
+        && bit > 7
+    {
+        return Err(RuntimeError::InvalidConfig(
+            format!("mqtt {context}.image_bit must be between 0 and 7").into(),
+        ));
     }
     match (data_type, image_bit) {
         (MqttPointType::Bool, Some(_)) => Ok(()),

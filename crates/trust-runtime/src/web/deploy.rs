@@ -213,12 +213,12 @@ fn verify_signature_policy(
     };
     let key = load_deploy_key(&keyring_path, signature.key_id.trim())?;
     let not_after = key.not_after_unix.or(key.not_after);
-    if let Some(not_after) = not_after {
-        if not_after < now_secs() {
-            return Err(RuntimeError::ControlError(
-                "deploy signing key expired".into(),
-            ));
-        }
+    if let Some(not_after) = not_after
+        && not_after < now_secs()
+    {
+        return Err(RuntimeError::ControlError(
+            "deploy signing key expired".into(),
+        ));
     }
     let expected = deploy_signature_digest(key.secret.trim(), &payload_sha);
     if signature.signature.trim().to_ascii_lowercase() != expected {

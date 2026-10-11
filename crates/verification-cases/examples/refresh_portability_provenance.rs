@@ -10,7 +10,7 @@ use std::{
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 fn digest(bytes: &[u8]) -> String {
-    format!("sha256:{:x}", Sha256::digest(bytes))
+    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
 }
 fn read(path: &Path) -> Result<String> {
     Ok(fs::read_to_string(path)?)

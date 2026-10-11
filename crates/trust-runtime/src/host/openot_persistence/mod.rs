@@ -40,6 +40,9 @@ mod sqlserver_read_model;
 mod timescaledb;
 mod worker;
 
+#[cfg(all(test, feature = "openot-database-influxdb3"))]
+mod transport_failure_fixture;
+
 pub use consumer::OpenOtPersistenceConsumer;
 pub use contracts::{
     CommitOutcome, DocumentSink, MaintenanceOutcome, PersistenceBatch, PersistenceCheckpoint,

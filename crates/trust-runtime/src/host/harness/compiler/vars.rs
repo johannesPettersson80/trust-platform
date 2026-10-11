@@ -59,10 +59,10 @@ pub(super) fn var_block_qualifiers(node: &SyntaxNode) -> Result<VarBlockQualifie
     let mut qualifiers = VarBlockQualifiers::default();
     let mut qualifier_count = 0usize;
     for element in node.children_with_tokens() {
-        if let Some(child) = element.as_node() {
-            if child.kind() == SyntaxKind::VarDecl {
-                break;
-            }
+        if let Some(child) = element.as_node()
+            && child.kind() == SyntaxKind::VarDecl
+        {
+            break;
         }
         let token = match element.into_token() {
             Some(token) => token,

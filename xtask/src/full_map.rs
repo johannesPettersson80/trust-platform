@@ -16,6 +16,9 @@ use crate::software_map::{
     WorkspaceEdge,
 };
 
+mod external_safety;
+pub use external_safety::external_safety_gate;
+
 pub fn architecture_doctor_full_map(root: &Path) -> Result<()> {
     let policy = FullMapPolicy::load(root)?;
     let mut map = build_software_map(root, &policy)?;
@@ -913,19 +916,18 @@ fn check_policy_metadata(policy: &FullMapPolicy) -> FullMapCheck {
             ));
         }
     }
-    if let Some(waiver) = &policy.kiss.runtime_top_level_module_cap_waiver {
-        if waiver.target_cap == 0
+    if let Some(waiver) = &policy.kiss.runtime_top_level_module_cap_waiver
+        && (waiver.target_cap == 0
             || waiver.owner.trim().is_empty()
             || waiver.rationale.trim().is_empty()
             || waiver.review_date.trim().is_empty()
             || waiver.extraction_branch.trim().is_empty()
-            || waiver.removal_condition.trim().is_empty()
-        {
-            failures.push(
-                "runtime top-level module cap waiver is missing target_cap/owner/rationale/review_date/extraction_branch/removal_condition"
-                    .to_string(),
-            );
-        }
+            || waiver.removal_condition.trim().is_empty())
+    {
+        failures.push(
+        "runtime top-level module cap waiver is missing target_cap/owner/rationale/review_date/extraction_branch/removal_condition"
+            .to_string(),
+    );
     }
     let mut runtime_module_decisions = BTreeSet::new();
     for item in &policy.kiss.runtime_top_level_module_decisions {
@@ -3551,10 +3553,10 @@ fn runtime_module_for_path(runtime_src: &Path, bin_root: &Path, file: &Path) -> 
             .components()
             .map(|component| component.as_os_str().to_string_lossy().to_string())
             .collect::<Vec<_>>();
-        if parts.first().is_some_and(|part| part == "bin") {
-            if let Some(second) = parts.get(1) {
-                return second.trim_end_matches(".rs").to_string();
-            }
+        if parts.first().is_some_and(|part| part == "bin")
+            && let Some(second) = parts.get(1)
+        {
+            return second.trim_end_matches(".rs").to_string();
         }
         return first_path_component_or_stem(rel);
     }
@@ -3590,23 +3592,25 @@ fn modules_after_marker(mut line: &str, marker: &str) -> Vec<String> {
     let mut modules = Vec::new();
     while let Some(idx) = line.find(marker) {
         let tail = &line[idx + marker.len()..];
-        if let Some(inner) = tail.strip_prefix('{') {
-            if let Some(end) = inner.find('}') {
-                for item in inner[..end].split(',') {
-                    if let Some(module) = first_identifier(item) {
-                        if module != "self" && module != "super" {
-                            modules.push(module.to_string());
-                        }
-                    }
+        if let Some(inner) = tail.strip_prefix('{')
+            && let Some(end) = inner.find('}')
+        {
+            for item in inner[..end].split(',') {
+                if let Some(module) = first_identifier(item)
+                    && module != "self"
+                    && module != "super"
+                {
+                    modules.push(module.to_string());
                 }
-                line = &inner[end + 1..];
-                continue;
             }
+            line = &inner[end + 1..];
+            continue;
         }
-        if let Some(module) = first_identifier(tail) {
-            if module != "self" && module != "super" {
-                modules.push(module.to_string());
-            }
+        if let Some(module) = first_identifier(tail)
+            && module != "self"
+            && module != "super"
+        {
+            modules.push(module.to_string());
         }
         if tail.is_empty() {
             break;
@@ -3844,10 +3848,10 @@ fn collect_runtime_bin_modules(root: &Path) -> Result<Vec<String>> {
     for entry in fs::read_dir(&bin_dir).with_context(|| format!("read {}", bin_dir.display()))? {
         let entry = entry?;
         let path = entry.path();
-        if path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
-            if let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) {
-                modules.push(stem.to_string());
-            }
+        if path.extension().and_then(|ext| ext.to_str()) == Some("rs")
+            && let Some(stem) = path.file_stem().and_then(|stem| stem.to_str())
+        {
+            modules.push(stem.to_string());
         }
     }
     Ok(modules)
@@ -4005,10 +4009,11 @@ fn parse_enum_variants(source: &str, enum_name: &str) -> Vec<String> {
         if trimmed.starts_with("#[") || trimmed.starts_with("//") || trimmed.is_empty() {
             continue;
         }
-        if let Some(name) = leading_identifier(trimmed) {
-            if name.chars().next().is_some_and(char::is_uppercase) && name != enum_name {
-                variants.push(name.to_string());
-            }
+        if let Some(name) = leading_identifier(trimmed)
+            && name.chars().next().is_some_and(char::is_uppercase)
+            && name != enum_name
+        {
+            variants.push(name.to_string());
         }
         if brace_balance <= 0 {
             break;

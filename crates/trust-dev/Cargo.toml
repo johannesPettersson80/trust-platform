@@ -9,7 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-base64 = "0.22"
+base64 = "0.23.1"
 clap.workspace = true
 dialoguer.workspace = true
 owo-colors.workspace = true

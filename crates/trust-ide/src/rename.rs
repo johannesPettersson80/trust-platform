@@ -384,13 +384,12 @@ fn conflict_in_declaring_scope(
     let declaring_scope = find_declaring_scope(symbols, symbol_id);
 
     // Check if new_name already exists in that scope
-    if let Some(scope) = symbols.get_scope(declaring_scope) {
-        if let Some(existing_id) = scope.lookup_local(new_name) {
-            // Conflict if a different symbol has this name
-            if existing_id != symbol_id {
-                return Some(existing_id);
-            }
-        }
+    // Conflict if a different symbol has this name
+    if let Some(scope) = symbols.get_scope(declaring_scope)
+        && let Some(existing_id) = scope.lookup_local(new_name)
+        && existing_id != symbol_id
+    {
+        return Some(existing_id);
     }
 
     None
@@ -550,10 +549,10 @@ fn field_has_conflict(symbols: &SymbolTable, field: &FieldTarget, new_name: &str
 fn find_declaring_scope(symbols: &SymbolTable, symbol_id: SymbolId) -> ScopeId {
     for i in 0..symbols.scope_count() {
         let scope_id = ScopeId(i as u32);
-        if let Some(scope) = symbols.get_scope(scope_id) {
-            if scope.symbols.values().any(|&id| id == symbol_id) {
-                return scope_id;
-            }
+        if let Some(scope) = symbols.get_scope(scope_id)
+            && scope.symbols.values().any(|&id| id == symbol_id)
+        {
+            return scope_id;
         }
     }
     ScopeId::GLOBAL

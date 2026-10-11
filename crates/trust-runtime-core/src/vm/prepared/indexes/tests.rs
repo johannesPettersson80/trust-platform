@@ -147,13 +147,12 @@ fn grouped_indexes_match_wire_collections_for_every_fixture_owner() {
                 action.phase,
                 InitializationPhase::Instance | InitializationPhase::Static
             )
+            && let Some(owner) = action.owner_pou_id
         {
-            if let Some(owner) = action.owner_pou_id {
-                expected_instances
-                    .entry(prepared.method_owners.get(&owner).copied().unwrap_or(owner))
-                    .or_default()
-                    .push(id as u32);
-            }
+            expected_instances
+                .entry(prepared.method_owners.get(&owner).copied().unwrap_or(owner))
+                .or_default()
+                .push(id as u32);
         }
     }
     for (key, expected) in expected_actions {

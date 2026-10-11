@@ -43,10 +43,10 @@ impl<'a> BytecodeEncoder<'a> {
         args: &[crate::program_model::CallArg],
         code: &mut Vec<u8>,
     ) -> Result<bool, BytecodeError> {
-        if let crate::program_model::Expr::Name(name) = target {
-            if name.eq_ignore_ascii_case("REF") {
-                return self.emit_ref_builtin_call(ctx, args, code);
-            }
+        if let crate::program_model::Expr::Name(name) = target
+            && name.eq_ignore_ascii_case("REF")
+        {
+            return self.emit_ref_builtin_call(ctx, args, code);
         }
 
         let target = self.resolve_native_call_target(ctx, target)?;

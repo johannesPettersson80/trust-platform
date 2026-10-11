@@ -8,7 +8,7 @@ const ETHERCAT_MAX_FRAMES: usize = 32;
 const ETHERCAT_MAX_PDU_DATA: usize = PduStorage::element_size(ETHERCAT_MAX_PDI);
 
 #[cfg(all(feature = "ethercat-wire", unix))]
-type EthercrabGroup = SubDeviceGroup<ETHERCAT_MAX_SUBDEVICES, ETHERCAT_MAX_PDI, Op>;
+type EthercrabGroup = SubDeviceGroup<ETHERCAT_MAX_SUBDEVICES, ETHERCAT_MAX_PDI, DefaultLock, Op>;
 
 #[cfg(all(feature = "ethercat-wire", unix))]
 struct EthercrabBus {

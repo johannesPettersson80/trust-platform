@@ -114,10 +114,10 @@ fn join_namespace_path(parts: &[SmolStr]) -> String {
 
 fn has_conflict(symbols: &SymbolTable, symbol_id: SymbolId, new_name: &str) -> bool {
     let declaring_scope = find_declaring_scope(symbols, symbol_id);
-    if let Some(scope) = symbols.get_scope(declaring_scope) {
-        if let Some(existing_id) = scope.lookup_local(new_name) {
-            return existing_id != symbol_id;
-        }
+    if let Some(scope) = symbols.get_scope(declaring_scope)
+        && let Some(existing_id) = scope.lookup_local(new_name)
+    {
+        return existing_id != symbol_id;
     }
     false
 }
@@ -125,10 +125,10 @@ fn has_conflict(symbols: &SymbolTable, symbol_id: SymbolId, new_name: &str) -> b
 fn find_declaring_scope(symbols: &SymbolTable, symbol_id: SymbolId) -> ScopeId {
     for i in 0..symbols.scope_count() {
         let scope_id = ScopeId(i as u32);
-        if let Some(scope) = symbols.get_scope(scope_id) {
-            if scope.symbols.values().any(|&id| id == symbol_id) {
-                return scope_id;
-            }
+        if let Some(scope) = symbols.get_scope(scope_id)
+            && scope.symbols.values().any(|&id| id == symbol_id)
+        {
+            return scope_id;
         }
     }
     ScopeId::GLOBAL

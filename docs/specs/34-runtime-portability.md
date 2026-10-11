@@ -888,6 +888,16 @@ replacement initializers; it does not expose a temporary zero-time epoch. Task
 registration uses that same sample as its new nominal-deadline baseline. A failed
 replacement leaves the installed state and its clock unchanged. This is a product
 lifecycle contract, distinct from restoring time after a power cycle.
+Both warm and cold in-process restart stage the previous flat and hierarchical
+process images before executing replacement initialization. Ordered configuration
+actions then overwrite only their selected targets, including direct `%I`, `%Q`
+and `%M` addresses. Unconfigured bytes, bits and hierarchical keys retain their
+previous values; repeated or overlapping actions follow the initializer table's
+order. Image carry-over must not overwrite an initializer's result after construction.
+An initialization or budget failure leaves the complete installed state, images
+and logical time unchanged. This specifies the portable image lifecycle alongside
+the variable-retention rules of IEC 61131-3 §6.5.6; it does not change hosted 1.1
+restart behavior or authorize input writes during PLC execution.
 Warm in-process restart transfers retained global object graphs into replacement
 storage, preserving aliasing and cycles while remapping instance and global
 references to replacement identities. Owning POU-typed links retain object state; interface-typed links (including
@@ -1327,6 +1337,15 @@ The objective is a current, maintainable, reproducible dependency baseline that 
 
 ### 16.1 Observed baseline and proposed selection
 
+Scope U selects the Rust 1.99.0/edition 2024/resolver 3/MSRV 1.99 and Node
+24.21.0 candidates below. The refreshed MOD-01 decisions and pending qualification
+are recorded in `docs/notes/runtime-portability/u-dependency-decisions.md` and the
+implementation checklist. Baseline observations in this section describe the
+pre-modernization source. Selection, installation and lock resolution do not
+establish qualification. Every runtime function remains enabled on all existing
+platform compositions, with unchanged F401 flash/heap/stack acceptance margins.
+
+
 The proposed upgrades below apply to M0U only. Scope A/B uses Rust 1.95.0, edition 2021 and resolver 2. M0U is separately authorized, normally after the first host/F401 checkpoint, and cannot silently expand A's validation. Raising MSRV later also requires matching builder/CI/release tools and editor/local analysis toolchains; 1.95 diagnostics or checks no longer validate code requiring 1.99. Build/test execution remains on the builder under repository rules.
 
 The reviewed workspace declares Rust **1.95 as its minimum supported Rust version (MSRV)**, edition 2021, and resolver 2. There is no root toolchain pin. Most native CI jobs select floating `stable`; one MSRV job selects 1.95. These declarations do not establish the compiler that produced a historical binary. CI/release Node jobs currently select Node 20. [R25]
@@ -1386,6 +1405,26 @@ Use existing standard facilities in the appropriate layer. For example, hosted c
 M0U is a separate implementation scope, normally after A/B and before broad M2B. Preserve original, extracted-before-modernization and modernized source/build records with the saved artifacts/oracles. Freeze all M0U changes before its own consolidated batch. This sequence does not require a compiler/edition upgrade before extraction. An explicitly changed ordering still uses separate scopes and equivalent baselines; any new checkout follows the canonical AGENTS/skills bootstrap rule. A successful Rust 1.95 run does not validate 1.99, and neither result transfers automatically to a different firmware build.
 
 **MOD-06.** For the separately authorized M0U scope, finish implementation and necessary tests before one deduplicated builder/platform batch. Include its affected runtime, syntax/HIR/LSP/protocol, isolated MCU graph/link, WASM/browser, extension and dependency/license/advisory checks. This is not Scope A's batch definition. Include physical qualification when making claims for the new tuple; older-board results remain evidence only for their recorded build. Existing release gates apply before a requested push/release. Failed/unavailable checks stay open and another run requires explicit authorization.
+
+Modernization evidence shall freeze the actual tracked and nonignored new source,
+deleted paths, and canonical instruction sources. Regenerate tracked assets shipped
+inside the runtime or extension before freezing; their bytes remain source inputs.
+Reject changed bytes or added source paths during validation. Expected rendered diagrams and public-document
+images are separate generated outputs with their own identities. Rust owns this
+comparison and the decoding of the existing disposable-database runner's generated
+environment file. Treat that file as data, reject malformed/duplicate/unexpected
+entries, pass settings only to the gate's child process, and never print credentials.
+These tooling contracts do not weaken product tests or establish qualification
+from source review alone.
+
+The firmware build command shall retain its newly linked ELF and linker map in
+the requested evidence directory and record both identities. A cached Cargo
+success does not prove that an undeclared linker-map side effect still exists.
+Request the map on the final binary link, require a non-cached binary artifact
+and a new nonempty map, and reject occupied evidence destinations. Subsequent
+inspection, footprint and installation consume that retained pair rather than
+guessing a Cargo target path or accepting a map from an earlier link. These
+artifact rules do not change the reviewed firmware flags or overflow policy.
 
 The modernization deliverable is complete when every in-scope dependency/tool has a current disposition, all selected migrations and lockfiles are implemented, the support/MSRV/tool documentation agrees, and the applicable evidence passes. Report retained versions and exceptions plainly; do not label a qualified subset “all packages latest.” Saved PLC traces and NUM-05 outcomes must remain compatible across the selected build changes. Attribute performance changes according to PERF-01 rather than presenting compiler gains as evidence for extraction.
 

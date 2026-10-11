@@ -470,12 +470,12 @@ pub(in crate::web::config_ui_routes) fn handle_workspace_routes(
             let absolute = runtime.root.join("src").join(&path);
             let current_text = fs::read_to_string(&absolute).unwrap_or_default();
             let current_revision = text_revision(current_text.as_str());
-            if let Some(expected) = payload.expected_revision.as_deref() {
-                if expected.trim() != current_revision {
-                    return Err(RuntimeError::ControlError(
-                        format!("conflict: {current_revision}").into(),
-                    ));
-                }
+            if let Some(expected) = payload.expected_revision.as_deref()
+                && expected.trim() != current_revision
+            {
+                return Err(RuntimeError::ControlError(
+                    format!("conflict: {current_revision}").into(),
+                ));
             }
             atomic_write_text(&absolute, payload.text.as_str())?;
             let revision = text_revision(payload.text.as_str());

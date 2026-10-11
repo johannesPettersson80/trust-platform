@@ -3,18 +3,18 @@ import { resolve } from "node:path";
 
 export default defineConfig({
   build: {
-    outDir: resolve(__dirname, "../../src/web/ui/assets"),
+    outDir: resolve(import.meta.dirname, "../../src/web/ui/assets"),
     emptyOutDir: false,
     sourcemap: false,
     target: "es2020",
     lib: {
-      entry: resolve(__dirname, "src/codemirror-bundle.ts"),
+      entry: resolve(import.meta.dirname, "src/codemirror-bundle.ts"),
       formats: ["es"],
     },
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         entryFileNames: "ide-codemirror.20260215.js",
-        inlineDynamicImports: true,
+        codeSplitting: false,
       },
     },
   },

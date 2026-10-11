@@ -189,37 +189,32 @@ pub(in crate::db) fn first_ident_token(node: &SyntaxNode) -> Option<SyntaxToken>
 pub(in crate::db) fn type_path_from_type_ref(
     node: &SyntaxNode,
 ) -> Option<(Vec<(SmolStr, TextRange)>, TextRange)> {
-    if let Some(array_node) = node.children().find(|n| n.kind() == SyntaxKind::ArrayType) {
-        if let Some(inner) = array_node
+    if let Some(array_node) = node.children().find(|n| n.kind() == SyntaxKind::ArrayType)
+        && let Some(inner) = array_node
             .children()
             .find(|n| n.kind() == SyntaxKind::TypeRef)
-        {
-            return type_path_from_type_ref(&inner);
-        }
+    {
+        return type_path_from_type_ref(&inner);
     }
 
     if let Some(pointer_node) = node
         .children()
         .find(|n| n.kind() == SyntaxKind::PointerType)
-    {
-        if let Some(inner) = pointer_node
+        && let Some(inner) = pointer_node
             .children()
             .find(|n| n.kind() == SyntaxKind::TypeRef)
-        {
-            return type_path_from_type_ref(&inner);
-        }
+    {
+        return type_path_from_type_ref(&inner);
     }
 
     if let Some(reference_node) = node
         .children()
         .find(|n| n.kind() == SyntaxKind::ReferenceType)
-    {
-        if let Some(inner) = reference_node
+        && let Some(inner) = reference_node
             .children()
             .find(|n| n.kind() == SyntaxKind::TypeRef)
-        {
-            return type_path_from_type_ref(&inner);
-        }
+    {
+        return type_path_from_type_ref(&inner);
     }
 
     if let Some(string_node) = node.children().find(|n| n.kind() == SyntaxKind::StringType) {
@@ -568,11 +563,12 @@ pub(in crate::db) fn program_config_instance_and_type(
                     }
                     continue;
                 }
-                if expect_type && type_parts.is_none() {
-                    if let Some((parts, _)) = qualified_name_parts(child) {
-                        type_parts = Some(parts.into_iter().map(|(name, _)| name).collect());
-                        expect_type = false;
-                    }
+                if expect_type
+                    && type_parts.is_none()
+                    && let Some((parts, _)) = qualified_name_parts(child)
+                {
+                    type_parts = Some(parts.into_iter().map(|(name, _)| name).collect());
+                    expect_type = false;
                 }
             }
             SyntaxKind::QualifiedName | SyntaxKind::TypeRef
@@ -712,14 +708,14 @@ pub(in crate::db) fn resolve_access_path_target_from_symbol(
                 current_type = *element;
             }
             AccessPathSegment::Field(name) => {
-                if let Some(symbol) = symbols.get(current_symbol) {
-                    if matches!(symbol.kind, SymbolKind::Namespace | SymbolKind::Program) {
-                        let child = symbols
-                            .resolve_member_symbol_in_hierarchy(current_symbol, name.as_str())?;
-                        current_symbol = child;
-                        current_type = symbols.resolve_alias_type(symbols.get(child)?.type_id);
-                        continue;
-                    }
+                if let Some(symbol) = symbols.get(current_symbol)
+                    && matches!(symbol.kind, SymbolKind::Namespace | SymbolKind::Program)
+                {
+                    let child = symbols
+                        .resolve_member_symbol_in_hierarchy(current_symbol, name.as_str())?;
+                    current_symbol = child;
+                    current_type = symbols.resolve_alias_type(symbols.get(child)?.type_id);
+                    continue;
                 }
 
                 let resolved = symbols.resolve_alias_type(current_type);

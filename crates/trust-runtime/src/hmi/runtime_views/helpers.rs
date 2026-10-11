@@ -81,15 +81,15 @@ fn update_alarm_state(state: &mut HmiLiveState, widget: &HmiWidgetSchema, value:
 }
 
 fn alarm_violation(value: f64, min: Option<f64>, max: Option<f64>) -> bool {
-    if let Some(min) = min {
-        if value < min {
-            return true;
-        }
+    if let Some(min) = min
+        && value < min
+    {
+        return true;
     }
-    if let Some(max) = max {
-        if value > max {
-            return true;
-        }
+    if let Some(max) = max
+        && value > max
+    {
+        return true;
     }
     false
 }
@@ -101,15 +101,15 @@ fn alarm_clear_window(
     deadband: Option<f64>,
 ) -> bool {
     let deadband = deadband.unwrap_or(0.0).max(0.0);
-    if let Some(min) = min {
-        if value < min + deadband {
-            return false;
-        }
+    if let Some(min) = min
+        && value < min + deadband
+    {
+        return false;
     }
-    if let Some(max) = max {
-        if value > max - deadband {
-            return false;
-        }
+    if let Some(max) = max
+        && value > max - deadband
+    {
+        return false;
     }
     true
 }

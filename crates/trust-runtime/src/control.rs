@@ -261,12 +261,12 @@ impl SourceRegistry {
 
         let mut candidates = Vec::new();
         candidates.push(path.to_path_buf());
-        if let Some(root) = project_root {
-            if path.is_relative() {
-                candidates.push(root.join(path));
-                if path.components().count() == 1 {
-                    candidates.push(root.join("src").join(path));
-                }
+        if let Some(root) = project_root
+            && path.is_relative()
+        {
+            candidates.push(root.join(path));
+            if path.components().count() == 1 {
+                candidates.push(root.join("src").join(path));
             }
         }
 
@@ -274,14 +274,13 @@ impl SourceRegistry {
             if let Some(file) = self.files.iter().find(|file| file.path == *candidate) {
                 return Some(file);
             }
-            if let Ok(canonical) = std::fs::canonicalize(candidate) {
-                if let Some(file) = self
+            if let Ok(canonical) = std::fs::canonicalize(candidate)
+                && let Some(file) = self
                     .files
                     .iter()
                     .find(|file| canonical_path_eq(&file.path, &canonical))
-                {
-                    return Some(file);
-                }
+            {
+                return Some(file);
             }
         }
 
@@ -484,10 +483,10 @@ pub(crate) fn dispatch_web_control_request_port(
     client: Option<&str>,
     request_token: Option<&str>,
 ) -> ControlResponse {
-    if payload.get("auth").is_none() {
-        if let Some(token) = request_token {
-            payload["auth"] = serde_json::Value::String(token.to_string());
-        }
+    if payload.get("auth").is_none()
+        && let Some(token) = request_token
+    {
+        payload["auth"] = serde_json::Value::String(token.to_string());
     }
     prepare_request_value(payload, state, client)
 }
@@ -770,10 +769,10 @@ fn classify_comm_credential_channel(client: Option<&str>) -> &'static str {
     if client == "unix" || client == "loopback" {
         return "trusted_same_host";
     }
-    if let Ok(addr) = client.parse::<SocketAddr>() {
-        if addr.ip().is_loopback() {
-            return "trusted_same_host";
-        }
+    if let Ok(addr) = client.parse::<SocketAddr>()
+        && addr.ip().is_loopback()
+    {
+        return "trusted_same_host";
     }
     "untrusted_remote_plain_tcp"
 }

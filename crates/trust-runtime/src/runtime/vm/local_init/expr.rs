@@ -167,10 +167,10 @@ fn eval_vm_local_expr(ctx: &VmLocalExprContext<'_>, expr: &Expr) -> Result<Value
             read_vm_local_indices(target_value, &index_values)
         }
         Expr::Field { target, field } => {
-            if let Some(qualified) = qualified_field_expr_name(expr) {
-                if let Ok(value) = read_vm_local_name(ctx, &qualified) {
-                    return Ok(value);
-                }
+            if let Some(qualified) = qualified_field_expr_name(expr)
+                && let Ok(value) = read_vm_local_name(ctx, &qualified)
+            {
+                return Ok(value);
             }
             let target_value = eval_vm_local_expr(ctx, target)?;
             read_vm_local_field(ctx, target_value, field)
@@ -485,27 +485,26 @@ fn read_vm_local_lvalue(
 }
 
 fn read_vm_local_name(ctx: &VmLocalExprContext<'_>, name: &SmolStr) -> Result<Value, RuntimeError> {
-    if let Some(slot) = vm_local_slot_for_name(ctx.plan, name) {
-        if slot < ctx.visible_slots {
-            return ctx
-                .frame
-                .locals
-                .get(slot)
-                .cloned()
-                .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone()));
-        }
+    if let Some(slot) = vm_local_slot_for_name(ctx.plan, name)
+        && slot < ctx.visible_slots
+    {
+        return ctx
+            .frame
+            .locals
+            .get(slot)
+            .cloned()
+            .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone()));
     }
     if let Some(value) = read_static_local(ctx, name) {
         return Ok(value);
     }
-    if let Some(instance_id) = ctx.frame.runtime_instance {
-        if let Some(value) = ctx
+    if let Some(instance_id) = ctx.frame.runtime_instance
+        && let Some(value) = ctx
             .runtime
             .storage()
             .get_instance_var_recursive(instance_id, name.as_str())
-        {
-            return Ok(value.clone());
-        }
+    {
+        return Ok(value.clone());
     }
     if let Some(value) = ctx.runtime.storage().get_global(name.as_str()) {
         return Ok(value.clone());
@@ -594,10 +593,9 @@ fn resolve_vm_local_lvalue_reference(
             if let Some(qualified) = target
                 .qualified_name()
                 .map(|prefix| SmolStr::new(format!("{prefix}.{field}")))
+                && let Some(reference) = resolve_vm_local_name_reference(ctx, &qualified)
             {
-                if let Some(reference) = resolve_vm_local_name_reference(ctx, &qualified) {
-                    return Ok(reference);
-                }
+                return Ok(reference);
             }
             let base_value = read_vm_local_lvalue(ctx, target)?;
             match base_value {
@@ -629,25 +627,24 @@ fn resolve_vm_local_name_reference(
     ctx: &VmLocalExprContext<'_>,
     name: &SmolStr,
 ) -> Option<ValueRef> {
-    if let Some(slot) = vm_local_slot_for_name(ctx.plan, name) {
-        if slot < ctx.visible_slots {
-            return Some(ValueRef {
-                location: MemoryLocation::Local(FrameId(
-                    super::super::call::VM_LOCAL_SENTINEL_FRAME_ID,
-                )),
-                offset: slot,
-                path: Vec::new(),
-            });
-        }
+    if let Some(slot) = vm_local_slot_for_name(ctx.plan, name)
+        && slot < ctx.visible_slots
+    {
+        return Some(ValueRef {
+            location: MemoryLocation::Local(FrameId(
+                super::super::call::VM_LOCAL_SENTINEL_FRAME_ID,
+            )),
+            offset: slot,
+            path: Vec::new(),
+        });
     }
-    if let Some(instance_id) = ctx.frame.runtime_instance {
-        if let Some(reference) = ctx
+    if let Some(instance_id) = ctx.frame.runtime_instance
+        && let Some(reference) = ctx
             .runtime
             .storage()
             .ref_for_instance_recursive(instance_id, name.as_str())
-        {
-            return Some(reference);
-        }
+    {
+        return Some(reference);
     }
     ctx.runtime.storage().ref_for_global(name.as_str())
 }

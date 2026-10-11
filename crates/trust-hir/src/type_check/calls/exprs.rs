@@ -23,14 +23,14 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             let idx_type_raw = self.checker.expr().check_expression(idx_expr);
             let idx_type = self.checker.resolve_alias_type(idx_type_raw);
             index_exprs.push((idx_expr.clone(), idx_type_raw, idx_type));
-            if let Some(ty) = self.checker.symbols.type_by_id(idx_type) {
-                if !ty.is_integer() {
-                    self.checker.diagnostics.error(
-                        DiagnosticCode::InvalidArrayIndex,
-                        idx_expr.text_range(),
-                        "array index must be an integer type",
-                    );
-                }
+            if let Some(ty) = self.checker.symbols.type_by_id(idx_type)
+                && !ty.is_integer()
+            {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::InvalidArrayIndex,
+                    idx_expr.text_range(),
+                    "array index must be an integer type",
+                );
             }
         }
 
@@ -135,18 +135,17 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             .checker
             .resolve_ref()
             .resolve_namespace_qualified_symbol(node)
+            && let Some(symbol) = self.checker.symbols.get(symbol_id)
         {
-            if let Some(symbol) = self.checker.symbols.get(symbol_id) {
-                if let Some(role) = non_value_role(&symbol.kind) {
-                    let name = symbol.name.clone();
-                    return self.checker.diagnostic_type_outcome(
-                        DiagnosticCode::InvalidOperation,
-                        node.text_range(),
-                        format!("{role} '{name}' cannot be used as a value"),
-                    );
-                }
-                return SemanticOutcome::Resolved(symbol.type_id);
+            if let Some(role) = non_value_role(&symbol.kind) {
+                let name = symbol.name.clone();
+                return self.checker.diagnostic_type_outcome(
+                    DiagnosticCode::InvalidOperation,
+                    node.text_range(),
+                    format!("{role} '{name}' cannot be used as a value"),
+                );
             }
+            return SemanticOutcome::Resolved(symbol.type_id);
         }
 
         let base = &children[0];
@@ -195,16 +194,15 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         let Some(symbol) = self.checker.symbols.get(resolved.id) else {
                             return self.checker.unknown_type_outcome(member.text_range());
                         };
-                        if resolved.accessible {
-                            if let SymbolKind::Property { has_get, .. } = symbol.kind {
-                                if !has_get {
-                                    self.checker.diagnostics.error(
-                                        DiagnosticCode::InvalidOperation,
-                                        member.text_range(),
-                                        format!("property '{}' has no getter", symbol.name),
-                                    );
-                                }
-                            }
+                        if resolved.accessible
+                            && let SymbolKind::Property { has_get, .. } = symbol.kind
+                            && !has_get
+                        {
+                            self.checker.diagnostics.error(
+                                DiagnosticCode::InvalidOperation,
+                                member.text_range(),
+                                format!("property '{}' has no getter", symbol.name),
+                            );
                         }
                         return SemanticOutcome::Resolved(symbol.type_id);
                     }
@@ -375,14 +373,14 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         diagnostic: DiagnosticCode,
         kind: &str,
     ) {
-        if let Some(value_int) = self.checker.eval_const_int_expr_or_report(expr) {
-            if value_int < lower || value_int > upper {
-                self.checker.diagnostics.error(
-                    diagnostic,
-                    expr.text_range(),
-                    format!("{kind} index {value_int} outside bounds {lower}..{upper}"),
-                );
-            }
+        if let Some(value_int) = self.checker.eval_const_int_expr_or_report(expr)
+            && (value_int < lower || value_int > upper)
+        {
+            self.checker.diagnostics.error(
+                diagnostic,
+                expr.text_range(),
+                format!("{kind} index {value_int} outside bounds {lower}..{upper}"),
+            );
         }
     }
 }
