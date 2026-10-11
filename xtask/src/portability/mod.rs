@@ -9,6 +9,8 @@ mod source_identity;
 #[cfg(all(test, unix))]
 mod supply_chain_tests;
 mod trace;
+#[cfg(all(test, unix))]
+mod worker_gate_tests;
 
 use anyhow::{bail, Context, Result};
 use serde_json::Value;

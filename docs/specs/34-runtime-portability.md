@@ -1417,6 +1417,17 @@ entries, pass settings only to the gate's child process, and never print credent
 These tooling contracts do not weaken product tests or establish qualification
 from source review alone.
 
+Selected CI tool versions shall replace older cached executables before the gate
+uses them. The shared worker-import gate installs its locked frontend dependencies
+before importing its build configuration. Browser launch/probe validation has a
+bounded lifetime, reports the actual executable/version and startup diagnostics,
+and terminates task-owned subprocesses on failure. Rust owns this lifecycle;
+Node retains rendered HTML and transport wiring. These prerequisites preserve
+every rendered fixture and assertion and do not extend a failing outer timeout.
+The browser lifecycle command qualifies Unix-host process groups used by the
+builder and Ubuntu editor jobs; unsupported hosts fail before launching a child.
+Native Windows runtime CI remains separate from this rendered qualification.
+
 The firmware build command shall retain its newly linked ELF and linker map in
 the requested evidence directory and record both identities. A cached Cargo
 success does not prove that an undeclared linker-map side effect still exists.

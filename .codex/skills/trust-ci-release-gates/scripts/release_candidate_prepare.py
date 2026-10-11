@@ -91,7 +91,7 @@ def remote_command(
 
 
 def remote_validation_commands(
-    *, vscode_changed: bool, remote_target: str
+    *, vscode_changed: bool, remote_target: str, pinned_environment: bool = False,
 ) -> list[tuple[str, str]]:
     target = validated_remote_target(remote_target)
     target_tmp = str(PurePosixPath(target) / "tmp")
@@ -121,9 +121,10 @@ def remote_validation_commands(
         f"install -m 755 {passthrough_source} {shlex.quote(sccache_shim)}"
     )
     def leased(command: str) -> str:
+        shell_mode = "-c" if pinned_environment else "-lc"
         return (
             "bash scripts/with_cargo_target_lease.sh "
-            f"{shlex.quote(target)} bash -lc {shlex.quote(command)}"
+            f"{shlex.quote(target)} bash {shell_mode} {shlex.quote(command)}"
         )
 
     disk_probe = (
@@ -413,7 +414,11 @@ def prepare(args: Any) -> int:
         'test -z "$(git status --porcelain=v1 --untracked-files=all)"'
     )
     remote_commands = remote_validation_commands(
-        vscode_changed=vscode_changed, remote_target=args.remote_target
+        vscode_changed=vscode_changed, remote_target=args.remote_target,
+        pinned_environment=(
+            getattr(args, "remote_tool_path", None) is not None
+            or getattr(args, "remote_cargo_home", None) is not None
+        ),
     )
     remote_commands[0] = ("remote_exact_head", remote_head_check)
     for command_id, command in remote_commands:

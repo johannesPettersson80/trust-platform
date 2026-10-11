@@ -246,6 +246,7 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         cargo_home = "/task cargo home"
         commands = dict(candidate_prepare.remote_validation_commands(
             vscode_changed=True, remote_target="/tmp/trust-target",
+            pinned_environment=True,
         ))
         for command_id in (
             "remote_vscode", "remote_fmt", "remote_clippy", "remote_test_all",
@@ -270,8 +271,51 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn("required_kib=83886080", commands["remote_disk_preflight"])
         self.assertIn("git status --porcelain", commands["remote_clean_after"])
         self.assertNotIn(" CC=", commands["remote_cross_target_warnings"])
+        for command in commands.values():
+            if "with_cargo_target_lease.sh" in command:
+                self.assertIn(" bash -c ", command)
+                self.assertNotIn(" bash -lc ", command)
+
+    def test_pinned_environment_survives_a_lease_on_a_host_that_rewrites_login_path(self) -> None:
+        scripts = self.repo / "scripts"
+        scripts.mkdir()
+        (scripts / "with_cargo_target_lease.sh").write_text(
+            '#!/bin/sh\nshift\nexec "$@"\n', encoding="utf-8",
+        )
+        tools = self.repo / "tools"
+        tools.mkdir()
+        for name, body in (
+            ("bash", '#!/bin/sh\nif [ "$1" = "-lc" ]; then export PATH=/usr/bin:/bin; fi\nexec /bin/bash "$@"\n'),
+            ("cargo", '#!/bin/sh\nprintf "%s\\n%s\\n" "$PATH" "$CARGO_HOME"\n'),
+        ):
+            path = tools / name
+            path.write_text(body, encoding="utf-8")
+            path.chmod(0o755)
+        pinned_path = f"{tools}:/usr/bin:/bin"
+        cargo_home = str(self.repo / "private cargo home")
+        command = dict(candidate_prepare.remote_validation_commands(
+            vscode_changed=False, remote_target=str(self.repo / "target"),
+            pinned_environment=True,
+        ))["remote_clippy"]
+        invocation = candidate_prepare.remote_command(
+            "unused-host", str(self.repo), command,
+            tool_path=pinned_path, cargo_home=cargo_home,
+        )
+        result = subprocess.run(
+            ["/bin/bash", "-c", invocation[2]], capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines(), [
+            f"{self.repo / 'target/bin'}:{pinned_path}", cargo_home,
+        ])
 
     def test_remote_tool_environment_defaults_preserve_existing_transport(self) -> None:
+        default_commands = dict(candidate_prepare.remote_validation_commands(
+            vscode_changed=True, remote_target="/tmp/trust-target",
+        ))
+        for command in default_commands.values():
+            if "with_cargo_target_lease.sh" in command:
+                self.assertIn(" bash -lc ", command)
         self.assertEqual(
             candidate_prepare.remote_command("trust-builder", "/task checkout", "just fmt"),
             ["ssh", "trust-builder", "cd '/task checkout' && just fmt"],

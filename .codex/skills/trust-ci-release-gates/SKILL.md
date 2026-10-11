@@ -101,6 +101,9 @@ These pushes go through the guard in this skill's `scripts/`:
    `--remote-tool-path '<complete remote PATH>' --remote-cargo-home '<private Cargo home>'`.
    These optional values apply to every recorded remote command, including initial
    VS Code installation/compilation and formatting before the internal target prefixes.
+   With either value supplied, leased commands use a non-login shell so profile
+   initialization cannot replace the pinned environment; default commands retain
+   their existing login-shell behavior.
    Record the exact values in the candidate command map; preserve the native/cross
    compiler environments and leave shared machine tools unchanged.
 

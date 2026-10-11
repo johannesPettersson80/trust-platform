@@ -8,6 +8,26 @@ it does not create additional product requirements. Existing closed extraction b
 ## Current checkpoint
 
 **U modernization is scope-verified; publication is authorized and delegated.**
+The successor candidate `d823861a2` passed its exact-SHA guard and all 50
+supplementary software stages, then fresh independently reconciled F401 replay.
+PR #133 is open. Its entire first CI wave is terminal: native Linux/macOS/Windows
+passed; cached cargo-deny selection, missing locked frontend installation and
+unbounded browser startup failed before their relevant behavior assertions.
+The aggregate report consequently failed. Completed automatic code/security
+reviews found one guard PATH/login-shell defect. All failures/logs/reviews are
+retained externally. Complete owning corrections are being prepared and reviewed;
+no successor validation or correction push has occurred. The owner explicitly
+authorized necessary fixes and retests without another permission question.
+Correction final preparation passed 10/10 required stages, including 42 guard
+regressions, architecture facts and canonical diagram render/drift. Independent
+reconciliation accepted the final 23 source paths (`d2b7970e…`), with only four
+Rust formatter deltas and the reviewed diagram outputs after source acceptance.
+The clean successor commit and exact-SHA guard are next; this preparation is not
+new native/editor/platform CI or merge approval. The d823 firmware tuple is
+preserved through byte-identical core, adapter, firmware, compiler, Cargo graphs
+and saved artifacts. The SDK cache sync error was caught before validation;
+only the exact task-owned partial generated caches were retired under a lease,
+and future sync explicitly preserves SDK caches. All prior receipts remain.
 U is isolated on `feat/runtime-portability-modernization`; all seven U acceptance
 items are checked after independent review and passing software/F401 evidence.
 [U execution](../../../notes/runtime-portability/u-execution.md) and

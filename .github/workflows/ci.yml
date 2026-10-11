@@ -542,9 +542,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install wasm-pack
         run: |
-          if ! command -v wasm-pack >/dev/null 2>&1; then
-            cargo install wasm-pack --version 0.15.0 --locked
-          fi
+          cargo install wasm-pack --version 0.15.0 --locked --force
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           wasm-pack --version
@@ -571,6 +569,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb
+      - name: Install and identify the locked Chromium browser
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          npm --prefix scripts/captures ci
+          npm --prefix scripts/captures run capture:install -- --with-deps
+          browser=$(cd scripts/captures && node --input-type=module -e 'import { chromium } from "playwright"; console.log(chromium.executablePath())')
+          printf 'CHROME=%s\nTRUST_UI_TEST_BROWSER=%s\n' "$browser" "$browser" >> "$GITHUB_ENV"
+          cargo run --locked -p xtask -- browser-command probe "$browser" --version
       - name: Run extension integration tests
         shell: bash
         run: |
@@ -586,7 +593,7 @@ jobs:
               --timeout-seconds "${CI_VSCODE_TEST_TIMEOUT_SECONDS:-1800}" \
               --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
               --log "${LOG_PATH}" \
-              -- xvfb-run -a npm test; then
+              -- bash ../../scripts/captures/run-owned-command.sh xvfb-run -a npm test; then
               if [[ "${attempt}" -gt 1 ]]; then
                 echo "VS Code integration tests passed only after retry" \
                   | tee -a "${GITHUB_WORKSPACE}/gate-artifacts/vscode-extension-retry-rescued.txt"
@@ -685,12 +692,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-deny and cargo-audit
         run: |
-          if ! cargo deny --version >/dev/null 2>&1; then
-            cargo install cargo-deny --version 0.20.2 --locked
-          fi
-          if ! cargo audit --version >/dev/null 2>&1; then
-            cargo install cargo-audit --version 0.22.2 --locked
-          fi
+          cargo install cargo-deny --version 0.20.2 --locked --force
+          cargo install cargo-audit --version 0.22.2 --locked --force
+          export PATH="$HOME/.cargo/bin:$PATH"
           cargo deny --version
           cargo audit --version
       - name: Run shared supply-chain gate

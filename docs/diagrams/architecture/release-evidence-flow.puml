@@ -15,6 +15,9 @@ component "Release candidate guard" as releaseGuard
 component "Rust xtask external unsafe gate\nproduction + exact registered test inventory\nownership and stale-site decision" as unsafeGate
 artifact "ast-grep / rg raw facts\nretained normalized and rejected sites" as unsafeFacts
 component "Docs capture launcher" as captureLauncher
+component "Node rendered-test wiring\ncanvas HTML and DOM output" as browserWiring
+component "Rust xtask browser command\nbounded probe/render, stderr, child cleanup" as browserCommand
+artifact "Selected Chromium executable\nlocked installation and version receipt" as browserExecutable
 artifact "Owned capture session\nand code-server container" as captureProcesses
 component "Modernization builder batch\nseparate from publication guard" as modernizationBatch
 component "Rust xtask source identity\ntracked, new, deleted and instruction inputs" as sourceIdentity
@@ -52,6 +55,10 @@ maintainer --> releaseGuard : verify release, then audit exact candidate
 releaseGuard --> unsafeGate : require exact-source architecture evidence
 unsafeGate --> unsafeFacts : external facts; Rust admission decision
 releaseGuard --> captureLauncher : require exact-SHA capture result
+releaseGuard --> browserWiring : unchanged rendered assertions
+browserWiring --> browserCommand : executable and browser arguments
+browserExecutable --> browserCommand : selected composition
+browserCommand --> browserWiring : DOM output or explicit launch failure
 captureLauncher --> captureProcesses : start and own
 captureProcesses --> captureLauncher : reap on success, failure, or signal
 releaseGuard --> release : query workflow, release, assets

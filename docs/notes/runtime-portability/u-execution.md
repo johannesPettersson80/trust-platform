@@ -1055,3 +1055,98 @@ test, protocol rule or gate predicate. Independent correction review precedes
 the successor commit and exact-SHA guard. The owner's standing authorization
 permits necessary fixes and revalidation without repeated permission requests;
 the immutable U checkpoint and original failure remain preserved.
+
+### Publication attempt 2 and complete first CI wave
+
+Candidate `d823861a2ae258b32f270d19e4a4728c076c637f` passed the exact-SHA
+guard and all 50 supplementary software stages. Fresh firmware ELF
+`c010eed884d7d907a22f41d27bd10fce332c40f93a300026fa68672cdbb3abe8`
+and physical UART `37662b3bb9923287bf36bb45d10de8d9aed669ca19392934692c539b79c7bafb`
+have independent source/software and physical reconciliation. The 101 oracle
+samples, 40 task activations, zero misses, safe GPIO, depth-four calls and watchdog
+reset pass. Upper flash free is 23,520 bytes; heap peak 28,272/73,728 bytes and
+MSP peak 13,652/16,384 bytes preserve the margins. These are bring-up claims for
+this tuple, not H, production timing or ESP32 physical qualification.
+
+PR #133's first CI wave finished before correction edits. Linux/macOS/Windows
+native artifacts report respectively 8,703/8,696/8,561 passed, zero failed, and
+23/24/20 ignored. Supply Chain used cached cargo-deny 0.19.9 because a
+presence-only installer skipped the selected 0.20.2; the firmware command then
+rejected the new CLI's root config argument. Browser Analysis had no locked
+frontend install, so importing the actual Vite config failed to resolve Vite.
+VS Code twice reached the canvas launcher and timed out at 1,800 seconds before
+any fixture result or editor test body. Browser discovery and rendering were
+unbounded, stderr was withheld until child exit, and outer timeout terminated
+only the launcher parent. This proves an observability/lifecycle defect, not a
+geometry assertion failure or a particular Chrome startup cause. The aggregate
+gate failure adds no independent cause. Code and security automated reviews are
+complete; the sole inline P1 identifies optional pinned PATH being replaceable
+inside leased login shells. Actual builder tool receipts still show selected
+versions; those completed results are not retroactively misrepresented.
+
+Raw checks, complete direct job logs, npm attempts and every review source are
+retained in `runtime-portability-u-publication/github`. The collector's empty
+Browser/Supply log files are disclosed alongside the complete direct API copies.
+The original artifact and complete first-wave failure record remain intact.
+
+The complete correction preserves all assertions and runtime/firmware bytes:
+opt-in non-login leased shells preserve the explicit tool environment; selected
+Cargo tools replace old cached executables; the shared worker gate installs the
+locked frontend first. Rust xtask owns bounded browser probe/render, live stderr
+and process cleanup. Node retains HTML and transport wiring. Both canvas and
+Live Values use this owner and private profiles; CI identifies the browser from
+the existing locked Playwright graph. The outer timeout reuses the existing
+owned-session launcher. No timeout increase, test filter or browser skip is added.
+This new test-tool lifecycle owner is explicitly Unix-only; unsupported hosts
+fail before child launch. It does not claim Windows descendant cleanup or alter
+native Windows runtime/product functionality. Independent review expanded the
+native coverage to successful leader exit with a live descendant and output-cap
+failure, and required cleanup/reaping on every error branch. Direct minimum-SDK
+launches have an explicit native-tool build prerequisite even after target reclaim.
+
+Correction validation allocation: independently review the entire source/tests/
+caller/config diff; prepare formatting, actual frontend assets if required and
+diagram render only after architecture facts; run the guard regressions in this
+one preparation phase, then review outputs and commit the clean successor.
+The successor exact-SHA guard owns default native/editor/lint/architecture/audit
+coverage. Uncovered supplement stages are the shared worker gate, both minimum
+and actual locked CI-browser editor composition, capture lifecycle if not guard
+covered, current workflow contract data, diagram drift and source cleanliness.
+New native stale-tool, frontend prerequisite and browser timeout/descendant tests
+run in the guard's full unfiltered native suite. Core/firmware source identity
+must match d823 before reusing its tuple-qualified hardware proof. Changed
+firmware/compiler/source requires new physical qualification. No successor
+preparation, tests, push or merge has occurred at this recorded checkpoint.
+
+### Correction final preparation and freeze handoff
+
+All ten preparation stages passed: whole/fragment/firmware/two fuzz formatting,
+architecture facts, canonical diagram rendering, drift, all 42 guard regressions
+and full whitespace check. Independent prepared-source reconciliation accepted
+the 23-file manifest `d2b7970e6388872452788b7f930d0bc4fced8d88bd51a898c8223774bfce760a`.
+Only four Rust files changed through formatting from the accepted 21 inputs;
+the other 17 inputs are byte-identical. The two added outputs are the canonical
+release-evidence SVG and its source-manifest binding. The rendered diagram was
+visually inspected separately; the independent reviewer inspected source/XML.
+This paragraph and the checklist status are the only later documentation edits.
+No new native/editor tests or hardware replay are claimed by preparation.
+
+The initial sync command omitted SDK-cache exclusions and partially deleted
+task-owned generated downloads before any validation launch. Its diagnostics
+are retained, the source sync was repeated with explicit SDK exclusions, and
+only the exact idle partial SDK caches were inventoried and retired under the
+selected target lease. Fresh SDK downloads are required, not a reused damaged
+cache. Original scope/guard/SDK evidence is retained outside the checkout.
+
+Canonical instructions were manually copied from the primary checkout to the
+local integration and builder candidates. Complete instruction hash parity is
+`799dae400237e92374d56350d3932c2dd8578157cf3dd4bd654411477c7f908a`;
+all 21 reviewed correction inputs matched the builder before preparation. Main
+remains `b7d8ffbf2`, version 0.24.73; the successor retains version 0.24.74.
+Core, adapter, firmware, compiler, root Cargo graphs and saved STBC fixtures are
+byte-identical to d823; the earlier physical tuple is retained with that explicit
+equivalence, not relabeled as a newly executed image. Next: commit the reviewed
+correction, clean exact-SHA guard, uncovered locked-browser/minimum SDK/worker
+compositions, corrected push and complete monitored CI/review collection. The
+owner's unrestricted correction/retest authorization continues through guarded
+merge and verified release. The immutable local U checkpoint stays unchanged.
