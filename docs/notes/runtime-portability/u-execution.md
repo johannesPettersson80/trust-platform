@@ -1150,3 +1150,75 @@ correction, clean exact-SHA guard, uncovered locked-browser/minimum SDK/worker
 compositions, corrected push and complete monitored CI/review collection. The
 owner's unrestricted correction/retest authorization continues through guarded
 merge and verified release. The immutable local U checkpoint stays unchanged.
+
+### Complete second CI wave and source-freeze correction
+
+The committed correction `0f066c9fbeecceae1e7eefc0f2b5084e46e1173a`
+passed its exact-SHA guard: 8,710 native tests passed, 24 ignored; the full default
+editor suite passed 519. All 13 supplementary stages passed, including actual
+locked Chrome for Testing 156 and the full stable/minimum SDK suites, 519 each.
+The guard's discovered Chrome 149 composition is recorded separately. Planner
+exit 4 and catalog-staleness exit 1 remain advisory. Independent source/software
+reconciliation accepted those receipts and the unchanged firmware inputs.
+
+All five GitHub workflows on that head finished successfully before further
+edits. Native result artifacts have 304 blocks each: Linux 8,709 passed/23 ignored,
+macOS 8,702/24, Windows 8,561/20; all have zero failures. Raw native build and test
+logs show attempt 1 succeeded in each platform. The editor's first attempt passed
+519 tests; downloaded artifacts contain no retry-rescued file. Full logs, review
+sources and the zero-failure collector ledger are retained externally in the
+publication `github` directory. The earlier failed wave stays unchanged.
+
+The completed current-head automated code/security review added P2 comment
+4241440477: writing an ordinary nonignored source-freeze manifest inside the
+checkout introduces a new source path, so subsequent checking rejects its own
+output. No failing execution is invented; this finding comes from source review.
+The MOD-06 correction requires creation and reading outside the canonical
+checkout, resolves symlink aliases, and uses exclusive file creation to preserve
+existing manifests. It leaves the source inventory and rendered-output exclusions
+unchanged. New native tests cover in-tree refusal without creating or overwriting
+source, external freeze/check success, existing-manifest preservation, added-source
+rejection and Unix alias refusal. The tests are authored, not yet executed.
+
+Correction allocation: independently review the complete source/specification/
+native-test/diagram diff; prepare formatting and architecture/render outputs once;
+review returned bytes and commit. The clean successor guard owns the full native
+and default editor suite, cross warnings, audits, lint and architecture. Existing
+uncovered worker, workflow and minimum/locked-browser SDK composition stages run
+once as the planned supplement. Public-document media generation, link/IA checks,
+strict MkDocs, asset and search checks run in a fresh detached checkout at the
+same SHA, with manual canonical-instruction copy and an external source manifest.
+Retain rendered images, patch, status and digests before the owning source check;
+the candidate's final source-clean check stays strict. Firmware/core/adapter/compiler/Cargo/STBC bytes
+remain unchanged; retain the independently qualified d823 physical tuple with
+that explicit equivalence, and require fresh qualification if any relevant input
+changes. Standing owner authorization covers this correction and revalidation.
+
+After guarded merge, wait for all independent main checks and reviews before
+tagging. The tag-dependent main gate only waits three minutes for a release tag;
+retain its expected missing-tag sequencing failure rather than publishing while
+substantive main checks remain active or failed. Verify the merged tree, push the
+annotated exact-main tag, await Release, then rerun only failed tag-dependent main
+jobs under the existing retest authorization. Publication remains incomplete until
+main checks and `verify-release` confirm workflow, assets, checksums and all five
+Marketplace targets. No workflow or guard is weakened to beat that timeout.
+
+### Source-freeze correction prepared for successor guard
+
+Independent review accepted all six inputs and the complete external command
+wiring. The narrowed preparation passed 5/5: whole-workspace formatting,
+architecture facts, canonical diagram rendering, drift and whitespace. Only
+`source_identity.rs` received Rust formatting changes. The two expected generated
+outputs are the release-flow SVG and its manifest source binding.
+
+Direct image review found overlapping new diagram labels. Original SVG/PlantUML
+and PNG remain retained; only two arrow labels were shortened. Independent
+source review accepted that presentation correction, and its one render/drift/
+whitespace suffix passed 4/4. Final eight-path manifest
+`a22dff53e12f62856bdbd97d2c261e68511490058e1fef9fce6542c4e9b570bb`
+was independently reconciled against the accepted input archive; the final PNG
+was viewed directly and the labels are readable. Native expressions and
+assertions are unchanged by formatting. This paragraph and the checklist status
+are the only later source-document edits. No new native assertion, editor suite,
+platform CI or hardware execution is implied by preparation. The next action is
+the authorized successor commit, exact-SHA guard and recorded supplement.

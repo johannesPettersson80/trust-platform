@@ -21,6 +21,7 @@ artifact "Selected Chromium executable\nlocked installation and version receipt"
 artifact "Owned capture session\nand code-server container" as captureProcesses
 component "Modernization builder batch\nseparate from publication guard" as modernizationBatch
 component "Rust xtask source identity\ntracked, new, deleted and instruction inputs" as sourceIdentity
+artifact "External source-freeze manifest\ncreate once; outside the source checkout" as sourceManifest
 component "Rust xtask database runner bridge\nsettings as data; child environment only" as databaseBridge
 artifact "Disposable runner environment\ncredentials never printed" as databaseEnvironment
 component "Existing real-database gate" as databaseGate
@@ -39,6 +40,8 @@ author --> specificationDiff
 author --> nativeTestDiff
 author --> modernizationBatch : complete implementation and review
 modernizationBatch --> sourceIdentity : freeze then verify source stability
+sourceIdentity --> sourceManifest : create external snapshot
+sourceManifest --> sourceIdentity : check frozen source
 modernizationBatch --> databaseBridge : qualify affected driver graph
 databaseEnvironment --> databaseBridge : decode and reject invalid entries
 databaseBridge --> databaseGate : existing pinned products and CA

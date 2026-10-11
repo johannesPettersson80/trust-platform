@@ -128,6 +128,8 @@ Target release: `v0.24.74`
 
 ### Fixed
 
+- Reject source-freeze manifests inside the source checkout, including symlink aliases, and preserve existing manifests rather than overwriting them.
+
 - Bound rendered-test browser startup and lifetime with Rust-owned subprocess cleanup and visible browser/version diagnostics; install selected CI tools and locked frontend prerequisites before their gates.
 
 - Make PostgreSQL and TimescaleDB release-runner TLS mounts accessible to the

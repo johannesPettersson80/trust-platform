@@ -7,27 +7,33 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
-**U modernization is scope-verified; publication is authorized and delegated.**
-The successor candidate `d823861a2` passed its exact-SHA guard and all 50
-supplementary software stages, then fresh independently reconciled F401 replay.
-PR #133 is open. Its entire first CI wave is terminal: native Linux/macOS/Windows
-passed; cached cargo-deny selection, missing locked frontend installation and
-unbounded browser startup failed before their relevant behavior assertions.
-The aggregate report consequently failed. Completed automatic code/security
-reviews found one guard PATH/login-shell defect. All failures/logs/reviews are
-retained externally. Complete owning corrections are being prepared and reviewed;
-no successor validation or correction push has occurred. The owner explicitly
-authorized necessary fixes and retests without another permission question.
-Correction final preparation passed 10/10 required stages, including 42 guard
-regressions, architecture facts and canonical diagram render/drift. Independent
-reconciliation accepted the final 23 source paths (`d2b7970e…`), with only four
-Rust formatter deltas and the reviewed diagram outputs after source acceptance.
-The clean successor commit and exact-SHA guard are next; this preparation is not
-new native/editor/platform CI or merge approval. The d823 firmware tuple is
-preserved through byte-identical core, adapter, firmware, compiler, Cargo graphs
-and saved artifacts. The SDK cache sync error was caught before validation;
-only the exact task-owned partial generated caches were retired under a lease,
-and future sync explicitly preserves SDK caches. All prior receipts remain.
+**U checkpoint `19f3b6787` is scope-verified; PR #133 requires a tooling correction.**
+Candidate `0f066c9fb` passed its exact-SHA guard (8,710 native passes, 24 ignored;
+519 default editor passes) and all 13 correction supplement stages. Full locked
+browser stable/minimum SDK suites each passed 519 tests. All five GitHub workflows
+in the complete second wave succeeded; native Linux/macOS/Windows passed
+8,709/8,702/8,561 tests with no failed tests, and all three native jobs and the
+editor job passed on their first attempts. Completed current-head automatic
+code/security review found one new P2: a source-freeze manifest inside the
+checkout inventories itself after creation. Its owning Rust correction now
+requires external manifests and refuses replacement, without adding a source
+exemption. Native round-trip, refusal and alias cases are authored but unrun.
+Independent correction review, final preparation, a clean successor commit and
+exact-SHA guard precede another push. No merge or release is claimed.
+Independent source review accepted the complete correction and command wiring.
+Preparation passed 5/5; visual review found and fixed only overlapping diagram
+labels, with its render/drift suffix passing 4/4. Final eight-path prepared identity
+`a22dff53…` was independently reconciled, including direct image inspection.
+Only this status update and the execution-note closeout follow that identity.
+Next is the clean successor commit and exact-SHA guard; new native cases remain
+unrun, and prior CI cannot certify the successor.
+
+The earlier d823 firmware tuple and physical replay remain qualified by identical
+core, adapter, firmware, compiler, Cargo and saved-artifact bytes; this tooling
+correction is not new hardware execution. All original preparation, guard, first
+CI failure, SDK sync and corrective validation receipts remain externally retained.
+The owner explicitly authorized necessary fixes and retests without another
+permission question; required checks, functions and hardware margins stay intact.
 U is isolated on `feat/runtime-portability-modernization`; all seven U acceptance
 items are checked after independent review and passing software/F401 evidence.
 [U execution](../../../notes/runtime-portability/u-execution.md) and
@@ -41,12 +47,10 @@ Live verification confirms A1/#130, A2/#131 and A3/A4/B/#132 merged; v0.24.73 is
 GitHub Latest with its Release workflow successful and all five Marketplace
 targets at 0.24.73. U is the next unpublished portability scope. Its current
 source is committed as the immutable local checkpoint `19f3b6787`. The separate
-publication integration candidate `d6029adaa` retains prior main corrections.
-Its first exact-SHA guard failed the required owning-spec companion check for
-the MQTT guard modernization before any builder release validation ran. The
-failure artifact is retained; a precise unchanged-behavior specification note
-is prepared for independent review and a corrected committed candidate.
-Generated ladder-bundle whitespace is recorded as publication preparation.
+publication integration retains prior main corrections. Its initial d602 guard
+failure and corrected MQTT companion note are historical records in the execution
+note. The immutable checkpoint is unchanged. Generated ladder-bundle whitespace
+is recorded as publication preparation.
 
 **Next development scope: H — full hosted adoption (M2B).** Define its bounded
 implementation and batch before starting: shared source-free hosted construction

@@ -1411,7 +1411,11 @@ deleted paths, and canonical instruction sources. Regenerate tracked assets ship
 inside the runtime or extension before freezing; their bytes remain source inputs.
 Reject changed bytes or added source paths during validation. Expected rendered diagrams and public-document
 images are separate generated outputs with their own identities. Rust owns this
-comparison and the decoding of the existing disposable-database runner's generated
+comparison. Source-freeze manifests shall be stored outside the canonical source
+checkout; both creation and checking reject destinations that resolve inside it,
+including symlink aliases. Creation shall refuse to replace an existing manifest.
+Do not exempt a caller-selected source path from the inventory to accommodate the
+manifest. Rust also owns decoding of the existing disposable-database runner's generated
 environment file. Treat that file as data, reject malformed/duplicate/unexpected
 entries, pass settings only to the gate's child process, and never print credentials.
 These tooling contracts do not weaken product tests or establish qualification
