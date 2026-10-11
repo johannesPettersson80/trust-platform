@@ -12,6 +12,7 @@ impl EngineState<'_> {
             self.services,
             true,
             (mode == RestartMode::Warm).then_some(&*self),
+            Some(&self.images),
             self.now,
         )?;
         if mode == RestartMode::Warm {
@@ -53,36 +54,42 @@ impl EngineState<'_> {
                 }
             }
         }
-        let image_bytes = self
-            .images
+        // Image carry-over and initialization already ran in the staged build.
+        // Expiry during retained restoration also leaves the previous state intact.
+        next.check_entry_deadline()?;
+        *self = next;
+        Ok(())
+    }
+
+    pub(in crate::vm::engine) fn copy_process_images(
+        &mut self,
+        source: &ProcessImages,
+    ) -> Result<(), RuntimeError> {
+        let image_bytes = source
             .inputs
             .len()
-            .checked_add(self.images.outputs.len())
-            .and_then(|n| n.checked_add(self.images.memory.len()))
+            .checked_add(source.outputs.len())
+            .and_then(|n| n.checked_add(source.memory.len()))
             .ok_or(RuntimeError::Overflow)?;
-        next.charge_work_units(image_bytes)?;
-        next.charge_allocation_bytes(image_bytes)?;
-        next.images.inputs.copy_from_slice(&self.images.inputs);
-        next.images.outputs.copy_from_slice(&self.images.outputs);
-        next.images.memory.copy_from_slice(&self.images.memory);
-        next.charge_allocation_bytes(
-            self.images
+        self.charge_work_units(image_bytes)?;
+        self.charge_allocation_bytes(image_bytes)?;
+        self.images.inputs.copy_from_slice(&source.inputs);
+        self.images.outputs.copy_from_slice(&source.outputs);
+        self.images.memory.copy_from_slice(&source.memory);
+        self.charge_allocation_bytes(
+            source
                 .hierarchical
                 .len()
                 .checked_mul(core::mem::size_of::<(crate::io_image::IoAddressKey, Value)>() * 4)
                 .ok_or(RuntimeError::Overflow)?,
         )?;
-        for (key, value) in &self.images.hierarchical {
+        for (key, value) in &source.hierarchical {
             let key_bytes = key.clone_allocation_bytes().ok_or(RuntimeError::Overflow)?;
-            next.charge_work_units(key_bytes.checked_add(1).ok_or(RuntimeError::Overflow)?)?;
-            next.charge_allocation_bytes(key_bytes)?;
-            next.charge_allocation_bytes(next.value_clone_charge(value, 0)?)?;
-            next.images.hierarchical.insert(key.clone(), value.clone());
+            self.charge_work_units(key_bytes.checked_add(1).ok_or(RuntimeError::Overflow)?)?;
+            self.charge_allocation_bytes(key_bytes)?;
+            self.charge_allocation_bytes(self.value_clone_charge(value, 0)?)?;
+            self.images.hierarchical.insert(key.clone(), value.clone());
         }
-        // Candidate restoration/image copying is part of restart work too.
-        // Expiry here leaves the entire previous runtime observable and intact.
-        next.check_entry_deadline()?;
-        *self = next;
         Ok(())
     }
 

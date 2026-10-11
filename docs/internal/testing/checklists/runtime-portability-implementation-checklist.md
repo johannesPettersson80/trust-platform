@@ -33,8 +33,14 @@ Its reviewed source checkpoint `ca205132e` passed the exact-SHA guard and fresh
 free 18,720 B, heap peak 28,272 B and MSP free 2,788 B.
 [Retained publication proof](../../../notes/runtime-portability/publication-evidence/README.md)
 records the source/image identities and independent reconciliation. A docs/evidence
-closeout follows; its successor exact-head guard is required before push. GitHub
-CI, merge and release remain pending, so this is not a claim of publication.
+closeout `75b42a667` passed its successor exact-head guard and image identity check,
+and was pushed as PR #132. Its complete first CI attempt found native Windows
+remapping-fixture and macOS system-Bash audit-wrapper failures; Linux and area
+checks passed. Automatic review found direct-I/O restart initialization overwritten
+by image carry-over. All three publication corrections are being implemented
+together, with new native cases, independent review and a consolidated corrected
+guard/portable/firmware/physical batch. Current correction evidence is pending;
+historical source checkpoints above remain preserved. Merge and release are pending.
 [Release integration command map](../../../notes/runtime-portability/stm32-release-integration.md)
 owns the exact-SHA guard, fresh final-image hardware replay, push, guarded merge and release.
 Earlier source checkpoints and hardware evidence remain unchanged.

@@ -46,12 +46,61 @@ upper flash and 2 KiB measured MSP, with the 72 KiB heap and 16 KiB MSP partitio
 | Actual 32-bit execution | Rust 1.95 no-default lib plus five selected source-free/foundations/load/frame suites on i686 musl using rust-lld and self-contained linking. |
 | Firmware and adapter checks | Rust 1.95 firmware/native tooling regressions, adapter cross-check and firmware release Clippy. |
 | Final release firmware identity/size | Canonical `cargo +1.95.0 xtask portability build-firmware`, retained map and `portability inspect`; no speculative linker knobs. |
-| Dependency resolution/LSP prepush parity | Remaining hygiene/IEC/diagram contract, Windows GNU LSP compile with CC/CXX unset, eight one-attempt mesh/TLS iterations; guard overlaps deduplicated. |
+| Dependency resolution/LSP prepush parity | Remaining hygiene/IEC/diagram contracts and Windows GNU LSP/xtask test compilation with CC/CXX unset; unchanged mesh/TLS retains its prior source-specific eight-iteration proof, and guard overlaps are deduplicated. |
 | Tool/provenance and advisory metadata | Native xtask tests via guard; applicable Python gate/contract/provenance suites; metadata statuses do not claim an unexecuted proof. |
 | MSRV and Rust API documentation | Rust 1.95 locked all-target checks, stable all-feature Rustdoc with denied warnings, matching the distinct CI lanes. |
 | Public documentation | Separate clean candidate docs checkout: media/IA/links/examples/OpenOT, strict MkDocs, assets/search and entrypoint assertions. |
-| Physical candidate | Root executes reviewed F401 installation/UART capture only after software and ELF pass. Rust verifier checks final image traces, memory, depth and watchdog; acquisition exit status alone is insufficient. |
+| Physical candidate | Publication agent executes the reviewed F401 installation/UART capture only after software and ELF pass. Rust verifier checks final image traces, memory, depth and watchdog; acquisition exit status alone is insufficient. |
 | GitHub/release | Push once passing artifact and supplement; collect all current-head jobs and retry-rescued artifacts before corrections; guarded merge, annotated version tag on green main, complete release/assets/Marketplace verification. |
+
+## PR #132 complete correction allocation
+
+The final metadata head `75b42a667` passed its exact-SHA builder guard and fresh
+firmware inspection; that ELF is byte-identical to the physically qualified
+`0597a300...` image. PR #132's complete first CI attempt has 26 terminal checks.
+Linux and every area check passed. Windows failed the native remapping assertion
+because it assumed Unix separators; macOS failed the actual supply-chain wrapper
+because the system Bash 3.2 lacks `mapfile`. Both assertions failed identically on
+the automatic second attempts; the aggregate release report failed consequently.
+The automatic code review additionally identified image carry-over overwriting
+direct-I/O restart initialization. Security review completed without findings.
+
+The publication correction covers all three owning causes together: native path
+construction and assertions, Bash 3.2-compatible audit argument transport with
+unchanged four-check policy, and staged process-image carry-over before ordered
+restart initialization. Required native cases cover empty and populated audit
+exceptions, both restart modes, flat/hierarchical image targets, overlapping action
+order, unconfigured values and failed replacement. All remain unrun until the
+completed correction is reviewed, formatted and frozen.
+
+The owner explicitly authorized as many necessary publication tests and retests
+as required. After independent review, the consolidated correction uses the
+exact-SHA guard for shared/native/hosted/VS Code/architecture/supply-chain checks,
+plus deduplicated Rust 1.95 no-default/i686/MCU and firmware checks and updated
+diagram rendering/drift. The changed engine requires a fresh retained linked map,
+ELF inspection and physical replay; earlier image proof is historical. Functions,
+overflow checks, toolchain and 16 KiB flash/2 KiB measured-stack floors are preserved.
+No partial-results correction push or merge is allowed.
+
+Run 5 final preparation passed all seven retained rows: environment, workspace
+formatting, explicit fragment/firmware formatting, active provenance discovery,
+full-map architecture, diagram rendering and complete diff retention. It changed
+only the reviewed Rust formatting and the rendered execution diagram/manifest.
+The completed source and scripts have independent read-only acceptance; their
+source review does not claim compilation or execution of the new regression.
+The correction is pending exact-SHA software validation and fresh physical proof.
+
+Run 5 preparation records the complete formatter/provenance/full-map/render diff
+before the correction commit. The new guard owns all default native suites; the
+supplement separately executes Rust 1.95 no-default core tests, the selected i686
+lib/five suites, both MCU checks/no-dev graphs, firmware tests/adapter/Clippy, the
+MSRV and Rustdoc lanes, Windows xtask test compilation with native CC/CXX unset,
+and final format/diagram/evidence checks. Strict public-docs checks use a clean
+checkout at the same committed SHA. The final-image suffix forces a fresh pinned
+link, retains its map/ELF as required stages, inspects only after retention, and
+packs the saved application. Hardware begins only after every required software,
+docs and ELF stage passes; it qualifies that actual newly linked ELF. No old ELF
+identity is assumed for this engine correction.
 
 Builder source is isolated at the same named checkout. Reuse the idle leased target
 `/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a1-integration`.
@@ -75,8 +124,9 @@ validation also checks final source cleanliness after generators/build. The fina
 source remains unchanged; the five-suite i686 allocation is explicitly selected,
 not a claim of complete 32-bit corpus coverage.
 
-Current stage: final reviewed publication record ready for commit and exact-SHA batch. No guard, final-image board replay or push
-has occurred.
+Historical stage at `5b7f2ea55`: final reviewed publication record ready for its
+first exact-SHA batch; no guard, final-image replay or push had occurred then.
+The active stage is the PR #132 correction allocation above.
 
 
 ## First publication batch and unsafe inventory correction
@@ -157,6 +207,7 @@ protocol. The Rust verifier and independent root reconciliation agree on all
 depth/IRQ probes, memory margins and IWDG reset/DONE. ELF and raw UART identities,
 retained ledgers and explicit limitations are in [publication evidence](publication-evidence/README.md).
 The new closeout consists only of documents and byte copies of that evidence;
-all product/fixture/firmware bytes are unchanged. The successor exact-head guard
-remains required before its push. GitHub native platform checks, guarded merge
-and full public release verification remain separate stages.
+all product/fixture/firmware bytes were unchanged by that closeout. Its successor
+exact-head guard passed at `75b42a667`, and PR #132 was pushed. Its first native
+platform checks and automatic review produced the complete correction allocation
+above; guarded merge and full public release verification remain pending.

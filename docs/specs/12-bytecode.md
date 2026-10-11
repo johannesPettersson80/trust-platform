@@ -1717,6 +1717,11 @@ As in the hosted configuration initializer, input-image addresses can be initial
 at startup; this does not authorize input writes during PLC execution. Reserved
 bytes are always zero. Omitted-parameter plans use phase 6, execute in parameter
 order only for unsupplied arguments, and cannot see later parameter slots.
+Source-free warm and cold in-process restart carry the previous process images
+into the staged replacement before evaluating these ordered configuration actions.
+The actions take precedence at their selected flat or hierarchical targets;
+unconfigured image values survive. A failed replacement publishes no image change
+(specification 34 §10; variable retention follows IEC 61131-3 §6.5.6).
 
 In 2.0, task program names resolve to configured ProgramRoot declaration names,
 whose root records identify the executable program template. The wire representation separates program templates from mutable root state.

@@ -6,7 +6,7 @@
   "docs/diagrams/architecture/release-evidence-flow.puml": "fab2a0b1b56957de54c3bf98c223c9486b6feec8838dc0c3798697fbe7682f16",
   "docs/diagrams/architecture/runtime-ads-client.puml": "d216d7dd6f7d36ed0f1328c935309020a838a89bd719235bc2c8e59434422628",
   "docs/diagrams/architecture/runtime-ads-server.puml": "03be05317624422ba85b39920525baf7fcddc05b4c0a7fb660f73207ae58ca1b",
-  "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml": "56ec4a408eb951ced6c84489cac97b4730616e54b79675bf712a35957ac571b3",
+  "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml": "9153a84253abc48caef97cdf36b54e30feb745a3edf1fd86e1fec78fae892480",
   "docs/diagrams/architecture/runtime-cloud-planes.puml": "943b12abd97a3201616be6d17bed24195537f7d7ff86984dcf7e56f824434b8a",
   "docs/diagrams/architecture/runtime-execution.puml": "87b0be59c01c370454845f8aef60cfecb6cd0abdb202d4aa37ad81a45e875ad0",
   "docs/diagrams/architecture/runtime-interpreter-removal-map.puml": "a988ae27d45fa3c2ff95698f491ff2f692d166c7d1dd566007a307bb18ba1663",

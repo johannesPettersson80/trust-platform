@@ -38,7 +38,9 @@ printf '{}\n'
             "python3",
             r#"#!/bin/sh
 if [ "$1" = '-' ]; then
-  printf '%s\n' --ignore RUSTSEC-2026-0110
+  if [ "$EMIT_EXCEPTION" = 1 ]; then
+    printf '%s\n' --ignore RUSTSEC-2026-0110
+  fi
 else
   cat >/dev/null
 fi
@@ -54,45 +56,57 @@ fi
 
 #[test]
 fn both_lock_graphs_are_audited_and_any_graph_failure_fails_the_gate() {
-    for failure in [
-        "",
-        "deny --locked check",
-        "--manifest-path firmware/",
-        "audit --json --file Cargo.lock",
-        "audit --json --file firmware/",
-    ] {
-        let fixture = fixture();
-        let log = fixture.0.join("commands.txt");
-        let mut paths = vec![fixture.0.join("bin")];
-        paths.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap()));
-        let result = Command::new("bash")
-            .arg(fixture.0.join("scripts/supply_chain_gate.sh"))
-            .current_dir(std::env::temp_dir())
-            .env("PATH", std::env::join_paths(paths).unwrap())
-            .env("AUDIT_COMMAND_LOG", &log)
-            .env("FAIL_FRAGMENT", failure)
-            .output()
-            .unwrap();
-        assert_eq!(
-            result.status.success(),
-            failure.is_empty(),
-            "{failure}: {}",
-            String::from_utf8_lossy(&result.stderr)
-        );
-        let commands = fs::read_to_string(log).unwrap();
-        let commands: Vec<_> = commands.lines().collect();
-        assert_eq!(commands.len(), 4, "every independent graph check must run");
-        assert_eq!(
-            commands[0],
-            "deny --locked check advisories licenses bans sources"
-        );
-        assert!(commands[1].starts_with(
+    for exceptions in [true, false] {
+        for failure in [
+            "",
+            "deny --locked check",
+            "--manifest-path firmware/",
+            "audit --json --file Cargo.lock",
+            "audit --json --file firmware/",
+        ] {
+            let fixture = fixture();
+            let log = fixture.0.join("commands.txt");
+            let mut paths = vec![fixture.0.join("bin")];
+            paths.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap()));
+            // Exercise the native system shell, including macOS's Bash 3.2.
+            let result = Command::new("/bin/bash")
+                .arg(fixture.0.join("scripts/supply_chain_gate.sh"))
+                .current_dir(std::env::temp_dir())
+                .env("PATH", std::env::join_paths(paths).unwrap())
+                .env("AUDIT_COMMAND_LOG", &log)
+                .env("FAIL_FRAGMENT", failure)
+                .env("EMIT_EXCEPTION", if exceptions { "1" } else { "0" })
+                .output()
+                .unwrap();
+            assert_eq!(
+                result.status.success(),
+                failure.is_empty(),
+                "{failure}: {}",
+                String::from_utf8_lossy(&result.stderr)
+            );
+            let commands = fs::read_to_string(log).unwrap();
+            let commands: Vec<_> = commands.lines().collect();
+            assert_eq!(commands.len(), 4, "every independent graph check must run");
+            assert_eq!(
+                commands[0],
+                "deny --locked check advisories licenses bans sources"
+            );
+            assert!(commands[1].starts_with(
             "deny --locked --manifest-path firmware/trust-nucleo-f401re/Cargo.toml check --config "
         ));
-        assert_eq!(
-            commands[2],
-            "audit --json --file Cargo.lock --ignore RUSTSEC-2026-0110"
-        );
-        assert_eq!(commands[3], "audit --json --file firmware/trust-nucleo-f401re/Cargo.lock --ignore RUSTSEC-2026-0110");
+            let suffix = if exceptions {
+                " --ignore RUSTSEC-2026-0110"
+            } else {
+                ""
+            };
+            assert_eq!(
+                commands[2],
+                format!("audit --json --file Cargo.lock{suffix}")
+            );
+            assert_eq!(
+                commands[3],
+                format!("audit --json --file firmware/trust-nucleo-f401re/Cargo.lock{suffix}")
+            );
+        }
     }
 }

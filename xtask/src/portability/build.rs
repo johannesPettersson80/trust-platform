@@ -72,7 +72,7 @@ fn flags(config: &str, root: &Path, cargo_home: &Path, library: &Path) -> Result
         .collect::<Result<Vec<_>>>()?;
     for (source, normalized) in [
         (root.to_path_buf(), "/src"),
-        (cargo_home.join("registry/src"), "/registry"),
+        (cargo_home.join("registry").join("src"), "/registry"),
         (library.to_path_buf(), "/rust-src"),
     ] {
         let source = source.to_str().context("non-UTF-8 build source path")?;
@@ -92,20 +92,45 @@ mod tests {
     #[test]
     fn remapping_preserves_all_reviewed_target_flags_and_space_boundaries() {
         let config = include_str!("../../../firmware/trust-nucleo-f401re/.cargo/config.toml");
+        #[cfg(windows)]
+        let (root, cargo_home, library, expected) = (
+            r"C:\task source",
+            r"C:\cargo home",
+            r"C:\rust library",
+            [
+                r"--remap-path-prefix=C:\task source=/src",
+                r"--remap-path-prefix=C:\cargo home\registry\src=/registry",
+                r"--remap-path-prefix=C:\rust library=/rust-src",
+            ],
+        );
+        #[cfg(not(windows))]
+        let (root, cargo_home, library, expected) = (
+            "/task source",
+            "/cargo home",
+            "/rust library",
+            [
+                "--remap-path-prefix=/task source=/src",
+                "--remap-path-prefix=/cargo home/registry/src=/registry",
+                "--remap-path-prefix=/rust library=/rust-src",
+            ],
+        );
         let flags = flags(
             config,
-            Path::new("/task source"),
-            Path::new("/cargo home"),
-            Path::new("/rust library"),
+            Path::new(root),
+            Path::new(cargo_home),
+            Path::new(library),
         )
         .unwrap();
         assert!(flags.windows(2).any(|p| p == ["-C", "link-arg=--icf=safe"]));
         assert!(flags
             .windows(2)
             .any(|p| p == ["-C", "link-arg=-Tprofile.x"]));
-        assert!(flags.contains(&"--remap-path-prefix=/task source=/src".into()));
-        assert!(flags.contains(&"--remap-path-prefix=/cargo home/registry/src=/registry".into()));
-        assert!(flags.contains(&"--remap-path-prefix=/rust library=/rust-src".into()));
+        for expected in expected {
+            assert!(
+                flags.contains(&expected.into()),
+                "missing intact flag {expected}"
+            );
+        }
         assert!(!flags.iter().any(|flag| flag.contains("icf=all")));
     }
 }

@@ -888,6 +888,16 @@ replacement initializers; it does not expose a temporary zero-time epoch. Task
 registration uses that same sample as its new nominal-deadline baseline. A failed
 replacement leaves the installed state and its clock unchanged. This is a product
 lifecycle contract, distinct from restoring time after a power cycle.
+Both warm and cold in-process restart stage the previous flat and hierarchical
+process images before executing replacement initialization. Ordered configuration
+actions then overwrite only their selected targets, including direct `%I`, `%Q`
+and `%M` addresses. Unconfigured bytes, bits and hierarchical keys retain their
+previous values; repeated or overlapping actions follow the initializer table's
+order. Image carry-over must not overwrite an initializer's result after construction.
+An initialization or budget failure leaves the complete installed state, images
+and logical time unchanged. This specifies the portable image lifecycle alongside
+the variable-retention rules of IEC 61131-3 §6.5.6; it does not change hosted 1.1
+restart behavior or authorize input writes during PLC execution.
 Warm in-process restart transfers retained global object graphs into replacement
 storage, preserving aliasing and cycles while remapping instance and global
 references to replacement identities. Owning POU-typed links retain object state; interface-typed links (including

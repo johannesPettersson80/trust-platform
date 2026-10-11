@@ -305,5 +305,8 @@ Compiled PLC calls use explicit VM continuations with isolated operand floors;
 shared prepare/complete helpers preserve bindings, edges and error cleanup.
 Firmware fixture phases keep independent native frames and stop on failed stack margin.
 Prepared-module control owners live in the measured bring-up heap before instantiation.
+Warm/cold restart carries process images into staged state before initialization;
+ordered configuration actions win at selected targets, while other values survive.
+Failed replacement leaves the installed state and images intact.
 end note
 @enduml

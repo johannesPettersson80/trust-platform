@@ -120,6 +120,13 @@ Target release: `v0.24.73`
 
 ### Fixed
 
+- Preserve source-free restart initialization of direct input, output and marker
+  image addresses. Warm and cold restart carry previous images into staging before
+  ordered configuration actions, keeping unconfigured values and transactional
+  failure behavior.
+- Support system Bash 3.2 in the shared dependency-audit wrapper, including empty
+  exception lists, and preserve native path separators in firmware remapping.
+
 - Confirm managed fleet shutdown across control-connection teardown without
   mistaking interrupted status probes for a failed shutdown or a confirmed stop.
   Preserve authentication/protocol errors and retain the PID until stop is confirmed.
