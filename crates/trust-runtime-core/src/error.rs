@@ -2,6 +2,7 @@
 
 #![allow(missing_docs)]
 
+#[cfg(feature = "std")]
 use alloc::string::ToString;
 use smol_str::SmolStr;
 use thiserror::Error;
@@ -10,6 +11,9 @@ use crate::datetime::DateTimeCalcError;
 use crate::value::DateTimeError;
 
 pub use crate::error_code::StableErrorCode;
+
+mod preparation;
+pub use preparation::PreparationDiagnostic;
 
 /// Runtime errors for evaluation and execution.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -49,6 +53,42 @@ pub enum RuntimeError {
     /// Invalid I/O address syntax.
     #[error("invalid I/O address '{0}'")]
     InvalidIoAddress(SmolStr),
+
+    /// Write to a constant declaration.
+    #[error("write to a constant declaration")]
+    ConstantWrite,
+
+    /// Write outside initializer staging storage.
+    #[error("write outside initializer staging storage")]
+    StagingViolation,
+
+    /// Read outside the initializer visibility frontier.
+    #[error("read outside the initializer visibility frontier")]
+    VisibilityViolation,
+
+    /// Reference outlived its activation or instance.
+    #[error("reference outlived its activation or instance")]
+    ReferenceLifetime,
+
+    /// Program-root replacement is forbidden.
+    #[error("program-root replacement is forbidden")]
+    ProgramRootReplacement,
+
+    /// Invalid storage alias use.
+    #[error("invalid storage alias use")]
+    InvalidAlias,
+
+    /// Preparation resource limit exceeded.
+    #[error("preparation resource limit exceeded")]
+    PreparationLimit,
+
+    /// Admitted execution metadata is inconsistent.
+    #[error("admitted execution metadata is inconsistent")]
+    InvalidExecutionState,
+
+    /// A valid artifact requires a capability absent from the selected profile.
+    #[error("unsupported execution profile: {0}")]
+    ProfileUnsupported(SmolStr),
 
     /// Type mismatch between values.
     #[error("type mismatch")]
@@ -177,6 +217,14 @@ pub enum RuntimeError {
         detail: SmolStr,
     },
 
+    /// Structured portable decode/validation error, rendered only on request.
+    #[error("invalid bytecode '{0}'")]
+    BytecodeCause(crate::bytecode::BytecodeError),
+
+    /// Structured portable execution-metadata rejection.
+    #[error("invalid bytecode '{0}'")]
+    PreparationDiagnostic(PreparationDiagnostic),
+
     /// Thread spawn error.
     #[error("thread spawn error '{0}'")]
     ThreadSpawn(SmolStr),
@@ -258,6 +306,15 @@ impl RuntimeError {
             Self::UndefinedField(_) => StableErrorCode::RuntimeUndefinedField,
             Self::InvalidTaskSingle(_) => StableErrorCode::RuntimeInvalidTaskSingle,
             Self::InvalidIoAddress(_) => StableErrorCode::RuntimeInvalidIoAddress,
+            Self::ConstantWrite => StableErrorCode::RuntimeConstantWrite,
+            Self::StagingViolation => StableErrorCode::RuntimeStagingViolation,
+            Self::VisibilityViolation => StableErrorCode::RuntimeVisibilityViolation,
+            Self::ReferenceLifetime => StableErrorCode::RuntimeReferenceLifetime,
+            Self::ProgramRootReplacement => StableErrorCode::RuntimeProgramRootReplacement,
+            Self::InvalidAlias => StableErrorCode::RuntimeInvalidAlias,
+            Self::PreparationLimit => StableErrorCode::RuntimePreparationLimit,
+            Self::InvalidExecutionState => StableErrorCode::RuntimeInvalidExecutionState,
+            Self::ProfileUnsupported(_) => StableErrorCode::RuntimeProfileUnsupported,
             Self::TypeMismatch => StableErrorCode::RuntimeTypeMismatch,
             Self::InvalidArgumentCount { .. } => StableErrorCode::RuntimeInvalidArgumentCount,
             Self::InvalidArgumentName(_) => StableErrorCode::RuntimeInvalidArgumentName,
@@ -287,6 +344,8 @@ impl RuntimeError {
             Self::InvalidBytecodeMetadata(_) => StableErrorCode::RuntimeInvalidBytecodeMetadata,
             Self::InvalidBytecode(_) => StableErrorCode::RuntimeInvalidBytecode,
             Self::Bytecode { code, .. } => *code,
+            Self::BytecodeCause(cause) => cause.stable_code(),
+            Self::PreparationDiagnostic(_) => StableErrorCode::VmBytecodeDecode,
             Self::ThreadSpawn(_) => StableErrorCode::RuntimeThreadSpawn,
             Self::WatchdogTimeout => StableErrorCode::RuntimeWatchdogTimeout,
             Self::RestartLimitExceeded { .. } => StableErrorCode::RuntimeRestartLimitExceeded,
@@ -304,8 +363,17 @@ impl RuntimeError {
 }
 
 impl From<crate::bytecode::BytecodeError> for RuntimeError {
+    #[cold]
+    #[inline(never)]
     fn from(error: crate::bytecode::BytecodeError) -> Self {
-        Self::bytecode(error.stable_code(), error.to_string())
+        #[cfg(feature = "std")]
+        {
+            Self::bytecode(error.stable_code(), error.to_string())
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            Self::BytecodeCause(error)
+        }
     }
 }
 
@@ -329,6 +397,53 @@ mod tests {
     use crate::bytecode::BytecodeError;
     use crate::datetime::DateTimeCalcError;
     use crate::value::DateTimeError;
+
+    #[test]
+    fn protection_and_profile_faults_have_distinct_stable_codes() {
+        let faults = [
+            (
+                RuntimeError::ConstantWrite,
+                StableErrorCode::RuntimeConstantWrite,
+            ),
+            (
+                RuntimeError::StagingViolation,
+                StableErrorCode::RuntimeStagingViolation,
+            ),
+            (
+                RuntimeError::VisibilityViolation,
+                StableErrorCode::RuntimeVisibilityViolation,
+            ),
+            (
+                RuntimeError::ReferenceLifetime,
+                StableErrorCode::RuntimeReferenceLifetime,
+            ),
+            (
+                RuntimeError::ProgramRootReplacement,
+                StableErrorCode::RuntimeProgramRootReplacement,
+            ),
+            (
+                RuntimeError::InvalidAlias,
+                StableErrorCode::RuntimeInvalidAlias,
+            ),
+            (
+                RuntimeError::PreparationLimit,
+                StableErrorCode::RuntimePreparationLimit,
+            ),
+            (
+                RuntimeError::InvalidExecutionState,
+                StableErrorCode::RuntimeInvalidExecutionState,
+            ),
+            (
+                RuntimeError::ProfileUnsupported("resource count".into()),
+                StableErrorCode::RuntimeProfileUnsupported,
+            ),
+        ];
+        for (fault, expected) in faults {
+            assert_eq!(fault.stable_code(), expected);
+            assert_ne!(expected, StableErrorCode::RuntimeTypeMismatch);
+            assert_ne!(expected, StableErrorCode::RuntimeNullReference);
+        }
+    }
 
     #[test]
     fn runtime_error_stable_codes_cover_every_committed_variant() {
@@ -557,13 +672,20 @@ mod tests {
     fn runtime_error_conversions_preserve_committed_boundaries() {
         let source = BytecodeError::InvalidHeader("section count".into());
         let source_detail = source.to_string();
-        let converted = RuntimeError::from(source);
+        let converted = RuntimeError::from(source.clone());
+        #[cfg(feature = "std")]
         assert_eq!(
             converted,
             RuntimeError::Bytecode {
                 code: StableErrorCode::BytecodeInvalidHeader,
-                detail: source_detail.into(),
+                detail: source_detail.clone().into(),
             }
+        );
+        #[cfg(not(feature = "std"))]
+        assert_eq!(converted, RuntimeError::BytecodeCause(source));
+        assert_eq!(
+            converted.to_string(),
+            alloc::format!("invalid bytecode '{source_detail}'")
         );
         assert_eq!(
             converted.stable_code(),

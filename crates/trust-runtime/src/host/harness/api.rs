@@ -86,6 +86,25 @@ impl CompileSession {
         )
     }
 
+    /// Select a wire contract explicitly. The default build remains legacy 1.1.
+    /// STBC 2.0 preserves declarations and executable initializers without running them.
+    pub fn build_bytecode_module_for_version(
+        &self,
+        version: crate::bytecode::BytecodeVersion,
+    ) -> Result<crate::bytecode::BytecodeModule, CompileError> {
+        self.ensure_instrumented()?;
+        if version == crate::bytecode::BytecodeVersion::LEGACY {
+            return self.build_bytecode_module();
+        }
+        if version != crate::bytecode::BytecodeVersion::SOURCE_FREE {
+            return Err(CompileError::new("unsupported bytecode producer version"));
+        }
+        let input = build::lower_application(&self.sources, self.label_errors)?
+            .prepare_authoring(&self.extra_program_instances)?;
+        crate::bytecode::build_module_from_declarations(&input)
+            .map_err(|error| CompileError::new(error.to_string()))
+    }
+
     /// Compile sources into bytecode bytes.
     pub fn build_bytecode_bytes(&self) -> Result<Vec<u8>, CompileError> {
         let module = self.build_bytecode_module()?;

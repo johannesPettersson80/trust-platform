@@ -4,10 +4,22 @@ pub(super) fn decode_section_data(
     version: BytecodeVersion,
     id: u16,
     payload: &[u8],
+    budget: &mut DecodeBudget,
 ) -> Result<SectionData, BytecodeError> {
     let Some(kind) = SectionId::from_raw(id) else {
-        return Ok(SectionData::Raw(payload.to_vec()));
+        return Ok(SectionData::Raw(budget.copy(payload)?));
     };
+    if version.major == 1
+        && matches!(
+            kind,
+            SectionId::StorageLayout
+                | SectionId::ConstructionRoots
+                | SectionId::Initializers
+                | SectionId::AccessBindings
+        )
+    {
+        return Ok(SectionData::Raw(budget.copy(payload)?));
+    }
     let mut reader = BytecodeReader::new(payload);
     let data = match kind {
         SectionId::StringTable | SectionId::DebugStringTable => {
@@ -16,44 +28,61 @@ pub(super) fn decode_section_data(
                 SectionId::DebugStringTable => "DEBUG_STRING_TABLE",
                 _ => unreachable!("string table branch"),
             };
-            let table = decode_string_table(version, &mut reader, context)?;
+            let table = decode_string_table(version, &mut reader, context, budget)?;
             match kind {
                 SectionId::StringTable => SectionData::StringTable(table),
                 SectionId::DebugStringTable => SectionData::DebugStringTable(table),
                 _ => unreachable!("string table branch"),
             }
         }
-        SectionId::TypeTable => SectionData::TypeTable(decode_type_table(version, payload)?),
-        SectionId::ConstPool => SectionData::ConstPool(decode_const_pool(&mut reader)?),
-        SectionId::RefTable => SectionData::RefTable(decode_ref_table(&mut reader)?),
-        SectionId::PouIndex => SectionData::PouIndex(decode_pou_index(version, &mut reader)?),
-        SectionId::PouBodies => SectionData::PouBodies(payload.to_vec()),
-        SectionId::ResourceMeta => SectionData::ResourceMeta(decode_resource_meta(&mut reader)?),
-        SectionId::IoMap => SectionData::IoMap(decode_io_map(&mut reader)?),
-        SectionId::DebugMap => SectionData::DebugMap(decode_debug_map(&mut reader)?),
-        SectionId::VarMeta => SectionData::VarMeta(decode_var_meta(&mut reader)?),
-        SectionId::RetainInit => SectionData::RetainInit(decode_retain_init(&mut reader)?),
+        SectionId::TypeTable => {
+            SectionData::TypeTable(decode_type_table(version, payload, budget)?)
+        }
+        SectionId::ConstPool => SectionData::ConstPool(decode_const_pool(&mut reader, budget)?),
+        SectionId::RefTable => {
+            SectionData::RefTable(decode_ref_table(version, &mut reader, budget)?)
+        }
+        SectionId::PouIndex => {
+            SectionData::PouIndex(decode_pou_index(version, &mut reader, budget)?)
+        }
+        SectionId::PouBodies => SectionData::PouBodies(budget.copy(payload)?),
+        SectionId::ResourceMeta => {
+            SectionData::ResourceMeta(decode_resource_meta(&mut reader, budget)?)
+        }
+        SectionId::IoMap => SectionData::IoMap(decode_io_map(&mut reader, budget)?),
+        SectionId::DebugMap => SectionData::DebugMap(decode_debug_map(&mut reader, budget)?),
+        SectionId::VarMeta => SectionData::VarMeta(decode_var_meta(&mut reader, budget)?),
+        SectionId::RetainInit => SectionData::RetainInit(decode_retain_init(&mut reader, budget)?),
+        SectionId::StorageLayout
+        | SectionId::ConstructionRoots
+        | SectionId::Initializers
+        | SectionId::AccessBindings => construction::decode_construction(kind, payload, budget)?,
     };
     Ok(data)
 }
 
 pub(super) fn decode_const_pool(
     reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
 ) -> Result<ConstPool, BytecodeError> {
     let count = read_bounded_count(reader, 8, "CONST_POOL")?;
-    let mut entries = Vec::with_capacity(count);
+    let mut entries = budget.vector(count)?;
     for _ in 0..count {
         let type_id = reader.read_u32()?;
         let len = reader.read_u32()? as usize;
-        let payload = reader.read_bytes(len)?.to_vec();
+        let payload = budget.copy(reader.read_bytes(len)?)?;
         entries.push(ConstEntry { type_id, payload });
     }
     Ok(ConstPool { entries })
 }
 
-pub(super) fn decode_ref_table(reader: &mut BytecodeReader<'_>) -> Result<RefTable, BytecodeError> {
+pub(super) fn decode_ref_table(
+    version: BytecodeVersion,
+    reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
+) -> Result<RefTable, BytecodeError> {
     let count = read_bounded_count_with_limit(reader, 16, BYTECODE_MAX_REFERENCES, "REF_TABLE")?;
-    let mut entries = Vec::with_capacity(count);
+    let mut entries = budget.vector(count)?;
     for _ in 0..count {
         let location = reader.read_u8()?;
         let _flags = reader.read_u8()?;
@@ -61,16 +90,19 @@ pub(super) fn decode_ref_table(reader: &mut BytecodeReader<'_>) -> Result<RefTab
         let owner_id = reader.read_u32()?;
         let offset = reader.read_u32()?;
         let segment_count = read_bounded_count(reader, 8, "REF_TABLE segment")?;
+        if location == 5 && version.major != 2 {
+            return Err(RejectionReason::InvalidRefLocation.into());
+        }
         let location = RefLocation::from_raw(location)
             .ok_or_else(|| BytecodeError::from(RejectionReason::InvalidRefLocation))?;
-        let mut segments = Vec::with_capacity(segment_count);
+        let mut segments = budget.vector(segment_count)?;
         for _ in 0..segment_count {
             let kind = reader.read_u8()?;
             let _reserved = reader.read_bytes(3)?;
             match kind {
                 0 => {
                     let count = read_bounded_count(reader, 8, "REF_TABLE index")?;
-                    let mut indices = Vec::with_capacity(count);
+                    let mut indices = budget.vector(count)?;
                     for _ in 0..count {
                         indices.push(reader.read_i64()?);
                     }
@@ -96,9 +128,10 @@ pub(super) fn decode_ref_table(reader: &mut BytecodeReader<'_>) -> Result<RefTab
 pub(super) fn decode_pou_index(
     version: BytecodeVersion,
     reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
 ) -> Result<PouIndex, BytecodeError> {
     let count = read_bounded_count(reader, 40, "POU_INDEX")?;
-    let mut entries = Vec::with_capacity(count);
+    let mut entries = budget.vector(count)?;
     for _ in 0..count {
         let id = reader.read_u32()?;
         let name_idx = reader.read_u32()?;
@@ -116,7 +149,11 @@ pub(super) fn decode_pou_index(
         }
         let return_type_id = optional_u32(reader.read_u32()?);
         let owner_pou_id = optional_u32(reader.read_u32()?);
-        let parameter_bytes = if version.minor >= 1 { 16 } else { 12 };
+        let parameter_bytes = if version.uses_extended_layout() {
+            16
+        } else {
+            12
+        };
         let param_count = read_bounded_count_with_limit(
             reader,
             parameter_bytes,
@@ -126,14 +163,14 @@ pub(super) fn decode_pou_index(
         let kind = PouKind::from_raw(kind)
             .ok_or_else(|| BytecodeError::from(RejectionReason::InvalidPouKind))?;
 
-        let mut params = Vec::with_capacity(param_count);
+        let mut params = budget.vector(param_count)?;
         for _ in 0..param_count {
             let name_idx = reader.read_u32()?;
             let type_id = reader.read_u32()?;
             let direction = reader.read_u8()?;
             let _flags = reader.read_u8()?;
             let _reserved = reader.read_u16()?;
-            let default_const_idx = if version.minor >= 1 {
+            let default_const_idx = if version.uses_extended_layout() {
                 optional_u32(reader.read_u32()?)
             } else {
                 None
@@ -149,11 +186,11 @@ pub(super) fn decode_pou_index(
         let class_meta = if kind.is_class_like() {
             let parent_pou_id = optional_u32(reader.read_u32()?);
             let interface_count = read_bounded_count(reader, 8, "POU_INDEX interface")?;
-            let mut interfaces = Vec::with_capacity(interface_count);
+            let mut interfaces = budget.vector(interface_count)?;
             for _ in 0..interface_count {
                 let interface_type_id = reader.read_u32()?;
                 let method_count = read_bounded_count(reader, 4, "POU_INDEX vtable slot")?;
-                let mut vtable_slots = Vec::with_capacity(method_count);
+                let mut vtable_slots = budget.vector(method_count)?;
                 for _ in 0..method_count {
                     vtable_slots.push(reader.read_u32()?);
                 }
@@ -164,7 +201,7 @@ pub(super) fn decode_pou_index(
             }
 
             let method_count = read_bounded_count(reader, 16, "POU_INDEX method")?;
-            let mut methods = Vec::with_capacity(method_count);
+            let mut methods = budget.vector(method_count)?;
             for _ in 0..method_count {
                 let name_idx = reader.read_u32()?;
                 let pou_id = reader.read_u32()?;
@@ -208,29 +245,30 @@ pub(super) fn decode_pou_index(
 
 pub(super) fn decode_resource_meta(
     reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
 ) -> Result<ResourceMeta, BytecodeError> {
     let resource_count = read_bounded_count(reader, 20, "RESOURCE_META")?;
-    let mut resources = Vec::with_capacity(resource_count);
+    let mut resources = budget.vector(resource_count)?;
     for _ in 0..resource_count {
         let name_idx = reader.read_u32()?;
         let inputs_size = reader.read_u32()?;
         let outputs_size = reader.read_u32()?;
         let memory_size = reader.read_u32()?;
         let task_count = read_bounded_count(reader, 28, "RESOURCE_META task")?;
-        let mut tasks = Vec::with_capacity(task_count);
+        let mut tasks = budget.vector(task_count)?;
         for _ in 0..task_count {
             let name_idx = reader.read_u32()?;
             let priority = reader.read_u32()?;
             let interval_nanos = reader.read_i64()?;
             let single_name_idx = optional_u32(reader.read_u32()?);
             let program_count = read_bounded_count(reader, 4, "RESOURCE_META program")?;
-            let mut program_name_idx = Vec::with_capacity(program_count);
+            let mut program_name_idx = budget.vector(program_count)?;
             for _ in 0..program_count {
                 program_name_idx.push(reader.read_u32()?);
             }
             let fb_ref_count =
                 read_bounded_count(reader, 4, "RESOURCE_META function-block reference")?;
-            let mut fb_ref_idx = Vec::with_capacity(fb_ref_count);
+            let mut fb_ref_idx = budget.vector(fb_ref_count)?;
             for _ in 0..fb_ref_count {
                 fb_ref_idx.push(reader.read_u32()?);
             }
@@ -254,9 +292,12 @@ pub(super) fn decode_resource_meta(
     Ok(ResourceMeta { resources })
 }
 
-pub(super) fn decode_io_map(reader: &mut BytecodeReader<'_>) -> Result<IoMap, BytecodeError> {
+pub(super) fn decode_io_map(
+    reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
+) -> Result<IoMap, BytecodeError> {
     let binding_count = read_bounded_count(reader, 12, "IO_MAP")?;
-    let mut bindings = Vec::with_capacity(binding_count);
+    let mut bindings = budget.vector(binding_count)?;
     for _ in 0..binding_count {
         let address_str_idx = reader.read_u32()?;
         let ref_idx = reader.read_u32()?;
@@ -270,9 +311,12 @@ pub(super) fn decode_io_map(reader: &mut BytecodeReader<'_>) -> Result<IoMap, By
     Ok(IoMap { bindings })
 }
 
-pub(super) fn decode_debug_map(reader: &mut BytecodeReader<'_>) -> Result<DebugMap, BytecodeError> {
+pub(super) fn decode_debug_map(
+    reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
+) -> Result<DebugMap, BytecodeError> {
     let entry_count = read_bounded_count(reader, 24, "DEBUG_MAP")?;
-    let mut entries = Vec::with_capacity(entry_count);
+    let mut entries = budget.vector(entry_count)?;
     for _ in 0..entry_count {
         let pou_id = reader.read_u32()?;
         let code_offset = reader.read_u32()?;
@@ -293,9 +337,12 @@ pub(super) fn decode_debug_map(reader: &mut BytecodeReader<'_>) -> Result<DebugM
     Ok(DebugMap { entries })
 }
 
-pub(super) fn decode_var_meta(reader: &mut BytecodeReader<'_>) -> Result<VarMeta, BytecodeError> {
+pub(super) fn decode_var_meta(
+    reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
+) -> Result<VarMeta, BytecodeError> {
     let entry_count = read_bounded_count(reader, 20, "VAR_META")?;
-    let mut entries = Vec::with_capacity(entry_count);
+    let mut entries = budget.vector(entry_count)?;
     for _ in 0..entry_count {
         let name_idx = reader.read_u32()?;
         let type_id = reader.read_u32()?;
@@ -317,9 +364,10 @@ pub(super) fn decode_var_meta(reader: &mut BytecodeReader<'_>) -> Result<VarMeta
 
 pub(super) fn decode_retain_init(
     reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
 ) -> Result<RetainInit, BytecodeError> {
     let entry_count = read_bounded_count(reader, 8, "RETAIN_INIT")?;
-    let mut entries = Vec::with_capacity(entry_count);
+    let mut entries = budget.vector(entry_count)?;
     for _ in 0..entry_count {
         let ref_idx = reader.read_u32()?;
         let const_idx = reader.read_u32()?;

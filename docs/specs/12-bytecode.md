@@ -1,6 +1,6 @@
 # Bytecode Format
 
-**Status:** Implemented 1.x container/metadata handling and the specified 1.1 execution contract. The planned 2.0 format and compatibility window in §11 are not implemented by this document update.
+**Status:** Implemented 1.x container/metadata handling and the specified 1.1 execution contract. A3 implements opt-in 2.0 authoring, codecs, validation and disassembly under §11; the current hosted executor still rejects 2.0. Source-free construction/execution and production activation of the P/Q compatibility window remain A4 and release work. Scope evidence is recorded in the runtime-portability checklist.
 
 ### 1. Purpose
 
@@ -1367,6 +1367,10 @@ errors as executable expressions, with the following closed behavior:
   or bounds error; and
 - `SIZEOF` returns DINT, rejects an unknown or unsupported type as a type
   mismatch, and reports overflow when the byte size does not fit DINT.
+  Runtime-value sizing permits at most 128 nested values, counting the leaf;
+  the first excess returns the same type-mismatch fault. Hosted and portable
+  consumers use this shared traversal limit. This is a truST execution bound,
+  not an IEC type-size rule.
 
 An initialization failure identifies the owning POU and variable and aborts
 the call before the first instruction. It does not leave a partially
@@ -1553,3 +1557,637 @@ unsupported layouts, and mandatory-record failures. Keep
 `tests/fixtures/oscat/core/program.stbc` as the legacy fixture and add a separate
 reproducibly generated 2.0 fixture. Preserve malformed-input/error assertions;
 regeneration is not permission to overwrite the pre-migration oracle.
+
+#### 11.5 STBC 2.0 wire layout (A3)
+
+The 2.0 container uses the 24-byte header and section table from §4. All existing
+sections use the **1.1 payload layout**, including padded strings, type offsets
+and parameter-default indices; minor zero in 2.0 does not select the 1.0 layout.
+CRC32 is mandatory in 2.0. Header flags other than CRC32 and nonzero section
+flags are rejected. Only 2.0 is supported in major 2; a future minor requires
+an explicit contract. The legacy default producer remains 1.1 during A3.
+
+Four new sections are mandatory, including when empty: STORAGE_LAYOUT (0x000D),
+CONSTRUCTION_ROOTS (0x000E), INITIALIZERS (0x000F), ACCESS_BINDINGS (0x0010).
+Each begins with a u32 count.
+Indices are zero-based positions; optional indices use 0xFFFFFFFF. Fields are
+little-endian and records contain no native alignment padding. Decoder count
+bounds are checked before reservation; trailing bytes in these payloads reject.
+Each table is limited to 65,536 entries and consumes the shared validation budget.
+Declared construction demand is limited to 1,000,000 logical nodes per value; the
+sum of top-level persistent-root demands is also limited to 1,000,000. These are
+container ceilings, not MCU admission limits or native byte-size estimates.
+
+STORAGE_LAYOUT has 40-byte records:
+
+| Field | Wire type | Meaning |
+|---|---|---|
+| owner_kind | u8 | 0 global storage, 1 instance template, 2 POU frame |
+| role | u8 | 0 variable, 1 program root, 2 return slot, 3 parameter, 4 static, 5 external binding, 6 compiler scratch bank, 7 edge phase, 8 native state |
+| retain | u8 | Existing VAR_META retention codes 0–3 |
+| flags | u8 | bit 0 constant, bit 1 input, bit 2 output, bit 3 in-out; edge-phase records use exactly bit 4 rising or bit 5 falling; other bits zero |
+| owner_pou_id | u32? | POU identity; absent only for ordinary resource globals |
+| name_idx | u32 | Storage name in STRING_TABLE; hidden method-static names remain qualified |
+| type_id | u32? | TYPE_TABLE identity; absent only for construction-only program roots and untyped compiler scratch banks |
+| slot | u32 | Global/frame offset or declared instance-template slot, not byte offset |
+| ref_idx | u32? | Existing base REF_TABLE binding; absent for relative instance templates |
+| default_const_idx | u32? | Typed declaration constant; absent means typed construction plus any initializer body |
+| construction_nodes | u32 | Bounded logical value/instance-node demand for one construction; never a native byte size |
+| related_declaration_idx | u32? | Edge-phase association with its qualified input; absent for other roles |
+| source_name_idx | u32? | Original lexical name for static storage; absent for other roles |
+
+Program roots identify their program POU template, whose member declarations
+are typed. They have no expression initializer. Instance templates include
+private variables, FB parameters and hidden method statics; POU_INDEX remains
+signature/dispatch authority. Method-static ownership follows its method's
+owner POU. Inherited layouts follow POU_INDEX parent links. Frame slots and
+visibility derive from emitted LocalScope references; external declarations
+consume no local slot. A scratch-bank record covers the remaining compiler-generated frame
+slots, initialized to NULL; its slot plus construction_nodes equals local_ref_count and it
+has no initializer, retention or PLC type. Supplied parameters and non-NULL return slots are preserved.
+
+CONSTRUCTION_ROOTS has 24-byte records: declaration_idx:u32, binding_ref_idx:u32?,
+instance_owner_id:u32?, parent_root_idx:u32?, template_pou_id:u32?, flags:u32.
+Flags are zero for a bound value/instance; bit 0 denotes an inheritance-parent
+instance with no independent variable binding. Root order is parent-before-child;
+parent indices must be smaller than the current index. Every concrete Instance
+owner used by a reference has exactly one construction mapping. The owner is an
+artifact identity, never a required pre-existing host instance. Frame-local and
+nested future instances are constructed from templates per activation; the table
+does not enumerate future calls. Roots and templates come from declarations,
+not a snapshot of values after program execution.
+
+INITIALIZERS has 60-byte records: declaration_idx:u32?, owner_pou_id:u32?,
+result_ref_idx:u32, code_offset:u32, code_length:u32, visible_local_count:u32,
+visible_static_count:u32, phase:u8, once_scope:u8, stage:u8, trigger:u8,
+target_idx:u32?, partial_kind:u8, target_kind:u8, target_reserved:[u8;2], partial_index:u32,
+context_initializer_idx:u32?, recipe_type_id:u32?, recipe_member_idx:u32?,
+body_kind:u8, recipe_reserved:[u8;3].
+Body kinds are 0 action, 1 type-default recipe and 2 member-default recipe.
+Recipe descriptors use phase 7, stage Default, no once-state, declaration or
+configuration target. They are callable value bodies, never scheduled lifecycle
+actions. Action descriptors have no recipe type/member identity. Their context
+index is absent for a canonical context, or names an earlier canonical action
+with the same owner, phase, stage, trigger, once scope and visibility frontier.
+Context chains and cycles are rejected. Recipes name that canonical action.
+Sharing applies to immutable code and descriptors only; each invocation has fresh
+staging and preserves expression evaluation frequency and lifecycle once-state. A type recipe names the exact TYPE_TABLE entry, including aliases. A
+member recipe additionally names the zero-based STRUCT member or UNION variant on that entry.
+Recipe result types must match that type or member respectively. Reserved bytes
+are zero. There is at most one recipe per (root context, type, optional member).
+Phases are 0 resource startup, 1 instance construction, 2 frame entry,
+3 static first use, 4 return-slot default, 5 configuration action,
+6 omitted-parameter default, 7 on-demand typed value default. Once scopes are 0 none, 1 module,
+2 current instance. Trigger 0 selects the ordinary owner lifecycle; trigger 1
+selects a function static's first invocation after restart. Trigger 1 is legal
+only for module-owned function-static actions and their callable recipes. Recipes
+inherit their root action's trigger but are never scheduled independently. Each
+function-static declaration has a separate default/optional-explicit action pair
+for each trigger. Frame entry repeats on each call; static first use is keyed
+by declaration and module/instance ownership, not module address. Cold/warm
+restart follows the declared retention contract and §7.11.
+
+A 2.0-only REF_TABLE location 5, InitializerResult, addresses a staged typed
+result: owner_id is the INITIALIZERS index and base offset is zero. Its base
+VAR_META record carries the declaration type for declaration actions, or the selected
+target type for configuration actions, or the declared recipe result type, and
+no retained/constant initializer.
+Only the owning initializer may use these references; ordinary POU bodies and
+other initializers reject them. Derived field/index paths are allowed. Addresses
+into this temporary result cannot escape through assignments, returns or calls.
+Frame-local references stored as result values must also satisfy the final
+storage declaration's lifetime, not merely the temporary result's lifetime.
+
+Each initializer range contains ordinary STBC instructions operating on the
+staged result and the original invocation context. It starts and finishes with
+an empty operand stack. Branches stay within that range; it overlaps neither
+another initializer nor an ordinary POU body. Initialization preserves the existing evaluation order, default precedence and
+destination-type coercion. For aggregate overrides, explicit RHS expressions are
+evaluated before merging type/member defaults; precedence alone must not reorder
+observable faults or function calls. Intrinsic TYPE_TABLE construction precedes
+initializer execution without evaluating user expressions. Aggregate lowering captures values and invokes the shared typed construction
+helpers specified in §11.5.8; no Expr tree or alternate interpreter is serialized.
+Compile-time evaluation cannot replace a dynamic initializer or its faults.
+Default expressions may be specialized per declaration context, preserving
+frequency and ordering, with expansion checked before allocating/emitting code.
+
+Earlier frame locals are visible; later locals do not shadow outer storage.
+Static storage reservation does not make later uninitialized statics visible.
+Result commit belongs to A4's transaction boundary, after successful execution;
+A3 validation is not evidence that initialization or hardware outputs ran.
+
+These are product-format mechanisms for the initialization semantics in IEC
+61131-3 Ed.3 §6.4.4.1.2, §6.5.1 and the existing §7.11 contract. A3 does not
+change legacy execution: the existing hosted executor rejects 2.0 explicitly
+until A4 supports its construction and initialization requirements. Portable
+source-free validation rejects every 1.x artifact, even if HIR is available.
+
+#### 11.5.1 Authoring boundary and startup order
+
+The 2.0 producer selects source-free authoring before runtime materialization.
+Parsing, semantic analysis and expression lowering are shared with the legacy
+producer. Their owned result retains global and configuration initializer
+expressions, original program template identities and configured instance names.
+No initializer is evaluated merely to obtain a stored value for serialization;
+compile-time constants, type bounds and task configuration remain compile-time work.
+Parameter defaults are subject to the same rule.
+
+Startup preserves the existing observable ordering: global defaults (including
+FB construction overrides), scalar global explicit initializers, program instance
+construction, ordered VAR_CONFIG actions, then module static initialization where
+required by the existing contract. A configuration action targets one concrete
+binding; its RHS resolves names in global scope, not in the target instance's
+scope. Repeated, indexed, partial and direct-I/O configuration targets must retain
+their original order and access restrictions. A per-template default cannot stand
+in for a per-instance configuration action. Configuration actions use phase 5 in INITIALIZERS, in table order. Their
+owner_pou_id is absent, visibility counts and once_scope are zero, and
+target_kind 1 selects a REF_TABLE target_idx; kind 2 selects a STRING_TABLE
+direct-address target_idx. Direct addresses preserve area, width, bit and hierarchical
+path information using the shared IoAddress syntax, with no wildcard. declaration_idx identifies
+the owning storage declaration, or is absent for direct I/O. The result VAR_META
+type is the selected target type, which may differ from its containing declaration.
+partial_kind is 0 none, 1 bit, 2 byte, 3 word or 4 double-word; partial_index selects
+the part. A partial commit merges into the existing target value. Repeated configuration actions
+remain distinct. Declaration initialization has one default action (stage 0) and
+an optional explicit action (stage 1); configuration actions use stage 1.
+Address-only configuration entries emit I/O bindings without executable actions.
+For all other phases target_kind is 0, target_idx is absent and partial fields are zero.
+Direct-address actions have no declaration index and no separate partial access.
+As in the hosted configuration initializer, input-image addresses can be initialized
+at startup; this does not authorize input writes during PLC execution. Reserved
+bytes are always zero. Omitted-parameter plans use phase 6, execute in parameter
+order only for unsupplied arguments, and cannot see later parameter slots.
+Source-free warm and cold in-process restart carry the previous process images
+into the staged replacement before evaluating these ordered configuration actions.
+The actions take precedence at their selected flat or hierarchical targets;
+unconfigured image values survive. A failed replacement publishes no image change
+(specification 34 §10; variable retention follows IEC 61131-3 §6.5.6).
+
+In 2.0, task program names resolve to configured ProgramRoot declaration names,
+whose root records identify the executable program template. The wire representation separates program templates from mutable root state.
+A3 retains the producer's existing restriction against multiple configured instances
+of one PROGRAM type; lifting that restriction requires a separate behavior decision. The
+legacy 1.x rule continues to resolve task program names directly to program POUs.
+
+#### 11.5.2 Edge-qualified inputs
+
+A PROGRAM/FB edge-qualified BOOL input has one associated EdgePhase declaration
+in the same instance template. The phase declaration identifies its input through
+related_declaration_idx; exactly one of flags bit 4 (rising) or bit 5 (falling) is set.
+The hidden declaration is BOOL and has a typed constant seed: FALSE for rising,
+TRUE for falling. Phase storage contributes to construction demand and is allocated
+before execution, never lazily. Its retention policy matches the associated input;
+program warm restart preserves the previous-input state when that input is retained.
+
+At each invocation, after argument binding and before the body, the shared engine
+updates the phase and substitutes the edge pulse. It restores raw inputs before
+output copy-back on both success and body failure; a body failure does not roll back
+the phase update. The binding uses original POU identity and concrete instance
+identity. This corrects the legacy name-lookup defect for renamed configured
+programs, whose qualifiers can otherwise be missed. A native renamed-program case
+must pin that distinction before A4 claims execution. A3 validates and serializes
+these associations; it does not claim to have executed edge transactions.
+
+#### 11.5.3 Initialization action ordering
+
+An initializer record is one ordered action, not a fused default-plus-override
+recipe. Within an invocation boundary, the producer emits actions in execution
+order; the consumer must not sort them by declaration or stage. Each value declaration
+other than a program root, external binding, scratch bank or NativeState slot has a
+default action and may have an explicit action. A default action may have an empty
+code range when intrinsic/constant construction supplies the complete value. Program
+roots and scratch banks use intrinsic construction; external bindings allocate no
+value; NativeState slots retain the first-use protocol in §11.5.5. Explicit actions follow their
+own default actions, but other declarations may intervene. The default and explicit
+actions of a static declaration share one once-state, completed only after the
+whole initialization sequence succeeds.
+
+Existing construction groups preserve these orders:
+
+- Globals: all defaults/construction, with immediate global FB overrides; then
+  scalar global explicit initializers.
+- FB instance: inherited parent construction, parameter group, variable group,
+  then method-static group.
+- Each FB parameter or instance-variable group: all defaults/nested construction,
+  then explicit initializers.
+- Method statics: defaults across all methods/statics, then explicit initializers
+  across all methods/statics.
+- Function statics: defaults across all functions/statics, then explicit
+  initializers across all functions/statics, in original declaration order.
+- Frame entry: bind/default parameters, prepare the return slot, initialize
+  required statics, then automatic locals in declaration order. Group insertion
+  order in the artifact does not replace these lifecycle dependencies.
+
+Nested construction happens at its original point in the owning group. Moving
+all defaults ahead of all explicit actions across the entire resource changes
+behavior and is prohibited. Values committed by earlier actions are visible at
+the same boundaries as in the current constructor. Aggregate expressions retain
+the separate evaluation/coercion ordering described above.
+
+Edge-phase retention in this format preserves the existing PROGRAM warm-restart
+contract. It does not assert that hidden phase state is included in serialized
+retain snapshots or that nested FB phases currently survive warm restart. An edge
+transaction applies only the invoked POU's qualifier set; it does not automatically
+apply ancestor qualifiers or run twice across dispatcher wrappers. Cold restart
+and non-retained program inputs reset their associated phase state.
+
+#### 11.5.4 Generic counter state
+
+2.0 reserves primitive descriptor id `0x0100` for the existing native counter
+`ANY_INT` state constraint. It is an internal native-library slot, not a new IEC
+elementary type. max_length is zero; intrinsic construction yields NULL until the
+native counter binds its integer width from the call. Its construction demand is
+one Value slot. It has no constant-pool payload and is rejected in legacy 1.x.
+Construction and shared assignment validation accept NULL or a concrete SINT,
+INT, DINT, LINT, USINT, UINT, UDINT or ULINT value for this descriptor, including
+through an alias. Validation preserves the concrete integer width; it does not
+coerce Boolean, bit-string, real, enumeration, reference or aggregate values into
+counter state. This is the product's internal native-state representation contract.
+The source producer uses it only for existing generic native-counter declarations;
+ordinary unsupported generic source declarations remain rejected. Execution still
+requires A4's matching native import admission contract.
+
+#### 11.5.5 Native function-block state reservation
+
+Storage role 8 reserves an internal native FB state slot with a concrete declared
+type, zero flags and no initializer or constant seed. It belongs to an FB template
+and contributes one logical storage slot (plus any declared value demand). The
+slot initially has no initialized value. First-use initialization by the admitted
+native import fills that existing slot; it must not allocate or reinterpret NULL
+as an already-initialized timestamp. This preserves the first-call timer timestamp
+and existing trigger/counter first-use seeds.
+
+The producer obtains internal slot names/types from the same built-in FB registry
+that owns the native implementation. A4 import admission must match the declared
+native state layout before execution; a successful A3 format validation is not
+native-import admission. Hidden native state is not exposed as a user parameter.
+
+A4 separately caps cumulative typed construction nodes for each construction,
+restart, cycle or between-cycle access entry. Scalar and aggregate helper visits
+and temporary aggregate-builder slots consume this budget; alias traversal adds
+no value and an FB/class identity is charged only at reservation. Retiring a
+frame or staging value does not refund the entry's budget. Fixed declarations
+and persistent roots are also checked against the profile using independently
+validated TYPE_TABLE construction demand before instance execution. Copy work
+and allocation demand have their separate pre-copy charges.
+
+
+#### 11.5.6 Access aliases
+
+`ACCESS_BINDINGS` (section `0x0010`) is mandatory in 2.0, including an empty table
+when no VAR_ACCESS declaration exists. Its u32 count is followed by fixed 20-byte
+records: name_idx:u32, type_id:u32, ref_idx:u32, partial_kind:u8, flags:u8,
+reserved:u16, partial_index:u32. The same 65,536-record bound applies.
+
+Names are unique case-insensitively. ref_idx identifies the underlying storage;
+type_id is the exposed value type (the selected part's type for partial access).
+partial_kind uses the initializer partial-access codes; partial_index is zero for
+whole-value aliases. flags bit 0 means writable; other bits and reserved are zero.
+Read-only aliases remain readable but reject writes through the alias. Aliases do
+not allocate value slots or override ordinary declaration ownership/permissions.
+The producer retains existing VAR_TEMP/VAR_EXTERNAL/VAR_IN_OUT exposure rejection
+and constant read-only rules. Source-free host access/debug surfaces restore this
+map from the artifact; IO_MAP alone does not encode these names or permissions.
+
+#### 11.5.7 Disabled-call result defaults
+
+2.0 adds `0x65 DEFAULT_VALUE u32 initializer_id` (four operand bytes, stack effect
+0 → 1). Its target is a phase-7 default action with no declaration/POU owner,
+no target index, zero visibility counts, stage 0 and no once-state. The action's
+result VAR_META supplies its type. The same dispatcher executes its initializer
+range with an empty private operand stack and returns its staged value to the
+caller; nested evaluation shares instruction, deadline and call-depth budgets.
+Only the completed value escapes, never an address into the temporary result.
+Legacy 1.x validation rejects this opcode.
+
+The 2.0 producer uses this operation in the disabled branch of a call with EN.
+It evaluates the declared return-type default in global context each time that
+branch is taken, without binding/invoking the callee or evaluating its ordinary
+arguments. An enabled call does not evaluate the disabled-result recipe. Calls
+without a value result keep their existing NULL result. Method result selection
+uses the resolved receiver type; unrelated methods sharing a name do not supply
+one another's defaults.
+
+This is an explicit 2.0 compatibility decision: legacy 1.x encoding currently
+captures the disabled result at authoring time, even when EN is true. Source-free
+2.0 cannot depend on initialized authoring storage. It preserves declared defaults
+rather than substituting intrinsic zero/NULL, and moves their evaluation/faults to
+the disabled invocation. A3 must prove emission without evaluation and the version
+boundary; A4 must pin enabled/disabled frequency and fault behavior before claiming
+execution equivalence for this format.
+
+Action boundaries are the resource startup sequence, a concrete instance/template
+construction, one staged invocation frame, or an on-demand value evaluation.
+Earlier automatic-local results become visible through the staged frame; final
+frame commit remains governed by §7.11. For a static declaration, default/explicit
+stages share a staged result and the once-state is completed only after that
+declaration's final stage succeeds. A failed explicit stage discards its staged
+default and leaves that declaration uninitialized for a later attempt. Earlier
+successfully initialized static declarations remain initialized.
+
+#### 11.5.8 Typed initialization and aggregate values
+
+Default recipes execute ordinary STBC through the same dispatcher as POU bodies.
+TYPE_TABLE-driven construction and coercion are shared value operations, not a
+second expression interpreter. Recipes return activation-local staged values;
+they never commit declarations or change static-once state. Nested calls cannot
+reuse the caller's staged result. The context index identifies lexical lookup
+rules, not a mutable frame, instance identity or singleton result slot.
+
+Type/member defaults see globals and the current construction instance, without
+frame-local or static aliases. Explicit declaration expressions retain their
+original visibility frontier. A recipe preserves its root action's current
+instance and construction frontier, including which members already exist;
+reservation alone does not expose an uninitialized later member. An on-demand
+disabled-call action supplies global context. A recipe cannot select an unrelated
+root context. Callback nesting counts toward the same call-depth limit, and
+helper traversal, copying and allocation consume admitted work and memory limits
+in addition to dispatcher instruction fuel and deadlines.
+
+The following 2.0-only instructions are restricted to initializer bodies. Each
+has a four-byte operand. Ordinary POU bodies and all 1.x modules reject them.
+
+| Opcode | Operand | Stack effect | Operation |
+| --- | --- | --- | --- |
+| `0x66 DEFAULT_TYPED` | TYPE_TABLE id | 0 → 1 | Construct the declared default, invoking the exact alias/type default recipe before following aliases. |
+| `0x67 COERCE_INIT_VALUE` | TYPE_TABLE id | 1 → 1 | Coerce an already evaluated value, including member defaults and missing array tails, without a top-level type-default merge. |
+| `0x68 APPLY_INIT_VALUE` | TYPE_TABLE id | 1 → 1 | Apply an explicit initializer: perform the applicable exact-type aggregate-default merge, then shared coercion. |
+| `0x69 ARRAY_NEW` | element count | 0 → 1 | Allocate a temporary untyped aggregate of exactly that many NULL elements, bounded by admitted construction memory. |
+| `0x6A ARRAY_SET` | zero-based element index | 2 → 1 | Consume aggregate then value, replace the selected element and return the aggregate; reject non-arrays or an out-of-range index. |
+| `0x6B STRUCT_NEW` | reserved zero | 0 → 1 | Produce an empty temporary struct value. |
+| `0x6C STRUCT_SET` | STRING_TABLE name id | 2 → 1 | Consume aggregate then value, insert the named member and return the aggregate; reject a non-struct or a duplicate case-insensitive member name. |
+
+These operations compose one shared typed default/coercion implementation.
+They must not implement three independent recursive algorithms. Type-default
+recipes evaluate their expression then use COERCE_INIT_VALUE; member recipes
+with explicit defaults use APPLY_INIT_VALUE. Absent expressions use DEFAULT_TYPED.
+Recipe lookup uses the root action context and exact type/member identity.
+Admission rejects invalid declared associations, member/result types and foreign
+context identities. Recipe absence denotes an intrinsic default; producer
+regressions must separately prove that every source default is represented.
+Union recipes use TYPE_TABLE variant order and the existing all-variant default
+materialization semantics. Runtime
+construction-cycle detection and admitted callback depth also apply: a cyclic
+default cannot bypass limits by crossing a helper/dispatcher boundary.
+
+Aggregate builders evaluate each explicit expression exactly once in source
+order before typed coercion begins. Coercion preserves canonical destination
+member order when a type-default merge creates that order. Missing array tails
+evaluate defaults separately from provided elements; ordinary array defaults
+evaluate each element's default independently. Array repeat expansion is bounded
+before code emission and retains repeated-expression frequency. FB member
+overrides keep their distinct sequential evaluate/coerce/write behavior.
+A failure discards the staged value without partially committing its destination.
+Initializer native calls remain restricted to §7.11 standard functions and
+conversions; recipes do not authorize user-function, method or FB calls.
+
+This replaces the unshipped draft REVERSE_VALUES instruction. A3 validates and
+emits the representation; A4 implements and proves its execution before any
+source-free application is admitted for operation.
+
+Static reference checks reject definite escapes but cannot prove the contents of
+values loaded from mutable slots. A4 must recursively check references in every
+escaping write and commit, including aggregate members, recipe returns and values
+introduced by coercion callbacks. Valid longer-lived references remain valid;
+storing an aggregate in scratch and reloading it cannot erase its runtime lifetime.
+These checks are mandatory before execution support, with scratch/reload and
+callback-introduced-reference regressions in the A4 oracle.
+
+Initializer execution uses a restricted storage view: reads resolve through the
+root action's visibility frontier; default recipes exclude frame/static aliases
+and unavailable construction members even when bytecode encodes a direct reference.
+Writes may target only the activation's staged result and admitted scratch, never
+unrelated globals or instances. Native output arguments use the same restriction.
+The lifecycle owner alone commits the completed result. Admission rejects definite
+foreign staged-result references. Every dynamic store destination and native
+writable argument must be proven to derive from the current staged result on
+every reachable control-flow path; a global, instance, frame, loaded or unknown
+destination is rejected. A mixed staging/non-staging merge is not proof. Native
+argument encodings must match the operand count; input arguments cannot expose
+staging references. Dynamic values still pass the runtime visibility/write checks. A4 must prove those checks before
+admitting source-free execution.
+
+For source-free execution, runtime protection failures have distinct stable identities:
+`runtime_reference_lifetime`, `runtime_visibility_violation`,
+`runtime_staging_violation`, `runtime_constant_write`,
+`runtime_program_root_replacement` and `runtime_invalid_alias`. Actual value-type
+mismatches and null dereferences retain their existing type/null codes. A valid
+artifact unsupported by the selected profile reports `runtime_profile_unsupported`;
+preparation-limit exhaustion reports `runtime_preparation_limit`. Decoder allocation
+and work exhaustion report `bytecode_decode_memory_limit` and
+`bytecode_decode_work_limit`, rather than malformed-header errors. Defensive
+violations of already-admitted execution metadata report `runtime_invalid_execution_state`.
+These are truST diagnostic contracts, not changes to IEC language rules.
+
+These runtime checks supplement bytecode admission and do not grant access merely
+because a value was previously validated. A reference to an ancestor local remains
+live while a nested call executes, and writes through it update the same caller local.
+
+#### 11.5.9 Function-static startup and restart contexts
+
+Initial source construction defaults all function statics, then evaluates their
+explicit expressions, using globals without invocation parameters or local/static
+aliases. This is trigger 0. Method statics likewise initialize during their owning
+instance construction in that instance's context, without method-frame aliases.
+
+The existing restart path reconstructs globals and programs but does not recreate
+function-static backing slots. Consequently the first invocation after restart
+initializes that function's statics in declaration order with bound parameters
+and earlier initialized static aliases visible. This is trigger 1, with separate
+compiled bodies/recipes and shared per-declaration once-state. Automatic locals
+still follow static initialization. A failed static initializer preserves earlier
+completed statics and leaves the failing declaration uninitialized.
+
+STBC 2.0 preserves this observable distinction explicitly. It does not normalize
+restart into eager startup. Admission requires both trigger plans for each
+module-owned function static, validates their visibility separately and rejects
+trigger 1 on unrelated declarations. A3 source tests pin emitted contexts; A4
+must replay initial load, warm/cold restart and a failing first invocation before
+claiming equivalent static initialization.
+
+The opt-in STBC 2.0 producer also accepts explicit member overrides on
+function-static FB instances. It compiles them into the same staged Explicit
+actions for Ordinary and AfterRestart triggers; a failed override does not
+publish partially updated member fields. This is a 2.0 authoring capability:
+legacy 1.x hosted construction continues to reject explicit initializers on
+function-static FB instances. Explicit function-static class-instance initializers
+remain unsupported. This producer distinction is a truST contract, not a change
+to IEC source lifetime rules.
+
+Inherited method statics belong to their declaring template and its concrete
+ancestor instance. STBC 2.0 resolves that physical owner instead of creating a
+second hidden slot on a derived receiver. This corrects the legacy non-recursive
+first-use lookup; the A4 inherited-method regression must pin single-slot identity
+and initializer frequency alongside the restart cases above.
+
+For automatic locals, omitted call-local parameters and after-restart statics,
+an explicit scalar/aggregate initializer replaces the separate declared-default
+evaluation. Their Default action is intrinsic-only (empty code); the Explicit
+action performs APPLY_INIT_VALUE and therefore retains its own aggregate-default
+callbacks. An overridden scalar alias default must not run or fault. FB-valued
+locals still construct the nested instance before sequential member overrides.
+Return-slot initialization preserves the legacy intrinsic default, without
+executing user type/member default expressions.
+
+A source-free TASK SINGLE name must resolve to a declared BOOL global, including
+an alias of BOOL. Missing names and other types reject admission. Flat direct
+VAR_CONFIG writes contribute their complete extent to RESOURCE_META; admission
+rejects writes outside that image. Hierarchical addresses retain their separate
+address space and typed-value semantics. Global CONSTANT qualifiers survive
+lowering into STORAGE_LAYOUT and cannot be bypassed through configuration or
+writable access aliases.
+
+A 2.0 artifact describes one selected resource, matching the existing Runtime
+composition. RESOURCE_META therefore contains exactly one resource; construction
+and direct initialization identities belong to it. Each flat image size retains
+the existing 16 MiB container ceiling, with stricter limits imposed by admission
+profiles. This avoids ambiguous cross-resource construction or I/O ownership.
+
+The hosted opt-in entry point is
+`CompileSession::build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE)`.
+The existing `build_bytecode_module` and byte-array helpers keep producing 1.1.
+The explicit selector accepts only the supported producer contracts 1.1 and 2.0;
+future minors and foreign majors fail without evaluating startup code. The
+tracked OSCAT 1.1 fixture remains unchanged. The separately named
+`tests/fixtures/portability/stbc-2.0/program-v2.stbc` is regenerated by the Rust
+`portability_fixture` example and checked against its source and portable reader.
+
+Static storage records additionally carry source_name_idx, the original lexical
+variable name; other roles leave it absent. name_idx remains the distinct storage
+identity, including private backing names. Known FB-call signature lookup in 2.0
+uses scoped declarations (frame, static, current/inherited instance, access/global)
+rather than selecting a concrete instance from VAR_META names. This covers future
+frame instances and rootless templates. Dynamic receiver types are checked by the
+runtime rather than guessed from an unrelated global or POU name.
+
+Source-free construction accepts only the primitive IDs defined by this spec
+(1–27 and the native-state marker 0x0100). max_length is zero for non-string
+primitives. Unknown primitive IDs are not executable construction descriptors.
+
+Storage slots are dense from zero within each physical owner. A scratch-bank
+record covers its entire contiguous tail; an arbitrary large slot cannot be
+represented as a one-node construction demand. Typed frame declarations must
+match their base VAR_META type. Static lexical names are unique within their
+semantic POU owner, independently of private storage names. Access aliases and
+resource-global storage names cannot collide case-insensitively in a 2.0 artifact.
+
+Frame layout roles agree with POU_INDEX: its optional return slot is first,
+followed by parameters in signature order, then automatic locals and any scratch
+tail. Parameter declaration types, names and direction flags match the signature;
+a normal-variable record cannot replace a parameter and overwrite a supplied
+argument during initialization.
+
+In 2.0, an INSTANCE reference names its concrete construction-root identity;
+SELF/SUPER instructions express invocation-relative access. A POU may therefore
+use explicit references to several roots, for example through access aliases.
+It must not infer or remap a primary instance owner from those references. The
+legacy one-owner validation/materialization rule remains confined to 1.x.
+
+Static visibility counts are checked against the declaration table, not accepted
+as producer assertions. Ordinary static actions have a zero frontier; after-restart
+function-static actions expose exactly the preceding statics of that declaring
+function. Other declaration actions carry the owner's complete static count;
+their lifecycle and restricted storage view still determine which initialized
+values may be read. Callable type/member recipes retain zero frame/static-alias
+visibility. The validator builds the owner/declaration index once and performs
+bounded prefix lookups for these checks.
+
+### 11.5.10 Source admission and typed binding preservation
+
+The opt-in 2.0 producer uses the same source diagnostics as the legacy producer.
+Executable initializer support is not permission to accept mutable scalar
+initializers that the IEC source checker rejects. The changing-input fixture uses
+a method-local `REF_TO INT := REF(history[delta])`: the addressed array belongs
+to the persistent FB instance, while its index changes between calls. This is the
+reference-initialization case permitted by IEC 61131-3 Ed.3 §6.4.4.10.2, respecting
+§6.4.4.10.3's prohibition on references to temporary storage. Scalar initializer
+fixtures intended to fault at runtime must first satisfy the source checker;
+the authoring boundary must retain the accepted expression without evaluating it.
+
+Local VAR_META retains §7.11's reserved `@local/<pou>/<slot>/<label>` identity.
+The 2.0 producer reuses the local-scope metadata rather than inventing an alternate
+name. Initializer-result references are distinct from locals and do not use that
+reserved prefix.
+
+For STRING direct I/O, the hosted binding's normalized STRING tag and its
+`Bytes(n)` extent are separate facts. A 2.0 IO_MAP entry must select a bounded
+STRING TYPE_TABLE entry with capacity `n`, including aliases and nested aggregate
+leaves. Serializing `%QB<offset>` must not discard the capacity. The existing
+hosted normalized tag is preserved, and admission still rejects an unbounded
+string or an image smaller than the complete declared binding.
+
+#### 11.5.11 Compact construction metadata and stable tooling
+
+The 2.0 producer emits standard-library block templates only when reachable from
+application roots, callable frames and their transitive declared types, including
+array/aggregate members, aliases, inheritance and references. User-defined entry
+points remain available. Type/member recipes are interned per equivalent canonical
+visibility context and exact type/member identity. Sharing never caches a value or
+changes when an expression executes. Admission rejects cross-context recipes.
+
+Configuration and access paths resolve every leading identifier: a recognized
+configuration/resource prefix may qualify a program or global, but an unknown
+prefix must not be skipped to bind a later matching global. This tightening is
+limited to the opt-in 2.0 producer; legacy 1.1 behavior remains unchanged.
+
+Construction disassembly uses explicit field names and stable enum spellings, not
+derived Rust Debug output. Native source-authoring coverage includes edge-qualified
+inputs, retained declarations, partial-access aliases/configuration writes and
+classes. The saved A4 replay fixture includes both an edge input and retained state.
+These records preserve IEC 61131-3 Ed.3 declaration semantics; artifact admission
+is not evidence of initializer execution or hardware operation.
+
+The lowered/wire construction model also represents partial configuration targets.
+Current source VAR_CONFIG admission remains limited to symbolic variable access
+paths (IEC 61131-3 Ed.3 Table 62); a `%B` selection in such a target is rejected.
+Native tests distinguish source partial-access aliases and whole-value configuration
+writes from explicitly constructed lowered partial configuration actions. A wire
+capability does not silently expand accepted IEC source syntax.
+
+#### 11.5.12 Ordinary aggregate assignments
+
+The source-free external global-write API accepts mutable resource-variable
+declarations only. Program roots and function-static lifecycle slots cannot be
+replaced through that engineering API; VAR_ACCESS retains its declared binding
+and permission checks.
+
+Source-free ordinary assignments, call bindings and external engineering writes
+validate the complete destination TYPE_TABLE shape before committing. Array bounds
+and element count (wildcard formal dimensions preserve the supplied concrete bounds), structure/union identity and complete case-insensitive member
+sets, enum type/name/value identity, and nested reference/instance compatibility
+must agree. Scalar/string normalization applies recursively, including declared
+string capacities and subranges. This operation never evaluates type/member
+initializers or fills missing members with defaults. A failed assignment leaves
+the destination unchanged. Recursive traversal and copied values consume the
+admitted work/allocation limits, and reference lifetime checks remain mandatory.
+
+Partial field/element writes charge any copy-on-write structure backing and owned
+array fields copied by that operation before mutation, including newly shared
+children after an ancestor copy. String-element replacement charges its character
+buffer and replacement text. These failures retain their budget/deadline error;
+a multi-output copyback failure restores every destination in that output group.
+
+The source-free runtime enforces STORAGE_LAYOUT constant declarations at every
+ordinary store boundary, including static/dynamic bytecode stores and native
+output copyback. Selecting a member or element does not make constant storage
+writable. Compiler acceptance is not an authority to bypass this check: a
+structurally admitted forged artifact faults before modifying the constant.
+Private initializer-result staging and explicit lifecycle declaration commits
+remain the construction paths; ordinary execution cannot use them to overwrite
+an initialized constant.
+Construction-only program-root identities also reject ordinary stores, even
+when their reference has no TYPE_TABLE identity. Only lifecycle construction
+installs or replaces these roots.
+
+External binding records allocate no physical slot. Runtime slot/type/visibility
+and constant-permission lookup excludes them, even if an admitted External record
+carries the same owner/slot as a physical declaration. Record ordering cannot
+change the physical declaration's type, initialization status or write permission.
+
+Typed reference checks resolve each selected path segment from the admitted
+construction declarations as well as TYPE_TABLE. POU members include inherited
+members; an untyped program-root binding starts from its declared program template.
+External aliases cannot replace a physical member's type. Equivalent direct-instance
+and global-root-plus-member references have the same selected type. Traversal uses
+the active operation's work/deadline budget; restart queries charge the staged
+replacement, not the state being preserved.

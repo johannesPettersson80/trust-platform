@@ -59,6 +59,21 @@ impl RetainSnapshot {
     }
 }
 
+/// Whether a policy preserves a value across a warm restart.
+pub fn retain_on_warm(policy: RetainPolicy) -> bool {
+    matches!(policy, RetainPolicy::Retain | RetainPolicy::Persistent)
+}
+
+/// Durable snapshots never serialize live references or instance handles.
+pub fn value_is_retainable(value: &Value) -> bool {
+    match value {
+        Value::Array(array) => array.elements().iter().all(value_is_retainable),
+        Value::Struct(value) => value.fields().values().all(value_is_retainable),
+        Value::Reference(_) | Value::Instance(_) => false,
+        _ => true,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{RestartMode, RetainPolicy, RetainSnapshot};

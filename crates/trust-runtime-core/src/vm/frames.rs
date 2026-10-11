@@ -1,9 +1,11 @@
 use alloc::vec::Vec;
 
-use crate::memory::InstanceId;
+use crate::memory::{FrameId, InstanceId};
 use crate::value::Value;
 
-use super::{materialize_borrowed_value, VmTrap, VM_MAX_CALL_DEPTH};
+#[cfg(any(feature = "hir", test))]
+use super::materialize_borrowed_value;
+use super::{VmTrap, VM_MAX_CALL_DEPTH};
 
 /// Validate that a caller-supplied depth offset plus local frame depth fits the VM limit.
 pub fn ensure_global_call_depth(depth_offset: u32, local_depth: usize) -> Result<(), VmTrap> {
@@ -18,8 +20,10 @@ pub fn ensure_global_call_depth(depth_offset: u32, local_depth: usize) -> Result
 /// One active VM call frame.
 #[derive(Debug, Clone)]
 pub struct VmFrame {
-    /// POU id being executed.
-    pub pou_id: u32,
+    /// Live source-free invocation identity; absent only for legacy hosted frames.
+    pub activation: Option<FrameId>,
+    /// Lexical POU, absent for resource-global initializer bodies.
+    pub pou_id: Option<u32>,
     /// Program counter to restore on return.
     pub return_pc: usize,
     /// First bytecode offset owned by this frame.
@@ -32,6 +36,8 @@ pub struct VmFrame {
     pub local_ref_count: u32,
     /// Local slot values for this frame.
     pub locals: Vec<Value>,
+    /// Slots already bound to input values, independent of whether the value is NULL.
+    pub parameter_values_present: Vec<bool>,
     /// Runtime instance backing this frame, when executing an FB/class instance.
     pub runtime_instance: Option<InstanceId>,
     /// POU id that owns the backing runtime instance, when applicable.
@@ -39,6 +45,17 @@ pub struct VmFrame {
 }
 
 impl VmFrame {
+    /// Reference identity of this invocation, with the legacy sentinel fallback.
+    pub fn reference_frame_id(&self) -> FrameId {
+        self.activation
+            .unwrap_or(FrameId(super::context::VM_LOCAL_SENTINEL_FRAME_ID))
+    }
+
+    /// Whether a reference addresses this invocation's currently resident locals.
+    pub fn owns_local_reference(&self, reference: &crate::value::ValueRef) -> bool {
+        reference.location == crate::memory::MemoryLocation::Local(self.reference_frame_id())
+    }
+
     /// Convert a bytecode local reference index into a frame-local slot index.
     pub fn local_slot_index(&self, ref_index: u32) -> Result<usize, VmTrap> {
         if ref_index < self.local_ref_start
@@ -54,6 +71,7 @@ impl VmFrame {
     }
 
     /// Load a local value by bytecode reference index.
+    #[cfg(any(feature = "hir", test))]
     pub fn load_local(&self, ref_index: u32) -> Result<Value, VmTrap> {
         let index = self.local_slot_index(ref_index)?;
         self.locals
@@ -91,11 +109,45 @@ impl FrameStack {
         self.frames.clear();
     }
 
+    pub(super) fn growth_demand(&self) -> Result<(usize, usize), VmTrap> {
+        if self.frames.len() < self.frames.capacity() {
+            return Ok((0, 0));
+        }
+        let capacity = self
+            .frames
+            .capacity()
+            .checked_mul(2)
+            .ok_or(VmTrap::Runtime(crate::error::RuntimeError::Overflow))?
+            .clamp(1, VM_MAX_CALL_DEPTH);
+        if capacity <= self.frames.len() {
+            return Err(VmTrap::CallStackOverflow);
+        }
+        let bytes = capacity
+            .checked_mul(core::mem::size_of::<VmFrame>())
+            .ok_or(VmTrap::Runtime(crate::error::RuntimeError::Overflow))?;
+        Ok((bytes, self.frames.len()))
+    }
+
+    pub(super) fn reserve_for_push(&mut self) -> Result<(), VmTrap> {
+        if self.frames.len() >= VM_MAX_CALL_DEPTH {
+            return Err(VmTrap::CallStackOverflow);
+        }
+        if self.frames.len() == self.frames.capacity() {
+            let (bytes, _) = self.growth_demand()?;
+            let capacity = bytes / core::mem::size_of::<VmFrame>();
+            self.frames
+                .try_reserve_exact(capacity - self.frames.len())
+                .map_err(|_| VmTrap::Runtime(crate::error::RuntimeError::Overflow))?;
+        }
+        Ok(())
+    }
+
     /// Push one frame while enforcing the VM call-depth limit.
     pub fn push(&mut self, frame: VmFrame) -> Result<(), VmTrap> {
         if self.frames.len() >= VM_MAX_CALL_DEPTH {
             return Err(VmTrap::CallStackOverflow);
         }
+        self.reserve_for_push()?;
         self.frames.push(frame);
         Ok(())
     }

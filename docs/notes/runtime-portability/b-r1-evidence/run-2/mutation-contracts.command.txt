@@ -1,0 +1,1 @@
+env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-b-evidence/run-2/review-index python3 -m unittest scripts.verification.mutation_program_contract_tests 

@@ -1,0 +1,5 @@
+Independent A3 closeout evidence audit
+
+Read-only audit verified native totals 221/70/139 and 20/219/3863, all 140 then-retained artifact hashes, 24 run-4 copies against originals, 46 unchanged core files, Cargo manifest/lock identity and generated fixture hashes/size. No post-run-4 Rust changes. Reused proof and A4/hardware/release limitations are correctly scoped.
+
+Finding: early execution-note sections had ambiguous current-status wording. Root marked those sections historical and clarified saved fixture files are untracked, not ignored, pending authorization to commit. No tests or validators ran in this audit.

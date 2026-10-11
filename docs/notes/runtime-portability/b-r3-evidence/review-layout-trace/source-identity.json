@@ -1,0 +1,58 @@
+{
+  "reviewer": "/root/br1_collections_sort",
+  "identity_sha256": "c5d0ca439eb7675a3d73768aa91cfdde9eee03f1506516a940c895c4f28562af",
+  "files": [
+    {
+      "path": "firmware/trust-nucleo-f401re/memory.x",
+      "sha256": "7d9491c9b293a8d1bd330e020893e564da3ba2f446d42cb9bea51a1be2f0654e"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/profile.x",
+      "sha256": "be517b34b94734e3acea372846005faebe79d866de2e7307cd32341c1c773468"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/README.md",
+      "sha256": "0a687f78bdf35a791bf5c9e6bc4cb02ef823b2adf80f4be91b883fe01415bdff"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/main.rs",
+      "sha256": "ab800e76983aa8cc282ceaaf4bf7e6fc963d5d71a6921a9d9e5b29035a56e67b"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/runner.rs",
+      "sha256": "c9feed521109a6581108e181c1cbb9c880486b7947f82d90a1919e8fdcf2a425"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/trace.rs",
+      "sha256": "381441c0df6916a7d6b6e785b40a09b338a8fc5ce8ab89f75fa3a69395aa9973"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/lib.rs",
+      "sha256": "56c9e82031d1233ff6021406b182a67e23cecce9739b9bf12822379ef2ebe423"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/trace_wire.rs",
+      "sha256": null
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/console_budget.rs",
+      "sha256": "df9108d1f99cecde23f98982d021d7854d1109a44de8379d5d8ab79bda871159"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/hardware/console.rs",
+      "sha256": "1d7bd75080e2e5fcf72a3076c9ee9affe839b14c95f265eaa76f7380df15f770"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/hardware/mod.rs",
+      "sha256": "dbbce5741377365ede4f941ca2d8f56e7162e8f2734ae70a07665b58d174d559"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/lib.rs",
+      "sha256": "02e00881245f829025db3b87cf6dc526864e8b6818a9e9764d7aa5410f6ea184"
+    },
+    {
+      "path": "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml",
+      "sha256": "92d3415cb6bee7f80e20616f33937e89c62608d6c8e7773883ff49c55ceed3a7"
+    }
+  ]
+}

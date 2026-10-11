@@ -9,6 +9,7 @@ use serde::Serialize;
 use serde_json::json;
 
 mod full_map;
+mod portability;
 mod software_map;
 
 use full_map::architecture_doctor_full_map;
@@ -31,6 +32,8 @@ fn run() -> Result<()> {
     };
     let root = workspace_root()?;
     match command.as_str() {
+        "architecture-external-safety" => full_map::external_safety_gate(&root),
+        "portability" => portability::run(&root, args.collect()),
         "architecture-map" => architecture_map(&root),
         "architecture-doctor" => {
             let mode = args.next().unwrap_or_else(|| "--all".to_string());
@@ -49,7 +52,7 @@ fn print_usage() {
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  cargo xtask architecture-map\n  cargo xtask architecture-doctor --all\n  cargo xtask architecture-doctor --changed\n  cargo xtask architecture-doctor --full-map"
+    "Usage:\n  cargo xtask architecture-map\n  cargo xtask architecture-external-safety\n  cargo xtask architecture-doctor --all\n  cargo xtask architecture-doctor --changed\n  cargo xtask architecture-doctor --full-map\n  cargo xtask portability pack <gpio.stbc> <application.bin>\n  cargo xtask portability inspect <firmware.elf> <report.json>\n  cargo xtask portability footprint <current.map> <baseline.map> <report.json>\n  cargo xtask portability verify <uart.txt> <report.json>"
 }
 
 fn workspace_root() -> Result<PathBuf> {

@@ -1,0 +1,39 @@
+{
+  "reviewer": "/root/br1_static_registry",
+  "scope": "Source-only focused authorized link/inspection wrapper review; no execution",
+  "rust_manifest_records_unchanged_from_run2": 144,
+  "files": [
+    {
+      "path": "setup-run3/baseline.map",
+      "sha256": "86082ecdaa9393d6faa04f9b3b252f95ef207dbf7d53ceeb394a58adddfb0d74"
+    },
+    {
+      "path": "setup-run3/board-batch.sh",
+      "sha256": "1a086f032a2a25a09d2ed7d238611369fe31632065336c477ceb26a78503673d"
+    },
+    {
+      "path": "setup-run3/canonical.sha256",
+      "sha256": "0a31687edc1f6cd7ca2e3909b5dbd9ff18a55f1c3e6512db1703a196992c92b3"
+    },
+    {
+      "path": "setup-run3/environment.sh",
+      "sha256": "8edf2f9fdf2314f165841dc6800004622abc3b1ed3017c6536a0c2f3a85cbde2"
+    },
+    {
+      "path": "setup-run3/fixture-sha256.txt",
+      "sha256": "6d108a02c9c614873d97eff800a09a1b7db461440479925c2822725a592b03a6"
+    },
+    {
+      "path": "setup-run3/freeze-source.py",
+      "sha256": "099f839a4e9861ae85ff7c5c7107aa396a1f4c7080f4679e14c163f43f5b2d8c"
+    },
+    {
+      "path": "setup-run3/link-inspect.sh",
+      "sha256": "83b9d54fbfb9af75fb4029ef2bfbf3a4c5ab46d47a690e6cddf53aeb305688d2"
+    },
+    {
+      "path": "setup-run3/measure.sh",
+      "sha256": "615e59bae36b3482439500c02fd30f0d35e95fe6da153c0619e45c56192e1e8a"
+    }
+  ]
+}

@@ -1,9 +1,9 @@
+use super::super::SectionDiagnostic;
 use crate::bytecode::{
     BytecodeError, PouIndex, RefTable, RejectionReason, BYTECODE_MAX_INSTRUCTIONS,
     BYTECODE_MAX_LOCALS_PER_POU, BYTECODE_MAX_PARAMETERS_PER_POU, BYTECODE_MAX_REFERENCES,
 };
 use crate::vm::VM_MAX_OPERAND_STACK;
-use alloc::format;
 
 pub(super) fn validate_declared_resource_limits(
     ref_table: &RefTable,
@@ -44,10 +44,14 @@ pub(super) fn validate_operand_stack_depth(depth: usize) -> Result<(), BytecodeE
     validate_count(depth, VM_MAX_OPERAND_STACK, "operand stack values")
 }
 
-fn validate_count(observed: usize, maximum: usize, resource: &str) -> Result<(), BytecodeError> {
+fn validate_count(
+    observed: usize,
+    maximum: usize,
+    resource: &'static str,
+) -> Result<(), BytecodeError> {
     if observed > maximum {
-        return Err(BytecodeError::InvalidSection(
-            format!("{resource} exceed fixed resource limit").into(),
+        return Err(BytecodeError::section_diagnostic(
+            SectionDiagnostic::ResourceLimit(resource),
         ));
     }
     Ok(())

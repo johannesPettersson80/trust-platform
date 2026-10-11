@@ -15,7 +15,7 @@ impl<'a> BytecodeEncoder<'a> {
         let mut debug_entries = Vec::new();
         let mut offset: usize = 0;
 
-        for program in self.runtime.programs().values() {
+        for program in self.programs().values() {
             let id = self
                 .pou_ids
                 .program_id(&program.name)
@@ -43,9 +43,22 @@ impl<'a> BytecodeEncoder<'a> {
                 program.using.clone(),
                 locals,
                 HashMap::new(),
-                HashMap::new(),
+                if self.authoring.is_some() {
+                    program
+                        .vars
+                        .iter()
+                        .filter(|var| !var.external)
+                        .map(|var| (super::util::normalize_name(&var.name), var.name.clone()))
+                        .collect()
+                } else {
+                    HashMap::new()
+                },
                 for_temp_pairs,
             );
+            ctx.owner_name = Some(program.name.clone());
+            if self.authoring.is_some() {
+                self.construction.contexts.insert(id, ctx.clone());
+            }
             let (code, local_debug) = self.emit_pou_body(&mut ctx, id, &program.body)?;
             let entry = self.pou_entry_program(program, id)?;
             append_emitted_pou(
@@ -64,6 +77,9 @@ impl<'a> BytecodeEncoder<'a> {
         }
 
         for fb in self.runtime.function_blocks().values() {
+            if !self.emit_block_template(&fb.name) {
+                continue;
+            }
             let id = self
                 .pou_ids
                 .function_block_id(&fb.name)
@@ -84,8 +100,16 @@ impl<'a> BytecodeEncoder<'a> {
                 self_fields,
                 for_temp_pairs,
             );
+            ctx.owner_name = Some(fb.name.clone());
+            if self.authoring.is_some() {
+                self.construction.contexts.insert(id, ctx.clone());
+            }
             let (code, local_debug) = self.emit_pou_body(&mut ctx, id, &fb.body)?;
-            let entry = self.pou_entry_function_block(fb, id, !self.is_stdlib_fb(&fb.name))?;
+            let entry = self.pou_entry_function_block(
+                fb,
+                id,
+                self.authoring.is_some() || !self.is_stdlib_fb(&fb.name),
+            )?;
             append_emitted_pou(
                 entry,
                 local_ref_start,
@@ -129,6 +153,13 @@ impl<'a> BytecodeEncoder<'a> {
                 HashMap::new(),
                 for_temp_pairs,
             );
+            for (position, local) in func.static_locals.iter().enumerate() {
+                ctx.static_ordinals
+                    .insert(super::util::normalize_name(&local.name), position);
+            }
+            if self.authoring.is_some() {
+                self.construction.contexts.insert(id, ctx.clone());
+            }
             let (code, local_debug) = self.emit_pou_body(&mut ctx, id, &func.body)?;
             let entry = self.pou_entry_function(func, id)?;
             append_emitted_pou(
@@ -151,6 +182,20 @@ impl<'a> BytecodeEncoder<'a> {
                 .pou_ids
                 .class_id(&class.name)
                 .ok_or_else(|| BytecodeError::InvalidSection("class id missing".into()))?;
+            if self.authoring.is_some() {
+                let fields = self.self_fields_for_owner(&class.name)?;
+                let mut context = CodegenContext::new(
+                    None,
+                    None,
+                    class.using.clone(),
+                    HashMap::new(),
+                    HashMap::new(),
+                    fields,
+                    Vec::new(),
+                );
+                context.owner_name = Some(class.name.clone());
+                self.construction.contexts.insert(id, context);
+            }
             let mut entry = self.pou_entry_class(class, id)?;
             entry.code_offset = to_u32(offset, "POU code offset")?;
             entry.code_length = 0;
@@ -158,6 +203,9 @@ impl<'a> BytecodeEncoder<'a> {
         }
 
         for (_owner, fb) in self.runtime.function_blocks().iter() {
+            if !self.emit_block_template(&fb.name) {
+                continue;
+            }
             let owner_id = self
                 .pou_ids
                 .function_block_id(&fb.name)
@@ -224,12 +272,13 @@ impl<'a> BytecodeEncoder<'a> {
             &method.locals,
             &method.body,
         )?;
-        let mut self_fields = self.self_fields_for_owner(owner)?;
-        for local in &method.static_locals {
+        let self_fields = self.self_fields_for_owner(owner)?;
+        let mut static_self_fields = HashMap::new();
+        for (position, local) in method.static_locals.iter().enumerate() {
             let owner = crate::program_model::method_static_storage_owner(owner, &method.name);
             let hidden = crate::program_model::static_storage_name(&owner, &local.name);
             let key = super::util::normalize_name(&local.name);
-            self_fields.insert(key, hidden);
+            static_self_fields.insert(key, (hidden, position));
         }
         let mut ctx = CodegenContext::new(
             None,
@@ -240,6 +289,11 @@ impl<'a> BytecodeEncoder<'a> {
             self_fields,
             for_temp_pairs,
         );
+        ctx.owner_name = Some(owner.clone());
+        ctx.static_self_fields = static_self_fields;
+        if self.authoring.is_some() {
+            self.construction.contexts.insert(id, ctx.clone());
+        }
         let (code, local_debug) = self.emit_pou_body(&mut ctx, id, &method.body)?;
         let entry = self.pou_entry_method(method, owner_id, id)?;
         append_emitted_pou(
@@ -259,16 +313,20 @@ impl<'a> BytecodeEncoder<'a> {
         let mut refs = HashMap::new();
         for local in &function.static_locals {
             let hidden = crate::program_model::static_storage_name(&function.name, &local.name);
-            let reference = self
-                .runtime
-                .storage()
-                .ref_for_global(hidden.as_ref())
-                .ok_or_else(|| {
-                    BytecodeError::InvalidSection(
-                        format!("missing function VAR_STAT backing storage for '{}'", local.name)
-                            .into(),
+            let reference = if self.authoring.is_some() {
+                self.construction.bindings.global(&hidden).cloned()
+            } else {
+                self.runtime.storage().ref_for_global(hidden.as_ref())
+            }
+            .ok_or_else(|| {
+                BytecodeError::InvalidSection(
+                    format!(
+                        "missing function VAR_STAT backing storage for '{}'",
+                        local.name
                     )
-                })?;
+                    .into(),
+                )
+            })?;
             refs.insert(super::util::normalize_name(&local.name), reference);
         }
         Ok(refs)

@@ -1,0 +1,8 @@
+{
+  "painted_start": "0x2001203c",
+  "first_nonpaint": "0x20013eac",
+  "observed_written_stack_bytes": 16724,
+  "beyond_reserved_stack_bytes": 340,
+  "untouched_gap_bytes": 7792,
+  "note": "Post-failure halted read of startup-painted SRAM; no reset/replay or RAM reservation change. Paint is observed written high-water, not a whole-profile stack proof."
+}

@@ -1,0 +1,56 @@
+{
+  "reviewer": "/root/br1_collections_sort",
+  "source": "/home/johannes/projects/trust-platform-portability-br2-m1",
+  "head": "df427259cc387a7a79fb81132be23e48ea1493d4",
+  "branch": "detached",
+  "canonical": "/home/johannes/projects/trust-platform",
+  "bootstrap": "Canonical AGENTS/CLAUDE/complete skills manually copied and byte parity independently verified.",
+  "identity_sha256": "8b7cb48a34837b3dda863880be42ea85d46df5da598d09ba043da971d31d9b91",
+  "files": [
+    {
+      "path": "firmware/trust-nucleo-f401re/memory.x",
+      "sha256": "a72a45aa2c4fbdf92972b5b1efed6742ba33c2baa25c8ef4f4160ae3865df07e",
+      "active_b_baseline_sha256": "abbbea65901b9e0515570115bd84432b5540ac4aeacc71ad40d96e65a4fd504e"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/profile.x",
+      "sha256": "be517b34b94734e3acea372846005faebe79d866de2e7307cd32341c1c773468",
+      "active_b_baseline_sha256": "c6a45bc16ba1e946500c014dd3e8c2c9532458b7f240b361914410a8eaf581d1"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/.cargo/config.toml",
+      "sha256": "4b4922061f803e95cc599e0dc4edc32ee6748305ff5ecd4a783f23024b63e0b0",
+      "active_b_baseline_sha256": "b431db176599634348f24db3e16fb01635745b63acdd581cae3097624ab1c28e"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/README.md",
+      "sha256": "d688655d5a40a292222c04297f45db7ac324317ed43b7b6559c6ffd6ae05a4c1",
+      "active_b_baseline_sha256": "096ca5e1323b7c864ff48ad995f32afb8e77584cc6ecfce461853f5b69126598"
+    },
+    {
+      "path": "xtask/src/portability/build.rs",
+      "sha256": "cfb0d460f464ef2e2afb770627ac319cc6701f4d31216e1a66f7303948001b61",
+      "active_b_baseline_sha256": null
+    },
+    {
+      "path": "xtask/src/portability/mod.rs",
+      "sha256": "8c5403ecc4b7327319bdd7349741f4ed24fcfb4454df30a6d24581dcd25bcf54",
+      "active_b_baseline_sha256": "53308bb7562f72f3d74758b57b07b7bc310e55637269254a5cee31a22b7bc99b"
+    },
+    {
+      "path": "xtask/src/portability/elf.rs",
+      "sha256": "2e1cab21eb9c28fa7512fe19df1af5390140d08332648fdfe301fc96c2816a51",
+      "active_b_baseline_sha256": "0f58af3d9ffc457f41fcf5daa1f6c75461b55bff9d3d59352edc9e1f1d3858bc"
+    },
+    {
+      "path": "xtask/src/portability/map.rs",
+      "sha256": "c21fb40c32d8a63ae506e094538034bb904a5fffe1749d5d1e0e920035dc3bb7",
+      "active_b_baseline_sha256": "799f6e0c9ec980d0e8144d17f858dd87429113c575342640dbf6bc3165c0a55f"
+    },
+    {
+      "path": "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml",
+      "sha256": "55b522128b4b1624e15181bc5e3d755fbf750f7fd3ec9379d1febb7475899a52",
+      "active_b_baseline_sha256": "391fce298f7bded002205d9030adf9d9c2a7877389486b2da22c85549662cb2a"
+    }
+  ]
+}

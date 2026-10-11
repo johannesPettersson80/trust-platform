@@ -1,0 +1,1 @@
+sha256sum -c /home/johannes/.cache/trust-portability-br4-setup-run6/canonical.sha256 

@@ -17,8 +17,8 @@ pub(super) fn validate_var_meta(
         ensure_type_index(types, entry.type_id)?;
         ensure_ref_index(ref_table, entry.ref_idx)?;
         if tables.first_var_ref(entry.ref_idx, budget)? != Some(position) {
-            return Err(BytecodeError::InvalidSection(
-                format!("duplicate VAR_META ref_idx {}", entry.ref_idx).into(),
+            return Err(BytecodeError::section_diagnostic(
+                SectionDiagnostic::DuplicateVariableReference(entry.ref_idx),
             ));
         }
         if entry.retain > 3 {
@@ -77,12 +77,8 @@ pub(super) fn validate_local_var_meta(
         ));
     }
     if entry.retain != 0 || entry.init_const_idx.is_some() {
-        return Err(BytecodeError::InvalidSection(
-            format!(
-                "local VAR_META ref {} must use retain=0 and no initializer",
-                entry.ref_idx
-            )
-            .into(),
+        return Err(BytecodeError::section_diagnostic(
+            SectionDiagnostic::LocalInitialization(entry.ref_idx),
         ));
     }
     if !reference.segments.is_empty() {
@@ -91,12 +87,8 @@ pub(super) fn validate_local_var_meta(
         ));
     }
     let Some(pou) = tables.local_owner(entry.ref_idx, budget)? else {
-        return Err(BytecodeError::InvalidSection(
-            format!(
-                "local VAR_META ref {} is outside every POU local range",
-                entry.ref_idx
-            )
-            .into(),
+        return Err(BytecodeError::section_diagnostic(
+            SectionDiagnostic::LocalRange(entry.ref_idx),
         ));
     };
     let expected_slot = entry.ref_idx - pou.local_ref_start;

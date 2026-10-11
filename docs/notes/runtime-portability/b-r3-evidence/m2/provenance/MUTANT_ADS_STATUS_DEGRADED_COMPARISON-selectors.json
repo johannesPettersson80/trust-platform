@@ -1,0 +1,482 @@
+[
+  {
+    "diff": "--- mapping.rs\n+++ replace ConnectorStatusProjection::with_detail -> Self with Default::default()\n@@ -27,18 +27,17 @@\n             health,\n             detail: None,\n         }\n     }\n \n     /// Add detail to a projection.\n     #[must_use]\n     pub fn with_detail(mut self, detail: impl Into<String>) -> Self {\n-        self.detail = Some(detail.into());\n-        self\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n /// OPC UA server snapshot availability used by the server adapter.\n #[derive(Debug, Clone, Copy, PartialEq, Eq)]\n pub enum OpcUaServerSnapshotState {\n     /// Server disabled.\n     Disabled,\n",
+    "file": "mapping.rs",
+    "function": {
+      "function_name": "ConnectorStatusProjection::with_detail",
+      "return_type": "-> Self",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 37
+        },
+        "start": {
+          "column": 5,
+          "line": 32
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "mapping.rs:35:9: replace ConnectorStatusProjection::with_detail -> Self with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 13,
+        "line": 36
+      },
+      "start": {
+        "column": 9,
+        "line": 35
+      }
+    }
+  },
+  {
+    "diff": "--- mapping.rs\n+++ replace io_driver_status -> ConnectorStatusProjection with Default::default()\n@@ -100,40 +100,17 @@\n }\n \n /// Project process-image driver health into the connector contract.\n #[must_use]\n pub fn io_driver_status(\n     health: &IoDriverHealth,\n     error_policy: IoDriverErrorPolicy,\n ) -> ConnectorStatusProjection {\n-    match health {\n-        IoDriverHealth::Ok => {\n-            ConnectorStatusProjection::new(ConnectorState::Ready, ConnectorHealth::Ok)\n-        }\n-        IoDriverHealth::Degraded { error } => {\n-            ConnectorStatusProjection::new(ConnectorState::Degraded, ConnectorHealth::Degraded)\n-                .with_detail(error.as_str())\n-        }\n-        IoDriverHealth::Faulted { error } => {\n-            let projection = match error_policy {\n-                IoDriverErrorPolicy::Fault => ConnectorStatusProjection::new(\n-                    ConnectorState::Faulted,\n-                    ConnectorHealth::Faulted,\n-                ),\n-                IoDriverErrorPolicy::Warn | IoDriverErrorPolicy::Ignore => {\n-                    ConnectorStatusProjection::new(\n-                        ConnectorState::Degraded,\n-                        ConnectorHealth::Degraded,\n-                    )\n-                }\n-            };\n-            projection.with_detail(error.as_str())\n-        }\n-    }\n+    Default::default() /* ~ changed by cargo-mutants ~ */\n }\n \n /// Project low-level ADS connection state into the connector contract.\n #[must_use]\n pub fn ads_connection_state_status(state: AdsConnectionState) -> ConnectorStatusProjection {\n     match state {\n         AdsConnectionState::Disconnected => {\n             ConnectorStatusProjection::new(ConnectorState::Stale, ConnectorHealth::Degraded)\n",
+    "file": "mapping.rs",
+    "function": {
+      "function_name": "io_driver_status",
+      "return_type": "-> ConnectorStatusProjection",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 132
+        },
+        "start": {
+          "column": 1,
+          "line": 102
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "mapping.rs:108:5: replace io_driver_status -> ConnectorStatusProjection with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 131
+      },
+      "start": {
+        "column": 5,
+        "line": 108
+      }
+    }
+  },
+  {
+    "diff": "--- mapping.rs\n+++ replace ads_connection_state_status -> ConnectorStatusProjection with Default::default()\n@@ -129,33 +129,17 @@\n             projection.with_detail(error.as_str())\n         }\n     }\n }\n \n /// Project low-level ADS connection state into the connector contract.\n #[must_use]\n pub fn ads_connection_state_status(state: AdsConnectionState) -> ConnectorStatusProjection {\n-    match state {\n-        AdsConnectionState::Disconnected => {\n-            ConnectorStatusProjection::new(ConnectorState::Stale, ConnectorHealth::Degraded)\n-        }\n-        AdsConnectionState::Connecting => {\n-            ConnectorStatusProjection::new(ConnectorState::Starting, ConnectorHealth::Unknown)\n-        }\n-        AdsConnectionState::Connected => {\n-            ConnectorStatusProjection::new(ConnectorState::Ready, ConnectorHealth::Ok)\n-        }\n-        AdsConnectionState::Reconnecting => {\n-            ConnectorStatusProjection::new(ConnectorState::Reconnecting, ConnectorHealth::Degraded)\n-        }\n-        AdsConnectionState::Faulted => {\n-            ConnectorStatusProjection::new(ConnectorState::Faulted, ConnectorHealth::Faulted)\n-        }\n-    }\n+    Default::default() /* ~ changed by cargo-mutants ~ */\n }\n \n /// Project ADS report connection state into the connector contract.\n #[must_use]\n pub fn ads_connection_status_state(\n     state: AdsConnectionStatusState,\n     degraded_points: usize,\n ) -> ConnectorStatusProjection {\n",
+    "file": "mapping.rs",
+    "function": {
+      "function_name": "ads_connection_state_status",
+      "return_type": "-> ConnectorStatusProjection",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 154
+        },
+        "start": {
+          "column": 1,
+          "line": 134
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "mapping.rs:137:5: replace ads_connection_state_status -> ConnectorStatusProjection with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 153
+      },
+      "start": {
+        "column": 5,
+        "line": 137
+      }
+    }
+  },
+  {
+    "diff": "--- mapping.rs\n+++ replace ads_connection_status_state -> ConnectorStatusProjection with Default::default()\n@@ -154,42 +154,17 @@\n }\n \n /// Project ADS report connection state into the connector contract.\n #[must_use]\n pub fn ads_connection_status_state(\n     state: AdsConnectionStatusState,\n     degraded_points: usize,\n ) -> ConnectorStatusProjection {\n-    match state {\n-        AdsConnectionStatusState::Connected if degraded_points == 0 => {\n-            ConnectorStatusProjection::new(ConnectorState::Ready, ConnectorHealth::Ok)\n-        }\n-        AdsConnectionStatusState::Connected => {\n-            ConnectorStatusProjection::new(ConnectorState::Degraded, ConnectorHealth::Degraded)\n-        }\n-        AdsConnectionStatusState::Reconnecting => {\n-            ConnectorStatusProjection::new(ConnectorState::Reconnecting, ConnectorHealth::Degraded)\n-        }\n-        AdsConnectionStatusState::NotReady => {\n-            ConnectorStatusProjection::new(ConnectorState::NotReady, ConnectorHealth::Unknown)\n-        }\n-        AdsConnectionStatusState::Faulted => {\n-            ConnectorStatusProjection::new(ConnectorState::Faulted, ConnectorHealth::Faulted)\n-        }\n-        AdsConnectionStatusState::Stale => {\n-            ConnectorStatusProjection::new(ConnectorState::Stale, ConnectorHealth::Degraded)\n-        }\n-        AdsConnectionStatusState::Disabled => {\n-            ConnectorStatusProjection::new(ConnectorState::Disabled, ConnectorHealth::Unknown)\n-        }\n-        AdsConnectionStatusState::Unknown => {\n-            ConnectorStatusProjection::new(ConnectorState::NotReady, ConnectorHealth::Unknown)\n-        }\n-    }\n+    Default::default() /* ~ changed by cargo-mutants ~ */\n }\n \n /// Project OPC UA client connection state into the connector contract.\n #[must_use]\n pub fn opcua_client_status(\n     state: OpcUaClientConnectionState,\n     degraded_points: usize,\n ) -> ConnectorStatusProjection {\n",
+    "file": "mapping.rs",
+    "function": {
+      "function_name": "ads_connection_status_state",
+      "return_type": "-> ConnectorStatusProjection",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 188
+        },
+        "start": {
+          "column": 1,
+          "line": 156
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "mapping.rs:162:5: replace ads_connection_status_state -> ConnectorStatusProjection with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 187
+      },
+      "start": {
+        "column": 5,
+        "line": 162
+      }
+    }
+  },
+  {
+    "diff": "--- mapping.rs\n+++ replace match guard degraded_points == 0 with true in ads_connection_status_state\n@@ -155,17 +155,17 @@\n \n /// Project ADS report connection state into the connector contract.\n #[must_use]\n pub fn ads_connection_status_state(\n     state: AdsConnectionStatusState,\n     degraded_points: usize,\n ) -> ConnectorStatusProjection {\n     match state {\n-        AdsConnectionStatusState::Connected if degraded_points == 0 => {\n+        AdsConnectionStatusState::Connected if true /* ~ changed by cargo-mutants ~ */ => {\n             ConnectorStatusProjection::new(ConnectorState::Ready, ConnectorHealth::Ok)\n         }\n         AdsConnectionStatusState::Connected => {\n             ConnectorStatusProjection::new(ConnectorState::Degraded, ConnectorHealth::Degraded)\n         }\n         AdsConnectionStatusState::Reconnecting => {\n             ConnectorStatusProjection::new(ConnectorState::Reconnecting, ConnectorHealth::Degraded)\n         }\n",
+    "file": "mapping.rs",
+    "function": {
+      "function_name": "ads_connection_status_state",
+      "return_type": "-> ConnectorStatusProjection",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 188
+        },
+        "start": {
+          "column": 1,
+          "line": 156
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "mapping.rs:163:48: replace match guard degraded_points == 0 with true in ads_connection_status_state",
+    "package": "single_file",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 68,
+        "line": 163
+      },
+      "start": {
+        "column": 48,
+        "line": 163
+      }
+    }
+  },
+  {
+    "diff": "--- mapping.rs\n+++ replace match guard degraded_points == 0 with false in ads_connection_status_state\n@@ -155,17 +155,17 @@\n \n /// Project ADS report connection state into the connector contract.\n #[must_use]\n pub fn ads_connection_status_state(\n     state: AdsConnectionStatusState,\n     degraded_points: usize,\n ) -> ConnectorStatusProjection {\n     match state {\n-        AdsConnectionStatusState::Connected if degraded_points == 0 => {\n+        AdsConnectionStatusState::Connected if false /* ~ changed by cargo-mutants ~ */ => {\n             ConnectorStatusProjection::new(ConnectorState::Ready, ConnectorHealth::Ok)\n         }\n         AdsConnectionStatusState::Connected => {\n             ConnectorStatusProjection::new(ConnectorState::Degraded, ConnectorHealth::Degraded)\n         }\n         AdsConnectionStatusState::Reconnecting => {\n             ConnectorStatusProjection::new(ConnectorState::Reconnecting, ConnectorHealth::Degraded)\n         }\n",
+    "file": "mapping.rs",
+    "function": {
+      "function_name": "ads_connection_status_state",
+      "return_type": "-> ConnectorStatusProjection",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 188
+        },
+        "start": {
+          "column": 1,
+          "line": 156
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "mapping.rs:163:48: replace match guard degraded_points == 0 with false in ads_connection_status_state",
+    "package": "single_file",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 68,
+        "line": 163
+      },
+      "start": {
+        "column": 48,
+        "line": 163
+      }
+    }
+  },
+  {
+    "diff": "--- mapping.rs\n+++ replace == with != in ads_connection_status_state\n@@ -155,17 +155,17 @@\n \n /// Project ADS report connection state into the connector contract.\n #[must_use]\n pub fn ads_connection_status_state(\n     state: AdsConnectionStatusState,\n     degraded_points: usize,\n ) -> ConnectorStatusProjection {\n     match state {\n-        AdsConnectionStatusState::Connected if degraded_points == 0 => {\n+        AdsConnectionStatusState::Connected if degraded_points != /* ~ changed by cargo-mutants ~ */ 0 => {\n             ConnectorStatusProjection::new(ConnectorState::Ready, ConnectorHealth::Ok)\n         }\n         AdsConnectionStatusState::Connected => {\n             ConnectorStatusProjection::new(ConnectorState::Degraded, ConnectorHealth::Degraded)\n         }\n         AdsConnectionStatusState::Reconnecting => {\n             ConnectorStatusProjection::new(ConnectorState::Reconnecting, ConnectorHealth::Degraded)\n         }\n",
+    "file": "mapping.rs",
+    "function": {
+      "function_name": "ads_connection_status_state",
+      "return_type": "-> ConnectorStatusProjection",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 188
+        },
+        "start": {
+          "column": 1,
+          "line": 156
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "mapping.rs:163:64: replace == with != in ads_connection_status_state",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 66,
+        "line": 163
+      },
+      "start": {
+        "column": 64,
+        "line": 163
+      }
+    }
+  },
+  {
+    "diff": "--- mapping.rs\n+++ replace opcua_client_status -> ConnectorStatusProjection with Default::default()\n@@ -188,42 +188,17 @@\n }\n \n /// Project OPC UA client connection state into the connector contract.\n #[must_use]\n pub fn opcua_client_status(\n     state: OpcUaClientConnectionState,\n     degraded_points: usize,\n ) -> ConnectorStatusProjection {\n-    match state {\n-        OpcUaClientConnectionState::Disabled => {\n-            ConnectorStatusProjection::new(ConnectorState::Disabled, ConnectorHealth::Unknown)\n-        }\n-        OpcUaClientConnectionState::Configured => {\n-            ConnectorStatusProjection::new(ConnectorState::Configured, ConnectorHealth::Unknown)\n-        }\n-        OpcUaClientConnectionState::Connecting => {\n-            ConnectorStatusProjection::new(ConnectorState::Reconnecting, ConnectorHealth::Degraded)\n-        }\n-        OpcUaClientConnectionState::Connected if degraded_points == 0 => {\n-            ConnectorStatusProjection::new(ConnectorState::Ready, ConnectorHealth::Ok)\n-        }\n-        OpcUaClientConnectionState::Connected => {\n-            ConnectorStatusProjection::new(ConnectorState::Degraded, ConnectorHealth::Degraded)\n-        }\n-        OpcUaClientConnectionState::Reconnecting => {\n-            ConnectorStatusProjection::new(ConnectorState::Reconnecting, ConnectorHealth::Degraded)\n-        }\n-        OpcUaClientConnectionState::Stale => {\n-            ConnectorStatusProjection::new(ConnectorState::Stale, ConnectorHealth::Degraded)\n-        }\n-        OpcUaClientConnectionState::Faulted => {\n-            ConnectorStatusProjection::new(ConnectorState::Faulted, ConnectorHealth::Faulted)\n-        }\n-    }\n+    Default::default() /* ~ changed by cargo-mutants ~ */\n }\n \n /// Project OPC UA server snapshot availability into the connector contract.\n #[must_use]\n pub fn opcua_server_snapshot_status(state: OpcUaServerSnapshotState) -> ConnectorStatusProjection {\n     match state {\n         OpcUaServerSnapshotState::Disabled => {\n             ConnectorStatusProjection::new(ConnectorState::Disabled, ConnectorHealth::Unknown)\n",
+    "file": "mapping.rs",
+    "function": {
+      "function_name": "opcua_client_status",
+      "return_type": "-> ConnectorStatusProjection",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 222
+        },
+        "start": {
+          "column": 1,
+          "line": 190
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "mapping.rs:196:5: replace opcua_client_status -> ConnectorStatusProjection with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 221
+      },
+      "start": {
+        "column": 5,
+        "line": 196
+      }
+    }
+  },
+  {
+    "diff": "--- mapping.rs\n+++ replace match guard degraded_points == 0 with true in opcua_client_status\n@@ -198,17 +198,17 @@\n             ConnectorStatusProjection::new(ConnectorState::Disabled, ConnectorHealth::Unknown)\n         }\n         OpcUaClientConnectionState::Configured => {\n             ConnectorStatusProjection::new(ConnectorState::Configured, ConnectorHealth::Unknown)\n         }\n         OpcUaClientConnectionState::Connecting => {\n             ConnectorStatusProjection::new(ConnectorState::Reconnecting, ConnectorHealth::Degraded)\n         }\n-        OpcUaClientConnectionState::Connected if degraded_points == 0 => {\n+        OpcUaClientConnectionState::Connected if true /* ~ changed by cargo-mutants ~ */ => {\n             ConnectorStatusProjection::new(ConnectorState::Ready, ConnectorHealth::Ok)\n         }\n         OpcUaClientConnectionState::Connected => {\n             ConnectorStatusProjection::new(ConnectorState::Degraded, ConnectorHealth::Degraded)\n         }\n         OpcUaClientConnectionState::Reconnecting => {\n             ConnectorStatusProjection::new(ConnectorState::Reconnecting, ConnectorHealth::Degraded)\n         }\n",
+    "file": "mapping.rs",
+    "function": {
+      "function_name": "opcua_client_status",
+      "return_type": "-> ConnectorStatusProjection",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 222
+        },
+        "start": {
+          "column": 1,
+          "line": 190
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "mapping.rs:206:50: replace match guard degraded_points == 0 with true in opcua_client_status",
+    "package": "single_file",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 70,
+        "line": 206
+      },
+      "start": {
+        "column": 50,
+        "line": 206
+      }
+    }
+  },
+  {
+    "diff": "--- mapping.rs\n+++ replace match guard degraded_points == 0 with false in opcua_client_status\n@@ -198,17 +198,17 @@\n             ConnectorStatusProjection::new(ConnectorState::Disabled, ConnectorHealth::Unknown)\n         }\n         OpcUaClientConnectionState::Configured => {\n             ConnectorStatusProjection::new(ConnectorState::Configured, ConnectorHealth::Unknown)\n         }\n         OpcUaClientConnectionState::Connecting => {\n             ConnectorStatusProjection::new(ConnectorState::Reconnecting, ConnectorHealth::Degraded)\n         }\n-        OpcUaClientConnectionState::Connected if degraded_points == 0 => {\n+        OpcUaClientConnectionState::Connected if false /* ~ changed by cargo-mutants ~ */ => {\n             ConnectorStatusProjection::new(ConnectorState::Ready, ConnectorHealth::Ok)\n         }\n         OpcUaClientConnectionState::Connected => {\n             ConnectorStatusProjection::new(ConnectorState::Degraded, ConnectorHealth::Degraded)\n         }\n         OpcUaClientConnectionState::Reconnecting => {\n             ConnectorStatusProjection::new(ConnectorState::Reconnecting, ConnectorHealth::Degraded)\n         }\n",
+    "file": "mapping.rs",
+    "function": {
+      "function_name": "opcua_client_status",
+      "return_type": "-> ConnectorStatusProjection",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 222
+        },
+        "start": {
+          "column": 1,
+          "line": 190
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "mapping.rs:206:50: replace match guard degraded_points == 0 with false in opcua_client_status",
+    "package": "single_file",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 70,
+        "line": 206
+      },
+      "start": {
+        "column": 50,
+        "line": 206
+      }
+    }
+  },
+  {
+    "diff": "--- mapping.rs\n+++ replace == with != in opcua_client_status\n@@ -198,17 +198,17 @@\n             ConnectorStatusProjection::new(ConnectorState::Disabled, ConnectorHealth::Unknown)\n         }\n         OpcUaClientConnectionState::Configured => {\n             ConnectorStatusProjection::new(ConnectorState::Configured, ConnectorHealth::Unknown)\n         }\n         OpcUaClientConnectionState::Connecting => {\n             ConnectorStatusProjection::new(ConnectorState::Reconnecting, ConnectorHealth::Degraded)\n         }\n-        OpcUaClientConnectionState::Connected if degraded_points == 0 => {\n+        OpcUaClientConnectionState::Connected if degraded_points != /* ~ changed by cargo-mutants ~ */ 0 => {\n             ConnectorStatusProjection::new(ConnectorState::Ready, ConnectorHealth::Ok)\n         }\n         OpcUaClientConnectionState::Connected => {\n             ConnectorStatusProjection::new(ConnectorState::Degraded, ConnectorHealth::Degraded)\n         }\n         OpcUaClientConnectionState::Reconnecting => {\n             ConnectorStatusProjection::new(ConnectorState::Reconnecting, ConnectorHealth::Degraded)\n         }\n",
+    "file": "mapping.rs",
+    "function": {
+      "function_name": "opcua_client_status",
+      "return_type": "-> ConnectorStatusProjection",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 222
+        },
+        "start": {
+          "column": 1,
+          "line": 190
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "mapping.rs:206:66: replace == with != in opcua_client_status",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 68,
+        "line": 206
+      },
+      "start": {
+        "column": 66,
+        "line": 206
+      }
+    }
+  },
+  {
+    "diff": "--- mapping.rs\n+++ replace opcua_server_snapshot_status -> ConnectorStatusProjection with Default::default()\n@@ -219,33 +219,17 @@\n             ConnectorStatusProjection::new(ConnectorState::Faulted, ConnectorHealth::Faulted)\n         }\n     }\n }\n \n /// Project OPC UA server snapshot availability into the connector contract.\n #[must_use]\n pub fn opcua_server_snapshot_status(state: OpcUaServerSnapshotState) -> ConnectorStatusProjection {\n-    match state {\n-        OpcUaServerSnapshotState::Disabled => {\n-            ConnectorStatusProjection::new(ConnectorState::Disabled, ConnectorHealth::Unknown)\n-        }\n-        OpcUaServerSnapshotState::Starting => {\n-            ConnectorStatusProjection::new(ConnectorState::Starting, ConnectorHealth::Unknown)\n-        }\n-        OpcUaServerSnapshotState::NoSnapshot => {\n-            ConnectorStatusProjection::new(ConnectorState::NotReady, ConnectorHealth::Unknown)\n-        }\n-        OpcUaServerSnapshotState::SnapshotReady => {\n-            ConnectorStatusProjection::new(ConnectorState::Ready, ConnectorHealth::Ok)\n-        }\n-        OpcUaServerSnapshotState::Faulted => {\n-            ConnectorStatusProjection::new(ConnectorState::Faulted, ConnectorHealth::Faulted)\n-        }\n-    }\n+    Default::default() /* ~ changed by cargo-mutants ~ */\n }\n \n /// Project MQTT session/freshness into the connector contract.\n #[must_use]\n pub fn mqtt_session_status(state: MqttSessionProjection) -> ConnectorStatusProjection {\n     match state {\n         MqttSessionProjection::Disabled => {\n             ConnectorStatusProjection::new(ConnectorState::Disabled, ConnectorHealth::Unknown)\n",
+    "file": "mapping.rs",
+    "function": {
+      "function_name": "opcua_server_snapshot_status",
+      "return_type": "-> ConnectorStatusProjection",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 244
+        },
+        "start": {
+          "column": 1,
+          "line": 224
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "mapping.rs:227:5: replace opcua_server_snapshot_status -> ConnectorStatusProjection with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 243
+      },
+      "start": {
+        "column": 5,
+        "line": 227
+      }
+    }
+  },
+  {
+    "diff": "--- mapping.rs\n+++ replace mqtt_session_status -> ConnectorStatusProjection with Default::default()\n@@ -241,36 +241,17 @@\n             ConnectorStatusProjection::new(ConnectorState::Faulted, ConnectorHealth::Faulted)\n         }\n     }\n }\n \n /// Project MQTT session/freshness into the connector contract.\n #[must_use]\n pub fn mqtt_session_status(state: MqttSessionProjection) -> ConnectorStatusProjection {\n-    match state {\n-        MqttSessionProjection::Disabled => {\n-            ConnectorStatusProjection::new(ConnectorState::Disabled, ConnectorHealth::Unknown)\n-        }\n-        MqttSessionProjection::Disconnected => {\n-            ConnectorStatusProjection::new(ConnectorState::Stale, ConnectorHealth::Degraded)\n-        }\n-        MqttSessionProjection::Connecting => {\n-            ConnectorStatusProjection::new(ConnectorState::Starting, ConnectorHealth::Unknown)\n-        }\n-        MqttSessionProjection::ConnectedFresh => {\n-            ConnectorStatusProjection::new(ConnectorState::Ready, ConnectorHealth::Ok)\n-        }\n-        MqttSessionProjection::ConnectedStale => {\n-            ConnectorStatusProjection::new(ConnectorState::Stale, ConnectorHealth::Degraded)\n-        }\n-        MqttSessionProjection::Faulted => {\n-            ConnectorStatusProjection::new(ConnectorState::Faulted, ConnectorHealth::Faulted)\n-        }\n-    }\n+    Default::default() /* ~ changed by cargo-mutants ~ */\n }\n \n /// Project Modbus runtime status into the connector contract.\n #[must_use]\n pub fn modbus_status(state: ModbusProjection) -> ConnectorStatusProjection {\n     match state {\n         ModbusProjection::Disabled => {\n             ConnectorStatusProjection::new(ConnectorState::Disabled, ConnectorHealth::Unknown)\n",
+    "file": "mapping.rs",
+    "function": {
+      "function_name": "mqtt_session_status",
+      "return_type": "-> ConnectorStatusProjection",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 269
+        },
+        "start": {
+          "column": 1,
+          "line": 246
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "mapping.rs:249:5: replace mqtt_session_status -> ConnectorStatusProjection with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 268
+      },
+      "start": {
+        "column": 5,
+        "line": 249
+      }
+    }
+  },
+  {
+    "diff": "--- mapping.rs\n+++ replace modbus_status -> ConnectorStatusProjection with Default::default()\n@@ -266,30 +266,17 @@\n             ConnectorStatusProjection::new(ConnectorState::Faulted, ConnectorHealth::Faulted)\n         }\n     }\n }\n \n /// Project Modbus runtime status into the connector contract.\n #[must_use]\n pub fn modbus_status(state: ModbusProjection) -> ConnectorStatusProjection {\n-    match state {\n-        ModbusProjection::Disabled => {\n-            ConnectorStatusProjection::new(ConnectorState::Disabled, ConnectorHealth::Unknown)\n-        }\n-        ModbusProjection::Ready => {\n-            ConnectorStatusProjection::new(ConnectorState::Ready, ConnectorHealth::Ok)\n-        }\n-        ModbusProjection::Timeout | ModbusProjection::ProtocolError => {\n-            ConnectorStatusProjection::new(ConnectorState::Degraded, ConnectorHealth::Degraded)\n-        }\n-        ModbusProjection::Faulted => {\n-            ConnectorStatusProjection::new(ConnectorState::Faulted, ConnectorHealth::Faulted)\n-        }\n-    }\n+    Default::default() /* ~ changed by cargo-mutants ~ */\n }\n \n /// Project EtherCAT bus status into the connector contract.\n #[must_use]\n pub fn ethercat_status(state: EthercatProjection) -> ConnectorStatusProjection {\n     match state {\n         EthercatProjection::Disabled => {\n             ConnectorStatusProjection::new(ConnectorState::Disabled, ConnectorHealth::Unknown)\n",
+    "file": "mapping.rs",
+    "function": {
+      "function_name": "modbus_status",
+      "return_type": "-> ConnectorStatusProjection",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 288
+        },
+        "start": {
+          "column": 1,
+          "line": 271
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "mapping.rs:274:5: replace modbus_status -> ConnectorStatusProjection with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 287
+      },
+      "start": {
+        "column": 5,
+        "line": 274
+      }
+    }
+  },
+  {
+    "diff": "--- mapping.rs\n+++ replace ethercat_status -> ConnectorStatusProjection with Default::default()\n@@ -285,26 +285,10 @@\n             ConnectorStatusProjection::new(ConnectorState::Faulted, ConnectorHealth::Faulted)\n         }\n     }\n }\n \n /// Project EtherCAT bus status into the connector contract.\n #[must_use]\n pub fn ethercat_status(state: EthercatProjection) -> ConnectorStatusProjection {\n-    match state {\n-        EthercatProjection::Disabled => {\n-            ConnectorStatusProjection::new(ConnectorState::Disabled, ConnectorHealth::Unknown)\n-        }\n-        EthercatProjection::Operational => {\n-            ConnectorStatusProjection::new(ConnectorState::Ready, ConnectorHealth::Ok)\n-        }\n-        EthercatProjection::Degraded => {\n-            ConnectorStatusProjection::new(ConnectorState::Degraded, ConnectorHealth::Degraded)\n-        }\n-        EthercatProjection::Reconnecting => {\n-            ConnectorStatusProjection::new(ConnectorState::Reconnecting, ConnectorHealth::Degraded)\n-        }\n-        EthercatProjection::Faulted => {\n-            ConnectorStatusProjection::new(ConnectorState::Faulted, ConnectorHealth::Faulted)\n-        }\n-    }\n+    Default::default() /* ~ changed by cargo-mutants ~ */\n }\n",
+    "file": "mapping.rs",
+    "function": {
+      "function_name": "ethercat_status",
+      "return_type": "-> ConnectorStatusProjection",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 310
+        },
+        "start": {
+          "column": 1,
+          "line": 290
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "mapping.rs:293:5: replace ethercat_status -> ConnectorStatusProjection with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 309
+      },
+      "start": {
+        "column": 5,
+        "line": 293
+      }
+    }
+  }
+]

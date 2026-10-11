@@ -130,7 +130,9 @@ fn vm_write_target_uses_direct_storage_for_empty_path_instance_refs() {
     ));
 
     let caller_frame = VmFrame {
-        pou_id: 0,
+        parameter_values_present: Vec::new(),
+        activation: None,
+        pou_id: Some(0),
         return_pc: 0,
         code_start: 0,
         code_end: 0,
@@ -166,7 +168,9 @@ fn vm_write_target_uses_direct_storage_for_empty_path_global_refs() {
     ));
 
     let caller_frame = VmFrame {
-        pou_id: 0,
+        parameter_values_present: Vec::new(),
+        activation: None,
+        pou_id: Some(0),
         return_pc: 0,
         code_start: 0,
         code_end: 0,
@@ -199,7 +203,9 @@ fn vm_write_target_uses_caller_local_direct_for_empty_path_vm_locals() {
     ));
 
     let mut caller_frame = VmFrame {
-        pou_id: 0,
+        parameter_values_present: Vec::new(),
+        activation: None,
+        pou_id: Some(0),
         return_pc: 0,
         code_start: 0,
         code_end: 0,
@@ -276,7 +282,9 @@ fn read_vm_target_value_matches_generic_reference_path_across_reference_shapes()
         .expect("instance ref");
 
     let caller_frame = VmFrame {
-        pou_id: 0,
+        parameter_values_present: Vec::new(),
+        activation: None,
+        pou_id: Some(0),
         return_pc: 0,
         code_start: 0,
         code_end: 0,
@@ -360,7 +368,9 @@ fn write_vm_reference_updates_nested_vm_local_path() {
     let mut fields = IndexMap::new();
     fields.insert(SmolStr::new("VALUE"), Value::DInt(1));
     let mut caller_frame = VmFrame {
-        pou_id: 0,
+        parameter_values_present: Vec::new(),
+        activation: None,
+        pou_id: Some(0),
         return_pc: 0,
         code_start: 0,
         code_end: 0,

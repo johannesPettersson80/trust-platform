@@ -1,10 +1,15 @@
 impl<'a> BytecodeEncoder<'a> {
-    fn emit_expr(
+    pub(in crate::bytecode::encoder) fn emit_expr(
         &mut self,
         ctx: &CodegenContext,
         expr: &crate::program_model::Expr,
         code: &mut Vec<u8>,
     ) -> Result<bool, BytecodeError> {
+        if code.len() >= crate::bytecode::BYTECODE_MAX_CONTAINER_BYTES {
+            return Err(BytecodeError::InvalidSection(
+                "expression bytecode size limit exceeded".into(),
+            ));
+        }
         let start_len = code.len();
         let result = match expr {
             crate::program_model::Expr::Literal(value) => {
@@ -23,8 +28,14 @@ impl<'a> BytecodeEncoder<'a> {
                 code.extend_from_slice(&const_idx.to_le_bytes());
                 Ok(true)
             }
-            crate::program_model::Expr::ArrayInitializer(_) => Ok(false),
-            crate::program_model::Expr::StructInitializer(_) => Ok(false),
+            crate::program_model::Expr::ArrayInitializer(_)
+            | crate::program_model::Expr::StructInitializer(_)
+                if self.authoring.is_some() && ctx.initializer =>
+            {
+                self.emit_initializer_aggregate(ctx, expr, code)
+            }
+            crate::program_model::Expr::ArrayInitializer(_)
+            | crate::program_model::Expr::StructInitializer(_) => Ok(false),
             crate::program_model::Expr::SizeOf(target) => self.emit_sizeof_expr(ctx, target, code),
             crate::program_model::Expr::Name(name) => {
                 if let Some(reference) = ctx.local_ref(name) {
@@ -32,6 +43,20 @@ impl<'a> BytecodeEncoder<'a> {
                     code.push(0x20);
                     code.extend_from_slice(&ref_idx.to_le_bytes());
                     return Ok(true);
+                }
+                if ctx.static_ref(name).is_none() && ctx.self_field_name(name).is_none() {
+                    if let Some(alias) = self
+                        .construction
+                        .aliases
+                        .get(&super::util::normalize_name(name))
+                        .cloned()
+                    {
+                        if let Some(partial) = alias.partial {
+                            self.emit_load_ref(&alias.reference, code)?;
+                            self.emit_partial_read(partial, code);
+                            return Ok(true);
+                        }
+                    }
                 }
                 if self.emit_dynamic_load_name(ctx, name, code)? {
                     return Ok(true);
@@ -376,11 +401,7 @@ impl<'a> BytecodeEncoder<'a> {
         }
     }
 
-    fn intern_native_call_symbol(
-        &mut self,
-        target_name: &SmolStr,
-        arg_tokens: &[SmolStr],
-    ) -> u32 {
+    fn intern_native_call_symbol(&mut self, target_name: &SmolStr, arg_tokens: &[SmolStr]) -> u32 {
         let mut symbol = target_name.as_str().to_owned();
         for token in arg_tokens {
             symbol.push('|');

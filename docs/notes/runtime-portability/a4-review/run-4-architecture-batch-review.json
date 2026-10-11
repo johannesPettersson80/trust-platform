@@ -1,0 +1,34 @@
+{
+  "review": "Independent source-only root architecture and run5 batch correction",
+  "verdict": "No actionable findings; no execution performed",
+  "aggregate_sha256": "5e71b496e80051a207faa452a1b03fd1ee5b6a9164e62f26010be4d6c5ec791f",
+  "framing": "sorted relative path/NUL/raw file bytes/NUL SHA256",
+  "files": [
+    {
+      "path": "crates/trust-runtime/tests/initializer_architecture.rs",
+      "sha256": "d5a5fbe9b41410b1f3330eeba4b1824c848586c20c6ee757b9d79408e40e3b6f",
+      "bytes": 15460
+    },
+    {
+      "path": "docs/notes/runtime-portability/a4-evidence/batch-setup-run-5/format-once.sh",
+      "sha256": "7cbcf1b0aa72c382a0e499d0a7d2d4dfe5a032d182d40a6ab62add122cd68f30",
+      "bytes": 1129
+    },
+    {
+      "path": "docs/notes/runtime-portability/a4-evidence/batch-setup-run-5/freeze-source.py",
+      "sha256": "37b8832e584be2e7bbc280ebd61df1ccd33f27fa964c4a9c10e99171fff329b2",
+      "bytes": 560
+    },
+    {
+      "path": "docs/notes/runtime-portability/a4-evidence/batch-setup-run-5/prepare-metadata-index.py",
+      "sha256": "97adf6ccb3ef90c7c99806eaefa1eb7fbab19dda431ccbaa6f145a95497938b0",
+      "bytes": 518
+    },
+    {
+      "path": "docs/notes/runtime-portability/a4-evidence/batch-setup-run-5/run-on-builder.sh",
+      "sha256": "27f84652acf595454c9756f9d7c288f38410e7e1fab57a3f4154e5665a67525f",
+      "bytes": 10378
+    }
+  ],
+  "scope": "One added allowed source root agrees with relocated implementation; assertions unchanged. Run5 setup only substitutes run identifiers from run4; retained copies match. Reference-type production correction requires separate review."
+}

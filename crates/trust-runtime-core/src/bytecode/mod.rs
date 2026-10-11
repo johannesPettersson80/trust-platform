@@ -1,6 +1,18 @@
 //! Portable bytecode container, decoding, validation and metadata.
 
+mod diagnostics;
+pub use diagnostics::SectionDiagnostic;
+
+/// Hosted compatibility text; portable builds retain structured diagnostic context.
+#[cfg(feature = "std")]
+pub type SectionDetail = SmolStr;
+/// Portable lazy-rendered section reason and context.
+#[cfg(not(feature = "std"))]
+pub type SectionDetail = SectionDiagnostic;
+
 mod decode;
+pub use decode::DecodeStats;
+mod disassemble;
 mod encode;
 mod format;
 mod limits;
@@ -9,6 +21,7 @@ pub use reasons::RejectionReason;
 mod metadata;
 mod module;
 mod validate;
+pub use validate::construction_demands;
 
 use alloc::vec::Vec;
 use smol_str::SmolStr;
@@ -37,9 +50,23 @@ impl BytecodeVersion {
     pub const fn new(major: u16, minor: u16) -> Self {
         Self { major, minor }
     }
+    /// Legacy default producer format during the A3/A4 migration.
+    pub const LEGACY: Self = Self::new(1, 1);
+    /// Complete source-free construction format; execution support is separate.
+    pub const SOURCE_FREE: Self = Self::new(2, 0);
+
+    /// Version support for the dual-major byte-oriented reader.
+    pub const fn is_supported(self) -> bool {
+        self.major == 1 || (self.major == 2 && self.minor == 0)
+    }
+
+    /// All 2.0 common payloads retain the extended 1.1 layout.
+    pub const fn uses_extended_layout(self) -> bool {
+        self.major == 2 || self.minor >= 1
+    }
 }
 
-/// Supported major bytecode version.
+/// Default legacy producer major; reader support also includes STBC 2.0.
 pub const SUPPORTED_MAJOR_VERSION: u16 = 1;
 /// Supported minor bytecode version.
 pub const SUPPORTED_MINOR_VERSION: u16 = 1;
@@ -58,6 +85,12 @@ pub enum BytecodeError {
         /// Observed minor version.
         minor: u16,
     },
+    /// Decoder reservations exceed the admitted allocation budget.
+    #[error("decoder memory limit exceeded")]
+    DecodeMemoryLimit,
+    /// Decoder processing exceeds the admitted work budget.
+    #[error("decoder work limit exceeded")]
+    DecodeWorkLimit,
     /// Header fields are internally inconsistent.
     #[error("invalid bytecode header: {0}")]
     InvalidHeader(SmolStr),
@@ -86,7 +119,7 @@ pub enum BytecodeError {
     UnexpectedEof,
     /// A section payload is malformed.
     #[error("invalid section data: {0}")]
-    InvalidSection(SmolStr),
+    InvalidSection(SectionDetail),
     /// A required section is missing.
     #[error("missing required section: {0}")]
     MissingSection(SmolStr),
@@ -114,6 +147,8 @@ impl BytecodeError {
     #[must_use]
     pub const fn stable_code(&self) -> StableErrorCode {
         match self {
+            Self::DecodeMemoryLimit => StableErrorCode::BytecodeDecodeMemoryLimit,
+            Self::DecodeWorkLimit => StableErrorCode::BytecodeDecodeWorkLimit,
             Self::InvalidMagic => StableErrorCode::BytecodeInvalidMagic,
             Self::UnsupportedVersion { .. } => StableErrorCode::BytecodeUnsupportedVersion,
             Self::InvalidHeader(_) => StableErrorCode::BytecodeInvalidHeader,

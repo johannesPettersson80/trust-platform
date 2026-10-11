@@ -1,0 +1,674 @@
+[
+  {
+    "diff": "--- dispatch.rs\n+++ replace apply_conversion -> Result<Value, RuntimeError> with Ok(Default::default())\n@@ -11,26 +11,17 @@\n use super::time::{convert_to_date, convert_to_dt, convert_to_time, convert_to_tod};\n use super::util::{is_conversion_allowed, is_integer_type, value_type_id};\n use super::ConversionMode;\n \n pub(super) fn apply_conversion(\n     spec: ConversionSpec,\n     args: &[Value],\n ) -> Result<Value, RuntimeError> {\n-    require_arity(args, 1)?;\n-    let value = &args[0];\n-    match spec {\n-        ConversionSpec::Convert { src, dst } => {\n-            convert_with_mode(value, src, dst, ConversionMode::Round)\n-        }\n-        ConversionSpec::Trunc { src, dst } => trunc_convert(value, src, dst),\n-        ConversionSpec::ToBcd { src, dst } => to_bcd(value, src, dst),\n-        ConversionSpec::BcdTo { src, dst } => from_bcd(value, src, dst),\n-    }\n+    Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n }\n \n fn convert_with_mode(\n     value: &Value,\n     src: Option<ConversionType>,\n     dst: ConversionType,\n     mode: ConversionMode,\n ) -> Result<Value, RuntimeError> {\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "apply_conversion",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 29
+        },
+        "start": {
+          "column": 1,
+          "line": 15
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "dispatch.rs:19:5: replace apply_conversion -> Result<Value, RuntimeError> with Ok(Default::default())",
+    "package": "single_file",
+    "replacement": "Ok(Default::default())",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 28
+      },
+      "start": {
+        "column": 5,
+        "line": 19
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ replace convert_with_mode -> Result<Value, RuntimeError> with Ok(Default::default())\n@@ -29,21 +29,17 @@\n }\n \n fn convert_with_mode(\n     value: &Value,\n     src: Option<ConversionType>,\n     dst: ConversionType,\n     mode: ConversionMode,\n ) -> Result<Value, RuntimeError> {\n-    let (value, actual_src) = normalize_source_value(value, src, mode)?;\n-    if !is_conversion_allowed(actual_src, dst) {\n-        return Err(RuntimeError::TypeMismatch);\n-    }\n-    convert_value(&value, dst, mode)\n+    Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n }\n \n fn trunc_convert(\n     value: &Value,\n     src: Option<ConversionType>,\n     dst: ConversionType,\n ) -> Result<Value, RuntimeError> {\n     let (value, actual_src) = normalize_source_value(value, src, ConversionMode::Trunc)?;\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "convert_with_mode",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 42
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "dispatch.rs:37:5: replace convert_with_mode -> Result<Value, RuntimeError> with Ok(Default::default())",
+    "package": "single_file",
+    "replacement": "Ok(Default::default())",
+    "span": {
+      "end": {
+        "column": 37,
+        "line": 41
+      },
+      "start": {
+        "column": 5,
+        "line": 37
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ delete ! in convert_with_mode\n@@ -30,17 +30,17 @@\n \n fn convert_with_mode(\n     value: &Value,\n     src: Option<ConversionType>,\n     dst: ConversionType,\n     mode: ConversionMode,\n ) -> Result<Value, RuntimeError> {\n     let (value, actual_src) = normalize_source_value(value, src, mode)?;\n-    if !is_conversion_allowed(actual_src, dst) {\n+    if  /* ~ changed by cargo-mutants ~ */is_conversion_allowed(actual_src, dst) {\n         return Err(RuntimeError::TypeMismatch);\n     }\n     convert_value(&value, dst, mode)\n }\n \n fn trunc_convert(\n     value: &Value,\n     src: Option<ConversionType>,\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "convert_with_mode",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 42
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "dispatch.rs:38:8: delete ! in convert_with_mode",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 9,
+        "line": 38
+      },
+      "start": {
+        "column": 8,
+        "line": 38
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ replace trunc_convert -> Result<Value, RuntimeError> with Ok(Default::default())\n@@ -41,24 +41,17 @@\n     convert_value(&value, dst, mode)\n }\n \n fn trunc_convert(\n     value: &Value,\n     src: Option<ConversionType>,\n     dst: ConversionType,\n ) -> Result<Value, RuntimeError> {\n-    let (value, actual_src) = normalize_source_value(value, src, ConversionMode::Trunc)?;\n-    if !matches!(actual_src, ConversionType::Real | ConversionType::LReal) {\n-        return Err(RuntimeError::TypeMismatch);\n-    }\n-    if !is_integer_type(dst) {\n-        return Err(RuntimeError::TypeMismatch);\n-    }\n-    convert_value(&value, dst, ConversionMode::Trunc)\n+    Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n }\n \n fn normalize_source_value(\n     value: &Value,\n     src: Option<ConversionType>,\n     mode: ConversionMode,\n ) -> Result<(Value, ConversionType), RuntimeError> {\n     let actual_src = value_type_id(value).ok_or(RuntimeError::TypeMismatch)?;\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "trunc_convert",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 57
+        },
+        "start": {
+          "column": 1,
+          "line": 44
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "dispatch.rs:49:5: replace trunc_convert -> Result<Value, RuntimeError> with Ok(Default::default())",
+    "package": "single_file",
+    "replacement": "Ok(Default::default())",
+    "span": {
+      "end": {
+        "column": 54,
+        "line": 56
+      },
+      "start": {
+        "column": 5,
+        "line": 49
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ delete ! in trunc_convert\n@@ -42,17 +42,17 @@\n }\n \n fn trunc_convert(\n     value: &Value,\n     src: Option<ConversionType>,\n     dst: ConversionType,\n ) -> Result<Value, RuntimeError> {\n     let (value, actual_src) = normalize_source_value(value, src, ConversionMode::Trunc)?;\n-    if !matches!(actual_src, ConversionType::Real | ConversionType::LReal) {\n+    if  /* ~ changed by cargo-mutants ~ */matches!(actual_src, ConversionType::Real | ConversionType::LReal) {\n         return Err(RuntimeError::TypeMismatch);\n     }\n     if !is_integer_type(dst) {\n         return Err(RuntimeError::TypeMismatch);\n     }\n     convert_value(&value, dst, ConversionMode::Trunc)\n }\n \n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "trunc_convert",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 57
+        },
+        "start": {
+          "column": 1,
+          "line": 44
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "dispatch.rs:50:8: delete ! in trunc_convert",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 9,
+        "line": 50
+      },
+      "start": {
+        "column": 8,
+        "line": 50
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ delete ! in trunc_convert\n@@ -45,17 +45,17 @@\n     value: &Value,\n     src: Option<ConversionType>,\n     dst: ConversionType,\n ) -> Result<Value, RuntimeError> {\n     let (value, actual_src) = normalize_source_value(value, src, ConversionMode::Trunc)?;\n     if !matches!(actual_src, ConversionType::Real | ConversionType::LReal) {\n         return Err(RuntimeError::TypeMismatch);\n     }\n-    if !is_integer_type(dst) {\n+    if  /* ~ changed by cargo-mutants ~ */is_integer_type(dst) {\n         return Err(RuntimeError::TypeMismatch);\n     }\n     convert_value(&value, dst, ConversionMode::Trunc)\n }\n \n fn normalize_source_value(\n     value: &Value,\n     src: Option<ConversionType>,\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "trunc_convert",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 57
+        },
+        "start": {
+          "column": 1,
+          "line": 44
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "dispatch.rs:53:8: delete ! in trunc_convert",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 9,
+        "line": 53
+      },
+      "start": {
+        "column": 8,
+        "line": 53
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ replace normalize_source_value -> Result<(Value, ConversionType), RuntimeError> with Ok((Default::default(), Default::default()))\n@@ -56,30 +56,17 @@\n     convert_value(&value, dst, ConversionMode::Trunc)\n }\n \n fn normalize_source_value(\n     value: &Value,\n     src: Option<ConversionType>,\n     mode: ConversionMode,\n ) -> Result<(Value, ConversionType), RuntimeError> {\n-    let actual_src = value_type_id(value).ok_or(RuntimeError::TypeMismatch)?;\n-    let Some(expected) = src else {\n-        return Ok((value.clone(), actual_src));\n-    };\n-    if actual_src == expected {\n-        return Ok((value.clone(), actual_src));\n-    }\n-    if !is_conversion_allowed(actual_src, expected) {\n-        return Err(RuntimeError::TypeMismatch);\n-    }\n-    // Runtime storage can widen scalar values (for example INT -> DINT after arithmetic).\n-    // Exact-source conversions should normalize back to the requested source type first.\n-    let coerced = convert_value(value, expected, mode)?;\n-    Ok((coerced, expected))\n+    Ok((Default::default(), Default::default())) /* ~ changed by cargo-mutants ~ */\n }\n \n fn convert_value(\n     value: &Value,\n     dst: ConversionType,\n     mode: ConversionMode,\n ) -> Result<Value, RuntimeError> {\n     if let Some(src) = value_type_id(value) {\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "normalize_source_value",
+      "return_type": "-> Result<(Value, ConversionType), RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 78
+        },
+        "start": {
+          "column": 1,
+          "line": 59
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "dispatch.rs:64:5: replace normalize_source_value -> Result<(Value, ConversionType), RuntimeError> with Ok((Default::default(), Default::default()))",
+    "package": "single_file",
+    "replacement": "Ok((Default::default(), Default::default()))",
+    "span": {
+      "end": {
+        "column": 28,
+        "line": 77
+      },
+      "start": {
+        "column": 5,
+        "line": 64
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ replace == with != in normalize_source_value\n@@ -60,17 +60,17 @@\n     value: &Value,\n     src: Option<ConversionType>,\n     mode: ConversionMode,\n ) -> Result<(Value, ConversionType), RuntimeError> {\n     let actual_src = value_type_id(value).ok_or(RuntimeError::TypeMismatch)?;\n     let Some(expected) = src else {\n         return Ok((value.clone(), actual_src));\n     };\n-    if actual_src == expected {\n+    if actual_src != /* ~ changed by cargo-mutants ~ */ expected {\n         return Ok((value.clone(), actual_src));\n     }\n     if !is_conversion_allowed(actual_src, expected) {\n         return Err(RuntimeError::TypeMismatch);\n     }\n     // Runtime storage can widen scalar values (for example INT -> DINT after arithmetic).\n     // Exact-source conversions should normalize back to the requested source type first.\n     let coerced = convert_value(value, expected, mode)?;\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "normalize_source_value",
+      "return_type": "-> Result<(Value, ConversionType), RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 78
+        },
+        "start": {
+          "column": 1,
+          "line": 59
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "dispatch.rs:68:19: replace == with != in normalize_source_value",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 21,
+        "line": 68
+      },
+      "start": {
+        "column": 19,
+        "line": 68
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ delete ! in normalize_source_value\n@@ -63,17 +63,17 @@\n ) -> Result<(Value, ConversionType), RuntimeError> {\n     let actual_src = value_type_id(value).ok_or(RuntimeError::TypeMismatch)?;\n     let Some(expected) = src else {\n         return Ok((value.clone(), actual_src));\n     };\n     if actual_src == expected {\n         return Ok((value.clone(), actual_src));\n     }\n-    if !is_conversion_allowed(actual_src, expected) {\n+    if  /* ~ changed by cargo-mutants ~ */is_conversion_allowed(actual_src, expected) {\n         return Err(RuntimeError::TypeMismatch);\n     }\n     // Runtime storage can widen scalar values (for example INT -> DINT after arithmetic).\n     // Exact-source conversions should normalize back to the requested source type first.\n     let coerced = convert_value(value, expected, mode)?;\n     Ok((coerced, expected))\n }\n \n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "normalize_source_value",
+      "return_type": "-> Result<(Value, ConversionType), RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 78
+        },
+        "start": {
+          "column": 1,
+          "line": 59
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "dispatch.rs:71:8: delete ! in normalize_source_value",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 9,
+        "line": 71
+      },
+      "start": {
+        "column": 8,
+        "line": 71
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ replace convert_value -> Result<Value, RuntimeError> with Ok(Default::default())\n@@ -77,38 +77,10 @@\n     Ok((coerced, expected))\n }\n \n fn convert_value(\n     value: &Value,\n     dst: ConversionType,\n     mode: ConversionMode,\n ) -> Result<Value, RuntimeError> {\n-    if let Some(src) = value_type_id(value) {\n-        if src == dst {\n-            return Ok(value.clone());\n-        }\n-    }\n-\n-    match dst {\n-        ConversionType::SInt\n-        | ConversionType::Int\n-        | ConversionType::DInt\n-        | ConversionType::LInt\n-        | ConversionType::USInt\n-        | ConversionType::UInt\n-        | ConversionType::UDInt\n-        | ConversionType::ULInt => convert_to_int(value, dst, mode),\n-        ConversionType::Real | ConversionType::LReal => convert_to_real(value, dst),\n-        ConversionType::Byte\n-        | ConversionType::Word\n-        | ConversionType::DWord\n-        | ConversionType::LWord => convert_to_bit_string(value, dst),\n-        ConversionType::Time | ConversionType::LTime => convert_to_time(value, dst),\n-        ConversionType::Date | ConversionType::LDate => convert_to_date(value, dst),\n-        ConversionType::Tod | ConversionType::LTod => convert_to_tod(value, dst),\n-        ConversionType::Dt | ConversionType::Ldt => convert_to_dt(value, dst),\n-        ConversionType::String | ConversionType::WString => convert_to_string(value, dst),\n-        ConversionType::Char | ConversionType::WChar => convert_to_char(value, dst),\n-        ConversionType::Bool => Err(RuntimeError::TypeMismatch),\n-        _ => Err(RuntimeError::TypeMismatch),\n-    }\n+    Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n }\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "convert_value",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 114
+        },
+        "start": {
+          "column": 1,
+          "line": 80
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "dispatch.rs:85:5: replace convert_value -> Result<Value, RuntimeError> with Ok(Default::default())",
+    "package": "single_file",
+    "replacement": "Ok(Default::default())",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 113
+      },
+      "start": {
+        "column": 5,
+        "line": 85
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ replace == with != in convert_value\n@@ -78,17 +78,17 @@\n }\n \n fn convert_value(\n     value: &Value,\n     dst: ConversionType,\n     mode: ConversionMode,\n ) -> Result<Value, RuntimeError> {\n     if let Some(src) = value_type_id(value) {\n-        if src == dst {\n+        if src != /* ~ changed by cargo-mutants ~ */ dst {\n             return Ok(value.clone());\n         }\n     }\n \n     match dst {\n         ConversionType::SInt\n         | ConversionType::Int\n         | ConversionType::DInt\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "convert_value",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 114
+        },
+        "start": {
+          "column": 1,
+          "line": 80
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "dispatch.rs:86:16: replace == with != in convert_value",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 18,
+        "line": 86
+      },
+      "start": {
+        "column": 16,
+        "line": 86
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ delete match arm ConversionType::SInt | ConversionType::Int | ConversionType::DInt | ConversionType::LInt | ConversionType::USInt | ConversionType::UInt | ConversionType::UDInt | ConversionType::ULInt in convert_value\n@@ -84,24 +84,17 @@\n ) -> Result<Value, RuntimeError> {\n     if let Some(src) = value_type_id(value) {\n         if src == dst {\n             return Ok(value.clone());\n         }\n     }\n \n     match dst {\n-        ConversionType::SInt\n-        | ConversionType::Int\n-        | ConversionType::DInt\n-        | ConversionType::LInt\n-        | ConversionType::USInt\n-        | ConversionType::UInt\n-        | ConversionType::UDInt\n-        | ConversionType::ULInt => convert_to_int(value, dst, mode),\n+         /* ~ changed by cargo-mutants ~ */\n         ConversionType::Real | ConversionType::LReal => convert_to_real(value, dst),\n         ConversionType::Byte\n         | ConversionType::Word\n         | ConversionType::DWord\n         | ConversionType::LWord => convert_to_bit_string(value, dst),\n         ConversionType::Time | ConversionType::LTime => convert_to_time(value, dst),\n         ConversionType::Date | ConversionType::LDate => convert_to_date(value, dst),\n         ConversionType::Tod | ConversionType::LTod => convert_to_tod(value, dst),\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "convert_value",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 114
+        },
+        "start": {
+          "column": 1,
+          "line": 80
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "dispatch.rs:92:9: delete match arm ConversionType::SInt | ConversionType::Int | ConversionType::DInt | ConversionType::LInt | ConversionType::USInt | ConversionType::UInt | ConversionType::UDInt | ConversionType::ULInt in convert_value",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 69,
+        "line": 99
+      },
+      "start": {
+        "column": 9,
+        "line": 92
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ delete match arm ConversionType::Real | ConversionType::LReal in convert_value\n@@ -92,17 +92,17 @@\n         ConversionType::SInt\n         | ConversionType::Int\n         | ConversionType::DInt\n         | ConversionType::LInt\n         | ConversionType::USInt\n         | ConversionType::UInt\n         | ConversionType::UDInt\n         | ConversionType::ULInt => convert_to_int(value, dst, mode),\n-        ConversionType::Real | ConversionType::LReal => convert_to_real(value, dst),\n+         /* ~ changed by cargo-mutants ~ */\n         ConversionType::Byte\n         | ConversionType::Word\n         | ConversionType::DWord\n         | ConversionType::LWord => convert_to_bit_string(value, dst),\n         ConversionType::Time | ConversionType::LTime => convert_to_time(value, dst),\n         ConversionType::Date | ConversionType::LDate => convert_to_date(value, dst),\n         ConversionType::Tod | ConversionType::LTod => convert_to_tod(value, dst),\n         ConversionType::Dt | ConversionType::Ldt => convert_to_dt(value, dst),\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "convert_value",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 114
+        },
+        "start": {
+          "column": 1,
+          "line": 80
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "dispatch.rs:100:9: delete match arm ConversionType::Real | ConversionType::LReal in convert_value",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 85,
+        "line": 100
+      },
+      "start": {
+        "column": 9,
+        "line": 100
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ delete match arm ConversionType::Byte | ConversionType::Word | ConversionType::DWord | ConversionType::LWord in convert_value\n@@ -93,20 +93,17 @@\n         | ConversionType::Int\n         | ConversionType::DInt\n         | ConversionType::LInt\n         | ConversionType::USInt\n         | ConversionType::UInt\n         | ConversionType::UDInt\n         | ConversionType::ULInt => convert_to_int(value, dst, mode),\n         ConversionType::Real | ConversionType::LReal => convert_to_real(value, dst),\n-        ConversionType::Byte\n-        | ConversionType::Word\n-        | ConversionType::DWord\n-        | ConversionType::LWord => convert_to_bit_string(value, dst),\n+         /* ~ changed by cargo-mutants ~ */\n         ConversionType::Time | ConversionType::LTime => convert_to_time(value, dst),\n         ConversionType::Date | ConversionType::LDate => convert_to_date(value, dst),\n         ConversionType::Tod | ConversionType::LTod => convert_to_tod(value, dst),\n         ConversionType::Dt | ConversionType::Ldt => convert_to_dt(value, dst),\n         ConversionType::String | ConversionType::WString => convert_to_string(value, dst),\n         ConversionType::Char | ConversionType::WChar => convert_to_char(value, dst),\n         ConversionType::Bool => Err(RuntimeError::TypeMismatch),\n         _ => Err(RuntimeError::TypeMismatch),\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "convert_value",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 114
+        },
+        "start": {
+          "column": 1,
+          "line": 80
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "dispatch.rs:101:9: delete match arm ConversionType::Byte | ConversionType::Word | ConversionType::DWord | ConversionType::LWord in convert_value",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 70,
+        "line": 104
+      },
+      "start": {
+        "column": 9,
+        "line": 101
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ delete match arm ConversionType::Time | ConversionType::LTime in convert_value\n@@ -97,17 +97,17 @@\n         | ConversionType::UInt\n         | ConversionType::UDInt\n         | ConversionType::ULInt => convert_to_int(value, dst, mode),\n         ConversionType::Real | ConversionType::LReal => convert_to_real(value, dst),\n         ConversionType::Byte\n         | ConversionType::Word\n         | ConversionType::DWord\n         | ConversionType::LWord => convert_to_bit_string(value, dst),\n-        ConversionType::Time | ConversionType::LTime => convert_to_time(value, dst),\n+         /* ~ changed by cargo-mutants ~ */\n         ConversionType::Date | ConversionType::LDate => convert_to_date(value, dst),\n         ConversionType::Tod | ConversionType::LTod => convert_to_tod(value, dst),\n         ConversionType::Dt | ConversionType::Ldt => convert_to_dt(value, dst),\n         ConversionType::String | ConversionType::WString => convert_to_string(value, dst),\n         ConversionType::Char | ConversionType::WChar => convert_to_char(value, dst),\n         ConversionType::Bool => Err(RuntimeError::TypeMismatch),\n         _ => Err(RuntimeError::TypeMismatch),\n     }\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "convert_value",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 114
+        },
+        "start": {
+          "column": 1,
+          "line": 80
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "dispatch.rs:105:9: delete match arm ConversionType::Time | ConversionType::LTime in convert_value",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 85,
+        "line": 105
+      },
+      "start": {
+        "column": 9,
+        "line": 105
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ delete match arm ConversionType::Date | ConversionType::LDate in convert_value\n@@ -98,17 +98,17 @@\n         | ConversionType::UDInt\n         | ConversionType::ULInt => convert_to_int(value, dst, mode),\n         ConversionType::Real | ConversionType::LReal => convert_to_real(value, dst),\n         ConversionType::Byte\n         | ConversionType::Word\n         | ConversionType::DWord\n         | ConversionType::LWord => convert_to_bit_string(value, dst),\n         ConversionType::Time | ConversionType::LTime => convert_to_time(value, dst),\n-        ConversionType::Date | ConversionType::LDate => convert_to_date(value, dst),\n+         /* ~ changed by cargo-mutants ~ */\n         ConversionType::Tod | ConversionType::LTod => convert_to_tod(value, dst),\n         ConversionType::Dt | ConversionType::Ldt => convert_to_dt(value, dst),\n         ConversionType::String | ConversionType::WString => convert_to_string(value, dst),\n         ConversionType::Char | ConversionType::WChar => convert_to_char(value, dst),\n         ConversionType::Bool => Err(RuntimeError::TypeMismatch),\n         _ => Err(RuntimeError::TypeMismatch),\n     }\n }\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "convert_value",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 114
+        },
+        "start": {
+          "column": 1,
+          "line": 80
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "dispatch.rs:106:9: delete match arm ConversionType::Date | ConversionType::LDate in convert_value",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 85,
+        "line": 106
+      },
+      "start": {
+        "column": 9,
+        "line": 106
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ delete match arm ConversionType::Tod | ConversionType::LTod in convert_value\n@@ -99,16 +99,16 @@\n         | ConversionType::ULInt => convert_to_int(value, dst, mode),\n         ConversionType::Real | ConversionType::LReal => convert_to_real(value, dst),\n         ConversionType::Byte\n         | ConversionType::Word\n         | ConversionType::DWord\n         | ConversionType::LWord => convert_to_bit_string(value, dst),\n         ConversionType::Time | ConversionType::LTime => convert_to_time(value, dst),\n         ConversionType::Date | ConversionType::LDate => convert_to_date(value, dst),\n-        ConversionType::Tod | ConversionType::LTod => convert_to_tod(value, dst),\n+         /* ~ changed by cargo-mutants ~ */\n         ConversionType::Dt | ConversionType::Ldt => convert_to_dt(value, dst),\n         ConversionType::String | ConversionType::WString => convert_to_string(value, dst),\n         ConversionType::Char | ConversionType::WChar => convert_to_char(value, dst),\n         ConversionType::Bool => Err(RuntimeError::TypeMismatch),\n         _ => Err(RuntimeError::TypeMismatch),\n     }\n }\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "convert_value",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 114
+        },
+        "start": {
+          "column": 1,
+          "line": 80
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "dispatch.rs:107:9: delete match arm ConversionType::Tod | ConversionType::LTod in convert_value",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 82,
+        "line": 107
+      },
+      "start": {
+        "column": 9,
+        "line": 107
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ delete match arm ConversionType::Dt | ConversionType::Ldt in convert_value\n@@ -100,15 +100,15 @@\n         ConversionType::Real | ConversionType::LReal => convert_to_real(value, dst),\n         ConversionType::Byte\n         | ConversionType::Word\n         | ConversionType::DWord\n         | ConversionType::LWord => convert_to_bit_string(value, dst),\n         ConversionType::Time | ConversionType::LTime => convert_to_time(value, dst),\n         ConversionType::Date | ConversionType::LDate => convert_to_date(value, dst),\n         ConversionType::Tod | ConversionType::LTod => convert_to_tod(value, dst),\n-        ConversionType::Dt | ConversionType::Ldt => convert_to_dt(value, dst),\n+         /* ~ changed by cargo-mutants ~ */\n         ConversionType::String | ConversionType::WString => convert_to_string(value, dst),\n         ConversionType::Char | ConversionType::WChar => convert_to_char(value, dst),\n         ConversionType::Bool => Err(RuntimeError::TypeMismatch),\n         _ => Err(RuntimeError::TypeMismatch),\n     }\n }\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "convert_value",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 114
+        },
+        "start": {
+          "column": 1,
+          "line": 80
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "dispatch.rs:108:9: delete match arm ConversionType::Dt | ConversionType::Ldt in convert_value",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 79,
+        "line": 108
+      },
+      "start": {
+        "column": 9,
+        "line": 108
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ delete match arm ConversionType::String | ConversionType::WString in convert_value\n@@ -101,14 +101,14 @@\n         ConversionType::Byte\n         | ConversionType::Word\n         | ConversionType::DWord\n         | ConversionType::LWord => convert_to_bit_string(value, dst),\n         ConversionType::Time | ConversionType::LTime => convert_to_time(value, dst),\n         ConversionType::Date | ConversionType::LDate => convert_to_date(value, dst),\n         ConversionType::Tod | ConversionType::LTod => convert_to_tod(value, dst),\n         ConversionType::Dt | ConversionType::Ldt => convert_to_dt(value, dst),\n-        ConversionType::String | ConversionType::WString => convert_to_string(value, dst),\n+         /* ~ changed by cargo-mutants ~ */\n         ConversionType::Char | ConversionType::WChar => convert_to_char(value, dst),\n         ConversionType::Bool => Err(RuntimeError::TypeMismatch),\n         _ => Err(RuntimeError::TypeMismatch),\n     }\n }\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "convert_value",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 114
+        },
+        "start": {
+          "column": 1,
+          "line": 80
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "dispatch.rs:109:9: delete match arm ConversionType::String | ConversionType::WString in convert_value",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 91,
+        "line": 109
+      },
+      "start": {
+        "column": 9,
+        "line": 109
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ delete match arm ConversionType::Char | ConversionType::WChar in convert_value\n@@ -102,13 +102,13 @@\n         | ConversionType::Word\n         | ConversionType::DWord\n         | ConversionType::LWord => convert_to_bit_string(value, dst),\n         ConversionType::Time | ConversionType::LTime => convert_to_time(value, dst),\n         ConversionType::Date | ConversionType::LDate => convert_to_date(value, dst),\n         ConversionType::Tod | ConversionType::LTod => convert_to_tod(value, dst),\n         ConversionType::Dt | ConversionType::Ldt => convert_to_dt(value, dst),\n         ConversionType::String | ConversionType::WString => convert_to_string(value, dst),\n-        ConversionType::Char | ConversionType::WChar => convert_to_char(value, dst),\n+         /* ~ changed by cargo-mutants ~ */\n         ConversionType::Bool => Err(RuntimeError::TypeMismatch),\n         _ => Err(RuntimeError::TypeMismatch),\n     }\n }\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "convert_value",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 114
+        },
+        "start": {
+          "column": 1,
+          "line": 80
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "dispatch.rs:110:9: delete match arm ConversionType::Char | ConversionType::WChar in convert_value",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 85,
+        "line": 110
+      },
+      "start": {
+        "column": 9,
+        "line": 110
+      }
+    }
+  },
+  {
+    "diff": "--- dispatch.rs\n+++ delete match arm ConversionType::Bool in convert_value\n@@ -103,12 +103,12 @@\n         | ConversionType::DWord\n         | ConversionType::LWord => convert_to_bit_string(value, dst),\n         ConversionType::Time | ConversionType::LTime => convert_to_time(value, dst),\n         ConversionType::Date | ConversionType::LDate => convert_to_date(value, dst),\n         ConversionType::Tod | ConversionType::LTod => convert_to_tod(value, dst),\n         ConversionType::Dt | ConversionType::Ldt => convert_to_dt(value, dst),\n         ConversionType::String | ConversionType::WString => convert_to_string(value, dst),\n         ConversionType::Char | ConversionType::WChar => convert_to_char(value, dst),\n-        ConversionType::Bool => Err(RuntimeError::TypeMismatch),\n+         /* ~ changed by cargo-mutants ~ */\n         _ => Err(RuntimeError::TypeMismatch),\n     }\n }\n",
+    "file": "dispatch.rs",
+    "function": {
+      "function_name": "convert_value",
+      "return_type": "-> Result<Value, RuntimeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 114
+        },
+        "start": {
+          "column": 1,
+          "line": 80
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "dispatch.rs:111:9: delete match arm ConversionType::Bool in convert_value",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 65,
+        "line": 111
+      },
+      "start": {
+        "column": 9,
+        "line": 111
+      }
+    }
+  }
+]

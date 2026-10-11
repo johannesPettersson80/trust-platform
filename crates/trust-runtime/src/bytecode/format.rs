@@ -16,3 +16,14 @@ pub use trust_runtime_core::bytecode::{
 
 mod module;
 pub use module::BytecodeModule;
+
+pub use trust_runtime_core::bytecode::{
+    ConstructionRoot, ConstructionRoots, InitializationOnce, InitializationPhase,
+    InitializationStage, InitializationTarget, InitializationTrigger, InitializerBodyKind,
+    InitializerEntry, InitializerIndex, StorageDeclaration, StorageLayout, StorageOwner,
+    StorageRole, BYTECODE_MAX_CONSTRUCTION_NODES, BYTECODE_MAX_CONSTRUCTION_RECORDS,
+};
+
+pub use trust_runtime_core::bytecode::{AccessBindingEntry, AccessBindings};
+
+pub use trust_runtime_core::bytecode::{opcodes, PartialAccessSpec};

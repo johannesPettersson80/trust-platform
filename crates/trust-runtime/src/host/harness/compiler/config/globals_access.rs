@@ -15,8 +15,9 @@ fn lower_global_var_block(
             .initializer
             .as_ref()
             .map(|expr| {
-                lower_expr(expr, ctx)
-                    .and_then(|lowered| resolve_initializer_enum_variant(expr, lowered, type_id, ctx))
+                lower_expr(expr, ctx).and_then(|lowered| {
+                    resolve_initializer_enum_variant(expr, lowered, type_id, ctx)
+                })
             })
             .transpose()?;
         if qualifiers.constant && matches!(kind, VarBlockKind::Global) {
@@ -32,6 +33,7 @@ fn lower_global_var_block(
             VarBlockKind::Global => {
                 for name in parts.names {
                     globals.push(GlobalInit {
+                        constant: qualifiers.constant,
                         name: namespace_qualified_name(var_block, name.as_str()),
                         type_id,
                         initializer: init_expr.clone(),
@@ -103,6 +105,7 @@ pub(super) fn lower_var_access_block(
         match &path {
             AccessPath::Direct { text, .. } => {
                 result.globals.push(GlobalInit {
+                    constant: false,
                     name: namespace_qualified_name(var_block, name.as_str()),
                     type_id,
                     initializer: None,

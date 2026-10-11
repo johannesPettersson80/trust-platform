@@ -18,11 +18,37 @@ use super::config::{
 };
 use super::types::{CompileError, SourceFile};
 
+/// Lowered declarations and original initialization expressions, before any runtime
+/// storage construction. Legacy execution and source-free artifact authoring consume
+/// the same frontend result, but only the legacy consumer evaluates startup values.
+pub(crate) struct LoweredApplication {
+    pub(crate) runtime: Runtime,
+    pub(crate) program_defs: IndexMap<SmolStr, ProgramDef>,
+    pub(crate) globals: Vec<super::compiler::GlobalInit>,
+    pub(crate) program_access: Vec<super::compiler::AccessDecl>,
+    pub(crate) configuration: Option<super::compiler::ConfigModel>,
+    pub(crate) source_metadata: Vec<LoweredSourceMetadata>,
+}
+
+pub(crate) struct LoweredSourceMetadata {
+    pub(crate) file_id: u32,
+    pub(crate) locations: Vec<SourceLocation>,
+    pub(crate) text: String,
+    pub(crate) path: Option<String>,
+}
+
 pub(super) fn build_runtime_from_source_files(
     sources: &[SourceFile],
     label_errors: bool,
     extra_program_instances: &[SmolStr],
 ) -> Result<Runtime, CompileError> {
+    lower_application(sources, label_errors)?.materialize(extra_program_instances)
+}
+
+pub(crate) fn lower_application(
+    sources: &[SourceFile],
+    label_errors: bool,
+) -> Result<LoweredApplication, CompileError> {
     let mut parses = Vec::with_capacity(sources.len());
     let mut parse_errors = Vec::new();
     for (idx, source) in sources.iter().enumerate() {
@@ -333,96 +359,222 @@ pub(super) fn build_runtime_from_source_files(
         }
     }
 
-    if let Some(config) = config_model {
-        if let Some(resource_name) = config.resource_name.as_ref() {
-            runtime.set_resource_name(resource_name.clone());
-        }
-        globals.extend(config.globals);
-        apply_program_retain_overrides(&mut program_defs, &config.programs, &config.using)?;
-        let mut wildcards = apply_globals(&mut runtime, &globals)?;
-        register_program_instances(
-            &mut runtime,
-            &program_defs,
+    let source_metadata = statement_locations
+        .into_iter()
+        .enumerate()
+        .map(|(idx, locations)| LoweredSourceMetadata {
+            file_id: file_ids[idx].0,
+            locations,
+            text: sources[idx].text.clone(),
+            path: sources[idx].path.clone(),
+        })
+        .collect();
+    Ok(LoweredApplication {
+        runtime,
+        program_defs,
+        globals,
+        program_access,
+        configuration: config_model,
+        source_metadata,
+    })
+}
+
+impl LoweredApplication {
+    /// Resolve configuration identities without creating storage or evaluating startup code.
+    pub(crate) fn prepare_authoring(
+        mut self,
+        extra_program_instances: &[SmolStr],
+    ) -> Result<Self, CompileError> {
+        let configured = self.configuration.is_some();
+        let mut config = match self.configuration.take() {
+            Some(config) => config,
+            None => {
+                if self.program_defs.is_empty() {
+                    return Err(CompileError::new("missing PROGRAM declaration"));
+                }
+                super::compiler::ConfigModel {
+                    configuration_name: None,
+                    resource_name: None,
+                    globals: Vec::new(),
+                    tasks: Vec::new(),
+                    using: Vec::new(),
+                    access: Vec::new(),
+                    config_inits: Vec::new(),
+                    programs: self
+                        .program_defs
+                        .values()
+                        .map(|program| super::ProgramInstanceConfig {
+                            name: program.name.clone(),
+                            type_name: program.name.clone(),
+                            task: None,
+                            retain: None,
+                            fb_tasks: Vec::new(),
+                        })
+                        .collect(),
+                }
+            }
+        };
+        self.globals.append(&mut config.globals);
+        apply_program_retain_overrides(&mut self.program_defs, &config.programs, &config.using)?;
+        let extras = if configured {
+            build_extra_program_instances(
+                &self.program_defs,
+                &config.programs,
+                extra_program_instances,
+            )?
+        } else {
+            Vec::new()
+        };
+        ensure_all_program_declarations_bound(
+            &self.program_defs,
             &config.programs,
+            &extras,
             &config.using,
-            &mut wildcards,
-        )?;
-        let extra_programs = build_extra_program_instances(
-            &program_defs,
-            &config.programs,
-            extra_program_instances,
         )?;
         remap_program_access_instances(
-            &mut program_access,
-            &program_defs,
+            &mut self.program_access,
+            &self.program_defs,
             &config.programs,
             &config.using,
         )?;
-        ensure_all_program_declarations_bound(
-            &program_defs,
-            &config.programs,
-            &extra_programs,
-            &config.using,
-        )?;
-        register_program_instances(
-            &mut runtime,
-            &program_defs,
-            &extra_programs,
-            &config.using,
-            &mut wildcards,
-        )?;
-        apply_config_inits(&mut runtime, &config.config_inits, &mut wildcards)?;
-        ensure_wildcards_resolved(&wildcards)?;
-        register_access_bindings(&mut runtime, &config.access)?;
-        let mut tasks = config.tasks;
-        validate_task_single_bindings(&runtime, &tasks)?;
-        attach_programs_to_tasks(&mut tasks, &config.programs)?;
-        attach_fb_instances_to_tasks(&runtime, &mut tasks, &config.programs)?;
-        for task in tasks {
-            runtime.register_task(task);
+        config.programs.extend(extras);
+        let mut names = std::collections::HashSet::new();
+        let mut types = std::collections::HashSet::new();
+        for program in &mut config.programs {
+            program.type_name = super::resolve_program_type_name(
+                &self.program_defs,
+                &program.type_name,
+                &config.using,
+            )?;
+            if !names.insert(program.name.to_ascii_uppercase()) {
+                return Err(CompileError::new(format!(
+                    "duplicate PROGRAM instance name '{}'",
+                    program.name
+                )));
+            }
+            if !types.insert(program.type_name.to_ascii_uppercase()) {
+                return Err(CompileError::new(
+                    "multiple instances of the same PROGRAM type are not supported yet",
+                ));
+            }
         }
-    } else {
-        if program_defs.is_empty() {
-            return Err(CompileError::new("missing PROGRAM declaration"));
+        attach_programs_to_tasks(&mut config.tasks, &config.programs)?;
+        self.configuration = Some(config);
+        for source in &self.source_metadata {
+            self.runtime
+                .register_statement_locations(source.file_id, source.locations.clone());
+            self.runtime
+                .register_source_text(source.file_id, source.text.clone());
+            self.runtime.register_source_label(
+                source.file_id,
+                source
+                    .path
+                    .clone()
+                    .unwrap_or_else(|| format!("file_{}", source.file_id)),
+            );
         }
-        let mut wildcards = apply_globals(&mut runtime, &globals)?;
-        let default_programs = program_defs
-            .values()
-            .map(|program| super::ProgramInstanceConfig {
-                name: program.name.clone(),
-                type_name: program.name.clone(),
-                task: None,
-                retain: None,
-                fb_tasks: Vec::new(),
-            })
-            .collect::<Vec<_>>();
-        register_program_instances(
-            &mut runtime,
-            &program_defs,
-            &default_programs,
-            &[],
-            &mut wildcards,
-        )?;
-        ensure_wildcards_resolved(&wildcards)?;
+        Ok(self)
     }
 
-    register_access_bindings(&mut runtime, &program_access)?;
-
-    resize_process_image_from_bindings(&mut runtime)?;
-    init_function_static_locals(&mut runtime)?;
-    let _ = runtime.ensure_background_thread_id();
-
-    for (idx, locations) in statement_locations.into_iter().enumerate() {
-        let file_id = file_ids[idx].0;
-        runtime.register_statement_locations(file_id, locations);
-        runtime.register_source_text(file_id, sources[idx].text.clone());
-        runtime.register_source_label(file_id, format!("file_{file_id}"));
-        if let Some(path) = sources[idx].path.as_deref() {
-            runtime.register_source_label(file_id, path);
+    fn materialize(self, extra_program_instances: &[SmolStr]) -> Result<Runtime, CompileError> {
+        let Self {
+            mut runtime,
+            mut program_defs,
+            mut globals,
+            mut program_access,
+            configuration: config_model,
+            source_metadata,
+        } = self;
+        if let Some(config) = config_model {
+            if let Some(resource_name) = config.resource_name.as_ref() {
+                runtime.set_resource_name(resource_name.clone());
+            }
+            globals.extend(config.globals);
+            apply_program_retain_overrides(&mut program_defs, &config.programs, &config.using)?;
+            let mut wildcards = apply_globals(&mut runtime, &globals)?;
+            register_program_instances(
+                &mut runtime,
+                &program_defs,
+                &config.programs,
+                &config.using,
+                &mut wildcards,
+            )?;
+            let extra_programs = build_extra_program_instances(
+                &program_defs,
+                &config.programs,
+                extra_program_instances,
+            )?;
+            remap_program_access_instances(
+                &mut program_access,
+                &program_defs,
+                &config.programs,
+                &config.using,
+            )?;
+            ensure_all_program_declarations_bound(
+                &program_defs,
+                &config.programs,
+                &extra_programs,
+                &config.using,
+            )?;
+            register_program_instances(
+                &mut runtime,
+                &program_defs,
+                &extra_programs,
+                &config.using,
+                &mut wildcards,
+            )?;
+            apply_config_inits(&mut runtime, &config.config_inits, &mut wildcards)?;
+            ensure_wildcards_resolved(&wildcards)?;
+            register_access_bindings(&mut runtime, &config.access)?;
+            let mut tasks = config.tasks;
+            validate_task_single_bindings(&runtime, &tasks)?;
+            attach_programs_to_tasks(&mut tasks, &config.programs)?;
+            attach_fb_instances_to_tasks(&runtime, &mut tasks, &config.programs)?;
+            for task in tasks {
+                runtime.register_task(task);
+            }
+        } else {
+            if program_defs.is_empty() {
+                return Err(CompileError::new("missing PROGRAM declaration"));
+            }
+            let mut wildcards = apply_globals(&mut runtime, &globals)?;
+            let default_programs = program_defs
+                .values()
+                .map(|program| super::ProgramInstanceConfig {
+                    name: program.name.clone(),
+                    type_name: program.name.clone(),
+                    task: None,
+                    retain: None,
+                    fb_tasks: Vec::new(),
+                })
+                .collect::<Vec<_>>();
+            register_program_instances(
+                &mut runtime,
+                &program_defs,
+                &default_programs,
+                &[],
+                &mut wildcards,
+            )?;
+            ensure_wildcards_resolved(&wildcards)?;
         }
-    }
 
-    Ok(runtime)
+        register_access_bindings(&mut runtime, &program_access)?;
+
+        resize_process_image_from_bindings(&mut runtime)?;
+        init_function_static_locals(&mut runtime)?;
+        let _ = runtime.ensure_background_thread_id();
+
+        for source in source_metadata {
+            runtime.register_statement_locations(source.file_id, source.locations);
+            runtime.register_source_text(source.file_id, source.text);
+            runtime.register_source_label(source.file_id, format!("file_{}", source.file_id));
+            if let Some(path) = source.path {
+                runtime.register_source_label(source.file_id, path);
+            }
+        }
+
+        Ok(runtime)
+    }
 }
 
 fn remap_program_access_instances(
@@ -737,3 +889,7 @@ mod contract_tests;
 #[cfg(test)]
 #[path = "config_access_contract_tests.rs"]
 mod access_contract_tests;
+
+#[cfg(test)]
+#[path = "authoring_boundary_tests.rs"]
+mod authoring_boundary_tests;

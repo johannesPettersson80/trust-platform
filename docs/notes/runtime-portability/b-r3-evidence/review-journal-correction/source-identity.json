@@ -1,0 +1,22 @@
+{
+  "reviewer": "/root/br1_static_registry",
+  "proof": "Independent read-only post-M2 journal correction review; no builds, tests or formatters",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/destinations.rs",
+      "sha256": "233e076761f5f0c3f92e5d244bfb2feeffc090937af899f4df0112f986b72fbb"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/output_transaction.rs",
+      "sha256": "8a571c1acf56e1a545bd283f32e3eeab7a7272bc5c7a90047ace271e0ddd56d5"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/io/staging.rs",
+      "sha256": "aeb9ce071258e5b34c27da975026b560c44dac13af3ba07af8c5712d6dcd5f4a"
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_execution_cost.rs",
+      "sha256": "97843856241f3c390e26dd863e7877c5c48bb9cf04f2c638b20222622b1c4b44"
+    }
+  ]
+}

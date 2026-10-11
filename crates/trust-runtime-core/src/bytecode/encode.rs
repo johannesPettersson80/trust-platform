@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 
 use super::align4;
 mod buffer;
+mod construction;
 use super::{
     BytecodeError, BytecodeModuleView, BytecodeVersion, SectionData, SectionEntry, TypeData,
     TypeEntry, TypeTable, HEADER_FLAG_CRC32, HEADER_SIZE, MAGIC, SECTION_ENTRY_SIZE,
@@ -13,6 +14,12 @@ use buffer::{encoded_count, encoded_extent, Buffer};
 impl BytecodeModuleView<'_> {
     /// Serialize a bounded container; counts, extents and alignment are checked before writes.
     pub fn encode(&self) -> Result<Vec<u8>, BytecodeError> {
+        self.encode_with_limit(super::BYTECODE_MAX_CONTAINER_BYTES)
+    }
+
+    /// Serialize with a caller-selected container bound, checked before reservation.
+    pub fn encode_with_limit(&self, limit: usize) -> Result<Vec<u8>, BytecodeError> {
+        let limit = limit.min(super::BYTECODE_MAX_CONTAINER_BYTES);
         let section_count = u16::try_from(self.sections.len())
             .map_err(|_| BytecodeError::InvalidHeader("section count overflow".into()))?;
         let section_table_off = HEADER_SIZE as usize;
@@ -27,9 +34,7 @@ impl BytecodeModuleView<'_> {
                 .ok_or_else(encoded_extent)?,
         )
         .ok_or_else(encoded_extent)?;
-        let mut remaining = super::BYTECODE_MAX_CONTAINER_BYTES
-            .checked_sub(offset)
-            .ok_or_else(encoded_extent)?;
+        let mut remaining = limit.checked_sub(offset).ok_or_else(encoded_extent)?;
         let mut payloads = Vec::new();
         let mut entries = Vec::new();
         payloads
@@ -51,7 +56,7 @@ impl BytecodeModuleView<'_> {
             offset = offset.checked_add(padded).ok_or_else(encoded_extent)?;
             payloads.push(data);
         }
-        let mut bytes = Buffer::new(super::BYTECODE_MAX_CONTAINER_BYTES);
+        let mut bytes = Buffer::new(limit);
         bytes.extend_from_slice(&MAGIC)?;
         bytes.extend_from_slice(&self.version.major.to_le_bytes())?;
         bytes.extend_from_slice(&self.version.minor.to_le_bytes())?;
@@ -73,7 +78,7 @@ impl BytecodeModuleView<'_> {
         }
         let mut bytes = bytes.into_vec();
         if self.flags & HEADER_FLAG_CRC32 != 0 {
-            let checksum = crc32fast::hash(&bytes[section_table_off..]);
+            let checksum = crate::crc32::checksum(&bytes[section_table_off..]);
             bytes[20..24].copy_from_slice(&checksum.to_le_bytes());
         }
         Ok(bytes)
@@ -93,7 +98,7 @@ fn encode_section_data(
                 let bytes = entry.as_bytes();
                 out.extend_from_slice(&encoded_count(bytes.len())?.to_le_bytes())?;
                 out.extend_from_slice(bytes)?;
-                if version.minor >= 1 {
+                if version.uses_extended_layout() {
                     let entry_len = 4usize.checked_add(bytes.len()).ok_or_else(encoded_extent)?;
                     let padded = align4(entry_len).ok_or_else(encoded_extent)?;
                     let target = out
@@ -164,7 +169,7 @@ fn encode_section_data(
                     out.push(param.direction)?;
                     out.push(0)?;
                     out.extend_from_slice(&0u16.to_le_bytes())?;
-                    if version.minor >= 1 {
+                    if version.uses_extended_layout() {
                         out.extend_from_slice(
                             &param.default_const_idx.unwrap_or(u32::MAX).to_le_bytes(),
                         )?;
@@ -264,6 +269,15 @@ fn encode_section_data(
                 out.extend_from_slice(&entry.const_idx.to_le_bytes())?;
             }
         }
+        SectionData::StorageLayout(_)
+        | SectionData::ConstructionRoots(_)
+        | SectionData::Initializers(_)
+        | SectionData::AccessBindings(_) => {
+            if version != BytecodeVersion::SOURCE_FREE {
+                return Err(crate::bytecode::RejectionReason::InvalidConstructionRecord.into());
+            }
+            construction::encode_construction(data, &mut out)?;
+        }
         SectionData::Raw(raw) => out.extend_from_slice(raw)?,
     }
     Ok(out.into_vec())
@@ -276,7 +290,7 @@ fn encode_type_table(
 ) -> Result<Buffer, BytecodeError> {
     let mut out = Buffer::new(limit);
     out.extend_from_slice(&encoded_count(table.entries.len())?.to_le_bytes())?;
-    if version.minor >= 1 {
+    if version.uses_extended_layout() {
         for offset in type_offsets(&table.entries, limit)? {
             out.extend_from_slice(&offset.to_le_bytes())?;
         }

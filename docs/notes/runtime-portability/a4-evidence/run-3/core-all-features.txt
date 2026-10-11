@@ -1,0 +1,516 @@
+[gate-progress state=started phase=A4-core-all-features target=scena-rust-builder pid=2604051 elapsed=0.0s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime-core --all-features -- --nocapture --test-threads=1']
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime-core)
+    Finished `test` profile [unoptimized] target(s) in 5.32s
+     Running unittests src/lib.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/trust_runtime_core-c11e686609a71880)
+
+running 184 tests
+test bytecode::encode::buffer::tests::bounded_writer_preserves_bytes_when_a_write_exceeds_its_limit ... ok
+test bytecode::encode::buffer::tests::counts_do_not_truncate_to_the_wire_width ... ok
+test bytecode::encode::buffer::tests::padding_rejects_an_unrepresentable_extent_before_allocating ... ok
+test bytecode::tests::bytecode_alignment_helpers_preserve_zero_padding_contract ... ok
+test bytecode::tests::bytecode_error_variants_have_exact_stable_codes ... ok
+test bytecode::tests::bytecode_format_records_preserve_raw_discriminants ... ok
+test bytecode::tests::bytecode_metadata_resource_lookup_is_case_insensitive ... ok
+test bytecode::tests::bytecode_reader_preserves_little_endian_contract_and_eof ... ok
+test bytecode::tests::bytecode_reader_rejects_length_overflow_without_advancing ... ok
+test bytecode::validate::budget::tests::fallible_sort_handles_empty_singleton_even_odd_and_duplicates ... ok
+test bytecode::validate::budget::tests::lower_and_upper_bounds_preserve_duplicate_wire_order ... ok
+test bytecode::validate::budget::tests::sort_and_lookup_stop_when_work_budget_is_exhausted ... ok
+test bytecode::validate::context::tests::name_indexes_preserve_first_match_and_ref_types_preserve_last_match ... ok
+test bytecode::validate::instructions::tests::decoded_instruction_is_twenty_bytes_on_each_target ... ok
+test bytecode::validate::param_direction::tests::function_block_binding_uses_first_wire_match_across_bare_and_qualified_names ... ok
+test bytecode::validate::resource_limits::tests::declared_resource_limits_accept_empty_tables_and_reject_first_excess ... ok
+test bytecode::validate::resource_limits::tests::instruction_counter_overflow_is_fail_closed_and_preserves_total ... ok
+test bytecode::validate::resource_limits::tests::instruction_limit_accepts_boundary_and_rejects_next_instruction ... ok
+test bytecode::validate::resource_limits::tests::stack_limit_accepts_boundary_and_rejects_next_value ... ok
+test bytecode::validate::stack_shape::initializer_tests::initializer_dynamic_store_requires_staging_provenance ... ok
+test bytecode::validate::stack_shape::initializer_tests::initializer_merge_never_promotes_a_global_address_to_staging ... ok
+test bytecode::validate::stack_shape::initializer_tests::initializer_native_targets_and_argument_encoding_are_checked ... ok
+test bytecode::validate::tests::const_payload_validation_accepts_empty_wildcard_array_frame ... ok
+test bytecode::validate::tests::const_payload_validation_rejects_cyclic_type_before_stack_exhaustion ... ok
+test bytecode::validate::tests::const_payload_validation_rejects_malformed_aggregate_frames ... ok
+test bytecode::validate::tests::const_payload_validation_rejects_nesting_beyond_fixed_limit ... ok
+test bytecode::validate::tests::const_payload_validation_rejects_non_null_reference_index ... ok
+test bytecode::validate::tests::numeric_primitive_and_partial_access_domains_are_closed ... ok
+test cycle::tests::ready_task_sort_preserves_priority_due_time_and_stable_index_order ... ok
+test datetime::tests::civil_day_conversion_handles_epoch_gregorian_and_extreme_year_boundaries ... ok
+test datetime::tests::date_time_profile_rejects_unrepresentable_day_resolutions ... ok
+test datetime::tests::rejects_invalid_month_length ... ok
+test datetime::tests::rejects_invalid_non_leap_day ... ok
+test datetime::tests::signed_tick_conversion_preserves_epoch_and_division_mode ... ok
+test error::tests::runtime_error_conversions_preserve_committed_boundaries ... ok
+test error::tests::runtime_error_stable_codes_cover_every_committed_variant ... ok
+test error_code::tests::every_stable_error_code_has_exact_lower_snake_case_and_display_identity ... ok
+test error_code::tests::representative_stable_error_codes_use_exact_lower_snake_case ... ok
+test memory::identity_tests::memory_identity_values_preserve_equality_and_hash_shape ... ok
+test memory::tests::borrowed_value_ref_helpers_match_owned_helpers ... ok
+test memory::tests::declared_instance_field_offset_reuses_type_layout_for_declared_fields ... ok
+test memory::tests::declared_instance_field_offset_skips_inherited_fields ... ok
+test memory::tests::direct_instance_field_miss_cache_invalidates_on_new_insert ... ok
+test memory::tests::direct_instance_field_offset_reads_and_writes_without_value_ref ... ok
+test memory::tests::direct_slot_helpers_cover_global_local_and_instance_locations ... ok
+test memory::tests::direct_slot_helpers_match_empty_path_ref_helpers ... ok
+test memory::tests::instance_field_cache_is_scoped_per_instance ... ok
+test memory::tests::read_and_write_by_ref_handle_extreme_array_bounds_without_overflow ... ok
+test memory::tests::read_and_write_by_ref_non_ascii_string_uses_character_elements ... ok
+test memory::tests::recursive_instance_field_cache_invalidates_when_child_adds_shadowing_field ... ok
+test memory::tests::recursive_lookup_does_not_cache_parent_chain_miss ... ok
+test memory::tests::resolved_instance_field_ref_prefers_direct_field_before_parent_fallback ... ok
+
+thread '<unnamed>' (2604961) panicked at crates/trust-runtime-core/src/memory/tests.rs:13:9:
+poison instance field cache
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test memory::tests::variable_storage_clone_recovers_from_poisoned_cache_lock ... ok
+test memory::tests::write_by_ref_path_preserves_struct_copy_on_write_isolation ... ok
+test numeric::tests::common_numeric_kind_is_accuracy_preserving_and_symmetric ... ok
+test numeric::tests::integer_conversions_preserve_overflow_and_signedness_errors ... ok
+test numeric::tests::integer_i64_normalization_preserves_boundaries_and_rejects_invalid_inputs ... ok
+test numeric::tests::numeric_kind_and_widening_matrix_cover_every_runtime_numeric_tag ... ok
+test numeric::tests::numeric_kind_identifies_supported_runtime_values ... ok
+test numeric::tests::signed_integer_materialization_preserves_boundaries_and_rejects_invalid_targets ... ok
+test numeric::tests::unsigned_and_float_normalization_preserve_values_and_reject_non_numeric_tags ... ok
+test numeric::tests::unsigned_integer_materialization_preserves_boundaries_and_rejects_invalid_targets ... ok
+test program_model::expr::tests::lvalue_path_queries_cover_index_field_and_deref_boundaries ... ok
+test program_model::expr::tests::lvalue_root_and_qualified_name_contracts_hold ... ok
+test program_model::initializers::tests::initializer_catalog_preserves_record_and_type_default_lookup ... ok
+test program_model::initializers::tests::initializer_catalog_preserves_sequence_missing_lookup_and_default_replacement ... ok
+test program_model::ops::tests::date_time_ordering_requires_matching_runtime_families ... ok
+test program_model::ops::tests::duration_arithmetic_preserves_width_and_rejects_overflow ... ok
+test program_model::ops::tests::long_date_time_arithmetic_preserves_nanoseconds_and_checked_range ... ok
+test program_model::ops::tests::mixed_numeric_operands_require_accuracy_preserving_common_type ... ok
+test program_model::ops::tests::non_numeric_comparisons_preserve_runtime_contract ... ok
+test program_model::ops::tests::numeric_ops_preserve_checked_runtime_contract ... ok
+test program_model::ops::tests::real_arithmetic_rejects_non_finite_single_width_results ... ok
+test program_model::ops::tests::short_date_time_arithmetic_uses_profile_ticks_without_wrapping ... ok
+test program_model::ops::tests::time_scaling_truncates_toward_zero_and_rejects_invalid_factors ... ok
+test program_model::ops::tests::unary_contracts_preserve_tags_and_reject_invalid_operands ... ok
+test program_model::util::tests::property_setter_names_keep_hidden_prefix_contract ... ok
+test program_model::util::tests::static_storage_names_keep_existing_prefix_contract ... ok
+test retain::tests::retain_policy_preserves_default_and_warm_restart_contract ... ok
+test retain::tests::retain_snapshot_insert_appends_distinct_names_and_replaces_in_place ... ok
+test retain::tests::retain_snapshot_map_round_trip_preserves_order_keys_and_value_tags ... ok
+test retain::tests::retain_snapshot_preserves_insert_order_and_values ... ok
+test scaffold::tests::scaffold_stage_is_pre_move ... ok
+test scheduler::tests::resource_state_preserves_default_and_lifecycle_order_contract ... ok
+test task::tests::task_config_preserves_periodic_and_event_fields ... ok
+test task::tests::task_readiness_coalesces_forward_jump_after_host_pause ... ok
+test task::tests::task_readiness_ignores_backward_clock_step_until_prior_baseline ... ok
+test task::tests::task_readiness_keeps_its_deadlines_when_samples_come_late ... ok
+test task::tests::task_readiness_non_multiple_interval_preserves_nominal_deadlines ... ok
+test task::tests::task_readiness_prefers_earlier_due_time_when_event_and_periodic_overlap ... ok
+test task::tests::task_readiness_tracks_event_edges_without_repeating_high_level ... ok
+test task::tests::task_readiness_tracks_periodic_due_time_and_overrun ... ok
+test task::tests::task_state_new_preserves_time_and_clears_event_and_overrun_history ... ok
+test value::datetime::tests::combine_date_and_tod_rejects_timezone_metadata ... ok
+test value::datetime::tests::date_time_ticks_and_long_values_round_trip ... ok
+test value::datetime::tests::default_datetime_profile_uses_unix_epoch_and_millisecond_resolution ... ok
+test value::datetime::tests::duration_preserves_nanosecond_and_millisecond_views ... ok
+test value::datetime::tests::tick_conversion_rejects_out_of_range_values ... ok
+test value::defaults::tests::compound_defaults_preserve_declared_shape_order_and_identity ... ok
+test value::defaults::tests::default_construction_rejects_invalid_or_unsupported_types ... ok
+test value::defaults::tests::defaults_for_core_elementary_values_match_runtime_contract ... ok
+test value::defaults::tests::defaults_reject_unknown_type_ids ... ok
+test value::defaults::tests::interface_defaults_to_explicit_null_reference ... ok
+test value::partial_access::tests::reads_partial_bits_and_words_with_bounds_errors ... ok
+test value::partial_access::tests::writes_partial_bits_and_bytes_without_touching_other_bits ... ok
+test value::reference::tests::array_offset_handles_extreme_bounds_without_overflow ... ok
+test value::reference::tests::checked_array_offset_preserves_bounds_error ... ok
+test value::reference::tests::common_ref_path_helpers_preserve_segment_order ... ok
+test value::reference::tests::partial_access_parser_accepts_iec_suffixes_and_bare_bits ... ok
+test value::size::tests::sizeof_contract_covers_declared_and_runtime_shapes_and_rejections ... ok
+test value::size::tests::string_value_size_counts_character_elements ... ok
+test value::string_semantics::tests::narrow_string_index_reads_and_writes_single_byte_chars ... ok
+test value::string_semantics::tests::narrow_string_index_rejects_out_of_range_chars ... ok
+test value::string_semantics::tests::narrow_string_semantics_count_elements_not_utf8_bytes ... ok
+test value::string_semantics::tests::wide_string_index_reads_and_writes_unicode_scalar_elements ... ok
+test value::types::tests::array_serialized_construction_rejects_shape_type_and_registry_drift ... ok
+test value::types::tests::array_value_clone_and_equality_preserve_shape_and_elements ... ok
+test value::types::tests::array_value_mutators_preserve_shape_contract ... ok
+test value::types::tests::array_value_new_canonicalizes_alias_and_rejects_shape_or_type_drift ... ok
+test value::types::tests::array_value_new_validates_array_of_struct_elements ... ok
+test value::types::tests::construction_error_tests::construction_error_messages_and_enum_conversion_are_stable ... ok
+test value::types::tests::declared_type_matching_covers_elementary_and_recursive_value_boundaries ... ok
+test value::types::tests::enum_construction_rejects_registry_variant_and_numeric_identity_drift ... ok
+test value::types::tests::enum_value_from_serialized_parts_canonicalizes_and_validates_numeric_value ... ok
+test value::types::tests::enum_value_new_resolves_alias_to_canonical_enum_type ... ok
+test value::types::tests::interface_type_accepts_null_and_instance_values ... ok
+test value::types::tests::normalize_assignment_materializes_safe_numeric_widening_tags ... ok
+test value::types::tests::normalize_assignment_preserves_null_reference_and_leaves_non_widening_values ... ok
+test value::types::tests::primitive_from_conversions_preserve_exact_runtime_tags ... ok
+test value::types::tests::struct_serialized_construction_preserves_union_order_and_nested_identity ... ok
+test value::types::tests::struct_value_clone_and_equality_preserve_field_identity ... ok
+test value::types::tests::struct_value_mutator_updates_existing_fields_only ... ok
+test value::types::tests::struct_value_new_canonicalizes_alias_fields_and_rejects_type_drift ... ok
+test vm::budget::tests::budget_accepts_exact_remaining_work_and_rejects_the_next_instruction ... ok
+test vm::budget::tests::rejected_charge_does_not_underflow_the_remaining_budget ... ok
+test vm::call::tests::active_local_copyback_checks_admission_before_mutation ... ok
+test vm::call::tests::ancestor_copyback_uses_parked_activation_and_rejects_released_frame ... ok
+test vm::call::tests::builtin_input_binding_checks_admission_before_instance_write ... ok
+test vm::call::tests::dynamic_reference_read_charges_before_materializing_owned_value ... ok
+test vm::call::tests::exhausted_copy_budget_prevents_native_input_mutation ... ok
+test vm::call::tests::native_local_and_omitted_builtin_reads_obey_visibility_gate ... ok
+test vm::call::tests::string_element_reference_materialization_preserves_char_and_copy_budget ... ok
+test vm::const_pool::preparation_budget_tests::array_reservation_is_charged_before_child_payload_expansion ... ok
+test vm::construction::values::tests::aliases_do_not_add_nodes_but_array_and_scalar_construction_exhaust_at_exact_bound ... ok
+test vm::construction::values::tests::apply_merges_only_exact_type_recipe_and_does_not_recoerce_recipe_return ... ok
+test vm::construction::values::tests::array_tails_and_ordinary_defaults_invoke_each_element_recipe_separately ... ok
+test vm::construction::values::tests::callback_cycles_budget_exhaustion_and_callback_reference_failure_unwind_context ... ok
+test vm::construction::values::tests::coercion_evaluates_all_member_defaults_then_overrides_without_type_merge ... ok
+test vm::construction::values::tests::enum_identity_profile_and_instance_callbacks_are_type_directed ... ok
+test vm::construction::values::tests::scalar_overrides_skip_alias_default_and_checked_shapes_keep_faults ... ok
+test vm::construction::values::tests::union_defaults_materialize_all_variants_and_unknown_fields_keep_failure_order ... ok
+test vm::debug_map::tests::vm_debug_map_omits_invalid_source_entries_and_missing_sections ... ok
+test vm::debug_map::tests::vm_debug_map_preserves_symbols_and_first_reverse_symbol ... ok
+test vm::engine::output_transaction::tests::exhausted_second_output_rolls_back_global_and_current_frame ... ok
+test vm::engine::path_write::tests::output_copyback_charges_shared_struct_backing_before_any_partial_commit ... ok
+test vm::engine::path_write::tests::string_element_charge_fails_before_replacing_backing_text ... ok
+test vm::engine::readonly::tests::program_root_field_selection_preserves_member_write_permissions ... ok
+test vm::errors::tests::vm_traps_preserve_stable_codes_across_runtime_conversion ... ok
+test vm::tests::frame_stack_preserves_lifo_and_call_depth_contracts ... ok
+test vm::tests::operand_stack_preserves_lifo_pair_and_swap_contracts ... ok
+test vm::tests::vm_const_pool_decoder_accepts_fixed_nesting_boundary ... ok
+test vm::tests::vm_const_pool_decoder_preserves_primitive_enum_and_alias_contracts ... ok
+test vm::tests::vm_const_pool_decoder_preserves_recursive_aggregate_payloads ... ok
+test vm::tests::vm_const_pool_decoder_preserves_wildcard_array_and_null_reference_defaults ... ok
+test vm::tests::vm_const_pool_decoder_rejects_bad_payload_and_type_shapes ... ok
+test vm::tests::vm_dispatch_ops_preserve_stack_jump_and_operand_decode_contracts ... ok
+test vm::tests::vm_frame_preserves_local_slot_bounds_and_materialization_contracts ... ok
+test vm::tests::vm_helpers_preserve_opcode_and_borrow_materialization_contracts ... ok
+test vm::tests::vm_sizeof_helpers_preserve_type_table_contracts ... ok
+test vm::tests::vm_trap_preserves_runtime_error_mapping ... ok
+test vm::type_policy::tests::bounded_string_policy_truncates_by_scalar_and_rejects_wrong_family ... ok
+test vm::type_policy::tests::indexed_string_reference_resolves_character_assignment_type ... ok
+test vm::type_policy::tests::primitive_policy_materializes_only_accuracy_preserving_float_widening ... ok
+test vm::type_policy::tests::primitive_policy_rejects_incompatible_runtime_tags ... ok
+test vm::type_policy::tests::subrange_policy_accepts_inclusive_bounds_and_rejects_other_values ... ok
+test watchdog::tests::configuration_parsers_cover_complete_tokens_and_exact_invalid_text ... ok
+test watchdog::tests::enabled_watchdog_policy_normalizes_zero_timeout ... ok
+test watchdog::tests::fault_record_and_policy_updates_preserve_independent_state ... ok
+test watchdog::tests::subsystem_defaults_and_fault_info_preserve_inert_identity ... ok
+test watchdog::tests::watchdog_and_fault_policy_decisions_are_stable ... ok
+test watchdog::tests::watchdog_and_fault_subsystems_preserve_state_contracts ... ok
+test watchdog::tests::watchdog_policy_default_is_disabled_safe_halt ... ok
+test watchdog::tests::watchdog_policy_normalization_and_installation_cover_boundaries ... ok
+test watchdog::tests::watchdog_retain_and_fault_policy_parsers_match_config_contracts ... ok
+
+test result: ok. 184 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/bytecode_container.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/bytecode_container-5d2e5afb409d1159)
+
+running 11 tests
+test checksum_validation ... ok
+test declared_header_alignment_and_table_boundary_are_checked ... ok
+test duplicate_standard_section_ids_are_rejected ... ok
+test encoder_rejects_section_count_before_serializing_payloads ... ok
+test header_validation ... ok
+test section_end_beyond_32_bit_address_space_is_rejected ... ok
+test section_payloads_cannot_alias_header_or_section_table ... ok
+test section_table_validation ... ok
+test truncated_reference_owner_field_is_rejected ... ok
+test unsupported_reference_location_tag_is_rejected ... ok
+test version_gate ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/bytecode_decode_resource_bounds.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/bytecode_decode_resource_bounds-21d9c3ee9deab60a)
+
+running 8 tests
+test allocation_pressure_from_declared_counts_fails_before_reservation ... ok
+test fixed_section_entry_counts_must_fit_before_allocation ... ok
+test nested_pou_counts_must_fit_before_allocation ... ok
+test nested_reference_counts_must_fit_before_allocation ... ok
+test nested_resource_counts_must_fit_before_allocation ... ok
+test nested_type_counts_must_fit_before_allocation ... ok
+test string_table_count_must_fit_section_before_allocation ... ok
+test type_table_count_must_fit_offset_table_before_allocation ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bytecode_portable_load.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/bytecode_portable_load-5cc3e3bcf084fb20)
+
+running 7 tests
+test decoded_container_is_not_semantically_validated_by_parsing ... ok
+test jump_overflow_and_non_instruction_targets_are_rejected ... ok
+test legacy_1_0_and_1_1_serialization_preserve_their_byte_layouts ... ok
+test overflowing_pou_extent_is_rejected_before_slicing ... ok
+test saved_container_materializes_task_metadata_without_host_or_hir ... ok
+test section_borrow_outlives_the_temporary_view ... ok
+test validated_marker_rejects_struct_built_container_bypasses ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bytecode_sections.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/bytecode_sections-d49148e307996414)
+
+running 11 tests
+test const_pool_decode ... ok
+test debug_map_decode ... ok
+test debug_string_table_decode ... ok
+test io_map_decode ... ok
+test pou_index_decode ... ok
+test ref_table_decode ... ok
+test resource_meta_decode ... ok
+test string_table_decode ... ok
+test string_table_padding ... ok
+test type_table_decode ... ok
+test var_meta_decode ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bytecode_source_free.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/bytecode_source_free-eba96216b5907f47)
+
+running 14 tests
+test callable_default_identity_survives_the_wire_round_trip ... ok
+test callable_defaults_reject_foreign_context_and_inconsistent_identity ... ok
+test construction_decoder_rejects_truncated_records_and_unknown_discriminants ... ok
+test initializer_bodies_have_disjoint_ranges_and_private_results ... ok
+test legacy_instruction_stream_rejects_default_value_opcode ... ok
+test legacy_unknown_extension_ids_do_not_acquire_two_point_zero_meaning ... ok
+test on_demand_default_has_typed_result_and_no_runtime_owner ... ok
+test portable_consumer_rejects_both_legacy_versions ... ok
+test recipe_visibility_does_not_admit_a_callers_frame_or_static_aliases ... ok
+test source_free_construction_rejects_unknown_or_noncanonical_primitives ... ok
+test source_free_empty_resource_round_trips_with_mandatory_tables ... ok
+test source_free_reserved_flags_and_future_versions_reject ... ok
+test two_point_zero_requires_each_construction_section_even_when_empty ... ok
+test typed_initializer_opcodes_are_not_ordinary_pou_instructions ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bytecode_validation_budget.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/bytecode_validation_budget-f4077384b4c7dc5f)
+
+running 12 tests
+test branch_diamonds_do_not_confuse_linear_analysis_with_runtime_depth ... ok
+test conditional_errors_keep_fallthrough_first_lifo_order ... ok
+test deep_linear_body_does_not_retain_a_stack_per_instruction ... ok
+test exact_accounted_limits_pass_and_one_less_fails ... ok
+test legacy_call_keeps_structural_error_precedence ... ok
+test many_deep_branch_entries_exhaust_the_aggregate_budget ... ok
+test multiple_pous_share_one_work_budget ... ok
+test nested_type_metadata_consumes_the_shared_work_budget ... ok
+test struct_built_type_discriminant_must_match_its_payload ... ok
+test unchanged_loop_terminates_analysis_and_growing_backedge_rejects ... ok
+test unreachable_malformed_instruction_is_still_decoded ... ok
+test widening_loop_reaches_a_fixed_point ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+
+     Running tests/bytecode_validation_scale.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/bytecode_validation_scale-1f1a7af4be32bf0d)
+
+running 4 tests
+test compound_local_range_errors_follow_documented_partition_precedence ... ok
+test default_budget_admits_maximum_instruction_and_reference_fixture ... ok
+test diagnostic_length_does_not_replace_the_actual_rejection_with_a_budget_error ... ok
+test increasing_pou_density_does_not_multiply_metadata_scan_work ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.94s
+
+     Running tests/fault_policy_decision_cases.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/fault_policy_decision_cases-8b9bf89bf337a8b2)
+
+running 1 test
+test fault_policy_decision_cases ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fault_state_clear_cases.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/fault_state_clear_cases-e72b34f67d0ffec5)
+
+running 1 test
+test fault_state_clear_cases ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integer_i64_normalization_cases.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/integer_i64_normalization_cases-d730cd6c0c0f1e16)
+
+running 1 test
+test integer_i64_normalization_cases ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/io_address.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/io_address-606de65691e0f393)
+
+running 3 tests
+test direct_addresses_preserve_area_width_bit_and_hierarchical_components ... ok
+test flat_extents_preserve_width_and_separate_hierarchical_storage ... ok
+test malformed_direct_addresses_reject_without_panicking ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/portable_execution_frames.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/portable_execution_frames-c4e0e4df290ef2c9)
+
+running 2 tests
+test invalid_ownership_transfers_preserve_both_local_vectors ... ok
+test suspended_ancestor_reference_mutates_the_original_local_vector ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/portable_foundations.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/portable_foundations-797fe3163d46bc2b)
+
+running 6 tests
+test duration_scaling_truncates_toward_zero_and_keeps_faults ... ok
+test hosted_map_api_keeps_the_indexmap_default_builder ... ok
+test ordered_values_and_retain_preserve_replacement_order_and_independent_copies ... ok
+test portable_exponentiation_preserves_width_and_faults ... ok
+test real_arithmetic_retains_rounding_subnormals_and_checked_faults ... ok
+test record_value_slot_layout ... value_slot_bytes=40 value_slot_alignment=8
+ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/portable_native_functions.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/portable_native_functions-3142e31981f49e96)
+
+running 5 tests
+test conversion_names_keep_aliases_and_generic_rejection_identity ... ok
+test portable_clock_dispatch_only_requests_wall_time_for_current_dt ... ok
+test portable_registry_retains_standard_functions_and_diagnostic_value_formatting ... ok
+test prepared_conversions_preserve_rounding_narrowing_and_source_normalization ... ok
+test registry_keeps_user_registration_precedence_over_conversion_fallback ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/portable_process_image.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/portable_process_image-63e0ef6d63f15926)
+
+running 4 tests
+test enum_codec_keeps_closed_identity_and_rejects_undeclared_image_values ... ok
+test preparation_restores_declared_string_window_and_overflow_is_nonmutating ... ok
+test shared_flat_codec_keeps_zero_fill_little_endian_and_neighbor_bits ... ok
+test shared_typed_codec_retains_signed_bits_time_and_finite_float_errors ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/portable_value_size.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/portable_value_size-afd71fc96a2ab5e7)
+
+running 4 tests
+test enum_size_uses_metadata_callback_and_preserves_callback_fault ... ok
+test runtime_size_preserves_character_count_and_first_array_element_rule ... ok
+test runtime_value_size_accepts_128_nested_nodes_and_rejects_the_first_excess ... ok
+test type_size_shared_graph_charges_each_visit_and_preserves_exhaustion_error ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/preparation_profile.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/preparation_profile-f2afef482d38117f)
+
+running 8 tests
+test a_second_resource_cannot_reclassify_its_programs_as_background_work ... ok
+test byte_entry_cumulative_preparation_includes_decoded_tables ... ok
+test decoded_and_byte_entry_points_enforce_the_same_artifact_bound ... ok
+test empty_string_slots_are_charged_before_decoder_reservation ... ok
+test native_state_layout_is_an_execution_admission_contract ... ok
+test preparation_demand_has_exact_accounting_boundaries ... ok
+test unresolved_native_import_is_rejected_before_instantiation ... ok
+test validated_persistent_demand_cannot_exceed_profile_value_limit ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/retain_snapshot_insert_cases.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/retain_snapshot_insert_cases-06c6d8d1bda976f2)
+
+running 1 test
+test retain_snapshot_insert_cases ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/runtime_core_compiler_free_load.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/runtime_core_compiler_free_load-ec5324f3ac98ee06)
+
+running 1 test
+test saved_artifact_executes_expected_trace_without_compiler_or_source ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/signed_integer_materialization_cases.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/signed_integer_materialization_cases-1f80402802f4d2b3)
+
+running 1 test
+test signed_integer_materialization_cases ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/source_free_cycle.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/source_free_cycle-85a06e5b205a4ea2)
+
+running 3 tests
+test background_runs_every_cycle_and_retain_observes_completed_program ... ok
+test configured_store_without_save_implementation_fails_closed ... ok
+test failed_retain_latches_fault_and_stops_subsequent_cycles ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/source_free_numeric.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/source_free_numeric-eedfe3b62204281e)
+
+running 1 test
+test saved_numeric_artifact_preserves_accuracy_control_and_nominal_periods ... numeric,1000,v_sqrt,3ff6a09e667f3bcd
+numeric,1000,v_ln,3fe62e42fefa39ef
+numeric,1000,v_log,3ff0000000000000
+numeric,1000,v_exp,4005bf0a8b14576a
+numeric,1000,v_sin,3fdeaee8744b05f0
+numeric,1000,v_cos,3fec1528065b7d50
+numeric,1000,v_tan,3fe17b4f5bf3474a
+numeric,1000,v_asin,3fe0c152382d7366
+numeric,1000,v_acos,3ff0c152382d7366
+numeric,1000,v_atan,3fe921fb54442d18
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/source_free_profile_admission.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/source_free_profile_admission-af79f116e5499b59)
+
+running 2 tests
+test external_global_write_cannot_replace_a_program_root ... ok
+
+thread 'source_free_profile_rejects_raw_retain_and_io_reference_domains_before_execution' (2605229) panicked at crates/trust-runtime-core/tests/source_free_profile_admission.rs:61:14:
+unused raw domain is a structurally valid wire reference: InvalidSection("incomplete source-free construction metadata")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test source_free_profile_rejects_raw_retain_and_io_reference_domains_before_execution ... FAILED
+
+failures:
+
+failures:
+    source_free_profile_rejects_raw_retain_and_io_reference_domains_before_execution
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p trust-runtime-core --test source_free_profile_admission`
+     Running tests/task_readiness_cases.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/task_readiness_cases-aa3f0b7e8fd039b3)
+
+running 1 test
+test task_readiness_cases ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/unsigned_integer_materialization_cases.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/deps/unsigned_integer_materialization_cases-962ab451168a18e0)
+
+running 1 test
+test unsigned_integer_materialization_cases ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests trust_runtime_core
+
+running 2 tests
+error[E0502]: cannot borrow `raw.sections` as mutable because it is also borrowed as immutable
+   --> crates/trust-runtime-core/src/bytecode/module.rs:112:1
+    |
+111 | let validated = raw.validated().unwrap();
+    |                 --- immutable borrow occurs here
+112 | raw.sections.clear();
+    | ^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+113 | let _ = validated.view();
+    |         --------- immutable borrow later used here
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0502`.
+test crates/trust-runtime-core/src/bytecode/module.rs - bytecode::module::ValidatedBytecode (line 107) - compile fail ... ok
+error[E0277]: the trait bound `RuntimeState<'_>: ReferenceContext` is not satisfied
+  --> crates/trust-runtime-core/src/vm/engine/api.rs:20:43
+   |
+20 |     let _ = ReferenceContext::storage_mut(state);
+   |             ----------------------------- ^^^^^ the trait `ReferenceContext` is not implemented for `RuntimeState<'_>`
+   |             |
+   |             required by a bound introduced by this call
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0277`.
+test crates/trust-runtime-core/src/vm/engine/api.rs - vm::engine::api::RuntimeState (line 16) - compile fail ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+error: 1 target failed:
+    `-p trust-runtime-core --test source_free_profile_admission`
+[gate-progress state=finished phase=A4-core-all-features target=scena-rust-builder pid=2604051 elapsed=11.3s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime-core --all-features -- --nocapture --test-threads=1' status=101]

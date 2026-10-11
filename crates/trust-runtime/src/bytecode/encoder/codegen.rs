@@ -3,6 +3,9 @@ use smol_str::SmolStr;
 use crate::bytecode::DebugEntry;
 use crate::value::{Value, ValueRef};
 
+mod expr_types;
+mod initializer_values;
+
 use super::consts::type_id_for_value;
 use super::util::to_u32;
 use super::{AccessKind, BytecodeEncoder, BytecodeError, CodegenContext};

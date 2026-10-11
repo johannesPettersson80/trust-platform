@@ -122,13 +122,12 @@ fn register_ir_lowering_rejects_invalid_jump_target() {
     let (mut vm_module, pou_id) = vm_module_and_main_pou(source);
     // Admission now rejects malformed bytecode before materialization. Inject the
     // fault into an already constructed test module to exercise lowering itself.
-    let start = vm_module.code.len();
-    vm_module.code.push(0x02);
-    vm_module.code.extend_from_slice(&4096_i32.to_le_bytes());
-    vm_module.code.push(0x06);
-    let entry = vm_module.pou_by_id.get_mut(&pou_id).expect("main POU");
-    entry.code_start = start;
-    entry.code_end = vm_module.code.len();
+    let mut bad_body = vec![0x02];
+    bad_body.extend_from_slice(&4096_i32.to_le_bytes());
+    bad_body.push(0x06);
+    vm_module
+        .replace_legacy_pou_body(pou_id, &bad_body)
+        .expect("main POU");
 
     let err = lower_pou_to_register_ir(&vm_module, pou_id).expect_err("invalid jump must fail");
     let RuntimeError::Bytecode {

@@ -22,7 +22,6 @@ pub(super) fn maybe_execute_tier1_block(
     frames: &mut FrameStack,
     registers: &mut [Value],
     native_call_stack: &mut OperandStack,
-    budget: &mut usize,
     depth_offset: u32,
 ) -> Result<Option<RegisterBlockExecutionOutcome>, RuntimeError> {
     if !runtime.vm_tier1_specialized_executor.enabled() {
@@ -75,7 +74,6 @@ pub(super) fn maybe_execute_tier1_block(
         registers,
         native_call_stack,
         compiled.as_ref(),
-        budget,
         depth_offset,
     )?;
     let Tier1BlockExecutionOutcome::Executed(outcome) = outcome;

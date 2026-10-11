@@ -1,0 +1,60 @@
+   Compiling xtask v0.24.71 (/home/johannes/projects/trust-platform-portability-br2-m1/xtask)
+    Finished `dev` profile [unoptimized] target(s) in 2.77s
+     Running `/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/debug/xtask portability build-firmware /home/johannes/.cache/trust-portability-b-evidence/b-r2-m1/build-config.json`
+{"manifest":"/home/johannes/projects/trust-platform-portability-br2-m1/firmware/trust-nucleo-f401re/Cargo.toml","note":"Path normalization does not claim cross-checkout binary reproducibility.","profile":"release","rustflags":["-C","target-cpu=cortex-m4","-C","llvm-args=-addrsig","-C","link-arg=--icf=safe","-C","link-arg=-Tlink.x","-C","link-arg=-Tprofile.x","-C","link-arg=-Map=trust-nucleo-f401re.map","--remap-path-prefix=/home/johannes/projects/trust-platform-portability-br2-m1=/src","--remap-path-prefix=/home/johannes/.cargo/registry/src=/registry","--remap-path-prefix=/home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust=/rust-src"],"target":"thumbv7em-none-eabihf"}
+   Compiling nb v1.1.0
+   Compiling cortex-m-rt v0.7.5
+   Compiling cortex-m v0.7.7
+   Compiling critical-section v1.2.0
+   Compiling bare-metal v0.2.5
+   Compiling vcell v0.1.3
+   Compiling void v1.0.2
+   Compiling portable-atomic v1.15.0
+   Compiling volatile-register v0.2.2
+   Compiling nb v0.1.3
+   Compiling bitfield v0.13.2
+   Compiling gcd v2.3.0
+   Compiling stm32f4 v0.16.0
+   Compiling time-core v0.1.9
+   Compiling embedded-hal v0.2.7
+   Compiling fugit v0.3.9
+   Compiling num-conv v0.2.2
+   Compiling embedded-hal v1.0.0
+   Compiling powerfmt v0.2.1
+   Compiling stable_deref_trait v1.2.1
+   Compiling deranged v0.5.8
+   Compiling stm32f4xx-hal v0.23.0
+   Compiling embedded-dma v0.2.0
+   Compiling embedded-hal-nb v1.0.0
+   Compiling fugit-timer v0.1.3
+   Compiling libm v0.2.16
+   Compiling thiserror v2.0.21
+   Compiling enumflags2 v0.7.12
+   Compiling hashbrown v0.17.1
+   Compiling rand_core v0.9.5
+   Compiling rand_core v0.6.4
+   Compiling bare-metal v1.0.0
+   Compiling embedded-io v0.6.1
+   Compiling embedded-storage v0.3.2
+   Compiling equivalent v1.0.2
+   Compiling linked_list_allocator v0.10.6
+   Compiling smol_str v0.2.2
+   Compiling rustc-hash v2.1.3
+   Compiling trust-nucleo-f401re v0.1.0 (/home/johannes/projects/trust-platform-portability-br2-m1/firmware/trust-nucleo-f401re)
+   Compiling embedded-alloc v0.7.0
+   Compiling indexmap v2.14.2
+   Compiling time v0.3.55
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-br2-m1/crates/trust-runtime-core)
+   Compiling trust-platform-stm32f4 v0.24.71 (/home/johannes/projects/trust-platform-portability-br2-m1/crates/trust-platform-stm32f4)
+error: linking with `rust-lld` failed: exit status: 1
+  |
+  = note:  "rust-lld" "-flavor" "gnu" "<1 object files omitted>" "--as-needed" "-Bstatic" "/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/thumbv7em-none-eabihf/release/deps/rustcXItKPP/libcortex_m-6ebde006c753f46e.rlib" "<sysroot>/lib/rustlib/thumbv7em-none-eabihf/lib/libcompiler_builtins-*.rlib" "-L" "/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/thumbv7em-none-eabihf/release/deps/rustcXItKPP/raw-dylibs" "-Bdynamic" "--eh-frame-hdr" "-z" "noexecstack" "-L" "/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/thumbv7em-none-eabihf/release/build/trust-nucleo-f401re-d0b2eefdb4905178/out" "-L" "/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/thumbv7em-none-eabihf/release/build/cortex-m-f09ab31aec6f155d/out" "-L" "/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/thumbv7em-none-eabihf/release/build/cortex-m-rt-e8be8667597ba79b/out" "-L" "/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/thumbv7em-none-eabihf/release/build/stm32f4-5817e5c9309d29c8/out" "-o" "/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/thumbv7em-none-eabihf/release/deps/trust_nucleo_f401re-668cae27a392ec43" "--gc-sections" "--icf=safe" "-Tlink.x" "-Tprofile.x" "-Map=trust-nucleo-f401re.map"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: rust-lld: error: firmware load image exceeds L2 code region
+          rust-lld: error: section '.rodata' will not fit in region 'FLASH': overflowed by 15644 bytes
+          rust-lld: error: section '.data' will not fit in region 'FLASH': overflowed by 15644 bytes
+          rust-lld: error: section '.gnu.sgstubs' will not fit in region 'FLASH': overflowed by 15648 bytes
+          
+
+error: could not compile `trust-nucleo-f401re` (bin "trust-nucleo-f401re") due to 1 previous error
+xtask failed: reference firmware build failed: exit status: 101

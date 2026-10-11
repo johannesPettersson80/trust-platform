@@ -1,0 +1,3842 @@
+{
+  "base": "77b91381fcf1b1850611f88b397bbfe8d45e3523",
+  "scope": "Complete current dirty Rust and deletion review coverage before run11; historical review identities preserved; not validation proof",
+  "records": [
+    {
+      "path": "crates/trust-runtime/src/memory/access.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "341106f7048b4aef008b47494533ff10ac1e308c41ac108acf53918d92e92308"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "341106f7048b4aef008b47494533ff10ac1e308c41ac108acf53918d92e92308"
+    },
+    {
+      "path": "crates/trust-runtime/src/memory/frames.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "6accf976b4dccc9b5e2ba82f9fd434432fc30a91b32b253e41593b0e86471c73"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "6accf976b4dccc9b5e2ba82f9fd434432fc30a91b32b253e41593b0e86471c73"
+    },
+    {
+      "path": "crates/trust-runtime/src/memory/instances.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "7f6238630e120809579121d25e3a1b3d24fcabc04ce0b7aa9b208c8b09703f47"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "7f6238630e120809579121d25e3a1b3d24fcabc04ce0b7aa9b208c8b09703f47"
+    },
+    {
+      "path": "crates/trust-runtime/src/memory/references.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "410cbb8984fd2296344d2a1447b678ccf27b7c0b9a94c4609bb3d5521d4d30eb"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "410cbb8984fd2296344d2a1447b678ccf27b7c0b9a94c4609bb3d5521d4d30eb"
+    },
+    {
+      "path": "crates/trust-runtime/src/memory/storage.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "164c7bf3ec1d8fbfd70a5b264de1de09c2da3976571684b99a81268cc7084b59"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "164c7bf3ec1d8fbfd70a5b264de1de09c2da3976571684b99a81268cc7084b59"
+    },
+    {
+      "path": "crates/trust-runtime/src/memory/tests.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "45f80d744c7520d91bf365b0f1d9fb79693d7b37dff08ebea91772022bc7dea1"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "45f80d744c7520d91bf365b0f1d9fb79693d7b37dff08ebea91772022bc7dea1"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call/bindings.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "8da57d6ea4087971dac5298129ce242fb26a9cdcc26ad81855060521c9029cc4"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "8da57d6ea4087971dac5298129ce242fb26a9cdcc26ad81855060521c9029cc4"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call/bindings/indices.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "2f1e7c507658d6f549419fc628a284835cfd2231e9d3d77315ca193b49c54f7a"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "2f1e7c507658d6f549419fc628a284835cfd2231e9d3d77315ca193b49c54f7a"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call/stdlib.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "321fbd01d16d964a82185fa1136f11aa87d61e5025ce9d1839aa30ba9d202f14"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "321fbd01d16d964a82185fa1136f11aa87d61e5025ce9d1839aa30ba9d202f14"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call/symbols.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "f95ffb7e325ef9b5328d270324afc4ac0c1f7454223c7938e15265cc3162a97f"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "f95ffb7e325ef9b5328d270324afc4ac0c1f7454223c7938e15265cc3162a97f"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/const_pool.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "5086013c0c97dc72b109d4ee60fcd50e85bf8cbaef4163d0232c8b72f4dfbb08"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "5086013c0c97dc72b109d4ee60fcd50e85bf8cbaef4163d0232c8b72f4dfbb08"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/dispatch_ops.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "03c7da8519e06f5d1b815b4794930e9b2b6c6df09ff9f3e420f6cf0f6becdbd4"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "03c7da8519e06f5d1b815b4794930e9b2b6c6df09ff9f3e420f6cf0f6becdbd4"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/reference_attempt.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "c9e60773cc84bb71999368e9360ae83c34844a98f8a137ebf36e83afc3155bea"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "c9e60773cc84bb71999368e9360ae83c34844a98f8a137ebf36e83afc3155bea"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/assertions.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "0c540b3f8f56351154e935fae12a8ec54f6c755cdafa93441c4665ae427fe891"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "0c540b3f8f56351154e935fae12a8ec54f6c755cdafa93441c4665ae427fe891"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/bit.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "103413404b90d05839478a32159f1239291c689b17e4b2fd47f2191269906a79"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "103413404b90d05839478a32159f1239291c689b17e4b2fd47f2191269906a79"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/comparison.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "96f923bd65d0ed9f6454525cca39c72214d564e39bbf3c4924919172434a3df0"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "96f923bd65d0ed9f6454525cca39c72214d564e39bbf3c4924919172434a3df0"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/conversions/bcd.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "346218c8042c10f2d78722d6283381d757946a069785967e7fd34aaba629b66c"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "346218c8042c10f2d78722d6283381d757946a069785967e7fd34aaba629b66c"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/conversions/bitstring.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "b27bc656a3d31bbab1a7ffc6d080625def741b3627381b5ae0cb5618edda5b07"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "b27bc656a3d31bbab1a7ffc6d080625def741b3627381b5ae0cb5618edda5b07"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/conversions/dispatch.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "fb2e1b934cdb72c148901935fb8fd66c395b9edcb1d4bb1fe29d31cac1a17c27"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "fb2e1b934cdb72c148901935fb8fd66c395b9edcb1d4bb1fe29d31cac1a17c27"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/conversions/mod.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "267028d0719f3966966937b293ad956f6a38c89cff31d2137b1c74ad2abbe989"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "267028d0719f3966966937b293ad956f6a38c89cff31d2137b1c74ad2abbe989"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/conversions/numeric.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "7659fc74d60c4c9ef5572dc1c04492fac9950c7b7562de0625e07cccd34a3865"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "7659fc74d60c4c9ef5572dc1c04492fac9950c7b7562de0625e07cccd34a3865"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/conversions/spec.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "64881f08205292f228d61b245a45fef39979e08735634871583c223120c480b6"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "64881f08205292f228d61b245a45fef39979e08735634871583c223120c480b6"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/conversions/string.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "c5d4d1f6a638fedc2e69840cde27f6e545e624f16384c8805a47fafa0be17432"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "c5d4d1f6a638fedc2e69840cde27f6e545e624f16384c8805a47fafa0be17432"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/conversions/time.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "c7ae5a1cfa681574649dbd26648f0a5919545865a1df15d8743e93aff03a1bde"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "c7ae5a1cfa681574649dbd26648f0a5919545865a1df15d8743e93aff03a1bde"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/conversions/util.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "dc1d5611cf9599e7c5a554793e504d143d94ac3535241111ece1f713c9bdf6cf"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "dc1d5611cf9599e7c5a554793e504d143d94ac3535241111ece1f713c9bdf6cf"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/fbs/bistable.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "8d47ba41e73f2560e9675088266cb02528ce6eafd0c80f704ea58255fedd59e4"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "8d47ba41e73f2560e9675088266cb02528ce6eafd0c80f704ea58255fedd59e4"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/fbs/counters.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "960b0bde549f79a04b445024c96a794f97dd6cc8d9ce6b2c4992ec98a15089e9"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "960b0bde549f79a04b445024c96a794f97dd6cc8d9ce6b2c4992ec98a15089e9"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/fbs/instance.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "0156e55c108042ce5dfaa2ec7dcee2e4619400a06ebbcd4be0937333e168be3b"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "0156e55c108042ce5dfaa2ec7dcee2e4619400a06ebbcd4be0937333e168be3b"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/fbs/timers.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "8da01ffe490a6610e0b5f0cb28e08fbb64c0cf76137de384f8351079d6db7a42"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "8da01ffe490a6610e0b5f0cb28e08fbb64c0cf76137de384f8351079d6db7a42"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/fbs/triggers.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "effd1ada0f2ece5d974a160482019cc9857304faaf8ad687c69ab19eb59bd9ad"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "effd1ada0f2ece5d974a160482019cc9857304faaf8ad687c69ab19eb59bd9ad"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/helpers.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "3b1f7a6c6c6229ec2b802d3c78fa77535b390ae35dab0bf47f9c7957791a256c"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "3b1f7a6c6c6229ec2b802d3c78fa77535b390ae35dab0bf47f9c7957791a256c"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/numeric.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "bab7bdce0382ba78c6ad6447ae97cacdf7a7fee98effa410cce1682126b216e8"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "bab7bdce0382ba78c6ad6447ae97cacdf7a7fee98effa410cce1682126b216e8"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/selection.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "349494cd398afc84c40b0747e82bfd7a58ac1825410d5001c3f22ed8c57a80a7"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "349494cd398afc84c40b0747e82bfd7a58ac1825410d5001c3f22ed8c57a80a7"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/string.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "a8717ea58383073298e375e198f4ff55c5affd97d5f0d53ee3432b71111eb367"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "a8717ea58383073298e375e198f4ff55c5affd97d5f0d53ee3432b71111eb367"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/validate.rs",
+      "status": "D",
+      "current_sha256": null,
+      "classification": "relocation-source",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": null,
+          "base_sha256": "38dc8073d489596a6d96b1ab71506ed1a1c779a97aff932697b1617da1d29ce1"
+        }
+      ],
+      "current_binding": "reviewed deletion",
+      "deleted_base_sha256": "38dc8073d489596a6d96b1ab71506ed1a1c779a97aff932697b1617da1d29ce1"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/decode.rs",
+      "status": "M",
+      "current_sha256": "5049235276939cafbfecfa34d929ed55fbcd284f752d3dfd28830943609f01ed",
+      "classification": "authored-modified",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "5049235276939cafbfecfa34d929ed55fbcd284f752d3dfd28830943609f01ed",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/decode/construction.rs",
+      "status": "M",
+      "current_sha256": "c9a2efc600053b2e1e32d198807cd085e6094f3dcc3dd62203da1a2235b941da",
+      "classification": "authored-modified",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "c9a2efc600053b2e1e32d198807cd085e6094f3dcc3dd62203da1a2235b941da",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/decode/module_decode.rs",
+      "status": "M",
+      "current_sha256": "b86561fab98570e7599dcc802dabfa2c53f8922339405159c9dbe69d0a3a61c3",
+      "classification": "authored-modified",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "b86561fab98570e7599dcc802dabfa2c53f8922339405159c9dbe69d0a3a61c3",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/decode/section_decode.rs",
+      "status": "M",
+      "current_sha256": "42d7c6abb7119bbc97dfd2d01944fb3cce35078e0ec0b42b456b1a3a0b39e748",
+      "classification": "authored-modified",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "42d7c6abb7119bbc97dfd2d01944fb3cce35078e0ec0b42b456b1a3a0b39e748",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/decode/section_validate.rs",
+      "status": "M",
+      "current_sha256": "df23ed6eae5b3c9a41d438f309c82054bfb6fda015fb5a3ba26550dc1cf185e5",
+      "classification": "authored-modified",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "df23ed6eae5b3c9a41d438f309c82054bfb6fda015fb5a3ba26550dc1cf185e5",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/decode/string_type_decode.rs",
+      "status": "M",
+      "current_sha256": "62fffa20e766aaa7d110724bfe9c2060f9c71800cad5586466c21670db79c5e8",
+      "classification": "authored-modified",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "62fffa20e766aaa7d110724bfe9c2060f9c71800cad5586466c21670db79c5e8",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/encode.rs",
+      "status": "M",
+      "current_sha256": "e4692454fccccc9ccb78142dcd6892f22d3fa599a1387e2ac3cffa17b40b4297",
+      "classification": "authored-modified",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "e4692454fccccc9ccb78142dcd6892f22d3fa599a1387e2ac3cffa17b40b4297",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/format/construction.rs",
+      "status": "M",
+      "current_sha256": "ab8cabe52977da2ede4a89269d0092f5b9483f1d7bd4a0772b70dd3f4f4acfa8",
+      "classification": "authored-modified",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "106ba43ef4f91cf603c5338c1ef0140eee050798e522ec64375fac9fefa37f82",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "ab8cabe52977da2ede4a89269d0092f5b9483f1d7bd4a0772b70dd3f4f4acfa8"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/mod.rs",
+      "status": "M",
+      "current_sha256": "cc6aed0cc20941135080c95b19346843737ab8298b30b3e0851707f19c029db0",
+      "classification": "authored-modified",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "cc6aed0cc20941135080c95b19346843737ab8298b30b3e0851707f19c029db0",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/module.rs",
+      "status": "M",
+      "current_sha256": "d934f2c4358885ea47fbb49817debdfff00137008ca73a4805e6887b1804f949",
+      "classification": "authored-modified",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d934f2c4358885ea47fbb49817debdfff00137008ca73a4805e6887b1804f949",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/collections.rs",
+      "status": "M",
+      "current_sha256": "335722178b25d77f2e800b83814171b71be8baff7756c0754d80ea8e9e79f1e4",
+      "classification": "authored-modified",
+      "review_group": "crate wiring and lifecycle",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "335722178b25d77f2e800b83814171b71be8baff7756c0754d80ea8e9e79f1e4",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/error.rs",
+      "status": "M",
+      "current_sha256": "6db86c939c2393d49476eac153909e3afcca2d26616cc8864b92ef9f17409560",
+      "classification": "authored-modified",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "c48778d0873b2b3fb47850c1c1dbf1aabbd5e934ea74f392b7897f1486f19bd7",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "6db86c939c2393d49476eac153909e3afcca2d26616cc8864b92ef9f17409560"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/error_code.rs",
+      "status": "M",
+      "current_sha256": "ec9905522e7d12f7d7937306d27524fdc807f7aeab0106c2a5fe702eb4bc0896",
+      "classification": "authored-modified",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "ed6d4ac21232c86f595f8040b69e7d5c2945ff59680d383439d67b454ceac38b",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-8-corrections-independent-source.json",
+          "reviewed_sha256": "ec9905522e7d12f7d7937306d27524fdc807f7aeab0106c2a5fe702eb4bc0896"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/lib.rs",
+      "status": "M",
+      "current_sha256": "c230f2217a53868b46e3589cd297a5a314a9c5f1758afeb3ece60e508df77cf8",
+      "classification": "authored-modified",
+      "review_group": "crate wiring and lifecycle",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "c230f2217a53868b46e3589cd297a5a314a9c5f1758afeb3ece60e508df77cf8",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory.rs",
+      "status": "M",
+      "current_sha256": "9610c29e7b139569387557216a25094e4a68b851aef127919f1abcd853be506e",
+      "classification": "authored-modified",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "3f820dd93bef88ddae459513845a3cb1d6c34171c77281505d6bc68ea9fdd3bc",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "9610c29e7b139569387557216a25094e4a68b851aef127919f1abcd853be506e"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/retain.rs",
+      "status": "M",
+      "current_sha256": "cf5ec211b84ad4756712ebff47489fb280ee2995703a32237fea7b3cb5902efd",
+      "classification": "authored-modified",
+      "review_group": "crate wiring and lifecycle",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "cf5ec211b84ad4756712ebff47489fb280ee2995703a32237fea7b3cb5902efd",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/value/mod.rs",
+      "status": "M",
+      "current_sha256": "adf5e18b5ab86e2b62d2805aea59117bb53196942956621c0d4cb0e72c94ef62",
+      "classification": "authored-modified",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "adf5e18b5ab86e2b62d2805aea59117bb53196942956621c0d4cb0e72c94ef62",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/value/partial_access.rs",
+      "status": "M",
+      "current_sha256": "baeaea74b1ce3dd42f688a943011f4d0a1f740f244c47f6d4e6c8d45e45824a6",
+      "classification": "authored-modified",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "4eae49b38cea6ee6dd7615294a78bf4ac9fa4187b115f41be5c7cd91fb399611",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "baeaea74b1ce3dd42f688a943011f4d0a1f740f244c47f6d4e6c8d45e45824a6"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/value/reference.rs",
+      "status": "M",
+      "current_sha256": "41ae10721194c792b29e87b9aff33b2287b3096af5233cae6935436944dd01e9",
+      "classification": "authored-modified",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d8fc344cb7a914cc51a87f0744a5382729915a8734e8e55c3912bfae4fac5699",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "41ae10721194c792b29e87b9aff33b2287b3096af5233cae6935436944dd01e9"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/value/size.rs",
+      "status": "M",
+      "current_sha256": "ef0cc67d250d46c698f0ae4106935e80e3b977a70ba765601caea4eb81af81d4",
+      "classification": "authored-modified",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "ef0cc67d250d46c698f0ae4106935e80e3b977a70ba765601caea4eb81af81d4",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/value/types.rs",
+      "status": "M",
+      "current_sha256": "eb878f8faa6400989bae5a49be8ad2b1df4a3bfebab942968adcb022d2e59dbc",
+      "classification": "authored-modified",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "eb878f8faa6400989bae5a49be8ad2b1df4a3bfebab942968adcb022d2e59dbc",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/const_pool.rs",
+      "status": "M",
+      "current_sha256": "22a41298dca08bbeed0eb69d2c234f60b9ace78565306e54ac7b60e9349d369b",
+      "classification": "authored-modified",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "22a41298dca08bbeed0eb69d2c234f60b9ace78565306e54ac7b60e9349d369b",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/dispatch_sizeof.rs",
+      "status": "M",
+      "current_sha256": "4c59dbc46f2a0af7aa9f5d5ac3352f1ecf07453e88ccd166f5f5ee5fea2b2e25",
+      "classification": "authored-modified",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "4c59dbc46f2a0af7aa9f5d5ac3352f1ecf07453e88ccd166f5f5ee5fea2b2e25",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/errors.rs",
+      "status": "M",
+      "current_sha256": "8af116bdd49d5cd35ca3c72ccc35dd51878fb48f7b129fc8026c64f2f50d9f12",
+      "classification": "authored-modified",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d4e6bcc1ca60a135e24289d80735811a768187406a7096e9a4d098c52f82086b",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-7-corrections-independent-source.json",
+          "reviewed_sha256": "8af116bdd49d5cd35ca3c72ccc35dd51878fb48f7b129fc8026c64f2f50d9f12"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/frames.rs",
+      "status": "M",
+      "current_sha256": "ecd7ec6e4aae77cbd767c495273e79c5013a99f7f4442e5c6df08c380bbb904b",
+      "classification": "authored-modified",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "06f83f73101e338fa8a0467165b0fda6b603393d6d162631360f6cfeb1c3e350",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "ecd7ec6e4aae77cbd767c495273e79c5013a99f7f4442e5c6df08c380bbb904b"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/mod.rs",
+      "status": "M",
+      "current_sha256": "3d763268950ca7afc745002455886b16e8bf804f322fabf94b7df6c1eb431d0b",
+      "classification": "authored-modified",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "bb7e9aa13f28bd5a9e8c8d062f2bd0d70b005a8b7bcf716f741aba0cdd834ec1",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-7-corrections-independent-source.json",
+          "reviewed_sha256": "3d763268950ca7afc745002455886b16e8bf804f322fabf94b7df6c1eb431d0b"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/stack.rs",
+      "status": "M",
+      "current_sha256": "d4ea4344588be7461512f55af76b99a60f84d42c357af0a2e2f9e5dc8ce05df7",
+      "classification": "authored-modified",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d4ea4344588be7461512f55af76b99a60f84d42c357af0a2e2f9e5dc8ce05df7",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/examples/portability_fixture.rs",
+      "status": "M",
+      "current_sha256": "68d903145fffd86e5348b41c1a4aad87be9542957f42ac85db9a530e403e029b",
+      "classification": "authored-modified",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "68d903145fffd86e5348b41c1a4aad87be9542957f42ac85db9a530e403e029b",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/bytecode/encoder/construction/globals.rs",
+      "status": "M",
+      "current_sha256": "28df76961d9d6bf64b71586d41eae29897d87ba8ee62ae8a9d9b909f45eea7d1",
+      "classification": "authored-modified",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "28df76961d9d6bf64b71586d41eae29897d87ba8ee62ae8a9d9b909f45eea7d1",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/bytecode/encoder/construction/templates.rs",
+      "status": "M",
+      "current_sha256": "97208b3c2116d9e03ab5b1fced1898c093f0e469f47ffc2fc5b4625bf5c2fe99",
+      "classification": "authored-modified",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "97208b3c2116d9e03ab5b1fced1898c093f0e469f47ffc2fc5b4625bf5c2fe99",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/io/addressing.rs",
+      "status": "M",
+      "current_sha256": "95606c29233c1bd5f739d7ed990070141f283d6103929ce451017b7c119e9257",
+      "classification": "authored-modified",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "95606c29233c1bd5f739d7ed990070141f283d6103929ce451017b7c119e9257",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/io/coercion.rs",
+      "status": "M",
+      "current_sha256": "ca3c3e3e6b2a8234d58bfe00d34b22e049bdd713e1e1d6f11a36038bca1ec9d7",
+      "classification": "authored-modified",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "ca3c3e3e6b2a8234d58bfe00d34b22e049bdd713e1e1d6f11a36038bca1ec9d7",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/io/interface.rs",
+      "status": "M",
+      "current_sha256": "506433e852c0e736f4f3e2e2dff2f29a623e31270cdd99c6b8a6b2f88c2c4941",
+      "classification": "authored-modified",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "506433e852c0e736f4f3e2e2dff2f29a623e31270cdd99c6b8a6b2f88c2c4941",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/lib.rs",
+      "status": "M",
+      "current_sha256": "a02b5830ae16305cc5c11d66a76e28e686f903ea2898c1c0c5b4114f178274bb",
+      "classification": "authored-modified",
+      "review_group": "crate wiring and lifecycle",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "a02b5830ae16305cc5c11d66a76e28e686f903ea2898c1c0c5b4114f178274bb",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/memory.rs",
+      "status": "M",
+      "current_sha256": "40cce7be4287d9d9442b1d35a8b40f05c5270a200580cbc2740c0d57adc7a3fc",
+      "classification": "authored-modified",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "40cce7be4287d9d9442b1d35a8b40f05c5270a200580cbc2740c0d57adc7a3fc",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/core.rs",
+      "status": "M",
+      "current_sha256": "a7298369d88b85873b5fd5ecc61c8cc62ab5a485624994ec85a2cc95bc909d6f",
+      "classification": "authored-modified",
+      "review_group": "crate wiring and lifecycle",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "a7298369d88b85873b5fd5ecc61c8cc62ab5a485624994ec85a2cc95bc909d6f",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/core/lifecycle.rs",
+      "status": "M",
+      "current_sha256": "8ce959452c557d704a7d0642e286d24ea6778f80da5ca255af792894e7854f7d",
+      "classification": "authored-modified",
+      "review_group": "crate wiring and lifecycle",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "8ce959452c557d704a7d0642e286d24ea6778f80da5ca255af792894e7854f7d",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/retain_snapshot.rs",
+      "status": "M",
+      "current_sha256": "77eda83f4a79b4d4f35f5ec54cc6bd602b2afc91f3889bf74348c8e887758838",
+      "classification": "authored-modified",
+      "review_group": "crate wiring and lifecycle",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "77eda83f4a79b4d4f35f5ec54cc6bd602b2afc91f3889bf74348c8e887758838",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/budget.rs",
+      "status": "M",
+      "current_sha256": "1e72128c57b75ddea4c558ca1c85fce870f1682d15a7622ddc178db2bf03a97e",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "1e72128c57b75ddea4c558ca1c85fce870f1682d15a7622ddc178db2bf03a97e",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call.rs",
+      "status": "M",
+      "current_sha256": "91099048d8ece51ae6694cd37814c3aec6f01b28c2b5aedd779c93e5427ff9a4",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "00f637a92e14b6f26f31120a0538af013b4922ab1231f8f4ff01fd1fe5f9af8e",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "91099048d8ece51ae6694cd37814c3aec6f01b28c2b5aedd779c93e5427ff9a4"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call/tests/function_blocks.rs",
+      "status": "M",
+      "current_sha256": "304dc6e96c302c6b546ed95bc2c6a92273684ab39ced40500e070a633e966bdc",
+      "classification": "authored-modified",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "990260062c7af7d06611d9710c564a5bc78bb04cda28d29344cf73b57e11bbde",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "304dc6e96c302c6b546ed95bc2c6a92273684ab39ced40500e070a633e966bdc"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call/tests/stdlib_binding.rs",
+      "status": "M",
+      "current_sha256": "1dc05b1c12ebf4b7b0c312587bcdf1a91a7b50e3e179c8dde1ca125c96d7dbc7",
+      "classification": "authored-modified",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "1dc05b1c12ebf4b7b0c312587bcdf1a91a7b50e3e179c8dde1ca125c96d7dbc7",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call/tests/support.rs",
+      "status": "M",
+      "current_sha256": "14e48e7b1a9cb5afa62ac1481f62aa3a44ad351328386acf5e1727ded0e6f345",
+      "classification": "authored-modified",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "36db23f57f4ad3830e0efd933dfefe770c21dfbe9533223567f263c8024dc63d",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "14e48e7b1a9cb5afa62ac1481f62aa3a44ad351328386acf5e1727ded0e6f345"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call/tests/write_targets.rs",
+      "status": "M",
+      "current_sha256": "71f747f201c91ca79e55064ac036d3a78706416c3297b8404b47ca4c86b25795",
+      "classification": "authored-modified",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "71f747f201c91ca79e55064ac036d3a78706416c3297b8404b47ca4c86b25795",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/debug_map.rs",
+      "status": "M",
+      "current_sha256": "02150cd88d7e8f8ab10160d6de7781e9df314ced7daa070ba0bb3a2399bcbe44",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "02150cd88d7e8f8ab10160d6de7781e9df314ced7daa070ba0bb3a2399bcbe44",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/dispatch.rs",
+      "status": "M",
+      "current_sha256": "9a2a94f87e7457ee938ca2f33707bb554e53dfecb464c55a7d080a053ee39865",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "f166d31b77c4f588a74a727c80c7653e7cfda2eb7a4bd640af04d20017cda709",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "9a2a94f87e7457ee938ca2f33707bb554e53dfecb464c55a7d080a053ee39865"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/dispatch_refs.rs",
+      "status": "M",
+      "current_sha256": "46c7cb94bd5bf01da5187513c956a37cf49e67fd20a5092cf2c6563135aadacd",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "46c7cb94bd5bf01da5187513c956a37cf49e67fd20a5092cf2c6563135aadacd",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/dispatch_sizeof.rs",
+      "status": "M",
+      "current_sha256": "85fd5595a5e63081b999cc0382a3075f7718df2592662f56d240d5ef95758fed",
+      "classification": "authored-modified",
+      "review_group": "host adapters and native cases",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-8-corrections-independent-source.json",
+          "reviewed_sha256": "85fd5595a5e63081b999cc0382a3075f7718df2592662f56d240d5ef95758fed"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/edge.rs",
+      "status": "M",
+      "current_sha256": "404a5df98d0fe4ddeb9e62551fa578e61a36a56d7c86aa898b233659654898ec",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "404a5df98d0fe4ddeb9e62551fa578e61a36a56d7c86aa898b233659654898ec",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/frames.rs",
+      "status": "M",
+      "current_sha256": "87ce6da6b28c1cb6f523b6c175109b65075f983bfe6871b69aad8886348b0091",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "87ce6da6b28c1cb6f523b6c175109b65075f983bfe6871b69aad8886348b0091",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/limits.rs",
+      "status": "M",
+      "current_sha256": "6d8549f591972b4424afdd81c8d58c62d05876e4030d6f99c063a4a56e7f22e1",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "6d8549f591972b4424afdd81c8d58c62d05876e4030d6f99c063a4a56e7f22e1",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/local_init.rs",
+      "status": "M",
+      "current_sha256": "b5d46f50cfc7d7faf2dc722d91554851fd065e1e85d19d99b53bf208223cfb14",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "b5d46f50cfc7d7faf2dc722d91554851fd065e1e85d19d99b53bf208223cfb14",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/mod.rs",
+      "status": "M",
+      "current_sha256": "729f40f3211331dc94de64163048821d1c198324bb9b92cc0b0f18978cfd7823",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "729f40f3211331dc94de64163048821d1c198324bb9b92cc0b0f18978cfd7823",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir.rs",
+      "status": "M",
+      "current_sha256": "01270a6f43208271c6bd9f03135955976347a5342e3548fc35e6107086f436de",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "be2fc09197d2133e485165750a590f5dc10a3dc754874400840bcf046ae1dde1",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "01270a6f43208271c6bd9f03135955976347a5342e3548fc35e6107086f436de"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/interpreter.rs",
+      "status": "M",
+      "current_sha256": "b09a90e57cc0ef4e1b231c051853390032e18f5d01aee0ed7d438fb13e5690ae",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "1d7cdaa23ecbaac7690e940245850274409e5a3e3e1e94ce94616f451e707575",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "b09a90e57cc0ef4e1b231c051853390032e18f5d01aee0ed7d438fb13e5690ae"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/lower/decode.rs",
+      "status": "M",
+      "current_sha256": "6c656d9485a692db328c1a7add6495181913d6e742bf0313ff9aee9a057b4dc2",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "6c656d9485a692db328c1a7add6495181913d6e742bf0313ff9aee9a057b4dc2",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/profile.rs",
+      "status": "M",
+      "current_sha256": "c77526b96439b8ed57b45cf19440c10486323e2b2e286dfb92976c57a5067248",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "c77526b96439b8ed57b45cf19440c10486323e2b2e286dfb92976c57a5067248",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/registers.rs",
+      "status": "M",
+      "current_sha256": "b0ba901fdc09858aeb538c5b32ff465ee1780e30f045709dd288d1766a6e4cef",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "b0ba901fdc09858aeb538c5b32ff465ee1780e30f045709dd288d1766a6e4cef",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/backend_parity_followup.rs",
+      "status": "M",
+      "current_sha256": "4b096ce467f2acee99f0e178582a77df144fd9f5891a20945117391839f464b2",
+      "classification": "authored-modified",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "f591ef497b5900eb66136620d4c5c7ab079247b75ef53909791aa6b6bef47a50",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "4b096ce467f2acee99f0e178582a77df144fd9f5891a20945117391839f464b2"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/diagnostics.rs",
+      "status": "M",
+      "current_sha256": "08f74ac56da25280046bb13b4c9193bf162a0ba71d7531722535ff7d16b882ca",
+      "classification": "authored-modified",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "08f74ac56da25280046bb13b4c9193bf162a0ba71d7531722535ff7d16b882ca",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/function_blocks.rs",
+      "status": "M",
+      "current_sha256": "d788ed26ec84515e9310383d1a15cbb3b4b9f0169892622f53f17f746b0feff2",
+      "classification": "authored-modified",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "5167cf3264abc60902cad633371f2bea82424084d3f7a7f472bdea9b23d93a25",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "d788ed26ec84515e9310383d1a15cbb3b4b9f0169892622f53f17f746b0feff2"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/verifier_and_parity.rs",
+      "status": "M",
+      "current_sha256": "1ea3534abf608cf4cb859bfa3a66b9e121376a156ac9c8fd2a2eab9b65c29444",
+      "classification": "authored-modified",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "367df4948ba4ffdbdc09c33b1a3c566ace69dfbb80b89b32525b2986e154669a",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "1ea3534abf608cf4cb859bfa3a66b9e121376a156ac9c8fd2a2eab9b65c29444"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/profile.rs",
+      "status": "M",
+      "current_sha256": "23a9cebf563a01a114ce3b26381da8636b25f05e6d9ccd94f8498943360d09e7",
+      "classification": "authored-modified",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "96b454d4ea91cfda58b6836987f07d8cfcb49fc632261d46986065581b47b0aa",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "23a9cebf563a01a114ce3b26381da8636b25f05e6d9ccd94f8498943360d09e7"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs",
+      "status": "M",
+      "current_sha256": "ec52686796c7807dd1241437f0e25f170df1dba409ab589afbd2d31bef4ee54e",
+      "classification": "authored-modified",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "9d23c8b3e5bccad97bf0db419fc0067efb2756dd18072b8a7ee6a2b61444f002",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-8-corrections-independent-source.json",
+          "reviewed_sha256": "ec52686796c7807dd1241437f0e25f170df1dba409ab589afbd2d31bef4ee54e"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/tier1/calls_failures_cache.rs",
+      "status": "M",
+      "current_sha256": "5130a7c79dc220ba32d4ee7374e42c541440592cd7a4fe71ea3822d69892afd1",
+      "classification": "authored-modified",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d8535796ca207529570f018847aaf15ebede13a73f10d4d14b43e731ee2ba14f",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "5130a7c79dc220ba32d4ee7374e42c541440592cd7a4fe71ea3822d69892afd1"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/tier1/load_ref_super_bool.rs",
+      "status": "M",
+      "current_sha256": "c80948d61cc958aefdf7e15a37cd904f8029828c34aa7a1556a4a8f4c131032f",
+      "classification": "authored-modified",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "069daac0913d2b9c757813402688247b411abd6ecddf7eefd06e1fcf777698be",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "c80948d61cc958aefdf7e15a37cd904f8029828c34aa7a1556a4a8f4c131032f"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/tier1/state_deadline_buffers.rs",
+      "status": "M",
+      "current_sha256": "29c1218999dfb842f68f1705ed2d74651a49f17e03d2d203a85c4e3420bbd969",
+      "classification": "authored-modified",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "29c1218999dfb842f68f1705ed2d74651a49f17e03d2d203a85c4e3420bbd969",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tier1.rs",
+      "status": "M",
+      "current_sha256": "2d07c09156ee8490b10fc99143cc1f8f4e59e6b7187ec764e29fd53d52ce983a",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "2d07c09156ee8490b10fc99143cc1f8f4e59e6b7187ec764e29fd53d52ce983a",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tier1/compile.rs",
+      "status": "M",
+      "current_sha256": "376773d142b4df4bfbcd8a572633d1c6ee10adcae34395baafd2ff6671889b11",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "748ddcc0ee8c5d85b059daa9093743a6858b6f25e95029e103f77039337c6fe5",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "376773d142b4df4bfbcd8a572633d1c6ee10adcae34395baafd2ff6671889b11"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tier1/execute.rs",
+      "status": "M",
+      "current_sha256": "5fe6369a25d9e3e5a9a4decd1267d1c401f12913a343fea0e7253367a9d5c93b",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "5fe6369a25d9e3e5a9a4decd1267d1c401f12913a343fea0e7253367a9d5c93b",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/stack.rs",
+      "status": "M",
+      "current_sha256": "5398666fac0d131267419ef4b2f944e9fc295e1ace5e953a9ab40dd46662424c",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "5398666fac0d131267419ef4b2f944e9fc295e1ace5e953a9ab40dd46662424c",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/tests.rs",
+      "status": "M",
+      "current_sha256": "68486be7920fd499b9a2e31f78d3fffe9f113c8c1e83d6a850ac39b1320c822e",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "68486be7920fd499b9a2e31f78d3fffe9f113c8c1e83d6a850ac39b1320c822e",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/type_policy.rs",
+      "status": "M",
+      "current_sha256": "2eb3fd902e33fa248425fb9cd34926ce580d3ef4b5bd5d031f5db7f292653089",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "2eb3fd902e33fa248425fb9cd34926ce580d3ef4b5bd5d031f5db7f292653089",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/type_policy/tests.rs",
+      "status": "M",
+      "current_sha256": "9567729c52952ec9e479006206cc4afa84939371dddda7341afc33e8400d1f37",
+      "classification": "authored-modified",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "9567729c52952ec9e479006206cc4afa84939371dddda7341afc33e8400d1f37",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/fbs/mod.rs",
+      "status": "M",
+      "current_sha256": "6134a273508e953917e6ef5511ed7443e105973ba58584aea5320a536c99acf7",
+      "classification": "authored-modified",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "6134a273508e953917e6ef5511ed7443e105973ba58584aea5320a536c99acf7",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/fbs/registry.rs",
+      "status": "M",
+      "current_sha256": "3da403602106149da3334d59e694f11f9179bf62b232d2a822b3a6231ad772a4",
+      "classification": "authored-modified",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "3da403602106149da3334d59e694f11f9179bf62b232d2a822b3a6231ad772a4",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/fbs/state.rs",
+      "status": "M",
+      "current_sha256": "e0a966ad60aa8795963724af1b85da5ecfe93df0671040e542ae5d9960061d6d",
+      "classification": "authored-modified",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "e0a966ad60aa8795963724af1b85da5ecfe93df0671040e542ae5d9960061d6d",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/mod.rs",
+      "status": "M",
+      "current_sha256": "e4587bc2f985579ce9a96259b7362a2391ee91fa1f3d286de9b85f164be2bb3a",
+      "classification": "authored-modified",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d7afaf7d22ebe950e26308df4ac8e2929e6bf9a79631b6f5de2962a9a3aeed8c",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "e4587bc2f985579ce9a96259b7362a2391ee91fa1f3d286de9b85f164be2bb3a"
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/time.rs",
+      "status": "M",
+      "current_sha256": "d007ff0e3bdf3c9dfcbdfa148497bb0d0dd2492b3b1d901acee43a470625163f",
+      "classification": "authored-modified",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d007ff0e3bdf3c9dfcbdfa148497bb0d0dd2492b3b1d901acee43a470625163f",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/value/display.rs",
+      "status": "M",
+      "current_sha256": "f3df0bed1772ef75cbc17a0163221af2c28164e0d6ed992e7df46d994f458e73",
+      "classification": "authored-modified",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "f3df0bed1772ef75cbc17a0163221af2c28164e0d6ed992e7df46d994f458e73",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/value/display/contract_tests.rs",
+      "status": "M",
+      "current_sha256": "fe5e8e68b13f43659d13723cd67d8f914011cf9fbc7d28aaed616d5a0aeae690",
+      "classification": "authored-modified",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "fe5e8e68b13f43659d13723cd67d8f914011cf9fbc7d28aaed616d5a0aeae690",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/value/reference.rs",
+      "status": "M",
+      "current_sha256": "dac9298c45dcff67be775c3ffba5c8d4b729e699de5dfdab86b0cf810af3281e",
+      "classification": "authored-modified",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "a4c2bdefce3911446b203e48ea4c4a2643e484af460e27532bca49c3fce29e0f",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "dac9298c45dcff67be775c3ffba5c8d4b729e699de5dfdab86b0cf810af3281e"
+    },
+    {
+      "path": "crates/trust-runtime/tests/initializer_architecture.rs",
+      "status": "M",
+      "current_sha256": "d5a5fbe9b41410b1f3330eeba4b1824c848586c20c6ee757b9d79408e40e3b6f",
+      "classification": "authored-modified",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d5a5fbe9b41410b1f3330eeba4b1824c848586c20c6ee757b9d79408e40e3b6f",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/tests/vm_resource_limit_cases.rs",
+      "status": "M",
+      "current_sha256": "f660a7f510a4c615f31241bd2c8c38e8002c87bf3f137529959808cd4eb2dcc4",
+      "classification": "authored-modified",
+      "review_group": "host adapters and native cases",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-9-correction-independent-source.json",
+          "reviewed_sha256": "f660a7f510a4c615f31241bd2c8c38e8002c87bf3f137529959808cd4eb2dcc4"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/decode/budget.rs",
+      "status": "??",
+      "current_sha256": "cf55ab4e5f69f54ed0cecaa773047e406d3b95f1b244b60ae223bf8bf7ae65c5",
+      "classification": "authored-added",
+      "review_group": "artifact boundaries and fault identity",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "5097f0cdf353c3b753ecb5fbee3661f2eb17cde87574769432e7d09d5d2a3786",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "cf55ab4e5f69f54ed0cecaa773047e406d3b95f1b244b60ae223bf8bf7ae65c5"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/io_image/coercion.rs",
+      "status": "??",
+      "current_sha256": "3d5c1d241fd10c647635da83e3ca2e7550d9f7f5f664a1ba84e430c40662e394",
+      "classification": "authored-added",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "3d5c1d241fd10c647635da83e3ca2e7550d9f7f5f664a1ba84e430c40662e394",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/io_image/mod.rs",
+      "status": "??",
+      "current_sha256": "d2d40ba8db07fd1566dff66f282d7442723e646af2d597871ef01badd719b6d6",
+      "classification": "authored-added",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "5d3a3f1dfa6b16acfced466b9efb41bd35506dbc2b8f66e91481ef2f1918dc19",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "d2d40ba8db07fd1566dff66f282d7442723e646af2d597871ef01badd719b6d6"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/io_image/prepared.rs",
+      "status": "??",
+      "current_sha256": "b971e61bd05c40152348df160d3a20c78df3a828a0e151ea05a0f389219d4f95",
+      "classification": "authored-added",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "b971e61bd05c40152348df160d3a20c78df3a828a0e151ea05a0f389219d4f95",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/access.rs",
+      "status": "??",
+      "current_sha256": "341106f7048b4aef008b47494533ff10ac1e308c41ac108acf53918d92e92308",
+      "classification": "byte-identical-move",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "341106f7048b4aef008b47494533ff10ac1e308c41ac108acf53918d92e92308",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/memory/access.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/cache.rs",
+      "status": "??",
+      "current_sha256": "d01310a03c2692fe1e54b8b218ca4250c46f063b2d7d3c1e4a8ac48dcb9f31d4",
+      "classification": "authored-added",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "eafae2b8f94a89f2d9c86a2b70dbf3dcb6e0f023bc9119178806ce9b7180004e",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "d01310a03c2692fe1e54b8b218ca4250c46f063b2d7d3c1e4a8ac48dcb9f31d4"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/execution_frames.rs",
+      "status": "??",
+      "current_sha256": "956e4c45af16c74ee1ba560178bb5e6a11d3b3ea67bc47e77d9d2cb91cdf0825",
+      "classification": "authored-added",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "956e4c45af16c74ee1ba560178bb5e6a11d3b3ea67bc47e77d9d2cb91cdf0825",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/frames.rs",
+      "status": "??",
+      "current_sha256": "25d50c156a2dcf32aa85bdd9d7df2ef9f1878e99b095561ae23d8741f7af0bf1",
+      "classification": "adapted-move",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "25d50c156a2dcf32aa85bdd9d7df2ef9f1878e99b095561ae23d8741f7af0bf1",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/memory/frames.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/instances.rs",
+      "status": "??",
+      "current_sha256": "d5ce8483ac78701fd93286f6fadb9f6856107b39c9d6c87f8c509c367f58f70a",
+      "classification": "adapted-move",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "5592ef2315ae91d286dcd4a817dd733d6702205c9cd8e19edf16c4fd16800d07",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "d5ce8483ac78701fd93286f6fadb9f6856107b39c9d6c87f8c509c367f58f70a",
+      "base_move_source": "crates/trust-runtime/src/memory/instances.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/references.rs",
+      "status": "??",
+      "current_sha256": "fe1b5ce776d742587aa05bdfe8b69d5d0719c7299abd63a75734af3d78067b19",
+      "classification": "adapted-move",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "15724a48603ccdf4cd910da8fae3eeb3bfc14dcb03ec46dededa0e6e8d8a928e",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "fe1b5ce776d742587aa05bdfe8b69d5d0719c7299abd63a75734af3d78067b19",
+      "base_move_source": "crates/trust-runtime/src/memory/references.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/storage.rs",
+      "status": "??",
+      "current_sha256": "e186494fc544fd4445190d3be1cb3fc9e000da4251ba17865733d78f356fa91a",
+      "classification": "adapted-move",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "1daf8bd7708f57feea08b908ca1cc25aba034845b229cdaad2c58aaec69e8221",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "e186494fc544fd4445190d3be1cb3fc9e000da4251ba17865733d78f356fa91a",
+      "base_move_source": "crates/trust-runtime/src/memory/storage.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/tests.rs",
+      "status": "??",
+      "current_sha256": "45f80d744c7520d91bf365b0f1d9fb79693d7b37dff08ebea91772022bc7dea1",
+      "classification": "byte-identical-move",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "45f80d744c7520d91bf365b0f1d9fb79693d7b37dff08ebea91772022bc7dea1",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/memory/tests.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/assertions.rs",
+      "status": "??",
+      "current_sha256": "849dd69098a91eb25681b6d152810bed3dcc7dd828ddbe7dd7d497debf366e35",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "849dd69098a91eb25681b6d152810bed3dcc7dd828ddbe7dd7d497debf366e35",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/assertions.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/bit.rs",
+      "status": "??",
+      "current_sha256": "4b966eb4e1153c01feab43bb0316fbb8bb6693494c00b0d8e2310b7dd91c48a1",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "4b966eb4e1153c01feab43bb0316fbb8bb6693494c00b0d8e2310b7dd91c48a1",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/bit.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/comparison.rs",
+      "status": "??",
+      "current_sha256": "3fe396bae77a81947cc727eada32de0a7110e1eb18ad4d4ffb5b6c238da0763e",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "3fe396bae77a81947cc727eada32de0a7110e1eb18ad4d4ffb5b6c238da0763e",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/comparison.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/bcd.rs",
+      "status": "??",
+      "current_sha256": "bc65ec1a7ccb100d110ce1aa6bdefcd3d6ef94d76fb8d254754f8b59e672dd28",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "bc65ec1a7ccb100d110ce1aa6bdefcd3d6ef94d76fb8d254754f8b59e672dd28",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/conversions/bcd.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/bitstring.rs",
+      "status": "??",
+      "current_sha256": "5ab31896e65927e03de3cb2e4c3f41c1a4de285fc2c3864d74fec9942383312b",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "5ab31896e65927e03de3cb2e4c3f41c1a4de285fc2c3864d74fec9942383312b",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/conversions/bitstring.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/dispatch.rs",
+      "status": "??",
+      "current_sha256": "5fe17b20259394915f5f2e8411d47001f41dba6db357d1ecf803e4e00ce1baf7",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "5fe17b20259394915f5f2e8411d47001f41dba6db357d1ecf803e4e00ce1baf7",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/conversions/dispatch.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/mod.rs",
+      "status": "??",
+      "current_sha256": "c088e005e8ae5348f08ea5d2962c88ebe3c028e51d3062422a8f4d90f7579575",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "c088e005e8ae5348f08ea5d2962c88ebe3c028e51d3062422a8f4d90f7579575",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/conversions/mod.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/numeric.rs",
+      "status": "??",
+      "current_sha256": "4cb396680d83cdc333a0764a6e6dd719eb9de3f715384f1cbb23cad0041f5375",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "4cb396680d83cdc333a0764a6e6dd719eb9de3f715384f1cbb23cad0041f5375",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/conversions/numeric.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/spec.rs",
+      "status": "??",
+      "current_sha256": "1bcfc85917cce191a4410343ff21c85d80863c090b9a5ecc03f030a23970473f",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "1bcfc85917cce191a4410343ff21c85d80863c090b9a5ecc03f030a23970473f",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/conversions/spec.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/string.rs",
+      "status": "??",
+      "current_sha256": "09603b63cfb7cafecbd291aa09715e93bfbbc4f38658d9d029d96201e21bb29b",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "09603b63cfb7cafecbd291aa09715e93bfbbc4f38658d9d029d96201e21bb29b",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/conversions/string.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/time.rs",
+      "status": "??",
+      "current_sha256": "26a3ad3a83a509aa56806191131330cfe4b847b1a77778e8df9c2430b12f9c0d",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "26a3ad3a83a509aa56806191131330cfe4b847b1a77778e8df9c2430b12f9c0d",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/conversions/time.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/types.rs",
+      "status": "??",
+      "current_sha256": "d6a01c3ddc95ac309d2e8ab4df0e90ed963114840907462d8c5146f5d5142bf7",
+      "classification": "authored-added",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d6a01c3ddc95ac309d2e8ab4df0e90ed963114840907462d8c5146f5d5142bf7",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/util.rs",
+      "status": "??",
+      "current_sha256": "740a89dc4812cc0d9a07336f27e1602a9354ac47649d3cc589d09cd21984826f",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "740a89dc4812cc0d9a07336f27e1602a9354ac47649d3cc589d09cd21984826f",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/conversions/util.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/bistable.rs",
+      "status": "??",
+      "current_sha256": "4d8d0449a78de28cc59509cf911c6f74f979493cfbe5745635392e95c1e93645",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "4d8d0449a78de28cc59509cf911c6f74f979493cfbe5745635392e95c1e93645",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/fbs/bistable.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/counters.rs",
+      "status": "??",
+      "current_sha256": "d839bffbdaba23ecac16d2f0ee6eeb12d549a1a86dce53cbaf121a49917ea0ee",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d839bffbdaba23ecac16d2f0ee6eeb12d549a1a86dce53cbaf121a49917ea0ee",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/fbs/counters.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/instance.rs",
+      "status": "??",
+      "current_sha256": "0156e55c108042ce5dfaa2ec7dcee2e4619400a06ebbcd4be0937333e168be3b",
+      "classification": "byte-identical-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "0156e55c108042ce5dfaa2ec7dcee2e4619400a06ebbcd4be0937333e168be3b",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/fbs/instance.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/mod.rs",
+      "status": "??",
+      "current_sha256": "eeab4da135965d649dc29244e41a52bb7f0182a7fca0985d62204dc64caefba2",
+      "classification": "authored-added",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "eeab4da135965d649dc29244e41a52bb7f0182a7fca0985d62204dc64caefba2",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/registry.rs",
+      "status": "??",
+      "current_sha256": "bb06a41ddbbd03c4f3cdda432a4da3a618dbbe083a9ab4005efd3633fb802c4d",
+      "classification": "authored-added",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "bb06a41ddbbd03c4f3cdda432a4da3a618dbbe083a9ab4005efd3633fb802c4d",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/state.rs",
+      "status": "??",
+      "current_sha256": "6bc7edd2cc490acf8cbe3e01f41e868e129a611ba022b120472266c2f1ac4d60",
+      "classification": "authored-added",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "6bc7edd2cc490acf8cbe3e01f41e868e129a611ba022b120472266c2f1ac4d60",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/timers.rs",
+      "status": "??",
+      "current_sha256": "786512540bec3b767269eed69d1593afb317894f9cb5b9b0eb520fd18262a4ee",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "786512540bec3b767269eed69d1593afb317894f9cb5b9b0eb520fd18262a4ee",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/fbs/timers.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/triggers.rs",
+      "status": "??",
+      "current_sha256": "a2428435dcd81a57a3d60e88282f9e0b9a8ec808aabd623a9efc653416e6bfb0",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "a2428435dcd81a57a3d60e88282f9e0b9a8ec808aabd623a9efc653416e6bfb0",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/fbs/triggers.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/helpers.rs",
+      "status": "??",
+      "current_sha256": "76ac6abbdf7e8224724525d7a445bb5b329f9cc67352bfadb06be4d94519d225",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "76ac6abbdf7e8224724525d7a445bb5b329f9cc67352bfadb06be4d94519d225",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/helpers.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/hosted.rs",
+      "status": "??",
+      "current_sha256": "4deec2992ac3febb19dcb36e2a42582cdaf71ee8eb79d82073b0a4b111c9f1fc",
+      "classification": "authored-added",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "94977ecda501fd0278babb21fe5f29f18c5165c96f0e010bd58cb7f1a7dcb41a",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "4deec2992ac3febb19dcb36e2a42582cdaf71ee8eb79d82073b0a4b111c9f1fc"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/mod.rs",
+      "status": "??",
+      "current_sha256": "9ccc549ea026d7b104e16818d3314f820caaa207f58c856baa9d83dae7f51fc1",
+      "classification": "authored-added",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "62fea22b944a41064b2a13be3606954602eff48ea55d7f1c4a90260735824c2a",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "9ccc549ea026d7b104e16818d3314f820caaa207f58c856baa9d83dae7f51fc1"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/numeric.rs",
+      "status": "??",
+      "current_sha256": "97ff93c9155d74c327dca66b44d2c5e5488daca16e7cf37304bac498e1dfb1ca",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "97ff93c9155d74c327dca66b44d2c5e5488daca16e7cf37304bac498e1dfb1ca",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/numeric.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/registration.rs",
+      "status": "??",
+      "current_sha256": "71a8eafac6c2c961d6510e93c5e3ad14e8abb68ff021a4f15c99f005e5d293b8",
+      "classification": "authored-added",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "6cf42b28bdc29425ce128ca61edd7c5e14f676a731296f8e8d287e32f01caf51",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "71a8eafac6c2c961d6510e93c5e3ad14e8abb68ff021a4f15c99f005e5d293b8"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/selection.rs",
+      "status": "??",
+      "current_sha256": "f176ede6d9184f8b89760884c81ee8e08eb2996d669a7a27a29d4863e49b4a36",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "f176ede6d9184f8b89760884c81ee8e08eb2996d669a7a27a29d4863e49b4a36",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/selection.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/string.rs",
+      "status": "??",
+      "current_sha256": "6dff4514dad3bb2343b23fe8bb3ae8142efc402c34a0fb8364c4cc90c2a7e4cf",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "6dff4514dad3bb2343b23fe8bb3ae8142efc402c34a0fb8364c4cc90c2a7e4cf",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/string.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/time.rs",
+      "status": "??",
+      "current_sha256": "3e7da9c1bfd7049ee6861122240ee04928a5320495a581f7892bfbb0258b7be2",
+      "classification": "authored-added",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "3e7da9c1bfd7049ee6861122240ee04928a5320495a581f7892bfbb0258b7be2",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/validate.rs",
+      "status": "??",
+      "current_sha256": "b05602e6f527a7e25ccfcb256721e0bec2f9f7d42a0d939b6db3969a5b6e92c0",
+      "classification": "adapted-move",
+      "review_group": "shared standard functions and hosted adaptation",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "b05602e6f527a7e25ccfcb256721e0bec2f9f7d42a0d939b6db3969a5b6e92c0",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/stdlib/validate.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/value/display.rs",
+      "status": "??",
+      "current_sha256": "636aa65a25411397c85f9eb109bac12e2c657afb64bad1e6054bb51e2976ff6f",
+      "classification": "authored-added",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "636aa65a25411397c85f9eb109bac12e2c657afb64bad1e6054bb51e2976ff6f",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/budget.rs",
+      "status": "??",
+      "current_sha256": "84bc0d39c447ea0e53319f774454ba3dbd74396bd2a762162207587ee7b58563",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "02bd7369fe9b24e37ad190f9795654f138b5d77b94d220ac148d34bb8a1eb134",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-7-corrections-independent-source.json",
+          "reviewed_sha256": "84bc0d39c447ea0e53319f774454ba3dbd74396bd2a762162207587ee7b58563"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/call/bindings.rs",
+      "status": "??",
+      "current_sha256": "1091d9feb15edfad8c8f0cb493ce99ee51c6a2ea0cbd189be7394672bfc2e7a6",
+      "classification": "adapted-move",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "1091d9feb15edfad8c8f0cb493ce99ee51c6a2ea0cbd189be7394672bfc2e7a6",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/runtime/vm/call/bindings.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/call/bindings/indices.rs",
+      "status": "??",
+      "current_sha256": "d66ec0fc09c58c0d1c8416c3be50cdec4ceadf0bfb2c065ab7adc4481872b7b6",
+      "classification": "adapted-move",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d66ec0fc09c58c0d1c8416c3be50cdec4ceadf0bfb2c065ab7adc4481872b7b6",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/runtime/vm/call/bindings/indices.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/call/bindings/targets.rs",
+      "status": "??",
+      "current_sha256": "0a28e22aeb54851fba51b1f6d5c6db2c3cfdd9825390e2e152e04df046e1aa1f",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d85eba9accaf0d3beb8f77711968a55ddc69c28bbc995abfbbe4dc541180bcbe",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "0a28e22aeb54851fba51b1f6d5c6db2c3cfdd9825390e2e152e04df046e1aa1f"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/call/context.rs",
+      "status": "??",
+      "current_sha256": "d778cd33ceb19d5e34d56b4b02eea7a5c825a3f98fa49a32e6885c70bfe70ed2",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "6654b69f0267c7861cee1d01a15c5670bddd79c859e26895b40b2ee3808aa037",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-7-corrections-independent-source.json",
+          "reviewed_sha256": "d778cd33ceb19d5e34d56b4b02eea7a5c825a3f98fa49a32e6885c70bfe70ed2"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/call/mod.rs",
+      "status": "??",
+      "current_sha256": "e4c581dbbfba481d950becbf9a55a4f0eed7c2ae8282d1ff4e28cd216c5d2f40",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "aff922f1b886507d64dbd36183d154b0c12875de6124ae11f6a1679d1d72b563",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "e4c581dbbfba481d950becbf9a55a4f0eed7c2ae8282d1ff4e28cd216c5d2f40"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/call/stdlib.rs",
+      "status": "??",
+      "current_sha256": "8acb307bc8615c0e9873225151fc20c93875fa57a715c20f37b9cce46114374d",
+      "classification": "adapted-move",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d664d307c24a3ffbd355fd16383114c72643a52b88919df46ee7b9039ae07f3c",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "8acb307bc8615c0e9873225151fc20c93875fa57a715c20f37b9cce46114374d",
+      "base_move_source": "crates/trust-runtime/src/runtime/vm/call/stdlib.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/call/tests.rs",
+      "status": "??",
+      "current_sha256": "2eb30f7d2a9311ff19085546f7893407d52012fc59b75ec9672bb2ecd7c24271",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "25b343a09382e059c9a98551759c7b61c4c3e70373853e59ef46a92a5c4b1695",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "2eb30f7d2a9311ff19085546f7893407d52012fc59b75ec9672bb2ecd7c24271"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/construction/mod.rs",
+      "status": "??",
+      "current_sha256": "f67d448c0bff304e816d9973ee02a0d38405d0987578c17c082613e510182d81",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "f67d448c0bff304e816d9973ee02a0d38405d0987578c17c082613e510182d81",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/construction/values.rs",
+      "status": "??",
+      "current_sha256": "07e2af8d6f2b428708b7ce530b3a2504102a8b374d7888c6b523dde2e0a3ac16",
+      "classification": "authored-added",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "ca74015d29fcd2a03b1188db04a5560c2a9dc2b61edb51a11b77591ab232efbe",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "07e2af8d6f2b428708b7ce530b3a2504102a8b374d7888c6b523dde2e0a3ac16"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/construction/values/scalar.rs",
+      "status": "??",
+      "current_sha256": "b452368917117dc4a4ab482eb0ba47c7890ed310372b8e177665f78c789224a3",
+      "classification": "authored-added",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "b452368917117dc4a4ab482eb0ba47c7890ed310372b8e177665f78c789224a3",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/construction/values/tests.rs",
+      "status": "??",
+      "current_sha256": "297cd52a4443ea232b9f98f320e8d46e9739ea6829f5db5e01281135eb0de6dd",
+      "classification": "authored-added",
+      "review_group": "storage values and process images",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "297cd52a4443ea232b9f98f320e8d46e9739ea6829f5db5e01281135eb0de6dd",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/context.rs",
+      "status": "??",
+      "current_sha256": "532dfedd497e0d8c8a47dbaadaaf1da4c622d39ed2ca334294c95c1df774a5ab",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "70b12514744bdc6379a3d43c20c1e42860cf89af39b1b7618c51e4e82553b2f2",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "532dfedd497e0d8c8a47dbaadaaf1da4c622d39ed2ca334294c95c1df774a5ab"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/debug_map.rs",
+      "status": "??",
+      "current_sha256": "7c9818a9796a5f04d1821cd871d3dacc10f68dea385bf51c31d77021aa7eeee7",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "7c9818a9796a5f04d1821cd871d3dacc10f68dea385bf51c31d77021aa7eeee7",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/dispatch.rs",
+      "status": "??",
+      "current_sha256": "2c52b73b2bf0732800e2769008d56bc1788d0739c92b03d58c5a4012197a7007",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "4f449802e249fe9f084b1bdcc86b23d9b5b405d87140dad5f69c11210c960e08",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "2c52b73b2bf0732800e2769008d56bc1788d0739c92b03d58c5a4012197a7007"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/dispatch_refs.rs",
+      "status": "??",
+      "current_sha256": "cca12d5a48ac7f468250f854abb8a3c4087b9d23aed236e3e2bf249aab3a9149",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "a19e414e5caf84340b51ba6e2c902d699bfa447c33862e779c32da859eab8f80",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-7-corrections-independent-source.json",
+          "reviewed_sha256": "cca12d5a48ac7f468250f854abb8a3c4087b9d23aed236e3e2bf249aab3a9149"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/edge.rs",
+      "status": "??",
+      "current_sha256": "4105476b122d838396fd07ae5480615c36e39d837cb30e8a8b64d27c2692d9f1",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "4105476b122d838396fd07ae5480615c36e39d837cb30e8a8b64d27c2692d9f1",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/access.rs",
+      "status": "??",
+      "current_sha256": "3e645732eabc0710385b326558a1f8bb8bc5013356527494872910e9920fe9c1",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "3851e0a45104540b77721116139457015c4df575cae509558117e67dbaafec42",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "3e645732eabc0710385b326558a1f8bb8bc5013356527494872910e9920fe9c1"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/allocation.rs",
+      "status": "??",
+      "current_sha256": "a0baf57024eb4628a1a47e5d24e26afc1e8089735bb365b29f0348ff29d579e3",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d6d0311ed6d618a71abee73ca9d4a1f54e420f70c69021dd4882f3f4e43d8cd2",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-corrections-independent-source.json",
+          "reviewed_sha256": "a0baf57024eb4628a1a47e5d24e26afc1e8089735bb365b29f0348ff29d579e3"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/api.rs",
+      "status": "??",
+      "current_sha256": "08782c87957cd5005b2699dfef1310ca5fa7c4a096857e82dffd1a21977728e7",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "1ba97054cececf3d0caf7ff83b86a70537ec0b5009cf5728c1134d62b1d55aaa",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "08782c87957cd5005b2699dfef1310ca5fa7c4a096857e82dffd1a21977728e7"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/assignment.rs",
+      "status": "??",
+      "current_sha256": "02e1e424a5d11125ea86612221ee7994e08d1c3b446f3fb4312f646c72c894cd",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "02e1e424a5d11125ea86612221ee7994e08d1c3b446f3fb4312f646c72c894cd",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/budget_tests.rs",
+      "status": "??",
+      "current_sha256": "b19f4dc79355fa6a4a5191576d3cf9b75e620c6204e631c9d11f1f43f5e6c8b2",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "eb858d22e2f5602329c8545720a23eba15ab1000201522b99e062777fabe345b",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "b19f4dc79355fa6a4a5191576d3cf9b75e620c6204e631c9d11f1f43f5e6c8b2"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/context.rs",
+      "status": "??",
+      "current_sha256": "060a65b7f033be2012104724c5204d4ec91a597fadfca9de1db593a915c864db",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "7f1b19e1f926498968bc09594a50fe02eed89d50fa26ee6b8c80adff08ea492f",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "060a65b7f033be2012104724c5204d4ec91a597fadfca9de1db593a915c864db"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/cycle.rs",
+      "status": "??",
+      "current_sha256": "4179f4012582cd8dd446ac2705db5e43be812acd48c572845f22a7158006cf18",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "a976d3a4d09245df38bea5a69a9a2f524d48bf43ec90516b0d0f4ff77192b4b1",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "4179f4012582cd8dd446ac2705db5e43be812acd48c572845f22a7158006cf18"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/construction.rs",
+      "status": "??",
+      "current_sha256": "a45e3ab720dd9dbaa4551f9e00006a8430522ce86f5e4e856b5187b7b29c771c",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "281f58da880d9f42602a8af0c1d4bb4b3e9ce1d7f0c51c71db239f1fca232d57",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-7-corrections-independent-source.json",
+          "reviewed_sha256": "a45e3ab720dd9dbaa4551f9e00006a8430522ce86f5e4e856b5187b7b29c771c"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/mod.rs",
+      "status": "??",
+      "current_sha256": "88ebd52eb7975aa2860c6ca58d812ac87147489d0fee1e6bcaf1867a3b527bcf",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "aec5a2306cd7aa7f30ec0ee37a0a1093de9d14c43b75672eb9ccc9e24d8c8d65",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-corrections-independent-source.json",
+          "reviewed_sha256": "88ebd52eb7975aa2860c6ca58d812ac87147489d0fee1e6bcaf1867a3b527bcf"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/opcodes.rs",
+      "status": "??",
+      "current_sha256": "93907c5e5ee82a9eef8deb225d6bc59ea21b1e61e6d2b97387630e8c722744d5",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "93907c5e5ee82a9eef8deb225d6bc59ea21b1e61e6d2b97387630e8c722744d5",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/staging.rs",
+      "status": "??",
+      "current_sha256": "02f154452860c99b41c70a449ed247a033dc0157bb87d20e3be204e75576530e",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "8a2de220c1e5fa2d23c5a651e358666bb6574fcbf9ade25a0aedcaaec6f2f5ba",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "02f154452860c99b41c70a449ed247a033dc0157bb87d20e3be204e75576530e"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/tests.rs",
+      "status": "??",
+      "current_sha256": "1466fdd76f08fa28b342fb34da6b2435c391c9470b0de58e06dd31d26ed33f82",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "1f6951ab7d3eec2f598f10a33b1e8554e0909dc795fcfc168a894cef8a05368f",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "1466fdd76f08fa28b342fb34da6b2435c391c9470b0de58e06dd31d26ed33f82"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/values.rs",
+      "status": "??",
+      "current_sha256": "2b96bc11af79ffae1e61ddabc6f3962a9501105860611e9af516557bd8f4c029",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "13806e3c839144aa35cb695e2d82489c44266351dc1f2213c01739c9691bd2c2",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "2b96bc11af79ffae1e61ddabc6f3962a9501105860611e9af516557bd8f4c029"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/io.rs",
+      "status": "??",
+      "current_sha256": "5c21f4d8b2a96c9017d1aedda6f6b7681ee29f620c0755f445c22bb1db71553f",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "aec2ecfc17dcabdf88b7e5e27c88275d07389e0ec2ed249f999a8c9ab18f9d30",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "5c21f4d8b2a96c9017d1aedda6f6b7681ee29f620c0755f445c22bb1db71553f"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/io/staging.rs",
+      "status": "??",
+      "current_sha256": "ca1778a802f4b257c13e8bcfe3b0389a8fb987c270986bd3803414490eb5327f",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "af65c68775b5d15a6745526fbe90a990c7745bffe518a9db8ec03ff67a96d4ee",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "ca1778a802f4b257c13e8bcfe3b0389a8fb987c270986bd3803414490eb5327f"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/mod.rs",
+      "status": "??",
+      "current_sha256": "28f87f527ad2c36e10a27374d897156b8250105fc3dd7545ed292338191f34f9",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "389995fffd95e90594ada10afffd9b716b70c533a30ede4d38a4b97d9f9efe33",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "28f87f527ad2c36e10a27374d897156b8250105fc3dd7545ed292338191f34f9"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/output_transaction.rs",
+      "status": "??",
+      "current_sha256": "c595184aec41f95cc5b590851c576db091e5d826de76672486704c4e3601e278",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "db63ea4d8f428e1580e788c810d9eea5ac201af67e4a671b4cd29cf8a3caf8eb",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-corrections-independent-source.json",
+          "reviewed_sha256": "c595184aec41f95cc5b590851c576db091e5d826de76672486704c4e3601e278"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/path_write.rs",
+      "status": "??",
+      "current_sha256": "41a8fcb09c78438d238792af1383658feef8a5a55d8e8794057391e5d08e24ae",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "caec8b3ccafba2f782b10ee51344195915c62773899a0f55a1d0fad9ac0f95c3",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "41a8fcb09c78438d238792af1383658feef8a5a55d8e8794057391e5d08e24ae"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/policy.rs",
+      "status": "??",
+      "current_sha256": "e4c8d86e25f48e4905fa9694e05be493ac77fd9142033ce4aa5d4aa6c7a0a256",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "11fad2782c1a098281361bbce1f8481964eb21dae0f2f44bcbc62f9ead94c8c9",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "e4c8d86e25f48e4905fa9694e05be493ac77fd9142033ce4aa5d4aa6c7a0a256"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/readonly.rs",
+      "status": "??",
+      "current_sha256": "1c2a25889ca58246f72350f635d51cd5c02d86749cf1c234402e28530ce80456",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "bfe12c0a440014bb080cb0c175314d765caa9a6b1c4deb35d4f72a5ee8f25097",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "1c2a25889ca58246f72350f635d51cd5c02d86749cf1c234402e28530ce80456"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/reference_types.rs",
+      "status": "??",
+      "current_sha256": "27c2bddf9ab5413af86b2838b518c7572255a0cdc280cc9948fe4d3bc51a58f6",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "951bf3bb412649f80470531674d98c4c8d469185c08002ff7995cd8456f69e6e",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "27c2bddf9ab5413af86b2838b518c7572255a0cdc280cc9948fe4d3bc51a58f6"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/restart.rs",
+      "status": "??",
+      "current_sha256": "d600d438badeedca49459caea403d056b4a3725bf41e49607c3b72b4bfc3f479",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "23868b305ebead449fffe6ff2196ea375cd206eff27cbb0d7a97e2a1e717dbd4",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "d600d438badeedca49459caea403d056b4a3725bf41e49607c3b72b4bfc3f479"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/retained_graph.rs",
+      "status": "??",
+      "current_sha256": "b7de8fab34f13fe5cd54fcfd869839a9b1ab140b26ca4023cd5b4f4861997ed1",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "4c5fef753dfdbd1c62f4e4a6985d33fd35f1b977a6748b3258c73096f83b51a5",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-corrections-independent-source.json",
+          "reviewed_sha256": "b7de8fab34f13fe5cd54fcfd869839a9b1ab140b26ca4023cd5b4f4861997ed1"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/services.rs",
+      "status": "??",
+      "current_sha256": "cbb481caaa78e7cc6a90ab7ac4eb93af29841b7d99e1fc1f65cf77fea7f29a38",
+      "classification": "authored-added",
+      "review_group": "portable engine",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "cbb481caaa78e7cc6a90ab7ac4eb93af29841b7d99e1fc1f65cf77fea7f29a38",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/hosted.rs",
+      "status": "??",
+      "current_sha256": "a4d5b4fa7ea1f6526232bf8d0c6e45c754e00768dee698241a2f4c381735488f",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d6f826489f784bff7ffedb4899292a419d14bd88185cbfc052eea3ab26176d24",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "a4d5b4fa7ea1f6526232bf8d0c6e45c754e00768dee698241a2f4c381735488f"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/materialization_limits.rs",
+      "status": "??",
+      "current_sha256": "7287b4cedcee224f06ba87b195e939d115c6b56a6dde67876df30460bdd929ac",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "7287b4cedcee224f06ba87b195e939d115c6b56a6dde67876df30460bdd929ac",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/module.rs",
+      "status": "??",
+      "current_sha256": "e1c1f29a236ad0ef74a42848ea2b333b10d1b463dec0ea11b12ca35e51ba23a2",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "86561b1bc1c7add3ef3e62c0e260b95373201f7f62693002028171957308f6e1",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-7-corrections-independent-source.json",
+          "reviewed_sha256": "e1c1f29a236ad0ef74a42848ea2b333b10d1b463dec0ea11b12ca35e51ba23a2"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/module/access.rs",
+      "status": "??",
+      "current_sha256": "08366cd5d80457172873de02fd8489f54d1ecf8d99fca3f5b8cfc288e6122fa7",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "39bfb00e9e33c4220ede871bd0bc641dc8d245a9e7422a0cd4d9cf6acffb9541",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "08366cd5d80457172873de02fd8489f54d1ecf8d99fca3f5b8cfc288e6122fa7"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/module/legacy.rs",
+      "status": "??",
+      "current_sha256": "1fae7427cf3c5f393ec9d6610628552415b2e6ece307fe0b528938f23f7794eb",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "fd3ca8037b08d5c57351570606e1d8730fcae49fff8745af1920c5a3ecf6fd6f",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "1fae7427cf3c5f393ec9d6610628552415b2e6ece307fe0b528938f23f7794eb"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared.rs",
+      "status": "??",
+      "current_sha256": "681f42acf848f068f4a4d288ef5e01e2c0e79c77c109cf9af993eebfa0267ffe",
+      "classification": "authored-added",
+      "review_group": "prepared admission and indexes",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "afc13b7fb591d6659931fdd8bceeb91f3c2de6e7ad65aace4d9f46597526e947",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "681f42acf848f068f4a4d288ef5e01e2c0e79c77c109cf9af993eebfa0267ffe"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/admission.rs",
+      "status": "??",
+      "current_sha256": "d8f71443bd378cd2383e43cf5912212faca16efa2a926bd00ace2b9cca323160",
+      "classification": "authored-added",
+      "review_group": "prepared admission and indexes",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "7ff7b2edcfab696bbd9fc2ba70f6b0f02b4d2a6ac8a210fecc834b6b52a975fa",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "d8f71443bd378cd2383e43cf5912212faca16efa2a926bd00ace2b9cca323160"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/budget.rs",
+      "status": "??",
+      "current_sha256": "2c0a770b822056032863dff03cd95b6c500265d984740b4a82c1c75cff0e6d8c",
+      "classification": "authored-added",
+      "review_group": "prepared admission and indexes",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "2b1974cdae8d0dfc849b916bdefb3d6a146bbf9b5d0ca64a9f0d85e00b312055",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-7-corrections-independent-source.json",
+          "reviewed_sha256": "2c0a770b822056032863dff03cd95b6c500265d984740b4a82c1c75cff0e6d8c"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/indexes.rs",
+      "status": "??",
+      "current_sha256": "46c0b28601cb8cb7fdedcae1f69fdb8449cd1827c3f0625cf4224aa24b390169",
+      "classification": "authored-added",
+      "review_group": "prepared admission and indexes",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "bc3def7bcdcdd7fee2d417b016c289f6b10511f6eba7de90b635bd541495ce33",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "46c0b28601cb8cb7fdedcae1f69fdb8449cd1827c3f0625cf4224aa24b390169"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/indexes/actions.rs",
+      "status": "??",
+      "current_sha256": "c0fa90244d7634332348b5ca88b590320f9e2d43f1193e66781280bb13ba80cf",
+      "classification": "authored-added",
+      "review_group": "prepared admission and indexes",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "17eb678869a731d309d9c95eb541000fd8e6531dcbc9ac728f9381c36c361591",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "c0fa90244d7634332348b5ca88b590320f9e2d43f1193e66781280bb13ba80cf"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/indexes/declarations.rs",
+      "status": "??",
+      "current_sha256": "d936eae49b005d1ba6d3ede844304a3943c100d4e52f579cbb537f0f764dc0bb",
+      "classification": "authored-added",
+      "review_group": "prepared admission and indexes",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "c631912ea451c3a5c09ca7d0481e1ffb5afdf7c58714c6d5a2c92b2ba1e28ab3",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "d936eae49b005d1ba6d3ede844304a3943c100d4e52f579cbb537f0f764dc0bb"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/indexes/tests.rs",
+      "status": "??",
+      "current_sha256": "83171c4d30b3912a48368a5c5c63c9887497a41b3acf32aa75df5d0c59bac00f",
+      "classification": "authored-added",
+      "review_group": "prepared admission and indexes",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "853ceb9e6d441f45b608621339c797137e02dc5e8dcc9b5e61adb2e4cc21b2e1",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-corrections-independent-source.json",
+          "reviewed_sha256": "82243b07ada40383124fd4d7cbba95d43e1641a701195efce6e1c1fc1f4eff92"
+        }
+      ],
+      "current_binding": "focused review plus independently confirmed import-only formatting order"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/reference_attempt.rs",
+      "status": "??",
+      "current_sha256": "344900e2fc6c517d0f3cd415e9852415403bdab65fc400411ce77b7e0be928d7",
+      "classification": "adapted-move",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "344900e2fc6c517d0f3cd415e9852415403bdab65fc400411ce77b7e0be928d7",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review",
+      "base_move_source": "crates/trust-runtime/src/runtime/vm/reference_attempt.rs"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/symbols.rs",
+      "status": "??",
+      "current_sha256": "09d64b6d14c2db4f27a5ff45cd6d67e759739564f16b3543e981f28622e894f5",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "09d64b6d14c2db4f27a5ff45cd6d67e759739564f16b3543e981f28622e894f5",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/type_policy.rs",
+      "status": "??",
+      "current_sha256": "514a9a1421bf589f6f3642232872418ba3692ea6d1455cfaddd14fc3028af1df",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "e7d6a5f53e1feb907ce1a0d37cd1cc08b0acbe94faa287d316f79814e47ea580",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-10-corrections-independent-source.json",
+          "reviewed_sha256": "514a9a1421bf589f6f3642232872418ba3692ea6d1455cfaddd14fc3028af1df"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/type_policy/tests.rs",
+      "status": "??",
+      "current_sha256": "f8a76b810c72dd3866130b12196d8533af55a954d037e1892fc4dcceb5d39da7",
+      "classification": "authored-added",
+      "review_group": "shared VM and public facade",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "c6e505a9e15636304a46cf2b0c537d7e919e8f4a4518b70d86086704dd4739c0",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-10-corrections-independent-source.json",
+          "reviewed_sha256": "f8a76b810c72dd3866130b12196d8533af55a954d037e1892fc4dcceb5d39da7"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/tests/portable_execution_frames.rs",
+      "status": "??",
+      "current_sha256": "7f5a98c74493d088068b68dbd02779673ed5c0874aba83b15380d5a1e9f9ac51",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "01d92b2c74f153cc6a34d706be4a85170c7a26234c2bc74258ce2ed930fb57a6",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "7f5a98c74493d088068b68dbd02779673ed5c0874aba83b15380d5a1e9f9ac51"
+    },
+    {
+      "path": "crates/trust-runtime-core/tests/portable_native_functions.rs",
+      "status": "??",
+      "current_sha256": "94474aeb6dec19a7ee31b4a529631ec1b112027aa2a5c5e1fbf068b53deeb867",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "94474aeb6dec19a7ee31b4a529631ec1b112027aa2a5c5e1fbf068b53deeb867",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/tests/portable_process_image.rs",
+      "status": "??",
+      "current_sha256": "d8c55b9cd2e2d25cbfe5cc85428eda8e3ce25e56a278181bfeeebcb016c41dc4",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "d8c55b9cd2e2d25cbfe5cc85428eda8e3ce25e56a278181bfeeebcb016c41dc4",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/tests/portable_value_size.rs",
+      "status": "??",
+      "current_sha256": "96ceb3b26663767e0315ff38b5648898233822a9d224b1a27f104a78c5245f61",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "96ceb3b26663767e0315ff38b5648898233822a9d224b1a27f104a78c5245f61",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/tests/preparation_profile.rs",
+      "status": "??",
+      "current_sha256": "66052a056178c67b255659819b5554ee65de8a64addd8dc66c855414288546bc",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "933d07bb5e6003ae0cc76d6d7d4864fbc126a3f39f5fbf411737cc3330ed84fe",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "66052a056178c67b255659819b5554ee65de8a64addd8dc66c855414288546bc"
+    },
+    {
+      "path": "crates/trust-runtime-core/tests/runtime_core_compiler_free_load.rs",
+      "status": "??",
+      "current_sha256": "b6d51db24978905590bc94d1e4b97a6adbe7012609d1f6900bec514b9037236c",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "b6d51db24978905590bc94d1e4b97a6adbe7012609d1f6900bec514b9037236c",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/tests/source_free_cycle.rs",
+      "status": "??",
+      "current_sha256": "82fe7ee675a0a887ad422ef832f4ab02d8ab5662e6042163785a4db06500983e",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "82fe7ee675a0a887ad422ef832f4ab02d8ab5662e6042163785a4db06500983e",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/tests/source_free_numeric.rs",
+      "status": "??",
+      "current_sha256": "b48b7b976cc19ba3e8c6a62cff2f5fcd99e545b419868411ecc13c92e97eb001",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "b48b7b976cc19ba3e8c6a62cff2f5fcd99e545b419868411ecc13c92e97eb001",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime-core/tests/source_free_profile_admission.rs",
+      "status": "??",
+      "current_sha256": "ab668737264bf964aa265e83aad46d0d1fbd0b4c35e5358f47a847502a487949",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "39dbf3e843a814021ccfb3726a0ba2ffd1c705ada4e90e05252325d60646ecf5",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-8-corrections-independent-source.json",
+          "reviewed_sha256": "ab668737264bf964aa265e83aad46d0d1fbd0b4c35e5358f47a847502a487949"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call_context.rs",
+      "status": "??",
+      "current_sha256": "b918996723cb57997677ade20d765141373420c9d8a0ed39f3596c438393d34f",
+      "classification": "authored-added",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "b918996723cb57997677ade20d765141373420c9d8a0ed39f3596c438393d34f",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/context.rs",
+      "status": "??",
+      "current_sha256": "8a36984b709db1a7b55bc312ecd01f446372d0b2954db26bbc8f01d898bc5d2b",
+      "classification": "authored-added",
+      "review_group": "host adapters and optimized tiers",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "bb5bc364270380fac980de0543caa3816ee3fc08a75d67e91b4ca39c123c53a3",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "8a36984b709db1a7b55bc312ecd01f446372d0b2954db26bbc8f01d898bc5d2b"
+    },
+    {
+      "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
+      "status": "??",
+      "current_sha256": "21b3cd2b6d2851c56fd3ec2cac1518f4d13b648f05a706ecda23333be50a6cfa",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "03be3395fad7350c8c63b4019176d5bda2b3f5163daef7eefa3c5ebb4b9facdb",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "21b3cd2b6d2851c56fd3ec2cac1518f4d13b648f05a706ecda23333be50a6cfa"
+    },
+    {
+      "path": "crates/trust-runtime/tests/runtime_core_compiler_free_load.rs",
+      "status": "??",
+      "current_sha256": "d99c9a3088dd50098bb62b8042f42584597631d0a6499eb6e671c35bae3724b0",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "4ca64f17bc8647f4800f915bc90cd6feabce505b4a895ff0d5e18d5fdc1bfaed",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "d99c9a3088dd50098bb62b8042f42584597631d0a6499eb6e671c35bae3724b0"
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_assignment.rs",
+      "status": "??",
+      "current_sha256": "8220f89ca54f082be7cbe6d013457680206818aa3d852eccab80be9947ab759f",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "8220f89ca54f082be7cbe6d013457680206818aa3d852eccab80be9947ab759f",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_blocks_and_io.rs",
+      "status": "??",
+      "current_sha256": "501a8e941db74ef3454976f9ee64e3386e4bec8fcf0e5ac9100b96d739896945",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "f3e896b936f06c95074336e572b068d9a3cbc81a7597d8bb531c03fa27878b35",
+          "base_sha256": null
+        },
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-10-corrections-independent-source.json",
+          "reviewed_sha256": "501a8e941db74ef3454976f9ee64e3386e4bec8fcf0e5ac9100b96d739896945"
+        }
+      ],
+      "current_binding": "exact focused independent review"
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_cycle_contract.rs",
+      "status": "??",
+      "current_sha256": "9aeca84a0f404e3675c5145b678d9cbd0e9953bb154d0afd23915ec6525ac160",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "3fb5c623ab496b5cb7829a115e49071709a5b75bb3aabfa9884f4ee6752604c4",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "9aeca84a0f404e3675c5145b678d9cbd0e9953bb154d0afd23915ec6525ac160"
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_execution_cost.rs",
+      "status": "??",
+      "current_sha256": "4bb2d55010cf79ad67c0238b5456a81d6102546a8b82dd7d5b9b0f5e8294d39e",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "bf3aef4fd5fc0a2d2ff4b44359c5e8b03b83f6a32d52464a30d0d660a6bbe54b",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "run-6 formatted source boundary, retained through subsequent batches",
+      "format_boundary_sha256": "4bb2d55010cf79ad67c0238b5456a81d6102546a8b82dd7d5b9b0f5e8294d39e"
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_readonly.rs",
+      "status": "??",
+      "current_sha256": "e9dd721ae40c20b13d83905b6c80d53a0c110e4c91a39f04e17a2e598a600d8c",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "e9dd721ae40c20b13d83905b6c80d53a0c110e4c91a39f04e17a2e598a600d8c",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_restart_graph.rs",
+      "status": "??",
+      "current_sha256": "9a0b30b56a1f448d0941181830a3e70c2479d010c908e2794b11ba85f54c41d5",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "9a0b30b56a1f448d0941181830a3e70c2479d010c908e2794b11ba85f54c41d5",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    },
+    {
+      "path": "crates/verification-cases/examples/refresh_portability_provenance.rs",
+      "status": "??",
+      "current_sha256": "6384a7638e7f90599293a83f6ace7f1b494f954a50afdf34f063097f7ea67f76",
+      "classification": "authored-added",
+      "review_group": "native tests and fixtures",
+      "review_chain": [
+        {
+          "review": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+          "reviewed_sha256": "6384a7638e7f90599293a83f6ace7f1b494f954a50afdf34f063097f7ea67f76",
+          "base_sha256": null
+        }
+      ],
+      "current_binding": "exact complete independent review"
+    }
+  ],
+  "review_artifacts": [
+    {
+      "path": "docs/notes/runtime-portability/a4-review/run-6-full-source-inventory.json",
+      "sha256": "d2fd819d99d6112b6baeb90c8836c04fa2cbfd954557b7053781310b4c99c8f8"
+    },
+    {
+      "path": "docs/notes/runtime-portability/a4-review/run-6-corrections-independent-source.json",
+      "sha256": "9293d401c14f6da85e587d2ecf2a072a2bdfce45e7493b46124644dff4b98631"
+    },
+    {
+      "path": "docs/notes/runtime-portability/a4-review/run-7-corrections-independent-source.json",
+      "sha256": "82ecade5fffa75c07c4051885d1c43e39d7728c907bfd2b70ca6582503d52a73"
+    },
+    {
+      "path": "docs/notes/runtime-portability/a4-review/run-8-corrections-independent-source.json",
+      "sha256": "3f799b197a212dabba58fd2d2cb85abeeaaecef8512b0d51ec8d05ca6667d8da"
+    },
+    {
+      "path": "docs/notes/runtime-portability/a4-review/run-9-correction-independent-source.json",
+      "sha256": "55a6d89cb517bc4ffbe40ffc1d41b06e163e65980503957a60880d9349e14c24"
+    },
+    {
+      "path": "docs/notes/runtime-portability/a4-review/run-10-corrections-independent-source.json",
+      "sha256": "44ab23dc4d327410ffc8dec8e0fad3b90a9f755862d45e0036aec039a4732928"
+    }
+  ],
+  "format_boundary_manifest_sha256": "3a41ebb08ae3990a7754decd366af48632ec904bd59bacb1197f32f7e6be7681",
+  "classification_counts": {
+    "relocation-source": 35,
+    "authored-modified": 84,
+    "authored-added": 88,
+    "byte-identical-move": 3,
+    "adapted-move": 29
+  },
+  "binding_counts": {
+    "reviewed deletion": 35,
+    "exact complete independent review": 115,
+    "run-6 formatted source boundary, retained through subsequent batches": 68,
+    "exact focused independent review": 20,
+    "focused review plus independently confirmed import-only formatting order": 1
+  },
+  "uncovered": []
+}

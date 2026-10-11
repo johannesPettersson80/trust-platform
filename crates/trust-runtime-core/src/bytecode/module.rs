@@ -21,7 +21,7 @@ impl BytecodeModule {
     /// Create an empty raw container with version-appropriate default flags.
     #[must_use]
     pub fn new(version: BytecodeVersion) -> Self {
-        let flags = if version.minor >= 1 {
+        let flags = if version.uses_extended_layout() {
             HEADER_FLAG_CRC32
         } else {
             0
@@ -62,6 +62,10 @@ impl BytecodeModule {
     /// Serialize the container, preserving section order and CRC policy.
     pub fn encode(&self) -> Result<Vec<u8>, BytecodeError> {
         self.view().encode()
+    }
+    /// Serialize within an application-selected artifact bound.
+    pub fn encode_with_limit(&self, limit: usize) -> Result<Vec<u8>, BytecodeError> {
+        self.view().encode_with_limit(limit)
     }
     /// Validate container semantics without preparing executable state.
     pub fn validate(&self) -> Result<(), BytecodeError> {
@@ -129,6 +133,21 @@ impl<'a> ValidatedBytecode<'a> {
 }
 
 impl<'a> BytecodeModuleView<'a> {
+    /// Validate the complete 2.0 construction format for a source-free consumer.
+    /// This does not construct executable state or admit a hardware profile.
+    pub fn validated_source_free(
+        self,
+        limits: ValidationLimits,
+    ) -> Result<ValidatedBytecode<'a>, BytecodeError> {
+        if self.version != BytecodeVersion::SOURCE_FREE {
+            return Err(BytecodeError::UnsupportedVersion {
+                major: self.version.major,
+                minor: self.version.minor,
+            });
+        }
+        self.validated_with_limits(limits)
+    }
+
     /// Validate and obtain an immutable token with default hosted analysis limits.
     pub fn validated(self) -> Result<ValidatedBytecode<'a>, BytecodeError> {
         self.validated_with_limits(ValidationLimits::default())
@@ -145,6 +164,14 @@ impl<'a> BytecodeModuleView<'a> {
 }
 
 impl BytecodeModule {
+    /// Validate a complete 2.0 artifact without requiring HIR or prebuilt instances.
+    pub fn validated_source_free(
+        &self,
+        limits: ValidationLimits,
+    ) -> Result<ValidatedBytecode<'_>, BytecodeError> {
+        self.view().validated_source_free(limits)
+    }
+
     /// Validate and borrow this raw container without preparing executable state.
     pub fn validated(&self) -> Result<ValidatedBytecode<'_>, BytecodeError> {
         self.view().validated()

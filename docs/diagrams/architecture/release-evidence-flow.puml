@@ -12,6 +12,8 @@ component "Runtime communications\nconformance gate" as runtimeCommsGate
 node "Real Mosquitto broker\n+ mosquitto_sub client" as mosquitto
 component "GitHub Release workflow" as release
 component "Release candidate guard" as releaseGuard
+component "Rust xtask external unsafe gate\nproduction + exact registered test inventory\nownership and stale-site decision" as unsafeGate
+artifact "ast-grep / rg raw facts\nretained normalized and rejected sites" as unsafeFacts
 component "Docs capture launcher" as captureLauncher
 artifact "Owned capture session\nand code-server container" as captureProcesses
 database "Local candidate state\nbranches and worktrees" as candidateState
@@ -37,6 +39,8 @@ mosquitto --> runtimeCommsGate : three topics change true and false\nno trust/io
 runtimeCommsGate --> conformanceInput : executable broker evidence
 maintainer --> release : annotated tag
 maintainer --> releaseGuard : verify release, then audit exact candidate
+releaseGuard --> unsafeGate : require exact-source architecture evidence
+unsafeGate --> unsafeFacts : external facts; Rust admission decision
 releaseGuard --> captureLauncher : require exact-SHA capture result
 captureLauncher --> captureProcesses : start and own
 captureProcesses --> captureLauncher : reap on success, failure, or signal

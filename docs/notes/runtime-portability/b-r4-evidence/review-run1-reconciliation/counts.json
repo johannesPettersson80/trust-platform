@@ -1,0 +1,58 @@
+{
+  "core-all-features": {
+    "result_groups": 29,
+    "passed": 399,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "core-portable": {
+    "result_groups": 29,
+    "passed": 360,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "core-i686": {
+    "result_groups": 8,
+    "passed": 280,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "runtime-unit": {
+    "result_groups": 1,
+    "passed": 3841,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "runtime-integration": {
+    "result_groups": 68,
+    "passed": 541,
+    "failed": 1,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "native-tools": {
+    "result_groups": 3,
+    "passed": 91,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "native-bundle": {
+    "result_groups": 1,
+    "passed": 2,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "provenance-helper-tests": {
+    "result_groups": 1,
+    "passed": 4,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  }
+}

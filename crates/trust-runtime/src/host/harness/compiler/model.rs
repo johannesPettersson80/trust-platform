@@ -73,6 +73,7 @@ pub(crate) struct ProgramVars {
 }
 
 pub(crate) struct ConfigModel {
+    pub(crate) configuration_name: Option<SmolStr>,
     pub(crate) resource_name: Option<SmolStr>,
     pub(crate) globals: Vec<GlobalInit>,
     pub(crate) tasks: Vec<crate::task::TaskConfig>,
@@ -135,6 +136,7 @@ pub(crate) enum ResolvedAccess {
 
 #[derive(Clone)]
 pub(crate) struct GlobalInit {
+    pub(crate) constant: bool,
     pub(crate) name: SmolStr,
     pub(crate) type_id: TypeId,
     pub(crate) initializer: Option<Expr>,

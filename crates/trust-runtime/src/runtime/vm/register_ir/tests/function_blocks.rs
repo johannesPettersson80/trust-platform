@@ -23,9 +23,10 @@ fn register_ir_lowering_handles_function_block_self_fields_without_fallback() {
         "#;
 
     let bytecode = bytecode_module_from_source(source).expect("compile bytecode");
-    let vm_module = VmModule::from_bytecode(&bytecode).expect("decode vm module");
+    let vm_module =
+        crate::runtime::vm::materialize_test_module(&bytecode).expect("decode vm module");
     let fb_pou_id = vm_module
-        .function_block_ids
+        .function_block_ids()
         .get(&SmolStr::new("COUNTER"))
         .copied()
         .expect("counter pou id");
@@ -55,9 +56,10 @@ fn tier1_compiler_accepts_function_block_self_field_dynamic_ops() {
         "#;
 
     let bytecode = bytecode_module_from_source(source).expect("compile bytecode");
-    let vm_module = VmModule::from_bytecode(&bytecode).expect("decode vm module");
+    let vm_module =
+        crate::runtime::vm::materialize_test_module(&bytecode).expect("decode vm module");
     let fb_pou_id = vm_module
-        .function_block_ids
+        .function_block_ids()
         .get(&SmolStr::new("COUNTER"))
         .copied()
         .expect("counter pou id");
@@ -103,9 +105,10 @@ fn register_ir_lowering_fuses_self_field_dynamic_load_store() {
         "#;
 
     let bytecode = bytecode_module_from_source(source).expect("compile bytecode");
-    let vm_module = VmModule::from_bytecode(&bytecode).expect("decode vm module");
+    let vm_module =
+        crate::runtime::vm::materialize_test_module(&bytecode).expect("decode vm module");
     let fb_pou_id = vm_module
-        .function_block_ids
+        .function_block_ids()
         .get(&SmolStr::new("COUNTER"))
         .copied()
         .expect("counter pou id");
@@ -162,9 +165,10 @@ fn tier1_compiler_accepts_function_block_index_dynamic_ops() {
         "#;
 
     let bytecode = bytecode_module_from_source(source).expect("compile bytecode");
-    let vm_module = VmModule::from_bytecode(&bytecode).expect("decode vm module");
+    let vm_module =
+        crate::runtime::vm::materialize_test_module(&bytecode).expect("decode vm module");
     let fb_pou_id = vm_module
-        .function_block_ids
+        .function_block_ids()
         .get(&SmolStr::new("COUNTERARRAY"))
         .copied()
         .expect("counterarray pou id");
@@ -306,26 +310,28 @@ fn register_executor_runs_program_with_complex_local_fields_without_fallback() {
             path: RefPath::new(),
         },
     ];
-    let module = VmModule {
-        code,
-        strings: Vec::new(),
-        types: TypeTable::default(),
-        refs,
-        consts: vec![Value::DInt(7)],
-        pou_by_id,
-        program_ids,
-        function_ids: HashMap::new(),
-        function_block_ids: HashMap::new(),
-        class_ids: HashMap::new(),
-        parent_pou_ids: HashMap::new(),
-        interface_type_ids_by_pou: HashMap::new(),
-        native_symbol_specs: Vec::new(),
-        pou_params: HashMap::new(),
-        pou_has_return_slot: HashSet::new(),
-        method_table_by_owner: HashMap::new(),
-        ref_types: HashMap::new(),
-        debug_map: super::super::debug_map::VmDebugMap::default(),
-        instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
+    let module = {
+        let mut legacy = VmModule::legacy(
+            crate::bytecode::BytecodeVersion::LEGACY,
+            code,
+            Vec::new(),
+            TypeTable::default(),
+            refs,
+            vec![Value::DInt(7)],
+        )
+        .expect("legacy fixture metadata");
+        let mut entries = pou_by_id;
+        for (_, id) in program_ids {
+            legacy.define_legacy_pou(
+                id,
+                crate::bytecode::PouKind::Program,
+                entries.remove(&id).expect("fixture POU"),
+                Vec::new(),
+                false,
+            );
+        }
+        legacy.set_legacy_instruction_budget(super::super::DEFAULT_INSTRUCTION_BUDGET);
+        legacy
     };
     let initial_outer = Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
         SmolStr::new("OUTER_T"),
@@ -350,7 +356,7 @@ fn register_executor_runs_program_with_complex_local_fields_without_fallback() {
         Some(&[initial_outer]),
         false,
         0,
-        None,
+        trust_runtime_core::vm::hosted::budget::ExecutionEntry::Root,
     )
     .expect("execute register program");
     assert!(

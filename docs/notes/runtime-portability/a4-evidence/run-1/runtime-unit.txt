@@ -1,0 +1,68 @@
+[gate-progress state=started phase=A4-runtime-unit target=scena-rust-builder pid=2167838 elapsed=0.0s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --lib -- --nocapture --test-threads=1']
+   Compiling openssl v0.10.78
+   Compiling openssl-sys v0.9.114
+   Compiling native-tls v0.2.18
+   Compiling aws-lc-rs v1.18.1
+   Compiling aws-lc-sys v0.45.0
+   Compiling rustls v0.23.45
+   Compiling stabby v72.1.8
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime-core)
+   Compiling zenoh-task v1.7.2
+   Compiling zenoh v1.7.2
+   Compiling sct v0.7.1
+   Compiling console v0.16.3
+error: unused import: `InstanceId`
+ --> crates/trust-runtime-core/src/vm/dispatch_refs.rs:4:21
+  |
+4 | use crate::memory::{InstanceId, MemoryLocation};
+  |                     ^^^^^^^^^^
+  |
+  = note: `-D unused-imports` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+   Compiling clap_derive v4.6.1
+   Compiling btoi v0.5.0
+   Compiling ordered-float v5.3.0
+   Compiling ena v0.14.4
+error[E0063]: missing field `parameter_values_present` in initializer of `vm::frames::VmFrame`
+  --> crates/trust-runtime-core/src/vm/call/mod.rs:47:17
+   |
+47 |     let frame = VmFrame {
+   |                 ^^^^^^^ missing `parameter_values_present`
+
+   Compiling num-derive v0.4.2
+   Compiling rustls-webpki v0.103.15
+   Compiling derive_utils v0.15.1
+   Compiling profiling-procmacros v1.0.18
+   Compiling enumflags2_derive v0.7.12
+   Compiling zerocopy-derive v0.7.35
+   Compiling memmap2 v0.9.11
+   Compiling inotify-sys v0.1.5
+   Compiling arrayvec v0.7.6
+   Compiling critical-section v1.2.0
+   Compiling embedded-io v0.6.1
+   Compiling mysql v28.0.2
+   Compiling vec_map v0.8.2
+   Compiling percent-encoding v1.0.1
+   Compiling crc-catalog v2.5.0
+error: unused variable: `declaration`
+   --> crates/trust-runtime-core/src/vm/engine/initialization/construction.rs:285:18
+    |
+285 |         for (id, declaration) in
+    |                  ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_declaration`
+    |
+    = note: `-D unused-variables` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(unused_variables)]`
+
+   Compiling base64 v0.13.1
+   Compiling saturating v0.1.0
+   Compiling iana-time-zone v0.1.65
+   Compiling owo-colors v4.3.0
+   Compiling downcast-rs v2.0.2
+   Compiling rustls-pemfile v0.2.1
+   Compiling parry3d v0.26.1
+   Compiling chrono v0.4.44
+For more information about this error, try `rustc --explain E0063`.
+error: could not compile `trust-runtime-core` (lib) due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...
+[gate-progress state=finished phase=A4-runtime-unit target=scena-rust-builder pid=2167838 elapsed=5.5s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --lib -- --nocapture --test-threads=1' status=101]

@@ -192,7 +192,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
         "mutations": [
             _mutation(
                 "MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON",
-                "crates/trust-runtime/src/stdlib/conversions/dispatch.rs",
+                "crates/trust-runtime-core/src/stdlib/conversions/dispatch.rs",
                 "convert_value",
                 "BinaryOperator",
                 "!=",
@@ -265,7 +265,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
         "mutations": [
             _mutation(
                 "MUTANT_RETAIN_ON_WARM_FALSE",
-                "crates/trust-runtime/src/runtime/retain_snapshot.rs",
+                "crates/trust-runtime-core/src/retain.rs",
                 "retain_on_warm",
                 "FnValue",
                 "false",

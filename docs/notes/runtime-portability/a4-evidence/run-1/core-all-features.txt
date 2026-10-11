@@ -1,0 +1,62 @@
+[gate-progress state=started phase=A4-core-all-features target=scena-rust-builder pid=2166147 elapsed=0.0s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime-core --all-features -- --nocapture --test-threads=1 --skip saved_numeric_artifact_preserves_accuracy_control_and_nominal_periods']
+   Compiling aho-corasick v1.1.4
+   Compiling syn v2.0.117
+   Compiling parking_lot_core v0.9.12
+   Compiling tracing-core v0.1.36
+   Compiling either v1.15.0
+   Compiling hashbrown v0.14.5
+   Compiling rayon v1.12.0
+   Compiling parking_lot v0.12.5
+   Compiling indexmap v2.14.0
+   Compiling rowan v0.16.1
+   Compiling crc32fast v1.5.0
+   Compiling regex-automata v0.4.14
+   Compiling tracing-attributes v0.1.31
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_derive v1.0.228
+   Compiling logos-codegen v0.16.1
+   Compiling thiserror v2.0.18
+   Compiling tracing v0.1.44
+   Compiling salsa v0.28.5
+   Compiling logos-derive v0.16.1
+   Compiling logos v0.16.1
+   Compiling trust-syntax v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-syntax)
+   Compiling serde v1.0.228
+   Compiling verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/verification-cases)
+   Compiling trust-hir v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-hir)
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime-core)
+error: unused import: `InstanceId`
+ --> crates/trust-runtime-core/src/vm/dispatch_refs.rs:4:21
+  |
+4 | use crate::memory::{InstanceId, MemoryLocation};
+  |                     ^^^^^^^^^^
+  |
+  = note: `-D unused-imports` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error[E0063]: missing field `parameter_values_present` in initializer of `vm::frames::VmFrame`
+  --> crates/trust-runtime-core/src/vm/call/mod.rs:47:17
+   |
+47 |     let frame = VmFrame {
+   |                 ^^^^^^^ missing `parameter_values_present`
+
+error: unused import: `vec::Vec`
+ --> crates/trust-runtime-core/src/vm/debug_map.rs:4:18
+  |
+4 | use alloc::{vec, vec::Vec};
+  |                  ^^^^^^^^
+
+error: unused variable: `declaration`
+   --> crates/trust-runtime-core/src/vm/engine/initialization/construction.rs:285:18
+    |
+285 |         for (id, declaration) in
+    |                  ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_declaration`
+    |
+    = note: `-D unused-variables` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(unused_variables)]`
+
+For more information about this error, try `rustc --explain E0063`.
+error: could not compile `trust-runtime-core` (lib) due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `trust-runtime-core` (lib test) due to 4 previous errors
+[gate-progress state=finished phase=A4-core-all-features target=scena-rust-builder pid=2166147 elapsed=12.6s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime-core --all-features -- --nocapture --test-threads=1 --skip saved_numeric_artifact_preserves_accuracy_control_and_nominal_periods' status=101]

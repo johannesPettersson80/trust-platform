@@ -1,0 +1,1 @@
+bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b bash /home/johannes/.cache/trust-portability-br2-setup-final/format-once.sh --check 

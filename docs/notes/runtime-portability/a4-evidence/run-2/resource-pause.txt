@@ -1,0 +1,4 @@
+2026-10-10T06:02:58Z
+Paused only A4 process group 2557594 during source-fixture compilation; coordinator and children retain their state. External process group 2520266 is running full control/runtime tests, including timing-sensitive suites. No A4 runtime test has started; no command is restarted.
+2026-10-10T06:08:15Z
+External coordinator ended and no competing test process remained; continuing the same A4 group, no command retry.

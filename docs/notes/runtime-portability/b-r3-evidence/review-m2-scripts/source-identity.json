@@ -1,0 +1,54 @@
+{
+  "reviewer": "/root/br1_static_registry",
+  "scope": "Read-only comparison with accepted setup-m1; source review, no script execution",
+  "files": [
+    {
+      "path": "setup-m2/baseline.map",
+      "sha256": "481b2f8413858795e15ca2496822db757cff297140261f6d8a0303c35314478a"
+    },
+    {
+      "path": "setup-m2/board-batch.sh",
+      "sha256": "1a086f032a2a25a09d2ed7d238611369fe31632065336c477ceb26a78503673d"
+    },
+    {
+      "path": "setup-m2/builder-batch.sh",
+      "sha256": "70a34db670224c6301a4894b889a784d5d543bba2c245f8925869016fddb8385"
+    },
+    {
+      "path": "setup-m2/builder-preparation.sh",
+      "sha256": "e2b9ecbf3451de18c0e8e3e8c34e9e2d30f345d011caaffec06d4eb7078550c5"
+    },
+    {
+      "path": "setup-m2/canonical.sha256",
+      "sha256": "0a31687edc1f6cd7ca2e3909b5dbd9ff18a55f1c3e6512db1703a196992c92b3"
+    },
+    {
+      "path": "setup-m2/environment.sh",
+      "sha256": "488911223bea351fddaa119f9a8bea163a5e49f659f6b0f43ac933b80f397155"
+    },
+    {
+      "path": "setup-m2/fixture-sha256.txt",
+      "sha256": "6d108a02c9c614873d97eff800a09a1b7db461440479925c2822725a592b03a6"
+    },
+    {
+      "path": "setup-m2/format-once.sh",
+      "sha256": "81a1d515aaf19cc35e3a3b4485d7475c90f54cee35ab775173e601639bc640ee"
+    },
+    {
+      "path": "setup-m2/freeze-source.py",
+      "sha256": "a48a229147c0c79dba15c383593b286e120038fe4663030212330aeae6693784"
+    },
+    {
+      "path": "setup-m2/measure.sh",
+      "sha256": "50b7750eec2f23749b1071bfd372fda2c6852151f8ffdf73afc98ebeb3b02bfd"
+    },
+    {
+      "path": "setup-m2/prepare-metadata-index.py",
+      "sha256": "4df80e42d252d659c027a8ca65155db5957215ad2d93e63410d0f4b7eee456d4"
+    },
+    {
+      "path": "setup-m2/refresh-unsafe-location.py",
+      "sha256": "9db3f27aea3eaee4b8e11256c36e9f5eda118551e8de2433ea5c128f523b49ac"
+    }
+  ]
+}

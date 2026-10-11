@@ -9,7 +9,7 @@ last_reviewed = "2026-07-17"
 claim = "Runtime writes to subrange-typed storage accept inclusive bounds and reject out-of-range or wrong-tag values without modifying the target; the stable public error identifier remains explicit."
 proof_level = "S0"
 contract_kind = "decision_table"
-source_refs = ["crates/trust-runtime-core/src/value/types.rs"]
+source_refs = ["crates/trust-runtime-core/src/value/types.rs", "crates/trust-runtime-core/src/vm/type_policy.rs", "crates/trust-runtime-core/src/vm/engine/assignment.rs"]
 tests = [
   "TEST_VM_SUBRANGE_ASSIGNMENT_REJECTION_001",
   "TEST_VM_SUBRANGE_FB_INPUT_REJECTION_001",

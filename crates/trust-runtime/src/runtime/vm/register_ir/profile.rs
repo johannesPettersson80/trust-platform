@@ -133,12 +133,12 @@ impl RegisterProfileState {
             return;
         }
         let counter = match kind {
-            RegisterValueOpKind::ConstLoadClone => &mut self.value_ops.const_load_clones,
+            RegisterValueOpKind::LoadConstant => &mut self.value_ops.const_load_clones,
             RegisterValueOpKind::RegisterReadClone => &mut self.value_ops.register_read_clones,
             RegisterValueOpKind::RegisterReadMove => &mut self.value_ops.register_read_moves,
-            RegisterValueOpKind::ReadValueClone => &mut self.value_ops.read_value_clones,
-            RegisterValueOpKind::BindingExprClone => &mut self.value_ops.binding_expr_clones,
-            RegisterValueOpKind::OutputValueClone => &mut self.value_ops.output_value_clones,
+            RegisterValueOpKind::ReadReference => &mut self.value_ops.read_value_clones,
+            RegisterValueOpKind::BindExpression => &mut self.value_ops.binding_expr_clones,
+            RegisterValueOpKind::CopyOutput => &mut self.value_ops.output_value_clones,
         };
         *counter = counter.saturating_add(1);
     }
@@ -156,24 +156,9 @@ pub(in crate::runtime::vm) enum RegisterRefOpKind {
     InstanceFieldLookup,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(in crate::runtime::vm) enum RegisterCallOpKind {
-    FramePush,
-    FramePop,
-    FunctionBlockCallEntry,
-    ParameterBinding,
-    OutputCopyBack,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(in crate::runtime::vm) enum RegisterValueOpKind {
-    ConstLoadClone,
-    RegisterReadClone,
-    RegisterReadMove,
-    ReadValueClone,
-    BindingExprClone,
-    OutputValueClone,
-}
+pub(in crate::runtime::vm) use trust_runtime_core::vm::hosted::call::context::{
+    RegisterCallOpKind, RegisterValueOpKind,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 struct RegisterLoweringCacheKey {

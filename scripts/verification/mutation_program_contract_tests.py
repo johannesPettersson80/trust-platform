@@ -5,12 +5,14 @@ from __future__ import annotations
 import copy
 import datetime
 import json
+import re
 import unittest
 from types import SimpleNamespace
 from unittest import mock
 
 from . import mutation_program_contract as contract_module
 from .metadata_validator.constants import ROOT
+from .mutation_execution import source_offset
 from .mutation_program_contract import (
     MUTATION_PROGRAM_PATH,
     MUTATION_PROGRAM_SCHEMA_PATH,
@@ -59,7 +61,7 @@ class MutationProgramContractTests(unittest.TestCase):
 
     def test_exact_source_mutant_and_test_bindings_are_required(self) -> None:
         self.assertEqual(
-            "crates/trust-runtime/src/runtime/retain_snapshot.rs",
+            "crates/trust-runtime-core/src/retain.rs",
             self.program["shards"][4]["mutations"][0]["source_file"],
         )
         for mutation in (
@@ -249,15 +251,29 @@ class MutationProgramContractTests(unittest.TestCase):
                 "function": "convert_value",
                 "genre": "BinaryOperator",
                 "replacement": "!=",
-                "selector_name": (
-                    "dispatch.rs:78:16: replace == with != in convert_value"
-                ),
             },
             {
                 field: mutation[field]
-                for field in ("id", "function", "genre", "replacement", "selector_name")
+                for field in ("id", "function", "genre", "replacement")
             },
         )
+
+        selector = re.fullmatch(
+            r"dispatch\.rs:(?P<line>[1-9]\d*):(?P<column>[1-9]\d*): replace == with != in convert_value",
+            mutation["selector_name"],
+        )
+        self.assertIsNotNone(selector, mutation["selector_name"])
+        source = (ROOT / mutation["source_file"]).read_text()
+        position = {key: int(selector.group(key)) for key in ("line", "column")}
+        offset = source_offset(source, position)
+        self.assertEqual("==", source[offset : offset + 2])
+        self.assertEqual("if src == dst {", source.splitlines()[position["line"] - 1].strip())
+        # Bind the selected operator to this function, not a similarly spelled
+        # comparison elsewhere; formatting may move its line without changing it.
+        function_start = source.index("fn convert_value(")
+        function_end = source.find("\nfn ", function_start + 1)
+        self.assertGreaterEqual(offset, function_start)
+        self.assertLess(offset, len(source) if function_end == -1 else function_end)
 
     def test_survivor_resolution_registry_cannot_invent_or_omit_outcomes(self) -> None:
         self.assertEqual([], self.program["survivor_resolutions"])

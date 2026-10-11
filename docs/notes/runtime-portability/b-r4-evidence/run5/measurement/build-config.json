@@ -1,0 +1,23 @@
+{
+  "manifest": "/home/johannes/projects/trust-platform-portability-b/firmware/trust-nucleo-f401re/Cargo.toml",
+  "note": "Path normalization does not claim cross-checkout binary reproducibility.",
+  "profile": "release",
+  "rustflags": [
+    "-C",
+    "target-cpu=cortex-m4",
+    "-C",
+    "llvm-args=-addrsig",
+    "-C",
+    "link-arg=--icf=safe",
+    "-C",
+    "link-arg=-Tlink.x",
+    "-C",
+    "link-arg=-Tprofile.x",
+    "-C",
+    "link-arg=-Map=trust-nucleo-f401re.map",
+    "--remap-path-prefix=/home/johannes/projects/trust-platform-portability-b=/src",
+    "--remap-path-prefix=/home/johannes/.cargo/registry/src=/registry",
+    "--remap-path-prefix=/home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust=/rust-src"
+  ],
+  "target": "thumbv7em-none-eabihf"
+}

@@ -1,0 +1,238 @@
+08010240 <trust_nucleo_f401re::__cortex_m_rt_main::h90206e732bd16f6d>:
+ 8010240: b580         	push	{r7, lr}
+ 8010242: 466f         	mov	r7, sp
+ 8010244: b0a4         	sub	sp, #0x90
+ 8010246: f00a f80c    	bl	0x801a262 <_critical_section_1_0_acquire> @ imm = #0xa018
+ 801024a: 4604         	mov	r4, r0
+ 801024c: f8df 03b0    	ldr.w	r0, [pc, #0x3b0]        @ 0x8010600 <trust_nucleo_f401re::__cortex_m_rt_main::h90206e732bd16f6d+0x3c0>
+ 8010250: f00a f818    	bl	0x801a284 <critical_section::mutex::Mutex$LT$core..cell..RefCell$LT$T$GT$$GT$::borrow_ref_mut::h11d8cb694e28178b> @ imm = #0xa030
+ 8010254: f8df 03ac    	ldr.w	r0, [pc, #0x3ac]        @ 0x8010604 <trust_nucleo_f401re::__cortex_m_rt_main::h90206e732bd16f6d+0x3c4>
+ 8010258: f890 1024    	ldrb.w	r1, [r0, #0x24]
+ 801025c: 2901         	cmp	r1, #0x1
+ 801025e: f000 816d    	beq.w	0x801053c <trust_nucleo_f401re::__cortex_m_rt_main::h90206e732bd16f6d+0x2fc> @ imm = #0x2da
+ 8010262: f8df 33a4    	ldr.w	r3, [pc, #0x3a4]        @ 0x8010608 <trust_nucleo_f401re::__cortex_m_rt_main::h90206e732bd16f6d+0x3c8>
+
+08010908 <trust_nucleo_f401re::runner::gpio_fixture::h2698b6d74b3444eb>:
+ 8010908: b5f0         	push	{r4, r5, r6, r7, lr}
+ 801090a: af03         	add	r7, sp, #0xc
+ 801090c: e92d 0f00    	push.w	{r8, r9, r10, r11}
+ 8010910: f6ad 5ddc    	subw	sp, sp, #0xddc
+ 8010914: 4605         	mov	r5, r0
+ 8010916: 200c         	movs	r0, #0xc
+ 8010918: f50d 64c7    	add.w	r4, sp, #0x638
+ 801091c: 9001         	str	r0, [sp, #0x4]
+ 801091e: f8df 09c8    	ldr.w	r0, [pc, #0x9c8]        @ 0x80112e8 <trust_nucleo_f401re::runner::gpio_fixture::h2698b6d74b3444eb+0x9e0>
+ 8010922: f105 0b30    	add.w	r11, r5, #0x30
+ 8010926: 465b         	mov	r3, r11
+ 8010928: 9000         	str	r0, [sp]
+
+080129fc <trust_nucleo_f401re::runner::main_fixture::h67b521b6bfbc6873>:
+ 80129fc: b5f0         	push	{r4, r5, r6, r7, lr}
+ 80129fe: af03         	add	r7, sp, #0xc
+ 8012a00: e92d 0f00    	push.w	{r8, r9, r10, r11}
+ 8012a04: f6ad 1d8c    	subw	sp, sp, #0x98c
+ 8012a08: 4680         	mov	r8, r0
+ 8012a0a: 200c         	movs	r0, #0xc
+ 8012a0c: 9001         	str	r0, [sp, #0x4]
+ 8012a0e: f8df 061c    	ldr.w	r0, [pc, #0x61c]        @ 0x801302c <trust_nucleo_f401re::runner::main_fixture::h67b521b6bfbc6873+0x630>
+ 8012a12: f108 0630    	add.w	r6, r8, #0x30
+ 8012a16: 4633         	mov	r3, r6
+ 8012a18: 9000         	str	r0, [sp]
+ 8012a1a: acd4         	add	r4, sp, #0x350
+
+080130c4 <trust_nucleo_f401re::runner::numeric_fixture::h5f2eee1107c6f30e>:
+ 80130c4: b5f0         	push	{r4, r5, r6, r7, lr}
+ 80130c6: af03         	add	r7, sp, #0xc
+ 80130c8: e92d 0f00    	push.w	{r8, r9, r10, r11}
+ 80130cc: f6ad 1d4c    	subw	sp, sp, #0x94c
+ 80130d0: 4606         	mov	r6, r0
+ 80130d2: 200f         	movs	r0, #0xf
+ 80130d4: 9001         	str	r0, [sp, #0x4]
+ 80130d6: f8df 0558    	ldr.w	r0, [pc, #0x558]        @ 0x8013630 <trust_nucleo_f401re::runner::numeric_fixture::h5f2eee1107c6f30e+0x56c>
+ 80130da: f106 0a30    	add.w	r10, r6, #0x30
+ 80130de: 4653         	mov	r3, r10
+ 80130e0: 9000         	str	r0, [sp]
+ 80130e2: add8         	add	r5, sp, #0x360
+
+080136e8 <trust_nucleo_f401re::runner::prepare::h19b3b3cf0c07ac4e>:
+ 80136e8: b5f0         	push	{r4, r5, r6, r7, lr}
+ 80136ea: af03         	add	r7, sp, #0xc
+ 80136ec: e92d 0f00    	push.w	{r8, r9, r10, r11}
+ 80136f0: f6ad 0d0c    	subw	sp, sp, #0x80c
+ 80136f4: 4680         	mov	r8, r0
+ 80136f6: 68f8         	ldr	r0, [r7, #0xc]
+ 80136f8: 461d         	mov	r5, r3
+ 80136fa: 4616         	mov	r6, r2
+ 80136fc: 910e         	str	r1, [sp, #0x38]
+ 80136fe: 9013         	str	r0, [sp, #0x4c]
+ 8013700: 68b8         	ldr	r0, [r7, #0x8]
+ 8013702: 9012         	str	r0, [sp, #0x48]
+
+080280d0 <trust_runtime_core::vm::engine::initialization::_$LT$impl$u20$trust_runtime_core..vm..engine..EngineState$GT$::evaluate_initializer::h4c665e50c89e2236>:
+ 80280d0: b5f0         	push	{r4, r5, r6, r7, lr}
+ 80280d2: af03         	add	r7, sp, #0xc
+ 80280d4: e92d 0f00    	push.w	{r8, r9, r10, r11}
+ 80280d8: f5ad 7d69    	sub.w	sp, sp, #0x3a4
+ 80280dc: f10d 08b8    	add.w	r8, sp, #0xb8
+ 80280e0: 4615         	mov	r5, r2
+ 80280e2: 4606         	mov	r6, r0
+ 80280e4: 2201         	movs	r2, #0x1
+ 80280e6: 469b         	mov	r11, r3
+ 80280e8: 468a         	mov	r10, r1
+ 80280ea: f045 fe7b    	bl	0x806dde4 <OUTLINED_FUNCTION_725> @ imm = #0x45cf6
+ 80280ee: f046 fe2d    	bl	0x806ed4c <OUTLINED_FUNCTION_1131> @ imm = #0x46c5a
+
+0802955c <trust_runtime_core::vm::dispatch::execute_with_buffers::hcc05252bae9bb95b>:
+ 802955c: b5f0         	push	{r4, r5, r6, r7, lr}
+ 802955e: af03         	add	r7, sp, #0xc
+ 8029560: e92d 0f00    	push.w	{r8, r9, r10, r11}
+ 8029564: f6ad 1d04    	subw	sp, sp, #0x904
+ 8029568: f50d 66b0    	add.w	r6, sp, #0x580
+ 802956c: 4681         	mov	r9, r0
+ 802956e: 469b         	mov	r11, r3
+ 8029570: 4615         	mov	r5, r2
+ 8029572: 4688         	mov	r8, r1
+ 8029574: f045 fa29    	bl	0x806e9ca <OUTLINED_FUNCTION_1040> @ imm = #0x45452
+ 8029578: f044 fcb6    	bl	0x806dee8 <OUTLINED_FUNCTION_760> @ imm = #0x4496c
+ 802957c: f043 8436    	bne.w	0x802cdec <trust_runtime_core::vm::dispatch::execute_with_buffers::hcc05252bae9bb95b+0x3890> @ imm = #0x386c
+
+0802d5a8 <trust_runtime_core::vm::engine::initialization::_$LT$impl$u20$trust_runtime_core..vm..engine..EngineState$GT$::finish_initializer::hcf47b74788280a07>:
+ 802d5a8: b5f0         	push	{r4, r5, r6, r7, lr}
+ 802d5aa: af03         	add	r7, sp, #0xc
+ 802d5ac: e92d 0f00    	push.w	{r8, r9, r10, r11}
+ 802d5b0: f5ad 7d23    	sub.w	sp, sp, #0x28c
+ 802d5b4: 4680         	mov	r8, r0
+ 802d5b6: 7810         	ldrb	r0, [r2]
+ 802d5b8: 469b         	mov	r11, r3
+ 802d5ba: 468a         	mov	r10, r1
+ 802d5bc: 2855         	cmp	r0, #0x55
+ 802d5be: d11d         	bne	0x802d5fc <trust_runtime_core::vm::engine::initialization::_$LT$impl$u20$trust_runtime_core..vm..engine..EngineState$GT$::finish_initializer::hcf47b74788280a07+0x54> @ imm = #0x3a
+ 802d5c0: 2000         	movs	r0, #0x0
+ 802d5c2: 2108         	movs	r1, #0x8
+
+0802ebb8 <trust_runtime_core::vm::engine::context::_$LT$impl$u20$trust_runtime_core..vm..context..ExecutionContext$u20$for$u20$trust_runtime_core..vm..engine..EngineState$GT$::initialize_frame::h6d7f25ebadea8a71>:
+ 802ebb8: b5f0         	push	{r4, r5, r6, r7, lr}
+ 802ebba: af03         	add	r7, sp, #0xc
+ 802ebbc: e92d 0f00    	push.w	{r8, r9, r10, r11}
+ 802ebc0: b0b5         	sub	sp, #0xd4
+ 802ebc2: 4683         	mov	r11, r0
+ 802ebc4: f8d1 00dc    	ldr.w	r0, [r1, #0xdc]
+ 802ebc8: f8d0 0308    	ldr.w	r0, [r0, #0x308]
+ 802ebcc: 4283         	cmp	r3, r0
+ 802ebce: f080 8178    	bhs.w	0x802eec2 <trust_runtime_core::vm::engine::context::_$LT$impl$u20$trust_runtime_core..vm..context..ExecutionContext$u20$for$u20$trust_runtime_core..vm..engine..EngineState$GT$::initialize_frame::h6d7f25ebadea8a71+0x30a> @ imm = #0x2f0
+ 802ebd2: f10d 0888    	add.w	r8, sp, #0x88
+ 802ebd6: 460c         	mov	r4, r1
+ 802ebd8: f501 71d8    	add.w	r1, r1, #0x1b0
+
+0802f560 <trust_runtime_core::vm::dispatch::continuation::finish_call::h63c83f0694563188>:
+ 802f560: b5f0         	push	{r4, r5, r6, r7, lr}
+ 802f562: af03         	add	r7, sp, #0xc
+ 802f564: e92d 0f00    	push.w	{r8, r9, r10, r11}
+ 802f568: f2ad 4d94    	subw	sp, sp, #0x494
+ 802f56c: f8d7 e014    	ldr.w	lr, [r7, #0x14]
+ 802f570: 69be         	ldr	r6, [r7, #0x18]
+ 802f572: 4688         	mov	r8, r1
+ 802f574: e9d7 4b02    	ldrd	r4, r11, [r7, #8]
+ 802f578: f8de 1008    	ldr.w	r1, [lr, #0x8]
+ 802f57c: f8d6 9038    	ldr.w	r9, [r6, #0x38]
+ 802f580: 9418         	str	r4, [sp, #0x60]
+ 802f582: 9619         	str	r6, [sp, #0x64]
+
+08030060 <trust_runtime_core::vm::dispatch::finish_stack_result::h4f42342fbc0aa5ad>:
+ 8030060: b5f0         	push	{r4, r5, r6, r7, lr}
+ 8030062: af03         	add	r7, sp, #0xc
+ 8030064: e92d 0f00    	push.w	{r8, r9, r10, r11}
+ 8030068: b0cd         	sub	sp, #0x134
+ 803006a: f8d7 b008    	ldr.w	r11, [r7, #0x8]
+ 803006e: 4614         	mov	r4, r2
+ 8030070: 4688         	mov	r8, r1
+ 8030072: 4682         	mov	r10, r0
+ 8030074: b373         	cbz	r3, 0x80300d4 <trust_runtime_core::vm::dispatch::finish_stack_result::h4f42342fbc0aa5ad+0x74> @ imm = #0x5c
+ 8030076: 6aa0         	ldr	r0, [r4, #0x28]
+ 8030078: b380         	cbz	r0, 0x80300dc <trust_runtime_core::vm::dispatch::finish_stack_result::h4f42342fbc0aa5ad+0x7c> @ imm = #0x60
+ 803007a: 6a66         	ldr	r6, [r4, #0x24]
+
+08039268 <trust_runtime_core::vm::engine::initialization::construction::_$LT$impl$u20$trust_runtime_core..vm..engine..EngineState$GT$::initialize_instance::h1a82eba7f12e5ce6>:
+ 8039268: b5f0         	push	{r4, r5, r6, r7, lr}
+ 803926a: af03         	add	r7, sp, #0xc
+ 803926c: e92d 0f00    	push.w	{r8, r9, r10, r11}
+ 8039270: b0b7         	sub	sp, #0xdc
+ 8039272: 4689         	mov	r9, r1
+ 8039274: 4606         	mov	r6, r0
+ 8039276: e9d1 013f    	ldrd	r0, r1, [r1, #252]
+ 803927a: 469a         	mov	r10, r3
+ 803927c: 4614         	mov	r4, r2
+ 803927e: f7f5 fa3d    	bl	0x802e6fc <trust_runtime_core::vm::engine::identities::InstanceSet::contains::h6937e8f7953346ac> @ imm = #-0xab86
+ 8039282: b110         	cbz	r0, 0x803928a <trust_runtime_core::vm::engine::initialization::construction::_$LT$impl$u20$trust_runtime_core..vm..engine..EngineState$GT$::initialize_instance::h1a82eba7f12e5ce6+0x22> @ imm = #0x4
+ 8039284: 2055         	movs	r0, #0x55
+
+08046d84 <trust_runtime_core::vm::engine::api::RuntimeState::execute_cycle::hbcc6af3362fced42>:
+ 8046d84: b5f0         	push	{r4, r5, r6, r7, lr}
+ 8046d86: af03         	add	r7, sp, #0xc
+ 8046d88: e92d 0f00    	push.w	{r8, r9, r10, r11}
+ 8046d8c: b0b7         	sub	sp, #0xdc
+ 8046d8e: 4688         	mov	r8, r1
+ 8046d90: 4604         	mov	r4, r0
+ 8046d92: f818 0f90    	ldrb	r0, [r8, #144]!
+ 8046d96: 2855         	cmp	r0, #0x55
+ 8046d98: d114         	bne	0x8046dc4 <trust_runtime_core::vm::engine::api::RuntimeState::execute_cycle::hbcc6af3362fced42+0x40> @ imm = #0x28
+ 8046d9a: 460d         	mov	r5, r1
+ 8046d9c: e9d1 0120    	ldrd	r0, r1, [r1, #128]
+ 8046da0: 1a10         	subs	r0, r2, r0
+
+08047bc4 <trust_runtime_core::vm::engine::cycle::_$LT$impl$u20$trust_runtime_core..vm..engine..EngineState$GT$::execute_cycle_inner::h30406b9cfa64b0ca>:
+ 8047bc4: b5f0         	push	{r4, r5, r6, r7, lr}
+ 8047bc6: af03         	add	r7, sp, #0xc
+ 8047bc8: e92d 0f00    	push.w	{r8, r9, r10, r11}
+ 8047bcc: f5ad 7d5b    	sub.w	sp, sp, #0x36c
+ 8047bd0: f8d1 40dc    	ldr.w	r4, [r1, #0xdc]
+ 8047bd4: 4682         	mov	r10, r0
+ 8047bd6: 4689         	mov	r9, r1
+ 8047bd8: f8d4 2118    	ldr.w	r2, [r4, #0x118]
+ 8047bdc: aec8         	add	r6, sp, #0x320
+ 8047bde: f026 fad7    	bl	0x806e190 <OUTLINED_FUNCTION_823> @ imm = #0x265ae
+ 8047be2: f89d 1320    	ldrb.w	r1, [sp, #0x320]
+ 8047be6: 2955         	cmp	r1, #0x55
+
+0804aeb4 <trust_runtime_core::vm::engine::EngineState::execute_pou::hc091ef460b8010d1>:
+ 804aeb4: b5f0         	push	{r4, r5, r6, r7, lr}
+ 804aeb6: af03         	add	r7, sp, #0xc
+ 804aeb8: e92d 0f00    	push.w	{r8, r9, r10, r11}
+ 804aebc: f5ad 7d0f    	sub.w	sp, sp, #0x23c
+ 804aec0: f8d1 80dc    	ldr.w	r8, [r1, #0xdc]
+ 804aec4: 4699         	mov	r9, r3
+ 804aec6: 4692         	mov	r10, r2
+ 804aec8: 4606         	mov	r6, r0
+ 804aeca: 460d         	mov	r5, r1
+ 804aecc: e9d8 2316    	ldrd	r2, r3, [r8, #88]
+ 804aed0: e9cd a900    	strd	r10, r9, [sp]
+ 804aed4: ac66         	add	r4, sp, #0x198
+
+0804ba18 <trust_runtime_core::vm::engine::cycle::_$LT$impl$u20$trust_runtime_core..vm..engine..EngineState$GT$::execute_cycle_inner::_$u7b$$u7b$closure$u7d$$u7d$::hbba53a28441e66a5>:
+ 804ba18: b580         	push	{r7, lr}
+ 804ba1a: 466f         	mov	r7, sp
+ 804ba1c: 4b02         	ldr	r3, [pc, #0x8]          @ 0x804ba28 <trust_runtime_core::vm::engine::cycle::_$LT$impl$u20$trust_runtime_core..vm..engine..EngineState$GT$::execute_cycle_inner::_$u7b$$u7b$closure$u7d$$u7d$::hbba53a28441e66a5+0x10>
+ 804ba1e: f7fe fce7    	bl	0x804a3f0 <_$LT$alloc..vec..Vec$LT$T$C$A$GT$$u20$as$u20$core..ops..index..Index$LT$I$GT$$GT$::index::h5a5190f0bed66197> @ imm = #-0x1632
+ 804ba22: 6ac0         	ldr	r0, [r0, #0x2c]
+ 804ba24: bd80         	pop	{r7, pc}
+ 804ba26: bf00         	nop
+ 804ba28: 30 8b 07 08  	.word	0x08078b30
+
+0804ba2c <core::ptr::drop_in_place$LT$$LP$trust_runtime_core..value..reference..ValueRef$C$trust_runtime_core..value..types..Value$RP$$GT$::h6e835705ee49c0c3>:
+ 804ba2c: b5d0         	push	{r4, r6, r7, lr}
+ 804ba2e: af02         	add	r7, sp, #0x8
+
+0804c740 <trust_runtime_core::vm::engine::api::_$LT$impl$u20$trust_runtime_core..vm..prepared..PreparedModule$GT$::instantiate_with_services::h2940a28488d1990d>:
+ 804c740: b5f0         	push	{r4, r5, r6, r7, lr}
+ 804c742: af03         	add	r7, sp, #0xc
+ 804c744: e92d 0f00    	push.w	{r8, r9, r10, r11}
+ 804c748: f2ad 6dfc    	subw	sp, sp, #0x6fc
+ 804c74c: 4683         	mov	r11, r0
+ 804c74e: f891 0320    	ldrb.w	r0, [r1, #0x320]
+ 804c752: b150         	cbz	r0, 0x804c76a <trust_runtime_core::vm::engine::api::_$LT$impl$u20$trust_runtime_core..vm..prepared..PreparedModule$GT$::instantiate_with_services::h2940a28488d1990d+0x2a> @ imm = #0x14
+ 804c754: f8df 0f50    	ldr.w	r0, [pc, #0xf50]        @ 0x804d6a8 <trust_runtime_core::vm::engine::api::_$LT$impl$u20$trust_runtime_core..vm..prepared..PreparedModule$GT$::instantiate_with_services::h2940a28488d1990d+0xf68>
+ 804c758: 252b         	movs	r5, #0x2b
+ 804c75a: 9024         	str	r0, [sp, #0x90]
+ 804c75c: 2033         	movs	r0, #0x33
+ 804c75e: 9025         	str	r0, [sp, #0x94]
+

@@ -1,0 +1,43 @@
+{
+  "verdict": "No actionable source findings in reviewed correction delta; execution unverified",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/tests/source_free_profile_admission.rs",
+      "sha256": "bf9b49281e35e703003a2d013ad855ad580aa7fe0982cb3b8fa738e6a93af849",
+      "bytes": 3266
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_assignment.rs",
+      "sha256": "20ac5f99563f1e1e9cb2baac9eb6196811c606990b766a2c444afb7ef1222972",
+      "bytes": 13623
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_restart_graph.rs",
+      "sha256": "7ed667e02bbfa4036175883a63630b2bf26c102452457b8011cf868b2dbbc6d1",
+      "bytes": 11908
+    },
+    {
+      "path": "docs/notes/runtime-portability/a4-evidence/batch-setup-run-4/format-once.sh",
+      "sha256": "7cbcf1b0aa72c382a0e499d0a7d2d4dfe5a032d182d40a6ab62add122cd68f30",
+      "bytes": 1129
+    },
+    {
+      "path": "docs/notes/runtime-portability/a4-evidence/batch-setup-run-4/freeze-source.py",
+      "sha256": "6accda1394af14dcb47ca95db43914bde290fc302818a14590ae38c60dd7b43b",
+      "bytes": 560
+    },
+    {
+      "path": "docs/notes/runtime-portability/a4-evidence/batch-setup-run-4/prepare-metadata-index.py",
+      "sha256": "c3d4c8b519bcd39a5d469aca27b686f67a01c07bc6e0cba6fd7de917c384cde6",
+      "bytes": 518
+    },
+    {
+      "path": "docs/notes/runtime-portability/a4-evidence/batch-setup-run-4/run-on-builder.sh",
+      "sha256": "5d8536a1a0acfca6c2098642327d00f630726022e0bec9e5c28e0ace780fe193",
+      "bytes": 10378
+    }
+  ],
+  "aggregate_sha256": "d9065a474f90209d6f3054ebc97070dc10e7ab7b5069fb78a54faeb90c28b7dc",
+  "framing": "sorted relative UTF-8 path/NUL/raw bytes/NUL SHA256",
+  "exclusions": "Own compiler-free host test and producer globals.rs changes are excluded; earlier own runtime implementations not independently approved."
+}

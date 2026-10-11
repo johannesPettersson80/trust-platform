@@ -123,7 +123,7 @@ class FocusedMutationClassificationTests(unittest.TestCase):
         self.assertEqual(
             "caught",
             classify_focused_mutant(
-                source_file="crates/trust-runtime/src/stdlib/conversions/dispatch.rs",
+                source_file="crates/trust-runtime-core/src/stdlib/conversions/dispatch.rs",
                 selected_test_name="conversion_functions",
                 build=build,
                 test=caught,
@@ -133,7 +133,7 @@ class FocusedMutationClassificationTests(unittest.TestCase):
         self.assertEqual(
             "error",
             classify_focused_mutant(
-                source_file="crates/trust-runtime/src/stdlib/conversions/dispatch.rs",
+                source_file="crates/trust-runtime-core/src/stdlib/conversions/dispatch.rs",
                 selected_test_name="conversion_functions",
                 build=build,
                 test=unknown,

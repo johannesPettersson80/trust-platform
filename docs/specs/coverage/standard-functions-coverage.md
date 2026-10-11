@@ -27,6 +27,13 @@ Spec 34 A1 routes numerical functions through the shared locked libm primitives.
 control-threshold assertions (IEC §6.6.2.5.8, Tables 28/29). Execution evidence is
 recorded in the portability checklist; these added assertions are not board qualification.
 
+Spec 34 A4 places scalar standard functions, conversions and storage-backed standard
+function blocks in `trust-runtime-core::stdlib`; hosted modules are compatibility
+facades. Native shared-library, saved-artifact numeric/control and hosted regression
+suites cover this relocation. Clock access remains an explicit platform service.
+These source/test mappings do not establish a passed A4 batch, bounded RUN or
+hardware qualification; current evidence stays in the portability checklist.
+
 ## Table 22 - Data Type Conversion Function Forms
 - [x] `SRC_TO_DST` typed conversion
 - [x] `TO_DST` overloaded conversion (deprecated)

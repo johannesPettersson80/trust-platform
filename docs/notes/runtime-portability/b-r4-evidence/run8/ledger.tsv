@@ -1,0 +1,15 @@
+step	class	status	exit	start	end
+environment	required	PASS	0	2026-10-10T21:10:56Z	2026-10-10T21:10:56Z
+preflight	required	PASS	0	-	-
+canonical-parity	required	PASS	0	2026-10-10T21:10:56Z	2026-10-10T21:10:56Z
+staged-index	required	PASS	0	2026-10-10T21:10:56Z	2026-10-10T21:10:56Z
+format-prepare	required	PASS	0	2026-10-10T21:10:56Z	2026-10-10T21:11:03Z
+unsafe-location-refresh	required	PASS	0	2026-10-10T21:11:03Z	2026-10-10T21:11:03Z
+provenance-refresh	advisory	PASS	0	2026-10-10T21:11:03Z	2026-10-10T21:11:04Z
+fixture-inputs	required	PASS	0	2026-10-10T21:11:04Z	2026-10-10T21:11:04Z
+lock-parity	required	PASS	0	2026-10-10T21:11:04Z	2026-10-10T21:11:04Z
+freeze-source	required	PASS	0	2026-10-10T21:11:04Z	2026-10-10T21:11:05Z
+freeze-context	required	PASS	0	2026-10-10T21:11:05Z	2026-10-10T21:11:05Z
+firmware-link	required	PASS	0	2026-10-10T21:13:06Z	2026-10-10T21:13:13Z
+inspect	required	PASS	0	2026-10-10T21:13:13Z	2026-10-10T21:13:13Z
+reused-source-parity	required	FAIL	1	2026-10-10T21:13:59Z	2026-10-10T21:13:59Z

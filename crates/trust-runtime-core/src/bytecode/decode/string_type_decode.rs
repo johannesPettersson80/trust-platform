@@ -3,17 +3,19 @@ use super::*;
 pub(super) fn decode_string_table(
     version: BytecodeVersion,
     reader: &mut BytecodeReader<'_>,
-    context: &str,
+    context: &'static str,
+    budget: &mut DecodeBudget,
 ) -> Result<StringTable, BytecodeError> {
     let count = read_bounded_count(reader, 4, context)?;
-    let mut entries = Vec::with_capacity(count);
+    let mut entries = budget.vector(count)?;
     for _ in 0..count {
         let len = reader.read_u32()? as usize;
         let bytes = reader.read_bytes(len)?;
+        budget.charge(bytes.len(), bytes.len())?;
         let string = core::str::from_utf8(bytes)
             .map_err(|_| BytecodeError::from(RejectionReason::InvalidUtf8))?;
         entries.push(SmolStr::new(string));
-        if version.minor >= 1 {
+        if version.uses_extended_layout() {
             let entry_len = 4usize
                 .checked_add(len)
                 .ok_or(BytecodeError::SectionOutOfBounds)?;
@@ -30,17 +32,22 @@ pub(super) fn decode_string_table(
 pub(super) fn decode_type_table(
     version: BytecodeVersion,
     payload: &[u8],
+    budget: &mut DecodeBudget,
 ) -> Result<TypeTable, BytecodeError> {
     let mut reader = BytecodeReader::new(payload);
-    let minimum_entry_bytes = if version.minor >= 1 { 4 } else { 12 };
+    let minimum_entry_bytes = if version.uses_extended_layout() {
+        4
+    } else {
+        12
+    };
     let count = read_bounded_count(&mut reader, minimum_entry_bytes, "TYPE_TABLE")?;
-    if version.minor >= 1 {
-        let mut offsets = Vec::with_capacity(count);
+    if version.uses_extended_layout() {
+        let mut offsets = budget.vector(count)?;
         for _ in 0..count {
             offsets.push(reader.read_u32()?);
         }
         let base = reader.pos();
-        let mut entries = Vec::with_capacity(count);
+        let mut entries = budget.vector(count)?;
         for (idx, offset) in offsets.iter().enumerate() {
             let offset = *offset as usize;
             let next = if idx + 1 < offsets.len() {
@@ -51,7 +58,7 @@ pub(super) fn decode_type_table(
             validate_type_range(payload.len(), base, idx, offset, next, &offsets)?;
 
             let mut entry_reader = BytecodeReader::new(&payload[offset..next]);
-            let entry = decode_type_entry(&mut entry_reader)?;
+            let entry = decode_type_entry(&mut entry_reader, budget)?;
             if entry_reader.remaining() != 0 {
                 return Err(BytecodeError::from(
                     RejectionReason::TypeEntryLengthMismatch,
@@ -61,9 +68,9 @@ pub(super) fn decode_type_table(
         }
         Ok(TypeTable { offsets, entries })
     } else {
-        let mut entries = Vec::with_capacity(count);
+        let mut entries = budget.vector(count)?;
         for _ in 0..count {
-            entries.push(decode_type_entry(&mut reader)?);
+            entries.push(decode_type_entry(&mut reader, budget)?);
         }
         Ok(TypeTable {
             offsets: Vec::new(),
@@ -95,6 +102,7 @@ pub(super) fn validate_type_range(
 
 pub(super) fn decode_type_entry(
     reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
 ) -> Result<TypeEntry, BytecodeError> {
     let kind = reader.read_u8()?;
     let _flags = reader.read_u8()?;
@@ -114,7 +122,7 @@ pub(super) fn decode_type_entry(
         TypeKind::Array => {
             let elem_type_id = reader.read_u32()?;
             let dim_count = read_bounded_count(reader, 16, "TYPE_TABLE array dimension")?;
-            let mut dims = Vec::with_capacity(dim_count);
+            let mut dims = budget.vector(dim_count)?;
             for _ in 0..dim_count {
                 let lower = reader.read_i64()?;
                 let upper = reader.read_i64()?;
@@ -124,7 +132,7 @@ pub(super) fn decode_type_entry(
         }
         TypeKind::Struct => {
             let field_count = read_bounded_count(reader, 8, "TYPE_TABLE struct field")?;
-            let mut fields = Vec::with_capacity(field_count);
+            let mut fields = budget.vector(field_count)?;
             for _ in 0..field_count {
                 let name_idx = reader.read_u32()?;
                 let type_id = reader.read_u32()?;
@@ -135,7 +143,7 @@ pub(super) fn decode_type_entry(
         TypeKind::Enum => {
             let base_type_id = reader.read_u32()?;
             let variant_count = read_bounded_count(reader, 12, "TYPE_TABLE enum variant")?;
-            let mut variants = Vec::with_capacity(variant_count);
+            let mut variants = budget.vector(variant_count)?;
             for _ in 0..variant_count {
                 let name_idx = reader.read_u32()?;
                 let value = reader.read_i64()?;
@@ -166,7 +174,7 @@ pub(super) fn decode_type_entry(
         }
         TypeKind::Union => {
             let field_count = read_bounded_count(reader, 8, "TYPE_TABLE union field")?;
-            let mut fields = Vec::with_capacity(field_count);
+            let mut fields = budget.vector(field_count)?;
             for _ in 0..field_count {
                 let name_idx = reader.read_u32()?;
                 let type_id = reader.read_u32()?;
@@ -180,7 +188,7 @@ pub(super) fn decode_type_entry(
         }
         TypeKind::Interface => {
             let method_count = read_bounded_count(reader, 8, "TYPE_TABLE interface method")?;
-            let mut methods = Vec::with_capacity(method_count);
+            let mut methods = budget.vector(method_count)?;
             for _ in 0..method_count {
                 let name_idx = reader.read_u32()?;
                 let slot = reader.read_u32()?;

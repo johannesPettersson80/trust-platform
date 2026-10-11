@@ -355,7 +355,11 @@ fn bind_vm_call_arguments_accepts_exact_positional_and_rejects_extra() {
         false,
     );
 
-    let (locals, out_bindings) = super::bind_vm_call_arguments(
+    let trust_runtime_core::vm::hosted::call::bindings::BoundVmCall {
+        locals,
+        out_bindings,
+        ..
+    } = super::bind_vm_call_arguments(
         &mut runtime,
         &module,
         &empty_caller_frame(),
@@ -410,7 +414,11 @@ fn bind_vm_call_arguments_allows_omitted_trailing_positional_input() {
         false,
     );
 
-    let (locals, out_bindings) = super::bind_vm_call_arguments(
+    let trust_runtime_core::vm::hosted::call::bindings::BoundVmCall {
+        locals,
+        out_bindings,
+        ..
+    } = super::bind_vm_call_arguments(
         &mut runtime,
         &module,
         &empty_caller_frame(),
@@ -570,7 +578,7 @@ fn output_copyback_rejects_untyped_null_string_target_without_writing() {
     let caller_frame = empty_caller_frame();
 
     let error = super::normalize_output_copyback_value(
-        &runtime,
+        &mut runtime,
         &module,
         &caller_frame,
         &target,
@@ -600,7 +608,7 @@ fn output_copyback_rejects_nonstring_for_declared_string_null_target() {
     let caller_frame = empty_caller_frame();
 
     let error = super::normalize_output_copyback_value(
-        &runtime,
+        &mut runtime,
         &module,
         &caller_frame,
         &target,
@@ -631,19 +639,18 @@ fn output_binding_rejects_conflicting_reference_types_for_nonstring_target() {
         }],
         false,
     );
-    module.types = crate::bytecode::TypeTable {
+    module.set_legacy_types(crate::bytecode::TypeTable {
         offsets: Vec::new(),
-        entries: vec![
-            primitive_type(8, 0),
-            primitive_type(4, 0),
-        ],
-    };
+        entries: vec![primitive_type(8, 0), primitive_type(4, 0)],
+    });
     for type_idx in 0..=1 {
-        module.refs.push(super::super::VmRef::Global {
-            offset: reference.offset,
-            path: reference.path.clone(),
-        });
-        module.ref_types.insert(type_idx, type_idx);
+        module.append_legacy_reference(
+            super::super::VmRef::Global {
+                offset: reference.offset,
+                path: reference.path.clone(),
+            },
+            Some(type_idx),
+        );
     }
 
     let error = super::bind_vm_call_arguments(
@@ -677,7 +684,7 @@ fn primitive_type(prim_id: u16, max_length: u16) -> crate::bytecode::TypeEntry {
 }
 
 fn install_string_inout_types(module: &mut VmModule, target: ValueRef) {
-    module.types = crate::bytecode::TypeTable {
+    module.set_legacy_types(crate::bytecode::TypeTable {
         offsets: Vec::new(),
         entries: vec![
             crate::bytecode::TypeEntry {
@@ -698,11 +705,13 @@ fn install_string_inout_types(module: &mut VmModule, target: ValueRef) {
             },
             primitive_type(8, 0),
         ],
-    };
-    assert_eq!(target.location, MemoryLocation::Global);
-    module.refs.push(super::super::VmRef::Global {
-        offset: target.offset,
-        path: target.path,
     });
-    module.ref_types.insert(0, 1);
+    assert_eq!(target.location, MemoryLocation::Global);
+    module.append_legacy_reference(
+        super::super::VmRef::Global {
+            offset: target.offset,
+            path: target.path,
+        },
+        Some(1),
+    );
 }

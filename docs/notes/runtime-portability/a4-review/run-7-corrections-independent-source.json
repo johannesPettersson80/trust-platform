@@ -1,0 +1,48 @@
+{
+  "base": "77b91381fcf1b1850611f88b397bbfe8d45e3523",
+  "review": "Independent read-only run7 correction review, no builds/tests/formatters/validators",
+  "run7_manifest_sha256": "fcf05bff2ed1c9fa0cec6b3308f3f1ad752bf81ebc9a9767459f60a426acd5c6",
+  "run7_artifact_index_sha256": "8e54fc96d85a3bbae844f08bb361686c4cda68ff138ad051d257344c0a8ede78",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/vm/budget.rs",
+      "run7_sha256": "2a85a821b6ab47d2fee44d94defbe0c601ca0091c4fc9a54434e525278a973f7",
+      "corrected_sha256": "84bc0d39c447ea0e53319f774454ba3dbd74396bd2a762162207587ee7b58563"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/call/context.rs",
+      "run7_sha256": "6654b69f0267c7861cee1d01a15c5670bddd79c859e26895b40b2ee3808aa037",
+      "corrected_sha256": "d778cd33ceb19d5e34d56b4b02eea7a5c825a3f98fa49a32e6885c70bfe70ed2"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/dispatch_refs.rs",
+      "run7_sha256": "68bd3ddd992e8dbf4229292402dca986594cb537b87f277a3c06cae5e03488c4",
+      "corrected_sha256": "cca12d5a48ac7f468250f854abb8a3c4087b9d23aed236e3e2bf249aab3a9149"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/construction.rs",
+      "run7_sha256": "0307fef2037b713f1fb15e0322a8728128b7faec8e1b0080c95c2cbe9d4edfc0",
+      "corrected_sha256": "a45e3ab720dd9dbaa4551f9e00006a8430522ce86f5e4e856b5187b7b29c771c"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/errors.rs",
+      "run7_sha256": "d4e6bcc1ca60a135e24289d80735811a768187406a7096e9a4d098c52f82086b",
+      "corrected_sha256": "8af116bdd49d5cd35ca3c72ccc35dd51878fb48f7b129fc8026c64f2f50d9f12"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/mod.rs",
+      "run7_sha256": "bb7e9aa13f28bd5a9e8c8d062f2bd0d70b005a8b7bcf716f741aba0cdd834ec1",
+      "corrected_sha256": "3d763268950ca7afc745002455886b16e8bf804f322fabf94b7df6c1eb431d0b"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/module.rs",
+      "run7_sha256": "687a428f2e3b1db1b788ab0df1aff79401f69077cd965359f105d34e220f0ae6",
+      "corrected_sha256": "e1c1f29a236ad0ef74a42848ea2b333b10d1b463dec0ea11b12ca35e51ba23a2"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/budget.rs",
+      "run7_sha256": "2b1974cdae8d0dfc849b916bdefb3d6a146bbf9b5d0ca64a9f0d85e00b312055",
+      "corrected_sha256": "2c0a770b822056032863dff03cd95b6c500265d984740b4a82c1c75cff0e6d8c"
+    }
+  ]
+}

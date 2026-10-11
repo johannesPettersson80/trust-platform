@@ -1,0 +1,43 @@
+[gate-progress state=started phase=B-R1-native-bundle target=scena-rust-builder pid=1418057 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo test --locked --manifest-path firmware/trust-nucleo-f401re/Cargo.toml --lib --target x86_64-unknown-linux-gnu -- --nocapture']
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.26
+   Compiling semver-parser v0.7.0
+   Compiling thiserror v2.0.21
+   Compiling cortex-m v0.7.7
+   Compiling nb v1.1.0
+   Compiling cortex-m-rt v0.7.5
+   Compiling semver v0.9.0
+   Compiling nb v0.1.3
+   Compiling libm v0.2.16
+   Compiling vcell v0.1.3
+   Compiling void v1.0.2
+   Compiling equivalent v1.0.2
+   Compiling critical-section v1.2.0
+   Compiling hashbrown v0.17.1
+   Compiling rustc_version v0.2.3
+   Compiling embedded-hal v0.2.7
+   Compiling volatile-register v0.2.2
+   Compiling smol_str v0.2.2
+   Compiling linked_list_allocator v0.10.6
+   Compiling bare-metal v0.2.5
+   Compiling bitfield v0.13.2
+   Compiling trust-nucleo-f401re v0.1.0 (/home/johannes/projects/trust-platform-portability-b/firmware/trust-nucleo-f401re)
+   Compiling rustc-hash v2.1.3
+   Compiling indexmap v2.14.2
+   Compiling embedded-alloc v0.7.0
+   Compiling trust-platform-stm32f4 v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-platform-stm32f4)
+   Compiling syn v3.0.7
+   Compiling syn v2.0.119
+   Compiling thiserror-impl v2.0.21
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+   Compiling cortex-m-rt-macros v0.7.5
+    Finished `test` profile [unoptimized] target(s) in 6.03s
+     Running unittests src/lib.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/x86_64-unknown-linux-gnu/debug/deps/trust_nucleo_f401re-a96f47215ff00f0e)
+
+running 1 test
+test application::tests::independent_payloads_are_bounded_and_checked_before_exposure ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[gate-progress state=finished phase=B-R1-native-bundle target=scena-rust-builder pid=1418057 elapsed=6.1s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo test --locked --manifest-path firmware/trust-nucleo-f401re/Cargo.toml --lib --target x86_64-unknown-linux-gnu -- --nocapture' status=0]

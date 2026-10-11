@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
@@ -33,10 +33,11 @@ use super::{
 
 fn vm_module_and_main_pou(source: &str) -> (VmModule, u32) {
     let bytecode = bytecode_module_from_source(source).expect("compile bytecode");
-    let vm_module = VmModule::from_bytecode(&bytecode).expect("decode vm module");
+    let vm_module =
+        crate::runtime::vm::materialize_test_module(&bytecode).expect("decode vm module");
     let main_key = SmolStr::new("MAIN");
     let pou_id = vm_module
-        .program_ids
+        .program_ids()
         .get(&main_key)
         .copied()
         .expect("main pou id");
@@ -68,26 +69,28 @@ fn manual_vm_module(code: Vec<u8>, consts: Vec<Value>, ref_count: usize) -> (VmM
         .collect();
 
     (
-        VmModule {
-            code,
-            strings: Vec::new(),
-            types: TypeTable::default(),
-            refs,
-            consts,
-            pou_by_id,
-            program_ids,
-            function_ids: HashMap::new(),
-            function_block_ids: HashMap::new(),
-            class_ids: HashMap::new(),
-            parent_pou_ids: HashMap::new(),
-            interface_type_ids_by_pou: HashMap::new(),
-            native_symbol_specs: Vec::new(),
-            pou_params: HashMap::new(),
-            pou_has_return_slot: HashSet::new(),
-            method_table_by_owner: HashMap::new(),
-            ref_types: HashMap::new(),
-            debug_map: super::super::debug_map::VmDebugMap::default(),
-            instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
+        {
+            let mut legacy = VmModule::legacy(
+                crate::bytecode::BytecodeVersion::LEGACY,
+                code,
+                Vec::new(),
+                TypeTable::default(),
+                refs,
+                consts,
+            )
+            .expect("legacy fixture metadata");
+            let mut entries = pou_by_id;
+            for (_, id) in program_ids {
+                legacy.define_legacy_pou(
+                    id,
+                    crate::bytecode::PouKind::Program,
+                    entries.remove(&id).expect("fixture POU"),
+                    Vec::new(),
+                    false,
+                );
+            }
+            legacy.set_legacy_instruction_budget(super::super::DEFAULT_INSTRUCTION_BUDGET);
+            legacy
         },
         pou_id,
     )
@@ -194,16 +197,16 @@ fn execute_stack_subset(
         }
         budget = budget.saturating_sub(1);
 
-        let opcode = module.code[pc];
+        let opcode = module.code()[pc];
         pc += 1;
         match opcode {
             0x00 => {}
             0x02 => {
-                let offset = read_i32_operand(&module.code, &mut pc, pou.code_end, opcode)?;
+                let offset = read_i32_operand(module.code(), &mut pc, pou.code_end, opcode)?;
                 pc = jump_target_within(pc, offset, pou.code_start, pou.code_end)?;
             }
             0x03 | 0x04 => {
-                let offset = read_i32_operand(&module.code, &mut pc, pou.code_end, opcode)?;
+                let offset = read_i32_operand(module.code(), &mut pc, pou.code_end, opcode)?;
                 let condition = pop_bool_condition(&mut stack)?;
                 let should_jump = (opcode == 0x03 && condition) || (opcode == 0x04 && !condition);
                 if should_jump {
@@ -212,9 +215,9 @@ fn execute_stack_subset(
             }
             0x06 => return Ok(()),
             0x10 => {
-                let const_idx = read_u32_operand(&module.code, &mut pc, pou.code_end, opcode)?;
+                let const_idx = read_u32_operand(module.code(), &mut pc, pou.code_end, opcode)?;
                 let value = module
-                    .consts
+                    .consts()
                     .get(const_idx as usize)
                     .cloned()
                     .ok_or_else(|| invalid_bytecode(format!("invalid const index {const_idx}")))?;
@@ -239,7 +242,7 @@ fn execute_stack_subset(
                 stack.swap(len - 1, len - 2);
             }
             0x20 => {
-                let ref_idx = read_u32_operand(&module.code, &mut pc, pou.code_end, opcode)?;
+                let ref_idx = read_u32_operand(module.code(), &mut pc, pou.code_end, opcode)?;
                 let value = refs
                     .get(ref_idx as usize)
                     .cloned()
@@ -247,7 +250,7 @@ fn execute_stack_subset(
                 stack.push(value);
             }
             0x21 => {
-                let ref_idx = read_u32_operand(&module.code, &mut pc, pou.code_end, opcode)?;
+                let ref_idx = read_u32_operand(module.code(), &mut pc, pou.code_end, opcode)?;
                 let value = pop_stack_value(&mut stack, opcode)?;
                 let slot = refs
                     .get_mut(ref_idx as usize)
@@ -363,16 +366,15 @@ fn execute_register_subset(
             match instruction {
                 RegisterInstr::Nop => {}
                 RegisterInstr::LoadConst { dest, const_idx } => {
-                    let value =
-                        module
-                            .consts
-                            .get(*const_idx as usize)
-                            .cloned()
-                            .ok_or_else(|| {
-                                invalid_bytecode(format!(
-                                    "parity register executor invalid const index {const_idx}",
-                                ))
-                            })?;
+                    let value = module
+                        .consts()
+                        .get(*const_idx as usize)
+                        .cloned()
+                        .ok_or_else(|| {
+                            invalid_bytecode(format!(
+                                "parity register executor invalid const index {const_idx}",
+                            ))
+                        })?;
                     write_register_value(&mut registers, *dest, value)?;
                 }
                 RegisterInstr::LoadNull { dest } => {
@@ -465,16 +467,15 @@ fn execute_register_subset(
                             "parity register executor invalid ref index {left_ref_idx}",
                         ))
                     })?;
-                    let right =
-                        module
-                            .consts
-                            .get(*const_idx as usize)
-                            .cloned()
-                            .ok_or_else(|| {
-                                invalid_bytecode(format!(
-                                    "parity register executor invalid const index {const_idx}",
-                                ))
-                            })?;
+                    let right = module
+                        .consts()
+                        .get(*const_idx as usize)
+                        .cloned()
+                        .ok_or_else(|| {
+                            invalid_bytecode(format!(
+                                "parity register executor invalid const index {const_idx}",
+                            ))
+                        })?;
                     let result = apply_binary(*op, left, right, &profile)?;
                     let slot = refs.get_mut(*dest_ref_idx as usize).ok_or_else(|| {
                         invalid_bytecode(format!(
@@ -489,16 +490,15 @@ fn execute_register_subset(
                     right_ref_idx,
                     dest_ref_idx,
                 } => {
-                    let left =
-                        module
-                            .consts
-                            .get(*const_idx as usize)
-                            .cloned()
-                            .ok_or_else(|| {
-                                invalid_bytecode(format!(
-                                    "parity register executor invalid const index {const_idx}",
-                                ))
-                            })?;
+                    let left = module
+                        .consts()
+                        .get(*const_idx as usize)
+                        .cloned()
+                        .ok_or_else(|| {
+                            invalid_bytecode(format!(
+                                "parity register executor invalid const index {const_idx}",
+                            ))
+                        })?;
                     let right = refs.get(*right_ref_idx as usize).cloned().ok_or_else(|| {
                         invalid_bytecode(format!(
                             "parity register executor invalid ref index {right_ref_idx}",
@@ -524,16 +524,15 @@ fn execute_register_subset(
                             "parity register executor invalid ref index {ref_idx}",
                         ))
                     })?;
-                    let right =
-                        module
-                            .consts
-                            .get(*const_idx as usize)
-                            .cloned()
-                            .ok_or_else(|| {
-                                invalid_bytecode(format!(
-                                    "parity register executor invalid const index {const_idx}",
-                                ))
-                            })?;
+                    let right = module
+                        .consts()
+                        .get(*const_idx as usize)
+                        .cloned()
+                        .ok_or_else(|| {
+                            invalid_bytecode(format!(
+                                "parity register executor invalid const index {const_idx}",
+                            ))
+                        })?;
                     let result = apply_binary(*op, left, right, &profile)?;
                     let condition = match result {
                         Value::Bool(value) => value,
@@ -773,7 +772,7 @@ fn register_execution_rejects_initial_locals_beyond_frame_capacity() {
         Some(&[Value::DInt(1)]),
         false,
         0,
-        None,
+        trust_runtime_core::vm::hosted::budget::ExecutionEntry::Root,
     )
     .expect_err("initial locals beyond frame capacity must fail");
 
@@ -829,7 +828,7 @@ fn register_read_helpers_preserve_bool_and_null_reference_errors() {
 #[test]
 fn interpreted_ref_field_reports_null_reference_base() {
     let (mut module, _pou_id) = manual_vm_module(Vec::new(), Vec::new(), 0);
-    module.strings.push(SmolStr::new("FIELD"));
+    module.append_legacy_string(SmolStr::new("FIELD"));
     let program = test_register_program(vec![test_register_block(
         0,
         0,
@@ -845,7 +844,7 @@ fn interpreted_ref_field_reports_null_reference_base() {
     let mut registers = vec![Value::Reference(None), Value::Null];
     let mut remaining_reads = vec![1, 0];
     let mut native_call_stack = Default::default();
-    let mut budget = 10;
+    runtime.vm_execution_budget.reset(10);
 
     let err = execute_register_block_interpreted(
         &mut runtime,
@@ -856,7 +855,6 @@ fn interpreted_ref_field_reports_null_reference_base() {
         &mut remaining_reads,
         &mut native_call_stack,
         block,
-        &mut budget,
         0,
     )
     .expect_err("null reference base must fail");
@@ -888,8 +886,9 @@ fn block_index_from_id_rejects_missing_and_mismatched_blocks() {
 #[test]
 fn register_statement_location_resolves_vm_debug_map_entries() {
     let (mut module, pou_id) = manual_vm_module(vec![0x06], Vec::new(), 0);
-    module.debug_map.source_by_pc.insert(
-        (pou_id, 0),
+    module.set_legacy_source_location(
+        pou_id,
+        0,
         super::super::debug_map::VmSourceLocation {
             file: SmolStr::new("unit.st"),
             line: 1,

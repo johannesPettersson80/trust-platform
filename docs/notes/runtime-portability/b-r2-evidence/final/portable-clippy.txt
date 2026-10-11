@@ -1,0 +1,41 @@
+[gate-progress state=started phase=B-R2-portable-clippy target=scena-rust-builder pid=1583973 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo clippy --locked -p trust-runtime-core --no-default-features --all-targets -- -D warnings']
+    Checking verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/verification-cases)
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+error: casting to the same type is unnecessary (`u64` -> `u64`)
+   --> crates/trust-runtime-core/src/stdlib/conversions/string.rs:110:48
+    |
+110 |             Value::ULInt(v) => numeric_to_char(*v as u64, false),
+    |                                                ^^^^^^^^^ help: try: `(*v)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#unnecessary_cast
+    = note: `-D clippy::unnecessary-cast` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::unnecessary_cast)]`
+
+error: casting to the same type is unnecessary (`u64` -> `u64`)
+   --> crates/trust-runtime-core/src/stdlib/conversions/string.rs:114:48
+    |
+114 |             Value::LWord(v) => numeric_to_char(*v as u64, false),
+    |                                                ^^^^^^^^^ help: try: `(*v)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#unnecessary_cast
+
+error: casting to the same type is unnecessary (`u64` -> `u64`)
+   --> crates/trust-runtime-core/src/stdlib/conversions/string.rs:129:48
+    |
+129 |             Value::ULInt(v) => numeric_to_char(*v as u64, true),
+    |                                                ^^^^^^^^^ help: try: `(*v)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#unnecessary_cast
+
+error: casting to the same type is unnecessary (`u64` -> `u64`)
+   --> crates/trust-runtime-core/src/stdlib/conversions/string.rs:133:48
+    |
+133 |             Value::LWord(v) => numeric_to_char(*v as u64, true),
+    |                                                ^^^^^^^^^ help: try: `(*v)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#unnecessary_cast
+
+error: could not compile `trust-runtime-core` (lib) due to 4 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `trust-runtime-core` (lib test) due to 4 previous errors
+[gate-progress state=finished phase=B-R2-portable-clippy target=scena-rust-builder pid=1583973 elapsed=4.8s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo clippy --locked -p trust-runtime-core --no-default-features --all-targets -- -D warnings' status=101]

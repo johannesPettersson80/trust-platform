@@ -8,20 +8,46 @@ use crate::bytecode::{EnumVariant, Field, TypeData, TypeEntry, TypeKind};
 
 use super::{BytecodeEncoder, BytecodeError};
 
+mod operands;
+
 impl<'a> BytecodeEncoder<'a> {
     pub(super) fn collect_decl_types(&mut self) -> Result<(), BytecodeError> {
+        if let Some(input) = self.authoring {
+            for global in &input.globals {
+                self.type_index(global.type_id)?;
+                if let Some(expr) = &global.initializer {
+                    self.collect_expression_types(expr)?;
+                }
+            }
+            if let Some(config) = &input.configuration {
+                for global in &config.globals {
+                    self.type_index(global.type_id)?;
+                    if let Some(expr) = &global.initializer {
+                        self.collect_expression_types(expr)?;
+                    }
+                }
+                for action in &config.config_inits {
+                    self.type_index(action.type_id)?;
+                    if let Some(expr) = &action.initializer {
+                        self.collect_expression_types(expr)?;
+                    }
+                }
+            }
+        }
         for meta in self.runtime.globals().values() {
             self.type_index(meta.type_id)?;
         }
-        for program in self.runtime.programs().values() {
+        for program in self.programs().values() {
             self.collect_var_types(&program.vars)?;
             self.collect_var_types(&program.temps)?;
+            self.collect_body_types(&program.body)?;
         }
         for func in self.runtime.functions().values() {
             self.type_index(func.return_type)?;
             self.collect_param_types(&func.params)?;
             self.collect_var_types(&func.locals)?;
             self.collect_var_types(&func.static_locals)?;
+            self.collect_body_types(&func.body)?;
         }
         for fb in self.runtime.function_blocks().values() {
             if self.is_stdlib_fb(&fb.name) {
@@ -30,6 +56,7 @@ impl<'a> BytecodeEncoder<'a> {
             self.collect_param_types(&fb.params)?;
             self.collect_var_types(&fb.vars)?;
             self.collect_var_types(&fb.temps)?;
+            self.collect_body_types(&fb.body)?;
             for method in &fb.methods {
                 self.collect_method_types(method)?;
             }
@@ -45,12 +72,67 @@ impl<'a> BytecodeEncoder<'a> {
                 self.type_index(type_id)?;
             }
         }
+        if self.authoring.is_some() {
+            // type_index recursively follows aliases, arrays, aggregates and references.
+            // Adding a selected block's signature can discover further block types.
+            loop {
+                let mut added = false;
+                for fb in self.runtime.function_blocks().values() {
+                    if !self.is_stdlib_fb(&fb.name)
+                        || self
+                            .construction
+                            .templates
+                            .reachable_stdlib
+                            .contains(&normalize_name(&fb.name))
+                    {
+                        continue;
+                    }
+                    let id = self.pou_ids.function_block_id(&fb.name);
+                    let referenced = self.types.iter().any(|entry| matches!(entry.data, TypeData::Pou { pou_id } if Some(pou_id) == id));
+                    let inherited = self.runtime.function_blocks().values().any(|child| {
+                        (!self.is_stdlib_fb(&child.name) || self.construction.templates.reachable_stdlib.contains(&normalize_name(&child.name)))
+                            && matches!(&child.base, Some(crate::program_model::FunctionBlockBase::FunctionBlock(base)) if base.eq_ignore_ascii_case(&fb.name))
+                    });
+                    if !referenced && !inherited {
+                        continue;
+                    }
+                    self.construction
+                        .templates
+                        .reachable_stdlib
+                        .insert(normalize_name(&fb.name));
+                    self.collect_param_types(&fb.params)?;
+                    self.collect_var_types(&fb.vars)?;
+                    self.collect_var_types(&fb.temps)?;
+                    self.collect_body_types(&fb.body)?;
+                    for method in &fb.methods {
+                        self.collect_method_types(method)?;
+                    }
+                    added = true;
+                }
+                if !added {
+                    break;
+                }
+            }
+        }
         Ok(())
+    }
+
+    pub(super) fn emit_block_template(&self, name: &SmolStr) -> bool {
+        self.authoring.is_none()
+            || !self.is_stdlib_fb(name)
+            || self
+                .construction
+                .templates
+                .reachable_stdlib
+                .contains(&normalize_name(name))
     }
 
     fn collect_param_types(&mut self, params: &[Param]) -> Result<(), BytecodeError> {
         for param in params {
             self.type_index(param.type_id)?;
+            if let Some(expr) = &param.default {
+                self.collect_expression_types(expr)?;
+            }
         }
         Ok(())
     }
@@ -58,6 +140,9 @@ impl<'a> BytecodeEncoder<'a> {
     fn collect_var_types(&mut self, vars: &[VarDef]) -> Result<(), BytecodeError> {
         for var in vars {
             self.type_index(var.type_id)?;
+            if let Some(expr) = &var.initializer {
+                self.collect_expression_types(expr)?;
+            }
         }
         Ok(())
     }
@@ -69,6 +154,7 @@ impl<'a> BytecodeEncoder<'a> {
         self.collect_param_types(&method.params)?;
         self.collect_var_types(&method.locals)?;
         self.collect_var_types(&method.static_locals)?;
+        self.collect_body_types(&method.body)?;
         Ok(())
     }
 
@@ -99,6 +185,30 @@ impl<'a> BytecodeEncoder<'a> {
             .clone();
         let entry = self.encode_type_entry(type_id, &ty)?;
         self.types[idx as usize] = entry;
+        if self.authoring.is_some() {
+            let catalog = self.runtime.initializer_catalog();
+            let mut initializers = Vec::new();
+            if let Some(id) = catalog.type_default(type_id) {
+                initializers.push(id);
+            }
+            match &ty {
+                Type::Struct { fields, .. } => {
+                    initializers.extend(fields.iter().filter_map(|field| field.default_initializer))
+                }
+                Type::Union { variants, .. } => initializers.extend(
+                    variants
+                        .iter()
+                        .filter_map(|field| field.default_initializer),
+                ),
+                _ => {}
+            }
+            for id in initializers {
+                let expr = catalog.initializer(id).cloned().ok_or_else(|| {
+                    BytecodeError::InvalidSection("type initializer missing".into())
+                })?;
+                self.collect_expression_types(&expr)?;
+            }
+        }
         Ok(idx)
     }
 
@@ -410,6 +520,13 @@ impl<'a> BytecodeEncoder<'a> {
                 let methods = self.interface_methods_for(name)?;
                 (TypeKind::Interface, TypeData::Interface { methods })
             }
+            Type::AnyInt if self.authoring.is_some() => (
+                TypeKind::Primitive,
+                TypeData::Primitive {
+                    prim_id: 0x0100,
+                    max_length: 0,
+                },
+            ),
             Type::Unknown
             | Type::Void
             | Type::Null

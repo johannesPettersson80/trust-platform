@@ -1,0 +1,5 @@
+step	class	status	exit	start	end
+canonical-parity	required	PASS	0	2026-10-10T19:43:17Z	2026-10-10T19:43:17Z
+firmware-link	required	PASS	0	2026-10-10T19:43:17Z	2026-10-10T19:43:25Z
+inspect	required	PASS	0	2026-10-10T19:43:25Z	2026-10-10T19:43:25Z
+board-trace-verification	required	FAIL	1	2026-10-10T19:45:36Z	2026-10-10T19:45:37Z

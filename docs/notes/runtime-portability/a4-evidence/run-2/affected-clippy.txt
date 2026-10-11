@@ -1,0 +1,87 @@
+[gate-progress state=started phase=A4-affected-clippy target=scena-rust-builder pid=2592492 elapsed=0.0s timeout=5400s command='cargo clippy --locked -p trust-runtime-core -p trust-runtime -p verification-cases --all-targets --all-features -- -D warnings']
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime-core)
+    Checking trust-ide v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-ide)
+    Checking nix v0.27.1
+    Checking gethostname v0.4.3
+    Checking if-addrs v0.15.0
+    Checking encoding_rs v0.8.35
+    Checking fallible-streaming-iterator v0.1.9
+    Checking base64 v0.21.7
+    Checking httpdate v1.0.3
+    Checking utf8-zero v0.8.1
+    Checking pretty-hex v0.3.0
+    Checking bitflags v1.3.2
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime)
+    Checking bit-vec v0.8.0
+    Checking atomic-waker v1.1.2
+    Checking ascii v1.1.0
+    Checking connection-string v0.2.0
+    Checking shell-words v1.1.1
+    Checking utf-8 v0.7.6
+    Checking chunked_transfer v1.5.0
+    Checking data-encoding v2.11.0
+    Checking unit-prefix v0.5.2
+    Checking bufstream v0.1.4
+    Checking fallible-iterator v0.3.0
+    Checking indicatif v0.18.4
+    Checking mysql v28.0.2
+    Checking tungstenite v0.28.0
+    Checking rusqlite v0.40.2
+    Checking tiberius v0.12.3
+    Checking tiny_http v0.12.0
+    Checking trust-wasm-analysis v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-wasm-analysis)
+    Checking dialoguer v0.12.0
+    Checking rapier3d v0.32.0
+    Checking ethercrab v0.6.0
+    Checking region v3.0.2
+    Checking opcua v0.12.0
+    Checking ureq v3.3.0
+    Checking gpio-cdev v0.6.0
+    Checking mdns-sd v0.18.2
+    Checking trust-plcopen v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-plcopen)
+error: manual slice size calculation
+   --> crates/trust-runtime-core/src/vm/engine/assignment.rs:151:45
+    |
+151 |                 .and_then(|n| n.checked_add(dims.len() * core::mem::size_of::<(i64, i64)>()))
+    |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `std::mem::size_of_val(dims)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#manual_slice_size_calculation
+    = note: `-D clippy::manual-slice-size-calculation` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::manual_slice_size_calculation)]`
+
+error: this function has too many arguments (8/7)
+  --> crates/trust-runtime-core/src/vm/engine/initialization/opcodes.rs:13:5
+   |
+13 | /     pub(in crate::vm::engine) fn initialization_opcode(
+14 | |         &mut self,
+15 | |         _module: &VmModule,
+16 | |         frame: &mut VmFrame,
+...  |
+21 | |         budget: &mut usize,
+22 | |     ) -> Result<(), RuntimeError> {
+   | |_________________________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#too_many_arguments
+   = note: `-D clippy::too-many-arguments` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::too_many_arguments)]`
+
+    Checking notify v8.2.0
+error: this match expression is unnecessary
+   --> crates/trust-runtime-core/src/stdlib/conversions/util.rs:242:5
+    |
+242 | /     match ty {
+243 | |         ConversionType::String => ConversionType::String,
+244 | |         ConversionType::WString => ConversionType::WString,
+245 | |         _ => ty,
+246 | |     }
+    | |_____^ help: replace it with: `ty`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#needless_match
+    = note: `-D clippy::needless-match` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::needless_match)]`
+
+    Checking ads v0.4.4
+    Checking rumqttc v0.25.1
+error: could not compile `trust-runtime-core` (lib) due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...
+[gate-progress state=finished phase=A4-affected-clippy target=scena-rust-builder pid=2592492 elapsed=14.2s timeout=5400s command='cargo clippy --locked -p trust-runtime-core -p trust-runtime -p verification-cases --all-targets --all-features -- -D warnings' status=101]

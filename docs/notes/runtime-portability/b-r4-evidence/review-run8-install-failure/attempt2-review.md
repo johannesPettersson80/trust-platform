@@ -1,0 +1,5 @@
+Accepted source-only diagnostic installation attempt2. Exact diff against reviewed board-batch.sh changes only the evidence directory, install debug log verbosity and vector-catching controls. After reset-init, reset+HardFault catch is enabled and DEMCR bits0x401 are read back/required. No erase/write occurs if that fails. Before the sole planned execution reset, vector catch is disabled and all catch bits0x7f1 are verified clear, preserving watchdog execution and runtime behavior. Checkpoint preservation, independent application installation, exact verification, cookie lifecycle, one-use marker and capture ordering are unchanged. First failed attempt remains intact. Same frozen source/ELF and successful validation2 evidence apply; no rebuild needed.
+
+This is an authorized diagnostic retry with improved install protection, not proof that the underlying reset trigger was identified or eliminated. Installer failure still stops before capture/claim. Reviewer executed no hardware commands or tests.
+
+Script SHA-256: 5f77444167cdde6f6232ea1e70f116a25bf9ff5cb9c71f3664b074a6b2837231

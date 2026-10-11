@@ -1,0 +1,42 @@
+[gate-progress state=started phase=B-R1-f401-adapter target=scena-rust-builder pid=1422458 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo check --locked -p trust-platform-stm32f4 --target thumbv7em-none-eabihf']
+    Checking nb v1.1.0
+   Compiling cortex-m-rt v0.7.7
+   Compiling cortex-m v0.7.7
+   Compiling portable-atomic v1.13.1
+   Compiling syn v3.0.6
+   Compiling bare-metal v0.2.5
+    Checking void v1.0.2
+    Checking vcell v0.1.3
+    Checking nb v0.1.3
+    Checking volatile-register v0.2.2
+    Checking embedded-hal v0.2.7
+   Compiling syn v2.0.117
+   Compiling stm32f4 v0.16.0
+    Checking powerfmt v0.2.0
+    Checking gcd v2.3.0
+    Checking critical-section v1.2.0
+    Checking bitfield v0.13.2
+    Checking fugit v0.3.9
+    Checking deranged v0.5.8
+    Checking embedded-hal v1.0.0
+   Compiling litrs v1.0.0
+   Compiling stm32f4xx-hal v0.23.0
+    Checking num-conv v0.2.1
+    Checking stable_deref_trait v1.2.1
+    Checking time-core v0.1.8
+    Checking embedded-dma v0.2.0
+    Checking embedded-hal-nb v1.0.0
+    Checking fugit-timer v0.1.3
+    Checking rand_core v0.9.5
+    Checking embedded-io v0.6.1
+   Compiling document-features v0.2.12
+    Checking rand_core v0.6.4
+    Checking bare-metal v1.0.0
+    Checking embedded-storage v0.3.2
+    Checking time v0.3.47
+   Compiling enumflags2_derive v0.7.12
+    Checking enumflags2 v0.7.12
+   Compiling cortex-m-rt-macros v0.7.7
+    Checking trust-platform-stm32f4 v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-platform-stm32f4)
+    Finished `dev` profile [unoptimized] target(s) in 7.24s
+[gate-progress state=finished phase=B-R1-f401-adapter target=scena-rust-builder pid=1422458 elapsed=7.3s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo check --locked -p trust-platform-stm32f4 --target thumbv7em-none-eabihf' status=0]

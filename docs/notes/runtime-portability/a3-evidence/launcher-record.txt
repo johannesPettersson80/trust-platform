@@ -1,0 +1,18 @@
+A3 run 1 launcher provenance
+
+The initial outer lease invocation exited 2 before the batch script executed:
+  scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a3 ...
+Reason: A3's inherited lease allowlist predates the mounted storage volume.
+The run-1 STARTED marker was verified absent. No formatter, compiler or test had run.
+
+The actual batch uses the reviewed committed shared infrastructure scripts from
+builder checkout /home/johannes/projects/trust-platform-pr129-release at
+e4728c1fc81ff76c52ea09c818a7d78e20fb9301, verified clean for both files:
+65d172f05a936668d6b2e45f6f28419046d28818a9ebec9a6d8f0d0ff004402d  scripts/with_cargo_target_lease.sh
+7a7f9c4bd5fbc99f8fb61831ec6d7abf9ae1f267c3217eb049f86a1b6bc7e911  scripts/cargo_target_path.sh
+
+Actual command:
+ssh trust-builder 'cd /home/johannes/projects/trust-platform-portability-a3 && /home/johannes/projects/trust-platform-pr129-release/scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a3 bash /home/johannes/.cache/trust-portability-a3-setup/run-1-on-builder.sh'
+
+A3 source is not modified to import unrelated infrastructure changes. The shared
+lease still checks mount, canonical path, ownership and exclusive target use.

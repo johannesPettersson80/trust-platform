@@ -1,0 +1,5 @@
+{
+  "crates/trust-runtime-core/src/program_model/ops/numeric_arith.rs": "f68d7796823fa42662cadd865132b45d076063868e708d5108df6d4d78850bab",
+  "crates/trust-runtime-core/src/vm/construction/values/scalar.rs": "1b5b9e402224500afb2b58d0382ad9c203a3a92e726f2dea6ed2f843b84820af",
+  "crates/trust-runtime-core/src/bytecode/validate/construction/initializers.rs": "78a6cf8bcc51d4cc94a1462c95c7e9078e905d424cabf2f0869378055c03b4fd"
+}

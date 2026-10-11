@@ -1,0 +1,443 @@
+{
+  "scope": "Q4 authored source snapshot for independent review; not a review verdict",
+  "framing": "sorted relative UTF-8 path NUL raw-content NUL",
+  "sha256": "65a3e7d96b0b169a34507a93e6e9ff9924fddaabd04cb4ab628b8800f65041ce",
+  "records": [
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/assertions.rs",
+      "sha256": "849dd69098a91eb25681b6d152810bed3dcc7dd828ddbe7dd7d497debf366e35",
+      "bytes": 5540
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/bit.rs",
+      "sha256": "4b966eb4e1153c01feab43bb0316fbb8bb6693494c00b0d8e2310b7dd91c48a1",
+      "bytes": 3608
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/comparison.rs",
+      "sha256": "3fe396bae77a81947cc727eada32de0a7110e1eb18ad4d4ffb5b6c238da0763e",
+      "bytes": 2124
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/bcd.rs",
+      "sha256": "bc65ec1a7ccb100d110ce1aa6bdefcd3d6ef94d76fb8d254754f8b59e672dd28",
+      "bytes": 2888
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/bitstring.rs",
+      "sha256": "5ab31896e65927e03de3cb2e4c3f41c1a4de285fc2c3864d74fec9942383312b",
+      "bytes": 4813
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/dispatch.rs",
+      "sha256": "5fe17b20259394915f5f2e8411d47001f41dba6db357d1ecf803e4e00ce1baf7",
+      "bytes": 4167
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/mod.rs",
+      "sha256": "c088e005e8ae5348f08ea5d2962c88ebe3c028e51d3062422a8f4d90f7579575",
+      "bytes": 1288
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/numeric.rs",
+      "sha256": "4cb396680d83cdc333a0764a6e6dd719eb9de3f715384f1cbb23cad0041f5375",
+      "bytes": 6226
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/spec.rs",
+      "sha256": "1bcfc85917cce191a4410343ff21c85d80863c090b9a5ecc03f030a23970473f",
+      "bytes": 3483
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/string.rs",
+      "sha256": "09603b63cfb7cafecbd291aa09715e93bfbbc4f38658d9d029d96201e21bb29b",
+      "bytes": 6998
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/time.rs",
+      "sha256": "26a3ad3a83a509aa56806191131330cfe4b847b1a77778e8df9c2430b12f9c0d",
+      "bytes": 5998
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/types.rs",
+      "sha256": "d6a01c3ddc95ac309d2e8ab4df0e90ed963114840907462d8c5146f5d5142bf7",
+      "bytes": 4758
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/util.rs",
+      "sha256": "740a89dc4812cc0d9a07336f27e1602a9354ac47649d3cc589d09cd21984826f",
+      "bytes": 8170
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/bistable.rs",
+      "sha256": "4d8d0449a78de28cc59509cf911c6f74f979493cfbe5745635392e95c1e93645",
+      "bytes": 2111
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/counters.rs",
+      "sha256": "d839bffbdaba23ecac16d2f0ee6eeb12d549a1a86dce53cbaf121a49917ea0ee",
+      "bytes": 14920
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/instance.rs",
+      "sha256": "0156e55c108042ce5dfaa2ec7dcee2e4619400a06ebbcd4be0937333e168be3b",
+      "bytes": 1893
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/mod.rs",
+      "sha256": "eeab4da135965d649dc29244e41a52bb7f0182a7fca0985d62204dc64caefba2",
+      "bytes": 1686
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/registry.rs",
+      "sha256": "bb06a41ddbbd03c4f3cdda432a4da3a618dbbe083a9ab4005efd3633fb802c4d",
+      "bytes": 1752
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/state.rs",
+      "sha256": "6bc7edd2cc490acf8cbe3e01f41e868e129a611ba022b120472266c2f1ac4d60",
+      "bytes": 1793
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/timers.rs",
+      "sha256": "786512540bec3b767269eed69d1593afb317894f9cb5b9b0eb520fd18262a4ee",
+      "bytes": 9457
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/fbs/triggers.rs",
+      "sha256": "a2428435dcd81a57a3d60e88282f9e0b9a8ec808aabd623a9efc653416e6bfb0",
+      "bytes": 2074
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/helpers.rs",
+      "sha256": "76ac6abbdf7e8224724525d7a445bb5b329f9cc67352bfadb06be4d94519d225",
+      "bytes": 13944
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/hosted.rs",
+      "sha256": "94977ecda501fd0278babb21fe5f29f18c5165c96f0e010bd58cb7f1a7dcb41a",
+      "bytes": 979
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/mod.rs",
+      "sha256": "62fea22b944a41064b2a13be3606954602eff48ea55d7f1c4a90260735824c2a",
+      "bytes": 4673
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/numeric.rs",
+      "sha256": "97ff93c9155d74c327dca66b44d2c5e5488daca16e7cf37304bac498e1dfb1ca",
+      "bytes": 8314
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/registration.rs",
+      "sha256": "6cf42b28bdc29425ce128ca61edd7c5e14f676a731296f8e8d287e32f01caf51",
+      "bytes": 4112
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/selection.rs",
+      "sha256": "f176ede6d9184f8b89760884c81ee8e08eb2996d669a7a27a29d4863e49b4a36",
+      "bytes": 3058
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/string.rs",
+      "sha256": "6dff4514dad3bb2343b23fe8bb3ae8142efc402c34a0fb8364c4cc90c2a7e4cf",
+      "bytes": 6529
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/time.rs",
+      "sha256": "3e7da9c1bfd7049ee6861122240ee04928a5320495a581f7892bfbb0258b7be2",
+      "bytes": 18386
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/validate.rs",
+      "sha256": "b05602e6f527a7e25ccfcb256721e0bec2f9f7d42a0d939b6db3969a5b6e92c0",
+      "bytes": 1499
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/call/bindings.rs",
+      "sha256": "1091d9feb15edfad8c8f0cb493ce99ee51c6a2ea0cbd189be7394672bfc2e7a6",
+      "bytes": 31265
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/call/bindings/targets.rs",
+      "sha256": "d85eba9accaf0d3beb8f77711968a55ddc69c28bbc995abfbbe4dc541180bcbe",
+      "bytes": 13583
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/call/mod.rs",
+      "sha256": "aff922f1b886507d64dbd36183d154b0c12875de6124ae11f6a1679d1d72b563",
+      "bytes": 17587
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/call/stdlib.rs",
+      "sha256": "d664d307c24a3ffbd355fd16383114c72643a52b88919df46ee7b9039ae07f3c",
+      "bytes": 15672
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/const_pool.rs",
+      "sha256": "22a41298dca08bbeed0eb69d2c234f60b9ace78565306e54ac7b60e9349d369b",
+      "bytes": 16752
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/debug_map.rs",
+      "sha256": "7c9818a9796a5f04d1821cd871d3dacc10f68dea385bf51c31d77021aa7eeee7",
+      "bytes": 4678
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/dispatch.rs",
+      "sha256": "4f449802e249fe9f084b1bdcc86b23d9b5b405d87140dad5f69c11210c960e08",
+      "bytes": 30090
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/dispatch_ops.rs",
+      "sha256": "6f99cb824992f5e3bd97b5427f09c9d9ea42d0b2b9cbe327156e9dd094f42c56",
+      "bytes": 1966
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/dispatch_refs.rs",
+      "sha256": "a19e414e5caf84340b51ba6e2c902d699bfa447c33862e779c32da859eab8f80",
+      "bytes": 20235
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/edge.rs",
+      "sha256": "4105476b122d838396fd07ae5480615c36e39d837cb30e8a8b64d27c2692d9f1",
+      "bytes": 2845
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/api.rs",
+      "sha256": "1ba97054cececf3d0caf7ff83b86a70537ec0b5009cf5728c1134d62b1d55aaa",
+      "bytes": 5503
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/frames.rs",
+      "sha256": "06f83f73101e338fa8a0467165b0fda6b603393d6d162631360f6cfeb1c3e350",
+      "bytes": 5026
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/hosted.rs",
+      "sha256": "d6f826489f784bff7ffedb4899292a419d14bd88185cbfc052eea3ab26176d24",
+      "bytes": 2824
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/materialization_limits.rs",
+      "sha256": "7287b4cedcee224f06ba87b195e939d115c6b56a6dde67876df30460bdd929ac",
+      "bytes": 1699
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/mod.rs",
+      "sha256": "bb7e9aa13f28bd5a9e8c8d062f2bd0d70b005a8b7bcf716f741aba0cdd834ec1",
+      "bytes": 21517
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/module.rs",
+      "sha256": "86561b1bc1c7add3ef3e62c0e260b95373201f7f62693002028171957308f6e1",
+      "bytes": 22113
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/module/access.rs",
+      "sha256": "39bfb00e9e33c4220ede871bd0bc641dc8d245a9e7422a0cd4d9cf6acffb9541",
+      "bytes": 2353
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/module/legacy.rs",
+      "sha256": "fd3ca8037b08d5c57351570606e1d8730fcae49fff8745af1920c5a3ecf6fd6f",
+      "bytes": 4647
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/stack.rs",
+      "sha256": "d4ea4344588be7461512f55af76b99a60f84d42c357af0a2e2f9e5dc8ce05df7",
+      "bytes": 1885
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/symbols.rs",
+      "sha256": "09d64b6d14c2db4f27a5ff45cd6d67e759739564f16b3543e981f28622e894f5",
+      "bytes": 2613
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/type_policy.rs",
+      "sha256": "e7d6a5f53e1feb907ce1a0d37cd1cc08b0acbe94faa287d316f79814e47ea580",
+      "bytes": 9913
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/core.rs",
+      "sha256": "a7298369d88b85873b5fd5ecc61c8cc62ab5a485624994ec85a2cc95bc909d6f",
+      "bytes": 6427
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/core/lifecycle.rs",
+      "sha256": "8ce959452c557d704a7d0642e286d24ea6778f80da5ca255af792894e7854f7d",
+      "bytes": 11143
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/budget.rs",
+      "sha256": "1e72128c57b75ddea4c558ca1c85fce870f1682d15a7622ddc178db2bf03a97e",
+      "bytes": 71
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call.rs",
+      "sha256": "00f637a92e14b6f26f31120a0538af013b4922ab1231f8f4ff01fd1fe5f9af8e",
+      "bytes": 1024
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call/tests/function_blocks.rs",
+      "sha256": "990260062c7af7d06611d9710c564a5bc78bb04cda28d29344cf73b57e11bbde",
+      "bytes": 21960
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call/tests/stdlib_binding.rs",
+      "sha256": "1dc05b1c12ebf4b7b0c312587bcdf1a91a7b50e3e179c8dde1ca125c96d7dbc7",
+      "bytes": 16246
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call/tests/support.rs",
+      "sha256": "36db23f57f4ad3830e0efd933dfefe770c21dfbe9533223567f263c8024dc63d",
+      "bytes": 6923
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/call_context.rs",
+      "sha256": "b918996723cb57997677ade20d765141373420c9d8a0ed39f3596c438393d34f",
+      "bytes": 3697
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/context.rs",
+      "sha256": "bb5bc364270380fac980de0543caa3816ee3fc08a75d67e91b4ca39c123c53a3",
+      "bytes": 4049
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/debug_map.rs",
+      "sha256": "02150cd88d7e8f8ab10160d6de7781e9df314ced7daa070ba0bb3a2399bcbe44",
+      "bytes": 61
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/dispatch.rs",
+      "sha256": "f166d31b77c4f588a74a727c80c7653e7cfda2eb7a4bd640af04d20017cda709",
+      "bytes": 10402
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/dispatch_refs.rs",
+      "sha256": "46c7cb94bd5bf01da5187513c956a37cf49e67fd20a5092cf2c6563135aadacd",
+      "bytes": 8003
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/edge.rs",
+      "sha256": "404a5df98d0fe4ddeb9e62551fa578e61a36a56d7c86aa898b233659654898ec",
+      "bytes": 75
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/frames.rs",
+      "sha256": "87ce6da6b28c1cb6f523b6c175109b65075f983bfe6871b69aad8886348b0091",
+      "bytes": 96
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/limits.rs",
+      "sha256": "6d8549f591972b4424afdd81c8d58c62d05876e4030d6f99c063a4a56e7f22e1",
+      "bytes": 3936
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/local_init.rs",
+      "sha256": "b5d46f50cfc7d7faf2dc722d91554851fd065e1e85d19d99b53bf208223cfb14",
+      "bytes": 24913
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/mod.rs",
+      "sha256": "729f40f3211331dc94de64163048821d1c198324bb9b92cc0b0f18978cfd7823",
+      "bytes": 3113
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir.rs",
+      "sha256": "be2fc09197d2133e485165750a590f5dc10a3dc754874400840bcf046ae1dde1",
+      "bytes": 24171
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/lower/decode.rs",
+      "sha256": "6c656d9485a692db328c1a7add6495181913d6e742bf0313ff9aee9a057b4dc2",
+      "bytes": 13384
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/profile.rs",
+      "sha256": "c77526b96439b8ed57b45cf19440c10486323e2b2e286dfb92976c57a5067248",
+      "bytes": 10596
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/registers.rs",
+      "sha256": "b0ba901fdc09858aeb538c5b32ff465ee1780e30f045709dd288d1766a6e4cef",
+      "bytes": 8828
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/backend_parity_followup.rs",
+      "sha256": "f591ef497b5900eb66136620d4c5c7ab079247b75ef53909791aa6b6bef47a50",
+      "bytes": 10966
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/diagnostics.rs",
+      "sha256": "08f74ac56da25280046bb13b4c9193bf162a0ba71d7531722535ff7d16b882ca",
+      "bytes": 12065
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/function_blocks.rs",
+      "sha256": "5167cf3264abc60902cad633371f2bea82424084d3f7a7f472bdea9b23d93a25",
+      "bytes": 12441
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/profile.rs",
+      "sha256": "96b454d4ea91cfda58b6836987f07d8cfcb49fc632261d46986065581b47b0aa",
+      "bytes": 18019
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs",
+      "sha256": "9d23c8b3e5bccad97bf0db419fc0067efb2756dd18072b8a7ee6a2b61444f002",
+      "bytes": 34176
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/tier1/calls_failures_cache.rs",
+      "sha256": "d8535796ca207529570f018847aaf15ebede13a73f10d4d14b43e731ee2ba14f",
+      "bytes": 9941
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/tier1/load_ref_super_bool.rs",
+      "sha256": "069daac0913d2b9c757813402688247b411abd6ecddf7eefd06e1fcf777698be",
+      "bytes": 13201
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/tier1/state_deadline_buffers.rs",
+      "sha256": "29c1218999dfb842f68f1705ed2d74651a49f17e03d2d203a85c4e3420bbd969",
+      "bytes": 6137
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tier1/compile.rs",
+      "sha256": "748ddcc0ee8c5d85b059daa9093743a6858b6f25e95029e103f77039337c6fe5",
+      "bytes": 7217
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/stack.rs",
+      "sha256": "5398666fac0d131267419ef4b2f944e9fc295e1ace5e953a9ab40dd46662424c",
+      "bytes": 61
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/tests.rs",
+      "sha256": "68486be7920fd499b9a2e31f78d3fffe9f113c8c1e83d6a850ac39b1320c822e",
+      "bytes": 13655
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/type_policy.rs",
+      "sha256": "2eb3fd902e33fa248425fb9cd34926ce580d3ef4b5bd5d031f5db7f292653089",
+      "bytes": 119
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/fbs/state.rs",
+      "sha256": "e0a966ad60aa8795963724af1b85da5ecfe93df0671040e542ae5d9960061d6d",
+      "bytes": 612
+    },
+    {
+      "path": "crates/trust-runtime/src/stdlib/mod.rs",
+      "sha256": "d7afaf7d22ebe950e26308df4ac8e2929e6bf9a79631b6f5de2962a9a3aeed8c",
+      "bytes": 338
+    },
+    {
+      "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
+      "sha256": "03be3395fad7350c8c63b4019176d5bda2b3f5163daef7eefa3c5ebb4b9facdb",
+      "bytes": 3157
+    }
+  ],
+  "limitations": "Contains collaborating A2 budget/context changes where files overlap; these are not independently approved by the facade author. No builds/tests/formatters/validators run."
+}

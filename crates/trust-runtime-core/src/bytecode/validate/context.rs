@@ -8,6 +8,8 @@ pub(super) struct ValidationContext<'a> {
     pub(super) const_pool: &'a ConstPool,
     pub(super) ref_table: &'a RefTable,
     pub(super) var_meta: Option<&'a VarMeta>,
+    pub(super) initializers: Option<&'a crate::bytecode::InitializerIndex>,
+    declaration_names: Vec<(Option<u32>, &'a str, u8, u32)>,
     pou_ids: Vec<(u32, usize)>,
     pou_names: Vec<(u8, &'a str, usize)>,
     var_names: Vec<(u8, &'a str, usize)>,
@@ -16,6 +18,146 @@ pub(super) struct ValidationContext<'a> {
 }
 
 impl<'a> ValidationContext<'a> {
+    pub(super) fn index_declarations(
+        &mut self,
+        layout: &'a crate::bytecode::StorageLayout,
+        aliases: &'a crate::bytecode::AccessBindings,
+        budget: &mut ValidationBudget,
+    ) -> Result<(), BytecodeError> {
+        use crate::bytecode::{StorageOwner, StorageRole};
+        for declaration in &layout.entries {
+            budget.work(1)?;
+            if matches!(
+                declaration.role,
+                StorageRole::External
+                    | StorageRole::Scratch
+                    | StorageRole::NativeState
+                    | StorageRole::EdgePhase
+            ) {
+                continue;
+            }
+            let Some(ty) = declaration.type_id else {
+                continue;
+            };
+            ensure_string_index(self.strings, declaration.name_idx)?;
+            ensure_type_index(self.types, ty)?;
+            let static_name = declaration.role == StorageRole::Static;
+            let name = if static_name {
+                declaration
+                    .source_name_idx
+                    .ok_or(RejectionReason::InvalidConstructionRecord)?
+            } else {
+                declaration.name_idx
+            };
+            ensure_string_index(self.strings, name)?;
+            let owner = if declaration.owner == StorageOwner::Global && !static_name {
+                None
+            } else {
+                declaration.owner_pou_id
+            };
+            let precedence = if declaration.owner == StorageOwner::Frame {
+                0
+            } else if static_name {
+                1
+            } else {
+                2
+            };
+            budget.push(
+                &mut self.declaration_names,
+                (
+                    owner,
+                    self.strings.entries[name as usize].as_str(),
+                    precedence,
+                    ty,
+                ),
+            )?;
+        }
+        for alias in &aliases.entries {
+            budget.work(1)?;
+            ensure_string_index(self.strings, alias.name_idx)?;
+            ensure_type_index(self.types, alias.type_id)?;
+            budget.push(
+                &mut self.declaration_names,
+                (
+                    None,
+                    self.strings.entries[alias.name_idx as usize].as_str(),
+                    3,
+                    alias.type_id,
+                ),
+            )?;
+        }
+        budget.sort_by(&mut self.declaration_names, &mut |a, b, budget| {
+            Ok(a.0
+                .cmp(&b.0)
+                .then(budget.compare_names(a.1, b.1)?)
+                .then(a.2.cmp(&b.2)))
+        })
+    }
+
+    pub(super) fn declared_call_type(
+        &self,
+        pou: &PouEntry,
+        name: &str,
+        budget: &mut ValidationBudget,
+    ) -> Result<Option<u32>, BytecodeError> {
+        let mut owner = Some(pou.id);
+        for _ in 0..=crate::bytecode::BYTECODE_MAX_CONST_NESTING {
+            let at = budget.lower_bound(&self.declaration_names, |entry, budget| {
+                Ok(entry
+                    .0
+                    .cmp(&owner)
+                    .then(budget.compare_names(entry.1, name)?)
+                    .is_lt())
+            })?;
+            if let Some(entry) = self.declaration_names.get(at) {
+                if entry.0 == owner && budget.compare_names(entry.1, name)?.is_eq() {
+                    return Ok(Some(entry.3));
+                }
+            }
+            let Some(id) = owner else {
+                return Ok(None);
+            };
+            let current = self
+                .pou(id, budget)?
+                .ok_or(RejectionReason::InvalidConstructionRecord)?;
+            owner = if current.kind == PouKind::Method {
+                current.owner_pou_id
+            } else {
+                current
+                    .class_meta
+                    .as_ref()
+                    .and_then(|meta| meta.parent_pou_id)
+            };
+        }
+        Err(RejectionReason::TypeReferenceRecursionOverflow.into())
+    }
+
+    pub(super) fn function_block_type(
+        &self,
+        mut ty: u32,
+        budget: &mut ValidationBudget,
+    ) -> Result<Option<u32>, BytecodeError> {
+        for _ in 0..=crate::bytecode::BYTECODE_MAX_CONST_NESTING {
+            budget.work(1)?;
+            let entry = self
+                .types
+                .entries
+                .get(ty as usize)
+                .ok_or(BytecodeError::InvalidIndex {
+                    kind: "type".into(),
+                    index: ty,
+                })?;
+            match entry.data {
+                TypeData::Alias { target_type_id } => ty = target_type_id,
+                TypeData::Pou { pou_id } if entry.kind == TypeKind::FunctionBlock => {
+                    return Ok(Some(pou_id))
+                }
+                _ => return Ok(None),
+            }
+        }
+        Err(RejectionReason::TypeReferenceRecursionOverflow.into())
+    }
+
     pub(super) fn new(
         strings: &'a StringTable,
         index: &'a PouIndex,
@@ -32,6 +174,8 @@ impl<'a> ValidationContext<'a> {
             const_pool,
             ref_table,
             var_meta,
+            initializers: None,
+            declaration_names: Vec::new(),
             pou_ids: Vec::new(),
             pou_names: Vec::new(),
             var_names: Vec::new(),
@@ -70,11 +214,11 @@ impl<'a> ValidationContext<'a> {
                 }
             }
         }
-        budget.sort_by(&mut tables.pou_ids, |a, b, _| Ok(a.cmp(b)))?;
-        budget.sort_by(&mut tables.var_refs, |a, b, _| Ok(a.cmp(b)))?;
-        budget.sort_by(&mut tables.local_ranges, |a, b, _| Ok(a.cmp(b)))?;
+        budget.sort_by(&mut tables.pou_ids, &mut |a, b, _| Ok(a.cmp(b)))?;
+        budget.sort_by(&mut tables.var_refs, &mut |a, b, _| Ok(a.cmp(b)))?;
+        budget.sort_by(&mut tables.local_ranges, &mut |a, b, _| Ok(a.cmp(b)))?;
         for names in [&mut tables.pou_names, &mut tables.var_names] {
-            budget.sort_by(names, |a, b, budget| {
+            budget.sort_by(names, &mut |a, b, budget| {
                 let kind = a.0.cmp(&b.0);
                 if !kind.is_eq() {
                     return Ok(kind);

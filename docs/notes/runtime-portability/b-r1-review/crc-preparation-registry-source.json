@@ -1,0 +1,91 @@
+{
+  "reviewer": "/root/b_independent_review",
+  "stage": "interim source only; implementation ongoing",
+  "utc": "2026-10-10T15:49:40.720032+00:00",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/Cargo.toml",
+      "sha256": "46c7d0a8870ec93a25ce8da1c2e4c85993169f98717be91b72f1e036a20bfe7a"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/crc32.rs",
+      "sha256": "ed72a78637c6509d67c5084f821cc03aaedf76db8f7c91694ff9f6722b20efbd"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/decode/module_decode.rs",
+      "sha256": "434f23400a10a4af2b9ca69196702fa0b305b54275e17048d74d0fa15e827199"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/encode.rs",
+      "sha256": "02f7b462798ccda3df4664dfbae92608ee07442819861f1ee2e35ffeae9d94fa"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared.rs",
+      "sha256": "ab62eb57e8319fcf1ae9e3e2406f83eb1bb2c7c54cfba500932e90abd923d11c"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/budget.rs",
+      "sha256": "cb5bf99ee4fdea61dd8b47c6fda7af61ef53a5838f4fec220e69932d03a8ce66"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/admission.rs",
+      "sha256": "df03f28ade362abb046c8aed10303d5b16d6ee5c22cfc7459ec37a48a3e29f5a"
+    },
+    {
+      "path": "crates/trust-runtime-core/tests/preparation_transport.rs",
+      "sha256": "caa3df919afa00389027bd1ffcf671b2f59d0e4bb7f197b375b4b9b6f512c43c"
+    },
+    {
+      "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
+      "sha256": "a6befd548810f6daca12bc1d8dce47613baaad1b82fa1b7c8dba898fce29fbcf"
+    },
+    {
+      "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
+      "sha256": "a9eb08ed51025d932f6fb5d292e569f1bfc013b61a4a18eaaffc6e18dd2ea6ab"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/mod.rs",
+      "sha256": "13c7b38a3e72c3923cecd49dffb731da3446c9f863d531b7a4c5a6eafc29902f"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/registration.rs",
+      "sha256": "974062778785dec0321a51782c0d5f16050874f265c1e90334759cd055869f3d"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/registration-baseline.txt",
+      "sha256": "d418183961a2f0fbdbaf7804ecfe6a3ebe891c58bca36125b0fffb4acbd0649c"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/assertions.rs",
+      "sha256": "76622aeb05a6b4e256eb50036227f83a2bf8a2f6dfe617e442eb22a7ca5fcbd1"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/numeric.rs",
+      "sha256": "33e894dbf68e4c2f9260b30975abfe671cea2e5b24666eae51019a0715ab2d86"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/bit.rs",
+      "sha256": "b50824420c097f88809c05b51eda073b9e3a5deb65afea691a2a3d1975a132ac"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/selection.rs",
+      "sha256": "be9308ed15ca9f21aa90d8c219dd2abc8a854c9f68eafa11a8915cc7c1f2e416"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/comparison.rs",
+      "sha256": "b816a5b6c8e90e3a077b9d699de9bda9c1049e952e990c7a593fa4baafeb4558"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/string.rs",
+      "sha256": "8421357c1c44bf32918c7908c7948ab3af75d3cf68ea604d152bce40a8c5f574"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/time.rs",
+      "sha256": "f6af572acf66de28bdbc712ebb235ea142fd34f13f96ddb08137ffd9d550088c"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/validate.rs",
+      "sha256": "b52d8c5e0d42ad2a78c9d0919340166620925ae3fa41d6add749ff445cb61364"
+    }
+  ]
+}

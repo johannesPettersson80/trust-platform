@@ -4,35 +4,63 @@ use smol_str::SmolStr;
 
 use crate::error::{RuntimeError, StableErrorCode};
 
+/// Failure raised by the shared dispatcher or a hosted execution adapter.
 #[derive(Debug)]
 pub enum VmTrap {
+    /// Unknown instruction byte.
     InvalidOpcode(u8),
+    /// Branch destination is outside the current body or not an instruction boundary.
     InvalidJumpTarget(i64),
+    /// Reference-table index does not exist.
     InvalidRefIndex(u32),
+    /// Constant-pool index does not exist.
     InvalidConstIndex(u32),
+    /// Reference is outside the active frame local range.
     InvalidLocalRef {
+        /// Requested reference-table index.
         ref_index: u32,
+        /// First reference index owned by the frame.
         start: u32,
+        /// Number of references owned by the frame.
         count: u32,
     },
+    /// Instruction requires more operands than are available.
     StackUnderflow,
+    /// Operand stack exceeds its admitted limit.
     StackOverflow,
+    /// Execution has no active call frame.
     CallStackUnderflow,
+    /// Nested execution exceeds the admitted call depth.
     CallStackOverflow,
+    /// Known instruction has no execution implementation.
     UnsupportedOpcode(&'static str),
+    /// Reference location is unavailable in this execution composition.
     UnsupportedRefLocation(&'static str),
+    /// Branch condition is not a BOOL value.
     ConditionNotBool,
+    /// A dereferenced value or storage location does not exist.
     NullReference,
+    /// Physical execution deadline has elapsed.
     DeadlineExceeded,
+    /// Shared logical execution work allowance is exhausted.
     BudgetExceeded,
+    /// FOR loop step is zero.
     ForStepZero,
+    /// Requested POU identity is absent.
     MissingPou(u32),
+    /// Named program is absent.
     MissingProgram(SmolStr),
+    /// Named function block is absent.
     MissingFunctionBlock(SmolStr),
+    /// Native call kind is not supported.
     InvalidNativeCallKind(u32),
+    /// Native symbol descriptor index is invalid.
     InvalidNativeSymbolIndex(u32),
+    /// Native call payload violates its contract.
     InvalidNativeCall(SmolStr),
+    /// Execution metadata could not be decoded.
     BytecodeDecode(SmolStr),
+    /// Propagate a typed runtime failure without changing its stable identity.
     Runtime(RuntimeError),
 }
 
@@ -70,6 +98,9 @@ impl VmTrap {
     }
 
     /// Convert the VM trap into the public runtime error contract.
+    /// Rendering and failure-only moves stay outside recursive execution frames.
+    #[cold]
+    #[inline(never)]
     pub fn into_runtime_error(self) -> RuntimeError {
         let code = self.stable_code();
         match self {
@@ -128,6 +159,13 @@ impl VmTrap {
             Self::BytecodeDecode(message) => RuntimeError::bytecode(code, message),
         }
     }
+}
+
+/// Preserve the field-opcode diagnostic without formatting inside the scan loop.
+#[cold]
+#[inline(never)]
+pub(super) fn invalid_field_string_index(index: u32) -> RuntimeError {
+    VmTrap::BytecodeDecode(format!("invalid index {index} for string").into()).into_runtime_error()
 }
 
 impl From<RuntimeError> for VmTrap {
@@ -237,5 +275,33 @@ mod tests {
             assert_eq!(trap.stable_code(), expected);
             assert_eq!(trap.into_runtime_error().stable_code(), expected);
         }
+    }
+    #[test]
+    fn cold_failure_rendering_keeps_full_field_indices_names_and_saturated_ranges() {
+        use alloc::string::ToString;
+        let error = super::invalid_field_string_index(u32::MAX);
+        assert_eq!(error.stable_code(), StableErrorCode::VmBytecodeDecode);
+        assert_eq!(
+            error.to_string(),
+            "invalid bytecode 'invalid index 4294967295 for string'"
+        );
+        let error = VmTrap::MissingProgram("long_application_program_name_kept_in_full".into())
+            .into_runtime_error();
+        assert_eq!(
+            error.stable_code(),
+            StableErrorCode::RuntimeUndefinedProgram
+        );
+        assert_eq!(
+            error.to_string(),
+            "undefined program 'long_application_program_name_kept_in_full'"
+        );
+        let error = VmTrap::InvalidLocalRef {
+            ref_index: u32::MAX,
+            start: u32::MAX - 1,
+            count: 9,
+        }
+        .into_runtime_error();
+        assert_eq!(error.stable_code(), StableErrorCode::BytecodeInvalidIndex);
+        assert_eq!(error.to_string(), "invalid bytecode 'vm invalid local ref 4294967295 (frame local range 4294967294..4294967295)'");
     }
 }

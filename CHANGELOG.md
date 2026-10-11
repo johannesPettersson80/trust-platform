@@ -6,9 +6,31 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.72`
+Target release: `v0.24.73`
 
 ### Added
+
+- Add the NUCLEO-F401RE reference composition for the shared runtime, with bounded memory, separately installed STBC artifacts, and remote GPIO/watchdog evidence tooling. The full-function F401 bring-up passes saved-artifact traces, numeric checks, GPIO safe outputs, depth-four calls and independent-watchdog reset; production qualification remains separate.
+
+- Add explicit STBC 2.0 authoring and portable byte-level validation for declared
+  storage, construction roots, compiled initializer recipes and access bindings.
+  Legacy 1.1 remains the default producer. The source-free core now prepares and
+  executes 2.0 through the shared bytecode dispatcher, including compiled initializers,
+  typed storage, timers, process images and nominal-deadline task scheduling.
+  Warm restart remaps retained objects transactionally; failed initialization or
+  output copy-back does not publish partial replacement state or output destinations.
+  Hardware execution and timing qualification remain separate bring-up work.
+  Prepared declaration indexes and destination-only output journals keep execution
+  costs independent of unrelated application storage. Hosted reference checks borrow
+  paths without allocation. Runtime protection, profile admission and decoder-limit
+  failures now have distinct stable diagnostic codes.
+  Generic CTU/CTD/CTUD construction preserves their unbound integer state until
+  the native call selects its concrete integer width.
+  Initializer admission restricts writes to proven staging storage; 2.0 authoring
+  shares equivalent default recipes, omits unused standard block templates and
+  rejects unknown configuration/access path prefixes.
+  The opt-in 2.0 producer supports staged member overrides on function-static FB
+  instances at initial construction and after restart; legacy 1.x acceptance is unchanged.
 
 - Persist canonical OpenOT event, loss, and placeholder documents outside the
   PLC scan to a TOML-selected SQLite, PostgreSQL, TimescaleDB, MySQL/MariaDB,
@@ -29,6 +51,25 @@ Target release: `v0.24.72`
   directions.
 
 ### Changed
+
+- Use compact live activation storage and portable instance storage without changing
+  PLC identities or functions. Portable field lookup reuses existing hash indexes;
+  output journals keep ordered destination-only rollback. Charge batch retirement
+  while preserving cleanup on exhausted execution budgets. Frame storage includes
+  initializer staging in addition to admitted call depth. F401 fixture bring-up is verified; production storage and timing qualification remain separate.
+
+- Reduce shared-runtime code duplication in numeric conversions, assertion comparison,
+  bounded sorting and engine identity maps while preserving every PLC function and
+  diagnostic. F401 placement uses immutable sector-0 space with separate load-region
+  checks and a 16 KiB upper-region margin requirement; F401 fixture measurements meet the flash and stack margins; production qualification remains separate.
+
+- Reduce portable preparation overhead with shared static standard-library metadata,
+  indexed preparation tables and shared bounded sorting. Byte-input preparation
+  avoids serialization, and embedded CRC uses a compact implementation with identical
+  results. Portable preparation retains structured diagnostic context without eager
+  formatting; hosted messages and fault codes remain. Default-library lookup returns
+  a borrowed metadata view. F401 code uses the 448 KiB L2 region; two reserved checkpoint sectors do
+  not yet provide persistence. All IEC functions and admission checks remain.
 
 - Share STBC 1.x decoding, validation, metadata extraction and serialization with the portable runtime core, preserving hosted bytecode APIs.
 - Route core exponentiation, duration truncation and hosted numerical functions
@@ -79,6 +120,13 @@ Target release: `v0.24.72`
 
 ### Fixed
 
+- Preserve source-free restart initialization of direct input, output and marker
+  image addresses. Warm and cold restart carry previous images into staging before
+  ordered configuration actions, keeping unconfigured values and transactional
+  failure behavior.
+- Support system Bash 3.2 in the shared dependency-audit wrapper, including empty
+  exception lists, and preserve native path separators in firmware remapping.
+
 - Confirm managed fleet shutdown across control-connection teardown without
   mistaking interrupted status probes for a failed shutdown or a confirmed stop.
   Preserve authentication/protocol errors and retain the PID until stop is confirmed.
@@ -110,6 +158,9 @@ Target release: `v0.24.72`
   command-injection advisory.
 - Preserve numeric operand types when compiling TIME/LTIME scaling, including
   duration aliases and nested scalar expressions.
+- Execute compiled PLC call chains through explicit shared VM continuations to bound native dispatcher nesting; stop F401 bring-up when measured stack headroom is insufficient.
+
+- Keep deadline expiry latched through portable execution cleanup and build bulk input rollback snapshots without quadratic insertion work; preserve ordered writes and alias rollback.
 
 - Preserve function-block instance ownership when a body contains a NULL literal, so instance-field accesses bind to the invoked instance.
 

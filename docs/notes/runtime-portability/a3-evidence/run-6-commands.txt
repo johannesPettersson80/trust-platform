@@ -1,0 +1,10 @@
+bash /home/johannes/.cache/trust-portability-a3-setup-run-6/format-once.sh 
+python3 /home/johannes/.cache/trust-portability-a3-setup-run-6/freeze-source.py 
+cargo test --locked --no-fail-fast -p trust-runtime --test bytecode_source_free_authoring -- --nocapture --test-threads=1 
+cargo test --locked --no-fail-fast -p trust-runtime --lib authoring_boundary_tests -- --nocapture --test-threads=1 
+cargo clippy --locked -p trust-runtime-core -p trust-runtime --all-targets --all-features -- -D warnings 
+bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross 
+bash /home/johannes/.cache/trust-portability-a3-setup-run-6/format-once.sh --check 
+git diff --check 
+python3 /home/johannes/.cache/trust-portability-a3-setup-run-6/prepare-metadata-index.py 
+env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-a3-evidence/run-6/review-index python3 scripts/validate_verification_metadata.py 

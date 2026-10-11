@@ -1,0 +1,1 @@
+Full ARM disassembly remains outside git at /home/johannes/projects/.artifacts/runtime-portability-b/b-r3/review-hardware-stack/disassembly.txt. Input identity and the small owning-prologue excerpt are retained here. Static interpretation is not execution or a measured corrected stack bound.

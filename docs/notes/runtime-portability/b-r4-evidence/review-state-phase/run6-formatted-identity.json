@@ -1,0 +1,6 @@
+{
+  "manifest_sha256": "6a8823e1b138ec193157ed08c0935da87548b377eddebeb2a7399c93d5f713b2",
+  "files": {
+    "crates/trust-runtime-core/src/vm/engine/mod.rs": "87bb8844776d41fc2a676051e4d5cba077eb5c9e4e68d03944adc2c12cb9fda2"
+  }
+}

@@ -3,6 +3,7 @@
 #![allow(missing_docs)]
 
 mod codegen;
+mod construction;
 mod consts;
 mod debug;
 mod io;
@@ -50,6 +51,32 @@ pub fn build_module_from_runtime_with_sources_and_paths(
     paths: &[&str],
 ) -> Result<BytecodeModule, BytecodeError> {
     BytecodeEncoder::with_sources_and_paths(runtime, sources, paths).build()
+}
+
+/// Encode declarations before startup values are materialized.
+pub(crate) fn build_module_from_declarations(
+    input: &crate::harness::LoweredApplication,
+) -> Result<BytecodeModule, BytecodeError> {
+    let sources: Vec<_> = input
+        .source_metadata
+        .iter()
+        .map(|source| source.text.as_str())
+        .collect();
+    let labels: Vec<_> = input
+        .source_metadata
+        .iter()
+        .map(|source| {
+            source
+                .path
+                .clone()
+                .unwrap_or_else(|| format!("file_{}", source.file_id))
+        })
+        .collect();
+    let paths: Vec<_> = labels.iter().map(String::as_str).collect();
+    let mut encoder = BytecodeEncoder::with_sources_and_paths(&input.runtime, &sources, &paths);
+    encoder.authoring = Some(input);
+    encoder.pou_ids = PouIdMap::build(&input.runtime, &input.program_defs);
+    encoder.build()
 }
 
 impl BytecodeModule {
@@ -123,7 +150,10 @@ struct PouIdMap {
 }
 
 impl PouIdMap {
-    fn build(runtime: &crate::Runtime) -> Self {
+    fn build(
+        runtime: &crate::Runtime,
+        programs: &indexmap::IndexMap<SmolStr, crate::task::ProgramDef>,
+    ) -> Self {
         let mut map = Self {
             next_id: 0,
             programs: HashMap::new(),
@@ -133,7 +163,7 @@ impl PouIdMap {
             methods: HashMap::new(),
         };
 
-        for name in runtime.programs().keys() {
+        for name in programs.keys() {
             let key = normalize_name(name);
             let id = map.alloc();
             map.programs.insert(key, id);
@@ -208,6 +238,8 @@ impl PouIdMap {
 }
 
 struct BytecodeEncoder<'a> {
+    authoring: Option<&'a crate::harness::LoweredApplication>,
+    construction: construction::ConstructionModel,
     runtime: &'a crate::Runtime,
     sources: Option<&'a [&'a str]>,
     paths: Option<&'a [&'a str]>,
@@ -231,11 +263,17 @@ struct BytecodeEncoder<'a> {
 
 #[derive(Clone, Default)]
 struct CodegenContext {
+    initializer: bool,
     instance_id: Option<InstanceId>,
+    owner_name: Option<SmolStr>,
     return_name: Option<SmolStr>,
     using: Vec<SmolStr>,
     locals: HashMap<SmolStr, ValueRef>,
     static_refs: HashMap<SmolStr, ValueRef>,
+    static_ordinals: HashMap<SmolStr, usize>,
+    static_self_fields: HashMap<SmolStr, (SmolStr, usize)>,
+    visible_locals: Option<usize>,
+    visible_statics: Option<usize>,
     self_fields: HashMap<SmolStr, SmolStr>,
     for_temp_pairs: Vec<(SmolStr, SmolStr)>,
     next_for_temp: usize,
@@ -269,11 +307,17 @@ impl CodegenContext {
             }
         }
         Self {
+            initializer: false,
             instance_id,
+            owner_name: None,
             return_name,
             using,
             locals,
             static_refs,
+            static_ordinals: HashMap::new(),
+            static_self_fields: HashMap::new(),
+            visible_locals: None,
+            visible_statics: None,
             self_fields,
             for_temp_pairs,
             next_for_temp: 0,
@@ -283,17 +327,30 @@ impl CodegenContext {
 
     fn local_ref(&self, name: &SmolStr) -> Option<&ValueRef> {
         let key = normalize_name(name);
-        self.locals.get(&key)
+        self.locals.get(&key).filter(|reference| {
+            self.visible_locals
+                .is_none_or(|count| reference.offset < count)
+        })
     }
 
     fn static_ref(&self, name: &SmolStr) -> Option<&ValueRef> {
         let key = normalize_name(name);
-        self.static_refs.get(&key)
+        self.static_refs.get(&key).filter(|_| {
+            self.visible_statics.is_none_or(|count| {
+                self.static_ordinals
+                    .get(&key)
+                    .is_some_and(|position| *position < count)
+            })
+        })
     }
 
     fn self_field_name(&self, name: &SmolStr) -> Option<&SmolStr> {
         let key = normalize_name(name);
-        self.self_fields.get(&key)
+        self.static_self_fields
+            .get(&key)
+            .filter(|(_, position)| self.visible_statics.is_none_or(|count| *position < count))
+            .map(|(name, _)| name)
+            .or_else(|| self.self_fields.get(&key))
     }
 
     fn next_for_temp_pair(&mut self) -> Option<(SmolStr, SmolStr)> {
@@ -349,12 +406,19 @@ enum AccessKind {
 }
 
 impl<'a> BytecodeEncoder<'a> {
+    fn programs(&self) -> &'a indexmap::IndexMap<SmolStr, crate::task::ProgramDef> {
+        self.authoring
+            .map_or_else(|| self.runtime.programs(), |input| &input.program_defs)
+    }
+
     fn new(runtime: &'a crate::Runtime) -> Self {
         let stdlib_fbs: HashSet<SmolStr> = crate::stdlib::fbs::standard_function_blocks()
             .into_iter()
             .map(|fb| normalize_name(&fb.name))
             .collect();
         Self {
+            authoring: None,
+            construction: construction::ConstructionModel::default(),
             runtime,
             sources: None,
             paths: None,
@@ -368,7 +432,7 @@ impl<'a> BytecodeEncoder<'a> {
             ref_map: HashMap::new(),
             local_var_meta: Vec::new(),
             next_local_frame_id: 0,
-            pou_ids: PouIdMap::build(runtime),
+            pou_ids: PouIdMap::build(runtime, runtime.programs()),
             stdlib_fbs,
             method_tables: HashMap::new(),
             method_stack: Vec::new(),
@@ -395,10 +459,26 @@ impl<'a> BytecodeEncoder<'a> {
 
     fn build(mut self) -> Result<BytecodeModule, BytecodeError> {
         self.collect_decl_types()?;
-        let (pou_index, pou_bodies, debug_entries) = self.build_pou_index_and_bodies()?;
+        let source_free = self.authoring.is_some();
+        if source_free {
+            self.reserve_source_globals()?;
+            self.collect_instance_templates()?;
+            self.construct_persistent_roots()?;
+            self.collect_source_io()?;
+            self.collect_source_configuration()?;
+        }
+        let (pou_index, mut pou_bodies, debug_entries) = self.build_pou_index_and_bodies()?;
+        if source_free {
+            self.collect_declaration_actions(&pou_index)?;
+            self.emit_initializer_bodies(&mut pou_bodies)?;
+        }
         let resource_meta = self.build_resource_meta()?;
         let io_map = self.build_io_map()?;
-        let var_meta = self.build_var_meta()?;
+        let var_meta = if source_free {
+            self.build_source_var_meta()?
+        } else {
+            self.build_var_meta()?
+        };
         let retain_init = self.build_retain_init(&var_meta)?;
         let type_offsets = compute_type_offsets_for_entries(&self.types)?;
         let type_table = TypeTable {
@@ -485,14 +565,61 @@ impl<'a> BytecodeEncoder<'a> {
             });
         }
 
-        let mut module = BytecodeModule::new(BytecodeVersion::new(
-            SUPPORTED_MAJOR_VERSION,
-            SUPPORTED_MINOR_VERSION,
-        ));
-        module.sections = sections;
-        module.validate()?;
-        Ok(module)
+        finish_module(sections, source_free, self.construction)
     }
+}
+
+fn finish_module(
+    mut sections: Vec<Section>,
+    source_free: bool,
+    construction: construction::ConstructionModel,
+) -> Result<BytecodeModule, BytecodeError> {
+    if source_free {
+        sections.extend([
+            Section {
+                id: SectionId::StorageLayout.as_raw(),
+                flags: 0,
+                data: SectionData::StorageLayout(construction.layout),
+            },
+            Section {
+                id: SectionId::ConstructionRoots.as_raw(),
+                flags: 0,
+                data: SectionData::ConstructionRoots(construction.roots),
+            },
+            Section {
+                id: SectionId::Initializers.as_raw(),
+                flags: 0,
+                data: SectionData::Initializers(construction.initializers),
+            },
+            Section {
+                id: SectionId::AccessBindings.as_raw(),
+                flags: 0,
+                data: SectionData::AccessBindings(construction.access),
+            },
+        ]);
+    }
+    let version = if source_free {
+        BytecodeVersion::SOURCE_FREE
+    } else {
+        BytecodeVersion::new(SUPPORTED_MAJOR_VERSION, SUPPORTED_MINOR_VERSION)
+    };
+    let mut module = BytecodeModule::new(version);
+    module.sections = sections;
+    if source_free {
+        let demands = trust_runtime_core::bytecode::construction_demands(
+            module.view(),
+            trust_runtime_core::bytecode::ValidationLimits::default(),
+        )?;
+        if let Some(SectionData::StorageLayout(layout)) =
+            module.section_mut(SectionId::StorageLayout)
+        {
+            for (entry, demand) in layout.entries.iter_mut().zip(demands) {
+                entry.construction_nodes = demand;
+            }
+        }
+    }
+    module.validate()?;
+    Ok(module)
 }
 
 #[cfg(test)]

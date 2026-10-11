@@ -1,0 +1,217 @@
+[gate-progress state=started phase=A4-architecture target=scena-rust-builder pid=2661793 elapsed=0.0s timeout=5400s command='cargo run --locked -p xtask -- architecture-doctor --full-map']
+    Finished `dev` profile [unoptimized] target(s) in 0.16s
+     Running `/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/xtask architecture-doctor --full-map`
+wrote /home/johannes/projects/trust-platform-portability-a4/target/gate-artifacts/full-software-map-77b91381f/software-map.json
+wrote /home/johannes/projects/trust-platform-portability-a4/target/gate-artifacts/full-software-map-77b91381f/full-map-report.json
+wrote /home/johannes/projects/trust-platform-portability-a4/target/gate-artifacts/full-software-map-77b91381f/full-map-report.md
+PASS: FULLMAP-CHECK-01
+  - policy version: 1
+  - review date: 2026-04-30
+  - allowed workspace edges: 34
+PASS: FULLMAP-CHECK-02
+  - workspace edges observed: 34
+  - temporary policy edges: 6
+  - trust-debug -> trust-runtime (normal) owner=runtime/debug
+  - trust-dev -> trust-wasm-analysis (normal) owner=dev tooling/web analysis
+  - trust-lsp -> trust-runtime (normal) owner=LSP/runtime
+  - trust-runtime -> trust-ide (normal) owner=runtime/IDE
+  - trust-runtime -> trust-wasm-analysis (normal) owner=runtime/web
+  - trust-wasm-analysis -> trust-ide (normal) owner=wasm analysis/IDE
+PASS: FULLMAP-CHECK-05
+  - forbidden dependencies: 18
+  - forbidden import modules: 17
+PASS: FULLMAP-CHECK-06
+  - Command variants classified: 26
+  - bin modules classified: 29
+  - nested action enums classified: 14
+  - Command::Play has no same-name bin module 'play'; routes through run handler=run::run_play at crates/trust-runtime/src/bin/trust-runtime/run/commands.rs:39 (compatibility_alias) owner=runtime CLI review_date=2026-04-28 rationale=Command::Play dispatches to run::run_play from the shared runtime launcher module
+  - Command::Ui has no same-name bin module 'ui'; routes through trust_runtime::ui handler=trust_runtime::ui::run_ui at crates/trust-runtime/src/host/ui/mod.rs:59 (library_surface) owner=runtime/UI review_date=2026-04-28 rationale=Command::Ui dispatches to trust_runtime::ui::run_ui from the runtime UI library surface
+  - Command::Validate has no same-name bin module 'validate'; routes through run handler=run::run_validate at crates/trust-runtime/src/bin/trust-runtime/run/commands.rs:74 (shared_handler) owner=runtime CLI review_date=2026-04-28 rationale=Command::Validate dispatches to run::run_validate from the shared runtime launcher module
+  - Command::Ide has no same-name bin module 'ide'; routes through config_ui handler=config_ui::run_ide_serve at crates/trust-runtime/src/bin/trust-runtime/config_ui.rs:41 (shared_handler) owner=runtime/web review_date=2026-04-28 rationale=Command::Ide dispatches to config_ui::run_ide_serve and shares ConfigUiAction with Command::ConfigUi
+  - Command::Rollback has no same-name bin module 'rollback'; routes through deploy handler=deploy::run_rollback at crates/trust-runtime/src/bin/trust-runtime/deploy/commands.rs:114 (shared_handler) owner=runtime/deploy review_date=2026-04-28 rationale=Command::Rollback dispatches to deploy::run_rollback from the deployment module
+  - runtime artifact profile 'release-host-runtime' class=host_runtime binaries=[trust-runtime,trust-dev,trust-bundle-gen] include=[product,ui_product,conformance_benchmark,support,infrastructure,workbench_dev] exclude=[] owner=release engineering review_date=2026-05-01 rationale=current release bundle preserves the existing trust-runtime command surface and ships trust-dev as the workbench destination during the forwarding-alias migration window
+  - runtime artifact profile 'field-runtime-minimal' class=field_runtime binaries=[trust-runtime,trust-bundle-gen] include=[product,ui_product,support,infrastructure] exclude=[workbench_dev,conformance_benchmark] owner=release engineering review_date=2026-05-01 rationale=field runtime artifacts must exclude workbench/dev command implementations; benchmark/conformance commands are runtime-adjacent but not field-minimal
+  - workbench command 'Agent' migrates trust-runtime -> trust-dev compatibility=deprecated_forwarding_alias removal_not_before=2026-10-05 removal_pr_required=true owner=dev tooling review_date=2026-07-05 rationale=agent serve remains available through trust-runtime during the deprecation window while the implementation moves to trust-dev; removal requires a separate behavior-change PR and release notes
+  - workbench command 'Commit' migrates trust-runtime -> trust-dev compatibility=deprecated_forwarding_alias removal_not_before=2026-10-05 removal_pr_required=true owner=dev tooling review_date=2026-07-05 rationale=project git helper belongs to the developer/workbench tool and keeps a trust-runtime compatibility alias during migration; removal requires a separate behavior-change PR and release notes
+  - workbench command 'Docs' migrates trust-runtime -> trust-dev compatibility=deprecated_forwarding_alias removal_not_before=2026-10-05 removal_pr_required=true owner=dev tooling review_date=2026-07-05 rationale=ST API documentation generation belongs to the developer/workbench tool and keeps a trust-runtime compatibility alias during migration; removal requires a separate behavior-change PR and release notes
+  - workbench command 'Test' migrates trust-runtime -> trust-dev compatibility=deprecated_forwarding_alias removal_not_before=2026-10-05 removal_pr_required=true owner=dev tooling review_date=2026-07-05 rationale=ST test discovery/execution belongs to the developer/workbench tool and keeps a trust-runtime compatibility alias during migration; removal requires a separate behavior-change PR and release notes
+PASS: FULLMAP-CHECK-07
+  - approved ports active: true
+  - forbidden edge rules: 3
+  - host-surface owner path rules: 9
+  - host-surface files covered: 255
+  - host-surface owner categories: control_port (runtime/control), control_root (runtime/control), hmi_domain (runtime/HMI), hmi_root (runtime/HMI), runtime_cloud_domain (runtime-cloud), web_adapter (runtime/web), web_root (runtime/web)
+  - direct web runtime-state bypass findings: 0
+  - direct web control-dispatch bypass findings: 0
+PASS: FULLMAP-CHECK-08
+  - cargo audit status=pass owner=release engineering rationale=raw advisories are fixed or explicitly ignored by policy metadata
+  - cargo machete status=pass owner=architecture automation rationale=workspace member paths have no unused direct dependencies
+  - cargo deny status=pass owner=release engineering rationale=project deny.toml policy is present and cargo deny check passes
+  - third_party/tiverse-mmap status=workspace_exclude expected=workspace_exclude
+  - deny.toml present=true
+  - audit allowlist entries=8
+  - machete allowlist entries=0
+FINDING: FULLMAP-CHECK-09
+  - owner: runtime/HIR/release engineering
+  - status: tracked_by_unsafe_concurrency_hardening_board
+  - production unsafe occurrences: 79
+  - production panic-like occurrences: 412
+  - concurrency boundary occurrences: 808
+  - tool gates: unsafe/concurrency baseline rg=pass, cargo geiger advisory=partial, ast-grep unsafe AST cross-check=pass, Miri focused shard=pass, sanitizer smoke=pass, Valgrind startup smoke=pass, Loom/model equivalent=pass
+  - all production hotspots are registered or classified
+PASS: FULLMAP-CHECK-10
+  - crates/trust-runtime/tests/openot_telemetry.rs lines=4078 owner=runtime/OpenOT tests split_plan=After the backlog closes, split into openot_telemetry/{vectors,authoring,capstone,documents}.rs test modules without reducing byte-exact coverage.
+  - crates/trust-runtime/tests/phase11_seam_contract.rs lines=1261 owner=runtime seam tests split_plan=Split into phase11_seam_contract/{runtime,connectivity,hmi}.rs once release repair closes and per-surface evidence is accepted.
+  - crates/trust-runtime/src/config/tests.rs lines=1731 owner=runtime/config tests split_plan=Split by section family (runtime, IO, HMI, ADS, deployment) after the v0.24.29 release branch is green.
+  - crates/trust-runtime/src/control/tests/core.rs lines=5849 owner=runtime/control tests split_plan=Continue extracting control/tests/{status,comm,fleet,hmi,negative}.rs without changing public control JSON contracts.
+  - crates/trust-runtime/src/control/comm_handlers/apply/runtime_file.rs lines=1141 owner=runtime/communication split_plan=Split per protocol apply handler behind the existing dry-run/writeback contract.
+  - crates/trust-runtime/src/bin/trust-runtime/ads.rs lines=1559 owner=runtime/ADS CLI split_plan=Split into ads/{route,browse,server,doctor}.rs after TwinCAT lab flow acceptance.
+  - crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs lines=1571 owner=runtime CLI tests split_plan=Split by command family after command taxonomy stabilizes.
+  - crates/trust-runtime/src/bin/trust-runtime/run/tests.rs lines=1017 owner=runtime CLI tests split_plan=Split command parsing and launch lifecycle cases when the CLI contract next changes.
+  - crates/trust-runtime/src/runtime/vm/local_init/expr.rs lines=1060 owner=runtime VM split_plan=Extract expression families only with VM initialization parity coverage.
+  - crates/trust-runtime/src/host/helper_eval/storage_expr.rs lines=1018 owner=runtime evaluator split_plan=Extract expression families only with evaluator parity coverage.
+  - crates/trust-runtime/src/host/harness/config_contract_tests.rs lines=1481 owner=runtime harness tests split_plan=Split source, globals, and binding cases when configuration coverage changes.
+  - crates/trust-runtime/src/host/ads/tests.rs lines=1495 owner=runtime/ADS tests split_plan=Split helper tests into ads/{route,netid,symbols}.rs when ADS flow work resumes.
+  - crates/trust-runtime/src/host/simulation_contract_tests.rs lines=1077 owner=runtime simulation tests split_plan=Split model, configuration, and execution cases if simulation work resumes.
+  - crates/trust-runtime/src/io/mqtt/tests.rs lines=1467 owner=runtime/MQTT tests split_plan=Split into mqtt/tests/{worker,freshness,write,error_policy}.rs after J-14 acceptance.
+  - workspace top-level modules at or above 5000 lines: 18
+  - large module trust-debug::adapter lines=11591 files=42 owner=debug split_plan=Split by protocol state/request families when debug adapter changes resume.
+  - large module trust-hir::db lines=14826 files=45 owner=HIR split_plan=Split generated/query-family helpers only when the HIR zero-silent-bug doctor can preserve the semantic-kernel boundary.
+  - large module trust-hir::type_check lines=10003 files=37 owner=HIR split_plan=Prefer semantic-kernel helpers over broad module moves; split only with mutation-backed semantic tests.
+  - large module trust-lsp::handlers lines=20177 files=73 owner=LSP split_plan=Split only when a handler family grows a separate protocol owner or introduces cross-handler state.
+  - large module trust-plcopen::plcopen lines=12514 files=37 owner=runtime/PLCopen split_plan=Split import/export/parser/test families inside trust-plcopen when PLCopen interchange work resumes.
+  - large module trust-runtime::bin lines=20745 files=89 owner=runtime CLI split_plan=Remove deprecated trust-runtime workbench aliases after the compatibility window, then remeasure the binary host module.
+  - large module trust-runtime::bytecode lines=8984 files=44 owner=runtime/VM split_plan=Keep construction, configuration, recipes and expression emission in focused modules; A4 executes their bytecode through the shared dispatcher.
+  - large module trust-runtime::config lines=5524 files=22 owner=runtime/config split_plan=Keep new product sections in focused parser and model children; extract a separately versioned configuration crate only when another consumer requires the full runtime configuration API.
+  - large module trust-runtime::control lines=45672 files=118 owner=runtime/control split_plan=Continue moving handler families into child modules while preserving the single control port entrypoint.
+  - large module trust-runtime::hmi lines=7883 files=48 owner=runtime/HMI split_plan=Keep future splits inside HMI descriptor/trend/alarm/layout domains; web remains only a transport adapter.
+  - large module trust-runtime::host lines=108509 files=346 owner=runtime/Linux host split_plan=Keep child ownership under host/*; extract a child crate only when a host family gains an independently versioned API or dependency boundary.
+  - large module trust-runtime::io lines=12305 files=39 owner=runtime/IO split_plan=Split protocol families into io/{drivers,protocols,mapping}.rs only after protocol journey evidence is accepted.
+  - large module trust-runtime::runtime lines=22504 files=79 owner=runtime/core split_plan=Continue extracting VM execution internals into register_ir/vm child modules and avoid adding new top-level runtime execution files.
+  - large module trust-runtime::runtime_cloud lines=5594 files=14 owner=runtime-cloud split_plan=Split only if a child gains an independently versioned external contract; preserve the transport-neutral domain boundary.
+  - large module trust-runtime::web lines=19365 files=75 owner=runtime/web split_plan=Extract route families only behind existing control/HMI/runtime-cloud ports; do not move domain state into web.
+  - large module trust-runtime-core::bytecode lines=10526 files=52 owner=runtime portability split_plan=Maintain decode, encode, format, metadata and validation child modules; keep analysis budget, shared instruction decoder and semantic passes separate. A3 versioned-format additions stay in those responsibilities; split any individual file approaching 1000 lines rather than creating a second validator or unrelated top-level namespace.
+  - large module trust-runtime-core::vm lines=13837 files=55 owner=runtime portability split_plan=Keep dispatch and its context ports separate from prepared metadata and engine lifecycle children; keep assignment, initialization, restart, process images and allocation accounting in their own engine modules. Split oversized functions by their existing type/table responsibilities and individual files approaching 1000 lines; retain one shared execution implementation and public VM namespace.
+  - large module xtask::full_map lines=5776 files=1 owner=architecture automation split_plan=Split policy models, source scanners, and check evaluators into child modules if full-map doctor work continues after program closeout.
+  - trust-runtime top-level modules: 20 (current cap 21, final host cap 21)
+  - runtime module bin: subsystem=runtime_cli_host owner=runtime CLI decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module bytecode: subsystem=portable_runtime_core owner=runtime/VM decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module config: subsystem=runtime_configuration owner=runtime/config decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module connectors: subsystem=runtime_connector_status owner=runtime/connectors decision_note=runtime connectivity conformance status surface
+  - runtime module control: subsystem=host_surface_control owner=runtime/control decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module hmi: subsystem=host_surface_hmi owner=runtime/HMI decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module host: subsystem=linux_host_adapters owner=runtime/Linux host decision_note=RTHOSTMOD-P3 host module collapse
+  - runtime module io: subsystem=host_io owner=runtime/IO decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module memory: subsystem=portable_runtime_core owner=runtime/memory decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module openot_authoring: subsystem=runtime_openot_authoring owner=runtime/OpenOT decision_note=OpenOT authoring workbench integration; split once the authoring vocabulary stabilizes
+  - runtime module program_model: subsystem=portable_runtime_core owner=runtime/model decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module retain: subsystem=portable_runtime_core owner=runtime/retain decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module runtime: subsystem=portable_runtime_core owner=runtime/core decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module runtime_cloud: subsystem=runtime_cloud_domain owner=runtime-cloud decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module scheduler: subsystem=portable_runtime_core owner=runtime/scheduler decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module stdlib: subsystem=portable_runtime_core owner=runtime/stdlib decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module task: subsystem=portable_runtime_core owner=runtime/scheduler decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module value: subsystem=portable_runtime_core owner=runtime/value decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module watchdog: subsystem=portable_runtime_core owner=runtime/watchdog decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime module web: subsystem=host_surface_web owner=runtime/web decision_note=ARCHPROG-C-05 baseline freeze
+  - runtime/core functions at or above 200 lines: 45
+  - large function crates/trust-runtime/src/web/config_ui_routes/routes/workspace.rs:3 handle_workspace_routes lines=602 owner=runtime/web split_plan=Split GET/POST workspace actions into child handlers if this route changes again.
+  - large function crates/trust-runtime/src/bin/trust-runtime/run/runtime/entry.rs:2 run_runtime lines=579 owner=runtime CLI split_plan=Extract remaining launch phases after adding behavior-lock tests for CLI startup output.
+  - large function crates/trust-runtime/src/runtime/vm/register_ir/interpreter.rs:40 execute_register_block_interpreted lines=547 owner=runtime/VM split_plan=Extract instruction-family helpers only with runtime VM mutation shard coverage.
+  - large function crates/trust-runtime/src/web/ui_routes.rs:20 handle_ui_route lines=488 owner=runtime/web split_plan=Split static asset and action handling if web UI routing grows again.
+  - large function crates/trust-runtime-core/src/vm/dispatch.rs:141 execute_with_buffers lines=486 owner=runtime/VM split_plan=Split stack frame setup from instruction execution only with complete_program and VM mutation coverage.
+  - large function crates/trust-runtime/src/web/aux_routes.rs:26 handle_aux_route lines=462 owner=runtime/web split_plan=Split endpoint families behind typed route helpers when this transport surface next changes.
+  - large function crates/trust-runtime/src/runtime/vm/register_ir/tier1/execute.rs:4 execute_tier1_compiled_block lines=437 owner=runtime/VM split_plan=Extract instruction-family helpers only under the tier1 mutation shards.
+  - large function crates/trust-runtime/src/web/ide_routes/analysis_language.rs:3 handle_language_route lines=436 owner=runtime/web split_plan=Split request cases into typed child handlers if the IDE HTTP API changes.
+  - large function crates/trust-runtime/src/control/config_handlers_set.rs:1 handle_config_set lines=372 owner=runtime/control split_plan=Split per-section setters behind the same control request contract.
+  - large function crates/trust-runtime/src/runtime/vm/register_ir/lower.rs:95 lower_pou_to_register_ir lines=367 owner=runtime/VM split_plan=Move more decode/fuse/verify phases to existing child modules when lowering changes.
+  - large function crates/trust-runtime/src/web/ide_routes/basic.rs:3 handle_basic_route lines=362 owner=runtime/web split_plan=Split only when endpoint ownership diverges.
+  - large function crates/trust-runtime/src/control/tests/core.rs:2854 fleet_topology_reports_runtime_hosts_endpoints_and_links_without_secrets lines=360 owner=runtime/control tests split_plan=Split setup builders from assertions after the fleet topology contract stabilizes.
+  - large function crates/trust-runtime/src/web/ide_routes/files.rs:3 handle_file_route lines=348 owner=runtime/web split_plan=Split read/write/list operations if IDE file API changes.
+  - large function crates/trust-runtime/src/control/fleet_handlers/endpoints.rs:3 service_endpoints lines=346 owner=runtime/fleet split_plan=Split per endpoint family while preserving the single fleet response contract.
+  - large function crates/trust-runtime/src/bytecode/encoder/types.rs:215 encode_type_entry lines=344 owner=runtime/VM split_plan=Extract per-type encoders only with bytecode encode/decode parity tests.
+  - large function crates/trust-runtime/src/web/runtime_cloud_routes/actions.rs:53 handle_post_dispatch lines=339 owner=runtime-cloud split_plan=Split action decoding and response projection if runtime-cloud action contracts grow.
+  - large function crates/trust-runtime/src/host/harness/build.rs:48 lower_application lines=333 owner=runtime/harness split_plan=Keep materialization separate and extract additional frontend phases only with both producer and hosted constructor regressions.
+  - large function crates/trust-runtime/src/openot_authoring/model.rs:273 annotation_from_parts lines=314 owner=runtime/OpenOT split_plan=Split per-kind annotation builders after the OpenOT authoring vocabulary stabilizes and keep tests around definition JSON and generated ST output.
+  - large function crates/trust-runtime/src/host/ads/onboarding/doctor.rs:286 run_step lines=310 owner=runtime/ADS onboarding split_plan=Split per doctor step after the TwinCAT route/browse flow is accepted.
+  - large function crates/trust-runtime/src/web/ops_routes.rs:22 handle_ops_route lines=305 owner=runtime/web split_plan=Split operation families only behind existing control contracts.
+  - large function crates/trust-runtime/src/control/comm_handlers/schema.rs:541 schema_v4_exposes_categories_config_homes_and_ads_protocols_without_profiles lines=293 owner=runtime/communication tests split_plan=Split schema tests by category once protocol schema churn settles.
+  - large function crates/trust-runtime/src/bytecode/encoder/codegen/expr.rs:2 emit_expr lines=291 owner=runtime/VM split_plan=Split expression families only with bytecode/runtime parity tests.
+  - large function crates/trust-runtime/src/control/fleet_handlers/offline.rs:196 offline_service_endpoints lines=279 owner=runtime/fleet split_plan=Split protocol-specific offline projections behind the fleet topology contract.
+  - large function crates/trust-runtime/src/web/config_ui_routes/routes/runtime_cloud.rs:3 handle_runtime_cloud_routes lines=273 owner=runtime/web split_plan=Split by runtime-cloud action category if this route grows.
+  - large function crates/trust-runtime/src/control/tests/core.rs:510 comm_apply_returns_field_errors_and_dry_run_does_not_write lines=268 owner=runtime/control tests split_plan=Split protocol setup from writeback assertions once the apply contract stabilizes.
+  - large function crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs:335 execute_register_subset lines=268 owner=runtime/VM tests split_plan=Split setup from execution helpers when register-IR tests are reorganized.
+  - large function crates/trust-runtime/src/host/harness/io/io_bindings.rs:1 collect_io_bindings lines=260 owner=runtime/harness split_plan=Split address parsing from binding projection if I/O harness logic grows.
+  - large function crates/trust-runtime/src/bytecode/encoder/pou/build.rs:2 build_pou_index_and_bodies lines=248 owner=runtime/VM split_plan=Extract declaration indexing from body emission when bytecode encoder work resumes, preserving bytecode fixture and validator parity.
+  - large function crates/trust-runtime/src/control/comm_handlers/apply/runtime_file.rs:165 apply_opcua_client_protocol lines=248 owner=runtime/communication split_plan=Extract validation and TOML serialization helpers after protocol journey acceptance.
+  - large function crates/trust-runtime/src/web/runtime_cloud_routes/control_proxy.rs:8 handle_post_control_proxy lines=248 owner=runtime-cloud split_plan=Split request translation from response projection if proxy contracts grow.
+  - large function crates/trust-runtime/src/control/tests/core.rs:1876 offline_comm_schema_apply_and_topology_work_without_runtime lines=247 owner=runtime/control tests split_plan=Split schema/apply/topology phases after offline D&C acceptance.
+  - large function crates/trust-runtime/src/control/comm_handlers/apply/runtime_file.rs:414 apply_ads_protocol lines=240 owner=runtime/communication split_plan=Extract ADS validation and writeback helpers after TwinCAT browse/use acceptance.
+  - large function crates/trust-runtime/src/runtime/vm/register_ir/lower/fuse.rs:56 try_fuse_instruction_window lines=238 owner=runtime/VM split_plan=Split fusion cases only under the register-ir-lower-fuse mutation shard.
+  - large function crates/trust-runtime/src/host/ads/diagnostics/tests/schema_tests.rs:20 diagnostic_wire_enums_keep_the_version_two_contract_names lines=235 owner=runtime/ADS tests split_plan=Split enum families only if the version-two wire contract changes.
+  - large function crates/trust-runtime/src/host/harness/config/globals.rs:1 apply_globals lines=235 owner=runtime/harness split_plan=Split type/default/write phases if harness config grows.
+  - large function crates/trust-runtime/src/hmi/scaffold_entry.rs:35 scaffold_hmi_dir_with_sources_mode lines=229 owner=runtime/HMI split_plan=Split source collection from descriptor writing if scaffold work resumes.
+  - large function crates/trust-runtime/src/web/server.rs:33 start_web_server_with_mode lines=229 owner=runtime/web split_plan=Extract TLS/server construction from request loop when web server internals change.
+  - large function crates/trust-runtime/src/bin/trust-runtime/bench/output.rs:12 render_table lines=227 owner=runtime CLI split_plan=Split formatting helpers if benchmark report output grows.
+  - large function crates/trust-runtime/src/host/eval/stmt.rs:22 exec_stmt lines=222 owner=runtime/eval split_plan=Extract statement-family helpers only with evaluator/VM parity tests.
+  - large function crates/trust-runtime-core/src/error.rs:334 runtime_error_stable_codes_cover_every_committed_variant lines=221 owner=runtime-core tests split_plan=Keep exhaustive mapping together unless error families obtain independent public versions.
+  - large function crates/trust-runtime/src/control/tests/core.rs:4714 runtime_status_projection_contract_reports_resource_metrics_realtime_and_io_health lines=221 owner=runtime/control tests split_plan=Split setup and field-family assertions only when the status API is versioned.
+  - large function crates/trust-runtime-core/src/vm/module.rs:85 materialize lines=212 owner=runtime/VM split_plan=Extract table families only with bytecode validation and execution parity locks.
+  - large function crates/trust-runtime/src/control/tests/ads_product_surfaces.rs:9 generated_ads_globals_are_first_class_product_surface_variables lines=207 owner=runtime/ADS tests split_plan=Split setup and assertion helpers after ADS client journey acceptance.
+  - large function crates/trust-runtime/src/host/ui/commands/menu_nav.rs:20 menu_entries lines=201 owner=runtime/UI split_plan=Move static menu definitions to data tables if terminal UI navigation grows.
+  - large function crates/trust-runtime/src/host/debug/control/hook.rs:23 on_statement_inner lines=200 owner=runtime/debug split_plan=Extract stop-reason and control-session helpers only with debugger lifecycle coverage.
+PASS: FULLMAP-P6-API
+  - cargo-public-api 0.51.0
+  - public API baseline enforcement is tracked by the full architecture program
+  - trust-runtime baseline=docs/internal/architecture/public-api/trust-runtime.txt lines=3458 command=cargo public-api --manifest-path crates/trust-runtime/Cargo.toml -sss --color never
+  - trust-runtime-core baseline=docs/internal/architecture/public-api/trust-runtime-core.txt lines=929 command=cargo public-api --manifest-path crates/trust-runtime-core/Cargo.toml -sss --color never
+PASS: FULLMAP-PARSERREC
+  - bounded helpers: scan_top_level_ahead, recover_top_level_until
+  - positional diagnostic source definitions: 1
+  - parser recovery tests: test_positional_initializer_recovery_preserves_declaration_boundaries, test_initializer_recovery_property_smoke_for_generated_positional_shapes
+PASS: FULLMAP-HIRZSB
+  - command: python3 scripts/hir_zero_silent_bug_doctor.py
+  - exit code: 0
+  - stdout: HIR zero-silent-bug doctor: 5 warn-only finding(s)
+  - stdout: HIRZSB-WARN-TYPED-SENTINEL crates/trust-hir/src/db/queries/collector/types.rs:59: .unwrap_or(TypeId::UNKNOWN);
+  - stdout: HIRZSB-WARN-TYPED-SENTINEL crates/trust-hir/src/db/queries/collector/validation.rs:380: .unwrap_or(TypeId::UNKNOWN);
+  - stdout: HIRZSB-WARN-LOSSY-RESULT-OPTION crates/trust-hir/src/db/queries/collector/variables.rs:507: try_eval_optional_int_expr_in_scope(&count_expr, &scopes) .ok()
+  - stdout: HIRZSB-WARN-DUPLICATED-RESOLVER crates/trust-hir/src/symbols/table.rs:659: pub fn resolve_enum_value_by_name(&self, name: &str) -> EnumValueResolution {
+  - stdout: HIRZSB-WARN-DUPLICATED-RESOLVER crates/trust-hir/src/types/registry.rs:237: pub fn resolve_enum_value_by_name(&self, name: &str) -> EnumValueResolution {
+PASS: FULLMAP-RUNTIMEBOUND
+  - command: ./scripts/runtime_boundary_fail_closed_ast_grep_gate.sh
+  - exit code: 0
+  - stdout: runtime boundary fail-closed gate: no findings
+  - stdout: artifact=/home/johannes/projects/trust-platform-portability-a4/target/gate-artifacts/runtime-boundary-fail-closed-77b91381f/runtime-boundary-summary.txt
+PASS: FULLMAP-RUNTIMESAFE
+  - command: ./scripts/runtime_safety_fail_closed_ast_grep_gate.sh
+  - exit code: 0
+  - stdout: runtime safety fail-closed gate: no findings
+  - stdout: gate=runtime-safety-fail-closed
+  - stdout: phase=fail_class
+  - stdout: commit=77b91381f
+  - stdout: finding_count=0
+  - stdout: allowlisted_count=0
+  - stdout: max_allowlist_entries=5
+  - stdout: findings=/home/johannes/projects/trust-platform-portability-a4/target/gate-artifacts/runtime-safety-fail-closed-77b91381f/runtime-safety-findings.txt
+  - stdout: allowlist=/home/johannes/projects/trust-platform-portability-a4/docs/internal/architecture/runtime-safety-fail-closed-allowlist.toml
+PARTIAL: FULLMAP-RUNTIMEVM-MUT
+  - expected shards: 14
+  - present shards: 0
+  - call-root: missing target/gate-artifacts/runtime-vm-mutants/call-root/mutants.out/outcomes.json
+  - call-bindings: missing target/gate-artifacts/runtime-vm-mutants/call-bindings/mutants.out/outcomes.json
+  - call-stdlib: missing target/gate-artifacts/runtime-vm-mutants/call-stdlib/mutants.out/outcomes.json
+  - call-symbols: missing target/gate-artifacts/runtime-vm-mutants/call-symbols/mutants.out/outcomes.json
+  - register-ir-root: missing target/gate-artifacts/runtime-vm-mutants/register-ir-root/mutants.out/outcomes.json
+  - register-ir-interpreter: missing target/gate-artifacts/runtime-vm-mutants/register-ir-interpreter/mutants.out/outcomes.json
+  - register-ir-lower-root: missing target/gate-artifacts/runtime-vm-mutants/register-ir-lower-root/mutants.out/outcomes.json
+  - register-ir-lower-decode: missing target/gate-artifacts/runtime-vm-mutants/register-ir-lower-decode/mutants.out/outcomes.json
+  - register-ir-lower-fuse: missing target/gate-artifacts/runtime-vm-mutants/register-ir-lower-fuse/mutants.out/outcomes.json
+  - register-ir-lower-verify: missing target/gate-artifacts/runtime-vm-mutants/register-ir-lower-verify/mutants.out/outcomes.json
+  - register-ir-tier1-root: missing target/gate-artifacts/runtime-vm-mutants/register-ir-tier1-root/mutants.out/outcomes.json
+  - register-ir-tier1-compile: missing target/gate-artifacts/runtime-vm-mutants/register-ir-tier1-compile/mutants.out/outcomes.json
+  - register-ir-tier1-execute: missing target/gate-artifacts/runtime-vm-mutants/register-ir-tier1-execute/mutants.out/outcomes.json
+  - register-ir-tier1-state: missing target/gate-artifacts/runtime-vm-mutants/register-ir-tier1-state/mutants.out/outcomes.json
+PASS: FULLMAP-P7
+  - docs/diagrams/architecture/full-software-map-generated.puml components=120 edges=159
+[gate-progress state=finished phase=A4-architecture target=scena-rust-builder pid=2661793 elapsed=6.8s timeout=5400s command='cargo run --locked -p xtask -- architecture-doctor --full-map' status=0]

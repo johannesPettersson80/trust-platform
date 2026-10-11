@@ -13,16 +13,18 @@ members = [
     "crates/trust-ads-server",
     "crates/verification-cases",
     "crates/trust-runtime-core",
+    "crates/trust-platform-stm32f4",
     "crates/trust-runtime",
     "crates/trust-tcads-native",
     "crates/trust-wasm-analysis",
 ]
 exclude = [
     "third_party/tiverse-mmap",
+    "firmware/trust-nucleo-f401re",
 ]
 
 [workspace.package]
-version = "0.24.72"
+version = "0.24.73"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/johannesPettersson80/trust-platform"

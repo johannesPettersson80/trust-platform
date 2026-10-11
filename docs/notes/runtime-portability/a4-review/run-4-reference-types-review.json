@@ -1,0 +1,44 @@
+{
+  "verdict": "No actionable source findings in reviewed correction delta; unverified by execution",
+  "aggregate_sha256": "31e1281c11ef7e31edb54d36ff3392b0d8fd4f93cdc67ebe16cff8c48000bda9",
+  "framing": "sorted relative path/NUL/raw file bytes/NUL SHA256",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/mod.rs",
+      "sha256": "96c6ab70af082e5b651a3b1860ac70d303327762385c8dcaeb4fed0e27d13003",
+      "bytes": 7301
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/policy.rs",
+      "sha256": "4810f336ef2ce840c802ba0feb031d0eaa2e710eb6e8c68058ffadb4f9e5095d",
+      "bytes": 14509
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/readonly.rs",
+      "sha256": "7b0bc99c3d5e59e7b7a69d943bf741b055aa377e902c7436de8096144662f054",
+      "bytes": 5856
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/reference_types.rs",
+      "sha256": "e949a36f8867bbe8a8fd63e4316d0a777ebfae5526173e08b4988dd2577b05c7",
+      "bytes": 5127
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/retained_graph.rs",
+      "sha256": "d85073e33bf63da0f2fd8f8828009d5e29fda56835d67ad936ea5fafd1a16339",
+      "bytes": 16549
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_assignment.rs",
+      "sha256": "27abe3290bf16a2cb591a60354eff0902d835626f5d3e94662befe974544e3e8",
+      "bytes": 17841
+    },
+    {
+      "path": "docs/specs/12-bytecode.md",
+      "sha256": "9cfe1d940a886eab86a0d9defa2eff5920365bfd4a4e70c4b884db44132b1a44",
+      "bytes": 112710
+    }
+  ],
+  "scope": "Independent other-author reference-type correction and regressions. Earlier reviewer-authored A4 implementations excluded from independent approval.",
+  "execution": "No tests, builds, formatter, validator or mutation discovery run."
+}

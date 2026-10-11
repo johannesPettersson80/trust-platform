@@ -48,8 +48,8 @@ pub(super) fn decode_instructions(
         let pc = reader.pos();
         let opcode = reader.read_u8()?;
         if let Some(name) = unsupported_runtime_opcode_name(opcode) {
-            return Err(BytecodeError::InvalidSection(
-                format!("unsupported runtime opcode {name} (0x{opcode:02X})").into(),
+            return Err(BytecodeError::section_diagnostic(
+                SectionDiagnostic::UnsupportedOpcode { name, opcode },
             ));
         }
         let width =

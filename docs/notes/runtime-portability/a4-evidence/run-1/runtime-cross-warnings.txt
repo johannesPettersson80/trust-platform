@@ -1,0 +1,156 @@
+[gate-progress state=started phase=A4-runtime-cross-warnings target=scena-rust-builder pid=2170425 elapsed=0.0s timeout=5400s command='env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross']
+[runtime-warning-gate] Host target warning-deny check
+    Checking trust-syntax v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-syntax)
+    Checking nalgebra v0.34.2
+    Checking derive_more v2.1.1
+    Checking signal-hook-mio v0.2.5
+    Checking aes v0.8.4
+    Checking httparse v1.10.1
+    Checking zenoh-link-tcp v1.7.2
+    Checking postgres-types v0.2.14
+    Checking crossbeam v0.8.4
+    Checking event-listener v5.4.1
+    Checking webpki v0.22.4
+    Checking sha1 v0.10.6
+    Checking hmac v0.12.1
+    Checking regex v1.12.3
+    Checking rand_core v0.9.5
+    Checking http v1.4.0
+    Checking line-clipping v0.3.7
+    Checking whoami v2.1.3
+    Checking ryu-js v0.2.2
+    Checking robust v1.2.0
+    Checking matches v0.1.10
+    Checking foldhash v0.1.5
+    Checking fixedbitset v0.5.7
+    Checking clap_lex v1.1.0
+    Checking embedded-hal v1.0.0
+    Checking spin v0.5.2
+    Checking untrusted v0.7.1
+    Checking void v1.0.2
+    Checking linux-raw-sys v0.4.15
+    Checking array-init v2.1.0
+    Checking strsim v0.11.1
+    Checking embedded-hal v0.2.7
+    Checking ringbuffer-spsc v0.1.15
+    Checking ring v0.16.20
+    Checking clap_builder v4.6.0
+    Checking embedded-hal-async v1.0.0
+    Checking rustix v0.38.44
+    Checking spade v2.15.1
+    Checking hashbrown v0.15.5
+    Checking idna v0.1.5
+    Checking tokio-postgres v0.7.18
+    Checking serde_jcs v0.2.0
+    Checking ratatui-widgets v0.3.0
+    Checking git-version v0.3.9
+    Checking rand_chacha v0.9.0
+    Checking zenoh-crypto v1.7.2
+    Checking zenoh-link v1.7.2
+    Checking zenoh-sync v1.7.2
+    Checking crossterm v0.29.0
+    Checking rustls v0.23.45
+    Checking memoffset v0.9.1
+    Checking stabby v72.1.8
+    Checking embassy-time-driver v0.2.2
+    Checking lz4_flex v0.11.6
+    Checking rstar v0.12.2
+    Checking tokio-native-tls v0.3.1
+    Checking futures-lite v2.6.1
+    Checking webpki-roots v1.0.7
+    Checking num-bigint v0.4.6
+    Checking trust-hir v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-hir)
+    Checking zenoh-task v1.7.2
+    Checking glamx v0.1.3
+    Checking polling v3.11.0
+    Checking sct v0.7.1
+    Checking console v0.16.3
+    Checking ordered-float v5.3.0
+    Checking btoi v0.5.0
+    Checking memmap2 v0.9.11
+    Checking inotify-sys v0.1.5
+    Checking ena v0.14.4
+    Checking embedded-io v0.6.1
+    Checking arrayvec v0.7.6
+    Checking same-file v1.0.6
+    Checking percent-encoding v1.0.1
+    Checking vec_map v0.8.2
+    Checking iana-time-zone v0.1.65
+    Checking base64 v0.13.1
+    Checking downcast-rs v2.0.2
+    Checking saturating v0.1.0
+    Checking critical-section v1.2.0
+    Checking crc-catalog v2.5.0
+    Checking parry3d v0.26.1
+    Checking embassy-time v0.4.0
+    Checking crc v3.4.0
+    Checking mysql_common v0.37.3
+    Checking rustls-pemfile v0.2.1
+    Checking chrono v0.4.44
+    Checking url v1.7.2
+    Checking walkdir v2.5.0
+    Checking embedded-io-async v0.6.1
+    Checking open-ot-shm v0.1.0 (https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e76)
+    Checking inotify v0.11.1
+    Checking profiling v1.0.18
+    Checking enumflags2 v0.7.12
+    Checking zerocopy v0.7.35
+    Checking rustls v0.20.9
+    Checking clap v4.6.1
+    Checking async-io v2.6.0
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime-core)
+    Checking trust-ide v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-ide)
+    Checking zenoh-plugin-trait v1.7.2
+error: unused import: `InstanceId`
+ --> crates/trust-runtime-core/src/vm/dispatch_refs.rs:4:21
+  |
+4 | use crate::memory::{InstanceId, MemoryLocation};
+  |                     ^^^^^^^^^^
+  |
+  = note: `-D unused-imports` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+    Checking zenoh-transport v1.7.2
+    Checking ethercrab-wire v0.2.0
+    Checking nix v0.29.0
+    Checking ratatui-crossterm v0.1.0
+    Checking ratatui-macros v0.7.0
+    Checking rand v0.9.4
+    Checking libsqlite3-sys v0.38.2
+    Checking open-ot-definition v0.1.0 (https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e76)
+error[E0063]: missing field `parameter_values_present` in initializer of `vm::frames::VmFrame`
+  --> crates/trust-runtime-core/src/vm/call/mod.rs:47:17
+   |
+47 |     let frame = VmFrame {
+   |                 ^^^^^^^ missing `parameter_values_present`
+
+    Checking timerfd v1.6.0
+    Checking petgraph v0.8.3
+    Checking io-uring v0.7.12
+    Checking smlang v0.8.0
+    Checking ureq-proto v0.6.0
+    Checking async-native-tls v0.4.0
+   Compiling derivative v2.2.0
+    Checking tempfile v3.27.0
+    Checking rustls-pemfile v2.2.0
+    Checking pem v3.0.6
+    Checking tokio-stream v0.1.18
+    Checking asynchronous-codec v0.6.2
+    Checking socket-pktinfo v0.3.2
+error: unused variable: `declaration`
+   --> crates/trust-runtime-core/src/vm/engine/initialization/construction.rs:285:18
+    |
+285 |         for (id, declaration) in
+    |                  ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_declaration`
+    |
+    = note: `-D unused-variables` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(unused_variables)]`
+
+    Checking itertools v0.13.0
+    Checking notify-types v2.1.0
+    Checking roxmltree v0.21.1
+   Compiling atomic_enum v0.3.0
+For more information about this error, try `rustc --explain E0063`.
+error: could not compile `trust-runtime-core` (lib) due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...
+[gate-progress state=finished phase=A4-runtime-cross-warnings target=scena-rust-builder pid=2170425 elapsed=8.4s timeout=5400s command='env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross' status=101]

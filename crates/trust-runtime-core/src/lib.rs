@@ -1,13 +1,10 @@
-//! Portable runtime execution core scaffold.
+//! Portable runtime values, scheduling helpers and bytecode boundary.
 //!
-//! `trust-runtime-core` is reserved for behavior-preserving runtime execution
-//! pieces that can move out of the Linux/product host. The crate must not own
-//! host transports, web/HMI/control/cloud adapters, Linux realtime setup,
-//! product CLI wiring, test harness compilation, or external I/O drivers.
-//!
-//! The first scaffold intentionally contains only ownership markers and a
-//! minimal test. Runtime behavior stays in `trust-runtime` until the behavior
-//! locks and full-map doctor gates for the moved slice are green.
+//! The core owns shared value/numeric operations and the STBC representation,
+//! decoder, encoder, budgeted validator and disassembler. Source/HIR lowering,
+//! product transports and hardware drivers remain outside this portable boundary.
+//! The shared dispatcher executes legacy hosted STBC through a host context and
+//! source-free STBC 2.0 through artifact-backed preparation and single-owner state.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
@@ -16,6 +13,8 @@
 
 extern crate alloc;
 
+mod sort;
+
 #[cfg(all(test, not(feature = "std")))]
 extern crate std;
 
@@ -23,6 +22,8 @@ extern crate std;
 pub mod bytecode;
 /// Portable insertion-ordered collection aliases.
 pub mod collections;
+/// Shared CRC-32/ISO-HDLC wire checksum, with a compact no_std implementation.
+pub mod crc32;
 /// Portable cycle scheduling helpers.
 pub mod cycle;
 /// Portable date/time calculation helpers.
@@ -31,6 +32,10 @@ pub mod datetime;
 pub mod error;
 /// Stable machine-readable runtime error identifiers.
 pub mod error_code;
+/// Portable direct I/O address syntax.
+pub mod io_address;
+/// Shared process-image address and value codecs.
+pub mod io_image;
 /// Portable runtime memory identity types.
 pub mod memory;
 /// Portable numeric conversion helpers.
@@ -51,3 +56,6 @@ pub mod value;
 pub mod vm;
 /// Portable watchdog, retain-mode, and fault-policy model records.
 pub mod watchdog;
+
+/// Portable standard library execution.
+pub mod stdlib;

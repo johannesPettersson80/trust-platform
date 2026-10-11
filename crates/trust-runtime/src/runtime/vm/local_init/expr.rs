@@ -283,7 +283,7 @@ fn eval_vm_local_call(
 
     if let Some(entry) = ctx.runtime.stdlib().get(&key) {
         let values = if has_named {
-            bind_vm_local_stdlib_named_args(ctx, &entry.params, args)?
+            bind_vm_local_stdlib_named_args(ctx, entry.params, args)?
         } else {
             eval_vm_local_positional_args(ctx, args)?
         };
@@ -291,7 +291,7 @@ fn eval_vm_local_call(
     }
 
     if conversions::is_conversion_name(key.as_str()) {
-        let params = StdParams::Fixed(vec![SmolStr::new("IN")]);
+        let params = StdParams::Fixed(vec![SmolStr::new("IN")].into());
         let values = if has_named {
             bind_vm_local_stdlib_named_args(ctx, &params, args)?
         } else {

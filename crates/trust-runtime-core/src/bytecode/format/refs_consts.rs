@@ -49,6 +49,8 @@ pub enum RefLocation {
     Io = 3,
     /// Retained storage.
     Retain = 4,
+    /// STBC 2.0 typed staged result, accessible only by its owning initializer.
+    InitializerResult = 5,
 }
 
 impl RefLocation {
@@ -61,6 +63,7 @@ impl RefLocation {
             2 => Some(Self::Instance),
             3 => Some(Self::Io),
             4 => Some(Self::Retain),
+            5 => Some(Self::InitializerResult),
             _ => None,
         }
     }

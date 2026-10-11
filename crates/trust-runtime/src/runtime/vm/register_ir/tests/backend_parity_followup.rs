@@ -40,9 +40,17 @@ fn vmpar_stack_deadline_traps_before_forward_workload_commits() {
     let mut runtime = vmpar_seed_runtime();
     runtime.set_execution_deadline(Some(Instant::now() - Duration::from_secs(1)));
 
-    let error =
-        execute_pou_stack_with_locals(&mut runtime, &module, pou_id, None, None, false, 0, None)
-            .expect_err("expired deadline must trap stack VM before store");
+    let error = execute_pou_stack_with_locals(
+        &mut runtime,
+        &module,
+        pou_id,
+        None,
+        None,
+        false,
+        0,
+        trust_runtime_core::vm::hosted::budget::ExecutionEntry::Root,
+    )
+    .expect_err("expired deadline must trap stack VM before store");
 
     assert_deadline_exceeded(error);
     assert_eq!(runtime.storage().get_global("g0"), Some(&Value::DInt(41)));
@@ -118,7 +126,7 @@ fn vmpar_stack_register_and_tier1_paths_produce_expected_forward_value() {
         None,
         false,
         0,
-        None,
+        trust_runtime_core::vm::hosted::budget::ExecutionEntry::Root,
     )
     .expect("stack VM execution");
     assert_eq!(
@@ -176,7 +184,7 @@ fn vmpar_stack_register_and_tier1_paths_produce_expected_forward_value() {
 fn vmpar_instruction_budget_faults_at_the_same_original_instruction_boundary() {
     for (budget, expected_value) in [(3, 41), (4, 42)] {
         let (mut stack_module, pou_id) = vmpar_add_store_module();
-        stack_module.instruction_budget = budget;
+        stack_module.set_legacy_instruction_budget(budget);
         let mut stack_runtime = vmpar_seed_runtime();
         let stack_error = execute_pou_stack_with_locals(
             &mut stack_runtime,
@@ -186,7 +194,7 @@ fn vmpar_instruction_budget_faults_at_the_same_original_instruction_boundary() {
             None,
             false,
             0,
-            None,
+            trust_runtime_core::vm::hosted::budget::ExecutionEntry::Root,
         )
         .expect_err("stack path must exhaust the fixed test budget");
         assert_instruction_budget_exceeded(stack_error);
@@ -196,7 +204,7 @@ fn vmpar_instruction_budget_faults_at_the_same_original_instruction_boundary() {
         );
 
         let (mut register_module, pou_id) = vmpar_add_store_module();
-        register_module.instruction_budget = budget;
+        register_module.set_legacy_instruction_budget(budget);
         let mut register_runtime = vmpar_seed_runtime();
         let register_error =
             try_execute_pou_with_register_ir(&mut register_runtime, &register_module, pou_id, None)
@@ -219,7 +227,7 @@ fn vmpar_instruction_budget_faults_at_the_same_original_instruction_boundary() {
         tier1_runtime
             .storage_mut()
             .set_global("g0", Value::DInt(41));
-        tier1_module.instruction_budget = budget;
+        tier1_module.set_legacy_instruction_budget(budget);
         let tier1_error =
             try_execute_pou_with_register_ir(&mut tier1_runtime, &tier1_module, pou_id, None)
                 .expect_err("tier1 path must exhaust the fixed test budget");
@@ -264,11 +272,11 @@ fn vmpar_nested_function_call_shares_the_top_level_instruction_budget() {
             .expect("harness must load a VM module"),
     );
     let main_id = *module
-        .program_ids
+        .program_ids()
         .get(&SmolStr::new("MAIN"))
         .expect("main POU id");
     let add_one_id = *module
-        .function_ids
+        .function_ids()
         .get(&SmolStr::new("ADDONE"))
         .expect("AddOne POU id");
     let main_count = lower_pou_to_register_ir(module, main_id)
@@ -284,7 +292,7 @@ fn vmpar_nested_function_call_shares_the_top_level_instruction_budget() {
         .map(|block| block.bytecode_instruction_count)
         .sum::<usize>();
     assert!(main_count > 0 && callee_count > 0);
-    module.instruction_budget = main_count.max(callee_count);
+    module.set_legacy_instruction_budget(main_count.max(callee_count));
 
     let cycle = harness.cycle();
     assert!(

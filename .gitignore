@@ -3,6 +3,9 @@
 **/*.rs.bk
 **/Cargo.lock
 !/Cargo.lock
+!/firmware/trust-nucleo-f401re/Cargo.lock
+/firmware/trust-nucleo-f401re/target/
+/firmware/trust-nucleo-f401re/*.map
 /.mapping-transaction.lock
 /site/
 /.venv-docs/
@@ -167,3 +170,6 @@ docs/internal/testing/evidence/*
 !docs/internal/references/PLCopenMotion/
 conformance/reports/*
 !conformance/reports/.gitkeep
+
+# Task-owned raw validation artifacts live outside the source tree.
+/.artifacts/

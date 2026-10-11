@@ -160,13 +160,16 @@ impl<'a> BytecodeEncoder<'a> {
                 ParamDirection::Out => 1,
                 ParamDirection::InOut => 2,
             };
-            let execution_control_default =
-                (param.direction == ParamDirection::In
-                    && param.name.eq_ignore_ascii_case("EN"))
-                    || (param.direction == ParamDirection::Out
-                        && param.name.eq_ignore_ascii_case("ENO"));
+            let execution_control_default = (param.direction == ParamDirection::In
+                && param.name.eq_ignore_ascii_case("EN"))
+                || (param.direction == ParamDirection::Out
+                    && param.name.eq_ignore_ascii_case("ENO"));
             let default_const_idx = if execution_control_default {
                 Some(self.const_index_for(&crate::value::Value::Bool(true))?)
+            } else if self.authoring.is_some() {
+                // Source-free defaults are executable plans, never evaluated to
+                // capture a mutable runtime value while authoring the artifact.
+                None
             } else {
                 match (default_policy, &param.default, param.direction) {
                     (
@@ -184,9 +187,7 @@ impl<'a> BytecodeEncoder<'a> {
                             expr,
                             param.type_id,
                         )
-                        .map_err(|error| {
-                            BytecodeError::InvalidSection(error.to_string().into())
-                        })?;
+                        .map_err(|error| BytecodeError::InvalidSection(error.to_string().into()))?;
                         Some(self.const_index_for_type(&value, param.type_id)?)
                     }
                     (

@@ -1,13 +1,13 @@
 use super::*;
 
-struct NativeSymbolArgs<'a> {
+pub(super) struct NativeSymbolArgs<'a> {
     target_name: &'a str,
-    args: Vec<NativeArgShape<'a>>,
+    pub(super) args: Vec<NativeArgShape<'a>>,
 }
 
-struct NativeArgShape<'a> {
+pub(super) struct NativeArgShape<'a> {
     name: Option<&'a str>,
-    is_target: bool,
+    pub(super) is_target: bool,
 }
 
 pub(super) fn validate_param_direction_metadata(
@@ -17,8 +17,8 @@ pub(super) fn validate_param_direction_metadata(
     for param in &entry.params {
         budget.work(1)?;
         if !matches!(param.direction, 0..=2) {
-            return Err(BytecodeError::InvalidSection(
-                format!("invalid parameter direction {}", param.direction).into(),
+            return Err(BytecodeError::section_diagnostic(
+                SectionDiagnostic::ParameterDirection(param.direction),
             ));
         }
     }
@@ -27,10 +27,15 @@ pub(super) fn validate_param_direction_metadata(
 
 pub(super) fn validate_param_direction_calls(
     tables: &ValidationContext<'_>,
-    pou: &PouEntry,
+    pou: Option<&PouEntry>,
     instructions: &[Instruction],
     budget: &mut ValidationBudget,
 ) -> Result<(), BytecodeError> {
+    // Ownerless initializer bodies cannot call user POUs; visibility admission
+    // rejects those calls before this signature pass.
+    let Some(pou) = pou else {
+        return Ok(());
+    };
     for instruction in instructions {
         budget.work(1)?;
         if instruction.opcode == 0x09 {
@@ -122,8 +127,8 @@ fn validate_arg_shape_for_param(
             .get(param.name_idx as usize)
             .map(|name| name.as_str())
             .unwrap_or("<invalid>");
-        return Err(BytecodeError::InvalidSection(
-            format!("parameter '{param_name}' requires target argument").into(),
+        return Err(BytecodeError::section_diagnostic(
+            SectionDiagnostic::ParameterTarget(param_name.into()),
         ));
     }
     Ok(())
@@ -183,7 +188,11 @@ fn resolve_call_callee_pou_id(
             if let Some(id) = function_block_pou_from_var_meta(tables, pou, target_name, budget)? {
                 return Ok(Some(id));
             }
-            find_pou_id_by_name(tables, target_name, PouKind::FunctionBlock, budget)
+            if tables.initializers.is_some() {
+                Ok(None)
+            } else {
+                find_pou_id_by_name(tables, target_name, PouKind::FunctionBlock, budget)
+            }
         }
         _ => Ok(None),
     }
@@ -195,37 +204,58 @@ fn function_block_pou_from_var_meta(
     target_name: &str,
     budget: &mut ValidationBudget,
 ) -> Result<Option<u32>, BytecodeError> {
-    let Some(meta) = tables.var_meta else {
-        return Ok(None);
+    let source_type = if tables.initializers.is_some() {
+        tables.declared_call_type(pou, target_name, budget)?
+    } else {
+        None
     };
-    let Some(pou_name) = tables.strings.entries.get(pou.name_idx as usize) else {
-        return Ok(None);
-    };
-    let qualified = budget.concat(&[pou_name.as_str(), ".", target_name])?;
-    let qualified_position = tables.named_var(&qualified, budget)?;
-    let bare_position = tables.named_var(target_name, budget)?;
-    let position = match (qualified_position, bare_position) {
-        (Some(a), Some(b)) => Some(a.min(b)),
-        (a, b) => a.or(b),
-    };
-    let Some(position) = position else {
-        return Ok(None);
-    };
-    let mut type_id = meta.entries[position].type_id;
-    for _ in 0..=crate::bytecode::BYTECODE_MAX_CONST_NESTING {
-        budget.work(1)?;
-        let Some(entry) = tables.types.entries.get(type_id as usize) else {
+    let type_id = if let Some(type_id) = source_type {
+        type_id
+    } else {
+        if tables.initializers.is_some() {
+            return Ok(None);
+        }
+        let Some(meta) = tables.var_meta else {
             return Ok(None);
         };
-        match &entry.data {
-            TypeData::Pou { pou_id } if entry.kind == TypeKind::FunctionBlock => {
-                return Ok(Some(*pou_id))
+        let Some(pou_name) = tables.strings.entries.get(pou.name_idx as usize) else {
+            return Ok(None);
+        };
+        let qualified = budget.concat(&[pou_name.as_str(), ".", target_name])?;
+        let qualified_position = tables.named_var(&qualified, budget)?;
+        let bare_position = tables.named_var(target_name, budget)?;
+        let position = match (qualified_position, bare_position) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        };
+        let Some(position) = position else {
+            return Ok(None);
+        };
+        meta.entries[position].type_id
+    };
+    if tables.initializers.is_none() {
+        // Preserve the legacy opportunistic lookup's failure and tie behavior.
+        let mut ty = type_id;
+        for _ in 0..=crate::bytecode::BYTECODE_MAX_CONST_NESTING {
+            budget.work(1)?;
+            let Some(entry) = tables.types.entries.get(ty as usize) else {
+                return Ok(None);
+            };
+            match entry.data {
+                TypeData::Pou { pou_id } if entry.kind == TypeKind::FunctionBlock => {
+                    return Ok(Some(pou_id))
+                }
+                TypeData::Alias { target_type_id } => ty = target_type_id,
+                _ => return Ok(None),
             }
-            TypeData::Alias { target_type_id } => type_id = *target_type_id,
-            _ => return Ok(None),
         }
+        return Ok(None);
     }
-    Ok(None)
+    let resolved = tables.function_block_type(type_id, budget)?;
+    if source_type.is_some() && resolved.is_none() {
+        return Err(RejectionReason::SourceFreeReceiverNotFunctionBlock.into());
+    }
+    Ok(resolved)
 }
 
 fn find_pou_id_by_name(
@@ -237,7 +267,7 @@ fn find_pou_id_by_name(
     tables.named_pou(kind, target_name, budget)
 }
 
-fn parse_native_symbol_args<'a>(
+pub(super) fn parse_native_symbol_args<'a>(
     symbol: &'a str,
     budget: &mut ValidationBudget,
 ) -> Result<Option<NativeSymbolArgs<'a>>, BytecodeError> {

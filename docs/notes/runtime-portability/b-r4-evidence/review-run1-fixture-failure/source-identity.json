@@ -1,0 +1,5 @@
+{
+  "crates/trust-runtime/tests/source_free_execution_cost.rs": "d66ebe77e4f6c591ad9a6df8bbd3f37354876d3000f6f72085c9f6389b89a29f",
+  "crates/trust-syntax/src/lexer/tokens/token_kind.rs": "f009c6d4d65709417d5b45ece085904caee4c223e126c56dd395e84c430ef151",
+  "crates/trust-runtime/tests/runtime_core_compiler_free_load.rs": "d99c9a3088dd50098bb62b8042f42584597631d0a6499eb6e671c35bae3724b0"
+}

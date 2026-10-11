@@ -1,0 +1,3 @@
+B-R4 run3 all required software steps PASS, core/host/cross/audit proof reused by exact parity from run2.
+Source manifest 38d0a13dbd8186789ff7c64f955273acf863e4d60991e5fc0840b241c00cbda0
+Firmware 3ad794db9695f5106c22d1bdc0fc4901c51dfca370999bc8520adef28fae8b7c

@@ -44,3 +44,8 @@ pub struct ValidationStats {
     /// Total charged analysis work units.
     pub work: usize,
 }
+
+/// Maximum records in each STBC 2.0 construction/initializer table.
+pub const BYTECODE_MAX_CONSTRUCTION_RECORDS: usize = 65_536;
+/// Maximum logical nodes materialized by one declaration's construction recipe.
+pub const BYTECODE_MAX_CONSTRUCTION_NODES: u32 = 1_000_000;

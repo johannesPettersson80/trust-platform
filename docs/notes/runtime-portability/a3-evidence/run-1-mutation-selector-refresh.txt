@@ -1,0 +1,2 @@
+[gate-progress state=started phase=A3-mutation-selector-refresh target=scena-rust-builder pid=450380 elapsed=0.0s timeout=5400s command='python3 /home/johannes/.cache/trust-portability-a3-setup/refresh-mutation-selectors.py']
+[gate-progress state=finished phase=A3-mutation-selector-refresh target=scena-rust-builder pid=450380 elapsed=0.4s timeout=5400s command='python3 /home/johannes/.cache/trust-portability-a3-setup/refresh-mutation-selectors.py' status=0]

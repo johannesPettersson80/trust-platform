@@ -7,6 +7,17 @@ use core::fmt;
 /// Closed stable identifier vocabulary exposed at runtime boundaries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum StableErrorCode {
+    RuntimeConstantWrite,
+    RuntimeStagingViolation,
+    RuntimeVisibilityViolation,
+    RuntimeReferenceLifetime,
+    RuntimeProgramRootReplacement,
+    RuntimeInvalidAlias,
+    RuntimePreparationLimit,
+    RuntimeInvalidExecutionState,
+    RuntimeProfileUnsupported,
+    BytecodeDecodeMemoryLimit,
+    BytecodeDecodeWorkLimit,
     BytecodeInvalidMagic,
     BytecodeUnsupportedVersion,
     BytecodeInvalidHeader,
@@ -86,6 +97,17 @@ impl StableErrorCode {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::RuntimeConstantWrite => "runtime_constant_write",
+            Self::RuntimeStagingViolation => "runtime_staging_violation",
+            Self::RuntimeVisibilityViolation => "runtime_visibility_violation",
+            Self::RuntimeReferenceLifetime => "runtime_reference_lifetime",
+            Self::RuntimeProgramRootReplacement => "runtime_program_root_replacement",
+            Self::RuntimeInvalidAlias => "runtime_invalid_alias",
+            Self::RuntimePreparationLimit => "runtime_preparation_limit",
+            Self::RuntimeInvalidExecutionState => "runtime_invalid_execution_state",
+            Self::RuntimeProfileUnsupported => "runtime_profile_unsupported",
+            Self::BytecodeDecodeMemoryLimit => "bytecode_decode_memory_limit",
+            Self::BytecodeDecodeWorkLimit => "bytecode_decode_work_limit",
             Self::BytecodeInvalidMagic => "bytecode_invalid_magic",
             Self::BytecodeUnsupportedVersion => "bytecode_unsupported_version",
             Self::BytecodeInvalidHeader => "bytecode_invalid_header",
@@ -206,6 +228,17 @@ mod tests {
         use StableErrorCode::*;
 
         let codes = [
+            RuntimeConstantWrite,
+            RuntimeStagingViolation,
+            RuntimeVisibilityViolation,
+            RuntimeReferenceLifetime,
+            RuntimeProgramRootReplacement,
+            RuntimeInvalidAlias,
+            RuntimePreparationLimit,
+            RuntimeInvalidExecutionState,
+            RuntimeProfileUnsupported,
+            BytecodeDecodeMemoryLimit,
+            BytecodeDecodeWorkLimit,
             BytecodeInvalidMagic,
             BytecodeUnsupportedVersion,
             BytecodeInvalidHeader,
@@ -280,7 +313,7 @@ mod tests {
             RuntimeNonFiniteValue,
         ];
 
-        assert_eq!(codes.len(), 72);
+        assert_eq!(codes.len(), 83);
         for (index, code) in codes.iter().copied().enumerate() {
             assert!(
                 !codes[..index].contains(&code),
@@ -297,7 +330,18 @@ mod tests {
         use StableErrorCode::*;
 
         match code {
-            BytecodeInvalidMagic
+            RuntimeConstantWrite
+            | RuntimeStagingViolation
+            | RuntimeVisibilityViolation
+            | RuntimeReferenceLifetime
+            | RuntimeProgramRootReplacement
+            | RuntimeInvalidAlias
+            | RuntimePreparationLimit
+            | RuntimeInvalidExecutionState
+            | RuntimeProfileUnsupported
+            | BytecodeDecodeMemoryLimit
+            | BytecodeDecodeWorkLimit
+            | BytecodeInvalidMagic
             | BytecodeUnsupportedVersion
             | BytecodeInvalidHeader
             | BytecodeInvalidChecksum

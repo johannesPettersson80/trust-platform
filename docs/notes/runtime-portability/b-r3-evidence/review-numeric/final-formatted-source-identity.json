@@ -1,0 +1,33 @@
+{
+  "reviewer": "/root/br1_collections_sort",
+  "identity_sha256": "4a63a01a27d4fb7afc1f6e32c9854cbb3d891beb852f8c6c92bd38f5d3b9150b",
+  "coordinator_reported_whole_manifest_sha256": "6b1f6cffdcea7609337f862c97078827c54b0df8928629a83d637690a5fd19e0",
+  "format_script_sha256": "e11d350b37e641d69d89e2fad4ec588875300a410b025f072b8884a96e8eb454",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/datetime.rs",
+      "before_sha256": "3221bd85b2f41730df4878569cb549578e498cf0831fa41cb2644f209a876751",
+      "sha256": "0eb48fc36886791814cbde031e2097e5080deefccf9d6af1a6b652d4f7f052b7"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/program_model/ops/time_ops.rs",
+      "before_sha256": "7750ef96a061f1d976c51142b6bb49e7f639ddba7aa835a9cba5a42bec0c8d39",
+      "sha256": "7faba6d8b03a0e9d17a77eef02686fef2fe31b2e86c037c64c37dc9094ae960d"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/helpers.rs",
+      "before_sha256": "9c7189e81b3b6b96f355c5cf31ac7acc66f989f486b7530dfb3983c94fbd46bc",
+      "sha256": "0e402bd53173445ad35d08bea1c7cfe41f36b308af98844210f92ed0ac07f668"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/module.rs",
+      "before_sha256": "6282fad26f3a2fd539b1d6c104e82d6df26881f51bf258f5b45900a13d7fbb34",
+      "sha256": "157a5247492ceb054f0f39f5104278e7c649e315932de570e63ffb304a9ec8b5"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/validate/construction/initializers.rs",
+      "before_sha256": "8c601a07218701d2f727e9e74f95b828b2b281a3a61e1f3b11f3e3bac0de3a7b",
+      "sha256": "8c601a07218701d2f727e9e74f95b828b2b281a3a61e1f3b11f3e3bac0de3a7b"
+    }
+  ]
+}
