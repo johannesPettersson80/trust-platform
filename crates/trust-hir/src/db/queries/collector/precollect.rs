@@ -5,11 +5,11 @@ use crate::db::diagnostics::{is_expression_kind, is_pou_kind};
 impl SymbolCollector<'_> {
     pub(super) fn precollect_pous(&mut self, node: &SyntaxNode, namespace: &[SmolStr]) {
         let mut current_ns: Vec<SmolStr> = namespace.to_vec();
-        if node.kind() == SyntaxKind::Namespace {
-            if let Some((parts, _)) = qualified_name_parts(node) {
-                for (name, _) in parts {
-                    current_ns.push(name);
-                }
+        if node.kind() == SyntaxKind::Namespace
+            && let Some((parts, _)) = qualified_name_parts(node)
+        {
+            for (name, _) in parts {
+                current_ns.push(name);
             }
         }
 
@@ -46,11 +46,11 @@ impl SymbolCollector<'_> {
 
     pub(super) fn precollect_types(&mut self, node: &SyntaxNode, namespace: &[SmolStr]) {
         let mut current_ns: Vec<SmolStr> = namespace.to_vec();
-        if node.kind() == SyntaxKind::Namespace {
-            if let Some((parts, _)) = qualified_name_parts(node) {
-                for (name, _) in parts {
-                    current_ns.push(name);
-                }
+        if node.kind() == SyntaxKind::Namespace
+            && let Some((parts, _)) = qualified_name_parts(node)
+        {
+            for (name, _) in parts {
+                current_ns.push(name);
             }
         }
 

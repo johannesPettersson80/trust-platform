@@ -1,5 +1,4 @@
 impl DebugAdapter {
-
     /// Run a blocking stdio loop that processes DAP requests.
     pub fn run_stdio(&mut self) -> io::Result<()> {
         let stdin = io::stdin();
@@ -93,10 +92,10 @@ impl DebugAdapter {
                 append_ads_live_values(&mut body, ads_values);
                 let mut should_emit = true;
                 if let Ok(mut cache) = io_state_cache.lock() {
-                    if let Some(previous) = cache.as_ref() {
-                        if previous == &body {
-                            should_emit = false;
-                        }
+                    if let Some(previous) = cache.as_ref()
+                        && previous == &body
+                    {
+                        should_emit = false;
                     }
                     if should_emit {
                         *cache = Some(body.clone());
@@ -296,5 +295,4 @@ impl DebugAdapter {
         let _ = stop_thread.join();
         Ok(())
     }
-
 }

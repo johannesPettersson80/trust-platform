@@ -80,21 +80,21 @@ pub(in crate::db) fn check_class_semantics(
             );
         }
 
-        if let Some(base_id) = resolve_extends_symbol(symbols, class_id) {
-            if let Some(base_symbol) = symbols.get(base_id) {
-                if !matches!(base_symbol.kind, SymbolKind::Class) {
-                    diagnostics.error(
-                        DiagnosticCode::InvalidOperation,
-                        extends_range,
-                        "CLASS can only EXTENDS another CLASS",
-                    );
-                } else if base_symbol.modifiers.is_final {
-                    diagnostics.error(
-                        DiagnosticCode::InvalidOperation,
-                        extends_range,
-                        format!("cannot extend FINAL class '{}'", base_symbol.name),
-                    );
-                }
+        if let Some(base_id) = resolve_extends_symbol(symbols, class_id)
+            && let Some(base_symbol) = symbols.get(base_id)
+        {
+            if !matches!(base_symbol.kind, SymbolKind::Class) {
+                diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    extends_range,
+                    "CLASS can only EXTENDS another CLASS",
+                );
+            } else if base_symbol.modifiers.is_final {
+                diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    extends_range,
+                    format!("cannot extend FINAL class '{}'", base_symbol.name),
+                );
             }
         }
 
@@ -222,16 +222,14 @@ pub(in crate::db) fn check_extends_implements_semantics(
                 };
                 if let SemanticOutcome::Resolved(base_id) =
                     resolve_extends_symbol_outcome(symbols, interface_id, Some(extends_range))
+                    && let Some(base_symbol) = symbols.get(base_id)
+                    && !matches!(base_symbol.kind, SymbolKind::Interface)
                 {
-                    if let Some(base_symbol) = symbols.get(base_id) {
-                        if !matches!(base_symbol.kind, SymbolKind::Interface) {
-                            diagnostics.error(
-                                DiagnosticCode::InvalidOperation,
-                                extends_range,
-                                "INTERFACE can only EXTENDS another INTERFACE",
-                            );
-                        }
-                    }
+                    diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        extends_range,
+                        "INTERFACE can only EXTENDS another INTERFACE",
+                    );
                 }
                 if interface_inheritance_cycle(symbols, interface_id) {
                     diagnostics.error(
@@ -257,32 +255,32 @@ pub(in crate::db) fn check_extends_implements_semantics(
                 let Some(fb_id) = find_symbol_by_name_range(symbols, name.as_str(), range) else {
                     continue;
                 };
-                if let Some(base_id) = resolve_extends_symbol(symbols, fb_id) {
-                    if let Some(base_symbol) = symbols.get(base_id) {
-                        if matches!(base_symbol.kind, SymbolKind::Interface) {
-                            diagnostics.error(
-                                DiagnosticCode::InvalidOperation,
-                                extends_range,
-                                "FUNCTION_BLOCK cannot EXTENDS an INTERFACE",
-                            );
-                        } else if !matches!(
-                            base_symbol.kind,
-                            SymbolKind::FunctionBlock | SymbolKind::Class
-                        ) {
-                            diagnostics.error(
-                                DiagnosticCode::InvalidOperation,
-                                extends_range,
-                                "FUNCTION_BLOCK EXTENDS must reference a FUNCTION_BLOCK or CLASS",
-                            );
-                        } else if matches!(base_symbol.kind, SymbolKind::Class)
-                            && base_symbol.modifiers.is_final
-                        {
-                            diagnostics.error(
-                                DiagnosticCode::InvalidOperation,
-                                extends_range,
-                                format!("cannot extend FINAL class '{}'", base_symbol.name),
-                            );
-                        }
+                if let Some(base_id) = resolve_extends_symbol(symbols, fb_id)
+                    && let Some(base_symbol) = symbols.get(base_id)
+                {
+                    if matches!(base_symbol.kind, SymbolKind::Interface) {
+                        diagnostics.error(
+                            DiagnosticCode::InvalidOperation,
+                            extends_range,
+                            "FUNCTION_BLOCK cannot EXTENDS an INTERFACE",
+                        );
+                    } else if !matches!(
+                        base_symbol.kind,
+                        SymbolKind::FunctionBlock | SymbolKind::Class
+                    ) {
+                        diagnostics.error(
+                            DiagnosticCode::InvalidOperation,
+                            extends_range,
+                            "FUNCTION_BLOCK EXTENDS must reference a FUNCTION_BLOCK or CLASS",
+                        );
+                    } else if matches!(base_symbol.kind, SymbolKind::Class)
+                        && base_symbol.modifiers.is_final
+                    {
+                        diagnostics.error(
+                            DiagnosticCode::InvalidOperation,
+                            extends_range,
+                            format!("cannot extend FINAL class '{}'", base_symbol.name),
+                        );
                     }
                 }
                 if function_block_inheritance_cycle(symbols, fb_id) {

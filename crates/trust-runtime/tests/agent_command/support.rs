@@ -75,7 +75,10 @@ fn trust_dev_command() -> Command {
 }
 
 fn trust_runtime_command_with_dev_alias() -> Command {
-    let mut command = Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect("Cargo must provide trust-runtime binary while executing integration tests"));
+    let mut command = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    );
     command.env("TRUST_DEV_BIN", trust_dev_bin());
     command
 }
@@ -197,10 +200,10 @@ fn control_request(
 fn control_ready(endpoint: &str, token: &str, timeout: Duration) -> bool {
     let deadline = std::time::Instant::now() + timeout;
     while std::time::Instant::now() < deadline {
-        if let Ok(response) = try_control_request(endpoint, token, "status", None) {
-            if response["ok"] == json!(true) {
-                return true;
-            }
+        if let Ok(response) = try_control_request(endpoint, token, "status", None)
+            && response["ok"] == json!(true)
+        {
+            return true;
         }
         thread::sleep(Duration::from_millis(25));
     }
@@ -212,7 +215,10 @@ fn spawn_runtime_with_retry(project: &Path, token: &str) -> (std::process::Child
         let port = allocate_loopback_port();
         patch_control_endpoint(project, port);
         let endpoint = format!("127.0.0.1:{port}");
-        let mut runtime = Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect("Cargo must provide trust-runtime binary while executing integration tests"))
+        let mut runtime =
+            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
+                "Cargo must provide trust-runtime binary while executing integration tests",
+            ))
             .args(["run", "--project"])
             .arg(project)
             .stdout(Stdio::null())

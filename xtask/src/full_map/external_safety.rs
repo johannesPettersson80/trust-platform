@@ -122,17 +122,16 @@ fn normalize(rule: &str, raw: RawMatch) -> Result<Match> {
 
 fn scanner() -> Result<String> {
     for tool in ["ast-grep", "sg"] {
-        if let Ok(output) = Command::new(tool).arg("--version").output() {
-            if output.status.success()
-                && String::from_utf8_lossy(&output.stdout)
-                    .to_ascii_lowercase()
-                    .contains("ast-grep")
-            {
-                return Ok(std::env::var("AST_GREP_BIN").unwrap_or_else(|_| tool.to_owned()));
-            }
+        if let Ok(output) = Command::new(tool).arg("--version").output()
+            && output.status.success()
+            && String::from_utf8_lossy(&output.stdout)
+                .to_ascii_lowercase()
+                .contains("ast-grep")
+        {
+            return Ok(std::env::var("AST_GREP_BIN").unwrap_or_else(|_| tool.to_owned()));
         }
     }
-    bail!("ast-grep is required; install ast-grep 0.42.1")
+    bail!("ast-grep is required; install ast-grep 0.50.0")
 }
 
 // ast-grep uses exit 1 for a normal empty match set. It is not an error exemption:

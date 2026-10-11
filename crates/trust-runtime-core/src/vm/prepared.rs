@@ -245,12 +245,12 @@ impl PreparedModule {
         if let Some(SectionData::PouIndex(index)) = token.section(SectionId::PouIndex) {
             for entry in &index.entries {
                 preparation.charge(0, 1)?;
-                if entry.kind == crate::bytecode::PouKind::Method {
-                    if let Some(owner) = entry.owner_pou_id {
-                        preparation
-                            .charge(0, 12 * (method_owners.len().max(1).ilog2() as usize + 1))?;
-                        method_owners.insert(entry.id, owner);
-                    }
+                if entry.kind == crate::bytecode::PouKind::Method
+                    && let Some(owner) = entry.owner_pou_id
+                {
+                    preparation
+                        .charge(0, 12 * (method_owners.len().max(1).ilog2() as usize + 1))?;
+                    method_owners.insert(entry.id, owner);
                 }
             }
         }

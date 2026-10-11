@@ -9,7 +9,8 @@ use std::time::{Duration as StdDuration, Instant};
 use ethercrab::std::{ethercat_now, tx_rx_task};
 #[cfg(all(feature = "ethercat-wire", unix))]
 use ethercrab::{
-    subdevice_group::Op, MainDevice, MainDeviceConfig, PduStorage, SubDeviceGroup, Timeouts,
+    subdevice_group::Op, DefaultLock, MainDevice, MainDeviceConfig, PduStorage, SubDeviceGroup,
+    Timeouts,
 };
 use serde::Deserialize;
 use smol_str::SmolStr;

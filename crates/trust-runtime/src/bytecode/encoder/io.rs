@@ -85,11 +85,9 @@ impl<'a> BytecodeEncoder<'a> {
                     prim_id: 24,
                     max_length,
                 } = entry.data
+                    && max_length != 0
                 {
-                    if max_length != 0 {
-                        bounded_strings
-                            .insert(u32::from(max_length), to_u32(index, "I/O type index")?);
-                    }
+                    bounded_strings.insert(u32::from(max_length), to_u32(index, "I/O type index")?);
                 }
             }
         }
@@ -211,13 +209,13 @@ impl<'a> BytecodeEncoder<'a> {
     pub(super) fn build_retain_init(&self, meta: &VarMeta) -> Result<RetainInit, BytecodeError> {
         let mut entries = Vec::new();
         for entry in &meta.entries {
-            if matches!(entry.retain, 1 | 3) {
-                if let Some(const_idx) = entry.init_const_idx {
-                    entries.push(RetainInitEntry {
-                        ref_idx: entry.ref_idx,
-                        const_idx,
-                    });
-                }
+            if matches!(entry.retain, 1 | 3)
+                && let Some(const_idx) = entry.init_const_idx
+            {
+                entries.push(RetainInitEntry {
+                    ref_idx: entry.ref_idx,
+                    const_idx,
+                });
             }
         }
         Ok(RetainInit { entries })

@@ -116,30 +116,30 @@ pub(crate) fn runtime_cloud_config_write_desired(
         });
     }
 
-    if let Some(expected_revision) = expected_revision {
-        if expected_revision != state.meta.desired_revision {
-            let message = format!(
-                "expected_revision {} does not match current desired_revision {}",
-                expected_revision, state.meta.desired_revision
-            );
-            runtime_cloud_config_mark_revision_conflict(state, message.clone());
-            return Err(RuntimeCloudConfigWriteError {
-                code: ReasonCode::RevisionConflict,
-                message,
-                snapshot: Box::new(state.clone()),
-            });
-        }
+    if let Some(expected_revision) = expected_revision
+        && expected_revision != state.meta.desired_revision
+    {
+        let message = format!(
+            "expected_revision {} does not match current desired_revision {}",
+            expected_revision, state.meta.desired_revision
+        );
+        runtime_cloud_config_mark_revision_conflict(state, message.clone());
+        return Err(RuntimeCloudConfigWriteError {
+            code: ReasonCode::RevisionConflict,
+            message,
+            snapshot: Box::new(state.clone()),
+        });
     }
-    if let Some(expected_etag) = expected_etag {
-        if expected_etag != state.meta.desired_etag {
-            let message = "expected_etag does not match current desired_etag".to_string();
-            runtime_cloud_config_mark_revision_conflict(state, message.clone());
-            return Err(RuntimeCloudConfigWriteError {
-                code: ReasonCode::RevisionConflict,
-                message,
-                snapshot: Box::new(state.clone()),
-            });
-        }
+    if let Some(expected_etag) = expected_etag
+        && expected_etag != state.meta.desired_etag
+    {
+        let message = "expected_etag does not match current desired_etag".to_string();
+        runtime_cloud_config_mark_revision_conflict(state, message.clone());
+        return Err(RuntimeCloudConfigWriteError {
+            code: ReasonCode::RevisionConflict,
+            message,
+            snapshot: Box::new(state.clone()),
+        });
     }
 
     runtime_cloud_merge_json(&mut state.desired, desired);
@@ -249,7 +249,7 @@ pub(crate) fn runtime_cloud_merge_json(target: &mut Value, patch: &Value) {
 pub(crate) fn runtime_cloud_hash_json(value: &Value) -> String {
     let payload = serde_json::to_vec(value).unwrap_or_else(|_| b"{}".to_vec());
     let digest = Sha256::digest(payload);
-    format!("sha256:{digest:x}")
+    format!("sha256:{}", hex::encode(digest))
 }
 
 pub(crate) fn runtime_cloud_config_error_semantics(

@@ -160,7 +160,7 @@ fn production_readiness_report(
 pub fn sha256_evidence_hash(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
-    format!("sha256:{:x}", hasher.finalize())
+    format!("sha256:{}", hex::encode(hasher.finalize()))
 }
 
 fn hash_json<T: Serialize + ?Sized>(value: &T) -> Result<String, ProductionEvidenceError> {
@@ -179,5 +179,5 @@ fn hash_symbol_snapshots(snapshots: &[SymbolSnapshot]) -> Result<String, Product
             .map_err(ProductionEvidenceError::Serialize)?;
         hasher.update(json.as_bytes());
     }
-    Ok(format!("sha256:{:x}", hasher.finalize()))
+    Ok(format!("sha256:{}", hex::encode(hasher.finalize())))
 }

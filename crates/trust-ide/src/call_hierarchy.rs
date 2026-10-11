@@ -298,27 +298,27 @@ fn collect_call_edges_in_files(
             );
 
             let mut callee_key = None;
-            if let Some(crate::util::ResolvedTarget::Symbol(symbol_id)) = target {
-                if let Some(symbol) = symbols.get(symbol_id) {
-                    if is_pou_symbol_kind(&symbol.kind) {
-                        callee_key = symbol_key(&symbols, symbol_id, file_id);
-                    } else {
-                        // FB-instance call (`var(...)` where `var : SomeFB`).
-                        // The call expression resolves to a Variable, not a
-                        // callable — but the call target is the underlying
-                        // FB/Class/Interface type. This is the dominant
-                        // invocation pattern in IEC 61131-3.
-                        callee_key = fb_callee_for_instance_variable(&symbols, symbol, file_id);
-                    }
+            if let Some(crate::util::ResolvedTarget::Symbol(symbol_id)) = target
+                && let Some(symbol) = symbols.get(symbol_id)
+            {
+                if is_pou_symbol_kind(&symbol.kind) {
+                    callee_key = symbol_key(&symbols, symbol_id, file_id);
+                } else {
+                    // FB-instance call (`var(...)` where `var : SomeFB`).
+                    // The call expression resolves to a Variable, not a
+                    // callable — but the call target is the underlying
+                    // FB/Class/Interface type. This is the dominant
+                    // invocation pattern in IEC 61131-3.
+                    callee_key = fb_callee_for_instance_variable(&symbols, symbol, file_id);
                 }
             }
 
-            if callee_key.is_none() {
-                if let Some(name) = callee_name_from_call_expr(&call_expr) {
-                    let key = SmolStr::new(name.to_ascii_uppercase());
-                    if let Some(Some(unique_key)) = unique_pou.get(&key) {
-                        callee_key = Some(*unique_key);
-                    }
+            if callee_key.is_none()
+                && let Some(name) = callee_name_from_call_expr(&call_expr)
+            {
+                let key = SmolStr::new(name.to_ascii_uppercase());
+                if let Some(Some(unique_key)) = unique_pou.get(&key) {
+                    callee_key = Some(*unique_key);
                 }
             }
 

@@ -102,10 +102,10 @@ pub fn scope_for_pou(symbols: &SymbolTable, pou_node: &SyntaxNode) -> ScopeId {
     // Find the scope owned by this symbol
     for i in 0..symbols.scope_count() {
         let scope_id = ScopeId(i as u32);
-        if let Some(scope) = symbols.get_scope(scope_id) {
-            if scope.owner == Some(pou_sym.id) {
-                return scope_id;
-            }
+        if let Some(scope) = symbols.get_scope(scope_id)
+            && scope.owner == Some(pou_sym.id)
+        {
+            return scope_id;
         }
     }
 

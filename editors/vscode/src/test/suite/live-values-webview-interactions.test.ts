@@ -1,5 +1,4 @@
 import * as assert from "assert";
-import { execFileSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -170,17 +169,18 @@ function renderedColumnPositions(): Record<string, number[]> {
     </body></html>`;
   fs.writeFileSync(htmlPath, html, "utf8");
   try {
-    const output = execFileSync(
-      browser,
+    const { runBrowser } = require(path.join(extensionRoot(), "scripts/browser-command.js"));
+    const output = runBrowser(
+      "render", browser,
       [
         "--headless=new",
         "--no-sandbox",
         "--disable-gpu",
+        `--user-data-dir=${path.join(temp, "chrome-profile")}`,
         "--run-all-compositor-stages-before-draw",
         "--dump-dom",
         htmlPath,
       ],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
     );
     const rendered = new JSDOM(output, {
       runScripts: "outside-only",

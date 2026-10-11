@@ -232,15 +232,16 @@ fn apply_request_with_project_root(
         | CommApplyAction::Upsert => match build_driver_config(driver, &request.params) {
             Ok(driver_config) => {
                 field_errors.extend(validate_driver_config(&protocol, &driver_config));
-                if field_errors.is_empty() && request.action != CommApplyAction::Validate {
-                    if let Err(error) = upsert_instance(
+                if field_errors.is_empty()
+                    && request.action != CommApplyAction::Validate
+                    && let Err(error) = upsert_instance(
                         &mut loaded.drivers,
                         driver_config,
                         protocol.as_str(),
                         &request,
-                    ) {
-                        field_errors.push(error);
-                    }
+                    )
+                {
+                    field_errors.push(error);
                 }
             }
             Err(errors) => field_errors.extend(errors),

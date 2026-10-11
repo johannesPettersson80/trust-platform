@@ -487,20 +487,19 @@ pub(super) fn handle_aux_route(
 }
 
 fn io_probe_legacy_body(protocol: &str, mut payload: serde_json::Value) -> (u16, String) {
-    if protocol == "modbus_tcp" {
-        if let Some(address) = payload
+    if protocol == "modbus_tcp"
+        && let Some(address) = payload
             .get("address")
             .and_then(serde_json::Value::as_str)
             .map(str::trim)
             .filter(|address| !address.is_empty() && !address.contains(':'))
             .map(ToOwned::to_owned)
-        {
-            let port = payload
-                .get("port")
-                .and_then(serde_json::Value::as_u64)
-                .unwrap_or(502);
-            payload["address"] = json!(format!("{address}:{port}"));
-        }
+    {
+        let port = payload
+            .get("port")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(502);
+        payload["address"] = json!(format!("{address}:{port}"));
     }
 
     let probe = crate::control::communication_probe_value_port(protocol, payload);

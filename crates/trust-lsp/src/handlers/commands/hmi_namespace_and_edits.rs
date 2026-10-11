@@ -23,22 +23,20 @@ fn namespace_move_workspace_edit_with_context<C: ServerContext>(
 
     let relocating = uri != &target_uri;
     let mut updated_namespace_text = namespace_text;
-    if relocating {
-        if let Some(source_edits) = rename_result.edits.remove(&doc.file_id) {
-            let (inside, outside): (Vec<IdeTextEdit>, Vec<IdeTextEdit>) = source_edits
+    if relocating && let Some(source_edits) = rename_result.edits.remove(&doc.file_id) {
+        let (inside, outside): (Vec<IdeTextEdit>, Vec<IdeTextEdit>) = source_edits
+            .into_iter()
+            .partition(|edit| ranges_overlap(edit.range, namespace_range));
+        if !inside.is_empty() {
+            let base = namespace_range.start();
+            let adjusted = inside
                 .into_iter()
-                .partition(|edit| ranges_overlap(edit.range, namespace_range));
-            if !inside.is_empty() {
-                let base = namespace_range.start();
-                let adjusted = inside
-                    .into_iter()
-                    .filter_map(|edit| shift_edit_range(edit, base))
-                    .collect::<Vec<_>>();
-                updated_namespace_text = apply_text_edits(&updated_namespace_text, &adjusted);
-            }
-            if !outside.is_empty() {
-                rename_result.edits.insert(doc.file_id, outside);
-            }
+                .filter_map(|edit| shift_edit_range(edit, base))
+                .collect::<Vec<_>>();
+            updated_namespace_text = apply_text_edits(&updated_namespace_text, &adjusted);
+        }
+        if !outside.is_empty() {
+            rename_result.edits.insert(doc.file_id, outside);
         }
     }
 
@@ -292,4 +290,3 @@ fn line_end_offset(source: &str, offset: usize) -> usize {
         None => source.len(),
     }
 }
-

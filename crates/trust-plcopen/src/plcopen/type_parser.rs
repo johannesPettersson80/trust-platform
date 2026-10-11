@@ -107,15 +107,15 @@ fn format_data_type_declaration(name: &str, type_expr: &str) -> String {
 }
 
 fn parse_data_type_expression(data_type: roxmltree::Node<'_, '_>) -> Option<String> {
-    if let Some(base_type) = first_child_element_ci(data_type, "baseType") {
-        if let Some(expr) = parse_type_expression_container(base_type) {
-            return Some(expr);
-        }
+    if let Some(base_type) = first_child_element_ci(data_type, "baseType")
+        && let Some(expr) = parse_type_expression_container(base_type)
+    {
+        return Some(expr);
     }
-    if let Some(type_node) = first_child_element_ci(data_type, "type") {
-        if let Some(expr) = parse_type_expression_container(type_node) {
-            return Some(expr);
-        }
+    if let Some(type_node) = first_child_element_ci(data_type, "type")
+        && let Some(expr) = parse_type_expression_container(type_node)
+    {
+        return Some(expr);
     }
     parse_type_expression_container(data_type)
 }
@@ -202,9 +202,7 @@ fn parse_struct_type_expression(struct_node: roxmltree::Node<'_, '_>) -> Option<
             })
             .map(|raw| raw.trim().to_string())
             .filter(|value| !value.is_empty())?;
-        if !is_valid_st_identifier(&name)
-            || !seen_names.insert(name.to_ascii_lowercase())
-        {
+        if !is_valid_st_identifier(&name) || !seen_names.insert(name.to_ascii_lowercase()) {
             return None;
         }
         let var_type = first_child_element_ci(variable, "type")
@@ -246,9 +244,7 @@ fn parse_enum_type_expression(enum_node: roxmltree::Node<'_, '_>) -> Option<Stri
             .or_else(|| extract_text_content(value))
             .map(|raw| raw.trim().to_string())
             .filter(|raw| !raw.is_empty())?;
-        if !is_valid_st_identifier(&name)
-            || !seen_names.insert(name.to_ascii_lowercase())
-        {
+        if !is_valid_st_identifier(&name) || !seen_names.insert(name.to_ascii_lowercase()) {
             return None;
         }
         if let Some(raw_value) = attribute_ci(value, "value")

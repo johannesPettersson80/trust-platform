@@ -14,6 +14,8 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
+npm --prefix "${ROOT_DIR}/crates/trust-runtime/web/ide-frontend" ci
+
 if [[ -f "${LEGACY_TEST_FILE}" ]]; then
   node --test "${LEGACY_TEST_FILE}"
 else

@@ -101,17 +101,17 @@ pub(crate) fn configuration_issues(contents: &str) -> Vec<ConfigurationIssue> {
         ));
     }
 
-    if let Some(visibility) = &parsed.workspace.visibility {
-        if !matches!(
+    if let Some(visibility) = &parsed.workspace.visibility
+        && !matches!(
             visibility.trim().to_ascii_lowercase().as_str(),
             "public" | "private" | "hidden"
-        ) {
-            issues.push(issue(
-                "C004",
-                visibility,
-                format!("unknown workspace.visibility '{visibility}'; using 'public'"),
-            ));
-        }
+        )
+    {
+        issues.push(issue(
+            "C004",
+            visibility,
+            format!("unknown workspace.visibility '{visibility}'; using 'public'"),
+        ));
     }
 
     for (code, severity) in &parsed.diagnostics.severity_overrides {

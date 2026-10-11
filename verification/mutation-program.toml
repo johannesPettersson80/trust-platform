@@ -30,7 +30,7 @@ legacy_report_path = "docs/internal/testing/evidence/plc-verification-program/20
 [[shards.mutations]]
 id = "MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS"
 source_file = "crates/trust-runtime-core/src/bytecode/validate/pou_and_instr.rs"
-source_digest = "sha256:e1a58ec33b1090997d8fee216145b4c58ef5602e5bb41f199b7556def0a9aa9e"
+source_digest = "sha256:5a04d57321e0f9b3f2068d67f3c717195cf6cf90ff9e9b147d895400627694ad"
 function = "validate_pou_index"
 genre = "FnValue"
 replacement = "Ok(())"
@@ -47,7 +47,7 @@ association_ids = [
 [[shards.mutations]]
 id = "MUTANT_VALIDATE_STACK_SHAPE_BYPASS"
 source_file = "crates/trust-runtime-core/src/bytecode/validate/stack_shape.rs"
-source_digest = "sha256:a16b0608465c1729847bfa69428530c039dd32903c01cdb246fc5a1b6efa3a4e"
+source_digest = "sha256:375e86eee3913dbb28454434788be2a6d949de55e2b9ef6c037832d404d31021"
 function = "validate_stack_shape"
 genre = "FnValue"
 replacement = "Ok(())"
@@ -110,7 +110,7 @@ result_artifact_path = "docs/internal/testing/evidence/2026-10-09/runtime-portab
 [[shards.mutations]]
 id = "MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON"
 source_file = "crates/trust-runtime-core/src/stdlib/conversions/dispatch.rs"
-source_digest = "sha256:5fe17b20259394915f5f2e8411d47001f41dba6db357d1ecf803e4e00ce1baf7"
+source_digest = "sha256:da00856990c2148a60af0a975ba962f6970f5ed29ab384d24f72629d2349c160"
 function = "convert_value"
 genre = "BinaryOperator"
 replacement = "!="
@@ -141,11 +141,11 @@ result_artifact_path = "docs/internal/testing/evidence/2026-10-09/runtime-portab
 [[shards.mutations]]
 id = "MUTANT_HIR_SUBRANGE_DIAGNOSTIC_NOOP"
 source_file = "crates/trust-hir/src/type_check/stmt_impl_part_04.rs"
-source_digest = "sha256:0313775d95f8453d465b488e1a02739d305a6175305902a99ec4d1cfa824d719"
+source_digest = "sha256:c56121bbc5eb7e5184bdcba74bf771a2810f89cdc3881e9fd08c43bf91f22f06"
 function = "StmtChecker<'a, 'b>::check_subrange_assignment"
 genre = "FnValue"
 replacement = "()"
-selector_name = "stmt_impl_part_04.rs:245:9: replace StmtChecker<'a, 'b>::check_subrange_assignment with ()"
+selector_name = "stmt_impl_part_04.rs:240:9: replace StmtChecker<'a, 'b>::check_subrange_assignment with ()"
 build_command = ["cargo", "test", "-p", "trust-hir", "--test", "semantic_type_checking", "--no-run"]
 test_command = ["cargo", "test", "-p", "trust-hir", "--test", "semantic_type_checking", "basics_and_warnings::test_subrange_assignment_out_of_range", "--", "--exact"]
 association_ids = ["DISC_44D2AECEE13EB41E3AA0"]

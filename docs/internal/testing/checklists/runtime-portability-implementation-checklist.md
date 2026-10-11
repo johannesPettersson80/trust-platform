@@ -7,12 +7,107 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
-A1 integration update (10 October): PR #130 merged through the guarded merge at
+**U checkpoint `19f3b6787` is scope-verified; PR #133 is held on a retry-rescued macOS native assertion.**
+Candidate `63cab14e3` passed its exact-SHA guard (8,719 native passes,
+24 ignored; 519 default editor passes), all 17 supplement stages and the corrected
+real-database boundary. Independent root reviews reconcile those receipts.
+Every fifth-wave GitHub job completed: 23 passed and three expected skips. The
+macOS native suite failed its first attempt on OpenOT scan timing (775,524,504 ns
+per disabled scan versus 1,441,218,600 ns per enabled scan), then passed a full
+retry. That real failure remains retained and prevents merge readiness. New bot
+reviews were refused for quota; current-head independent review is separate.
+The reviewed database corrections are verified. Independent review accepted the
+timing fixture correction; focused run 2 passed all ten steps, including the real
+native timing assertion (ratio 0.995), Clippy and complete source identities.
+Focused run 1's compile/import failures remain retained; no behavior assertion
+executed in that run. Fresh macOS proof remains required. It isolates the same real ST/SQLite workload in a
+native binary, pairs scans in alternating order and retains the existing limit.
+No runtime production logic, feature set or overflow policy changes. A fresh exact-SHA guard and deduplicated supplement precede another push. No merge or release is claimed.
+Historical source-identity corrections and their receipts follow.
+
+Candidate `a5b61b633` passed its exact-SHA guard (8,713 native passes, 24 ignored;
+519 default editor passes) and all 16 successor supplement stages. Locked-browser
+stable/minimum SDK suites each passed 519 tests; strict isolated documentation and
+external source checking passed. Independent source/software reconciliation
+accepted the complete receipts. All five third-wave GitHub workflows succeeded;
+Linux/macOS/Windows passed 8,712/8,705/8,563 native tests, with zero failures and
+first-attempt build/test success. Both automatic reviews completed; security found
+no issue, while code review added P2 comment 4241745208: a byte-only source identity
+misses executable-bit changes. The owning Rust correction now records file kinds,
+link targets and actual Unix executable bits, with missing-mode absence explicit
+on other hosts. Native permission, kind, link and byte-only-snapshot regressions
+are authored but unrun. Complete logs/reviews remain external; independent review,
+one preparation and a clean successor exact-SHA guard precede another push.
+No merge or release is claimed. The preceding correction history follows.
+
+Independent review accepted the complete mode/type contract, including refusal
+of symlink instruction roots and ancestors. Preparation passed 5/5. Final eight-
+path identity `a3e837ee…` was reconciled against the accepted source archive;
+only Rust wrapping and the expected SVG/manifest changed. The final diagram was
+viewed directly. This paragraph and the matching execution status follow that
+prepared identity. Next: clean successor commit, exact-SHA guard and fresh
+16-stage supplement; the three new native regressions remain unrun.
+
+Candidate `0f066c9fb` passed its exact-SHA guard (8,710 native passes, 24 ignored;
+519 default editor passes) and all 13 correction supplement stages. Full locked
+browser stable/minimum SDK suites each passed 519 tests. All five GitHub workflows
+in the complete second wave succeeded; native Linux/macOS/Windows passed
+8,709/8,702/8,561 tests with no failed tests, and all three native jobs and the
+editor job passed on their first attempts. Completed current-head automatic
+code/security review found one new P2: a source-freeze manifest inside the
+checkout inventories itself after creation. Its owning Rust correction now
+requires external manifests and refuses replacement, without adding a source
+exemption. Native round-trip, refusal and alias cases are authored but unrun.
+Independent correction review, final preparation, a clean successor commit and
+exact-SHA guard precede another push. No merge or release is claimed.
+Independent source review accepted the complete correction and command wiring.
+Preparation passed 5/5; visual review found and fixed only overlapping diagram
+labels, with its render/drift suffix passing 4/4. Final eight-path prepared identity
+`a22dff53…` was independently reconciled, including direct image inspection.
+Only this status update and the execution-note closeout follow that identity.
+Next is the clean successor commit and exact-SHA guard; new native cases remain
+unrun, and prior CI cannot certify the successor.
+
+The earlier d823 firmware tuple and physical replay remain qualified by identical
+core, adapter, firmware, compiler, Cargo and saved-artifact bytes; this tooling
+correction is not new hardware execution. All original preparation, guard, first
+CI failure, SDK sync and corrective validation receipts remain externally retained.
+The owner explicitly authorized necessary fixes and retests without another
+permission question; required checks, functions and hardware margins stay intact.
+U is isolated on `feat/runtime-portability-modernization`; all seven U acceptance
+items are checked after independent review and passing software/F401 evidence.
+[U execution](../../../notes/runtime-portability/u-execution.md) and
+[dependency decisions](../../../notes/runtime-portability/u-dependency-decisions.md)
+own its source identities and retained failure history. On 11 October the owner
+requested verification of earlier releases and delegated U commit, release-guard,
+push/PR, guarded merge and publication to a subagent. This authorization does not
+claim a passing exact-SHA guard or authorize bypassing one.
+
+Live verification confirms A1/#130, A2/#131 and A3/A4/B/#132 merged; v0.24.73 is
+GitHub Latest with its Release workflow successful and all five Marketplace
+targets at 0.24.73. U is the next unpublished portability scope. Its current
+source is committed as the immutable local checkpoint `19f3b6787`. The separate
+publication integration retains prior main corrections. Its initial d602 guard
+failure and corrected MQTT companion note are historical records in the execution
+note. The immutable checkpoint is unchanged. Generated ladder-bundle whitespace
+is recorded as publication preparation.
+
+**Next development scope: H — full hosted adoption (M2B).** Define its bounded
+implementation and batch before starting: shared source-free hosted construction
+and library coverage, the internal register tier, preserved host APIs/workflows,
+and real runtime-only/full/development compositions. All IEC/runtime functions
+remain available on every platform. E/C6 bring-up stays open until its board is
+available; later bounded-operation and production qualification scopes stay open.
+
+
+Published A1 integration record (10 October): PR #130 merged through the guarded merge at
 `258fe24b8c3706d566f5f05c25cfcd75e5b297c3` after all 26 checks passed. Native
 Linux/macOS/Windows and VS Code passed first attempts with no retry rescues.
 v0.24.71 release verification is complete. The integration agent owns that
 release and subsequent A2 publication. #129/v0.24.70 has completed release
 verification. None of this is A4 scope evidence.
+
+The following table retains the completed, published Scope B checkpoint.
 
 | Field | Recorded state |
 |---|---|
@@ -24,33 +119,10 @@ verification. None of this is A4 scope evidence.
 | Status | Run 8 reviewed candidate passes ELF inspection and corrected validation2 (17 required software gates, one advisory); physical attempt 2 passes all 156 records and the Rust verifier. Upper flash free 18,720 B; peak heap 28,272 B / 73,728 B; peak MSP 13,596 B / 16,384 B, leaving 2,788 B. First metadata precheck and first installation failures remain retained. |
 | Source identity | A4 base `df427259cc387a7a79fb81132be23e48ea1493d4`; run-8 frozen manifest `a95bcff98b5d4a51e70acf7e29cf0113b585ac69bcfc39c4cc5fbac6b1e8337c`; ELF `a0e6ed2d7f725fd17746d30c229d02e5b0125c00c494015f3be40322e293ec1e`; UART `9601cceef51d46170961c74e0afe2aba33b44250d3795225f6df60055a315704`. Runtime/firmware/tooling source is unchanged from the tested candidate; closeout documents/evidence and a separate 0.24.73 release-metadata commit follow the freeze. Historical hardware evidence retains its 0.24.71 tuple. |
 | Limitations | Electronic board identity available; printed PCB/package markings, physical button actuation and optical LED observation unavailable. No claim of external-plant operation, durable retain, release qualification or worst-case timing proof. |
-| Integration | A1/#130/v0.24.71 complete. A2/#131 merged at `3bed89b47b4e0ed8ecc11410b592228fff5f0112`; v0.24.72 release verification is complete (tag, Release workflow, assets/checksums and all five Marketplace targets). A3/A4/B publication is PR #132; merge/release remain pending. |
+| Integration | A1/#130/v0.24.71 complete. A2/#131 merged at `3bed89b47b4e0ed8ecc11410b592228fff5f0112`; v0.24.72 release verification is complete (tag, Release workflow, assets/checksums and all five Marketplace targets). A3/A4/B merged through PR #132 at `b7d8ffbf242ed5bbef4c971afd43a179757fc1b6`; v0.24.73 tag, Release, Latest/checksums and all five Marketplace variants verified. |
 | Next action | Scope B remote bring-up and independent evidence reconciliation are complete. Retain this result for the next separately authorized scope. Scope B local checkpoint is `f756ddd9a`; the following metadata commit targets 0.24.73. The subsequently authorized publication scope validates the exact integrated SHA, replays its final firmware, and then handles push, guarded merge and release; later implementation scopes remain separate. Printed markings, manual button actuation and optical LED observation remain explicitly unverified; M3 allocation-free/worst-case qualification remains separate. |
 
-Publication is authorized and isolated on `integrate/runtime-portability-stm32`.
-Its reviewed source checkpoint `ca205132e` passed the exact-SHA guard and fresh
-0.24.73 physical F401 replay: 101 samples/40 activations/zero misses, upper flash
-free 18,720 B, heap peak 28,272 B and MSP free 2,788 B.
-[Retained publication proof](../../../notes/runtime-portability/publication-evidence/README.md)
-records the source/image identities and independent reconciliation. A docs/evidence
-closeout `75b42a667` passed its successor exact-head guard and image identity check,
-and was pushed as PR #132. Its complete first CI attempt found native Windows
-remapping-fixture and macOS system-Bash audit-wrapper failures; Linux and area
-checks passed. Automatic review found direct-I/O restart initialization overwritten
-by image carry-over. All three corrections were implemented together and independently reviewed.
-Corrected source `a8937a07c` passed the exact-SHA guard (8,690 native/519 VS Code),
-all 20 required pinned supplement steps, strict documentation and fresh physical
-F401 replay with the same verified memory margins and 101-sample oracle.
-The new restart regression passed default/no-default/selected i686 execution.
-Its docs/evidence successor `15391576e` passed fresh image identity/inspection,
-but the exact-SHA guard found a pre-existing initial-Influx retry-fixture race
-(`Starting` before an actual remote failure). Complete remaining-native collection
-passed on that frozen SHA with no additional failure. The owning unavailable-peer
-fixtures are being corrected without changing production retry classification or
-the one-second behavior window; run 7 requires independent review, final source
-preparation and its exact-SHA guard/image identity before the correction push.
-Native Windows/macOS execution, guarded merge and full release remain pending;
-prior checkpoints and failed attempts are preserved.
+Publication completed through PR #132. Final source `c3def9e144235831579ee45c03fc5d875c8607c2` has the same tree as main `b7d8ffbf2`; fresh physical ELF `4761d2bc5153b3892da352ca1f0be1f7041f421457158bfc2a9682ddbbb39a61` and preserved fixture proof accompany v0.24.73. The publication release agent verified all release outputs; exact cleanup is complete.
 [Release integration command map](../../../notes/runtime-portability/stm32-release-integration.md)
 owns the exact-SHA guard, fresh final-image hardware replay, push, guarded merge and release.
 Earlier source checkpoints and hardware evidence remain unchanged.
@@ -568,13 +640,13 @@ These items closed after reviewed corrections and A2-R6/R7/R8. Runs 1–3 certif
   its compiler-free integration and freeze the saved artifact/trace for B/E. Close aggregate A only
   now; M2A still requires the physical F401 result.
 
-### Program continuation — B complete, later scopes open
+### Program continuation — B published, U verified/publication delegated, later scopes open
 
 | Scope | Dependency and complete deliverable | Acceptance evidence |
 |---|---|---|
 | B — F401 bring-up (M2A-B), complete | A4; same engine/artifact on NUCLEO-F401RE, frozen 1.95 tuple, timer, process images, UART, IWDG and instrumented bring-up heap. | Physical trace agreement; reset/fault outputs; linked sections, preparation/RUN/heap peaks, native stack paint/MSP/IRQ headroom, numeric timing. B plus A closes M2A. |
 | E — C6 bring-up (M2E) | A4 and an available C6 board; reuse the common corpus promptly to expose second-architecture assumptions. | Actual board execution, I/O/time/watchdog, software-float cost and memory evidence. No board means this gate stays open. |
-| U — Modernization (M0U) | Default after A+B, before H; E need not block it. Refresh all-project dependency candidates and implement justified upgrades/retentions with Rust/edition/resolver/MSRV/Node changes. | MOD-01 ledger and MOD-06 batch, old/new numeric and performance comparisons, affected WASM/extension/protocol/native/MCU evidence. Requalify changed build tuples. |
+| U — Modernization (M0U), scope-verified; publication authorized | Default after A+B, before H; E need not block it. Selected dependency/toolchain/edition/resolver/MSRV/Node migrations implemented and independently reviewed. | MOD-01 ledger, retained software batches and new physical F401 replay passed for the recorded tuple; final release guard/native CI/publication remain separate. |
 | H — Full hosted adoption (M2B) | A+B, normally U; finish shared execution/library coverage, internal register tier and runtime-only/full/development compositions. | Saved-artifact and existing configuration/API/debug/HMI/protocol/restart/update workflows; native Linux/macOS/Windows evidence. |
 | C — Bounded operation (M3) | Early hardware findings plus relevant H work; compound storage/atomic retirement, import limits, fixed fault records, bounded persistence and real generation lifetimes/admission/deployment. | Allocation instrumentation including first-use/error/destruction; capacity rejection; lifecycle/update/readers and persistence fault injection. Preserve independent PLC value copies. |
 | QH — Hosted qualification (M4H) | H+C+U for each declared build. | Spec 34 §14 on each claimed native OS/architecture, bounded operation and preserved workflows, timing/load/performance records. |
@@ -1063,3 +1135,45 @@ No A4 commit or push occurred. The A2 integration agent continues separate relea
 work. No further A4 test run is planned after the passing consolidated batch.
 
 B-R1 run-2 closeout and prepared corrections: [execution record](../../../notes/runtime-portability/b-r1-execution.md#consolidated-software-validation-run-2). No checkboxes are closed from unrun corrected-source gates.
+
+
+## U — Modernization scope
+
+Current U checkpoint: scope-verified, independently reviewed and uncommitted.
+Required Linux software and physical F401 evidence passed. Run 4's full native workspace passed 8,703
+tests with no failures. Its five setup/harness failures were retained and closed
+by the authorized supplements: run 5 passed the real database gate and browser
+geometry; direct existing tests passed 3 build-command and 8 test-command cases,
+and the full editor suites passed 519 tests each on VS Code 1.109.0 and 1.141.0.
+Existing CI-green fixture commands passed build/validate and both ST tests in
+JUnit/JSON. Tutorial 21's inherited instructions remain a documentation mismatch;
+the successful CI fixture does not qualify those instructions.
+
+The newly installed ELF `52c52312…` passed physical UART verification
+`ba3fe270…`: 101 samples, 40 activations, no misses, numerics, GPIO safe outputs,
+call depths 1–4 and IWDG reset. Upper flash headroom is 23,520 bytes; measured
+heap/MSP peaks are 28,272/13,652 bytes, leaving 45,456/2,732 bytes. Checkpoint
+sectors and firmware bytes around application installation are preserved.
+Full earlier source review reconciles all 246 changed Rust owners; the incomplete
+239-record manifest remains historical. No runtime/compiler selection change or
+new helper was added for the final supplement. U publication is now separately
+authorized and delegated; exact-SHA guard and public release remain pending.
+Native Windows/macOS, C6 physical execution and production qualification remain
+outside this U result. [U execution record](../../../notes/runtime-portability/u-execution.md)
+owns source identities, failure history, review and evidence. A3/A4/B publication
+completed through PR #132/v0.24.73 and remains the comparison baseline.
+
+- [x] RTP-U-01: MOD-01 complete current dependency/tool/Git/vendor/transitive
+  decision ledger with primary provenance and justified upgrade/replace/retain choices.
+- [x] RTP-U-02: MOD-02/03 compiler/MSRV/edition/resolver and Node/CI/developer
+  baseline aligned; lifetime/macros/unsafe API migration reviewed and implemented.
+- [x] RTP-U-03: MOD-04 selected dependency API/feature/peer migrations and locks
+  implemented across all first-party/native/WASM/frontend/firmware/fuzz compositions.
+- [x] RTP-U-04: MOD-05 useful modern idioms apply only to concrete owning problems,
+  with native regressions; no changed PLC numeric semantics or gratuitous rewrites.
+- [x] RTP-U-05: Independent full-diff review, completed test authoring and one
+  frozen consolidated MOD-06 batch with recorded affected runtime/platform/UI evidence.
+- [x] RTP-U-06: New F401 image meets existing flash/heap/MSP margins and real
+  trace/numeric/GPIO/watchdog rules; old physical results are not relabeled.
+- [x] RTP-U-07: Reconcile source, selected/retained versions and every failed/unrun
+  gate honestly; separate scope verification from publication and production qualification.

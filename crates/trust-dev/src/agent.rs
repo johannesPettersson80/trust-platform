@@ -230,20 +230,20 @@ impl AgentServer {
         let relative_path = normalize_workspace_path(params.path.as_str())?;
         let full_path = self.workspace_root.join(&relative_path);
         self.ensure_contained_path(&full_path, &relative_path)?;
-        if params.create_parents {
-            if let Some(parent) = full_path.parent() {
-                fs::create_dir_all(parent).map_err(|error| {
-                    AgentCommandError::io(
-                        format!(
-                            "failed to create parent directories for '{}': {error}",
-                            full_path.display()
-                        ),
-                        json!({
-                            "path": workspace_path_display(&relative_path),
-                        }),
-                    )
-                })?;
-            }
+        if params.create_parents
+            && let Some(parent) = full_path.parent()
+        {
+            fs::create_dir_all(parent).map_err(|error| {
+                AgentCommandError::io(
+                    format!(
+                        "failed to create parent directories for '{}': {error}",
+                        full_path.display()
+                    ),
+                    json!({
+                        "path": workspace_path_display(&relative_path),
+                    }),
+                )
+            })?;
         }
         fs::write(&full_path, params.text.as_bytes()).map_err(|error| {
             AgentCommandError::io(
@@ -542,10 +542,10 @@ fn validate_json_rpc_envelope(value: &JsonValue) -> Result<(), String> {
     } else {
         return Err("Invalid Request: id is required.".to_string());
     }
-    if let Some(params) = object.get("params") {
-        if !(params.is_object() || params.is_array()) {
-            return Err("Invalid Request: params must be structured.".to_string());
-        }
+    if let Some(params) = object.get("params")
+        && !(params.is_object() || params.is_array())
+    {
+        return Err("Invalid Request: params must be structured.".to_string());
     }
     Ok(())
 }

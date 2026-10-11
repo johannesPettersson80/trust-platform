@@ -501,6 +501,8 @@ def parser() -> argparse.ArgumentParser:
     )
     prepare_parser.add_argument("--remote-host", default="trust-builder")
     prepare_parser.add_argument("--remote-worktree", required=True)
+    prepare_parser.add_argument("--remote-tool-path", default=None)
+    prepare_parser.add_argument("--remote-cargo-home", default=None)
     prepare_parser.add_argument(
         "--remote-target",
         default="/home/johannes/.cache/codex-targets/trust-platform-gate",

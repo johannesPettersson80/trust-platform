@@ -16,23 +16,15 @@ jobs:
     env:
       TRUST_OPENOT_EVIDENCE_DIR: ${{ github.workspace }}/openot-real-database-evidence
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Provision pinned real products and CA files
-        run: scripts/openot_database_runner_prepare.sh
-      - name: Materialize ephemeral CA certificates
         shell: bash
         run: |
-          ca_dir=$(mktemp -d "$RUNNER_TEMP/openot-ca.XXXXXX")
-          chmod 700 "$ca_dir"
-          for product in POSTGRES TIMESCALE MYSQL MARIADB SQLSERVER INFLUX; do
-            pem_variable="TRUST_TEST_OPENOT_${product}_CA_PEM"
-            path="$ca_dir/${product,,}.pem"
-            printf '%s\n' "${!pem_variable}" >"$path"
-            chmod 600 "$path"
-            echo "TRUST_TEST_OPENOT_${product}_CA=$path" >>"$GITHUB_ENV"
-          done
+          environment_file="$RUNNER_TEMP/openot-generated-environment-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          (umask 077; : >"$environment_file")
+          GITHUB_ENV="$environment_file" scripts/openot_database_runner_prepare.sh
       - name: Run exact product matrix
-        run: scripts/openot_real_database_gate.sh
+        run: cargo run --locked -p xtask -- portability database-gate "$RUNNER_TEMP/openot-generated-environment-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
       - name: Tear down disposable products
         if: always()
         run: scripts/openot_database_runner_teardown.sh

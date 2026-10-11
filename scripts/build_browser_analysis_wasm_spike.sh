@@ -31,6 +31,7 @@ mkdir -p "${PKG_DIR}" "${WEB_OUT}"
     --out-dir "${PKG_DIR}" \
     --out-name trust_wasm_analysis \
     -- \
+    --locked \
     --features wasm
 )
 

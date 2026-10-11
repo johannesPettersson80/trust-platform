@@ -100,10 +100,9 @@ fn diagnostic_find_fallback_opcodes_in_corpus() {
                         };
                         if let Some(VmRef::Local { path, .. }) =
                             vm_module.refs().get(ref_idx as usize)
+                            && !path.is_empty()
                         {
-                            if !path.is_empty() {
-                                complex_refs.push(ref_idx);
-                            }
+                            complex_refs.push(ref_idx);
                         }
                     }
                     panic!(

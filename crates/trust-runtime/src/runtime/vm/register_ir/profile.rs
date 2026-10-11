@@ -262,12 +262,12 @@ impl RegisterLoweringCacheState {
             module_ptr: module as *const VmModule as usize,
             pou_id,
         };
-        if self.enabled {
-            if let Some(entry) = self.entries.get(&key).cloned() {
-                self.hits = self.hits.saturating_add(1);
-                self.touch_entry(key);
-                return entry;
-            }
+        if self.enabled
+            && let Some(entry) = self.entries.get(&key).cloned()
+        {
+            self.hits = self.hits.saturating_add(1);
+            self.touch_entry(key);
+            return entry;
         }
 
         self.misses = self.misses.saturating_add(1);

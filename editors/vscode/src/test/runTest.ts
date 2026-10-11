@@ -13,7 +13,7 @@ function cargoExecutable(repoRoot: string): string {
 }
 
 function buildRustPackage(repoRoot: string, packageName: string): void {
-  execFileSync(cargoExecutable(repoRoot), ["build", "-p", packageName], {
+  execFileSync(cargoExecutable(repoRoot), ["build", "--locked", "-p", packageName], {
     cwd: repoRoot,
     stdio: "inherit",
   });
@@ -84,6 +84,7 @@ async function main(): Promise<void> {
   }
 
   await runTests({
+    version: process.env.TRUST_VSCODE_TEST_VERSION,
     extensionDevelopmentPath,
     extensionTestsPath,
     launchArgs: [

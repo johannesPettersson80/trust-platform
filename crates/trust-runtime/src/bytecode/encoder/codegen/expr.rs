@@ -44,19 +44,18 @@ impl<'a> BytecodeEncoder<'a> {
                     code.extend_from_slice(&ref_idx.to_le_bytes());
                     return Ok(true);
                 }
-                if ctx.static_ref(name).is_none() && ctx.self_field_name(name).is_none() {
-                    if let Some(alias) = self
+                if ctx.static_ref(name).is_none()
+                    && ctx.self_field_name(name).is_none()
+                    && let Some(alias) = self
                         .construction
                         .aliases
                         .get(&super::util::normalize_name(name))
                         .cloned()
-                    {
-                        if let Some(partial) = alias.partial {
-                            self.emit_load_ref(&alias.reference, code)?;
-                            self.emit_partial_read(partial, code);
-                            return Ok(true);
-                        }
-                    }
+                    && let Some(partial) = alias.partial
+                {
+                    self.emit_load_ref(&alias.reference, code)?;
+                    self.emit_partial_read(partial, code);
+                    return Ok(true);
                 }
                 if self.emit_dynamic_load_name(ctx, name, code)? {
                     return Ok(true);
@@ -82,19 +81,19 @@ impl<'a> BytecodeEncoder<'a> {
                 Ok(true)
             }
             crate::program_model::Expr::Field { target, field } => {
-                if let Some(qualified) = qualified_field_expr_name(expr) {
-                    if let Some(reference) = self.resolve_name_ref(ctx, &qualified)? {
-                        let ref_idx = self.ref_index_for(&reference)?;
-                        code.push(0x20);
-                        code.extend_from_slice(&ref_idx.to_le_bytes());
-                        return Ok(true);
-                    }
+                if let Some(qualified) = qualified_field_expr_name(expr)
+                    && let Some(reference) = self.resolve_name_ref(ctx, &qualified)?
+                {
+                    let ref_idx = self.ref_index_for(&reference)?;
+                    code.push(0x20);
+                    code.extend_from_slice(&ref_idx.to_le_bytes());
+                    return Ok(true);
                 }
                 if let crate::program_model::Expr::Name(base) = target.as_ref() {
-                    if let Some(access) = crate::value::parse_partial_access(field.as_str()) {
-                        if self.emit_partial_read_for_name(ctx, base, access, code)? {
-                            return Ok(true);
-                        }
+                    if let Some(access) = crate::value::parse_partial_access(field.as_str())
+                        && self.emit_partial_read_for_name(ctx, base, access, code)?
+                    {
+                        return Ok(true);
                     }
                     if ctx.local_ref(base).is_some() {
                         if !self.emit_ref_for_name(ctx, base, code)? {
@@ -331,13 +330,13 @@ impl<'a> BytecodeEncoder<'a> {
         match expr {
             crate::program_model::Expr::Name(name) => self.emit_ref_for_name(ctx, name, code),
             crate::program_model::Expr::Field { target, field } => {
-                if let Some(qualified) = qualified_field_expr_name(expr) {
-                    if let Some(reference) = self.resolve_name_ref(ctx, &qualified)? {
-                        let ref_idx = self.ref_index_for(&reference)?;
-                        code.push(0x22);
-                        code.extend_from_slice(&ref_idx.to_le_bytes());
-                        return Ok(true);
-                    }
+                if let Some(qualified) = qualified_field_expr_name(expr)
+                    && let Some(reference) = self.resolve_name_ref(ctx, &qualified)?
+                {
+                    let ref_idx = self.ref_index_for(&reference)?;
+                    code.push(0x22);
+                    code.extend_from_slice(&ref_idx.to_le_bytes());
+                    return Ok(true);
                 }
                 if matches!(target.as_ref(), crate::program_model::Expr::This) {
                     return self.emit_self_field_ref(ctx, field, code);

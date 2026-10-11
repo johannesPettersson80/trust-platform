@@ -191,9 +191,6 @@ fn client_config_scalar_type_and_access_aliases_are_stable() {
 fn client_pki_operations_do_not_follow_symbolic_links() {
     use std::os::unix::fs::symlink;
 
-    let _guard = OPCUA_CLIENT_PKI_ENV_LOCK
-        .lock()
-        .expect("OPC UA client PKI env lock");
     let unique = unique_pki_suffix();
     let root = std::env::temp_dir().join(format!("trust-opcua-pki-link-root-{unique}"));
     let trusted_external =
@@ -212,15 +209,13 @@ fn client_pki_operations_do_not_follow_symbolic_links() {
         .expect("trusted directory symlink");
     symlink(&rejected_external, root.join("rejected").join("escape"))
         .expect("rejected directory symlink");
-    std::env::set_var("TRUST_RUNTIME_OPCUA_CLIENT_PKI_DIR", &root);
 
-    let listed = list_trusted_opcua_client_server_certificates().expect("list trusted");
-    let cleared = clear_trusted_opcua_client_server_certificates().expect("clear trusted");
-    let promoted = promote_rejected_opcua_client_server_certificates().expect("promote rejected");
+    let listed = list_trusted_certificates_in(&root).expect("list trusted");
+    let cleared = clear_trusted_certificates_in(&root).expect("clear trusted");
+    let promoted = promote_rejected_certificates_in(&root).expect("promote rejected");
     let trusted_preserved = trusted_cert.is_file();
     let rejected_preserved = rejected_cert.is_file();
 
-    std::env::remove_var("TRUST_RUNTIME_OPCUA_CLIENT_PKI_DIR");
     let _ = std::fs::remove_dir_all(root);
     let _ = std::fs::remove_dir_all(trusted_external);
     let _ = std::fs::remove_dir_all(rejected_external);
@@ -243,9 +238,6 @@ fn client_pki_operations_do_not_follow_symbolic_links() {
 fn client_pki_root_links_are_not_traversed() {
     use std::os::unix::fs::symlink;
 
-    let _guard = OPCUA_CLIENT_PKI_ENV_LOCK
-        .lock()
-        .expect("OPC UA client PKI env lock");
     let unique = unique_pki_suffix();
 
     let root_link_case = std::env::temp_dir().join(format!("trust-opcua-pki-root-link-{unique}"));
@@ -259,14 +251,14 @@ fn client_pki_root_links_are_not_traversed() {
     let rejected = root_link_case.join("rejected").join("candidate.der");
     std::fs::write(&rejected, b"candidate").expect("rejected candidate");
     symlink(&external_trusted, root_link_case.join("trusted")).expect("trusted root symlink");
-    std::env::set_var("TRUST_RUNTIME_OPCUA_CLIENT_PKI_DIR", &root_link_case);
+
     let listed_via_root_link =
-        list_trusted_opcua_client_server_certificates().expect("list linked trusted root");
-    let promotion_via_root_link = promote_rejected_opcua_client_server_certificates();
+        list_trusted_certificates_in(&root_link_case).expect("list linked trusted root");
+    let promotion_via_root_link = promote_rejected_certificates_in(&root_link_case);
     let rejected_preserved = rejected.is_file();
     let external_preserved =
         std::fs::read(&external_listed).expect("external cert after rejected promotion");
-    std::env::remove_var("TRUST_RUNTIME_OPCUA_CLIENT_PKI_DIR");
+
     let _ = std::fs::remove_dir_all(&root_link_case);
     let _ = std::fs::remove_dir_all(&external_trusted);
 
@@ -293,9 +285,6 @@ fn client_pki_root_links_are_not_traversed() {
 fn client_pki_promotion_target_link_is_rejected() {
     use std::os::unix::fs::symlink;
 
-    let _guard = OPCUA_CLIENT_PKI_ENV_LOCK
-        .lock()
-        .expect("OPC UA client PKI env lock");
     let unique = unique_pki_suffix();
     let target_link_case =
         std::env::temp_dir().join(format!("trust-opcua-pki-target-link-{unique}"));
@@ -311,11 +300,11 @@ fn client_pki_promotion_target_link_is_rejected() {
         target_link_case.join("trusted").join("server.pem"),
     )
     .expect("promotion target symlink");
-    std::env::set_var("TRUST_RUNTIME_OPCUA_CLIENT_PKI_DIR", &target_link_case);
-    let promotion = promote_rejected_opcua_client_server_certificates();
+
+    let promotion = promote_rejected_certificates_in(&target_link_case);
     let external_after = std::fs::read(&external_target).expect("external target after promotion");
     let rejected_after = rejected.exists();
-    std::env::remove_var("TRUST_RUNTIME_OPCUA_CLIENT_PKI_DIR");
+
     let _ = std::fs::remove_dir_all(&target_link_case);
     let _ = std::fs::remove_file(&external_target);
 

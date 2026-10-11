@@ -19,7 +19,7 @@ jobs:
     name: Release Preflight
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -44,14 +44,14 @@ jobs:
     needs: release-preflight
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
 
       - uses: Swatinem/rust-cache@v2
 
@@ -135,7 +135,7 @@ jobs:
             platform: win32-x64
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Checkout OpenOT reference sibling
         shell: bash
@@ -143,7 +143,7 @@ jobs:
         run: bash scripts/checkout_openot_ref.sh
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.99.0
         with:
           targets: ${{ matrix.target }}
 
@@ -264,18 +264,17 @@ jobs:
           Compress-Archive -Path dist/trust-lsp-${{ matrix.platform }}/* -DestinationPath trust-lsp-${{ matrix.platform }}.zip
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: "24.21.0"
           cache: 'npm'
           cache-dependency-path: editors/vscode/package-lock.json
 
       - name: Install wasm-pack
         shell: bash
         run: |
-          if ! command -v wasm-pack >/dev/null 2>&1; then
-            cargo install wasm-pack --version 0.15.0 --locked
-          fi
+          cargo install wasm-pack --version 0.15.0 --locked --force
+          export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           wasm-pack --version
 
@@ -293,7 +292,7 @@ jobs:
 
       - name: Package extension
         working-directory: editors/vscode
-        run: npx vsce package --target ${{ matrix.platform }}
+        run: npx --no-install vsce package --target ${{ matrix.platform }}
 
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v7
@@ -324,7 +323,7 @@ jobs:
     env:
       VSCE_PAT: ${{ secrets.VSCE_PAT }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Download VSIX artifacts
         uses: actions/download-artifact@v8
@@ -384,12 +383,12 @@ jobs:
             --output release-evidence/release-provenance.json
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: "24.21.0"
 
       - name: Install vsce
-        run: npm install -g @vscode/vsce
+        run: npm install -g @vscode/vsce@4.0.0
 
       - name: Generate release checksums
         shell: bash
@@ -464,7 +463,7 @@ jobs:
         run: echo "VSCE_PAT not set; skipping Marketplace publish"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             vsix-artifacts/*.vsix

@@ -39,44 +39,41 @@ impl BytecodeEncoder<'_> {
                 if let Some(reference) = ctx.local_ref(name).or_else(|| ctx.static_ref(name)) {
                     return Ok(self.construction.bindings.types.get(reference).copied());
                 }
-                if let Some(field) = ctx.self_field_name(name) {
-                    if let Some(owner) = &ctx.owner_name {
-                        let mut template = self
-                            .pou_ids
-                            .program_id(owner)
-                            .or_else(|| self.pou_ids.class_like_id(owner));
-                        for _ in 0..64 {
-                            let Some(id) = template else {
-                                break;
-                            };
-                            if let Some(declaration) = self
-                                .construction
-                                .templates
-                                .template_fields
-                                .get(&id)
-                                .into_iter()
-                                .flatten()
-                                .find(|id| {
-                                    let declaration =
-                                        &self.construction.layout.entries[**id as usize];
-                                    self.strings.entries[declaration.name_idx as usize]
-                                        .eq_ignore_ascii_case(field)
-                                })
-                            {
-                                return Ok(
-                                    self.construction.declaration_types[*declaration as usize]
-                                );
-                            }
-                            template = self
-                                .construction
-                                .templates
-                                .template_parents
-                                .get(&id)
-                                .copied();
+                if let Some(field) = ctx.self_field_name(name)
+                    && let Some(owner) = &ctx.owner_name
+                {
+                    let mut template = self
+                        .pou_ids
+                        .program_id(owner)
+                        .or_else(|| self.pou_ids.class_like_id(owner));
+                    for _ in 0..64 {
+                        let Some(id) = template else {
+                            break;
+                        };
+                        if let Some(declaration) = self
+                            .construction
+                            .templates
+                            .template_fields
+                            .get(&id)
+                            .into_iter()
+                            .flatten()
+                            .find(|id| {
+                                let declaration = &self.construction.layout.entries[**id as usize];
+                                self.strings.entries[declaration.name_idx as usize]
+                                    .eq_ignore_ascii_case(field)
+                            })
+                        {
+                            return Ok(self.construction.declaration_types[*declaration as usize]);
                         }
-                        if let Some(ty) = self.runtime.registry().lookup(owner) {
-                            return self.field_type(ty, field).map(Some);
-                        }
+                        template = self
+                            .construction
+                            .templates
+                            .template_parents
+                            .get(&id)
+                            .copied();
+                    }
+                    if let Some(ty) = self.runtime.registry().lookup(owner) {
+                        return self.field_type(ty, field).map(Some);
                     }
                 }
                 let reference = self.resolve_name_ref(ctx, name)?;

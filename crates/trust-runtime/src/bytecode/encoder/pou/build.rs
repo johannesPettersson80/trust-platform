@@ -2,12 +2,12 @@ impl<'a> BytecodeEncoder<'a> {
     pub(super) fn build_pou_index_and_bodies(
         &mut self,
     ) -> Result<(PouIndex, Vec<u8>, Vec<DebugEntry>), BytecodeError> {
-        if let (Some(sources), Some(paths)) = (self.sources, self.paths) {
-            if sources.len() != paths.len() {
-                return Err(BytecodeError::InvalidSection(
-                    "debug paths length mismatch".into(),
-                ));
-            }
+        if let (Some(sources), Some(paths)) = (self.sources, self.paths)
+            && sources.len() != paths.len()
+        {
+            return Err(BytecodeError::InvalidSection(
+                "debug paths length mismatch".into(),
+            ));
         }
 
         let mut entries = Vec::new();

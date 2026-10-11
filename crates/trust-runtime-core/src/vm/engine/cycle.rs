@@ -112,18 +112,18 @@ impl EngineState<'_> {
             self.charge_work_units(1)?;
             let declaration = &prepared.layout.entries[id as usize];
             let name = &prepared.vm.strings[declaration.name_idx as usize];
-            if let Some(value) = self.storage.get_global(name) {
-                if self.snapshot_value_is_retainable(value, 0)? {
-                    let bytes = self.snapshot_entry_charge(value, name.len())?;
-                    self.charge_allocation(bytes)?;
-                    snapshot.insert(
-                        name.clone(),
-                        self.storage
-                            .get_global(name)
-                            .ok_or(RuntimeError::NullReference)?
-                            .clone(),
-                    );
-                }
+            if let Some(value) = self.storage.get_global(name)
+                && self.snapshot_value_is_retainable(value, 0)?
+            {
+                let bytes = self.snapshot_entry_charge(value, name.len())?;
+                self.charge_allocation(bytes)?;
+                snapshot.insert(
+                    name.clone(),
+                    self.storage
+                        .get_global(name)
+                        .ok_or(RuntimeError::NullReference)?
+                        .clone(),
+                );
             }
         }
         for (index, root) in prepared.roots.entries.iter().enumerate() {
@@ -140,24 +140,24 @@ impl EngineState<'_> {
                 self.charge_work_units(1)?;
                 let declaration = &prepared.layout.entries[id as usize];
                 let name = &prepared.vm.strings[declaration.name_idx as usize];
-                if let Some(value) = self.storage.get_instance_var(instance, name) {
-                    if self.snapshot_value_is_retainable(value, 0)? {
-                        let key_len = program_name
-                            .len()
-                            .checked_add(name.len())
-                            .and_then(|length| length.checked_add(10))
-                            .ok_or(RuntimeError::Overflow)?;
-                        let bytes = self.snapshot_entry_charge(value, key_len)?;
-                        self.charge_allocation(bytes)?;
-                        let key = format!("@program/{program_name}/{name}");
-                        snapshot.insert(
-                            key,
-                            self.storage
-                                .get_instance_var(instance, name)
-                                .ok_or(RuntimeError::NullReference)?
-                                .clone(),
-                        );
-                    }
+                if let Some(value) = self.storage.get_instance_var(instance, name)
+                    && self.snapshot_value_is_retainable(value, 0)?
+                {
+                    let key_len = program_name
+                        .len()
+                        .checked_add(name.len())
+                        .and_then(|length| length.checked_add(10))
+                        .ok_or(RuntimeError::Overflow)?;
+                    let bytes = self.snapshot_entry_charge(value, key_len)?;
+                    self.charge_allocation(bytes)?;
+                    let key = format!("@program/{program_name}/{name}");
+                    snapshot.insert(
+                        key,
+                        self.storage
+                            .get_instance_var(instance, name)
+                            .ok_or(RuntimeError::NullReference)?
+                            .clone(),
+                    );
                 }
             }
         }

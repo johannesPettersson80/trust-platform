@@ -31,15 +31,15 @@ fn trace_log_file() -> Option<&'static Mutex<std::fs::File>> {
 pub(crate) fn trace_debug(message: &str) {
     if trace_enabled() {
         eprintln!("[trust-runtime][debug] {message}");
-        if let Some(file) = trace_log_file() {
-            if let Ok(mut file) = file.lock() {
-                if let Err(err) = writeln!(file, "## [trust-runtime][debug] {message}") {
-                    eprintln!("[trust-runtime][debug] trace write failed: {err}");
-                    return;
-                }
-                if let Err(err) = file.flush() {
-                    eprintln!("[trust-runtime][debug] trace flush failed: {err}");
-                }
+        if let Some(file) = trace_log_file()
+            && let Ok(mut file) = file.lock()
+        {
+            if let Err(err) = writeln!(file, "## [trust-runtime][debug] {message}") {
+                eprintln!("[trust-runtime][debug] trace write failed: {err}");
+                return;
+            }
+            if let Err(err) = file.flush() {
+                eprintln!("[trust-runtime][debug] trace flush failed: {err}");
             }
         }
     }

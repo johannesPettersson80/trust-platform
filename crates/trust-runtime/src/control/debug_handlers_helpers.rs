@@ -13,25 +13,24 @@ fn debug_stop_to_json(
         "thread_id": stop.thread_id,
         "breakpoint_generation": stop.breakpoint_generation,
     });
-    if let Some(location) = stop.location {
-        if let Some(text) = state.sources.source_text(location.file_id) {
-            let (line, column) = location_to_line_col(text, &location);
-            if let Some(source) = state
-                .sources
-                .files()
-                .iter()
-                .find(|file| file.id == location.file_id)
-            {
-                if let Some(obj) = payload.as_object_mut() {
-                    obj.insert("file_id".to_string(), json!(location.file_id));
-                    obj.insert("line".to_string(), json!(line));
-                    obj.insert("column".to_string(), json!(column));
-                    obj.insert(
-                        "path".to_string(),
-                        json!(source.path.to_string_lossy().to_string()),
-                    );
-                }
-            }
+    if let Some(location) = stop.location
+        && let Some(text) = state.sources.source_text(location.file_id)
+    {
+        let (line, column) = location_to_line_col(text, &location);
+        if let Some(source) = state
+            .sources
+            .files()
+            .iter()
+            .find(|file| file.id == location.file_id)
+            && let Some(obj) = payload.as_object_mut()
+        {
+            obj.insert("file_id".to_string(), json!(location.file_id));
+            obj.insert("line".to_string(), json!(line));
+            obj.insert("column".to_string(), json!(column));
+            obj.insert(
+                "path".to_string(),
+                json!(source.path.to_string_lossy().to_string()),
+            );
         }
     }
     Some(payload)

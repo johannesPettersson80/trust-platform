@@ -16,12 +16,11 @@ fn symbol_visibility(source: &str, owner_name: &str, member_name: &str) -> Visib
         .iter()
         .find(|symbol| symbol.name == owner_name)
         .unwrap_or_else(|| panic!("missing owner {owner_name}"));
-    let visibility = symbols
+    symbols
         .iter()
         .find(|symbol| symbol.name == member_name && symbol.parent == Some(owner.id))
         .unwrap_or_else(|| panic!("missing member {owner_name}.{member_name}"))
-        .visibility;
-    visibility
+        .visibility
 }
 
 #[test]

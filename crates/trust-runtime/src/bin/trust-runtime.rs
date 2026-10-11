@@ -89,12 +89,11 @@ fn run() -> anyhow::Result<()> {
     let cli = match Cli::try_parse_from(&raw_args) {
         Ok(cli) => cli,
         Err(err) => {
-            if err.kind() == ErrorKind::InvalidSubcommand {
-                if let Some(input) = raw_args.iter().skip(1).find(|arg| !arg.starts_with('-')) {
-                    if let Some(suggestion) = suggest_subcommand(input) {
-                        eprintln!("Did you mean: {suggestion}?");
-                    }
-                }
+            if err.kind() == ErrorKind::InvalidSubcommand
+                && let Some(input) = raw_args.iter().skip(1).find(|arg| !arg.starts_with('-'))
+                && let Some(suggestion) = suggest_subcommand(input)
+            {
+                eprintln!("Did you mean: {suggestion}?");
             }
             err.exit();
         }

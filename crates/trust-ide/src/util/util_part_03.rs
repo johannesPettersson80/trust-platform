@@ -46,10 +46,7 @@ pub(crate) fn resolve_target_at_position_with_context(
             return Some(ResolvedTarget::Field(field_target));
         }
         return Some(ResolvedTarget::Symbol(canonical_symbol_id(
-            symbols,
-            file_id,
-            root,
-            symbol.id,
+            symbols, file_id, root, symbol.id,
         )));
     }
 
@@ -74,37 +71,26 @@ pub(crate) fn resolve_target_at_position_with_context(
             if let Some(field_expr) = name_node
                 .parent()
                 .filter(|parent| parent.kind() == SyntaxKind::FieldExpr)
+                && let Some(parts) = qualified_name_from_field_expr(&field_expr)
+                && let Some(symbol_id) = symbols.resolve_qualified(&parts)
             {
-                if let Some(parts) = qualified_name_from_field_expr(&field_expr) {
-                    if let Some(symbol_id) = symbols.resolve_qualified(&parts) {
-                        return Some(ResolvedTarget::Symbol(canonical_symbol_id(
-                            symbols,
-                            file_id,
-                            root,
-                            symbol_id,
-                        )));
-                    }
-                }
+                return Some(ResolvedTarget::Symbol(canonical_symbol_id(
+                    symbols, file_id, root, symbol_id,
+                )));
             }
 
             if is_type_name_node(&name_node) {
                 if let Some(parts) = qualified_name_parts_from_node(&name_node) {
                     if let Some(symbol_id) = resolve_type_symbol(symbols, &parts, scope_id) {
                         return Some(ResolvedTarget::Symbol(canonical_symbol_id(
-                            symbols,
-                            file_id,
-                            root,
-                            symbol_id,
+                            symbols, file_id, root, symbol_id,
                         )));
                     }
                 } else if let Some(symbol_id) =
                     resolve_type_symbol(symbols, &[SmolStr::new(name)], scope_id)
                 {
                     return Some(ResolvedTarget::Symbol(canonical_symbol_id(
-                        symbols,
-                        file_id,
-                        root,
-                        symbol_id,
+                        symbols, file_id, root, symbol_id,
                     )));
                 }
             }
@@ -120,27 +106,19 @@ pub(crate) fn resolve_target_at_position_with_context(
             if let Some(field_expr) = name_node
                 .parent()
                 .filter(|parent| parent.kind() == SyntaxKind::FieldExpr)
+                && let Some(parts) = qualified_name_from_field_expr(&field_expr)
+                && let Some(symbol_id) = symbols.resolve_qualified(&parts)
             {
-                if let Some(parts) = qualified_name_from_field_expr(&field_expr) {
-                    if let Some(symbol_id) = symbols.resolve_qualified(&parts) {
-                        return Some(ResolvedTarget::Symbol(canonical_symbol_id(
-                            symbols,
-                            file_id,
-                            root,
-                            symbol_id,
-                        )));
-                    }
-                }
+                return Some(ResolvedTarget::Symbol(canonical_symbol_id(
+                    symbols, file_id, root, symbol_id,
+                )));
             }
         }
     }
 
     if let Some(symbol_id) = symbols.resolve(name, scope_id) {
         return Some(ResolvedTarget::Symbol(canonical_symbol_id(
-            symbols,
-            file_id,
-            root,
-            symbol_id,
+            symbols, file_id, root, symbol_id,
         )));
     }
 
@@ -148,10 +126,7 @@ pub(crate) fn resolve_target_at_position_with_context(
     // `E_State#Value`) do not classify as a TypeRef node; fall back to type lookup.
     if let Some(symbol_id) = resolve_type_symbol(symbols, &[SmolStr::new(name)], scope_id) {
         return Some(ResolvedTarget::Symbol(canonical_symbol_id(
-            symbols,
-            file_id,
-            root,
-            symbol_id,
+            symbols, file_id, root, symbol_id,
         )));
     }
 
@@ -161,10 +136,7 @@ pub(crate) fn resolve_target_at_position_with_context(
         .map(|symbol| symbol.id)
     {
         return Some(ResolvedTarget::Symbol(canonical_symbol_id(
-            symbols,
-            file_id,
-            root,
-            symbol_id,
+            symbols, file_id, root, symbol_id,
         )));
     }
 
@@ -180,17 +152,16 @@ fn canonical_symbol_id(
     let Some(symbol) = symbols.get(symbol_id) else {
         return symbol_id;
     };
-    if let Some(origin) = symbol.origin {
-        if origin.file_id != local_file_id {
-            if let Some(candidate_id) = canonical_origin_candidate(symbols, symbol_id, origin) {
-                return candidate_id;
-            }
-        }
+    if let Some(origin) = symbol.origin
+        && origin.file_id != local_file_id
+        && let Some(candidate_id) = canonical_origin_candidate(symbols, symbol_id, origin)
+    {
+        return candidate_id;
     }
-    if symbol_declares_external(root, symbol.range) {
-        if let Some(candidate_id) = canonical_external_target(symbols, local_file_id, symbol_id) {
-            return candidate_id;
-        }
+    if symbol_declares_external(root, symbol.range)
+        && let Some(candidate_id) = canonical_external_target(symbols, local_file_id, symbol_id)
+    {
+        return candidate_id;
     }
     symbol_id
 }
@@ -309,12 +280,11 @@ pub(crate) fn resolve_type_symbol(
             .filter(|sym| sym.is_type())
             .map(|sym| sym.id);
     }
-    if let Some(symbol_id) = symbols.resolve(parts[0].as_str(), scope_id) {
-        if let Some(symbol) = symbols.get(symbol_id) {
-            if symbol.is_type() {
-                return Some(symbol_id);
-            }
-        }
+    if let Some(symbol_id) = symbols.resolve(parts[0].as_str(), scope_id)
+        && let Some(symbol) = symbols.get(symbol_id)
+        && symbol.is_type()
+    {
+        return Some(symbol_id);
     }
     let type_id = symbols.lookup_registered_type_name(parts[0].as_str())?;
     symbols

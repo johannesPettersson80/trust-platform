@@ -36,17 +36,16 @@ pub(super) fn resolve_request_role(
         .map_err(|_| AuthFailure::InvalidToken)?
         .clone();
     if let Some(expected) = expected {
-        if let Some(provided) = provided {
-            if constant_time_eq(expected.as_str(), provided) {
-                return Ok(AccessRole::Admin);
-            }
+        if let Some(provided) = provided
+            && constant_time_eq(expected.as_str(), provided)
+        {
+            return Ok(AccessRole::Admin);
         }
-        if let Some(token) = provided {
-            if let Some(store) = state.pairing.as_ref() {
-                if let Some(role) = store.validate_with_role(token) {
-                    return Ok(role);
-                }
-            }
+        if let Some(token) = provided
+            && let Some(store) = state.pairing.as_ref()
+            && let Some(role) = store.validate_with_role(token)
+        {
+            return Ok(role);
         }
         return Err(if provided.is_some() {
             AuthFailure::InvalidToken
@@ -54,12 +53,11 @@ pub(super) fn resolve_request_role(
             AuthFailure::MissingToken
         });
     }
-    if let Some(token) = provided {
-        if let Some(store) = state.pairing.as_ref() {
-            if let Some(role) = store.validate_with_role(token) {
-                return Ok(role);
-            }
-        }
+    if let Some(token) = provided
+        && let Some(store) = state.pairing.as_ref()
+        && let Some(role) = store.validate_with_role(token)
+    {
+        return Ok(role);
     }
     if state.control_requires_auth {
         return Err(if provided.is_some() {

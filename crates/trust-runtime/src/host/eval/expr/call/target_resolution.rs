@@ -36,11 +36,11 @@ pub(crate) fn resolve_instance_method(
     let instance = ctx.storage.get_instance(instance_id)?;
     let key = SmolStr::new(instance.type_name.to_ascii_uppercase());
 
-    if let Some(function_blocks) = ctx.function_blocks {
-        if let Some(fb) = function_blocks.get(&key) {
-            let classes = ctx.classes?;
-            return resolve_fb_method(function_blocks, classes, fb, name);
-        }
+    if let Some(function_blocks) = ctx.function_blocks
+        && let Some(fb) = function_blocks.get(&key)
+    {
+        let classes = ctx.classes?;
+        return resolve_fb_method(function_blocks, classes, fb, name);
     }
 
     let classes = ctx.classes?;

@@ -77,3 +77,31 @@ pub(crate) fn st_test_source(name: &str) -> &'static str {
         _ => panic!("unregistered frozen OpenOT ST test fixture: {name}"),
     }
 }
+
+pub(crate) fn openot_st_source_files(main_source: &str) -> Vec<trust_runtime::harness::SourceFile> {
+    let mut sources = ST_LIBRARY_SOURCES
+        .iter()
+        .map(|(name, source)| trust_runtime::harness::SourceFile::with_path(*name, *source))
+        .collect::<Vec<_>>();
+    sources.push(trust_runtime::harness::SourceFile::with_path(
+        "main.st",
+        main_source,
+    ));
+    sources
+}
+
+pub(crate) fn build_st_runtime(main_source: &str) -> trust_runtime::Runtime {
+    let session =
+        trust_runtime::harness::CompileSession::from_sources(openot_st_source_files(main_source))
+            .label_errors(true);
+    let mut runtime = session
+        .build_runtime()
+        .unwrap_or_else(|err| panic!("build OpenOT ST runtime: {err}"));
+    let bytecode = session
+        .build_bytecode_bytes()
+        .unwrap_or_else(|err| panic!("build OpenOT ST bytecode: {err}"));
+    runtime
+        .apply_bytecode_bytes(&bytecode, None)
+        .unwrap_or_else(|err| panic!("apply OpenOT ST bytecode: {err}"));
+    runtime
+}

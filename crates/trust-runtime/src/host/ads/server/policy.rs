@@ -153,10 +153,10 @@ impl Drop for TemporaryClientPermit {
         let Some(client) = self.client.take() else {
             return;
         };
-        if let Ok(mut clients) = self.policy.clients.write() {
-            if let Some(index) = clients.iter().position(|entry| entry == &client) {
-                clients.remove(index);
-            }
+        if let Ok(mut clients) = self.policy.clients.write()
+            && let Some(index) = clients.iter().position(|entry| entry == &client)
+        {
+            clients.remove(index);
         }
     }
 }

@@ -344,10 +344,9 @@ pub fn run_runtime(
             if snapshot_control
                 .send_command(ResourceCommand::Snapshot { respond_to: tx })
                 .is_ok()
+                && let Ok(snapshot) = rx.recv_timeout(std::time::Duration::from_millis(250))
             {
-                if let Ok(snapshot) = rx.recv_timeout(std::time::Duration::from_millis(250)) {
-                    return Some(snapshot);
-                }
+                return Some(snapshot);
             }
             snapshot_debug.snapshot()
         });
@@ -370,10 +369,10 @@ pub fn run_runtime(
     } else {
         None
     };
-    if let Some(mesh) = _mesh.as_ref() {
-        if let Ok(mut guard) = mesh_topology.lock() {
-            *guard = Some(mesh.topology_evidence());
-        }
+    if let Some(mesh) = _mesh.as_ref()
+        && let Ok(mut guard) = mesh_topology.lock()
+    {
+        *guard = Some(mesh.topology_evidence());
     }
     let _discovery_handle = if let Some(bundle) = &bundle {
         if bundle.runtime.discovery.enabled {
@@ -420,10 +419,9 @@ pub fn run_runtime(
             if snapshot_control
                 .send_command(ResourceCommand::Snapshot { respond_to: tx })
                 .is_ok()
+                && let Ok(snapshot) = rx.recv_timeout(std::time::Duration::from_millis(250))
             {
-                if let Ok(snapshot) = rx.recv_timeout(std::time::Duration::from_millis(250)) {
-                    return Some(snapshot);
-                }
+                return Some(snapshot);
             }
             None
         });
@@ -435,20 +433,20 @@ pub fn run_runtime(
             snapshot_provider,
             Some(audit_tx.clone()),
         )?;
-        if let Some(server) = server {
-            if let Ok(mut slot) = ads_server_runtime.lock() {
-                *slot = Some(server);
-            }
+        if let Some(server) = server
+            && let Ok(mut slot) = ads_server_runtime.lock()
+        {
+            *slot = Some(server);
         }
     }
 
     #[cfg(not(feature = "ads-server"))]
-    if let Some(bundle) = &bundle {
-        if bundle.runtime.ads_server.enabled {
-            anyhow::bail!(
-                "runtime.ads_server.enabled=true requires trust-runtime built with feature 'ads-server'"
-            );
-        }
+    if let Some(bundle) = &bundle
+        && bundle.runtime.ads_server.enabled
+    {
+        anyhow::bail!(
+        "runtime.ads_server.enabled=true requires trust-runtime built with feature 'ads-server'"
+    );
     }
 
     if show_banner {
@@ -565,10 +563,10 @@ pub fn run_runtime(
         server.stop();
     }
     #[cfg(feature = "ads-server")]
-    if let Ok(mut slot) = ads_server_runtime.lock() {
-        if let Some(mut server) = slot.take() {
-            server.shutdown();
-        }
+    if let Ok(mut slot) = ads_server_runtime.lock()
+        && let Some(mut server) = slot.take()
+    {
+        server.shutdown();
     }
     join_result?;
     logger.log(

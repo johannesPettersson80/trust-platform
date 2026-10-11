@@ -21,8 +21,8 @@ jobs:
       matrix:
         target: [thumbv7em-none-eabihf, riscv32imac-unknown-none-elf]
     steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.99.0
         with:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
@@ -31,7 +31,7 @@ jobs:
       - name: Check isolated no_std core and value layout
         run: cargo check --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }}
       - name: Record resolved target features
-        run: cargo tree --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }} -e features
+        run: cargo tree --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }} -e features,no-dev
       - name: Mark gate success
         if: ${{ success() }}
         run: |
@@ -48,14 +48,14 @@ jobs:
     name: Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
         with:
           components: rustfmt
       - name: Guard IEC log paths
@@ -93,12 +93,12 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
@@ -131,12 +131,12 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - name: Install Windows vendored OpenSSL Perl prerequisites
         if: ${{ matrix.os == 'windows-latest' }}
@@ -279,12 +279,12 @@ jobs:
     name: Conformance
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - name: Install real MQTT broker conformance dependencies
         run: |
@@ -402,12 +402,12 @@ jobs:
     name: Architecture Safety
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - name: Run shared architecture safety gate
         run: bash scripts/architecture_safety_gate.sh
@@ -436,15 +436,15 @@ jobs:
           path: gate-artifacts/architecture-safety.txt
 
   msrv:
-    name: MSRV (1.95)
+    name: MSRV (1.99)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@1.95
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --all-targets
         env:
@@ -465,12 +465,12 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo doc --no-deps --all-features
         env:
@@ -491,16 +491,16 @@ jobs:
     name: Browser Analysis Gates
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: "24.21.0"
       - name: Install wasm target
         run: rustup target add wasm32-unknown-unknown
       - name: Run parity + latency + memory + incremental gates
@@ -528,23 +528,21 @@ jobs:
       run:
         working-directory: editors/vscode
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: "24.21.0"
           cache: 'npm'
           cache-dependency-path: editors/vscode/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - name: Install wasm-pack
         run: |
-          if ! command -v wasm-pack >/dev/null 2>&1; then
-            cargo install wasm-pack --version 0.15.0 --locked
-          fi
+          cargo install wasm-pack --version 0.15.0 --locked --force
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           wasm-pack --version
@@ -571,6 +569,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb
+      - name: Install and identify the locked Chromium browser
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          npm --prefix scripts/captures ci
+          npm --prefix scripts/captures run capture:install -- --with-deps
+          browser=$(cd scripts/captures && node --input-type=module -e 'import { chromium } from "playwright"; console.log(chromium.executablePath())')
+          printf 'CHROME=%s\nTRUST_UI_TEST_BROWSER=%s\n' "$browser" "$browser" >> "$GITHUB_ENV"
+          cargo run --locked -p xtask -- browser-command probe "$browser" --version
       - name: Run extension integration tests
         shell: bash
         run: |
@@ -586,7 +593,7 @@ jobs:
               --timeout-seconds "${CI_VSCODE_TEST_TIMEOUT_SECONDS:-1800}" \
               --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
               --log "${LOG_PATH}" \
-              -- xvfb-run -a npm test; then
+              -- bash ../../scripts/captures/run-owned-command.sh xvfb-run -a npm test; then
               if [[ "${attempt}" -gt 1 ]]; then
                 echo "VS Code integration tests passed only after retry" \
                   | tee -a "${GITHUB_WORKSPACE}/gate-artifacts/vscode-extension-retry-rescued.txt"
@@ -626,12 +633,12 @@ jobs:
     name: Editor Expansion Smoke
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - name: Validate Neovim/Zed editor setup and core workflow coverage
         run: ./scripts/check_editor_integration_smoke.sh
@@ -651,12 +658,12 @@ jobs:
     name: MP-001 Parity
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - name: Verify split-test parity and discovery stability
         run: scripts/check_mp001_split_parity.sh --verify
@@ -676,21 +683,18 @@ jobs:
     name: Supply Chain
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-deny and cargo-audit
         run: |
-          if ! cargo deny --version >/dev/null 2>&1; then
-            cargo install cargo-deny --version 0.19.9 --locked
-          fi
-          if ! cargo audit --version >/dev/null 2>&1; then
-            cargo install cargo-audit --version 0.22.2 --locked
-          fi
+          cargo install cargo-deny --version 0.20.2 --locked --force
+          cargo install cargo-audit --version 0.22.2 --locked --force
+          export PATH="$HOME/.cargo/bin:$PATH"
           cargo deny --version
           cargo audit --version
       - name: Run shared supply-chain gate
@@ -715,7 +719,7 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Validate workspace/extension version alignment
@@ -749,7 +753,7 @@ jobs:
     needs: [portable-core, fmt, clippy, test, conformance, architecture-safety, msrv, docs, browser-analysis, vscode-extension, editor-expansion, mp001-parity, supply-chain, version-release-guard]
     if: ${{ always() }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Prepare gate artifact directory
         run: mkdir -p gate-artifacts

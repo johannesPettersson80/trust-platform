@@ -95,21 +95,20 @@ fn collect_hmi_toml_local_diagnostics(content: &str) -> Vec<Diagnostic> {
             if let (Some(min), Some(max)) = (
                 hmi_toml_widget_number(widget, "min"),
                 hmi_toml_widget_number(widget, "max"),
-            ) {
-                if min > max {
-                    diagnostics.push(Diagnostic {
-                        range: find_name_range(content, bind),
-                        severity: Some(DiagnosticSeverity::WARNING),
-                        code: Some(NumberOrString::String(
-                            HMI_DIAG_INVALID_PROPERTIES.to_string(),
-                        )),
-                        source: Some("truST".to_string()),
-                        message: format!(
-                            "invalid widget property combination: min ({min}) is greater than max ({max})"
-                        ),
-                        ..Default::default()
-                    });
-                }
+            ) && min > max
+            {
+                diagnostics.push(Diagnostic {
+                    range: find_name_range(content, bind),
+                    severity: Some(DiagnosticSeverity::WARNING),
+                    code: Some(NumberOrString::String(
+                        HMI_DIAG_INVALID_PROPERTIES.to_string(),
+                    )),
+                    source: Some("truST".to_string()),
+                    message: format!(
+                    "invalid widget property combination: min ({min}) is greater than max ({max})"
+                ),
+                    ..Default::default()
+                });
             }
             if kind != "indicator"
                 && (hmi_toml_widget_has_key(widget, "on_color")
@@ -288,64 +287,63 @@ fn collect_hmi_toml_semantic_diagnostics(
         });
     }
 
-    if let Some(page_id) = current_page_id {
-        if let Some(page) = descriptor.pages.iter().find(|page| page.id == page_id) {
-            for section in &page.sections {
-                for widget in &section.widgets {
-                    let Some(kind) = widget.widget_type.as_ref() else {
-                        continue;
-                    };
-                    let kind = kind.trim().to_ascii_lowercase();
-                    if kind.is_empty() {
-                        continue;
-                    }
-                    let bind = widget.bind.trim();
-                    if let (Some(min), Some(max)) = (widget.min, widget.max) {
-                        if min > max {
-                            diagnostics.push(Diagnostic {
-                                range: find_name_range(content, bind),
-                                severity: Some(DiagnosticSeverity::WARNING),
-                                code: Some(NumberOrString::String(
-                                    HMI_DIAG_INVALID_PROPERTIES.to_string(),
-                                )),
-                                source: Some("truST".to_string()),
-                                message: format!(
-                                    "invalid widget property combination: min ({min}) is greater than max ({max})"
-                                ),
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    if kind != "indicator"
-                        && (widget.on_color.is_some() || widget.off_color.is_some())
-                    {
-                        diagnostics.push(Diagnostic {
-                            range: find_name_range(content, bind),
-                            severity: Some(DiagnosticSeverity::WARNING),
-                            code: Some(NumberOrString::String(
-                                HMI_DIAG_INVALID_PROPERTIES.to_string(),
-                            )),
-                            source: Some("truST".to_string()),
-                            message: format!(
-                                "invalid widget property combination: on_color/off_color only apply to indicator widgets (found '{kind}')"
-                            ),
-                            ..Default::default()
-                        });
-                    }
-                    if kind == "indicator" && (widget.min.is_some() || widget.max.is_some()) {
-                        diagnostics.push(Diagnostic {
-                            range: find_name_range(content, bind),
-                            severity: Some(DiagnosticSeverity::WARNING),
-                            code: Some(NumberOrString::String(
-                                HMI_DIAG_INVALID_PROPERTIES.to_string(),
-                            )),
-                            source: Some("truST".to_string()),
-                            message:
-                                "invalid widget property combination: indicator widgets do not support min/max"
-                                    .to_string(),
-                            ..Default::default()
-                        });
-                    }
+    if let Some(page_id) = current_page_id
+        && let Some(page) = descriptor.pages.iter().find(|page| page.id == page_id)
+    {
+        for section in &page.sections {
+            for widget in &section.widgets {
+                let Some(kind) = widget.widget_type.as_ref() else {
+                    continue;
+                };
+                let kind = kind.trim().to_ascii_lowercase();
+                if kind.is_empty() {
+                    continue;
+                }
+                let bind = widget.bind.trim();
+                if let (Some(min), Some(max)) = (widget.min, widget.max)
+                    && min > max
+                {
+                    diagnostics.push(Diagnostic {
+                        range: find_name_range(content, bind),
+                        severity: Some(DiagnosticSeverity::WARNING),
+                        code: Some(NumberOrString::String(
+                            HMI_DIAG_INVALID_PROPERTIES.to_string(),
+                        )),
+                        source: Some("truST".to_string()),
+                        message: format!(
+                    "invalid widget property combination: min ({min}) is greater than max ({max})"
+                ),
+                        ..Default::default()
+                    });
+                }
+                if kind != "indicator" && (widget.on_color.is_some() || widget.off_color.is_some())
+                {
+                    diagnostics.push(Diagnostic {
+                    range: find_name_range(content, bind),
+                    severity: Some(DiagnosticSeverity::WARNING),
+                    code: Some(NumberOrString::String(
+                        HMI_DIAG_INVALID_PROPERTIES.to_string(),
+                    )),
+                    source: Some("truST".to_string()),
+                    message: format!(
+                        "invalid widget property combination: on_color/off_color only apply to indicator widgets (found '{kind}')"
+                    ),
+                    ..Default::default()
+                });
+                }
+                if kind == "indicator" && (widget.min.is_some() || widget.max.is_some()) {
+                    diagnostics.push(Diagnostic {
+                    range: find_name_range(content, bind),
+                    severity: Some(DiagnosticSeverity::WARNING),
+                    code: Some(NumberOrString::String(
+                        HMI_DIAG_INVALID_PROPERTIES.to_string(),
+                    )),
+                    source: Some("truST".to_string()),
+                    message:
+                        "invalid widget property combination: indicator widgets do not support min/max"
+                            .to_string(),
+                    ..Default::default()
+                });
                 }
             }
         }

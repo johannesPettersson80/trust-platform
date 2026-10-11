@@ -26,10 +26,10 @@ pub(super) fn validate_pou_index(
         if let Some(return_type_id) = entry.return_type_id {
             ensure_type_index(types, return_type_id)?;
         }
-        if let Some(owner) = entry.owner_pou_id {
-            if tables.pou(owner, budget)?.is_none() {
-                return Err(BytecodeError::InvalidPouId(owner));
-            }
+        if let Some(owner) = entry.owner_pou_id
+            && tables.pou(owner, budget)?.is_none()
+        {
+            return Err(BytecodeError::InvalidPouId(owner));
         }
         budget.work(entry.params.len())?;
         for param in &entry.params {
@@ -41,10 +41,10 @@ pub(super) fn validate_pou_index(
         }
         validate_param_direction_metadata(entry, budget)?;
         if let Some(meta) = &entry.class_meta {
-            if let Some(parent) = meta.parent_pou_id {
-                if tables.pou(parent, budget)?.is_none() {
-                    return Err(BytecodeError::InvalidPouId(parent));
-                }
+            if let Some(parent) = meta.parent_pou_id
+                && tables.pou(parent, budget)?.is_none()
+            {
+                return Err(BytecodeError::InvalidPouId(parent));
             }
             budget.work(meta.interfaces.len())?;
             for interface in &meta.interfaces {
@@ -61,12 +61,12 @@ pub(super) fn validate_pou_index(
                         RejectionReason::InterfaceMappingExpectsInterfaceType,
                     ));
                 }
-                if let TypeData::Interface { methods } = &interface_entry.data {
-                    if interface.vtable_slots.len() != methods.len() {
-                        return Err(BytecodeError::from(
-                            RejectionReason::InterfaceMappingSlotMismatch,
-                        ));
-                    }
+                if let TypeData::Interface { methods } = &interface_entry.data
+                    && interface.vtable_slots.len() != methods.len()
+                {
+                    return Err(BytecodeError::from(
+                        RejectionReason::InterfaceMappingSlotMismatch,
+                    ));
                 }
             }
             budget.work(meta.methods.len())?;

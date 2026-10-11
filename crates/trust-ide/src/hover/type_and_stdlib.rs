@@ -392,21 +392,19 @@ fn resource_type_for_symbol(
     let node = find_named_node(root, symbol_range, SyntaxKind::Resource)?;
     let mut saw_on = false;
     for element in node.children_with_tokens() {
-        if let Some(token) = element.as_token() {
-            if token.kind() == SyntaxKind::KwOn {
-                saw_on = true;
-                continue;
-            }
+        if let Some(token) = element.as_token()
+            && token.kind() == SyntaxKind::KwOn
+        {
+            saw_on = true;
+            continue;
         }
-        if saw_on {
-            if let Some(child) = element
+        if saw_on
+            && let Some(child) = element
                 .as_node()
                 .filter(|node| matches!(node.kind(), SyntaxKind::QualifiedName | SyntaxKind::Name))
-            {
-                if let Some(name) = qualified_name_text(child) {
-                    return Some(name);
-                }
-            }
+            && let Some(name) = qualified_name_text(child)
+        {
+            return Some(name);
         }
     }
     None
@@ -452,17 +450,17 @@ fn task_init_for_symbol(
                 expr_range = Some(node.text_range());
                 break;
             }
-            if let Some(token) = elements[j].as_token() {
-                if matches!(token.kind(), SyntaxKind::Comma | SyntaxKind::RParen) {
-                    break;
-                }
+            if let Some(token) = elements[j].as_token()
+                && matches!(token.kind(), SyntaxKind::Comma | SyntaxKind::RParen)
+            {
+                break;
             }
             j += 1;
         }
-        if let Some(range) = expr_range {
-            if let Some(expr_text) = slice_source(source, range) {
-                parts.push(format!("{name} := {expr_text}"));
-            }
+        if let Some(range) = expr_range
+            && let Some(expr_text) = slice_source(source, range)
+        {
+            parts.push(format!("{name} := {expr_text}"));
         }
         idx = j;
     }

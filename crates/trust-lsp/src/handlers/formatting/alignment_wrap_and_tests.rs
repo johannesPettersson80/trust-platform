@@ -54,11 +54,11 @@ fn align_assignment_ops(lines: &mut [String], masks: &LineFormatMasks<'_>) {
         }
 
         for line in lines.iter_mut().take(i).skip(start) {
-            if let Some(op_idx) = find_assignment_op(line) {
-                if op_idx < max_op {
-                    let padding = " ".repeat(max_op - op_idx);
-                    line.insert_str(op_idx, &padding);
-                }
+            if let Some(op_idx) = find_assignment_op(line)
+                && op_idx < max_op
+            {
+                let padding = " ".repeat(max_op - op_idx);
+                line.insert_str(op_idx, &padding);
             }
         }
     }
@@ -120,4 +120,3 @@ fn wrap_long_lines(
     }
     output
 }
-

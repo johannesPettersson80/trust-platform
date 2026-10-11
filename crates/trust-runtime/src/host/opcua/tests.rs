@@ -1,12 +1,9 @@
 use super::*;
 use crate::value::{EnumValue, Value};
 use smol_str::SmolStr;
-use std::sync::Mutex;
 
 mod client_contracts;
 mod worker_integrity;
-
-static OPCUA_CLIENT_PKI_ENV_LOCK: Mutex<()> = Mutex::new(());
 
 #[test]
 fn maps_scalar_numeric_and_string_types() {
@@ -115,9 +112,6 @@ fn rejects_invalid_security_profile_combinations() {
 
 #[test]
 fn opcua_client_trust_store_can_be_listed_and_cleared() {
-    let _guard = OPCUA_CLIENT_PKI_ENV_LOCK
-        .lock()
-        .expect("OPC UA client PKI env lock");
     let root = std::env::temp_dir().join(format!(
         "trust-opcua-client-pki-{}",
         std::time::SystemTime::now()
@@ -128,29 +122,22 @@ fn opcua_client_trust_store_can_be_listed_and_cleared() {
     let trusted = root.join("trusted").join("certs");
     std::fs::create_dir_all(&trusted).expect("create trusted cert dir");
     std::fs::write(trusted.join("server.der"), b"cert").expect("write trusted cert");
-    std::env::set_var("TRUST_RUNTIME_OPCUA_CLIENT_PKI_DIR", &root);
 
-    let listed =
-        list_trusted_opcua_client_server_certificates().expect("list trusted OPC UA certs");
+    let listed = list_trusted_certificates_in(&root).expect("list trusted OPC UA certs");
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].file_name, "server.der");
 
-    let cleared =
-        clear_trusted_opcua_client_server_certificates().expect("clear trusted OPC UA certs");
+    let cleared = clear_trusted_certificates_in(&root).expect("clear trusted OPC UA certs");
     assert_eq!(cleared, 1);
-    assert!(list_trusted_opcua_client_server_certificates()
+    assert!(list_trusted_certificates_in(&root)
         .expect("list after clear")
         .is_empty());
 
-    std::env::remove_var("TRUST_RUNTIME_OPCUA_CLIENT_PKI_DIR");
     let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
 fn opcua_client_explicit_trust_promotes_rejected_certificates() {
-    let _guard = OPCUA_CLIENT_PKI_ENV_LOCK
-        .lock()
-        .expect("OPC UA client PKI env lock");
     let root = std::env::temp_dir().join(format!(
         "trust-opcua-client-pki-promote-{}",
         std::time::SystemTime::now()
@@ -161,10 +148,8 @@ fn opcua_client_explicit_trust_promotes_rejected_certificates() {
     let rejected = root.join("rejected");
     std::fs::create_dir_all(&rejected).expect("create rejected cert dir");
     std::fs::write(rejected.join("server.der"), b"cert").expect("write rejected cert");
-    std::env::set_var("TRUST_RUNTIME_OPCUA_CLIENT_PKI_DIR", &root);
 
-    let promoted =
-        promote_rejected_opcua_client_server_certificates().expect("promote rejected OPC UA cert");
+    let promoted = promote_rejected_certificates_in(&root).expect("promote rejected OPC UA cert");
 
     assert_eq!(promoted, 1);
     assert!(!rejected.join("server.der").exists());
@@ -173,7 +158,6 @@ fn opcua_client_explicit_trust_promotes_rejected_certificates() {
         b"cert"
     );
 
-    std::env::remove_var("TRUST_RUNTIME_OPCUA_CLIENT_PKI_DIR");
     let _ = std::fs::remove_dir_all(root);
 }
 

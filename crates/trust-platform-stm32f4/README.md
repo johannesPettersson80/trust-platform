@@ -35,8 +35,8 @@ owns only board peripherals; it does not depend on the runtime or compiler.
 ## Dependencies and safety
 
 The bare-metal ARM dependency versions are exact: stm32f4xx-hal0.23.0,
-stm32f4 PAC0.16.0, cortex-m0.7.7, embedded-hal-nb1.0.0 and nb1.1.0.
-The published HAL manifest declares MSRV1.62; the workspace's frozen Rust1.95
+stm32f4 PAC0.16.0, cortex-m0.7.9, embedded-hal-nb1.0.0 and nb1.1.0.
+The published HAL manifest declares MSRV1.62; the workspace's selected Rust1.99
 baseline is retained. Its PAC uses atomics on this atomic-capable M4 target.
 Host tests contain only the timer/polarity/cookie arithmetic and need no HAL.
 

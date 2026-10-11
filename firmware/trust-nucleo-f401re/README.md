@@ -1,6 +1,6 @@
 # NUCLEO-F401RE Scope B composition
 
-This is a standalone Rust 1.95.0 / edition 2021 bare-metal firmware workspace.
+This is a standalone Rust 1.99.0 / edition 2024 bare-metal firmware workspace.
 It uses the shared source-free engine, not a second PLC dispatcher. Its bounded
 bring-up heap measures allocations; it does not claim allocation-free RUN or
 production controller qualification.

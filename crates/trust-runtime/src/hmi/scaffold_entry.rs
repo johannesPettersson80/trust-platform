@@ -206,17 +206,17 @@ pub fn scaffold_hmi_dir_with_sources_mode(
     for (name, text, detail) in artifacts {
         let path = hmi_dir.join(name);
         if !overwrite && path.exists() {
-            if name.ends_with(".toml") && name != "_config.toml" {
-                if let Ok(Some((merged_text, merge_detail))) =
+            if name.ends_with(".toml")
+                && name != "_config.toml"
+                && let Ok(Some((merged_text, merge_detail))) =
                     merge_scaffold_update_page(path.as_path(), name, text.as_str())
-                {
-                    write_scaffold_file(&path, merged_text.as_str())?;
-                    files.push(HmiScaffoldFileSummary {
-                        path: name.to_string(),
-                        detail: merge_detail,
-                    });
-                    continue;
-                }
+            {
+                write_scaffold_file(&path, merged_text.as_str())?;
+                files.push(HmiScaffoldFileSummary {
+                    path: name.to_string(),
+                    detail: merge_detail,
+                });
+                continue;
             }
             files.push(HmiScaffoldFileSummary {
                 path: name.to_string(),

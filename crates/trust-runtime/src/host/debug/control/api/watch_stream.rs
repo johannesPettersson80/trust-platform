@@ -83,10 +83,10 @@ impl DebugControl {
     pub fn push_io_snapshot(&self, snapshot: IoSnapshot) {
         let (lock, _) = &*self.state;
         let state = lock.lock().expect("debug state poisoned");
-        if let Some(sender) = &state.io_tx {
-            if sender.send(snapshot).is_err() {
-                tracing::debug!("debug I/O snapshot sender closed");
-            }
+        if let Some(sender) = &state.io_tx
+            && sender.send(snapshot).is_err()
+        {
+            tracing::debug!("debug I/O snapshot sender closed");
         }
     }
 

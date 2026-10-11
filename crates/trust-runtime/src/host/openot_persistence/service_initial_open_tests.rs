@@ -55,8 +55,10 @@ fn service_retries_unreachable_influxdb_during_initial_open() {
         std::process::id(),
         stamp
     );
-    std::env::set_var(&host_environment, format!("https://{address}"));
-    std::env::set_var(&token_environment, "test-token");
+    let environment = std::collections::BTreeMap::from([
+        (host_environment.clone(), format!("https://{address}")),
+        (token_environment.clone(), "test-token".to_owned()),
+    ]);
     let config = OpenOtTelemetryConfig {
         enabled: true,
         path: "openot.shm".into(),
@@ -81,7 +83,13 @@ fn service_retries_unreachable_influxdb_during_initial_open() {
         ..OpenOtTelemetryConfig::default()
     };
 
-    let mut service = OpenOtPersistenceService::start(&config, &root)
+    let mut service =
+        OpenOtPersistenceService::start_with_environment(&config, &root, move |name| {
+            environment
+                .get(name)
+                .cloned()
+                .ok_or(std::env::VarError::NotPresent)
+        })
         .expect("unreachable remote endpoint must not reject PLC startup")
         .expect("enabled persistence service");
     publisher
@@ -110,8 +118,6 @@ fn service_retries_unreachable_influxdb_during_initial_open() {
     let status = service.status();
     service.shutdown();
     let stopped_status = service.status();
-    std::env::remove_var(host_environment);
-    std::env::remove_var(token_environment);
 
     assert_eq!(status.state, OpenOtPersistenceState::Retrying, "{status:?}");
     assert!(status.documents_retried >= 1, "{status:?}");

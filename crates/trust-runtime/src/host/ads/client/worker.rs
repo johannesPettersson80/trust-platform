@@ -285,10 +285,10 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
                 now_ms,
                 "read",
             );
-            if quality.state == QualityState::Good {
-                if let Some(value) = value {
-                    self.shared.set_value(read.point_name.as_str(), value);
-                }
+            if quality.state == QualityState::Good
+                && let Some(value) = value
+            {
+                self.shared.set_value(read.point_name.as_str(), value);
             }
             self.shared.set_quality(read.point_name.as_str(), quality);
         }
@@ -316,10 +316,10 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
                 now_ms,
                 "notification",
             );
-            if quality.state == QualityState::Good {
-                if let Some(value) = value {
-                    self.shared.set_value(sample.point_name.as_str(), value);
-                }
+            if quality.state == QualityState::Good
+                && let Some(value) = value
+            {
+                self.shared.set_value(sample.point_name.as_str(), value);
             }
             self.shared.set_quality(sample.point_name.as_str(), quality);
         }

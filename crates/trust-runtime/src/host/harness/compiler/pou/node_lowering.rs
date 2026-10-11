@@ -46,31 +46,29 @@ fn lower_function_block_node(
     if let Some(extends_clause) = node
         .children()
         .find(|child| child.kind() == SyntaxKind::ExtendsClause)
-    {
-        if let Some(base_name) = extends_clause
+        && let Some(base_name) = extends_clause
             .children()
             .find(|child| child.kind() == SyntaxKind::Name)
-        {
-            let raw = node_text(&base_name);
-            let resolved = resolve_named_type(ctx.registry, &raw, &ctx.using)?;
-            let type_id = ctx
-                .registry
-                .lookup(resolved.as_ref())
-                .ok_or_else(|| CompileError::new("unknown base type"))?;
-            let base_type = ctx
-                .registry
-                .get(type_id)
-                .ok_or_else(|| CompileError::new("unknown base type"))?;
-            base = Some(match base_type {
-                trust_hir::Type::FunctionBlock { .. } => FunctionBlockBase::FunctionBlock(resolved),
-                trust_hir::Type::Class { .. } => FunctionBlockBase::Class(resolved),
-                _ => {
-                    return Err(CompileError::new(
-                        "function block EXTENDS must reference a FUNCTION_BLOCK or CLASS",
-                    ))
-                }
-            });
-        }
+    {
+        let raw = node_text(&base_name);
+        let resolved = resolve_named_type(ctx.registry, &raw, &ctx.using)?;
+        let type_id = ctx
+            .registry
+            .lookup(resolved.as_ref())
+            .ok_or_else(|| CompileError::new("unknown base type"))?;
+        let base_type = ctx
+            .registry
+            .get(type_id)
+            .ok_or_else(|| CompileError::new("unknown base type"))?;
+        base = Some(match base_type {
+            trust_hir::Type::FunctionBlock { .. } => FunctionBlockBase::FunctionBlock(resolved),
+            trust_hir::Type::Class { .. } => FunctionBlockBase::Class(resolved),
+            _ => {
+                return Err(CompileError::new(
+                    "function block EXTENDS must reference a FUNCTION_BLOCK or CLASS",
+                ))
+            }
+        });
     }
     let (params, vars, temps) = lower_function_block_var_blocks(node, ctx)?;
     let mut methods = Vec::new();
@@ -110,14 +108,12 @@ fn lower_class_node(
     if let Some(extends_clause) = node
         .children()
         .find(|child| child.kind() == SyntaxKind::ExtendsClause)
-    {
-        if let Some(base_name) = extends_clause
+        && let Some(base_name) = extends_clause
             .children()
             .find(|child| child.kind() == SyntaxKind::Name)
-        {
-            let raw = node_text(&base_name);
-            base = Some(resolve_named_type(ctx.registry, &raw, &ctx.using)?);
-        }
+    {
+        let raw = node_text(&base_name);
+        base = Some(resolve_named_type(ctx.registry, &raw, &ctx.using)?);
     }
 
     let vars = lower_class_var_blocks(node, ctx)?;
@@ -181,14 +177,12 @@ fn lower_interface_node(
     if let Some(extends_clause) = node
         .children()
         .find(|child| child.kind() == SyntaxKind::ExtendsClause)
-    {
-        if let Some(base_name) = extends_clause
+        && let Some(base_name) = extends_clause
             .children()
             .find(|child| child.kind() == SyntaxKind::Name)
-        {
-            let raw = node_text(&base_name);
-            base = Some(resolve_named_type(ctx.registry, &raw, &ctx.using)?);
-        }
+    {
+        let raw = node_text(&base_name);
+        base = Some(resolve_named_type(ctx.registry, &raw, &ctx.using)?);
     }
 
     let mut methods = Vec::new();

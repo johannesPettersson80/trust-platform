@@ -210,10 +210,10 @@ fn is_raspberry_pi() -> Result<bool, RuntimeError> {
         "/sys/firmware/devicetree/base/model",
     ];
     for path in candidates {
-        if let Ok(text) = fs::read_to_string(path) {
-            if text.to_ascii_lowercase().contains("raspberry pi") {
-                return Ok(true);
-            }
+        if let Ok(text) = fs::read_to_string(path)
+            && text.to_ascii_lowercase().contains("raspberry pi")
+        {
+            return Ok(true);
         }
     }
     Ok(false)

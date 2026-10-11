@@ -51,10 +51,6 @@ fn service_rejects_missing_database_ca_before_worker_start() {
         std::process::id(),
         stamp
     );
-    std::env::set_var(
-        &database_environment,
-        "postgresql://unused.invalid/trust_logging",
-    );
     let config = OpenOtTelemetryConfig {
         enabled: true,
         path: "openot.shm".into(),
@@ -72,11 +68,12 @@ fn service_rejects_missing_database_ca_before_worker_start() {
         ..OpenOtTelemetryConfig::default()
     };
 
-    let error = match OpenOtPersistenceService::start(&config, &root) {
+    let error = match OpenOtPersistenceService::start_with_environment(&config, &root, |_| {
+        Ok("postgresql://unused.invalid/trust_logging".to_owned())
+    }) {
         Err(error) => error,
         Ok(_) => panic!("missing local CA must reject startup synchronously"),
     };
-    std::env::remove_var(database_environment);
     assert!(
         error.to_string().contains("missing-ca.pem"),
         "unexpected error: {error}"
@@ -127,7 +124,9 @@ fn service_rejects_missing_database_environment_before_worker_start() {
         ..OpenOtTelemetryConfig::default()
     };
 
-    let error = match OpenOtPersistenceService::start(&config, &root) {
+    let error = match OpenOtPersistenceService::start_with_environment(&config, &root, |_| {
+        Err(std::env::VarError::NotPresent)
+    }) {
         Err(error) => error,
         Ok(_) => panic!("missing database environment must reject startup synchronously"),
     };
@@ -138,12 +137,15 @@ fn service_rejects_missing_database_environment_before_worker_start() {
     );
     assert!(!diagnostic.contains("postgresql://"));
 
-    std::env::set_var(&missing_environment, "");
-    let empty_error = match OpenOtPersistenceService::start(&config, &root) {
-        Err(error) => error,
-        Ok(_) => panic!("empty database environment must reject startup synchronously"),
-    };
-    std::env::remove_var(&missing_environment);
+    let empty_error =
+        match OpenOtPersistenceService::start_with_environment(
+            &config,
+            &root,
+            |_| Ok(String::new()),
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("empty database environment must reject startup synchronously"),
+        };
     assert!(empty_error.to_string().contains(&missing_environment));
     std::fs::remove_dir_all(root).ok();
 }

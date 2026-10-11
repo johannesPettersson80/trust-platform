@@ -217,7 +217,7 @@ pub(super) struct ProjectInputs {
 #[salsa::tracked(returns(ref))]
 pub(super) fn parse_green(db: &dyn salsa::Database, input: SourceInput) -> GreenNode {
     let parsed = parse(input.text(db));
-    parsed.syntax().green().into_owned()
+    parsed.syntax().green().to_owned()
 }
 
 #[salsa::tracked(returns(ref))]

@@ -7,6 +7,9 @@ use verification_cases::{
     run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
 };
 
+#[path = "release_evidence_trace_cases/vsix_command.rs"]
+mod vsix_command;
+
 #[test]
 fn release_platform_matrix_trace_cases() {
     run_release_trace(

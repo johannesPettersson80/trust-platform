@@ -81,10 +81,9 @@ impl EngineState<'_> {
             if root.parent_root_idx.is_none()
                 && prepared.layout.entries[root.declaration_idx as usize].role
                     == StorageRole::ProgramRoot
+                && let Some(instance) = self.construction.roots[index]
             {
-                if let Some(instance) = self.construction.roots[index] {
-                    self.initialize_instance(instance, false)?;
-                }
+                self.initialize_instance(instance, false)?;
             }
         }
         self.apply_configuration_actions()?;

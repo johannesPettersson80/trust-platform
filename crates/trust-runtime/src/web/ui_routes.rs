@@ -491,16 +491,15 @@ pub(super) fn handle_ui_route(
         let _ = request.respond(response);
         return UiRouteOutcome::Handled;
     }
-    if *method == Method::Get && url_path.starts_with("/hmi/modules/") {
-        if let Some(module_name) = url_path.strip_prefix("/hmi/modules/") {
-            if let Some(source) = resolve_ui_module_source(module_name) {
-                let response = Response::from_string(source).with_header(
-                    Header::from_bytes("Content-Type", "application/javascript").unwrap(),
-                );
-                let _ = request.respond(response);
-                return UiRouteOutcome::Handled;
-            }
-        }
+    if *method == Method::Get
+        && url_path.starts_with("/hmi/modules/")
+        && let Some(module_name) = url_path.strip_prefix("/hmi/modules/")
+        && let Some(source) = resolve_ui_module_source(module_name)
+    {
+        let response = Response::from_string(source)
+            .with_header(Header::from_bytes("Content-Type", "application/javascript").unwrap());
+        let _ = request.respond(response);
+        return UiRouteOutcome::Handled;
     }
 
     UiRouteOutcome::NotHandled(request)

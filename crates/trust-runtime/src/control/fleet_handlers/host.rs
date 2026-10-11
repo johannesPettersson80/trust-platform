@@ -26,13 +26,13 @@ pub(super) fn same_host_by_discovery(
     entry: &DiscoveryEntry,
     entries: &[DiscoveryEntry],
 ) -> bool {
-    if let Some(host_group) = entry.host_group.as_deref() {
-        if entries.iter().any(|candidate| {
+    if let Some(host_group) = entry.host_group.as_deref()
+        && entries.iter().any(|candidate| {
             candidate.name.as_str() == runtime_id
                 && candidate.host_group.as_deref() == Some(host_group)
-        }) {
-            return true;
-        }
+        })
+    {
+        return true;
     }
     false
 }

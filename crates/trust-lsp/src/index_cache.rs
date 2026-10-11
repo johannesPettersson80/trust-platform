@@ -70,12 +70,12 @@ impl IndexCache {
         let (size, mtime) = metadata_signature(path).unwrap_or((content.len() as u64, None));
         let hash = hash_content(&content);
         let key = cache_key(path);
-        if let Some(entry) = self.entries.get_mut(&key) {
-            if entry.hash == hash {
-                entry.size = size;
-                entry.mtime = mtime;
-                return hash;
-            }
+        if let Some(entry) = self.entries.get_mut(&key)
+            && entry.hash == hash
+        {
+            entry.size = size;
+            entry.mtime = mtime;
+            return hash;
         }
         let entry = CacheEntry {
             hash,

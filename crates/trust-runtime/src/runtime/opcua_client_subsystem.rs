@@ -108,11 +108,11 @@ impl OpcUaClientSubsystem {
     pub(super) fn shutdown(&mut self) -> Result<(), RuntimeError> {
         let mut first_error = None;
         for connection in &mut self.connections {
-            if let Some(worker) = connection.worker.take() {
-                if let Err(err) = worker.shutdown() {
-                    first_error
-                        .get_or_insert_with(|| opcua_runtime_error(&connection.config.name, err));
-                }
+            if let Some(worker) = connection.worker.take()
+                && let Err(err) = worker.shutdown()
+            {
+                first_error
+                    .get_or_insert_with(|| opcua_runtime_error(&connection.config.name, err));
             }
         }
         if let Some(error) = first_error {

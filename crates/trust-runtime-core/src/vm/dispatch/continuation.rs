@@ -223,27 +223,26 @@ pub(super) fn unwind(
 ) {
     while let Ok(frame) = buffers.frames.pop() {
         let cleanup = runtime.retire_frame(&frame);
-        if result.is_ok() {
-            if let Err(error) = cleanup {
-                *result = Err(error);
-            }
+        if result.is_ok()
+            && let Err(error) = cleanup
+        {
+            *result = Err(error);
         }
         if buffers
             .continuations
             .last()
             .is_some_and(|call| call.frame_depth == buffers.frames.len() + 1)
+            && let Some(mut continuation) = buffers.continuations.pop()
         {
-            if let Some(mut continuation) = buffers.continuations.pop() {
-                buffers
-                    .operand_stack
-                    .leave_call(continuation.operand_base, continuation.previous_floor);
-                if let Some(caller) = buffers.frames.current_mut() {
-                    if let Err(error) = runtime.resume_frame(caller) {
-                        *result = Err(error);
-                    }
-                }
-                continuation.call.restore_edges(runtime);
+            buffers
+                .operand_stack
+                .leave_call(continuation.operand_base, continuation.previous_floor);
+            if let Some(caller) = buffers.frames.current_mut()
+                && let Err(error) = runtime.resume_frame(caller)
+            {
+                *result = Err(error);
             }
+            continuation.call.restore_edges(runtime);
         }
     }
 }

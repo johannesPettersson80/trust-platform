@@ -52,10 +52,10 @@ pub(crate) fn eval_const_expr_with_resolver_and_registry(
     registry: &TypeRegistry,
     resolve_name: &impl Fn(&str) -> Option<Value>,
 ) -> Result<Value, ConstExprError> {
-    if let Some(name) = qualified_const_name(expr) {
-        if let Some(value) = resolve_name(&name) {
-            return Ok(value);
-        }
+    if let Some(name) = qualified_const_name(expr)
+        && let Some(value) = resolve_name(&name)
+    {
+        return Ok(value);
     }
 
     match expr {

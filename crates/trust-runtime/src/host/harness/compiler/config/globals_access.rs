@@ -20,13 +20,14 @@ fn lower_global_var_block(
                 })
             })
             .transpose()?;
-        if qualifiers.constant && matches!(kind, VarBlockKind::Global) {
-            if let Some(expr) = init_expr.as_ref() {
-                let value = ctx.eval_compile_time_const_initializer(expr, type_id)?;
-                for name in &parts.names {
-                    let qualified = namespace_qualified_name(var_block, name.as_str());
-                    ctx.register_global_compile_time_const(qualified.as_str(), value.clone());
-                }
+        if qualifiers.constant
+            && matches!(kind, VarBlockKind::Global)
+            && let Some(expr) = init_expr.as_ref()
+        {
+            let value = ctx.eval_compile_time_const_initializer(expr, type_id)?;
+            for name in &parts.names {
+                let qualified = namespace_qualified_name(var_block, name.as_str());
+                ctx.register_global_compile_time_const(qualified.as_str(), value.clone());
             }
         }
         match kind {

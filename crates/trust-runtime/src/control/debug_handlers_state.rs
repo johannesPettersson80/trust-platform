@@ -33,21 +33,20 @@ pub(super) fn handle_debug_stack(id: u64, state: &ControlState) -> ControlRespon
     let fallback = state.debug.last_stop().and_then(|stop| stop.location);
     let mut stack_frames = Vec::new();
     if frames.is_empty() {
-        if let Some(location) = fallback {
-            if let Some(frame) = location_to_stack_frame(0, "Main", &location, state) {
-                stack_frames.push(frame);
-            }
+        if let Some(location) = fallback
+            && let Some(frame) = location_to_stack_frame(0, "Main", &location, state)
+        {
+            stack_frames.push(frame);
         }
     } else {
         for frame in frames.iter().rev() {
             let resolved = frame_locations.get(&frame.id).copied().or(fallback);
             let frame_name = frame.owner.as_str();
-            if let Some(location) = resolved {
-                if let Some(frame_json) =
+            if let Some(location) = resolved
+                && let Some(frame_json) =
                     location_to_stack_frame(frame.id.0, frame_name, &location, state)
-                {
-                    stack_frames.push(frame_json);
-                }
+            {
+                stack_frames.push(frame_json);
             }
         }
     }
@@ -59,4 +58,3 @@ pub(super) fn handle_debug_stack(id: u64, state: &ControlState) -> ControlRespon
         }),
     )
 }
-

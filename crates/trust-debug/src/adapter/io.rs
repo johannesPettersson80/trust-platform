@@ -31,10 +31,10 @@ impl DebugAdapter {
                 entries.remove(&key);
             }
         }
-        if let Ok(mut cache) = self.last_io_state.lock() {
-            if let Some(state) = cache.as_mut() {
-                self.apply_forced_flags(state);
-            }
+        if let Ok(mut cache) = self.last_io_state.lock()
+            && let Some(state) = cache.as_mut()
+        {
+            self.apply_forced_flags(state);
         }
     }
 
@@ -342,10 +342,10 @@ impl DebugAdapter {
     }
 
     pub(super) fn build_io_state(&self) -> IoStateEventBody {
-        if let Ok(cache) = self.last_io_state.lock() {
-            if let Some(state) = cache.clone() {
-                return state;
-            }
+        if let Ok(cache) = self.last_io_state.lock()
+            && let Some(state) = cache.clone()
+        {
+            return state;
         }
         if let Ok(runtime) = self.session.runtime_handle().try_lock() {
             let mut state = io_state_from_snapshot(self.runtime_io_snapshot(&runtime));
@@ -402,12 +402,11 @@ impl DebugAdapter {
         if let Ok(address) = IoAddress::parse(name) {
             return Ok(address);
         }
-        if let Ok(cache) = self.last_io_state.lock() {
-            if let Some(state) = cache.as_ref() {
-                if let Ok(address) = resolve_io_address_from_state(state, name) {
-                    return Ok(address);
-                }
-            }
+        if let Ok(cache) = self.last_io_state.lock()
+            && let Some(state) = cache.as_ref()
+            && let Ok(address) = resolve_io_address_from_state(state, name)
+        {
+            return Ok(address);
         }
         let Some(remote) = self.remote_session.as_mut() else {
             return Err("attach session is not connected".to_string());

@@ -40,10 +40,10 @@ impl Runtime {
     /// Register a task configuration.
     pub fn register_task(&mut self, task: TaskConfig) {
         let mut state = TaskState::new(self.current_time);
-        if let Some(single) = &task.single {
-            if let Some(Value::Bool(value)) = self.storage.get_global(single.as_ref()) {
-                state.last_single = *value;
-            }
+        if let Some(single) = &task.single
+            && let Some(Value::Bool(value)) = self.storage.get_global(single.as_ref())
+        {
+            state.last_single = *value;
         }
         if !self.task_thread_ids.contains_key(&task.name) {
             let id = self.next_thread_id;

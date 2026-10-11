@@ -33,7 +33,7 @@ fn add_flash_load(loads: &mut Vec<(u64, u64)>, start: u64, length: u64) -> Resul
 fn readonly_tail(
     start: u64,
     length: u64,
-    flags: u64,
+    flags: object::elf::SectionFlags,
     vector_end: u64,
     alignment: u64,
 ) -> Result<()> {
@@ -46,8 +46,8 @@ fn readonly_tail(
         "immutable firmware data overlaps vectors or leaves sector 0"
     );
     ensure!(
-        flags & u64::from(object::elf::SHF_ALLOC) != 0
-            && flags & u64::from(object::elf::SHF_WRITE | object::elf::SHF_EXECINSTR) == 0,
+        flags.contains(object::elf::SHF_ALLOC)
+            && !flags.intersects(object::elf::SHF_WRITE | object::elf::SHF_EXECINSTR),
         "sector-0 firmware data must be allocated read-only non-executable data"
     );
     Ok(())
@@ -73,7 +73,7 @@ pub(super) fn inspect(bytes: &[u8]) -> Result<Value> {
         anyhow::bail!("firmware is not ELF");
     };
     ensure!(
-        e_flags & object::elf::EF_ARM_ABI_FLOAT_HARD != 0,
+        e_flags.contains(object::elf::FileFlags(object::elf::EF_ARM_ABI_FLOAT_HARD)),
         "firmware lacks hard-float ABI flag"
     );
     ensure!(
@@ -112,7 +112,7 @@ pub(super) fn inspect(bytes: &[u8]) -> Result<Value> {
     let tail = file
         .section_by_name(".firmware_rodata")
         .context("missing immutable firmware data")?;
-    let object::SectionFlags::Elf { sh_flags } = tail.flags() else {
+    let object::SectionFlags::Elf { sh_flags, .. } = tail.flags() else {
         anyhow::bail!("immutable firmware data is not an ELF section");
     };
     readonly_tail(
@@ -138,12 +138,11 @@ pub(super) fn inspect(bytes: &[u8]) -> Result<Value> {
             && (code.address()..code.address() + code.size()).contains(&(file.entry() & !1)),
         "reset handler is outside executable firmware section"
     );
-    let object::SectionFlags::Elf { sh_flags } = code.flags() else {
+    let object::SectionFlags::Elf { sh_flags, .. } = code.flags() else {
         anyhow::bail!("firmware code is not an ELF section");
     };
     ensure!(
-        sh_flags & u64::from(object::elf::SHF_EXECINSTR | object::elf::SHF_ALLOC)
-            == u64::from(object::elf::SHF_EXECINSTR | object::elf::SHF_ALLOC),
+        sh_flags.contains(object::elf::SHF_EXECINSTR | object::elf::SHF_ALLOC),
         "firmware text is not allocated executable code"
     );
     let elf = object::read::elf::ElfFile32::<object::Endianness>::parse(bytes)?;
@@ -159,7 +158,9 @@ pub(super) fn inspect(bytes: &[u8]) -> Result<Value> {
         add_flash_load(&mut loads, start, length)?;
         if VECTOR.contains(&start) {
             ensure!(
-                segment.p_flags(endian) & (object::elf::PF_W | object::elf::PF_X) == 0,
+                !segment
+                    .p_flags(endian)
+                    .intersects(object::elf::PF_W | object::elf::PF_X),
                 "sector-0 load segment is writable or executable"
             );
         } else {
@@ -181,10 +182,10 @@ pub(super) fn inspect(bytes: &[u8]) -> Result<Value> {
     let mut sections = Vec::new();
     let mut ram_bytes = 0_u64;
     for section in file.sections() {
-        let object::SectionFlags::Elf { sh_flags } = section.flags() else {
+        let object::SectionFlags::Elf { sh_flags, .. } = section.flags() else {
             continue;
         };
-        if sh_flags & u64::from(object::elf::SHF_ALLOC) == 0 || section.size() == 0 {
+        if !sh_flags.contains(object::elf::SHF_ALLOC) || section.size() == 0 {
             continue;
         }
         let start = section.address();
@@ -263,7 +264,7 @@ mod tests {
 
     #[test]
     fn immutable_tail_rejects_vector_overlap_alignment_and_mutable_or_code_sections() {
-        let flags = u64::from(object::elf::SHF_ALLOC);
+        let flags = object::elf::SHF_ALLOC;
         readonly_tail(VECTOR.start + 416, 15_968, flags, VECTOR.start + 404, 32).unwrap();
         assert!(readonly_tail(VECTOR.start + 416, 15_969, flags, VECTOR.start + 404, 32).is_err());
         assert!(readonly_tail(VECTOR.start + 400, 8, flags, VECTOR.start + 404, 32).is_err());
@@ -273,12 +274,28 @@ mod tests {
             assert!(readonly_tail(
                 VECTOR.start + 416,
                 8,
-                flags | u64::from(forbidden),
+                flags | forbidden,
                 VECTOR.start + 404,
                 32
             )
             .is_err());
         }
+        assert!(readonly_tail(
+            VECTOR.start + 416,
+            8,
+            object::elf::SectionFlags(0),
+            VECTOR.start + 404,
+            32
+        )
+        .is_err());
+        readonly_tail(
+            VECTOR.start + 416,
+            8,
+            flags | object::elf::SHF_MERGE,
+            VECTOR.start + 404,
+            32,
+        )
+        .unwrap();
     }
 
     #[test]

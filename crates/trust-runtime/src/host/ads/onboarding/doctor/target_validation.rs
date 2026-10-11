@@ -16,15 +16,15 @@ pub(super) fn validate_manual_target(options: &DoctorOptions) -> Option<Onboardi
             "ADS target AMS port must be non-zero",
         ));
     }
-    if let Some(expected) = options.expected_target_ams_net_id.as_deref() {
-        if !is_canonical_ams_net_id(expected) {
-            return Some(OnboardingWireError::new(
-                OnboardingWireErrorKind::WrongAmsNetId,
-                format!(
-                    "invalid target AMS Net ID '{expected}'; expected six canonical decimal octets"
-                ),
-            ));
-        }
+    if let Some(expected) = options.expected_target_ams_net_id.as_deref()
+        && !is_canonical_ams_net_id(expected)
+    {
+        return Some(OnboardingWireError::new(
+            OnboardingWireErrorKind::WrongAmsNetId,
+            format!(
+                "invalid target AMS Net ID '{expected}'; expected six canonical decimal octets"
+            ),
+        ));
     }
     None
 }

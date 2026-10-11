@@ -97,16 +97,16 @@ fn ensure_dependency_version(
     required: Option<&str>,
     actual: Option<&str>,
 ) -> anyhow::Result<()> {
-    if let Some(required) = required {
-        if actual != Some(required) {
-            let resolved = actual.unwrap_or("unspecified");
-            anyhow::bail!(
-                "dependency '{}' requested version {}, but resolved package version is {}",
-                name,
-                required,
-                resolved
-            );
-        }
+    if let Some(required) = required
+        && actual != Some(required)
+    {
+        let resolved = actual.unwrap_or("unspecified");
+        anyhow::bail!(
+            "dependency '{}' requested version {}, but resolved package version is {}",
+            name,
+            required,
+            resolved
+        );
     }
     Ok(())
 }

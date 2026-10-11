@@ -24,9 +24,8 @@ use open_ot_conformance::{
     ReportInputs, SidecarExpectedAbsOracle,
 };
 use open_ot_shm::{FenceMode, SharedConcurrentStore};
+use openot_support::build_st_runtime;
 use trust_runtime::config::RuntimeConfig;
-use trust_runtime::harness::{CompileSession, SourceFile};
-use trust_runtime::Runtime;
 
 const RUN_ID: u64 = 1;
 const SOURCE_IDS: [u32; 2] = [10, 30];
@@ -240,30 +239,6 @@ fn print_report(label: &str, report: &ObservedReport) {
             source.delivered + source.lost
         );
     }
-}
-
-fn build_st_runtime(main_source: &str) -> Runtime {
-    let session =
-        CompileSession::from_sources(openot_st_source_files(main_source)).label_errors(true);
-    let mut runtime = session
-        .build_runtime()
-        .unwrap_or_else(|err| panic!("build OpenOT ST runtime: {err}"));
-    let bytecode = session
-        .build_bytecode_bytes()
-        .unwrap_or_else(|err| panic!("build OpenOT ST bytecode: {err}"));
-    runtime
-        .apply_bytecode_bytes(&bytecode, None)
-        .unwrap_or_else(|err| panic!("apply OpenOT ST bytecode: {err}"));
-    runtime
-}
-
-fn openot_st_source_files(main_source: &str) -> Vec<SourceFile> {
-    let mut sources = openot_support::ST_LIBRARY_SOURCES
-        .iter()
-        .map(|(name, source)| SourceFile::with_path(*name, *source))
-        .collect::<Vec<_>>();
-    sources.push(SourceFile::with_path("main.st", main_source));
-    sources
 }
 
 fn assert_fenced_report(report: &ObservedReport) {

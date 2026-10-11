@@ -1337,6 +1337,15 @@ The objective is a current, maintainable, reproducible dependency baseline that 
 
 ### 16.1 Observed baseline and proposed selection
 
+Scope U selects the Rust 1.99.0/edition 2024/resolver 3/MSRV 1.99 and Node
+24.21.0 candidates below. The refreshed MOD-01 decisions and pending qualification
+are recorded in `docs/notes/runtime-portability/u-dependency-decisions.md` and the
+implementation checklist. Baseline observations in this section describe the
+pre-modernization source. Selection, installation and lock resolution do not
+establish qualification. Every runtime function remains enabled on all existing
+platform compositions, with unchanged F401 flash/heap/stack acceptance margins.
+
+
 The proposed upgrades below apply to M0U only. Scope A/B uses Rust 1.95.0, edition 2021 and resolver 2. M0U is separately authorized, normally after the first host/F401 checkpoint, and cannot silently expand A's validation. Raising MSRV later also requires matching builder/CI/release tools and editor/local analysis toolchains; 1.95 diagnostics or checks no longer validate code requiring 1.99. Build/test execution remains on the builder under repository rules.
 
 The reviewed workspace declares Rust **1.95 as its minimum supported Rust version (MSRV)**, edition 2021, and resolver 2. There is no root toolchain pin. Most native CI jobs select floating `stable`; one MSRV job selects 1.95. These declarations do not establish the compiler that produced a historical binary. CI/release Node jobs currently select Node 20. [R25]
@@ -1396,6 +1405,55 @@ Use existing standard facilities in the appropriate layer. For example, hosted c
 M0U is a separate implementation scope, normally after A/B and before broad M2B. Preserve original, extracted-before-modernization and modernized source/build records with the saved artifacts/oracles. Freeze all M0U changes before its own consolidated batch. This sequence does not require a compiler/edition upgrade before extraction. An explicitly changed ordering still uses separate scopes and equivalent baselines; any new checkout follows the canonical AGENTS/skills bootstrap rule. A successful Rust 1.95 run does not validate 1.99, and neither result transfers automatically to a different firmware build.
 
 **MOD-06.** For the separately authorized M0U scope, finish implementation and necessary tests before one deduplicated builder/platform batch. Include its affected runtime, syntax/HIR/LSP/protocol, isolated MCU graph/link, WASM/browser, extension and dependency/license/advisory checks. This is not Scope A's batch definition. Include physical qualification when making claims for the new tuple; older-board results remain evidence only for their recorded build. Existing release gates apply before a requested push/release. Failed/unavailable checks stay open and another run requires explicit authorization.
+
+Modernization evidence shall freeze the actual tracked and nonignored new source,
+deleted paths, and canonical instruction sources. Regenerate tracked assets shipped
+inside the runtime or extension before freezing; their bytes remain source inputs.
+Reject changed bytes, added source paths, file-kind changes and Unix executable-bit
+changes during validation. Freeze regular-file versus symbolic-link identity and
+the link target as well as resolved content; retain explicit missing-file records.
+Unix executable bits come from the working tree, not only the Git index. Hosts
+without Unix mode bits record that absence explicitly. A byte-only historical
+snapshot lacks this identity contract and shall not be accepted by the current
+checker. Instruction-directory inventory shall reject symbolic-link directories,
+including configured roots and their ancestors inside the checkout, rather than
+following them. Expected rendered diagrams and public-document
+images are separate generated outputs with their own identities. Rust owns this
+comparison. Source-freeze manifests shall be stored outside the canonical source
+checkout; both creation and checking reject destinations that resolve inside it,
+including symlink aliases. Creation shall refuse to replace an existing manifest.
+Do not exempt a caller-selected source path from the inventory to accommodate the
+manifest. Rust also owns decoding of the existing disposable-database runner's generated
+environment file. Treat that file as data, reject malformed/duplicate/unexpected
+entries, pass settings only to the gate's child process, and never print credentials.
+The required real-database workflow shall invoke that Rust decoder instead of
+loading generated credentials into the workflow environment or bypassing it with
+the shell gate. Generated settings are authoritative: remove all accepted runner
+and database names, including derived CA paths, from the child's inherited
+environment before applying decoded values. Missing inputs shall not be satisfied
+by stale parent settings. Unrelated build and evidence settings remain inherited.
+These tooling contracts do not weaken product tests or establish qualification
+from source review alone.
+
+Selected CI tool versions shall replace older cached executables before the gate
+uses them. The shared worker-import gate installs its locked frontend dependencies
+before importing its build configuration. Browser launch/probe validation has a
+bounded lifetime, reports the actual executable/version and startup diagnostics,
+and terminates task-owned subprocesses on failure. Rust owns this lifecycle;
+Node retains rendered HTML and transport wiring. These prerequisites preserve
+every rendered fixture and assertion and do not extend a failing outer timeout.
+The browser lifecycle command qualifies Unix-host process groups used by the
+builder and Ubuntu editor jobs; unsupported hosts fail before launching a child.
+Native Windows runtime CI remains separate from this rendered qualification.
+
+The firmware build command shall retain its newly linked ELF and linker map in
+the requested evidence directory and record both identities. A cached Cargo
+success does not prove that an undeclared linker-map side effect still exists.
+Request the map on the final binary link, require a non-cached binary artifact
+and a new nonempty map, and reject occupied evidence destinations. Subsequent
+inspection, footprint and installation consume that retained pair rather than
+guessing a Cargo target path or accepting a map from an earlier link. These
+artifact rules do not change the reviewed firmware flags or overflow policy.
 
 The modernization deliverable is complete when every in-scope dependency/tool has a current disposition, all selected migrations and lockfiles are implemented, the support/MSRV/tool documentation agrees, and the applicable evidence passes. Report retained versions and exceptions plainly; do not label a qualified subset “all packages latest.” Saved PLC traces and NUM-05 outcomes must remain compatible across the selected build changes. Attribute performance changes according to PERF-01 rather than presenting compiler gains as evidence for extraction.
 

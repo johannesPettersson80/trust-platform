@@ -175,10 +175,10 @@ pub(crate) fn path_to_uri(path: &Path) -> Option<Url> {
         tracing::info!(target: "trust_lsp::path", "path_to_uri raw: {}", raw);
     }
     let url = Url::parse(&format!("file://{raw}")).ok();
-    if let Some(ref url) = url {
-        if path_debug_enabled() {
-            tracing::info!(target: "trust_lsp::path", "path_to_uri output: {}", url);
-        }
+    if let Some(url) = &url
+        && path_debug_enabled()
+    {
+        tracing::info!(target: "trust_lsp::path", "path_to_uri output: {}", url);
     }
     url
 }
@@ -209,10 +209,11 @@ pub(crate) fn uri_to_path(uri: &Url) -> Option<PathBuf> {
 
         #[cfg(windows)]
         {
-            if let Some(stripped) = decoded.strip_prefix('/') {
-                if stripped.len() >= 2 && stripped.as_bytes()[1] == b':' {
-                    return Some(PathBuf::from(stripped));
-                }
+            if let Some(stripped) = decoded.strip_prefix('/')
+                && stripped.len() >= 2
+                && stripped.as_bytes()[1] == b':'
+            {
+                return Some(PathBuf::from(stripped));
             }
             if let Some(host) = uri.host_str() {
                 let host = percent_decode_str(host).decode_utf8_lossy();

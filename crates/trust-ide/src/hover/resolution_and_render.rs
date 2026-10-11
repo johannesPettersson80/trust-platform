@@ -53,10 +53,10 @@ pub fn hover_with_filter(
     if let Some(result) = hover_typed_literal(&context, position) {
         return Some(result);
     }
-    if has_ambiguous_reference(db, file_id, position) {
-        if let Some(result) = hover_ambiguous_using(&context, position) {
-            return Some(result);
-        }
+    if has_ambiguous_reference(db, file_id, position)
+        && let Some(result) = hover_ambiguous_using(&context, position)
+    {
+        return Some(result);
     }
     let target = context.resolve_target_at_position(position);
     match target {
@@ -217,10 +217,10 @@ fn collect_using_candidates(
             let Some(symbol_id) = symbols.resolve_qualified(&parts) else {
                 continue;
             };
-            if let Some(symbol) = symbols.get(symbol_id) {
-                if matches!(symbol.kind, SymbolKind::Namespace) {
-                    continue;
-                }
+            if let Some(symbol) = symbols.get(symbol_id)
+                && matches!(symbol.kind, SymbolKind::Namespace)
+            {
+                continue;
             }
             candidates.push(parts);
         }
@@ -460,10 +460,10 @@ fn format_symbol(
     let mut sections = Vec::new();
     if let Some(doc) = &symbol.doc {
         sections.push(doc.to_string());
-    } else if stdlib_filter.allows_function_block(symbol.name.as_str()) {
-        if let Some(std_doc) = stdlib_docs::standard_fb_doc(symbol.name.as_str()) {
-            sections.push(std_doc.to_string());
-        }
+    } else if stdlib_filter.allows_function_block(symbol.name.as_str())
+        && let Some(std_doc) = stdlib_docs::standard_fb_doc(symbol.name.as_str())
+    {
+        sections.push(std_doc.to_string());
     }
 
     let ns_parts = namespace_path_for_symbol(symbols, symbol);

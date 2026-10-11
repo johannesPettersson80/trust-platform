@@ -323,10 +323,10 @@ fn format_line_tokens(
 
     for token in tokens {
         let kind = token.kind;
-        if let Some(prev) = prev_kind {
-            if !should_glue(prev, kind, spacing_style) {
-                out.push(' ');
-            }
+        if let Some(prev) = prev_kind
+            && !should_glue(prev, kind, spacing_style)
+        {
+            out.push(' ');
         }
         let start = usize::from(token.range.start());
         let end = usize::from(token.range.end());

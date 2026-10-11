@@ -114,13 +114,12 @@ impl<'a> SymbolImporter<'a> {
                 continue;
             }
 
-            if matches!(symbol.kind, SymbolKind::Namespace) {
-                if let Some(path) = Self::namespace_path(source, symbol.id) {
-                    if let Some(existing_id) = namespace_targets.get(&path).copied() {
-                        id_map.insert(symbol.id, existing_id);
-                        continue;
-                    }
-                }
+            if matches!(symbol.kind, SymbolKind::Namespace)
+                && let Some(path) = Self::namespace_path(source, symbol.id)
+                && let Some(existing_id) = namespace_targets.get(&path).copied()
+            {
+                id_map.insert(symbol.id, existing_id);
+                continue;
             }
 
             let mut imported = symbol.clone();
@@ -139,19 +138,19 @@ impl<'a> SymbolImporter<'a> {
             let new_id = self.target.add_symbol_raw(imported);
             id_map.insert(symbol.id, new_id);
 
-            if matches!(symbol.kind, SymbolKind::Namespace) {
-                if let Some(path) = Self::namespace_path(source, symbol.id) {
-                    namespace_targets.insert(path, new_id);
-                }
+            if matches!(symbol.kind, SymbolKind::Namespace)
+                && let Some(path) = Self::namespace_path(source, symbol.id)
+            {
+                namespace_targets.insert(path, new_id);
             }
         }
 
         for (old_id, new_id) in id_map.iter() {
             let old_parent = parent_map.get(old_id).copied().flatten();
-            if let Some(new_parent) = old_parent.and_then(|pid| id_map.get(&pid).copied()) {
-                if let Some(symbol) = self.target.get_mut(*new_id) {
-                    symbol.parent = Some(new_parent);
-                }
+            if let Some(new_parent) = old_parent.and_then(|pid| id_map.get(&pid).copied())
+                && let Some(symbol) = self.target.get_mut(*new_id)
+            {
+                symbol.parent = Some(new_parent);
             }
 
             if let Some(symbol) = self.target.get_mut(*new_id) {
@@ -279,10 +278,10 @@ impl<'a> SymbolImporter<'a> {
         }
 
         for new_id in id_map.values() {
-            if let Some(symbol) = self.target.get(*new_id) {
-                if matches!(symbol.kind, SymbolKind::Namespace) {
-                    self.ensure_namespace_scope(*new_id);
-                }
+            if let Some(symbol) = self.target.get(*new_id)
+                && matches!(symbol.kind, SymbolKind::Namespace)
+            {
+                self.ensure_namespace_scope(*new_id);
             }
         }
     }
@@ -576,14 +575,13 @@ impl<'a> SymbolImporter<'a> {
             _ => type_id,
         };
 
-        if let Some(source_initializer) = source.type_default_initializer(type_id) {
-            if let Some(target_initializer) = self
+        if let Some(source_initializer) = source.type_default_initializer(type_id)
+            && let Some(target_initializer) = self
                 .target
                 .import_initializer_from(source.as_ref(), source_initializer)
-            {
-                self.target
-                    .set_type_default_initializer(mapped, target_initializer);
-            }
+        {
+            self.target
+                .set_type_default_initializer(mapped, target_initializer);
         }
         if source.is_overlapping_struct_type(type_id) {
             self.target.register_overlapping_struct_type(mapped);

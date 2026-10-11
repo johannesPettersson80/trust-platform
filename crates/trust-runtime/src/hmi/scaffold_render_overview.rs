@@ -33,17 +33,16 @@ fn render_overview_toml(
             }
             let _ = writeln!(out, "label = \"{}\"", escape_toml_string(&point.label));
             // For module widgets, link to their equipment detail page.
-            if is_module {
-                if let Some(group) = equipment_groups
+            if is_module
+                && let Some(group) = equipment_groups
                     .iter()
                     .find(|g| g.widgets.iter().any(|w| w.path == point.path))
-                {
-                    let _ = writeln!(
-                        out,
-                        "detail_page = \"{}\"",
-                        escape_toml_string(&group.detail_page_id)
-                    );
-                }
+            {
+                let _ = writeln!(
+                    out,
+                    "detail_page = \"{}\"",
+                    escape_toml_string(&group.detail_page_id)
+                );
             }
             let _ = writeln!(
                 out,
@@ -147,4 +146,3 @@ fn render_equipment_detail_toml(group: &ScaffoldEquipmentGroup, order: i32) -> S
 
     out
 }
-

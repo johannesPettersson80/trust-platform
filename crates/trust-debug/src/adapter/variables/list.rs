@@ -97,11 +97,10 @@ impl DebugAdapter {
                             .find(|frame| frame.id == frame_id)
                             .map(|frame| {
                                 let mut entries = Vec::new();
-                                if let Some(instance_id) = frame.instance_id {
-                                    if let Some(instance) = storage.get_instance(instance_id) {
-                                        entries
-                                            .extend(collect_entries(&instance.variables, storage));
-                                    }
+                                if let Some(instance_id) = frame.instance_id
+                                    && let Some(instance) = storage.get_instance(instance_id)
+                                {
+                                    entries.extend(collect_entries(&instance.variables, storage));
                                 }
                                 entries.extend(collect_entries(&frame.variables, storage));
                                 entries
@@ -346,18 +345,18 @@ impl DebugAdapter {
             return (None, None);
         };
 
-        if let Some(snapshot) = self.session.debug_control().snapshot() {
-            if let Some(instance) = snapshot.storage.get_instance(*id) {
-                let type_name = instance.type_name.to_string();
-                return (Some(type_name.clone()), Some(type_name));
-            }
+        if let Some(snapshot) = self.session.debug_control().snapshot()
+            && let Some(instance) = snapshot.storage.get_instance(*id)
+        {
+            let type_name = instance.type_name.to_string();
+            return (Some(type_name.clone()), Some(type_name));
         }
 
-        if let Ok(runtime) = self.session.runtime_handle().try_lock() {
-            if let Some(instance) = runtime.storage().get_instance(*id) {
-                let type_name = instance.type_name.to_string();
-                return (Some(type_name.clone()), Some(type_name));
-            }
+        if let Ok(runtime) = self.session.runtime_handle().try_lock()
+            && let Some(instance) = runtime.storage().get_instance(*id)
+        {
+            let type_name = instance.type_name.to_string();
+            return (Some(type_name.clone()), Some(type_name));
         }
 
         (None, None)

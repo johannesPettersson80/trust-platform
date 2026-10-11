@@ -573,11 +573,11 @@ impl SymbolCollector<'_> {
                     values.push((value_name, value));
                     next_value = value + 1;
                 }
-            } else if child.kind() == SyntaxKind::Name {
-                if let Some((value_name, _range)) = name_from_node(&child) {
-                    values.push((value_name, next_value));
-                    next_value += 1;
-                }
+            } else if child.kind() == SyntaxKind::Name
+                && let Some((value_name, _range)) = name_from_node(&child)
+            {
+                values.push((value_name, next_value));
+                next_value += 1;
             }
         }
 
@@ -637,28 +637,24 @@ impl SymbolCollector<'_> {
         if let Some(pointer_node) = node
             .children()
             .find(|n| n.kind() == SyntaxKind::PointerType)
-        {
-            if let Some(inner_ref) = pointer_node
+            && let Some(inner_ref) = pointer_node
                 .children()
                 .find(|n| n.kind() == SyntaxKind::TypeRef)
-            {
-                let target = self.resolve_type_from_ref(&inner_ref);
-                return self.table.register_pointer_type(target);
-            }
+        {
+            let target = self.resolve_type_from_ref(&inner_ref);
+            return self.table.register_pointer_type(target);
         }
 
         // Handle reference types
         if let Some(ref_node) = node
             .children()
             .find(|n| n.kind() == SyntaxKind::ReferenceType)
-        {
-            if let Some(inner_ref) = ref_node
+            && let Some(inner_ref) = ref_node
                 .children()
                 .find(|n| n.kind() == SyntaxKind::TypeRef)
-            {
-                let target = self.resolve_type_from_ref(&inner_ref);
-                return self.table.register_reference_type(target);
-            }
+        {
+            let target = self.resolve_type_from_ref(&inner_ref);
+            return self.table.register_reference_type(target);
         }
 
         // Handle string types with length
@@ -1155,17 +1151,17 @@ impl SymbolCollector<'_> {
 
     pub(super) fn register_type_names(&mut self, node: &SyntaxNode, namespace: &[SmolStr]) {
         for child in node.children() {
-            if child.kind() == SyntaxKind::Name {
-                if let Some((name, _)) = name_from_node(&child) {
-                    let qualified = qualify_name(namespace, &name);
-                    self.table.register_type(
-                        qualified.clone(),
-                        Type::Alias {
-                            name: qualified,
-                            target: TypeId::UNKNOWN,
-                        },
-                    );
-                }
+            if child.kind() == SyntaxKind::Name
+                && let Some((name, _)) = name_from_node(&child)
+            {
+                let qualified = qualify_name(namespace, &name);
+                self.table.register_type(
+                    qualified.clone(),
+                    Type::Alias {
+                        name: qualified,
+                        target: TypeId::UNKNOWN,
+                    },
+                );
             }
         }
     }

@@ -277,16 +277,15 @@ impl DocumentSink for InMemoryDocumentSink {
                 "injected in-memory transaction failure".to_string(),
             ));
         }
-        if let Some(current) = self.checkpoint {
-            if current.buffer_id == batch.checkpoint.buffer_id
-                && current.run_id == batch.checkpoint.run_id
-                && batch.checkpoint.cursor_abs < current.cursor_abs
-            {
-                return Err(PersistenceError::CheckpointRegression {
-                    current: current.cursor_abs,
-                    requested: batch.checkpoint.cursor_abs,
-                });
-            }
+        if let Some(current) = self.checkpoint
+            && current.buffer_id == batch.checkpoint.buffer_id
+            && current.run_id == batch.checkpoint.run_id
+            && batch.checkpoint.cursor_abs < current.cursor_abs
+        {
+            return Err(PersistenceError::CheckpointRegression {
+                current: current.cursor_abs,
+                requested: batch.checkpoint.cursor_abs,
+            });
         }
         let mut staged = self.documents.clone();
         let mut inserted = 0;

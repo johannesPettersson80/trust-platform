@@ -43,12 +43,12 @@ pub(crate) fn exec_stmt(
         Stmt::Assign { target, value, .. } => {
             let value = eval_expr(ctx, value)?;
             write_lvalue(ctx, target, value)?;
-            if let Some(return_name) = &ctx.return_name {
-                if matches!(target, LValue::Name(name) if name == return_name) {
-                    let value = read_lvalue(ctx, target)?;
-                    if let Some(frame) = ctx.storage.current_frame_mut() {
-                        frame.return_value = Some(value);
-                    }
+            if let Some(return_name) = &ctx.return_name
+                && matches!(target, LValue::Name(name) if name == return_name)
+            {
+                let value = read_lvalue(ctx, target)?;
+                if let Some(frame) = ctx.storage.current_frame_mut() {
+                    frame.return_value = Some(value);
                 }
             }
             Ok(StmtResult::Continue)
@@ -244,10 +244,10 @@ pub(crate) fn exec_stmt(
 
 #[cfg(test)]
 fn check_execution_budget(ctx: &EvalContext<'_>) -> Result<(), RuntimeError> {
-    if let Some(deadline) = ctx.execution_deadline {
-        if std::time::Instant::now() >= deadline {
-            return Err(RuntimeError::ExecutionTimeout);
-        }
+    if let Some(deadline) = ctx.execution_deadline
+        && std::time::Instant::now() >= deadline
+    {
+        return Err(RuntimeError::ExecutionTimeout);
     }
     Ok(())
 }

@@ -20,17 +20,17 @@ pub(in crate::db) fn check_nondeterminism(
             );
         }
 
-        if let Some(address) = symbol.direct_address.as_deref() {
-            if is_io_address(address) {
-                diagnostics.warning(
-                    DiagnosticCode::NondeterministicIo,
-                    symbol.range,
-                    format!(
-                        "direct I/O address '{}' on '{}' may introduce nondeterministic timing",
-                        address, symbol.name
-                    ),
-                );
-            }
+        if let Some(address) = symbol.direct_address.as_deref()
+            && is_io_address(address)
+        {
+            diagnostics.warning(
+                DiagnosticCode::NondeterministicIo,
+                symbol.range,
+                format!(
+                    "direct I/O address '{}' on '{}' may introduce nondeterministic timing",
+                    address, symbol.name
+                ),
+            );
         }
     }
 }
@@ -62,10 +62,10 @@ fn should_warn_time_date(symbols: &SymbolTable, symbol: &Symbol) -> bool {
 fn is_io_address(address: &str) -> bool {
     let trimmed = address.trim();
     let mut chars = trimmed.chars();
-    if let Some('%') = chars.next() {
-        if let Some(prefix) = chars.next() {
-            return matches!(prefix.to_ascii_uppercase(), 'I' | 'Q');
-        }
+    if let Some('%') = chars.next()
+        && let Some(prefix) = chars.next()
+    {
+        return matches!(prefix.to_ascii_uppercase(), 'I' | 'Q');
     }
     false
 }

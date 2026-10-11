@@ -27,8 +27,8 @@ REVIEWED_EXECUTION_FILE_DIGESTS = {
     "scripts/salsa_fuzz_gate.sh": "b9cabd8d43a8ae56182b6820c02126fbf6ac89f3d4270f014b8e2005dd321b29",
     "scripts/runtime_comms_fuzz_gate.sh": "1647add928d5c339c8557a68cd93639278cc246a59f4a9050508f23d3064b40d",
     "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh": "6c226b829e70d3dc32c4b91a44d8a930b963a50e76bab0515c0284e60deadc4f",
-    ".github/workflows/ci.yml": "de8e4e0ebb129f805c17fa406b519da77345e553bc027d8ac289a03a151212ad",
-    ".github/workflows/salsa-hardening.yml": "d5851fe83317008d0b41a02d547f25062196b8d4e274d95aef507a65dca7675f",
+    ".github/workflows/ci.yml": "955547cf2e26fc36843df2e6c8a23178c9a5ac95d3c567fe2c72acb8c7ce4b67",
+    ".github/workflows/salsa-hardening.yml": "68f91bd3c925e1db5ca6cc44d8561aee60234fc7fd38daffe56b1c33460aef1e",
 }
 REVIEWED_WORKFLOW_TRIGGER_DIGESTS = {
     ".github/workflows/ci.yml": "31d4f1cce89957fcdf3d991b9fcef339025ba16957f2ee17e7a023faa2b5fe38",
@@ -36,16 +36,16 @@ REVIEWED_WORKFLOW_TRIGGER_DIGESTS = {
 }
 REVIEWED_WORKFLOW_JOB_DIGESTS = {
     (".github/workflows/ci.yml", "test"): (
-        "c105e1bf0a505029132939e74e99f4d15294b51d804e7f52982d6aeecdf1f727"
+        "d96a05b5716341e7551c02e828f16828baaad26bb03a89fcee3b6486b36c2ee4"
     ),
     (".github/workflows/ci.yml", "conformance"): (
-        "609e762b27f408f50585bb0b0b5fc0e3bb00693ab11e48aa6e727adbe1e5ee46"
+        "e12920b71e974cb31c4595c804624db2e314bdb5129a4414ff5f038f36f96c2a"
     ),
     (".github/workflows/salsa-hardening.yml", "fuzz-smoke"): (
-        "21763164faa5f2cb205a60b7a0121d1dae6842397d8e73a66a221ef0960f0fa3"
+        "ed33f2219fbd4d04aee04c007e95b23582e3d674a36704d59061d7f81d7fd7da"
     ),
     (".github/workflows/salsa-hardening.yml", "fuzz-extended-nightly"): (
-        "3c5b4d59e79d58d96e0ac2ba8e3a3d15e91a76120774ab49b67bc98d1521c3d8"
+        "a5561aeac2a4dbf23b91018e9dee42ab6d5766be521de4ac7b3740101d8559a3"
     ),
 }
 REVIEWED_SALSA_TARGETS = {"syntax_parse", "hir_semantic"}

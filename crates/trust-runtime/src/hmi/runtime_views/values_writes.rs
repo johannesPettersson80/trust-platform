@@ -11,10 +11,10 @@ pub fn build_values(
     let mut values = IndexMap::new();
 
     for point in points {
-        if let Some(requested) = requested.as_ref() {
-            if !requested.contains(point.id.as_str()) {
-                continue;
-            }
+        if let Some(requested) = requested.as_ref()
+            && !requested.contains(point.id.as_str())
+        {
+            continue;
         }
         let (value, quality) = if let Some(snapshot) = snapshot {
             match resolve_point_value(&point.binding, snapshot) {

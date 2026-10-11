@@ -22,19 +22,32 @@ pub(super) fn firmware(root: &Path, report: &str) -> Result<()> {
     );
     let sysroot = String::from_utf8(output.stdout)?;
     let library = Path::new(sysroot.trim()).join("lib/rustlib/src/rust");
-    let flags = flags(&config, &root, &cargo_home, &library)?;
-    super::write_report(
-        report,
-        serde_json::json!({
-            "target": TARGET, "profile": "release", "rustflags": flags,
-            "manifest": directory.join("Cargo.toml"),
-            "note": "Path normalization does not claim cross-checkout binary reproducibility."
-        }),
-    )?;
+    let artifacts = super::build_artifacts::Artifacts::prepare(Path::new(report))?;
+    let mut flags = flags(&config, &root, &cargo_home, &library)?;
+    let binary_flags = artifacts.map_flags(&mut flags)?;
+    let report = artifacts.report.to_str().context("non-UTF-8 report path")?;
+    let mut configuration = serde_json::json!({
+        "target": TARGET, "profile": "release", "rustflags": flags,
+        "binary_rustflags": binary_flags, "manifest": directory.join("Cargo.toml"),
+        "status": "started",
+        "note": "Path normalization does not claim cross-checkout binary reproducibility."
+    });
+    super::write_report(report, configuration.clone())?;
     let mut command = Command::new("cargo");
     command
         .current_dir(directory)
-        .args(["build", "--locked", "--release", "--target", TARGET])
+        .args([
+            "rustc",
+            "--locked",
+            "--release",
+            "--target",
+            TARGET,
+            "--bin",
+            "trust-nucleo-f401re",
+            "--message-format=json-render-diagnostics",
+            "--",
+        ])
+        .args(&binary_flags)
         .env("CARGO_ENCODED_RUSTFLAGS", flags.join("\x1f"));
     // The checked-in profile/target flags own the composition. Host validation
     // environments must not silently disable checks or replace the linker scripts.
@@ -47,12 +60,18 @@ pub(super) fn firmware(root: &Path, report: &str) -> Result<()> {
     for key in ["RUSTFLAGS", "RUSTC_BOOTSTRAP", "CC", "CXX"] {
         command.env_remove(key);
     }
-    let status = command.status().context("build reference firmware")?;
+    let output = command.output().context("build reference firmware")?;
+    use std::io::Write;
+    std::io::stderr().write_all(&output.stderr)?;
+    fs::write(&artifacts.cargo_log, &output.stdout)?;
     ensure!(
-        status.success(),
-        "reference firmware build failed: {status}"
+        output.status.success(),
+        "reference firmware build failed: {}",
+        output.status
     );
-    Ok(())
+    configuration["artifacts"] = artifacts.retain(std::str::from_utf8(&output.stdout)?)?;
+    configuration["status"] = "linked".into();
+    super::write_report(report, configuration)
 }
 
 fn flags(config: &str, root: &Path, cargo_home: &Path, library: &Path) -> Result<Vec<String>> {

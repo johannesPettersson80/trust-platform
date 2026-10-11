@@ -168,10 +168,10 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
             scope_id = parent;
         }
 
-        if let Some(owner_id) = self.current_class_owner() {
-            if let Some(member_id) = self.resolve_member_symbol_in_hierarchy(owner_id, name) {
-                return NameLookupResult::Found(member_id);
-            }
+        if let Some(owner_id) = self.current_class_owner()
+            && let Some(member_id) = self.resolve_member_symbol_in_hierarchy(owner_id, name)
+        {
+            return NameLookupResult::Found(member_id);
         }
 
         if let Some(class_scope_id) = class_scope_id {
@@ -482,15 +482,15 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
     }
 
     pub(in crate::type_check) fn current_class_owner(&self) -> Option<SymbolId> {
-        if let Some(pou_id) = self.checker.current_pou_symbol {
-            if let Some(symbol) = self.checker.symbols.get(pou_id) {
-                match symbol.kind {
-                    SymbolKind::Class | SymbolKind::FunctionBlock => return Some(pou_id),
-                    SymbolKind::Method { .. } | SymbolKind::Property { .. } => {
-                        return symbol.parent;
-                    }
-                    _ => {}
+        if let Some(pou_id) = self.checker.current_pou_symbol
+            && let Some(symbol) = self.checker.symbols.get(pou_id)
+        {
+            match symbol.kind {
+                SymbolKind::Class | SymbolKind::FunctionBlock => return Some(pou_id),
+                SymbolKind::Method { .. } | SymbolKind::Property { .. } => {
+                    return symbol.parent;
                 }
+                _ => {}
             }
         }
 
@@ -608,12 +608,11 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
             let Some(scope) = self.checker.symbols.get_scope(scope_id) else {
                 break;
             };
-            if matches!(scope.kind, ScopeKind::Namespace) {
-                if let Some(owner) = scope.owner {
-                    if let Some(symbol) = self.checker.symbols.get(owner) {
-                        parts.push(symbol.name.clone());
-                    }
-                }
+            if matches!(scope.kind, ScopeKind::Namespace)
+                && let Some(owner) = scope.owner
+                && let Some(symbol) = self.checker.symbols.get(owner)
+            {
+                parts.push(symbol.name.clone());
             }
             current = scope.parent;
         }

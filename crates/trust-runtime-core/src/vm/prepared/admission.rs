@@ -404,8 +404,7 @@ fn check_arguments(
                     "unknown variadic parameter",
                 )));
             }
-            let index = name
-                .get(prefix.len()..)
+            name.get(prefix.len()..)
                 .and_then(|suffix| suffix.parse::<usize>().ok())
                 .and_then(|index| index.checked_sub(start))
                 .and_then(|index| index.checked_add(fixed.len()))
@@ -413,8 +412,7 @@ fn check_arguments(
                     invalid_bytecode(smol_str::SmolStr::new_static(
                         "invalid variadic parameter index",
                     ))
-                })?;
-            index
+                })?
         };
         if position >= args.len() || positions.contains(&position) {
             return Err(invalid_bytecode(smol_str::SmolStr::new_static(

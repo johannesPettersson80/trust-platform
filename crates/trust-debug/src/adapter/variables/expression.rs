@@ -536,30 +536,30 @@ impl DebugAdapter {
                         ..DispatchOutcome::default()
                     };
                 }
-                if let Some(name) = ads_point {
-                    if !runtime.queue_ads_live_write(name.as_ref(), coerced.clone()) {
-                        let _ = runtime.write_lvalue(&target, current.clone(), frame_id);
-                        return DispatchOutcome {
-                            responses: vec![self.error_response(
-                                &request,
-                                &format!("ADS write for tag '{name}' could not be queued."),
-                            )],
-                            ..DispatchOutcome::default()
-                        };
-                    }
+                if let Some(name) = ads_point
+                    && !runtime.queue_ads_live_write(name.as_ref(), coerced.clone())
+                {
+                    let _ = runtime.write_lvalue(&target, current.clone(), frame_id);
+                    return DispatchOutcome {
+                        responses: vec![self.error_response(
+                            &request,
+                            &format!("ADS write for tag '{name}' could not be queued."),
+                        )],
+                        ..DispatchOutcome::default()
+                    };
                 }
-                if matches!(directive, SetDirective::Force(_)) {
-                    if let Err(message) = self.apply_symbolic_force_directive(
+                if matches!(directive, SetDirective::Force(_))
+                    && let Err(message) = self.apply_symbolic_force_directive(
                         &runtime,
                         &target,
                         SymbolicForceDirective::Force,
                         Some(coerced.clone()),
-                    ) {
-                        return DispatchOutcome {
-                            responses: vec![self.error_response(&request, &message)],
-                            ..DispatchOutcome::default()
-                        };
-                    }
+                    )
+                {
+                    return DispatchOutcome {
+                        responses: vec![self.error_response(&request, &message)],
+                        ..DispatchOutcome::default()
+                    };
                 }
                 coerced
             }
@@ -645,10 +645,10 @@ impl DebugAdapter {
                 SetDirective::Release => {
                     self.session.debug_control().release_io(&address);
                     self.set_io_forced(&address, false);
-                    if let Ok(cache) = self.last_io_state.lock() {
-                        if let Some(state) = cache.clone() {
-                            events.push(self.event("stIoState", Some(state)));
-                        }
+                    if let Ok(cache) = self.last_io_state.lock()
+                        && let Some(state) = cache.clone()
+                    {
+                        events.push(self.event("stIoState", Some(state)));
                     }
                     RuntimeValue::Null
                 }

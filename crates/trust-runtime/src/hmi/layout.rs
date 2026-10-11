@@ -397,10 +397,10 @@ fn normalize_point(point: &mut HmiPoint) {
             .total_cmp(&right.from)
             .then_with(|| left.to.total_cmp(&right.to))
     });
-    if let Some(section_title) = point.section_title.as_ref() {
-        if section_title.trim().is_empty() {
-            point.section_title = None;
-        }
+    if let Some(section_title) = point.section_title.as_ref()
+        && section_title.trim().is_empty()
+    {
+        point.section_title = None;
     }
     if let Some(span) = point.widget_span {
         point.widget_span = Some(span.clamp(1, 12));

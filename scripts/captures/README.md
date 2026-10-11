@@ -7,6 +7,8 @@ the public docs.
 
 - Browser product surfaces: Playwright against live truST browser endpoints such
   as `/ide` and `/hmi`.
+- Compiled WASM analysis: the Rust analysis package running in a real browser
+  worker, with document edits, diagnostics and recovery screenshots.
 - Terminal captures: VHS tapes rendered to checked-in GIFs for CLI/runtime
   workflows that should show exact shell output.
 - VS Code browser surfaces: Playwright against `code-server` with the real
@@ -26,6 +28,12 @@ their dedicated product surfaces rather than leaking into the palette.
 ./scripts/captures/run-terminal-captures.sh
 ```
 
+For the compiled WASM composition, first run
+`scripts/build_browser_analysis_wasm_spike.sh`, then
+`npm --prefix scripts/captures run capture:wasm`. This lane writes its screenshots
+to Playwright's test output directory; it does not replace native Rust semantic
+tests or the product-surface captures.
+
 These commands write checked-in assets directly to:
 
 - `docs/public/assets/images/browser/`
@@ -41,7 +49,7 @@ and Trends and captures each page in dark mode with live values.
 
 - `cargo` with locally built binaries under `target/debug/`
 - `docker` for the `code-server` capture path
-- Node 20+
+- Node 24.21.0 (the pinned project build baseline)
 - `npm --prefix scripts/captures ci`
 - `npm --prefix editors/vscode ci && npm --prefix editors/vscode run compile` for
   the VS Code capture path

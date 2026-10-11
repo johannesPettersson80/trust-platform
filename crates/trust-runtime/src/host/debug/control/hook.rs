@@ -55,19 +55,20 @@ impl DebugControl {
         }
         let is_target_thread =
             state.target_thread.is_none() || state.target_thread == state.current_thread;
-        if matches!(state.mode, DebugMode::Paused) && is_target_thread {
-            if let Some(reason) = state.pending_stop.take() {
-                trace_debug(&format!(
-                    "hook.pending_stop.consume reason={reason:?} location={} thread={:?}",
-                    format_location_ref(location),
-                    state.current_thread
-                ));
-                if let Some(eval_ctx) = ctx.as_mut() {
-                    update_watch_snapshot(&mut state, eval_ctx);
-                    update_snapshot(&mut state, eval_ctx);
-                }
-                emit_stop(&mut state, reason, location.copied(), None);
+        if matches!(state.mode, DebugMode::Paused)
+            && is_target_thread
+            && let Some(reason) = state.pending_stop.take()
+        {
+            trace_debug(&format!(
+                "hook.pending_stop.consume reason={reason:?} location={} thread={:?}",
+                format_location_ref(location),
+                state.current_thread
+            ));
+            if let Some(eval_ctx) = ctx.as_mut() {
+                update_watch_snapshot(&mut state, eval_ctx);
+                update_snapshot(&mut state, eval_ctx);
             }
+            emit_stop(&mut state, reason, location.copied(), None);
         }
         let effective_mode = if is_target_thread {
             state.mode
@@ -88,28 +89,28 @@ impl DebugControl {
                     .current_thread
                     .filter(|id| state.steps.contains_key(id))
                     .or_else(|| state.steps.contains_key(&0).then_some(0));
-                if let Some(step_key) = step_key {
-                    if let Some(step) = state.steps.get_mut(&step_key) {
-                        if !step.started {
-                            step.started = true;
-                            trace_debug(&format!(
-                                "hook.step.arm key={} kind={:?} target_depth={} current_depth={}",
-                                step_key, step.kind, step.target_depth, call_depth
-                            ));
-                        } else {
-                            should_pause = match step.kind {
-                                StepKind::Into => true,
-                                StepKind::Over => call_depth <= step.target_depth,
-                                StepKind::Out => call_depth <= step.target_depth,
-                            };
-                            trace_debug(&format!(
-                                "hook.step.check key={} kind={:?} target_depth={} current_depth={} should_pause={}",
-                                step_key, step.kind, step.target_depth, call_depth, should_pause
-                            ));
-                            if should_pause {
-                                state.steps.remove(&step_key);
-                                stop_reason = Some(DebugStopReason::Step);
-                            }
+                if let Some(step_key) = step_key
+                    && let Some(step) = state.steps.get_mut(&step_key)
+                {
+                    if !step.started {
+                        step.started = true;
+                        trace_debug(&format!(
+                            "hook.step.arm key={} kind={:?} target_depth={} current_depth={}",
+                            step_key, step.kind, step.target_depth, call_depth
+                        ));
+                    } else {
+                        should_pause = match step.kind {
+                            StepKind::Into => true,
+                            StepKind::Over => call_depth <= step.target_depth,
+                            StepKind::Out => call_depth <= step.target_depth,
+                        };
+                        trace_debug(&format!(
+                        "hook.step.check key={} kind={:?} target_depth={} current_depth={} should_pause={}",
+                        step_key, step.kind, step.target_depth, call_depth, should_pause
+                    ));
+                        if should_pause {
+                            state.steps.remove(&step_key);
+                            stop_reason = Some(DebugStopReason::Step);
                         }
                     }
                 }
@@ -167,19 +168,20 @@ impl DebugControl {
         loop {
             let is_target_thread =
                 state.target_thread.is_none() || state.target_thread == state.current_thread;
-            if matches!(state.mode, DebugMode::Paused) && is_target_thread {
-                if let Some(reason) = state.pending_stop.take() {
-                    trace_debug(&format!(
-                        "hook.pending_stop.consume reason={reason:?} location={} thread={:?}",
-                        format_location_ref(location),
-                        state.current_thread
-                    ));
-                    if let Some(eval_ctx) = ctx.as_mut() {
-                        update_watch_snapshot(&mut state, eval_ctx);
-                        update_snapshot(&mut state, eval_ctx);
-                    }
-                    emit_stop(&mut state, reason, location.copied(), None);
+            if matches!(state.mode, DebugMode::Paused)
+                && is_target_thread
+                && let Some(reason) = state.pending_stop.take()
+            {
+                trace_debug(&format!(
+                    "hook.pending_stop.consume reason={reason:?} location={} thread={:?}",
+                    format_location_ref(location),
+                    state.current_thread
+                ));
+                if let Some(eval_ctx) = ctx.as_mut() {
+                    update_watch_snapshot(&mut state, eval_ctx);
+                    update_snapshot(&mut state, eval_ctx);
                 }
+                emit_stop(&mut state, reason, location.copied(), None);
             }
             match state.mode {
                 DebugMode::Running => {
@@ -244,10 +246,10 @@ fn emit_stop(
         thread_id: state.current_thread,
         breakpoint_generation,
     };
-    if let Some(sender) = &state.stop_tx {
-        if sender.send(stop.clone()).is_err() {
-            trace_debug("stop sender closed; retaining stop in debug control buffer");
-        }
+    if let Some(sender) = &state.stop_tx
+        && sender.send(stop.clone()).is_err()
+    {
+        trace_debug("stop sender closed; retaining stop in debug control buffer");
     }
     state.last_stop = Some(stop.clone());
     state.stops.push(stop);

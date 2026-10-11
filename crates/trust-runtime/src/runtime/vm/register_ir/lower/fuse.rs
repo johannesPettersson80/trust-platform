@@ -70,20 +70,18 @@ fn try_fuse_instruction_window(
             &instructions[index],
             &instructions[index + 1],
             &instructions[index + 2],
-        ) {
-            if base == self_reg
-                && reference == field_reg
-                && !register_used_after(instructions, index + 3, *self_reg)
-                && !register_used_after(instructions, index + 3, *field_reg)
-            {
-                return Some((
-                    RegisterInstr::LoadSelfFieldDynamic {
-                        field_idx: *field_idx,
-                        dest: *dest,
-                    },
-                    3,
-                ));
-            }
+        ) && base == self_reg
+            && reference == field_reg
+            && !register_used_after(instructions, index + 3, *self_reg)
+            && !register_used_after(instructions, index + 3, *field_reg)
+        {
+            return Some((
+                RegisterInstr::LoadSelfFieldDynamic {
+                    field_idx: *field_idx,
+                    dest: *dest,
+                },
+                3,
+            ));
         }
 
         if let (
@@ -98,20 +96,18 @@ fn try_fuse_instruction_window(
             &instructions[index],
             &instructions[index + 1],
             &instructions[index + 2],
-        ) {
-            if base == self_reg
-                && reference == field_reg
-                && !register_used_after(instructions, index + 3, *self_reg)
-                && !register_used_after(instructions, index + 3, *field_reg)
-            {
-                return Some((
-                    RegisterInstr::StoreSelfFieldDynamic {
-                        field_idx: *field_idx,
-                        value: *value,
-                    },
-                    3,
-                ));
-            }
+        ) && base == self_reg
+            && reference == field_reg
+            && !register_used_after(instructions, index + 3, *self_reg)
+            && !register_used_after(instructions, index + 3, *field_reg)
+        {
+            return Some((
+                RegisterInstr::StoreSelfFieldDynamic {
+                    field_idx: *field_idx,
+                    value: *value,
+                },
+                3,
+            ));
         }
     }
 
@@ -140,24 +136,22 @@ fn try_fuse_instruction_window(
         &instructions[index + 1],
         &instructions[index + 2],
         &instructions[index + 3],
-    ) {
-        if left == left_reg
-            && right == right_reg
-            && src == dest
-            && !register_used_after(instructions, index + 4, *left_reg)
-            && !register_used_after(instructions, index + 4, *right_reg)
-            && !register_used_after(instructions, index + 4, *dest)
-        {
-            return Some((
-                RegisterInstr::BinaryRefToRef {
-                    op: *op,
-                    left_ref_idx: *left_ref_idx,
-                    right_ref_idx: *right_ref_idx,
-                    dest_ref_idx: *ref_idx,
-                },
-                4,
-            ));
-        }
+    ) && left == left_reg
+        && right == right_reg
+        && src == dest
+        && !register_used_after(instructions, index + 4, *left_reg)
+        && !register_used_after(instructions, index + 4, *right_reg)
+        && !register_used_after(instructions, index + 4, *dest)
+    {
+        return Some((
+            RegisterInstr::BinaryRefToRef {
+                op: *op,
+                left_ref_idx: *left_ref_idx,
+                right_ref_idx: *right_ref_idx,
+                dest_ref_idx: *ref_idx,
+            },
+            4,
+        ));
     }
 
     if let (
@@ -181,24 +175,22 @@ fn try_fuse_instruction_window(
         &instructions[index + 1],
         &instructions[index + 2],
         &instructions[index + 3],
-    ) {
-        if left == left_reg
-            && right == const_reg
-            && src == dest
-            && !register_used_after(instructions, index + 4, *left_reg)
-            && !register_used_after(instructions, index + 4, *const_reg)
-            && !register_used_after(instructions, index + 4, *dest)
-        {
-            return Some((
-                RegisterInstr::BinaryRefConstToRef {
-                    op: *op,
-                    left_ref_idx: *left_ref_idx,
-                    const_idx: *const_idx,
-                    dest_ref_idx: *ref_idx,
-                },
-                4,
-            ));
-        }
+    ) && left == left_reg
+        && right == const_reg
+        && src == dest
+        && !register_used_after(instructions, index + 4, *left_reg)
+        && !register_used_after(instructions, index + 4, *const_reg)
+        && !register_used_after(instructions, index + 4, *dest)
+    {
+        return Some((
+            RegisterInstr::BinaryRefConstToRef {
+                op: *op,
+                left_ref_idx: *left_ref_idx,
+                const_idx: *const_idx,
+                dest_ref_idx: *ref_idx,
+            },
+            4,
+        ));
     }
 
     if let (
@@ -222,24 +214,22 @@ fn try_fuse_instruction_window(
         &instructions[index + 1],
         &instructions[index + 2],
         &instructions[index + 3],
-    ) {
-        if left == const_reg
-            && right == right_reg
-            && src == dest
-            && !register_used_after(instructions, index + 4, *const_reg)
-            && !register_used_after(instructions, index + 4, *right_reg)
-            && !register_used_after(instructions, index + 4, *dest)
-        {
-            return Some((
-                RegisterInstr::BinaryConstRefToRef {
-                    op: *op,
-                    const_idx: *const_idx,
-                    right_ref_idx: *right_ref_idx,
-                    dest_ref_idx: *ref_idx,
-                },
-                4,
-            ));
-        }
+    ) && left == const_reg
+        && right == right_reg
+        && src == dest
+        && !register_used_after(instructions, index + 4, *const_reg)
+        && !register_used_after(instructions, index + 4, *right_reg)
+        && !register_used_after(instructions, index + 4, *dest)
+    {
+        return Some((
+            RegisterInstr::BinaryConstRefToRef {
+                op: *op,
+                const_idx: *const_idx,
+                right_ref_idx: *right_ref_idx,
+                dest_ref_idx: *ref_idx,
+            },
+            4,
+        ));
     }
 
     if let (
@@ -267,26 +257,24 @@ fn try_fuse_instruction_window(
         &instructions[index + 1],
         &instructions[index + 2],
         &instructions[index + 3],
-    ) {
-        if is_cmp_binary_op(*op)
-            && left == ref_reg
-            && right == const_reg
-            && cond == dest
-            && !register_used_after(instructions, index + 4, *ref_reg)
-            && !register_used_after(instructions, index + 4, *const_reg)
-            && !register_used_after(instructions, index + 4, *dest)
-        {
-            return Some((
-                RegisterInstr::CmpRefConstJumpIf {
-                    op: *op,
-                    ref_idx: *ref_idx,
-                    const_idx: *const_idx,
-                    jump_if_true: *jump_if_true,
-                    target: *target,
-                },
-                4,
-            ));
-        }
+    ) && is_cmp_binary_op(*op)
+        && left == ref_reg
+        && right == const_reg
+        && cond == dest
+        && !register_used_after(instructions, index + 4, *ref_reg)
+        && !register_used_after(instructions, index + 4, *const_reg)
+        && !register_used_after(instructions, index + 4, *dest)
+    {
+        return Some((
+            RegisterInstr::CmpRefConstJumpIf {
+                op: *op,
+                ref_idx: *ref_idx,
+                const_idx: *const_idx,
+                jump_if_true: *jump_if_true,
+                target: *target,
+            },
+            4,
+        ));
     }
 
     None

@@ -77,14 +77,12 @@ fn should_emit_stop(
         }
         _ => {}
     }
-    if stop.reason == "breakpoint" {
-        if let (Some(file_id), Some(generation)) = (stop.file_id, stop.breakpoint_generation) {
-            if let Ok(guard) = breakpoints.lock() {
-                if guard.get(&file_id).copied() != Some(generation) {
-                    return false;
-                }
-            }
-        }
+    if stop.reason == "breakpoint"
+        && let (Some(file_id), Some(generation)) = (stop.file_id, stop.breakpoint_generation)
+        && let Ok(guard) = breakpoints.lock()
+        && guard.get(&file_id).copied() != Some(generation)
+    {
+        return false;
     }
     true
 }

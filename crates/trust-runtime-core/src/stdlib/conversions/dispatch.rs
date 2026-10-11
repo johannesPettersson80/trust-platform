@@ -82,10 +82,10 @@ fn convert_value(
     dst: ConversionType,
     mode: ConversionMode,
 ) -> Result<Value, RuntimeError> {
-    if let Some(src) = value_type_id(value) {
-        if src == dst {
-            return Ok(value.clone());
-        }
+    if let Some(src) = value_type_id(value)
+        && src == dst
+    {
+        return Ok(value.clone());
     }
 
     match dst {

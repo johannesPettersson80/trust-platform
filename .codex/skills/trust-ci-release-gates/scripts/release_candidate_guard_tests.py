@@ -241,12 +241,99 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         )
         self.assertIn("bash scripts/architecture_safety_gate.sh", workflow)
 
+    def test_remote_tool_environment_reaches_initial_editor_format_and_compiler_commands(self) -> None:
+        tool_path = "/task tools/node/bin:/task tools/cargo/bin:/usr/bin:/bin"
+        cargo_home = "/task cargo home"
+        commands = dict(candidate_prepare.remote_validation_commands(
+            vscode_changed=True, remote_target="/tmp/trust-target",
+            pinned_environment=True,
+        ))
+        for command_id in (
+            "remote_vscode", "remote_fmt", "remote_clippy", "remote_test_all",
+            "remote_cross_target_warnings", "remote_supply_chain",
+            "remote_architecture_safety",
+        ):
+            command = commands[command_id]
+            invocation = candidate_prepare.remote_command(
+                "trust-builder", "/task checkout", command,
+                tool_path=tool_path, cargo_home=cargo_home,
+            )
+            self.assertEqual(invocation[:2], ["ssh", "trust-builder"])
+            prefix, body = invocation[2].split(" && ", 1)
+            self.assertEqual(prefix, "cd '/task checkout'")
+            self.assertEqual(shlex.split(body), [
+                "env", f"PATH={tool_path}", f"CARGO_HOME={cargo_home}",
+                "bash", "-c", command,
+            ])
+        self.assertIn("npm ci && npm run lint && npm run compile", commands["remote_vscode"])
+        self.assertEqual(commands["remote_fmt"], "just fmt")
+        self.assertIn("with_cargo_target_lease.sh", commands["remote_clippy"])
+        self.assertIn("required_kib=83886080", commands["remote_disk_preflight"])
+        self.assertIn("git status --porcelain", commands["remote_clean_after"])
+        self.assertNotIn(" CC=", commands["remote_cross_target_warnings"])
+        for command in commands.values():
+            if "with_cargo_target_lease.sh" in command:
+                self.assertIn(" bash -c ", command)
+                self.assertNotIn(" bash -lc ", command)
+
+    def test_pinned_environment_survives_a_lease_on_a_host_that_rewrites_login_path(self) -> None:
+        scripts = self.repo / "scripts"
+        scripts.mkdir()
+        (scripts / "with_cargo_target_lease.sh").write_text(
+            '#!/bin/sh\nshift\nexec "$@"\n', encoding="utf-8",
+        )
+        tools = self.repo / "tools"
+        tools.mkdir()
+        for name, body in (
+            ("bash", '#!/bin/sh\nif [ "$1" = "-lc" ]; then export PATH=/usr/bin:/bin; fi\nexec /bin/bash "$@"\n'),
+            ("cargo", '#!/bin/sh\nprintf "%s\\n%s\\n" "$PATH" "$CARGO_HOME"\n'),
+        ):
+            path = tools / name
+            path.write_text(body, encoding="utf-8")
+            path.chmod(0o755)
+        pinned_path = f"{tools}:/usr/bin:/bin"
+        cargo_home = str(self.repo / "private cargo home")
+        command = dict(candidate_prepare.remote_validation_commands(
+            vscode_changed=False, remote_target=str(self.repo / "target"),
+            pinned_environment=True,
+        ))["remote_clippy"]
+        invocation = candidate_prepare.remote_command(
+            "unused-host", str(self.repo), command,
+            tool_path=pinned_path, cargo_home=cargo_home,
+        )
+        result = subprocess.run(
+            ["/bin/bash", "-c", invocation[2]], capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines(), [
+            f"{self.repo / 'target/bin'}:{pinned_path}", cargo_home,
+        ])
+
+    def test_remote_tool_environment_defaults_preserve_existing_transport(self) -> None:
+        default_commands = dict(candidate_prepare.remote_validation_commands(
+            vscode_changed=True, remote_target="/tmp/trust-target",
+        ))
+        for command in default_commands.values():
+            if "with_cargo_target_lease.sh" in command:
+                self.assertIn(" bash -lc ", command)
+        self.assertEqual(
+            candidate_prepare.remote_command("trust-builder", "/task checkout", "just fmt"),
+            ["ssh", "trust-builder", "cd '/task checkout' && just fmt"],
+        )
+        args = guard.parser().parse_args([
+            "prepare", "--remote-worktree", "/task checkout",
+            "--remote-tool-path", "/task tools/bin:/usr/bin",
+            "--remote-cargo-home", "/task cargo home",
+        ])
+        self.assertEqual(args.remote_tool_path, "/task tools/bin:/usr/bin")
+        self.assertEqual(args.remote_cargo_home, "/task cargo home")
+
     def test_architecture_safety_gate_exposes_cargo_installed_tools(self) -> None:
         gate = (
             Path(__file__).parents[4] / "scripts/architecture_safety_gate.sh"
         ).read_text(encoding="utf-8")
 
-        self.assertIn('export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"', gate)
+        self.assertIn('export PATH="$PATH:${CARGO_HOME:-$HOME/.cargo}/bin"', gate)
         self.assertLess(gate.index("export PATH="), gate.index("command -v ast-grep"))
 
     def test_remote_validation_checks_target_space_before_test_all(self) -> None:

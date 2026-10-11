@@ -98,22 +98,20 @@ fn resolve_codesys_folder_segments_for_node(
     fallback_name: &str,
     project_structure_map: &CodesysProjectStructureMap,
 ) -> Vec<String> {
-    if let Some(object_id) = extract_object_id_from_node(node) {
-        if let Some(path) = project_structure_map.object_paths_by_id.get(&object_id) {
-            if path.len() >= 2 {
-                return path[..path.len() - 1].to_vec();
-            }
-        }
+    if let Some(object_id) = extract_object_id_from_node(node)
+        && let Some(path) = project_structure_map.object_paths_by_id.get(&object_id)
+        && path.len() >= 2
+    {
+        return path[..path.len() - 1].to_vec();
     }
 
     let name_key = fallback_name.trim().to_ascii_lowercase();
     if let Some(path) = project_structure_map
         .unique_object_paths_by_name
         .get(&name_key)
+        && path.len() >= 2
     {
-        if path.len() >= 2 {
-            return path[..path.len() - 1].to_vec();
-        }
+        return path[..path.len() - 1].to_vec();
     }
 
     Vec::new()

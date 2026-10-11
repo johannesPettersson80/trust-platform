@@ -197,20 +197,13 @@ pub(in crate::runtime::vm::register_ir) fn compute_block_entry_stack_depths(
             }
         }
 
-        if !terminated {
-            if let Some(next_start_pc) = leaders.get(block_index + 1).copied() {
-                let next_index = *start_to_index.get(&next_start_pc).ok_or_else(|| {
-                    invalid_bytecode(format!(
-                        "register-ir fallthrough target {next_start_pc} is not a block leader",
-                    ))
-                })?;
-                propagate_block_entry_stack_depth(
-                    &mut entry_depths,
-                    next_index,
-                    depth,
-                    &mut worklist,
-                )?;
-            }
+        if !terminated && let Some(next_start_pc) = leaders.get(block_index + 1).copied() {
+            let next_index = *start_to_index.get(&next_start_pc).ok_or_else(|| {
+                invalid_bytecode(format!(
+                    "register-ir fallthrough target {next_start_pc} is not a block leader",
+                ))
+            })?;
+            propagate_block_entry_stack_depth(&mut entry_depths, next_index, depth, &mut worklist)?;
         }
     }
 

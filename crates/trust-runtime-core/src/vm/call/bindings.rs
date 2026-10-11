@@ -139,17 +139,16 @@ pub fn resolve_named_arg_index(
         .find_map(|(index, consumed)| (!*consumed).then_some(index))
         .unwrap_or(args.len());
 
-    if let Some(arg) = args.get(*ordered_named_index) {
-        if arg
+    if let Some(arg) = args.get(*ordered_named_index)
+        && arg
             .name
             .as_ref()
             .map(|name| name.eq_ignore_ascii_case(param_name.as_str()))
             .unwrap_or(false)
-        {
-            let index = *ordered_named_index;
-            *ordered_named_index += 1;
-            return Some(index);
-        }
+    {
+        let index = *ordered_named_index;
+        *ordered_named_index += 1;
+        return Some(index);
     }
 
     args.iter().enumerate().find_map(|(index, arg)| {

@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.73`
+Target release: `v0.24.74`
 
 ### Added
 
@@ -51,6 +51,14 @@ Target release: `v0.24.73`
   directions.
 
 ### Changed
+
+- Modernize the supported build baseline to Rust 1.99 (edition 2024, resolver 3)
+  and Node 24.21.0; refresh dependency families while retaining compatible LSP
+  and editor API pairs. Software and full-function F401 fixture qualification pass;
+  production and ESP32 hardware qualification remain separate.
+- Test configuration no longer mutates process-wide environment variables;
+  verification, register executor, OPC UA and persistence tests supply values
+  directly through their owning configuration boundaries.
 
 - Use compact live activation storage and portable instance storage without changing
   PLC identities or functions. Portable field lookup reuses existing hash indexes;
@@ -120,6 +128,18 @@ Target release: `v0.24.73`
 
 ### Fixed
 
+- Isolate the real OpenOT PLC scan-overhead regression from concurrent functional
+  tests and compare paired scans with alternating order, preserving the existing
+  threshold and checking that the real persistence worker commits and drains.
+
+- Route required real-database qualification through the Rust generated-environment decoder and clear inherited database settings before launching the gate, so stale parent values cannot satisfy missing generated inputs.
+
+- Reject source-freeze manifests inside the source checkout, including symlink aliases, and preserve existing manifests rather than overwriting them. Source identity also checks working-tree file kinds, link targets and Unix executable bits; older byte-only snapshots remain historical evidence.
+
+- Bound rendered-test browser startup and lifetime with Rust-owned subprocess cleanup and visible browser/version diagnostics; install selected CI tools and locked frontend prerequisites before their gates.
+
+- Make PostgreSQL and TimescaleDB release-runner TLS mounts accessible to the
+  service UID under restrictive host umasks, while keeping server keys private.
 - Preserve source-free restart initialization of direct input, output and marker
   image addresses. Warm and cold restart carry previous images into staging before
   ordered configuration actions, keeping unconfigured values and transactional

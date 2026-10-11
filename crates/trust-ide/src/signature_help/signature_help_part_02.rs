@@ -51,13 +51,12 @@ fn active_param_index(args: &[ArgInfo], arg_index: usize, params: &[ParamData]) 
         return arg_index;
     }
     let arg = &args[arg_index];
-    if let Some(name) = &arg.name {
-        if let Some(index) = params
+    if let Some(name) = &arg.name
+        && let Some(index) = params
             .iter()
             .position(|param| param.name.eq_ignore_ascii_case(name.as_str()))
-        {
-            return index;
-        }
+    {
+        return index;
     }
     arg_index
 }
@@ -86,10 +85,10 @@ fn apply_arg_types(signature: &SignatureInfo, arg_types: &[Option<TypeId>]) -> S
     }
 
     if let Some(return_type) = updated.return_type {
-        if is_generic_type(return_type) {
-            if let Some(Some(arg_type)) = arg_types.first() {
-                updated.return_type = Some(*arg_type);
-            }
+        if is_generic_type(return_type)
+            && let Some(Some(arg_type)) = arg_types.first()
+        {
+            updated.return_type = Some(*arg_type);
         }
     } else if let Some(Some(arg_type)) = arg_types.first() {
         updated.return_type = Some(*arg_type);

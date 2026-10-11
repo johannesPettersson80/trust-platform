@@ -318,6 +318,7 @@ fn reset_register_file(registers: &mut [Value]) {
     }
 }
 
+mod environment;
 mod interpreter;
 mod lower;
 mod profile;
@@ -348,27 +349,16 @@ pub(in crate::runtime) use self::tier1::RegisterTier1SpecializedExecutorState;
 #[cfg(test)]
 use self::tier1::{
     apply_dint_binary_guard_borrowed, compile_tier1_block, execute_tier1_compiled_block,
-    parse_tier1_env_bool, parse_tier1_env_usize, tier1_block_key, Tier1CompiledBlock,
-    Tier1CompiledInstr,
+    tier1_block_key, Tier1CompiledBlock, Tier1CompiledInstr,
 };
 use self::tier1::{maybe_execute_tier1_block, prepare_borrowed_binary_eval};
 
 fn parse_env_bool(name: &str, default: bool) -> bool {
-    match std::env::var(name) {
-        Ok(value) => match value.trim().to_ascii_lowercase().as_str() {
-            "1" | "true" | "yes" | "on" => true,
-            "0" | "false" | "no" | "off" => false,
-            _ => default,
-        },
-        Err(_) => default,
-    }
+    environment::parse_bool(std::env::var(name).ok().as_deref(), default)
 }
 
 fn parse_env_usize(name: &str, default: usize) -> usize {
-    std::env::var(name)
-        .ok()
-        .and_then(|value| value.trim().parse::<usize>().ok())
-        .unwrap_or(default)
+    environment::parse_number(std::env::var(name).ok().as_deref(), default)
 }
 
 fn build_cached_register_program(
@@ -540,18 +530,16 @@ fn execute_register_program(
                 block.start_pc.try_into().unwrap_or(u32::MAX),
             );
         }
-        if runtime.debug.is_some() {
-            if let Some(location) =
+        if runtime.debug.is_some()
+            && let Some(location) =
                 register_statement_location(runtime, module, program.pou_id, block.start_pc)
-            {
-                let storage = &runtime.storage;
-                let current_time = runtime.current_time;
-                if let Some(debug) = runtime.debug.as_mut() {
-                    let call_depth =
-                        depth_offset.saturating_add(frames.len().saturating_sub(1) as u32);
-                    debug.refresh_snapshot_from_storage(storage, current_time);
-                    debug.on_statement(Some(&location), call_depth);
-                }
+        {
+            let storage = &runtime.storage;
+            let current_time = runtime.current_time;
+            if let Some(debug) = runtime.debug.as_mut() {
+                let call_depth = depth_offset.saturating_add(frames.len().saturating_sub(1) as u32);
+                debug.refresh_snapshot_from_storage(storage, current_time);
+                debug.on_statement(Some(&location), call_depth);
             }
         }
 

@@ -36,10 +36,10 @@ impl Runtime {
         let mut retained_program_vars = Vec::new();
         if matches!(mode, RestartMode::Warm) {
             for (name, meta) in &globals {
-                if retain_on_warm(meta.retain) {
-                    if let Some(value) = self.storage.get_global(name.as_ref()) {
-                        retained.insert(name.clone(), value.clone());
-                    }
+                if retain_on_warm(meta.retain)
+                    && let Some(value) = self.storage.get_global(name.as_ref())
+                {
+                    retained.insert(name.clone(), value.clone());
                 }
             }
             for program in self.programs.values() {
@@ -99,11 +99,9 @@ impl Runtime {
 
         for (name, meta) in globals {
             let keep = matches!(mode, RestartMode::Warm) && retain_on_warm(meta.retain);
-            if keep {
-                if let Some(value) = retained.get(&name) {
-                    storage.set_global(name.clone(), value.clone());
-                    continue;
-                }
+            if keep && let Some(value) = retained.get(&name) {
+                storage.set_global(name.clone(), value.clone());
+                continue;
             }
             match meta.init {
                 GlobalInitValue::Value(value) => {

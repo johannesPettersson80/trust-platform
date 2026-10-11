@@ -1,5 +1,4 @@
 impl<'a, 'b> StandardChecker<'a, 'b> {
-
     pub(in crate::type_check) fn check_comparable_args(
         &mut self,
         args: &[(CallArg, TypeId)],
@@ -7,7 +6,10 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         if args.len() < 2 {
             return true;
         }
-        if args.iter().any(|(_, ty)| self.base_type_id(*ty) == TypeId::UNKNOWN) {
+        if args
+            .iter()
+            .any(|(_, ty)| self.base_type_id(*ty) == TypeId::UNKNOWN)
+        {
             return false;
         }
 
@@ -80,7 +82,6 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         }
         false
     }
-
 
     pub(in crate::type_check) fn is_conversion_allowed(&self, src: TypeId, dst: TypeId) -> bool {
         let src = self.base_type_id(src);
@@ -203,24 +204,31 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
 
         if matches!(dst, TypeId::STRING | TypeId::WSTRING)
             && (self.is_numeric_type(src)
-                || matches!(src, TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD))
+                || matches!(
+                    src,
+                    TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
+                ))
         {
             return true;
         }
-        if matches!(src, TypeId::STRING | TypeId::WSTRING)
-            && (self.is_numeric_type(dst))
-        {
+        if matches!(src, TypeId::STRING | TypeId::WSTRING) && (self.is_numeric_type(dst)) {
             return true;
         }
         if matches!(dst, TypeId::CHAR | TypeId::WCHAR)
             && (self.is_numeric_type(src)
-                || matches!(src, TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD))
+                || matches!(
+                    src,
+                    TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
+                ))
         {
             return true;
         }
         if matches!(src, TypeId::CHAR | TypeId::WCHAR)
             && (self.is_numeric_type(dst)
-                || matches!(dst, TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD))
+                || matches!(
+                    dst,
+                    TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
+                ))
         {
             return true;
         }
@@ -240,5 +248,4 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
 
         false
     }
-
 }

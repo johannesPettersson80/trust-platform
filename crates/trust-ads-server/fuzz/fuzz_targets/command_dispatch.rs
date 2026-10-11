@@ -228,7 +228,10 @@ fn dispatch_sumup_read(
         let symbol = host.symbol_for(data, offset);
         push_u32(&mut requests, symbol.index_group);
         push_u32(&mut requests, symbol.index_offset);
-        push_u32(&mut requests, bounded_len(data, offset + 4, symbol.byte_size));
+        push_u32(
+            &mut requests,
+            bounded_len(data, offset + 4, symbol.byte_size),
+        );
     }
     let payload = read_write_payload(ADSIGRP_SUMUP_READ, 2, 4096, &requests);
     let _ = dispatcher.dispatch(CommandId::ReadWrite, &payload, ctx);
@@ -248,7 +251,8 @@ fn dispatch_sumup_write(
         push_u32(&mut requests, symbol.index_group);
         push_u32(&mut requests, symbol.index_offset);
         push_u32(&mut requests, write_len as u32);
-        values.extend((0..write_len).map(|index| data.get(index + offset + 8).copied().unwrap_or(0)));
+        values
+            .extend((0..write_len).map(|index| data.get(index + offset + 8).copied().unwrap_or(0)));
     }
     requests.extend(values);
     let payload = read_write_payload(ADSIGRP_SUMUP_WRITE, 2, 8, &requests);

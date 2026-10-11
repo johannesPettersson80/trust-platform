@@ -94,10 +94,9 @@ fn format_config(
         }
         if let Some(max) = value_with_aliases(format, &["maxLineLength", "max_line_length"])
             .and_then(Value::as_u64)
+            && max > 0
         {
-            if max > 0 {
-                config.max_line_length = Some(max as usize);
-            }
+            config.max_line_length = Some(max as usize);
         }
         if let Some(style) = string_with_aliases(format, &["spacingStyle", "spacing_style"]) {
             config.spacing_style = match style.to_ascii_lowercase().as_str() {
@@ -145,10 +144,10 @@ fn apply_format_overrides(config: &mut FormatConfig, overrides: FormatOverrides)
     if let Some(align) = overrides.align_assignments {
         config.align_assignments = align;
     }
-    if let Some(max) = overrides.max_line_length {
-        if max > 0 {
-            config.max_line_length = Some(max);
-        }
+    if let Some(max) = overrides.max_line_length
+        && max > 0
+    {
+        config.max_line_length = Some(max);
     }
     if let Some(style) = overrides.spacing_style {
         config.spacing_style = style;
@@ -364,17 +363,17 @@ fn format_document(source: &str, config: &FormatConfig) -> String {
 
         let mut current_indent = indent_level;
         let mut dedent_after = false;
-        if let Some(first) = tokens.first() {
-            if is_dedent_token(first.kind) {
-                let should_dedent = match config.end_keyword_style {
-                    EndKeywordStyle::Aligned => true,
-                    EndKeywordStyle::Indented => !is_end_keyword(first.kind),
-                };
-                if should_dedent {
-                    current_indent = (current_indent - 1).max(0);
-                } else {
-                    dedent_after = true;
-                }
+        if let Some(first) = tokens.first()
+            && is_dedent_token(first.kind)
+        {
+            let should_dedent = match config.end_keyword_style {
+                EndKeywordStyle::Aligned => true,
+                EndKeywordStyle::Indented => !is_end_keyword(first.kind),
+            };
+            if should_dedent {
+                current_indent = (current_indent - 1).max(0);
+            } else {
+                dedent_after = true;
             }
         }
 

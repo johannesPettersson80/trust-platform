@@ -413,10 +413,10 @@ fn extract_codesys_global_vars_plaintext(node: roxmltree::Node<'_, '_>) -> Optio
         {
             continue;
         }
-        if let Some(text) = extract_text_content(data) {
-            if !text.trim().is_empty() {
-                return Some(text);
-            }
+        if let Some(text) = extract_text_content(data)
+            && !text.trim().is_empty()
+        {
+            return Some(text);
         }
     }
     None

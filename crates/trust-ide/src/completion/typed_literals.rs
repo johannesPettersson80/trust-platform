@@ -184,14 +184,14 @@ fn typed_literal_completion_context(
             token.text_range().end(),
             token.text_range().end(),
         ));
-    } else if let Some(prev) = previous_non_trivia_token(&token) {
-        if prev.kind() == SyntaxKind::TypedLiteralPrefix {
-            prefix_token = Some(prev);
-            if is_typed_literal_value_token(token.kind()) {
-                value_range = Some(token.text_range());
-            } else {
-                value_range = Some(TextRange::new(position, position));
-            }
+    } else if let Some(prev) = previous_non_trivia_token(&token)
+        && prev.kind() == SyntaxKind::TypedLiteralPrefix
+    {
+        prefix_token = Some(prev);
+        if is_typed_literal_value_token(token.kind()) {
+            value_range = Some(token.text_range());
+        } else {
+            value_range = Some(TextRange::new(position, position));
         }
     }
 

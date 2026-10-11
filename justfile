@@ -21,7 +21,7 @@ test-e2e:
 	./scripts/cargo_test_fast_link.sh test -p trust-runtime --test complete_program
 
 test-all:
-	./scripts/cargo_test_fast_link.sh test --all
+	./scripts/cargo_test_fast_link.sh test --all --no-fail-fast
 
 test-fast:
 	./scripts/cargo_test_fast_link.sh test -p trust-runtime --lib

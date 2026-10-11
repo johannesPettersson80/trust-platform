@@ -176,14 +176,13 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                         runtime
                             .vm_register_profile
                             .record_ref_op(RegisterRefOpKind::InstanceFieldLookup);
-                        let next = runtime
+                        runtime
                             .storage
                             .resolved_instance_field_ref(*instance_id, field.as_str())
                             .ok_or_else(|| {
                                 VmTrap::Runtime(RuntimeError::UndefinedField(field.clone()))
                                     .into_runtime_error()
-                            })?;
-                        next
+                            })?
                     }
                     _ => {
                         return Err(VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error())

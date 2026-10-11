@@ -148,10 +148,10 @@ fn handle_mqtt_client(
                         guard.subscribe_count += topic_count;
                         drop(guard);
 
-                        if let Some(payload) = inbound_payload.as_ref() {
-                            if write_mqtt_publish(&mut stream, &topic_in, payload).is_err() {
-                                break;
-                            }
+                        if let Some(payload) = inbound_payload.as_ref()
+                            && write_mqtt_publish(&mut stream, &topic_in, payload).is_err()
+                        {
+                            break;
                         }
                     }
                     12 if write_mqtt_pingresp(&mut stream).is_err() => break,
@@ -160,14 +160,12 @@ fn handle_mqtt_client(
                 }
             }
             Err(err) if matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) => {
-                if subscribed {
-                    if let Some(payload) = inbound_payload.as_ref() {
-                        if write_mqtt_publish(&mut stream, &topic_in, payload).is_err() {
-                            break;
-                        }
-                        idle_timeouts = 0;
-                        continue;
+                if subscribed && let Some(payload) = inbound_payload.as_ref() {
+                    if write_mqtt_publish(&mut stream, &topic_in, payload).is_err() {
+                        break;
                     }
+                    idle_timeouts = 0;
+                    continue;
                 }
                 idle_timeouts += 1;
                 if idle_timeouts > MQTT_BROKER_IDLE_TIMEOUTS {

@@ -75,10 +75,7 @@ fn extract_configuration_declarations(
                         resource.tasks.push(task);
                     } else if let Some(program) = parse_program_binding_line(resource_line) {
                         resource.programs.push(program);
-                    } else if resource_line
-                        .to_ascii_uppercase()
-                        .starts_with("TASK ")
-                    {
+                    } else if resource_line.to_ascii_uppercase().starts_with("TASK ") {
                         configuration.invalid = true;
                     }
                     line_index += 1;
@@ -122,17 +119,17 @@ fn extract_configuration_declarations(
             .map(|task| task.name.to_ascii_lowercase())
             .collect::<HashSet<_>>();
         for program in &configuration.programs {
-            if let Some(task_name) = &program.task_name {
-                if !task_names.contains(&task_name.to_ascii_lowercase()) {
-                    reject_configuration = true;
-                    warnings.push(format!(
-                        "{}:{} PROGRAM '{}' references unknown task '{}'",
-                        source.path.display(),
-                        line_index,
-                        program.instance_name,
-                        task_name
-                    ));
-                }
+            if let Some(task_name) = &program.task_name
+                && !task_names.contains(&task_name.to_ascii_lowercase())
+            {
+                reject_configuration = true;
+                warnings.push(format!(
+                    "{}:{} PROGRAM '{}' references unknown task '{}'",
+                    source.path.display(),
+                    line_index,
+                    program.instance_name,
+                    task_name
+                ));
             }
         }
         for resource in &configuration.resources {
@@ -142,17 +139,17 @@ fn extract_configuration_declarations(
                 .map(|task| task.name.to_ascii_lowercase())
                 .collect::<HashSet<_>>();
             for program in &resource.programs {
-                if let Some(task_name) = &program.task_name {
-                    if !task_names.contains(&task_name.to_ascii_lowercase()) {
-                        reject_configuration = true;
-                        warnings.push(format!(
-                            "{}:{} PROGRAM '{}' references unknown task '{}'",
-                            source.path.display(),
-                            line_index,
-                            program.instance_name,
-                            task_name
-                        ));
-                    }
+                if let Some(task_name) = &program.task_name
+                    && !task_names.contains(&task_name.to_ascii_lowercase())
+                {
+                    reject_configuration = true;
+                    warnings.push(format!(
+                        "{}:{} PROGRAM '{}' references unknown task '{}'",
+                        source.path.display(),
+                        line_index,
+                        program.instance_name,
+                        task_name
+                    ));
                 }
             }
         }
@@ -204,24 +201,24 @@ fn parse_task_declaration_line(line: &str) -> Option<TaskDecl> {
         ..TaskDecl::default()
     };
 
-    if let (Some(open), Some(close)) = (rest.find('('), rest.rfind(')')) {
-        if close > open {
-            let init = &rest[open + 1..close];
-            for item in init.split(',') {
-                let Some((key, value)) = item.split_once(":=") else {
-                    continue;
-                };
-                let key = key.trim().to_ascii_uppercase();
-                let value = value.trim();
-                if value.is_empty() {
-                    return None;
-                }
-                match key.as_str() {
-                    "INTERVAL" => task.interval = Some(normalize_task_interval_literal(value)),
-                    "SINGLE" => task.single = Some(value.to_string()),
-                    "PRIORITY" => task.priority = Some(value.to_string()),
-                    _ => {}
-                }
+    if let (Some(open), Some(close)) = (rest.find('('), rest.rfind(')'))
+        && close > open
+    {
+        let init = &rest[open + 1..close];
+        for item in init.split(',') {
+            let Some((key, value)) = item.split_once(":=") else {
+                continue;
+            };
+            let key = key.trim().to_ascii_uppercase();
+            let value = value.trim();
+            if value.is_empty() {
+                return None;
+            }
+            match key.as_str() {
+                "INTERVAL" => task.interval = Some(normalize_task_interval_literal(value)),
+                "SINGLE" => task.single = Some(value.to_string()),
+                "PRIORITY" => task.priority = Some(value.to_string()),
+                _ => {}
             }
         }
     }
@@ -263,9 +260,7 @@ fn normalize_task_interval_literal(value: &str) -> String {
             if !seconds.is_finite() || seconds < 0.0 {
                 return String::new();
             }
-            if seconds >= 1.0
-                && (seconds.fract() - 0.0).abs() < f64::EPSILON
-            {
+            if seconds >= 1.0 && (seconds.fract() - 0.0).abs() < f64::EPSILON {
                 // Do not cast an out-of-range f64 to u64: Rust saturates that
                 // conversion, which would turn an invalid ISO duration into
                 // a plausible (but incorrect) IEC literal.
@@ -302,9 +297,7 @@ fn valid_iec_time_literal(body: &str) -> bool {
     let mut components = 0usize;
     while index < body.len() {
         let start = index;
-        while index < body.len()
-            && body.as_bytes()[index].is_ascii_digit()
-        {
+        while index < body.len() && body.as_bytes()[index].is_ascii_digit() {
             index += 1;
         }
         if index < body.len() && body.as_bytes()[index] == b'.' {

@@ -55,11 +55,12 @@ fn run_mesh_zenoh_bench(workload: MeshBenchWorkload) -> anyhow::Result<BenchRepo
             });
         }
 
-        if queue.len() > 1 && rng.next_f64() < workload.reorder_rate {
-            if let Some(last) = queue.pop_back() {
-                queue.push_front(last);
-                reorder_count = reorder_count.saturating_add(1);
-            }
+        if queue.len() > 1
+            && rng.next_f64() < workload.reorder_rate
+            && let Some(last) = queue.pop_back()
+        {
+            queue.push_front(last);
+            reorder_count = reorder_count.saturating_add(1);
         }
 
         if idx % 2 == 0 || queue.len() > 8 {

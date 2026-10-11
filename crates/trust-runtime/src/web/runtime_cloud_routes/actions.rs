@@ -360,11 +360,11 @@ pub(super) fn handle_post_dispatch(
             }
         };
 
-        if let Some(ticket) = ha_ticket {
-            if let Ok(mut coordinator) = ctx.ha_state.lock() {
-                coordinator
-                    .finish_dispatch(ticket, runtime_cloud_ha_record_from_result(&target_result));
-            }
+        if let Some(ticket) = ha_ticket
+            && let Ok(mut coordinator) = ctx.ha_state.lock()
+        {
+            coordinator
+                .finish_dispatch(ticket, runtime_cloud_ha_record_from_result(&target_result));
         }
         results.push(target_result);
     }

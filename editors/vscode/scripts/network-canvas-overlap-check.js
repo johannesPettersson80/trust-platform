@@ -8,7 +8,7 @@
 //
 // Skips gracefully (exit 0) when no Chromium is available, so CI without a browser doesn't fail;
 // it gates wherever Chromium is present (dev machines, browser-equipped CI).
-const { execFileSync } = require("child_process");
+const { runBrowser } = require("./browser-command.js");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -18,17 +18,17 @@ const BUNDLE = path.join(ROOT, "media", "networkCanvasWebview.js");
 const CSS = path.join(ROOT, "media", "networkCanvasWebview.css");
 
 function findChrome() {
-  const cands = [
-    process.env.CHROME,
-    process.env.CHROMIUM,
+  const selected = process.env.CHROME || process.env.CHROMIUM;
+  const cands = selected ? [selected] : [
     "chromium",
     "chromium-browser",
     "google-chrome",
     "google-chrome-stable",
-  ].filter(Boolean);
+  ];
   for (const c of cands) {
     try {
-      execFileSync(c, ["--version"], { stdio: "ignore" });
+      const version = runBrowser("probe", c, ["--version"]).trim();
+      console.error(`[canvas-geometry] browser=${c} version=${version}`);
       return c;
     } catch {
       /* try next */
@@ -407,16 +407,20 @@ function main() {
   let failures = 0;
   for (const fixture of FIXTURES) {
     const file = path.join(tmp, `${fixture.name.replace(/\W+/g, "_")}.html`);
+    // Never reuse a developer's default Chrome profile or its singleton lock.
+    const profile = fs.mkdtempSync(path.join(tmp, "chrome-profile-"));
     fs.writeFileSync(file, harnessHtml(fixture));
     let dom = "";
     try {
-      dom = execFileSync(
-        chrome,
-        ["--headless=new", "--disable-gpu", "--no-sandbox", "--hide-scrollbars", "--window-size=1600,900", "--virtual-time-budget=5000", "--dump-dom", `file://${file}`],
-        { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024 }
+      console.error(`[canvas-geometry] fixture=${fixture.name} start`);
+      dom = runBrowser(
+        "render", chrome,
+        ["--headless=new", "--disable-gpu", "--no-sandbox", "--hide-scrollbars", `--user-data-dir=${profile}`, "--window-size=1600,900", "--virtual-time-budget=5000", "--dump-dom", `file://${file}`]
       );
     } catch (err) {
       console.error(`[canvas-geometry] ${fixture.name}: chromium failed — ${err.message}`);
+      console.error(`[canvas-geometry] executable=${chrome} status=${err.status} signal=${err.signal}`);
+      if (err.stderr) console.error(String(err.stderr));
       failures++;
       continue;
     }
