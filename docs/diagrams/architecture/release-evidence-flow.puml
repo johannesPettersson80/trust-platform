@@ -22,7 +22,7 @@ artifact "Owned capture session\nand code-server container" as captureProcesses
 component "Modernization builder batch\nseparate from publication guard" as modernizationBatch
 component "Rust xtask source identity\ntracked, new, deleted and instruction inputs\nbytes, file kind, link target, Unix executable bits" as sourceIdentity
 artifact "External source-freeze manifest\ncreate once; outside the source checkout" as sourceManifest
-component "Rust xtask database runner bridge\nsettings as data; child environment only" as databaseBridge
+component "Rust xtask database runner bridge\nsettings as data; replace inherited database settings" as databaseBridge
 artifact "Disposable runner environment\ncredentials never printed" as databaseEnvironment
 component "Existing real-database gate" as databaseGate
 database "Local candidate state\nbranches and worktrees" as candidateState
@@ -43,6 +43,7 @@ modernizationBatch --> sourceIdentity : freeze then verify source stability
 sourceIdentity --> sourceManifest : create external snapshot
 sourceManifest --> sourceIdentity : check frozen source
 modernizationBatch --> databaseBridge : qualify affected driver graph
+release --> databaseBridge : required real-product qualification
 databaseEnvironment --> databaseBridge : decode and reject invalid entries
 databaseBridge --> databaseGate : existing pinned products and CA
 productionDiff --> prVerification

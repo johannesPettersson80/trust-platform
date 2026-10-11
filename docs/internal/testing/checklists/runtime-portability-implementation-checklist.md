@@ -7,7 +7,24 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
-**U checkpoint `19f3b6787` is scope-verified; PR #133 requires a second source-identity correction.**
+**U checkpoint `19f3b6787` is scope-verified; PR #133 requires two database-gate corrections.**
+Candidate `798ab0be0` passed its exact-SHA guard (8,716 native passes, 24
+ignored; 519 default editor passes) and all 16 supplement stages, with independently
+reconciled source/software evidence. Every fourth-wave GitHub job passed; both
+automatic reviews completed before source changes. Security found no issue.
+Code review P1 4242038322 identified that the required real-product workflow
+bypasses Rust decoding; P2 4242038323 identified inherited database settings
+satisfying omitted generated inputs. The complete correction now routes workflow
+provisioning output through `database-gate` and removes accepted generated and
+derived CA settings from the child before applying decoded values. Three native
+regressions pin workflow wiring, every cleared name and the actual shell gate's
+missing-input rejection. They remain unrun. Independent source/setup and returned-byte review accepted
+the correction; preparation passed all five formatting, architecture and diagram
+steps. A clean successor exact-SHA guard and the deduplicated supplement with
+fresh real-database qualification precede another push. No merge or release is
+claimed.
+Historical source-identity corrections and their receipts follow.
+
 Candidate `a5b61b633` passed its exact-SHA guard (8,713 native passes, 24 ignored;
 519 default editor passes) and all 16 successor supplement stages. Locked-browser
 stable/minimum SDK suites each passed 519 tests; strict isolated documentation and

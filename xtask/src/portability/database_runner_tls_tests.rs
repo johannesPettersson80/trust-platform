@@ -15,6 +15,41 @@ impl Drop for Fixture {
 }
 
 #[test]
+fn missing_generated_database_input_cannot_use_stale_child_settings() {
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let fixture = Fixture(std::env::temp_dir().join(format!(
+        "trust-database-environment-{}-{nonce}",
+        std::process::id()
+    )));
+    let mut command = Command::new("bash");
+    command
+        .arg("scripts/openot_real_database_gate.sh")
+        .current_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap())
+        .env("TRUST_OPENOT_EVIDENCE_DIR", &fixture.0);
+    for name in super::generated_names().chain(
+        super::PRODUCTS
+            .into_iter()
+            .map(|product| format!("TRUST_TEST_OPENOT_{product}_CA")),
+    ) {
+        command.env(name, "stale-parent-secret");
+    }
+    super::apply_settings(
+        &mut command,
+        super::decode("TRUST_TEST_OPENOT_MYSQL_URL=generated-secret\n").unwrap(),
+    );
+    let output = command.output().unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    let error = String::from_utf8(output.stderr).unwrap();
+    assert!(error.contains("TRUST_TEST_OPENOT_POSTGRES_URL"));
+    assert!(!error.contains("TRUST_TEST_OPENOT_MYSQL_URL"));
+    assert!(!error.contains("stale-parent-secret"));
+    assert!(!error.contains("generated-secret"));
+}
+
+#[test]
 fn postgres_tls_mount_is_traversable_with_private_keys_under_umask_077() {
     let nonce = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

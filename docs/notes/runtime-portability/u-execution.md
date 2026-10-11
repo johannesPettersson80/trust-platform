@@ -1276,3 +1276,46 @@ was viewed directly; identity fields and external-create/check labels are readab
 This paragraph and the checklist preparation status are the only later source-
 document edits. No native tests, successor guard or new physical replay are claimed
 by preparation. Next is the authorized commit and exact-SHA guard allocation.
+
+### Fourth public wave and database-gate correction
+
+Clean candidate `798ab0be07ba9e8f622de68dbeb5fbcd2436e643` passed the exact-SHA
+guard (8,716 native passes, zero failures, 24 ignored; default editor 519 passes)
+and all 16 fresh supplement stages. Independent final reconciliation is retained
+as `attempt-5/independent-final-reconciliation.txt` (`ae3abab6…`). All 26 fourth-
+wave GitHub checks passed and both current-head automatic reviews completed before
+corrections began. Raw native/editor logs, first-attempt artifacts and all review
+threads remain external. Security found no issue. Code added two valid findings:
+P1 4242038322, required real-product workflow bypassing Rust decoding, and P2
+4242038323, stale inherited settings satisfying missing generated inputs.
+
+The owning workflow now writes its provisioner's existing generated format to a
+private run/attempt-specific file and invokes the existing locked Rust `database-
+gate` command. Credentials are not imported into the workflow step environment;
+CA paths remain derived from the provisioned CA. Existing pinned products, always-
+teardown and redacted evidence stay intact. Rust removes every accepted generated
+name and derived CA path from the child before applying decoded settings, while
+preserving unrelated build and evidence settings. Native regressions cover the
+required workflow boundary, all removed names and actual shell missing-input
+rejection despite stale child settings; they remain unrun.
+
+Allocation: independent complete correction/setup review; one formatting and
+architecture/diagram preparation, returned-byte reconciliation, authorized clean
+successor commit and exact-SHA guard; then the same deduplicated supplement plus
+fresh real-database qualification through the corrected Rust owner. No full native
+suite is scheduled outside the guard. New-head GitHub platform results and all
+automatic reviews remain required before merge. Owner authorization covers all
+necessary corrections/retests. No canonical-rule, runtime, firmware, compiler,
+Cargo graph, function or hardware-margin change is included; earlier physical proof
+remains its recorded tuple with identical relevant inputs, not new hardware/H proof.
+
+Independent root source/setup review accepted all eight source and six setup
+owners. Preparation5 passed 5/5: workspace formatting, full-map architecture,
+diagram rendering, drift and whitespace. Only the two database Rust owners
+changed through formatting; SVG and manifest are the expected generated outputs.
+The ten-path prepared manifest was independently reconciled against the accepted
+inputs; the final white-background PNG was viewed directly and the new database
+labels do not overlap. This paragraph and the checklist receipt are the only
+later document changes before commit. Native assertions and real products remain
+unrun for this correction. Next is the authorized clean successor exact-SHA guard
+and 17-stage supplement, coordinated with Scope H's separate builder workload.

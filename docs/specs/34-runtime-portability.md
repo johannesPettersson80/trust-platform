@@ -1426,6 +1426,12 @@ Do not exempt a caller-selected source path from the inventory to accommodate th
 manifest. Rust also owns decoding of the existing disposable-database runner's generated
 environment file. Treat that file as data, reject malformed/duplicate/unexpected
 entries, pass settings only to the gate's child process, and never print credentials.
+The required real-database workflow shall invoke that Rust decoder instead of
+loading generated credentials into the workflow environment or bypassing it with
+the shell gate. Generated settings are authoritative: remove all accepted runner
+and database names, including derived CA paths, from the child's inherited
+environment before applying decoded values. Missing inputs shall not be satisfied
+by stale parent settings. Unrelated build and evidence settings remain inherited.
 These tooling contracts do not weaken product tests or establish qualification
 from source review alone.
 

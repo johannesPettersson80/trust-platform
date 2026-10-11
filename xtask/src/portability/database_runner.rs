@@ -11,19 +11,36 @@ const PRODUCTS: [&str; 6] = [
     "INFLUX",
 ];
 
+fn generated_names() -> impl Iterator<Item = String> {
+    [
+        "OPENOT_DATABASE_RUNNER_STATE_DIR",
+        "OPENOT_DATABASE_RUNNER_PREFIX",
+        "TRUST_TEST_OPENOT_INFLUX_HOST",
+        "TRUST_TEST_OPENOT_INFLUX_TOKEN",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .chain(PRODUCTS.into_iter().flat_map(|product| {
+        ["CA_PEM", "CONTAINER", "URL"]
+            .into_iter()
+            .filter(move |field| product != "INFLUX" || *field != "URL")
+            .map(move |field| format!("TRUST_TEST_OPENOT_{product}_{field}"))
+    }))
+}
+
 fn allowed_name(name: &str) -> bool {
-    matches!(
-        name,
-        "OPENOT_DATABASE_RUNNER_STATE_DIR"
-            | "OPENOT_DATABASE_RUNNER_PREFIX"
-            | "TRUST_TEST_OPENOT_INFLUX_HOST"
-            | "TRUST_TEST_OPENOT_INFLUX_TOKEN"
-    ) || PRODUCTS.iter().any(|product| {
-        ["CA_PEM", "CONTAINER"]
-            .iter()
-            .any(|field| name == format!("TRUST_TEST_OPENOT_{product}_{field}"))
-            || (*product != "INFLUX" && name == format!("TRUST_TEST_OPENOT_{product}_URL"))
-    })
+    generated_names().any(|allowed| name == allowed)
+}
+
+fn apply_settings(command: &mut Command, values: BTreeMap<String, String>) {
+    for name in generated_names().chain(
+        PRODUCTS
+            .into_iter()
+            .map(|product| format!("TRUST_TEST_OPENOT_{product}_CA")),
+    ) {
+        command.env_remove(name);
+    }
+    command.envs(values);
 }
 
 fn decode(text: &str) -> Result<BTreeMap<String, String>> {
@@ -70,12 +87,12 @@ pub(super) fn run(root: &Path, input: &str) -> Result<()> {
     for product in PRODUCTS {
         values.insert(format!("TRUST_TEST_OPENOT_{product}_CA"), ca.clone());
     }
-    let status = Command::new("bash")
+    let mut command = Command::new("bash");
+    command
         .arg("scripts/openot_real_database_gate.sh")
-        .current_dir(root)
-        .envs(values)
-        .status()
-        .context("launch existing database gate")?;
+        .current_dir(root);
+    apply_settings(&mut command, values);
+    let status = command.status().context("launch existing database gate")?;
     if !status.success() {
         bail!("database gate failed: {status}");
     }
@@ -85,6 +102,55 @@ pub(super) fn run(root: &Path, input: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn required_workflow_routes_generated_data_through_rust_database_gate() {
+        let workflow = include_str!("../../../.github/workflows/openot-real-databases.yml")
+            .replace("\r\n", "\n");
+        let file = "$RUNNER_TEMP/openot-generated-environment-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT";
+        assert!(workflow.contains(&format!("environment_file=\"{file}\"")));
+        assert!(workflow.contains("(umask 077; : >\"$environment_file\")"));
+        let prepare = "GITHUB_ENV=\"$environment_file\" scripts/openot_database_runner_prepare.sh";
+        let gate = format!("cargo run --locked -p xtask -- portability database-gate \"{file}\"");
+        assert!(workflow.find(prepare).unwrap() < workflow.find(&gate).unwrap());
+        assert!(!workflow.contains("scripts/openot_real_database_gate.sh"));
+        assert!(!workflow.contains("pem_variable"));
+        assert!(workflow
+            .contains("if: always()\n        run: scripts/openot_database_runner_teardown.sh"));
+    }
+
+    #[test]
+    fn generated_settings_remove_every_inherited_database_name() {
+        let names: Vec<_> = generated_names()
+            .chain(
+                PRODUCTS
+                    .into_iter()
+                    .map(|product| format!("TRUST_TEST_OPENOT_{product}_CA")),
+            )
+            .collect();
+        let mut command = Command::new("unused-native-fixture");
+        for name in &names {
+            command.env(name, "stale-parent-setting");
+        }
+        command.env("TRUST_OPENOT_EVIDENCE_DIR", "preserved-evidence");
+        apply_settings(
+            &mut command,
+            decode("TRUST_TEST_OPENOT_MYSQL_URL=generated-setting\n").unwrap(),
+        );
+        let environment: BTreeMap<_, _> = command.get_envs().collect();
+        for name in &names {
+            let value = environment[std::ffi::OsStr::new(name)];
+            assert_eq!(
+                value,
+                (name == "TRUST_TEST_OPENOT_MYSQL_URL")
+                    .then_some(std::ffi::OsStr::new("generated-setting"))
+            );
+        }
+        assert_eq!(
+            environment[std::ffi::OsStr::new("TRUST_OPENOT_EVIDENCE_DIR")],
+            Some(std::ffi::OsStr::new("preserved-evidence"))
+        );
+    }
 
     #[test]
     fn generated_environment_is_data_and_preserves_values() {
