@@ -128,6 +128,10 @@ Target release: `v0.24.74`
 
 ### Fixed
 
+- Isolate the real OpenOT PLC scan-overhead regression from concurrent functional
+  tests and compare paired scans with alternating order, preserving the existing
+  threshold and checking that the real persistence worker commits and drains.
+
 - Route required real-database qualification through the Rust generated-environment decoder and clear inherited database settings before launching the gate, so stale parent values cannot satisfy missing generated inputs.
 
 - Reject source-freeze manifests inside the source checkout, including symlink aliases, and preserve existing manifests rather than overwriting them. Source identity also checks working-tree file kinds, link targets and Unix executable bits; older byte-only snapshots remain historical evidence.

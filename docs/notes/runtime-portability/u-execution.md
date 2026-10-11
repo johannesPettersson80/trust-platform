@@ -1319,3 +1319,62 @@ labels do not overlap. This paragraph and the checklist receipt are the only
 later document changes before commit. Native assertions and real products remain
 unrun for this correction. Next is the authorized clean successor exact-SHA guard
 and 17-stage supplement, coordinated with Scope H's separate builder workload.
+
+### Fifth public wave: retained macOS scan assertion and measurement correction
+
+Candidate `63cab14e3ea3d456f09bacb80a8658a632ae25db` passed the exact-SHA
+guard (8,719 native passes, zero failures, 24 ignored; full editor 519 passes)
+and all 17 supplement stages. Independent root reconciliation pins the corrected
+Rust database boundary and 81 real-database native passes. All 26 public checks
+completed, with 23 successes and three expected skips. Full raw native logs show
+that macOS failed a real assertion before its passing full-suite retry: 7,114
+passes, one failure and 20 ignores, followed by 8,711/0/24. The first failure's
+medians were 775,524,504 disabled and 1,441,218,600 enabled wall nanoseconds **per
+scan**, each the median of three ten-scan windows. The unchanged limit is enabled
+<= disabled * 3 / 2 + 1,000,000 ns. Linux, Windows and the editor passed their
+first attempts. These logs and the retry marker remain external in attempt-6;
+a passing retry does not establish merge readiness.
+
+The runtime, worker, publisher and original native case are unchanged from the
+U scope checkpoint. The worker owns a separate ring reader and sink, not the
+Runtime or a scan lock. The old timing test shares a process with 43 functional
+cases and samples every disabled window before every enabled window. Concurrent
+work and separate sampling bands are a measurement confound; the logs alone do
+not prove a production regression. The corrective test is its own integration
+binary and pairs alternating scans. It keeps the exact ST source, telemetry
+configuration, four warm scans and thirty measured scans per mode, SQLite setup
+and existing threshold; it also asserts real commits, no worker error and a drained
+carriage. Duplicate source-building functions move unchanged to the existing
+OpenOT support module. No product helper or runtime change is introduced.
+
+Spec 33 section 6 pins this observation method. Complete correction review,
+builder formatting with returned-byte review and focused native proof precede a
+successor commit and exact-SHA guard. The full suite remains allocated to the
+guard, not duplicated outside it. Current source changes are unverified. All new
+code/security bot requests were refused for quota, preserved as review refusal;
+existing independent current-head review is required and does not claim bot
+completion. Owner authorization covers corrections and retests. Coordinate timed
+runs with Scope H and retain the failing public evidence unchanged.
+
+Independent source and returned-byte reviews accepted the complete correction.
+Preparation 6 and 7 each passed workspace formatting and whitespace. Preparation
+6's first comparator incorrectly used the stale builder primary; it failed while
+the shell continued formatting. The actual copied instruction files match all 21
+hashes from the authoritative local primary. The incident and correction remain
+external; subsequent launchers fail closed against that authoritative manifest.
+Focused run 1 retained its compile failure and three orphaned import groups;
+no timing assertion ran. Explicit usize loop counters and removal of unused
+imports fix those owning test errors, with independent returned-byte review.
+
+Focused run 2 passed all ten steps: the native case, affected-test Clippy,
+formatting/whitespace, source and canonical hashes before/after, and the existing
+Rust owner's 8,481-record source freeze/check. One native assertion passed with
+zero failures, ignores or filters in 59.26 seconds. Raw disabled windows were
+583,148,068 / 585,482,741 / 588,323,400 wall ns/scan; enabled windows were
+580,547,261 / 589,358,941 / 582,708,473. Medians 585,482,741 versus 582,708,473
+produce ratio 0.995 and pass the unchanged limit. The same run confirms actual
+worker commits, no fault and a completely drained carriage. This is Linux focused
+proof, not fresh macOS qualification or a release guard. The correction's runtime
+production graph and functions remain unchanged. Next is the authorized clean
+successor commit, exact-SHA guard and fresh supplement, then complete public jobs
+and raw first-attempt inspection before any guarded merge or release.

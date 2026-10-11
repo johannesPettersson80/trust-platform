@@ -630,16 +630,33 @@ Operators MUST size the ring
 and Influx spool for their outage window; truST MUST expose lag before unread
 ring data is overwritten.
 
+The native PLC scan-overhead regression is an observed comparison, not a
+deployment deadline or worst-case guarantee. Its real ST workload, carriage,
+SQLite configuration and scan count MUST be identical with and without the
+persistence consumer. Run it in its own integration-test process, without
+unrelated functional cases running concurrently in that process. After warming
+both runtimes, pair the measured scans and alternate their order so separate
+time bands do not confound the comparison. Report the wall-clock nanoseconds per
+scan for every sampling window and their medians. The existing reference limit
+remains enabled median <= disabled median * 3 / 2 + 1,000,000 ns; a failed
+comparison MUST NOT be hidden by a passing automatic retry. The case MUST also
+prove that the real worker committed documents without faulting. This native
+regression remains part of every applicable full test batch; it is not ignored
+or replaced by a mock.
+
 ### 6.1 Release-runner provisioning
 
 The mandatory real-database release job MUST be runnable from a clean,
 repository-registered Linux x86_64 runner without undocumented host files or
 pre-existing database credentials. Version-controlled prepare and teardown
 scripts MUST provision the pinned database products with ephemeral credentials
-and TLS material, export only the values required by the job through
-`GITHUB_ENV`, wait for every endpoint to become ready, and remove the
-containers, network, credentials, and certificates after the job. The workflow
-MUST call those repository scripts directly. Runner registration is an
+and TLS material, write only the required generated values in the existing
+`GITHUB_ENV` record format to a private run-specific file, wait for every
+endpoint to become ready, and remove the containers, network, credentials,
+and certificates after the job. The workflow MUST call those repository scripts
+directly and pass the private file to the Rust database-gate command. Rust MUST
+decode the records and configure only the gate child; provisioning MUST NOT
+export those records into the live workflow environment. Runner registration is an
 explicit operational prerequisite and MUST be verified before a release tag is
 pushed; a release MUST NOT be left waiting for an unregistered label.
 

@@ -7,22 +7,22 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
-**U checkpoint `19f3b6787` is scope-verified; PR #133 requires two database-gate corrections.**
-Candidate `798ab0be0` passed its exact-SHA guard (8,716 native passes, 24
-ignored; 519 default editor passes) and all 16 supplement stages, with independently
-reconciled source/software evidence. Every fourth-wave GitHub job passed; both
-automatic reviews completed before source changes. Security found no issue.
-Code review P1 4242038322 identified that the required real-product workflow
-bypasses Rust decoding; P2 4242038323 identified inherited database settings
-satisfying omitted generated inputs. The complete correction now routes workflow
-provisioning output through `database-gate` and removes accepted generated and
-derived CA settings from the child before applying decoded values. Three native
-regressions pin workflow wiring, every cleared name and the actual shell gate's
-missing-input rejection. They remain unrun. Independent source/setup and returned-byte review accepted
-the correction; preparation passed all five formatting, architecture and diagram
-steps. A clean successor exact-SHA guard and the deduplicated supplement with
-fresh real-database qualification precede another push. No merge or release is
-claimed.
+**U checkpoint `19f3b6787` is scope-verified; PR #133 is held on a retry-rescued macOS native assertion.**
+Candidate `63cab14e3` passed its exact-SHA guard (8,719 native passes,
+24 ignored; 519 default editor passes), all 17 supplement stages and the corrected
+real-database boundary. Independent root reviews reconcile those receipts.
+Every fifth-wave GitHub job completed: 23 passed and three expected skips. The
+macOS native suite failed its first attempt on OpenOT scan timing (775,524,504 ns
+per disabled scan versus 1,441,218,600 ns per enabled scan), then passed a full
+retry. That real failure remains retained and prevents merge readiness. New bot
+reviews were refused for quota; current-head independent review is separate.
+The reviewed database corrections are verified. Independent review accepted the
+timing fixture correction; focused run 2 passed all ten steps, including the real
+native timing assertion (ratio 0.995), Clippy and complete source identities.
+Focused run 1's compile/import failures remain retained; no behavior assertion
+executed in that run. Fresh macOS proof remains required. It isolates the same real ST/SQLite workload in a
+native binary, pairs scans in alternating order and retains the existing limit.
+No runtime production logic, feature set or overflow policy changes. A fresh exact-SHA guard and deduplicated supplement precede another push. No merge or release is claimed.
 Historical source-identity corrections and their receipts follow.
 
 Candidate `a5b61b633` passed its exact-SHA guard (8,713 native passes, 24 ignored;

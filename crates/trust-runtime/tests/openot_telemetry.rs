@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 mod openot_support;
+use openot_support::build_st_runtime;
 
 use open_ot_carriage::concurrent::{ConcurrentRawConsumer, ConcurrentStore};
 use open_ot_carriage::consumer::LossAccountingConsumer;
@@ -39,10 +40,9 @@ use open_ot_shm::SharedConcurrentStore;
 use serde_json::json;
 use time::OffsetDateTime;
 use trust_runtime::config::{
-    OpenOtPersistenceBackend, OpenOtPersistenceConfig, OpenOtSqlitePersistenceConfig,
     OpenOtTelemetryConfig, OpenOtTelemetryFenceMode, OpenOtTelemetrySource,
 };
-use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
+use trust_runtime::harness::{SourceFile, TestHarness};
 use trust_runtime::memory::InstanceId;
 use trust_runtime::openot_authoring;
 #[cfg(feature = "openot-real-database-tests")]
@@ -51,9 +51,8 @@ use trust_runtime::openot_persistence::{
     SqlServerDocumentSink, TimescaleDbDocumentSink,
 };
 use trust_runtime::openot_persistence::{
-    OpenOtDocumentSource, OpenOtPersistenceConsumer, OpenOtPersistenceService,
-    OpenOtPersistenceWorker, PersistenceBatch, PersistenceCheckpoint, PersistenceError,
-    SharedMemoryOpenOtSource, SqliteDocumentSink,
+    OpenOtDocumentSource, OpenOtPersistenceConsumer, OpenOtPersistenceWorker, PersistenceBatch,
+    PersistenceCheckpoint, PersistenceError, SharedMemoryOpenOtSource, SqliteDocumentSink,
 };
 use trust_runtime::value::Value;
 use trust_runtime::Runtime;
@@ -119,15 +118,6 @@ fn reactor_program() -> String {
     openot_support::REACTOR_PROGRAM.to_owned()
 }
 
-fn openot_st_source_files(main_source: &str) -> Vec<SourceFile> {
-    let mut sources = openot_support::ST_LIBRARY_SOURCES
-        .iter()
-        .map(|(name, source)| SourceFile::with_path(*name, *source))
-        .collect::<Vec<_>>();
-    sources.push(SourceFile::with_path("main.st", main_source));
-    sources
-}
-
 fn openot_st_test_sources(test_name: &str, main_source: &str) -> Vec<String> {
     let mut sources = openot_support::ST_LIBRARY_SOURCES
         .iter()
@@ -136,21 +126,6 @@ fn openot_st_test_sources(test_name: &str, main_source: &str) -> Vec<String> {
     sources.push(openot_support::st_test_source(test_name).to_owned());
     sources.push(main_source.to_string());
     sources
-}
-
-fn build_st_runtime(main_source: &str) -> Runtime {
-    let session =
-        CompileSession::from_sources(openot_st_source_files(main_source)).label_errors(true);
-    let mut runtime = session
-        .build_runtime()
-        .unwrap_or_else(|err| panic!("build OpenOT ST runtime: {err}"));
-    let bytecode = session
-        .build_bytecode_bytes()
-        .unwrap_or_else(|err| panic!("build OpenOT ST bytecode: {err}"));
-    runtime
-        .apply_bytecode_bytes(&bytecode, None)
-        .unwrap_or_else(|err| panic!("apply OpenOT ST bytecode: {err}"));
-    runtime
 }
 
 fn one_message_per_scan_program() -> &'static str {
@@ -1440,101 +1415,6 @@ fn openot_slow_real_sqlite_consumer_remains_bounded_and_reports_ring_loss() {
     assert!(worker.status().cursor_abs <= worker.status().head_abs);
     std::fs::remove_file(ring_path).ok();
     std::fs::remove_dir_all(database_root).ok();
-}
-
-#[test]
-fn openot_persistence_service_does_not_materially_regress_plc_scan_timing() {
-    const PROGRAM: &str = r#"
-PROGRAM Main
-VAR
-    Trigger : BOOL {attribute 'oot' := 'message', 'template' := 'scan timing event'};
-END_VAR
-Trigger := NOT Trigger;
-END_PROGRAM
-"#;
-
-    fn runtime_with_ring(path: PathBuf) -> Runtime {
-        let mut runtime = build_st_runtime(PROGRAM);
-        runtime
-            .configure_openot_telemetry(
-                &st_fb_telemetry_config_for(path, 1_048_576, "Main.OotProducer"),
-                None,
-            )
-            .expect("configure scan timing telemetry");
-        runtime
-    }
-
-    fn median_scan_ns(runtime: &mut Runtime) -> u128 {
-        let mut samples = Vec::new();
-        for _ in 0..3 {
-            let started = std::time::Instant::now();
-            for _ in 0..10 {
-                runtime.execute_cycle().expect("scan timing cycle");
-            }
-            samples.push(started.elapsed().as_nanos() / 10);
-        }
-        samples.sort_unstable();
-        samples[samples.len() / 2]
-    }
-
-    let root = temp_shm_path("persistence-scan-timing");
-    std::fs::create_dir_all(&root).expect("scan timing root");
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
-            .expect("secure scan timing root");
-    }
-    let disabled_ring = root.join("disabled.shm");
-    let enabled_ring = root.join("enabled.shm");
-    let mut disabled_runtime = runtime_with_ring(disabled_ring);
-    let mut enabled_runtime = runtime_with_ring(enabled_ring.clone());
-    let definition = openot_authoring::definition_json_from_sources(&[SourceFile::with_path(
-        "Main.st", PROGRAM,
-    )])
-    .expect("scan timing definition");
-    std::fs::write(
-        root.join("openot-definition.json"),
-        serde_json::to_vec_pretty(&definition).expect("serialize scan timing definition"),
-    )
-    .expect("write scan timing definition");
-    let config = OpenOtTelemetryConfig {
-        enabled: true,
-        path: enabled_ring,
-        persistence: OpenOtPersistenceConfig {
-            enabled: true,
-            backend: Some(OpenOtPersistenceBackend::Sqlite),
-            batch_size: 256,
-            flush_interval_ms: 10,
-            sqlite: Some(OpenOtSqlitePersistenceConfig {
-                path: root.join("history/trust-logging.sqlite3"),
-            }),
-            ..OpenOtPersistenceConfig::default()
-        },
-        ..OpenOtTelemetryConfig::default()
-    };
-    let mut service = OpenOtPersistenceService::start(&config, &root)
-        .expect("start scan timing persistence")
-        .expect("enabled scan timing persistence");
-    for _ in 0..4 {
-        disabled_runtime
-            .execute_cycle()
-            .expect("warm disabled scan");
-        enabled_runtime.execute_cycle().expect("warm enabled scan");
-    }
-
-    let disabled_ns = median_scan_ns(&mut disabled_runtime);
-    let enabled_ns = median_scan_ns(&mut enabled_runtime);
-    eprintln!(
-        "OpenOT scan timing: disabled={disabled_ns} ns/scan enabled={enabled_ns} ns/scan ratio={:.3}",
-        enabled_ns as f64 / disabled_ns.max(1) as f64
-    );
-    assert!(
-        enabled_ns <= disabled_ns.saturating_mul(3) / 2 + 1_000_000,
-        "persistence worker materially regressed scan timing: disabled={disabled_ns}ns enabled={enabled_ns}ns"
-    );
-    service.shutdown();
-    std::fs::remove_dir_all(root).ok();
 }
 
 #[cfg(feature = "openot-real-database-tests")]
