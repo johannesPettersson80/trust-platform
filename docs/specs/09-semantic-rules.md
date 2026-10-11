@@ -339,6 +339,11 @@ IEC 61131-3 Ed.3 §6.4.4.5.1 requires array subscripts to be ANY_INT expressions
 | Bounds | Constant index value outside declared bounds |
 | Dimensions | Subscript count doesn't match array dimensions |
 
+CODESYS parity (vendor extension): an enum-typed subscript (an enum value or
+an enum-typed variable) is accepted alongside ANY_INT subscripts and uses its
+ordinal value. The subscript-count, constant-bounds, and runtime-bounds rules
+are unchanged.
+
 A nonconstant ANY_INT index is not rejected solely because its declared
 integer or subrange domain extends beyond the array bounds. Static checking
 rejects an out-of-bounds index when its value is a constant; a computed index

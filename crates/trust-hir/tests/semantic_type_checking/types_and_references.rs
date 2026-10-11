@@ -746,3 +746,40 @@ END_PROGRAM
 "#,
     );
 }
+
+#[test]
+fn test_enum_typed_array_index_is_accepted() {
+    // CODESYS parity (vendor extension): an enum value or enum-typed
+    // variable is accepted as an array subscript.
+    check_no_errors(
+        r#"
+TYPE EAxis : (AxisX, AxisY); END_TYPE
+PROGRAM Test
+    VAR
+        table : ARRAY[0..1] OF INT;
+        axis : EAxis;
+        vx : INT;
+    END_VAR
+    vx := table[AxisX];
+    vx := table[axis];
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_non_integer_array_index_still_rejected() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR
+        table : ARRAY[0..1] OF INT;
+        label : STRING;
+        vx : INT;
+    END_VAR
+    vx := table[label];
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArrayIndex,
+    );
+}

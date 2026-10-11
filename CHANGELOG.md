@@ -75,6 +75,8 @@ Target release: `v0.24.75`
   hosted values and image writes use checked owner APIs. Rejected queued writes
   report their application failure without turning an invalid request into a PLC fault.
 
+- Accept enum-typed array subscripts (enum values and enum-typed variables)
+  as a CODESYS vendor extension, alongside the IEC ANY_INT subscripts.
 - Accept `RETAIN PERSISTENT` in state-owning variable sections as a
   WAGO/CODESYS vendor extension (persistent implies retention);
   `NON_RETAIN` combinations and duplicate qualifiers remain errors.
@@ -1201,6 +1203,8 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Accept enum-typed array subscripts (enum values and enum-typed variables)
+  as a CODESYS vendor extension, alongside the IEC ANY_INT subscripts.
 - Accept `RETAIN PERSISTENT` in state-owning variable sections as a
   WAGO/CODESYS vendor extension (persistent implies retention);
   `NON_RETAIN` combinations and duplicate qualifiers remain errors.
@@ -2404,6 +2408,8 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Accept enum-typed array subscripts (enum values and enum-typed variables)
+  as a CODESYS vendor extension, alongside the IEC ANY_INT subscripts.
 - Accept `RETAIN PERSISTENT` in state-owning variable sections as a
   WAGO/CODESYS vendor extension (persistent implies retention);
   `NON_RETAIN` combinations and duplicate qualifiers remain errors.
@@ -2821,6 +2827,8 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Accept enum-typed array subscripts (enum values and enum-typed variables)
+  as a CODESYS vendor extension, alongside the IEC ANY_INT subscripts.
 - Accept `RETAIN PERSISTENT` in state-owning variable sections as a
   WAGO/CODESYS vendor extension (persistent implies retention);
   `NON_RETAIN` combinations and duplicate qualifiers remain errors.
@@ -2970,6 +2978,8 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Accept enum-typed array subscripts (enum values and enum-typed variables)
+  as a CODESYS vendor extension, alongside the IEC ANY_INT subscripts.
 - Accept `RETAIN PERSISTENT` in state-owning variable sections as a
   WAGO/CODESYS vendor extension (persistent implies retention);
   `NON_RETAIN` combinations and duplicate qualifiers remain errors.

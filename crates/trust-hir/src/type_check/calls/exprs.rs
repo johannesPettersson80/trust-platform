@@ -32,8 +32,11 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             let idx_type_raw = self.checker.expr().check_expression(idx_expr);
             let idx_type = self.checker.resolve_alias_type(idx_type_raw);
             index_exprs.push((idx_expr.clone(), idx_type_raw, idx_type));
+            // CODESYS parity (vendor extension): enum-typed subscripts
+            // are accepted alongside integer subscripts.
             if let Some(ty) = self.checker.symbols.type_by_id(idx_type)
                 && !ty.is_integer()
+                && !matches!(ty, Type::Enum { .. })
             {
                 self.checker.diagnostics.error(
                     DiagnosticCode::InvalidArrayIndex,
