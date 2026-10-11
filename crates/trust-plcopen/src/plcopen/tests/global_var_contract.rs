@@ -665,3 +665,80 @@ fn global_vars_structured_attribute_order_is_deterministic() {
         "{source}"
     );
 }
+
+#[test]
+fn global_vars_identical_duplicate_declarations_are_deduped() {
+    // e!COCKPIT MixedAttrsVarList parity: a list that repeats the same
+    // declaration identity imports once instead of dropping the whole list.
+    let fixture = global_var_fixture(
+        "duplicate-identical",
+        r#"<globalVars name="GVLEntities">
+  <addData><data name="interfaceasplaintext"><text><![CDATA[
+VAR_GLOBAL RETAIN PERSISTENT
+    Count : INT;
+    Count : INT;
+    Name : STRING;
+END_VAR
+]]></text></data></addData>
+</globalVars>"#,
+        "",
+    );
+
+    let report = fixture.import().expect("identical duplicates are tolerated");
+    let source = read_source_named(&fixture.root, "GVLEntities.st");
+    assert_eq!(source.matches("Count : INT;").count(), 1);
+    assert!(source.contains("Name : STRING;"));
+    assert!(
+        report
+            .unsupported_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "PLCO605"),
+        "dropped duplicates are reported as PLCO605 info: {:?}",
+        report.unsupported_diagnostics
+    );
+    assert!(
+        !report
+            .unsupported_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "PLCO604"),
+        "no PLCO604 for identical duplicates: {:?}",
+        report.unsupported_diagnostics
+    );
+}
+
+#[test]
+fn global_vars_structured_identical_duplicates_are_deduped() {
+    let fixture = global_var_fixture(
+        "duplicate-structured",
+        r#"<globalVars name="GVL">
+  <variable name="Count"><type><int/></type></variable>
+  <variable name="Count"><type><int/></type></variable>
+  <variable name="Name"><type><string/></type></variable>
+</globalVars>"#,
+        "",
+    );
+
+    fixture.import().expect("structured duplicates tolerated");
+    let source = read_source_named(&fixture.root, "GVL.st");
+    assert_eq!(source.matches("Count : INT;").count(), 1);
+    assert!(source.contains("Name : STRING;"));
+}
+
+#[test]
+fn global_vars_conflicting_duplicate_declarations_still_reject_the_list() {
+    let fixture = global_var_fixture(
+        "duplicate-conflicting",
+        r#"<globalVars name="GVL">
+  <variable name="Count"><type><int/></type></variable>
+  <variable name="COUNT"><type><dint/></type></variable>
+</globalVars>"#,
+        "",
+    );
+
+    let error = fixture
+        .import()
+        .expect_err("conflicting duplicates must not publish ambiguous ST");
+
+    assert!(error.to_string().contains("no importable PLCopen ST content"));
+    assert!(!fixture.root.join("src/GVL.st").exists());
+}

@@ -174,6 +174,44 @@ fn import_global_var_lists_to_sources(
             continue;
         }
 
+        // e!COCKPIT MixedAttrsVarList parity: identical duplicate
+        // declarations are dropped; conflicting redefinitions reject the
+        // list fail-closed.
+        let (variables, duplicate_conflicts, dropped_duplicates) =
+            dedupe_global_var_entries(variables);
+        if !duplicate_conflicts.is_empty() {
+            warnings.push(format!(
+                "skipping globalVars '{}': conflicting duplicate declarations for {}",
+                name,
+                duplicate_conflicts.join(", ")
+            ));
+            unsupported_nodes.push(format!("addData/globalVars/{name}"));
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO604",
+                "error",
+                format!("addData/globalVars/{name}"),
+                "globalVars declaration list contains conflicting duplicate declarations",
+                None,
+                "Provide a VAR_GLOBAL declaration list with unique IEC identifiers and matching types",
+            ));
+            *loss_warnings += 1;
+            continue;
+        }
+        if dropped_duplicates > 0 {
+            warnings.push(format!(
+                "dropped {dropped_duplicates} identical duplicate declaration(s) from globalVars '{}'",
+                name
+            ));
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO605",
+                "info",
+                format!("addData/globalVars/{name}"),
+                format!("dropped {dropped_duplicates} identical duplicate declaration(s)"),
+                None,
+                "Identical duplicate declarations are tolerated for e!COCKPIT MixedAttrsVarList parity",
+            ));
+        }
+
         if !global_var_source_is_well_formed(&global_source)
             || !structured_global_var_entries_are_well_formed(global_vars)
         {
@@ -186,7 +224,7 @@ fn import_global_var_lists_to_sources(
                 "PLCO604",
                 "error",
                 format!("addData/globalVars/{name}"),
-                "globalVars declaration list contains malformed, duplicate, or invalid ST identities",
+                "globalVars declaration list contains malformed or invalid ST identities",
                 None,
                 "Provide a complete VAR_GLOBAL declaration list with unique IEC identifiers",
             ));
@@ -489,9 +527,10 @@ fn structured_global_var_entries_are_well_formed(node: roxmltree::Node<'_, '_>) 
         else {
             return false;
         };
-        if !names.insert(name.to_ascii_lowercase()) {
-            return false;
-        }
+        // Duplicate identities are tolerated here and resolved by
+        // `dedupe_global_var_entries` (identical repeats are dropped,
+        // conflicting redefinitions reject the list).
+        names.insert(name.to_ascii_lowercase());
         let Some(type_node) = first_child_element_ci(variable, "type")
             .or_else(|| first_child_element_ci(variable, "baseType"))
         else {
@@ -537,11 +576,55 @@ fn global_var_source_is_well_formed(source: &str) -> bool {
         }
         for raw_name in raw_names.split(',') {
             let name = raw_name.trim();
-            if !is_valid_st_identifier(name) || !names.insert(name.to_ascii_lowercase()) {
+            if !is_valid_st_identifier(name) {
                 return false;
             }
+            // Duplicate identities are tolerated and resolved by
+            // `dedupe_global_var_entries` (identical repeats drop,
+            // conflicting redefinitions reject the list).
+            names.insert(name.to_ascii_lowercase());
             declaration_count += 1;
         }
     }
     !in_block && declaration_count > 0
+}
+
+/// e!COCKPIT MixedAttrsVarList parity: drops identical duplicate
+/// declarations (same name, type, and initializer) and reports conflicting
+/// redefinitions by name. The first occurrence wins.
+fn dedupe_global_var_entries(
+    variables: Vec<GlobalVarVariableDecl>,
+) -> (Vec<GlobalVarVariableDecl>, Vec<String>, usize) {
+    let mut seen: HashMap<String, GlobalVarVariableDecl> = HashMap::new();
+    let mut ordered: Vec<GlobalVarVariableDecl> = Vec::new();
+    let mut conflicts: Vec<String> = Vec::new();
+    let mut dropped = 0usize;
+    for variable in variables {
+        let key = variable.name.to_ascii_lowercase();
+        match seen.get(&key) {
+            None => {
+                seen.insert(key, variable.clone());
+                ordered.push(variable);
+            }
+            Some(existing) => {
+                let same_type = existing
+                    .type_expr
+                    .trim()
+                    .eq_ignore_ascii_case(variable.type_expr.trim());
+                let same_initial = match (&existing.initial_value, &variable.initial_value) {
+                    (Some(existing_value), Some(value)) => {
+                        existing_value.trim().eq_ignore_ascii_case(value.trim())
+                    }
+                    (None, None) => true,
+                    _ => false,
+                };
+                if same_type && same_initial {
+                    dropped += 1;
+                } else {
+                    conflicts.push(variable.name.clone());
+                }
+            }
+        }
+    }
+    (ordered, conflicts, dropped)
 }

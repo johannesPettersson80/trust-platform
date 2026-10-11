@@ -155,3 +155,24 @@ This file tracks implementation decisions made where PLCopen profiles or source 
     see `docs/specs/04-pou-declarations.md` section 8). Keeping plain-name
     actions skipped preserves the fail-closed boundary where no parent can be
     derived.
+
+## 2026-10-11 - Global-variable duplicate identity tolerance
+
+- Area: PLCopen XML import of `globalVars` lists
+- Decision:
+  - A `globalVars` list no longer fails `PLCO604` merely for repeating a
+    declaration identity. Identical duplicates (same name case-insensitively,
+    same type, same initializer) are dropped from the rendered list, keeping
+    the first occurrence, and reported with an informational `PLCO605`
+    diagnostic plus a warning.
+  - Conflicting redefinitions (same identity with a different type or
+    initializer) keep the fail-closed `PLCO604` list skip, and structural
+    well-formedness checks (identifier validity, declaration shape) are
+    unchanged.
+- Reason:
+  - e!COCKPIT exports repeat whole variable lists (`MixedAttrsVarList`
+    addData) and pair them with constants lists; the previous atomic
+    duplicate rejection silently dropped the ENTIRE main list (e.g.
+    `GVLEntities` imported 21 of 70 variables). Tolerating byte-identical
+    repeats preserves the fail-closed boundary where it matters: ambiguous
+    conflicting redefinitions still reject the list.
