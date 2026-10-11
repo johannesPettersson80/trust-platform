@@ -20,8 +20,12 @@ claim a passing exact-SHA guard or authorize bypassing one.
 Live verification confirms A1/#130, A2/#131 and A3/A4/B/#132 merged; v0.24.73 is
 GitHub Latest with its Release workflow successful and all five Marketplace
 targets at 0.24.73. U is the next unpublished portability scope. Its current
-source is uncommitted; release integration must retain all prior corrections,
-resolve actual conflicts and qualify the final committed tuple before pushing.
+source is committed as the immutable local checkpoint `19f3b6787`. The separate
+publication integration candidate `d6029adaa` retains prior main corrections.
+Its first exact-SHA guard failed the required owning-spec companion check for
+the MQTT guard modernization before any builder release validation ran. The
+failure artifact is retained; a precise unchanged-behavior specification note
+is prepared for independent review and a corrected committed candidate.
 Generated ladder-bundle whitespace is recorded as publication preparation.
 
 **Next development scope: H — full hosted adoption (M2B).** Define its bounded

@@ -1036,3 +1036,22 @@ retains exact commands, statuses, compiler/tool identities and source SHA.
 | Documentation/platform | Pinned Docker compiler qualification, strict MkDocs/public-document checks and applicable capture lifecycle. | Generated source frozen; tracked or untracked source drift fails. Rendered outputs retain separate identities. Guard-covered capture lifecycle runs once. Native Windows/macOS require GitHub CI. |
 | Physical final image | Reviewed board protocol with fresh evidence/one-use marker, discontiguous installation, checkpoint/app/firmware byte comparisons, reinstall-cookie readback, cleared run catches, bounded UART and Rust verifier. | All required software and exact final ELF inspection pass. Preserve 16 KiB flash and 2 KiB stack margins, 72 KiB heap/16 KiB MSP, full functions and existing oracle. |
 | Publication | Guarded push, PR complete-failure collection including retry-rescue logs, reviewed root-cause corrections and exact-head revalidation as needed, `check-merge --execute`, annotated main tag and `verify-release`/cleanup. | Passing exact-head artifact and current checks/reviews; no partial-result correction push. Scope/guard/CI/merge/release remain distinct states. |
+
+### Publication attempt 1 — owning-spec companion failure
+
+The exact-SHA guard at `d6029adaa48edb7e473c049c96116f40733a8c16`
+finished with exit 1. Bootstrap, clean head/base and whitespace checks passed;
+the verification smoke passed, but the strict direct-change contract rejected
+MQTT production-path changes without `docs/specs/32-mqtt-io.md` in the range.
+Planner and catalog results remain advisory. No builder release compilation,
+test, supplement or physical replay ran in this attempt. The artifact, complete
+guard logs and verification report are retained externally under
+`runtime-portability-u-publication/attempt-1`; the original guard artifact stays
+in the repository's shared release-candidate evidence directory.
+
+The correction adds an owning-spec note documenting the unchanged MQTT behavior
+of the already-reviewed edition 2024 guard rewrites. It changes no MQTT code,
+test, protocol rule or gate predicate. Independent correction review precedes
+the successor commit and exact-SHA guard. The owner's standing authorization
+permits necessary fixes and revalidation without repeated permission requests;
+the immutable U checkpoint and original failure remain preserved.

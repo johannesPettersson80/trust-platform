@@ -28,6 +28,13 @@ Implementation owners:
 - `crates/trust-runtime/src/connectors/adapters/mqtt.rs`: projection into the
   shared connector-status contract, without transport behavior.
 
+The Rust 1.99 / edition 2024 modernization in
+[`34-runtime-portability.md`](34-runtime-portability.md) §16 rewrites nested MQTT
+guards as let chains while preserving their evaluation order, short-circuiting
+and binding scope. It does not change mapping validation, payload conversion,
+topic selection, session/reconnection behavior, security, driver health or the
+process-image exchange contract defined here.
+
 ## 2. Project configuration authority
 
 For a project-folder run, the runtime loads `io.toml` from the project root. An
