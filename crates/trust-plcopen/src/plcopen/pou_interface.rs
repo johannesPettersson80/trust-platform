@@ -449,6 +449,9 @@ fn render_import_pou_header(
             ));
             Some(format!("FUNCTION {pou_name} : INT"))
         }
+        // Standalone action POUs never reach header synthesis: they are
+        // merged into their parent POU before writing.
+        PlcopenPouType::Action => Some(format!("PROGRAM {pou_name}")),
     }
 }
 

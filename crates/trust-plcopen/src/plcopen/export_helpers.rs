@@ -118,6 +118,7 @@ fn export_siemens_scl_bundle(
             PlcopenPouType::Program => "ob",
             PlcopenPouType::Function => "fc",
             PlcopenPouType::FunctionBlock => "fb",
+            PlcopenPouType::Action => "action",
         };
         let file_name = format!(
             "{:03}_{}_{}.scl",

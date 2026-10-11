@@ -131,3 +131,27 @@ This file tracks implementation decisions made where PLCopen profiles or source 
     layout, vendor aliases, reports, and adapter artifacts are product/profile
     choices that must remain explicit and testable without being presented as
     IEC deviations or full vendor compatibility.
+
+## 2026-10-11 - Textual action POU import mapping
+
+- Area: PLCopen XML import of CODESYS `pouType="action"` POUs
+- Decision:
+  - Actions are no longer skipped as unsupported `PLCO203` when their name
+    carries parent linkage: `Parent.Action` names merge the action body into
+    the parent POU's generated source as a textual `ACTION name: ... END_ACTION`
+    block inserted before the parent's end keyword, and the migration entry is
+    reported `imported` with resolved type `action` plus an informational
+    `PLCO219` diagnostic.
+  - Actions with body-less POU nodes are skipped fail-closed (`PLCO204`), and
+    actions without parent linkage (plain names, or a parent that is missing
+    or not importable) keep the `PLCO203` skip with a named reason.
+  - Parent linkage is taken from the dotted name only; the XML does not carry
+    a normative action-parent reference, so any other linkage would be
+    invention.
+- Reason:
+  - e!COCKPIT/CODESYS exports model textual actions as separate `pouType="action"`
+    POUs; the previous fail-closed projection silently lost every action body
+    (the merged `truST` ACTION declaration is a documented vendor extension,
+    see `docs/specs/04-pou-declarations.md` section 8). Keeping plain-name
+    actions skipped preserves the fail-closed boundary where no parent can be
+    derived.

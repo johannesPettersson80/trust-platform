@@ -56,6 +56,7 @@ pub fn import_xml_to_project_with_options(
     let promoted_program_pous = detect_program_pous_used_as_types(root);
     let project_structure_map = parse_codesys_project_structure(root);
     let mut imported_folder_paths = HashSet::new();
+    let mut deferred_actions = collect_deferred_action_pous(root);
 
     let sources_root = resolve_or_create_source_root(project_root)?;
     if sources_root.exists() {
@@ -208,6 +209,12 @@ pub fn import_xml_to_project_with_options(
             ));
         }
 
+        // CODESYS textual actions (vendor extension) are merged into their
+        // parent POU's source instead of being emitted as standalone POUs.
+        if pou_type == PlcopenPouType::Action {
+            continue;
+        }
+
         let non_st_body_diagnostics = collect_non_st_body_diagnostics(pou);
         if !non_st_body_diagnostics.is_empty() {
             let body_kinds = non_st_body_diagnostics
@@ -243,7 +250,7 @@ pub fn import_xml_to_project_with_options(
 
         let st_body = extract_st_body(pou);
 
-        let Some(reconstructed_source) = synthesize_import_pou_source(
+        let synthesized = synthesize_import_pou_source(
             root,
             pou,
             pou_type,
@@ -251,27 +258,28 @@ pub fn import_xml_to_project_with_options(
             st_body.as_deref(),
             &mut warnings,
             &mut unsupported_diagnostics,
-        ) else {
-            if st_body.is_none() {
-                warnings.push(format!("skipping pou '{}': missing body/ST", name));
-                unsupported_diagnostics.push(unsupported_diagnostic(
-                    "PLCO204",
-                    "warning",
-                    "pou/body",
-                    "POU skipped because body/ST payload is missing",
-                    Some(name.clone()),
-                    "POU skipped; provide an ST body in PLCopen XML",
-                ));
-                loss_warnings += 1;
-                migration_entries.push(PlcopenMigrationEntry {
-                    name,
-                    pou_type_raw: Some(pou_type_raw),
-                    resolved_pou_type: Some(pou_type.as_xml().to_string()),
-                    status: "skipped".to_string(),
-                    reason: Some("missing body/ST".to_string()),
-                });
-                continue;
-            }
+        );
+        if synthesized.is_none() && st_body.is_none() {
+            warnings.push(format!("skipping pou '{}': missing body/ST", name));
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO204",
+                "warning",
+                "pou/body",
+                "POU skipped because body/ST payload is missing",
+                Some(name.clone()),
+                "POU skipped; provide an ST body in PLCopen XML",
+            ));
+            loss_warnings += 1;
+            migration_entries.push(PlcopenMigrationEntry {
+                name,
+                pou_type_raw: Some(pou_type_raw),
+                resolved_pou_type: Some(pou_type.as_xml().to_string()),
+                status: "skipped".to_string(),
+                reason: Some("missing body/ST".to_string()),
+            });
+            continue;
+        }
+        let Some(mut reconstructed_source) = synthesized else {
             warnings.push(format!("skipping pou '{}': empty ST body", name));
             unsupported_diagnostics.push(unsupported_diagnostic(
                 "PLCO205",
@@ -291,6 +299,20 @@ pub fn import_xml_to_project_with_options(
             });
             continue;
         };
+
+        // CODESYS textual actions (vendor extension) merge into their parent
+        // POU's source before the parent is written.
+        if let Some(actions) = deferred_actions.remove(&name.to_ascii_lowercase()) {
+            reconstructed_source = apply_deferred_actions(
+                reconstructed_source,
+                name.as_str(),
+                actions,
+                &mut warnings,
+                &mut unsupported_diagnostics,
+                &mut loss_warnings,
+                &mut migration_entries,
+            );
+        }
 
         let strict_var_external_adapter =
             options.global_var_mode == PlcopenImportGlobalVarMode::StrictIecAdapter;
@@ -378,6 +400,39 @@ pub fn import_xml_to_project_with_options(
                 "source map: pou '{}' originated from {}:{}",
                 name, entry.source, entry.line
             ));
+        }
+    }
+
+    // Action POUs whose parent was never seen (or had no `Parent.Action`
+    // linkage) keep the fail-closed skip.
+    for (parent, actions) in deferred_actions.iter() {
+        for action in actions {
+            let full_name = if parent.is_empty() {
+                action.name.clone()
+            } else {
+                format!("{parent}.{}", action.name)
+            };
+            warnings.push(format!(
+                "skipping action pou '{}': parent POU is missing or was not imported",
+                full_name
+            ));
+            unsupported_nodes.push("pouType:action".to_string());
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO203",
+                "warning",
+                "pouType:action",
+                "action pou skipped because its parent POU is missing or was not imported",
+                Some(full_name.clone()),
+                "Name the action 'Parent.Action' in the source XML or import the parent POU",
+            ));
+            loss_warnings += 1;
+            migration_entries.push(PlcopenMigrationEntry {
+                name: full_name,
+                pou_type_raw: Some("action".to_string()),
+                resolved_pou_type: Some("action".to_string()),
+                status: "skipped".to_string(),
+                reason: Some("parent POU missing or not imported".to_string()),
+            });
         }
     }
 
@@ -534,4 +589,145 @@ fn reject_source_tree_symlinks(root: &Path) -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+/// CODESYS textual action (vendor extension): an action POU deferred for
+/// merging into its parent POU's source.
+struct DeferredActionPou {
+    parent: Option<String>,
+    name: String,
+    body: Option<String>,
+}
+
+/// Collects `pouType="action"` POUs, splitting `Parent.Action` names into
+/// parent linkage and action name.
+fn collect_deferred_action_pous(root: roxmltree::Node<'_, '_>) -> HashMap<String, Vec<DeferredActionPou>> {
+    let mut deferred: HashMap<String, Vec<DeferredActionPou>> = HashMap::new();
+    for pou in collect_import_pou_nodes(root) {
+        let Some(name) = extract_pou_name(pou) else {
+            continue;
+        };
+        let Some(pou_type_raw) = attribute_ci(pou, "pouType").or_else(|| attribute_ci(pou, "type"))
+        else {
+            continue;
+        };
+        if PlcopenPouType::from_xml(&pou_type_raw) != Some(PlcopenPouType::Action) {
+            continue;
+        }
+        let (parent, action_name) = match name.split_once('.') {
+            Some((parent, action)) if !parent.is_empty() && !action.is_empty() => {
+                (Some(parent.to_string()), action.to_string())
+            }
+            _ => (None, name.clone()),
+        };
+        let body = extract_st_body(pou);
+        let key = parent
+            .as_deref()
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        deferred.entry(key).or_default().push(DeferredActionPou {
+            parent,
+            name: action_name,
+            body,
+        });
+    }
+    deferred
+}
+
+/// Renders merged textual actions and splices them before the parent POU's
+/// end keyword; actions without a body are skipped fail-closed.
+fn apply_deferred_actions(
+    mut source: String,
+    parent_name: &str,
+    actions: Vec<DeferredActionPou>,
+    warnings: &mut Vec<String>,
+    unsupported_diagnostics: &mut Vec<PlcopenUnsupportedDiagnostic>,
+    loss_warnings: &mut usize,
+    migration_entries: &mut Vec<PlcopenMigrationEntry>,
+) -> String {
+    let mut blocks: Vec<String> = Vec::new();
+    for action in actions {
+        let full_name = match &action.parent {
+            Some(parent) => format!("{parent}.{}", action.name),
+            None => format!("{parent_name}.{}", action.name),
+        };
+        let Some(body) = action.body.as_deref().map(str::trim).filter(|body| !body.is_empty())
+        else {
+            warnings.push(format!("skipping action pou '{}': missing body/ST", full_name));
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO204",
+                "warning",
+                "pou/body",
+                "action pou skipped because body/ST payload is missing",
+                Some(full_name.clone()),
+                "Provide an ST body for the action in PLCopen XML",
+            ));
+            *loss_warnings += 1;
+            migration_entries.push(PlcopenMigrationEntry {
+                name: full_name,
+                pou_type_raw: Some("action".to_string()),
+                resolved_pou_type: Some("action".to_string()),
+                status: "skipped".to_string(),
+                reason: Some("missing body/ST".to_string()),
+            });
+            continue;
+        };
+
+        let mut block = String::new();
+        block.push_str(&format!("ACTION {}:", action.name));
+        block.push('\n');
+        block.push_str(normalize_body_text(body).trim());
+        block.push('\n');
+        block.push_str("END_ACTION");
+        blocks.push(block);
+
+        warnings.push(format!(
+            "merged action pou '{}' into parent POU '{}'",
+            full_name, parent_name
+        ));
+        unsupported_diagnostics.push(unsupported_diagnostic(
+            "PLCO219",
+            "info",
+            "pou/pouType:action",
+            "action pou merged into its parent POU as a textual ACTION block",
+            Some(full_name.clone()),
+            "Review the merged ACTION block for semantic parity with the source vendor model",
+        ));
+        migration_entries.push(PlcopenMigrationEntry {
+            name: full_name,
+            pou_type_raw: Some("action".to_string()),
+            resolved_pou_type: Some("action".to_string()),
+            status: "imported".to_string(),
+            reason: Some("action merged into parent POU".to_string()),
+        });
+    }
+
+    if blocks.is_empty() {
+        return source;
+    }
+
+    let Some(insert_at) = source.rfind("END_PROGRAM")
+        .or_else(|| source.rfind("END_FUNCTION_BLOCK"))
+        .or_else(|| source.rfind("END_FUNCTION"))
+    else {
+        return source;
+    };
+
+    let mut insertion = String::new();
+    if !source[..insert_at].ends_with("\n\n") {
+        if !source[..insert_at].ends_with('\n') {
+            insertion.push('\n');
+        }
+        insertion.push('\n');
+    }
+    for (index, block) in blocks.iter().enumerate() {
+        insertion.push_str(block);
+        insertion.push('\n');
+        if index + 1 < blocks.len() {
+            insertion.push('\n');
+        }
+    }
+
+    source.insert_str(insert_at, &insertion);
+    normalize_body_text(source)
 }
