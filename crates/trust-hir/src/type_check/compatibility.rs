@@ -101,7 +101,9 @@ impl<'a> TypeChecker<'a> {
                 return false;
             }
             visited.push(current.clone());
-            let Some(symbol_id) = self.symbols.resolve_global_or_qualified_name(current.as_str())
+            let Some(symbol_id) = self
+                .symbols
+                .resolve_global_or_qualified_name(current.as_str())
             else {
                 return false;
             };
@@ -260,9 +262,7 @@ impl<'a> TypeChecker<'a> {
                 Type::Struct {
                     name: source_name, ..
                 },
-            ) => {
-                target_name == source_name || self.struct_inherits_from(source_name, target_name)
-            }
+            ) => target_name == source_name || self.struct_inherits_from(source_name, target_name),
 
             // IEC 61131-3 6.6.1.6: implicit conversion preserves value and accuracy.
             (target, source) if is_accuracy_preserving_implicit_conversion(target, source) => true,

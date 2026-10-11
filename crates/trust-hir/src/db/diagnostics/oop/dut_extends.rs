@@ -65,7 +65,10 @@ pub(in crate::db) fn check_dut_extends_semantics(
             diagnostics.error(
                 DiagnosticCode::InvalidOperation,
                 clause_range,
-                format!("EXTENDS base '{}' is not a structured type", base_symbol.name),
+                format!(
+                    "EXTENDS base '{}' is not a structured type",
+                    base_symbol.name
+                ),
             );
             continue;
         }
@@ -96,8 +99,7 @@ pub(in crate::db) fn check_dut_extends_semantics(
             continue;
         };
         for field in fields {
-            if let Some(source_name) = find_inherited_field_owner(symbols, symbol_id, &field.name)
-            {
+            if let Some(source_name) = find_inherited_field_owner(symbols, symbol_id, &field.name) {
                 diagnostics.error(
                     DiagnosticCode::DuplicateDeclaration,
                     name_range,

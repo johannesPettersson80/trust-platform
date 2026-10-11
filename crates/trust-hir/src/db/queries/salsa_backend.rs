@@ -5,8 +5,8 @@ use super::diagnostics::{
     check_extends_implements_semantics, check_global_external_links_with_project,
     check_interface_conformance, check_nondeterminism, check_property_accessors,
     check_shared_global_task_hazards, check_unreachable_statements, check_using_directives,
-    collect_used_symbols, expression_by_id, expression_context,
-    resolve_pending_types_with_table, type_check_file, ExpressionIndex,
+    collect_used_symbols, expression_by_id, expression_context, resolve_pending_types_with_table,
+    type_check_file, ExpressionIndex,
 };
 use super::project_types::{
     build_project_type_catalog, collect_file_type_prelude, find_project_type_declaration,

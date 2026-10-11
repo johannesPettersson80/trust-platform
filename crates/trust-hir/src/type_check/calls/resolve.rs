@@ -702,7 +702,10 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
             .symbols
             .resolve_global_or_qualified_name(struct_name)?;
         let base_name = self.checker.symbols.extends_name(symbol_id)?.clone();
-        let base_type = self.checker.symbols.lookup_registered_type_name(&base_name)?;
+        let base_type = self
+            .checker
+            .symbols
+            .lookup_registered_type_name(&base_name)?;
         let resolved_base = self.checker.resolve_alias_type(base_type);
         match self.checker.symbols.type_by_id(resolved_base)? {
             Type::Struct { fields, name } => fields

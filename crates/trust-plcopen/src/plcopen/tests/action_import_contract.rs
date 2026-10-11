@@ -1,5 +1,3 @@
-use super::*;
-
 fn action_fixture(label: &str, pous: &str) -> SemanticImportFixture {
     SemanticImportFixture::new(
         label,

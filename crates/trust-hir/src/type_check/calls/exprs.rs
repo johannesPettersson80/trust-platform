@@ -17,12 +17,9 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         let resolved_base = self.checker.resolve_alias_type(base_type);
         // CODESYS-style reference auto-deref: indexing a reference to an
         // array/string indexes the referenced value.
-        let (base_type, resolved_base) = match self.checker.symbols.type_by_id(resolved_base) {
-            Some(Type::Reference { target }) => {
-                let deref_type = *target;
-                (deref_type, self.checker.resolve_alias_type(deref_type))
-            }
-            _ => (base_type, resolved_base),
+        let resolved_base = match self.checker.symbols.type_by_id(resolved_base) {
+            Some(Type::Reference { target }) => self.checker.resolve_alias_type(*target),
+            _ => resolved_base,
         };
         let index_count = children.len().saturating_sub(1);
         let mut index_exprs = Vec::new();
