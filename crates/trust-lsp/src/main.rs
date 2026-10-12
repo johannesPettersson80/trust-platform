@@ -2,6 +2,7 @@
 //!
 //! This is the main entry point for the ST language server.
 
+mod check;
 mod config;
 mod external_diagnostics;
 mod handlers;
@@ -796,14 +797,29 @@ impl LanguageServer for StLanguageServer {
 
 #[tokio::main]
 async fn main() {
-    // Initialize logging
+    let args: Vec<String> = std::env::args().collect();
+    let command_line_check = args.get(1).map(String::as_str) == Some("check");
+    // Initialize logging (command-line runs only report problems)
+    let level = if command_line_check {
+        tracing::Level::WARN
+    } else {
+        tracing::Level::INFO
+    };
+    let mut filter = tracing_subscriber::EnvFilter::from_default_env().add_directive(level.into());
+    if command_line_check {
+        // check's client has no peer: its log/progress notifications are dropped on purpose
+        if let Ok(directive) = "tower_lsp::service::client=off".parse() {
+            filter = filter.add_directive(directive);
+        }
+    }
     tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into()),
-        )
+        .with_env_filter(filter)
         .with_writer(std::io::stderr)
         .init();
+
+    if command_line_check {
+        std::process::exit(check::run(&args[2..]).await);
+    }
 
     info!("Starting ST Language Server");
 
