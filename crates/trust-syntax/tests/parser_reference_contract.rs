@@ -26,6 +26,15 @@ fn reference_parser_accepts_reference_to_elementary_type() {
 }
 
 #[test]
+fn reference_parser_accepts_reference_as_identifier_name() {
+    // `REFERENCE` is a contextual keyword: an identifier named `reference`
+    // keeps parsing outside the `REFERENCE TO` type form.
+    assert_reference_parses(
+        "PROGRAM P\nVAR x : INT; reference : REF_TO INT; END_VAR\nreference := REF(x);\nEND_PROGRAM",
+    );
+}
+
+#[test]
 fn reference_parser_accepts_reference_to_user_type() {
     assert_reference_parses("TYPE S : STRUCT x : INT; END_STRUCT END_TYPE\nPROGRAM P\nVAR r : REFERENCE TO S; END_VAR\nEND_PROGRAM");
 }

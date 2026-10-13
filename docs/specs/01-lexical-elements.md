@@ -180,13 +180,16 @@ deviations:
 VAR_STAT
 PERSISTENT
 POINTER
-REFERENCE
 UNION, END_UNION
 NEW, __NEW, __DELETE
 ADR, SIZEOF
 TEST_PROGRAM, END_TEST_PROGRAM
 TEST_FUNCTION_BLOCK, END_TEST_FUNCTION_BLOCK
 ```
+
+`REFERENCE` is a **contextual** vendor keyword, not a reserved word: it is
+recognized only as the `REFERENCE TO` type form; an identifier named
+`reference` keeps parsing everywhere else.
 
 `VAR_STAT` is a shipped vendor-extension keyword. Runtime semantics are defined
 here and in the runtime specification: function statics persist across calls, method statics persist per

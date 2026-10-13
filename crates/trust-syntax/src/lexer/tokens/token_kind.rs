@@ -190,8 +190,6 @@ pub enum TokenKind {
     KwRef,
     #[token("REF_TO", ignore(case))]
     KwRefTo,
-    #[token("REFERENCE", ignore(case))]
-    KwReference,
     #[token("TO", ignore(case))]
     KwTo,
     #[token("EXTENDS", ignore(case))]

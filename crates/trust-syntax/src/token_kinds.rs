@@ -94,7 +94,6 @@ macro_rules! for_each_token_kind {
             KwPointer,
             KwRef,
             KwRefTo,
-            KwReference,
             KwTo,
             KwExtends,
             KwImplements,
