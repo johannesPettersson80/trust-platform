@@ -106,12 +106,27 @@ pub(crate) fn resolve_target_at_position_with_context(
             if let Some(field_expr) = name_node
                 .parent()
                 .filter(|parent| parent.kind() == SyntaxKind::FieldExpr)
-                && let Some(parts) = qualified_name_from_field_expr(&field_expr)
-                && let Some(symbol_id) = symbols.resolve_qualified(&parts)
             {
-                return Some(ResolvedTarget::Symbol(canonical_symbol_id(
-                    symbols, file_id, root, symbol_id,
-                )));
+                if let Some(parts) = qualified_name_from_field_expr(&field_expr)
+                    && let Some(symbol_id) = symbols.resolve_qualified(&parts)
+                {
+                    return Some(ResolvedTarget::Symbol(canonical_symbol_id(
+                        symbols,
+                        file_id,
+                        root,
+                        symbol_id,
+                    )));
+                }
+                if let Some(action_id) =
+                    resolve_program_qualified_action_target(symbols, &field_expr)
+                {
+                    return Some(ResolvedTarget::Symbol(canonical_symbol_id(
+                        symbols,
+                        file_id,
+                        root,
+                        action_id,
+                    )));
+                }
             }
         }
     }
@@ -120,6 +135,31 @@ pub(crate) fn resolve_target_at_position_with_context(
         return Some(ResolvedTarget::Symbol(canonical_symbol_id(
             symbols, file_id, root, symbol_id,
         )));
+    }
+
+    // CODESYS textual action call sites (vendor extension): a bare callee
+    // that scope resolution cannot explain may still be an action of the
+    // enclosing POU. HIR resolves these in call position only, so the scan
+    // here is guarded to callee positions as well.
+    for token in [
+        root.token_at_offset(position).right_biased(),
+        root.token_at_offset(anchor).right_biased(),
+        root.token_at_offset(anchor).left_biased(),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        let Some(name_node) = name_node_at_token(&token) else {
+            continue;
+        };
+        if let Some(action_id) = resolve_action_callee_target(symbols, root, &name_node, name) {
+            return Some(ResolvedTarget::Symbol(canonical_symbol_id(
+                symbols,
+                file_id,
+                root,
+                action_id,
+            )));
+        }
     }
 
     // Some type-usage contexts (for example enum qualified literals like
@@ -304,4 +344,67 @@ pub(crate) fn resolve_type_symbol_at_node(
     }
     let scope_id = scope_at_position(symbols, root, name_node.text_range().start());
     resolve_type_symbol(symbols, &parts, scope_id)
+}
+
+/// Resolves a bare identifier in call-callee position to a textual ACTION
+/// child of the enclosing POU (CODESYS vendor extension). The HIR resolves
+/// these calls through a POU child scan that runs after ordinary callables,
+/// so this helper is only consulted when scope resolution found nothing.
+/// The owner walk makes calls inside METHOD or ACTION bodies resolve
+/// against the owning program/function block.
+pub(crate) fn resolve_action_callee_target(
+    symbols: &SymbolTable,
+    root: &SyntaxNode,
+    name_node: &SyntaxNode,
+    name: &str,
+) -> Option<SymbolId> {
+    let call = name_node.parent()?;
+    if call.kind() != SyntaxKind::CallExpr {
+        return None;
+    }
+    let callee = call.children().next()?;
+    if callee.text_range() != name_node.text_range() {
+        return None;
+    }
+
+    let scope_id = scope_at_position(symbols, root, name_node.text_range().start());
+    let mut owner = symbols.get_scope(scope_id).and_then(|scope| scope.owner);
+    while let Some(owner_id) = owner {
+        if let Some(action_id) = symbols.resolve_child_symbol(owner_id, name) {
+            if matches!(
+                symbols.get(action_id).map(|symbol| &symbol.kind),
+                Some(SymbolKind::Action)
+            ) {
+                return Some(action_id);
+            }
+        }
+        owner = symbols.get(owner_id).and_then(|symbol| symbol.parent);
+    }
+    None
+}
+
+/// Resolves `ProgramName.action_name` field expressions to the textual
+/// action child of the named program (CODESYS vendor extension, mirroring
+/// the HIR program-singleton member resolution).
+pub(crate) fn resolve_program_qualified_action_target(
+    symbols: &SymbolTable,
+    field_expr: &SyntaxNode,
+) -> Option<SymbolId> {
+    let parts = qualified_name_from_field_expr(field_expr)?;
+    if parts.len() != 2 {
+        return None;
+    }
+    let program_id = symbols.lookup(&parts[0])?;
+    if !matches!(
+        symbols.get(program_id).map(|symbol| &symbol.kind),
+        Some(SymbolKind::Program)
+    ) {
+        return None;
+    }
+    let action_id = symbols.resolve_child_symbol(program_id, &parts[1])?;
+    matches!(
+        symbols.get(action_id).map(|symbol| &symbol.kind),
+        Some(SymbolKind::Action)
+    )
+    .then_some(action_id)
 }

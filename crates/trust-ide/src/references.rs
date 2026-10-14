@@ -13,6 +13,7 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 use crate::util::{
     contains_ascii_case_insensitive, field_declaration_ranges, ident_token_in_name,
     is_type_name_node, is_type_symbol_kind, qualified_name_from_field_expr,
+    resolve_action_callee_target, resolve_program_qualified_action_target,
     resolve_target_at_position_with_context, resolve_type_symbol_at_node, scope_at_position,
     FieldTarget, IdeContext, ResolvedTarget,
 };
@@ -403,6 +404,19 @@ fn find_references_to_symbol_in_context(
                 range: ref_range,
                 is_write,
             });
+        } else if let Some(action_id) = resolve_action_callee_target(symbols, root, &node, ref_name)
+        {
+            // CODESYS textual action call sites (vendor extension): bare
+            // callees resolve through the owning POU's action children, not
+            // through scopes, so scope lookup alone misses them.
+            if action_id == symbol_id {
+                let is_write = is_write_context(&node);
+                references.push(Reference {
+                    file_id,
+                    range: ref_range,
+                    is_write,
+                });
+            }
         }
     }
 
@@ -431,6 +445,19 @@ fn find_references_to_symbol_in_context(
                 range,
                 is_write,
             });
+        } else if let Some(action_id) = resolve_program_qualified_action_target(symbols, &node) {
+            // CODESYS program-qualified textual action calls
+            // (`ProgramName.action_name()`).
+            if action_id == symbol_id {
+                if let Some(member_name) = field_name_from_field_expr(&node) {
+                    let is_write = is_write_context(&node);
+                    references.push(Reference {
+                        file_id,
+                        range: member_name.text_range(),
+                        is_write,
+                    });
+                }
+            }
         }
     }
 

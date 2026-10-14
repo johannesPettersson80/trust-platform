@@ -75,6 +75,11 @@ Target release: `v0.24.75`
   hosted values and image writes use checked owner APIs. Rejected queued writes
   report their application failure without turning an invalid request into a PLC fault.
 
+- Resolve textual action call sites in the IDE (CODESYS vendor extension):
+  bare `action_name()` calls and `ProgramName.action_name()` now resolve to
+  the action symbol, so go-to-definition, hover, find-references, and rename
+  include action call sites instead of silently dropping (or corrupting)
+  them.
 - Diagnose a DUT `EXTENDS` clause whose base names no declared type
   (`cannot resolve type '<base>'`, `E102`); the derived struct was
   previously accepted silently and inherited from nothing.
@@ -1223,6 +1228,11 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Resolve textual action call sites in the IDE (CODESYS vendor extension):
+  bare `action_name()` calls and `ProgramName.action_name()` now resolve to
+  the action symbol, so go-to-definition, hover, find-references, and rename
+  include action call sites instead of silently dropping (or corrupting)
+  them.
 - Diagnose a DUT `EXTENDS` clause whose base names no declared type
   (`cannot resolve type '<base>'`, `E102`); the derived struct was
   previously accepted silently and inherited from nothing.
@@ -2448,6 +2458,11 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Resolve textual action call sites in the IDE (CODESYS vendor extension):
+  bare `action_name()` calls and `ProgramName.action_name()` now resolve to
+  the action symbol, so go-to-definition, hover, find-references, and rename
+  include action call sites instead of silently dropping (or corrupting)
+  them.
 - Diagnose a DUT `EXTENDS` clause whose base names no declared type
   (`cannot resolve type '<base>'`, `E102`); the derived struct was
   previously accepted silently and inherited from nothing.
@@ -2887,6 +2902,11 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Resolve textual action call sites in the IDE (CODESYS vendor extension):
+  bare `action_name()` calls and `ProgramName.action_name()` now resolve to
+  the action symbol, so go-to-definition, hover, find-references, and rename
+  include action call sites instead of silently dropping (or corrupting)
+  them.
 - Diagnose a DUT `EXTENDS` clause whose base names no declared type
   (`cannot resolve type '<base>'`, `E102`); the derived struct was
   previously accepted silently and inherited from nothing.
@@ -3058,6 +3078,11 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Resolve textual action call sites in the IDE (CODESYS vendor extension):
+  bare `action_name()` calls and `ProgramName.action_name()` now resolve to
+  the action symbol, so go-to-definition, hover, find-references, and rename
+  include action call sites instead of silently dropping (or corrupting)
+  them.
 - Diagnose a DUT `EXTENDS` clause whose base names no declared type
   (`cannot resolve type '<base>'`, `E102`); the derived struct was
   previously accepted silently and inherited from nothing.
