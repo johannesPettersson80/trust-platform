@@ -263,6 +263,11 @@ Target release: `v0.24.75`
   remain dropped and counted. These describe the logical scheduling rule,
   not measured hosted wake timing.
 
+- Security: update `rustls` to 0.23.46 (RUSTSEC-2026-0346 to 0349: TLS secrets in client session
+  `Debug` output, data sent to the outer server after an ECH rejection, up to 1 GiB allocated for
+  certificate decompression before authentication, and a post-quantum key-exchange downgrade). The
+  `tiny_http` HTTPS server keeps `rustls` 0.20.9 under an owned exception until 18 November 2026:
+  the downgrade concerns TLS clients, and `rustls` 0.20 offers no post-quantum group.
 - Security: update `rustls` to 0.23.45 (RUSTSEC-2026-0285, TLS 1.3 handshake messages accepted
   across encryption levels) and `salsa` to 0.28.5 (RUSTSEC-2026-0308, use-after-free in interned
   values and cached query results). The two queries whose results salsa now returns by reference

@@ -111,11 +111,26 @@ professional runtime"). The validated run-4 source is backed up externally
   rounds pooled; per-round medians and both thresholds unchanged (spec 34 v0.19). Harness
   `perf01_verdict.py` decides the gate; on run 5 it passes: pooled p99 ratios
   `call_binding` 1.0282, `refs_sizeof` 0.4694, `string_stdlib` 1.0290, all medians pass.
-- [ ] Correction commit: spec 32 owner list, installation sentence and proof map; spec 34
-  v0.19; this checklist. Then guard attempt 2 on the new SHA, then a timing round on the
-  integrated source (main's U corrections are new to H's timing). CI runs only on pull
-  requests to `main`, so native Windows/macOS evidence needs a draft PR marked
-  validation-only after the guard passes.
+- [x] Correction commit `de0fea9b4`: spec 32 owner list, installation sentence and proof map;
+  spec 34 v0.19; this checklist. The strict gate passes locally (direct change contract empty).
+- [x] No timing round is needed for the integrated source: `crates/`, `xtask/`, `Cargo.toml`,
+  `Cargo.lock`, `rust-toolchain.toml` and `.cargo` of `de0fea9b4` are byte-identical to the
+  tree run 5 built and timed (2,586 files; the builder copy is unchanged since run 5). Main's
+  code changes since H's base were already in that tree. Proof: external
+  `h-publication/timing-identity/`.
+- [x] Guard attempt 2 on `de0fea9b4` (13:29–13:42 UTC): strict gate, VS Code, format and
+  cross-target warnings pass; `remote_supply_chain` fails on four new advisories against
+  `rustls` (RUSTSEC-2026-0346 to 0349; `main` has the same versions). Later steps unrun.
+- [x] Owner decision 14 October: fix on this branch. `rustls` 0.23.45 → 0.23.46 (lockfile
+  only, three dependents) fixes every client path; `tiny_http` 0.12's HTTPS server keeps
+  `rustls` 0.20.9 (no fixed release; server-only use, and 0.20 has no post-quantum group to
+  downgrade from) under an owned `deny.toml` exception expiring 18 November 2026 with the
+  other `tiny_http` exceptions. `scripts/supply_chain_gate.sh` passes with the fix on a
+  builder scratch copy. Run 5's PERF-01 binaries linked `rustls` 0.23.45; the timed workloads
+  never execute TLS code, so the timing evidence stands.
+- [ ] Guard attempt 3 on the fix commit, then push and a draft PR marked validation-only (CI
+  runs only on pull requests to `main`) for native Windows/macOS evidence. `main` needs the
+  same `rustls` fix separately.
 
 **Earlier on 14 October (Claude review and correction): validated except PERF-01 `call_binding`.**
 The owner asked for a review and fix of H. Root causes found:

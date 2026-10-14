@@ -2975,7 +2975,7 @@ dependencies = [
  "named_pipe",
  "pem",
  "percent-encoding 2.3.2",
- "rustls 0.23.45",
+ "rustls 0.23.46",
  "rustls-pemfile 2.2.0",
  "socket2 0.6.5",
  "twox-hash",
@@ -4502,9 +4502,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.45"
+version = "0.23.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
+checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
 dependencies = [
  "aws-lc-rs",
  "log",
@@ -6139,7 +6139,7 @@ dependencies = [
  "rusqlite",
  "rustc-hash 2.1.3",
  "rustix 1.1.5",
- "rustls 0.23.45",
+ "rustls 0.23.46",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -6375,7 +6375,7 @@ dependencies = [
  "flate2",
  "log",
  "percent-encoding 2.3.2",
- "rustls 0.23.45",
+ "rustls 0.23.46",
  "rustls-pki-types",
  "ureq-proto",
  "utf8-zero",
