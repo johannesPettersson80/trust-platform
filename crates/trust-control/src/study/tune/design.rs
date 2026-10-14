@@ -32,7 +32,7 @@ use crate::study::tune::prediction::{
     candidate_margins, candidate_outcome, candidate_prediction, TraceNames,
 };
 use crate::study::tune::record::{
-    candidate_record, gains_map, gains_of_map, pinned_settings, record_shaping,
+    candidate_record, gains_map, gains_of_map, pinned_settings, record_settings, record_shaping,
     shaping_of_candidate, LoopLimits,
 };
 use crate::study::tune::relay;
@@ -87,7 +87,12 @@ const NO_PROPORTIONAL: &str = "The constrained comparison holds no P candidate."
 /// whose error is above the limit; requirements that cannot be formed; a method or a structure that does not apply; no
 /// structure that meets the requirements; a relay record that does not qualify; settings that the bounds or the pins refuse;
 /// or a candidate record whose limits are not in order.
-pub(crate) fn run(inputs: &TuneInputs<'_>) -> Result<TuneOutcome, Failure> {
+///
+/// `held` is the requirements the study holds when the engineer recorded them (B4.3); see `requirements_for`.
+pub(crate) fn run(
+    inputs: &TuneInputs<'_>,
+    held: Option<&TuningRequirements>,
+) -> Result<TuneOutcome, Failure> {
     check_before_start(inputs)?;
     let Some(identify) = inputs.identify else {
         return Err(defect(NO_IDENTIFY_SECTION));
@@ -104,18 +109,15 @@ pub(crate) fn run(inputs: &TuneInputs<'_>) -> Result<TuneOutcome, Failure> {
     let request = inputs.request;
     let model = tuning_model(&identify.selected_model, identify)
         .map_err(refused(Cause::ModelOrData, NextAction::Identify))?;
-    let requirements = run_requirements(inputs, identify, &model)?;
+    let requirements = run_requirements(inputs, identify, &model, held)?;
     // The manual candidate comes first, because its settings shape the prediction; a design's shape is the pinned one.
     let entry = manual::candidate_of(loop_definition, request)?;
+    let mapped = mapped_parameters(loop_definition);
     let shaping = match &entry {
         Some(candidate) => shaping_of_candidate(candidate),
         None => record_shaping(
             loop_definition,
-            &pinned_settings(
-                loop_definition,
-                request,
-                &mapped_parameters(loop_definition),
-            )?,
+            &pinned_settings(loop_definition, request, &mapped)?,
         ),
     };
     let setup = LoopSetup::of(
@@ -156,6 +158,7 @@ pub(crate) fn run(inputs: &TuneInputs<'_>) -> Result<TuneOutcome, Failure> {
         predictor: &predictor,
         context: &context,
         names: TraceNames::of(loop_definition),
+        parameters: &mapped,
     };
     let result = answer(
         request.method,
@@ -253,6 +256,7 @@ fn run_requirements(
     inputs: &TuneInputs<'_>,
     identify: &IdentifySection,
     model: &IdentifiedModel,
+    held: Option<&TuningRequirements>,
 ) -> Result<TuningRequirements, Failure> {
     let requirements_refused = refused(Cause::Settings, NextAction::OpenRequirements);
     let requirements = requirements_for(
@@ -261,6 +265,7 @@ fn run_requirements(
         &identify.selected_model,
         identify,
         inputs.previous,
+        held,
         inputs.request,
     )
     .map_err(&requirements_refused)?;
@@ -785,6 +790,8 @@ struct Evaluation<'a> {
     predictor: &'a SelectedModelPredictor<'a>,
     context: &'a DesignContext<'a>,
     names: TraceNames<'a>,
+    /// The loop's bound parameters, which name the candidate's settings (B4.2).
+    parameters: &'a [MappedParameter],
 }
 
 /// The answer of a run (B4.3 to B4.6): the design and its candidate, the candidate's outcome, predicted response and margins
@@ -810,6 +817,7 @@ fn answer(
         designed.gains,
         requirements,
     );
+    let settings = record_settings(&candidate, evaluation.parameters);
     tune_result(ResultInputs {
         model: evaluation.model,
         method,
@@ -817,6 +825,7 @@ fn answer(
         process_unit: context.process_unit,
         manipulated_unit: context.manipulated_unit,
         candidate,
+        settings,
         objective: designed.objective,
         closed_loop_time_seconds: designed.closed_loop_time_seconds,
         attempts: designed.attempts,

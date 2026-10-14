@@ -14,7 +14,12 @@
 //! runtime's restoration path, as the reattached client's Cancel does (E11.4, B3.4). Closing the panel does not cancel the
 //! operation (E11.5, E11.11). The engine keeps no client between operations, so the release of a closed panel
 //! (`release`), the attempt it shows (`snapshot`) and the refusal of a Cancel while a resume reattaches have no counterpart
-//! here. The mode checkpoint of an interrupted identification moves with V4.
+//! here.
+//!
+//! A mode that the interrupted identification changed returns with it (A6.2, A8.6): once nothing of the campaign is left
+//! running, a resume returns the loop to the mode it was found in before the fit, and a Cancel returns it after the recording is
+//! kept. A journal that holds only the mode checkpoint is completed by returning the mode. The completion is part of the
+//! journaled operation, not a new one.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -31,6 +36,7 @@ use trust_control::identification::connected_run::{
 };
 use trust_control::identification::independent_validation::RunEvaluation;
 use trust_control::identification::reconcile::ExperimentIdentity;
+use trust_control::identification::texts::apply_cancel_refused;
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::recording::EvidenceSource;
 use trust_control::runtime::RuntimeConnection;
@@ -41,6 +47,7 @@ use super::identify::{
     cancel_identification, ConnectedRuntime, IdentifyRequest, IdentifyRuntime, RecordingRetention,
 };
 use super::identify_campaign::{CampaignClock, CampaignReport, IdentifyCampaign, SystemClock};
+use super::identify_mode::{mode_journaled, IdentificationMode};
 use super::reconcile::{follow_until_ended, read_experiment_identity};
 use crate::journal::{Journal, JournalEntry};
 use crate::operation::OperationContext;
@@ -70,12 +77,12 @@ pub struct ResumedIdentification<E> {
 
 /// The ports a resume reads and writes: the runtime, where the recording is kept, the clock that paces the polls, the
 /// operation's cancellation and progress, and the loop's journal.
-struct RecoveryPorts<'a, T, K, C, P> {
-    runtime: &'a T,
-    retention: &'a mut K,
-    clock: &'a C,
-    report: &'a P,
-    journal: &'a Mutex<Journal>,
+pub(crate) struct RecoveryPorts<'a, T, K, C, P> {
+    pub(crate) runtime: &'a T,
+    pub(crate) retention: &'a mut K,
+    pub(crate) clock: &'a C,
+    pub(crate) report: &'a P,
+    pub(crate) journal: &'a Mutex<Journal>,
 }
 
 /// Resumes the identification campaign journaled for the loop of `request` (`resume` of `connectedIdentificationRecovery.ts`,
@@ -83,7 +90,8 @@ struct RecoveryPorts<'a, T, K, C, P> {
 /// campaign's recording is recovered on the runtime of `connection`, and its experiment is read by its identity. A running or
 /// ended experiment is followed to the end of its hold without a start or an abort, and finished once it has settled, as the
 /// hold rule says (B3.4). Once nothing of the campaign is left running, its recording is kept through `retention` before the
-/// runtime buffer is released and the journal is cleared; then the recording of a completed step is fitted. The operation of
+/// runtime buffer is released and the journal is cleared, the loop returns to the mode the identification found it in when the
+/// journal holds its mode checkpoint (A6.2, A8.6), and then the recording of a completed step is fitted. The operation of
 /// `context` shows the progress, and its cancellation is the engineer's Cancel: the hold aborts the experiment through the
 /// runtime's restoration path (E11.4).
 ///
@@ -92,7 +100,8 @@ struct RecoveryPorts<'a, T, K, C, P> {
 /// no step to resume; the recording cannot be recovered; the experiment's status cannot be read, its hold fails or its
 /// restoration is not confirmed, and the experiment, its recording and the journal are then left to the runtime (A8.6); the
 /// experiment never started, stopped before its hold ended, or covered one of several plant inputs; or the recording cannot be
-/// kept, its record or its fit fails, or the journal cannot be cleared.
+/// kept, its record or its fit fails, the journal cannot be cleared, or the mode cannot be returned (whose failure replaces only
+/// a record that succeeded).
 pub fn resume_identification<K, E>(
     context: &OperationContext,
     connection: &RuntimeConnection,
@@ -132,12 +141,15 @@ where
 /// `connection` with status reads only, one every half second, while the operation of `context` shows why it waits; it is
 /// never aborted. Once no experiment of the campaign is left running, the identification's Cancel finishes the recovery: the
 /// ended experiment's restoration is confirmed, the original recording is stopped and kept through `retention` before its
-/// buffer is released, and the journal is cleared. Without a journaled campaign nothing is cancelled.
+/// buffer is released, and the journal is cleared. Then the loop returns to the mode the identification found it in when the
+/// journal holds its mode checkpoint, with or without a campaign (A6.2). Without a journaled campaign or mode checkpoint
+/// nothing is cancelled.
 ///
 /// # Errors
 /// The runtime cannot be reached or is not simulated (reconnect the original simulator); the journal cannot be read; the
 /// experiment's status cannot be read, and nothing is restored; the operation was cancelled while the experiment still ran,
-/// and the journal stays; or the identification's Cancel fails (see [`cancel_identification`]).
+/// and the journal stays; the identification's Cancel fails (see [`cancel_identification`]); or the mode cannot be returned,
+/// and its checkpoint stays journaled.
 pub fn cancel_identification_recovery<K: RecordingRetention>(
     context: &OperationContext,
     connection: &RuntimeConnection,
@@ -162,7 +174,14 @@ pub fn cancel_identification_recovery<K: RecordingRetention>(
             loop_definition,
             retention,
         )
-    })
+    })?;
+    // The Cancel wrote the journal through a journal of its own, so the mode's return reads it afresh.
+    let journal = Mutex::new(Journal::open(
+        storage_folder,
+        &loop_definition.project_id,
+        &loop_definition.id,
+    )?);
+    return_found_mode(&runtime, &journal, loop_definition)
 }
 
 /// Cancels the journaled operation `operation_id` of the loop (§0.1b `cancel`, E5.5, E11.6), by what the operation is: an
@@ -170,13 +189,15 @@ pub fn cancel_identification_recovery<K: RecordingRetention>(
 /// aborted through the runtime's restoration path, its restoration is confirmed, and its recording is kept. A lone recording
 /// owner is stopped through the runtime, its recording is kept in the study before its buffer is released, and its owner is
 /// cleared. A journaled Test experiment is cancelled as a campaign's experiment is (`cancel_test_experiment`). The experiment of
-/// the journaled step belongs to its campaign, so naming it cancels the campaign. The other operations of the journal are left
-/// as they are.
+/// the journaled step belongs to its campaign, so naming it cancels the campaign. An identification's Cancel then returns the
+/// loop to the mode the identification found it in (A6.2), and naming its mode checkpoint is the same Cancel. A journaled Apply
+/// is not cancelled: Restore previous settings ends it (B6.4). The other operations of the journal are left as they are.
 ///
 /// # Errors
-/// The operation is not journaled ([`not_journaled`]); the campaign's Cancel fails (see [`cancel_identification`]); the Test
-/// experiment's restoration cannot be confirmed; or the recording of the owner cannot be recovered, stopped, kept or released,
-/// and its owner stays journaled.
+/// The operation is not journaled ([`not_journaled`]), or it is an Apply; the campaign's Cancel fails (see
+/// [`cancel_identification`]); the mode cannot be returned, and its checkpoint stays journaled; the Test experiment's
+/// restoration cannot be confirmed; or the recording of the owner cannot be recovered, stopped, kept or released, and its owner
+/// stays journaled.
 pub fn cancel_operation<K: RecordingRetention>(
     connection: &RuntimeConnection,
     pending: &Arc<PendingReleases>,
@@ -240,9 +261,23 @@ where
             &recovery,
             retention,
         ),
-        Some(JournalEntry::IdentificationCampaign { .. } | JournalEntry::Experiment { .. }) => {
-            cancel_journaled(runtime, clock, journal, loop_definition, retention)
+        // The identification's Cancel returns the loop to the mode it was found in once no experiment of the campaign is left
+        // running (A6.2). The mode checkpoint belongs to its identification: naming it is the same Cancel, which finds no
+        // campaign when only the mode is left.
+        Some(
+            JournalEntry::IdentificationCampaign { .. }
+            | JournalEntry::Experiment { .. }
+            | JournalEntry::IdentificationMode { .. },
+        ) => {
+            cancel_journaled(runtime, clock, journal, loop_definition, retention)?;
+            return_found_mode(runtime, journal, loop_definition)
         }
+        // An Apply is ended by Restore previous settings, which returns the settings and the mode found before it (B6.4).
+        Some(JournalEntry::Commissioning { checkpoint }) => Err(Failure::new(
+            &apply_cancel_refused(&checkpoint.id),
+            Cause::Unclassified,
+            NextAction::Restore,
+        )),
         // An isolated test run of Validate runs in a disposable simulation that never writes to the running controller and
         // ends within its wall budget (E8.4); an unfinished validation is never kept (B5.4). Cancelling it forgets it.
         Some(JournalEntry::IsolatedJob { job }) => {
@@ -296,7 +331,7 @@ where
 }
 
 /// Resumes the journaled campaign on `ports` (`resumeCampaign`); see [`resume_identification`].
-fn resume<T, K, C, P, E>(
+pub(crate) fn resume<T, K, C, P, E>(
     ports: RecoveryPorts<'_, T, K, C, P>,
     request: &IdentifyRequest<'_, E>,
 ) -> Result<ResumedIdentification<E>, Failure>
@@ -370,9 +405,11 @@ where
         journal,
         &[campaign.recording.recording_id.clone(), plan.id.clone()],
     )?;
-    // Mode transfer: moves with V4 (runtimeTransfer.ts).
-    // The loop's original mode returns here, once the experiment has ended and before the fit (A6.2, A8.6).
+    // The loop's original mode returns here, once the experiment has ended and before the fit (A6.2, A8.6). A failed return
+    // replaces only a record that succeeded; its checkpoint stays journaled for the next reconciliation.
+    let returned = return_found_mode(runtime, journal, loop_definition);
     let record = record?;
+    returned?;
     let result = fit_records(loop_definition, report, std::slice::from_ref(&record))?;
     Ok(ResumedIdentification {
         provisional: is_provisional(&result),
@@ -424,9 +461,27 @@ where
             ExperimentIdentity::Terminal { .. } | ExperimentIdentity::Absent { .. } => {}
         }
     }
-    // Mode transfer: moves with V4 (runtimeTransfer.ts).
-    // The original mode returns with the recording, once no experiment of the campaign is left running (A6.2).
+    // The original recording is kept now; the caller returns the original mode after it, once no experiment of the campaign is
+    // left running (A6.2).
     finish()
+}
+
+/// Returns the loop to the mode an interrupted identification found it in, when `journal` holds its mode checkpoint (A6.2,
+/// A8.6): the return of [`IdentificationMode::restore`], on the runtime's transfer connection. Without a checkpoint nothing is
+/// read or written.
+///
+/// # Errors
+/// The runtime takes no transfers, the loop's controller has no transfer, or the return fails (see
+/// [`IdentificationMode::restore`]); the checkpoint then stays journaled.
+fn return_found_mode<T: IdentifyRuntime>(
+    runtime: &T,
+    journal: &Mutex<Journal>,
+    loop_definition: &LoopDefinition,
+) -> Result<(), Failure> {
+    if !mode_journaled(&journal.lock()) {
+        return Ok(());
+    }
+    IdentificationMode::new(loop_definition, runtime.transfer_connection()?, journal)?.restore()
 }
 
 /// The identification campaign the journal holds, when it holds one.

@@ -53,9 +53,8 @@ pub fn open_text(result: &OpenResult) -> String {
             loop_definition,
             stages,
             reattached,
-            engine_refusal,
             ..
-        } => opened_text(loop_definition, stages, reattached, engine_refusal.as_ref()),
+        } => opened_text(loop_definition, stages, reattached),
     }
 }
 
@@ -85,7 +84,6 @@ fn opened_text(
     loop_definition: &LoopDefinition,
     stages: &[StageAvailability],
     reattached: &[String],
-    engine_refusal: Option<&Failure>,
 ) -> String {
     let mut lines = vec![
         format!("Loop {} ({})", loop_definition.name, loop_definition.id),
@@ -101,9 +99,6 @@ fn opened_text(
     } else {
         format!("Journaled operations: {}", reattached.join(", "))
     });
-    if let Some(refusal) = engine_refusal {
-        lines.push(format!("Engine refusal: {}", refusal.message));
-    }
     lines.join("\n")
 }
 
@@ -143,7 +138,7 @@ fn failure_lines(message: &str, detail: Option<&str>, label: &str) -> String {
 }
 
 /// The text of field `name` of a JSON object, when it is text.
-fn text_field<'a>(object: &'a Value, name: &str) -> Option<&'a str> {
+pub(super) fn text_field<'a>(object: &'a Value, name: &str) -> Option<&'a str> {
     object.get(name).and_then(Value::as_str)
 }
 
@@ -334,7 +329,7 @@ fn quantity(value: Option<f64>, unit: &str) -> String {
 }
 
 /// Field `name` of a JSON object, or null when the object lacks it, so that a missing field reads like a field without a value.
-fn member<'a>(object: &'a Value, name: &str) -> &'a Value {
+pub(super) fn member<'a>(object: &'a Value, name: &str) -> &'a Value {
     static NULL: Value = Value::Null;
     object.get(name).unwrap_or(&NULL)
 }
@@ -439,7 +434,7 @@ fn apply_line(result: &Value) -> String {
 }
 
 /// The items of the array in field `name` of a JSON object; none when the object lacks the array.
-fn items<'a>(object: &'a Value, name: &str) -> impl Iterator<Item = &'a Value> {
+pub(super) fn items<'a>(object: &'a Value, name: &str) -> impl Iterator<Item = &'a Value> {
     object
         .get(name)
         .and_then(Value::as_array)

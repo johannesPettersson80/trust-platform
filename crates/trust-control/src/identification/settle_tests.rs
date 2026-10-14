@@ -25,6 +25,12 @@ fn the_baseline_window_is_the_longest_of_twenty_samples_five_percent_and_a_decla
         (baseline_window_seconds(10.0, 1.0, None) - 20.0).abs() <= 1e-9,
         "twenty samples of a 1 s spacing are longer than 5 % of 10 s"
     );
+    // The room heating's model check (10 October): a 41,000 s settling time gives a 205 s record period (A4.2), so twenty
+    // samples span 4,100 s. The 30-minute cap would leave nine samples, and the baseline could never be judged steady.
+    assert!(
+        (baseline_window_seconds(27_360.0, 205.0, Some(41_000.0)) - 4_100.0).abs() <= 1e-9,
+        "twenty samples of a long record period are kept beyond the cap"
+    );
 }
 
 #[test]

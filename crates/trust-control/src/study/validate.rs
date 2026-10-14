@@ -281,6 +281,8 @@ pub struct ValidationInput<'a> {
     pub jobs: &'a [CaseJobs<'a>],
     /// How the model stands for this validation (B5.2).
     pub qualification: ModelQualification,
+    /// Why the model replaced the configured plant for every case (B5.3), when it did; the result carries it.
+    pub plant_reason: Option<String>,
 }
 
 /// What Validate composes: the section to keep in the study, the result to answer, and the failure that stops Apply, with its
@@ -388,6 +390,7 @@ pub fn validate_outcome(input: &ValidationInput<'_>) -> Result<ValidateOutcome, 
             scenarios,
             status,
             apply_available: eligible,
+            plant_reason: input.plant_reason.clone(),
             stages,
         },
         failure,

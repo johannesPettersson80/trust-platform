@@ -24,6 +24,8 @@ use trust_control::identification::acquisition_settings::{
     configured_acquisition, AcquisitionSettings,
 };
 use trust_control::identification::automatic::AutomaticIdentificationResult;
+use trust_control::identification::campaign::{campaign_maximum_ms, require_campaign_limits};
+use trust_control::identification::campaign_review::campaign_review;
 use trust_control::identification::connected_run::{
     accepted_model_from_one_record, checked_acquisition_settings, model_check_instead_of_model,
     model_not_from_one_record, not_journaled, qualification, recording_not_kept,
@@ -57,7 +59,7 @@ use crate::runtime_client::RuntimeClient;
 use crate::workflow::identify::run::{connected_record, fit_records};
 use crate::workflow::identify::{
     identify_plant, IdentifyPorts, IdentifyRequest as RunRequest, IdentifyResult as RunResult,
-    RunEvaluator,
+    LoopSampler, RunEvaluator,
 };
 use crate::workflow::identify_recovery::{cancel_operation, resume_identification};
 use crate::{loops, storage};
@@ -164,6 +166,10 @@ pub fn answer(
         }
         // Reset answers at once; the loop's claim ends when this answer returns.
         IdentifyAction::Reset => reset(&work, &journal),
+        // The review answers at once, with its claim, and starts nothing (B3.2 to B3.4, C12).
+        IdentifyAction::Review { settings } => {
+            review(&work.loop_definition, connection.as_ref(), &settings)
+        }
     }
 }
 
@@ -174,7 +180,70 @@ fn operation_name(action: &IdentifyAction) -> &'static str {
         IdentifyAction::OpenRecording { .. } => "Open recording",
         IdentifyAction::Resume => "Resume",
         IdentifyAction::Reset => "Reset",
+        IdentifyAction::Review { .. } => "Review",
     }
+}
+
+/// The review of the campaign that `identify` would run with `settings` (§0.1a, B3.2 to B3.4, C12): the loop's live sample is read
+/// when a runtime is connected, so the mode Automatic chooses from is the controller's. Without a connection the sample is absent,
+/// and the review says what the campaign needs. It starts nothing and writes nothing.
+///
+/// # Errors
+/// The runtime cannot be reached for its sample; or the campaign's own checks refuse the settings (trust-control's
+/// `campaign_review`, with the next action it names).
+fn review(
+    loop_definition: &LoopDefinition,
+    connection: Option<&RuntimeConnection>,
+    settings: &AcquisitionSettings,
+) -> Result<Value, Failure> {
+    let sample = match connection {
+        Some(connection) => {
+            let source = runtime_source(connection)?;
+            RuntimeSampler::new(connection, loop_definition, source).sample()?
+        }
+        None => None,
+    };
+    to_value(&campaign_review(
+        loop_definition,
+        settings,
+        sample.as_ref(),
+    )?)
+}
+
+/// The identification stage of a run (B8): the live campaign of `controlStudio/identify` with `settings`, inside the run's own
+/// operation. It refuses what `identify` refuses while the loop's journal holds an operation (A8.5), and it claims nothing, because
+/// the run holds the loop. Its Cancel reaches the campaign through `context`.
+///
+/// # Errors
+/// The journal cannot be read or holds an unfinished operation (A8.5); the limits refuse the settings (B3.4 step 1); or the campaign
+/// fails (see `run_identify`).
+pub(crate) fn run_stage(
+    context: &OperationContext,
+    project_root: &Path,
+    storage_folder: &Path,
+    pending: &Arc<PendingReleases>,
+    loop_definition: &LoopDefinition,
+    connection: &RuntimeConnection,
+    settings: &AcquisitionSettings,
+) -> Result<Value, Failure> {
+    let journal = Journal::open(
+        storage_folder,
+        &loop_definition.project_id,
+        &loop_definition.id,
+    )?;
+    refuse_while_journaled(&journal)?;
+    // The campaign's own limits are checked before anything starts (B3.4 step 1): a missing limit is the run's input to ask for.
+    let configured =
+        configured_acquisition(loop_definition, Some(settings)).map_err(|error| error.failure())?;
+    require_campaign_limits(&configured)?;
+    campaign_maximum_ms(&configured)?;
+    let work = LoopWork {
+        project_root: project_root.to_path_buf(),
+        storage_folder: storage_folder.to_path_buf(),
+        pending: Arc::clone(pending),
+        loop_definition: loop_definition.clone(),
+    };
+    run_identify(context, &work, connection, settings)
 }
 
 /// What `cancel_loop` cancels (§0.1b `cancel`): the runtime it reattaches through (E11.5), the project and the folder of the
@@ -479,6 +548,7 @@ fn journaled_ids(journal: &Journal) -> Vec<&str> {
     journal
         .entries()
         .iter()
+        .filter(|entry| entry.holds_unfinished_operation())
         .map(JournalEntry::operation_id)
         .collect()
 }
@@ -536,3 +606,7 @@ fn kept_file(retention: &StudyRetention<'_>, recording_id: &str) -> Result<Strin
 #[cfg(test)]
 #[path = "identify_action_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "identify_review_tests.rs"]
+mod review_tests;

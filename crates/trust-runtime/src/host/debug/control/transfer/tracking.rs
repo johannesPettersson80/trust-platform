@@ -185,7 +185,9 @@ pub(super) fn calculate(
     match policy.kind.as_str() {
         "declared-state-v1" => {
             let mut values = requested.clone();
-            if policy.align_output == Some(true) {
+            // An Auto entry sets each reference to its measurement, so that its first output is bumpless (E6.4, A6.4).
+            let align_references = policy.align_output == Some(true);
+            if align_references {
                 let pv = guard_number(binding, storage, &policy.process_variable)?;
                 values.insert(
                     policy.reference_symbol.clone(),
@@ -197,7 +199,7 @@ pub(super) fn calculate(
                 rounded(state(binding, &policy.manual_command_symbol)?, output)?,
             );
             for channel in &policy.additional_references {
-                if policy.align_output == Some(true) {
+                if align_references {
                     let pv = guard_number(binding, storage, &channel.process_variable)?;
                     values.insert(
                         channel.reference_symbol.clone(),

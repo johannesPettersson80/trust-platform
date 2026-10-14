@@ -17,8 +17,11 @@ use crate::failure::{Cause, Failure, NextAction};
 use crate::limits::STUDY_STORAGE_LIMIT_BYTES;
 use crate::model::{decode_general_model, GeneralModel};
 
+pub mod apply;
 pub mod general_model_persistence;
 pub mod identify;
+pub mod inputs;
+pub mod run_plan;
 pub mod tune;
 pub mod validate;
 

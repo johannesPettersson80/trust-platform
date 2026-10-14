@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
 import { languageServerReady } from "./hmiBuilderHost";
-import { composeAgentPage } from "../../hmiBuilder/agent/compose";
 import { renderLibrarySheets } from "../../hmiBuilder/agent/library";
 import { designValues } from "../../hmiBuilder/editor/designSamples";
 import type { Catalogue } from "../../hmiBuilder/editor/catalogue";
@@ -147,7 +146,7 @@ suite("HMI agent actual rendered preview", function () {
     const after = await renderAgentPage(customPage, frame as Parameters<typeof renderAgentPage>[1], "dark", font);
     assert.strictEqual(after.png, plain.png, "a previous project's symbol must not leak into a later render");
   });
-  test("renders a composed overview and catalogue sheet at readable target size", async () => {
+  test("renders an overview page and catalogue sheet at readable target size", async () => {
     await vscode.extensions.getExtension("trust-platform.trust-lsp")?.activate();
     await languageServerReady();
     const result = await vscode.commands.executeCommand<{ ok: boolean; catalogue: Catalogue }>(
@@ -156,51 +155,48 @@ suite("HMI agent actual rendered preview", function () {
     );
     assert.ok(result?.ok, JSON.stringify(result));
     const catalogue = result!.catalogue;
-    const composed = composeAgentPage(
-      {
-        title: "TK-101 · Transfer system",
-        pattern: "process-overview",
-        size: [1280, 800],
-        items: [
-          {
-            id: "tank",
-            type: "tank",
-            tag: "TK-101",
-            label: "Buffer tank",
-            region: "process",
-            min: 0,
-            max: 3,
-            bind: { level: { path: "Main.Level", direction: "read" } },
-          },
-          {
-            id: "pump",
-            type: "pump",
-            tag: "P-101",
-            label: "Transfer pump",
-            region: "process",
-            bind: { running: { path: "Main.Running", direction: "read" } },
-          },
-          {
-            id: "level",
-            type: "value",
-            label: "Tank level",
-            unit: "m",
-            region: "measurements",
-            bind: { value: { path: "Main.Level", direction: "read" } },
-          },
-          {
-            id: "temperature",
-            type: "value",
-            label: "Temperature",
-            unit: "°C",
-            region: "measurements",
-            bind: { value: { path: "Main.Temperature", direction: "read" } },
-          },
-        ],
-        connections: [{ from: "tank.outlet", to: "pump.inlet" }],
-      },
-      catalogue,
-    );
+    const composed: HmiPageModel = {
+      title: "TK-101 · Transfer system",
+      pipe: [],
+      object: [
+        {
+          id: "tank",
+          type: "tank",
+          at: [64, 136],
+          size: [160, 240],
+          rotation: 0,
+          min: 0,
+          max: 3,
+          bind: { level: { path: "Main.Level", direction: "read" } },
+        },
+        {
+          id: "pump",
+          type: "pump",
+          at: [320, 280],
+          size: [128, 108],
+          rotation: 0,
+          bind: { running: { path: "Main.Running", direction: "read" } },
+        },
+        {
+          id: "level",
+          type: "value",
+          at: [640, 136],
+          size: [160, 48],
+          rotation: 0,
+          unit: "m",
+          bind: { value: { path: "Main.Level", direction: "read" } },
+        },
+        {
+          id: "temperature",
+          type: "value",
+          at: [640, 232],
+          size: [160, 48],
+          rotation: 0,
+          unit: "°C",
+          bind: { value: { path: "Main.Temperature", direction: "read" } },
+        },
+      ],
+    };
     const values = {
       ...designValues(composed, catalogue),
       "Main.Level": { value: 1.8, state: "confirmed" as const },

@@ -9,6 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 nalgebra.workspace = true
+num-bigint.workspace = true
 schemars.workspace = true
 serde.workspace = true
 thiserror.workspace = true

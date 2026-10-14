@@ -116,8 +116,11 @@ measured output over the same window, so a slow drift does not count as noise:
 σ = sqrt( mean over Wb of (y_k − y_(k−1))² / 2 )
 ```
 
-`n` bounds the Auto-entry allowance (A6.4); `σ` sets the signal-to-noise check
-(N2.6). The baseline mean of the measured output is `y0`, and the baseline mean of
+`n` sets a relay's switching band and the response allowance of Identify's own mode
+changes; `σ` sets the signal-to-noise check (N2.6). The Auto-entry allowance of Apply,
+Validate's initialization case and the return to Auto after a failed Apply uses its own
+measure of the noise (specification 35, A6.4: three standard deviations about the mean,
+times √k for averaged samples). The baseline mean of the measured output is `y0`, and the baseline mean of
 the plant input is `u0`. Both are taken over `Wb`.
 
 **N1.4 Block averaging.** A fit uses at most 5,000 points per channel (A4.5). A
@@ -407,6 +410,39 @@ Pu = mean period of the qualified periods
 
 A relay record is not a step record. The step rules of N2.2 to N2.5 do not apply
 to it.
+
+**N2.10 Sensor lag: a first-order process with a first-order sensor.** When an accepted
+first-order-plus-dead-time fit of a held step leaves a systematic residual, the
+structure comparison (lesson workflow WF-016) also fits a candidate with an
+additional first-order lag, such as a sensor balance `Cs·dTs/dt = Gs·(T − Ts)`:
+`G(s) = K·e^(−L·s) / ((τ·s + 1)·(τs·s + 1))`.
+
+- *Fit.* On the same estimation recording, windows and measurement bound `b` as the
+  first-order fit, the candidate is fitted over the grids of `L` and `τ` of that fit
+  and a sensor grid of `τs` (default 0.1 s to 10 s in steps of 0.1 s), with the gain
+  and the baseline on the lattices of the held-step fit (N2.2). The best candidate
+  minimizes the squared residual over the hold.
+- *Measurement-consistent set.* Every grid point whose prediction stays within `b`
+  of every sample of the hold and of the baseline belongs to the set; the minimum
+  and maximum of each parameter over the set are the candidate's uncertainty. An
+  empty set is reported as such. A delay at the lower end of its grid is flagged.
+- *Search size.* The search is refused, with the advice to narrow the justified
+  bounds or widen the grid spacing, when the shapes (`L`, `τ`, `τs` combinations)
+  exceed 1,000,000, the shapes times the hold's samples exceed 500,000,000, the
+  baselines exceed 100,000, or the shapes times the baselines exceed 20,000,000.
+- *Adequacy.* Each structure is adequate when its largest absolute residual is at
+  most the declared limit (default 0.2 in the output's unit) and the magnitude of
+  its mean residual over the final window is at most the declared limit (default
+  0.1).
+- *Recommendation.* The first-order model when it is adequate; otherwise the
+  additional lag when it is adequate and lowers the RMS residual by more than `b`;
+  otherwise neither. Only the recommended structure can be chosen. The physical
+  origin of the extra lag stays unresolved until independent evidence (a second
+  sensor or a reference) attributes it; the result is provisional until the
+  independent check of N3 passes.
+- The comparison runs on the estimation recording, before the independent check,
+  and only with the windows and measurement assumptions of the first-order
+  reference.
 
 ## N3. Model acceptance and the independent model check
 
@@ -995,14 +1031,22 @@ of sign changes and the interpretation.
   rejected.
 
 **N7.4 Parameter intervals.** For a characteristic polynomial that is affine in a
-real parameter `k`, of degree one or two in `s`, with a fixed nonzero leading
+real parameter `k`, of degree one to sixteen in `s`, with a fixed nonzero leading
 coefficient:
 
 1. Normalize the leading coefficient to be positive.
-2. Each coefficient has the form `ci(k) = αi·k + βi`. Stability requires every
-   `ci(k) > 0`.
-3. Each strict inequality is a half-line in `k`, the whole real axis, or the empty
-   set (when `αi = 0`). Intersect these over the full real axis.
+2. Each coefficient has the form `ci(k) = αi·k + βi`. For degree one or two,
+   stability requires every `ci(k) > 0`: each strict inequality is a half-line in
+   `k`, the whole real axis, or the empty set (when `αi = 0`), and the interval is
+   their intersection over the full real axis.
+3. For degree three to sixteen, the stable set is computed exactly, in rational
+   arithmetic from the coefficients as written: the Routh first-column conditions
+   become polynomial inequalities in `k`; the real roots of those polynomials are
+   isolated with Sturm sequences; the stable set is the union of the open intervals
+   between consecutive roots on which every condition holds. A zero pivot is carried
+   as a formal `ε` (N7.2). Each bound is reported as the root of its named polynomial
+   with its isolating interval and decimal value. A computation whose numbers exceed
+   32,768 bits gives an explicit unsupported result.
 4. Report the open bounds, the empty and all-real cases, and the inequalities with
    their derivation.
 
@@ -1092,6 +1136,10 @@ the sampling and by the range. It is not a stability qualification.
   `L·Δω`. If `L·Δω > π/2`, margin estimation is unavailable until the range is
   narrowed.
 - The margins of a state-space model in a selected-channel loop are not supported.
+- Over the sampled range, the estimate takes the first gain crossover and the first
+  phase crossover in increasing frequency, interpolated between the adjacent
+  samples. A loop with several crossovers reports the first; the full margins of
+  N7.7 decide where they apply.
 
 **N7.9 State-feedback margins.** For a sampled state-feedback law (N5.14) with one
 plant input, the loop is broken at the plant input. Use the model sampled at the task
@@ -1136,6 +1184,23 @@ evidence of instability. No delay approximation is inserted silently.
 **N7.13 Evidence limits.** A stability result from this annex is separate from a
 measured response. A bounded trial does not prove an entire parameter interval, and
 it does not override the assumptions of sampling, saturation or the model.
+
+**N7.14 Lead and lag design at a crossover.** For a continuous plant `G` without
+a pole on the imaginary axis at the target crossover `ωc > 0`:
+
+- A lead compensator for a phase contribution `0° < φ < 85°` is
+  `C(s) = Kc·(1 + T·s)/(1 + α·T·s)` with `α = (1 − sin φ)/(1 + sin φ)`,
+  `T = 1/(ωc·√α)`, its zero at `1/T` and its pole at `1/(α·T)`. Its phase at `ωc`
+  is `φ`.
+- A lag compensator for a low-frequency gain ratio `r > 1` is
+  `C(s) = Kc·(1 + s/z)/(1 + s/p)` with its zero at `z = ωc/10` and its pole at
+  `p = z/r`, so both break points lie below the crossover and the low-frequency
+  loop gain rises by `r`.
+- In both, `Kc = 1/(|G(jωc)|·|C₁(jωc)|)`, where `C₁` is the compensator without
+  `Kc`, so the compensated loop's magnitude at `ωc` is one. A non-finite gain, or an
+  input outside these ranges, is refused with the input it concerns.
+- The design is an unapplied analysis result: it reports the gain, the zero, the
+  pole, the phase contribution and the loop magnitude at `ωc`.
 
 ## N8. Validation conditions and evaluation
 

@@ -54,6 +54,11 @@ const UNMAPPED_CHANNELS: &str = "Map every model input and output in loop channe
 /// the policy (the recorded ranges, the operating values of a model without an operating point, the recording's length and
 /// the baseline noise) is not used.
 ///
+/// `held` is the requirements the study holds when the engineer recorded them (the inputs of `controlStudio/inputs`, B4.3). They
+/// are the engineer's values, kept as given, and they take the place of the earlier Tune section's record: the generated values
+/// of that record are not carried over, because the engineer now owns every value the record holds. Without `held`, the earlier
+/// section's record carries over as before.
+///
 /// # Errors
 /// Returns a [`Refusal`] when the model does not have one input and one output, has no finite operating point or no
 /// usable low-frequency response, or when [`fill_requirements`] refuses the record: a stored criteria record that is not
@@ -65,10 +70,11 @@ pub(crate) fn requirements_for(
     general: &GeneralModel,
     _identify: &IdentifySection,
     previous: Option<&TuneSection>,
+    held: Option<&TuningRequirements>,
     request: &TuneRequest,
 ) -> Result<TuningRequirements, Refusal> {
     let evidence = fill_evidence(loop_definition, model, general)?;
-    let recorded = previous.map(|section| &section.requirements);
+    let recorded = held.or_else(|| previous.map(|section| &section.requirements));
     let supplied = supplied_requirements(
         recorded,
         request.method.and_then(TuneMethod::formula),

@@ -58,7 +58,9 @@ fn journaled_plan(lab: &Lab) -> Option<ControlExperimentPlan> {
         JournalEntry::Experiment { recovery } => recovery.plan.clone(),
         JournalEntry::RecordingOwner { .. }
         | JournalEntry::IdentificationCampaign { .. }
-        | JournalEntry::IsolatedJob { .. } => None,
+        | JournalEntry::IsolatedJob { .. }
+        | JournalEntry::Commissioning { .. }
+        | JournalEntry::IdentificationMode { .. } => None,
     })
 }
 
@@ -108,9 +110,9 @@ fn check_scenario_plan(findings: &mut Findings, plan: Option<&ControlExperimentP
         ),
     );
     findings.check(
-        (plan.duration_ms - 114_095.0).abs() < 1e-6,
+        (plan.duration_ms - 120_000.0).abs() < 1e-6,
         format!(
-            "the scenario should hold 120.1 s less one 6.005 s baseline window (B3.4 step 4), its plan says {} ms",
+            "the scenario should hold 120.1 s less its one restoration sample of 0.1 s (B3.4 step 4, C12), its plan says {} ms",
             plan.duration_ms
         ),
     );
@@ -152,7 +154,7 @@ fn check_scenario_model(findings: &mut Findings, result: &Value, section: &Value
 ///
 /// 1. `identify --json` plans the project-scripted experiment. Its plan writes the activation alone, `P1.ExperimentEnabled`
 ///    from FALSE to TRUE, with no trajectory and no mode binding (the `project_sequence` of annex E5.2). The declared
-///    maximum duration is 120.1 s, and the plan holds it less one baseline window of 6.005 s: 114.095 s (B3.4 step 4). The
+///    maximum duration is 120.1 s, and the plan holds it less its one restoration sample of 0.1 s: 120 s (B3.4 step 4, C12). The
 ///    journal holds the plan while the experiment runs, and it is empty once the identification has settled.
 /// 2. The experiment ends normally, at its duration (`duration_complete`) or earlier once the response has settled
 ///    (`finished_early`, E5.7), and the activation is restored to FALSE and confirmed.
@@ -160,8 +162,8 @@ fn check_scenario_model(findings: &mut Findings, result: &Value, section: &Value
 /// 4. The controller output is back at 0 %, its Manual output, so the heater is left to the project's own program.
 ///
 /// Run time at ten times real time: the steady baseline is the first 6.005 s of the recording (B3.4 step 2), the experiment
-/// holds at most 114.095 s, and its restoration is confirmed by the third execution after the write (0.3 s). That is at most
-/// 120.4 s of process time, about 12 s at ten times real time. With the start of the runtime and the build of the project,
+/// holds at most 120 s, and its restoration is confirmed by the third execution after the write (0.3 s). That is at most
+/// 126.4 s of process time, about 13 s at ten times real time. With the start of the runtime and the build of the project,
 /// a few seconds each, the test takes about 20 s.
 #[test]
 fn identify_runs_the_project_scenario_and_fits_its_recording() {

@@ -216,6 +216,7 @@ impl RecordingFollower for FakeRecording {
                 elapsed_seconds: seconds,
                 good: true,
                 output: Some(45.0 + 0.025 * ((1.7 * seconds).sin() + (2.3 * seconds).cos())),
+                input: None,
             });
             self.next_second += 1.0;
         }
@@ -482,6 +483,8 @@ fn baseline() -> BaselineSummary {
         half_range: 0.05,
         spacing_seconds: 1.0,
         window_seconds: 30.0,
+        input_mean: None,
+        input_noise: None,
     }
 }
 

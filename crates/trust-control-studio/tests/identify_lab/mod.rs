@@ -11,6 +11,9 @@
 //! a test fails with every finding of its run. Both including files use every item here, so the module needs no
 //! `allow(dead_code)`; an item that only one of them uses belongs in that file instead.
 
+// Each test crate includes this module and uses a part of it.
+#![allow(dead_code)]
+
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
@@ -266,7 +269,9 @@ impl Lab {
             JournalEntry::IdentificationCampaign { campaign } => campaign.plan.clone(),
             JournalEntry::RecordingOwner { .. }
             | JournalEntry::Experiment { .. }
-            | JournalEntry::IsolatedJob { .. } => None,
+            | JournalEntry::IsolatedJob { .. }
+            | JournalEntry::Commissioning { .. }
+            | JournalEntry::IdentificationMode { .. } => None,
         })
     }
 

@@ -78,6 +78,19 @@ One authoring service owns document snapshots, draft operations, revisions and f
 the existing native file/binding services and shared drawing/layout functions. Avoid a second
 parser, renderer, binding resolver, theme, equipment catalogue or patch engine.
 
+The authoring service runs in the language server, `trust-lsp`, because its results are stored in
+the project (AGENTS.md: all logic is in Rust). Each authoring decision is a `trust-lsp` command: the
+context and its queries (AT-01), the library (AT-02), page inspection (AT-03), composition with its
+patterns and layout (AT-04), draft edits including pipe and geometric edits (AT-05), validation with
+the geometry and routing quality findings and the review of page changes (AT-06), and the draft
+records with their lifecycle, revisions, hashes and receipts (§6). The language server persists the
+draft records in the storage folder the extension passes (its workspace storage). The extension keeps
+what presents and wires: the two adapters below, VS Code document access (it passes the unsaved texts
+to each command, as the HMI Builder's commands receive them), rendering and rasterizing (AT-07),
+preview data and the simulator (AT-08), and the editor transaction that applies an approved draft
+(AT-09). An adapter forwards each tool call to its command and returns the command's answer; it
+holds no rule of its own.
+
 Two thin adapters expose the same versioned contracts:
 
 1. VS Code tools via `contributes.languageModelTools` and `vscode.lm.registerTool`.
@@ -313,14 +326,16 @@ Lifecycle: `draft -> validated -> reviewed -> applied` or `discarded`. Any edit 
 validation and renders. Review records its exact revision and unresolved findings only after
 validation and preview production succeed; a failed or cancelled preview leaves the proposal
 unreviewed. Old renders
-remain identifiable but cannot certify a new revision. Persist private draft data in extension
-workspace storage; retain until applied/discarded or explicitly cleaned by the customer. Context
+remain identifiable but cannot certify a new revision. Persist private draft data in the
+extension's workspace storage folder (written by the language server, §3); retain until
+applied/discarded or explicitly cleaned by the customer. Context
 includes recoverable draft IDs, current revisions, states and changed file names, allowing the
 agent to resume or explicitly discard a proposal after restart without guessing identifiers.
 Each persisted proposal carries SHA-256 hashes of its current file contents; edits regenerate
-these hashes, and reads reject a mismatched current-format record rather than exposing corrupted
-proposal text. Older records without hashes may be read with derived hashes. Malformed JSON is
-reported as corrupt draft storage with an actionable typed error.
+these hashes, and reads reject a mismatched record rather than exposing corrupted proposal text. A
+record of an earlier format is not read (nothing of the HMI is released yet): it is reported as
+draft storage to clean up. Malformed JSON is reported as corrupt draft storage with an actionable
+typed error.
 The listing is workspace-scoped and excludes discarded or applied proposals and source bodies. Quota
 exhaustion asks for draft cleanup rather than deleting work automatically. An unavailable base
 on restart produces a conflict, not reconstruction from guessed content.
@@ -559,8 +574,10 @@ The current execution order is implementation first, followed by one consolidate
 batch. Historical milestone and red/green instructions do not authorize intermediate runs.
 Implementation records remain distinct from final verification and customer visual acceptance.
 
-Context accepts `sections`, a selected page `file`, and bounded page `cursor`/`limit`. Its
-`compilation` object explicitly identifies a failed compiler and `variables: null`; mutation
+Context accepts `sections`, a selected page `file`, and bounded page `cursor`/`limit`. The
+`sources` section, answered only when a request names it, holds the text and unsaved state of each
+page and popup as the documents observe them; a review with `explore: true` takes its snapshot from
+it. Its `compilation` object explicitly identifies a failed compiler and `variables: null`; mutation
 services still require a usable compiled program. Selection comes from the active builder panel
 within the connected project and includes the observed document version. A specific page may be
 selected when several panels are open. Catalogue results include content identities, supported
@@ -647,9 +664,11 @@ record cold elapsed time separately. File and canvas editing shall not wait on d
 
 ### Repairs — 7 October 2026
 
-These repairs supersede conflicting statements above. Native tests:
-`editors/vscode/src/test/suite/hmi-agent-draft-retention.test.ts`, `hmi-agent-apply.test.ts`,
-`hmi-agent-mcp-utf8.test.ts` and `hmi-agent-pipes.test.ts`.
+These repairs supersede conflicting statements above. Native tests: the draft store's Rust tests
+(`crates/trust-lsp/src/handlers/commands/hmi_agent/drafts_tests.rs`, `review_apply_tests.rs`), the pipe tests
+(`pipe_edits_tests.rs`, `pipe_rules_tests.rs`), and the extension's transport and editor-transaction suites
+`editors/vscode/src/test/suite/hmi-agent-mcp-utf8.test.ts` and `hmi-agent-apply.test.ts` (the TypeScript draft and pipe
+suites moved to Rust with the authoring operations, §3).
 
 1. **Bounded draft storage.** Edit and creation receipts keep the committed revision, the file
    content hashes and the receipt data (object-level changes, findings, creation data); they

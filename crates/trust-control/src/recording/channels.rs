@@ -177,6 +177,7 @@ pub fn follow_samples(
                 elapsed_seconds: seconds_between(origin, time),
                 good: quality_of(bindings, loop_definition, sample) == ChannelQuality::Good,
                 output: value_of(bindings, sample, PROCESS_VARIABLE_BINDING),
+                input: value_of(bindings, sample, MANIPULATED_VARIABLE_BINDING),
             })
         })
         .collect()

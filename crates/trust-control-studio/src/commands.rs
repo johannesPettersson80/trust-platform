@@ -14,16 +14,22 @@ use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::messages::{
     OpenRequest, OpenResult, OperationRequest, PageRequest, PreviewRequest,
 };
+use trust_control::setup::messages::{SetupDiscoverRequest, SetupSaveRequest};
 use trust_control::stages::stage_availability;
-use trust_control::study::identify::IdentifySection;
-use trust_control::study::tune::{stage_evidence, TuneSection};
+use trust_control::study::inputs::{stage_evidence_of, InputsSection};
 
+use super::apply_action;
 use super::busy_loops::LoopClaims;
 use super::identify_action;
+use super::inputs_action;
 use super::journal::Journal;
+use super::keep_action;
 use super::operation::{Operations, UpdateSink};
 use super::preview_action;
+use super::run_action;
 use super::runtime_client::runtime_recording::PendingReleases;
+use super::settings::{self, Environment, Platform};
+use super::setup_action;
 use super::tune_action;
 use super::validate_action;
 use super::{loops, storage};
@@ -51,9 +57,40 @@ pub const PREVIEW: &str = "controlStudio/preview";
 /// the model is provisional (B5.2), then the actual-ST validation of the current and the candidate settings in isolated
 /// simulations (B5.3). Its final update carries the Validate result. It never writes to the controller.
 pub const VALIDATE: &str = "controlStudio/validate";
+/// Applies the validated candidate (B6.1 to B6.3): without a review it answers the review at once and writes nothing; with the
+/// review's identity it starts the Apply operation, whose result follows through `controlStudio/update`.
+pub const APPLY: &str = "controlStudio/apply";
+/// Restores the settings from before Apply (B6.4), by the same review and confirmation as `apply`.
+pub const RESTORE: &str = "controlStudio/restore";
+/// Keeps the running values as the project's initial values (B6.5), by the same review and confirmation as `apply`.
+pub const KEEP: &str = "controlStudio/keep";
+/// Loop setup (B1.2, B1.3): the compiled project's setup form and its configured loops, checked against the compiled catalog.
+pub const SETUP_DISCOVER: &str = "controlStudio/setupDiscover";
+/// Loop setup (B1.3, §0.1b): writes a confirmed draft as loop files, all or none, never over an existing one.
+pub const SETUP_SAVE: &str = "controlStudio/setupSave";
+/// Records the study's inputs (A8.1, A8.4; B4.2, B4.3): the acquisition settings, the requirements, the tuning method, its response
+/// and structure, the pins and the manual settings. It answers at once with the stages and what the change invalidated.
+pub const INPUTS: &str = "controlStudio/inputs";
+/// The automatic progression (B8): runs, from the earliest stage whose result is missing or no longer current, the stages up to the one
+/// it names (Identify, Tune or Validate), as one operation. It never applies.
+pub const RUN: &str = "controlStudio/run";
 /// The methods this module answers.
-pub const METHODS: [&str; 8] = [
-    OPEN, STATUS, CANCEL, IDENTIFY, PAGE, TUNE, PREVIEW, VALIDATE,
+pub const METHODS: [&str; 15] = [
+    OPEN,
+    STATUS,
+    CANCEL,
+    IDENTIFY,
+    PAGE,
+    INPUTS,
+    TUNE,
+    PREVIEW,
+    VALIDATE,
+    RUN,
+    APPLY,
+    RESTORE,
+    KEEP,
+    SETUP_DISCOVER,
+    SETUP_SAVE,
 ];
 /// The notification that carries operation updates.
 pub const UPDATE_NOTIFICATION: &str = "controlStudio/update";
@@ -114,6 +151,12 @@ impl ControlStudio {
                 identify_action::answer(&self.operations, &self.pending, &self.claims, request)
             }),
             PAGE => argument(arguments).and_then(|request| set_page(&request)),
+            INPUTS => {
+                argument(arguments).and_then(|request| inputs_action::answer(&self.claims, request))
+            }
+            RUN => argument(arguments).and_then(|request| {
+                run_action::answer(&self.operations, &self.pending, &self.claims, request)
+            }),
             TUNE => argument(arguments)
                 .and_then(|request| tune_action::answer(&self.operations, &self.claims, request)),
             PREVIEW => argument(arguments)
@@ -121,6 +164,17 @@ impl ControlStudio {
             VALIDATE => argument(arguments).and_then(|request| {
                 validate_action::answer(&self.operations, &self.pending, &self.claims, request)
             }),
+            APPLY => argument(arguments)
+                .and_then(|request| apply_action::answer(&self.operations, &self.claims, request)),
+            RESTORE => argument(arguments).and_then(|request| {
+                apply_action::answer_restore(&self.operations, &self.claims, request)
+            }),
+            KEEP => argument(arguments)
+                .and_then(|request| keep_action::answer(&self.operations, &self.claims, request)),
+            SETUP_DISCOVER => argument(arguments)
+                .and_then(|request: SetupDiscoverRequest| setup_action::answer_discover(&request)),
+            SETUP_SAVE => argument(arguments)
+                .and_then(|request: SetupSaveRequest| setup_action::answer_save(&request)),
             _ => return None,
         };
         Some(match answer {
@@ -145,30 +199,26 @@ pub fn open(request: &OpenRequest) -> Result<OpenResult, Failure> {
         });
     };
     let loop_definition = loops::open(project_root, &request.runtime_id, loop_id)?;
+    // A loop that uses a feature the Rust engine does not run yet stays on the TypeScript engine until its port (V6 decision D9):
+    // its study is that engine's, so `open` refuses before it reads, or moves, the study.
+    loop_definition.rust_engine_support()?;
     let study = storage::open_study(project_root, &loop_definition.id, &loop_definition.revision)?;
-    let identify = study.section::<IdentifySection>()?;
-    let tune = study.section::<TuneSection>()?;
     let journal = Journal::open(
         Path::new(&request.storage_folder),
         &loop_definition.project_id,
         &loop_definition.id,
     )?;
-    let evidence = stage_evidence(
-        &loop_definition,
-        identify.as_ref(),
-        tune.as_ref(),
-        !study.recordings.is_empty(),
-    );
     Ok(OpenResult::Opened {
-        stages: stage_availability(&evidence),
+        stages: stage_availability(&stage_evidence_of(&loop_definition, &study)?),
         reattached: journal
             .entries()
             .iter()
+            .filter(|entry| entry.holds_unfinished_operation())
             .map(|entry| entry.operation_id().to_string())
             .collect(),
-        engine_refusal: loop_definition.rust_engine_support().err(),
         loop_definition: Box::new(loop_definition),
         page: study.page,
+        inputs: study.section::<InputsSection>()?.unwrap_or_default(),
     })
 }
 
@@ -189,7 +239,8 @@ fn set_page(request: &PageRequest) -> Result<Value, Failure> {
 }
 
 fn argument<T: DeserializeOwned>(arguments: &[Value]) -> Result<T, Failure> {
-    let value = arguments.first().cloned().unwrap_or(Value::Null);
+    let mut value = arguments.first().cloned().unwrap_or(Value::Null);
+    default_storage_folder(&mut value, &|name| std::env::var_os(name))?;
     trust_control::json::decode_value(value).map_err(|error| {
         Failure::new(
             &format!("The Control Studio command has invalid arguments: {error}."),
@@ -197,6 +248,26 @@ fn argument<T: DeserializeOwned>(arguments: &[Value]) -> Result<T, Failure> {
             NextAction::None,
         )
     })
+}
+
+/// Fills an empty `storageFolder` of `request` with the engine's journal folder (§0.1a, A8.3): truST's folder in the user's local
+/// state folder, which the command line uses too, so that both front ends see one journal per loop. A request without the field is
+/// left as it is.
+///
+/// # Errors
+/// The environment does not give the user's state folder.
+fn default_storage_folder(
+    request: &mut Value,
+    environment: Environment<'_>,
+) -> Result<(), Failure> {
+    if let Some(folder) = request
+        .get_mut("storageFolder")
+        .filter(|folder| folder.as_str() == Some(""))
+    {
+        let default = settings::default_journal_folder(Platform::current(), environment)?;
+        *folder = Value::String(default.display().to_string());
+    }
+    Ok(())
 }
 
 /// A method's answer as JSON.
@@ -220,6 +291,30 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn an_empty_storage_folder_is_the_engines_journal_folder_and_a_named_one_is_kept() {
+        // §0.1a and A8.3: the extension asks for the folder the command line uses by leaving the field empty.
+        let environment = |name: &str| {
+            matches!(name, "HOME" | "LOCALAPPDATA")
+                .then(|| std::ffi::OsString::from("/home/engineer"))
+        };
+        let mut request = json!({ "projectRoot": "/project", "storageFolder": "" });
+        default_storage_folder(&mut request, &environment).expect("the folder is found");
+        let expected = settings::default_journal_folder(Platform::current(), &environment)
+            .expect("the folder is found");
+        assert_eq!(request["storageFolder"], expected.display().to_string());
+        let mut named = json!({ "storageFolder": "/journals" });
+        default_storage_folder(&mut named, &environment).expect("kept");
+        assert_eq!(named["storageFolder"], "/journals");
+        let mut without = json!({ "projectRoot": "/project" });
+        default_storage_folder(&mut without, &environment).expect("kept");
+        assert_eq!(
+            without,
+            json!({ "projectRoot": "/project" }),
+            "no field is added"
+        );
+    }
+
     struct Ignore;
 
     impl UpdateSink for Ignore {
@@ -228,6 +323,42 @@ mod tests {
 
     const EXAMPLE: &str =
         include_str!("../../../examples/control-pid-commissioning/control-loop.json");
+
+    #[test]
+    fn open_refuses_a_parked_loop_before_it_reads_or_moves_the_typescript_study() {
+        // V6 decision D9: a loop with a parked feature stays on the TypeScript engine, whose study document is its own; opening it
+        // through the engine must leave that document where it is.
+        let root =
+            std::env::temp_dir().join(format!("trust-control-open-parked-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("project");
+        let mut file: Value = serde_json::from_str(EXAMPLE).expect("example");
+        file["controller"]["stateFeedback"] = json!({ "family": "state-feedback" });
+        fs::write(root.join("control-loop.json"), file.to_string()).expect("loop");
+        let example = LoopDefinition::decode(EXAMPLE).expect("example");
+        let directory = storage::study_directory(&root, &example.id);
+        fs::create_dir_all(&directory).expect("study folder");
+        let typescript_study = r#"{"schemaVersion":1,"loop":{"id":"x"},"state":{"page":"model"}}"#;
+        fs::write(directory.join("study.json"), typescript_study).expect("study");
+        let studio = ControlStudio::new(Arc::new(Ignore));
+        let request = json!({ "projectRoot": root.display().to_string(), "runtimeId": example.runtime_id,
+            "loopId": example.id, "storageFolder": root.join("storage").display().to_string() });
+        let answer = studio.execute(OPEN, &[request]).expect("answered");
+        assert_eq!(
+            answer["failure"]["cause"], "controller-capability",
+            "{answer}"
+        );
+        assert_eq!(
+            fs::read_to_string(directory.join("study.json")).expect("still there"),
+            typescript_study,
+            "the TypeScript study is neither read into a new study nor moved"
+        );
+        assert!(
+            !directory.join("history").exists(),
+            "nothing moved to history"
+        );
+        fs::remove_dir_all(&root).expect("clean up");
+    }
 
     #[test]
     fn open_lists_the_loops_then_opens_one_with_its_stages_and_no_operation() {
@@ -250,10 +381,6 @@ mod tests {
         assert_eq!(opened["result"]["stages"][2]["stage"], "Identify");
         assert_eq!(opened["result"]["stages"][2]["status"], "needs-data");
         assert_eq!(opened["result"]["reattached"], json!([]));
-        assert!(
-            opened["result"].get("engineRefusal").is_none(),
-            "the example runs on the Rust engine"
-        );
         assert!(
             !root.join("control-studio").exists(),
             "opening writes nothing"

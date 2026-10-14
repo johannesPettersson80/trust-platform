@@ -352,6 +352,40 @@ pub const OUTPUT_TOO_SMALL: &str = "Output response is too small to identify a m
 pub const MISSING_NONZERO_STEP: &str =
     "The recording is missing a nonzero step: the plant input never changes, so there is no input change to fit. Check that the experiment moves the plant input, then identify again.";
 
+/// The refusal of a runtime connection that takes no controller transfers, so that Identify cannot move the loop to the mode
+/// its method needs (B3.4 step 1; annex E6).
+pub const MODE_TRANSFER_UNAVAILABLE: &str =
+    "This runtime connection takes no controller transfers, so Identify cannot move the loop to the mode its method needs.";
+
+/// The refusal of a return to the mode Identify found the loop in, after the loop's bindings changed (`restore` of
+/// `connectedIdentificationMode.ts`; A6.2, A8.2): the sentence of the `TypeScript`, with the loop revision the mode was changed
+/// at and the loop's revision now (A11.1).
+#[must_use]
+pub fn mode_loop_changed(changed_at: &str, now: &str) -> String {
+    format!(
+        "Restore the original loop bindings before recovering identification mode: Identify changed the loop's mode at loop revision {changed_at}, and the loop is now at revision {now}."
+    )
+}
+
+/// The refusal of a return to the mode Identify found the loop in, on another program than the one the mode was changed on
+/// (`restore` of `connectedIdentificationMode.ts`; A6.7, E11.5): the sentence of the `TypeScript`, with both program revisions
+/// (A11.1).
+#[must_use]
+pub fn mode_program_changed(changed_on: &str, now: &str) -> String {
+    format!(
+        "The program changed from revision {changed_on} to {now}; the saved identification mode cannot be restored to this program."
+    )
+}
+
+/// The refusal of a Cancel of a journaled Apply (§0.1b `cancel`, B6.4): Cancel ends identification operations, and an Apply is
+/// ended by Restore previous settings, which returns the settings and the mode the loop had before it.
+#[must_use]
+pub fn apply_cancel_refused(operation_id: &str) -> String {
+    format!(
+        "Operation {operation_id} is an Apply of controller settings, which Cancel does not end. Restore previous settings ends it: it returns the settings and the mode the loop had before Apply."
+    )
+}
+
 #[cfg(test)]
 #[path = "texts_tests.rs"]
 mod tests;

@@ -6,6 +6,7 @@
 
 use crate::identify::SampleQuality;
 
+pub mod plot_extrema;
 pub mod statistics;
 
 use self::statistics::mean;

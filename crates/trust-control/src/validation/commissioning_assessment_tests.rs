@@ -129,6 +129,22 @@ fn a_long_response_recorded_at_a_record_period_passes_with_no_error() {
 }
 
 #[test]
+fn a_response_entered_at_30_s_passes_once_it_covers_the_duration_from_the_entry() {
+    // B6.3, A4.2: the response starts at 30 s and its samples are recorded every 47.5 s, the last at 9,530 s. That is the reviewed
+    // 9,500 s from the entry in full, so the assessment does not rely on its one-spacing tolerance.
+    let mut reviewed = criteria();
+    reviewed.duration_seconds = 9_500.0;
+    reviewed.task_period_ms = 100.0;
+    let times: Vec<f64> = (0..=200)
+        .map(|index| 30.0 + 47.5 * f64::from(index))
+        .collect();
+    assert!(times[200] - times[0] >= reviewed.duration_seconds);
+    let error = assess_commissioning_recording(&recording(steady(&times, 5.0, 2.0)), &reviewed)
+        .expect("a response that covers the duration from its entry passes");
+    assert!(error.abs() <= 1e-12, "the error is {error}");
+}
+
+#[test]
 fn an_incomplete_recording_or_a_sample_that_is_not_good_is_refused() {
     let expected = Failure::new(
         &texts::commissioning_recording_incomplete(),

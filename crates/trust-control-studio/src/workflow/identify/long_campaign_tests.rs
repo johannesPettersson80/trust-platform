@@ -5,9 +5,9 @@
 //! The `TypeScript` tests stubbed the fit. Here the run fits with the fit of the product. Their recording holds the plant input
 //! at 30 % while the setpoint steps, and a closed-loop record is fitted from the recorded plant input (B3.5), so the fit of the
 //! one kept record finds no model; the tests check that answer where the `TypeScript` tests checked a stubbed model. The record's
-//! evaluation (stage V3) is the passing evaluator of the test support. The mode transfer moves with V4, so a method that needs
-//! the other mode is refused before anything is recorded or written (test 15). Test 19, the reattachment after a restart, is
-//! the recovery's (`identify_recovery_tests.rs`).
+//! evaluation (stage V3) is the passing evaluator of the test support. Test 15, whose method needs the other mode, runs on the
+//! transfer fake of `identify_mode::test_support` as well, which receives the mode transfers. Test 19, the reattachment after a
+//! restart, is the recovery's (`identify_recovery_tests.rs`).
 
 use std::cell::RefCell;
 use std::fs;
@@ -30,6 +30,9 @@ use super::test_support::{
 };
 use super::{IdentifyOutcome, IdentifyRequest, IdentifyResult, RunEvaluator, RunPurpose};
 use crate::journal::JournalEntry;
+use crate::workflow::identify_mode::test_support::{
+    pid_tank_loop, run_with_transfers, TransferFake,
+};
 
 /// The tank's measured output, by symbol.
 const MEASURED: &str = "Main.TT101.Value";
@@ -148,48 +151,41 @@ fn a_response_that_never_settles_runs_to_its_maximum_duration_without_an_early_f
     assert_no_model_of_a_held_input(&failure);
 }
 
-/// Test 15: an explicit plant-input method on a loop in Auto needs Manual. The `TypeScript` test switched the loop to Manual for
-/// the step and back to Auto afterwards (B3.4 step 1, A6.2); that transfer moves with V4. Until then the run refuses before it
-/// records, writes or reports anything, and names the mode the method needs.
+/// Test 15: an explicit plant-input method on a loop in Auto switches to Manual and returns to Auto (B3.4 step 1, A6.2). The
+/// `TypeScript` test recorded the calls `enter-manual` and `restore` of a mode double; here the transfer fake receives the
+/// transfers: the loop enters Manual before the recording starts, the step runs in Manual, and once the recording is kept the
+/// loop returns to Auto, its commands written back in Manual first. Nothing is left owned once the campaign has ended.
 #[test]
-fn an_explicit_plant_input_method_on_a_loop_in_auto_is_refused_before_anything_is_recorded_or_written(
-) {
+fn an_explicit_plant_input_method_on_a_loop_in_auto_switches_to_manual_and_returns_to_auto() {
     let state = FakeState::new(StartBehaviour::Acknowledged, 0);
-    let mut explicit = tank_loop("rev-1");
-    let experiment = explicit
-        .experiment
-        .as_mut()
-        .expect("the tank declares its experiment");
-    experiment.kind = ExperimentKind::MvStep;
-    experiment.amplitude = 10.0;
-    let Err(failure) = settled_campaign(
-        &state,
-        "long-explicit-plant-input",
-        &explicit,
-        RunPurpose::Identify,
-        &passes,
-    ) else {
-        panic!("the mode transfer moves with V4");
-    };
+    let transfers = TransferFake::start(true);
+    let folder = folder("long-explicit-plant-input");
+    let journal = empty_journal(&folder);
+    let explicit = pid_tank_loop("rev-1", false);
+    // The fit of the campaign's record is the other tests'; the mode returns whatever the campaign gave.
+    let _ = run_with_transfers(&state, &transfers, &journal, &explicit, false);
     assert_eq!(
-        failure.message,
-        "Identify does not switch the loop's mode yet."
+        transfers.events(),
+        [
+            "transfer.apply tank:identification-mode manual",
+            "recording.start",
+            "retain",
+            "transfer.apply tank:identification-mode:commands manual",
+            "transfer.apply tank:identification-mode auto"
+        ],
+        "the loop is in Manual for the step and back in Auto afterwards"
     );
     assert_eq!(
-        failure.detail.as_deref(),
-        Some(
-            "Identify does not switch the loop's mode yet. Put the loop in Manual, or choose Automatic."
-        )
+        state.started_plans().first().map(|plan| plan.kind),
+        Some(ControlExperimentKind::MvStep)
     );
+    assert!(transfers.auto(), "the loop is back in Auto");
     assert_eq!(
-        (failure.cause, failure.next_action),
-        (Cause::Settings, NextAction::ChooseMethod)
+        reopened(&folder),
+        Vec::<JournalEntry>::new(),
+        "nothing is left owned once the campaign has ended"
     );
-    assert_eq!(
-        state.calls(),
-        Vec::<String>::new(),
-        "nothing is recorded, started, kept or reported"
-    );
+    let _ = fs::remove_dir_all(&folder);
 }
 
 /// Test 16: the independent model check of a loop in Auto records a setpoint step of the opposite sign, returns its record and

@@ -7,17 +7,17 @@
 //! # Which example permits which method
 //!
 //! `identify --method` runs the loop's declared settings with the method asked for (`declared_settings`). The engine refuses a
-//! method that the loop does not permit (`method_applicability`, `validate_explicit_method`) and a method whose mode the loop is
-//! not in (`identification/mode.rs`: every method but the setpoint step needs Manual, the setpoint step needs Auto, and the mode
-//! transfer that would change the mode comes with stage V4).
+//! method that the loop does not permit (`method_applicability`, `validate_explicit_method`). A method whose mode the loop is
+//! not in (`identification/mode.rs`: every method but the setpoint step needs Manual, the setpoint step needs Auto) enters that
+//! mode through a transfer and returns the loop to the mode it was found in afterwards (`identify_mode`, B3.4 step 1, A6.2).
 //! - Lesson 30 (`examples/control/06-pid-tuning-methods/30-model-based-pi-tuning`) is the heater of `identify_lab`, in Manual at
 //!   75 %. Its loop permits the open-loop methods: step, pulse, PRBS and multisine. It declares no relay direction, so it does
 //!   not permit the relay.
 //! - Lesson 29 (`examples/control/06-pid-tuning-methods/29-relay-tuning`) is the same heater, also in Manual at 75 %. Its loop
 //!   declares `relayDirection: positive`, so it permits the relay. The relay needs Manual, as every method but the setpoint step
-//!   does, so a loop in Auto would be refused for its mode.
-//! - No control example in the repository starts in Auto with both a setpoint and a parameter binding, so no setpoint step can run
-//!   in this stage. Its test asserts the refusal that the engine gives in Manual (B3.9: a mode change refused, "as the reason states").
+//!   does, so a loop in Auto would be switched to Manual for it.
+//! - No control example in the repository starts in Auto with both a setpoint and a parameter binding, so the setpoint step runs
+//!   on lesson 30 in Manual: Identify enters Auto through a transfer for the step and returns the heater to Manual afterwards.
 //!
 //! # What every method that runs must give
 //!
@@ -36,13 +36,12 @@
 mod common;
 mod identify_lab;
 
-use serde_json::Value;
 use trust_control::experiment::{ControlExperimentKind, ControlExperimentPlan, ExperimentValue};
 
 use identify_lab::{
     check_no_model_kept, check_plausible_model, check_plot, check_study_keeps_the_model, result_of,
-    result_recording_id, stage_status, Findings, Lab, Program, HOLDING_COMMAND, LESSON_30,
-    LESSON_30_LOOP, RUN_LIMIT,
+    result_recording_id, stage_status, Findings, Lab, HOLDING_COMMAND, LESSON_30, LESSON_30_LOOP,
+    RUN_LIMIT,
 };
 
 /// The relay of lesson 29, `examples/control/06-pid-tuning-methods/29-relay-tuning`: the same heater, in Manual, with its
@@ -53,14 +52,6 @@ const LESSON_29: &str = concat!(
 );
 /// The identifier of lesson 29's loop (`control-loop.json`).
 const LESSON_29_LOOP: &str = "control-relay-tuning";
-
-/// The `failure` of the answer that a verb printed with `--json` (§0.1b: `{"failure": …}`), or `Value::Null` when it printed none.
-fn failure_of(program: &Program) -> Value {
-    serde_json::from_str::<Value>(&program.stdout())
-        .ok()
-        .and_then(|answer| answer.get("failure").cloned())
-        .unwrap_or_default()
-}
 
 /// Runs `identify --method <word> --json` on `lab` and follows it to its end, and checks what every method that runs must give
 /// (module documentation). Returns the plan of the experiment that the journal held while it ran, for the method's own checks;
@@ -243,48 +234,35 @@ fn relay_identifies_the_heater_from_a_relay_on_the_measurement() {
     findings.conclude();
 }
 
-/// `identify --method setpoint-step` on lesson 30, whose loop is in Manual, is refused before anything is recorded or written:
-/// status 1, the engine's words for the mode that the method needs (B3.9: "Mode change refused ... As the reason states"), no
-/// journal entry, no model, and the controller command unchanged. The `TypeScript` journey "all identification methods" runs
-/// `setpoint_step` on the default control project, which also starts in Manual; its engine changes the mode by a transfer
-/// (`runtimeTransfer.ts`) that this engine receives with stage V4, so this stage asserts the refusal the engine gives. At ten times
-/// real time the test takes about 4 s: the copy, the build, the start of the runtime and a refusal at the first scan.
+/// `identify --method setpoint-step` on lesson 30, whose loop is in Manual, enters Auto through a transfer for the setpoint step
+/// and returns the heater to Manual afterwards (B3.4 step 1, A6.2; annex E11.9): the method runs as every method does, the
+/// journal holds the step of the declared setpoint while it runs, and once the identification has settled the journal is empty
+/// and the controller command is back at its 75 % from before the experiment, which it holds only in Manual. It replaces the
+/// `setpoint_step` case of the `TypeScript` journey "all identification methods", which runs on a project that also starts in
+/// Manual and asserts that the step moves the declared reference. At ten times real time the test takes about 10 s: the step
+/// runs at most its 60 s declared duration, 6 s of wall time, with the build and the start of the runtime.
 #[test]
-fn setpoint_step_is_refused_in_manual_before_anything_is_recorded() {
+fn setpoint_step_enters_auto_for_the_step_and_returns_the_heater_to_manual() {
     let lab = Lab::start_example("refusal", LESSON_30, LESSON_30_LOOP);
     let mut findings = Findings::default();
     let original = lab.controller_command();
     findings.check(
         (original - HOLDING_COMMAND).abs() < 1e-6,
         format!(
-            "the heater should hold {HOLDING_COMMAND} % in Manual before the refusal, it reads {original} %"
+            "the heater should hold {HOLDING_COMMAND} % in Manual before the identification, it reads {original} %"
         ),
     );
-    let mut identify = lab.start_verb(
-        "identify",
-        &["--method", "setpoint-step", "--json"],
-        "setpoint",
-    );
-    let status = identify.wait(RUN_LIMIT);
-    findings.check(
-        status.code() == Some(1),
-        format!(
-            "a method that the loop's mode does not permit should be refused with status 1:\n{}",
-            lab.describe(&identify, status)
-        ),
-    );
-    let failure = failure_of(&identify);
-    findings.check(
-        failure["message"] == "Identify does not switch the loop's mode yet.",
-        format!("the refusal should name the mode change: {failure}"),
-    );
-    findings.check(
-        failure["detail"]
-            == "Identify does not switch the loop's mode yet. Put the loop in Auto, or choose Automatic.",
-        format!("the refusal should say which mode the method needs, as B3.9 requires: {failure}"),
-    );
-    lab.check_journal_empty(&mut findings, "after the refusal");
+    // The copy keeps no model yet, so the model that the study keeps afterwards is this run's.
     check_no_model_kept(&mut findings, &lab);
-    lab.check_command_is(&mut findings, original);
+    if let Some(plan) = identify_by_method(&mut findings, &lab, "setpoint-step") {
+        findings.check(
+            plan.kind == ControlExperimentKind::SetpointStep
+                && plan.affected_signal == "P1.SetpointC",
+            format!(
+                "the experiment should step the declared setpoint P1.SetpointC in Auto, it is {:?} of {}",
+                plan.kind, plan.affected_signal
+            ),
+        );
+    }
     findings.conclude();
 }

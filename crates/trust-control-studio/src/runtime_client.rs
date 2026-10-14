@@ -2,12 +2,25 @@
 //! client. Each request is checked before it is sent and each answer before it is used; a refusal
 //! keeps the runtime's text, and its code decides the next action (E0.4, A11).
 
+use std::collections::hash_map::RandomState;
 use std::collections::BTreeMap;
+use std::hash::BuildHasher;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::{json, Value};
+use trust_control::commissioning::commissioning_result::TransferStatus;
+use trust_control::commissioning::confirmation::Timing;
+use trust_control::commissioning::parameter_application::{
+    ApplyRequest, CancelResponse, ParameterOwner, RollbackRequest, RuntimeBinding,
+};
+use trust_control::commissioning::parameter_status::ParameterStatus;
+use trust_control::commissioning::transfer::TransferBinding;
+use trust_control::commissioning::transfer_protocol::{
+    TransferApplyRequest, TransferCancelAnswer, TransferCancelRequest,
+};
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::reconcile::StatusRead;
 use trust_control::loop_definition::LoopDefinition;
@@ -23,10 +36,12 @@ use trust_runtime_client::{ControlClient, ControlEndpoint, ControlError};
 pub mod experiment;
 pub mod experiment_recording;
 pub mod experiment_status_poller;
+pub mod parameters;
 pub mod project_experiment_hold;
 pub mod recording_coordinator;
 pub mod runtime_recording;
 pub mod test_experiment_guards;
+pub mod transfers;
 
 #[cfg(test)]
 pub(crate) mod fake_runtime;
@@ -250,6 +265,116 @@ impl RuntimeClient {
         Ok(status.values)
     }
 
+    /// The transfer status of the loop's binding, as the runtime reports it (`control.transfer.status`, E6.3). The caller checks it.
+    ///
+    /// # Errors
+    /// The runtime cannot be reached, refuses, or answers out of protocol.
+    pub fn transfer_status(
+        &mut self,
+        binding: &TransferBinding,
+    ) -> Result<TransferStatus, Failure> {
+        let answer = self.call(
+            "control.transfer.status",
+            Some(json!({ "binding": binding })),
+        )?;
+        decode("control.transfer.status", answer)
+    }
+
+    /// Sends a transfer apply (`control.transfer.apply`, E6.5). The identifier must already be journaled (E11.2). See
+    /// [`Self::transfer_apply_coded`] for the refusal code, which the transfer session needs.
+    ///
+    /// # Errors
+    /// The runtime refuses the request, cannot be reached, or answers out of protocol.
+    pub fn transfer_apply(&mut self, request: &TransferApplyRequest) -> Result<Value, Failure> {
+        self.transfer_apply_coded(request)
+            .map_err(|refusal| refusal.failure)
+    }
+
+    /// Sends a transfer apply and keeps the runtime's refusal code with its failure (E0.4). A refusal with `invalid_transfer_request`
+    /// means the transaction was never accepted, which decides whether its owner is released.
+    ///
+    /// # Errors
+    /// The runtime refuses the request, cannot be reached, or answers out of protocol; the failure carries the refusal code.
+    pub fn transfer_apply_coded(
+        &mut self,
+        request: &TransferApplyRequest,
+    ) -> Result<Value, CallFailure> {
+        let params = to_params(request).map_err(CallFailure::without_code)?;
+        self.call_coded("control.transfer.apply", Some(params))
+    }
+
+    /// Cancels a transfer by its identifier (`control.transfer.cancel`, E6.10). A lost answer is read by the caller, never by a resend.
+    ///
+    /// # Errors
+    /// The runtime refuses the request, cannot be reached, or answers out of protocol.
+    pub fn transfer_cancel(
+        &mut self,
+        request: &TransferCancelRequest,
+    ) -> Result<TransferCancelAnswer, Failure> {
+        let answer = self.call("control.transfer.cancel", Some(to_params(request)?))?;
+        decode("control.transfer.cancel", answer)
+    }
+
+    /// The parameter record of the binding, as the runtime reports it (`control.parameters.status`, E7.2). The caller checks it.
+    ///
+    /// # Errors
+    /// The runtime cannot be reached, refuses, or answers out of protocol.
+    pub fn parameter_status(
+        &mut self,
+        binding: &RuntimeBinding,
+    ) -> Result<ParameterStatus, Failure> {
+        let answer = self.call(
+            "control.parameters.status",
+            Some(json!({ "binding": binding })),
+        )?;
+        decode("control.parameters.status", answer)
+    }
+
+    /// Sends a parameter apply (`control.parameters.apply`, E7.3). The identifier must already be journaled (E11.2).
+    ///
+    /// # Errors
+    /// The runtime refuses the request, cannot be reached, or answers out of protocol.
+    pub fn parameter_apply(&mut self, request: &ApplyRequest) -> Result<Value, Failure> {
+        self.call("control.parameters.apply", Some(to_params(request)?))
+    }
+
+    /// Sends a parameter rollback (`control.parameters.rollback`, E7.5).
+    ///
+    /// # Errors
+    /// The runtime refuses the request, cannot be reached, or answers out of protocol.
+    pub fn parameter_rollback(&mut self, request: &RollbackRequest) -> Result<Value, Failure> {
+        self.call("control.parameters.rollback", Some(to_params(request)?))
+    }
+
+    /// Cancels a parameter operation by its identity (`control.parameters.cancel`, E7.6).
+    ///
+    /// # Errors
+    /// The runtime refuses the request, cannot be reached, or answers out of protocol.
+    pub fn parameter_cancel(
+        &mut self,
+        owner: &ParameterOwner,
+        loop_id: &str,
+    ) -> Result<CancelResponse, Failure> {
+        let answer = self.call(
+            "control.parameters.cancel",
+            Some(json!({
+                "loop_id": loop_id,
+                "transaction_id": owner.id,
+                "expected_program_revision": owner.program,
+                "expected_binding_revision": owner.binding,
+            })),
+        )?;
+        decode("control.parameters.cancel", answer)
+    }
+
+    /// The confirmation timing of a change on `task_name`, from the runtime's status (`confirmationTiming`, A7). A status that cannot be
+    /// read counts as an interval of zero, so the window is the floor of ten seconds.
+    #[must_use]
+    pub fn confirmation_timing(&mut self, task_name: &str) -> Timing {
+        let status = self.call("status", None).ok();
+        trust_control::commissioning::confirmation::confirmation_timing(status.as_ref(), task_name)
+    }
+
     /// Reads the status of `experiment_id` over a connection of its own and says what the read gave:
     /// the status record as the runtime sent it, the runtime's refusal with its code and text, or
     /// no answer that can be read (E5.6, E11.4). Nothing is written.
@@ -279,16 +404,65 @@ impl RuntimeClient {
     }
 
     fn call(&mut self, operation: &str, params: Option<Value>) -> Result<Value, Failure> {
+        self.call_coded(operation, params)
+            .map_err(|refusal| refusal.failure)
+    }
+
+    /// The same call as [`Self::call`], which keeps the refusal code of the runtime's answer (E0.4).
+    fn call_coded(&mut self, operation: &str, params: Option<Value>) -> Result<Value, CallFailure> {
         self.client
             .request(operation, params)
             .map_err(|error| match error {
-                ControlError::Transport(reason) => Failure::unreachable(&reason),
-                ControlError::Refused { error, code } => {
-                    Failure::from_runtime(code.as_deref().unwrap_or_default(), &error)
+                ControlError::Transport(reason) => {
+                    CallFailure::without_code(Failure::unreachable(&reason))
                 }
-                ControlError::Malformed(_) => Failure::invalid_response(operation),
+                ControlError::Refused { error, code } => {
+                    let failure =
+                        Failure::from_runtime(code.as_deref().unwrap_or_default(), &error);
+                    CallFailure {
+                        failure,
+                        refusal_code: code,
+                    }
+                }
+                ControlError::Malformed(_) => {
+                    CallFailure::without_code(Failure::invalid_response(operation))
+                }
             })
     }
+}
+
+/// A call that the runtime did not complete: its failure, and the code of the refusal when the runtime refused the request (E0.4). The
+/// code decides whether a transaction was refused before any effect.
+#[derive(Debug)]
+pub struct CallFailure {
+    /// The failure that the caller reports.
+    pub failure: Failure,
+    /// The runtime's refusal code; `None` when the call was not refused with one.
+    pub refusal_code: Option<String>,
+}
+
+impl CallFailure {
+    /// A failure that carries no refusal code: the runtime was not reached, or its answer was out of protocol.
+    fn without_code(failure: Failure) -> Self {
+        Self {
+            failure,
+            refusal_code: None,
+        }
+    }
+}
+
+/// A new transaction identifier: `transaction-` and 32 hex digits drawn from the random seeds of the standard hash map, the same way as a
+/// recording identifier (E0.2). Studio journals it before its request is sent (E11.2).
+#[must_use]
+pub fn new_transaction_id() -> String {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let state = RandomState::new();
+    let count = COUNTER.fetch_add(1, Ordering::Relaxed);
+    format!(
+        "transaction-{:016x}{:016x}",
+        state.hash_one(count),
+        state.hash_one(!count)
+    )
 }
 
 /// The values of the loop's ST parameters in a `control.parameters.status` answer (E7.2). The rest of that answer belongs to

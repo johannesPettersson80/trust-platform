@@ -41,11 +41,35 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
 - The runtime's control endpoint (E0.1) is reached through the shared client crate
   `trust-runtime-client`, which the language server's inline values also use.
 - The language server has no part in Control Studio: it serves the Structured Text language, and
-  sharing its process would tie Control Studio's operations to its restarts and its load.
+  sharing its process would tie Control Studio's operations to its restarts and its load. Two
+  things Control Studio needs from the compiled project come from the language tools: loop
+  setup's catalog of signals and controllers (B1), and Keep in project's edit (B6.5), the one
+  project edit Control Studio makes. The engine obtains both through `trust-lsp command`
+  (Specification 14 §7.8), a separate command-line run that loads the project from disk and ends
+  with its answer, so each has one implementation and no language server session is involved.
 - The engine's methods, each arriving with its stage: `controlStudio/open`, `controlStudio/status`,
-  `controlStudio/cancel`, `controlStudio/page`; `controlStudio/identify`, `controlStudio/tune`,
-  `controlStudio/preview`, `controlStudio/validate`, `controlStudio/apply`, `controlStudio/restore`,
-  `controlStudio/keep`; `controlStudio/setupDiscover`, `controlStudio/setupSave`. `controlStudio/page`
+  `controlStudio/cancel`, `controlStudio/page`, `controlStudio/inputs`, `controlStudio/run`;
+  `controlStudio/identify`, `controlStudio/tune`, `controlStudio/preview`, `controlStudio/validate`,
+  `controlStudio/apply`, `controlStudio/restore`, `controlStudio/keep`; `controlStudio/setupDiscover`,
+  `controlStudio/setupSave`.
+- `controlStudio/inputs` records the engineer's study inputs (A8.1), as the page's editors change
+  them: the identification method and the experiment limits (B3.2, the Limits editor), the
+  requirements (B4.3, the Requirements editor), the tuning method with its response choice and a
+  fixed structure, and the pinned settings (B4.2). It answers at once with the stages; a change
+  invalidates exactly the results that depend on it (A8.4). `controlStudio/open` answers the
+  recorded inputs, so reopening shows them. Tune and Validate use the requirements the study
+  holds: the recorded ones over the loop's declared ones.
+- `controlStudio/run` is the automatic progression of B8: it runs, from the earliest stage whose
+  result is missing or no longer current (A8.4), each stage in order up to and including the one
+  it names (Identify, Tune or Validate), reusing the current results. It is one operation with one
+  Cancel. It stops at the first failure and keeps every result obtained; when a stage needs an
+  input the engineer must give (manual settings, a requirement Automatic cannot fill), it ends
+  naming that input, so the page opens the editor that owns it and **Done** runs it again.
+  A successful Validate stops at Apply: `run` never applies.
+- `controlStudio/identify` with `action: "review"` answers the campaign Identify would run (the
+  method, its excitation and limits, the duration, and for a project-scripted experiment its
+  activation, abort and restoration, C12) and starts nothing; the page shows it before the
+  engineer starts the campaign. `controlStudio/page`
   records the page last viewed (A8.1), which `controlStudio/open` returns so reopening shows it
   (A8.6); it changes nothing else and starts nothing. `controlStudio/preview` answers at once with
   the predicted response, margins and outcome of entered controller settings on the study's model,
@@ -62,8 +86,9 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
   engineer's actions as these methods, and renders their answers. Its message types are generated
   from the Rust types. It passes the project folder and the selected runtime with its endpoint and
   control token. The engine keeps the operation journals in the folder of A8.3, which the command
-  line uses too, so either front end reattaches an operation the other started. The engine never
-  journals the token.
+  line uses too, so either front end reattaches an operation the other started: a request whose
+  `storageFolder` is empty gets that folder, so the extension needs no copy of its convention. The
+  engine never journals the token.
 - The runtime keeps the real-time parts it owns today: recordings, experiments, transfers,
   parameter transactions and isolated runs (the runtime protocol annex).
 
@@ -96,7 +121,24 @@ is the same: a verb adds none and drops none.
   - `validate` (B5): runs the independent model check when the model is provisional, then the
     actual-ST validation of the current and the candidate settings in isolated simulations, and
     prints each requirement's result and whether Apply is available; it never writes to the
-    controller; later stages add `apply`, `restore`, `keep` and `setup`.
+    controller;
+  - `apply` (B6.1 to B6.3): without `--review`, prints the review: the loop's mode, each
+    parameter's running and candidate value, the validated operating point and the review identity;
+    with `--review <identity>`, applies the reviewed change while the runtime still matches the
+    review, waits for the operating point, transfers, observes the response for the test duration
+    and prints the assessed result; `--resume` follows the journaled Apply's observation to its end
+    when the engine that started it ended (A8.5, A8.6);
+  - `restore` (B6.4): the same review and confirmation; returns the parameter record and the mode
+    from before Apply, and prints Restored once the runtime confirms it;
+  - `keep` (B6.5): the same review and confirmation; keeps the values the record holds in the
+    running PLC as its initial values in the project, and prints the fields kept;
+  - `setup` (B1.3): without `--draft`, prints what the compiled project offers a new loop: each
+    controller with what its code states (parameter record, measurement, output, setpoint, mode
+    signal and what its TRUE value means, manual output, startup flag, task) and the structure
+    setup proposes; with `--draft <file>`, a JSON draft of the confirmed choices as the setup form
+    writes it, checks it, writes the loop definitions to `control-loops/` (all or none, never over an
+    existing definition) and prints their ids. It compiles the project through `trust-lsp command`
+    (§0.1a) and never writes anything else.
 - Common arguments: `--project <folder>` (default: the current folder), `--loop <id>`,
   `--journal-dir <folder>` (default: truST's folder in the user's local state folder, by the
   platform's convention, where the extension's engine keeps them too, A8.3), `--json`.
@@ -110,9 +152,13 @@ is the same: a verb adds none and drops none.
 - Exit status: 0 when the verb finished with its result; 1 when it was refused or failed, with the
   failure's message and next action printed; 2 for a usage error (an unknown verb, a missing or
   invalid argument); 130 when an interruption ended it.
-- Confirmation: a verb that changes a plant's controller (`apply`, `restore`, `keep`) needs, given
-  explicitly, the reviewed identity that the panel's single confirmation needs (B6); the verb that
-  produced the review prints it. No option skips a check or an approval. A physical target needs
+- Confirmation: a verb that changes a plant's controller or its project (`apply`, `restore`, `keep`)
+  needs, given explicitly, the reviewed identity that the panel's single confirmation needs (B6);
+  the same verb without `--review` produces the review and prints it. The identity covers
+  everything the confirmation approves: for `apply` and `restore` the runtime's program, binding and
+  active revisions, the mode, the values to write and the study's validation; for `keep` the values
+  to keep and the text of each file the edit changes. A change of any of them since the review
+  refuses the confirmation and asks for a new review. No option skips a check or an approval. A physical target needs
   the same reviewed approval as in the panel (A2.5); until that approval exists, live physical
   identification is refused here as it is in the panel.
 - Interruption: the first Ctrl-C cancels the operation as Cancel does. A live experiment is ended
@@ -679,7 +725,9 @@ Loop files keep schema version 2. Where version 2 holds one fact in two fields
 `taskPeriodMs` and `nominalPeriodMs`), the loader requires them to agree and
 rejects a definition where they do not; setup writes both consistently.
 `trackingSignal`, `maximumJitterMs` and `operatingPoint` are read and ignored,
-and are no longer written. Version 1 files are read as before.
+and are no longer written. A version 1 file is refused with the reason and
+**Configure control loop** offered: nothing of Control Studio is released yet,
+so no earlier format is read.
 
 ### B2. Observing
 
@@ -705,17 +753,18 @@ and the identification policy.
   (closed-loop identification). Its size is the larger of 20 times the measured
   noise and 2 % of the measured output's range, capped at 10 % of the range and
   by the headroom to the permitted measured-output range.
-- A loop in Manual, an open-loop experiment loop, or a loop in Auto without a
-  setpoint binding where open-loop tests are permitted (switched to Manual,
-  B3.4 step 1): a **plant input step** in Manual (open-loop). Its size starts
+- A loop in Manual, or an open-loop experiment loop: a **plant input step** in
+  Manual (open-loop). Its size starts
   at 10 % of the plant input's range, capped by the headroom to the plant
   input limits. A **pulse** replaces the step when sustained holds are not
   permitted. An on/off actuator steps between its two levels. Several plant
   inputs are stepped one after another in one recording; **PRBS** is used when
   the policy asks for frequency information.
-- A loop in Auto without a setpoint binding, where open-loop tests are not
-  permitted: no safe automatic method; Identify says so and names the missing
-  binding or policy.
+- A loop in Auto without a setpoint binding: no safe automatic method. The
+  bumpless mode change of A6.3 tracks the reference, so without the setpoint
+  binding Identify cannot put the loop in Manual; it says so and names the
+  missing binding. A method the engineer chooses that needs the other mode is
+  refused the same way.
 
 The engineer may choose a method instead: Step, Pulse, Setpoint step, Feedback
 relay, PRBS, Multisine, Recorded-data fit (through **Open recording…**) or
@@ -728,15 +777,20 @@ Supplied plant model. Every live method follows B3.4.
    field); physical approval on a physical target (A2.5). A Manual method
    switches the loop to Manual through a transfer that holds the present output
    (A6.3) and returns it to its starting mode afterwards (A6.2).
-2. **Steady baseline.** The baseline window is the longest of 20 samples, 5 % of
-   the maximum duration and, when declared, 10 % of the expected settling time,
-   capped at 30 minutes. The measured output is steady when its linear trend
+2. **Steady baseline.** The baseline window is the longer of 5 % of the maximum
+   duration and, when declared, 10 % of the expected settling time, capped at
+   30 minutes, and never shorter than 20 samples: a slow process recorded at a
+   long record period (A4.2) keeps the 20 samples its trend and noise are
+   measured on, even when they span more than 30 minutes. The measured output is steady when its linear trend
    across the window moves it by no more than four times the measured noise,
    or 0.001 % of its range when that is larger. A tolerance tied to the range
    would let a short window call an output that still moves fast steady, and
-   the step would then fit the earlier response's tail. Identify waits for a steady baseline for up to the longer
-   of 5 minutes and 20 % of the maximum duration; it then stops with the rate
-   still observed, offering to wait or, for a loop in Auto, a setpoint step.
+   the step would then fit the earlier response's tail. Identify waits for a steady baseline for up to the longest
+   of 5 minutes, 20 % of the maximum duration and two baseline windows, so that a steady output is judged over at least
+   one whole window. A window here takes the maximum duration and the expected settling time, but not the twenty-sample
+   floor, which the recording holds within the wait at the record period of A4.2 while one task execution is at most a
+   twentieth of the wait. It then stops with the rate still observed, offering to wait or, for a loop in Auto, a
+   setpoint step.
 3. **Step.** The runtime applies the step at the next execution of the loop's
    task (A3.5).
 4. **Hold until settled.** The response has settled when, after it has left the
@@ -744,7 +798,14 @@ Supplied plant model. Every live method follows B3.4.
    its change so far across the settle window: the longer of 20 samples and
    10 % of the hold so far. The hold ends when the response has settled or when
    the maximum duration, minus the restoration allowance of one baseline
-   window, is reached. The maximum duration counts from the end of the
+   window, is reached. A project-scripted experiment records its declared
+   duration (C12): its allowance is the one restoration sample, one execution
+   of the loop's task. In a closed-loop setpoint step the plant input is part of the
+   response: while a slow mode settles, the controller keeps moving the plant
+   input although the measured output is back near its setpoint, and a fit
+   ended there misses that mode's gain. The hold therefore ends early only
+   when the plant input has settled too, by the same rule against its own
+   mean and noise over the steady baseline. The maximum duration counts from the end of the
    baseline, so the wait for a steady baseline never shortens the step.
 5. **Restoration.** The runtime restores the plant input or setpoint to its
    value from before the experiment and confirms it (A7). Identify does not wait
@@ -847,6 +908,13 @@ itself (Control.PID and the program-owned P, PI and PID laws) it calculates
 the closed loop; for any other program-owned law it runs the actual Structured
 Text in an isolated simulation on the selected model (A2.6). When that is
 unavailable, the candidate is shown with the reason there is no prediction.
+The settling time, the overshoot and every assessment use the full prediction.
+When the prediction holds more than 6,000 points, the response the answer
+carries for the plot is reduced: the points are split into 1,000 consecutive
+groups of equal size, and each group keeps, in time order, the points where
+each trace takes its lowest and its highest value in that group; the first and
+the last point are always kept, so no peak, step or limit the prediction
+reaches is lost from the plot.
 
 **B4.6 Margins.** For every candidate whose law is linear on the selected model,
 the result lists its gain, phase and delay margins and its peak sensitivity
@@ -887,9 +955,20 @@ record (numerical annex):
   address directly;
 - otherwise against the qualified model. A plant that reaches the loop only
   through the program's logic, such as a scaled transmitter signal or a
-  heating sequence, is validated on the model: an isolated run starts at time
-  zero from the plant's configured state and the program's initial state
-  (A2.6), not from the live operating point.
+  heating sequence, is validated on the model, because an isolated run of it
+  would start at time zero from the plant's configured state and the program's
+  initial state (A2.6), not from the operating point. On the model, each run
+  starts at the model's operating point, with the controller's states
+  initialized there (B6.2).
+
+Validate tests the candidate at the operating point Apply starts from (B6.2):
+the selected model's operating point. An isolated run of the configured plant
+starts from the plant's configured state. When the current settings'
+target-response run starts with its measured output outside the settling band
+around that operating point, as after an Apply whose target change stays in
+force, the configured plant cannot show the response there: Validate runs every
+case on the qualified model instead, and the result names the plant each case
+ran on and why.
 
 Part C names structures that always validate on the model. The scenarios cover
 the applicable setpoint step, load step, noise and model variations, and, for
@@ -931,14 +1010,24 @@ itself. For a loop in Auto, the plant input is the running controller's output:
 it moves with every measurement (A6.4), so it is not compared, and the transfer
 starts from wherever it is (C1). Measured outputs
 outside their settling bands are waited for: Apply shows each output with its
-validated and current value and continues by itself once all are inside,
-writing nothing meanwhile. The wait can be cancelled and lasts at most the
-longer of 60 s and three times the test duration, in process time. An
-integrating output takes its present value as its operating point.
+validated and current value, writes nothing meanwhile, and continues by itself
+once the outputs that do not rest have all stayed inside their bands for the
+settle dwell, in process time. The settle dwell is the settle window of B3.4
+step 4 with the expected settling time as the hold: the longer of twenty samples
+at the loop's task period and a tenth of that settling time. A reading that
+takes any output out of its band restarts the dwell. The wait can be cancelled
+and lasts at most the longer of 60 s and three times the test duration, in
+process time. An integrating output takes its present value as its operating
+point and rests wherever it is, so it does not hold the wait.
 
 **B6.3 Observation.** After the transfer, the validated target change runs and
 the runtime records the response for the test duration in process time. The
-observation is owned by the runtime and reattached on reopening (A8.5). The
+recording is planned longer than that by the confirmation window of the target
+change, two executions of the task and three record periods (A4.2), because the
+response starts at the first sample whose executions all lie at the target, up
+to one and a half record periods after the change, and the recording stops once
+the response covers the test duration from that sample. The observation is owned
+by the runtime and reattached on reopening (A8.5). The
 recorded response is assessed against the requirements. A failed requirement is
 reported, with **Restore previous settings** offered. When a measured output
 leaves its permitted range, Control Studio restores the previous settings at
@@ -958,6 +1047,25 @@ replayed from old history. **Restored** is shown only after the runtime
 confirms it. If the active revision or target changed since Apply, Restore
 explains that it is unavailable instead of overwriting another change.
 
+Restore is one operation for every case: in the same session, after the panel
+or VS Code was reopened, after a measured output left its permitted range, and
+after an Apply was interrupted at any step. Before its first write, Apply
+journals its commissioning checkpoint (A8.5): the pre-Apply parameter revision
+and values, the mode it found, the bindings it writes through, and each
+transaction's identity as it is dispatched. Restore always starts from that
+checkpoint and the runtime's current status: when the loop is in Auto it first
+enters Manual through a transfer, then rolls the record back to the retained
+revision (protocol annex E7.5), then returns the loop to the mode found before
+Apply, entering Auto with its state initialized from current observations and
+the Auto-entry allowance of A6.4, and then returns the references Apply found
+through a reference step, as Apply's target change is made (B6.3, annex E6.4).
+A step the runtime already confirmed is not repeated. A completed checkpoint authorizes Restore and Keep only while the
+runtime still reports its parameter transaction and its confirmed Auto transfer
+under their journaled identities; otherwise the settings changed since Apply and
+Restore is unavailable. When the runtime was restarted or its program reloaded since Apply,
+nothing of the checkpoint can be restored: Restore says so, the checkpoint is
+kept as history, and the loop continues from a new validation.
+
 **B6.5 Keep in project** is the separate, explicit action after Apply: the
 values the loop's parameter record holds in the running PLC become the record's
 initial values in the project, so a restart or a new download keeps them. It is
@@ -966,13 +1074,17 @@ never a side effect of Apply or Restore and is not offered after a Restore.
 - A record written by hand is edited in its own declaration: the kept fields of
   its initializer take the running values, written in the same form (`LREAL#…`
   stays typed); other fields stay as written; a missing field is added; a
-  declaration without an initializer gets one. The edit applies only to the text
-  the language server read; a file without unsaved changes of the user's own is
-  saved.
+  declaration without an initializer gets one. The engine edits the saved file.
+  The panel passes the files that have unsaved changes in an editor; when the
+  edit would change one of them, Keep is refused and asks to save or discard
+  those changes first, so the user's own changes are neither overwritten nor
+  saved for them. A file is written only while it still holds the text the edit
+  was prepared from.
 - A record that Create PLC code declared belongs to the equipment design: it is
   kept through the HMI Builder's equipment edit (Specification 39 §21.4 item 6),
-  which writes `plant.toml` and the generated declaration together. Values the
-  equipment has no setting for are named as not kept.
+  which writes `plant.toml` and the generated declaration together, under the
+  same rule for unsaved changes. Values the equipment has no setting for are
+  named as not kept.
 - A record inside a function block instance is not edited, because one
   declaration serves every instance; Control Studio says to copy the values by
   hand.
@@ -993,11 +1105,20 @@ startup or retain policy.
 | Observation: a requirement failed | Restore previous settings |
 | A measured output left its permitted range | None; the previous settings were restored |
 | Restore not confirmed | Restore again; dependent actions stay blocked until confirmed |
+| Restore unavailable: the active record or the target changed since Apply | None; validate and apply again |
+| The runtime restarted or reloaded its program since Apply | None; the checkpoint is kept as history; validate again |
+| The runtime changed since the review (apply, restore or keep) | None; the review is asked for again |
+| Keep: a file the edit changes has unsaved changes in an editor | Save or discard them, then Keep in project again |
+| Keep: the project changed since the review | Keep in project again |
 
 ### B7. After Apply
 
 After Apply the Validate page keeps showing the loop live, with **Restore
-previous settings** in the Apply position. This version does not detect drift
+previous settings** in the Apply position. While an Apply's settings stand (its
+checkpoint completed and not restored or retired), Apply is not offered, also
+after Keep in project; after Restore, a candidate validated again may be
+applied. A standing Apply's checkpoint is not an unfinished operation: it does
+not hold back Identify, Tune or Validate. This version does not detect drift
 automatically; a new identification is the engineer's decision.
 
 ### B8. Automatic progression
@@ -1392,7 +1513,7 @@ Aliases and shared global ownership need a different adapter.
 #### Controller state initialization
 
 - A state initialization is a `declared-state-v1` record. Each state has its compiled IEC type, its unit, its bounds, and either an explicit initial value or a coordinate of the selected model. The nominal actual-ST run loads these states and checks their declared bounds. Auto entry uses the same record through the task-boundary transfer (A6.3, B6.1).
-- The record may take its values from fresh task-boundary sources: `model-input`, `model-output`, `model-input-is`, `integral`, `weighted-error`, `notch-history`, `scaled-measurement` (C8) and `decoupled-output` (C7).
+- The record may take its values from fresh task-boundary sources: `model-input`, `model-output`, `model-input-is`, `pid-integral`, `weighted-error`, `notch-history`, `scaled-measurement` (C8) and `decoupled-output` (C7), the kinds of protocol annex E6.4.
 - An actuator input uses the bound applied feedback where it exists.
 - With several actuators, the coupled transfer binds each actuator and its typed Manual command separately from the controlled references. The reviewed output-change tolerance of the primary output applies to each additional actuator as the same fraction of that actuator's declared span. Later target changes use the full reviewed spans. Every actuator command and state requires a compiled binding.
 - Recovery restores the original reference vector and the parameter record.
@@ -1428,7 +1549,7 @@ Tf = 0 bypasses the filter.
 - A calculated candidate writes Tf = 0 unless Tf is pinned.
 - The program restarts the filter from the fresh measurement in Manual and in the scan of the Auto entry. The first output after the Auto entry is then checked under A6.4.
 
-**Back-calculation anti-windup.** A PID law MAY declare `antiWindup: { method: "back-calculation", trackingGainSymbol: "..." }`. The symbol names one unique bound `REAL` or `LREAL` parameter in reciprocal seconds. Its value is the tracking gain `1/Tt`. Zero is the untracked baseline. A candidate uses a finite positive `Tt` and writes `1/Tt` through the same complete record. The law's declaration gives the value its tracking meaning, not the parameter's name.
+**Back-calculation anti-windup.** A PID law MAY declare `antiWindup: { method: "back-calculation", trackingGainSymbol: "..." }`. The symbol names one unique bound `REAL` or `LREAL` parameter in reciprocal seconds. Its value is the tracking gain `1/Tt`. Zero is the untracked baseline. A candidate uses a finite positive `Tt` and writes `1/Tt` through the same complete record: a pinned tracking gain gives `Tt = 1/gain`; otherwise `Tt = max(Δt, √(Ti·Td))` when the candidate has derivative action and `Tt = max(Ti, Δt)` when it does not, with `Ti = |Kp/Ki|` and `Td = |Kd/Kp|`. The law's declaration gives the value its tracking meaning, not the parameter's name.
 
 ```text
 I* = trial integral
@@ -1612,7 +1733,7 @@ Formula references: S. Skogestad, "Simple analytic rules for model reduction and
 
 The transaction members are:
 
-- the complete `Control.PID.ParametersValue` record, as the adapter maps it (C0), including β, Tf and the tracking gain where declared;
+- the complete `Control.PID.ParametersValue` record, as the adapter maps it (C0), including β, Tf and the tracking gain where declared. The shipped `Control.PIDParameters` has no filter field, so a `Control.PID` loop declares no Tf; its `TrackingTime` is `max(Ti, Δt)` unless pinned;
 - the state initialization of the adapter: the `control-pid-v1` states or the `parallel-pid-v1` integral and derivative states;
 - the mode entry to Auto (A6.2). In a cascade, the other controllers' modes too (C6).
 
@@ -1674,7 +1795,7 @@ When `controller.manualOutputFollowsOutput` is declared, the program copies the 
 
 - The held output is the last committed I/O image for an output with an address.
 - For an output without an address, the held output is its value at the task boundary: the value that the last scan drove the plant with. An uncommitted write is never the held output.
-- When identification returns the loop to Auto, the references return to their values from before identification (B3.4). A manual output that follows the output is not written back. Auto overwrites it, and writing it back would move the output.
+- When identification returns the loop to Auto, the references return to their values from before identification (B3.4). A program that sets its reference from the measurement in Manual overwrites a reference written back there at its next scan, so the loop enters Auto at the measurement; a reference the loop then no longer holds returns in Auto, as a target change with the allowance of Apply's target step. A manual output that follows the output is not written back. Auto overwrites it, and writing it back would move the output.
 
 ### C2. Program-owned P, PI or PID law (the parallel-pid seed)
 
@@ -1808,7 +1929,8 @@ The law is `u = u₀ + N·(r − y₀) − K·(x − x₀)` in identified measur
 
 #### Tune
 
-- **Pole placement.** Explicit pole targets are discrete poles. A continuous model is converted by the exact zero-order-hold conversion at the actual task period. The gains place the sampled poles.
+- **Pole placement.** Explicit pole targets are discrete poles. A continuous model is converted by the exact zero-order-hold conversion at the actual task period. The gains place the sampled poles. Without explicit targets, the desired sampled poles are `zᵢ = exp(−(4 + i/n)·Δt/Tr)` for `i = 0 … n−1`, with `n` model states, the task period `Δt` and the response time `Tr` the requirements ask for. Explicit targets are one real pole inside the unit circle per model state.
+- **Design limits.** At most 32 model states and 16 plant inputs, each plant input controls one output objective, and a finite-horizon LQR covers at most 512 steps. A design outside them, an uncontrollable or singular model, or a malformed weight is refused with the reason and the next action Choose method (a malformed weight: None).
 - **LQR.** LQR weights may be supplied. Automatic weights normalize each coordinate by its declared operating span. The gain is the steady-state gain of the discrete linear-quadratic regulator for the sampled model, from the algebraic Riccati equation.
 - **LQG.** Tune designs `K`, `L` and `N` by LQG on the selected model. The design needs supplied process and measurement covariances. The estimator follows the prediction and correction convention above.
 - If a required mode is not controllable, Tune reports the infeasibility instead of a candidate.
@@ -1963,6 +2085,7 @@ The result names, for each member, its path model, its `λᵢᵢ` and the result
 **Static decoupler.**
 
 - Tune calculates `D = K⁻¹·diag(K)`, from the steady-state gains `K` of the group model. Through the decoupler, each member's output moves only its own measurement in steady state, with the gain of its own path. A singular `K` is refused.
+- A two-member group whose program realizes the decoupler with the library's `StaticDecoupler2x2` (Specification 37 §4) is configured with the gain matrix `G = diag(K)⁻¹·K` and `ActuatorBias` zero. Its `ToActuators` then computes `u = G⁻¹·v = D·v`, and its `ToVirtual` computes `v = G·u = D⁻¹·u`, the members' start at Apply. A `G` that the block's singularity check refuses is refused by Tune with the block's reason. Larger groups use the program's own `D_ij` variables.
 - Each member's PI is designed as in step 3, on the model seen through the decoupler. Its relative gains are then one.
 - The decoupler corrects steady-state interaction only. It does not cancel dynamic interaction.
 - Tune shows `D` and the per-member design.
@@ -2056,11 +2179,12 @@ As one loop (C1). The step response from the controller output to the measuremen
 
 - Reduce the model's step response from the controller output to the measurement to first order with delay, by the two-point method (C7). Write its gain, its time constant and its delay into the program's model variables `K`, `T` and `θ`.
 - Design the PI with Automatic (C1) on the model without its delay. The settling time used is the requirement's settling time less the delay. A settling time that is no longer than the delay is refused, with that reason.
+- A program that uses the library's `SmithPredictor` (Specification 37 §2) takes the reduced model as its `ProcessGain`, `TimeConstant` and `DeadTime`, and the operating point the model was identified at as its `OperatingInput` and `OperatingOutput`. Its `MaximumCorrection` stays as the program declares it: it is the application's protection, not a tuning value.
 - Show the model values and the gains.
 
 #### Validate
 
-This validation always runs on the selected model. It covers the single-loop cases of C1, run as actual ST.
+This validation always runs on the selected model. It covers the single-loop cases of C1, run as actual ST. With the library's `SmithPredictor`, a run in which the predictor is not active at every sample (its history incomplete), or its correction reaches `MaximumCorrection`, fails with that reason: a bypassed or clipped prediction is not a valid one (Specification 37 §2.5).
 
 #### Apply and Restore
 
@@ -2074,12 +2198,12 @@ The program sets the proportional and integral gains of a `Control.PID` each sca
 
 #### Setup
 
-- The setup asks for the single-loop fields, and for two to four operating points. Each point has a name, and the program's proportional and integral gain variables for that point.
+- The setup asks for the single-loop fields, the scheduling variable (its compiled variable and unit), and two to four operating points. Each point has a name, its value of the scheduling variable, and the program's proportional and integral gain variables for that point. The values MUST be strictly increasing in the order the points are given, as the library's `PIDGainScheduler` requires (Specification 37 §3.1); setup refuses another order and names the first point out of order.
 - Setup writes one loop per operating point, named after the loop and the point. Its parameters are that point's two gain variables. This is the `parallel-pid` seed of C2.
 
 #### Identify
 
-At each point, bring the process to that operating point in Manual first, then identify. The model then describes the process at that point.
+At each point, bring the process to that point's value of the scheduling variable in Manual first, then identify. The model then describes the process at that point.
 
 #### Tune
 
@@ -2254,8 +2378,9 @@ journeys are selected by tag, not by full title.
 
 **D5. Reference integration.** The real-plant reference scenario is the
 `examples/room_heating` project: the real `Control.PID` TIC101 holding the
-tank at 45 °C, a long process with a slowest time constant of about
-75 minutes. Against that project's runtime started outside VS Code in
+tank at 45 °C, a process whose slowest mode, the tank and the room heating
+together, has a time constant of about four minutes, so the journey runs in
+well under an hour at ten times real time. Against that project's runtime started outside VS Code in
 simulation mode and attached, with the loop in Auto: Identify with Automatic
 (a closed-loop setpoint step), Tune with Automatic, Validate (model check and
 isolated simulation), Apply with observation, Restore previous settings, and

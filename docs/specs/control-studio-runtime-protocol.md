@@ -552,7 +552,7 @@ The `tracking` object of an apply selects one of these kinds.
 
 `parallel-pid-v1` adds `proportional_gain_symbol`, `integral_gain_symbol`, `derivative_gain_symbol`, `integral_state_symbol`, `derivative_state_symbol`, `proportional_setpoint_weight` and `derivative_setpoint_weight` (each from 0 to 1), `cycle_seconds` (0 to 60) and `align_output`. Its controller law is the one of Part C.
 
-`declared-state-v1` adds `initialization_values`, `initialization_formulas`, `bounded_state_symbols`, `additional_references`, `additional_commands` and `additional_measurements`, of at most 16 entries each. A bounded state is a state that the program sets, such as a manual output that follows the output in Auto (A6.4). Its `initialization_formulas` are of the kinds `pid-integral`, `weighted-error`, `notch-history`, `model-input`, `model-output`, `model-input-is`, `scaled-measurement` and `decoupled-output`, at most 8 entries. Their meaning is that of Part C.
+`declared-state-v1` adds `initialization_values`, `initialization_formulas`, `bounded_state_symbols`, `additional_references`, `additional_commands` and `additional_measurements`, of at most 16 entries each. With `align_output`, at the boundary the reference and each additional reference are set to their process variables, rounded to their types, so that the first output is bumpless (A6.4); a later reference step without `align_output` writes the references `values` gives, as Apply's target change and the Restore's return of the references Apply found do (specification 35, B6.3, B6.4). A bounded state is a state that the program sets, such as a manual output that follows the output in Auto (A6.4). Its `initialization_formulas` are of the kinds `pid-integral`, `weighted-error`, `notch-history`, `model-input`, `model-output`, `model-input-is`, `scaled-measurement` and `decoupled-output`, at most 8 entries. Their meaning is that of Part C.
 
 ### E6.5 Apply
 
@@ -953,7 +953,8 @@ The approval has these forms in the protocol:
 
 - experiment start: the object `physical_approval` with the booleans `user_approved` and `topology_reviewed`, both of which MUST be true;
 - transfer apply, parameter apply and rollback, and `control.pid.apply`: the boolean `physical_approved`, which MUST be true;
-- `control.pid.rollback`: no approval field.
+- `control.pid.rollback`: the boolean `physical_approved`, optional on a simulated target and true on a physical one
+  (E7.7).
 
 Rules:
 
@@ -1052,12 +1053,12 @@ When an operation changes the loop's mode, Studio returns the loop to the mode t
 For a proportional controller, Apply runs these runtime operations in order.
 
 1. Verify the matched target-response cases and the Manual-to-Auto initialization case with isolated runs (E8.4, E8.5). The initialization case uses explicit reference and mode events. Each run records the fixed parameters throughout.
-2. Journal the recording, start it (E4.2), and wait for its acknowledgement. Read the parameter values, the mode and the reference again. Stop if any of them changed. If the loop is not in Manual, transfer it to Manual first.
+2. Read the parameter values, the mode and the reference again. Stop if any of them changed. If the loop is not in Manual, transfer it to Manual first.
 3. Stage the candidate gain in Manual, and confirm it (E7.3, E7.4).
 4. Read the transfer status (E6.3). Require the typed bindings, the verified gain and the selected steady operating point.
 5. Compute the reference `r = y + u/Kp`, where `y` is the measured output and `u` is the held output. Round `r` to the reference's type, and check its bounds. Add no bias.
 6. Transfer the tracking state and the mode with `manual` false (E6.4, E6.5). Wait for the confirmation `output-image`.
-7. Apply the reviewed task reference through the same guarded boundary (E6.5). This is a separate reference change. It is not the Auto entry.
+7. Journal the recording, start it (E4.2) and wait for its acknowledgement; journal the transfers confirmed so far (specification 35, B6.3). Then apply the reviewed task reference through the same guarded boundary (E6.5). This is a separate reference change. It is not the Auto entry.
 8. Observe with the recording for the declared duration, plus two task periods of process time. Assess the samples against the requirements.
 9. On a passing observation, the loop stays in Auto. A rollback is a fresh review. It covers a Manual tracking transfer that holds the freshly observed output, restoration of the previous reference, and restoration of the previous gain set.
 

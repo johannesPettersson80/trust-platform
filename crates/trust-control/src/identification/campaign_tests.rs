@@ -107,6 +107,7 @@ fn sample(seconds: f64, value: f64) -> FollowSample {
         elapsed_seconds: seconds,
         good: true,
         output: Some(value),
+        input: None,
     }
 }
 
@@ -127,6 +128,8 @@ fn baseline_summary() -> BaselineSummary {
         half_range: 0.05,
         spacing_seconds: 1.0,
         window_seconds: 30.0,
+        input_mean: None,
+        input_noise: None,
     }
 }
 
@@ -169,21 +172,39 @@ fn the_maximum_duration_is_the_declared_one_within_the_limits() {
 #[test]
 fn the_baseline_budget_and_the_recording_follow_the_maximum_duration() {
     near(
-        baseline_budget_ms(600_000),
+        baseline_budget_ms(600_000, None),
         300_000.0,
         1e-9,
         "five minutes at least",
     );
     near(
-        baseline_budget_ms(6_000_000),
+        baseline_budget_ms(6_000_000, None),
         1_200_000.0,
         1e-9,
         "a fifth of 100 minutes",
     );
     // The TypeScript test: a 600 s maximum and a five-minute budget record 900 s (B3.4).
     assert_eq!(
-        campaign_recording_ms(&tank_loop()).expect("recording"),
+        campaign_recording_ms(&tank_loop(), None).expect("recording"),
         900_000
+    );
+}
+
+#[test]
+fn the_baseline_budget_waits_for_two_windows_of_a_declared_settling_time() {
+    // B3.4 step 2: a 1,800 s maximum with a 4,047 s settling time has a 404.7 s window (10 % of the settling time), so the
+    // wait is two windows, 809.4 s. Without a settling time, a fifth of the maximum, 360 s, is the longer.
+    near(
+        baseline_budget_ms(1_800_000, Some(4_047.0)),
+        809_400.0,
+        1e-6,
+        "two windows of 404.7 s",
+    );
+    near(
+        baseline_budget_ms(1_800_000, None),
+        360_000.0,
+        1e-9,
+        "a fifth of the maximum",
     );
 }
 
@@ -339,16 +360,19 @@ fn the_watch_keeps_good_finite_outputs_and_reports_a_time_scale_beyond_five_perc
                 elapsed_seconds: 1.0,
                 good: false,
                 output: Some(11.0),
+                input: None,
             },
             FollowSample {
                 elapsed_seconds: 2.0,
                 good: true,
                 output: Some(f64::NAN),
+                input: None,
             },
             FollowSample {
                 elapsed_seconds: 3.0,
                 good: true,
                 output: None,
+                input: None,
             },
             sample(20.0, 12.0),
         ],
@@ -401,6 +425,79 @@ fn a_five_minute_baseline_completes_in_process_time_when_the_samples_arrive_at_o
         summary.mean
     );
     assert!(summary.half_range > 0.0);
+}
+
+#[test]
+fn a_steady_output_recorded_at_a_long_record_period_completes_its_baseline() {
+    // The room heating's model check (10 October): the requirements' 41,000 s settling time records one sample every 205 s
+    // (A4.2). A flat output becomes steady once twenty samples fill the window, within the budget of a 7 h 36 min maximum,
+    // instead of being refused for a rate of 2.7e-7 °C/min.
+    let mut tracker = BaselineTracker::new(
+        &tank_loop().signals.process_variable,
+        27_360_000,
+        100.0,
+        Some(41_000.0),
+        true,
+    );
+    let mut watch = Watch::new();
+    let samples: Vec<FollowSample> = (0..=24_u32)
+        .map(|tick| {
+            let seconds = 205.0 * f64::from(tick);
+            sample(seconds, 45.0 + 1e-9 * seconds)
+        })
+        .collect();
+    let step = tracker
+        .feed(&mut watch, &samples, 0.0)
+        .expect("a steady output is not refused");
+    let BaselineStep::Steady(summary) = &step else {
+        panic!("the output is steady over twenty samples: {step:?}");
+    };
+    near(
+        summary.window_seconds,
+        4_100.0,
+        1e-9,
+        "twenty samples of 205 s",
+    );
+}
+
+#[test]
+fn a_steady_output_is_judged_within_the_budget_of_a_declared_settling_time() {
+    // B3.4 step 2: a 1,800 s maximum with a 4,047 s settling time has a 404.7 s window, recorded at a 10.8 s record period.
+    // The steady output is judged at 410.4 s. The former 360 s budget refused it at 367.2 s, before the window was full.
+    let mut tracker = BaselineTracker::new(
+        &tank_loop().signals.process_variable,
+        1_800_000,
+        100.0,
+        Some(4_047.0),
+        true,
+    );
+    let mut watch = Watch::new();
+    let mut judged = None;
+    // A ripple of 0.01 that flips at every sample: steady, with a noise of about 0.014.
+    let mut ripple = 0.01;
+    for tick in 0..=60_u32 {
+        let seconds = 10.8 * f64::from(tick);
+        match tracker.feed(
+            &mut watch,
+            &[sample(seconds, 45.0 + ripple)],
+            seconds * 1_000.0,
+        ) {
+            Ok(BaselineStep::Waiting { .. }) => {}
+            Ok(BaselineStep::Steady(summary)) => {
+                judged = Some(summary);
+                break;
+            }
+            Err(failure) => panic!("a steady output is not refused: {}", whole_text(&failure)),
+        }
+        ripple = -ripple;
+    }
+    let summary = judged.expect("the steady output is judged within its budget");
+    near(
+        summary.window_seconds,
+        404.7,
+        1e-6,
+        "10 % of the 4,047 s settling time",
+    );
 }
 
 #[test]
@@ -484,6 +581,51 @@ fn the_baseline_progress_is_reported_when_due_and_names_the_rate() {
     assert!(
         matches!(due, BaselineStep::Waiting { progress: Some(_) }),
         "ten seconds since the last text"
+    );
+}
+
+/// The process time at which a closed-loop setpoint step whose measurement settles quickly is finished early, while its plant
+/// input drifts towards its new value with a 120 s time constant; `None` when it is not finished within 3,000 s.
+fn closed_loop_finish(baseline: &BaselineSummary) -> Option<f64> {
+    let output = |seconds: f64| plant(45.0, 0.0, 0.0, 2.0, 0.0, seconds);
+    let input = |seconds: f64| 38.0 + 0.5 * (1.0 - (-seconds / 120.0).exp());
+    let mut hold = HoldTracker::new(&setpoint_plan(5_400_000.0, 1), baseline, 0.0);
+    let mut watch = Watch::new();
+    (1..=3_000_u32).map(f64::from).find(|&seconds| {
+        let sample = FollowSample {
+            elapsed_seconds: seconds,
+            good: true,
+            output: Some(output(seconds)),
+            input: Some(input(seconds)),
+        };
+        matches!(
+            hold.feed(&mut watch, HoldState::Holding, &[sample], seconds * 1_000.0),
+            HoldStep::Continue {
+                finish_early: true,
+                ..
+            }
+        )
+    })
+}
+
+#[test]
+fn a_closed_loop_step_is_finished_early_only_once_its_plant_input_has_settled_too() {
+    // B3.4 step 4 (the room heating's model check, 10 October): the measurement is back near its setpoint early, while the
+    // controller keeps moving the plant input for a slow mode, whose gain a fit ended there misses.
+    let without_input = closed_loop_finish(&baseline_summary())
+        .expect("a baseline without the plant input finishes on the measurement");
+    let mut baseline = baseline_summary();
+    baseline.input_mean = Some(38.0);
+    baseline.input_noise = Some(0.0);
+    let with_input =
+        closed_loop_finish(&baseline).expect("the step finishes once the plant input has settled");
+    assert!(
+        with_input > without_input,
+        "the plant input settles after the measurement: {with_input} s against {without_input} s"
+    );
+    assert!(
+        (300.0..=400.0).contains(&with_input),
+        "the input settles by the 2 % rule after about 2.7 time constants: {with_input} s"
     );
 }
 

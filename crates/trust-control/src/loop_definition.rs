@@ -248,11 +248,7 @@ impl LoopDefinition {
             ("a cascade", self.cascade.is_some()),
         ];
         if let Some((feature, _)) = parked.iter().find(|(_, used)| *used) {
-            return Err(Failure::new(
-                &format!("This loop uses {feature}, which Control Studio's Rust engine does not run yet."),
-                Cause::ControllerCapability,
-                NextAction::None,
-            ));
+            return Err(parked_failure(feature));
         }
         if self.controller.law.is_none() {
             return Err(Failure::new(
@@ -263,6 +259,41 @@ impl LoopDefinition {
         }
         Ok(())
     }
+}
+
+/// The parked feature (checklist V7) that a loop file uses, read from its JSON by the keys that
+/// [`LoopDefinition::rust_engine_support`] checks, for a file that does not decode as a loop the Rust engine runs: such a loop
+/// stays on the `TypeScript` engine until its feature is ported, and is refused as such rather than as a file without a usable
+/// loop (V6 decision D12). `None` when the file uses none of them.
+#[must_use]
+pub fn parked_feature_of(raw: &Value) -> Option<&'static str> {
+    let present = |value: &Value, key: &str| value.get(key).is_some_and(|member| !member.is_null());
+    let controller = &raw["controller"];
+    [
+        ("state feedback", present(controller, "stateFeedback")),
+        ("an ON/OFF controller", present(controller, "onOff")),
+        ("the program's own law", present(controller, "project")),
+        ("a PID group", present(controller, "group")),
+        ("channels", present(raw, "channels")),
+        (
+            "a declared analysis",
+            present(raw, "analysis") || present(raw, "analysisParameterSymbols"),
+        ),
+        ("a cascade", present(raw, "cascade")),
+    ]
+    .into_iter()
+    .find(|(_, used)| *used)
+    .map(|(feature, _)| feature)
+}
+
+/// The refusal of a loop that uses `feature`, which the Rust engine does not run yet (checklist V7).
+#[must_use]
+pub fn parked_failure(feature: &str) -> Failure {
+    Failure::new(
+        &format!("This loop uses {feature}, which Control Studio's Rust engine does not run yet."),
+        Cause::ControllerCapability,
+        NextAction::None,
+    )
 }
 
 #[cfg(test)]

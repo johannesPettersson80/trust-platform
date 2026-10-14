@@ -45,7 +45,7 @@ Trip = "Main.P101_Overload"
 block = "Control.PID"
 
 [equipment."Main.TIC101".settings]
-"{instance}_Parameters.IntegralGain" = "0.0667"
+"{instance}_Parameters.IntegralGain" = "1.334"
 "{instance}_Parameters.ProportionalGain" = "33.3"
 "{instance}_Setpoint" = "45.0"
 
@@ -57,7 +57,7 @@ block = "Control.PID"
 block = "Control.PID"
 
 [equipment."Main.TIC102".settings]
-"{instance}_Parameters.IntegralGain" = "0.068"
+"{instance}_Parameters.IntegralGain" = "1.36"
 "{instance}_Parameters.ProportionalGain" = "28.6"
 "{instance}_Setpoint" = "22.0"
 

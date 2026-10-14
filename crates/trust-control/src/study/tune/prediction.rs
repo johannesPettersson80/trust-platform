@@ -4,7 +4,8 @@
 //! under the conditions of the same `SelectedModelPredictor` that Automatic's requirement check reads, so the plot, the
 //! numbers and the outcome describe one response.
 //!
-//! The response holds every controller period of the test: the exact samples, not a display reduction.
+//! The settling time, the overshoot and the outcome read every controller period of the test. The response the answer carries
+//! for the plot keeps each group's extremes of every trace when the prediction is long (B4.5).
 
 use crate::identification::plant::IdentifiedModel;
 use crate::loop_definition::LoopDefinition;
@@ -16,6 +17,12 @@ use crate::tuning::prediction::{
 use crate::tuning::requirements::TuningRequirements;
 use crate::tuning::shortfall::{has_load, Outcome};
 use crate::tuning::structure::{is_exactly_zero, ParallelGains};
+use trust_control_math::sampling::plot_extrema::extrema_indices;
+
+/// A prediction longer than this many points is reduced for the plot (B4.5).
+const PLOT_POINT_LIMIT: usize = 6_000;
+/// The groups a long prediction is split into for the plot; each keeps its extremes of every trace (B4.5).
+const PLOT_GROUPS: usize = 1_000;
 
 /// The reason of a candidate whose predictions run but leave no sample from the settling deadline on.
 const NO_SAMPLE_AFTER_DEADLINE: &str =
@@ -185,26 +192,41 @@ fn trial_conditions(
 /// The traces of a response (B4.5, B9.6): the setpoint, and the candidate's measurement and command, on the times of the
 /// response.
 fn traces(points: &[ResponsePoint], names: TraceNames<'_>) -> TuneResponse {
+    let setpoint = series(points, |point| point.setpoint);
+    let measurement = series(points, |point| point.candidate_process_value);
+    let command = series(points, |point| point.candidate_manipulated);
+    // The plot keeps each group's extremes of every trace (B4.5); the assessments above read the full prediction.
+    let kept = extrema_indices(
+        points.len(),
+        &[&setpoint, &measurement, &command],
+        PLOT_GROUPS,
+        PLOT_POINT_LIMIT,
+    );
+    let pick = |values: &[f64]| {
+        kept.iter()
+            .map(|index| values[*index])
+            .collect::<Vec<f64>>()
+    };
     TuneResponse {
-        time_seconds: series(points, |point| point.time_seconds),
+        time_seconds: pick(&series(points, |point| point.time_seconds)),
         traces: vec![
             trace(
                 TuneRole::Setpoint,
                 names.setpoint,
                 names.process_unit,
-                series(points, |point| point.setpoint),
+                pick(&setpoint),
             ),
             trace(
                 TuneRole::Measurement,
                 names.measurement,
                 names.process_unit,
-                series(points, |point| point.candidate_process_value),
+                pick(&measurement),
             ),
             trace(
                 TuneRole::Command,
                 names.command,
                 names.manipulated_unit,
-                series(points, |point| point.candidate_manipulated),
+                pick(&command),
             ),
         ],
     }

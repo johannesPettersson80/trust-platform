@@ -9,7 +9,7 @@ use serde_json::Value;
 use trust_control_math::sampling::statistics::TimedValue;
 
 use super::baseline::BaselineSummary;
-use super::{format_duration, progress_due, scale_text, FollowSample, Watch};
+use super::{format_duration, good_inputs, progress_due, scale_text, FollowSample, Watch};
 use crate::experiment::{
     classify_control_experiment_status, ControlExperimentKind, ControlExperimentPlan,
     ControlExperimentRuntimePhase,
@@ -63,10 +63,13 @@ pub enum HoldStep {
 #[derive(Debug, Clone, PartialEq)]
 pub struct HoldTracker {
     baseline: Baseline,
+    /// The plant input's baseline, for a closed-loop setpoint step whose baseline measured it (B3.4 step 4).
+    input_baseline: Option<Baseline>,
     step_seconds: f64,
     single: bool,
     duration_seconds: f64,
     points: Vec<TimedValue>,
+    inputs: Vec<TimedValue>,
     left_band: bool,
     finished: bool,
     reported_seconds: f64,
@@ -88,12 +91,19 @@ impl HoldTracker {
                     | ControlExperimentKind::LoadStep
                     | ControlExperimentKind::MvStep
             );
+        // In a closed-loop setpoint step the plant input is part of the response: the controller keeps moving it while a slow
+        // mode settles, so the step is finished early only once it has settled too (B3.4 step 4).
+        let input_baseline = (plan.kind == ControlExperimentKind::SetpointStep)
+            .then(|| baseline.input_settle_baseline())
+            .flatten();
         Self {
             baseline: baseline.settle_baseline(),
+            input_baseline,
             step_seconds,
             single,
             duration_seconds: plan.duration_ms / 1_000.0,
             points: Vec::new(),
+            inputs: Vec::new(),
             left_band: false,
             finished: false,
             reported_seconds: f64::NEG_INFINITY,
@@ -117,13 +127,26 @@ impl HoldTracker {
             self.left_band |= left_noise_band(value.value, self.baseline.mean, self.baseline.noise);
             self.points.push(value);
         }
+        if self.input_baseline.is_some() {
+            let step_seconds = self.step_seconds;
+            self.inputs.extend(
+                good_inputs(samples)
+                    .into_iter()
+                    .filter(|value| value.seconds > step_seconds),
+            );
+        }
         if state == HoldState::Ended {
             return HoldStep::Ended;
         }
+        let input_settled = self
+            .input_baseline
+            .as_ref()
+            .is_none_or(|input| has_settled(&self.inputs, input, self.step_seconds));
         let finish_early = self.single
             && !self.finished
             && self.left_band
-            && has_settled(&self.points, &self.baseline, self.step_seconds);
+            && has_settled(&self.points, &self.baseline, self.step_seconds)
+            && input_settled;
         if finish_early {
             self.finished = true;
         }

@@ -13,6 +13,9 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use trust_control::commissioning::checkpoint::{
+    CheckpointStage, CommissioningCheckpoint, IdentificationModeCheckpoint,
+};
 use trust_control::experiment::{ControlExperimentRecovery, RecordingRecoveryOwner};
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::campaign::journal::IdentificationCampaignJournal;
@@ -57,10 +60,25 @@ pub enum JournalEntry {
         /// The job's owner (`IsolatedJobOwner`).
         job: Box<IsolatedJobOwner>,
     },
+    /// The commissioning checkpoint of an Apply (A8.3, A8.5, B6.4), journaled before its first write and rewritten as each
+    /// transaction is dispatched. Kept while the settings are applied, so that Restore works after a restart of the engine;
+    /// cleared once a Restore confirms, or a later Apply replaces it. Its operation is the checkpoint's own identifier.
+    Commissioning {
+        /// The checkpoint (`CommissioningCheckpoint`), whose identifier names the operation.
+        checkpoint: Box<CommissioningCheckpoint>,
+    },
+    /// The mode checkpoint of an Identify campaign that moved the loop to the other mode (A6.2, A8.6), journaled before the mode
+    /// transfer is dispatched. Cleared once the loop is back in the mode it was found in.
+    IdentificationMode {
+        /// The identifier of the mode change, which the journal reads and clears it by.
+        operation_id: String,
+        /// The mode checkpoint (`IdentificationModeCheckpoint`).
+        checkpoint: Box<IdentificationModeCheckpoint>,
+    },
 }
 
 impl JournalEntry {
-    /// The runtime identifier of the operation: an identification campaign's is its recording's.
+    /// The runtime identifier of the operation: an identification campaign's is its recording's, and a checkpoint's is its own.
     #[must_use]
     pub fn operation_id(&self) -> &str {
         match self {
@@ -68,6 +86,22 @@ impl JournalEntry {
             Self::Experiment { recovery } => &recovery.experiment_id,
             Self::IdentificationCampaign { campaign } => &campaign.recording.recording_id,
             Self::IsolatedJob { job } => &job.job_id,
+            Self::Commissioning { checkpoint } => &checkpoint.id,
+            Self::IdentificationMode { operation_id, .. } => operation_id,
+        }
+    }
+
+    /// Whether the entry holds an operation that runs or whose outcome is unconfirmed (A8.5), which another operation of the
+    /// loop waits for. A standing Apply's checkpoint, completed and kept for Restore, is not one (B7), nor is a recovered or
+    /// retired checkpoint.
+    #[must_use]
+    pub fn holds_unfinished_operation(&self) -> bool {
+        match self {
+            Self::Commissioning { checkpoint } => !matches!(
+                checkpoint.stage,
+                CheckpointStage::Completed | CheckpointStage::Recovered | CheckpointStage::Retired
+            ),
+            _ => true,
         }
     }
 }
@@ -273,6 +307,8 @@ mod tests {
             half_range: 0.05,
             spacing_seconds: 1.0,
             window_seconds: 30.0,
+            input_mean: None,
+            input_noise: None,
         };
         let step_phase = JournalEntry::IdentificationCampaign {
             campaign: Box::new(IdentificationCampaignJournal::step_phase(

@@ -4,7 +4,7 @@
   "name": "Tank temperature",
   "projectId": "project:0a0a854e0eede4658a5b363fe86c90fbc31a760ee5adf35167cab33b35ca5009",
   "runtimeId": "unix:///tmp/trust-runtime.sock",
-  "revision": "sha256:eaccc25084bac37bbb54205d6643aa81371777ead5f9c1ffd490e4b607f9ad50",
+  "revision": "sha256:e2fb058ad3fdbb0abd5798ca1b397e18aca6b9f73fe9e82a1e1e6c6cddd7bcc5",
   "topology": "closed-loop",
   "controller": {
     "instance": "Main.TIC101",
@@ -161,7 +161,7 @@
     "execution": "control-studio",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 28800,
+    "durationSeconds": 1800,
     "seed": 1
   },
   "parameterBinding": {

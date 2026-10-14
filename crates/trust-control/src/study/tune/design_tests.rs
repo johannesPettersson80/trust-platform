@@ -10,7 +10,7 @@ use trust_control_math::margins::MarginValue;
 use super::*;
 use crate::identification::identify_result::tests::plant_loop;
 use crate::messages::{CandidateOutcome, TuneRole};
-use crate::study::tune::record::{candidate_record, LoopLimits};
+use crate::study::tune::record::{candidate_record, LoopLimits, TrackingRule};
 use crate::tuning::candidate::DEFAULT_RATE_LIMIT_PER_S;
 use crate::tuning::prediction::PredictedGains;
 use crate::tuning::recommendation::PI_SELECTED;
@@ -178,6 +178,7 @@ fn a_simc_pi_is_unapplied_and_its_gains_carry_the_sign_of_the_action() {
                     task_period_ms: predictor.task_period_ms,
                     output: predictor.output_limits,
                     rate: predictor.rate_limits,
+                    tracking: TrackingRule::Record,
                 };
                 let candidate = candidate_record(
                     designed.gains,
@@ -441,6 +442,7 @@ fn the_answer_of_a_simc_pi_carries_its_lambda_its_margins_and_its_response() {
                 task_period_ms: predictor.task_period_ms,
                 output: predictor.output_limits,
                 rate: predictor.rate_limits,
+                tracking: TrackingRule::Record,
             };
             let candidate = candidate_record(
                 designed.gains,
@@ -450,12 +452,14 @@ fn the_answer_of_a_simc_pi_carries_its_lambda_its_margins_and_its_response() {
                 None,
             )
             .expect("a valid record");
+            let mapped = mapped_parameters(&loop_definition);
             let evaluation = Evaluation {
                 model: &model,
                 requirements: basis.requirements,
                 predictor,
                 context: basis.context,
                 names: TraceNames::of(&loop_definition),
+                parameters: &mapped,
             };
             let comparison = simc_comparison(
                 basis.plant,

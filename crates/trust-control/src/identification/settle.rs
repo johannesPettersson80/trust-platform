@@ -50,20 +50,27 @@ pub fn is_steady(points: &[TimedValue], noise: f64, range: f64) -> bool {
     trend_movement(points) <= (4.0 * noise).max(1e-5 * range)
 }
 
-/// The baseline window (B3.4): the longest of twenty samples, 5 % of the maximum duration and, when a settling time is
-/// declared, 10 % of it; never longer than [`BASELINE_WINDOW_CAP_SECONDS`].
+/// The baseline window before its twenty-sample floor (B3.4): the longer of 5 % of the maximum duration and, when a settling
+/// time is declared, 10 % of it, never longer than [`BASELINE_WINDOW_CAP_SECONDS`]. The campaign's wait takes two of these
+/// (`baseline_budget_ms`).
+#[must_use]
+pub fn capped_baseline_window_seconds(maximum_seconds: f64, settling_seconds: Option<f64>) -> f64 {
+    let declared = settling_seconds.map_or(0.0, |settling| 0.1 * settling);
+    BASELINE_WINDOW_CAP_SECONDS.min((0.05 * maximum_seconds).max(declared))
+}
+
+/// The baseline window (B3.4): the longer of 5 % of the maximum duration and, when a settling time is declared, 10 % of it,
+/// never longer than [`BASELINE_WINDOW_CAP_SECONDS`], and never shorter than twenty samples. A slow process recorded at a long
+/// record period (A4.2) keeps its twenty samples beyond the cap: a shorter window could never hold them, so the baseline
+/// would never be judged steady.
 #[must_use]
 pub fn baseline_window_seconds(
     maximum_seconds: f64,
     spacing_seconds: f64,
     settling_seconds: Option<f64>,
 ) -> f64 {
-    let declared = settling_seconds.map_or(0.0, |settling| 0.1 * settling);
-    BASELINE_WINDOW_CAP_SECONDS.min(
-        minimum_window_seconds(spacing_seconds)
-            .max(0.05 * maximum_seconds)
-            .max(declared),
-    )
+    let capped = capped_baseline_window_seconds(maximum_seconds, settling_seconds);
+    minimum_window_seconds(spacing_seconds).max(capped)
 }
 
 /// The settle window (B3.4): the longer of twenty samples and 10 % of the hold so far.

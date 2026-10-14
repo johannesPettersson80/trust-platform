@@ -233,7 +233,19 @@ pub fn check_before_start(inputs: &TuneInputs<'_>) -> Result<(), Failure> {
 /// The failure of the design: the requirements cannot be formed, no structure meets them, or the method does not apply
 /// (B4.7).
 pub fn tune(inputs: &TuneInputs<'_>) -> Result<TuneOutcome, Failure> {
-    design::run(inputs)
+    tune_held(inputs, None)
+}
+
+/// [`tune`] with the requirements the study holds (B4.3): `held` is the requirements the engineer recorded in the study's inputs,
+/// which the design takes as given, and `None` keeps the earlier Tune section's record as [`tune`] does.
+///
+/// # Errors
+/// The failure of the design, as [`tune`] names it (B4.7).
+pub fn tune_held(
+    inputs: &TuneInputs<'_>,
+    held: Option<&TuningRequirements>,
+) -> Result<TuneOutcome, Failure> {
+    design::run(inputs, held)
 }
 
 /// The answer of a manual preview (B4.5): the result that Tune with the manual method would finish with, on the study as it
@@ -242,7 +254,7 @@ pub fn tune(inputs: &TuneInputs<'_>) -> Result<TuneOutcome, Failure> {
 /// # Errors
 /// The refusals of [`check_before_start`] and of the design (B4.7).
 pub fn preview(inputs: &TuneInputs<'_>) -> Result<TuneResult, Failure> {
-    let mut result = design::run(inputs)?.result;
+    let mut result = design::run(inputs, None)?.result;
     result.stages = stage_availability(&stage_evidence(
         inputs.loop_definition,
         inputs.identify,

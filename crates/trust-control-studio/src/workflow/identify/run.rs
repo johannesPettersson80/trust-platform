@@ -1,7 +1,8 @@
 //! The connected run (`ConnectedIdentification` of `connectedIdentification.ts`; specification 35, A6.2, A8.5, B3.4; runtime
-//! protocol annex E11.2 to E11.6): the sample and the method, the recording and its journal, the steady baseline, the one step
-//! with its journal written before the start is sent once, the hold, the restoration, the kept recording and its record, the
-//! fit, and the settling that ends an owned experiment and clears the journal once nothing of the run is left running.
+//! protocol annex E11.2 to E11.6 and E11.9): the sample and the method, the mode the method needs, the recording and its
+//! journal, the steady baseline, the one step with its journal written before the start is sent once, the hold, the
+//! restoration, the kept recording and its record, the fit, the settling that ends an owned experiment and clears the journal
+//! once nothing of the run is left running, and then the return of the loop to the mode it was found in.
 //!
 //! The helpers marked `pub(crate)` are the steps a resumed campaign shares (`connectedIdentificationRecovery.ts`).
 
@@ -24,14 +25,13 @@ use trust_control::identification::connected_record::{
 use trust_control::identification::connected_run::{
     campaign_refusal, ended_and_restored, evaluation_refusal, experiment_recovery, fit_failure,
     fit_window, hold_end, hold_refusal, identification_cancelled, is_provisional,
-    offers_setpoint_step, recording_settling_ms, start_outcome, start_reconciliation, step_hold_ms,
-    step_plan, stopped_hold_outcome, FitWindow, HoldEnd, StartOutcome, StartReconciliation,
-    CHECKING_TEXT, FITTING_TEXT, IDENTIFYING_TEXT, RESTORATION_POLLS,
+    offers_setpoint_step, recording_settling_ms, restoration_allowance_ms, start_outcome,
+    start_reconciliation, step_hold_ms, step_plan, stopped_hold_outcome, FitWindow, HoldEnd,
+    StartOutcome, StartReconciliation, CHECKING_TEXT, FITTING_TEXT, IDENTIFYING_TEXT,
+    RESTORATION_POLLS,
 };
 use trust_control::identification::independent_validation::RunEvaluation;
-use trust_control::identification::mode::{
-    mode_change_refusal, needs_mode_change, unreadable_mode_refusal,
-};
+use trust_control::identification::mode::{needs_mode_change, unreadable_mode_refusal};
 use trust_control::identification::policy::{identification_method, IdentificationMethod};
 use trust_control::identification::recorded_model::fit_recorded_model;
 use trust_control::loop_definition::LoopDefinition;
@@ -48,6 +48,7 @@ use crate::runtime_client::runtime_recording::{
 use crate::workflow::identify_campaign::{
     CampaignClock, CampaignReport, ExperimentClient, IdentifyCampaign,
 };
+use crate::workflow::identify_mode::{mode_journaled, IdentificationMode};
 use crate::workflow::reconcile::{read_experiment_identity, release_recording};
 
 /// The ports of one run (`ConnectedIdentification`'s request, ports and options).
@@ -84,6 +85,9 @@ struct Run<'a, T: IdentifyRuntime, S, K, C, P, E> {
     recording: Option<T::Recording>,
     /// The runtime identities the run journaled: its recording and its experiment.
     journaled: Vec<String>,
+    /// The mode change of a method that needs the other mode, which returns the loop once nothing of the run is left running
+    /// (`mode`).
+    mode: Option<IdentificationMode<'a>>,
 }
 
 /// Runs one connected identification, or records the independent model check, and then settles (`run`, `recordValidation`).
@@ -110,6 +114,7 @@ where
         may_abort: true,
         recording: None,
         journaled: Vec::new(),
+        mode: None,
     }
     .execute(purpose)
 }
@@ -123,7 +128,8 @@ where
     P: CampaignReport,
     E: RunEvaluation + Clone,
 {
-    /// The sample, the method and the mode decision, then the work and the settling (`execute` and `conclude`).
+    /// The sample, the method and the mode decision, then the work, the settling and the return of the mode (`execute` and
+    /// `conclude`).
     fn execute(mut self, purpose: RunPurpose) -> Result<IdentifyOutcome<E>, Failure> {
         let loop_definition = self.request.loop_definition;
         let sample = self.ports.sampler.sample()?;
@@ -134,15 +140,26 @@ where
         }
         let method = identification_method(loop_definition, sample.as_ref())
             .map_err(|error| error.failure())?;
-        // Mode transfer: moves with V4 (runtimeTransfer.ts). Until then a method that needs the other mode is refused before
-        // anything is recorded or written; an open-loop loop has no mode to change, and no sample has no mode to compare.
-        if mode.is_some_and(|mode| needs_mode_change(loop_definition, method, mode)) {
-            return Err(mode_change_refusal(method));
+        // A method that needs the other mode enters it through a transfer in the work, and a mode change that an earlier run left
+        // journaled is returned first (`needsMode`, B3.4 step 1, A8.6). An open-loop loop has no mode to change, and no sample has
+        // no mode to compare.
+        let journaled = mode_journaled(&self.ports.journal.lock());
+        if journaled || mode.is_some_and(|mode| needs_mode_change(loop_definition, method, mode)) {
+            let connection = self.ports.runtime.transfer_connection()?;
+            self.mode = Some(IdentificationMode::new(
+                loop_definition,
+                connection,
+                self.ports.journal,
+            )?);
         }
         let worked = self.work(method, purpose, sample.as_ref());
         // The settling runs whatever the work gave; its own failure replaces the work's (`conclude`'s `finally`).
         self.settle()?;
+        // Then the loop returns to the mode it was found in (A6.2). A failed return replaces only a work that succeeded: its
+        // checkpoint stays journaled, so a Cancel or a reopened panel returns the mode (A8.6).
+        let returned = self.return_mode();
         let (recording_id, result) = worked?;
+        returned?;
         Ok(IdentifyOutcome {
             result,
             recording_id,
@@ -159,7 +176,10 @@ where
         purpose: RunPurpose,
         sample: Option<&ExperimentSample>,
     ) -> Result<(String, IdentifyResult<E>), Failure> {
-        // Mode transfer: moves with V4 (runtimeTransfer.ts). The method's mode would be entered here.
+        // The loop enters the mode the method needs before anything is recorded (B3.4 step 1).
+        if let Some(mode) = self.mode.as_mut() {
+            mode.enter(method.manual)?;
+        }
         self.check_cancelled()?;
         let validation = purpose == RunPurpose::RecordValidation;
         self.ports.report.progress(if validation {
@@ -202,7 +222,8 @@ where
             return Err(refusal);
         }
         // One plant input: the loop is the one channel (connectedIdentificationChannels.ts is parked with V7).
-        let recording_ms = campaign_recording_ms(loop_definition)?;
+        let recording_ms =
+            campaign_recording_ms(loop_definition, self.request.expected_settling_seconds)?;
         let mut recording = self.start_recording(recording_ms, maximum_ms)?;
         let held = self.campaign(
             &mut recording,
@@ -293,13 +314,16 @@ where
         );
         let baseline = campaign.baseline(maximum_ms)?;
         let baseline_end_seconds = campaign.seconds();
-        // Mode transfer: moves with V4 (runtimeTransfer.ts). The transfer's process noise is the baseline's half range.
+        // The baseline's half range is the measured noise that a return to Auto allows its first output to move by (A6.4).
+        if let Some(mode) = self.mode.as_mut() {
+            mode.set_process_noise(baseline.half_range);
+        }
         self.check_cancelled()?;
         let step_seconds = campaign.seconds();
         let hold_ms = step_hold_ms(
             maximum_ms,
             recording_ms,
-            &baseline,
+            restoration_allowance_ms(loop_definition, &baseline),
             baseline_end_seconds,
             step_seconds,
         );
@@ -415,8 +439,23 @@ where
             retain_recording(recording, self.ports.retention)?;
             self.recording = None;
         }
-        // Mode transfer: moves with V4 (runtimeTransfer.ts). The loop's mode returns once no live experiment is left (A6.2).
+        // The loop's mode returns after the settling, once no live experiment is left (`return_mode`, A6.2).
         clear_entries(self.ports.journal, &self.journaled)
+    }
+
+    /// Returns the loop to the mode it was found in once no experiment of the run is left running (`settle`'s
+    /// `mode.restore()`, A6.2, E11.9). An experiment still owned here keeps the mode it needs, and the mode checkpoint stays
+    /// journaled with it for the reconciliation on reopening (A8.6).
+    ///
+    /// # Errors
+    /// The return fails (see [`IdentificationMode::restore`]).
+    fn return_mode(&mut self) -> Result<(), Failure> {
+        if self.active.is_some() {
+            return Ok(());
+        }
+        self.mode
+            .as_mut()
+            .map_or(Ok(()), IdentificationMode::restore)
     }
 
     /// Ends a live experiment owned here through the runtime's restoration path (`releaseActive`). An abort that fails, or a

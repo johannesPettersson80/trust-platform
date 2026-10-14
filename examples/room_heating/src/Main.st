@@ -67,7 +67,7 @@ VAR RETAIN
     (* truST plant: retained declarations sha256:e99945f6bf371c2d1f07a36c30fb024b66e0123914f5d525b8aa4293d3a24850 *)
     TIC101_Parameters : Control.PIDParameters := (
         ProportionalGain := 33.3,
-        IntegralGain := 0.0667,
+        IntegralGain := 1.334,
         DerivativeGain := 0.0,
         ProportionalSetpointWeight := 1.0,
         DerivativeSetpointWeight := 0.0,
@@ -84,7 +84,7 @@ VAR RETAIN
     TIC101_Output : LREAL;
     TIC102_Parameters : Control.PIDParameters := (
         ProportionalGain := 28.6,
-        IntegralGain := 0.068,
+        IntegralGain := 1.36,
         DerivativeGain := 0.0,
         ProportionalSetpointWeight := 1.0,
         DerivativeSetpointWeight := 0.0,

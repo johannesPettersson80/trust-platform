@@ -94,6 +94,10 @@ pub struct Failure {
     pub cause: Cause,
     /// What to do next.
     pub next_action: NextAction,
+    /// The words of the next action's button, as [`NextAction::label`] gives them, so that a front end shows the engine's words
+    /// (one source of the words); absent for `wait` and `none`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    next_action_label: Option<&'static str>,
 }
 
 impl Failure {
@@ -108,6 +112,25 @@ impl Failure {
             detail,
             cause,
             next_action,
+            next_action_label: label_of(next_action),
+        }
+    }
+
+    /// A failure with exactly these parts, as a stored failure is read back: the message and the detail are kept as they were
+    /// written, without splitting the text again.
+    #[must_use]
+    pub fn from_parts(
+        message: String,
+        detail: Option<String>,
+        cause: Cause,
+        next_action: NextAction,
+    ) -> Self {
+        Self {
+            message,
+            detail,
+            cause,
+            next_action,
+            next_action_label: label_of(next_action),
         }
     }
 
@@ -136,6 +159,7 @@ impl Failure {
                 detail: Some(text.trim().to_string()),
                 cause,
                 next_action,
+                next_action_label: label_of(next_action),
             };
         }
         Self::new(text, cause, next_action)
@@ -149,6 +173,7 @@ impl Failure {
             detail: Some(text.trim().to_string()),
             cause: Cause::Runtime,
             next_action: NextAction::ConnectRuntime,
+            next_action_label: label_of(NextAction::ConnectRuntime),
         }
     }
 
@@ -179,6 +204,11 @@ impl Failure {
             NextAction::None,
         )
     }
+}
+
+/// The label a failure carries for `next_action`: its button's words, or none for an action without a button.
+fn label_of(next_action: NextAction) -> Option<&'static str> {
+    Some(next_action.label()).filter(|label| !label.is_empty())
 }
 
 /// The text up to the first full stop, question or exclamation mark that ends a word, so a value
@@ -287,7 +317,14 @@ mod tests {
     fn a_failure_serializes_with_its_typed_action() {
         let json = serde_json::to_value(Failure::unreachable("connection refused")).expect("json");
         assert_eq!(json["nextAction"], "connect-runtime");
+        assert_eq!(json["nextActionLabel"], "Connect runtime…");
         assert_eq!(json["cause"], "runtime");
         assert_eq!(json["detail"], "connection refused");
+        let waiting =
+            serde_json::to_value(Failure::from_runtime("stale_scan", "busy")).expect("json");
+        assert!(
+            waiting.get("nextActionLabel").is_none(),
+            "an action without a button carries no label: {waiting}"
+        );
     }
 }

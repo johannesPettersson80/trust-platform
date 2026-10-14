@@ -5,7 +5,7 @@
 # editor for couplings yet, so they are written here.
 [[plants]]
 command_sources = ["%QL8", "%QL16", "%ML0"]
-description = "Hot water tank T-101 heated by EH-101 feeds fan-coil E-101 through three-way valve TV-101. Deviations from 45 °C tank, 22 °C room and 51 % valve, linear around that point; outdoor 5 °C, tank surroundings 20 °C."
+description = "Hot water tank T-101 heated by EH-101 feeds fan-coil E-101 through three-way valve TV-101. Deviations from 45 °C tank, 22 °C room and 51 % valve, linear around that point; outdoor 5 °C, tank surroundings 20 °C. A small tank and room: the slowest mode, tank and room heating together, has a time constant of about 4 minutes."
 enabled = true
 feedback_targets = ["%IL8", "%IL16", "%IL24"]
 id = "room-heating"
@@ -17,7 +17,7 @@ model = "state_space"
 name = "Tank and room"
 output_offset = [11.2, 11.04, 51]
 output_scale = [0.16, 0.32, 1]
-parameters = { a = [[-0.000394783, 0.000354783, -0.00016], [0.000739131, -0.001739131, 0.000333333], [0, 0, -0.2]], b = [[0.00024, 0, 0], [0, 0, -0.000166667], [0, 0.2, 0]], c = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], d = [[0, 0, 0], [0, 0, 0], [0, 0, 0]] }
+parameters = { a = [[-0.00789566, 0.00709566, -0.0032], [0.01478262, -0.03478262, 0.00666666], [0, 0, -4]], b = [[0.0048, 0, 0], [0, 0, -0.00333334], [0, 4, 0]], c = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], d = [[0, 0, 0], [0, 0, 0], [0, 0, 0]] }
 uncertainties = [{ channel = 0, generator = "normal_approx_white", id = "effect_1", mean = 0, mode = "add", standard_deviation = 0.03, start_s = 0, target = "measurement" }, { channel = 1, generator = "normal_approx_white", id = "effect_2", mean = 0, mode = "add", standard_deviation = 0.02, start_s = 0, target = "measurement" }]
 
 # Contactor and drive feedback, and the flow switch once the pump has run up.

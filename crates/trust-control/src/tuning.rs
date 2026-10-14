@@ -29,6 +29,8 @@ pub mod requirements;
 pub mod robustness;
 pub mod settings_pins;
 pub mod shortfall;
+pub mod state_controller;
 pub mod structure;
+pub mod structures;
 pub mod texts;
 pub mod typed_pid;

@@ -2,8 +2,12 @@
 //! specification 35, §0.1b and B4.1 to B4.2; numerical annex N2.9, N5.R and N6.4).
 //!
 //! The program runs on a copy of lesson 29, `examples/control/06-pid-tuning-methods/29-relay-tuning` (`EXAMPLE` and `LOOP_ID`
-//! are the only places that name it), against `trust-runtime run --simulation` at ten times real time (`time_scale = 10` in the
-//! copy's `simulation.toml`, the speed the other runtime tests set). The copy's endpoint is a socket in the copy, and the control
+//! are the only places that name it), against `trust-runtime run --simulation` at real time (`time_scale = 1` in the copy's
+//! `simulation.toml`). The copy relays 15 points instead of the lesson's 10 (`RELAY_AMPLITUDE`): with 10 points the ±0.02 °C
+//! noise and the 0.1 s execution at which the relay switches spread single cycles by up to the 10 % of N2.9, so the lesson's
+//! record qualifies only about three times in four (a Monte Carlo of the lesson's plant gave 75.5 %; rounds R2 and R3 of
+//! 10 October measured 13.5 % and 11.8 %), while with 15 points it qualifies 999 times in 1,000. The ultimate gain and period are
+//! the plant's, so the README's numbers below still apply. The copy's endpoint is a socket in the copy, and the control
 //! token goes to `identify` through `TRUST_CONTROL_TOKEN` (§0.1b). The copy's `src/tests.st` declares the lesson's
 //! `TEST_PROGRAM`s, which an ordinary runtime build rejects, so the copy takes them out, as `identify_lab` does. Each test works on
 //! a copy of its own, so the tests run side by side.
@@ -11,7 +15,7 @@
 //! The loop's controller acts `direct` (`control-loop.json`), so the gains of a relay candidate are positive (N6.4). The rule gives
 //! `Kp = 0.45·Ku` and `Ti = Pu/1.2`, with `Ki = Kp/Ti` (N5.R).
 //!
-//! The lesson's README states the cycle of its own run: `d` = 10 %, `a` = 0.4354 °C, `Pu` = 4.42 s, `Ku` = 29.24 %/°C, `Kp` =
+//! The lesson's README states the cycle of its own 10-point run: `d` = 10 %, `a` = 0.4354 °C, `Pu` = 4.42 s, `Ku` = 29.24 %/°C, `Kp` =
 //! 13.16 %/°C and `Ki` = 3.57 %/(°C·s). The test identifies the heater again and measures its own cycles, so the README's numbers
 //! are compared with a tolerance of 15 %, as `control_studio_tune.rs` compares its SIMC gains with the README's: the record is
 //! noisy, and the lesson's own repeated relay test gave `Kp` within 4 % of the first. The formulas are checked against the `Ku`
@@ -59,12 +63,14 @@ const EXAMPLE: &str = concat!(
 const LOOP_ID: &str = "control-relay-tuning";
 /// The runtime the verbs name for a project's loops; the example's loop is bound to it.
 const RUNTIME_ID: &str = "simulator";
-/// The speed of the simulation, ten times real time.
-const TIME_SCALE: u32 = 10;
+/// The speed of the simulation: real time (see the module documentation).
+const TIME_SCALE: u32 = 1;
+/// The relay's step in the copy, in %: 15 points, so that its record qualifies (module documentation).
+const RELAY_AMPLITUDE: f64 = 15.0;
 /// How often a test looks at a running program.
 const POLL: Duration = Duration::from_millis(25);
-/// The longest `identify` may run; at ten times real time it takes seconds, so this only ends a hung run.
-const RUN_LIMIT: Duration = Duration::from_secs(180);
+/// The longest `identify` may run: the relay's noise hold and switching take about 70 s at real time, so this only ends a hung run.
+const RUN_LIMIT: Duration = Duration::from_secs(600);
 /// How far the formulas may be from the printed `Ku` and `Pu`: the reason prints them with two decimals, and the engine keeps
 /// eight significant digits of the gains.
 const FORMULA_TOLERANCE: f64 = 0.01;
@@ -124,6 +130,7 @@ impl Scratch {
         let project = folder.join("project");
         copy_dir(Path::new(EXAMPLE), &project);
         remove_test_programs(&project);
+        set_relay_amplitude(&project, RELAY_AMPLITUDE);
         Self {
             folder,
             project,
@@ -218,7 +225,7 @@ impl Drop for Program {
     }
 }
 
-/// A copy of lesson 29 with its runtime running at ten times real time, and the folder of the operation journals.
+/// A copy of lesson 29 with its runtime running at real time, and the folder of the operation journals.
 struct Lab {
     /// The runtime process. It is declared first, so it ends before the folder goes.
     _runtime: Runtime,
@@ -350,8 +357,8 @@ impl Lab {
 /// README's numbers (15 %), the Tune stage, and the study's Tune section, which keeps the candidate unapplied and names the model it
 /// was designed on (A8.4).
 ///
-/// Run time at ten times real time: about 10 to 15 s: the copy and the build, the start of the runtime, the relay's 6 s noise hold
-/// and at most 60 s of switching (6.6 s of wall time at most), and a tune that reads the stored recording in well under a second.
+/// Run time at real time: about 80 s: the copy and the build, the start of the runtime, the relay's 6 s noise hold and at most 60 s of
+/// switching, and a tune that reads the stored recording in well under a second.
 #[test]
 fn relay_tune_gives_the_relay_rule_pi_of_the_measured_cycle() {
     let mut findings = Findings::default();
@@ -389,8 +396,8 @@ fn relay_tune_gives_the_relay_rule_pi_of_the_measured_cycle() {
 /// of lesson 29 is identified with `identify --method step --json` (the loop permits the open-loop methods, B3.3), so the method is
 /// the only difference from the first test.
 ///
-/// Run time at ten times real time: about 8 to 12 s: the copy and the build, the start of the runtime, the step's hold of about 2 s
-/// of wall time (as `control_studio_identify_methods.rs` measures a step on lesson 30), and a refusal at once.
+/// Run time at real time: about 30 s: the copy and the build, the start of the runtime, the step's hold of about 20 s (as
+/// `control_studio_identify_methods.rs` measures a step on lesson 30), and a refusal at once.
 #[test]
 fn relay_rule_is_refused_for_a_model_identified_with_a_plant_input_step() {
     let mut findings = Findings::default();
@@ -534,6 +541,24 @@ fn number_after(text: &str, label: &str) -> Option<f64> {
         .next()?
         .parse::<f64>()
         .ok()
+}
+
+/// Sets the relay's step of the copy's loop (`experiment.amplitude` of `control-loop.json`).
+fn set_relay_amplitude(project: &Path, amplitude: f64) {
+    let file = project.join("control-loop.json");
+    let mut loop_file: Value =
+        serde_json::from_str(&fs::read_to_string(&file).expect("the loop file"))
+            .expect("the loop's JSON");
+    assert_eq!(
+        loop_file["experiment"]["kind"], "relay",
+        "the lesson's experiment is the relay"
+    );
+    loop_file["experiment"]["amplitude"] = Value::from(amplitude);
+    fs::write(
+        &file,
+        serde_json::to_string_pretty(&loop_file).expect("the loop's JSON"),
+    )
+    .expect("write the loop file");
 }
 
 /// Sets `[simulation] time_scale` of the copy; the copy must have exactly one such line.

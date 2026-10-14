@@ -5,9 +5,10 @@
 //! makes the calls those decisions need, in their order, and reaches the runtime only through [`IdentifyRuntime`].
 //!
 //! One plant input only: stepping several inputs one after another (`connectedIdentificationChannels.ts`) is parked with stage
-//! V7, so the loop is the one channel. The mode transfer of a method that needs the other mode moves with V4; until then such a
-//! method is refused before anything is recorded or written. The engine outlives a closed panel, so the release of a closed
-//! panel (`dispose`) has no counterpart here: the runtime keeps its experiment and recording, and the journal stays (A8.5, A8.6).
+//! V7, so the loop is the one channel. A method that needs the other mode enters it through a transfer before anything is
+//! recorded, and the loop returns to the mode it was found in once nothing of the run is left running (`identify_mode`, B3.4
+//! step 1, A6.2). The engine outlives a closed panel, so the release of a closed panel (`dispose`) has no counterpart here: the
+//! runtime keeps its experiment and recording, and the journal stays (A8.5, A8.6).
 //! The evaluation of a connected run is the caller's ([`RunEvaluator`]): production passes the limits check of
 //! `recorded_limits` (B3.4 step 6), and the requirement evaluation of N8 is stage V3.
 
@@ -19,7 +20,7 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 use trust_control::experiment::{ControlExperimentPlan, ExperimentSample, RecordingRecoveryOwner};
-use trust_control::failure::Failure;
+use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::acquisition_settings::{
     configured_acquisition, AcquisitionSettings,
 };
@@ -33,6 +34,7 @@ use trust_control::identification::connected_run::{
 use trust_control::identification::independent_validation::RunEvaluation;
 use trust_control::identification::policy::IdentificationMethod;
 use trust_control::identification::reconcile::StatusRead;
+use trust_control::identification::texts::MODE_TRANSFER_UNAVAILABLE;
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::recording::evidence::RecordingEvidence;
 use trust_control::recording::RecordedRun;
@@ -133,6 +135,20 @@ pub trait IdentifyRuntime {
 
     /// Reads the status of `experiment_id` and says what came back, with a refusal's code (E5.6, E11.4).
     fn experiment_status(&self, experiment_id: &str) -> StatusRead;
+
+    /// The control connection on which a mode change transfers the loop (annex E6): a method that needs the other mode enters it
+    /// through a transfer, and the loop returns to the mode it was found in (B3.4 step 1, A6.2). A runtime that takes no
+    /// transfers refuses, which is the default.
+    ///
+    /// # Errors
+    /// The runtime takes no controller transfers.
+    fn transfer_connection(&self) -> Result<RuntimeConnection, Failure> {
+        Err(Failure::new(
+            MODE_TRANSFER_UNAVAILABLE,
+            Cause::Unclassified,
+            NextAction::None,
+        ))
+    }
 }
 
 /// What a connected run identifies and how it judges its recording.
@@ -196,14 +212,16 @@ pub struct IdentifyOutcome<E> {
 
 /// Runs one connected identification (`run`) or records the independent model check (`recordValidation`) on the runtime of
 /// `connection`, reporting through `context` and stopping at its next step once it is cancelled. The journal is the loop's
-/// journal in `storage_folder` (A8.3). Whatever happens, the run then settles: it ends an experiment it owns through the
-/// runtime's restoration path, and once no experiment of it is left running it keeps its recording and clears its journal. An
-/// experiment whose state is unknown is left to the runtime with its journal (A8.5, E11.4).
+/// journal in `storage_folder` (A8.3). A method that needs the other mode enters it through a transfer first (B3.4 step 1).
+/// Whatever happens, the run then settles: it ends an experiment it owns through the runtime's restoration path, and once no
+/// experiment of it is left running it keeps its recording, clears its journal and returns the loop to the mode it was found
+/// in (A6.2). An experiment whose state is unknown is left to the runtime with its journal and the mode (A8.5, E11.4).
 ///
 /// # Errors
-/// The journal cannot be read; the sample, the method, the mode, a limit or the target refuses the run before anything is
-/// recorded; the recording, the baseline, the start, the hold, the restoration, the record or the fit fails; or the settling
-/// fails, whose failure then replaces the run's.
+/// The journal cannot be read; the sample, the method, a mode that cannot be read, a limit or the target refuses the run before
+/// anything is recorded; the loop cannot be moved to the mode the method needs; the recording, the baseline, the start, the
+/// hold, the restoration, the record or the fit fails; the settling fails, whose failure then replaces the run's; or the loop
+/// cannot be returned to its mode, whose failure replaces only a run that succeeded.
 pub fn run_identification<S, K, E>(
     context: &OperationContext,
     connection: &RuntimeConnection,

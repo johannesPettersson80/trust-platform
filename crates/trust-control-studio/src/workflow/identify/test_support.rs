@@ -551,6 +551,7 @@ impl RecordingFollower for FakeRecording {
                 elapsed_seconds: at,
                 good: true,
                 output: Some(plant.measured(at)),
+                input: None,
             });
             self.next_second += 1;
         }
@@ -806,6 +807,8 @@ fn baseline() -> BaselineSummary {
         half_range: 0.05,
         spacing_seconds: 1.0,
         window_seconds: 30.0,
+        input_mean: None,
+        input_noise: None,
     }
 }
 

@@ -550,6 +550,7 @@ fn a_validation_without_passed_runs_is_inconclusive_and_says_why() {
         cases: &cases,
         jobs: &jobs,
         qualification: ModelQualification::Qualified,
+        plant_reason: None,
     })
     .expect("composed");
     assert_eq!(outcome.section.status, RequirementStatus::Inconclusive);
@@ -604,6 +605,7 @@ fn a_failed_model_check_stops_apply_and_names_identify() {
         cases: &cases,
         jobs: &jobs,
         qualification: ModelQualification::Checked(model_check(RequirementStatus::Fail)),
+        plant_reason: None,
     })
     .expect("composed");
     assert_eq!(
@@ -638,6 +640,7 @@ fn the_composition_refuses_jobs_that_do_not_match_the_campaign_or_ran_on_two_rev
         cases: &cases,
         jobs: &[],
         qualification: ModelQualification::Qualified,
+        plant_reason: None,
     })
     .expect_err("one case, no job");
     assert_eq!(no_jobs.cause, Cause::Implementation);
@@ -656,8 +659,60 @@ fn the_composition_refuses_jobs_that_do_not_match_the_campaign_or_ran_on_two_rev
         cases: &cases,
         jobs: &jobs,
         qualification: ModelQualification::Qualified,
+        plant_reason: None,
     })
     .expect_err("two program revisions");
     assert_eq!(changed.next_action, NextAction::Validate);
     assert!(changed.message.contains("changed"), "{}", changed.message);
+}
+
+#[test]
+fn the_result_names_why_the_model_replaced_the_configured_plant_and_omits_the_reason_otherwise() {
+    let loop_definition = fixture_loop();
+    let model = fixture_model();
+    let tune = tune_section(sample_candidate(2.0, 0.5), fixture_task());
+    let cases = [nominal_case(&plan_of(&loop_definition))];
+    let current = job(IsolatedJobState::Failed, "rev-1", "run-1");
+    let candidate = job(IsolatedJobState::Failed, "rev-1", "run-2");
+    let plant = VerificationPlant::Model;
+    let jobs = [CaseJobs {
+        plant: &plant,
+        current: &current,
+        candidate: &candidate,
+    }];
+    let reason = "The configured plant cannot show the response from its operating point.";
+    let replaced = validate_outcome(&ValidationInput {
+        loop_definition: &loop_definition,
+        model: &model,
+        tune: &tune,
+        before: StageEvidence {
+            has_model: true,
+            has_candidate: true,
+            ..StageEvidence::default()
+        },
+        cases: &cases,
+        jobs: &jobs,
+        qualification: ModelQualification::Qualified,
+        plant_reason: Some(reason.to_owned()),
+    })
+    .expect("composed");
+    assert_eq!(replaced.result.plant_reason.as_deref(), Some(reason));
+    let kept = validate_outcome(&ValidationInput {
+        loop_definition: &loop_definition,
+        model: &model,
+        tune: &tune,
+        before: StageEvidence {
+            has_model: true,
+            has_candidate: true,
+            ..StageEvidence::default()
+        },
+        cases: &cases,
+        jobs: &jobs,
+        qualification: ModelQualification::Qualified,
+        plant_reason: None,
+    })
+    .expect("composed");
+    assert_eq!(kept.result.plant_reason, None);
+    let serialized = serde_json::to_value(&kept.result).expect("the result serializes");
+    assert!(serialized.get("plantReason").is_none(), "{serialized}");
 }

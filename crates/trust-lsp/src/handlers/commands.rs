@@ -31,6 +31,7 @@ mod control_keep;
 mod control_links;
 #[path = "commands/control_symbols.rs"]
 mod control_symbols;
+mod hmi_agent;
 #[path = "commands/hmi_authoring/mod.rs"]
 pub(crate) mod hmi_authoring;
 #[path = "commands/hmi_catalogue.rs"]
@@ -105,6 +106,17 @@ pub const EXECUTE_COMMANDS: &[&str] = &[
     HMI_PROPOSE_SETTINGS_PAGE_COMMAND,
     HMI_RENAME_INSTANCE_COMMAND,
     CONTROL_KEEP_PARAMETERS_COMMAND,
+    "trust-lsp.hmiAgent.context",
+    "trust-lsp.hmiAgent.library",
+    "trust-lsp.hmiAgent.inspect",
+    "trust-lsp.hmiAgent.compose",
+    "trust-lsp.hmiAgent.edit",
+    "trust-lsp.hmiAgent.validate",
+    "trust-lsp.hmiAgent.drafts",
+    "trust-lsp.hmiAgent.review",
+    "trust-lsp.hmiAgent.apply",
+    "trust-lsp.hmiAgent.discard",
+    "trust-lsp.hmiAgent.checkInput",
 ];
 
 #[derive(Debug, Deserialize)]
@@ -209,6 +221,9 @@ pub fn execute_read_command(state: &ServerState, params: ExecuteCommandParams) -
             state,
             params.arguments,
         )),
+        command if hmi_agent::is_command(command) => {
+            hmi_agent::execute(state, command, params.arguments)
+        }
         _ => None,
     }
 }

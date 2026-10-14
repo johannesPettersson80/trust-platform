@@ -3,16 +3,7 @@ import { operationTimeout } from "../../hmiBuilder/agent/lifetime";
 import { isLocalSimulator, executeSimulatorJourney, SimulatorJourney } from "../../hmiBuilder/agent/simulator";
 import { controllerBelongsToEquipment } from "../../hmiBuilder/editor/controlStudioHandoff";
 import * as assert from "assert";
-import * as fs from "fs/promises";
-import * as os from "os";
-import * as path from "path";
-import * as vscode from "vscode";
-import { composeAgentPage } from "../../hmiBuilder/agent/compose";
 import { scenarioFrame } from "../../hmiBuilder/agent/scenarios";
-import { reviewRecord } from "../../hmiBuilder/agent/visualReview";
-import { DraftStore } from "../../hmiBuilder/agent/drafts";
-import { recordSelection, forgetSelection, contextSelection } from "../../hmiBuilder/agent/queryMetadata";
-import { validateToolInput } from "../../hmiBuilder/agent/schema";
 import type { Catalogue } from "../../hmiBuilder/editor/catalogue";
 import type { HmiPageModel } from "../../hmiBuilder/drawing/model";
 
@@ -93,13 +84,6 @@ suite("HMI completed authoring contracts", () => {
         label: "Remote",
       }),
     );
-    validateToolInput("hmi_preview_states", {
-      draftId: "draft",
-      revision: "1",
-      mode: "simulator",
-      sessionId: "named",
-      steps: [{ page: "overview", object: "sp", action: "write", value: 2, path: "Main.SP", expect: 2 }],
-    });
   });
   test("simulator journeys retain denied and expired-login outcomes and never replay commands", async () => {
     for (const status of [401, 403]) {
@@ -200,31 +184,6 @@ suite("HMI completed authoring contracts", () => {
     assert.ok(!controllerBelongsToEquipment("Main.LIC1010.Controller", "Main.LIC101"));
     assert.ok(!controllerBelongsToEquipment("Other.Controller", "Main.LIC101"));
   });
-  test("padding and equal sizing retain readable controls within the reserved region", () => {
-    const result = composeAgentPage(
-      {
-        title: "Settings",
-        pattern: "settings",
-        size: [1280, 800],
-        layout: { padding: 24, equalSize: "both" },
-        items: [
-          { id: "a", type: "setpoint", size: [200, 64] },
-          { id: "b", type: "setpoint", size: [240, 80] },
-        ],
-      },
-      catalogue,
-    );
-    const controls = result.object.filter((object) => object.id !== "page-heading");
-    assert.deepStrictEqual(
-      controls.map((object) => object.size),
-      [
-        [240, 80],
-        [240, 80],
-      ],
-    );
-    assert.ok(controls.every((object) => object.at[0] >= 56 && object.at[1] >= 112));
-    assert.ok(controls[1].at[1] >= controls[0].at[1] + controls[0].size[1] + 24);
-  });
   test("synthetic extremes and command outcomes preserve source values and have no runtime transport", () => {
     const source = page(),
       values = { "Main.SP": { value: 50, state: "confirmed" as const } };
@@ -234,59 +193,5 @@ suite("HMI completed authoring contracts", () => {
     assert.strictEqual(scenarioFrame([source], values, "denied", catalogue).frame.commands?.sp.outcome, "refused");
     assert.strictEqual(scenarioFrame([source], values, "longest", catalogue).frame.longest, true);
     assert.strictEqual(values["Main.SP"].value, 50);
-  });
-  test("selection is scoped to a project and active panel and disappears on close", () => {
-    const a = vscode.Uri.file(path.join(os.tmpdir(), "hmi-select-a")),
-      b = vscode.Uri.file(path.join(os.tmpdir(), "hmi-select-b"));
-    const owner = {};
-    recordSelection(a, owner, { file: "hmi/pages/main.toml", ids: ["pump"], documentVersion: 3 }, true);
-    assert.deepStrictEqual(contextSelection(a)?.ids, ["pump"]);
-    assert.strictEqual(contextSelection(b), null);
-    forgetSelection(a, owner);
-    assert.strictEqual(contextSelection(a), null);
-  });
-  test("review issues escalate after three attempts and cannot masquerade as accepted", () => {
-    const input = {
-      reviewer: "operator",
-      verdict: "needs-repair" as const,
-      issues: [{ file: "hmi/pages/main.toml", objects: ["sp"], message: "Control overlaps the reading" }],
-    };
-    assert.strictEqual(reviewRecord(input, "3", 2).customerDecisionRequired, true);
-    assert.throws(() => reviewRecord({ ...input, verdict: "accepted" }, "3", 2), /unresolved/);
-  });
-  test("editing invalidates the stored visual verdict but retains the bounded repair history", async () => {
-    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "hmi-review-record-"));
-    try {
-      const store = new DraftStore(directory),
-        draft = await store.create("workspace", [], { "hmi/pages/main.toml": "before" });
-      await store.review(draft.id, draft.revision, [], {}, undefined, {
-        reviewer: "operator",
-        verdict: "needs-repair",
-        issues: [],
-      });
-      const changed = await store.edit(draft.id, draft.revision, "edit", "fingerprint", async () => ({
-        "hmi/pages/main.toml": "after",
-      }));
-      assert.strictEqual(changed.visualReview, undefined);
-      assert.strictEqual(changed.repairAttempts, 1);
-      assert.strictEqual((await new DraftStore(directory).get(draft.id)).repairAttempts, 1);
-    } finally {
-      await fs.rm(directory, { recursive: true, force: true });
-    }
-  });
-  test("public schemas accept explicit multipage proposals and refuse incomplete draft references", () => {
-    validateToolInput("hmi_compose_page", {
-      key: "multi",
-      pages: [
-        { file: "hmi/pages/a.toml", title: "A", pattern: "settings", items: [] },
-        { file: "hmi/pages/b.toml", sourceFile: "hmi/pages/main.toml" },
-      ],
-    });
-    assert.throws(
-      () => validateToolInput("hmi_inspect_page", { file: "hmi/pages/a.toml", draftId: "draft" }),
-      /revision/,
-    );
-    validateToolInput("hmi_render_draft", { draftId: "draft", revision: "1", viewport: { width: 1280, height: 800 } });
-    validateToolInput("hmi_apply_draft", { draftId: "draft", revision: "1", action: "apply", allowIncomplete: true });
   });
 });

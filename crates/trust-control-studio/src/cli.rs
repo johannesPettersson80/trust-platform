@@ -5,12 +5,21 @@
 //! that starts an operation (`identify`, `tune`, `validate`, `cancel`) follows it to its final
 //! update, each progress update one line on standard error.
 
+mod application;
+mod application_output;
+mod apply;
 mod cancel;
 mod follow;
 mod identify;
+mod keep;
 mod output;
+mod restore;
+mod setup;
 mod tune;
 mod validate;
+
+pub use application::ReviewArgs;
+pub use setup::SetupArgs;
 
 use std::ffi::OsString;
 use std::io::Write;
@@ -68,6 +77,17 @@ pub enum Verb {
     /// Validates the loop's candidate (§0.1b; B5): the independent model check when the model is provisional, then the
     /// actual ST in isolated simulations, with each requirement's result. It never writes to the controller.
     Validate(ValidateArgs),
+    /// Sets up a new loop (§0.1b; B1.3): without --draft, what the compiled project offers; with --draft <file>, writes the
+    /// confirmed loop definitions to control-loops/ (all or none) and prints their ids.
+    Setup(SetupArgs),
+    /// Applies the validated candidate (§0.1b; B6.1 to B6.3): without --review, prints the review and its identity; with it,
+    /// applies the reviewed change and prints the assessed result. A physical target is refused here (A2.5).
+    Apply(ReviewArgs),
+    /// Restores the settings from before Apply (§0.1b; B6.4), by the same review and confirmation as apply.
+    Restore(ReviewArgs),
+    /// Keeps the running values in the project as the record's initial values (§0.1b; B6.5), by the same review and
+    /// confirmation as apply.
+    Keep(ReviewArgs),
 }
 
 /// The arguments that the verbs share.
@@ -423,6 +443,18 @@ where
         }),
         Verb::Validate(args) => following(stderr, |presses, stderr| {
             validate::run(&args, environment, presses, stdout, stderr)
+        }),
+        Verb::Apply(args) => following(stderr, |presses, stderr| {
+            apply::run(&args, environment, presses, stdout, stderr)
+        }),
+        Verb::Restore(args) => following(stderr, |presses, stderr| {
+            restore::run(&args, environment, presses, stdout, stderr)
+        }),
+        Verb::Keep(args) => following(stderr, |presses, stderr| {
+            keep::run(&args, environment, presses, stdout, stderr)
+        }),
+        Verb::Setup(args) => watched(stderr, |stderr| {
+            setup::run(&args, environment, stdout, stderr)
         }),
     }
 }

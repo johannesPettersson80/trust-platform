@@ -42,7 +42,7 @@ where
     if let Some(id) = &experiment_id {
         end_experiment(runtime, clock, id)?;
     }
-    // Mode transfer: moves with V4 (runtimeTransfer.ts). The loop's mode returns here, once no experiment is left running.
+    // The loop's mode returns in `identify_recovery`, once no experiment is left running (A6.2).
     let mut recording = runtime.recover_recording(loop_definition, &campaign.recording)?;
     retain_recording(&mut recording, retention)?;
     let mut identities = vec![campaign.recording.recording_id.clone()];

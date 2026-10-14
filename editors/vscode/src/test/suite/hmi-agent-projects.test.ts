@@ -167,7 +167,7 @@ suite("HMI authoring across independent projects", function () {
           })
         ).data.revision;
         const valid = (await call("hmi_validate_draft", { draftId: created.draftId, revision })).data;
-        assert.strictEqual(valid.engineeringValid, true);
+        assert.strictEqual(valid.engineeringValid, true, JSON.stringify(valid.findings));
         await call("hmi_apply_draft", { draftId: created.draftId, revision, action: "review" });
         assert.strictEqual(
           await fs.stat(path.join(root.fsPath, file)).then(

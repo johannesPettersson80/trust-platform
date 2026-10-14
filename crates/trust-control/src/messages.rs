@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use trust_control_math::margins::MarginValue;
 
+use crate::commissioning::application_records::ApplicationReview;
 use crate::failure::Failure;
 use crate::identification::acquisition_settings::AcquisitionSettings;
 use crate::identification::connected_record::RunEvidence;
@@ -17,6 +18,7 @@ use crate::identification::independent_validation::RequirementStatus;
 use crate::loop_definition::LoopDefinition;
 use crate::runtime::RuntimeConnection;
 use crate::stages::StageAvailability;
+use crate::study::inputs::{InputsSection, Invalidation};
 use crate::study::Page;
 use crate::tuning::candidate::ControlPidCandidate;
 use crate::tuning::candidate_margins::CandidateMargins;
@@ -42,9 +44,10 @@ pub struct OpenRequest {
     pub storage_folder: String,
 }
 
-/// The result of `trust-lsp.controlStudioOpen`.
+/// The result of `controlStudio/open`.
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
+#[allow(clippy::large_enum_variant)] // One answer per call, built once and serialized at once: boxing would buy nothing.
 pub enum OpenResult {
     /// The project's loop files, for the engineer to choose one.
     Loops {
@@ -61,11 +64,10 @@ pub enum OpenResult {
         stages: Vec<StageAvailability>,
         /// The operations that were journaled for this loop and are reattached (A8.5, A8.6).
         reattached: Vec<String>,
-        /// Present when the loop uses a feature the Rust engine does not run yet.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        engine_refusal: Option<Failure>,
         /// The page last viewed, which reopening shows (A8.1, A8.6); Identify for a new study.
         page: Page,
+        /// The inputs the study records, which the editors show again (A8.1, A8.6); empty when none was recorded.
+        inputs: InputsSection,
     },
 }
 
@@ -198,6 +200,13 @@ pub enum IdentifyAction {
     /// Starts a new working identification study; the previous one moves to history (A8.4). Refused while an operation of the
     /// loop runs or is unconfirmed. The answer is at once, as [`ResetResult`].
     Reset,
+    /// Answers the campaign that `identify` would run with these settings: its method, excitation, limits and duration, and for
+    /// a project-scripted experiment its activation, abort and restoration (C12). It starts nothing and writes nothing; the answer
+    /// is the review of the identification campaign (`identification::campaign_review`), at once.
+    Review {
+        /// The method and the experiment limits the campaign would run with (B3.2).
+        settings: AcquisitionSettings,
+    },
 }
 
 /// What `controlStudio/identify` answers at once for `reset`: the stages of the new working study.
@@ -206,6 +215,88 @@ pub enum IdentifyAction {
 pub struct ResetResult {
     /// The status of every stage.
     pub stages: Vec<StageAvailability>,
+}
+
+/// The arguments of `controlStudio/inputs` (specification 35, §0.1a; A8.1, A8.4): the inputs the study records, as the editors
+/// change them. The study is written and nothing runs; a loop with an operation that runs refuses the change (B8).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct InputsRequest {
+    /// The project folder.
+    pub project_root: String,
+    /// The runtime selected in VS Code or on the command line; a loop of another runtime is refused, as `open` refuses it.
+    pub runtime_id: String,
+    /// The loop of the study.
+    pub loop_id: String,
+    /// The inputs the study records from now on, as a whole: an absent input is not yet given.
+    pub inputs: InputsSection,
+}
+
+/// What `controlStudio/inputs` answers at once (A8.4): the status of every stage after the change, and what the change invalidated.
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct InputsResult {
+    /// The status of every stage after the change.
+    pub stages: Vec<StageAvailability>,
+    /// What the change invalidated (A8.4); the results stay in the study as history.
+    pub invalidated: Invalidation,
+}
+
+/// The stage a run goes through to, at most (specification 35, B8): Identify, Tune or Validate. A run never applies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum RunThrough {
+    /// Identify the plant, and stop on Identify.
+    Identify,
+    /// Identify where needed, then tune the controller, and stop on Tune.
+    Tune,
+    /// Identify, tune and validate where needed, and stop at Apply.
+    Validate,
+}
+
+/// The arguments of `controlStudio/run` (specification 35, §0.1a; B8): the loop, the runtime and the stage the run goes through to.
+/// The connection's token is a credential: it is never journaled (E11.2).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RunRequest {
+    /// The project folder.
+    pub project_root: String,
+    /// The runtime selected in VS Code or on the command line.
+    pub runtime_id: String,
+    /// The loop of the study.
+    pub loop_id: String,
+    /// The folder of the operation journals (A8.3).
+    pub storage_folder: String,
+    /// Where the runtime listens, and its control token (E11.1); a run that identifies or validates needs it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connection: Option<RuntimeConnection>,
+    /// The stage the run goes through to (B8).
+    pub through: RunThrough,
+}
+
+/// An input the engineer must give before a run can go on (B8): the page opens the editor that owns it, and Done runs the
+/// request again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum RunNeeds {
+    /// The settings of the manual method (B4.2, B4.5).
+    ManualSettings,
+    /// A requirement that Automatic cannot fill, or that the engineer must correct (B4.3).
+    Requirements,
+    /// A limit that Identify needs (B3.2, B3.4 step 1).
+    Limits,
+}
+
+/// The final result of `controlStudio/run` (specification 35, B8): the status of every stage after the run, and the input the
+/// run waits for, when a stage needs one. A run that stopped on a failure answers the failure instead, with every result kept.
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RunResult {
+    /// The status of every stage after the run.
+    pub stages: Vec<StageAvailability>,
+    /// The input the engineer must give (B8); absent when the run went through to its stage.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub needs: Option<RunNeeds>,
 }
 
 /// The result of the command line's `cancel` (specification 35, §0.1b): the journaled operations it cancelled, by their
@@ -509,6 +600,9 @@ pub struct ComparisonEntry {
 pub struct TuneResult {
     /// The candidate, unapplied: its structure, its source and the complete `Control.PID` record it would write.
     pub candidate: ControlPidCandidate,
+    /// The value the candidate's record gives each bound setting of the loop's controller, under the setting's symbol (B4.2,
+    /// C0): the settings the page shows under the loop's own names. A setting the record does not hold is absent.
+    pub settings: BTreeMap<String, f64>,
     /// The method the engineer chose; absent for Automatic.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub method: Option<TuneMethod>,
@@ -583,6 +677,129 @@ pub struct ValidateRequest {
     pub connection: Option<RuntimeConnection>,
 }
 
+/// The arguments of `controlStudio/apply` and `controlStudio/restore` (specification 35, §0.1b, B6.1 to B6.4). Without `review`
+/// the method answers the review of the change and writes nothing; with the identity of that review it runs the reviewed change
+/// as an operation, which refuses to run when the runtime no longer matches the review (§0.1b). A physical target is applied
+/// only when `physical_approved` is set by the reviewed approval (A2.5). The connection's token is a credential, never journaled.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ApplicationRequest {
+    /// The project folder.
+    pub project_root: String,
+    /// The runtime selected in VS Code or on the command line.
+    pub runtime_id: String,
+    /// The loop of the study.
+    pub loop_id: String,
+    /// The folder of the operation journals (A8.3).
+    pub storage_folder: String,
+    /// Where the runtime listens, and its control token (E11.1); the review and the change both reach the runtime.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connection: Option<RuntimeConnection>,
+    /// The identity of the review that the confirmation approves (§0.1b); absent to ask for the review.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review: Option<String>,
+    /// Whether the reviewed approval of a physical target was given (A2.5).
+    #[serde(default)]
+    pub physical_approved: bool,
+    /// Follows the journaled Apply observation to its end (A8.5, A8.6) instead of reviewing or confirming: `apply` only.
+    #[serde(default)]
+    pub resume: bool,
+}
+
+/// The arguments of `controlStudio/keep` (specification 35, §0.1b, B6.5): the arguments of Apply, and the files that have unsaved
+/// changes in an editor, which a Keep must not change, and the language tool that answers the project's command. Keep writes the
+/// project and never the controller, so `physical_approved` is accepted for the shape the three methods share and has no effect.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct KeepRequest {
+    /// The project folder.
+    pub project_root: String,
+    /// The runtime selected in VS Code or on the command line.
+    pub runtime_id: String,
+    /// The loop whose parameter record is kept.
+    pub loop_id: String,
+    /// The folder of the operation journals (A8.3).
+    pub storage_folder: String,
+    /// Where the runtime listens, and its control token (E11.1): the running values are read from it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connection: Option<RuntimeConnection>,
+    /// The identity of the review that the confirmation approves (§0.1b); absent to ask for the review.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review: Option<String>,
+    /// Accepted for the shape the three methods share; Keep writes no controller (see the type's description).
+    #[serde(default)]
+    pub physical_approved: bool,
+    /// The project files that have unsaved changes in an editor, project-relative or absolute (B6.5).
+    #[serde(default)]
+    pub unsaved_files: Vec<String>,
+    /// The `trust-lsp` executable that answers the project's command; absent, the one beside the engine, then the one on the PATH.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language_tool: Option<String>,
+}
+
+/// One file a Keep changes, as its review shows it (B6.5): its path, the text it holds now (`None` when the Keep creates it) and
+/// the text the Keep gives it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct KeepFileChange {
+    /// The file's path.
+    pub path: String,
+    /// The text the file holds now, or `None` when it does not exist yet.
+    pub before: Option<String>,
+    /// The text the file holds once the Keep is written.
+    pub after: String,
+}
+
+/// What `controlStudio/keep` answers without a review identity (§0.1b, B6.5): the record, the values to keep, the fields it writes,
+/// the fields the equipment has no setting for, the files it changes, and the identity that a confirmation gives back.
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct KeepReviewAnswer {
+    /// The record, for example `Main.TIC101_Parameters`.
+    pub record: String,
+    /// The values to keep, by field.
+    pub values: BTreeMap<String, f64>,
+    /// The fields the Keep writes.
+    pub kept: Vec<String>,
+    /// The fields that the equipment has no setting for (a record Create PLC code declared).
+    pub unknown: Vec<String>,
+    /// The files the Keep changes.
+    pub files: Vec<KeepFileChange>,
+    /// The identity of this review.
+    pub identity: String,
+}
+
+/// The final result of a confirmed Keep (B6.5): the record, the fields kept, the fields without a setting, and the sentence that
+/// says what was kept, or that the project already had the values.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct KeepResult {
+    /// The record.
+    pub record: String,
+    /// The fields the Keep wrote.
+    pub kept: Vec<String>,
+    /// The fields that the equipment has no setting for.
+    pub unknown: Vec<String>,
+    /// What was kept, in words.
+    pub reason: String,
+}
+
+/// What `controlStudio/apply`, `controlStudio/restore` and `controlStudio/keep` answer at once (§0.1b): the review of the change, which
+/// writes nothing, or the started operation, whose result follows through `controlStudio/update`. It is written untagged, so a review
+/// is its own object and a started operation is `{"operationId": …}`; it is never decoded.
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(untagged)]
+pub enum ApplicationAnswer {
+    /// The review of the change, answered when the request carried no review identity.
+    Review(ApplicationReview),
+    /// The operation that runs the reviewed change.
+    Started {
+        /// The operation's identifier.
+        #[serde(rename = "operationId")]
+        operation_id: String,
+    },
+}
+
 /// The final result of `controlStudio/validate` (specification 35, B5.1 to B5.5), and the `result` of the command line's
 /// `validate --json` object. It holds the independent model check when Validate ran one, each scenario's current and
 /// candidate runs, the overall result of the candidate and whether Apply is available. Nothing in it is written to the
@@ -601,6 +818,11 @@ pub struct ValidateResult {
     pub status: RequirementStatus,
     /// Whether Apply is available: the model is qualified and the candidate passed every requirement (B5.4).
     pub apply_available: bool,
+    /// Why the model replaced the configured plant for every case (B5.3): the target-response run of the current settings started
+    /// outside the settling band around the model's operating point. Absent when the configured plant ran the cases, and when the
+    /// model was the plant from the start.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plant_reason: Option<String>,
     /// The status of every stage after this result.
     pub stages: Vec<StageAvailability>,
 }

@@ -22,7 +22,7 @@ field signals that answer the outputs.
 | `src/HeatingSequence.st` | The start and stop sequence: circulation first, then the tank, then the room; on Stop the pump runs on to carry the heat away |
 | `src/Simulation.st` | The window opening and the field faults the Simulation page switches; delete it, its page and `simulation.toml` on a real plant |
 | `plant.toml` | The equipment design behind Create PLC code: blocks, settings, signals and which equipment each controller measures and drives |
-| `simulation.toml` | The plant model: tank, room and valve as a linear model around 45 °C, 22 °C and 51 %, with measurement noise, and the couplings for the contactor, flow and fault signals |
+| `simulation.toml` | The plant model: tank, room and valve as a linear model around 45 °C, 22 °C and 51 %, with measurement noise, and the couplings for the contactor, flow and fault signals. The tank and room are small: their slowest mode has a time constant of about 4 minutes |
 | `runtime.toml` | The runtime display's web server, its users and the write rules of the loops and settings |
 | `control-loops/tank-temperature.json` | The tank loop as Control Studio set it up from the program's code |
 | `hmi/` | Pages: Overview, Trends, Alarms, Interlocks, Settings and Simulation; English, German and Swedish texts; the tank and hand valve as project symbols |

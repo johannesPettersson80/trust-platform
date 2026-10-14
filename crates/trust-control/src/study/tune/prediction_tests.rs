@@ -203,3 +203,55 @@ fn a_candidate_without_a_prediction_says_why() {
         }
     );
 }
+
+#[test]
+fn a_long_prediction_keeps_its_extremes_for_the_plot_and_its_numbers_from_every_period() {
+    let model = first_order();
+    let loop_definition = plant_loop();
+    let short = candidate_prediction(
+        &predictor(&model),
+        simc_pi(),
+        &requirements(),
+        TraceNames::of(&loop_definition),
+    );
+    // Two hours at the 100 ms period: 72,001 predicted points, more than the plot keeps (B4.5).
+    let long_requirements = TuningRequirements {
+        duration_seconds: 7_200.0,
+        ..requirements()
+    };
+    let long = candidate_prediction(
+        &predictor(&model),
+        simc_pi(),
+        &long_requirements,
+        TraceNames::of(&loop_definition),
+    );
+    let response = long.response.expect("a predicted response");
+    assert!(
+        response.time_seconds.len() <= 2 * 3 * 1_000 + 2,
+        "{} points",
+        response.time_seconds.len()
+    );
+    assert!(response
+        .traces
+        .iter()
+        .all(|trace| trace.values.len() == response.time_seconds.len()));
+    assert_eq!(response.time_seconds.first(), Some(&0.0));
+    assert!(response
+        .time_seconds
+        .last()
+        .is_some_and(|last| (last - 7_200.0).abs() < 1e-6));
+    // The numbers come from every period, so they match the short test's. The plot loses no peak: its highest measurement
+    // is at least the highest of the first 80 s, which the short test holds in full (this response rises without overshoot,
+    // so its highest value is its last).
+    assert_eq!(long.settling_time_seconds, short.settling_time_seconds);
+    assert_eq!(long.overshoot_percent, short.overshoot_percent);
+    let peak = |response: &TuneResponse| {
+        response.traces[1]
+            .values
+            .iter()
+            .copied()
+            .fold(f64::NEG_INFINITY, f64::max)
+    };
+    let short_response = short.response.expect("a predicted response");
+    assert!(peak(&response) >= peak(&short_response) - 1e-12);
+}

@@ -32,6 +32,30 @@ pub(crate) struct LoopLimits {
     pub(crate) output: OutputLimits,
     /// The output rate limits per second.
     pub(crate) rate: ParameterInterval,
+    /// How the record's tracking time is chosen (C0, C1).
+    pub(crate) tracking: TrackingRule,
+}
+
+/// How a candidate's tracking time `Tt` is chosen when no back-calculation gain is pinned (C0, C1): the shipped
+/// `Control.PID` record's `TrackingTime` takes `max(Ti, Δt)`; a program law that declares back-calculation anti-windup takes
+/// `max(Δt, √(Ti·Td))` when the candidate has a derivative term, and `max(Ti, Δt)` otherwise.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TrackingRule {
+    /// The `TrackingTime` field of the parameter record (C1).
+    Record,
+    /// The tracking gain `1/Tt` that a program law's back-calculation declaration binds (C0).
+    BackCalculation,
+}
+
+impl TrackingRule {
+    /// The rule of `loop_definition`'s controller law.
+    #[must_use]
+    pub(crate) fn of(loop_definition: &LoopDefinition) -> Self {
+        match &loop_definition.controller.law {
+            Some(ControllerLaw::Pid(pid)) if pid.anti_windup.is_some() => Self::BackCalculation,
+            _ => Self::Record,
+        }
+    }
 }
 
 impl LoopLimits {
@@ -50,14 +74,15 @@ impl LoopLimits {
                 minimum: -limits.rate_down_per_s.unwrap_or(DEFAULT_RATE_LIMIT_PER_S),
                 maximum: limits.rate_up_per_s.unwrap_or(DEFAULT_RATE_LIMIT_PER_S),
             },
+            tracking: TrackingRule::of(loop_definition),
         }
     }
 }
 
 /// The candidate's complete record (C0, C1), written by the rules of `tuning::candidate` for every structure: the gains, the
 /// setpoint weights and the measurement filter of `shaping`, no bias, the limits of the loop, the tracking time, and
-/// back-calculation anti-windup. The tracking time is `1/v` for a pinned back-calculation gain `v` (C0), and otherwise
-/// `max(Ti, task period)` with `Ti = |Kp/Ki|`. The candidate is unapplied (N8.9).
+/// back-calculation anti-windup. The tracking time is `1/v` for a pinned back-calculation gain `v` (C0), and otherwise the
+/// loop's [`TrackingRule`] with `Ti = |Kp/Ki|` and `Td = |Kd/Kp|`. The candidate is unapplied (N8.9).
 ///
 /// # Errors
 /// The refusal of a pinned back-calculation gain that is not finite and positive, and the refusals of the record's limits.
@@ -78,7 +103,7 @@ pub(crate) fn candidate_record(
                 NextAction::None,
             ))
         }
-        None => default_tracking_time(gains, period_seconds),
+        None => default_tracking_time(gains, period_seconds, limits.tracking),
     };
     let parameters = ControlPidParameters {
         proportional_gain: gains.proportional_gain,
@@ -102,12 +127,24 @@ pub(crate) fn candidate_record(
 
 /// The tracking time of a record whose tracking gain is not pinned (C0): `max(Ti, task period)` with `Ti = |Kp/Ki|`, and the
 /// task period when the record has no integral action.
-fn default_tracking_time(gains: ParallelGains, period_seconds: f64) -> f64 {
+fn default_tracking_time(gains: ParallelGains, period_seconds: f64, rule: TrackingRule) -> f64 {
     let integral_time = if is_exactly_zero(gains.integral_gain) {
         period_seconds
     } else {
         (gains.proportional_gain / gains.integral_gain).abs()
     };
+    let derivative_time = if is_exactly_zero(gains.proportional_gain) {
+        0.0
+    } else {
+        (gains.derivative_gain / gains.proportional_gain).abs()
+    };
+    // C0: a back-calculation law with derivative action tracks at sqrt(Ti*Td) (Astrom and Hagglund), never faster than a period.
+    if rule == TrackingRule::BackCalculation
+        && derivative_time > 0.0
+        && !is_exactly_zero(gains.integral_gain)
+    {
+        return (integral_time * derivative_time).sqrt().max(period_seconds);
+    }
     integral_time.max(period_seconds)
 }
 
@@ -195,6 +232,34 @@ pub(crate) fn gains_of_map(values: &BTreeMap<GainKey, f64>) -> ParallelGains {
     }
 }
 
+/// The value the candidate's record gives each bound parameter, under the parameter's symbol (B4.2, C0): the gains, the setpoint
+/// weights, the measurement filter time (absent when the record holds none) and the back-calculation gain `1/Tt`.
+#[must_use]
+pub(crate) fn record_settings(
+    candidate: &ControlPidCandidate,
+    parameters: &[MappedParameter],
+) -> BTreeMap<String, f64> {
+    parameters
+        .iter()
+        .filter_map(|parameter| {
+            let value = match parameter.key {
+                GainKey::ProportionalGain => candidate.parameters.proportional_gain,
+                GainKey::IntegralGain => candidate.parameters.integral_gain,
+                GainKey::DerivativeGain => candidate.parameters.derivative_gain,
+                GainKey::BackCalculationGain => candidate.parameters.tracking_time.recip(),
+                GainKey::ProportionalSetpointWeight => {
+                    candidate.parameters.proportional_setpoint_weight
+                }
+                GainKey::DerivativeSetpointWeight => {
+                    candidate.parameters.derivative_setpoint_weight
+                }
+                GainKey::MeasurementFilterSeconds => candidate.measurement_filter_seconds?,
+            };
+            Some((parameter.symbol.clone(), value))
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -206,12 +271,38 @@ mod tests {
             integral_gain: 0.5,
             derivative_gain: 0.0,
         };
-        assert!((default_tracking_time(gains, 0.1) - 4.0).abs() <= 1e-12);
+        assert!((default_tracking_time(gains, 0.1, TrackingRule::Record) - 4.0).abs() <= 1e-12);
         let no_integral = ParallelGains {
             integral_gain: 0.0,
             ..gains
         };
-        assert!((default_tracking_time(no_integral, 0.1) - 0.1).abs() <= 1e-12);
+        assert!(
+            (default_tracking_time(no_integral, 0.1, TrackingRule::Record) - 0.1).abs() <= 1e-12
+        );
+    }
+
+    #[test]
+    fn a_back_calculation_law_with_derivative_action_tracks_at_the_root_of_ti_times_td() {
+        // C0, controllerAdapters.ts: Ti = 2/0.5 = 4 s and Td = 1/2 = 0.5 s give Tt = sqrt(2) s; the record keeps max(Ti, dt).
+        let gains = ParallelGains {
+            proportional_gain: 2.0,
+            integral_gain: 0.5,
+            derivative_gain: 1.0,
+        };
+        let tracked = default_tracking_time(gains, 0.1, TrackingRule::BackCalculation);
+        assert!((tracked - 2.0_f64.sqrt()).abs() <= 1e-12, "{tracked}");
+        assert!((default_tracking_time(gains, 0.1, TrackingRule::Record) - 4.0).abs() <= 1e-12);
+        assert!(
+            (default_tracking_time(gains, 2.0, TrackingRule::BackCalculation) - 2.0).abs() <= 1e-12,
+            "never faster than a task period"
+        );
+        let pi = ParallelGains {
+            derivative_gain: 0.0,
+            ..gains
+        };
+        assert!(
+            (default_tracking_time(pi, 0.1, TrackingRule::BackCalculation) - 4.0).abs() <= 1e-12
+        );
     }
 
     #[test]
@@ -226,6 +317,7 @@ mod tests {
                 minimum: -25.0,
                 maximum: 25.0,
             },
+            tracking: TrackingRule::Record,
         };
         let gains = ParallelGains {
             proportional_gain: 2.0,

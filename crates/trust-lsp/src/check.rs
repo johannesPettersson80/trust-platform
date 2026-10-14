@@ -86,8 +86,8 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
 }
 
 /// A language server that is never driven: `index_workspace` needs a `Client` for
-/// progress and log messages, which go nowhere in a command-line run.
-struct Silent;
+/// progress and log messages, which go nowhere in a command-line run (`check` and `command`).
+pub(crate) struct Silent;
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Silent {
@@ -103,7 +103,7 @@ impl LanguageServer for Silent {
     }
 }
 
-fn silent_client() -> (Client, LspService<Silent>) {
+pub(crate) fn silent_client() -> (Client, LspService<Silent>) {
     let captured = Arc::new(Mutex::new(None));
     let captured_clone = Arc::clone(&captured);
     let (service, socket) = LspService::new(move |client| {

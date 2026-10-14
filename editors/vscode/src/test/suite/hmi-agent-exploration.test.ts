@@ -3,9 +3,8 @@
 import * as assert from "assert";
 import * as vscode from "vscode";
 
-import type { Draft } from "../../hmiBuilder/agent/drafts";
+import type { EngineProject } from "../../hmiBuilder/agent/engineCommands";
 import { prepareExploration } from "../../hmiBuilder/agent/exploration";
-import type { AuthoringQueries } from "../../hmiBuilder/agent/queries";
 
 const PAGE = {
   title: "Overview",
@@ -56,14 +55,22 @@ suite("HMI agent: exploration", () => {
       }
       throw new Error(`unexpected command ${name}`);
     };
-    const queries = {
-      snapshots: async () => [{ file: "hmi/pages/overview.toml", text: "page", dirty: false }],
-      command,
-      documents: { root: vscode.Uri.file("/tmp/trust-hmi-exploration") },
-    } as unknown as AuthoringQueries;
-    const draft = { id: "draft", revision: "1", files: {} } as unknown as Draft;
+    const project: EngineProject = {
+      root: vscode.Uri.file("/tmp/trust-hmi-exploration"),
+      workspaceId: "exploration",
+      storage: "/tmp/trust-hmi-exploration-storage",
+      token: new vscode.CancellationTokenSource().token,
+    };
+    const draft = { id: "draft", revision: "1", files: {} };
 
-    const model = await prepareExploration(draft, CONTEXT, queries, new AbortController().signal);
+    const model = await prepareExploration(
+      project,
+      draft,
+      CONTEXT,
+      [{ file: "hmi/pages/overview.toml", text: "page", dirty: false }],
+      new AbortController().signal,
+      command,
+    );
 
     const prepared = (formatted[0]?.model as { object: Array<{ id: string; faceplate?: string; instance?: string }> })
       .object;

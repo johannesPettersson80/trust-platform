@@ -6,7 +6,9 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use trust_control::failure::{Cause, Failure, NextAction};
-use trust_control::loop_definition::{LoopDefinition, LoopScope};
+use trust_control::loop_definition::{
+    parked_failure, parked_feature_of, LoopDefinition, LoopScope,
+};
 use trust_control::messages::LoopEntry;
 
 /// One loop file and what it holds.
@@ -137,7 +139,13 @@ pub fn open(
         match entry.loop_definition {
             Ok(loop_definition) if loop_definition.id == loop_id => return Ok(loop_definition),
             Ok(_) => {}
-            Err(problem) => problems.push(problem),
+            Err(problem) => {
+                // A loop that uses a parked feature is refused as such, even when its file does not decode (D12).
+                if let Some(feature) = parked_feature_in(&entry.file, loop_id) {
+                    return Err(parked_failure(feature));
+                }
+                problems.push(problem);
+            }
         }
     }
     let detail = if problems.is_empty() {
@@ -150,6 +158,16 @@ pub fn open(
         Cause::Implementation,
         NextAction::OpenLoopSetup,
     ))
+}
+
+/// The parked feature of the loop `loop_id`, when `file` holds that loop and it uses one (`parked_feature_of`).
+fn parked_feature_in(file: &Path, loop_id: &str) -> Option<&'static str> {
+    let raw: serde_json::Value = serde_json::from_str(&fs::read_to_string(file).ok()?).ok()?;
+    if raw["id"].as_str() == Some(loop_id) {
+        parked_feature_of(&raw)
+    } else {
+        None
+    }
 }
 
 fn read_loop(file: &Path, runtime_id: &str) -> Result<LoopDefinition, String> {
@@ -214,6 +232,70 @@ mod tests {
         );
         let id = loops[0].loop_id.clone().expect("the example's id");
         assert_eq!(open(&root, &example_runtime(), &id).expect("opened").id, id);
+        fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    /// The loop file of a parked structure, as its `TypeScript` generator writes it: the example's loop with the program's own law of
+    /// `family`, and the parts that only that structure declares (`extra`), which the Rust loop does not decode.
+    fn parked_loop(id: &str, family: &str, extra: serde_json::Value) -> String {
+        let mut file: serde_json::Value = serde_json::from_str(EXAMPLE).expect("example");
+        file["id"] = serde_json::json!(id);
+        file["controller"]["project"] = serde_json::json!({
+            "family": family, "convention": "project-owned-native-controller",
+            "initialization": { "kind": "declared-state-v1", "states": [] }, "axes": [],
+        });
+        if let (Some(object), serde_json::Value::Object(parts)) = (file.as_object_mut(), extra) {
+            object.extend(parts);
+        }
+        file.to_string()
+    }
+
+    #[test]
+    fn feedforward_smith_and_gain_schedule_loops_are_refused_as_parked_until_v7() {
+        // V6 decision D12: these structures' loops carry the program's own law and parts the Rust loop does not decode; the engine
+        // refuses them as a capability it does not have yet, so the panel keeps them on the TypeScript engine.
+        let root = project("parked");
+        let cases = [
+            (
+                "loop:feedforward",
+                "feedforward",
+                serde_json::json!({ "channels": { "inputs": [{ "modelChannelId": "MV", "unknownToRust": true }] } }),
+            ),
+            (
+                "loop:smith",
+                "Smith",
+                serde_json::json!({ "smithModel": { "gain": 1.0 } }),
+            ),
+            (
+                "loop:schedule",
+                "gain-scheduled",
+                serde_json::json!({ "schedule": [1.0, 2.0] }),
+            ),
+        ];
+        for (id, family, extra) in cases {
+            fs::write(
+                root.join(format!("control-loops/{family}.json")),
+                parked_loop(id, family, extra),
+            )
+            .expect("parked loop");
+            // A file that decodes is refused by the engine's gate; one that does not, by `open` itself.
+            let refusal = match open(&root, &example_runtime(), id) {
+                Ok(loop_definition) => loop_definition
+                    .rust_engine_support()
+                    .expect_err("a parked loop that decodes is refused by the gate"),
+                Err(failure) => failure,
+            };
+            assert_eq!(
+                refusal.cause,
+                Cause::ControllerCapability,
+                "{family}: {refusal:?}"
+            );
+            assert!(
+                refusal.message.contains("the program's own law"),
+                "{family}: {}",
+                refusal.message
+            );
+        }
         fs::remove_dir_all(&root).expect("clean up");
     }
 

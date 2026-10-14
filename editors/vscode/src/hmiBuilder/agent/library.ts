@@ -1,7 +1,6 @@
 import { sha256 } from "./artifacts";
 import { scenarioFrame } from "./scenarios";
 import { withProjectSymbols } from "../drawing/symbols";
-import type { PatternReference } from "./patternReferences";
 import type { CustomSymbolModel } from "../drawing/symbols/custom";
 import type { Catalogue, ComponentDefinition } from "../editor/catalogue";
 import type { HmiObjectModel, HmiPageModel } from "../drawing/model";
@@ -116,32 +115,4 @@ export async function renderLibrarySheets(
     });
   }
   return { images, sheets };
-}
-
-/** A versioned composition reference uses the same drawing path as component sheets. */
-export async function renderPatternReference(
-  reference: PatternReference,
-  fontFile: string,
-  theme: "dark" | "light",
-  signal: AbortSignal,
-): Promise<RenderedPage> {
-  if (reference.missingComponents.length)
-    throw new Error(
-      `UNSUPPORTED_CONTEXT: pattern requires unavailable components: ${reference.missingComponents.join(", ")}.`,
-    );
-  return renderAgentPage(
-    reference.model,
-    {
-      size: reference.size,
-      values: reference.values,
-      alarms: reference.alarms,
-      history: designHistory([reference.model], reference.values),
-      nowMs: DESIGN_NOW_MS,
-      readOnly: true,
-    },
-    theme,
-    fontFile,
-    {},
-    signal,
-  );
 }

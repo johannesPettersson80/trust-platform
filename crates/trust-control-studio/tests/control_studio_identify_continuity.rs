@@ -91,7 +91,9 @@ fn campaign_operation(lab: &Lab) -> Option<String> {
         JournalEntry::IdentificationCampaign { .. } => Some(entry.operation_id().to_string()),
         JournalEntry::RecordingOwner { .. }
         | JournalEntry::Experiment { .. }
-        | JournalEntry::IsolatedJob { .. } => None,
+        | JournalEntry::IsolatedJob { .. }
+        | JournalEntry::Commissioning { .. }
+        | JournalEntry::IdentificationMode { .. } => None,
     })
 }
 

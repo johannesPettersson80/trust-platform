@@ -15,7 +15,7 @@ use crate::experiment::RestorationState;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::identification::acquisition_settings::AcquisitionError;
 use crate::identification::connected_run::recording_settling_ms;
-use crate::identification::settle::observed_time_scale;
+use crate::identification::settle::{capped_baseline_window_seconds, observed_time_scale};
 use crate::limits::{
     connection_loss_timeout_ms, record_period_executions, MAXIMUM_EXPERIMENT_DURATION_MS,
     MINIMUM_EXPERIMENT_DURATION_MS, RECORDING_DURATION_LIMIT_MS, RECORDING_SAMPLE_LIMIT,
@@ -55,6 +55,26 @@ pub struct FollowSample {
     pub good: bool,
     /// The measured output of the sample, when it has one.
     pub output: Option<f64>,
+    /// The plant input of the sample, when it has one: in a closed-loop step it is part of the response (B3.4 step 4).
+    pub input: Option<f64>,
+}
+
+/// The good, finite plant inputs of `samples` at their process times, as [`Watch::observe`] takes the outputs.
+#[must_use]
+pub fn good_inputs(samples: &[FollowSample]) -> Vec<TimedValue> {
+    samples
+        .iter()
+        .filter(|sample| sample.good)
+        .filter_map(|sample| {
+            sample
+                .input
+                .filter(|input| input.is_finite())
+                .map(|value| TimedValue {
+                    seconds: sample.elapsed_seconds,
+                    value,
+                })
+        })
+        .collect()
 }
 
 /// The first sample a campaign saw, with the wall time it arrived at (A3.6).
@@ -184,22 +204,33 @@ pub fn campaign_maximum_ms(loop_definition: &LoopDefinition) -> Result<u64, Fail
     Ok(to_whole_ms(milliseconds))
 }
 
-/// How long a campaign waits for a steady baseline, in ms: the longer of five minutes and a fifth of the maximum duration
-/// (`baselineBudgetMs`, B3.4 step 2).
+/// How long a campaign waits for a steady baseline, in ms: the longest of five minutes, a fifth of the maximum duration and two
+/// baseline windows without their twenty-sample floor (`baselineBudgetMs`, B3.4 step 2). The window takes the maximum duration
+/// and the declared settling time, as [`capped_baseline_window_seconds`] does.
 #[must_use]
-pub fn baseline_budget_ms(maximum_ms: u64) -> f64 {
-    (BASELINE_BUDGET_MINIMUM_SECONDS * 1_000.0).max(0.2 * ms_as_f64(maximum_ms))
+pub fn baseline_budget_ms(maximum_ms: u64, expected_settling_seconds: Option<f64>) -> f64 {
+    let maximum_seconds = ms_as_f64(maximum_ms) / 1_000.0;
+    let window_ms =
+        1_000.0 * capped_baseline_window_seconds(maximum_seconds, expected_settling_seconds);
+    (BASELINE_BUDGET_MINIMUM_SECONDS * 1_000.0)
+        .max(0.2 * ms_as_f64(maximum_ms))
+        .max(2.0 * window_ms)
 }
 
 /// The planned duration of a campaign's recording in ms: the baseline wait and then the maximum duration of the step, within
-/// the recording limit (`campaignRecordingMs`, B3.4). The record period follows from it (A4.2). The runtime takes whole
-/// milliseconds (E4.2), so a fraction of a millisecond is rounded up and the recording still covers both parts.
+/// the recording limit (`campaignRecordingMs`, B3.4). The wait is [`baseline_budget_ms`] for the expected settling time, when
+/// the study declares one. The record period follows from the duration (A4.2). The runtime takes whole milliseconds (E4.2), so
+/// a fraction of a millisecond is rounded up and the recording still covers both parts.
 ///
 /// # Errors
 /// The maximum duration cannot be read (see [`campaign_maximum_ms`]).
-pub fn campaign_recording_ms(loop_definition: &LoopDefinition) -> Result<u64, Failure> {
+pub fn campaign_recording_ms(
+    loop_definition: &LoopDefinition,
+    expected_settling_seconds: Option<f64>,
+) -> Result<u64, Failure> {
     let maximum_ms = campaign_maximum_ms(loop_definition)?;
-    let planned = (baseline_budget_ms(maximum_ms) + ms_as_f64(maximum_ms))
+    let budget_ms = baseline_budget_ms(maximum_ms, expected_settling_seconds);
+    let planned = (budget_ms + ms_as_f64(maximum_ms))
         .min(ms_as_f64(RECORDING_DURATION_LIMIT_MS))
         .ceil();
     Ok(to_whole_ms(planned))
@@ -218,7 +249,7 @@ pub fn silence_limit_ms(
 ) -> Result<u64, Failure> {
     let task_ms = task_period_whole_ms(loop_definition)?;
     let maximum_ms = campaign_maximum_ms(loop_definition)?;
-    let recording_ms = campaign_recording_ms(loop_definition)?;
+    let recording_ms = campaign_recording_ms(loop_definition, expected_settling_seconds)?;
     let settling_ms = recording_settling_ms(maximum_ms, expected_settling_seconds);
     let record_every =
         record_period_executions(recording_ms, task_ms, RECORDING_SAMPLE_LIMIT, settling_ms);

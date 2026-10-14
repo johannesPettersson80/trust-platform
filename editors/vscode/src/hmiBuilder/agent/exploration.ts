@@ -8,17 +8,25 @@ import type { CustomSymbolModel } from "../drawing/symbols/custom";
 import { designValues } from "../editor/designSamples";
 import { DESIGN_NOW_MS } from "../editor/designHistory";
 import { loadPreviewAssets } from "./assets";
-import type { Draft } from "./drafts";
-import type { AuthoringQueries } from "./queries";
+import { EngineProject, NativeCall, nativeRead } from "./engineCommands";
 
-/** Snapshot ordinary display data for a network-free, read-only exploration in the builder. */
+/** A page or popup of the project as the editor holds it: its text, and whether the buffer is unsaved. */
+export interface ProjectSnapshot {
+  file: string;
+  text: string;
+  dirty: boolean;
+}
+
+/** Snapshot ordinary display data for a network-free, read-only exploration in the builder. The native HMI
+ * commands it reads through are `native`, by default the language server's own. */
 export async function prepareExploration(
-  draft: Draft,
+  project: EngineProject,
+  draft: { id: string; revision: string; files: Record<string, string> },
   context: Record<string, unknown>,
-  queries: AuthoringQueries,
+  snapshots: ProjectSnapshot[],
   signal: AbortSignal,
+  native: NativeCall = (command, input) => nativeRead(project.token, command, input),
 ): Promise<ExplorationModel> {
-  const snapshots = await queries.snapshots();
   const sources = Object.fromEntries(
     snapshots.filter((file) => /^hmi\/(pages|popups)\//.test(file.file)).map((file) => [file.file, file.text]),
   );
@@ -43,7 +51,11 @@ export async function prepareExploration(
   for (const [file, text] of Object.entries(sources)) {
     if (signal.aborted) throw new Error("CANCELLED: exploration cancelled.");
     const popup = file.startsWith("hmi/popups/");
-    const parsed = await queries.command("trust-lsp.hmiFileParse", { kind: popup ? "popup" : "page", text, file });
+    const parsed = await native("trust-lsp.hmiFileParse", {
+      kind: popup ? "popup" : "page",
+      text,
+      file,
+    });
     if (!parsed.ok) throw new Error(`VALIDATION_FAILED: ${file} cannot be explored until its syntax is fixed.`);
     const model = parsed.model as HmiPageModel,
       name = file.split("/").pop()!.slice(0, -5);
@@ -66,7 +78,7 @@ export async function prepareExploration(
     const placedObjects = model.object.filter((object) => object.type === "faceplate");
     let placements: Record<string, unknown> = { ok: true, placed: {} };
     if (placedObjects.length || popupObjects.length) {
-      const prepared = await queries.command("trust-lsp.hmiFileFormat", {
+      const prepared = await native("trust-lsp.hmiFileFormat", {
         kind: "page",
         model: {
           title: model.title,
@@ -79,8 +91,8 @@ export async function prepareExploration(
       });
       if (!prepared.ok || typeof prepared.text !== "string")
         throw new Error("VALIDATION_FAILED: preview faceplate references cannot be prepared.");
-      placements = await queries.command("trust-lsp.hmiPlacedFaceplates", {
-        root_uri: queries.documents.root.toString(),
+      placements = await native("trust-lsp.hmiPlacedFaceplates", {
+        root_uri: project.root.toString(),
         file,
         text: prepared.text,
         open,
@@ -131,9 +143,8 @@ export async function prepareExploration(
   result.alarms = alarmScenario(context.alarms as import("../editor/messages").AlarmMessage[], models, true);
   result.values = Object.assign({}, ...models.map((model) => designValues(model, context.catalogue as Catalogue)));
   const assets = await loadPreviewAssets(
+    project,
     models.flatMap((model) => model.object.flatMap((object) => (object.image ? [object.image] : []))),
-    queries.documents,
-    queries.command,
     signal,
   );
   result.assets = Object.fromEntries(Object.entries(assets).map(([name, asset]) => [name, asset.url]));

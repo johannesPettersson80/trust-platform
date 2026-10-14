@@ -877,3 +877,55 @@ fn a_law_that_declares_a_filter_writes_its_filter_time_and_predicts_with_it() {
     .expect("SIMC designs a PI without a filter");
     assert_eq!(plain.result.candidate.measurement_filter_seconds, None);
 }
+
+#[test]
+fn the_result_names_each_setting_of_the_candidate_by_its_symbol() {
+    // A manual PI entry is the candidate, and the result gives its record under the loop's own symbols (B4.2, C0). The
+    // measurement filter time that the loop declares is named with the value the engineer entered.
+    let loop_definition = example_loop();
+    let identify = example_identify(&loop_definition);
+    let mut request = example_request(Some(TuneMethod::Manual));
+    request.settings = Some(BTreeMap::from([
+        (PROPORTIONAL.to_owned(), 2.0),
+        (INTEGRAL.to_owned(), 0.5),
+    ]));
+    let outcome = tune(&TuneInputs {
+        loop_definition: &loop_definition,
+        identify: Some(&identify),
+        previous: None,
+        request: &request,
+        relay: None,
+    })
+    .expect("the entered PI settings are a candidate");
+    assert_eq!(outcome.result.settings.get(PROPORTIONAL), Some(&2.0));
+    assert_eq!(outcome.result.settings.get(INTEGRAL), Some(&0.5));
+    let bound = loop_definition
+        .parameter_binding
+        .as_ref()
+        .expect("the example binds its parameters");
+    assert!(
+        outcome.result.settings.keys().all(|symbol| bound
+            .parameters
+            .iter()
+            .any(|parameter| &parameter.symbol == symbol)),
+        "every named setting is a parameter the loop binds"
+    );
+
+    let filtered_loop = example_loop_with_filter();
+    let filtered_identify = example_identify(&filtered_loop);
+    let mut filtered_request = example_request(Some(TuneMethod::Manual));
+    filtered_request.settings = Some(BTreeMap::from([
+        (PROPORTIONAL.to_owned(), 2.0),
+        (INTEGRAL.to_owned(), 0.5),
+        (FILTER.to_owned(), 0.25),
+    ]));
+    let filtered = tune(&TuneInputs {
+        loop_definition: &filtered_loop,
+        identify: Some(&filtered_identify),
+        previous: None,
+        request: &filtered_request,
+        relay: None,
+    })
+    .expect("the entered settings with the filter time are a candidate");
+    assert_eq!(filtered.result.settings.get(FILTER), Some(&0.25));
+}

@@ -1,8 +1,8 @@
-//! Whether Identify must move the loop to the other controller mode before a method runs, and the refusals that stop a run
-//! before anything is recorded or written (the decision of `connectedIdentification.ts`; specification 35, A6.2, B3.4 step 1
-//! and B3.9). A Manual method writes the plant input, so the loop must be in Manual while it runs, and any other method needs
-//! Auto. The move itself is a controller-mode transfer that comes with stage V4, so until then Identify refuses a loop that
-//! needs the other mode. A mode that cannot be read refuses the run as well: Identify cannot tell whether a step is safe
+//! Whether Identify must move the loop to the other controller mode before a method runs, and the refusal of a mode it cannot
+//! read (the decision of `connectedIdentification.ts`; specification 35, A6.2, B3.4 step 1 and B3.9). A Manual method writes the
+//! plant input, so the loop must be in Manual while it runs, and any other method needs Auto. The move itself is a controller
+//! transfer (`mode_transfer`), which the engine makes before anything is recorded and reverses once the campaign has ended,
+//! failed or been cancelled (A6.2). A mode that cannot be read refuses the run: Identify cannot tell whether a step is safe
 //! without it.
 
 use crate::experiment::plan::ControllerMode;
@@ -65,32 +65,6 @@ pub fn unreadable_mode_refusal(
     Some(Failure::new(&text, Cause::Runtime, NextAction::Wait))
 }
 
-// Mode transfer: moves with V4 (runtimeTransfer.ts).
-/// The refusal of a method that needs the loop in the other mode (`needs_mode_change`). It stands in for the mode transfer
-/// until V4, so Identify refuses before it records or writes anything. The engineer puts the loop in the mode the method
-/// needs, or chooses Automatic. Automatic needs Manual only where a loop in Auto has no setpoint to step, so its refusal
-/// names the setpoint binding instead.
-#[must_use]
-pub fn mode_change_refusal(method: IdentificationMethod) -> Failure {
-    let mode = if method.manual { "Manual" } else { "Auto" };
-    if method.automatic {
-        return Failure::new(
-            &format!(
-                "Identify does not switch the loop's mode yet. Put the loop in {mode}, or declare the setpoint binding."
-            ),
-            Cause::Implementation,
-            NextAction::OpenLoopSetup,
-        );
-    }
-    Failure::new(
-        &format!(
-            "Identify does not switch the loop's mode yet. Put the loop in {mode}, or choose Automatic."
-        ),
-        Cause::Settings,
-        NextAction::ChooseMethod,
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -104,15 +78,6 @@ mod tests {
             kind,
             manual,
             automatic: false,
-        }
-    }
-
-    /// A method Automatic chose, with the kind it runs and whether it writes the plant input in Manual.
-    fn automatic_choice(kind: ControlExperimentKind, manual: bool) -> IdentificationMethod {
-        IdentificationMethod {
-            kind,
-            manual,
-            automatic: true,
         }
     }
 
@@ -208,23 +173,22 @@ mod tests {
         ));
     }
 
+    /// B3.3 and B3.4 step 1: Automatic gives a loop in Auto without a setpoint binding, where open-loop tests are permitted, a
+    /// plant-input step in Manual, so the loop must change to Manual for it (the transfer of `mode_transfer`).
     #[test]
-    fn automatic_in_auto_without_a_setpoint_needs_manual_and_its_refusal_names_the_binding() {
+    fn automatic_in_auto_without_a_setpoint_needs_manual() {
         let loop_def = automatic_loop(false, true);
         let plant_input =
             automatic_method(&loop_def, ControllerMode::Auto).expect("a plant-input step");
-        assert_eq!(plant_input.kind, ControlExperimentKind::MvStep);
+        assert_eq!(
+            (plant_input.kind, plant_input.manual, plant_input.automatic),
+            (ControlExperimentKind::MvStep, true, true)
+        );
         assert!(needs_mode_change(
             &loop_def,
             plant_input,
             ControllerMode::Auto
         ));
-        assert_eq!(
-            mode_change_refusal(plant_input).detail.as_deref(),
-            Some(
-                "Identify does not switch the loop's mode yet. Put the loop in Manual, or declare the setpoint binding."
-            )
-        );
     }
 
     #[test]
@@ -290,46 +254,5 @@ mod tests {
             scenario,
             ControllerMode::Unavailable
         ));
-    }
-
-    #[test]
-    fn the_refusal_names_the_mode_the_chosen_method_needs_and_the_alternative() {
-        let refusal = mode_change_refusal(chosen(ControlExperimentKind::MvStep, true));
-        assert_eq!(
-            refusal.message,
-            "Identify does not switch the loop's mode yet."
-        );
-        assert_eq!(
-            refusal.detail.as_deref(),
-            Some(
-                "Identify does not switch the loop's mode yet. Put the loop in Manual, or choose Automatic."
-            )
-        );
-        assert_eq!(
-            (refusal.cause, refusal.next_action),
-            (Cause::Settings, NextAction::ChooseMethod)
-        );
-        let back = mode_change_refusal(chosen(ControlExperimentKind::SetpointStep, false));
-        assert_eq!(
-            back.detail.as_deref(),
-            Some(
-                "Identify does not switch the loop's mode yet. Put the loop in Auto, or choose Automatic."
-            )
-        );
-    }
-
-    #[test]
-    fn the_automatic_refusal_names_the_setpoint_binding_as_the_fix() {
-        let refusal = mode_change_refusal(automatic_choice(ControlExperimentKind::MvStep, true));
-        assert_eq!(
-            refusal.detail.as_deref(),
-            Some(
-                "Identify does not switch the loop's mode yet. Put the loop in Manual, or declare the setpoint binding."
-            )
-        );
-        assert_eq!(
-            (refusal.cause, refusal.next_action),
-            (Cause::Implementation, NextAction::OpenLoopSetup)
-        );
     }
 }

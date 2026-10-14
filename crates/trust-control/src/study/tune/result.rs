@@ -4,6 +4,8 @@
 //! stages. The method's numbers are those of `tuning::method_description`; this module writes them as the engineer reads
 //! them, in the shared engineering-number format (B9.5).
 
+use std::collections::BTreeMap;
+
 use trust_control_math::identify::gain::ControllerAction;
 use trust_control_math::identify::LowOrderModelKind;
 
@@ -45,6 +47,8 @@ pub(crate) struct ResultInputs<'a> {
     pub(crate) manipulated_unit: &'a str,
     /// The candidate, unapplied.
     pub(crate) candidate: ControlPidCandidate,
+    /// The candidate's value of each bound setting, by symbol (B4.2, C0).
+    pub(crate) settings: BTreeMap<String, f64>,
     /// The response the design used (N5.4).
     pub(crate) objective: TuningObjective,
     /// The `λ` of the SIMC formula the candidate came from, when it came from one (N5.4).
@@ -110,6 +114,7 @@ pub(crate) fn tune_result(inputs: ResultInputs<'_>) -> TuneResult {
             derivative: described.units.derivative_gain,
         },
         candidate: inputs.candidate,
+        settings: inputs.settings,
         method: inputs.method,
         reason: inputs.reason,
         objective: inputs.objective,

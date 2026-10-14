@@ -13,7 +13,7 @@
 //! the section it keeps. This module reads the loop, its study and the runtime, and makes the calls in their order.
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde_json::Value;
@@ -23,10 +23,11 @@ use trust_control::identification::connected_run::unfinished_operation_refusal;
 use trust_control::identification::independent_validation::RequirementStatus;
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::{ModelCheck as CheckRecord, ValidateRequest};
-use trust_control::model::GeneralModel;
+use trust_control::model::{GeneralModel, SimulationOverride};
 use trust_control::recording::EvidenceSource;
 use trust_control::runtime::RuntimeConnection;
 use trust_control::study::identify::IdentifySection;
+use trust_control::study::inputs::{tune_as_held, InputsSection};
 use trust_control::study::tune::TuneSection;
 use trust_control::study::validate::{
     check_before_start, stage_evidence, validate_outcome, CaseJobs, ModelQualification,
@@ -40,8 +41,10 @@ use trust_control::validation::configured_plant_verification::{
 use trust_control::validation::engineer_verification_campaign::{
     engineer_verification_campaign, CampaignCase,
 };
-use trust_control::validation::isolated_run_protocol::IsolatedRunRequest;
+use trust_control::validation::isolated_run_protocol::{IsolatedRunRequest, IsolatedRunStatus};
+use trust_control::validation::model_route::{model_route, ModelRoute};
 use trust_control::validation::model_validation_session::maximum_normalized_error;
+use trust_control::validation::plant_choice::model_replacement;
 use trust_control::validation::run_requests::{isolated_run_request, RunRequestInput, RunSettings};
 
 use crate::busy_loops::{LoopClaim, LoopClaims};
@@ -54,7 +57,9 @@ use crate::runtime_client::runtime_recording::PendingReleases;
 use crate::runtime_client::RuntimeClient;
 use crate::storage;
 use crate::workflow::identify::IdentifyPorts;
-use crate::workflow::validate::{run_scenarios, JobTiming, RunIdentity, RunSession, Settings};
+use crate::workflow::validate::{
+    new_job_id, run_job, run_scenarios, JobTiming, RunIdentity, RunSession, ScenarioRuns, Settings,
+};
 use crate::workflow::validate_model_check::{run_model_check, ModelCheck, ModelCheckRequest};
 
 /// The command of the operation that `validate` starts (§0.1a).
@@ -189,9 +194,9 @@ fn run_validate(
     to_value(&result)
 }
 
-/// Part two of Validate (B5.3): every scenario of the campaign runs as isolated test runs with the current settings and with the
-/// candidate, then trust-control composes the result from the jobs (B5.4). The runs are journaled and read by their identity
-/// (E11.2, E11.4); a cancelled operation stops at its next step and composes nothing.
+/// Part two of Validate (B5.3): the cases of the campaign run as isolated test runs with the current settings and with the candidate,
+/// on the plant that B5.3 chooses (`run_on_plant`); then trust-control composes the result from the jobs (B5.4). The runs are
+/// journaled and read by their identity (E11.2, E11.4); a cancelled operation stops at its next step and composes nothing.
 fn actual_part(
     context: &OperationContext,
     work: &ValidateWork,
@@ -209,7 +214,8 @@ fn actual_part(
     let observed = client.parameter_values(loop_definition)?;
     let plant = configured_plant_of(&mut client, loop_definition);
     let model = &identify.selected_model;
-    let cases = engineer_verification_campaign(
+    // The campaign on the configured plant is built first: its refusals (B5.5) hold whichever plant the runs take.
+    let configured = engineer_verification_campaign(
         loop_definition,
         model,
         &tune.requirements,
@@ -237,26 +243,24 @@ fn actual_part(
         progress: &progress,
         timing: JobTiming::PRODUCTION,
     };
-    let shape = RunShape {
+    let inputs = RunInputs {
         loop_definition,
         model,
-        plant: &plant,
+        tune,
         observed: &observed,
-        candidate: &tune.candidate,
         project_revision,
     };
-    let build =
-        |case: &CampaignCase, settings: Settings, job: &str| shape.request(case, settings, job);
-    let runs = run_scenarios(&mut session, &cases, &cases, &build)?;
+    let routed = run_on_plant(&mut session, &inputs, &plant, configured)?;
     // A cancelled operation keeps nothing: its runs ended, and the study is written only by a finished one.
     if context.is_cancelled() {
         return Err(cancelled());
     }
     context.progress(ASSESSING_RUNS);
-    let jobs: Vec<CaseJobs<'_>> = runs
+    let jobs: Vec<CaseJobs<'_>> = routed
+        .runs
         .iter()
         .map(|run| CaseJobs {
-            plant: &plant,
+            plant: &routed.plant,
             current: &run.current,
             candidate: &run.candidate,
         })
@@ -274,18 +278,172 @@ fn actual_part(
         model,
         tune,
         before,
-        cases: &cases,
+        cases: &routed.cases,
         jobs: &jobs,
         qualification,
+        plant_reason: routed.reason,
     })
 }
 
-/// What every isolated run of one Validate is built from (B5.3): the loop, its selected model, the plant the runs execute on, the
-/// current settings read from the running controller, the candidate, and the project revision the runs are reviewed on (E8.2).
+/// The inputs that every run of one Validate is built from (B5.3): the loop, its selected model, the Tune section, the current settings
+/// read from the running controller, and the project revision the runs are reviewed on (E8.2).
+struct RunInputs<'a> {
+    loop_definition: &'a LoopDefinition,
+    model: &'a GeneralModel,
+    tune: &'a TuneSection,
+    observed: &'a BTreeMap<String, f64>,
+    project_revision: &'a str,
+}
+
+/// The runs of the campaign and the plant they took (B5.3).
+struct RoutedRuns {
+    /// The plant that every case ran on.
+    plant: VerificationPlant,
+    /// The campaign's cases, in their order, on `plant`.
+    cases: Vec<CampaignCase>,
+    /// Each case's current and candidate runs, in the order of `cases`.
+    runs: Vec<ScenarioRuns>,
+    /// Why the model replaced the configured plant (B5.3); absent when the configured plant ran the cases, and when the model was the
+    /// plant from the start.
+    reason: Option<String>,
+}
+
+/// Runs every case of the campaign on the plant that B5.3 chooses. The configured plant runs the cases when it drives the loop, unless
+/// the target-response run of the current settings, measured first, starts outside the settling band around the model's operating point:
+/// then every case runs on the selected model, and the reason is named (trust-control's `model_replacement`). When no configured plant
+/// drives the loop, the model is the plant from the start.
+fn run_on_plant(
+    session: &mut RunSession<'_>,
+    inputs: &RunInputs<'_>,
+    plant: &VerificationPlant,
+    configured: Vec<CampaignCase>,
+) -> Result<RoutedRuns, Failure> {
+    match plant {
+        VerificationPlant::Model => {
+            let route = model_route(inputs.loop_definition, inputs.model, inputs.observed)?;
+            let (cases, runs) = model_runs(session, inputs, &route)?;
+            Ok(RoutedRuns {
+                plant: VerificationPlant::Model,
+                cases,
+                runs,
+                reason: None,
+            })
+        }
+        VerificationPlant::Configured { .. } => {
+            let (target, rest) = configured.split_first().ok_or_else(|| {
+                Failure::new(
+                    "The campaign has no target-response case.",
+                    Cause::Implementation,
+                    NextAction::None,
+                )
+            })?;
+            let shape = RunShape {
+                loop_definition: inputs.loop_definition,
+                model: inputs.model,
+                simulation: None,
+                observed: inputs.observed,
+                candidate: &inputs.tune.candidate,
+                project_revision: inputs.project_revision,
+            };
+            (session.progress)(&format!("Running scenario {}.", target.id));
+            let probe = run_one(session, &shape, target, Settings::Current)?;
+            let replacement = model_replacement(
+                &probe,
+                inputs.loop_definition,
+                inputs.model,
+                inputs.tune.requirements.settling_band,
+            );
+            if let Some(reason) = replacement {
+                let route = model_route(inputs.loop_definition, inputs.model, inputs.observed)?;
+                let (cases, runs) = model_runs(session, inputs, &route)?;
+                Ok(RoutedRuns {
+                    plant: VerificationPlant::Model,
+                    cases,
+                    runs,
+                    reason: Some(reason),
+                })
+            } else {
+                let runs = configured_runs(session, &shape, target, rest, probe)?;
+                Ok(RoutedRuns {
+                    plant: plant.clone(),
+                    cases: configured,
+                    runs,
+                    reason: None,
+                })
+            }
+        }
+    }
+}
+
+/// The runs of every case of a fresh campaign on the selected model (B5.3): the model's inline plant, and the controller's initial
+/// values at the model's operating point (B6.2, `model_route`).
+fn model_runs(
+    session: &mut RunSession<'_>,
+    inputs: &RunInputs<'_>,
+    route: &ModelRoute,
+) -> Result<(Vec<CampaignCase>, Vec<ScenarioRuns>), Failure> {
+    let cases = engineer_verification_campaign(
+        inputs.loop_definition,
+        inputs.model,
+        &inputs.tune.requirements,
+        inputs.observed,
+        &route.initial_values,
+    )?;
+    let shape = RunShape {
+        loop_definition: inputs.loop_definition,
+        model: inputs.model,
+        simulation: Some(&route.simulation),
+        observed: inputs.observed,
+        candidate: &inputs.tune.candidate,
+        project_revision: inputs.project_revision,
+    };
+    let build =
+        |case: &CampaignCase, settings: Settings, job: &str| shape.request(case, settings, job);
+    let runs = run_scenarios(session, &cases, &cases, &build)?;
+    Ok((cases, runs))
+}
+
+/// The runs of the campaign on the configured plant, once the probe has shown that the plant can show the response (B5.3): the probe
+/// is the target-response case's current run, its candidate run follows, and the other cases run as `run_scenarios` runs them.
+fn configured_runs(
+    session: &mut RunSession<'_>,
+    shape: &RunShape<'_>,
+    target: &CampaignCase,
+    rest: &[CampaignCase],
+    probe: IsolatedRunStatus,
+) -> Result<Vec<ScenarioRuns>, Failure> {
+    let candidate = run_one(session, shape, target, Settings::Candidate)?;
+    let mut runs = vec![ScenarioRuns {
+        id: target.id.clone(),
+        current: probe,
+        candidate,
+    }];
+    let build =
+        |case: &CampaignCase, settings: Settings, job: &str| shape.request(case, settings, job);
+    runs.extend(run_scenarios(session, rest, rest, &build)?);
+    Ok(runs)
+}
+
+/// Runs one case with one settings as an isolated job and waits for its end (B5.3, E8.4): the job takes a new identifier, and its
+/// identity is journaled before its start (`run_job`).
+fn run_one(
+    session: &mut RunSession<'_>,
+    shape: &RunShape<'_>,
+    case: &CampaignCase,
+    settings: Settings,
+) -> Result<IsolatedRunStatus, Failure> {
+    let job = new_job_id();
+    let request = shape.request(case, settings, &job)?;
+    run_job(session, &request)
+}
+
+/// What every isolated run of one Validate is built from (B5.3): the loop, its selected model, the selected model's inline plant when
+/// the runs take the model (`None` for the configured plant), the current settings read from the running controller, the candidate,
+/// and the project revision the runs are reviewed on (E8.2).
 struct RunShape<'a> {
     loop_definition: &'a LoopDefinition,
     model: &'a GeneralModel,
-    plant: &'a VerificationPlant,
+    simulation: Option<&'a SimulationOverride>,
     observed: &'a BTreeMap<String, f64>,
     candidate: &'a ControlPidCandidate,
     project_revision: &'a str,
@@ -293,8 +451,8 @@ struct RunShape<'a> {
 
 impl RunShape<'_> {
     /// The request of one case under one settings (E8.4, B5.3): the current settings and the candidate each run their record as
-    /// parameter overrides. The configured plant takes no inline plant; the model's is refused here,
-    /// because this engine does not build it yet.
+    /// parameter overrides. The configured plant takes no inline plant; the runs on the selected model pass the model's
+    /// `simulation_override`.
     fn request(
         &self,
         case: &CampaignCase,
@@ -305,17 +463,13 @@ impl RunShape<'_> {
             Settings::Current => RunSettings::Current(self.observed),
             Settings::Candidate => RunSettings::Candidate(self.candidate),
         };
-        let simulation = match self.plant {
-            VerificationPlant::Configured { .. } => None,
-            VerificationPlant::Model => return Err(model_plant_unsupported()),
-        };
         isolated_run_request(&RunRequestInput {
             loop_definition: self.loop_definition,
             model: self.model,
             plan: &case.plan,
             case,
             settings,
-            simulation,
+            simulation: self.simulation,
             request_id: job,
             expected_project_revision: self.project_revision,
         })
@@ -441,6 +595,7 @@ fn validated_sections(
 ) -> Result<(IdentifySection, TuneSection), Failure> {
     let identify = study.section::<IdentifySection>()?;
     let tune = study.section::<TuneSection>()?;
+    let inputs = study.section::<InputsSection>()?;
     check_before_start(&ValidateInputs {
         loop_definition,
         identify: identify.as_ref(),
@@ -448,19 +603,39 @@ fn validated_sections(
         readiness,
     })?;
     match (identify, tune) {
-        (Some(identify), Some(tune)) => Ok((identify, tune)),
+        // Validate judges the candidate against the requirements the study holds (B4.3, A8.4).
+        (Some(identify), Some(tune)) => Ok((identify, tune_as_held(&tune, inputs.as_ref()))),
         _ => Err(study_changed()),
     }
 }
 
-/// The refusal of a run on the selected model: this engine does not build the model's inline plant yet (B5.3). Validation runs on
-/// the project's configured simulated plant, which must drive the loop.
-fn model_plant_unsupported() -> Failure {
-    Failure::new(
-        "Validation on the selected model is not built by this engine yet; the configured simulated plant must drive the loop.",
-        Cause::Implementation,
-        NextAction::None,
-    )
+/// The Validate stage of a run (B8): the operation of `controlStudio/validate`, on the study as it is, inside the run's own
+/// operation. The run holds the loop's claim, so nothing is claimed here, and its Cancel reaches the runs through `context`.
+///
+/// # Errors
+/// The journal holds an operation that runs or is unconfirmed (A8.5); the study has no current model or candidate (B5.5); the
+/// isolated simulation is not ready (E8.2); or the validation fails.
+pub(crate) fn run_stage(
+    context: &OperationContext,
+    project_root: &Path,
+    storage_folder: &Path,
+    pending: &Arc<PendingReleases>,
+    loop_definition: &LoopDefinition,
+    connection: &RuntimeConnection,
+) -> Result<Value, Failure> {
+    let journal = Journal::open(
+        storage_folder,
+        &loop_definition.project_id,
+        &loop_definition.id,
+    )?;
+    refuse_while_journaled(&journal)?;
+    let work = ValidateWork {
+        project_root: project_root.to_path_buf(),
+        storage_folder: storage_folder.to_path_buf(),
+        pending: Arc::clone(pending),
+        loop_definition: loop_definition.clone(),
+    };
+    run_validate(context, &work, connection)
 }
 
 /// The failure of a study that lost its model or its candidate between the checks and the run (`Cause::Implementation`).
@@ -477,6 +652,7 @@ fn refuse_while_journaled(journal: &Journal) -> Result<(), Failure> {
     let ids: Vec<&str> = journal
         .entries()
         .iter()
+        .filter(|entry| entry.holds_unfinished_operation())
         .map(JournalEntry::operation_id)
         .collect();
     unfinished_operation_refusal(&ids).map_or(Ok(()), Err)

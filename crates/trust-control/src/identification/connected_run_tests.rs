@@ -44,6 +44,8 @@ fn baseline() -> BaselineSummary {
         half_range: 0.05,
         spacing_seconds: 1.0,
         window_seconds: 30.0,
+        input_mean: None,
+        input_noise: None,
     }
 }
 
@@ -210,15 +212,16 @@ fn an_unknown_start_follows_an_experiment_the_runtime_holds_and_says_why_otherwi
 fn the_step_holds_the_maximum_after_the_baseline_less_one_window_and_a_hold_under_a_second_is_refused(
 ) {
     // A 600 s maximum, a recording of the 300 s baseline budget and the maximum, and a 30 s window (5 % of the maximum).
-    let hold = step_hold_ms(600_000, 900_000, &baseline(), 30.0, 30.0);
+    let window = js_round(baseline().window_seconds * 1_000.0);
+    let hold = step_hold_ms(600_000, 900_000, window, 30.0, 30.0);
     assert_eq!(hold, 570_000.0);
     assert_eq!(
-        step_hold_ms(600_000, 900_000, &baseline(), 200.0, 200.0),
+        step_hold_ms(600_000, 900_000, window, 200.0, 200.0),
         570_000.0,
         "a long wait for a steady start never shortens the step"
     );
     assert_eq!(
-        step_hold_ms(600_000, 900_000, &baseline(), 400.0, 400.0),
+        step_hold_ms(600_000, 900_000, window, 400.0, 400.0),
         470_000.0,
         "the step ends within the recording"
     );

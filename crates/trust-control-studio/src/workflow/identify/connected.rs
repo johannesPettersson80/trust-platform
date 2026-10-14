@@ -1,5 +1,6 @@
-//! The runtime a run works on, over the shared control connection (runtime protocol annex E4, E5.3 and E5.6): its recordings
-//! through the runtime's recording session, the campaign's experiment client, and the run's own start and status reads.
+//! The runtime a run works on, over the shared control connection (runtime protocol annex E4, E5.3, E5.6 and E6): its recordings
+//! through the runtime's recording session, the campaign's experiment client, the run's own start and status reads, and the
+//! connection its mode change transfers the loop on.
 
 use std::sync::Arc;
 
@@ -80,6 +81,11 @@ impl IdentifyRuntime for ConnectedRuntime<'_> {
 
     fn experiment_status(&self, experiment_id: &str) -> StatusRead {
         RuntimeClient::read_experiment_status(self.connection, experiment_id)
+    }
+
+    /// The study's connection: the mode change transfers the loop on the runtime the run works on (E11.1, annex E6).
+    fn transfer_connection(&self) -> Result<RuntimeConnection, Failure> {
+        Ok(self.connection.clone())
     }
 }
 

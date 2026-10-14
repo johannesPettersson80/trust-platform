@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use trust_control_math::sampling::statistics::{mean, noise_sigma, trend_slope, TimedValue};
 
 use super::{
-    baseline_budget_ms, format_rate, ms_as_f64, progress_due, FollowSample, Watch,
+    baseline_budget_ms, format_rate, good_inputs, ms_as_f64, progress_due, FollowSample, Watch,
     RATE_WINDOW_SAMPLES,
 };
 use crate::failure::{Cause, Failure, NextAction};
@@ -33,6 +33,13 @@ pub struct BaselineSummary {
     pub spacing_seconds: f64,
     /// The length of the steady window, in seconds.
     pub window_seconds: f64,
+    /// The mean of the plant input over the steady window, when the recording holds it: a closed-loop step judges the plant
+    /// input's settling against it (B3.4 step 4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_mean: Option<f64>,
+    /// The noise `σ` of the plant input over the steady window, when the recording holds it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_noise: Option<f64>,
 }
 
 impl BaselineSummary {
@@ -44,6 +51,16 @@ impl BaselineSummary {
             noise: self.noise,
             spacing_seconds: self.spacing_seconds,
         }
+    }
+
+    /// The plant input's baseline as the settle rules read it, when the baseline measured the plant input (B3.4 step 4).
+    #[must_use]
+    pub fn input_settle_baseline(&self) -> Option<Baseline> {
+        Some(Baseline {
+            mean: self.input_mean?,
+            noise: self.input_noise?,
+            spacing_seconds: self.spacing_seconds,
+        })
     }
 }
 
@@ -71,6 +88,7 @@ pub struct BaselineTracker {
     expected_settling_seconds: Option<f64>,
     offer_setpoint_step: bool,
     points: Vec<TimedValue>,
+    inputs: Vec<TimedValue>,
     reported_seconds: f64,
 }
 
@@ -92,11 +110,12 @@ impl BaselineTracker {
             unit: output.unit.clone(),
             range: output.range.maximum - output.range.minimum,
             maximum_seconds: ms_as_f64(maximum_ms) / 1_000.0,
-            budget_seconds: baseline_budget_ms(maximum_ms) / 1_000.0,
+            budget_seconds: baseline_budget_ms(maximum_ms, expected_settling_seconds) / 1_000.0,
             nominal_seconds: task_period_ms / 1_000.0,
             expected_settling_seconds,
             offer_setpoint_step,
             points: Vec::new(),
+            inputs: Vec::new(),
             reported_seconds: f64::NEG_INFINITY,
         }
     }
@@ -114,6 +133,7 @@ impl BaselineTracker {
     ) -> Result<BaselineStep, Failure> {
         let observed = watch.observe(samples, wall_ms);
         self.points.extend(observed);
+        self.inputs.extend(good_inputs(samples));
         let spacing = median_spacing(
             last_points(&self.points, RATE_WINDOW_SAMPLES),
             self.nominal_seconds,
@@ -132,12 +152,23 @@ impl BaselineTracker {
             let values: Vec<f64> = recent.iter().map(|point| point.value).collect();
             let noise = noise_sigma(&values);
             if is_steady(recent, noise, self.range) {
+                let inputs: Vec<f64> = trailing_window(&self.inputs, window)
+                    .iter()
+                    .map(|point| point.value)
+                    .collect();
+                let (input_mean, input_noise) = if inputs.is_empty() {
+                    (None, None)
+                } else {
+                    (Some(mean(&inputs)), Some(noise_sigma(&inputs)))
+                };
                 return Ok(BaselineStep::Steady(BaselineSummary {
                     mean: mean(&values),
                     noise,
                     half_range: half_range(&values),
                     spacing_seconds: spacing,
                     window_seconds: window,
+                    input_mean,
+                    input_noise,
                 }));
             }
         }

@@ -136,9 +136,9 @@ jobs:
         run: |
           if [ "${{ matrix.cross }}" = "true" ]; then
             CROSS_CONTAINER_OPTS="--env RUSTC_WRAPPER=" \
-              cross build --release --target ${{ matrix.target }} -p trust-lsp -p trust-debug -p trust-runtime -p trust-dev
+              cross build --release --target ${{ matrix.target }} -p trust-lsp -p trust-debug -p trust-runtime -p trust-dev -p trust-control-studio
           else
-            cargo build --release --target ${{ matrix.target }} -p trust-lsp -p trust-debug -p trust-runtime -p trust-dev
+            cargo build --release --target ${{ matrix.target }} -p trust-lsp -p trust-debug -p trust-runtime -p trust-dev -p trust-control-studio
           fi
         shell: bash
 
@@ -149,6 +149,7 @@ jobs:
           cp target/${{ matrix.target }}/release/trust-lsp editors/vscode/bin/
           cp target/${{ matrix.target }}/release/trust-debug editors/vscode/bin/
           cp target/${{ matrix.target }}/release/trust-runtime editors/vscode/bin/
+          cp target/${{ matrix.target }}/release/trust-control-studio editors/vscode/bin/
           chmod +x editors/vscode/bin/*
 
       - name: Prepare extension binaries (Windows)
@@ -158,6 +159,7 @@ jobs:
           cp target/${{ matrix.target }}/release/trust-lsp.exe editors/vscode/bin/
           cp target/${{ matrix.target }}/release/trust-debug.exe editors/vscode/bin/
           cp target/${{ matrix.target }}/release/trust-runtime.exe editors/vscode/bin/
+          cp target/${{ matrix.target }}/release/trust-control-studio.exe editors/vscode/bin/
         shell: bash
 
       - name: Package runtime (Unix)

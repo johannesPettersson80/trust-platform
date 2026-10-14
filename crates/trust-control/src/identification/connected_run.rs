@@ -41,7 +41,7 @@ use crate::identification::reconcile::ExperimentIdentity;
 use crate::identification::recorded_model::RecordedFitError;
 use crate::identification::texts::{compatibility_text, MISSING_NONZERO_STEP};
 use crate::limits::MINIMUM_EXPERIMENT_DURATION_MS;
-use crate::loop_definition::{LoopDefinition, RelayDirection};
+use crate::loop_definition::{Execution, LoopDefinition, RelayDirection};
 use crate::model::ModelValidation;
 use crate::recording::EvidenceSource;
 
@@ -273,19 +273,38 @@ pub fn offers_setpoint_step(
 }
 
 /// How long the step is held, in ms (B3.4 step 4): the maximum duration counted from the end of the baseline, within the
-/// recording, less one baseline window for the restoration. The step starts at `step_seconds` and the baseline ended at
-/// `baseline_end_seconds`, both in process time of the recording, so a long wait for a steady start never shortens the step.
+/// recording, less `restoration_ms` for the restoration ([`restoration_allowance_ms`]). The step starts at `step_seconds` and
+/// the baseline ended at `baseline_end_seconds`, both in process time of the recording, so a long wait for a steady start
+/// never shortens the step.
 #[must_use]
 pub fn step_hold_ms(
     maximum_ms: u64,
     recording_ms: u64,
-    baseline: &BaselineSummary,
+    restoration_ms: f64,
     baseline_end_seconds: f64,
     step_seconds: f64,
 ) -> f64 {
     let after_baseline = ms_as_f64(maximum_ms) - (step_seconds - baseline_end_seconds) * 1_000.0;
     let within_recording = ms_as_f64(recording_ms) - step_seconds * 1_000.0;
-    after_baseline.min(within_recording).floor() - js_round(baseline.window_seconds * 1_000.0)
+    after_baseline.min(within_recording).floor() - restoration_ms
+}
+
+/// The restoration allowance of a hold, in ms (B3.4 step 4): one baseline window, or, for a project-scripted experiment, which
+/// records its declared duration, the one restoration sample, one execution of the loop's task (C12).
+#[must_use]
+pub fn restoration_allowance_ms(
+    loop_definition: &LoopDefinition,
+    baseline: &BaselineSummary,
+) -> f64 {
+    let project_scripted = loop_definition
+        .experiment
+        .as_ref()
+        .is_some_and(|experiment| experiment.execution == Execution::ProjectScripted);
+    if project_scripted {
+        loop_definition.controller.task_period_ms
+    } else {
+        js_round(baseline.window_seconds * 1_000.0)
+    }
 }
 
 /// The refusal of a hold shorter than the shortest experiment (A7), or `None`. A limit is the fix, so Limits opens (B3.9).

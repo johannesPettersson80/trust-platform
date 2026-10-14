@@ -1061,6 +1061,24 @@ usage error: nothing is checked and the command names the file or directory. Exi
 `0` without errors, `1` with errors (or warnings under `--deny-warnings`), `2` on usage or
 I/O errors.
 
+#### 7.8 Command-line project command (`trust-lsp command`)
+
+`trust-lsp command <command> [--project DIR]` runs one project command without an LSP
+client, for a tool that needs the same project knowledge or makes the same project edit as
+the editor does (Control Studio's loop setup and Keep in project, Specification 35 §0.1a,
+B1 and B6.5). It reads the command's one
+argument as a JSON object from standard input, loads `DIR` (default: the current folder)
+exactly as `trust-lsp check` does (7.7), answers the argument through the same handler that
+answers `workspace/executeCommand`, and writes that handler's JSON answer to standard
+output as one line. The project is read from disk: the argument's `open` texts are refused,
+because no editor is attached. The answer is the editor's own: edits are returned, never
+applied, so the caller writes them. The commands it runs are those that only read the
+project and answer facts or an edit: `trust-lsp.hmiBindings` (the compiled project's
+control catalog and process image), `trust-lsp.controlKeepParameters` and
+`trust-lsp.hmiEquipment`; another command is a usage error. Exit status `0` when the handler answered (an answer
+with `ok: false` included), `2` on a usage error, an unreadable argument or an I/O error,
+with the reason on standard error.
+
 ### 8. Runtime & Debugger
 
 The workspace includes a runtime and debug adapter used for executing and testing ST programs.

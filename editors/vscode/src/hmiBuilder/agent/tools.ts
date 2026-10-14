@@ -1,17 +1,30 @@
-import { AuthoringLifetime, cancellableNativeRead } from "./lifetime";
-import { openProposal, updateProposalState } from "../editor/proposals";
-import { validateToolInput } from "./schema";
-import type { CustomSymbolModel } from "../drawing/symbols/custom";
-import { renderLibrarySheets, renderPatternReference } from "./library";
-import type { ComponentDefinition } from "../editor/catalogue";
-import { AuthoringService } from "./service";
-import { requireRetainedPages } from "./drafts";
 import { createHash } from "crypto";
+import * as path from "path";
 import * as vscode from "vscode";
+import type { ComponentDefinition } from "../editor/catalogue";
+import type { CustomSymbolModel } from "../drawing/symbols/custom";
+import { openProposal, ReviewPresenter, updateProposalState } from "../editor/proposals";
 import type { LspClientProvider } from "../../lm-tools/shared";
-import { invokeAuthoring, AuthoringResult, AuthoringErrorCode } from "./boundary";
-import { WorkspaceDocuments } from "./documents";
-import { AuthoringQueries } from "./queries";
+import { AuthoringLifetime } from "./lifetime";
+import { renderLibrarySheets } from "./library";
+import {
+  AuthoringErrorCode,
+  AuthoringResult,
+  checkInput,
+  compose,
+  context,
+  EngineProject,
+  Envelope,
+  edit,
+  envelopeFor,
+  FlowResult,
+  inputOf,
+  inspect,
+  library,
+  validate,
+} from "./engineCommands";
+import { applyDraft, discardDraft, reviewDraft } from "./proposalFlow";
+import { previewSession, renderState, renderStates, simulatorJourney } from "./previews";
 
 export const workspaceIdentity = (uri: vscode.Uri): string =>
   createHash("sha256").update(uri.toString()).digest("hex").slice(0, 24);
@@ -37,10 +50,27 @@ function errorResult(error: unknown, cancelled = false): AuthoringResult {
   return { ok: false, code: CODES.has(prefix) ? prefix : "PROJECT_UNAVAILABLE", message, retryable: false };
 }
 
-/** Native VS Code adapter. Project authority comes from the open window, never an input path. */
+/** One tool call's answer and the PNG images it carries. */
+interface Outcome {
+  answer: AuthoringResult;
+  images: string[];
+}
+
+/** A successful answer of a flow. */
+function succeeded(
+  data: Record<string, unknown>,
+  revisions: Record<string, string> = {},
+  warnings: string[] = [],
+): AuthoringResult {
+  return { ok: true, data, revisions, warnings };
+}
+
+/** Native VS Code adapter. Project authority comes from the open window, never an input path. The authoring commands
+ * run in `trust-lsp`; this adapter forwards each call to them, runs the renders, and presents the proposal. */
 export class HmiAgentTool {
   constructor(
     readonly name: string,
+    // Kept for the callers' signature. The commands are reached through VS Code's command registry, not a client.
     private readonly getClient?: LspClientProvider,
     private readonly environment?: { storageRoot: string; fontFile: string },
     private readonly timeoutMs?: number,
@@ -49,7 +79,7 @@ export class HmiAgentTool {
     const lifetime = new AuthoringLifetime(this.name, token, this.timeoutMs);
     const controller = lifetime.controller;
     let response: AuthoringResult;
-    const images: string[] = [];
+    let images: string[] = [];
     try {
       const raw = options.input as { workspaceId?: unknown } | null;
       const folders = vscode.workspace.workspaceFolders ?? [];
@@ -74,186 +104,22 @@ export class HmiAgentTool {
         };
       } else {
         const workspaceId = workspaceIdentity(folder.uri);
-        const envelope =
+        const request: Envelope =
           raw && typeof raw === "object" && !Array.isArray(raw)
             ? { ...raw, workspaceId: raw.workspaceId ?? workspaceId }
             : raw;
-        response = await invokeAuthoring(envelope, { workspaceId, signal: controller.signal }, async (input) => {
-          validateToolInput(this.name, input);
-          const nativeFor =
-            (requestToken: vscode.CancellationToken): import("./queries").NativeCommand =>
-            async (command, argument) => {
-              const client = this.getClient?.();
-              if (!client) throw new Error("NOT_CONNECTED: the truST language server is not ready.");
-              return cancellableNativeRead(requestToken, () =>
-                client.sendRequest<Record<string, unknown>>(
-                  "workspace/executeCommand",
-                  { command, arguments: [argument] },
-                  requestToken,
-                ),
-              );
-            };
-          const native = nativeFor(lifetime.token);
-          const documents = new WorkspaceDocuments(folder.uri);
-          const queries = new AuthoringQueries(documents, native);
-          let data: Record<string, unknown>;
-          let committed = false;
-          if (this.name === "hmi_get_context") {
-            data = await queries.context({ ...input, partial: true });
-            if (this.environment) {
-              const service = new AuthoringService(
-                workspaceId,
-                documents,
-                native,
-                this.environment.storageRoot,
-                this.environment.fontFile,
-              );
-              data.drafts = await service.store.list(workspaceId);
-            }
-          } else if (this.name === "hmi_browse_library") {
-            if (
-              Object.keys(input).some(
-                (key) => !["query", "cursor", "limit", "theme", "category", "state"].includes(key),
-              ) ||
-              (input.query !== undefined && typeof input.query !== "string") ||
-              (input.cursor !== undefined && typeof input.cursor !== "number")
-            )
-              throw new Error("INVALID_ARGUMENT: provide query text and an integer cursor.");
-            data = await queries.library(
-              input.query as string | undefined,
-              input.cursor as number | undefined,
-              (input.limit ?? 12) as number,
-              input.category as string | undefined,
-            );
-            if (!this.environment) throw new Error("NOT_CONNECTED: component preview renderer unavailable.");
-            const theme = input.theme ?? "dark";
-            if (theme !== "dark" && theme !== "light")
-              throw new Error("INVALID_ARGUMENT: theme must be dark or light.");
-            const rendered = await renderLibrarySheets(
-              data.components as ComponentDefinition[],
-              this.environment.fontFile,
-              theme,
-              controller.signal,
-              data.symbols as CustomSymbolModel[],
-              input.state as string | undefined,
-            );
-            for (const sheet of rendered.sheets) sheet.manifest.catalogueRevision = data.catalogueRevision;
-            images.push(...rendered.images);
-            data.sheets = rendered.sheets;
-            data.origin = "synthetic";
-            for (const pattern of data.compositionPatterns as Array<{
-              reference?: import("./patternReferences").PatternReference;
-            }>) {
-              if (!pattern.reference) continue;
-              const preview = await renderPatternReference(
-                pattern.reference,
-                this.environment.fontFile,
-                theme,
-                controller.signal,
-              );
-              pattern.reference.imageIndex = images.length;
-              images.push(preview.png);
-            }
-            data.unpictured = (data.components as ComponentDefinition[])
-              .filter((component) => !rendered.sheets.some((sheet) => sheet.types.includes(component.type)))
-              .map((component) => component.type);
-          } else if (this.name === "hmi_inspect_page") {
-            let override: { text: string; revision: string; draftId: string } | undefined;
-            if (input.draftId !== undefined) {
-              if (!this.environment) throw new Error("NOT_CONNECTED: authoring storage is unavailable.");
-              const service = new AuthoringService(
-                workspaceId,
-                documents,
-                native,
-                this.environment.storageRoot,
-                this.environment.fontFile,
-              );
-              const draft = await service.store.get(String(input.draftId));
-              if (draft.workspaceId !== workspaceId)
-                throw new Error("PROJECT_UNAVAILABLE: draft belongs to another workspace.");
-              if (draft.revision !== input.revision) throw new Error("CONFLICT: draft revision changed.");
-              requireRetainedPages(draft);
-              if (!Object.prototype.hasOwnProperty.call(draft.files, String(input.file)))
-                throw new Error("INVALID_ARGUMENT: select a file in the draft.");
-              override = { text: draft.files[String(input.file)], revision: draft.revision, draftId: draft.id };
-            }
-            data = await queries.inspect(
-              String(input.file),
-              input.ids as string[] | undefined,
-              input.region as import("./queries").InspectionRegion | undefined,
-              override,
-            );
-          } else {
-            if (!this.environment) throw new Error("NOT_CONNECTED: authoring storage is unavailable.");
-            const environment = this.environment;
-            const present: import("../editor/proposals").ReviewPresenter = (model, files, signal) => {
-              const action = async (operation: "apply" | "discard") => {
-                if (
-                  !vscode.workspace.workspaceFolders?.some(
-                    (current) => current.uri.toString() === folder.uri.toString(),
-                  )
-                )
-                  throw new Error("PROJECT_UNAVAILABLE: reopen the proposal's workspace before applying changes.");
-                const cancellation = new AuthoringLifetime("hmi_apply_draft");
-                try {
-                  const owner = new AuthoringService(
-                    workspaceId,
-                    documents,
-                    nativeFor(cancellation.token),
-                    environment.storageRoot,
-                    environment.fontFile,
-                  );
-                  await owner.execute(
-                    "hmi_apply_draft",
-                    { draftId: model.draftId, revision: model.revision, action: operation, save: false },
-                    cancellation.signal,
-                  );
-                  updateProposalState(workspaceId, model.draftId, operation === "apply" ? "applied" : "discarded");
-                } finally {
-                  cancellation.dispose();
-                }
-              };
-              return openProposal({
-                workspaceId,
-                project: folder.uri,
-                model,
-                files,
-                signal,
-                apply: () => action("apply"),
-                discard: () => action("discard"),
-              });
-            };
-            const service = new AuthoringService(
-              workspaceId,
-              documents,
-              native,
-              environment.storageRoot,
-              environment.fontFile,
-              present,
-            );
-            const output = await service.execute(this.name, input, controller.signal);
-            if (this.name === "hmi_edit_draft")
-              updateProposalState(workspaceId, String(output.data.draftId), "stale", String(output.data.revision));
-            if (this.name === "hmi_apply_draft" && ["apply", "discard"].includes(String(input.action)))
-              updateProposalState(
-                workspaceId,
-                String(output.data.draftId),
-                input.action === "apply" ? "applied" : "discarded",
-              );
-
-            data = output.data;
-            committed = output.committed === true;
-            images.push(...(output.images ?? []));
-          }
-          // Once source has committed, preserve the durable receipt even if the caller cancels.
-          if (controller.signal.aborted && !committed) throw new Error("CANCELLED: authoring query cancelled.");
-          return {
-            ok: true,
-            data: { ...data, workspaceId },
-            revisions: (data.revisions as Record<string, string>) ?? {},
-            warnings: [],
-          };
-        });
+        if (!this.environment) throw new Error("NOT_CONNECTED: authoring storage is unavailable.");
+        const project: EngineProject = {
+          root: folder.uri,
+          workspaceId,
+          storage: path.join(this.environment.storageRoot, workspaceId),
+          token: lifetime.token,
+        };
+        const outcome = await this.perform(project, folder, request, this.environment.fontFile, controller.signal);
+        images = outcome.images;
+        response = outcome.answer.ok
+          ? { ...outcome.answer, data: { ...outcome.answer.data, workspaceId } }
+          : outcome.answer;
       }
     } catch (error) {
       response = errorResult(error, controller.signal.aborted);
@@ -267,5 +133,139 @@ export class HmiAgentTool {
       new vscode.LanguageModelTextPart(JSON.stringify(response)),
       ...images.map((png) => vscode.LanguageModelDataPart.image(Buffer.from(png, "base64"), "image/png")),
     ]);
+  }
+
+  /** Forwards the call to its command, or runs the flow that renders or applies its answer. */
+  private async perform(
+    project: EngineProject,
+    folder: vscode.WorkspaceFolder,
+    request: Envelope,
+    fontFile: string,
+    signal: AbortSignal,
+  ): Promise<Outcome> {
+    const input = inputOf(request);
+    switch (this.name) {
+      case "hmi_get_context":
+        return { answer: await context(project, request), images: [] };
+      case "hmi_browse_library":
+        return this.browse(project, request, input, fontFile, signal);
+      case "hmi_inspect_page":
+        return { answer: await inspect(project, request), images: [] };
+      case "hmi_compose_page":
+        return { answer: await compose(project, request), images: [] };
+      case "hmi_edit_draft": {
+        const answer = await edit(project, request);
+        if (answer.ok)
+          updateProposalState(project.workspaceId, String(answer.data.draftId), "stale", String(answer.data.revision));
+        return { answer, images: [] };
+      }
+      case "hmi_validate_draft":
+        return { answer: await validate(project, request), images: [] };
+      case "hmi_render_draft": {
+        const checked = await checkInput(project, this.name, request);
+        if (!checked.ok) return { answer: checked, images: [] };
+        const rendered = await renderState(await previewSession(project, fontFile, input, signal), input, "sample");
+        return { answer: succeeded(rendered.data), images: rendered.images };
+      }
+      case "hmi_preview_states": {
+        const checked = await checkInput(project, this.name, request);
+        if (!checked.ok) return { answer: checked, images: [] };
+        const session = await previewSession(project, fontFile, input, signal);
+        if (input.mode === "simulator")
+          return { answer: succeeded(await simulatorJourney(session, input)), images: [] };
+        const rendered = await renderStates(session, input, input.states as string[]);
+        return { answer: succeeded(rendered.data), images: rendered.images };
+      }
+      case "hmi_apply_draft":
+        return this.proposal(project, folder, request, input, fontFile, signal);
+      default:
+        throw new Error("INVALID_ARGUMENT: unknown authoring tool.");
+    }
+  }
+
+  /** The component library, with each component's sheet rendered in the requested theme. */
+  private async browse(
+    project: EngineProject,
+    request: Envelope,
+    input: Record<string, unknown>,
+    fontFile: string,
+    signal: AbortSignal,
+  ): Promise<Outcome> {
+    const answer = await library(project, request);
+    if (!answer.ok) return { answer, images: [] };
+    const data = answer.data;
+    const rendered = await renderLibrarySheets(
+      data.components as ComponentDefinition[],
+      fontFile,
+      (input.theme ?? "dark") as "dark" | "light",
+      signal,
+      data.symbols as CustomSymbolModel[],
+      input.state as string | undefined,
+    );
+    for (const sheet of rendered.sheets) sheet.manifest.catalogueRevision = data.catalogueRevision;
+    data.sheets = rendered.sheets;
+    data.origin = "synthetic";
+    data.unpictured = (data.components as ComponentDefinition[])
+      .filter((component) => !rendered.sheets.some((sheet) => sheet.types.includes(component.type)))
+      .map((component) => component.type);
+    return { answer: succeeded(data, answer.revisions, answer.warnings), images: rendered.images };
+  }
+
+  /** `hmi_apply_draft`: the review, the application or the discard, by its action. */
+  private async proposal(
+    project: EngineProject,
+    folder: vscode.WorkspaceFolder,
+    request: Envelope,
+    input: Record<string, unknown>,
+    fontFile: string,
+    signal: AbortSignal,
+  ): Promise<Outcome> {
+    const action = input.action;
+    let flow: FlowResult;
+    if (action === "review") flow = await reviewDraft(project, fontFile, request, this.presenter(project, folder), signal);
+    else if (action === "apply") flow = await applyDraft(project, request, signal);
+    else if (action === "discard") flow = await discardDraft(project, request);
+    else throw new Error("INVALID_ARGUMENT: action must be review, apply or discard.");
+    if (action === "apply" || action === "discard")
+      updateProposalState(
+        project.workspaceId,
+        String(flow.data.draftId),
+        action === "apply" ? "applied" : "discarded",
+      );
+    return { answer: succeeded(flow.data, flow.revisions, flow.warnings), images: flow.images };
+  }
+
+  /** The proposal host of a review. Its Apply and Discard buttons run the same flows as the tool. */
+  private presenter(project: EngineProject, folder: vscode.WorkspaceFolder): ReviewPresenter {
+    return (model, files, signal) => {
+      const operate = async (operation: "apply" | "discard"): Promise<void> => {
+        if (!vscode.workspace.workspaceFolders?.some((current) => current.uri.toString() === folder.uri.toString()))
+          throw new Error("PROJECT_UNAVAILABLE: reopen the proposal's workspace before applying changes.");
+        const cancellation = new AuthoringLifetime("hmi_apply_draft");
+        try {
+          const owned: EngineProject = { ...project, token: cancellation.token };
+          const request = envelopeFor(project.workspaceId, {
+            draftId: model.draftId,
+            revision: model.revision,
+            action: operation,
+            save: false,
+          });
+          if (operation === "apply") await applyDraft(owned, request, cancellation.signal);
+          else await discardDraft(owned, request);
+          updateProposalState(project.workspaceId, model.draftId, operation === "apply" ? "applied" : "discarded");
+        } finally {
+          cancellation.dispose();
+        }
+      };
+      return openProposal({
+        workspaceId: project.workspaceId,
+        project: folder.uri,
+        model,
+        files,
+        signal,
+        apply: () => operate("apply"),
+        discard: () => operate("discard"),
+      });
+    };
   }
 }

@@ -369,6 +369,7 @@ mod tests {
                     elapsed_seconds: self.next,
                     good: true,
                     output: Some((self.plant)(self.next)),
+                    input: None,
                 });
                 self.next += 1.0;
             }
@@ -485,6 +486,8 @@ mod tests {
             half_range: 0.05,
             spacing_seconds: 1.0,
             window_seconds: 30.0,
+            input_mean: None,
+            input_noise: None,
         }
     }
 

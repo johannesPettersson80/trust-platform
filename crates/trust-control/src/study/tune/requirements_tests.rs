@@ -57,6 +57,7 @@ fn first_requirements(
         &general,
         &identify,
         None,
+        None,
         &request(method, choice),
     )
 }
@@ -154,6 +155,7 @@ fn a_declared_response_replaces_the_one_an_earlier_tune_generated() {
         &general,
         &identify,
         Some(&previous),
+        None,
         &request(Some(TuneMethod::Simc), Some(TuneChoice::Faster)),
     )
     .expect("SIMC's test");
@@ -338,6 +340,7 @@ fn a_model_without_a_finite_operating_point_is_refused_with_the_policys_sentence
             general,
             &identify,
             None,
+            None,
             &request(None, None),
         )
         .expect_err("no operating point")
@@ -371,10 +374,56 @@ fn a_model_with_two_inputs_needs_a_channel_mapping() {
             &general,
             &identify,
             None,
+            None,
             &request(None, None),
         )
         .expect_err("two inputs")
         .0,
         "Map every model input and output in loop channel bindings."
+    );
+}
+
+#[test]
+fn the_requirements_the_study_holds_are_taken_as_given_over_an_earlier_generated_value() {
+    let (general, identify, model) = fopdt();
+    let held = TuningRequirements {
+        reference_change: 2.0,
+        maximum_error: 0.4,
+        settling_band: 0.1,
+        settling_time_seconds: 45.0,
+        duration_seconds: 90.0,
+        constant_input_disturbance: None,
+        measurement_noise_band: None,
+        gain_uncertainty_fraction: None,
+        transfer_tolerance: None,
+        maximum_overshoot_percent: None,
+        tuning_method: None,
+        tuning_objective: None,
+        automatic_criteria: None,
+    };
+    // An earlier Tune generated the test change, so Tune would fill it again; the value the engineer holds is kept instead (B4.3).
+    let mut previous = crate::study::tune::tests::valid_section(&general.identity().revision);
+    previous.requirements.automatic_criteria = Some(AutomaticCriteria {
+        model_revision: general.identity().revision.clone(),
+        fields: vec!["referenceChange".to_owned()],
+    });
+    let given = requirements_for(
+        &commissioning_loop(),
+        &model,
+        &general,
+        &identify,
+        Some(&previous),
+        Some(&held),
+        &request(Some(TuneMethod::Simc), None),
+    )
+    .expect("the study's requirements");
+    assert_eq!(
+        given.reference_change, 2.0,
+        "the held value is kept as given"
+    );
+    assert_eq!(given.duration_seconds, 90.0);
+    assert_eq!(
+        given.automatic_criteria, None,
+        "no value of the record is generated"
     );
 }

@@ -406,6 +406,17 @@ END_PROGRAM
                 "trust-lsp.hmiProposeSettingsPage",
                 "trust-lsp.hmiRenameInstance",
                 "trust-lsp.controlKeepParameters",
+                "trust-lsp.hmiAgent.context",
+                "trust-lsp.hmiAgent.library",
+                "trust-lsp.hmiAgent.inspect",
+                "trust-lsp.hmiAgent.compose",
+                "trust-lsp.hmiAgent.edit",
+                "trust-lsp.hmiAgent.validate",
+                "trust-lsp.hmiAgent.drafts",
+                "trust-lsp.hmiAgent.review",
+                "trust-lsp.hmiAgent.apply",
+                "trust-lsp.hmiAgent.discard",
+                "trust-lsp.hmiAgent.checkInput",
             ]
         );
     }

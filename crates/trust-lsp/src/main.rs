@@ -3,6 +3,7 @@
 //! This is the main entry point for the ST language server.
 
 mod check;
+mod command_line;
 mod config;
 mod external_diagnostics;
 mod handlers;
@@ -811,15 +812,17 @@ impl LanguageServer for StLanguageServer {
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
     let command_line_check = args.get(1).map(String::as_str) == Some("check");
+    let command_line_command = args.get(1).map(String::as_str) == Some("command");
+    let command_line_run = command_line_check || command_line_command;
     // Initialize logging (command-line runs only report problems)
-    let level = if command_line_check {
+    let level = if command_line_run {
         tracing::Level::WARN
     } else {
         tracing::Level::INFO
     };
     let mut filter = tracing_subscriber::EnvFilter::from_default_env().add_directive(level.into());
-    if command_line_check {
-        // check's client has no peer: its log/progress notifications are dropped on purpose
+    if command_line_run {
+        // a command-line run's client has no peer: its log/progress notifications are dropped on purpose
         if let Ok(directive) = "tower_lsp::service::client=off".parse() {
             filter = filter.add_directive(directive);
         }
@@ -831,6 +834,9 @@ async fn main() {
 
     if command_line_check {
         std::process::exit(check::run(&args[2..]).await);
+    }
+    if command_line_command {
+        std::process::exit(command_line::run(&args[2..]).await);
     }
 
     info!("Starting ST Language Server");

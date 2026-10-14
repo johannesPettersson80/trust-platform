@@ -6,6 +6,9 @@
 //! `mod common;`. Every item below is used by both files, so the module needs no `allow(dead_code)`. The code was moved
 //! from `control_studio_runtime.rs` as it was; only the items became `pub`.
 
+// Each test crate includes this module and uses a part of it.
+#![allow(dead_code)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -16,6 +19,9 @@ use trust_control::loop_definition::LoopDefinition;
 use trust_control::runtime::{RuntimeConnection, RuntimeStatus};
 use trust_control::signals::{Inspection, InspectionRequest, InspectionSample, SignalBinding};
 use trust_control_studio::runtime_client::RuntimeClient;
+
+/// The helpers of the engine's real-runtime tests of stages V4.6 to V4.8 (a lab on a copy of a project, the command line, findings).
+pub mod engine;
 
 /// A known control token for the test runtime. It is not a credential.
 pub const TOKEN: &str = "control-studio-runtime-test-token";
@@ -36,7 +42,13 @@ impl Drop for Runtime {
 pub struct RemoveDir(pub PathBuf);
 
 impl Drop for RemoveDir {
+    /// Removes the folder, except while a failed test unwinds: its outputs are then the evidence of the failure, so the folder is
+    /// kept and named on the standard error.
     fn drop(&mut self) {
+        if std::thread::panicking() {
+            eprintln!("kept the folder of the failed test: {}", self.0.display());
+            return;
+        }
         let _ = fs::remove_dir_all(&self.0);
     }
 }
@@ -100,6 +112,25 @@ pub fn trust_runtime() -> PathBuf {
     assert!(
         executable.is_file(),
         "{} is missing: run `cargo build -p trust-runtime --bin trust-runtime` first, or set TRUST_RUNTIME_BIN",
+        executable.display()
+    );
+    executable
+}
+
+/// The `trust-lsp` executable of this target folder, or `TRUST_LSP_BIN` (the project commands of `trust-lsp command`).
+pub fn trust_lsp() -> PathBuf {
+    if let Some(path) = std::env::var_os("TRUST_LSP_BIN") {
+        return PathBuf::from(path);
+    }
+    let test = std::env::current_exe().expect("the test executable");
+    let profile = test
+        .parent()
+        .and_then(Path::parent)
+        .expect("the target profile folder");
+    let executable = profile.join(format!("trust-lsp{}", std::env::consts::EXE_SUFFIX));
+    assert!(
+        executable.is_file(),
+        "{} is missing: run `cargo build -p trust-lsp` first, or set TRUST_LSP_BIN",
         executable.display()
     );
     executable

@@ -6,6 +6,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Control Studio's Apply no longer starts when the process has only touched its settling band. It waits until every measured output
+  has stayed inside its band for a settle dwell: the longer of twenty samples at the loop's task period and a tenth of the expected
+  settling time (B6.2, B3.4).
+- Control Studio's Apply observation no longer fails a long test with "The recorded response does not
+  cover the reviewed duration.". Its recording is planned longer than the test duration by the
+  target change's allowance and three record periods (B6.3, A4.2), so a response that starts up to
+  one and a half record periods after the change still covers the whole reviewed duration.
 - Control Studio has its own engine, the program `trust-control-studio`, so it also runs without
   VS Code. `trust-control-studio identify --project <folder> --loop <id>` identifies a loop's plant
   against its configured runtime and prints the model, its equation and its key numbers (or, with
@@ -26,6 +33,29 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   Inconclusive) with its measured value, limit, unit and source, the overall result, and whether
   Apply is available. A run that does not complete keeps the runtime's reason; missing evidence
   never passes.
+- `trust-control-studio apply`, `restore` and `keep` change the running controller only after a
+  review: without `--review` they print what the confirmation would write and a review identity,
+  and `--review <identity>` confirms exactly that review, refused when the runtime has changed
+  since. Apply writes the validated candidate, enters Auto without a bump and observes the
+  response; Restore returns the parameter record, the mode and the references Apply found, from
+  the journaled checkpoint, also after an interrupted Apply; Keep in project writes the running
+  values into the project's sources. An Apply cancelled with Ctrl-C exits with status 130 and
+  keeps the receipt of its restoration. `trust-control-studio setup` discovers a loop's bindings in
+  the compiled project and saves the loop file.
+- Control Studio's Identify waits for a steady start as long as two measuring windows of the
+  expected settling time, so a slowly settling process is no longer refused as "still changing";
+  its window always holds at least 20 samples; a closed-loop setpoint step ends early only when
+  the plant input has settled too; and a loop found in Auto gets its setpoint back after the
+  experiment, also when the program sets the setpoint from the measurement while in Manual.
+- Control Studio's Validate tests the candidate at the operating point Apply starts from: when the
+  configured simulated plant cannot start there (for example after an Apply whose setpoint change
+  stays in force), every case runs on the qualified model, and the result says why. Long Tune
+  predictions keep each period's extremes on the chart instead of millions of points.
+- The HMI agent's page authoring (composition, edits, drafts, reviews and requests) runs in the
+  language server, written in Rust; the review's interactive exploration of the project's pages
+  works again.
+- The room heating example (`examples/room_heating`) uses a small tank and room, so its slowest
+  mode settles in minutes instead of hours.
 - `trust-control-studio tune --project <folder> --loop <id>` designs a controller candidate from the
   study's identified model, without touching the running controller: Automatic chooses the
   simplest structure that meets the requirements (and lists why the simpler ones were rejected);

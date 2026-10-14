@@ -17,15 +17,18 @@ pub enum Stage {
     Tune,
     /// Validate the controller.
     Validate,
+    /// Apply the validated candidate to the controller (B6): Restore previous settings and Keep in project follow it.
+    Apply,
 }
 
 /// The stages in their order.
-pub const STAGE_ORDER: [Stage; 5] = [
+pub const STAGE_ORDER: [Stage; 6] = [
     Stage::Monitor,
     Stage::Test,
     Stage::Identify,
     Stage::Tune,
     Stage::Validate,
+    Stage::Apply,
 ];
 
 /// The six words of §4.2.
@@ -145,6 +148,17 @@ fn stage_status(stage: Stage, evidence: &StageEvidence) -> StageStatus {
         Stage::Identify => identify_status(evidence),
         Stage::Tune => tune_status(evidence),
         Stage::Validate => validate_status(evidence),
+        Stage::Apply => apply_stage_status(evidence),
+    }
+}
+
+/// Apply is ready exactly when Apply is available (B5.4): the candidate has a current validation that passed. The words of
+/// "applied" come from the study's Apply section, which the status of this stage does not read.
+fn apply_stage_status(evidence: &StageEvidence) -> StageStatus {
+    if apply_available(evidence) {
+        StageStatus::Ready
+    } else {
+        StageStatus::NeedsData
     }
 }
 
@@ -310,5 +324,37 @@ mod tests {
         assert_eq!(status(passed, Stage::Validate), StageStatus::Complete);
         assert!(apply_available(&passed));
         assert!(!apply_available(&candidate), "no validation, no Apply");
+    }
+
+    #[test]
+    fn apply_follows_validate_and_is_ready_only_when_apply_is_available() {
+        assert_eq!(STAGE_ORDER.last(), Some(&Stage::Apply));
+        assert_eq!(
+            STAGE_ORDER
+                .iter()
+                .position(|stage| *stage == Stage::Validate),
+            Some(4),
+            "Apply comes right after Validate"
+        );
+        assert_eq!(
+            status(StageEvidence::default(), Stage::Apply),
+            StageStatus::NeedsData
+        );
+        let candidate = StageEvidence {
+            has_model: true,
+            has_candidate: true,
+            ..StageEvidence::default()
+        };
+        assert_eq!(
+            status(candidate, Stage::Apply),
+            StageStatus::NeedsData,
+            "a candidate without a passed validation is not applied (B5.4)"
+        );
+        let passed = StageEvidence {
+            validation_has_result: true,
+            validation_passed: true,
+            ..candidate
+        };
+        assert_eq!(status(passed, Stage::Apply), StageStatus::Ready);
     }
 }

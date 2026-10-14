@@ -1,73 +1,63 @@
-import { NoSourceChangeError } from "./applicationState";
 import * as vscode from "vscode";
-import { sameContent, WorkspaceDocuments } from "./documents";
-import type { Draft } from "./drafts";
-export interface ApplyOutcome {
+import { NoSourceChangeError } from "./applicationState";
+
+/** A page the authoring preflight prepared for this transaction (the `files` of the apply answer). */
+export interface PreparedFile {
+  file: string;
+  text: string;
+  /** Whether the page does not exist yet, so the transaction creates it. */
+  create: boolean;
+}
+
+/** What the transaction did. Saving is reported apart from the edit (specification 43, AT-09). */
+export type ApplyOutcome = {
   applied: boolean;
   files: string[];
   saved: string[];
   unsaved: string[];
-}
+};
+
 function check(signal: AbortSignal): void {
   if (signal.aborted) throw new Error("CANCELLED: draft application cancelled before commit.");
 }
 
-/** Source changes use one native editor WorkspaceEdit. Saving follows commit and is reported
- * separately: a save failure must not be mistaken for an unapplied edit. A conflict means a page
- * holds different text than when the draft was prepared; merely opening, closing or saving a
- * page in an editor changes its version, not its text, and is no conflict. */
-export async function applyDraftFiles(
-  documents: WorkspaceDocuments,
-  draft: Draft,
+/** Source changes use one native editor WorkspaceEdit. Saving follows commit and is reported separately: a save
+ * failure must not be mistaken for an unapplied edit. The preflight has checked every page against its base under
+ * the draft lock; that base text is not in the preflight answer, so the transaction does not compare it again. */
+export async function applyEditorFiles(
+  root: vscode.Uri,
+  files: PreparedFile[],
   save: boolean,
   signal: AbortSignal,
 ): Promise<ApplyOutcome> {
   let invoked = false;
   try {
     check(signal);
-    const files = Object.keys(draft.files);
-    if (!files.length || files.length > 32) throw new Error("LIMIT_EXCEEDED: provide 1 to 32 changed files.");
-    const base = new Map(draft.base.map((snapshot) => [snapshot.file, snapshot]));
-    for (const file of files) {
-      if (!/^hmi\/pages\/[A-Za-z0-9_-]+\.toml$/.test(file))
-        throw new Error("INVALID_ARGUMENT: this transaction accepts HMI pages only.");
-      if (!base.has(file)) throw new Error("CONFLICT: changed file has no base revision.");
-      if (Buffer.byteLength(draft.files[file]) > 1024 * 1024) throw new Error("LIMIT_EXCEEDED: page exceeds 1 MiB.");
-    }
-    for (const expected of draft.base) {
-      const current = await documents.read(expected.file, signal);
-      if (!sameContent(current, expected))
-        throw new Error(`CONFLICT: ${expected.file} changed since the draft was created.`);
-    }
     const edit = new vscode.WorkspaceEdit();
-    const opened: Array<{ file: string; document: vscode.TextDocument; text: string }> = [];
-    for (const file of files) {
-      const uri = await documents.uri(file, signal);
-      const expected = base.get(file)!;
-      if (expected.exists) {
-        const document = await vscode.workspace.openTextDocument(uri);
-        if (document.getText() !== expected.text) throw new Error(`CONFLICT: ${file} changed before application.`);
-        opened.push({ file, document, text: expected.text });
-        edit.replace(uri, new vscode.Range(0, 0, document.lineCount, 0), draft.files[file]);
-      } else {
+    const uris = files.map((prepared) => vscode.Uri.joinPath(root, ...prepared.file.split("/")));
+    for (const [index, prepared] of files.entries()) {
+      const uri = uris[index];
+      if (prepared.create) {
         // overwrite:false makes a file created by another actor a conflict, never an overwrite.
         edit.createFile(uri, { overwrite: false, ignoreIfExists: false });
-        edit.insert(uri, new vscode.Position(0, 0), draft.files[file]);
+        edit.insert(uri, new vscode.Position(0, 0), prepared.text);
+      } else {
+        const document = await vscode.workspace.openTextDocument(uri);
+        edit.replace(uri, new vscode.Range(0, 0, document.lineCount, 0), prepared.text);
       }
     }
     check(signal);
-    for (const item of opened)
-      if (item.document.getText() !== item.text) throw new Error(`CONFLICT: ${item.file} changed before commit.`);
     invoked = true;
     if (!(await vscode.workspace.applyEdit(edit, { isRefactoring: false })))
       throw new Error("CONFLICT: the editor refused the draft transaction; inspect source state before retrying.");
     // From here cancellation cannot honestly report that nothing happened.
-    const saved: string[] = [],
-      unsaved: string[] = [];
-    for (const file of files) {
+    const names = files.map((prepared) => prepared.file);
+    const saved: string[] = [];
+    const unsaved: string[] = [];
+    for (const [index, file] of names.entries()) {
       if (save) {
         try {
-          const document = await vscode.workspace.openTextDocument(await documents.uri(file));
+          const document = await vscode.workspace.openTextDocument(uris[index]);
           if (await document.save()) {
             saved.push(file);
             continue;
@@ -78,7 +68,7 @@ export async function applyDraftFiles(
       }
       unsaved.push(file);
     }
-    return { applied: true, files, saved, unsaved };
+    return { applied: true, files: names, saved, unsaved };
   } catch (error) {
     if (!invoked) throw new NoSourceChangeError(error);
     throw error;
