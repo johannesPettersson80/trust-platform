@@ -272,7 +272,8 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
     }
 
-    fn check_ref_assignment(&mut self, target: &SyntaxNode, value: &SyntaxNode) {        let target_type = self.checker.expr().check_expression(target);
+    fn check_ref_assignment(&mut self, target: &SyntaxNode, value: &SyntaxNode) {
+        let target_type = self.checker.expr().check_expression(target);
         let value_type = self.checker.expr().check_expression(value);
 
         if target_type == TypeId::UNKNOWN || value_type == TypeId::UNKNOWN {

@@ -732,6 +732,7 @@ types_and_references::test_ref_assignment_requires_reference_source: test
 types_and_references::test_ref_assignment_requires_reference_target: test
 types_and_references::test_ref_bind_rebinds_to_variable_storage: test
 types_and_references::test_ref_bind_rejects_computed_source: test
+types_and_references::test_ref_bind_rejects_constant_source: test
 types_and_references::test_ref_bind_rejects_value_target: test
 types_and_references::test_ref_rejects_constant: test
 types_and_references::test_ref_rejects_function_local_variable: test

@@ -435,8 +435,11 @@ vendor-parity extension in `03-variables.md`:
   own declarations, including across files. The program name alone in value
   position remains rejected ("program cannot be used as a value").
 - A program name invoked as a statement (`Name();`) invokes the program body.
-  A program call takes no arguments and produces no value; using the call
-  result is rejected like a void call.
+  A program call produces no value; using the call result is rejected like a
+  void call. `VAR_INPUT` arguments are accepted and checked like
+  function-block input bindings (positional or named), matching the CODESYS
+  calling convention; arguments against a program without matching inputs are
+  an argument diagnostic.
 
 ## 5. CLASS Declaration (Table 48, Section 6.6.5)
 

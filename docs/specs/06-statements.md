@@ -115,6 +115,11 @@ pointed-to value and never performs the `?=` checked-copy fallback.
 - `REF=` follows the ordinary assignment-statement guards for its target
   (constant and accessibility checks); it is not accepted as a declaration
   initializer in this profile.
+- Lexical form: `REF=` is a single fused operator lexeme, matched
+  case-insensitively and by longest match (`ref=1` lexes as the operator
+  followed by `1`, never as an identifier followed by `=`; `REF` is a
+  reserved word, so no identifier can collide). `REF` and `=` separated by
+  whitespace are two tokens and do not form the operator.
 
 ## 3. Call Statements (Section 7.3.3.2.4)
 

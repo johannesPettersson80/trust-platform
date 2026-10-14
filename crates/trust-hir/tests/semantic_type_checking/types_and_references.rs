@@ -634,6 +634,21 @@ END_PROGRAM
 }
 
 #[test]
+fn test_ref_bind_rejects_constant_source() {
+    // Spec 06 section 2: the REF= source must not be CONSTANT-qualified.
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR CONSTANT limit : INT := 10; END_VAR
+    VAR x : INT; r : REF_TO INT; END_VAR
+    r REF= limit;
+END_PROGRAM
+"#,
+        DiagnosticCode::ConstantModification,
+    );
+}
+
+#[test]
 fn test_reference_auto_deref_field_access() {
     check_no_errors(
         r#"
