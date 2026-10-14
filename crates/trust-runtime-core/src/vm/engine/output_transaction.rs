@@ -24,12 +24,10 @@ impl EngineState<'_> {
             return Ok(());
         }
         let root = self.snapshot_root(Some(frame), key)?;
-        // The saved value is a transient rollback snapshot (TIME-08); only the
-        // journal's own growth is admitted.
-        let (bytes, _) = journal.insertion_demand(&key)?;
-        self.charge_allocation_bytes(bytes)?;
-        // The detached value needs no temporary heap collection. Insertion can
-        // still refuse allocation, in which case the destination is untouched.
+        // The saved value and the journal's growth are call-transaction bookkeeping:
+        // neither the work allowance nor the cumulative allocation charge admits them
+        // (spec 34 TIME-08). The detached value needs no temporary heap collection.
+        // Insertion can still refuse allocation, in which case the destination is untouched.
         let saved = root.clone();
         self.data
             .resources
@@ -213,7 +211,11 @@ impl EngineState<'_> {
 }
 
 #[cfg(test)]
+mod call_path_alias_tests;
+#[cfg(test)]
 mod single_destination_tests;
+#[cfg(test)]
+mod work_allowance_tests;
 
 #[cfg(test)]
 mod tests {
@@ -327,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn exhausted_second_output_rolls_back_global_and_current_frame() {
+    fn journal_growth_is_not_charged_and_a_later_failure_rolls_back_every_destination() {
         let prepared = PreparedModule::from_bytes(
             include_bytes!(
                 "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
@@ -398,10 +400,10 @@ mod tests {
                 }
                 .write(state, frame, Value::DInt(110))?;
                 VmWriteTarget::from_reference(&extra).write(state, frame, Value::DInt(80))?;
-                // Scalar stores charge no work under TIME-08, so exhaust the allocation
-                // allowance after writes have begun. The journal's first allocation holds
-                // four entries, so the fifth destination needs growth it cannot admit, on
-                // the same target path as a native output.
+                // The journal's first allocation holds four entries, so the fifth
+                // destination grows it. That growth is call-transaction bookkeeping
+                // (spec 34 TIME-08): an exhausted allocation allowance admits it, and the
+                // later failure must still restore every destination.
                 state
                     .data
                     .resources
@@ -411,18 +413,17 @@ mod tests {
                     location: MemoryLocation::Local(fresh),
                     offset: 0,
                 }
-                .write(state, frame, Value::DInt(120))
+                .write(state, frame, Value::DInt(120))?;
+                assert_eq!(
+                    state.data.resources.construction_bytes.get(),
+                    state.prepared.limits.max_construction_bytes
+                );
+                Err::<(), _>(VmTrap::Runtime(RuntimeError::DivisionByZero))
             })
             .unwrap_err();
         assert!(
-            matches!(
-                &error,
-                VmTrap::Runtime(RuntimeError::ExecutionLimit {
-                    kind: crate::error::ExecutionLimitKind::AllocationBytes,
-                    ..
-                })
-            ),
-            "unexpected exhausted output error: {error:?}"
+            matches!(&error, VmTrap::Runtime(RuntimeError::DivisionByZero)),
+            "unexpected later failure: {error:?}"
         );
         assert_eq!(
             state.data.storage.get_global("output_probe"),
@@ -514,6 +515,8 @@ mod tests {
             )),
         );
         let large = measure(&mut state, &mut frame);
+        // TIME-08: journal growth is bookkeeping, so neither size draws allocation.
+        assert_eq!(small, 0, "journal growth draws no allocation");
         assert_eq!(
             small, large,
             "snapshot cost follows destinations, not runtime size"

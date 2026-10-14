@@ -331,3 +331,6 @@ fn path_suffix<'a>(path: &'a [RefSegment], prefix: &[RefSegment]) -> Option<&'a 
     (path.len() >= prefix.len() && compare_paths(&path[..prefix.len()], prefix).is_eq())
         .then(|| &path[prefix.len()..])
 }
+
+#[cfg(test)]
+mod text_work_overlap_cost_tests;

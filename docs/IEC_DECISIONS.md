@@ -40,9 +40,16 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
     successful call.
   - Mapping the same caller storage, including overlapping aggregate
     projections, to more than one writable formal in one call is rejected as
-    ambiguous. This applies to any pair of `VAR_OUTPUT`, `VAR_IN_OUT`, or
-    `ENO` connections. A read-only input may read storage that is also mapped
-    once as writable.
+    ambiguous when the source shows it: the same variable, a variable and one
+    of its members or elements, or elements whose index expressions are
+    written identically. This applies to any pair of `VAR_OUTPUT`,
+    `VAR_IN_OUT`, or `ENO` connections. A read-only input may read storage
+    that is also mapped once as writable.
+  - Writable connections that coincide only at run time, such as `A[i]` and
+    `A[j]` with `i = j`, or a dereferenced reference and the variable it
+    designates, are not an error. The validated transfer commits in formal
+    declaration order, so the value of the last declared formal remains.
+    (Decided 14 October 2026.)
   - Function and value-returning method results use the declared type default
     when `EN` is false. A skipped function-block or void-method call preserves
     its instance state and connected caller targets except for connected
@@ -50,8 +57,11 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
 - Reason:
   - A source-order, evaluate-once rule makes side effects auditable. Early
     execution-control gating prevents disabled calls from faulting through
-    unused arguments. Rejecting multiple writers and committing a validated
-    transfer as one unit removes declaration-order-dependent caller state.
+    unused arguments. Rejecting the multiple writers that the source shows,
+    and committing a validated transfer as one unit, removes ambiguous caller
+    state. Index values and reference targets are known only at run time; a
+    fixed declaration-order commit keeps those aliases deterministic without
+    an overlap check on every call.
 
 ## 2026-07-30 - Boolean short-circuit extent
 

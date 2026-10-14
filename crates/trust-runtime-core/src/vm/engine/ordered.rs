@@ -357,3 +357,7 @@ mod tests {
         assert_eq!(state.data.storage.instances().len(), before);
     }
 }
+
+#[cfg(test)]
+#[path = "ordered/work_allowance_tests.rs"]
+mod work_allowance_tests;

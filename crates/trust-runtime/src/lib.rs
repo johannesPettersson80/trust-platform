@@ -83,6 +83,9 @@ pub mod historian;
 /// HMI schema and value contract helpers.
 #[cfg(feature = "full")]
 pub mod hmi;
+/// Compiles the embedding migration guide's examples as doc tests.
+#[cfg(feature = "full")]
+mod hosted_platform_guide_examples;
 /// FB/Class instance management.
 #[cfg(feature = "full")]
 #[path = "host/instance.rs"]

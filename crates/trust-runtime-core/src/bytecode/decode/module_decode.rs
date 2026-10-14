@@ -71,7 +71,7 @@ impl BytecodeModule {
         let version = BytecodeVersion::new(major, minor);
         super::super::module::storage_abi_for_header(version, flags)?;
         if flags & HEADER_FLAG_CRC32 != 0 {
-            let actual = crate::crc32::checksum(&bytes[section_table_off..]);
+            let actual = super::super::header_checksum(version, bytes, section_table_off);
             if actual != checksum {
                 return Err(BytecodeError::InvalidChecksum {
                     expected: checksum,

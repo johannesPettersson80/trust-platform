@@ -359,6 +359,12 @@ fn context_store_result(state: &mut EngineState<'_>, frame: FrameId, value: Valu
 }
 
 #[cfg(test)]
+mod call_path_literal_default_tests;
+#[cfg(test)]
+mod call_path_nesting_tests;
+#[cfg(test)]
 mod default_constant_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod work_allowance_default_tests;

@@ -32,9 +32,10 @@ impl DebugControl {
         state.watch_changed = false;
     }
 
-    /// Retire observations and compiled watches only after a new schema is
-    /// installed. Pause mode and client-owned watch/breakpoint definitions stay;
-    /// the next statement supplies the new invocation and location identities.
+    /// Retire observations and the compiled watches in `watches` only after a
+    /// new schema is installed. Pause mode stays; the client keeps its watch and
+    /// breakpoint definitions and evaluates them again, and the next statement
+    /// supplies the new invocation and location identities.
     pub fn invalidate_schema_observations(&self) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");

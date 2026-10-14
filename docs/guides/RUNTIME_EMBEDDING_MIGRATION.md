@@ -31,7 +31,7 @@ The resulting controller has no `storage_mut()` or `registry_mut()` getter.
 Use saved STBC 3.0 for new compiler-free applications in every hosted composition.
 Existing 2.0 artifacts remain supported with their original storage ABI:
 
-```rust
+```rust,no_run
 use trust_runtime::{Runtime, value::{RefSegment, Value}};
 
 let bytes = std::fs::read("application.stbc")?;

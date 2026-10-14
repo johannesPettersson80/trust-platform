@@ -91,7 +91,7 @@ impl EngineState<'_> {
         Ok(())
     }
 
-    fn access_binding(&self, name: &str) -> Result<AccessBindingEntry, RuntimeError> {
+    fn access_binding(&self, name: &str) -> Option<AccessBindingEntry> {
         self.prepared
             .access
             .entries
@@ -100,14 +100,15 @@ impl EngineState<'_> {
                 self.prepared.vm.strings[entry.name_idx as usize].eq_ignore_ascii_case(name)
             })
             .cloned()
-            .ok_or(RuntimeError::InvalidAlias)
     }
 
     pub(super) fn resolve_access_reference(
         &mut self,
         name: &str,
     ) -> Result<ValueRef, RuntimeError> {
-        let binding = self.access_binding(name)?;
+        let binding = self
+            .access_binding(name)
+            .ok_or(RuntimeError::InvalidAlias)?;
         let reference = self.persistent_io_reference(binding.ref_idx)?;
         self.check_management_destination(reference.as_view())?;
         self.check_read(reference.as_view())?;
@@ -117,7 +118,9 @@ impl EngineState<'_> {
 
     /// Read a declared VAR_ACCESS alias, including its partial selection.
     pub fn read_access(&mut self, name: &str) -> Result<Value, RuntimeError> {
-        let binding = self.access_binding(name)?;
+        let binding = self
+            .access_binding(name)
+            .ok_or(RuntimeError::InvalidAlias)?;
         let reference = self.persistent_io_reference(binding.ref_idx)?;
         let value = self.read_checked_reference(&reference)?;
         match partial(&binding)? {
@@ -128,8 +131,11 @@ impl EngineState<'_> {
     }
 
     /// Write a writable alias through the same type and lifetime gates as execution.
+    /// An unknown name is an undefined variable; a read-only alias stays `InvalidAlias`.
     pub fn write_access(&mut self, name: &str, value: Value) -> Result<(), RuntimeError> {
-        let binding = self.access_binding(name)?;
+        let binding = self
+            .access_binding(name)
+            .ok_or_else(|| RuntimeError::UndefinedVariable(name.into()))?;
         if !binding.is_writable() {
             return Err(RuntimeError::InvalidAlias);
         }
@@ -561,3 +567,6 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod text_work_reads_tests;

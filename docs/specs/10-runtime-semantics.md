@@ -2222,9 +2222,14 @@ transaction:
    function-block instance mutation through the failed call boundary.
 
 A call cannot map the same or overlapping caller storage to two writable
-formals. Rejecting this before execution makes transfer independent of
-parameter declaration order. An input may snapshot storage that is also the
-single target of one output or in-out. These implementer-specific rules are
+formals when the source shows the overlap: the same variable, a variable and
+one of its members or elements, or elements whose index expressions are
+written identically. The compiler rejects such a call before execution.
+Writable connections that coincide only at run time, such as `A[i]` and `A[j]`
+with `i = j`, or a dereferenced reference and the variable it designates, are
+not an error: step 6 commits the transfers in formal declaration order, so the
+value of the last declared formal remains. An input may snapshot storage that
+is also the single target of one output or in-out. These implementer-specific rules are
 recorded in
 [`IEC_DECISIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DECISIONS.md#2026-07-30---pou-call-evaluation-execution-control-and-output-transfer).
 

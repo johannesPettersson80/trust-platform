@@ -118,4 +118,6 @@ impl EngineState<'_> {
 }
 
 #[cfg(test)]
+mod call_path_declined_tests;
+#[cfg(test)]
 mod tests;

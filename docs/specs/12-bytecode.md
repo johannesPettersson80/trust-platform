@@ -50,7 +50,7 @@ Validation rules:
 - `version_major` must be supported by the runtime.
 - `header_size` and `section_table_off` must be >= 24 and 4-byte aligned.
 - `section_table_off` + `section_count * 12` must fit within the file.
-- If `flags & 0x0001` is set, `checksum` must be the CRC32 of the section table and all section payloads (bytes from `section_table_off` to end of file).
+- If `flags & 0x0001` is set, `checksum` must be the CRC32 of the section table and all section payloads (bytes from `section_table_off` to end of file). For 3.0 the CRC32 instead covers the whole file, read with the four `checksum` bytes as zero, so a changed version, flag, size or table field cannot pass unnoticed: the structural header checks above or the checksum reject it. A 3.0 file relabelled as 2.0, or a 2.0 file relabelled as 3.0, therefore fails its checksum instead of being read with other storage widths.
 
 The current byte decoder rejects foreign major versions; it is not a general
 proof of execution support for every minor it can structurally decode. Existing
@@ -160,7 +160,7 @@ does not constitute execution evidence for the 32-bit overflow branch.
 
 | Bit | Name | Meaning |
 |-----|------|---------|
-| `0x0001` | `CRC32` | header `checksum` is CRC32 of the section table and section payloads |
+| `0x0001` | `CRC32` | header `checksum` is CRC32 of the section table and section payloads; in 3.0, of the whole file with the checksum bytes as zero (§4.1) |
 | `0x0002` | `LEGACY_TEMPORAL32` (3.0 only) | deliberate legacy-context migration retains four-byte short temporal storage/SIZEOF |
 
 3.0 requires CRC32, permits only the optional LEGACY_TEMPORAL32 compatibility

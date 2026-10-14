@@ -19,14 +19,38 @@ pub fn checksum(bytes: &[u8]) -> u32 {
     }
 }
 
+/// Calculate `checksum` over `parts` as if they were concatenated, without allocating.
+#[must_use]
+pub fn checksum_parts(parts: &[&[u8]]) -> u32 {
+    #[cfg(feature = "std")]
+    {
+        let mut hasher = crc32fast::Hasher::new();
+        for part in parts {
+            hasher.update(part);
+        }
+        hasher.finalize()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        compact_parts(parts)
+    }
+}
+
 #[cfg(any(not(feature = "std"), test))]
 fn compact(bytes: &[u8]) -> u32 {
+    compact_parts(&[bytes])
+}
+
+#[cfg(any(not(feature = "std"), test))]
+fn compact_parts(parts: &[&[u8]]) -> u32 {
     let mut crc = u32::MAX;
-    for &byte in bytes {
-        crc ^= u32::from(byte);
-        for _ in 0..8 {
-            let polynomial = 0u32.wrapping_sub(crc & 1) & 0xedb8_8320;
-            crc = (crc >> 1) ^ polynomial;
+    for part in parts {
+        for &byte in *part {
+            crc ^= u32::from(byte);
+            for _ in 0..8 {
+                let polynomial = 0u32.wrapping_sub(crc & 1) & 0xedb8_8320;
+                crc = (crc >> 1) ^ polynomial;
+            }
         }
     }
     !crc
@@ -76,6 +100,34 @@ mod tests {
             let start = u32::from_le_bytes(bytes[16..20].try_into().unwrap()) as usize;
             let expected = u32::from_le_bytes(bytes[20..24].try_into().unwrap());
             assert_eq!(compact(&bytes[start..]), expected);
+        }
+    }
+
+    #[test]
+    fn parts_match_the_checksum_of_their_concatenation() {
+        let mut data = [0u8; 97];
+        let mut seed = 0x9e37_79b9u32;
+        for byte in &mut data {
+            seed ^= seed << 13;
+            seed ^= seed >> 17;
+            seed ^= seed << 5;
+            *byte = seed as u8;
+        }
+        let empty: &[u8] = &[];
+        assert_eq!(checksum_parts(&[]), checksum(&[]));
+        assert_eq!(checksum_parts(&[empty, empty]), checksum(&[]));
+        for offset in 0..8 {
+            for length in 0..=48 {
+                let bytes = &data[offset..offset + length];
+                let expected = checksum(bytes);
+                let (head, rest) = bytes.split_at(length / 3);
+                let (middle, tail) = rest.split_at(rest.len() / 2);
+                let parts = [head, middle, tail];
+                assert_eq!(checksum_parts(&parts), expected);
+                assert_eq!(compact_parts(&parts), expected);
+                // Empty leading and trailing parts leave the running state unchanged.
+                assert_eq!(checksum_parts(&[empty, bytes, empty]), expected);
+            }
         }
     }
 }

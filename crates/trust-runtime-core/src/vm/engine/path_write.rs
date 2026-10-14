@@ -681,3 +681,11 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod text_work_element_tests;
+#[cfg(test)]
+mod text_work_overlap_charge_tests;
+#[cfg(test)]
+#[path = "path_write/work_allowance_tests.rs"]
+mod work_allowance_tests;

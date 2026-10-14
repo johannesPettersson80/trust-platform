@@ -397,3 +397,6 @@ mod tests {
 #[cfg(test)]
 #[path = "allocation/clone_admission_tests.rs"]
 mod clone_admission_tests;
+#[cfg(test)]
+#[path = "allocation/work_allowance_clone_tests.rs"]
+mod work_allowance_clone_tests;

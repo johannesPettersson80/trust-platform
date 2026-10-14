@@ -328,7 +328,11 @@ impl CallContext for TestContext {
 }
 
 #[cfg(test)]
+mod call_transfer_binding_tests;
+#[cfg(test)]
 mod owned_binding_tests;
+#[cfg(test)]
+mod stdlib_text_work_tests;
 
 fn reference(frame: &VmFrame) -> ValueRef {
     ValueRef {

@@ -27,7 +27,7 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
             .ok_or_else(|| invalid_bytecode("tier-1 instruction cost steps missing"))?;
         let instruction_cost_steps = instruction_cost_steps.as_slice();
         if instruction_cost_steps.len() == 1 {
-            runtime.charge_execution_work(instruction_cost_steps[0])?;
+            super::super::charge_instruction_cost(runtime, instruction_cost_steps[0])?;
         }
 
         match instruction {

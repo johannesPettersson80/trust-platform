@@ -18,9 +18,16 @@ pub trait ReferenceContext {
         Ok(None)
     }
 
-    /// Charge per-character text work to the current execution allowance
+    /// Charge text work, one unit per UTF-8 byte, to the current execution allowance
     /// (spec 34 TIME-08, TEXT). Compositions without a work allowance charge nothing.
     fn charge_text_work(&self, _units: usize) -> Result<(), crate::error::RuntimeError> {
+        Ok(())
+    }
+
+    /// Charge a STRING or WSTRING result of a native call as a new value: one work
+    /// unit plus its allocation of `size_of::<Value>()` and `bytes` (spec 34 TIME-08,
+    /// TEXT). Compositions without a work allowance charge nothing.
+    fn charge_text_result(&self, _bytes: usize) -> Result<(), crate::error::RuntimeError> {
         Ok(())
     }
 

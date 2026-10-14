@@ -14,6 +14,8 @@ use crate::value::{default_value_for_type_id, Value};
 use super::frames::VmFrame;
 use super::VmModule;
 
+#[cfg(test)]
+mod call_transfer_init_tests;
 mod expr;
 
 use self::expr::{apply_fb_instance_initializer_from_vm_frame, evaluate_initializer_from_vm_frame};

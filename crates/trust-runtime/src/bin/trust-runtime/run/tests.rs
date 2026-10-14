@@ -7,6 +7,8 @@ use trust_ads_core::{
 use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
 use trust_runtime::value::{Duration, Value};
 
+#[path = "tests/mqtt_install_tag_mapping.rs"]
+mod mqtt_install_tag_mapping;
 #[path = "tests/mqtt_tag_mapping.rs"]
 mod mqtt_tag_mapping;
 

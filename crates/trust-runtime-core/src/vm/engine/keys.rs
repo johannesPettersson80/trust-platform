@@ -124,3 +124,7 @@ pub(super) fn root_index(index: usize) -> Result<u32, RuntimeError> {
 #[cfg(test)]
 #[path = "keys/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "keys/call_transfer_marker_tests.rs"]
+mod call_transfer_marker_tests;

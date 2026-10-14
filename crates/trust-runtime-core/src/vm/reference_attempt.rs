@@ -588,3 +588,7 @@ mod tests {
         assert_eq!(context.budget.remaining(), 0);
     }
 }
+
+#[cfg(test)]
+#[path = "reference_attempt/work_allowance_tests.rs"]
+mod work_allowance_tests;

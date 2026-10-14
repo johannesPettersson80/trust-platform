@@ -47,18 +47,55 @@ pub fn dispatch_native_stdlib_call(
     }
     if let Some(conversion_spec) = conversion_spec {
         let value = bind_conversion_value(runtime, frame, args)?;
-        return conversions::call_conversion_spec(conversion_spec, core::slice::from_ref(&value))
-            .map_err(VmTrap::Runtime);
+        charge_text_arguments(runtime, core::slice::from_ref(&value))?;
+        let result =
+            conversions::call_conversion_spec(conversion_spec, core::slice::from_ref(&value))
+                .map_err(VmTrap::Runtime)?;
+        charge_text_return(runtime, &result)?;
+        return Ok(result);
     }
     if let Some(entry) = runtime.stdlib().get(normalized_target_name.as_str()) {
         let params = entry.params.clone();
         let func = entry.func;
         let values = bind_stdlib_values(runtime, frame, &params, args)?;
-        return func(&values).map_err(VmTrap::Runtime);
+        charge_text_arguments(runtime, &values)?;
+        let result = func(&values).map_err(VmTrap::Runtime)?;
+        charge_text_return(runtime, &result)?;
+        return Ok(result);
     }
     Err(VmTrap::Runtime(RuntimeError::UndefinedFunction(
         target_name.clone(),
     )))
+}
+
+/// UTF-8 byte length of a STRING or WSTRING value, which TIME-08 charges per byte.
+fn text_byte_len(value: &Value) -> Option<usize> {
+    match value {
+        Value::String(text) => Some(text.len()),
+        Value::WString(text) => Some(text.len()),
+        _ => None,
+    }
+}
+
+/// Charge the text bytes of every argument before the function body runs (TIME-02, TIME-08).
+/// One charge covers all arguments, so a refusal leaves the allowance and the body untouched.
+fn charge_text_arguments(runtime: &mut impl CallContext, values: &[Value]) -> Result<(), VmTrap> {
+    let bytes = values
+        .iter()
+        .filter_map(text_byte_len)
+        .try_fold(0usize, usize::checked_add)
+        .ok_or(RuntimeError::Overflow)
+        .map_err(VmTrap::Runtime)?;
+    runtime.charge_text_work(bytes).map_err(VmTrap::Runtime)
+}
+
+/// Charge a text result as a new value after the function body returns (TIME-08).
+/// A refused charge discards the result.
+fn charge_text_return(runtime: &mut impl CallContext, result: &Value) -> Result<(), VmTrap> {
+    match text_byte_len(result) {
+        Some(bytes) => runtime.charge_text_result(bytes).map_err(VmTrap::Runtime),
+        None => Ok(()),
+    }
 }
 
 /// Bind the single operand of a recognized conversion.

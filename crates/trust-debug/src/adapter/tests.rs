@@ -60,6 +60,8 @@ fn install_io_fixture(mut builder: trust_runtime::RuntimeBuilder) -> Runtime {
     builder.build().unwrap()
 }
 
+#[path = "hosted_observation_frames_tests.rs"]
+mod hosted_observation_frames_tests;
 #[path = "installed_context_tests.rs"]
 mod installed_context_tests;
 #[path = "lifecycle_contract_tests.rs"]

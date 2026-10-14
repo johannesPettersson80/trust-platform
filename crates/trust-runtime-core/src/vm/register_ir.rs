@@ -190,7 +190,34 @@ fn charge_instruction_cost_step(
         .get(step)
         .copied()
         .ok_or_else(|| invalid_bytecode("register-ir fused instruction cost missing"))?;
-    runtime.charge_execution_work(cost)
+    charge_instruction_cost(runtime, cost)
+}
+
+/// Charge a step that stands for `units` original instructions of one unit each. A step that
+/// does not fit spends the rest of the allowance on the originals before the refused one, then
+/// refuses that original as the stack executor does: `used` is the limit, `requested` is one unit.
+#[cfg_attr(all(feature = "std", feature = "test-support"), track_caller)]
+fn charge_instruction_cost(
+    runtime: &impl RegisterContext,
+    units: usize,
+) -> Result<(), RuntimeError> {
+    match runtime.charge_execution_work(units) {
+        Err(RuntimeError::ExecutionLimit {
+            kind: crate::error::ExecutionLimitKind::Work,
+            used,
+            limit,
+            ..
+        }) => {
+            runtime.charge_execution_work(limit.saturating_sub(used))?;
+            Err(RuntimeError::ExecutionLimit {
+                kind: crate::error::ExecutionLimitKind::Work,
+                used: limit,
+                requested: 1,
+                limit,
+            })
+        }
+        outcome => outcome,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

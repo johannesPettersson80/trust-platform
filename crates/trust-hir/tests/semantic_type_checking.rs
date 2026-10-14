@@ -12,6 +12,8 @@ mod bounded_value_semantics;
 mod call_binding_contract_acceptance;
 #[path = "semantic_type_checking/call_binding_contract_rejection.rs"]
 mod call_binding_contract_rejection;
+#[path = "semantic_type_checking/call_transfer_overlap_messages.rs"]
+mod call_transfer_overlap_messages;
 #[path = "semantic_type_checking/control_flow_and_calls.rs"]
 mod control_flow_and_calls;
 #[path = "semantic_type_checking/control_flow_contract_acceptance.rs"]

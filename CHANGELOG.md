@@ -178,6 +178,24 @@ Target release: `v0.24.75`
 
 ### Fixed
 
+- Charge standard-library text work. CONCAT, REPLACE, MID and the other text and
+  conversion functions charge 1 work unit per UTF-8 byte of their text arguments
+  before they run, and their text result as a new value. A program that keeps
+  doubling an unbounded `STRING` now stops with the work or allocation limit
+  fault instead of growing until the host runs out of memory.
+- Charge reference growth independently of internal buffer sizes, and stop
+  counting a call's rollback journal against the allocation limit, as the work
+  cost model states.
+- The STBC 3.0 checksum covers the whole file, including the header. A file whose
+  version or flags were changed is rejected instead of being read with other
+  storage widths.
+- A stalled health reader can no longer hold up the control cycle: health
+  publication skips a cycle instead of waiting for the reader.
+- Debugger I/O views keep the declared enumeration type name for unresolved and
+  failed entries, and remote sessions no longer uppercase it.
+- Writing an unknown `VAR_ACCESS` name reports `runtime_undefined_variable`
+  instead of `runtime_invalid_alias`, as specification 10 states. A read-only
+  alias still reports `runtime_invalid_alias`.
 - Isolate the real OpenOT PLC scan-overhead regression from concurrent functional
   tests and compare paired scans with alternating order, preserving the existing
   threshold and checking that the real persistence worker commits and drains.

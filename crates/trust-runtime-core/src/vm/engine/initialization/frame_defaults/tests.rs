@@ -126,15 +126,25 @@ fn intrinsic_scalar_frame_default_matches_the_declaration_action() {
 #[test]
 fn literal_frame_defaults_match_the_declaration_action() {
     // TIME-08 COPY: a scalar copy is admitted without work; an owned text copy
-    // charges one unit plus its payload.
+    // charges one unit plus its payload. Each literal has its declaration's
+    // type, as admission requires of every default constant.
     let value_bytes = core::mem::size_of::<Value>();
-    for (literal, work, bytes) in [
-        (Value::Int(7), 0, value_bytes),
-        (Value::WString("A".repeat(64)), 1, value_bytes + 64),
+    for (literal, wstring, work, bytes) in [
+        (Value::Int(7), false, 0, value_bytes),
+        (Value::WString("A".repeat(64)), true, 1, value_bytes + 64),
     ] {
-        let mut prepared = fixture();
-        let id = return_default(&prepared);
+        let (mut prepared, id) = if wstring {
+            with_primitive(25)
+        } else {
+            let prepared = fixture();
+            let id = return_default(&prepared);
+            (prepared, id)
+        };
         let declaration = declaration_of(&prepared, id);
+        if wstring {
+            let wstring_type = prepared.vm.types.entries.len() as u32 - 1;
+            prepared.layout.entries[declaration].type_id = Some(wstring_type);
+        }
         let constant = prepared.vm.consts.len() as u32;
         prepared.vm.consts.push(literal.clone());
         prepared.layout.entries[declaration].default_const_idx = Some(constant);

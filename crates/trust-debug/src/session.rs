@@ -371,6 +371,9 @@ fn display_path(path: &Path) -> String {
     }
 }
 
+#[cfg(test)]
+mod mqtt_install_reload_tests;
+
 include!("session/breakpoint_manager.rs");
 include!("session/source_and_parse_helpers.rs");
 include!("session/tests.rs");

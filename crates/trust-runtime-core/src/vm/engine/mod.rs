@@ -396,7 +396,13 @@ mod continuation_tests;
 #[cfg(test)]
 mod restart_tests;
 #[cfg(test)]
+mod stdlib_text_work_tests;
+#[cfg(test)]
 mod storage_tests;
 
 #[cfg(test)]
 mod activation_registry_tests;
+#[cfg(test)]
+mod call_path_activation_tests;
+#[cfg(test)]
+mod work_allowance_continuation_tests;

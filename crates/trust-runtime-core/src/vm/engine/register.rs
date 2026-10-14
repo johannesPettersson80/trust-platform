@@ -226,6 +226,11 @@ impl RegisterContext for EngineState<'_> {
 }
 
 #[cfg(test)]
+mod call_path_observation_reset_tests;
+#[cfg(test)]
+mod call_path_scratch_tests;
+
+#[cfg(test)]
 mod environment_tests {
     use super::*;
     use crate::value::DateTimeValue;

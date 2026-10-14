@@ -61,12 +61,15 @@ fn dynamic_multidimensional_reference_growth_is_charged_before_allocation() {
     );
     let reference = data.storage.ref_for_global("probe_depth").unwrap();
     data.resources.construction_bytes.set(0);
+    data.resources.work_budget.reset(100);
     let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     let frames = crate::vm::FrameStack::default();
+    // TIME-08: the new segment and its subscript cost one unit each, with their own bytes.
     let partial =
         crate::vm::dispatch_refs::dynamic_ref_index(&state, &frames, reference, 1).unwrap();
     let first = core::mem::size_of::<crate::value::RefSegment>() + core::mem::size_of::<i64>();
     assert_eq!(state.data.resources.construction_bytes.get(), first);
+    assert_eq!(state.data.resources.work_budget.remaining(), 98);
     let pointer = partial.path.as_ptr();
     let complete =
         crate::vm::dispatch_refs::dynamic_ref_index(&state, &frames, partial, 2).unwrap();
@@ -75,10 +78,12 @@ fn dynamic_multidimensional_reference_growth_is_charged_before_allocation() {
         complete.path,
         vec![crate::value::RefSegment::Index(vec![1, 2])]
     );
+    // TIME-08: the trailing subscript costs one unit and one i64, not a copy of the earlier one.
     assert_eq!(
         state.data.resources.construction_bytes.get(),
-        first + 2 * core::mem::size_of::<i64>()
+        first + core::mem::size_of::<i64>()
     );
+    assert_eq!(state.data.resources.work_budget.remaining(), 97);
 
     let mut partial = complete;
     let crate::value::RefSegment::Index(indices) = &mut partial.path[0] else {
@@ -95,11 +100,67 @@ fn dynamic_multidimensional_reference_growth_is_charged_before_allocation() {
         .into_runtime_error();
     assert!(matches!(error, RuntimeError::ExecutionLimit {
         kind: crate::error::ExecutionLimitKind::AllocationBytes, requested, ..
-    } if requested == 2 * core::mem::size_of::<i64>()));
+    } if requested == core::mem::size_of::<i64>()));
     assert_eq!(
         state.data.resources.construction_bytes.get(),
         prepared.limits.max_construction_bytes
     );
+}
+
+#[test]
+fn equal_length_reference_paths_charge_the_same_whatever_their_capacity() {
+    let prepared = PreparedModule::from_bytes(
+        include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
+        crate::vm::PreparationLimits::default(),
+    )
+    .unwrap();
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    data.storage.set_global(
+        "probe_depth",
+        Value::Array(alloc::boxed::Box::new(
+            crate::value::ArrayValue::from_canonical_parts(
+                vec![Value::Int(7); 4],
+                vec![(1, 2), (1, 2)],
+            ),
+        )),
+    );
+    let reference = data.storage.ref_for_global("probe_depth").unwrap();
+    data.resources.construction_bytes.set(0);
+    data.resources.work_budget.reset(100);
+    let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    let frames = crate::vm::FrameStack::default();
+    let segment = core::mem::size_of::<crate::value::RefSegment>();
+    let subscript = core::mem::size_of::<i64>();
+
+    // Two empty paths with different starting capacities each add a segment and its subscript.
+    for capacity in [0, 8] {
+        let mut root = reference.clone();
+        root.path = alloc::vec::Vec::with_capacity(capacity);
+        state.data.resources.construction_bytes.set(0);
+        state.data.resources.work_budget.reset(100);
+        let next = crate::vm::dispatch_refs::dynamic_ref_index(&state, &frames, root, 1).unwrap();
+        assert_eq!(next.path, vec![crate::value::RefSegment::Index(vec![1])]);
+        assert_eq!(state.data.resources.work_budget.remaining(), 98);
+        assert_eq!(
+            state.data.resources.construction_bytes.get(),
+            segment + subscript
+        );
+    }
+
+    // Two one-segment paths with different subscript capacities each add one subscript.
+    for capacity in [1, 4] {
+        let mut indices = alloc::vec::Vec::with_capacity(capacity);
+        indices.push(1);
+        let mut partial = reference.clone();
+        partial.path = vec![crate::value::RefSegment::Index(indices)];
+        state.data.resources.construction_bytes.set(0);
+        state.data.resources.work_budget.reset(100);
+        let next =
+            crate::vm::dispatch_refs::dynamic_ref_index(&state, &frames, partial, 2).unwrap();
+        assert_eq!(next.path, vec![crate::value::RefSegment::Index(vec![1, 2])]);
+        assert_eq!(state.data.resources.work_budget.remaining(), 99);
+        assert_eq!(state.data.resources.construction_bytes.get(), subscript);
+    }
 }
 
 #[cfg(feature = "register-ir")]

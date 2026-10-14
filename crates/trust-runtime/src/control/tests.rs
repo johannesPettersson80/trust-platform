@@ -7,6 +7,8 @@ include!("tests/goldens.rs");
 include!("tests/hmi.rs");
 include!("tests/debug_mutation_lifecycle.rs");
 include!("tests/authorization_matrix.rs");
+include!("tests/installed_write_debug_set_authorization.rs");
+include!("tests/checked_admission_access_policy_tests.rs");
 include!("tests/authorization_trace.rs");
 include!("tests/core.rs");
 include!("tests/control_endpoint_source_contract.rs");

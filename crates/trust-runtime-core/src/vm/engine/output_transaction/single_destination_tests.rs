@@ -1,5 +1,4 @@
 use super::*;
-use crate::error::ExecutionLimitKind;
 use crate::vm::call::{bindings::VmWriteTarget, context::CallContext};
 use core::mem::size_of;
 
@@ -36,46 +35,25 @@ fn fixture() -> (
     (prepared, data, frame, reference)
 }
 
-// An empty journal grows to four entries; only that active allocation is admitted.
-// The saved value is a transient rollback snapshot (spec 34 TIME-08), and no
-// second journal is needed.
-const SINGLE_SNAPSHOT_BYTES: usize = 4 * size_of::<(Key, Value)>();
+// An empty journal grows to four entries. TIME-08 treats that growth as call-transaction
+// bookkeeping (spec 34), so no allocation limit refuses it and it charges no bytes.
+const JOURNAL_FIRST_ALLOCATION_BYTES: usize = 4 * size_of::<(Key, Value)>();
 
 #[test]
-fn single_output_snapshot_admits_exact_storage_and_refuses_before_write() {
-    for limit in [SINGLE_SNAPSHOT_BYTES - 1, SINGLE_SNAPSHOT_BYTES] {
+fn single_output_snapshot_draws_no_allocation_at_any_limit() {
+    for limit in [0, JOURNAL_FIRST_ALLOCATION_BYTES] {
         let (mut prepared, mut data, mut frame, reference) = fixture();
         prepared.limits.max_construction_bytes = limit;
         let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
         let result = state.with_output_transaction(&mut frame, |state, frame| {
             VmWriteTarget::from_reference(&reference).write(state, frame, Value::DInt(70))
         });
-        if limit < SINGLE_SNAPSHOT_BYTES {
-            assert!(matches!(
-                result,
-                Err(VmTrap::Runtime(RuntimeError::ExecutionLimit {
-                    kind: ExecutionLimitKind::AllocationBytes,
-                    used: 0,
-                    requested: SINGLE_SNAPSHOT_BYTES,
-                    limit: actual_limit,
-                })) if actual_limit == limit
-            ));
-            assert_eq!(state.data.resources.construction_bytes.get(), 0);
-            assert_eq!(
-                state.data.storage.get_global("journal_probe"),
-                Some(&Value::DInt(7))
-            );
-        } else {
-            assert!(result.is_ok());
-            assert_eq!(
-                state.data.resources.construction_bytes.get(),
-                SINGLE_SNAPSHOT_BYTES
-            );
-            assert_eq!(
-                state.data.storage.get_global("journal_probe"),
-                Some(&Value::DInt(70))
-            );
-        }
+        assert!(result.is_ok(), "limit {limit}: {result:?}");
+        assert_eq!(state.data.resources.construction_bytes.get(), 0);
+        assert_eq!(
+            state.data.storage.get_global("journal_probe"),
+            Some(&Value::DInt(70))
+        );
         assert!(state.data.resources.output_journal.is_none());
     }
 }
@@ -83,16 +61,14 @@ fn single_output_snapshot_admits_exact_storage_and_refuses_before_write() {
 #[test]
 fn repeated_output_keeps_first_snapshot_and_late_failure_rolls_back() {
     let (mut prepared, mut data, mut frame, reference) = fixture();
-    prepared.limits.max_construction_bytes = SINGLE_SNAPSHOT_BYTES;
+    prepared.limits.max_construction_bytes = JOURNAL_FIRST_ALLOCATION_BYTES;
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     let result = state.with_output_transaction(&mut frame, |state, frame| {
         let target = VmWriteTarget::from_reference(&reference);
         target.write(state, frame, Value::DInt(70))?;
         target.write(state, frame, Value::DInt(90))?;
-        assert_eq!(
-            state.data.resources.construction_bytes.get(),
-            SINGLE_SNAPSHOT_BYTES
-        );
+        // TIME-08: the repeated write reuses the first snapshot and draws no allocation.
+        assert_eq!(state.data.resources.construction_bytes.get(), 0);
         let journal = state.data.resources.output_journal.as_ref().unwrap();
         assert_eq!(journal.len(), 1);
         assert_eq!(

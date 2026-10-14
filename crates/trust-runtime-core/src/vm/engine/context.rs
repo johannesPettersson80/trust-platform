@@ -33,6 +33,15 @@ impl ReferenceContext for EngineState<'_> {
         self.charge_work_units(units)
     }
 
+    fn charge_text_result(&self, bytes: usize) -> Result<(), RuntimeError> {
+        // TIME-08 TEXT: a new text value costs one unit and its Value plus its bytes.
+        self.charge_work_units(1)?;
+        let allocation = core::mem::size_of::<Value>()
+            .checked_add(bytes)
+            .ok_or(RuntimeError::Overflow)?;
+        self.charge_allocation_bytes(allocation)
+    }
+
     // A call-transaction snapshot is transient bookkeeping: it lives only until the
     // call commits or rolls back, bounded by call depth and the admitted parameter
     // type, so it charges neither work nor cumulative allocation (spec 34 TIME-08).

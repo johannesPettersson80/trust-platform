@@ -1,4 +1,5 @@
 use super::*;
+use crate::bytecode::BytecodeVersion;
 
 /// Four-byte STBC container signature.
 pub const MAGIC: [u8; 4] = *b"STBC";
@@ -6,10 +7,32 @@ pub const MAGIC: [u8; 4] = *b"STBC";
 pub const HEADER_SIZE: u16 = 24;
 /// Serialized section-table record size in bytes.
 pub const SECTION_ENTRY_SIZE: usize = 12;
-/// Header flag requiring CRC32 of the table and payload region.
+/// Header flag requiring the header checksum: CRC32 of the section table and payloads
+/// for 1.x and 2.0, of the whole file with the checksum bytes zeroed for 3.0.
 pub const HEADER_FLAG_CRC32: u32 = 0x0001;
 /// STBC 3.0 contextual migration retains the legacy short-temporal storage ABI.
 pub const HEADER_FLAG_LEGACY_TEMPORAL32: u32 = 0x0002;
+
+/// Header checksum that `HEADER_FLAG_CRC32` requires for a container of `version`.
+///
+/// `bytes` is the complete container, at least `HEADER_SIZE` bytes long, and
+/// `section_table_off` lies within it. STBC 3.0 covers the whole file with the
+/// checksum bytes (offsets 20..24) read as zero, so a changed version, flag, size
+/// or table field fails the check. Other versions cover the section table and the
+/// payloads from `section_table_off`. The encoder and the decoder both call this
+/// function, so the two cannot disagree.
+pub(crate) fn header_checksum(
+    version: BytecodeVersion,
+    bytes: &[u8],
+    section_table_off: usize,
+) -> u32 {
+    if version == BytecodeVersion::SOURCE_FREE {
+        let zero_checksum = [0u8; 4];
+        crate::crc32::checksum_parts(&[&bytes[..20], &zero_checksum[..], &bytes[24..]])
+    } else {
+        crate::crc32::checksum(&bytes[section_table_off..])
+    }
+}
 
 /// Standard section identifiers defined by specification 12.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

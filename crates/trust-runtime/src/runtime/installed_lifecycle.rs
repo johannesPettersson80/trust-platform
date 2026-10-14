@@ -458,4 +458,8 @@ impl Runtime {
 }
 
 #[cfg(test)]
+mod hosted_observation_tests;
+#[cfg(test)]
+mod installed_write_resource_tests;
+#[cfg(test)]
 mod tests;

@@ -456,7 +456,11 @@ impl DebugAdapter {
                 source: None,
                 value_type: type_id_for_value(&value)
                     .and_then(trust_runtime::io::io_value_type_name)
-                    .map(str::to_string),
+                    .map(str::to_string)
+                    .or_else(|| match &value {
+                        RuntimeValue::Enum(enum_value) => Some(enum_value.type_name().to_string()),
+                        _ => None,
+                    }),
                 value: format_value(&value),
                 forced: false,
                 writable: None,
@@ -737,10 +741,18 @@ pub(super) fn io_state_from_snapshot(snapshot: IoSnapshot) -> IoStateEventBody {
             .map(|entry| {
                 let name = entry.name.map(|name| name.to_string());
                 let address = format_io_address(&entry.address);
+                // The declared enumeration name travels with every snapshot state; elementary
+                // and value-derived names are fallbacks for entries that carry none.
                 let value_type = entry
-                    .value_type
-                    .and_then(trust_runtime::io::io_value_type_name)
-                    .map(str::to_string)
+                    .value_type_name
+                    .as_ref()
+                    .map(|name| name.to_string())
+                    .or_else(|| {
+                        entry
+                            .value_type
+                            .and_then(trust_runtime::io::io_value_type_name)
+                            .map(str::to_string)
+                    })
                     .or_else(|| match &entry.value {
                         IoSnapshotValue::Value(value) => value_type_name(value),
                         IoSnapshotValue::Error(_) | IoSnapshotValue::Unresolved => None,

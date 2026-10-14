@@ -326,11 +326,16 @@ fn relative_wire_records_cannot_be_encoded_or_decoded_as_an_older_format() {
                     .retain(|section| section.id < SectionId::StorageLayout.as_raw());
             }
             assert_eq!(raw_older.validate().unwrap_err(), reason);
-            // The header is outside the payload CRC: downgrade only the version,
-            // then prove the reader itself refuses the new required type record.
+            // Relabel only the version and give the file the older format's valid
+            // checksum (section table onward), then prove the reader itself
+            // refuses the new required type record. A plain relabel fails the
+            // 3.0 whole-file checksum (stbc_header_integrity.rs).
             let mut downgraded = bytes.clone();
             downgraded[4..6].copy_from_slice(&version.major.to_le_bytes());
             downgraded[6..8].copy_from_slice(&version.minor.to_le_bytes());
+            let table = u32::from_le_bytes(downgraded[16..20].try_into().unwrap()) as usize;
+            let checksum = trust_runtime_core::crc32::checksum(&downgraded[table..]);
+            downgraded[20..24].copy_from_slice(&checksum.to_le_bytes());
             assert_eq!(BytecodeModule::decode(&downgraded).unwrap_err(), reason);
         }
     }

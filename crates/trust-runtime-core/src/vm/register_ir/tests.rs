@@ -4,6 +4,7 @@ use core::cell::Cell;
 
 mod corrections;
 mod owned_entry;
+mod work_allowance_parity;
 use crate::bytecode::BytecodeVersion;
 use crate::memory::{FrameId, MemoryLocation, VariableStorage};
 use crate::value::{DateTimeProfile, DateTimeValue, Duration, RefSegment, ValueRef, ValueRefView};

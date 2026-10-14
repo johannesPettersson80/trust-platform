@@ -259,7 +259,7 @@ fn partial_access_configuration_permissions_and_global_constants() {
     );
     assert_eq!(
         state.write_access("missing_alias", Value::Bool(true)),
-        Err(RuntimeError::InvalidAlias)
+        Err(RuntimeError::UndefinedVariable("missing_alias".into()))
     );
     state.write_access("SELECTED", Value::Bool(true)).unwrap();
     assert_eq!(state.read_access("observed").unwrap(), Value::Word(15));

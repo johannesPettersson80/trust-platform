@@ -672,3 +672,6 @@ fn charge_leaf_copy(
     // String conversion and optional truncation may each materialize a buffer.
     ctx.charge_allocation(len.checked_mul(2).ok_or_else(|| RuntimeError::Overflow)?)
 }
+
+#[cfg(test)]
+mod text_work_coercion_tests;

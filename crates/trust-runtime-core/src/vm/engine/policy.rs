@@ -331,6 +331,9 @@ impl EngineState<'_> {
 #[cfg(test)]
 #[path = "policy/lifetime_tests.rs"]
 mod lifetime_tests;
+#[cfg(test)]
+#[path = "policy/work_allowance_lifetime_tests.rs"]
+mod work_allowance_lifetime_tests;
 
 impl EngineState<'_> {
     pub(in crate::vm::engine) fn normalize_reference_value(

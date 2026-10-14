@@ -73,7 +73,7 @@ pub(super) fn execute_register_block_interpreted_slice(
             .ok_or_else(|| invalid_bytecode("register-ir instruction cost steps missing"))?;
         let instruction_cost_steps = instruction_cost_steps.as_slice();
         if instruction_cost_steps.len() == 1 {
-            runtime.charge_execution_work(instruction_cost_steps[0])?;
+            charge_instruction_cost(runtime, instruction_cost_steps[0])?;
         }
 
         match instruction {

@@ -191,18 +191,23 @@ impl IoSubsystem {
         self.health_sink = sink;
     }
 
+    /// Publish driver health without waiting for a reader (spec 34 HOST-05).
+    /// While a reader holds the sink this call publishes nothing; the next call
+    /// that acquires it publishes the health current at that time, so readers may
+    /// see a snapshot one cycle late.
     pub(super) fn update_health(&self) {
         let Some(sink) = &self.health_sink else {
             return;
         };
-        if let Ok(mut guard) = sink.lock() {
-            guard.clear();
-            for entry in &self.drivers {
-                guard.push(IoDriverStatus {
-                    name: entry.name.clone(),
-                    health: entry.driver.health(),
-                });
-            }
+        let Ok(mut guard) = sink.try_lock() else {
+            return;
+        };
+        guard.clear();
+        for entry in &self.drivers {
+            guard.push(IoDriverStatus {
+                name: entry.name.clone(),
+                health: entry.driver.health(),
+            });
         }
     }
 

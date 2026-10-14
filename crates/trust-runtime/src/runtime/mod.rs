@@ -6,12 +6,16 @@ mod ads_subsystem;
 mod authoring;
 mod builder;
 mod bytecode;
+#[cfg(feature = "full")]
+mod checked_admission_compile_fail;
 #[cfg(test)]
 mod core;
 #[cfg(test)]
 mod cycle;
 #[cfg(test)]
 mod faults;
+#[cfg(test)]
+mod hosted_observation_cycle_tests;
 mod hosted_services;
 mod installed;
 mod installed_bindings;

@@ -1,6 +1,6 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.19 — PERF-01 p99 over pooled rounds
+- **Version:** 0.20 — A01 assurance corrections
 - **Date:** 14 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
@@ -546,7 +546,8 @@ applications use STBC 3.0: eight-byte temporal storage, consistent `SIZEOF`,
 array strides, relative extents and construction demand. This is an explicit
 incompatible artifact ABI change under specification 12 §4.1, not a reinterpretation
 of 2.0. Readers preserve legacy 1.1/2.0 widths and reject unknown majors before
-state publication. No temporal function or MCU capability is removed. Existing
+state publication. The 3.0 checksum covers the header, so a relabelled version or
+changed flag fails instead of selecting other widths (specification 12 §4.1). No temporal function or MCU capability is removed. Existing
 explicit I/O/protocol codecs remain checked conversions with their existing widths.
 Acceptance includes old-artifact identity/size preservation, rejection by old
 readers, negative and greater-than-32-bit temporal round trips, nested relative
@@ -694,7 +695,7 @@ Replace the singleton version assumption with explicit reader-supported pairs an
 |---|---|---|
 | Program/POU identities, global layout, and instance roots | Construct from validated POU/type/reference metadata and explicit layout/root information. | A fresh engine registers and starts the saved application without preinstalled host objects. |
 | Scalar/compound defaults and declared capacities | Reuse TYPE_TABLE/CONST_POOL and typed reference metadata; encode missing declared defaults/construction roots explicitly. Do not call HIR-gated `default_value_for_type`. | Nonzero defaults, nested arrays/structures, and defaulted parameters survive cold initialization. |
-| Executable local/aggregate initializers | Compile to ordinary validated STBC body ranges, indexed by POU/initialization phase/declaration identity and executed through the same dispatcher and work budget. Do not move the Expr/HIR tree walker into core. | Repeated calls with changing inputs/globals evaluate the initializer at the required call boundary; emitted artifacts need no source or initializer catalog. |
+| Executable local/aggregate initializers | Compile to ordinary validated STBC body ranges, indexed by POU/initialization phase/declaration identity and executed through the same dispatcher and work budget. Do not move the Expr/HIR tree walker into core. | Repeated calls with changing inputs/globals re-run each automatic local's initializer at every call boundary, so no local keeps a value from the previous call (specification 03 limits source initializers to literals and constant expressions, E202); emitted artifacts need no source or initializer catalog. |
 | Static locals and persistent FB/class state | Encode ownership, allocation capacity, first-use rules, and applicable restart behavior. | First use, repeated calls, and cold/warm restart match the baseline. |
 | Inheritance, method/interface dispatch, and parameter binding | Prepare validated type/member/method tables, defaults, OUT/IN_OUT behavior, and receiver checks. | Two instances retain distinct state while using shared method code and checked interface dispatch. |
 | Tasks, event references, process images, and bindings | Construct tasks and bindings only after validating referenced program/instance storage. | Periodic/event tasks and `%I`/`%Q`/`%M` bindings initialize without `CompileSession`. |
@@ -711,7 +712,7 @@ the callee's preceding execution or unrelated PLC state mutations. The legacy ho
 composition keeps its existing compatibility policy until its migration.
 
 
-M2A shall include the construction rows exercised by its representative fixture, including a changing-input local initializer and initialized compound/FB state. The entire map shall be covered by M2B/M3 before broad parity or bounded-profile claims. Removing the `trust-hir` dependency while leaving a hidden harness initializer path does not close this work.
+M2A shall include the construction rows exercised by its representative fixture, including a local initializer exercised by repeated calls with changing inputs, and initialized compound/FB state. The entire map shall be covered by M2B/M3 before broad parity or bounded-profile claims. Removing the `trust-hir` dependency while leaving a hidden harness initializer path does not close this work.
 
 A2 additionally records the LOAD_NULL owner-inference correction in specification 12. Its native
 regression must execute a NULL assignment and per-instance field reads through two FB instances.
@@ -1122,29 +1123,59 @@ The reviewed stack dispatcher checks its elapsed deadline at entry and each 32 o
 **TIME-08. Work-unit cost model.** The work allowance measures what the PLC
 program does, not how the engine does it. It implements TIME-02 as follows:
 
+Text sizes are counted in UTF-8 bytes (B, the stored length of the whole text);
+a byte count is an upper bound of the character count.
+
 | Work | Charge |
 |---|---|
 | Executed original bytecode instruction | 1 unit, identical in the stack, register and tier-1 executors |
 | Copying an array | 1 unit for the array plus 1 per element, at every nesting level |
-| Copying a reference value | 1 unit plus 1 per path segment and index; creating a reference from a static address charges only its segments and indices (its instruction is the base unit) |
+| Copying a reference value | 1 unit plus 1 per path segment and 1 per subscript; creating a reference from a static address charges only its segments and subscripts (its instruction is the base unit) |
+| Extending a reference by a dynamic index or field | 1 unit and the allocation of one element per added segment and per added subscript (a new index segment with its subscript adds 2 units), whatever the capacity of the path's storage |
 | Copying a WSTRING or an enumeration value | 1 unit |
+| Copying a STRING value, a null reference or an instance identity | nothing: STRING text is shared and the others are fixed-size; the copy's allocation is still charged |
 | Binding a VAR_IN_OUT argument | nothing beyond the call's instructions: IEC passes it by reference, and the engine's private snapshot and copy-back are call-transaction bookkeeping |
 | Copying a structure | nothing for the shared structure; copy-on-write detach charges its fields as copies |
-| STRING/WSTRING normalization, element writes and standard-library text work | per character, as the owning function or assignment rule states |
-| Write through a `STRUCT OVERLAP` physical layout | the layout's stated cost per affected leaf and child |
+| Normalizing a bounded STRING/WSTRING as it is stored | 2 units per byte of the value, truncated or not; a type without a declared length is not normalized |
+| Checking that a bounded text value is canonical (construction and retain checks, a structure's canonical pass) | 1 unit per byte |
+| Reading one character, `s[i]` | in a program, 2 units per byte of the whole text after the parent value's copy; through a host cycle access, 1 unit per byte |
+| Creating a reference to a dynamic character index | 1 unit per byte of the text |
+| Writing one character | 3 units per byte of the whole text plus 12, and 16 allocation bytes per byte plus 64, before the commit |
+| Coercing a supplied initializer value | 1 unit per constructed node, plus 1 per byte of a STRING/WSTRING and 4 for a CHAR/WCHAR; a bounded text value then pays its canonical check |
+| Copying a type name for an interface attempt | 1 unit per byte of the name |
+| Standard-library or conversion call with STRING/WSTRING arguments | 1 unit per byte of those arguments before the body runs; a text result is then charged as a new value, 1 unit and its bytes of allocation |
+| Write through a `STRUCT OVERLAP` physical layout | the layout write cost below, before any backing byte changes |
 | Lifetime check of a value that can hold references or instances | 1 unit per node visited |
 | Constructing a value during construction or initialization | 1 unit per constructed node |
-| Native and standard-library calls | their stated variable cost |
+| `SIZEOF` of a value | 1 unit per value node visited, plus 1 per byte of text and 1 per array dimension; an array visits its first element only |
+| `SIZEOF` of a type | 1 unit plus its nesting depth per type node visited, an alias and its target each being a node, plus 1 per array dimension |
+| Other native and standard-library calls | their argument binding as above; a body without text charges nothing beyond the call |
 | Any other value operation on a scalar | nothing beyond its instruction |
+
+**`STRUCT OVERLAP` write cost.** Let w be a path's work (segments, plus the bytes of
+its field names, plus its subscripts), P the bytes spanned by the selected bit
+range, L the bit length of the larger of the layout's leaf and child counts (at
+least 1), and M the larger of the layout's maximum path work and w of the written
+path. A write charges 8·L·M + P units; plus, for each selected leaf, 192 + 4·w of
+that leaf's own path (and 4 per enumeration member); for each affected leaf, every
+leaf whose bits intersect the write including aliases, 192 + its w (and 2 per
+enumeration member); for each selected child, its bit count plus 2·its w; for each
+affected child, its overlapping bit count plus its w. A write of the whole structure, or of children,
+also charges the selected bit span, and the whole structure once more with its
+field count. Its allocation is P bytes plus one leaf entry per affected leaf
+(and, per affected enumeration leaf, the enumeration value with its longest
+member and type names). A write that selects no leaf or child, or a whole-structure
+assignment from a value sharing the same layout, charges no layout cost. These
+are upper bounds of the writer's work, so a write never runs uncharged.
 
 Engine bookkeeping is part of the instruction's unit and is never charged
 separately: index, name and member lookups; owner, root and reference-candidate
 resolution; path-segment resolution; writability, staging and visibility checks;
 lifecycle markers; call-transaction snapshots (VAR_IN_OUT copy-in and rollback
-journal values); assignment normalization passes; canonical field matching;
-activation-registry records; type-structure comparisons; process-image sampling
-and publication (a sampled STRING/WSTRING value still pays its TEXT
-normalization); and scheduler ordering. Each is bounded by admitted metadata, by
+journal values); assignment normalization passes other than the text rows above;
+canonical field matching; activation-registry records; type-structure comparisons;
+process-image sampling and publication (a sampled bounded STRING/WSTRING value still
+pays its normalization); and scheduler ordering. Each is bounded by admitted metadata, by
 the admitted type of the value it handles, or by a value already charged when it
 was produced, so its cost per instruction stays bounded. A call-transaction
 snapshot lives only until its call commits or rolls back, so its memory is
@@ -1166,7 +1197,9 @@ Each runs as one execution entry under `PreparationLimits::max_construction_work
 (hosted default 64 Mi units, equal to the default preparation work bound). Every
 top-level program or task function-block invocation in a scan, and every
 engineering write, is one entry under `max_work` (hosted default 1,000,000 units),
-as specification 10 states for a top-level VM invocation. Nested calls and
+as specification 10 states for a top-level VM invocation. A profile whose
+`max_work` or `max_construction_work` is zero is refused at preparation as
+unsupported. Nested calls and
 call-time initializers share their invocation's allowance; process-image sampling
 and publication around the invocations share the scan's own allowance. An MCU
 profile states both values explicitly.
@@ -2206,6 +2239,13 @@ Version 0.19 (14 October 2026) evaluates PERF-01's p99 over each build's five
 final rounds pooled, by owner decision; per-round medians and both thresholds
 are unchanged. Specification 32 names the hosted binding transaction that
 installs MQTT mappings.
+
+Version 0.20 (14 October 2026) records the corrections from the A01 coverage audit.
+TIME-08 states each text, reference-growth, `SIZEOF` and `STRUCT OVERLAP` rate,
+counting text in UTF-8 bytes; standard-library text work is charged (TIME-02) and
+reference growth no longer depends on storage capacity. The STBC 3.0 checksum covers the
+header (specification 12 §4.1). A zero work limit is unsupported. The
+local-initializer acceptance case is worded to agree with specification 03 (E202).
 
 ## Appendix C — Amendment traceability
 

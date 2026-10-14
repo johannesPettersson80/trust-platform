@@ -7,6 +7,61 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
+**14 October, evening: A01 native contract coverage (Claude lead).** The audit, owner
+decisions, product corrections and regressions below are on the H branch after PR #137's
+first native runs. Evidence: external `runtime-portability-h/A01-audit/`.
+
+- [x] Audit: six read-only reviewers matched every changed H behaviour (spec 34 HOST-01 to
+  HOST-09, TIME-08/09, §4.3.1, the temporal ABI, spec 32 §5, spec 10 §7 binding, references,
+  faults, restart and replacement) to native assertions in run 5's logs: 773 behaviour rows,
+  519 covered, 130 partly asserted, 107 without an assertion, 16 not run in run 5
+  (`report-G1.md` to `report-G6.md`).
+- [x] Owner decisions 14 October: the STBC 3.0 CRC32 covers the whole file with its checksum
+  bytes as zero (spec 12 §4.1), so a relabelled version or flag fails; writable connections
+  that coincide only at run time commit in formal declaration order and the last declared
+  formal wins (spec 10 §7.5, `IEC_DECISIONS.md`); standard-library text work is charged, as
+  TIME-02 and TIME-08 already required.
+- [x] Spec 34 v0.20: TIME-08 states every text rate in UTF-8 bytes, reference growth, `SIZEOF`
+  and the `STRUCT OVERLAP` write cost; a zero work limit is unsupported; the local-initializer
+  acceptance case agrees with specification 03 (E202).
+- [x] Product corrections the audit exposed:
+  - standard-library and conversion calls charge 1 unit per UTF-8 byte of their text
+    arguments before the body and their text result as a new value, so a loop doubling an
+    unbounded `STRING` stops with the work limit instead of exhausting host memory;
+  - reference growth charges per added segment and subscript, independent of capacity;
+  - a call's rollback journal is no longer charged to the allocation limit;
+  - register and tier-1 refusals of a fused step report the stack's boundary (`used` equal to
+    the limit, one unit requested); no fused group has an effect before its last instruction;
+  - the STBC 3.0 whole-file checksum;
+  - health publication never blocks the control cycle (HOST-05);
+  - debugger I/O views keep declared enumeration type names, also over remote sessions;
+  - an unknown `VAR_ACCESS` write reports `runtime_undefined_variable` (spec 10).
+- [x] Regressions: about 270 new native tests in new files (prefixes `installed_write_`,
+  `checked_admission_`, `hosted_observation_`, `call_path_`, `work_allowance_`,
+  `resource_only_`, `mqtt_install_`, `temporal_abi_`, `call_transfer_`, `restart_generation_`,
+  `hosted_platform_`, `stbc_header_`, `stdlib_text_work`, `text_work_`); compile-fail doc tests
+  for the installed `Runtime` and `RuntimeBuilder`; the embedding migration guide's examples as
+  doc tests; runtime-only and full composition runs.
+- [x] Not changed after review: an explicit tier-1 reset clears the state's compile counters as
+  designed; the immutable preparation diagnostics live in `preparation_snapshot()`. The audit's
+  reading was wrong and the first correction was reverted.
+- [x] Focused check 6 on the A01 source (builder; not acceptance): workspace 9,546 passed, 0
+  failed, 30 ignored; core all-features 858; portable 708; register 768; runtime doc tests 12;
+  runtime-only doc 3 and tests 15; full-composition tests 10; Clippy and format pass; F401 and
+  C6 core checks pass.
+- [ ] Deferred to scope C (ignored with reason): a handle taken before a warm restart or body
+  replacement can resolve into the new generation (MEM-07, UPDATE-04). `ValueRef` carries no
+  generation in U or H; spec 34 assigns generation tokens to UPDATE-03 to UPDATE-08.
+- [ ] Open, not blocking A01: debugger scratch slots read Null at a `FOR` body stop (needs a
+  probe); HOST-02 deployment-level limit record (spec: proposed); the M0 feature matrix (A19);
+  RETAIN-01 checkpoint sequence and completion fields (C); the debugger write queue is unbounded
+  without an explicit exhaustion failure (C); test seams for projection and capture failures;
+  the F401 profile limits are not host-testable.
+- [ ] A01 validation batch on the committed source: release guard (format, Clippy, workspace
+  tests, supply chain, architecture, VS Code), the trimmed run-5 harness (`batch-a01.sh`: core
+  lanes, i686, firmware link and size, compositions, applications, real databases, VS Code
+  1.109.0 and stable, docs, PERF-01) and the F401 board replay; then push to PR #137.
+
 **14 October, later: owner chose to fix the call path; Claude now leads the remaining scopes.**
 The owner retired Codex and rejected accepting the `call_binding` trade-off ("we need a
 professional runtime"). The validated run-4 source is backed up externally
@@ -3300,7 +3355,7 @@ implied by this test plan. Tests of C-only functionality run when C implements i
 
 | Item and scope | Risk, required assertions and starting coverage | Evidence/pass criteria |
 | --- | --- | --- |
-| [ ] A01 — Native contract coverage (H) | Audit each changed H behavior against a native assertion: construction versus installed writes, default/local initialization, owned/borrowed arguments, explicit NULL, OUT/IN_OUT aliasing, references, faults, restart and generation replacement. Start with core unit tests, `owned_runtime_state`, `checked_owner_references`, `checked_owner_images`, `source_free_cycle`, `resource_reconfiguration` and the runtime vertical. | Spec clause, actual test selector, feature/target and current source-bound result. Every identified behavior gap gets a native regression. Zero selected tests is not a pass. |
+| [ ] A01 — Native contract coverage (H); audit, corrections and regressions done, validation batch next (current checkpoint) | Audit each changed H behavior against a native assertion: construction versus installed writes, default/local initialization, owned/borrowed arguments, explicit NULL, OUT/IN_OUT aliasing, references, faults, restart and generation replacement. Start with core unit tests, `owned_runtime_state`, `checked_owner_references`, `checked_owner_images`, `source_free_cycle`, `resource_reconfiguration` and the runtime vertical. | Spec clause, actual test selector, feature/target and current source-bound result. Every identified behavior gap gets a native regression. Zero selected tests is not a pass. |
 | [ ] A02 — Executor differential replay (H) | Run the same saved artifact and complete input/time trace through shared stack, register interpreter and Tier-1 where eligible. Include nested/recursive calls, first invocation, rare branches, debugger fallback, failure/unwind and state reuse. Start with `bytecode_vm_differential`, `portable_register_parity`, `runtime_core_compiler_free_load` and `portable_construction_parity`. | Compare each cycle's values, outputs, tasks, faults and supported restart state. Compare original U only for unchanged contracts; corrected legacy defects are not oracles. Record intended fallback instead of demanding every program specialize. |
 | [ ] A03 — Property-based execution tests (H) | Generate bounded well-typed programs and values: argument permutations, defaults, alias graphs, arrays/strings, references and legal call trees. Cross-check executors and the documented invariants. | Fixed reproducible seeds and case/depth/size limits; shrinking or minimization for failures; independent expected properties rather than copying the implementation into the oracle. |
 | [ ] A04 — Metamorphic tests (H) | Semantics-preserving transformations: positional versus equivalent named arguments, omitted versus explicit defaults where equivalent, serialization round trips, harmless POU/name reordering, and repeated preparation of the same artifact. | Same observable behavior under documented transformations; explicitly exclude transformations that change evaluation order, aliasing or numeric rounding. |

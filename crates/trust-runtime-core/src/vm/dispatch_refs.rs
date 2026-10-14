@@ -282,8 +282,10 @@ pub fn dynamic_ref_field_borrowed(
             runtime
                 .before_reference_path_clone(reference.as_view())
                 .map_err(VmTrap::Runtime)?;
+            // TIME-08: the added field segment costs one unit and its own bytes, as the
+            // owned path in `reserve_reference_segment` does.
             runtime
-                .before_reference_path_growth(core::mem::size_of::<RefSegment>(), 0)
+                .before_reference_path_growth(core::mem::size_of::<RefSegment>(), 1)
                 .map_err(VmTrap::Runtime)?;
             let capacity = reference
                 .path
@@ -333,20 +335,11 @@ pub fn dynamic_ref_index(
                     upper,
                 }));
             }
-            let required = existing
-                .len()
-                .checked_add(1)
-                .ok_or_else(|| RuntimeError::Overflow)?;
-            if required > existing.capacity() {
-                runtime
-                    .before_reference_path_growth(
-                        required
-                            .checked_mul(core::mem::size_of::<i64>())
-                            .ok_or_else(|| RuntimeError::Overflow)?,
-                        existing.len(),
-                    )
-                    .map_err(VmTrap::Runtime)?;
-            }
+            // TIME-08: the added subscript costs one unit and its own bytes, whatever the
+            // capacity of the trailing index vector.
+            runtime
+                .before_reference_path_growth(core::mem::size_of::<i64>(), 1)
+                .map_err(VmTrap::Runtime)?;
             if let Some(RefSegment::Index(indices)) = reference.path.last_mut() {
                 indices
                     .try_reserve_exact(1)
@@ -370,7 +363,7 @@ pub fn dynamic_ref_index(
                     upper,
                 }));
             }
-            reserve_reference_segment(runtime, &mut reference, core::mem::size_of::<i64>())?;
+            reserve_reference_segment(runtime, &mut reference, 1)?;
             reference.path.push(single_ref_index(index));
             Ok(reference)
         }
@@ -379,7 +372,7 @@ pub fn dynamic_ref_index(
                 .before_reference_path_growth(0, text.len())
                 .map_err(VmTrap::Runtime)?;
             string_element_position(text.as_str(), index).map_err(VmTrap::Runtime)?;
-            reserve_reference_segment(runtime, &mut reference, core::mem::size_of::<i64>())?;
+            reserve_reference_segment(runtime, &mut reference, 1)?;
             reference.path.push(single_ref_index(index));
             Ok(reference)
         }
@@ -388,7 +381,7 @@ pub fn dynamic_ref_index(
                 .before_reference_path_growth(0, text.len())
                 .map_err(VmTrap::Runtime)?;
             string_element_position(text.as_str(), index).map_err(VmTrap::Runtime)?;
-            reserve_reference_segment(runtime, &mut reference, core::mem::size_of::<i64>())?;
+            reserve_reference_segment(runtime, &mut reference, 1)?;
             reference.path.push(single_ref_index(index));
             Ok(reference)
         }
@@ -396,34 +389,25 @@ pub fn dynamic_ref_index(
     }
 }
 
-/// Reserve the exact growing path before constructing any new owned segment.
+/// Admit one new owned path segment that carries `subscripts` subscripts, then reserve its
+/// slot. Each added segment and each added subscript costs one unit and its own bytes,
+/// whatever the path vector's capacity (spec 34 TIME-08).
 fn reserve_reference_segment(
     runtime: &impl ReferenceContext,
     reference: &mut ValueRef,
-    payload_bytes: usize,
+    subscripts: usize,
 ) -> Result<(), VmTrap> {
-    let required = reference
-        .path
-        .len()
+    let subscript_bytes = subscripts
+        .checked_mul(core::mem::size_of::<i64>())
+        .ok_or_else(|| RuntimeError::Overflow)?;
+    let bytes = core::mem::size_of::<RefSegment>()
+        .checked_add(subscript_bytes)
+        .ok_or_else(|| RuntimeError::Overflow)?;
+    let work = subscripts
         .checked_add(1)
         .ok_or_else(|| RuntimeError::Overflow)?;
-    let (path_bytes, copied) = if required > reference.path.capacity() {
-        (
-            required
-                .checked_mul(core::mem::size_of::<RefSegment>())
-                .ok_or_else(|| RuntimeError::Overflow)?,
-            reference.path.len(),
-        )
-    } else {
-        (0, 0)
-    };
     runtime
-        .before_reference_path_growth(
-            path_bytes
-                .checked_add(payload_bytes)
-                .ok_or_else(|| RuntimeError::Overflow)?,
-            copied,
-        )
+        .before_reference_path_growth(bytes, work)
         .map_err(VmTrap::Runtime)?;
     reference
         .path
