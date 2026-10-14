@@ -290,9 +290,10 @@ mod host {
         #[cfg(windows)]
         #[test]
         fn windows_browser_success_preserves_output_and_nonzero_is_failure() {
-            // `set /p` with no input sets ERRORLEVEL 1, so the command ends with `exit 0`.
+            // `set /p` with no input sets ERRORLEVEL 1, so the command ends with `exit 0`;
+            // no space before `&`, which `set /p` would print.
             let output = execute(
-                Command::new("cmd.exe").args(["/C", "<nul set /p=rendered-dom & exit 0"]),
+                Command::new("cmd.exe").args(["/C", "<nul set /p=rendered-dom& exit 0"]),
                 Duration::from_secs(1),
             )
             .unwrap();
@@ -320,7 +321,7 @@ mod host {
             // cmd.exe does not parse the quoting Rust applies to ordinary arguments, so the
             // command line is passed verbatim; `exit 0` overrides `set /p`'s ERRORLEVEL 1.
             let command = format!(
-                "start \"\" /B cmd.exe /C \"ping -n 4 127.0.0.1 > nul & echo escaped > \"{}\"\" & <nul set /p=dom & exit 0",
+                "start \"\" /B cmd.exe /C \"ping -n 4 127.0.0.1 > nul & echo escaped > \"{}\"\" & <nul set /p=dom& exit 0",
                 marker.display()
             );
             let start = Instant::now();

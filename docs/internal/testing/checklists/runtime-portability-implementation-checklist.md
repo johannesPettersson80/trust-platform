@@ -149,7 +149,10 @@ professional runtime"). The validated run-4 source is backed up externally
   ERRORLEVEL 1, and Rust's argument quoting is not what `cmd.exe` parses, so the
   descendant-cleanup command never ran as written. Both tests now end with `exit 0` and the
   cleanup test passes its command line verbatim (`raw_arg`).
-- [ ] Guard attempt 6 on the Windows test fixes, push, and the remaining Windows results.
+- [x] Guard attempt 6 on `5a8da210d` passed; pushed. Windows now runs both tests to the end
+  (the leader exits at once, no timeout); their output carried the space that `set /p`
+  prints before `&`. The commands no longer have that space.
+- [ ] Guard attempt 7, push, and the remaining Windows results.
 
 **Earlier on 14 October (Claude review and correction): validated except PERF-01 `call_binding`.**
 The owner asked for a review and fix of H. Root causes found:
