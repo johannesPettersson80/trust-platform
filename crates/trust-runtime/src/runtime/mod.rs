@@ -16,6 +16,9 @@ mod cycle;
 mod faults;
 #[cfg(test)]
 mod hosted_observation_cycle_tests;
+/// Compiles the embedding migration guide's examples as doc tests.
+#[cfg(feature = "full")]
+mod hosted_platform_guide_examples;
 mod hosted_services;
 mod installed;
 mod installed_bindings;
