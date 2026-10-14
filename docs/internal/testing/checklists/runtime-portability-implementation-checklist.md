@@ -90,6 +90,33 @@ professional runtime"). The validated run-4 source is backed up externally
   watchdog reset and DONE; MSP peak 11,616 B (4,768 B left), heap peak 23,496 B, longest
   main scan 3,754 µs. Button, LED and board markings remain unverified (bench).
 
+- [x] Owner approvals 14 October: local commit, the disturbed-round rule, a branch push for
+  native CI. H committed locally as `59e582eee` (690 files), then rebased onto published
+  `main` `603278202` (v0.24.74) as `d3a3508ba`; backup branch `backup/h-before-main-integration`.
+  Five conflicts: CHANGELOG (both entry sets; H's copy of the real-database entry dropped as a
+  duplicate), the two OpenOT test support files (H's diagnostic hooks on top of main's scan
+  isolation), `xtask/src/browser_command.rs` (H's version: main's file plus Windows job-object
+  cleanup, dependency already in H's xtask manifest) and this checklist (H's checkpoint kept;
+  main's U publication checkpoint preserved as history).
+- [x] Guard attempt 1 on `d3a3508ba` (version 0.24.75 differs from main, so the push is
+  release-sensitive; bundle `candidate-d3a3508ba.bundle`, SHA-256 `d69137ec…`, clean builder
+  worktree `trust-platform-h-release`, target `trust-portability-h-release`) failed at
+  `strict_gate` before any builder step: the direct change contract requires
+  `docs/specs/32-mqtt-io.md` with MQTT production paths. H moved the MQTT binding
+  installation to `Runtime::configure_io_bindings` (one resource-only reconfiguration);
+  spec 32 still named `io/interface.rs`. Behaviour is preserved (typed and enum codecs,
+  reuse of existing bindings, atomic refusal; the traffic-light test binds variables no
+  code uses). Console: `.artifacts/runtime-portability-h/h-publication/prepare-console.txt`.
+- [x] Owner decision 14 October: PERF-01 p99 is evaluated over each build's five final
+  rounds pooled; per-round medians and both thresholds unchanged (spec 34 v0.19). Harness
+  `perf01_verdict.py` decides the gate; on run 5 it passes: pooled p99 ratios
+  `call_binding` 1.0282, `refs_sizeof` 0.4694, `string_stdlib` 1.0290, all medians pass.
+- [ ] Correction commit: spec 32 owner list, installation sentence and proof map; spec 34
+  v0.19; this checklist. Then guard attempt 2 on the new SHA, then a timing round on the
+  integrated source (main's U corrections are new to H's timing). CI runs only on pull
+  requests to `main`, so native Windows/macOS evidence needs a draft PR marked
+  validation-only after the guard passes.
+
 **Earlier on 14 October (Claude review and correction): validated except PERF-01 `call_binding`.**
 The owner asked for a review and fix of H. Root causes found:
 

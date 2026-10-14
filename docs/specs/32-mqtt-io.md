@@ -23,8 +23,10 @@ Implementation owners:
   session, worker, driver, and Sparkplug profile;
 - `crates/trust-runtime/src/io/mqtt_tag_mapping.rs`: startup-only adapter from
   compiled PLC symbols to typed process-image points;
-- `crates/trust-runtime/src/io/interface.rs`: shared binding transaction and
-  snapshot metadata, without broker knowledge; and
+- `crates/trust-runtime/src/runtime/installed_bindings.rs`: the shared binding
+  transaction that installs a complete mapping set, without broker knowledge;
+- `crates/trust-runtime/src/io/interface.rs`: process-image bindings, scan
+  synchronization and snapshot metadata, without broker knowledge; and
 - `crates/trust-runtime/src/connectors/adapters/mqtt.rs`: projection into the
   shared connector-status contract, without transport behavior.
 
@@ -147,8 +149,16 @@ mappings.
 
 Existing compatible direct `%I` or `%Q` bindings are reused. Otherwise the
 startup adapter allocates deterministic non-overlapping process-image storage
-after the declared image. The worker receives only typed point descriptions and
-process-image snapshots; it cannot access program storage or resolve symbols.
+after the declared image. The complete mapping set and any image growth are
+installed as one resource-only direct-I/O binding reconfiguration
+([34-runtime-portability.md](34-runtime-portability.md) §4.3.1): PLC storage and
+values are kept and initializers do not rerun. A reused binding keeps its
+position and receives the mapping's codec, including enumeration labels. A
+refused reconfiguration leaves the installed resource, bindings and images
+unchanged. A runtime admitted from a 1.1 artifact exports the updated 3.0
+container afterwards ([12-bytecode.md](12-bytecode.md) §4.4). The worker
+receives only typed point descriptions and process-image snapshots; it cannot
+access program storage or resolve symbols.
 
 ## 6. Scalar and enumeration contract
 
@@ -289,7 +299,11 @@ but version-reporting status is not an MQTT behavior assertion.
 The closest native owners include:
 
 - `crates/trust-runtime/src/io/mqtt/tests/tag_mapping.rs` for direction, raw
-  fallback selection, empty mapping presence, mixed points, and mapped output;
+  fallback selection, empty mapping presence, mixed points, mapped output, and
+  installation into a runtime admitted from a 1.1 artifact;
+- `crates/trust-runtime/src/bin/trust-runtime/run/tests/mqtt_tag_mapping.rs`
+  for bindings installed before the worker starts and atomic refusal of a
+  mapping set with an unknown tag;
 - `crates/trust-runtime/src/io/mqtt/tests/point_map_contract.rs` and
   `io/mqtt/point_map.rs` tests for typed payload conversion and transaction
   integrity;

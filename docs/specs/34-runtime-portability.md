@@ -1,6 +1,6 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.18 — in-place leaf calls and direct frame defaults
+- **Version:** 0.19 — PERF-01 p99 over pooled rounds
 - **Date:** 14 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
@@ -1671,8 +1671,11 @@ only; collect trace observations outside the timed interval.
 Both reports shall show enabled tier-1, positive specialized-block execution and
 matching hot thresholds/capacities; required watched values shall be resolved.
 Against committed U
-`19f3b6787`, every workload must have H/U median latency at most 1.10 and
-H/U p99 latency at most 1.25, identical watched PLC values and cycle counts,
+`19f3b6787`, every workload must have H/U median latency at most 1.10 in each
+final round and H/U p99 latency at most 1.25, where each build's p99 is taken
+over the measured samples of its five final rounds pooled; per-round p99 ratios
+are recorded but do not decide the gate (owner decision, 14 October 2026). Every
+workload must also have identical watched PLC values and cycle counts,
 zero budget overruns, positive register execution and zero register-program
 fallbacks in both builds. These ratios bound acceptable observed regression;
 they do not claim a performance improvement or a real-time guarantee. Reject
@@ -2198,6 +2201,11 @@ Version 0.18 (14 October 2026) adds HOST-04's guarantee for in-place leaf calls
 and direct frame defaults: the general path's results, faults and charges, with no
 handler storage reserved for a leaf call. PERF-01 gains the owner-approved rule for
 disturbed rounds; its thresholds are unchanged.
+
+Version 0.19 (14 October 2026) evaluates PERF-01's p99 over each build's five
+final rounds pooled, by owner decision; per-round medians and both thresholds
+are unchanged. Specification 32 names the hosted binding transaction that
+installs MQTT mappings.
 
 ## Appendix C — Amendment traceability
 
