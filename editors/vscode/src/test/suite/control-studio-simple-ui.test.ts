@@ -217,8 +217,9 @@ suite("Control Studio simple by default", () => {
       const root = dom.document.querySelector<HTMLElement>("main")!;
       const chosen: string[] = [];
       let closed = 0;
-      const tools = ["root-locus", "frequency"];
-      const chooser = new ThreePageAnalysisChooser(root, { labels: { "root-locus": "Root locus", frequency: "Bode (frequency response)" },
+      // The tool ids are the engine's (B9.9, `controlStudio/analyze`): the chooser lists and labels them by these ids.
+      const tools = ["rootLocus", "frequency"];
+      const chooser = new ThreePageAnalysisChooser(root, { labels: { rootLocus: "Root locus", frequency: "Bode (frequency response)" },
         tools: () => tools, choose: tool => { chosen.push(tool); }, close: () => { closed += 1; } });
       const analyze = root.querySelector<HTMLButtonElement>("[data-studio-analyze]")!;
       const list = root.querySelector<HTMLElement>("[data-studio-analyze-list]")!;

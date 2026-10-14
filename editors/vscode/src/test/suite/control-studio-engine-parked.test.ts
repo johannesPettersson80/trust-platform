@@ -20,7 +20,7 @@ interface LoopIdentity {
   readonly revision: string;
 }
 
-type Method = "navigation" | "identify" | "tune" | "preview" | "handle";
+type Method = "navigation" | "identify" | "importFile" | "tune" | "preview" | "handle";
 
 interface PageMessage {
   readonly method: Method;
@@ -179,6 +179,10 @@ suite("Control Studio engine parked loops", () => {
       at("identify", "control-studio.identify.edit", { form: {} }),
       at("identify", "control-studio.identify.choose-structure", { choice: "first_order" }),
       at("identify", "control-studio.study.reset"),
+      at("identify", "control-studio.recording.refit", { recordingSelection: { inputs: ["P1.MV"], outputs: ["P1.PV"] } }),
+      at("importFile", "control-studio.identify.import", { json: "{}" }),
+      at("importFile", "control-studio.recording.import", { json: "{}" }),
+      at("importFile", "control-studio.general-model.import", { json: "{}" }),
       at("tune", "control-studio.flow.start", { from: "tune", family: "automatic", applicationMode: "auto", pinnedValues: null, tuningPreferences: { method: "automatic", values: {} }, task: {} }),
       at("tune", "control-studio.flow.cancel"),
       at("preview", "control-studio.engineer.manual-preview", { settings: { "P1.Parameters.ProportionalGain": 2 } }),
@@ -205,6 +209,15 @@ suite("Control Studio engine parked loops", () => {
     ];
   }
 
+  /**
+   * A parked loop's page hears its analysis tools and nothing else (B9.9): the engine's refusal of the loop's own law is answered as
+   * no tool, and it is not a failure the page shows.
+   */
+  function assertOnlyParkedTools(): void {
+    assert.deepStrictEqual(posted.map((message) => message.kind), ["control-studio.analysis.tools"], "a parked loop answers its analysis tools only");
+    assert.ok(posted.every((message) => !("failure" in message)), "a parked refusal is not a failure the page shows");
+  }
+
   /** Asks the route method of each message; every one must be left to the TypeScript route. */
   async function assertNoStageTakes(current: EnginePanelRoute, scope: LoopMessageScope): Promise<void> {
     for (const { method, message } of pageMessages(scope)) {
@@ -212,7 +225,7 @@ suite("Control Studio engine parked loops", () => {
       const taken = await current[method](message, scope);
       assert.strictEqual(taken, false, `${method} must leave ${kind} to the TypeScript route`);
     }
-    assert.deepStrictEqual(posted, [], "no engine answer or failure reaches the page for a parked loop");
+    assertOnlyParkedTools();
   }
 
   for (const [feature, load] of PARKED_LOOPS) {
@@ -223,7 +236,7 @@ suite("Control Studio engine parked loops", () => {
       const current = startRoute();
       assert.strictEqual(await current.open(loop, scope), false, "the engine refuses the loop as parked, so the TypeScript route keeps it");
       assert.strictEqual(await current.open(loop, scope), false, "the parked loop stays out of the way on a second open");
-      assert.deepStrictEqual(posted, [], "a parked refusal is not a failure the page shows");
+      assertOnlyParkedTools();
       await assertNoStageTakes(current, scope);
     });
   }

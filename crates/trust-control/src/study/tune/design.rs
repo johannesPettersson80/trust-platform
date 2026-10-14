@@ -24,7 +24,7 @@ use crate::loop_definition::{ControllerLaw, LoopDefinition, Parameter};
 use crate::messages::{ComparisonEntry, TuneMethod, TuneRequest, TuneResult};
 use crate::model::GeneralModel;
 use crate::stages::StageEvidence;
-use crate::study::identify::IdentifySection;
+use crate::study::current_model::CurrentModel;
 use crate::study::tune::comparison::simc_comparison;
 use crate::study::tune::manual;
 use crate::study::tune::model::tuning_model;
@@ -69,9 +69,9 @@ use crate::tuning::typed_pid::{constrained_comparison, ComparisonLabel, TypedDes
 const MULTICHANNEL: &str = "Multichannel tuning is not ported yet (stage V7).";
 /// The reason of a P that a named method or a fixed structure designed (`controllerTuning.ts`).
 const P_READY: &str = "Candidate ready. Validate it before applying.";
-/// The defect of a run that reaches its design without the study's Identify section, which the checks before the start
-/// refuse first.
-const NO_IDENTIFY_SECTION: &str = "Tune reached its design without the study's Identify result.";
+/// The defect of a run that reaches its design without the study's current model, which the checks before the start refuse
+/// first.
+const NO_MODEL: &str = "Tune reached its design without the study's current model.";
 /// The defect of a recommendation without an attempt of the structure the engineer fixed.
 const NO_ATTEMPT: &str = "Automatic made no attempt of the structure that was asked for.";
 /// The defect of a feasible P that the recommendation did not choose: P is the simplest structure (N5.11).
@@ -96,8 +96,8 @@ pub(crate) fn run(
     running: Option<&BTreeMap<String, f64>>,
 ) -> Result<TuneOutcome, Failure> {
     check_before_start(inputs)?;
-    let Some(identify) = inputs.identify else {
-        return Err(defect(NO_IDENTIFY_SECTION));
+    let Some(current) = inputs.model else {
+        return Err(defect(NO_MODEL));
     };
     let loop_definition = inputs.loop_definition;
     if loop_definition.channels.is_some() {
@@ -109,9 +109,8 @@ pub(crate) fn run(
     }
     loop_definition.rust_engine_support()?;
     let request = inputs.request;
-    let model = tuning_model(&identify.selected_model, identify)
-        .map_err(refused(Cause::ModelOrData, NextAction::Identify))?;
-    let requirements = run_requirements(inputs, identify, &model, held)?;
+    let model = tuning_model(current).map_err(refused(Cause::ModelOrData, NextAction::Identify))?;
+    let requirements = run_requirements(inputs, current, &model, held)?;
     // The manual candidate comes first, because its settings shape the prediction; a design's shape is the pinned one.
     let entry = manual::candidate_of(loop_definition, request)?;
     let mapped = mapped_parameters(loop_definition);
@@ -124,7 +123,7 @@ pub(crate) fn run(
     };
     let setup = LoopSetup::of(
         loop_definition,
-        &identify.selected_model,
+        &current.model,
         model.kind == LowOrderModelKind::Integrating,
     );
     let predictor = setup.predictor(&model, shaping);
@@ -139,7 +138,7 @@ pub(crate) fn run(
     };
     let section = TuneSection {
         method: request.method,
-        model_revision: identify.selected_model.identity().revision.clone(),
+        model_revision: current.model.identity().revision.clone(),
         requirements: requirements.clone(),
         candidate,
         reason: designed.reason.clone(),
@@ -147,8 +146,13 @@ pub(crate) fn run(
         attempts: designed.attempts.clone(),
         pins: request.pins.clone(),
     };
-    // The Identify section names the recording its model was fitted on, so the study holds a recording.
-    let evidence = stage_evidence(loop_definition, Some(identify), Some(&section), true);
+    // A fit names the recording it was fitted on, so the study holds one; a supplied model names none (B3.7).
+    let evidence = stage_evidence(
+        loop_definition,
+        Some(current),
+        Some(&section),
+        current.identify.is_some(),
+    );
     let current = running
         .and_then(|running| current_prediction(&predictor, loop_definition, &mapped, running));
     let evaluation = Evaluation {
@@ -254,7 +258,7 @@ fn checked_plant(
 /// section and the model, checked as the study checks the section that keeps it.
 fn run_requirements(
     inputs: &TuneInputs<'_>,
-    identify: &IdentifySection,
+    current: &CurrentModel,
     model: &IdentifiedModel,
     held: Option<&TuningRequirements>,
 ) -> Result<TuningRequirements, Failure> {
@@ -262,8 +266,7 @@ fn run_requirements(
     let requirements = requirements_for(
         inputs.loop_definition,
         model,
-        &identify.selected_model,
-        identify,
+        &current.model,
         inputs.previous,
         held,
         inputs.request,

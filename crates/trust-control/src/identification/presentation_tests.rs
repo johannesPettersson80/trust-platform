@@ -191,7 +191,7 @@ fn presents_an_identified_model_with_engineering_and_residual_evidence() {
 fn the_presentation_of_a_model_bound_comparison_keeps_its_fields_through_json() {
     let model = IdentifiedModel {
         time_constant_seconds: Some(1.0),
-        normalized_error: 0.1,
+        normalized_error: Some(0.1),
         ..fitted_model(LowOrderModelKind::FirstOrder, 1.0)
     };
     let presentation = identified_model_presentation(&model, &comparison_fit(), "V", "m");
@@ -425,7 +425,7 @@ fn model_of(
         time_constant_seconds: time_constants[0],
         second_time_constant_seconds: time_constants[1],
         dead_time_seconds: dead_time,
-        normalized_error: 0.021,
+        normalized_error: Some(0.021),
         ..fitted_model(kind, gain)
     }
 }

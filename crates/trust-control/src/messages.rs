@@ -13,7 +13,9 @@ use trust_control_math::margins::MarginValue;
 use crate::commissioning::application_records::ApplicationReview;
 use crate::failure::Failure;
 use crate::identification::acquisition_settings::AcquisitionSettings;
+use crate::identification::recording_import::ImportCheck;
 use crate::loop_definition::LoopDefinition;
+use crate::recording::opened_channels::RecordingSignalCatalog;
 use crate::runtime::RuntimeConnection;
 use crate::stages::{StageAvailability, StageEvidence};
 use crate::study::inputs::{InputsSection, Invalidation};
@@ -26,8 +28,19 @@ use crate::tuning::requirements::TuningRequirements;
 use crate::tuning::settings_pins::ControllerSettingsPins;
 use crate::tuning::structure::{ParallelGains, Structure};
 
+mod analyze;
+mod analyze_declared;
 mod validate_answer;
 mod validate_initialization;
+
+pub use analyze::{
+    AnalysisEnvelope, AnalysisInputs, AnalysisPage, AnalysisResult, AnalysisTool, AnalyzeAnswer,
+    AnalyzeRequest, ChannelRef, FrequencyAnswer, FrequencyChannel, FrequencyGrid, FrequencyPoint,
+    InitialStateAnswer, LeadLagAnswer, ModelRevision, NamedMatrix, PoleDomain, PoleZeroAnswer,
+    PoleZeroView, RelativeGainAnswer, RelativeGainStatus, StateStructureAnswer, ToolOffer,
+    TransferPolynomials,
+};
+pub use analyze_declared::{FeedbackAnswer, MeasuredFrequencyAnswer, RootLocusAnswer, RouthAnswer};
 
 pub use validate_answer::{
     LimitSide, ModelCheck, PlotSeries, RequirementChannel, RequirementOutcome, RunOutcome,
@@ -93,6 +106,15 @@ pub enum OpenResult {
         tune: Option<TuneResult>,
         /// The page last viewed, which reopening shows (A8.1, A8.6); Identify for a new study.
         page: Page,
+        /// The analysis tool the Tune page showed last, with its inputs, which reopening shows again (B9.9, A8.6); absent when none
+        /// was shown.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        page_analysis: Option<AnalysisPage>,
+        /// The page's own view choices the study keeps, which reopening shows again (A8.1, A8.6); absent when none were sent.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        page_view: Option<PageView>,
+        /// The analysis records the study keeps that are current for its loop and model (B10.2, A8.4).
+        analysis: crate::study::analysis_records::AnalysisRecords,
         /// The inputs the study records, which the editors show again (A8.1, A8.6); empty when none was recorded.
         inputs: InputsSection,
         /// Whether Restore previous settings is offered from the journaled checkpoint of the loop's Apply (A8.6, B6.4): a reopened
@@ -108,7 +130,7 @@ pub enum OpenResult {
 
 /// The arguments of `controlStudio/page` (specification 35, §0.1a; A8.1): the loop, and the page the engineer views. It
 /// changes nothing else and starts nothing.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PageRequest {
     /// The project folder.
@@ -119,6 +141,23 @@ pub struct PageRequest {
     pub loop_id: String,
     /// The page the engineer views now.
     pub page: Page,
+    /// On Tune, the analysis tool shown and its inputs (B9.9); absent when none is shown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub analysis: Option<AnalysisPage>,
+    /// The page's own view choices (A8.1, A8.6); absent when the page sends none, which keeps the recorded ones.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub view: Option<PageView>,
+}
+
+/// The page's own view choices, which the engine keeps with the page and answers on `open`, and never reads (§0.1a,
+/// `controlStudio/page`; A8.1, A8.6). They are view state: what decides a result is a study input (`controlStudio/inputs`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PageView {
+    /// The entry the Identify page's Method shows, as the page names it: a live method, or the opened-file or supplied-model entry
+    /// (B3.6, B3.7), which start no campaign. At most 64 characters.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identify_method: Option<String>,
 }
 
 /// One loop file of a project.
@@ -236,21 +275,37 @@ pub enum IdentifyAction {
         #[serde(default)]
         physical_approved: bool,
     },
-    /// Fits a recording of the study again, without live excitation (B3.6). The study's Identify result must name it.
+    /// Fits a recording the study keeps again, without live excitation (B3.6). An opened recording follows the pairing of
+    /// `importRecording` and is answered at once in its shape; a lone opened connected recording is fitted by an operation (§0.1a).
     OpenRecording {
-        /// The recording's identifier, `rec-…` (annex E4).
-        recording_id: String,
+        /// The recording's identifier, `rec-…` (annex E4). Absent, the study's last opened recording is fitted, and a study that keeps
+        /// none refuses (§0.1a).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        recording_id: Option<String>,
+        /// The plant inputs of the fit, by the recording's channel names; absent for the loop's plant input.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        inputs: Option<Vec<String>>,
+        /// The measured outputs of the fit, by the recording's channel names; absent for the loop's measured output.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        outputs: Option<Vec<String>>,
     },
     /// Follows the journaled identification campaign to its end (A8.5, A8.6). The answer is the operation's identifier.
     Resume,
     /// Starts a new working identification study; the previous one moves to history (A8.4). Refused while an operation of the
     /// loop runs or is unconfirmed. The answer is at once, as [`ResetResult`].
     Reset,
-    /// Checks a saved Control Studio result or recording file, given as its text (B10.4, B3.6, B3.9): the file is read and
-    /// checked against the loop, and nothing is kept or fitted. The answer is at once, as
-    /// [`crate::identification::recording_import::ImportCheck`].
+    /// Checks a saved Control Studio result or recording file, given as its text (B10.4, B3.6, B3.9), and keeps it as a recording
+    /// of the study with its original source and the opened marker (B10.2, A9). A file that is refused keeps nothing. The answer
+    /// is at once, as [`ImportedRecording`]; `openRecording` then fits the recording.
     ImportRecording {
         /// The text of the saved result or recording file (at most 32 MiB of text).
+        json: String,
+    },
+    /// Checks a supplied plant model, given as its JSON text of at most 256,000 bytes (B3.7, N4.1), and keeps it as the study's
+    /// model, provisional unless it carries evidence of independent validation. A model that is refused leaves the study as it
+    /// was. The answer is at once, as [`IdentifyResult`] of the study's current model; it starts no campaign and writes nothing to a runtime.
+    ImportModel {
+        /// The text of the model file.
         json: String,
     },
     /// Answers the campaign that `identify` would run with these settings: its method, excitation, limits and duration, and for
@@ -271,6 +326,29 @@ pub struct ResetResult {
     /// The stage evidence of the new working study, from which `stages` is computed: a new study holds no model, candidate or
     /// validation, so the page takes that from the engine (A8.4, B9.4).
     pub stage_evidence: StageEvidence,
+}
+
+/// What `controlStudio/identify` answers at once for `importRecording` (B10.2, B3.6, B5.2): the checked identity of the saved
+/// result, the recording the study keeps and the channels it offers. A file of two independent archived runs is fitted at once.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportedRecording {
+    /// The check of the file: its status (`checked`, or `recording-needed`), the saved result's identity, source and sample count.
+    #[serde(flatten)]
+    pub check: ImportCheck,
+    /// The recording the study keeps, `rec-…` (A8.3); for a fitted pair, the estimation recording.
+    pub recording_id: String,
+    /// The channels the recording offers with their units, and the selection the study keeps (B3.6).
+    pub recording_catalog: RecordingSignalCatalog,
+    /// The fit of a pair of independent recordings (B3.5, B5.2), when it was fitted at once.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identification: Option<IdentifyResult>,
+    /// What the file still needs, when it is kept and not yet fitted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// That the model was checked against an independent recording, when it was fitted from a pair.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub validation: Option<String>,
 }
 
 /// The arguments of `controlStudio/inputs` (specification 35, §0.1a; A8.1, A8.4): the inputs the study records, as the editors
@@ -392,8 +470,9 @@ pub struct IdentifyResult {
     pub text: String,
     /// The response plot: the applied plant input, the measurement and the model's prediction, on one time base.
     pub plot: IdentifyPlot,
-    /// The recording the model was fitted from, by its identifier (A8.3).
-    pub recording_id: String,
+    /// The recording the model was fitted from, by its identifier (A8.3); absent for a supplied model, which no recording made.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recording_id: Option<String>,
     /// The revision of the identified model: the one Validate's model check names when it checks this model (B5.2).
     pub model_revision: String,
     /// The requirements Tune designs to for this model now (B4.3): the values the study records as given, and Automatic's

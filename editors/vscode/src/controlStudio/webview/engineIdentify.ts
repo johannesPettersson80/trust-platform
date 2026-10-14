@@ -1,3 +1,4 @@
+import { ENGINE_MODEL_CHANGED_EVENT } from "./engineAnalysis";
 import { showEngineRequirements } from "./engineRequirements";
 
 /**
@@ -26,9 +27,10 @@ export function showEngineIdentification(root: HTMLElement, result: Record<strin
     warnings.hidden = true;
   }
   root.querySelector<HTMLElement>("[data-studio-model-result]")?.removeAttribute("hidden");
-  showPlot(result.plot);
+  showPlot(root, result.plot);
   showEngineRequirements(root, result.requirements);
   identificationStatus(root, provisional ? "Provisional model identified." : "Model identified.");
+  dispatchOnView(root, ENGINE_MODEL_CHANGED_EVENT);
 }
 
 /**
@@ -53,6 +55,13 @@ export function clearEngineIdentification(root: HTMLElement): void {
   }
   root.querySelector<HTMLElement>("[data-studio-model-result]")?.setAttribute("hidden", "");
   identificationStatus(root, "New identification study started.");
+  dispatchOnView(root, ENGINE_MODEL_CHANGED_EVENT);
+}
+
+/** Sends one of the page's window events on the view that holds the page, so that the webview's own listeners hear it. */
+function dispatchOnView(root: HTMLElement, name: string, detail?: Record<string, unknown>): void {
+  const view = root.ownerDocument.defaultView;
+  view?.dispatchEvent(new view.CustomEvent(name, detail ? { detail } : undefined));
 }
 
 /** Writes the Identify page's status line. */
@@ -66,13 +75,17 @@ export function identificationStatus(root: HTMLElement, message: string): void {
  * the experiment held, which the chart draws from the experiment it is given. The chart's `predictedResponse` pairs each time with
  * both values, and a null value is a gap, never an interpolated sample (B10.3).
  */
-function showPlot(plot: unknown): void {
+function showPlot(root: HTMLElement, plot: unknown): void {
   const data = recordOf(plot);
   const times = arrayOf(data?.timeSeconds);
   const traces = arrayOf(data?.traces).map(recordOf).filter((trace): trace is Record<string, unknown> => trace !== undefined);
   const measured = traces.find((trace) => trace.role === "measurement");
   const predicted = traces.find((trace) => trace.role === "prediction");
-  if (!measured || !predicted) return;
+  if (!measured || !predicted) {
+    // An answer with no response (a supplied model, B3.7) drops the comparison of the model before it: the chart resumes live observation.
+    dispatchOnView(root, "trust-control-studio-engineer", { liveIdentification: true });
+    return;
+  }
   const input = traces.find((trace) => trace.role === "plant-input");
   const measurement = arrayOf(measured.values);
   const prediction = arrayOf(predicted.values);
@@ -82,14 +95,14 @@ function showPlot(plot: unknown): void {
     inputs: [{ id: textOf(input.symbol), unit: textOf(input.unit), points: pointsOf(times, arrayOf(input.values)) }],
     outputs: [{ id: output, unit: textOf(measured.unit), points: pointsOf(times, measurement) }],
   } : undefined;
-  window.dispatchEvent(new CustomEvent("trust-control-studio-engineer", { detail: { identificationPresentation: {
+  dispatchOnView(root, "trust-control-studio-engineer", { identificationPresentation: {
     predictedResponse: times.map((timeSeconds, index) => ({
       timeSeconds, measured: measurement[index] ?? null, predicted: prediction[index] ?? null,
     })),
     ...(output ? { outputId: output } : {}),
     ...(experiment ? { experiment } : {}),
     units: { input: textOf(input?.unit), output: textOf(measured.unit), gain: "", time: "s" },
-  } } }));
+  } });
 }
 
 /** A trace's points on the time base: a value the trace does not hold is a gap (null), never an interpolated sample (B10.3). */

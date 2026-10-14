@@ -119,8 +119,9 @@ pub struct ValidationPredictionSeries {
 pub struct IndependentModelValidation<E> {
     /// The revision of the model that was checked.
     pub model_revision: String,
-    /// The identifier of the recording the model was estimated from.
-    pub estimation_recording_id: String,
+    /// The identifier of the recording the model was estimated from; absent for a supplied model, which has none (B5.2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub estimation_recording_id: Option<String>,
     /// The channels the check compares.
     pub channels: ModelValidationChannels,
     /// The error limit of the check, above zero and below one (B5.2).
@@ -155,12 +156,12 @@ pub fn recording_fingerprint(run: &ValidationRun) -> String {
 }
 
 /// Checks a frozen model on an independent record (`validateFrozenModel`). The model's coefficients and parameter pins
-/// never change (B5.2). A refused check is returned as an inconclusive result whose rows carry the reason, never as an
-/// error (B5.5).
+/// never change (B5.2). `estimation` is the recording a fitted model was estimated from, and `None` for a supplied model, which
+/// has none. A refused check is returned as an inconclusive result whose rows carry the reason, never as an error (B5.5).
 #[must_use]
 pub fn validate_frozen_model<E: RunEvaluation + Clone>(
     model: &GeneralModel,
-    estimation: &RuntimeVerificationResult<E>,
+    estimation: Option<&RuntimeVerificationResult<E>>,
     record: &RuntimeVerificationResult<E>,
     channels: &ModelValidationChannels,
     maximum_normalized_error: f64,
@@ -205,7 +206,7 @@ pub fn validate_frozen_model<E: RunEvaluation + Clone>(
     };
     IndependentModelValidation {
         model_revision,
-        estimation_recording_id: estimation.run.id.clone(),
+        estimation_recording_id: estimation.map(|estimation| estimation.run.id.clone()),
         channels: channels.clone(),
         maximum_normalized_error,
         record: record.clone(),
@@ -224,9 +225,10 @@ pub fn decode_independent_validation<E: RunEvaluation + Clone + PartialEq>(
     model: &GeneralModel,
     records: &[RuntimeVerificationResult<E>],
 ) -> Option<IndependentModelValidation<E>> {
-    let estimation = records
-        .iter()
-        .find(|item| item.run.id == stored.estimation_recording_id)?;
+    let estimation = match &stored.estimation_recording_id {
+        Some(id) => Some(records.iter().find(|item| item.run.id == *id)?),
+        None => None,
+    };
     let recomputed = validate_frozen_model(
         model,
         estimation,
@@ -246,20 +248,24 @@ struct Passed {
 /// The check itself. Each refusal is the sentence the `TypeScript` threw.
 fn run_check<E: RunEvaluation>(
     model: &GeneralModel,
-    estimation: &RuntimeVerificationResult<E>,
+    estimation: Option<&RuntimeVerificationResult<E>>,
     record: &RuntimeVerificationResult<E>,
     channels: &ModelValidationChannels,
     limit: f64,
 ) -> Result<Passed, Refusal> {
-    let evidence = &model.identity().evidence;
-    if !evidence.contains(&recording_fingerprint(&estimation.run))
-        || estimation.run.id == record.run.id
-        || estimation.project_revision != record.project_revision
-        || estimation.run.conditions.model_revision != record.run.conditions.model_revision
-    {
-        return Err(Refusal::new(
-            "Model validation needs a distinct recording from the same plant/program and the original estimation evidence.",
-        ));
+    // A fitted model is checked against the recording it was estimated from, which must be distinct, from the same program, and
+    // named by the model's evidence. A supplied model has no estimation recording, so none of these rules applies to it (B5.2).
+    if let Some(estimation) = estimation {
+        let evidence = &model.identity().evidence;
+        if !evidence.contains(&recording_fingerprint(&estimation.run))
+            || estimation.run.id == record.run.id
+            || estimation.project_revision != record.project_revision
+            || estimation.run.conditions.model_revision != record.run.conditions.model_revision
+        {
+            return Err(Refusal::new(
+                "Model validation needs a distinct recording from the same plant/program and the original estimation evidence.",
+            ));
+        }
     }
     if !limit.is_finite()
         || limit <= 0.0

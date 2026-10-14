@@ -1,3 +1,4 @@
+import type { AnalysisPage } from "./generated/PageRequest";
 import type { ControlLoopDefinition } from "./loopDefinition";
 import type { LoopMessageScope } from "./messages";
 import { projectStudyState, updateProjectStudy } from "./studyStore";
@@ -34,7 +35,28 @@ export function restoredEngineerViewSelection(loop: ControlLoopDefinition): Engi
   return viewSelection(value?.view);
 }
 
-/** View selection is persisted with the study's page and is independent of study results and runtime authority. */
+/**
+ * The analysis the Tune page shows, as the page names it (B9.9): its tool and its inputs. The tool is kept as the page sent it; the
+ * page offers only the tools the engine names, so a tool it does not offer is not shown, and the engine checks the inputs it calculates.
+ */
+function viewAnalysis(value: unknown): AnalysisPage | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const page = value as { tool?: unknown; inputs?: unknown };
+  if (typeof page.tool !== "string") return undefined;
+  return { tool: page.tool as AnalysisPage["tool"], inputs: page.inputs && typeof page.inputs === "object" ? page.inputs as AnalysisPage["inputs"] : {} };
+}
+
+/** The analysis the Tune page showed when the loop was last viewed; a parked loop's page calculates it again when the loop opens (B9.9, A8.6). */
+export function restoredEngineerAnalysis(loop: ControlLoopDefinition): AnalysisPage | undefined {
+  const value = projectStudyState(loop).page as { analysis?: unknown } | undefined;
+  return viewAnalysis(value?.analysis);
+}
+
+/**
+ * View selection and the analysis the Tune page shows are persisted with the study's page, and are independent of study results and
+ * runtime authority. A page that is not Tune keeps no analysis; on Tune, `null` means that no analysis is shown, and a message that says
+ * nothing about the analysis (such as the binding route's) keeps the one stored.
+ */
 export async function storeEngineerStage(loop: ControlLoopDefinition, message: unknown, scope: LoopMessageScope): Promise<boolean> {
   const value = message as Record<string, unknown> | null;
   if (!value || value.kind !== "control-studio.navigation.select" || value.schemaVersion !== 1 ||
@@ -42,9 +64,11 @@ export async function storeEngineerStage(loop: ControlLoopDefinition, message: u
     value.loopId !== scope.loopId || value.expectedLoopRevision !== scope.loopRevision) return false;
   const stage = (value.payload as { stage?: unknown } | undefined)?.stage;
   if (!isEngineerStage(stage)) return false;
-  const payload = value.payload as { view?: unknown };
+  const payload = value.payload as { view?: unknown; analysis?: unknown };
   const view = viewSelection(payload.view) ?? restoredEngineerViewSelection(loop);
+  const analysis = stage !== "tune" ? undefined : payload.analysis === undefined ? restoredEngineerAnalysis(loop) : viewAnalysis(payload.analysis);
+  const page = view || analysis ? { stage, ...(view ? { view } : {}), ...(analysis ? { analysis } : {}) } : stage;
   // The page is only remembered with the study (A8.3): a loop whose study is not open keeps its page for this session.
-  try { await updateProjectStudy(loop, "page", view ? { stage, view } : stage); } catch { /* not remembered */ }
+  try { await updateProjectStudy(loop, "page", page); } catch { /* not remembered */ }
   return true;
 }

@@ -12,6 +12,7 @@ use trust_control::limits::STUDY_STORAGE_LIMIT_BYTES;
 use trust_control::model::{decode_general_model, GeneralModel};
 use trust_control::recording::evidence::{recording_evidence, UNCONFIRMED_START_RECOVERED};
 use trust_control::recording::{Completeness, EvidenceSource, RecordedRun};
+use trust_control::study::current_model::{current_model, CurrentModelSource};
 use trust_control::study::general_model_persistence::{
     Capability, ChannelFrequencyResponse, FrequencyCapabilities, FrequencyPoint,
     GeneralModelFrequencyResult, ModelFrequencyGrid, ModelPole, SuppliedModelAnalysis,
@@ -835,4 +836,49 @@ fn the_study_storage_limit_is_256_mib() {
         256 * 1024 * 1024,
         "the limit is the study storage limit of A7"
     );
+}
+
+#[test]
+fn the_current_model_is_the_last_one_kept_and_reset_clears_both() {
+    let root = project("current-model");
+    let study = open_study(&root, "loop:tank", "sha256:loop-1").expect("a new study");
+    let supplied = SuppliedModelSection::new(supplied_model(), None);
+    let imported =
+        save_supplied_model(&root, &study, &supplied).expect("the supplied model is kept");
+    let source = |study: &Study| {
+        current_model(study)
+            .expect("reads")
+            .expect("a current model")
+            .source
+    };
+    assert_eq!(imported.model_source, Some(CurrentModelSource::Supplied));
+    assert_eq!(source(&imported), CurrentModelSource::Supplied);
+
+    let estimation = recording("loop:tank");
+    let section = identify_section(&estimation, None);
+    let fitted = save_identify(
+        &root,
+        &imported,
+        &section,
+        std::slice::from_ref(&estimation),
+    )
+    .expect("the fit is kept");
+    assert_eq!(fitted.model_source, Some(CurrentModelSource::Identify));
+    assert_eq!(
+        source(&fitted),
+        CurrentModelSource::Identify,
+        "a later Identify makes its fit current (A8.4)"
+    );
+
+    let reimported =
+        save_supplied_model(&root, &fitted, &supplied).expect("the model is kept again");
+    assert_eq!(source(&reimported), CurrentModelSource::Supplied);
+
+    let fresh = start_new_study(&root, &reimported).expect("reset");
+    assert_eq!(
+        current_model(&fresh).expect("reads"),
+        None,
+        "Reset clears both models (A8.4)"
+    );
+    fs::remove_dir_all(&root).expect("clean up");
 }

@@ -52,7 +52,7 @@ fn comparison_of() -> ComparisonPresentation {
         time_constant_seconds: Some(1.0),
         second_time_constant_seconds: None,
         dead_time_seconds: None,
-        normalized_error: 0.1,
+        normalized_error: Some(0.1),
         normalized_estimation_error: None,
         normalized_validation_error: None,
         estimation_residuals: None,
@@ -216,6 +216,62 @@ fn the_section_is_stored_under_the_words_of_the_engineer_study() {
     let opened =
         serde_json::to_value(IdentifyMethod::Opened(ControlExperimentKind::Relay)).expect("json");
     assert_eq!(opened, json!({ "opened": "relay" }));
+}
+
+#[test]
+fn a_fit_keeps_the_recorded_channels_beside_the_loops_signals_only_when_they_differ() {
+    let estimation = recording_file(EvidenceSource::SimulatedPlant, 20.0);
+    let section = provisional(&estimation);
+    let own = section.clone().with_recorded_channels(signals());
+    assert_eq!(
+        own.recorded_channels, None,
+        "channels that are the loop's own are not kept twice (B3.6)"
+    );
+    let read = IdentifySignals {
+        inputs: vec!["Plant.Command".into()],
+        outputs: vec!["Plant.Recorded".into()],
+        setpoint: None,
+    };
+    let kept = section.with_recorded_channels(read.clone());
+    assert_eq!(
+        kept.signals,
+        signals(),
+        "the loop's signals stay the signals (A8.4)"
+    );
+    assert_eq!(
+        kept.read_channels(),
+        &read,
+        "the recorded channels are what the fit read"
+    );
+    let text = kept.encode().expect("encoded");
+    assert!(text.contains("\"recordedChannels\""), "{text}");
+    assert_eq!(IdentifySection::decode(&text).expect("decoded"), kept);
+    let mut malformed = kept;
+    malformed.recorded_channels = Some(IdentifySignals {
+        inputs: Vec::new(),
+        outputs: vec!["Plant.Recorded".into()],
+        setpoint: None,
+    });
+    assert!(
+        malformed.encode().is_err(),
+        "the recorded channels are checked as the signals are (B10.4)"
+    );
+}
+
+#[test]
+fn a_study_file_written_before_the_recorded_channels_reads_and_is_current_as_before() {
+    // An earlier version wrote this section without `recordedChannels`; this one writes the same text for a fit of the loop's own
+    // signals, so the file reads as it did and the model is current for the loop as before (A8.4).
+    let estimation = recording_file(EvidenceSource::SimulatedPlant, 20.0);
+    let text = provisional(&estimation).encode().expect("encoded");
+    assert!(
+        !text.contains("recordedChannels"),
+        "a fit of the loop's own signals writes no recorded channels"
+    );
+    let decoded = IdentifySection::decode(&text).expect("the file reads");
+    assert_eq!(decoded.recorded_channels, None);
+    assert_eq!(decoded.read_channels(), &decoded.signals);
+    assert!(decoded.is_current_for(&plant_loop()));
 }
 
 #[test]

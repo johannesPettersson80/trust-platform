@@ -56,17 +56,26 @@ export class ThreePageBindings {
     this.synchronize();
   }
   explain(): void { this.notice("model", this.problem || "Wait for the selected controller binding."); }
+  /**
+   * Reopening shows the recording selection the study keeps (B3.6, A8.6): the channels it names are the selectors' options, selected.
+   * The study keeps only their names, so a channel the loop does not name shows its name without a unit.
+   */
+  restoreRecording(selection: RecordingSignalSelection): void {
+    const names = [...new Set([...selection.inputs, ...selection.outputs])];
+    const catalog: RecordingSignalCatalog = { channels: names.map(id => ({ id, unit: this.unitOf(id) })),
+      selection: { inputs: [...selection.inputs], outputs: [...selection.outputs] }, kind: "archive" };
+    this.recording = catalog;
+    this.recordingStale = false;
+    this.fillRecording(catalog);
+    this.synchronize();
+  }
   receive(payload: Record<string, unknown>): void {
     if (payload.recordingCatalog && typeof payload.recordingCatalog === "object") {
       const catalog = payload.recordingCatalog as RecordingSignalCatalog;
       this.recording = catalog; this.invalid = false; this.pending = undefined;
-      this.recordingStale = payload.status !== "model-ready" && !(payload.status === "restored" && payload.model);
-      for (const [select, kind] of [[this.inputs, "inputs"], [this.outputs, "outputs"]] as const) {
-        const options = catalog.kind === "legacy" ? catalog.channels.filter(channel => channel.id === (kind === "inputs" ? "appliedMv" : "pv")) : catalog.channels;
-        select.replaceChildren(...options.map(channel => new Option(
-          `${catalog.kind === "legacy" ? channel.id === "appliedMv" ? "Applied input" : "Measured output" : channel.id} (${displayEngineeringUnit(channel.unit)})`,
-          channel.id, false, catalog.selection[kind].includes(channel.id))));
-      }
+      // A checked file keeps the selection it names: that selection is the study's, not a draft (`checked`, B3.6).
+      this.recordingStale = !["model-ready", "checked"].includes(String(payload.status)) && !(payload.status === "restored" && payload.model);
+      this.fillRecording(catalog);
     }
     if (payload.status === "model-ready") this.recordingStale = false;
     if (payload.status === "bindings" && Array.isArray(payload.targets)) {
@@ -108,6 +117,20 @@ export class ThreePageBindings {
     if (!this.canRun) for (const button of Array.from(this.root.querySelectorAll<HTMLButtonElement>("[data-engineer-find],[data-engineer-tune],[data-engineer-verify],[data-identify-import]"))) button.disabled = true;
     if (this.pending) this.controllerSelect.disabled = true;
     this.root.dataset.bindingDraft = String(this.invalid || this.recordingStale);
+  }
+  /** The selectors' options for a recording: its channels, each selected when the recording's selection names it. */
+  private fillRecording(catalog: RecordingSignalCatalog): void {
+    for (const [select, kind] of [[this.inputs, "inputs"], [this.outputs, "outputs"]] as const) {
+      const options = catalog.kind === "legacy" ? catalog.channels.filter(channel => channel.id === (kind === "inputs" ? "appliedMv" : "pv")) : catalog.channels;
+      select.replaceChildren(...options.map(channel => new Option(channelLabel(catalog, channel), channel.id, false, catalog.selection[kind].includes(channel.id))));
+    }
+  }
+  /** The unit of the loop's signal a recording names, or "" when the loop does not name it. */
+  private unitOf(name: string): string {
+    const signals = [this.loop.signals.processVariable, this.loop.signals.manipulatedVariable,
+      ...(this.loop.channels?.inputs ?? []).map(channel => loopSignal(this.loop, channel.signalId)),
+      ...(this.loop.channels?.outputs ?? []).map(channel => loopSignal(this.loop, channel.signalId))];
+    return signals.find(signal => signal.symbol === name)?.unit ?? "";
   }
   private populate(select: HTMLSelectElement, kind: "inputs" | "outputs", chosen: readonly string[]): void {
     const options = new Map<string, HTMLOptionElement>();
@@ -156,3 +179,9 @@ export class ThreePageBindings {
   }
 }
 function same(left: readonly string[], right: readonly string[]): boolean { return left.length === right.length && left.every(item => right.includes(item)); }
+
+/** A channel's option text: its name and its unit; an older file's channels read as the applied input and the measured output. */
+function channelLabel(catalog: RecordingSignalCatalog, channel: { id: string; unit: string }): string {
+  if (catalog.kind === "legacy") return `${channel.id === "appliedMv" ? "Applied input" : "Measured output"} (${displayEngineeringUnit(channel.unit)})`;
+  return channel.unit ? `${channel.id} (${displayEngineeringUnit(channel.unit)})` : channel.id;
+}

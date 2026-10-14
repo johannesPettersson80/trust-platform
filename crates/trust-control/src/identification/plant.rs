@@ -109,8 +109,10 @@ pub struct IdentifiedModel {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dead_time_seconds: Option<f64>,
     /// The normalised error that decides the model (N3.2): the validation error of an independently validated fit,
-    /// the error on the recording itself for a single-run preview.
-    pub normalized_error: f64,
+    /// the error on the recording itself for a single-run preview. A fit always records it. A supplied model was not fitted, so
+    /// it records none, and Tune's error check does not apply to it (B3.7).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub normalized_error: Option<f64>,
     /// The normalised error on the estimation record.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub normalized_estimation_error: Option<f64>,
@@ -133,6 +135,15 @@ pub struct IdentifiedModel {
     /// keeps.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub on_search_boundary: bool,
+}
+
+impl IdentifiedModel {
+    /// The normalised error that decides a fitted model (N3.2) for the fit's own comparisons. A fit always records it; a model
+    /// without one is read as the largest error, so no limit accepts it.
+    #[must_use]
+    pub fn decisive_error(&self) -> f64 {
+        self.normalized_error.unwrap_or(f64::INFINITY)
+    }
 }
 
 /// The evidence an identification result names: data of a simulated or of a physical target (A2.4).
@@ -487,7 +498,7 @@ fn single_run_model(form: &FormFit, step: &MeasuredStep, sample_time: f64) -> Id
         time_constant_seconds: shape.time_constant_seconds,
         second_time_constant_seconds: shape.second_time_constant_seconds,
         dead_time_seconds: shape.dead_time_seconds,
-        normalized_error: form.prediction.normalized_error,
+        normalized_error: Some(form.prediction.normalized_error),
         normalized_estimation_error: None,
         normalized_validation_error: None,
         estimation_residuals: None,
@@ -679,7 +690,7 @@ fn low_order_model(fit: LowOrderModelFit) -> IdentifiedModel {
         time_constant_seconds: fit.time_constant_seconds,
         second_time_constant_seconds: fit.second_time_constant_seconds,
         dead_time_seconds: fit.dead_time_seconds,
-        normalized_error: fit.normalized_validation_error,
+        normalized_error: Some(fit.normalized_validation_error),
         normalized_estimation_error: Some(fit.normalized_estimation_error),
         normalized_validation_error: Some(fit.normalized_validation_error),
         estimation_residuals: Some(fit.estimation_residuals),

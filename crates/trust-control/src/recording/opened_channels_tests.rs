@@ -1,11 +1,11 @@
 use serde_json::{json, Value};
 
 use super::{
-    configured_recording_selection, decode_recording_catalog, opened_recording_catalog,
-    selected_recording_channels, CatalogKind, RecordingSignalCatalog, RecordingSignalSelection,
-    WorkflowUnits,
+    check_selection, configured_recording_selection, decode_recording_catalog,
+    opened_recording_catalog, selected_recording_channels, selection_loop, CatalogKind,
+    RecordingSignalCatalog, RecordingSignalSelection, WorkflowUnits,
 };
-use crate::loop_definition::LoopDefinition;
+use crate::loop_definition::{Direction, LoopDefinition};
 use crate::recording::fixtures::{binding, loop_definition, run, sample};
 use crate::recording::RecordedRun;
 use crate::signals::{Quality, SignalBinding};
@@ -282,4 +282,217 @@ fn the_units_of_an_archive_come_from_the_loop_definition() {
     )
     .expect("the channels resolve");
     assert_eq!(channels.outputs[0].unit, "°C");
+}
+
+#[test]
+fn the_selected_signals_take_the_plant_roles_of_the_fit_of_one_recording() {
+    // The fit of a selected output (B3.6) reads the selected signals as the loop's plant input and measured output.
+    let loop_definition = loop_definition();
+    let recorded = archive(&[[50.0, 48.0, 32.0]]);
+    let view = selection_loop(&loop_definition, &recorded, "LevelSP", "ValveMV")
+        .expect("both signals are the loop's");
+    assert_eq!(view.signals.manipulated_variable.symbol, "LevelSP");
+    assert_eq!(view.signals.process_variable.symbol, "ValveMV");
+    assert!(
+        selection_loop(&loop_definition, &recorded, "NOPE", "ValveMV").is_err(),
+        "a signal the loop does not have and the recording does not hold is not a plant signal"
+    );
+}
+
+#[test]
+fn a_stored_selection_refuses_an_input_that_is_also_an_output() {
+    let selection = RecordingSignalSelection {
+        inputs: vec!["ValveMV".to_string()],
+        outputs: vec!["ValveMV".to_string()],
+    };
+    assert!(
+        check_selection(&selection).is_err(),
+        "the study keeps only a selection of distinct channels"
+    );
+    let valid = RecordingSignalSelection {
+        inputs: vec!["ValveMV".to_string()],
+        outputs: vec!["LevelPV".to_string()],
+    };
+    assert!(check_selection(&valid).is_ok());
+}
+
+#[test]
+fn an_extra_channel_of_an_archive_is_offered_with_its_unit_and_selected_by_its_name() {
+    let mut run = archive(&[[50.0, 48.0, 32.0]]);
+    // An output the loop does not bind keeps its name and its unit (`archived_recording`, B3.6); a mode binding keeps neither.
+    run.bindings.push(SignalBinding {
+        id: "P1.RecordedTemperature".to_string(),
+        address: None,
+        symbol: Some("P1.RecordedTemperature".to_string()),
+        iec_type: "REAL".to_string(),
+        unit: Some("%".to_string()),
+    });
+    run.bindings.push(SignalBinding {
+        id: "controllerMode".to_string(),
+        address: None,
+        symbol: Some("LevelAuto".to_string()),
+        iec_type: "BOOL".to_string(),
+        unit: None,
+    });
+    for sample in &mut run.samples {
+        sample.values.push(Some(47.0));
+        sample.values.push(Some(1.0));
+        sample.quality.push(Quality::Good);
+        sample.quality.push(Quality::Good);
+        sample.forced.push(false);
+        sample.forced.push(false);
+    }
+    let requested = json!({ "inputs": ["ValveMV"], "outputs": ["P1.RecordedTemperature"] });
+    let catalog = opened_recording_catalog(
+        &units(),
+        &loop_definition(),
+        std::slice::from_ref(&run),
+        Some(&requested),
+    )
+    .expect("the archive opens with the extra output selected");
+    assert!(
+        catalog
+            .channels
+            .iter()
+            .any(|channel| channel.id == "P1.RecordedTemperature" && channel.unit == "%"),
+        "the extra channel is offered with its unit"
+    );
+    assert!(
+        !catalog
+            .channels
+            .iter()
+            .any(|channel| channel.id == "LevelAuto"),
+        "a mode binding is not a channel"
+    );
+    assert_eq!(catalog.selection.outputs, ["P1.RecordedTemperature"]);
+}
+
+/// `recorded` with one more binding, `symbol` in `unit`, that holds `readings` at its samples: an extra output the loop does not bind.
+fn with_extra_output(
+    mut recorded: RecordedRun,
+    symbol: &str,
+    unit: &str,
+    readings: &[(f64, Quality)],
+) -> RecordedRun {
+    recorded.bindings.push(SignalBinding {
+        id: symbol.to_string(),
+        address: None,
+        symbol: Some(symbol.to_string()),
+        iec_type: "REAL".to_string(),
+        unit: Some(unit.to_string()),
+    });
+    for (sample, (value, quality)) in recorded.samples.iter_mut().zip(readings) {
+        sample.values.push(Some(*value));
+        sample.quality.push(*quality);
+        sample.forced.push(false);
+    }
+    recorded
+}
+
+#[test]
+fn a_selected_extra_output_is_the_measured_output_of_the_view_read_only_in_its_observed_range() {
+    let loop_definition = loop_definition();
+    let recorded = with_extra_output(
+        archive(&[[50.0, 48.0, 32.0], [50.0, 49.0, 32.0], [50.0, 47.0, 32.0]]),
+        "P1.RecordedTemperature",
+        "degC",
+        &[
+            (47.5, Quality::Good),
+            (49.0, Quality::Good),
+            (48.25, Quality::Good),
+        ],
+    );
+    let view = selection_loop(
+        &loop_definition,
+        &recorded,
+        "ValveMV",
+        "P1.RecordedTemperature",
+    )
+    .expect("the extra output is a channel of the recording");
+    let output = &view.signals.process_variable;
+    assert_eq!(output.symbol, "P1.RecordedTemperature");
+    assert_eq!(output.unit, "degC", "with the unit the channel holds");
+    assert_eq!(output.address, None, "a recorded channel has no address");
+    assert_eq!(output.iec_type, "REAL");
+    assert_eq!(
+        output.direction,
+        Direction::Read,
+        "a recorded signal is only read"
+    );
+    assert!(
+        (output.range.minimum - 47.5).abs() < 1e-9 && (output.range.maximum - 49.0).abs() < 1e-9,
+        "the range is the one its samples took, which grants no excitation limit: {:?}",
+        output.range
+    );
+    assert_eq!(
+        view.signals.manipulated_variable.symbol, "ValveMV",
+        "the loop's own plant input stays"
+    );
+}
+
+#[test]
+fn a_selected_name_that_neither_the_loop_nor_the_recording_holds_is_refused() {
+    let loop_definition = loop_definition();
+    let recorded = archive(&[[50.0, 48.0, 32.0]]);
+    let refused = selection_loop(&loop_definition, &recorded, "ValveMV", "P1.Missing")
+        .expect_err("the recording holds no such channel");
+    assert_eq!(
+        refused.message,
+        "Choose input and output signals present in this recording."
+    );
+}
+
+#[test]
+fn an_extra_output_with_a_sample_that_is_not_good_is_refused_as_an_invalid_signal() {
+    let loop_definition = loop_definition();
+    let recorded = with_extra_output(
+        archive(&[[50.0, 48.0, 32.0], [50.0, 49.0, 32.0]]),
+        "P1.RecordedTemperature",
+        "degC",
+        &[(47.0, Quality::Good), (47.5, Quality::Bad)],
+    );
+    let refused = selection_loop(
+        &loop_definition,
+        &recorded,
+        "ValveMV",
+        "P1.RecordedTemperature",
+    )
+    .expect_err("one sample of the output is not good");
+    assert_eq!(
+        refused.message,
+        "Recording signal P1.RecordedTemperature has incomplete or invalid samples."
+    );
+}
+
+#[test]
+fn the_view_of_an_extra_output_drops_the_loops_model_name_of_the_output_and_keeps_its_input_name() {
+    let mut loop_definition = loop_definition();
+    loop_definition.channels = Some(json!({
+        "inputs": [{ "signalId": "manipulatedVariable", "modelChannelId": "u" }],
+        "outputs": [{ "signalId": "processVariable", "modelChannelId": "y" }],
+    }));
+    let recorded = with_extra_output(
+        archive(&[[50.0, 48.0, 32.0], [50.0, 49.0, 32.0]]),
+        "P1.RecordedTemperature",
+        "degC",
+        &[(47.0, Quality::Good), (47.2, Quality::Good)],
+    );
+    let view = selection_loop(
+        &loop_definition,
+        &recorded,
+        "ValveMV",
+        "P1.RecordedTemperature",
+    )
+    .expect("the extra output is a channel of the recording");
+    let channels = view.channels.as_ref().expect("the loop's channel names");
+    assert_eq!(
+        channels["outputs"],
+        json!([]),
+        "the loop's model name belongs to its own output, so the extra output names itself"
+    );
+    assert_eq!(
+        channels["inputs"],
+        json!([{ "signalId": "manipulatedVariable", "modelChannelId": "u" }]),
+        "the plant input is the loop's own, so it keeps its model name"
+    );
 }

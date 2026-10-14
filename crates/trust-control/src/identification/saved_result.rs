@@ -20,7 +20,8 @@ use crate::identification::state::RecordingProvenance;
 use crate::recording::{Acquisition, Completeness, ScanRange};
 
 /// The sentence of a file that is not JSON (`readIdentificationRecordingImport`).
-pub(crate) const NOT_JSON_SENTENCE: &str = "Choose a valid Control Studio result JSON file.";
+pub(crate) const NOT_JSON_SENTENCE: &str =
+    "Choose a valid Control Studio recording or result JSON file.";
 /// The sentence of a file whose saved result does not decode (`readIdentificationRecordingImport`).
 pub(crate) const INVALID_SENTENCE: &str =
     "The saved recording has invalid data or source metadata.";

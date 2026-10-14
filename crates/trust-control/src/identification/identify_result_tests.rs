@@ -16,7 +16,7 @@ use crate::identification::presentation::identified_model_presentation;
 use crate::messages::TuneRequest;
 use crate::model::decode_general_model;
 use crate::recording::EvidenceSource;
-use crate::stages::stage_availability;
+use crate::stages::{stage_availability, Stage};
 use crate::study::identify::IdentifyMethod;
 use crate::study::tune::{tune, TuneInputs};
 use crate::tuning::automatic_criteria::{AutomaticCriteria, REQUIREMENT_KEYS};
@@ -98,7 +98,7 @@ fn first_order_section() -> IdentifySection {
     let identified = IdentifiedModel {
         time_constant_seconds: Some(2.0),
         dead_time_seconds: Some(1.0),
-        normalized_error: 0.04,
+        normalized_error: Some(0.04),
         ..fitted_model(LowOrderModelKind::FirstOrderDeadTime, 0.5)
     };
     let model = decode_general_model(&json!({
@@ -166,7 +166,7 @@ fn the_result_reads_the_stored_presentation_and_labels_a_provisional_model() {
         result.text,
         "First-order model with delay · Provisional\nG(s) = 0.5 e^(-1s) / (2s + 1)\nGain 0.5 m per V, time constant 2 s, delay 1 s"
     );
-    assert_eq!(result.recording_id, RECORDING_ID);
+    assert_eq!(result.recording_id.as_deref(), Some(RECORDING_ID));
     assert_eq!(result.stages, stage_availability(&evidence));
     assert_eq!(result.stage_evidence, evidence);
 
@@ -210,6 +210,30 @@ fn the_plot_shows_the_applied_input_the_measurement_and_the_prediction_on_the_re
         ],
         "the input and the measurement keep their recorded gap; the prediction starts where the fit does"
     );
+}
+
+#[test]
+fn a_fit_without_its_experiment_names_its_measurement_by_the_recorded_channel_it_read() {
+    // B3.6: a fit of a recorded channel that the loop does not bind names its measurement by that channel, in the plot of its
+    // first answer and of `controlStudio/open` alike (`read_channels`).
+    let mut section = first_order_section();
+    section.presentation.experiment = None;
+    section.recorded_channels = Some(IdentifySignals {
+        inputs: vec!["Plant.Command".to_owned()],
+        outputs: vec!["Plant.Recorded".to_owned()],
+        setpoint: None,
+    });
+    let measurement = |section: &IdentifySection| -> Option<String> {
+        identify_result(section, StageEvidence::default(), None)
+            .plot
+            .traces
+            .into_iter()
+            .find(|trace| trace.role == PlotRole::Measurement)
+            .map(|trace| trace.symbol)
+    };
+    assert_eq!(measurement(&section).as_deref(), Some("Plant.Recorded"));
+    section.recorded_channels = None;
+    assert_eq!(measurement(&section).as_deref(), Some("Plant.Position"));
 }
 
 #[test]
@@ -276,15 +300,40 @@ fn the_study_has_a_model_only_when_its_identify_section_is_current() {
     assert!(recorded.loop_bound && recorded.has_recording && !recorded.has_model);
 
     let section = first_order_section();
-    let current = study_evidence(&loop_definition, Some(&section), true);
+    let current = study_evidence(
+        &loop_definition,
+        Some(&CurrentModel::identified(section.clone())),
+        true,
+    );
     assert!(current.has_model && current.has_recording);
 
     let mut moved = plant_loop();
     moved.signals.process_variable.symbol = "Plant.Level".into();
     assert!(
-        !study_evidence(&moved, Some(&section), true).has_model,
+        !study_evidence(&moved, Some(&CurrentModel::identified(section)), true).has_model,
         "a model of another measured output is not current"
     );
+}
+
+// Specification 35, C12: a loop without a controller law keeps its Identify evidence, and its Tune stage is Not applicable.
+#[test]
+fn a_loop_without_a_controller_law_gives_the_study_no_controller_stage() {
+    let mut observed = plant_loop();
+    observed.controller.law = None;
+    observed.controller.design = Some(crate::loop_definition::Design::Project);
+    observed.topology = Some(crate::loop_definition::Topology::OpenLoop);
+    let evidence = study_evidence(
+        &observed,
+        Some(&CurrentModel::identified(first_order_section())),
+        true,
+    );
+    assert!(evidence.has_model && evidence.has_recording && !evidence.controller_stages_apply);
+    let tune = stage_availability(&evidence)
+        .into_iter()
+        .find(|item| item.stage == Stage::Tune)
+        .expect("every stage");
+    assert_eq!(tune.label, "Not applicable");
+    assert!(study_evidence(&plant_loop(), None, false).controller_stages_apply);
 }
 
 // Specification 35, B5.2 and B4.3: the answer names the model's revision, the one Validate's model check names, and carries the
@@ -333,7 +382,7 @@ fn the_answer_names_no_requirements_where_automatic_cannot_form_them() {
     let answer = identify_answer(
         &Study::new("tank", "sha256:loop-1"),
         &plant_loop(),
-        &first_order_section(),
+        &CurrentModel::identified(first_order_section()),
         StageEvidence::default(),
     )
     .expect("the answer");
@@ -359,12 +408,13 @@ fn the_answer_carries_the_record_automatic_forms_for_the_study_model() {
         "../../../../examples/control-pid-commissioning/control-loop.json"
     ))
     .expect("the commissioning example's loop");
-    let section = crate::study::tune::model::tests::identify_section(None);
-    let evidence = study_evidence(&loop_definition, Some(&section), true);
+    let current =
+        CurrentModel::identified(crate::study::tune::model::tests::identify_section(None));
+    let evidence = study_evidence(&loop_definition, Some(&current), true);
     let answer = identify_answer(
         &Study::new(&loop_definition.id, &loop_definition.revision),
         &loop_definition,
-        &section,
+        &current,
         evidence,
     )
     .expect("the answer");
@@ -395,7 +445,8 @@ fn a_kept_candidate_answers_its_settings_and_no_prediction() {
         "../../../../examples/control-pid-commissioning/control-loop.json"
     ))
     .expect("the commissioning example's loop");
-    let identify = crate::study::tune::model::tests::identify_section(None);
+    let identify =
+        CurrentModel::identified(crate::study::tune::model::tests::identify_section(None));
     let request = TuneRequest {
         project_root: "/projects/control-pid-commissioning".to_owned(),
         runtime_id: "simulator".to_owned(),
@@ -410,7 +461,7 @@ fn a_kept_candidate_answers_its_settings_and_no_prediction() {
     };
     let section = tune(&TuneInputs {
         loop_definition: &loop_definition,
-        identify: Some(&identify),
+        model: Some(&identify),
         previous: None,
         request: &request,
         relay: None,

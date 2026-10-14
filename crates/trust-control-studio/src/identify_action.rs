@@ -3,11 +3,13 @@
 //!
 //! - `identify` runs a live campaign with the engineer's method and limits (B3.2 to B3.4), `openRecording` fits the recording
 //!   of the study's Identify result again without live excitation (B3.6), and `resume` follows the journaled campaign to its
-//!   end (A8.5, A8.6). Each answers at once with its operation's identifier. Its final update carries trust-control's
+//!   end (A8.5, A8.6). Each answers at once with its operation's identifier, except an opened recording that pairs or needs a
+//!   second recording, which is answered from the study (B5.2, `identify_import`). Its final update carries trust-control's
 //!   `IdentifyResult`, once the study keeps the Identify section with the request its recording was taken with.
 //! - `reset` starts a new working study and keeps the previous one as history (A8.4), and answers at once with the stages.
-//! - `importRecording` checks a saved result or recording file and answers at once; it keeps and fits nothing
-//!   (`identify_import`, B3.6, B10.4).
+//! - `importRecording` checks a saved result or recording file and keeps it as a recording of the study with its source and the
+//!   opened marker; `openRecording` fits such a recording from its own samples (B3.6, B10.2). `importModel` checks a supplied
+//!   plant model and keeps it as the study's model (B3.7). Both answer at once (`identify_import`, B10.4).
 //! - `cancel_loop` cancels the journaled operation the command line names (§0.1b, E5.5, E11.6): a campaign through its
 //!   restoration path, a lone recording owner by stopping and keeping its recording. Its final update is a [`CancelResult`].
 //!
@@ -20,9 +22,9 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use trust_control::experiment::ControlExperimentKind;
-use trust_control::failure::Failure;
+use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::acquisition_settings::{
     configured_acquisition, AcquisitionSettings,
 };
@@ -33,7 +35,7 @@ use trust_control::identification::connected_run::{
     accepted_model_from_one_record, checked_acquisition_settings, live_write_refusal,
     model_check_instead_of_model, model_not_from_one_record, not_journaled, qualification,
     recording_not_kept, resumed_without_experiment, review_changed_refusal, runtime_required,
-    stored_fit_window, unfinished_operation_refusal, IDENTIFY_OPERATION,
+    stored_fit_window, unfinished_operation_refusal, FitWindow, IDENTIFY_OPERATION,
 };
 use trust_control::identification::identify_result::{
     identify_answer, identify_signals, study_evidence,
@@ -41,15 +43,22 @@ use trust_control::identification::identify_result::{
 use trust_control::identification::recorded_limits::{
     evaluate_recorded_limits, RecordedLimitsEvaluation,
 };
+use trust_control::identification::recording_import::archive::with_extra_channels;
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::{
     CancelResult, IdentifyAction, IdentifyRequest, OperationStarted, ResetResult,
 };
-use trust_control::recording::EvidenceSource;
+use trust_control::recording::opened::opened_plan;
+use trust_control::recording::opened_channels::{
+    configured_recording_selection, opened_recording_catalog, selection_loop, workflow_units,
+    RecordingSignalCatalog, RecordingSignalSelection,
+};
+use trust_control::recording::{EvidenceSource, RecordingFile};
 use trust_control::runtime::RuntimeConnection;
 use trust_control::stages::stage_availability;
+use trust_control::study::current_model::CurrentModel;
 use trust_control::study::identify::{
-    refit_refusal, IdentifyMethod, IdentifySection, StoredRecordRequest,
+    refit_refusal, IdentifyMethod, IdentifySection, IdentifySignals, StoredRecordRequest,
 };
 use trust_control::study::inputs::stage_evidence_of;
 use trust_control::study::Study;
@@ -165,15 +174,13 @@ pub fn answer(
                 run_identify(context, &work, &connection, &settings)
             })
         }
-        IdentifyAction::OpenRecording { recording_id } => {
+        IdentifyAction::OpenRecording {
+            recording_id,
+            inputs,
+            outputs,
+        } => {
             refuse_while_journaled(&journal)?;
-            let section = working_study(&work)?.section::<IdentifySection>()?;
-            section
-                .ok_or_else(|| refit_refusal(&recording_id))?
-                .refit_request(&recording_id)?;
-            started(operations, claim, move |context| {
-                run_refit(context, &work, &recording_id)
-            })
+            open_recording_answer(operations, claim, work, recording_id, inputs, outputs)
         }
         IdentifyAction::Resume => {
             let connection = connection.ok_or_else(runtime_required)?;
@@ -189,11 +196,78 @@ pub fn answer(
         IdentifyAction::Review { settings } => {
             review(&work.loop_definition, connection.as_ref(), &settings)
         }
-        // The check answers at once, with its claim, and keeps nothing (B3.6, B10.4).
+        // The check answers at once, with its claim: a file that passes is kept as a recording of the study (B3.6, B10.2, B10.4).
         IdentifyAction::ImportRecording { json } => {
-            identify_import::check(&work.loop_definition, &json)
+            refuse_while_journaled(&journal)?;
+            identify_import::import_recording(&work.project_root, &work.loop_definition, &json)
+        }
+        // The model check answers at once, with its claim; a model that passes is kept as the study's model (B3.7, N4.1).
+        IdentifyAction::ImportModel { json } => {
+            refuse_while_journaled(&journal)?;
+            identify_import::import_model(&work.project_root, &work.loop_definition, &json)
         }
     }
+}
+
+/// `openRecording` (B3.6, B5.2). `recording_id` names the recording; without it the study's last opened recording is fitted
+/// (`last_opened_recording`). An opened recording the study keeps is answered from the study when it pairs or needs a second
+/// recording; otherwise it is fitted from its own samples with the signals the engineer selected. Any other recording is fitted again
+/// from the request its Identify result keeps.
+fn open_recording_answer(
+    operations: &Operations,
+    claim: LoopClaim,
+    work: LoopWork,
+    recording_id: Option<String>,
+    inputs: Option<Vec<String>>,
+    outputs: Option<Vec<String>>,
+) -> Result<Value, Failure> {
+    let recording_id = match recording_id {
+        Some(recording_id) => recording_id,
+        None => last_opened_recording(&work)?,
+    };
+    if let Some(file) = opened_recording_of_study(&work, &recording_id)? {
+        let catalog = opened_catalog(&work.loop_definition, &file, inputs, outputs)?;
+        if let Some(answer) = identify_import::open_kept_recording(
+            &work.project_root,
+            &work.loop_definition,
+            &recording_id,
+            &file,
+            &catalog,
+        )? {
+            return Ok(answer);
+        }
+        let selection = catalog.selection;
+        return started(operations, claim, move |context| {
+            run_opened_fit(context, &work, &file, &selection)
+        });
+    }
+    let section = working_study(&work)?.section::<IdentifySection>()?;
+    section
+        .ok_or_else(|| refit_refusal(&recording_id))?
+        .refit_request(&recording_id)?;
+    started(operations, claim, move |context| {
+        run_refit(context, &work, &recording_id)
+    })
+}
+
+/// The recording `openRecording` fits when it names none: the study's last opened recording, the latest of the recordings the study
+/// lists whose file carries the opened marker (B3.6). A study that keeps none refuses, and the engineer opens a recording first.
+///
+/// # Errors
+/// The study keeps no opened recording, or a recording the study lists cannot be read.
+fn last_opened_recording(work: &LoopWork) -> Result<String, Failure> {
+    let study = working_study(work)?;
+    for id in study.recordings.iter().rev() {
+        let file = storage::read_recording(&work.project_root, &work.loop_definition.id, id)?;
+        if file.opened {
+            return Ok(id.clone());
+        }
+    }
+    Err(Failure::new(
+        "The study keeps no opened recording to fit. Open a recording first.",
+        Cause::Settings,
+        NextAction::None,
+    ))
 }
 
 /// The name of the operation an identification request starts, as a refusal names the operation that holds the loop (A8.5).
@@ -205,6 +279,7 @@ fn operation_name(action: &IdentifyAction) -> &'static str {
         IdentifyAction::Reset => "Reset",
         IdentifyAction::Review { .. } => "Review",
         IdentifyAction::ImportRecording { .. } => "Import recording",
+        IdentifyAction::ImportModel { .. } => "Import model",
     }
 }
 
@@ -569,9 +644,130 @@ fn reset(work: &LoopWork, journal: &Journal) -> Result<Value, Failure> {
     })
 }
 
-/// Keeps the Identify section of `fitted` in `study` (A8.1, A8.3; B3.5): the provisional model, its presentation, the signals
-/// it used and the request its recording was taken with. Answers with the result the page shows and the stages after it.
+/// The recording `recording_id` of the study, when the study keeps it as an opened recording (B3.6): a recording the study lists,
+/// whose file carries the opened marker. `None` for any other recording.
+///
+/// # Errors
+/// The study cannot be read, or a recording the study lists cannot be read.
+fn opened_recording_of_study(
+    work: &LoopWork,
+    recording_id: &str,
+) -> Result<Option<RecordingFile>, Failure> {
+    let study = working_study(work)?;
+    if !study.recordings.iter().any(|listed| listed == recording_id) {
+        return Ok(None);
+    }
+    let file = storage::read_recording(&work.project_root, &work.loop_definition.id, recording_id)?;
+    Ok(file.opened.then_some(file))
+}
+
+/// The fit of an opened recording the study keeps (B3.6, C12). Its samples are observed as `opened_plan` describes them: the
+/// file is an observation, so nothing is written to the plant. The fit meets the same limits check as a live recording (B3.4
+/// step 6), is fitted and qualified, and is kept with the recording's source. The Identify result keeps the observation it was
+/// fitted with, so refitting the recording reads the same plan.
+fn run_opened_fit(
+    context: &OperationContext,
+    work: &LoopWork,
+    file: &RecordingFile,
+    selection: &RecordingSignalSelection,
+) -> Result<Value, Failure> {
+    let loop_definition = &work.loop_definition;
+    // The study keeps the selection, so that reopening shows the signals the fit used (B3.6).
+    let study = identify_import::with_selection(working_study(work)?, selection)?;
+    let (input, output) = single_channel_selection(selection)?;
+    // The fit reads the selected plant input and measured output from the recording, as the view of the loop with those signals
+    // (B3.6). A selected output that the loop does not bind is an extra channel of the recording, which the record must carry too.
+    let view = selection_loop(loop_definition, &file.run, input, output)?;
+    let plan = opened_plan(file, loop_definition);
+    let window = FitWindow {
+        fit_from_seconds: 0.0,
+        baseline_end_seconds: 0.0,
+    };
+    let evaluate: RunEvaluator<'_, RecordedLimitsEvaluation> = &evaluate_recorded_limits;
+    let mut record = connected_record(loop_definition, &file.run, None, &plan, window, evaluate)?;
+    with_extra_channels(&mut record.run, file);
+    let result = fit_records(&view, context, std::slice::from_ref(&record))?;
+    // The model is qualified against the signals it was fitted to, which are the view's (B3.6).
+    qualification(&view, &result)?;
+    // The channels the fit read from the recording are kept beside the loop's signals (B3.6).
+    let read = IdentifySignals {
+        inputs: vec![input.to_string()],
+        outputs: vec![output.to_string()],
+        setpoint: None,
+    };
+    keep_fitted(
+        work,
+        &study,
+        Fitted {
+            method: IdentifyMethod::Opened(ControlExperimentKind::Observation),
+            source: file.source,
+            recording_file_id: file.id()?,
+            result,
+        },
+        Some(read),
+    )
+}
+
+/// The catalogue of an opened recording with the selection an `openRecording` names (B3.6): the plant input and measured output the
+/// engineer chose, and the loop's own for a signal the request leaves out. A name the recording does not hold is refused
+/// (`opened_recording_catalog`).
+fn opened_catalog(
+    loop_definition: &LoopDefinition,
+    file: &RecordingFile,
+    inputs: Option<Vec<String>>,
+    outputs: Option<Vec<String>>,
+) -> Result<RecordingSignalCatalog, Failure> {
+    let requested = if inputs.is_none() && outputs.is_none() {
+        None
+    } else {
+        let configured = configured_recording_selection(loop_definition);
+        Some(json!({
+            "inputs": inputs.unwrap_or(configured.inputs),
+            "outputs": outputs.unwrap_or(configured.outputs),
+        }))
+    };
+    opened_recording_catalog(
+        &workflow_units(loop_definition),
+        loop_definition,
+        std::slice::from_ref(&file.run),
+        requested.as_ref(),
+    )
+}
+
+/// The plant input and measured output a fit of one recording takes (B3.6): one of each. Several signals wait for the state model
+/// fit (V7), and a selection without either names nothing to fit.
+fn single_channel_selection(selection: &RecordingSignalSelection) -> Result<(&str, &str), Failure> {
+    match (selection.inputs.as_slice(), selection.outputs.as_slice()) {
+        ([input], [output]) => Ok((input.as_str(), output.as_str())),
+        ([], _) | (_, []) => Err(Failure::new(
+            "Choose the recording's plant inputs and measured outputs.",
+            Cause::Settings,
+            NextAction::None,
+        )),
+        _ => Err(Failure::new(
+            "Identify fits one plant input and one measured output of a recording; several signals wait for the state model fit (V7).",
+            Cause::Settings,
+            NextAction::None,
+        )),
+    }
+}
+
+/// Keeps the Identify section of `fitted` in `study` with the loop's own signals (A8.1, A8.3; B3.5): the provisional model, its
+/// presentation and the request its recording was taken with.
 fn keep_result(work: &LoopWork, study: &Study, fitted: Fitted) -> Result<Value, Failure> {
+    keep_fitted(work, study, fitted, None)
+}
+
+/// Keeps the Identify section of `fitted` in `study`: the provisional model, its presentation and the request its recording was
+/// taken with. Its signals are the loop's for the fit's experiment (A8.4, B3.2), and `read` names the recording channels the fit
+/// read the plant input and measured output from, when it read other ones (B3.6). Answers with the result the page shows and the
+/// stages after it.
+fn keep_fitted(
+    work: &LoopWork,
+    study: &Study,
+    fitted: Fitted,
+    read: Option<IdentifySignals>,
+) -> Result<Value, Failure> {
     let Fitted {
         method,
         source,
@@ -591,10 +787,11 @@ fn keep_result(work: &LoopWork, study: &Study, fitted: Fitted) -> Result<Value, 
     let [record] = runs.as_slice() else {
         return Err(model_not_from_one_record());
     };
+    let signals = identify_signals(loop_definition, experiment_kind(method));
     let section = IdentifySection::new(
         method,
         source,
-        identify_signals(loop_definition, experiment_kind(method)),
+        signals,
         &recording_file_id,
         None,
         *model,
@@ -604,9 +801,14 @@ fn keep_result(work: &LoopWork, study: &Study, fitted: Fitted) -> Result<Value, 
         project_revision: record.project_revision.clone(),
         request: record.request.clone(),
     });
+    let section = match read {
+        Some(read) => section.with_recorded_channels(read),
+        None => section,
+    };
     let kept = storage::save_identify(&work.project_root, study, &section, &[])?;
-    let evidence = study_evidence(loop_definition, Some(&section), !kept.recordings.is_empty());
-    let answer = identify_answer(&kept, loop_definition, &section, evidence)?;
+    let current = CurrentModel::identified(section);
+    let evidence = study_evidence(loop_definition, Some(&current), !kept.recordings.is_empty());
+    let answer = identify_answer(&kept, loop_definition, &current, evidence)?;
     to_value(&answer)
 }
 

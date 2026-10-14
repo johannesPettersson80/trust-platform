@@ -54,10 +54,12 @@ function fakeEngine(answers: Record<string, unknown>): {
 } {
   const requests: Array<{ method: string; params: unknown }> = [];
   const listeners: Array<(params: unknown) => void> = [];
+  // A loop without a model offers no analysis tool: the open answer asks for the tools, so each fake answers them (B9.9).
+  const scripted: Record<string, unknown> = { "controlStudio/analyze": { result: { tools: [] } }, ...answers };
   const connection = {
     sendRequest: async (method: string, params: unknown) => {
       requests.push({ method, params });
-      const answer = answers[method];
+      const answer = scripted[method];
       // An answer the test computes, such as one it holds back until it releases it.
       return typeof answer === "function" ? (answer as () => unknown)() : answer;
     },
@@ -149,7 +151,7 @@ suite("Control Studio engine route", () => {
     };
   }
 
-  /** A route whose identification runs with the study's settings (B3.2) and without a runtime connection (E11.1). */
+  /** A route for the Identify commands and the study reset, without a runtime connection (E11.1). */
   function startIdentifyRoute(): EnginePanelRoute {
     engine = startEngine({ executable: engineBinary() });
     route = createEnginePanelRoute({
@@ -159,7 +161,6 @@ suite("Control Studio engine route", () => {
       post: (message) => {
         posted.push(message);
       },
-      acquisitionSettings: () => ({ method: "automatic", durationSeconds: 60, amplitude: 0, reuseRecordings: false }),
     });
     return route;
   }
@@ -171,12 +172,21 @@ suite("Control Studio engine route", () => {
     }
   }
 
+  /**
+   * A parked loop's page hears its analysis tools and nothing else: the TypeScript route keeps the loop, and the engine's refusal of
+   * the loop's own law is not a failure the page shows (B9.9).
+   */
+  function assertOnlyParkedTools(): void {
+    assert.deepStrictEqual(posted.map((message) => message.kind), ["control-studio.analysis.tools"], "a parked loop answers its analysis tools only");
+    assert.ok(posted.every((message) => !("failure" in message)), "a parked refusal is not a failure the page shows");
+  }
+
   test("opens a loop the engine runs, and answers with its stages and page", async function () {
     this.timeout(30_000);
     const loop = projectLoop(coreLoopFile());
     const scope = scopeOf(loop);
     assert.strictEqual(await startRoute().open(loop, scope), true);
-    assert.strictEqual(posted.length, 2, "an open answers with the opened loop, then with the study's recorded inputs");
+    assert.strictEqual(posted.length, 3, "an open answers with the opened loop, then with the study's recorded inputs and the analysis tools");
     assert.strictEqual(posted[0].kind, "control-studio.engine.opened");
     assert.strictEqual(posted[0].projectId, scope.projectId);
     assert.strictEqual(posted[0].editorSessionId, scope.editorSessionId);
@@ -191,6 +201,8 @@ suite("Control Studio engine route", () => {
     );
     assert.strictEqual(posted[1].kind, "control-studio.engine.result");
     assert.strictEqual(posted[1].method, "inputs");
+    assert.strictEqual(posted[2].kind, "control-studio.analysis.tools");
+    assert.ok(Array.isArray(posted[2].tools), "the analysis tools that apply reach the page, and no failure does");
     assertNoToken();
   });
 
@@ -201,11 +213,11 @@ suite("Control Studio engine route", () => {
     const current = startRoute();
     assert.strictEqual(await current.open(loop, scope), true);
     assert.strictEqual(await current.navigation(selectMessage(scope, "tune"), scope), true);
-    assert.strictEqual(posted.length, 2, "the page is stored without a message back");
+    assert.strictEqual(posted.length, 3, "the page is stored without a message back");
     assert.strictEqual(await current.open(loop, scope), true);
-    assert.strictEqual(posted.length, 4, "the next open answers as the first did: the opened loop, then the recorded inputs");
-    assert.strictEqual(posted[2].kind, "control-studio.engine.opened");
-    assert.strictEqual((posted[2].result as { page: string }).page, "Tune");
+    assert.strictEqual(posted.length, 6, "the next open answers as the first did: the opened loop, the recorded inputs and the analysis tools");
+    assert.strictEqual(posted[3].kind, "control-studio.engine.opened");
+    assert.strictEqual((posted[3].result as { page: string }).page, "Tune");
     assertNoToken();
   });
 
@@ -217,7 +229,7 @@ suite("Control Studio engine route", () => {
     assert.strictEqual(await current.open(loop, scope), false);
     assert.strictEqual(await current.navigation(selectMessage(scope, "tune"), scope), false);
     assert.strictEqual(await current.open(loop, scope), false, "the parked loop stays out of the way");
-    assert.deepStrictEqual(posted, []);
+    assertOnlyParkedTools();
   });
 
   test("shows an engine that cannot start as its start failure, and keeps the loop on the TypeScript route", async function () {
@@ -238,21 +250,15 @@ suite("Control Studio engine route", () => {
     assert.strictEqual(posted[0].method, "start");
   });
 
-  test("answers an identification without a runtime with the engine's runtime failure, and posts it to the page", async function () {
+  test("leaves an Identify run to the TypeScript route, since Identify plant is a run on the engine route and a model-only run is the Recorded-data fit's (B3.3)", async function () {
     this.timeout(30_000);
     const loop = projectLoop(coreLoopFile());
     const scope = scopeOf(loop);
     const current = startIdentifyRoute();
     assert.strictEqual(await current.open(loop, scope), true);
     posted = [];
-    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.run", { model: "fopdt" }), scope), true);
-    assert.strictEqual(posted.length, 1);
-    assert.strictEqual(posted[0].kind, "control-studio.engine.failure");
-    assert.strictEqual(posted[0].method, "identify");
-    const failure = posted[0].failure as { cause: string; nextAction: string; nextActionLabel?: string };
-    assert.strictEqual(failure.cause, "runtime");
-    assert.strictEqual(failure.nextAction, "connect-runtime");
-    assert.strictEqual(failure.nextActionLabel, "Connect runtime…");
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.run", { model: "fopdt" }), scope), false);
+    assert.deepStrictEqual(posted, [], "the engine answers nothing for a model-only run");
     assertNoToken();
   });
 
@@ -283,7 +289,160 @@ suite("Control Studio engine route", () => {
     assert.strictEqual(await current.open(loop, scope), false);
     assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.run", { model: "fopdt" }), scope), false);
     assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.study.reset", {}), scope), false);
-    assert.deepStrictEqual(posted, []);
+    assertOnlyParkedTools();
+  });
+
+  /**
+   * A route over a fake engine that serves the loop `tank` and answers `controlStudio/identify` with the answers the test names (a
+   * function answers each call in turn). The messages of the open are cleared, so a test reads only the answers to its own request.
+   */
+  async function servedWith(identify: unknown, answers: Record<string, unknown> = {}): Promise<{ current: EnginePanelRoute; fake: ReturnType<typeof fakeEngine>; scope: LoopMessageScope }> {
+    const loop = { id: "tank", runtimeId: "simulator" };
+    const scope: LoopMessageScope = { projectId: "project-test", editorSessionId: "editor-session-test", loopId: "tank", loopRevision: "revision-test" };
+    const fake = fakeEngine({ "controlStudio/open": openedAnswer([]), "controlStudio/identify": identify, ...answers });
+    const current = createEnginePanelRoute({
+      engine: fake.engine,
+      projectRoot: folder,
+      storageFolder: "",
+      post: (message) => {
+        posted.push(message);
+      },
+    });
+    route = current;
+    assert.strictEqual(await current.open(loop, scope), true);
+    posted = [];
+    return { current, fake, scope };
+  }
+
+  /** The identify requests the route sent the fake engine, in order. */
+  /** The actions of the `controlStudio/identify` requests the route sent: each request carries its action as `action` (§0.1a). */
+  function identifyActionsOf(fake: ReturnType<typeof fakeEngine>): Array<Record<string, unknown>> {
+    return fake.requests.filter((sent) => sent.method === "controlStudio/identify")
+      .map((sent) => (sent.params as { action: Record<string, unknown> }).action);
+  }
+
+  /** The channels of a recording the study keeps: the loop's plant input and measured output, and an archived output of its own. */
+  const RECORDING_CATALOG = {
+    channels: [{ id: "P1.PV", unit: "degC" }, { id: "P1.RecordedTemperature", unit: "degC" }],
+    selection: { inputs: ["P1.MV"], outputs: ["P1.PV"] },
+    kind: "archive",
+  };
+
+  test("keeps the Recorded-data fit's file and its steps on the TypeScript route, on a loop the engine serves (B3.3)", async function () {
+    this.timeout(30_000);
+    const { current, fake, scope } = await servedWith({ result: {} });
+    assert.strictEqual(await current.importFile(commandMessage(scope, "control-studio.identify.import", { json: "{}" }), scope), false);
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.run", { model: "fopdt" }), scope), false);
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.fit", {}), scope), false);
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.accept", {}), scope), false);
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.choose-structure", { choice: "first_order" }), scope), false);
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.edit", { form: {} }), scope), false);
+    assert.deepStrictEqual(identifyActionsOf(fake), [], "the engine runs none of the manual steps");
+    assert.deepStrictEqual(posted, [], "the engine answers none of them");
+  });
+
+  test("answers a recording the engine keeps but cannot yet check as recording-needed, with its reason and channels (B3.6)", async function () {
+    this.timeout(30_000);
+    const { current, scope } = await servedWith({ result: { status: "recording-needed", recordingId: "rec-1", source: "Simulation", samples: 3,
+      recordingCatalog: RECORDING_CATALOG, reason: "Open an independent recording to check the plant model." } });
+    assert.strictEqual(await current.importFile(commandMessage(scope, "control-studio.recording.import", { json: "{}" }), scope), true);
+    assert.deepStrictEqual(posted.map((message) => message.kind), ["control-studio.identification-recording"]);
+    assert.strictEqual(posted[0].messageId, "message-test");
+    assert.deepStrictEqual(posted[0].payload, { status: "recording-needed", recordingId: "rec-1", recordingCatalog: RECORDING_CATALOG,
+      reason: "Open an independent recording to check the plant model." });
+    assertNoToken();
+  });
+
+  test("answers a pair of recordings the engine fits as checked, with its identification as an Identify answer (B3.6, B5.2)", async function () {
+    this.timeout(30_000);
+    const identification = { modelType: "First-order model with delay", equation: "G(s) = 2 / (5s + 1)", keyNumbers: "K = 2", provisional: false,
+      plot: { timeSeconds: [0, 1], traces: [] }, stages: [], stageEvidence: {} };
+    const { current, scope } = await servedWith({ result: { status: "checked", recordingId: "rec-2", recordingCatalog: RECORDING_CATALOG,
+      identification, validation: "The model was checked against an independent recording." } });
+    assert.strictEqual(await current.importFile(commandMessage(scope, "control-studio.recording.import", { json: "{}" }), scope), true);
+    assert.deepStrictEqual(posted.map((message) => message.kind), ["control-studio.engine.result", "control-studio.identification-recording"]);
+    assert.strictEqual(posted[0].method, "identify");
+    assert.deepStrictEqual(posted[0].result, identification);
+    assert.deepStrictEqual(posted[1].payload, { status: "checked", recordingId: "rec-2", recordingCatalog: RECORDING_CATALOG,
+      validation: "The model was checked against an independent recording." });
+    assertNoToken();
+  });
+
+  test("fits a lone connected recording the engine keeps at once, with the selection it keeps (B3.6)", async function () {
+    this.timeout(30_000);
+    let answered = 0;
+    const { current, fake, scope } = await servedWith(() => {
+      answered += 1;
+      return answered === 1 ? { result: { status: "checked", recordingId: "rec-3", recordingCatalog: RECORDING_CATALOG } }
+        : { result: { operationId: "operation-21" } };
+    });
+    assert.strictEqual(await current.importFile(commandMessage(scope, "control-studio.recording.import", { json: "{}" }), scope), true);
+    assert.deepStrictEqual(posted.map((message) => message.kind), ["control-studio.identification-recording"]);
+    const requests = identifyActionsOf(fake);
+    assert.deepStrictEqual(requests.map((request) => request.action), ["importRecording", "openRecording"]);
+    assert.deepStrictEqual({ recordingId: requests[1].recordingId, inputs: requests[1].inputs, outputs: requests[1].outputs },
+      { recordingId: "rec-3", inputs: ["P1.MV"], outputs: ["P1.PV"] }, "the fit names the recording and the selection the study keeps");
+  });
+
+  test("answers a refit of the kept recording with the selection the page names, as an import answers (B3.6)", async function () {
+    this.timeout(30_000);
+    const identification = { modelType: "First-order model with delay", equation: "G(s) = 2 / (5s + 1)", keyNumbers: "K = 2", provisional: false,
+      plot: { timeSeconds: [0, 1], traces: [] }, stages: [], stageEvidence: {} };
+    let answered = 0;
+    const { current, fake, scope } = await servedWith(() => {
+      answered += 1;
+      return answered === 1 ? { result: { status: "recording-needed", recordingId: "rec-4", recordingCatalog: RECORDING_CATALOG,
+        reason: "Open an independent recording to check the plant model." } }
+        : { result: { status: "checked", recordingId: "rec-4", recordingCatalog: RECORDING_CATALOG, identification,
+          validation: "The model was checked against an independent recording." } };
+    });
+    assert.strictEqual(await current.importFile(commandMessage(scope, "control-studio.recording.import", { json: "{}" }), scope), true);
+    posted = [];
+    const selection = { inputs: ["P1.MV"], outputs: ["P1.RecordedTemperature"] };
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.recording.refit", { recordingSelection: selection }), scope), true);
+    assert.deepStrictEqual(posted.map((message) => message.kind), ["control-studio.engine.result", "control-studio.identification-recording"]);
+    const refit = identifyActionsOf(fake)[1];
+    assert.deepStrictEqual({ action: refit.action, recordingId: refit.recordingId, inputs: refit.inputs, outputs: refit.outputs },
+      { action: "openRecording", recordingId: "rec-4", inputs: ["P1.MV"], outputs: ["P1.RecordedTemperature"] });
+  });
+
+  test("answers a file the engine refuses as failed, with the engine's sentence, and keeps nothing (B10.4)", async function () {
+    this.timeout(30_000);
+    const { current, scope } = await servedWith({ failure: { message: "Choose a valid Control Studio recording or result JSON file.", cause: "unclassified", nextAction: "none" } });
+    assert.strictEqual(await current.importFile(commandMessage(scope, "control-studio.recording.import", { json: "not json" }), scope), true);
+    assert.deepStrictEqual(posted.map((message) => message.kind), ["control-studio.identification-recording"]);
+    assert.deepStrictEqual(posted[0].payload, { status: "failed", reason: "Choose a valid Control Studio recording or result JSON file." });
+  });
+
+  test("stops the identification a refit started when the page aborts it, as the engine's cancel (B3.6)", async function () {
+    this.timeout(30_000);
+    let answered = 0;
+    const { current, fake, scope } = await servedWith(() => {
+      answered += 1;
+      return answered === 1 ? { result: { status: "recording-needed", recordingId: "rec-5", recordingCatalog: RECORDING_CATALOG,
+        reason: "Open an independent recording to check the plant model." } } : { result: { operationId: "operation-22" } };
+    }, { "controlStudio/cancel": { result: {} } });
+    assert.strictEqual(await current.importFile(commandMessage(scope, "control-studio.recording.import", { json: "{}" }), scope), true);
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.recording.refit", { recordingSelection: RECORDING_CATALOG.selection }), scope), true);
+    assert.strictEqual(await current.tune(commandMessage(scope, "control-studio.flow.cancel", {}), scope), false, "no Tune runs to stop");
+    assert.strictEqual(await current.handle(commandMessage(scope, "control-studio.flow.cancel", {}), scope), true);
+    assert.deepStrictEqual(cancelsOf(fake), ["operation-22"], "the Abort stops the refit's identification");
+  });
+
+  test("sends a refit the route holds no recording for to the engine without a recordingId, and shows the engine's refusal (B3.6)", async function () {
+    this.timeout(30_000);
+    const refusal = { message: "The study keeps no opened recording to fit.", cause: "unclassified", nextAction: "none" };
+    const { current, fake, scope } = await servedWith({ failure: refusal });
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.recording.refit", { recordingSelection: { inputs: ["P1.MV"], outputs: ["P1.PV"] } }), scope), true);
+    const requests = identifyActionsOf(fake);
+    assert.strictEqual(requests.length, 1, "the refit reaches the engine, which chooses the recording");
+    assert.strictEqual(requests[0].action, "openRecording");
+    assert.ok(!("recordingId" in requests[0]), "the route names no recording it does not hold");
+    assert.deepStrictEqual({ inputs: requests[0].inputs, outputs: requests[0].outputs }, { inputs: ["P1.MV"], outputs: ["P1.PV"] }, "the selection still reaches the engine");
+    assert.deepStrictEqual(posted.map((message) => message.kind), ["control-studio.engine.failure"]);
+    assert.strictEqual(posted[0].method, "identify");
+    assert.deepStrictEqual(posted[0].failure, refusal, "the engine's refusal is shown as any identify failure is");
+    assertNoToken();
   });
 
   /** The page's Tune command: the flow starts at Tune with the page's method, family, pins and task (B4.1, B4.2). */
@@ -357,7 +516,7 @@ suite("Control Studio engine route", () => {
     assert.strictEqual(await current.tune(tuneMessage(scope), scope), false);
     const preview = commandMessage(scope, "control-studio.engineer.manual-preview", { settings: { "P1.Parameters.ProportionalGain": 2 } });
     assert.strictEqual(await current.preview(preview, scope), false);
-    assert.deepStrictEqual(posted, []);
+    assertOnlyParkedTools();
   });
 
   test("leaves the flows of other stages, and an Abort with no Tune running, to the TypeScript route", async function () {
@@ -580,12 +739,12 @@ suite("Control Studio engine route", () => {
       from: "tune", family: "PI", applicationMode: "auto", pinnedValues: null, tuningPreferences: { method: "manual", values: settings }, task: {},
     }), scope);
     await new Promise((resolve) => setTimeout(resolve, 50));
-    assert.deepStrictEqual(fake.requests.map((sent) => sent.method), ["controlStudio/open", "controlStudio/inputs"],
+    assert.deepStrictEqual(fake.requests.map((sent) => sent.method), ["controlStudio/open", "controlStudio/analyze", "controlStudio/inputs"],
       "the Tune waits while the change the page made before it is unanswered");
     release();
     assert.strictEqual(await changed, true);
     assert.strictEqual(await tuned, true);
-    assert.deepStrictEqual(fake.requests.map((sent) => sent.method), ["controlStudio/open", "controlStudio/inputs", "controlStudio/tune"],
+    assert.deepStrictEqual(fake.requests.map((sent) => sent.method), ["controlStudio/open", "controlStudio/analyze", "controlStudio/inputs", "controlStudio/tune"],
       "the engine records the change, then starts the Tune");
   });
 });

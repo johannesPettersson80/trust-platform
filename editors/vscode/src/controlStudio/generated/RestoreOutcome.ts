@@ -199,6 +199,11 @@ export interface SignalBinding {
    * The variable's path.
    */
   symbol?: string | null;
+  /**
+   * The unit of a channel that a kept archived run holds beside the loop's signals (B3.6): the loop's own signals have none,
+   * so a file without such a channel keeps its bytes and its identifier. The runtime neither reads nor writes it.
+   */
+  unit?: string | null;
 }
 /**
  * One sample of a recording (E4.4, E4.6).

@@ -4,6 +4,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::loop_definition::NO_CONTROLLER_LAW;
+
 /// A stage of Control Studio.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum Stage {
@@ -31,7 +33,7 @@ pub const STAGE_ORDER: [Stage; 6] = [
     Stage::Apply,
 ];
 
-/// The six words of §4.2.
+/// The six words of §4.2, and Not applicable for a stage the loop's structure does not use (C12).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum StageStatus {
@@ -47,6 +49,8 @@ pub enum StageStatus {
     Warning,
     /// Its last run failed.
     Failed,
+    /// The loop has no controller law, so there is nothing for the stage to do (C12).
+    NotApplicable,
 }
 
 impl StageStatus {
@@ -60,6 +64,7 @@ impl StageStatus {
             Self::Complete => "Complete",
             Self::Warning => "Warning",
             Self::Failed => "Failed",
+            Self::NotApplicable => "Not applicable",
         }
     }
 }
@@ -89,10 +94,13 @@ pub struct StageEvidence {
     pub validation_passed: bool,
     /// That result is inconclusive: a requirement lacks the evidence to pass or to fail (B5.4).
     pub validation_inconclusive: bool,
+    /// Tune, Validate and Apply apply to the loop. False for an open-loop experiment or an observation loop (C12), whose
+    /// project owns the controller: those three stages are Not applicable.
+    pub controller_stages_apply: bool,
 }
 
 impl Default for StageEvidence {
-    /// A bound loop with no evidence yet.
+    /// A bound loop with a controller law and no evidence yet.
     fn default() -> Self {
         Self {
             loop_bound: true,
@@ -105,11 +113,13 @@ impl Default for StageEvidence {
             validation_has_result: false,
             validation_passed: false,
             validation_inconclusive: false,
+            controller_stages_apply: true,
         }
     }
 }
 
-/// One stage's status, with the words the panel shows.
+/// One stage's status, with the words the panel shows. A stage that is Not applicable also names the reason, which the page
+/// shows in place of its actions (C12).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct StageAvailability {
     /// The stage.
@@ -118,6 +128,9 @@ pub struct StageAvailability {
     pub status: StageStatus,
     /// The status in words.
     pub label: &'static str,
+    /// Why the stage does not apply, when its status is Not applicable.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<&'static str>,
 }
 
 /// The status of every stage, in [`STAGE_ORDER`].
@@ -131,6 +144,7 @@ pub fn stage_availability(evidence: &StageEvidence) -> Vec<StageAvailability> {
                 stage,
                 status,
                 label: status.label(),
+                reason: (status == StageStatus::NotApplicable).then_some(NO_CONTROLLER_LAW),
             }
         })
         .collect()
@@ -146,6 +160,9 @@ fn stage_status(stage: Stage, evidence: &StageEvidence) -> StageStatus {
             }
         }
         Stage::Identify => identify_status(evidence),
+        Stage::Tune | Stage::Validate | Stage::Apply if !evidence.controller_stages_apply => {
+            StageStatus::NotApplicable
+        }
         Stage::Tune => tune_status(evidence),
         Stage::Validate => validate_status(evidence),
         Stage::Apply => apply_stage_status(evidence),
@@ -356,5 +373,59 @@ mod tests {
             ..candidate
         };
         assert_eq!(status(passed, Stage::Apply), StageStatus::Ready);
+    }
+
+    #[test]
+    fn a_loop_without_a_controller_law_makes_tune_validate_and_apply_not_applicable() {
+        // C12: an open-loop experiment or observation loop has a model and a recording, and still nothing to tune.
+        let observed = StageEvidence {
+            has_model: true,
+            has_recording: true,
+            controller_stages_apply: false,
+            ..StageEvidence::default()
+        };
+        let availability = stage_availability(&observed);
+        for stage in [Stage::Tune, Stage::Validate, Stage::Apply] {
+            let item = availability
+                .iter()
+                .find(|item| item.stage == stage)
+                .expect("every stage");
+            assert_eq!(item.status, StageStatus::NotApplicable, "{stage:?}");
+            assert_eq!(item.label, "Not applicable", "{stage:?}");
+            assert_eq!(item.reason, Some(NO_CONTROLLER_LAW), "{stage:?}");
+        }
+        assert_eq!(
+            status(observed, Stage::Identify),
+            StageStatus::Complete,
+            "Identify still runs on the loop"
+        );
+        assert_eq!(status(observed, Stage::Monitor), StageStatus::Ready);
+        assert!(
+            availability
+                .iter()
+                .filter(|item| item.reason.is_none())
+                .all(|item| item.status != StageStatus::NotApplicable),
+            "only the stages that need a law name the reason"
+        );
+        assert!(!apply_available(&observed), "no candidate, so no Apply");
+    }
+
+    #[test]
+    fn not_applicable_is_a_status_word_of_the_wire_and_a_reason_only_when_it_applies() {
+        assert_eq!(
+            serde_json::to_value(StageStatus::NotApplicable).expect("status"),
+            serde_json::json!("not-applicable")
+        );
+        let ready = stage_availability(&StageEvidence::default());
+        let wire = serde_json::to_value(ready[0]).expect("stage");
+        assert!(wire.get("reason").is_none(), "{wire}");
+        let lawless = stage_availability(&StageEvidence {
+            controller_stages_apply: false,
+            ..StageEvidence::default()
+        });
+        let tune = serde_json::to_value(lawless[3]).expect("stage");
+        assert_eq!(tune["status"], "not-applicable", "{tune}");
+        assert_eq!(tune["label"], "Not applicable", "{tune}");
+        assert_eq!(tune["reason"], NO_CONTROLLER_LAW, "{tune}");
     }
 }

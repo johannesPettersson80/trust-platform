@@ -19,7 +19,7 @@ fn identified(
         time_constant_seconds,
         second_time_constant_seconds: None,
         dead_time_seconds,
-        normalized_error: 0.0,
+        normalized_error: Some(0.0),
         normalized_estimation_error: None,
         normalized_validation_error: None,
         estimation_residuals: None,
@@ -61,7 +61,7 @@ fn an_unstable_model_or_a_model_error_above_the_limit_creates_no_candidate() {
     );
 
     let inaccurate = IdentifiedModel {
-        normalized_error: 0.3,
+        normalized_error: Some(0.3),
         ..first_order_dead_time(0.5)
     };
     let refusal = tune_identified(

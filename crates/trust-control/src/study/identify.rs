@@ -16,6 +16,7 @@
 //! A live identification also keeps the request its estimation recording was taken with: the reviewed plan and the steady
 //! baseline window, which the recording file does not hold, so the recording can be fitted again (B3.6). The model stays
 //! current while the loop's signals are those it was identified with (A8.4); a change of the limits does not invalidate it.
+//! A fit that read other channels from its recording keeps the loop's signals and those channels beside them (B3.6).
 
 #![allow(clippy::module_name_repetitions)] // The section keeps the name of its stage.
 
@@ -70,8 +71,13 @@ pub struct IdentifySection {
     pub method: IdentifyMethod,
     /// Where the recordings' values come from (A9): the source of the recording files.
     pub source: EvidenceSource,
-    /// The signals that were used.
+    /// The signals that were used: the loop's plant input and measured output, by their symbols (B3.2, A8.4).
     pub signals: IdentifySignals,
+    /// The recording channels the fit read the plant input and measured output from, when they are not the loop's own (B3.6):
+    /// the engineer's mapping of the recording's channels onto the loop's roles, which `signals` keeps. Absent for a fit of the
+    /// loop's own signals, so the study files written before it keep their bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recorded_channels: Option<IdentifySignals>,
     /// The recording file the model was fitted on, by its identifier (A8.3).
     pub estimation_recording_id: String,
     /// The distinct recording file the model was validated on, when it was validated independently (N3.4).
@@ -118,6 +124,7 @@ impl IdentifySection {
             method,
             source,
             signals,
+            recorded_channels: None,
             estimation_recording_id: estimation_recording_id.to_string(),
             validation_recording_id: validation_recording_id.map(str::to_string),
             provisional: validation_recording_id.is_none(),
@@ -134,6 +141,24 @@ impl IdentifySection {
             record_request: Some(record_request),
             ..self
         }
+    }
+
+    /// The section with the recording channels its fit read the plant input and measured output from (B3.6). The section keeps
+    /// them only when they differ from its `signals`, the loop's (A8.4): a fit of the loop's own channels keeps none.
+    #[must_use]
+    pub fn with_recorded_channels(self, read: IdentifySignals) -> Self {
+        let differs = read.inputs != self.signals.inputs || read.outputs != self.signals.outputs;
+        Self {
+            recorded_channels: differs.then_some(read),
+            ..self
+        }
+    }
+
+    /// The channels the fit read its plant input and measured output from (B3.6): the recording's channels when it read other
+    /// ones, and the loop's signals otherwise.
+    #[must_use]
+    pub fn read_channels(&self) -> &IdentifySignals {
+        self.recorded_channels.as_ref().unwrap_or(&self.signals)
     }
 
     /// The request for fitting the recording `recording_id` again without live excitation (B3.6): only the section's
@@ -153,7 +178,8 @@ impl IdentifySection {
 
     /// Whether the model is current for `loop_definition` (A8.4): the plant inputs and the measured outputs are the loop's
     /// manipulated variable and measurement, and the setpoint of a closed-loop identification is the loop's setpoint, by
-    /// their symbols ([`identify_signals`]). Only a change of these signals invalidates the model; the limits do not.
+    /// their symbols ([`identify_signals`]). Only a change of these signals invalidates the model; the limits do not, and the
+    /// recorded channels of a fit do not decide it (B3.6).
     #[must_use]
     pub fn is_current_for(&self, loop_definition: &LoopDefinition) -> bool {
         let current = identify_signals(loop_definition, ControlExperimentKind::SetpointStep);
@@ -238,10 +264,18 @@ impl IdentifySection {
         }
     }
 
-    /// The signals are as many as the model has channels, named, and each named once.
+    /// The signals are as many as the model has channels, named, and each named once; the recorded channels, when the section
+    /// keeps them, are checked the same way.
     fn check_signals(&self) -> Result<(), Failure> {
+        self.check_names(&self.signals)?;
+        self.recorded_channels
+            .as_ref()
+            .map_or(Ok(()), |read| self.check_names(read))
+    }
+
+    /// One set of signals is as many as the model has channels, and each of its names is given once.
+    fn check_names(&self, signals: &IdentifySignals) -> Result<(), Failure> {
         let identity = self.selected_model.identity();
-        let signals = &self.signals;
         if signals.inputs.len() != identity.inputs.len()
             || signals.outputs.len() != identity.outputs.len()
         {

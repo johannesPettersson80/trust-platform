@@ -16,7 +16,7 @@ fn model(kind: LowOrderModelKind, gain: f64) -> IdentifiedModel {
         time_constant_seconds: None,
         second_time_constant_seconds: None,
         dead_time_seconds: None,
-        normalized_error: 0.01,
+        normalized_error: Some(0.01),
         normalized_estimation_error: None,
         normalized_validation_error: None,
         estimation_residuals: None,

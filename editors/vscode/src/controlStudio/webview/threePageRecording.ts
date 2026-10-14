@@ -1,4 +1,7 @@
-/** File selection is read-only; the scoped host owns fitting and continuation. */
+/**
+ * File selection is read-only; the scoped host owns fitting and continuation. The file's size limit (32 MiB, B3.6) is the engine's
+ * to check and to word, so the page reads the file and sends its text.
+ */
 export function bindRecordingOpen(root: HTMLElement, busy: () => boolean,
   start: (json: string) => void, notice: (message: string) => void): void {
   const button = root.querySelector<HTMLButtonElement>("[data-identify-import]")!;
@@ -8,7 +11,6 @@ export function bindRecordingOpen(root: HTMLElement, busy: () => boolean,
   input.addEventListener("change", async () => {
     const file = input.files?.[0], current = ++selection;
     if (!file || busy()) return;
-    if (file.size > 32 * 1024 * 1024) { notice("Choose a recording of at most 32 MiB."); return; }
     try {
       notice("Reading recording…");
       const json = await file.text();

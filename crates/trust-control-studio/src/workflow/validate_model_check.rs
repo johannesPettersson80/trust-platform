@@ -22,9 +22,12 @@ use trust_control::loop_definition::LoopDefinition;
 use trust_control::model::general::ModelValidation;
 use trust_control::model::GeneralModel;
 use trust_control::runtime::RuntimeConnection;
+use trust_control::study::current_model::CurrentModel;
+use trust_control::study::general_model_persistence::SuppliedModelSection;
 use trust_control::study::identify::IdentifySection;
 use trust_control::validation::model_validation_session::{
-    check_independent_model, estimation_record, maximum_normalized_error, model_validation_channels,
+    check_independent_model, check_supplied_model, estimation_record, maximum_normalized_error,
+    model_validation_channels,
 };
 use trust_control::validation::texts;
 
@@ -38,15 +41,18 @@ use crate::workflow::identify::{
     run_identification, IdentifyPorts, IdentifyRequest, IdentifyResult, RunEvaluator, RunPurpose,
 };
 
-/// What a model check works on: the project folder, the loop, the study's stored Identify result with the recording its model
-/// was fitted on (B10.2), and the settling time the check's requirements set (B3.4 step 2).
+/// What a model check works on: the project folder, the loop, the study's current model, the study's stored Identify result with the
+/// recording its model was fitted on (B10.2) when the model is a fit, and the settling time the check's requirements set (B3.4 step 2).
 pub(crate) struct ModelCheckRequest<'a> {
     /// The project folder, where the study and its recording files are written.
     pub(crate) project_root: &'a Path,
     /// The loop the model was identified on, configured as its Identify campaign ran it (`configured_acquisition`, B3.4).
     pub(crate) loop_definition: &'a LoopDefinition,
-    /// The study's stored Identify result, with the recording file its model was fitted on.
-    pub(crate) stored: &'a StoredIdentify,
+    /// The study's current model, provisional (B5.2): a fit, or a supplied model.
+    pub(crate) current: &'a CurrentModel,
+    /// The study's stored Identify result with the recording file its model was fitted on. `None` for a supplied model, which was not
+    /// fitted from a recording and has no estimation recording to check against (B5.2).
+    pub(crate) stored: Option<&'a StoredIdentify>,
     /// The settling time the check's requirements set, in s; `None` when they set none (B3.4 step 2, A4.2).
     pub(crate) expected_settling_seconds: Option<f64>,
 }
@@ -90,17 +96,19 @@ pub(crate) fn run_model_check(
     request: &ModelCheckRequest<'_>,
     IdentifyPorts { sampler, retention }: IdentifyPorts<'_, RuntimeSampler<'_>, StudyRetention<'_>>,
 ) -> Result<ModelCheck, Failure> {
-    let section = &request.stored.section;
-    if !check_is_needed(section) {
+    if !check_is_needed(request.current) {
         return Ok(ModelCheck::NotNeeded);
     }
     let loop_definition = request.loop_definition;
-    let campaigns = estimation_campaigns(request)?;
+    let model = &request.current.model;
+    let campaigns = estimation_campaigns(loop_definition, request.stored)?;
     maximum_normalized_error(loop_definition)?;
-    if estimation_record(&section.selected_model, &campaigns).is_none() {
-        return Err(estimation_missing());
+    if let Some(campaigns) = &campaigns {
+        if estimation_record(model, campaigns).is_none() {
+            return Err(estimation_missing());
+        }
     }
-    model_validation_channels(loop_definition, &section.selected_model)?;
+    model_validation_channels(loop_definition, model)?;
     let source = RuntimeClient::connect(connection)?.status()?.source();
     if let Some(refusal) = live_write_refusal(source, IDENTIFY_OPERATION) {
         return Err(refusal);
@@ -126,12 +134,10 @@ pub(crate) fn run_model_check(
     let IdentifyResult::Recorded(record) = outcome.result else {
         return Err(fitted_instead_of_recorded());
     };
-    let check = check_independent_model(
-        loop_definition,
-        &section.selected_model,
-        &campaigns,
-        &*record,
-    )?;
+    let check = match &campaigns {
+        Some(campaigns) => check_independent_model(loop_definition, model, campaigns, &*record)?,
+        None => check_supplied_model(loop_definition, model, &*record)?,
+    };
     if let Some(failure) = check_failure(check.status, &check.rows) {
         return Ok(ModelCheck::Failed(failure));
     }
@@ -141,52 +147,58 @@ pub(crate) fn run_model_check(
         .filter_map(|row| row.normalized_error)
         .reduce(f64::max);
     let file_id = kept_file_id(retention, &outcome.recording_id)?;
-    let qualified = qualified_section(
-        section,
-        &file_id,
-        recording_fingerprint(&check.record.run),
-        normalized_error,
-    );
-    storage::save_identify(request.project_root, retention.study(), &qualified, &[])?;
+    let fingerprint = recording_fingerprint(&check.record.run);
+    if let Some(stored) = request.stored {
+        let qualified = qualified_section(&stored.section, &file_id, fingerprint, normalized_error);
+        storage::save_identify(request.project_root, retention.study(), &qualified, &[])?;
+    } else {
+        let qualified = qualified_supplied(model, fingerprint);
+        storage::save_supplied_model(request.project_root, retention.study(), &qualified)?;
+    }
     Ok(ModelCheck::Passed {
         recording_id: file_id,
         normalized_error,
     })
 }
 
-/// Whether the check runs: only a provisional model is checked (B5.1 (a)). An Identify result that names its validation recording
-/// is already qualified.
+/// Whether the check runs: only a provisional model is checked (B5.1 (a)). A fit whose Identify result names its validation recording,
+/// and a supplied model that carries evidence of independent validation, are already qualified.
 #[must_use]
-fn check_is_needed(section: &IdentifySection) -> bool {
-    section.provisional
+fn check_is_needed(current: &CurrentModel) -> bool {
+    current.provisional()
 }
 
-/// The estimation campaign the check compares against: the recording the model was fitted on, rebuilt from the study with the
-/// request it was taken with (B3.6). `check_independent_model` finds the run whose fingerprint the model names.
+/// The estimation campaign the check compares a fitted model against: the recording the model was fitted on, rebuilt from the study
+/// with the request it was taken with (B3.6). `check_independent_model` finds the run whose fingerprint the model names. `None` for a
+/// supplied model, which has no estimation recording (B5.2): its check compares the frozen model with the recorded run alone.
 ///
 /// # Errors
-/// The Identify result keeps no request for its estimation recording, so the recording cannot be rebuilt; or the rebuilt record
-/// does not pass the limits check (see `connected_record`).
+/// The fitted model's Identify result keeps no request for its estimation recording, so the recording cannot be rebuilt; or the
+/// rebuilt record does not pass the limits check (see `connected_record`).
 fn estimation_campaigns(
-    request: &ModelCheckRequest<'_>,
-) -> Result<Vec<IdentificationCampaignRecord<RecordedLimitsEvaluation>>, Failure> {
-    let Some(taken) = &request.stored.section.record_request else {
+    loop_definition: &LoopDefinition,
+    stored: Option<&StoredIdentify>,
+) -> Result<Option<Vec<IdentificationCampaignRecord<RecordedLimitsEvaluation>>>, Failure> {
+    let Some(stored) = stored else {
+        return Ok(None);
+    };
+    let Some(taken) = &stored.section.record_request else {
         return Err(estimation_missing());
     };
     let evaluate: RunEvaluator<'_, RecordedLimitsEvaluation> = &evaluate_recorded_limits;
     let record = connected_record(
-        request.loop_definition,
-        &request.stored.estimation.run,
+        loop_definition,
+        &stored.estimation.run,
         None,
         &taken.request.experiment,
         stored_fit_window(&taken.request),
         evaluate,
     )?;
-    Ok(vec![IdentificationCampaignRecord {
+    Ok(Some(vec![IdentificationCampaignRecord {
         status: CampaignStatus::Completed,
         reason: None,
         runs: vec![record],
-    }])
+    }]))
 }
 
 /// The failure of a check that did not pass (B5.5): the reason of its first row that did not pass, which says what to change,
@@ -227,6 +239,14 @@ fn qualified_section(
         presentation,
         ..section.clone()
     }
+}
+
+/// The supplied model a passing check qualifies (B5.2): the model of [`qualified_model`], with no saved analysis. An analysis is kept
+/// only for the model it was made for (`SuppliedModelAnalysis`), and the qualified model is a different model, so the analysis is
+/// dropped and the page computes it again.
+#[must_use]
+fn qualified_supplied(model: &GeneralModel, fingerprint: String) -> SuppliedModelSection {
+    SuppliedModelSection::new(qualified_model(model, fingerprint), None)
 }
 
 /// The model a passing check qualifies (B5.2): validated, with the fingerprint of the check's recording among its evidence. Its

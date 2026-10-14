@@ -21,6 +21,8 @@ use crate::loop_definition::LoopDefinition;
 use crate::recording::sequence::steady_record_period;
 use crate::recording::{Acquisition, Completeness};
 
+pub mod archive;
+
 /// The largest recording file an import reads, in bytes of its text (`MAX_RECORDING_IMPORT_BYTES`).
 pub const MAXIMUM_RECORDING_IMPORT_BYTES: usize = 32 * 1024 * 1024;
 
@@ -263,7 +265,7 @@ pub fn import_failure_reply(scope: &ImportScope, message_id: &str, reason: &str)
 }
 
 /// The sentence of a file that keeps a step-response reference, which the engine does not read yet.
-const REFERENCE_SENTENCE: &str =
+pub(crate) const REFERENCE_SENTENCE: &str =
     "This recording keeps a step-response identification reference, which the engine cannot read yet.";
 
 /// The answer of a checked import (`identify` with `importRecording`; specification 35, §0.1a): the identity of the saved result

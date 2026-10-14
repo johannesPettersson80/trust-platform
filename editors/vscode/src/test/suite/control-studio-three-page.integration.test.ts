@@ -20,43 +20,52 @@ suite("Control Studio three-page workflow", () => {
       await inner("const method=d.querySelector('[data-engineer-acquisition-method]');method.value='supplied-model';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'supplied';");
       await inner(`const transfer=new d.defaultView.DataTransfer();transfer.items.add(new d.defaultView.File([${JSON.stringify(JSON.stringify(model))}],'model.json',{type:'application/json'}));const file=d.querySelector('[data-studio-model-file]');file.files=transfer.files;file.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'import';`);
       await pollValue("supplied model ready", () => inner("return d.querySelector('[data-studio-model-equation]')?.textContent??'';"), value => value.length > 0, 10000);
-      await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();d.defaultView.__toolEvents=[];d.defaultView.addEventListener('message',e=>{if(e.data.kind==='control-studio.engineering.result')d.defaultView.__toolEvents.push(e.data);});return 'tools';");
+      await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();d.defaultView.__toolEvents=[];d.defaultView.addEventListener('message',e=>{if(typeof e.data?.kind==='string'&&e.data.kind.startsWith('control-studio.analysis.'))d.defaultView.__toolEvents.push(e.data);});return 'tools';");
       const choose = async (tool: string) => {
-        assert.strictEqual(await inner(`d.querySelector('[data-studio-analyze]').click();const option=d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool="${tool}"]');return String(!!option&&!option.disabled&&!option.hidden);`), "true", `${tool} must be reachable`);
+        // The engine answers the tools that apply to the model, so the option is awaited. An open list is closed and opened again, so it lists the current tools.
+        await pollValue(`${tool} must be reachable`, () => inner(`const list=d.querySelector('[data-studio-analyze-list]');if(!list.hidden)d.querySelector('[data-studio-analyze]').click();d.querySelector('[data-studio-analyze]').click();const option=d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool="${tool}"]');return String(!!option&&!option.disabled&&!option.hidden);`), value => value === "true", 15000);
         await inner(`d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool="${tool}"]').click();d.defaultView.__toolEvents=[];return 'selected';`);
       };
-      const calculate = async (field: string) => {
-        await inner("d.querySelector('[data-engineer-tune]').click();return 'calculate';");
-        return JSON.parse(await pollValue(`visible ${field} result`, () => inner(`return JSON.stringify(d.defaultView.__toolEvents.filter(e=>e.payload?.saved?.${field}).map(e=>e.payload.saved.${field}));`), value => JSON.parse(value).length > 0, 15000))[0];
+      // The engine answers a calculation with its envelope: a quick tool's `control-studio.analysis.answer`, or the `update` that
+      // finishes an operation (B9.9). The tool's answer is `envelope.result[tool]`.
+      const answerOf = async (tool: string) => {
+        const envelope = JSON.parse(await pollValue(`visible ${tool} result`, () => inner(`return JSON.stringify(d.defaultView.__toolEvents.filter(e=>e.envelope?.tool==='${tool}'&&(e.kind==='control-studio.analysis.answer'||e.kind==='control-studio.analysis.update'&&e.state==='finished')).map(e=>e.envelope));`), value => JSON.parse(value).length > 0, 15000))[0];
+        assert.ok(envelope.result, `${tool} calculates: ${JSON.stringify(envelope.failure)}`);
+        return envelope;
       };
-      await choose("response");
+      const calculate = async (tool: string) => {
+        await inner("d.querySelector('[data-engineer-tune]').click();return 'calculate';");
+        return answerOf(tool);
+      };
+      await choose("initialState");
       await inner("for(const [key,value] of Object.entries({'response-step':'0.1','response-duration':'2','response-initial':'1,0','response-input':'1'})){const field=d.querySelector('[data-analysis-'+key+']');field.value=value;field.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));}return 'response inputs';");
-      const response = await calculate("response");
+      const response = (await calculate("initialState")).result.initialState;
       assert.strictEqual(response.points.length, 21);
       assert.ok(response.points.some((point: any) => point.initialCondition[0] !== 0));
       await capture("initial-response");
-      await choose("poles");
+      await choose("poleZero");
       assert.strictEqual(await inner("return d.querySelector('[data-analysis-pole-view]').value;"), "unreduced");
-      const full = await calculate("poleView");
+      const full = (await calculate("poleZero")).result.poleZero;
       assert.deepStrictEqual(full.unreduced.denominator, [1, 0, -1]);
       await inner("const view=d.querySelector('[data-analysis-pole-view]');view.value='minimal';view.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));d.defaultView.__toolEvents=[];return 'minimal';");
-      const minimal = await calculate("poleView");
+      const minimal = (await calculate("poleZero")).result.poleZero;
       assert.deepStrictEqual(minimal.minimal.denominator, [1, 1]);
       assert.strictEqual(minimal.hiddenUnstableMode, true);
       assert.match(await inner("return d.querySelector('[data-three-page-analysis-summary]').textContent;"), /hidden|unstable/i);
       await capture("minimal-poles");
-      await choose("lead-lag");
+      await choose("leadLag");
       await inner("d.querySelector('[data-analysis-lead-lag-crossover]').value='1';d.querySelector('[data-analysis-lead-lag-phase]').value='30';d.querySelector('[data-engineer-tune]').click();return 'lead';");
-      const lead = JSON.parse(await pollValue("host lead design", () => inner("return JSON.stringify(d.defaultView.__toolEvents.filter(e=>e.stage==='lead-lag'&&e.payload.status==='complete').map(e=>e.payload.saved));"), value => JSON.parse(value).length > 0, 15000))[0];
-      assert.strictEqual(lead.mode, "lead"); assert.ok(lead.result.gain > 0);
+      const lead = await answerOf("leadLag");
+      assert.strictEqual(lead.inputs.mode, "lead"); assert.ok(lead.result.leadLag.design.gain > 0);
       assert.ok(!(await inner("return d.querySelector('[data-three-page-analysis-summary]').textContent;" )).includes("[object Object]"));
       await capture("lead-design");
       await inner("const mode=d.querySelector('[data-analysis-lead-lag-mode]');mode.value='lag';mode.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));d.querySelector('[data-analysis-lead-lag-ratio]').value='5';d.defaultView.__toolEvents=[];d.querySelector('[data-engineer-tune]').click();return 'lag';");
-      await pollValue("host lag design", () => inner("return JSON.stringify(d.defaultView.__toolEvents.filter(e=>e.stage==='lead-lag'&&e.payload.status==='complete').map(e=>e.payload.saved.mode));"), value => JSON.parse(value).includes("lag"), 15000);
+      await pollValue("host lag design", () => inner("return JSON.stringify(d.defaultView.__toolEvents.filter(e=>e.envelope?.tool==='leadLag'&&(e.kind==='control-studio.analysis.answer'||e.kind==='control-studio.analysis.update'&&e.state==='finished')).map(e=>e.envelope.inputs.mode));"), value => JSON.parse(value).includes("lag"), 15000);
       await reopen();
       await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();return 'tune again';");
-      await choose("lead-lag");
-      assert.strictEqual(await inner("return d.querySelector('[data-analysis-lead-lag-mode]').value;"), "lag");
+      await choose("leadLag");
+      // Reopening calculates the design again (B9.9), so the restored mode is awaited rather than read at once.
+      await pollValue("restored lead-lag mode", () => inner("return d.querySelector('[data-analysis-lead-lag-mode]')?.value??'';"), value => value === "lag", 10000);
       await capture("lag-restored");
       assert.strictEqual(vscode.debug.activeDebugSession, undefined, "Analytical tools do not start or write the runtime");
     });
@@ -129,11 +138,13 @@ suite("Control Studio three-page workflow", () => {
     this.timeout(60000);
     await withStudio(async inner => {
       await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();return 'tune';");
-      assert.strictEqual(await inner("d.querySelector('[data-studio-analyze]').click();return String(!!d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool=\"root-locus\"]'));"), "true", "The Analyze list exposes the declared root locus");
-      await inner("d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool=\"root-locus\"]').click();return 'root locus';");
+      // The engine answers the tools after the panel opens, so the list is read again until it lists the declared root locus.
+      await pollValue("the declared root locus in the Analyze list", () => inner("const list=d.querySelector('[data-studio-analyze-list]');if(!list.hidden)d.querySelector('[data-studio-analyze]').click();d.querySelector('[data-studio-analyze]').click();return String(!!d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool=\"rootLocus\"]'));"), value => value === "true", 15000);
+      await inner("d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool=\"rootLocus\"]').click();return 'root locus';");
       assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-tune]').disabled);"), "false", "Read-only declared analysis does not require a tuned candidate");
-      await inner("d.defaultView.__analysisMessages=[];d.defaultView.addEventListener('message',event=>{if(event.data.kind==='control-studio.engineering.result')d.defaultView.__analysisMessages.push(event.data);});d.querySelector('[data-engineer-tune]').click();return 'calculate';");
-      const messages = await pollValue("root locus host result", () => inner("return JSON.stringify(d.defaultView.__analysisMessages);"), value => JSON.parse(value).some((message: any) => message.stage === "declared-root"), 10000);
+      await inner("d.defaultView.__analysisMessages=[];d.defaultView.addEventListener('message',event=>{if(typeof event.data?.kind==='string'&&event.data.kind.startsWith('control-studio.analysis.'))d.defaultView.__analysisMessages.push(event.data);});d.querySelector('[data-engineer-tune]').click();return 'calculate';");
+      // The root locus is an operation: the update that finishes it carries the envelope, whose answer is `result.rootLocus` (B9.9).
+      const messages = await pollValue("root locus host result", () => inner("return JSON.stringify(d.defaultView.__analysisMessages);"), value => JSON.parse(value).some((message: any) => message.kind === "control-studio.analysis.update" && message.state === "finished" && message.envelope?.result?.rootLocus), 10000);
       assert.strictEqual(await inner("return String(d.querySelector('[data-three-page-analysis-result]')?.checkVisibility());"), "true", messages);
       assert.strictEqual(await inner("const message=d.querySelector('[data-studio-message=tune]');return message?.checkVisibility()?message.textContent:'';"), "", "A completed declared analysis must not still demand a plant model");
       assert.strictEqual(vscode.debug.activeDebugSession, undefined);
@@ -152,7 +163,6 @@ suite("Control Studio three-page workflow", () => {
       outputs: [{ id: "y", unit: "°C", operatingRange: { minimum: 0, maximum: 100 } }],
       operatingPoint: { inputs: [20], outputs: [20] } };
     await withStudio(async (inner, reopen) => {
-      const gaps: string[] = [];
       assert.strictEqual(await inner("return String(!!d.querySelector('[data-engineer-acquisition-method] option[value=supplied-model]'));"), "true", "Identify exposes supplied models through its method selector");
       await inner("const method=d.querySelector('[data-engineer-acquisition-method]');method.value='supplied-model';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'selected';");
       assert.strictEqual(await inner("return d.querySelector('[data-engineer-find]').textContent;"), "Open model…");
@@ -166,16 +176,14 @@ suite("Control Studio three-page workflow", () => {
       assert.strictEqual(vscode.debug.activeDebugSession, undefined);
       await reopen();
       await inner("d.querySelector('[data-engineer-stage-tab=model]').click();return 'identify';");
-      // The later checks do not depend on this one: the model file is read whatever method is selected (threePageSuppliedModel.ts `read`).
-      await reportedGap(gaps, "Reopen gap: the chosen method is not restored, because enginePanelRoute.ts navigation stores only the page and panel.ts:497 sends the view restore only for loops the engine does not serve",
-        async () => assert.strictEqual(await inner("return d.querySelector('[data-engineer-acquisition-method]').value;"), "supplied-model", "Reopening preserves the supplied-model entry path"));
+      // The chosen method is the study's acquisition input (A8.1), so reopening restores it and its entry path.
+      assert.strictEqual(await inner("return d.querySelector('[data-engineer-acquisition-method]').value;"), "supplied-model", "Reopening restores the chosen supplied-model method");
       assert.match(await inner("return d.querySelector('[data-studio-model-equation]').textContent;"), /5/);
       await choose("not json");
       await pollValue("invalid supplied model", () => inner("return d.querySelector('[data-studio-message=model]').textContent;"), text => /model|JSON/i.test(text), 10000);
       assert.strictEqual(await inner("return d.querySelector('[data-studio-message=model]').textContent;"), "Choose a valid plant model JSON file.");
       assert.match(await inner("return d.querySelector('[data-studio-model-equation]').textContent;"), /5/, "A failed import preserves the selected model");
       assert.strictEqual(vscode.debug.activeDebugSession, undefined);
-      assert.deepStrictEqual(gaps, [], REPORTED_GAPS);
     }, { capture: "supplied-model" });
   });
   test("shows retained checks and an inconclusive row for every unfinished mandatory scenario", async function () {
@@ -355,10 +363,15 @@ suite("Control Studio three-page workflow", () => {
         archivedRun.evaluation.run = structuredClone(archivedRun.run);
         return JSON.stringify(value);
       };
-      await inner("d.defaultView.__studioEvents=[];d.defaultView.addEventListener('trust-control-studio-engineer',event=>d.defaultView.__studioEvents.push(event.detail));return 'listening';");
+      // The engine's answer to each file (`control-studio.identification-recording`): its channel catalogue, its reason and its check.
+      await inner("d.defaultView.__recordingAnswers=[];d.defaultView.addEventListener('message',event=>{if(event.data?.kind==='control-studio.identification-recording')d.defaultView.__recordingAnswers.push(event.data.payload);});return 'listening';");
       const first = archive("opened-extra-output-estimation", 0.25);
       await inner(`const transfer=new d.defaultView.DataTransfer();transfer.items.add(new d.defaultView.File([${JSON.stringify(first)}],'recording-with-extra-output-estimation.json',{type:'application/json'}));const input=d.querySelector('[data-identify-import-file]');input.files=transfer.files;input.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'selected';`);
       await pollValue("opened archive with extra output", () => inner("return d.querySelector('[data-studio-message=model]').textContent;"), value => value.includes("independent recording"), 15000);
+      const answer = JSON.parse(await inner("return JSON.stringify((d.defaultView.__recordingAnswers||[]).filter(p=>p.recordingCatalog)[0]||null);")) as { reason?: string; recordingCatalog: { channels: Array<{ id: string; unit: string }> } } | null;
+      assert.ok(answer?.recordingCatalog.channels.some(channel => channel.id === extra.id && channel.unit === extra.unit),
+        `The engine's recordingCatalog must offer the archived channel with its unit: ${JSON.stringify(answer)}`);
+      assert.match(answer?.reason ?? "", /independent recording/, "The file that needs a second recording answers its reason");
       const labels = JSON.parse(await inner("return JSON.stringify([...d.querySelectorAll('[data-studio-outputs] option')].map(option=>option.textContent));")) as string[];
       assert.ok(labels.some(label => label.includes("P1.RecordedTemperature") && label.includes("°C")),
         `The opened recording output selector must expose the archived channel with its unit: ${labels.join(", ")}`);
@@ -369,10 +382,10 @@ suite("Control Studio three-page workflow", () => {
       await inner(`const transfer=new d.defaultView.DataTransfer();transfer.items.add(new d.defaultView.File([${JSON.stringify(second)}],'recording-with-extra-output-validation.json',{type:'application/json'}));const input=d.querySelector('[data-identify-import-file]');input.files=transfer.files;input.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'selected';`);
       await pollValue("selected recording model ready", () => inner("return String(d.querySelector('[data-studio-model-result]').checkVisibility() && d.querySelector('[data-studio-three-page]').dataset.busy === 'false');"), value => value === "true", 15000);
       assert.strictEqual(await inner("return String(!!d.querySelector('dialog[open]'));"), "false", "Identification stays on model review");
-      const events = JSON.parse(await inner("return JSON.stringify(d.defaultView.__studioEvents);")) as Array<{ status?: string; identificationPresentation?: { outputId?: string; outputFits?: Array<{ id: string }> } }>;
-      const model = [...events].reverse().find(event => event.status === "model-ready");
-      const presentation = model?.identificationPresentation;
-      const selectedOutput = presentation?.outputId === extra.id || presentation?.outputFits?.some(output => output.id === extra.id);
+      // The engine's Identify answer of the fitted pair names the response plot: its measurement is the selected archived output.
+      const identifications = JSON.parse(await inner("return JSON.stringify((d.defaultView.__engineAnswers||[]).filter(e=>e.method==='identify'&&e.status==='model-ready').map(e=>e.result));")) as Array<{ plot?: { traces?: Array<{ role: string; symbol: string }> } }>;
+      const measured = identifications[identifications.length - 1]?.plot?.traces?.find(trace => trace.role === "measurement");
+      const selectedOutput = measured?.symbol === extra.id;
       const chartLabel = await pollValue("selected archived output plot", () => inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label')??'';"), value => value.includes(extra.id), 10000);
       assert.ok(selectedOutput || chartLabel.includes(extra.id), "The returned model or response plot must retain the selected archived output");
       assert.strictEqual(vscode.debug.activeDebugSession, undefined, "Opening a recording must not start a runtime");
@@ -668,6 +681,8 @@ suite("Control Studio three-page workflow", () => {
       await captureRenderedWorkbenchCdp(connection, requiredEnvironment("TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT"));
       const tabs = JSON.parse(await inner("return JSON.stringify([...d.querySelectorAll('[role=tab]')].filter(el=>el.checkVisibility()).map(el=>el.textContent.trim()));"));
       assert.deepStrictEqual(tabs, ["Identify", "Tune", "Validate"], "The visible workspace has exactly the three agreed pages");
+      // The page is ready when the engine's opened answer has selected its page (engineOpened.ts sets hostReady with the selection).
+      await pollValue("three-page handlers", () => inner("return d.querySelector('[data-studio-three-page]')?.dataset.hostReady;"), value => value === "true", 10000);
       const visible = (selector: string) => inner(`return String([...d.querySelectorAll(${JSON.stringify(selector)})].some(el=>el.checkVisibility()));`);
       for (const selector of [".values", ".plot-toolbar", "[data-control-studio-source]", "[data-engineer-results]"]) {
         assert.strictEqual(await visible(selector), "false", `${selector} must not add runtime chrome, a toolbar or a report to the page`);

@@ -18,9 +18,6 @@ type Rejected = { status: "rejected"; reason:
   | "nonfinite-input"
   | "invalid-polynomial"
   | "solver-failed"
-  | "pole-on-contour"
-  | "contour-near-critical-point"
-  | "insufficient-contour-closure"
   | "ambiguous-crossover" };
 
 const ROOT_TOLERANCE: NumericalTolerance = { absolute: 1e-12, relative: 1e-10, conditionLimit: 1e12 };
@@ -49,33 +46,6 @@ export function analyzeTransferFunction(tf: TransferFunction, frequencies: reado
     };
   });
   return { status: "qualified", poles, zeros, bode };
-}
-
-export function classicalStabilityMargins(
-  tf: TransferFunction,
-  sweep: { minimumFrequencyRadPerSecond: number; maximumFrequencyRadPerSecond: number; pointsPerDecade: number }
-): any | Rejected {
-  const frequencies = logarithmicFrequencies(sweep);
-  if (!frequencies) return rejected("nonfinite-input");
-  const values = frequencies.map((frequency) => ({ frequency, value: transferAt(tf, frequency) }));
-  const phases = unwrap(values.map(({ value }) => Math.atan2(value.imaginary, value.real) * 180 / Math.PI));
-  const magnitudes = values.map(({ value }) => 20 * Math.log10(Math.hypot(value.real, value.imaginary)));
-  const gainCross = crossing(frequencies, magnitudes, 0);
-  if (!gainCross) return rejected("solver-failed");
-  const phaseAtGainCross = interpolateSeries(frequencies, phases, gainCross);
-  const phaseMarginDegrees = 180 + phaseAtGainCross;
-  const phaseCross = crossing(frequencies, phases, -180);
-  const gainMarginDb = phaseCross === undefined
-    ? "unbounded"
-    : -interpolateSeries(frequencies, magnitudes, phaseCross);
-  return {
-    status: "qualified",
-    gainCrossoverRadPerSecond: gainCross,
-    phaseCrossoverRadPerSecond: phaseCross,
-    gainMarginDb,
-    phaseMarginDegrees,
-    delayMarginSeconds: phaseMarginDegrees > 0 ? phaseMarginDegrees * Math.PI / 180 / gainCross : 0,
-  };
 }
 
 /**
@@ -205,118 +175,6 @@ export function rootLocus(tf: TransferFunction, gains: readonly number[]): any |
   return { status: "qualified", branches };
 }
 
-export function designLeadAtCrossover(
-  plant: TransferFunction,
-  crossoverRadPerSecond: number,
-  phaseContributionDegrees: number
-): any | Rejected {
-  const invalid = validateTransferFunction(plant);
-  if (invalid) return invalid;
-  if (!Number.isFinite(crossoverRadPerSecond) || crossoverRadPerSecond <= 0
-      || !Number.isFinite(phaseContributionDegrees) || phaseContributionDegrees <= 0
-      || phaseContributionDegrees >= 85) return rejected("nonfinite-input");
-  const sine = Math.sin(phaseContributionDegrees * Math.PI / 180);
-  const alpha = (1 - sine) / (1 + sine);
-  const timeConstant = 1 / (crossoverRadPerSecond * Math.sqrt(alpha));
-  const zeroRadPerSecond = 1 / timeConstant;
-  const poleRadPerSecond = 1 / (alpha * timeConstant);
-  const plantValue = transferAt(plant, crossoverRadPerSecond);
-  const leadWithoutGain = divide(
-    { real: 1, imaginary: crossoverRadPerSecond * timeConstant },
-    { real: 1, imaginary: crossoverRadPerSecond * alpha * timeConstant }
-  );
-  const gain = 1 / (Math.hypot(plantValue.real, plantValue.imaginary)
-    * Math.hypot(leadWithoutGain.real, leadWithoutGain.imaginary));
-  return {
-    status: "qualified",
-    gain,
-    zeroRadPerSecond,
-    poleRadPerSecond,
-    phaseContributionDegrees: Math.atan2(leadWithoutGain.imaginary, leadWithoutGain.real) * 180 / Math.PI,
-    openLoopMagnitudeAtCrossover: gain * Math.hypot(plantValue.real, plantValue.imaginary)
-      * Math.hypot(leadWithoutGain.real, leadWithoutGain.imaginary),
-  };
-}
-
-export function designLagAtCrossover(
-  plant: TransferFunction,
-  crossoverRadPerSecond: number,
-  lowFrequencyGainRatio: number
-): any | Rejected {
-  const invalid = validateTransferFunction(plant);
-  if (invalid) return invalid;
-  if (!Number.isFinite(crossoverRadPerSecond) || crossoverRadPerSecond <= 0
-      || !Number.isFinite(lowFrequencyGainRatio) || lowFrequencyGainRatio <= 1) {
-    return rejected("nonfinite-input");
-  }
-  // Keep both break points below crossover so the requested crossover changes
-  // little while the low-frequency loop gain increases by the declared ratio.
-  const zeroRadPerSecond = crossoverRadPerSecond / 10;
-  const poleRadPerSecond = zeroRadPerSecond / lowFrequencyGainRatio;
-  const plantValue = transferAt(plant, crossoverRadPerSecond);
-  const lagWithoutGain = divide(
-    { real: 1, imaginary: crossoverRadPerSecond / zeroRadPerSecond },
-    { real: 1, imaginary: crossoverRadPerSecond / poleRadPerSecond }
-  );
-  const gain = 1 / (Math.hypot(plantValue.real, plantValue.imaginary)
-    * Math.hypot(lagWithoutGain.real, lagWithoutGain.imaginary));
-  return {
-    status: "qualified",
-    gain,
-    zeroRadPerSecond,
-    poleRadPerSecond,
-    lowFrequencyGainRatio,
-    phaseContributionDegrees: Math.atan2(lagWithoutGain.imaginary, lagWithoutGain.real) * 180 / Math.PI,
-    openLoopMagnitudeAtCrossover: gain * Math.hypot(plantValue.real, plantValue.imaginary)
-      * Math.hypot(lagWithoutGain.real, lagWithoutGain.imaginary),
-  };
-}
-
-export function nyquistStability(
-  tf: TransferFunction,
-  sweep: { minimumFrequencyRadPerSecond: number; maximumFrequencyRadPerSecond: number; pointsPerDecade: number }
-): any | Rejected {
-  const frequencies = logarithmicFrequencies(sweep);
-  const invalid = validateTransferFunction(tf);
-  if (!frequencies || invalid) return invalid ?? rejected("nonfinite-input");
-  const openLoopPoles = rootsOfRealPolynomial(tf.denominator);
-  if (!openLoopPoles) return rejected("solver-failed");
-  if (openLoopPoles.some((pole) => Math.abs(pole.real) <= 1e-9)) {
-    return rejected("pole-on-contour");
-  }
-  const positive = frequencies.map((frequency) => transferAt(tf, frequency));
-  const endpointMagnitude = Math.hypot(
-    positive[positive.length - 1].real,
-    positive[positive.length - 1].imaginary
-  );
-  if (endpointMagnitude > 0.02) return rejected("insufficient-contour-closure");
-  const zeroFrequency = transferAt(tf, 0);
-  const contour = [...positive.slice().reverse().map(conjugate), zeroFrequency, ...positive];
-  const minimumDistanceToMinusOne = Math.min(...contour.map((value) =>
-    Math.hypot(value.real + 1, value.imaginary)));
-  if (minimumDistanceToMinusOne < 0.005) return rejected("contour-near-critical-point");
-  const shiftedAngles = unwrapRadians(contour.map((value) => Math.atan2(value.imaginary, value.real + 1)));
-  const roundedEncirclements = Math.round(
-    (shiftedAngles[shiftedAngles.length - 1] - shiftedAngles[0]) / (2 * Math.PI)
-  );
-  const encirclementsCounterClockwise = Object.is(roundedEncirclements, -0) ? 0 : roundedEncirclements;
-  const openLoopRightHalfPlanePoles = openLoopPoles.filter((pole) => pole.real > 1e-9).length;
-  // With this negative-feedback traversal, counter-clockwise encirclements
-  // subtract from the open-loop right-half-plane pole count.
-  const closedLoopRightHalfPlanePoles = openLoopRightHalfPlanePoles - encirclementsCounterClockwise;
-  return {
-    status: "qualified",
-    contourTraversal: "negative-high-to-positive-high",
-    encirclementsCounterClockwise,
-    openLoopRightHalfPlanePoles,
-    closedLoopRightHalfPlanePoles,
-    closedLoopStable: closedLoopRightHalfPlanePoles === 0,
-    minimumDistanceToMinusOne,
-    endpointMagnitude,
-    contour,
-  };
-}
-
 export function rootsOfRealPolynomial(coefficients: readonly number[]): ComplexValue[] | undefined {
   const normalized = normalizePolynomial(coefficients);
   if (!normalized) return undefined;
@@ -436,23 +294,8 @@ function unwrap(values: readonly number[]): number[] {
   return result;
 }
 
-function unwrapRadians(values: readonly number[]): number[] {
-  const result: number[] = [];
-  for (const value of values) {
-    let current = value;
-    const previous = result[result.length - 1];
-    if (previous !== undefined) {
-      while (current - previous > Math.PI) current -= 2 * Math.PI;
-      while (current - previous < -Math.PI) current += 2 * Math.PI;
-    }
-    result.push(current);
-  }
-  return result;
-}
-
 function rejected(reason: Rejected["reason"]): Rejected { return { status: "rejected", reason }; }
 function magnitude(value: Complex): number { return Math.hypot(value.real, value.imaginary); }
-function conjugate(value: Complex): Complex { return { real: value.real, imaginary: -value.imaginary }; }
 function add(left: Complex, right: Complex): Complex {
   return { real: left.real + right.real, imaginary: left.imaginary + right.imaginary };
 }

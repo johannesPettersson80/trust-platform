@@ -17,10 +17,9 @@ import { candidateFromControlPid, type ControlPidParameters } from "../../contro
 import { responseChartSeries, responseChartTooltip } from "../../controlStudio/webview/threePageResponseSeries";
 import { rootLocusChartSeries } from "../../controlStudio/webview/rootLocusChart";
 import { sensitivitySeries } from "../../controlStudio/webview/sensitivityChart";
-import { nyquistCountText, nyquistGeometry, nyquistSeries } from "../../controlStudio/webview/nyquistChart";
+import { nyquistGeometry, nyquistSeries } from "../../controlStudio/webview/nyquistChart";
 import { initialStateResponseRows, initialStateResponseSeries } from "../../controlStudio/webview/initialStateResponseChart";
 import { poleMapGeometry } from "../../controlStudio/webview/complexPlaneGeometry";
-import { calculateDeclaredRootLocus } from "../../controlStudio/declaredAnalysis";
 
 suite("Control Studio chart contract", () => {
   test("a provisional structure comparison exposes paired fit, residuals and the original record without claiming validation data", () => {
@@ -114,13 +113,22 @@ suite("Control Studio chart contract", () => {
     assert.strictEqual(tooltip.confine, true, "the tooltip stays inside the plot area");
   });
   test("the three-page root locus draws the pole paths, labels the inspected gains and marks the selected candidate", () => {
-    const result = calculateDeclaredRootLocus({
-      plant: { kind: "transfer-function", numerator: [1], denominator: [1, 8, 0], delaySeconds: 0,
-        inputUnit: "N·m", outputUnit: "rad", revision: "shaft-kd7", source: "provided", validation: "unvalidated" },
-      controller: { numerator: [{ parameter: "Kp" }], denominator: [1],
-        parameters: { Kp: { value: 16, minimum: 0, maximum: 20, unit: "N·m/rad" }, Kd: { value: 7, minimum: 7, maximum: 7, unit: "N·m·s/rad" } } },
-      rootLocus: { parameter: "Kp", values: [12, 16, 20], selectedValue: 16 },
-    });
+    // The engine's root-locus answer for the shaft (RootLocusAnswer, analysis/declared.rs): the poles of s² + 8s + Kp = 0 at each
+    // gain, the three swept gains and the 201 evenly spaced gains of the declared range over which the pole paths are drawn.
+    const shaftPoles = (gain: number) => {
+      const root = Math.sqrt(16 - gain);
+      return root >= 0
+        ? [{ real: -4 + root, imaginary: 0 }, { real: -4 - root, imaginary: 0 }]
+        : [{ real: -4, imaginary: Math.sqrt(gain - 16) }, { real: -4, imaginary: -Math.sqrt(gain - 16) }];
+    };
+    const result = {
+      parameter: "Kp", parameterUnit: "N·m/rad", selectedValue: 16,
+      fixedParameters: { Kd: { value: 7, unit: "N·m·s/rad" } },
+      provenance: "provided model shaft-kd7 · unvalidated",
+      approximation: "Declared continuous linear model; nonlinear limits and task sample/hold are not represented. No model delay.",
+      branches: [12, 16, 20].map(gain => ({ gain, poles: shaftPoles(gain) })),
+      path: Array.from({ length: 201 }, (_, index) => ({ gain: index / 10, poles: shaftPoles(index / 10) })),
+    };
     const colors = { path: "#0000ff", inspected: "#ff8800", selected: "#aa00ff", foreground: "#ffffff" };
     const series = rootLocusChartSeries(result, colors) as any[];
     const paths = series.find(item => item.type === "line");
@@ -168,12 +176,6 @@ suite("Control Studio chart contract", () => {
     return { real: scale * (c - 5 * omega * q), imaginary: -scale * (q + 5 * omega * c) };
   });
 
-  test("the Nyquist count states P, N with clockwise encirclements positive, and Z = P + N", () => {
-    assert.strictEqual(nyquistCountText({ encirclementsCounterClockwise: -2, openLoopRightHalfPlanePoles: 0, closedLoopRightHalfPlanePoles: 2, closedLoopStable: false }),
-      "P = 0 open-loop right-half-plane poles. N = 2 clockwise encirclements of −1. Z = P + N = 2 closed-loop right-half-plane poles: the closed loop is unstable.");
-    assert.strictEqual(nyquistCountText({ encirclementsCounterClockwise: 0, openLoopRightHalfPlanePoles: 0, closedLoopRightHalfPlanePoles: 0, closedLoopStable: true }),
-      "P = 0 open-loop right-half-plane poles. N = 0 clockwise encirclements of −1. Z = P + N = 0 closed-loop right-half-plane poles: the closed loop is stable.");
-  });
 
   test("the Nyquist plot keeps equal units on both axes around the curve and −1", () => {
     for (const area of [{ width: 1250, height: 440 }, { width: 500, height: 440 }]) {

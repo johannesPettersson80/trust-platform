@@ -22,6 +22,31 @@ fn plan(identify: bool, tune: bool, validate: bool) -> RunPlan {
 }
 
 #[test]
+fn a_loop_without_a_controller_law_ends_its_run_with_identify() {
+    // C12: Tune, Validate and Apply do not apply, so the run takes Identify alone, whatever the stage it names.
+    let observed = StageEvidence {
+        controller_stages_apply: false,
+        ..evidence(false, false, false)
+    };
+    for through in [RunThrough::Tune, RunThrough::Validate] {
+        assert_eq!(
+            run_plan(&observed, through),
+            plan(true, false, false),
+            "{through:?}"
+        );
+    }
+    let with_model = StageEvidence {
+        controller_stages_apply: false,
+        ..evidence(true, false, false)
+    };
+    assert_eq!(
+        run_plan(&with_model, RunThrough::Validate),
+        plan(false, false, false),
+        "a current model needs no Identify, and no controller stage follows it"
+    );
+}
+
+#[test]
 fn from_scratch_through_identify_runs_identify_only() {
     assert_eq!(
         run_plan(&evidence(false, false, false), RunThrough::Identify),

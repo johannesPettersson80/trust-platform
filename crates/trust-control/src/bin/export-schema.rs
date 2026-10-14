@@ -15,10 +15,11 @@ use trust_control::commissioning::application_records::{ApplyOutcome, RestoreOut
 use trust_control::failure::Failure;
 use trust_control::identification::campaign_review::IdentifyReview;
 use trust_control::messages::{
-    ApplicationAnswer, ApplicationRequest, CancelResult, IdentifyRequest, IdentifyResult,
-    InputsRequest, InputsResult, KeepRequest, KeepResult, KeepReviewAnswer, OpenRequest,
-    OpenResult, OperationRequest, OperationStarted, OperationUpdate, PageRequest, PreviewRequest,
-    ResetResult, RunRequest, RunResult, TuneRequest, TuneResult, ValidateRequest, ValidateResult,
+    AnalyzeAnswer, AnalyzeRequest, ApplicationAnswer, ApplicationRequest, CancelResult,
+    IdentifyRequest, IdentifyResult, InputsRequest, InputsResult, KeepRequest, KeepResult,
+    KeepReviewAnswer, OpenRequest, OpenResult, OperationRequest, OperationStarted, OperationUpdate,
+    PageRequest, PreviewRequest, ResetResult, RunRequest, RunResult, TuneRequest, TuneResult,
+    ValidateRequest, ValidateResult,
 };
 use trust_control::setup::messages::{
     SetupDiscoverRequest, SetupDiscoverResult, SetupSaveRequest, SetupSaveResult,
@@ -85,6 +86,8 @@ fn export(folder: &Path) -> io::Result<()> {
         SetupDiscoverResult,
         SetupSaveRequest,
         SetupSaveResult,
+        AnalyzeRequest,
+        AnalyzeAnswer,
         Failure,
     );
     Ok(())

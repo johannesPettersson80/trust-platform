@@ -16,6 +16,7 @@ export type OpenResult =
       [k: string]: unknown;
     }
   | {
+      analysis: AnalysisRecords;
       /**
        * Whether a journaled Apply observation is left to follow to its end, with `controlStudio/apply` and `resume` (A8.5, A8.6): the
        * journal holds the observation while the runtime may still record it.
@@ -37,6 +38,15 @@ export type OpenResult =
        * The page last viewed, which reopening shows (A8.1, A8.6); Identify for a new study.
        */
       page: "Identify" | "Tune" | "Validate";
+      /**
+       * The analysis tool the Tune page showed last, with its inputs, which reopening shows again (B9.9, A8.6); absent when none
+       * was shown.
+       */
+      pageAnalysis?: AnalysisPage | null;
+      /**
+       * The page's own view choices the study keeps, which reopening shows again (A8.1, A8.6); absent when none were sent.
+       */
+      pageView?: PageView | null;
       /**
        * The journaled operations of the loop that reopening reattaches to (A8.5, A8.6): the recordings, experiments, campaigns and
        * isolated jobs that the journal holds unfinished. A checkpoint is not an operation, so it is not listed (B6.4).
@@ -68,6 +78,23 @@ export type OpenResult =
        * table and whether Apply is available (B5.4). Absent otherwise. The study keeps no plot and no plant reason, so the result has none.
        */
       validation?: ValidateResult | null;
+      [k: string]: unknown;
+    };
+/**
+ * The outcome of a Nyquist count: the figures, or the reason it was refused.
+ */
+export type NyquistReport =
+  | {
+      status: "qualified";
+      summary: NyquistSummary;
+      [k: string]: unknown;
+    }
+  | {
+      /**
+       * The reason, as the Nyquist rules name it.
+       */
+      reason: string;
+      status: "rejected";
       [k: string]: unknown;
     };
 /**
@@ -383,6 +410,20 @@ export type ParameterPurpose = "controller" | "experiment";
  */
 export type Topology = "closed-loop" | "open-loop";
 /**
+ * How the response's model is connected: open loop (the held input drives the plant directly) or
+ * feedback (through a controller).
+ */
+export type ResponseConnection = "open-loop" | "feedback";
+/**
+ * Which compensator is designed.
+ */
+export type LeadLagMode = "lead" | "lag";
+/**
+ * Which pole-zero view is shown (B9.9, `poleZero`): the unreduced model, or the input/output view with its exact common factors
+ * removed.
+ */
+export type PoleZeroView = "unreduced" | "minimal";
+/**
  * A margin: finite, unbounded, or not observed in the evaluated range (N7.7, N7.8).
  */
 export type MarginValue =
@@ -415,6 +456,695 @@ export interface LoopEntry {
   [k: string]: unknown;
 }
 /**
+ * The analysis records the study keeps that are current for its loop and model (B10.2, A8.4).
+ */
+export interface AnalysisRecords {
+  /**
+   * The general feedback analysis, with its sentences.
+   */
+  feedback?: FeedbackResult | null;
+  /**
+   * The measured frequency response, with its sentences.
+   */
+  measuredFrequency?: MeasuredFrequencyResult | null;
+  /**
+   * The declared analysis's pole paths, with their sentences.
+   */
+  rootLocus?: DeclaredRootLocusResult | null;
+  /**
+   * The Routh–Hurwitz reading, with its sentences.
+   */
+  routh?: DeclaredRouthResult | null;
+  [k: string]: unknown;
+}
+/**
+ * The result of a general feedback analysis (N4.4, N7.7 to N7.11).
+ */
+export interface FeedbackResult {
+  /**
+   * The closed-loop poles.
+   */
+  closedLoop:
+    | {
+        /**
+         * The poles, sorted by real part, then imaginary part.
+         */
+        poles: ComplexValue[];
+        /**
+         * The scope of the poles.
+         */
+        scope: string;
+        /**
+         * Whether every pole is in the stable region.
+         */
+        stable: boolean;
+        status: "qualified";
+        [k: string]: unknown;
+      }
+    | {
+        /**
+         * The reason.
+         */
+        reason: string;
+        status: "unavailable";
+        [k: string]: unknown;
+      };
+  controllerChannel: ChannelPair;
+  /**
+   * Where the controller comes from.
+   */
+  controllerSource: "model" | "declared-law";
+  /**
+   * The sentences of the details disclosure.
+   */
+  details: string[];
+  grid: FrequencyGrid;
+  /**
+   * The classical margins.
+   */
+  margins:
+    | {
+        /**
+         * The first gain crossover in rad/s.
+         */
+        gain_crossover_rad_per_second: number;
+        /**
+         * The gain margin in dB, when a phase crossover was found.
+         */
+        gain_margin_db?: number | null;
+        /**
+         * The phase margin in degrees.
+         */
+        phase_margin_degrees: number;
+        /**
+         * The scope of the estimate.
+         */
+        scope: string;
+        status: "estimated";
+        [k: string]: unknown;
+      }
+    | {
+        /**
+         * The reason.
+         */
+        reason: string;
+        status: "unavailable";
+        [k: string]: unknown;
+      };
+  /**
+   * The Nyquist count, when the loop is made of two transfer functions or a declared law.
+   */
+  nyquist?: NyquistReport | null;
+  /**
+   * The scope of the Nyquist evidence.
+   */
+  nyquistScope: string;
+  /**
+   * The open loop `L = G·C` at each frequency.
+   */
+  openLoop: FeedbackPoint[];
+  plantChannel: ChannelPair1;
+  /**
+   * The sensitivities, when the loop has a response at each frequency.
+   */
+  sensitivity?: SensitivityPoint[] | null;
+  /**
+   * The sentences of the result area, warnings first (B9.9).
+   */
+  summary: string[];
+}
+/**
+ * A complex number as its real and imaginary parts.
+ */
+export interface ComplexValue {
+  /**
+   * The imaginary part.
+   */
+  imaginary: number;
+  /**
+   * The real part.
+   */
+  real: number;
+  [k: string]: unknown;
+}
+/**
+ * The controller's channels in the loop.
+ */
+export interface ChannelPair {
+  /**
+   * The identifier of the input channel.
+   */
+  inputId: string;
+  /**
+   * The identifier of the output channel.
+   */
+  outputId: string;
+}
+/**
+ * The frequency grid as the engine used it (N4.3).
+ */
+export interface FrequencyGrid {
+  /**
+   * The highest frequency in rad/s; above the lowest.
+   */
+  maximumFrequency: number;
+  /**
+   * The lowest frequency in rad/s; positive.
+   */
+  minimumFrequency: number;
+  /**
+   * The number of frequencies: 2 to 512.
+   */
+  points: number;
+}
+/**
+ * The figures.
+ */
+export interface NyquistSummary {
+  /**
+   * The closed-loop poles with a positive real part.
+   */
+  closedLoopRightHalfPlanePoles: number;
+  /**
+   * Whether the count establishes a stable closed loop.
+   */
+  closedLoopStable: boolean;
+  /**
+   * The counter-clockwise encirclements of −1.
+   */
+  encirclementsCounterclockwise: number;
+  /**
+   * The magnitude at the top of the sweep.
+   */
+  endpointMagnitude: number;
+  /**
+   * The smallest distance from the contour to −1.
+   */
+  minimumDistanceToMinusOne: number;
+  /**
+   * The open-loop poles with a positive real part.
+   */
+  openLoopRightHalfPlanePoles: number;
+}
+/**
+ * A point of a frequency response.
+ */
+export interface FeedbackPoint {
+  /**
+   * The frequency in rad/s.
+   */
+  frequencyRadPerSecond: number;
+  /**
+   * The imaginary part.
+   */
+  imaginary: number;
+  /**
+   * The magnitude.
+   */
+  magnitude: number;
+  /**
+   * The magnitude in dB, with a magnitude of zero read as the smallest positive number (N4.3).
+   */
+  magnitudeDb: number;
+  /**
+   * The phase in degrees, unwrapped to the principal value of `atan2` (N4.3).
+   */
+  phaseDegrees: number;
+  /**
+   * The phase in radians.
+   */
+  phaseRadians: number;
+  /**
+   * The real part.
+   */
+  real: number;
+}
+/**
+ * The plant's channels in the loop.
+ */
+export interface ChannelPair1 {
+  /**
+   * The identifier of the input channel.
+   */
+  inputId: string;
+  /**
+   * The identifier of the output channel.
+   */
+  outputId: string;
+}
+/**
+ * The sensitivities at one frequency, in dB.
+ */
+export interface SensitivityPoint {
+  /**
+   * `|T|` in dB.
+   */
+  complementarySensitivityMagnitudeDb: number;
+  /**
+   * `|C·S|` in dB.
+   */
+  controlSensitivityMagnitudeDb: number;
+  /**
+   * The frequency in rad/s.
+   */
+  frequencyRadPerSecond: number;
+  /**
+   * `|S|` in dB.
+   */
+  sensitivityMagnitudeDb: number;
+}
+/**
+ * A measured frequency response of a retained periodic recording (N2.8; B10.2 `periodicFrequency`): the recording it was
+ * measured on, its settings, and its tones or the reason the estimate refused them.
+ */
+export interface MeasuredFrequencyResult {
+  /**
+   * The sentences of the details disclosure.
+   */
+  details: string[];
+  /**
+   * The tones requested, in rad/s.
+   */
+  frequencies: number[];
+  /**
+   * The minimum coherence of a tone.
+   */
+  minimumCoherence: number;
+  /**
+   * The tones in ascending frequency, with their phases unwrapped; empty when rejected.
+   */
+  points: MeasuredPoint[];
+  /**
+   * The reason of a rejected estimate.
+   */
+  reason?: string | null;
+  /**
+   * The recording's identifier in the study: the identifier `importRecording` answers, which the study lists, and not the
+   * identifier the runtime gave the run.
+   */
+  recordingId: string;
+  /**
+   * The revision of the recording.
+   */
+  recordingRevision: string;
+  /**
+   * The sample time of the record, read from its cycles.
+   */
+  sampleTimeSeconds: number;
+  /**
+   * The segments of the estimate.
+   */
+  segmentCount: number;
+  /**
+   * The samples discarded from the start of the record.
+   */
+  startupSamples: number;
+  /**
+   * Whether the tones were estimated.
+   */
+  status: "qualified" | "rejected";
+  /**
+   * The sentences of the result area, warnings first (B9.9).
+   */
+  summary: string[];
+}
+/**
+ * One measured tone (N2.8): its frequency, its magnitude and that magnitude in dB, its unwrapped phase in degrees and its
+ * coherence.
+ */
+export interface MeasuredPoint {
+  /**
+   * The coherence `γ²(ω)`.
+   */
+  coherence: number;
+  /**
+   * The tone's angular frequency in rad/s.
+   */
+  frequencyRadPerSecond: number;
+  /**
+   * The magnitude `|H(jω)|`.
+   */
+  magnitude: number;
+  /**
+   * The magnitude in dB, with a magnitude of zero read as the smallest positive number.
+   */
+  magnitudeDb: number;
+  /**
+   * The unwrapped phase in degrees.
+   */
+  phaseDegrees: number;
+}
+/**
+ * The pole paths of a declared analysis (N7.5): the poles at each gain of the sweep, and at evenly
+ * spaced gains across the parameter's whole range.
+ */
+export interface DeclaredRootLocusResult {
+  /**
+   * The approximations of the calculation.
+   */
+  approximation: string;
+  /**
+   * The poles at each gain of the sweep.
+   */
+  branches: GainPoles[];
+  /**
+   * The sentences of the details disclosure: the approximations of the calculation.
+   */
+  details: string[];
+  /**
+   * The parameters that stay fixed, by name.
+   */
+  fixedParameters: {
+    [k: string]: FixedParameter;
+  };
+  /**
+   * The swept parameter.
+   */
+  parameter: string;
+  /**
+   * The unit of the swept parameter.
+   */
+  parameterUnit: string;
+  /**
+   * The poles across the declared range, for drawing; a gain where the loop is undefined is left out.
+   */
+  path: GainPoles[];
+  /**
+   * The model's source, revision and validation.
+   */
+  provenance: string;
+  /**
+   * The selected value.
+   */
+  selectedValue: number;
+  /**
+   * The sentences of the result area: the swept parameter, its selected value and the fixed parameters (B9.9).
+   */
+  summary: string[];
+}
+/**
+ * The poles of the closed loop at one gain, sorted by real part, then imaginary part.
+ */
+export interface GainPoles {
+  /**
+   * The gain.
+   */
+  gain: number;
+  /**
+   * The poles at the gain.
+   */
+  poles: Pole[];
+}
+/**
+ * A pole of the closed loop: its real and imaginary parts.
+ */
+export interface Pole {
+  /**
+   * The imaginary part.
+   */
+  imaginary: number;
+  /**
+   * The real part.
+   */
+  real: number;
+}
+/**
+ * A fixed parameter of a result: its value and its unit.
+ */
+export interface FixedParameter {
+  /**
+   * The unit.
+   */
+  unit: string;
+  /**
+   * The value.
+   */
+  value: number;
+}
+/**
+ * The Routh–Hurwitz result of a declared analysis at one value of the swept parameter (N7.1 to N7.4).
+ */
+export interface DeclaredRouthResult {
+  allowedDomain: AllowedDomain;
+  /**
+   * The sentences of the details disclosure: the first-column signs, the findings, the allowed domain and the derivation.
+   */
+  details: string[];
+  /**
+   * The parameters that stay fixed.
+   */
+  fixedParameters: {
+    [k: string]: FixedParameter;
+  };
+  interval: RouthInterval;
+  /**
+   * The swept parameter.
+   */
+  parameter: string;
+  /**
+   * The unit of the swept parameter.
+   */
+  parameterUnit: string;
+  polynomial: RouthPolynomialAnalysis;
+  /**
+   * The model's source, revision and validation.
+   */
+  provenance: string;
+  /**
+   * The scope of the result.
+   */
+  scope: string;
+  /**
+   * The value at which the polynomial was read.
+   */
+  selectedValue: number;
+  /**
+   * The sentences of the result area: the reading and the stable interval, warnings first (B9.9).
+   */
+  summary: string[];
+}
+/**
+ * The allowed domain of the parameter.
+ */
+export interface AllowedDomain {
+  /**
+   * The largest allowed value.
+   */
+  maximum: number;
+  /**
+   * The smallest allowed value.
+   */
+  minimum: number;
+}
+/**
+ * The stability interval of the parameter.
+ */
+export interface RouthInterval {
+  /**
+   * The exact boundary roots of the region.
+   */
+  boundaries?: RouthBoundary[] | null;
+  /**
+   * The derivation, in words.
+   */
+  derivation: string;
+  /**
+   * The strict inequalities that define the interval.
+   */
+  inequalities: string[];
+  /**
+   * The intervals of a union, from the exact region.
+   */
+  intervals?: RouthIntervalPiece[] | null;
+  /**
+   * The shape of the interval.
+   */
+  kind: "open" | "empty" | "all-real" | "unavailable" | "union";
+  /**
+   * The lower end of a single interval, when bounded.
+   */
+  lower?: number | null;
+  /**
+   * The status of the interval.
+   */
+  status: "qualified" | "unsupported" | "uncertain";
+  /**
+   * The upper end of a single interval, when bounded.
+   */
+  upper?: number | null;
+}
+/**
+ * An exact boundary root of a stable region, as text.
+ */
+export interface RouthBoundary {
+  /**
+   * The exact lower end of the root's enclosure.
+   */
+  lower: string;
+  /**
+   * The coefficients of the boundary polynomial, as exact rationals.
+   */
+  polynomial: string[];
+  /**
+   * The exact upper end of the root's enclosure.
+   */
+  upper: string;
+}
+/**
+ * The end of a stable interval in the swept parameter.
+ */
+export interface RouthIntervalPiece {
+  /**
+   * The lower end, when bounded.
+   */
+  lower?: number | null;
+  /**
+   * The boundary index of the lower end.
+   */
+  lowerBoundary?: number | null;
+  /**
+   * The upper end, when bounded.
+   */
+  upper?: number | null;
+  /**
+   * The boundary index of the upper end.
+   */
+  upperBoundary?: number | null;
+}
+/**
+ * The reading of the characteristic polynomial.
+ */
+export interface RouthPolynomialAnalysis {
+  /**
+   * The coefficients, from the highest power down.
+   */
+  coefficients: number[];
+  /**
+   * The first column with the sign of each entry.
+   */
+  firstColumn: FirstColumnEntry[];
+  /**
+   * The interpretation, in words.
+   */
+  interpretation: string;
+  /**
+   * The findings of the table.
+   */
+  issues: RouthIssue[];
+  /**
+   * The rows of the float table.
+   */
+  rows: RouthRow[];
+  /**
+   * The number of right-half-plane poles established, when the reading qualifies.
+   */
+  signChanges?: number | null;
+  /**
+   * Whether the polynomial is established as asymptotically stable.
+   */
+  stable?: boolean | null;
+  /**
+   * The status of the reading.
+   */
+  status: "qualified" | "boundary" | "uncertain" | "rejected";
+  /**
+   * The rows of the exact table, when it resolved a special case.
+   */
+  symbolicRows?: SymbolicRow[] | null;
+}
+/**
+ * A first-column entry and its sign.
+ */
+export interface FirstColumnEntry {
+  /**
+   * The sign of the value.
+   */
+  sign: "positive" | "negative" | "zero";
+  /**
+   * The value. In an exact table it is the limit sign, −1, 0 or 1.
+   */
+  value: number;
+}
+/**
+ * A finding of a Routh table and its explanation.
+ */
+export interface RouthIssue {
+  /**
+   * The explanation, naming the row by its power of `s`.
+   */
+  explanation: string;
+  /**
+   * What the finding is about.
+   */
+  kind:
+    | "invalid-polynomial"
+    | "origin-pole"
+    | "zero-pivot"
+    | "all-zero-row"
+    | "near-zero-pivot"
+    | "near-zero-entry"
+    | "numerical-overflow";
+}
+/**
+ * A row of a Routh table.
+ */
+export interface RouthRow {
+  /**
+   * The calculations that produced the entries.
+   */
+  calculations: RouthCalculation[];
+  /**
+   * The entries of the row.
+   */
+  entries: number[];
+  /**
+   * The power of `s` of the row.
+   */
+  power: number;
+}
+/**
+ * One calculation of a Routh row: `result = (b0·a_next − a0·b_next) / b0`.
+ */
+export interface RouthCalculation {
+  /**
+   * The first entry of the row two above.
+   */
+  a0: number;
+  /**
+   * The entry of the row two above, in the next column.
+   */
+  aNext: number;
+  /**
+   * The pivot.
+   */
+  b0: number;
+  /**
+   * The entry of the row above, in the next column.
+   */
+  bNext: number;
+  /**
+   * The column of the entry.
+   */
+  column: number;
+  /**
+   * The entry that the calculation produces.
+   */
+  result: number;
+}
+/**
+ * A row of an exact table, with its formal entries.
+ */
+export interface SymbolicRow {
+  /**
+   * The formal entries.
+   */
+  entries: string[];
+  /**
+   * The power of `s` of the row.
+   */
+  power: number;
+}
+/**
  * The result of an identification: the operation's final update of `controlStudio/identify` (B3.8; Identify page
  * specification, "Identified model and plot"). It holds the readable parts the page shows.
  */
@@ -441,9 +1171,9 @@ export interface IdentifyResult {
    */
   provisional: boolean;
   /**
-   * The recording the model was fitted from, by its identifier (A8.3).
+   * The recording the model was fitted from, by its identifier (A8.3); absent for a supplied model, which no recording made.
    */
-  recordingId: string;
+  recordingId?: string | null;
   /**
    * The requirements Tune designs to for this model now (B4.3): the values the study records as given, and Automatic's
    * values for the rest, listed in `automaticCriteria`. Absent where Automatic cannot form them (B4.7): Tune then names the
@@ -576,6 +1306,11 @@ export interface AutomaticCriteria {
  */
 export interface StageEvidence {
   /**
+   * Tune, Validate and Apply apply to the loop. False for an open-loop experiment or an observation loop (C12), whose
+   * project owns the controller: those three stages are Not applicable.
+   */
+  controllerStagesApply: boolean;
+  /**
    * A controller candidate exists.
    */
   hasCandidate: boolean;
@@ -618,7 +1353,8 @@ export interface StageEvidence {
   [k: string]: unknown;
 }
 /**
- * One stage's status, with the words the panel shows.
+ * One stage's status, with the words the panel shows. A stage that is Not applicable also names the reason, which the page
+ * shows in place of its actions (C12).
  */
 export interface StageAvailability {
   /**
@@ -626,13 +1362,17 @@ export interface StageAvailability {
    */
   label: string;
   /**
+   * Why the stage does not apply, when its status is Not applicable.
+   */
+  reason?: string | null;
+  /**
    * The stage.
    */
   stage: "Monitor" | "Test" | "Identify" | "Tune" | "Validate" | "Apply";
   /**
    * Its status.
    */
-  status: "ready" | "needs-data" | "in-progress" | "complete" | "warning" | "failed";
+  status: "ready" | "needs-data" | "in-progress" | "complete" | "warning" | "failed" | "not-applicable";
   [k: string]: unknown;
 }
 /**
@@ -651,6 +1391,11 @@ export interface InputsSection {
    * The settings the engineer pinned for the design (B4.2).
    */
   pins?: ControllerSettingsPins | null;
+  /**
+   * The plant input and measured output the engineer selected for an opened recording (B3.6). The study keeps them, so that
+   * reopening shows the selection; absent until a recording is opened.
+   */
+  recordingSelection?: RecordingSignalSelection | null;
   /**
    * The requirements of Tune and Validate (B4.3), as a whole record. A value the engineer gave is kept as given; a value
    * that Automatic generated is listed in the record's `automaticCriteria`, and Tune fills it again from the model. The record
@@ -757,6 +1502,20 @@ export interface ControllerSettingsPins {
   values: {
     [k: string]: number;
   };
+}
+/**
+ * The selected plant inputs and measured outputs of a recording, by channel name (`RecordingSignalSelection`). The study keeps
+ * the engineer's selection in its inputs, so it is read back the same way (B3.6).
+ */
+export interface RecordingSignalSelection {
+  /**
+   * The plant inputs, in order.
+   */
+  inputs: string[];
+  /**
+   * The measured outputs, in order.
+   */
+  outputs: string[];
 }
 /**
  * One scenario of a verification campaign (`TypeScript` `EngineerScenario`): the values it starts from, the timed events
@@ -1603,10 +2362,158 @@ export interface LoopSignal2 {
   unit: string;
 }
 /**
+ * The page the engineer views with an analysis tool (§0.1a, `controlStudio/page`; A8.1): the tool shown and its inputs, so that
+ * reopening shows them again.
+ */
+export interface AnalysisPage {
+  inputs?: AnalysisInputs;
+  /**
+   * The tool shown.
+   */
+  tool:
+    | "rootLocus"
+    | "routh"
+    | "poleZero"
+    | "frequency"
+    | "measuredFrequency"
+    | "feedback"
+    | "leadLag"
+    | "initialState"
+    | "stateStructure"
+    | "relativeGain";
+}
+/**
+ * Its inputs, as the engineer entered them.
+ */
+export interface AnalysisInputs {
+  /**
+   * `initialState`: open loop, or through the feedback with a controller.
+   */
+  connection?: ResponseConnection | null;
+  /**
+   * `feedback`: the controller's input and output in the loop.
+   */
+  controllerChannel?: ChannelPair2 | null;
+  /**
+   * `leadLag`: the crossover in rad/s, above 0.
+   */
+  crossoverRadPerSecond?: number | null;
+  /**
+   * `initialState`: the duration in seconds, a whole number of steps.
+   */
+  durationSeconds?: number | null;
+  /**
+   * `measuredFrequency`: the tone frequencies in rad/s.
+   */
+  frequencies?: number[] | null;
+  /**
+   * `frequency` and `feedback`: the grid.
+   */
+  grid?: FrequencyGrid1 | null;
+  /**
+   * `initialState`: the initial state, one value per state.
+   */
+  initialState?: number[] | null;
+  /**
+   * `initialState`: the held input, one value per input.
+   */
+  input?: number[] | null;
+  /**
+   * `measuredFrequency`: the minimum coherence, 0 to 1.
+   */
+  minimumCoherence?: number | null;
+  /**
+   * `leadLag`: the compensator.
+   */
+  mode?: LeadLagMode | null;
+  /**
+   * `feedback`: the plant's input and output in the loop.
+   */
+  plantChannel?: ChannelPair2 | null;
+  /**
+   * `measuredFrequency`: the recording, by its identifier.
+   */
+  recordingId?: string | null;
+  /**
+   * `measuredFrequency`: the revision of the recording the request was made for.
+   */
+  recordingRevision?: string | null;
+  /**
+   * `measuredFrequency`: the number of segments, at least 2.
+   */
+  segmentCount?: number | null;
+  /**
+   * `rootLocus` and `routh`: the selected value of the declared parameter.
+   */
+  selectedValue?: number | null;
+  /**
+   * `measuredFrequency`: the startup samples left out of the estimate, at least 1.
+   */
+  startupSamples?: number | null;
+  /**
+   * `initialState`: the output step in seconds, above 0.
+   */
+  stepSeconds?: number | null;
+  /**
+   * `leadLag`: the phase in degrees for a lead, or the low-frequency gain ratio for a lag.
+   */
+  value?: number | null;
+  /**
+   * `poleZero`: the view.
+   */
+  view?: PoleZeroView | null;
+}
+/**
+ * The channels of one loop end: the input and the output that the loop uses, by identifier.
+ */
+export interface ChannelPair2 {
+  /**
+   * The identifier of the input channel.
+   */
+  inputId: string;
+  /**
+   * The identifier of the output channel.
+   */
+  outputId: string;
+}
+/**
+ * A frequency grid (N4.3): the lowest and the highest frequency in rad/s, and the number of logarithmically spaced points.
+ */
+export interface FrequencyGrid1 {
+  /**
+   * The highest frequency in rad/s; above the lowest.
+   */
+  maximumFrequency: number;
+  /**
+   * The lowest frequency in rad/s; positive.
+   */
+  minimumFrequency: number;
+  /**
+   * The number of frequencies: 2 to 512.
+   */
+  points: number;
+}
+/**
+ * The page's own view choices, which the engine keeps with the page and answers on `open`, and never reads (§0.1a,
+ * `controlStudio/page`; A8.1, A8.6). They are view state: what decides a result is a study input (`controlStudio/inputs`).
+ */
+export interface PageView {
+  /**
+   * The entry the Identify page's Method shows, as the page names it: a live method, or the opened-file or supplied-model entry
+   * (B3.6, B3.7), which start no campaign. At most 64 characters.
+   */
+  identifyMethod?: string | null;
+}
+/**
  * The stage evidence of the opened study, which the page gates its actions on (B9.4, A8.6): whether a model, a candidate
  * and a passed validation exist now. It is the evidence `stages` is computed from, as `controlStudio/run` answers it.
  */
 export interface StageEvidence1 {
+  /**
+   * Tune, Validate and Apply apply to the loop. False for an open-loop experiment or an observation loop (C12), whose
+   * project owns the controller: those three stages are Not applicable.
+   */
+  controllerStagesApply: boolean;
   /**
    * A controller candidate exists.
    */
@@ -2082,6 +2989,11 @@ export interface TuneTrace {
  * is the answer of exist (B9.4). A preview keeps nothing, so it carries the study's own evidence (B4.5).
  */
 export interface StageEvidence2 {
+  /**
+   * Tune, Validate and Apply apply to the loop. False for an open-loop experiment or an observation loop (C12), whose
+   * project owns the controller: those three stages are Not applicable.
+   */
+  controllerStagesApply: boolean;
   /**
    * A controller candidate exists.
    */
@@ -2598,6 +3510,11 @@ export interface RunOutcome1 {
  * result, which passed or did not (B5.4). The page gates Apply on it (B9.4).
  */
 export interface StageEvidence3 {
+  /**
+   * Tune, Validate and Apply apply to the loop. False for an open-loop experiment or an observation loop (C12), whose
+   * project owns the controller: those three stages are Not applicable.
+   */
+  controllerStagesApply: boolean;
   /**
    * A controller candidate exists.
    */

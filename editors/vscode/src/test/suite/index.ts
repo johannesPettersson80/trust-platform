@@ -318,7 +318,6 @@ export function run(): Promise<void> {
   require("./control-studio-heater-pid-lessons.integration.test");
   require("./control-studio-heater-model-rendered.integration.test");
   require("./control-studio-general-model.test");
-  require("./control-studio-general-feedback.test");
   require("./plant-cascade-model.test");
   require("./plant-cascade-rendered.integration.test");
   require("./control-studio-general-model-session.test");

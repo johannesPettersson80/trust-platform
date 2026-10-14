@@ -67,7 +67,7 @@ fn the_true_model_passes_on_an_independent_record() {
         vec![1.0],
         vec![1.0, 1.0],
     );
-    let report = validate_frozen_model(&model, &estimation, &validation, &channels(), 0.15);
+    let report = validate_frozen_model(&model, Some(&estimation), &validation, &channels(), 0.15);
     assert_eq!(report.status, RequirementStatus::Pass);
     assert_eq!(report.rows.len(), 1);
     let row = &report.rows[0];
@@ -80,7 +80,10 @@ fn the_true_model_passes_on_an_independent_record() {
     );
     assert_eq!(report.predictions.len(), 1);
     assert_eq!(report.predictions[0].recording_id, "validation");
-    assert_eq!(report.estimation_recording_id, "estimation");
+    assert_eq!(
+        report.estimation_recording_id.as_deref(),
+        Some("estimation")
+    );
 }
 
 #[test]
@@ -103,7 +106,7 @@ fn a_model_with_the_wrong_gain_fails_the_whole_response() {
         vec![2.0],
         vec![1.0, 1.0],
     );
-    let report = validate_frozen_model(&model, &estimation, &validation, &channels(), 0.15);
+    let report = validate_frozen_model(&model, Some(&estimation), &validation, &channels(), 0.15);
     assert_eq!(report.status, RequirementStatus::Fail);
     assert_eq!(report.rows[0].status, RequirementStatus::Fail);
     assert!(
@@ -128,7 +131,7 @@ fn a_check_on_the_same_record_is_inconclusive_with_its_reason() {
         vec![1.0],
         vec![1.0, 1.0],
     );
-    let report = validate_frozen_model(&model, &estimation, &estimation, &channels(), 0.15);
+    let report = validate_frozen_model(&model, Some(&estimation), &estimation, &channels(), 0.15);
     assert_eq!(report.status, RequirementStatus::Inconclusive);
     assert_eq!(
         report.predictions,
@@ -161,7 +164,7 @@ fn a_record_that_did_not_pass_its_evaluation_is_inconclusive() {
         vec![1.0],
         vec![1.0, 1.0],
     );
-    let report = validate_frozen_model(&model, &estimation, &validation, &channels(), 0.15);
+    let report = validate_frozen_model(&model, Some(&estimation), &validation, &channels(), 0.15);
     assert_eq!(report.status, RequirementStatus::Inconclusive);
     assert_eq!(
         report.rows[0].reason,
@@ -189,7 +192,7 @@ fn a_stored_check_is_kept_only_when_it_recomputes_exactly() {
         vec![1.0, 1.0],
     );
     let stored: IndependentModelValidation<Verdict> =
-        validate_frozen_model(&model, &estimation, &validation, &channels(), 0.15);
+        validate_frozen_model(&model, Some(&estimation), &validation, &channels(), 0.15);
     let records = vec![estimation.clone(), validation.clone()];
     assert_eq!(
         decode_independent_validation(&stored, &model, &records),

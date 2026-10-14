@@ -1,7 +1,7 @@
 import type * as vscode from "vscode";
-import { createEngineClient, type EngineAnswer } from "./engineClient";
+import { createEngineClient, type EngineAnswer, type IdentifyAnswer } from "./engineClient";
 import { engineExecutable, startEngine, type EngineProcess } from "./engineProcess";
-import { engineIdentifyAction, type EngineAcquisitionSettings } from "./engineIdentify";
+import { engineIdentifyAction } from "./engineIdentify";
 import type { Failure } from "../generated/Failure";
 import type { IdentifyRequest, RuntimeConnection } from "../generated/IdentifyRequest";
 import type { OpenRequest } from "../generated/OpenRequest";
@@ -21,6 +21,8 @@ import {
   type EngineRouteContext,
   type EngineStageRoute,
 } from "./engineRouteContext";
+import { createAnalyzeRoute } from "./routes/analyzeRoute";
+import type { AnalysisPage } from "../generated/PageRequest";
 import { createApplicationRoute } from "./routes/applicationRoute";
 import { createExperimentRoute } from "./routes/experimentRoute";
 import { createInputsRoute } from "./routes/inputsRoute";
@@ -42,10 +44,13 @@ export interface EnginePanelRouteOptions {
   readonly isCurrent?: () => boolean;
   /** The study's runtime connection for a live identification (E11.1); none when no runtime runs. */
   readonly connection?: () => Promise<RuntimeConnection | undefined>;
-  /** The engineer's acquisition settings for an identification run (B3.2); none when the study holds none. */
-  readonly acquisitionSettings?: () => EngineAcquisitionSettings | undefined;
   /** The pins and the controller choice that the TypeScript session holds, which a manual preview is answered with (B4.2, B4.5). */
   readonly tuningInputs?: () => EngineTuningInputs | undefined;
+  /**
+   * The selected model the TypeScript session holds. A loop the engine does not serve analyses with it (B9.9); a served loop's
+   * analysis takes the study's selected model.
+   */
+  readonly selectedModel?: () => unknown;
 }
 
 /** What the TypeScript session holds of the engineer's tuning inputs; the study keeps them in the engine once S7 is done. */
@@ -58,8 +63,8 @@ export interface EngineTuningInputs {
 
 /**
  * The engine's side of one open Control Studio loop (specification 35, §0.1a). The engine serves the loops it runs:
- * `open` answers the page, `navigation` stores the page the engineer views, and `identify` takes the page's Identify
- * commands and the study reset, `tune` the Tune command and its Abort, and `preview` the manual preview. A loop the engine
+ * `open` answers the page, `navigation` stores the page the engineer views, `importFile` takes a recording file and a supplied
+ * model, `identify` the study reset, a refit and the cancel, `tune` the Tune command and its Abort, and `preview` the manual preview. A loop the engine
  * parks (`controller-capability`, until V7) stays on the TypeScript route, and the route stays out of the way for the rest
  * of the panel's life.
  */
@@ -72,10 +77,17 @@ export interface EnginePanelRoute {
   /** Stores the page the engineer views for a served loop. True when the message is consumed. */
   navigation(message: unknown, scope: LoopMessageScope): Promise<boolean>;
   /**
-   * Routes one Identify command or the study reset to the engine (B3, A8.4). True when the engine serves the loop and
-   * takes the command; false when the TypeScript route keeps it.
+   * Routes the study reset and the engine's refit of a kept recording (`control-studio.recording.refit`) to the engine, and the
+   * cancel of an identification the engine runs (B3, A8.4, B3.6). True when the engine serves the loop and takes the command;
+   * false when the TypeScript route keeps it, which the Recorded-data fit's own steps always are.
    */
   identify(message: unknown, scope: LoopMessageScope): Promise<boolean>;
+  /**
+   * Opens a recording file (`control-studio.recording.import`) or a supplied plant model (`control-studio.general-model.import`) on
+   * a served loop (B3.6, B3.7): the engine checks it and keeps it, and answers the page. True when the engine serves the loop and
+   * takes the file; false when the TypeScript route keeps it.
+   */
+  importFile(message: unknown, scope: LoopMessageScope): Promise<boolean>;
   /**
    * Routes the page's Tune command (a flow started at Tune) and its Abort to the engine (B4.1, B8). True when the engine serves
    * the loop and takes the command; false when the TypeScript route keeps it.
@@ -85,7 +97,8 @@ export interface EnginePanelRoute {
   preview(message: unknown, scope: LoopMessageScope): Promise<boolean>;
   /**
    * Routes a message of the other stages to the stage's own route (`engine/routes/`): Validate, the study inputs, the automatic
-   * flow, and Apply, Restore and Keep. True when the engine serves the loop and a stage took the message.
+   * flow, and Apply, Restore and Keep. True when the engine serves the loop and a stage took the message. The page's analysis
+   * (`control-studio.analysis.*`) is taken for every loop, served or parked (B9.9).
    */
   handle(message: unknown, scope: LoopMessageScope): Promise<boolean>;
   /**
@@ -116,12 +129,17 @@ interface Subscription {
   dispose(): void;
 }
 
+/** An engine answer to a recording that is not a recording's check, so the page has nothing it can show. */
+const UNEXPECTED_RECORDING_ANSWER = "The engine answered the recording with a result the page does not show.";
+
 export function createEnginePanelRoute(options: EnginePanelRouteOptions): EnginePanelRoute {
   const client = createEngineClient(options.engine);
   let parked = false;
   let served: EngineLoop | undefined;
   /** The page the engine last stored for the served loop. */
   let storedPage: string | undefined;
+  /** The Identify method the page showed last, as the study keeps it with the page (view state, A8.1). */
+  let storedMethod: string | undefined;
   /** The identification the engine runs for the page; Cancel stops it. */
   let runningOperation: string | undefined;
   /** The recording of the study's last identification, which Fit refits (B3.6). */
@@ -142,6 +160,118 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
 
   const postFailure = (scope: LoopMessageScope, method: EngineMethod, failure: Failure): Promise<void> =>
     send({ ...scopeFields(scope), kind: "control-studio.engine.failure", method, failure });
+
+  /** The request of one identify action on a served loop (`controlStudio/identify`). */
+  function identifyRequest(loop: EngineLoop, action: IdentifyRequest["action"]): IdentifyRequest {
+    return { action, loopId: loop.id, projectRoot: options.projectRoot, runtimeId: loop.runtimeId, storageFolder: options.storageFolder };
+  }
+
+  /**
+   * Shows a recording's check or fit (`ImportedRecording`, B3.6, B5.2) as `control-studio.identification-recording`: the status the engine
+   * gives (`checked` or `recording-needed`), the recording the study keeps with its channels, and what the file still needs or the check
+   * it passed. A fit the answer holds is an identification, sent as an Identify answer. Undefined when the answer is no recording's
+   * check; the page is then told the engine's answer is not one it shows.
+   */
+  async function showRecording(scope: LoopMessageScope, messageId: unknown, answer: Record<string, unknown>): Promise<string | undefined> {
+    const kept = answer.recordingId;
+    if (typeof kept !== "string" || (answer.status !== "checked" && answer.status !== "recording-needed")) {
+      await postFailure(scope, "identify", unclassifiedFailure(UNEXPECTED_RECORDING_ANSWER));
+      return undefined;
+    }
+    recordingId = kept;
+    // The identification goes first: its result ends the page's flow, and the check's sentence then stays in the model message.
+    const identification = record(answer.identification);
+    if (identification) await send({ ...scopeFields(scope), kind: "control-studio.engine.result", method: "identify", result: identification });
+    await send({ ...scopeFields(scope), kind: "control-studio.identification-recording", messageId, payload: { status: answer.status, recordingId: kept,
+      ...(answer.recordingCatalog !== undefined ? { recordingCatalog: answer.recordingCatalog } : {}),
+      ...(typeof answer.reason === "string" ? { reason: answer.reason } : {}),
+      ...(typeof answer.validation === "string" ? { validation: answer.validation } : {}) } });
+    return kept;
+  }
+
+  /**
+   * Shows the page one identify answer (`controlStudio/identify`, B3.8, B3.6): an operation the page follows, a recording's check or fit,
+   * the study's reset, or the engine's refusal. A failure is the engine's failure, shown as such.
+   */
+  async function answerIdentify(scope: LoopMessageScope, messageId: unknown, reply: EngineAnswer<IdentifyAnswer>): Promise<void> {
+    if ("failure" in reply) {
+      await postFailure(scope, "identify", reply.failure);
+      return;
+    }
+    const answer = reply.result;
+    if ("operationId" in answer && typeof answer.operationId === "string") {
+      runningOperation = answer.operationId;
+      subscriptions.push(relay(answer.operationId, scope));
+      return;
+    }
+    const value = record(answer);
+    if (value && (value.status === "checked" || value.status === "recording-needed")) {
+      await showRecording(scope, messageId, value);
+      return;
+    }
+    if ("stages" in answer && !("modelType" in answer)) {
+      recordingId = undefined;
+      await send({ ...scopeFields(scope), kind: "control-studio.engine.result", method: "identify", result: answer });
+      return;
+    }
+    await postFailure(scope, "identify", unclassifiedFailure("The engine answered the identification with a result the page does not show."));
+  }
+
+  /**
+   * `importRecording` (B3.6, §0.1a): the engine checks the file and keeps it as a recording of the study, and the page shows the answer.
+   * A refused file keeps nothing, and its refusal is the same message with status `failed`. A lone connected recording is kept, not
+   * fitted: the engine fits it at once with the selection it keeps (`openRecording`, B3.6), as the page's Fit would.
+   */
+  async function importRecording(loop: EngineLoop, value: Record<string, unknown>, scope: LoopMessageScope): Promise<boolean> {
+    const json = record(value.payload)?.json;
+    if (typeof json !== "string") return false;
+    const reply = await ask(scope, "identify", () => client.identify(identifyRequest(loop, { action: "importRecording", json })));
+    if (!reply) return true;
+    if ("failure" in reply) {
+      await send({ ...scopeFields(scope), kind: "control-studio.identification-recording", messageId: value.messageId,
+        payload: { status: "failed", reason: reply.failure.message } });
+      return true;
+    }
+    const answer = record(reply.result);
+    if (!answer) {
+      await postFailure(scope, "identify", unclassifiedFailure(UNEXPECTED_RECORDING_ANSWER));
+      return true;
+    }
+    const kept = await showRecording(scope, value.messageId, answer);
+    if (kept !== undefined && answer.status === "checked" && !record(answer.identification)) {
+      await fitRecording(loop, scope, value.messageId, kept, record(answer.recordingCatalog)?.selection);
+    }
+    return true;
+  }
+
+  /**
+   * Fits a kept recording with the selection it names (`openRecording`, B3.6): the same request as the page's refit, so the engine's
+   * answer is shown as any identify answer is (an operation the page follows, or the recording's answer).
+   */
+  async function fitRecording(loop: EngineLoop, scope: LoopMessageScope, messageId: unknown, kept: string, selection: unknown): Promise<void> {
+    const action = engineIdentifyAction("control-studio.recording.refit", { recordingSelection: selection }, kept);
+    if (!action) return;
+    const reply = await ask(scope, "identify", () => client.identify(identifyRequest(loop, action)));
+    if (reply) await answerIdentify(scope, messageId, reply);
+  }
+
+  /**
+   * `importModel` (B3.7, §0.1a): the engine checks the supplied model and keeps it as the study's model. Its answer is the
+   * identification the page shows, as an Identify answer is.
+   */
+  async function importModel(loop: EngineLoop, value: Record<string, unknown>, scope: LoopMessageScope): Promise<boolean> {
+    const json = record(value.payload)?.json;
+    if (typeof json !== "string") return false;
+    const reply = await ask(scope, "identify", () => client.identify(identifyRequest(loop, { action: "importModel", json })));
+    if (!reply) return true;
+    if ("failure" in reply) {
+      await postFailure(scope, "identify", reply.failure);
+      return true;
+    }
+    recordingId = undefined;
+    await send({ ...scopeFields(scope), kind: "control-studio.engine.result", method: "identify", result: reply.result });
+    return true;
+  }
 
   /**
    * One engine call. A call the engine cannot take is the engine's start failure, not the loop's: it is shown as
@@ -180,6 +310,8 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
   /** Relays one operation's updates to the page; an identification's final result follows its last update (B3.8). */
   function relay(operationId: string, scope: LoopMessageScope): Subscription {
     return client.onUpdate(operationId, (update: OperationUpdate) => {
+      // An analysis operation's updates belong to the analysis route, which answers the page's analysis (B9.9).
+      if (update.command === "analyze") return;
       if (update.state !== "running") {
         if (runningOperation === operationId) runningOperation = undefined;
         if (runningTune === operationId) runningTune = undefined;
@@ -220,6 +352,7 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       const reply = await client.status({ operationId }).catch(() => undefined);
       if (!reply || !("result" in reply) || reply.result.state !== "running") continue;
       const update = reply.result;
+      if (update.command === "analyze") { analysis.adopt(operationId, scope, update); continue; }
       if (update.command === "identify") {
         runningOperation = operationId;
         if (projectTest) await experimentRoute.adopt(operationId, scope);
@@ -314,6 +447,18 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
   };
   /** The study inputs the engine recorded for the served loop: Identify's settings and the preview's pins come from here (S7). */
   const inputsRoute = createInputsRoute(context);
+  /**
+   * The page's analysis (B9.9), for every loop: a served loop's model is the study's, and a parked loop's is the TypeScript
+   * session's selected model. The inputs the page changed are recorded first, as the other stages' calls wait for them.
+   */
+  const analysis = createAnalyzeRoute({
+    client,
+    projectRoot: options.projectRoot,
+    post: message => send(message),
+    served: () => served !== undefined,
+    parkedModel: () => options.selectedModel?.(),
+    settled: () => inputsRoute.settled(),
+  });
   // The stage routes that adopt a reopened operation (A8.6) are kept apart, so that `showRunning` can name each one.
   /** The automatic flow's route: a run the engine keeps running is adopted here when the panel reopens the loop (A8.6). */
   const runRoute = createRunRoute(context);
@@ -340,6 +485,7 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       runningTune = undefined;
       lastFamily = undefined;
       for (const stage of stages) stage.reset?.();
+      analysis.reset();
       const request: OpenRequest = {
         loopId: loop.id,
         projectRoot: options.projectRoot,
@@ -351,23 +497,30 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       if ("failure" in reply) {
         if (reply.failure.cause === "controller-capability") {
           parked = true;
+          await analysis.opened(loop, scope, undefined);
           return false;
         }
         await postFailure(scope, "open", reply.failure);
+        await analysis.opened(loop, scope, undefined);
         return false;
       }
       const result: OpenResult = reply.result;
       if (result.kind !== "opened") {
         await postFailure(scope, "open", unclassifiedFailure("The engine answered the project's loops, not the loop."));
+        await analysis.opened(loop, scope, undefined);
         return false;
       }
       served = loop;
       storedPage = result.page;
+      storedMethod = result.pageView?.identifyMethod ?? undefined;
+      // The recording the study's model was fitted from is the one a reopened page's Fit refits (B3.6, A8.6); none when it has no model.
+      recordingId = typeof result.identification?.recordingId === "string" ? result.identification.recordingId : undefined;
       // The page follows the operations the engine runs for the loop (A8.6); the journaled operations are not updates it answers.
       follow(result.running, scope);
       await send({ ...scopeFields(scope), kind: "control-studio.engine.opened", result });
       await inputsRoute.opened(result.inputs, scope);
       await showRunning(result.running, scope, loop.experiment?.execution === "project-scripted");
+      await analysis.opened(loop, scope, openedAnalysis(result));
       return true;
     },
 
@@ -378,18 +531,36 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       if (!value || value.kind !== "control-studio.navigation.select" || !sameScope(value, scope)) return false;
       const stage = record(value.payload)?.stage;
       const page = typeof stage === "string" ? ENGINE_PAGE_OF_STAGE.get(stage) : undefined;
-      // The page posts its selection again with each progress update; only a change of page is stored.
-      if (page && page !== storedPage) {
+      const view = record(record(value.payload)?.view);
+      const method = typeof view?.acquisitionMethod === "string" ? view.acquisitionMethod : undefined;
+      // The page posts its selection again with each progress update; only a change of page or of its method is stored.
+      if (page && (page !== storedPage || method !== storedMethod)) {
         storedPage = page;
+        storedMethod = method;
+        // The Tune page records the analysis it shows with the page (B9.9); the other pages record none.
+        const shown = page === "Tune" ? analysis.shownPage() : undefined;
         const reply = await ask(scope, "page", () =>
-          client.page({ loopId: loop.id, page, projectRoot: options.projectRoot, runtimeId: loop.runtimeId })
+          client.page({
+            loopId: loop.id, page, projectRoot: options.projectRoot, runtimeId: loop.runtimeId,
+            ...(shown ? { analysis: shown } : {}), ...(method ? { view: { identifyMethod: method } } : {}),
+          })
         );
         if (reply && "failure" in reply) {
           storedPage = undefined;
+          storedMethod = undefined;
           await postFailure(scope, "page", reply.failure);
         }
       }
       return true;
+    },
+
+    async importFile(message, scope) {
+      const loop = served;
+      const value = record(message);
+      if (!loop || !value || typeof value.kind !== "string" || !sameScope(value, scope)) return false;
+      if (value.kind === "control-studio.recording.import") return importRecording(loop, value, scope);
+      if (value.kind === "control-studio.general-model.import") return importModel(loop, value, scope);
+      return false;
     },
 
     async identify(message, scope) {
@@ -397,37 +568,12 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       const value = record(message);
       if (!loop || !value || typeof value.kind !== "string" || !sameScope(value, scope)) return false;
       if (value.kind === "control-studio.identify.cancel") return cancelIdentification(scope);
-      const acquisition = inputsRoute.recorded().acquisition ?? options.acquisitionSettings?.();
-      const action = engineIdentifyAction(value.kind, record(value.payload) ?? {}, acquisition, recordingId);
+      // A refit names the recording the route holds, if any; the engine fits the study's last kept recording otherwise, or refuses (B3.6).
+      const action = engineIdentifyAction(value.kind, record(value.payload) ?? {}, recordingId);
       if (!action) return false;
-      const connection = action.action === "identify" ? await connectionOf() : undefined;
-      const request: IdentifyRequest = {
-        action,
-        ...(connection ? { connection } : {}),
-        loopId: loop.id,
-        projectRoot: options.projectRoot,
-        runtimeId: loop.runtimeId,
-        storageFolder: options.storageFolder,
-      };
-      const reply = await ask(scope, "identify", () => client.identify(request));
+      const reply = await ask(scope, "identify", () => client.identify(identifyRequest(loop, action)));
       // The engine serves the loop even when it cannot be reached: its start failure is shown, and the command is not repeated.
-      if (!reply) return true;
-      if ("failure" in reply) {
-        await postFailure(scope, "identify", reply.failure);
-        return true;
-      }
-      const answer = reply.result;
-      if ("operationId" in answer && typeof answer.operationId === "string") {
-        runningOperation = answer.operationId;
-        subscriptions.push(relay(answer.operationId, scope));
-        return true;
-      }
-      if ("stages" in answer && !("modelType" in answer)) {
-        recordingId = undefined;
-        await send({ ...scopeFields(scope), kind: "control-studio.engine.result", method: "identify", result: answer });
-        return true;
-      }
-      await postFailure(scope, "identify", unclassifiedFailure("The engine answered the identification with a result the page does not show."));
+      if (reply) await answerIdentify(scope, value.messageId, reply);
       return true;
     },
 
@@ -477,10 +623,19 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
 
     async handle(message, scope) {
       const value = record(message);
-      if (!served || !value || typeof value.kind !== "string" || !sameScope(value, scope)) return false;
+      if (!value || typeof value.kind !== "string" || !sameScope(value, scope)) return false;
+      // The study inputs are queued before any other step awaits (§0.1a `inputs`): a request the page made after them, such as a
+      // Tune, then waits for them. Only the inputs route takes this message kind, so the order of the others is unchanged.
+      const change = inputsRoute.handle(value, scope);
+      if (await analysis.handle(value, scope)) return true;
+      if (!served) return false;
+      if (await change) return true;
       for (const stage of stages) {
-        if (await stage.handle(value, scope)) return true;
+        if (stage !== inputsRoute && await stage.handle(value, scope)) return true;
       }
+      // The page's Abort of an identification the engine runs (a refit's fit, B3.6): the stages above take the Abort of the
+      // operations they run, so this is the last of them.
+      if (value.kind === "control-studio.flow.cancel") return cancelIdentification(scope);
       return false;
     },
 
@@ -490,6 +645,7 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
 
     dispose(): void {
       disposed = true;
+      analysis.reset();
       for (const stage of stages) stage.reset?.();
       served = undefined;
       runningOperation = undefined;
@@ -520,6 +676,14 @@ export function controlStudioEngine(context: vscode.ExtensionContext): EnginePro
  */
 export function controlStudioStorageFolder(): string {
   return "";
+}
+
+/** The analysis the page showed, which the open answer names with the Tune page (A8.6, B9.9): `page.analysis`. */
+/** The analysis tool the Tune page showed last, with its inputs, as the open answer names it (`pageAnalysis`, B9.9, A8.6). */
+function openedAnalysis(result: OpenResult): AnalysisPage | undefined {
+  const analysis = record(record(result)?.pageAnalysis);
+  if (!analysis || typeof analysis.tool !== "string") return undefined;
+  return { tool: analysis.tool as AnalysisPage["tool"], inputs: (record(analysis.inputs) ?? {}) as AnalysisPage["inputs"] };
 }
 
 /** A controller family as the engine names it, or undefined for any other value. */

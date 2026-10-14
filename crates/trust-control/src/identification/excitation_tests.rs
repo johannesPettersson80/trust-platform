@@ -280,9 +280,9 @@ fn fits_a_delayed_first_order_model_to_a_relay_recording_from_its_baseline() {
     );
     near(fit.recommended.dead_time_seconds, 1.0, 0.15, "dead time L");
     assert!(
-        fit.recommended.normalized_error <= 0.1,
+        fit.recommended.decisive_error() <= 0.1,
         "normalized error {}",
-        fit.recommended.normalized_error
+        fit.recommended.decisive_error()
     );
     assert_eq!(
         fit.input0, 75.0,

@@ -20,7 +20,7 @@ fn first_order() -> IdentifiedModel {
         time_constant_seconds: Some(4.0),
         second_time_constant_seconds: None,
         dead_time_seconds: Some(2.0),
-        normalized_error: 0.05,
+        normalized_error: Some(0.05),
         normalized_estimation_error: None,
         normalized_validation_error: None,
         estimation_residuals: None,

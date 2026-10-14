@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use serde_json::{json, Value};
 
 use super::*;
+use crate::loop_definition::NO_CONTROLLER_LAW;
 use crate::model::decode_general_model;
 use crate::stages::{apply_available, Stage, StageStatus};
 use crate::study::Study;
@@ -432,12 +433,34 @@ fn a_section_whose_declared_scenarios_the_campaign_refuses_is_not_kept() {
 }
 
 #[test]
+fn check_before_start_refuses_a_loop_without_a_controller_law_first_and_with_no_action() {
+    // C12: Validate is Not applicable to such a loop, so its refusal comes before the model and candidate checks.
+    let mut observed = fixture_loop();
+    observed.controller.law = None;
+    observed.controller.design = Some(crate::loop_definition::Design::Project);
+    observed.topology = Some(crate::loop_definition::Topology::OpenLoop);
+    let readiness: Result<String, Failure> = Ok("sha256:project".to_owned());
+    let refused = check_before_start(&ValidateInputs {
+        loop_definition: &observed,
+        model: None,
+        tune: None,
+        readiness: &readiness,
+    })
+    .expect_err("no controller law to validate");
+    assert_eq!(refused.message, NO_CONTROLLER_LAW);
+    assert_eq!(
+        (refused.cause, refused.next_action),
+        (Cause::Implementation, NextAction::None)
+    );
+}
+
+#[test]
 fn check_before_start_needs_a_current_model_first() {
     let loop_definition = fixture_loop();
     let readiness: Result<String, Failure> = Ok("sha256:project".to_owned());
     let refused = check_before_start(&ValidateInputs {
         loop_definition: &loop_definition,
-        identify: None,
+        model: None,
         tune: None,
         readiness: &readiness,
     })

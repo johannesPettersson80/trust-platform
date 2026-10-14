@@ -32,6 +32,7 @@ use trust_control::failure::Failure;
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::{TuneChoice, TuneMethod, TuneRequest};
 use trust_control::runtime::RuntimeConnection;
+use trust_control::study::current_model::{current_model, CurrentModel};
 use trust_control::study::identify::IdentifySection;
 use trust_control::study::inputs::InputsSection;
 use trust_control::study::tune::{
@@ -57,8 +58,8 @@ struct TuneWork {
     /// The project folder, where the loop's study is.
     project_root: PathBuf,
     loop_definition: LoopDefinition,
-    /// The study's Identify section, or `None` when the study has none.
-    identify: Option<IdentifySection>,
+    /// The study's current model (B3.7), or `None` when the study has none.
+    model: Option<CurrentModel>,
     /// The study's Tune section from before, whose supplied requirements the design keeps (B4.3).
     previous: Option<TuneSection>,
     /// The requirements the engineer recorded in the study's inputs, which the design takes as given (B4.3), when there are any.
@@ -73,7 +74,7 @@ impl TuneWork {
     fn inputs(&self) -> TuneInputs<'_> {
         TuneInputs {
             loop_definition: &self.loop_definition,
-            identify: self.identify.as_ref(),
+            model: self.model.as_ref(),
             previous: self.previous.as_ref(),
             relay: self.relay.as_ref(),
             request: &self.request,
@@ -145,14 +146,16 @@ fn study_work(
     request: TuneRequest,
 ) -> Result<TuneWork, Failure> {
     let study = storage::open_study(project_root, &loop_definition.id, &loop_definition.revision)?;
-    let identify = study.section::<IdentifySection>()?;
-    let relay = relay_evidence(project_root, loop_definition, identify.as_ref(), &request)?;
+    let model = current_model(&study)?;
+    // Only a fit has a relay record (N5.R): a supplied model names no estimation recording.
+    let identify = model.as_ref().and_then(|current| current.identify.as_ref());
+    let relay = relay_evidence(project_root, loop_definition, identify, &request)?;
     let inputs = study.section::<InputsSection>()?;
     let declared = inputs.as_ref().and_then(InputsSection::declared_response);
     Ok(TuneWork {
         previous: study.section::<TuneSection>()?,
         held: inputs.and_then(|inputs| inputs.requirements),
-        identify,
+        model,
         relay,
         project_root: project_root.to_path_buf(),
         loop_definition: loop_definition.clone(),

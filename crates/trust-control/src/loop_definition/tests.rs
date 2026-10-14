@@ -608,7 +608,7 @@ fn a_control_pid_initialization_binds_its_seven_states_to_their_operating_point_
 }
 
 #[test]
-fn the_rust_engine_refuses_a_parked_feature_and_a_loop_without_a_law() {
+fn the_rust_engine_refuses_a_parked_feature_and_a_pid_loop_that_lost_its_law() {
     let grouped = with(
         complete_loop(),
         &["controller", "group"],
@@ -623,6 +623,7 @@ fn the_rust_engine_refuses_a_parked_feature_and_a_loop_without_a_law() {
         "{}",
         failure.message
     );
+    // A loop the project does not design and that has no law is a loop setup to repair, not a C12 loop (specification 35, C12).
     let mut lawless = complete_loop();
     lawless["controller"]
         .as_object_mut()
@@ -632,7 +633,79 @@ fn the_rust_engine_refuses_a_parked_feature_and_a_loop_without_a_law() {
         .expect("decoded")
         .rust_engine_support()
         .expect_err("refused");
-    assert_eq!(failure.next_action, NextAction::OpenLoopSetup);
+    assert_eq!(
+        (failure.cause, failure.next_action),
+        (Cause::Implementation, NextAction::OpenLoopSetup),
+        "{failure:?}"
+    );
+    assert!(
+        failure.message.contains("no controller law"),
+        "{}",
+        failure.message
+    );
+}
+
+#[test]
+fn the_rust_engine_runs_an_observation_loop_without_a_law_and_its_law_stages_refuse_it() {
+    // C12: the project designs the controller and binds no law. The engine runs the loop; Tune, Validate and Apply refuse it.
+    let mut observed = complete_loop();
+    observed["controller"]
+        .as_object_mut()
+        .expect("controller")
+        .remove("law");
+    observed["controller"]["design"] = json!("project");
+    observed["experiment"] = json!({
+        "execution": "project-scripted", "kind": "observation", "amplitude": 0,
+        "durationSeconds": 120, "seed": 1
+    });
+    let observed = decode(&observed).expect("decoded");
+    observed
+        .rust_engine_support()
+        .expect("the engine runs a loop without a controller law (C12)");
+    let refusal = observed
+        .require_controller_law()
+        .expect_err("nothing to tune");
+    assert_eq!(refusal.message, NO_CONTROLLER_LAW, "{refusal:?}");
+    assert_eq!(
+        (refusal.cause, refusal.next_action),
+        (Cause::Implementation, NextAction::None),
+        "{refusal:?}"
+    );
+    let with_law = decode(&complete_loop()).expect("decoded");
+    assert!(
+        with_law.require_controller_law().is_ok(),
+        "the PID loop has its law"
+    );
+}
+
+#[test]
+fn the_engine_runs_an_observation_lesson_and_an_open_loop_lesson_of_the_examples() {
+    // Specification 35, C12: heater lesson 04 is an observation loop (project-scripted, no law) and process-response lesson 13 is
+    // an open-loop experiment loop (`topology: "open-loop"`, schema 2, no law). Both are the examples the course opens (checklist
+    // V7, wave 1). Cold-storage lesson 01 is schema 1 until the ON/OFF port, so it is not used here.
+    for text in [
+        include_str!(
+            "../../../../examples/control/01-feedback-foundations-and-temperature-control/04-water-heater-p/control-loop.json"
+        ),
+        include_str!(
+            "../../../../examples/control/01-feedback-foundations-and-temperature-control/13-process-response-classes/control-loop.json"
+        ),
+    ] {
+        let value: Value = serde_json::from_str(text).expect("json");
+        let loop_definition =
+            LoopDefinition::decode(text).unwrap_or_else(|error| panic!("{}: {error}", value["id"]));
+        loop_definition
+            .validate(&scope(&value))
+            .unwrap_or_else(|error| panic!("{}: {error}", value["id"]));
+        loop_definition
+            .rust_engine_support()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", value["id"]));
+        assert!(
+            loop_definition.require_controller_law().is_err(),
+            "{}: no controller law, so Tune, Validate and Apply refuse it",
+            value["id"]
+        );
+    }
 }
 
 #[test]
@@ -707,6 +780,31 @@ fn every_shipped_loop_of_the_current_version_decodes_and_validates() {
             .and_then(|loop_definition| loop_definition.validate(&scope(&value)))
         {
             problems.push(format!("{}: {error}", file.display()));
+        }
+    }
+    assert!(problems.is_empty(), "{problems:#?}");
+}
+
+#[test]
+fn every_shipped_loop_runs_on_the_rust_engine_or_is_parked_never_refused_otherwise() {
+    // The panel keeps a parked loop on the TypeScript route silently (cause controller-capability); any other refusal at open is
+    // shown on the page as a failure. A loop without a controller law is not parked (C12): the 53 course loops of that shape
+    // open on the engine, so every shipped loop is held to the two outcomes here, and a refusal of another cause fails the test.
+    let mut files = Vec::new();
+    shipped_loops(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples"),
+        &mut files,
+    );
+    let mut problems = Vec::new();
+    for file in files {
+        let text = std::fs::read_to_string(&file).expect("readable");
+        let Ok(loop_definition) = LoopDefinition::decode(&text) else {
+            continue;
+        };
+        if let Err(failure) = loop_definition.rust_engine_support() {
+            if failure.cause != Cause::ControllerCapability {
+                problems.push(format!("{}: {failure:?}", file.display()));
+            }
         }
     }
     assert!(problems.is_empty(), "{problems:#?}");

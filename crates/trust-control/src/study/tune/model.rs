@@ -14,7 +14,7 @@ use trust_control_math::identify::LowOrderModelKind;
 use crate::identification::plant::IdentifiedModel;
 use crate::identification::refusal::Refusal;
 use crate::model::GeneralModel;
-use crate::study::identify::IdentifySection;
+use crate::study::current_model::CurrentModel;
 use crate::tuning::candidate_margins::plant_transfer;
 use crate::tuning::structure::is_exactly_zero;
 
@@ -30,29 +30,28 @@ const NOT_LOW_ORDER: &str =
 const ERROR_NOT_RECORDED: &str =
     "The model's normalized error is not recorded, so the model cannot be tuned.";
 
-/// The tuning model of the study's model (B4.2): the form, the gain `K` (or the rate gain `K′` of an integrating form),
-/// the time constants and the dead time of the transfer function Identify wrote. Its normalized error is the one that
-/// decides the model (N3.2), as the study's presentation records it: the error on the estimation recording for a
-/// provisional model, and the error on the independent validation recording otherwise. The rest of the fit evidence (the
-/// residuals, the uncertainty and the search-boundary finding) is not part of the tuning model.
+/// The tuning model of the study's current model (B3.7, B4.2): the form, the gain `K` (or the rate gain `K′` of an integrating
+/// form), the time constants and the dead time of the transfer function Identify wrote or the engineer supplied. A fit's
+/// normalized error is the one that decides it (N3.2), as the study's presentation records it: the error on the estimation
+/// recording for a provisional fit, and the error on the independent validation recording otherwise. A supplied model was not
+/// fitted, so it has no error and Tune's error check does not apply to it (B3.7). The rest of the fit evidence (the residuals,
+/// the uncertainty and the search-boundary finding) is not part of the tuning model.
 ///
 /// # Errors
 /// Returns a [`Refusal`] when the model is not a transfer function of a low-order form Identify writes, or when the study
-/// does not record the normalized error that decides it.
-pub(crate) fn tuning_model(
-    model: &GeneralModel,
-    identify: &IdentifySection,
-) -> Result<IdentifiedModel, Refusal> {
-    let GeneralModel::TransferFunction { identity, transfer } = model else {
+/// does not record the normalized error that decides a fit.
+pub(crate) fn tuning_model(current: &CurrentModel) -> Result<IdentifiedModel, Refusal> {
+    let GeneralModel::TransferFunction { identity, transfer } = &current.model else {
         return Err(Refusal::new(NOT_LOW_ORDER));
     };
-    let presentation = &identify.presentation.presentation;
-    let recorded = if identify.provisional {
-        presentation.estimation.normalized_error
-    } else {
-        presentation.validation.normalized_error
+    let normalized_error = match &current.identify {
+        Some(_) => Some(
+            current
+                .fit_error()
+                .ok_or_else(|| Refusal::new(ERROR_NOT_RECORDED))?,
+        ),
+        None => None,
     };
-    let normalized_error = recorded.ok_or_else(|| Refusal::new(ERROR_NOT_RECORDED))?;
     low_order_model(
         &transfer.numerator,
         &transfer.denominator,
@@ -78,7 +77,7 @@ fn low_order_model(
     numerator: &[f64],
     denominator: &[f64],
     delay: f64,
-    normalized_error: f64,
+    normalized_error: Option<f64>,
 ) -> Result<IdentifiedModel, Refusal> {
     let [gain_coefficient] = *numerator else {
         return Err(Refusal::new(NOT_LOW_ORDER));
@@ -154,7 +153,7 @@ fn identified(
     gain: f64,
     time_constants: [Option<f64>; 2],
     delay: f64,
-    normalized_error: f64,
+    normalized_error: Option<f64>,
 ) -> IdentifiedModel {
     let [first, second] = time_constants;
     let stable = kind == LowOrderModelKind::Integrating

@@ -63,6 +63,8 @@ struct Reviewed {
 /// the current controller's; another change replaced the settings Apply wrote; or another operation owns the parameter record or the
 /// transfer.
 pub fn review_restore(context: &mut ApplyContext<'_>) -> Result<ApplicationReview, Failure> {
+    // A loop without a controller law has no settings Apply could have written (C12).
+    context.loop_definition.require_controller_law()?;
     let mut client = RuntimeClient::connect(context.connection)?;
     reviewed(&mut client, context).map(|reviewed| reviewed.review)
 }
@@ -80,6 +82,7 @@ pub fn run_restore(
     operation: &OperationContext,
     identity: &str,
 ) -> Result<RestoreOutcome, Failure> {
+    context.loop_definition.require_controller_law()?;
     let mut client = RuntimeClient::connect(context.connection)?;
     let Reviewed { review, checkpoint } = reviewed(&mut client, context)?;
     if review.identity != identity {

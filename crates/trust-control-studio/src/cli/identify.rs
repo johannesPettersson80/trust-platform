@@ -70,7 +70,9 @@ fn request(args: &IdentifyArgs, environment: Environment<'_>) -> Result<Identify
         }
         Requested::Recording(recording_id) => (
             IdentifyAction::OpenRecording {
-                recording_id: recording_id.to_string(),
+                recording_id: Some(recording_id.to_string()),
+                inputs: None,
+                outputs: None,
             },
             None,
         ),
@@ -248,7 +250,9 @@ mod tests {
         assert_eq!(
             fitted.action,
             IdentifyAction::OpenRecording {
-                recording_id: recording.clone()
+                recording_id: Some(recording.clone()),
+                inputs: None,
+                outputs: None,
             }
         );
         let reset = request_in("/no-runtime-project", &["--reset"]).expect("no runtime is needed");

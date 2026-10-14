@@ -6,6 +6,19 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Control Studio's Tune page analysis now runs in its engine for every loop: Bode, the measured frequency response, Nyquist
+  and loop response, root locus, Routh–Hurwitz, the pole-zero map, lead/lag design, the initial-state response,
+  controllability and observability, and the relative gain array. Long calculations show Abort. Reopening a loop shows the last
+  tool with its inputs and calculates it again, and the root locus, Routh, feedback and measured-response results are kept in
+  the loop's study.
+- Loops without a controller law, such as the course's observation and open-loop lessons, now open on Control Studio's
+  engine: Identify serves them, and Tune, Validate and Apply say that they do not apply.
+- Control Studio's Open recording… (with any method except Recorded-data fit) and Open model… run in its engine. An opened
+  file is kept as a recording of the study. Its channels can be chosen with their units, including archived channels that
+  the loop does not bind. Two independent runs, from one file or from two files and from a simulation or a connected
+  runtime, are fitted with independent validation. A supplied model becomes the study's model, which Tune designs on.
+- Choosing an identification setting that Identify cannot use now names the rule it breaks, for example "Relay
+  identification needs an explicitly declared process direction.", instead of a general refusal.
 - Control Studio's panel in VS Code now runs on its engine, `trust-control-studio serve`, so the panel and the command line
   decide everything the same way: identification, tuning, validation, Apply, Restore and Keep, which stages are available, and
   every refusal with its next action. Reopening a loop shows its identified model with the response plot, its candidate, its

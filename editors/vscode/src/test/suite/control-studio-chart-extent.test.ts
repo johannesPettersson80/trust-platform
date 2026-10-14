@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { axis } from "../../controlStudio/webview/chartPrimitives";
+import { axis, formatPhaseDegrees, phaseAxis, phaseAxisRange } from "../../controlStudio/webview/chartPrimitives";
 import { responseRowAxis, responseRowGrids } from "../../controlStudio/webview/responseRows";
 const echarts = require("echarts");
 
@@ -96,5 +96,40 @@ suite("Control Studio populated chart extents", () => {
       assert.ok(minimum > 19 && minimum <= 20 && maximum >= 21 && maximum < 22,
         `the 1°C response must be readable at its20°C operating point: ${minimum}..${maximum}`);
     } finally { chart.dispose(); }
+  });
+  test("a phase axis spans whole 45-degree steps around its data, so noise around a zero phase is not scaled up", () => {
+    // A pure gain's phase is zero or floating-point noise around zero (2.5e-16 degrees in the screenshot).
+    assert.deepStrictEqual(phaseAxisRange([-2.5e-16, 1.9e-16]), { minimum: -45, maximum: 45 });
+    assert.deepStrictEqual(phaseAxisRange([0, 2.5e-16]), { minimum: 0, maximum: 45 });
+    assert.deepStrictEqual(phaseAxisRange([0, 0]), { minimum: 0, maximum: 45 });
+    assert.deepStrictEqual(phaseAxisRange([]), { minimum: 0, maximum: 45 });
+    // The data's own range, widened outward to multiples of 45 degrees.
+    assert.deepStrictEqual(phaseAxisRange([-100, 0]), { minimum: -135, maximum: 0 });
+    assert.deepStrictEqual(phaseAxisRange([-100, -50, null, Number.NaN]), { minimum: -135, maximum: -45 });
+    assert.deepStrictEqual(phaseAxisRange([-45, -45]), { minimum: -45, maximum: 0 });
+    assert.deepStrictEqual(phaseAxisRange([50, 60]), { minimum: 45, maximum: 90 });
+  });
+  test("a phase axis is drawn with a tick every 45 degrees over its span", () => {
+    const theme = { foreground: "#eee", muted: "#aaa", border: "#333", background: "#111",
+      sp: "green", pv: "blue", mv: "red", auxiliaryOrange: "orange", auxiliaryPurple: "purple", auxiliaryYellow: "yellow" };
+    const phases = [-100, -60, 0];
+    const chart = echarts.init(null, null, { renderer: "svg", ssr: true, width: 640, height: 400 });
+    try {
+      chart.setOption({ animation: false, xAxis: { type: "value" },
+        yAxis: phaseAxis("Phase (°)", theme, phases),
+        series: [{ type: "line", data: phases.map((value, time) => [time, value]) }] });
+      const rendered: string = chart.renderToSVGString();
+      const [minimum, maximum] = chart.getModel().getComponent("yAxis").axis.scale.getExtent();
+      assert.deepStrictEqual([minimum, maximum], [-135, 0]);
+      for (const tick of ["-135", "-90", "-45", "0"]) assert.ok(rendered.includes(`>${tick}<`), `phase tick ${tick} is labelled`);
+    } finally { chart.dispose(); }
+  });
+  test("a phase in a result table is shown to 0.01 degree, and a value that rounds to zero shows 0", () => {
+    assert.strictEqual(formatPhaseDegrees(1.9e-16), "0");
+    assert.strictEqual(formatPhaseDegrees(-0.004), "0");
+    assert.strictEqual(formatPhaseDegrees(-0), "0");
+    assert.strictEqual(formatPhaseDegrees(-12.5), "-12.50");
+    assert.strictEqual(formatPhaseDegrees(45), "45.00");
+    assert.strictEqual(formatPhaseDegrees(Number.NaN), "—");
   });
 });

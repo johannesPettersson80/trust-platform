@@ -9,6 +9,7 @@ use std::sync::Arc;
 use serde_json::{json, Value};
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::OperationUpdate;
+use trust_control::study::current_model::{CurrentModel, CurrentModelSource};
 use trust_control::study::STUDY_FORMAT;
 
 use super::{entry_noise, ValidateWork};
@@ -119,7 +120,16 @@ fn a_study_that_cannot_be_read_ends_the_validation_instead_of_making_the_entry_c
         loop_definition: example.clone(),
     };
     assert!(
-        entry_noise(&work, &example, &model()).is_err(),
+        entry_noise(
+            &work,
+            &example,
+            &CurrentModel {
+                source: CurrentModelSource::Supplied,
+                model: model(),
+                identify: None,
+            }
+        )
+        .is_err(),
         "an unreadable study is a failure of the validation"
     );
     fs::remove_dir_all(&root).expect("clean up");

@@ -80,6 +80,8 @@ pub fn review_keep(
     unsaved_files: &[PathBuf],
     tool: &impl ProjectTool,
 ) -> Result<KeepReview, Failure> {
+    // A loop without a controller law binds no record Apply wrote (C12); `confirm_keep` reviews again, so it refuses there too.
+    loop_definition.require_controller_law()?;
     let record = rules::keepable_record(loop_definition)?;
     let values = rules::kept_values(&record, running_values)?;
     let plan = plan_keep(project, &record.record, &values, tool)?;

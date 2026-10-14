@@ -27,7 +27,7 @@ use trust_control::messages::{ModelCheck as CheckRecord, ValidateRequest};
 use trust_control::model::{GeneralModel, SimulationOverride};
 use trust_control::recording::EvidenceSource;
 use trust_control::runtime::RuntimeConnection;
-use trust_control::study::identify::IdentifySection;
+use trust_control::study::current_model::{current_model, CurrentModel};
 use trust_control::study::inputs::{held_loop, held_scenarios, tune_as_held, InputsSection};
 use trust_control::study::tune::TuneSection;
 use trust_control::study::validate::{
@@ -174,19 +174,19 @@ fn run_validate(
     // The readiness of the isolated simulation (E8.2) gives the project revision every run is reviewed on.
     let readiness = readiness_of(connection);
     let study = working_study(work)?;
-    let (identify, tune) = validated_sections(&study, loop_definition, &readiness)?;
+    let (current, tune) = validated_sections(&study, loop_definition, &readiness)?;
     let project_revision = readiness.clone()?;
     // Part one (B5.1 (a), B5.2): the model check of a provisional model. A check that does not pass stops Validate (B5.5).
-    let qualification = model_check_part(context, work, connection, &study, &identify, &tune)?;
+    let qualification = model_check_part(context, work, connection, &study, &current, &tune)?;
     // Part two (B5.3) runs on the study as the check left it: a passing check qualifies the model.
     let study = working_study(work)?;
-    let (identify, tune) = validated_sections(&study, loop_definition, &readiness)?;
+    let (current, tune) = validated_sections(&study, loop_definition, &readiness)?;
     let outcome = actual_part(
         context,
         work,
         connection,
         &project_revision,
-        &identify,
+        &current,
         &tune,
         qualification,
     )?;
@@ -211,7 +211,7 @@ fn actual_part(
     work: &ValidateWork,
     connection: &RuntimeConnection,
     project_revision: &str,
-    identify: &IdentifySection,
+    current: &CurrentModel,
     tune: &TuneSection,
     qualification: ModelQualification,
 ) -> Result<ValidateOutcome, Failure> {
@@ -226,7 +226,7 @@ fn actual_part(
     // the candidate's, and the campaign checks that every bound parameter is present and within its bounds (E8.4).
     let observed = client.parameter_values(loop_definition)?;
     let plant = configured_plant_of(&mut client, loop_definition);
-    let model = &identify.selected_model;
+    let model = &current.model;
     // The campaign on the configured plant is built first: its refusals (B5.5) hold whichever plant the runs take.
     let configured = engineer_verification_campaign(
         loop_definition,
@@ -237,7 +237,7 @@ fn actual_part(
     )?;
     // The noise of the Manual-to-Auto entry case is read before the runs, and its failure ends the validation (`entry_noise`). The case
     // itself is planned after the runs, from the point its plant starts at (B5.3), so a refusal of its plan is the case's own (B5.4, C1).
-    let noise = entry_noise(work, loop_definition, model)?;
+    let noise = entry_noise(work, loop_definition, current)?;
     let mut journal = Journal::open(
         &work.storage_folder,
         &loop_definition.project_id,
@@ -308,7 +308,7 @@ fn actual_part(
     let study = working_study(work)?;
     let before = stage_evidence(
         loop_definition,
-        Some(identify),
+        Some(current),
         Some(tune),
         None,
         !study.recordings.is_empty(),
@@ -333,10 +333,10 @@ fn actual_part(
 fn entry_noise(
     work: &ValidateWork,
     loop_definition: &LoopDefinition,
-    model: &GeneralModel,
+    current: &CurrentModel,
 ) -> Result<f64, Failure> {
     let study = working_study(work)?;
-    measured_noise(&work.project_root, &study, loop_definition, model)
+    measured_noise(&work.project_root, &study, loop_definition, current)
 }
 
 /// Plans the Manual-to-Auto entry case of this validation (B5.3) on `model`, the case's start model (`entry_start_model`). Every Apply
@@ -591,14 +591,19 @@ fn model_check_part(
     work: &ValidateWork,
     connection: &RuntimeConnection,
     study: &Study,
-    identify: &IdentifySection,
+    current: &CurrentModel,
     tune: &TuneSection,
 ) -> Result<ModelQualification, Failure> {
-    if !identify.provisional {
+    if !current.provisional() {
         return Ok(ModelQualification::Qualified);
     }
     let loop_definition = &work.loop_definition;
-    let stored = storage::read_identify(&work.project_root, study)?.ok_or_else(study_changed)?;
+    // A fit is checked against the recording it was fitted on (B5.2); a supplied model has no estimation recording to read.
+    let stored = if current.identify.is_some() {
+        Some(storage::read_identify(&work.project_root, study)?.ok_or_else(study_changed)?)
+    } else {
+        None
+    };
     // A controller that is not ON/OFF gives the check the settling time of its requirements (B3.4 step 2, A4.2).
     let expected_settling_seconds = if loop_definition.controller.on_off.is_some() {
         None
@@ -617,7 +622,8 @@ fn model_check_part(
     let request = ModelCheckRequest {
         project_root: &work.project_root,
         loop_definition,
-        stored: &stored,
+        current,
+        stored: stored.as_ref(),
         expected_settling_seconds,
     };
     let check = run_model_check(
@@ -637,7 +643,7 @@ fn model_check_part(
             recording_id,
             normalized_error,
         } => Ok(ModelQualification::Checked(passed_check(
-            identify,
+            current,
             loop_definition,
             recording_id,
             normalized_error,
@@ -652,14 +658,14 @@ fn model_check_part(
 /// # Errors
 /// The loop's identification policy does not hold its limit (`maximum_normalized_error`).
 fn passed_check(
-    identify: &IdentifySection,
+    current: &CurrentModel,
     loop_definition: &LoopDefinition,
     recording_id: String,
     normalized_error: Option<f64>,
 ) -> Result<CheckRecord, Failure> {
     Ok(CheckRecord {
         status: RequirementStatus::Pass,
-        model_revision: identify.selected_model.identity().revision.clone(),
+        model_revision: current.model.identity().revision.clone(),
         recording_id,
         limit: maximum_normalized_error(loop_definition)?,
         normalized_error,
@@ -689,8 +695,8 @@ fn readiness_of(connection: &RuntimeConnection) -> Result<String, Failure> {
     RuntimeClient::connect(connection).and_then(|mut client| client.isolated_run_readiness())
 }
 
-/// The study's Identify and Tune sections, both of which a Validate needs (B5.5, A8.4). trust-control's `check_before_start` refuses
-/// a study without a current model or a current candidate, and an isolated simulation that is not ready, before any of them is
+/// The study's current model and Tune section, both of which a Validate needs (B5.5, A8.4, B3.7). trust-control's `check_before_start`
+/// refuses a study without a current model or a current candidate, and an isolated simulation that is not ready, before any of them is
 /// returned.
 ///
 /// # Errors
@@ -699,19 +705,19 @@ fn validated_sections(
     study: &Study,
     loop_definition: &LoopDefinition,
     readiness: &Result<String, Failure>,
-) -> Result<(IdentifySection, TuneSection), Failure> {
-    let identify = study.section::<IdentifySection>()?;
+) -> Result<(CurrentModel, TuneSection), Failure> {
+    let current = current_model(study)?;
     let tune = study.section::<TuneSection>()?;
     let inputs = study.section::<InputsSection>()?;
     check_before_start(&ValidateInputs {
         loop_definition,
-        identify: identify.as_ref(),
+        model: current.as_ref(),
         tune: tune.as_ref(),
         readiness,
     })?;
-    match (identify, tune) {
+    match (current, tune) {
         // Validate judges the candidate against the requirements the study holds (B4.3, A8.4).
-        (Some(identify), Some(tune)) => Ok((identify, tune_as_held(&tune, inputs.as_ref()))),
+        (Some(current), Some(tune)) => Ok((current, tune_as_held(&tune, inputs.as_ref()))),
         _ => Err(study_changed()),
     }
 }

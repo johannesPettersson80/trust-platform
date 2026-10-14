@@ -304,7 +304,10 @@ fn fit_warnings(
     if !model.stable {
         warnings.push("The fitted model is not stable.".to_string());
     }
-    if model.normalized_error > HIGH_PREDICTION_ERROR {
+    if model
+        .normalized_error
+        .is_some_and(|error| error > HIGH_PREDICTION_ERROR)
+    {
         warnings.push("Prediction error is high for controller design.".to_string());
     }
     if let Some(fraction) = final_change_fraction {

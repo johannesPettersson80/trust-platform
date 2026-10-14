@@ -190,6 +190,21 @@ fn a_hand_written_record_is_reviewed_without_writing_and_written_on_confirmation
 }
 
 #[test]
+fn a_loop_without_a_controller_law_is_refused_before_any_request_or_write() {
+    // C12: an observation loop binds no record Apply wrote, so Keep refuses it with the reason and asks the tool nothing.
+    let folder = Folder::new("observation", MAIN);
+    let observation = load_loop(
+        "examples/control/01-feedback-foundations-and-temperature-control/04-water-heater-p/control-loop.json",
+    );
+    let tool = ScriptedTool::new(Vec::new());
+    let failure = review_keep(folder.path(), &observation, &running(&[]), &[], &tool)
+        .expect_err("an observation loop has nothing to keep");
+    assert_eq!(failure.next_action, NextAction::None, "{failure:?}");
+    assert!(tool.requests().is_empty(), "the tool is asked nothing");
+    assert_eq!(fs::read_to_string(folder.main()).expect("Main.st"), MAIN);
+}
+
+#[test]
 fn a_confirmation_that_does_not_give_back_the_review_identity_writes_nothing() {
     let folder = Folder::new("identity", MAIN);
     let values = running(&[("P1.Parameters.ProportionalGain", 2.5)]);

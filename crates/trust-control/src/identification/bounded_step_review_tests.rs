@@ -417,9 +417,9 @@ fn the_estimated_normalized_error_divides_by_the_span_of_the_fit_record_not_by_t
     let expected = rms / (high - low);
     let response = (analysis.final_window.mean - analysis.baseline.mean).abs();
     assert!(
-        (review.selected.normalized_error - expected).abs() <= 1e-12,
+        (review.selected.decisive_error() - expected).abs() <= 1e-12,
         "normalized {} against the span {expected}",
-        review.selected.normalized_error
+        review.selected.decisive_error()
     );
     assert!(
         (rms / response - expected).abs() > 1e-6,

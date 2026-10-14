@@ -14,7 +14,9 @@ use crate::identification::identify_result::identify_signals;
 use crate::identification::identify_result::tests::plant_loop;
 use crate::identification::model_comparison::ComparisonPresentation;
 use crate::identification::presentation::identified_model_presentation;
-use crate::loop_definition::{ControllerLaw, Parameter, PidLaw, RealType};
+use crate::loop_definition::{
+    ControllerLaw, Design, Parameter, PidLaw, RealType, Topology, NO_CONTROLLER_LAW,
+};
 use crate::messages::{CandidateOutcome, PreviewRequest, TuneChoice, TuneMethod, TuneRole};
 use crate::model::decode_general_model;
 use crate::recording::EvidenceSource;
@@ -52,7 +54,7 @@ fn identify_section(revision: &str, gain: f64, delay: f64) -> IdentifySection {
     let fitted = IdentifiedModel {
         time_constant_seconds: Some(2.0),
         dead_time_seconds: Some(delay),
-        normalized_error: 0.04,
+        normalized_error: Some(0.04),
         ..fitted_model(LowOrderModelKind::FirstOrderDeadTime, gain)
     };
     let fit = ModelFitEvidence {
@@ -145,8 +147,8 @@ fn parameters() -> ControlPidParameters {
     }
 }
 
-/// The plant loop with the parallel PID law of a `Control.PID` record, which Tune designs for (B4.7: a loop without a
-/// controller law is refused).
+/// The plant loop with the parallel PID law of a `Control.PID` record, which Tune designs for (B4.7). A loop without a
+/// controller law is not one Tune designs for: its Tune stage is Not applicable (C12).
 fn pid_loop() -> LoopDefinition {
     let mut loop_definition = plant_loop();
     loop_definition.controller.law = Some(ControllerLaw::Pid(Box::new(PidLaw {
@@ -349,14 +351,14 @@ fn a_section_that_breaks_a_rule_is_neither_kept_nor_read() {
 #[test]
 fn the_tune_stage_has_a_candidate_only_while_the_study_holds_the_model_it_was_designed_on() {
     let loop_definition = plant_loop();
-    let identify = identify_section("model:fitted:1", 0.5, 1.0);
+    let identify = CurrentModel::identified(identify_section("model:fitted:1", 0.5, 1.0));
     let designed = valid_section("model:fitted:1");
 
     let evidence = stage_evidence(&loop_definition, Some(&identify), Some(&designed), true);
     assert!(evidence.has_model && evidence.has_candidate && evidence.has_recording);
     assert_eq!(tune_status(&evidence), StageStatus::Complete);
 
-    let replaced = identify_section("model:fitted:2", 0.5, 1.0);
+    let replaced = CurrentModel::identified(identify_section("model:fitted:2", 0.5, 1.0));
     let stale = stage_evidence(&loop_definition, Some(&replaced), Some(&designed), true);
     assert!(stale.has_model, "the new model is current for the loop");
     assert!(
@@ -378,12 +380,35 @@ fn the_tune_stage_has_a_candidate_only_while_the_study_holds_the_model_it_was_de
 }
 
 #[test]
+fn tune_refuses_a_loop_without_a_controller_law_before_it_looks_for_a_model() {
+    // C12: Tune is Not applicable to such a loop, so the refusal comes before the model check and needs no action.
+    let mut observed = plant_loop();
+    observed.controller.law = None;
+    observed.controller.design = Some(Design::Project);
+    observed.topology = Some(Topology::OpenLoop);
+    let request = tune_request(None);
+    let refused = check_before_start(&TuneInputs {
+        loop_definition: &observed,
+        model: None,
+        previous: None,
+        request: &request,
+        relay: None,
+    })
+    .expect_err("no controller law to tune");
+    assert_eq!(refused.message, NO_CONTROLLER_LAW);
+    assert_eq!(
+        (refused.cause, refused.next_action),
+        (Cause::Implementation, NextAction::None)
+    );
+}
+
+#[test]
 fn tune_is_refused_at_once_without_a_model_that_is_current_for_the_loop() {
     let loop_definition = plant_loop();
     let request = tune_request(None);
     let without_model = TuneInputs {
         loop_definition: &loop_definition,
-        identify: None,
+        model: None,
         previous: None,
         request: &request,
         relay: None,
@@ -395,12 +420,12 @@ fn tune_is_refused_at_once_without_a_model_that_is_current_for_the_loop() {
     );
     assert!(refused.message.contains("no model"), "{}", refused.message);
 
-    let identify = identify_section("model:fitted:1", 0.5, 1.0);
+    let identify = CurrentModel::identified(identify_section("model:fitted:1", 0.5, 1.0));
     let mut moved = plant_loop();
     moved.signals.manipulated_variable.symbol = "Plant.Valve".to_owned();
     let not_current = TuneInputs {
         loop_definition: &moved,
-        identify: Some(&identify),
+        model: Some(&identify),
         ..without_model
     };
     let refused = check_before_start(&not_current).expect_err("the signals changed");
@@ -413,12 +438,12 @@ fn tune_is_refused_at_once_without_a_model_that_is_current_for_the_loop() {
 #[test]
 fn a_model_that_every_method_takes_is_accepted() {
     let loop_definition = pid_loop();
-    let identify = identify_section("model:fitted:1", 0.5, 1.0);
+    let identify = CurrentModel::identified(identify_section("model:fitted:1", 0.5, 1.0));
     for method in [None, Some(TuneMethod::Simc), Some(TuneMethod::Amigo)] {
         let request = tune_request(method);
         let inputs = TuneInputs {
             loop_definition: &loop_definition,
-            identify: Some(&identify),
+            model: Some(&identify),
             previous: None,
             request: &request,
             relay: None,
@@ -431,11 +456,11 @@ fn a_model_that_every_method_takes_is_accepted() {
 fn a_named_method_outside_its_domain_is_refused_with_choose_another_method() {
     let loop_definition = pid_loop();
     // The dead time of 3 s is longer than the time constant of 2 s: outside AMIGO's domain (N5.5), inside SIMC's.
-    let identify = identify_section("model:fitted:1", 0.5, 3.0);
+    let identify = CurrentModel::identified(identify_section("model:fitted:1", 0.5, 3.0));
     let amigo = tune_request(Some(TuneMethod::Amigo));
     let inputs = TuneInputs {
         loop_definition: &loop_definition,
-        identify: Some(&identify),
+        model: Some(&identify),
         previous: None,
         request: &amigo,
         relay: None,
@@ -462,12 +487,12 @@ fn a_named_method_outside_its_domain_is_refused_with_choose_another_method() {
 fn a_gain_that_contradicts_the_controller_action_is_refused_with_the_loop_setup() {
     let mut loop_definition = pid_loop();
     loop_definition.controller.action = Action::Reverse;
-    let direct_plant = identify_section("model:fitted:1", 0.5, 1.0);
+    let direct_plant = CurrentModel::identified(identify_section("model:fitted:1", 0.5, 1.0));
     for method in [None, Some(TuneMethod::Simc)] {
         let request = tune_request(method);
         let inputs = TuneInputs {
             loop_definition: &loop_definition,
-            identify: Some(&direct_plant),
+            model: Some(&direct_plant),
             previous: None,
             request: &request,
             relay: None,
@@ -487,11 +512,11 @@ fn a_gain_that_contradicts_the_controller_action_is_refused_with_the_loop_setup(
     }
 
     // A reverse-acting loop expects a negative gain (N6.2).
-    let reverse_plant = identify_section("model:fitted:1", -0.5, 1.0);
+    let reverse_plant = CurrentModel::identified(identify_section("model:fitted:1", -0.5, 1.0));
     let request = tune_request(Some(TuneMethod::Simc));
     let inputs = TuneInputs {
         loop_definition: &loop_definition,
-        identify: Some(&reverse_plant),
+        model: Some(&reverse_plant),
         previous: None,
         request: &request,
         relay: None,
@@ -649,11 +674,11 @@ fn the_tune_method_words_are_the_stored_ones_and_only_the_formulas_have_a_formul
 #[test]
 fn the_manual_settings_the_pins_and_the_relay_record_are_refused_at_once_with_their_sentences() {
     let loop_definition = example_loop();
-    let identify = example_identify(&loop_definition);
+    let identify = CurrentModel::identified(example_identify(&loop_definition));
     let refused_by = |request: &TuneRequest, relay: Option<&RelayCycleEvidence>| {
         check_before_start(&TuneInputs {
             loop_definition: &loop_definition,
-            identify: Some(&identify),
+            model: Some(&identify),
             previous: None,
             request,
             relay,
@@ -738,13 +763,13 @@ fn the_manual_settings_the_pins_and_the_relay_record_are_refused_at_once_with_th
 fn a_manual_entry_is_the_same_candidate_through_tune_and_through_preview_and_preview_keeps_nothing()
 {
     let loop_definition = example_loop();
-    let identify = example_identify(&loop_definition);
+    let identify = CurrentModel::identified(example_identify(&loop_definition));
     let settings = BTreeMap::from([(PROPORTIONAL.to_owned(), 2.0), (INTEGRAL.to_owned(), 0.5)]);
     let mut request = example_request(Some(TuneMethod::Manual));
     request.settings = Some(settings.clone());
     let inputs = TuneInputs {
         loop_definition: &loop_definition,
-        identify: Some(&identify),
+        model: Some(&identify),
         previous: None,
         request: &request,
         relay: None,
@@ -798,7 +823,7 @@ fn a_manual_entry_is_the_same_candidate_through_tune_and_through_preview_and_pre
     // Without a model, the preview is refused at once, with the next action Identify (B4.7).
     let without_model = preview(
         &TuneInputs {
-            identify: None,
+            model: None,
             ..inputs
         },
         None,
@@ -813,7 +838,7 @@ fn a_manual_entry_is_the_same_candidate_through_tune_and_through_preview_and_pre
 #[test]
 fn the_running_settings_add_the_current_traces_and_leave_the_candidate_alone() {
     let loop_definition = example_loop();
-    let identify = example_identify(&loop_definition);
+    let identify = CurrentModel::identified(example_identify(&loop_definition));
     let mut request = example_request(Some(TuneMethod::Manual));
     request.settings = Some(BTreeMap::from([
         (PROPORTIONAL.to_owned(), 2.0),
@@ -821,7 +846,7 @@ fn the_running_settings_add_the_current_traces_and_leave_the_candidate_alone() {
     ]));
     let inputs = TuneInputs {
         loop_definition: &loop_definition,
-        identify: Some(&identify),
+        model: Some(&identify),
         previous: None,
         request: &request,
         relay: None,
@@ -873,7 +898,7 @@ fn the_running_settings_add_the_current_traces_and_leave_the_candidate_alone() {
 #[test]
 fn a_qualified_relay_record_gives_the_relay_rule_candidate_with_its_ku_and_pu() {
     let loop_definition = example_loop();
-    let identify = example_identify(&loop_definition);
+    let identify = CurrentModel::identified(example_identify(&loop_definition));
     let relay = RelayCycleEvidence::Qualified {
         cycles: 4,
         output_amplitude: 1.0,
@@ -887,7 +912,7 @@ fn a_qualified_relay_record_gives_the_relay_rule_candidate_with_its_ku_and_pu() 
     let request = example_request(Some(TuneMethod::Relay));
     let outcome = tune(&TuneInputs {
         loop_definition: &loop_definition,
-        identify: Some(&identify),
+        model: Some(&identify),
         previous: None,
         request: &request,
         relay: Some(&relay),
@@ -911,11 +936,11 @@ fn a_qualified_relay_record_gives_the_relay_rule_candidate_with_its_ku_and_pu() 
 #[test]
 fn a_law_that_declares_a_filter_writes_its_filter_time_and_predicts_with_it() {
     let loop_definition = example_loop_with_filter();
-    let identify = example_identify(&loop_definition);
+    let identify = CurrentModel::identified(example_identify(&loop_definition));
     let calculated_request = example_request(Some(TuneMethod::Simc));
     let calculated = tune(&TuneInputs {
         loop_definition: &loop_definition,
-        identify: Some(&identify),
+        model: Some(&identify),
         previous: None,
         request: &calculated_request,
         relay: None,
@@ -935,7 +960,7 @@ fn a_law_that_declares_a_filter_writes_its_filter_time_and_predicts_with_it() {
     });
     let pinned = tune(&TuneInputs {
         loop_definition: &loop_definition,
-        identify: Some(&identify),
+        model: Some(&identify),
         previous: None,
         request: &pinned_request,
         relay: None,
@@ -951,10 +976,10 @@ fn a_law_that_declares_a_filter_writes_its_filter_time_and_predicts_with_it() {
     );
 
     let plain_loop = example_loop();
-    let plain_identify = example_identify(&plain_loop);
+    let plain_identify = CurrentModel::identified(example_identify(&plain_loop));
     let plain = tune(&TuneInputs {
         loop_definition: &plain_loop,
-        identify: Some(&plain_identify),
+        model: Some(&plain_identify),
         previous: None,
         request: &calculated_request,
         relay: None,
@@ -968,7 +993,7 @@ fn the_result_names_each_setting_of_the_candidate_by_its_symbol() {
     // A manual PI entry is the candidate, and the result gives its record under the loop's own symbols (B4.2, C0). The
     // measurement filter time that the loop declares is named with the value the engineer entered.
     let loop_definition = example_loop();
-    let identify = example_identify(&loop_definition);
+    let identify = CurrentModel::identified(example_identify(&loop_definition));
     let mut request = example_request(Some(TuneMethod::Manual));
     request.settings = Some(BTreeMap::from([
         (PROPORTIONAL.to_owned(), 2.0),
@@ -976,7 +1001,7 @@ fn the_result_names_each_setting_of_the_candidate_by_its_symbol() {
     ]));
     let outcome = tune(&TuneInputs {
         loop_definition: &loop_definition,
-        identify: Some(&identify),
+        model: Some(&identify),
         previous: None,
         request: &request,
         relay: None,
@@ -997,7 +1022,7 @@ fn the_result_names_each_setting_of_the_candidate_by_its_symbol() {
     );
 
     let filtered_loop = example_loop_with_filter();
-    let filtered_identify = example_identify(&filtered_loop);
+    let filtered_identify = CurrentModel::identified(example_identify(&filtered_loop));
     let mut filtered_request = example_request(Some(TuneMethod::Manual));
     filtered_request.settings = Some(BTreeMap::from([
         (PROPORTIONAL.to_owned(), 2.0),
@@ -1006,7 +1031,7 @@ fn the_result_names_each_setting_of_the_candidate_by_its_symbol() {
     ]));
     let filtered = tune(&TuneInputs {
         loop_definition: &filtered_loop,
-        identify: Some(&filtered_identify),
+        model: Some(&filtered_identify),
         previous: None,
         request: &filtered_request,
         relay: None,

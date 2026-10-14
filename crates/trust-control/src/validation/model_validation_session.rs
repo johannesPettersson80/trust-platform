@@ -123,8 +123,30 @@ pub fn check_independent_model<E: RunEvaluation + Clone>(
     })?;
     let channels = model_validation_channels(loop_definition, model)?;
     Ok(validate_frozen_model(
-        model, estimation, record, &channels, limit,
+        model,
+        Some(estimation),
+        record,
+        &channels,
+        limit,
     ))
+}
+
+/// The independent model check of a supplied model on the record of its validation run (`checkIndependentModel` for a model
+/// with no estimation record, B5.2). A supplied model was not estimated from a recording, so the check does not look for one: it
+/// compares the frozen model's prediction with the record under the loop's limit and channels, as [`check_independent_model`] does,
+/// without the rules that tie a fitted model to its estimation recording.
+///
+/// # Errors
+/// The loop's identification policy does not hold (see [`maximum_normalized_error`]). The model does not have a single input and a
+/// single output (see [`model_validation_channels`]).
+pub fn check_supplied_model<E: RunEvaluation + Clone>(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    record: &RuntimeVerificationResult<E>,
+) -> Result<IndependentModelValidation<E>, Failure> {
+    let limit = maximum_normalized_error(loop_definition)?;
+    let channels = model_validation_channels(loop_definition, model)?;
+    Ok(validate_frozen_model(model, None, record, &channels, limit))
 }
 
 /// A channel identity from the model's channel identifier and the loop's signal.

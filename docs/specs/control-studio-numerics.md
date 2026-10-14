@@ -381,6 +381,12 @@ disqualifies the response from transfer-function fitting. A transfer function
 fitted from the retained tones MUST be scored on different retained tones or in a
 separate excitation run (N3.4). The fitting tones alone are not validation evidence.
 
+The minimum coherence of a measured frequency response defaults to 0.8 (C7); a request
+gives its own minimum from 0 to 1. For each segment, the tone's bin `a − jb` is the
+least-squares fit of `k + a·cos θ + b·sin θ`, with `θ = ω·n·Ts`, over the segment's `m`
+samples. The fit's normal equations are a 3 × 3 system; when its determinant is at most
+`1e-12·m³`, the segment's bin is taken as zero, because the tone is not resolved there.
+
 **N2.9 Relay qualification.** A relay experiment qualifies cycles by these rules.
 
 - Each measured period starts at an observed low-to-high output transition.
@@ -517,6 +523,7 @@ analysis whose evidence is missing is refused, with the missing evidence named.
 | Model fit and residuals | A fitted model and the exact estimation data |
 | Prediction versus validation | A model and independent validation data (N3.4) |
 | Pole-zero map, Bode and Nyquist | An accepted linear dynamic model |
+| Initial-state response | An accepted linear dynamic model with its initial state and held input; the feedback connection also needs its controller (N4.4) |
 | Root locus | An accepted SISO linear model and a declared controller structure |
 | Margins and sensitivity | An accepted model and a current or candidate controller |
 | Channel response matrix and RGA | An accepted multivariable gain or transfer matrix with declared channel order |
@@ -1100,6 +1107,10 @@ The analysis needs no live controller and no acquired identification record. Its
 result keeps the selected and fixed parameters, the provenance, the approximations
 and the gain and pole coordinates. The result does not qualify a candidate for Apply
 (B5).
+
+A declared delay `L` is approximated by its first-order Padé form, `(1 − sL/2)/(1 + sL/2)`,
+multiplied into the plant's numerator and denominator before the roots of each gain are
+found. The approximation is named in the result's `approximation` (N7.5).
 
 **N7.7 Margins.** For the loop transfer function `L(jω)` of a candidate on the model:
 

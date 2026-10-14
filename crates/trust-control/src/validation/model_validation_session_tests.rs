@@ -108,6 +108,26 @@ fn a_model_without_its_estimation_record_is_refused_and_asks_to_identify_again()
 }
 
 #[test]
+fn a_supplied_model_is_checked_on_its_record_without_an_estimation_record() {
+    // A supplied model has no estimation record, so the check does not look for one (B5.2): it names none, and no row refuses for
+    // want of the estimation evidence.
+    let loop_definition = loop_definition();
+    let model = fitted_model(Vec::new(), vec![1.0], vec![1.0, 1.0]);
+    let validation = check_supplied_model(&loop_definition, &model, &run_record("validation"))
+        .expect("a supplied model needs no estimation record");
+    assert_eq!(validation.estimation_recording_id, None);
+    assert_eq!(validation.model_revision, model.identity().revision);
+    assert!(
+        validation
+            .rows
+            .iter()
+            .all(|row| !row.reason.contains("original estimation evidence")),
+        "{:?}",
+        validation.rows
+    );
+}
+
+#[test]
 fn the_check_takes_the_estimation_record_the_loop_channels_and_the_default_error_limit() {
     let loop_definition = loop_definition();
     let estimation = run_record("first");
@@ -124,7 +144,7 @@ fn the_check_takes_the_estimation_record_the_loop_channels_and_the_default_error
         &run_record("validation"),
     )
     .expect("the estimation record is found");
-    assert_eq!(validation.estimation_recording_id, "first");
+    assert_eq!(validation.estimation_recording_id.as_deref(), Some("first"));
     assert!(
         (validation.maximum_normalized_error - 0.15).abs() <= 1e-12,
         "the workflow's default limit is 0.15 (N3.2)"

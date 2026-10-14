@@ -1,7 +1,4 @@
-import type { LoopMessageScope } from "./messages";
 import { decodeGeneralModel, type GeneralModel } from "./generalModel";
-import { linearTransferModel } from "./linearTransferModel";
-import { calculateLeadLag } from "./threePageAnalysisOperations";
 
 export interface SavedLeadLagAnalysis {
   model: GeneralModel;
@@ -30,37 +27,12 @@ export function isSavedLeadLagAnalysis(value: unknown): value is SavedLeadLagAna
     && (result.lowFrequencyGainRatio === undefined || finite(result.lowFrequencyGainRatio));
 }
 
-/** Owns lead/lag design state so the browser only supplies bounded inputs. */
+/** Keeps the lead/lag design saved with a parked loop, for the selected model it was made from. The engine calculates
+ * lead/lag designs (`analysis/lead_lag_tool.rs`), so this owner calculates nothing. */
 export class LeadLagSession {
   private saved: SavedLeadLagAnalysis | undefined;
 
   constructor(private readonly selectedModel: () => GeneralModel | undefined) {}
-
-  async handle(message: unknown, scope: LoopMessageScope, post: (payload: Record<string, unknown>) => Promise<void>): Promise<boolean> {
-    if (!record(message) || message.schemaVersion !== 1 || message.projectId !== scope.projectId
-      || message.editorSessionId !== scope.editorSessionId || message.loopId !== scope.loopId
-      || message.expectedLoopRevision !== scope.loopRevision || typeof message.messageId !== "string"
-      || message.kind !== "control-studio.lead-lag.run" || !record(message.payload)) return false;
-    try {
-      const payload = message.payload;
-      const mode = payload.mode === "lag" ? "lag" : payload.mode === "lead" ? "lead" : undefined;
-      const crossover = payload.crossoverRadPerSecond;
-      const value = payload.value;
-      const model = this.selectedModel();
-      if (!mode || !finite(crossover) || (crossover as number) <= 0 || !finite(value) || !model)
-        throw new Error("Lead/lag design requires a selected model and bounded settings.");
-      const transfer = linearTransferModel(model);
-      const result = calculateLeadLag(transfer, mode, crossover as number, value as number);
-      if (result.status !== "qualified") throw new Error(`Lead/lag design was rejected: ${result.reason}.`);
-      const saved: SavedLeadLagAnalysis = { model, mode, crossoverRadPerSecond: crossover as number, value: value as number, result };
-      if (!isSavedLeadLagAnalysis(saved)) throw new Error("Lead/lag design did not satisfy the saved analysis contract.");
-      this.saved = saved;
-      await post({ status: "complete", saved });
-    } catch (error) {
-      await post({ status: "failed", reason: error instanceof Error ? error.message : String(error) });
-    }
-    return true;
-  }
 
   snapshot(): SavedLeadLagAnalysis | undefined {
     if (!this.saved) return undefined;

@@ -13,7 +13,7 @@ pub(crate) fn fitted_model(kind: LowOrderModelKind, gain: f64) -> IdentifiedMode
         time_constant_seconds: None,
         second_time_constant_seconds: None,
         dead_time_seconds: None,
-        normalized_error: 0.0,
+        normalized_error: Some(0.0),
         normalized_estimation_error: None,
         normalized_validation_error: None,
         estimation_residuals: None,
@@ -121,7 +121,7 @@ fn warns_of_instability_error_fraction_reached_and_an_unresolved_dead_time_in_th
     let model = IdentifiedModel {
         time_constant_seconds: Some(1.0),
         dead_time_seconds: Some(0.5),
-        normalized_error: 0.3,
+        normalized_error: Some(0.3),
         stable: false,
         ..fitted_model(LowOrderModelKind::FirstOrderDeadTime, 1.0)
     };

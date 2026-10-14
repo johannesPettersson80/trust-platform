@@ -51,7 +51,7 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
   `controlStudio/cancel`, `controlStudio/page`, `controlStudio/inputs`, `controlStudio/run`;
   `controlStudio/identify`, `controlStudio/tune`, `controlStudio/preview`, `controlStudio/validate`,
   `controlStudio/apply`, `controlStudio/restore`, `controlStudio/keep`; `controlStudio/setupDiscover`,
-  `controlStudio/setupSave`.
+  `controlStudio/setupSave`; `controlStudio/analyze`.
 - `controlStudio/inputs` records the engineer's study inputs (A8.1), as the page's editors change
   them: the identification method and the experiment limits (B3.2, the Limits editor), the
   requirements with the verification scenario list declared beside them (B4.3, the Requirements
@@ -60,7 +60,8 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
   keep no tuning method of their own: the method is the one the inputs name. Tune reads that response
   from the requirements when its request names none (`controlStudio/tune` and the automatic run alike,
   B4.3), so the page sends no response of its own. It answers at once with
-  the stages; a change invalidates exactly the results that depend on it (A8.4). `controlStudio/open`
+  the stages; a change invalidates exactly the results that depend on it (A8.4), and a refused change names the rule it breaks (B3.2:
+  a relay without its declared direction is refused with that rule's sentence). `controlStudio/open`
   answers the recorded inputs; the Apply availability of B6.4, B6.5 and A8.6 (Restore, Keep in
   project, and a journaled observation to resume); the last Validate result while it is current for the
   study's model, candidate, requirements and scenarios (A8.4), with its table and whether Apply is
@@ -90,12 +91,14 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
   of every stage, the stage evidence the page gates its actions on (a model, a candidate, a passed
   validation), the identification the run made when it identified, and the input it waits for, if
   any. Open recording… with a method other than Recorded-data fit (B3.3) identifies from a file,
-  which is not a run. The engine checks such a file (`identify` with `importRecording`, below) but
-  does not fit or keep it yet, so the page keeps that start on the TypeScript session until it
-  does. The engine fits only a recording the study keeps (`identify` with `openRecording`, B3.6).
-  Until then, what the TypeScript session keeps for a loop (a model fitted from an opened file, a
-  supplied model, the model tools' results) is stored beside the engine's study, in
-  `control-studio/<loop id>/typescript-session/`, and neither writes the other's files (A8.3).
+  which is not a run: the engine keeps the file as a recording of the study (`identify` with
+  `importRecording`, below) and fits it as it fits any recording the study keeps (`identify` with
+  `openRecording`, B3.6). A supplied model enters through `identify` with `importModel` (B3.7). For
+  a parked loop, what the TypeScript session keeps (a model fitted from an opened file, a supplied
+  model) is stored beside the engine's study, in `control-studio/<loop id>/typescript-session/`, and
+  neither writes the other's files (A8.3); that folder goes with the TypeScript session (stage V7).
+  The analysis the Tune page shows on a parked loop (its tool and inputs) is kept with that page. Opening the loop delivers it as
+  `pageAnalysis` is delivered for a served loop, so the page calculates it again (B9.9, A8.6).
 - `controlStudio/identify` with `action: "review"` answers the campaign Identify would run (the
   method, its excitation and limits, the duration, and for a project-scripted experiment its
   activation, abort and restoration, C12) and starts nothing; the page shows it before the
@@ -114,13 +117,70 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
   start. The manual parameter tool has no method, because Apply writes only the validated candidate (B6.1);
   a served loop refuses its parameter requests, and the page shows no parameter controls for it.
   `controlStudio/page`
-  records the page last viewed (A8.1), which `controlStudio/open` returns so reopening shows it
-  (A8.6); it changes nothing else and starts nothing. `controlStudio/preview` answers at once with
+  records the page last viewed (A8.1) and, on Tune, the analysis tool it shows with that tool's
+  inputs, which `controlStudio/open` returns so reopening shows them (A8.6, B9.9); it changes
+  nothing else and starts nothing. It also keeps the page's own view choices (`view`: the Method the
+  Identify page shows, including Open recording… and Open model…, which start no campaign) as view
+  state, which `open` answers as `pageView`; the engine never reads them, and a request without
+  `view` keeps the recorded one. `controlStudio/preview` answers at once with
   the predicted response, margins and outcome of entered controller settings on the study's model,
   as Tune with the manual method would finish, and stores nothing (B4.5).
+- `controlStudio/analyze` answers the analysis tools of the Tune page (B9.9). Its request has
+  `projectRoot`, `runtimeId` and `loopId`, as `controlStudio/preview` has them, and `tool` and
+  `inputs`. `tool` is one of `rootLocus`, `routh`, `poleZero`, `frequency`, `measuredFrequency`,
+  `feedback`, `leadLag`, `initialState`, `stateStructure` and `relativeGain`. `inputs` holds the
+  tool's own fields; each is optional, and an absent field takes the engine's default. The model
+  analysed is the study's selected model, or the general model that the request carries as `model`
+  (N4.1; at most 256,000 bytes of JSON). `feedback`, and `initialState` on its feedback connection,
+  close the loop with the controller the request carries as `controller`, or, when there is none,
+  with the loop's declared law. The analysis uses the model as Identify accepted it; it never
+  refits or rescales it (C0). A request without a `tool` answers the tools that apply to the model
+  and the loop, each with its label, its action text, whether it is an operation, and its default
+  inputs. Which tools apply, and every input check, are the engine's. A tool that does not apply,
+  or an input outside its limit (A7), is a method failure that names the input and gives its next
+  action (A11).
+  - A calculation is answered as `{"result": {"tool", "inputs", "defaults", "result"}}`, or with
+    `"failure"` in place of `"result"` when the calculation refuses, carrying its cause and next
+    action. `inputs` lists the inputs as the engine read them, with the defaults filled in; the
+    model and the controller are named by their revisions. The `result` holds the tool's answer with
+    two sentence lists: `summary` for the result area, warnings first, and `details` for the details
+    disclosure. A result the mathematics reports as unavailable (a state structure that does not
+    exist, a margin not observed in the range) is a `result` with its status, not a failure.
+  - `poleZero`, `leadLag`, `stateStructure` and `relativeGain` answer at once. `rootLocus`,
+    `routh`, `frequency`, `feedback`, `measuredFrequency` and `initialState` are operations: their
+    answer is `{"result": {"operationId": …}}`, and the final `controlStudio/update` of that
+    operation carries the calculation's answer as its result. Each operation runs under the budget
+    of A7; `controlStudio/cancel` stops it at its next step, and a cancelled operation keeps
+    nothing. An operation claims its loop as Tune does (A8.5), so one operation runs per loop at a
+    time; a quick answer claims nothing.
+  - The method starts nothing on a runtime and writes nothing to a runtime. It changes no ST, no
+    controller parameter and no candidate, and no result qualifies a candidate for Apply (N7.6). It
+    stores no model: a supplied model is kept by `identify` with `importModel` (B3.7).
+  - Records: for a loop with an engine study, a qualifying `rootLocus`, `routh`, `feedback` or
+    `measuredFrequency` result is kept in its study section (B10.2). `controlStudio/open` answers
+    the kept records, as `analysis`, while their loop and model revisions are current (A8.4). The
+    other results are not kept; reopening shows the tool and its inputs (`controlStudio/page`) and
+    calculates the result again.
+  - `measuredFrequency` measures the recording that its `recordingId` and `recordingRevision` name; each one the request names must
+    be the recording's. `recordingId` is the recording's identifier in the study (the `rec-` identifier that `importRecording` answers,
+    which the study lists), not the identifier the runtime gave its run, and the answer names that identifier. A request that names
+    neither measures the study's last kept recording that is a periodic record (B9.9), and the answer names the recording it used.
+    A study that keeps no such recording refuses with the next action Identify. A file opened with Recorded-data fit stays with
+    that manual identification on the TypeScript route until stage V7, so it is not one of the study's recordings.
+  - A loop whose structure the engine does not run yet (stage V7) has no engine study. For such a
+    loop the analysis takes the model from the request, keeps nothing, and answers no
+    `measuredFrequency`, because the recording it needs is held by the study. Its declared analysis
+    is read from the loop file: the cause `controller-capability` refuses stages, not a calculation.
+    When the loop file uses a structure the engine does not run yet, so that the engine cannot open the file at all, a request that
+    carries `model` answers every tool that applies to that model and to the `controller` it carries, operations included, as it
+    answers a served loop. The engine reads no declared analysis from that file and keeps no recording for it, so `rootLocus`, `routh`
+    and `measuredFrequency` do not apply, and nothing is kept. An operation claims the loop by the `projectId` and `id` that the file
+    names. A request without a model keeps the loop's own cause, and so does a loop identifier that the project does not declare;
+    any other failure of opening the loop is answered as it is.
 - `controlStudio/identify` with `action: "importRecording"` checks a saved Control Studio result or
-  recording file, given as its text in `json` (at most 32 MiB of text). It answers at once, starts
-  nothing and keeps nothing. The engine reads the file as B10.4 requires: a result of a schema
+  recording file, given as its text in `json` (at most 32 MiB of text), and keeps it as a recording
+  of the study, with its original source and the opened marker (B10.2, A9). It answers at once and
+  starts nothing. The engine reads the file as B10.4 requires: a result of a schema
   version other than 3 or 4 (B10.2), a malformed identity, a nonfinite or out-of-order sample,
   inconsistent units or source, an invalid selected interval, or a credential field is refused as
   a whole, with the sentence that says why. It then checks the recording as B3.6 and B3.9 require:
@@ -130,7 +190,54 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
   This check does not read the sections of later stages (B10.2); the TypeScript decoder still
   checks them for parked loops until V7. The answer is `{"status": "checked", "resultId",
   "resultRevision", "projectId", "source", "samples"}`: `source` is `Simulation` or `Physical` as the
-  file writes it, and `samples` is the number of raw samples.
+  file writes it, and `samples` is the number of raw samples. The answer also names `recordingId`,
+  the kept recording and `recordingCatalog`, the channels the recording offers with their ids and units, and the selection the
+  study keeps: the loop's plant input and measured output unless the engineer chose others (B3.6, B10.2). Every channel of the
+  archived run is kept with its unit: a channel the loop binds keeps the loop's signal, and any other channel, an extra output,
+  keeps its name and its unit, so `recordingCatalog` offers it and it can be selected (B3.6). `openRecording` then fits the
+  recording with that selection and the method of the study's inputs, or answers as `openRecording` below says; a file that is
+  refused keeps nothing.
+  A saved result that keeps completed runs of its engineer's study (`engineerStudy`, schema 4, B10.2) is read run by run. The
+  runs that hold the selected signals with their units, on the latest run's project revision and model revision, are the
+  candidates; the last two are the estimation and the independent validation run (B5.2). The engine keeps every archived run
+  as a recording, and with two candidates it fits the model on the first and checks it against the second: the answer then
+  names `identification`, and says that the model was checked against an independent recording. With one candidate the runs are
+  kept and the answer is `status: "recording-needed"` with the reason "Open an independent recording to check the plant model."
+  A malformed run refuses the file as a whole (B10.4). An isolated simulation's run is read as its frozen request and its verdict
+  say: it must answer the request, its stored verdict must be the verdict of its requirements evaluated again, and it is archived
+  unless it took a selected model's plant. A run of another execution is not read yet, so the file is imported as one recording as
+  before. The candidates of the pair also include the study's kept opened recordings of the same source. A recording kept from an
+  isolated simulation names the model revision of its run, so it reads back as that isolated run, with its channels, its samples
+  and its model revision, and pairs as the run it was (B3.6, B5.2). A pair of isolated simulation runs is fitted with independent
+  validation as a pair of connected records is (B5.2), and keeps its recordings like any other pair. `importRecording` pairs under
+  the study's kept recording selection when the file holds those channels, and under the loop's own plant input and measured
+  output otherwise; it keeps the selection it pairs under (B3.6).
+- `controlStudio/identify` with `action: "openRecording"` fits a recording the study keeps again, without live excitation (B3.6).
+  `recordingId` names the recording; without it the study's last opened recording is fitted, and a study without one refuses.
+  Its optional `inputs` and `outputs` name the plant input and the measured output of the fit by the recording's channel names;
+  without them the loop's own signals are used. A name the recording does not hold is refused at once with the sentence "Choose
+  input and output signals present in this recording." and no next action. The fit reads the selected signals from the
+  recording as the loop's plant input and measured output; the study keeps the signals the fit used and the selection
+  (B3.6, B10.2). The fit keeps the loop's plant input and measured output as its signals, with the recording channels it read
+  them from beside them; it is current while its signals are the loop's (A8.4). One plant input and one measured output are
+  fitted here; several signals wait for the state model fit (V7).
+  A selected output that the loop does not bind is a channel the recording holds as an extra output: it is fitted as the measured
+  output, read only, with the range its samples took, which describes the recorded data and grants no excitation limit (B3.6).
+  The selection is kept in the study whatever follows. When the study keeps an independent pair of opened recordings that
+  includes this one under that selection (the rule of `importRecording`), the pair is fitted with independent validation as
+  `importRecording` fits it, and the answer comes at once in the `importRecording` shape: `status: "checked"`, `identification`,
+  and `recordingId` the estimation recording. When there is no such pair and the recording is an isolated simulation's run, the
+  answer comes at once with `status: "recording-needed"` and the reason "Open an independent recording to check the plant model."
+  Otherwise an opened connected recording alone is fitted by the operation, which answers with its `operationId`. An answer about
+  a kept recording names it in its check: `resultId` is the recording's identifier and `resultRevision` is `0`, because the study
+  keeps the recording and not the revision of the saved result it came from (B10.2).
+- `controlStudio/identify` with `action: "importModel"` takes a supplied model as its text in `json`
+  (at most 256,000 bytes), checks it as N4.1 requires before any numerical work, and keeps it as the
+  study's model (B3.7): provisional unless it carries evidence of independent validation. It answers
+  at once with the identification result, starts nothing and writes nothing to a runtime. The answer is
+  the identification result of the current model, as `controlStudio/open` gives it (B3.7). A model
+  that is refused leaves the study's model as it was. A model that reuses the current model's revision (A8.4) is the same
+  model, which changes nothing, or it is refused with the sentence "A changed model needs a new revision." and no next action.
 - The result of a completed identification (the final update of `controlStudio/identify`, and the
   `identification` of a run) names `modelRevision`, the revision Validate's model check names for the model
   (B5.2), and `requirements`, the requirements Tune designs to for the model now (B4.3): the values the study
@@ -162,8 +269,12 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
   parameter transactions and isolated runs (the runtime protocol annex).
 
 The move from the TypeScript implementation follows
-`docs/internal/testing/checklists/rust-logic-migration.md`. Until the switch (its stage V6), the
-TypeScript engine still serves the extension.
+`docs/internal/testing/checklists/rust-logic-migration.md`. Since its stage V6 the panel's loops run
+on the engine, except a loop whose structure the engine does not run yet: the structures of C2 to
+C11 other than the single Control.PID loop. Such a loop stays on the TypeScript engine until its
+port (stage V7); the engine refuses it with the cause `controller-capability`, and the panel then
+keeps it on that engine without showing the refusal. A loop without a controller law (C12) runs on
+the engine.
 
 ### 0.1b Command line (decided 9 October 2026)
 
@@ -592,6 +703,14 @@ valid recording or run never reaches.
 | Confirmation of a transfer or parameter change | 10 s wall time, or 3 executions of the loop's task plus the connection-loss timeout when longer |
 | Restoration confirmed by | the 3rd execution of the loop's task after the restoring write |
 | Study storage per loop, recordings included | 256 MiB |
+| Analysis operation (`rootLocus`, `routh`, `frequency`, `feedback`, `measuredFrequency`, `initialState`) | 10 s of wall time, checked between steps (one frequency point, one sweep value, one Routh row, one response sample); past it the operation fails with "Analysis exceeded the 10 second budget." The size limits below bound its memory (128 MB, the budget of the former worker) |
+| Analysed model | 1 to 32 states, inputs and outputs each; 1 to 17 coefficients per transfer polynomial; a supplied model's JSON at most 256,000 bytes |
+| Frequency grid (`frequency`, `feedback`) | 2 to 512 positive, increasing points (N4.3), and at most 16,384 channel-frequency points, a feedback counting its plant channels twice and its controller channels once; default 0.1 to 100 rad/s with 128 points, the points lowered when the channel limit needs it, and a discrete model's maximum at most 0.5·π/Ts |
+| Initial-state response | at most 4,096 samples times outputs; the duration over the step an integer within 1e-8, at least 1; a discrete model's step equal to its sample time within 1e-10; at most 512 delay states |
+| Routh–Hurwitz and root locus | degree 1 to 16 and at most 17 coefficients (N7.2); exact values at most 32,768 bits (N7.4); a root locus of at most 1,001 sweep values and 64 parameters (N7.6) |
+| Measured frequency response | at most 100,000 samples per recorded channel; startup samples at least 1 and fewer than the samples; at least 2 segments; minimum coherence 0 to 1; tones positive and below π/Ts |
+| Lead/lag design | crossover above 0 rad/s; lead phase above 0° and below 85°; lag ratio above 1 (N7.14) |
+| Nyquist and margins | 10 to 100 contour points per decade and at most 511 margin points; a margin with no crossing in the range is "not observed in range", never infinite (N7.8) |
 
 ### A8. Studies and persistence
 
@@ -622,7 +741,8 @@ it:
 
 - changed signals or limits: the provisional model is no longer current when its
   signals changed. A changed limit alone keeps the model; a changed signal is a changed
-  loop definition, which starts a new study (A8.2). Recordings are never deleted;
+  loop definition, which starts a new study (A8.2). A fit keeps the loop's plant input and measured output as its signals and
+  the recording channels it read them from; it is current while its signals are the loop's. Recordings are never deleted;
 - a new or replaced model: candidates and validations based on the old model;
 - changed requirements, or a changed list of declared verification scenarios (B4.3):
   validations;
@@ -931,10 +1051,20 @@ equation and fit evidence.
 **B3.6 Opened recording.** **Open recording…** fits a recording from a file with
 the same signal selection, method and presentation, without live excitation.
 Ambiguous channels are selected first. Cancelling the file picker does nothing.
+The study keeps the opened file as one of its recordings (`importRecording`), so
+reopening shows the fit, and Fit refits it (§0.1a). The file names no experiment that Control Studio ran, so its fit
+reads its own samples as an observation (C12): nothing is written to the plant.
 
 **B3.7 Supplied model.** A transfer function or state-space model with its
 channels, units, operating point, delay and sample time enters as a provisional
-model unless it carries evidence of independent validation.
+model unless it carries evidence of independent validation (`importModel`,
+§0.1a). It starts no campaign, so B3.4 does not apply to it. The study's current
+model is the later of its Identify result and its supplied model (A8.4): `importModel`
+makes the supplied model current, and a later Identify makes its fit current; the
+earlier model stays in the study as history. Reset clears both (A8.4). Every stage
+reads the current model, so Tune designs on a supplied model. A supplied model was
+not fitted and has no normalized error, so Tune's error check (N5.7) does not apply
+to it.
 
 **B3.8 Result.** Identify shows the model type and equation with the identified
 coefficients, and the measured response with the model's prediction (Identify
@@ -973,7 +1103,9 @@ instance or a group, Part C), the method (Automatic or a named method of the
 numerical annex and Part C), the requirements and the pinned settings. The
 manual method takes the engineer's entered settings as the candidate; the relay
 rule (numerical annex N5.R) applies only to a model fitted from a qualified
-Feedback relay record of the same study.
+Feedback relay record of the same study. A supplied model is not fitted, so it
+has no normalized error to check (B3.7); the rest of the rules of its method
+apply to it as to any model.
 
 **B4.3 Requirements.** Declared rows: settling time, overshoot, steady-state
 error and error band, input disturbance, measurement noise (when a filter is
@@ -1048,7 +1180,9 @@ final 10 %. A passing check makes the model **qualified**; a failing check
 blocks Apply. The qualified model's validation recording is the check's
 recording, and its validation error is the check's error over the whole
 response: Tune reads that error for a qualified model (B4.2), and a reopened
-study shows its candidate on it (A8.6).
+study shows its candidate on it (A8.6). A supplied model has no estimation
+recording, so its check runs the campaign that Automatic chooses for the loop
+(B3.4), and the model revision the check names is the supplied model's (B3.7).
 
 **B5.3 Actual-ST controller validation.** The current and the candidate settings
 run in isolated simulations (A2.6) under one immutable validation-conditions
@@ -1393,6 +1527,8 @@ the reasons an action is unavailable.
   stay reachable on every page, and every page MUST target the same operation
   identity.
 - Changing a view MUST NOT duplicate an acquisition or a parameter write.
+- A stage the loop's structure does not use shows the status Not applicable and the engine's reason on its page, and the page's
+  controls for that stage are inert (C12). The engine decides the status; the page only shows it.
 
 #### B9.5 Numbers
 
@@ -1504,6 +1640,27 @@ page of settings. These rules follow the user's direction of 8 October 2026.
   frequency and multichannel tools are behind one **Analyze…** entry on Tune, shown
   once a model exists. A chosen tool shows its own few inputs in the result area
   and its plot in the plot area; closing it returns to the tuning result.
+  The tools are those `controlStudio/analyze` answers (§0.1a): Bode (`frequency`);
+  Nyquist and sensitivity, the two views of one `feedback` result, so switching
+  between them needs no calculation; root locus (`rootLocus`); pole-zero map
+  (`poleZero`); Routh–Hurwitz (`routh`); lead/lag design (`leadLag`); the measured
+  frequency response (`measuredFrequency`); the initial-state response
+  (`initialState`); the state structure (`stateStructure`); and the relative gain
+  array (`relativeGain`). The page shows the engine's labels, default inputs, input
+  refusals and results; it checks no input and computes no value. A field that the engineer
+  leaves blank, or types as text that is not a number, is sent absent, so that the engine's
+  default applies, and the editor then shows the inputs the engine read. A model change
+  clears the results shown for the earlier model, and the page asks the engine which tools
+  apply to the new one. The
+  initial-state response shows the model's output over a duration and a step, from
+  its initial state under a held input, on an open loop or through the loop's
+  feedback (N4.0); its defaults are a step of 0.1 s, a duration of 10 s, a zero
+  initial state, a zero held input and an open loop. Reopening shows the tool last
+  shown with its inputs (`controlStudio/page`). The measured MIMO path is not one of
+  these tools until stage V7.9 serves it. Every Bode view, the feedback result's
+  included, draws magnitude and phase, the phase on a second axis that spans whole
+  45° steps around its data with a tick every 45°; a phase in a table or a tooltip is
+  shown to 0.01°, so a value that rounds to zero reads 0.
 - **Requirements.** The Requirements editor shows maximum settling time, maximum
   overshoot and maximum steady-state error, each with the band it needs, and an
   optional input disturbance. A collapsed **More…** holds the test design: the test
@@ -1581,6 +1738,18 @@ page of settings. These rules follow the user's direction of 8 October 2026.
   definition, the calculated result, the selected parameter value, the fixed
   parameters and the model provenance. Reopening restores the result and the
   selection.
+- A Routh–Hurwitz result is stored under `routh`: its definition, its selected
+  value and its calculated result. A general feedback result is stored under
+  `generalFeedback`: its definition (the plant and the controller, their channels,
+  and the declared law when the controller is that law), its calculated result, and
+  its margin and Nyquist evidence with their scope sentences. A measured frequency
+  response is stored under `periodicFrequency`: the identifier and revision of its
+  recording, the sample time, the startup samples, the segment count, the minimum
+  coherence, the frequencies and the calculated points. Each section names the loop
+  revision and the model revision it was calculated from; a section whose revisions
+  are no longer current is not restored, and a section that refers to a recording
+  the study does not list is refused. These sections are additive: the study format
+  stays 1.
 - Reopening a saved result creates no candidate, validation pass or runtime
   authority. An absent candidate MUST NOT inherit another result's predictions
   or application status.
@@ -2435,11 +2604,15 @@ Validate runs the actual ST in the single-loop cases of C1. Its location follows
 
 ### C12. Open-loop experiment loops and project-scripted experiments
 
-This structure has no controller. No controller is designed or written, so the Tune, Validate and Apply and Restore stages do not apply. The restoration of the experiment's own outputs is part of the experiment, as described below.
+This structure has no controller law. No controller is designed or written, so the Tune, Validate and Apply and Restore stages do not apply: the engine answers each of them with the status Not applicable and the reason, and the page shows that status in place of their actions. The restoration of the experiment's own outputs is part of the experiment, as described below. The engine serves this structure: `open` opens it, and `identify` runs its experiment. The automatic progression of §0.1a (`controlStudio/run`) takes Identify alone for it and ends there, with no failure.
+
+Two kinds of loop follow this section:
+- an **open-loop experiment loop**, with `topology: "open-loop"` and `design: "project"`, as Setup describes;
+- an **observation loop**: a closed loop whose controller is the program's own and is not bound as a law (`design: "project"` with no `controller.law`, no `controller.project` and no other structure block). Its experiment is project-scripted observation, and Identify fits the plant from the recording as B3.5 says for closed-loop data. Unlike an open-loop loop it may name its setpoint, which the recording keeps as a measured signal; Control Studio never writes it.
 
 #### Setup
 
-- **Topology.** The loop declares `topology: "open-loop"`. It has a process variable and a manipulated variable, and no setpoint. The loop MUST NOT carry or invent a setpoint, and it exposes no error or setpoint metric. It requires a project-owned experiment or controller.
+- **Topology.** An open-loop experiment loop declares `topology: "open-loop"`. It has a process variable and a manipulated variable, and no setpoint. The loop MUST NOT carry or invent a setpoint, and it exposes no error or setpoint metric. An observation loop declares no topology. Both require a project-owned experiment or controller.
 - **Execution owner.** The loop's execution is one of two kinds:
   - `control-studio`: Control Studio writes the reviewed excitation through the runtime experiment service;
   - `project-scripted`: the project owns the scenario. Control Studio observes it with zero external amplitude, records the declared duration, and writes no duplicate excitation. The project owns the experiment kind and the activation.

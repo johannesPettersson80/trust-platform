@@ -3,6 +3,7 @@
 //! journal. The calculations and rules are in `trust-control`; the program `trust-control-studio`
 //! serves these methods to the extension and to the command line, and holds no rule of its own.
 
+pub mod analyze_action;
 pub mod apply_action;
 pub mod busy_loops;
 pub mod cli;

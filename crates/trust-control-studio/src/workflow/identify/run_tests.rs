@@ -447,6 +447,7 @@ fn stopped(recording_owner: &RecordingRecoveryOwner) -> RecordedRun {
             address: None,
             symbol: Some("Main.TT101.Value".to_owned()),
             iec_type: "LREAL".to_owned(),
+            unit: None,
         }],
         stop_reason: StopReason::Stopped,
         samples: Vec::new(),

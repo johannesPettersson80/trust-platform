@@ -32,7 +32,7 @@ use trust_control::model::GeneralModel;
 use trust_control::recording::EvidenceSource;
 use trust_control::runtime::{RuntimeConnection, RuntimeStatus};
 use trust_control::stages::apply_available;
-use trust_control::study::identify::IdentifySection;
+use trust_control::study::current_model::{current_model, CurrentModel};
 use trust_control::study::inputs::{held_scenarios, InputsSection};
 use trust_control::study::tune::TuneSection;
 use trust_control::study::validate::{stage_evidence, ValidateSection};
@@ -75,41 +75,46 @@ pub(crate) struct ApplyInputs {
 /// The first precondition that fails, with its next action; or the study's Identify result or its recordings cannot be read.
 pub(crate) fn preconditions(context: &ApplyContext<'_>) -> Result<ApplyInputs, Failure> {
     let loop_definition = context.loop_definition;
-    let (identify, validate) = validated_sections(context.study, loop_definition)?;
+    // A loop without a controller law has nothing to apply (C12): that is its reason, before any study check.
+    loop_definition.require_controller_law()?;
+    let (current, validate) = validated_sections(context.study, loop_definition)?;
     loop_definition.rust_engine_support()?;
     refuse_unfinished(&*context.journal)?;
-    let model = identify.selected_model;
-    let process_noise =
-        measured_noise(context.project_root, context.study, loop_definition, &model)?;
+    let process_noise = measured_noise(
+        context.project_root,
+        context.study,
+        loop_definition,
+        &current,
+    )?;
     Ok(ApplyInputs {
         gains: candidate_gains(loop_definition, &validate.candidate),
         validation_identity: validation_identity(&validate)?,
         task: validate.requirements,
-        model,
+        model: current.model,
         process_noise,
     })
 }
 
-/// The study's Identify and Validate sections, when its validation is current for the model, the candidate and the requirements and
-/// passed (B5.4, A8.4: `stages::apply_available`).
+/// The study's current model and Validate section, when its validation is current for the model, the candidate and the requirements
+/// and passed (B5.4, A8.4: `stages::apply_available`).
 fn validated_sections(
     study: &Study,
     loop_definition: &LoopDefinition,
-) -> Result<(IdentifySection, ValidateSection), Failure> {
-    let identify = study.section::<IdentifySection>()?;
+) -> Result<(CurrentModel, ValidateSection), Failure> {
+    let current = current_model(study)?;
     let tune = study.section::<TuneSection>()?;
     let validate = study.section::<ValidateSection>()?;
     let inputs = study.section::<InputsSection>()?;
     let evidence = stage_evidence(
         loop_definition,
-        identify.as_ref(),
+        current.as_ref(),
         tune.as_ref(),
         validate.as_ref(),
         !study.recordings.is_empty(),
         &held_scenarios(loop_definition, inputs.as_ref()),
     );
-    match (identify, validate) {
-        (Some(identify), Some(validate)) if apply_available(&evidence) => Ok((identify, validate)),
+    match (current, validate) {
+        (Some(current), Some(validate)) if apply_available(&evidence) => Ok((current, validate)),
         _ => Err(apply_texts::validation_not_current()),
     }
 }
@@ -161,14 +166,18 @@ pub(crate) fn checkpoint_to_retire(
 }
 
 /// The measured output's noise as single executions see it (A6.4; `measuredProcessNoise`): from the steady baseline of the recording the
-/// model was fitted from, rebuilt from the study with the request it was taken with (B3.6). Zero without a baseline: an Identify result
-/// without its request, or a recording that does not rebuild into a record.
+/// model was fitted from, rebuilt from the study with the request it was taken with (B3.6). Zero without a baseline: a supplied model,
+/// which was not fitted from a recording (B3.7), an Identify result without its request, or a recording that does not rebuild into a
+/// record.
 pub(crate) fn measured_noise(
     project_root: &Path,
     study: &Study,
     loop_definition: &LoopDefinition,
-    model: &GeneralModel,
+    current: &CurrentModel,
 ) -> Result<f64, Failure> {
+    if current.identify.is_none() {
+        return Ok(0.0);
+    }
     let Some(stored) = storage::read_identify(project_root, study)? else {
         return Ok(0.0);
     };
@@ -186,7 +195,11 @@ pub(crate) fn measured_noise(
         |_, _| Ok(()),
     );
     Ok(record.map_or(0.0, |record| {
-        measured_process_noise(loop_definition, Some(model), std::slice::from_ref(&record))
+        measured_process_noise(
+            loop_definition,
+            Some(&current.model),
+            std::slice::from_ref(&record),
+        )
     }))
 }
 

@@ -22,6 +22,7 @@ use std::f64::consts::PI;
 
 use serde::{Deserialize, Serialize};
 use trust_control_math::linalg::DenseMatrix;
+use trust_control_math::model::Timing;
 
 use crate::failure::{Cause, Failure, NextAction};
 use crate::model::{
@@ -378,6 +379,117 @@ impl StudySection for SuppliedModelSection {
     fn recording_ids(&self) -> Vec<&str> {
         Vec::new()
     }
+}
+
+/// What the page shows of a supplied model (B3.7, B9.4): its type in plain words and its equation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SuppliedModelWords {
+    /// The model type, for example "Transfer function, continuous time".
+    pub model_type: String,
+    /// The equation with its coefficients, for example "G(s) = 2 / (5s + 1), delay 1 s".
+    pub equation: String,
+}
+
+/// The words of a supplied model, read from its coefficients (highest power first), its delay and its time base. A transfer
+/// function is written in `s` when it is continuous and in `z` when it is discrete. A state-space model is named by its
+/// number of states, because its matrices are the model's own.
+#[must_use]
+pub fn supplied_model_words(model: &GeneralModel) -> SuppliedModelWords {
+    let delay = model.identity().delay_seconds;
+    let delay_text = if delay > 0.0 {
+        format!(", delay {delay} s")
+    } else {
+        String::new()
+    };
+    let (model_type, equation) = match model {
+        GeneralModel::TransferFunction { transfer, .. } => {
+            let variable = match model.timing() {
+                Timing::Continuous => "s",
+                Timing::Discrete { .. } => "z",
+            };
+            (
+                format!("Transfer function, {}", timing_words(model)),
+                format!(
+                    "G({variable}) = {} / {}{delay_text}",
+                    bracketed(&polynomial_text(&transfer.numerator, variable)),
+                    bracketed(&polynomial_text(&transfer.denominator, variable)),
+                ),
+            )
+        }
+        GeneralModel::ContinuousStateSpace { states, .. } => (
+            format!("State-space model, {}", timing_words(model)),
+            format!(
+                "dx/dt = A x + B u, y = C x + D u, with {} states{delay_text}",
+                states.len()
+            ),
+        ),
+        GeneralModel::DiscreteStateSpace { states, .. } => (
+            format!("State-space model, {}", timing_words(model)),
+            format!(
+                "x(k+1) = A x(k) + B u(k), y(k) = C x(k) + D u(k), with {} states{delay_text}",
+                states.len()
+            ),
+        ),
+    };
+    SuppliedModelWords {
+        model_type,
+        equation,
+    }
+}
+
+/// The time base of a model in words: continuous time, or discrete time with its sample time.
+fn timing_words(model: &GeneralModel) -> String {
+    match model.timing() {
+        Timing::Continuous => "continuous time".to_string(),
+        Timing::Discrete {
+            sample_time_seconds,
+        } => format!("discrete time, sample time {sample_time_seconds} s"),
+    }
+}
+
+/// A polynomial in `variable` with coefficients from the highest power down, such as `5s + 1`. Zero terms are left out, and a
+/// coefficient of one is not written.
+fn polynomial_text(coefficients: &[f64], variable: &str) -> String {
+    let last = coefficients.len().saturating_sub(1);
+    let mut text = String::new();
+    for (index, &coefficient) in coefficients.iter().enumerate() {
+        let magnitude = coefficient.abs();
+        if magnitude <= 0.0 {
+            continue;
+        }
+        let power = last - index;
+        let body = match (power, is_one(magnitude)) {
+            (0, _) => format!("{magnitude}"),
+            (1, true) => variable.to_string(),
+            (1, false) => format!("{magnitude}{variable}"),
+            (_, true) => format!("{variable}^{power}"),
+            (_, false) => format!("{magnitude}{variable}^{power}"),
+        };
+        if !text.is_empty() {
+            text.push_str(if coefficient < 0.0 { " - " } else { " + " });
+        } else if coefficient < 0.0 {
+            text.push('-');
+        }
+        text.push_str(&body);
+    }
+    if text.is_empty() {
+        "0".to_string()
+    } else {
+        text
+    }
+}
+
+/// The text in brackets when it has more than one term.
+fn bracketed(text: &str) -> String {
+    if text.contains(' ') {
+        format!("({text})")
+    } else {
+        text.to_string()
+    }
+}
+
+fn is_one(value: f64) -> bool {
+    (value - 1.0).abs() < f64::EPSILON
 }
 
 fn refuse(reason: &str) -> Failure {

@@ -27,12 +27,14 @@ pub struct RunPlan {
 #[must_use]
 pub fn run_plan(evidence: &StageEvidence, through: RunThrough) -> RunPlan {
     let identify = !evidence.has_model;
-    let tune = identify || !evidence.has_candidate;
-    let validate = tune || !evidence.validation_has_result;
+    let tune_due = identify || !evidence.has_candidate;
+    let validate_due = tune_due || !evidence.validation_has_result;
+    // Tune, Validate and Apply do not apply to a loop of the C12 kinds, so a run of such a loop ends with Identify (C12).
+    let controller_stages = evidence.controller_stages_apply;
     RunPlan {
         identify,
-        tune: tune && through != RunThrough::Identify,
-        validate: validate && through == RunThrough::Validate,
+        tune: controller_stages && tune_due && through != RunThrough::Identify,
+        validate: controller_stages && validate_due && through == RunThrough::Validate,
     }
 }
 

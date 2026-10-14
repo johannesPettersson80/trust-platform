@@ -1,14 +1,15 @@
 //! The model fitted from two recordings the engineer selected in an archive (`selectedRecordingIdentification.ts`;
 //! specification 35, A10 and B5.2). The two recordings must be independent and come from the same project revision. Their
 //! signals are the engineer's selection, with the operating range each signal took in the recordings (an observed range
-//! describes the data only and never grants a live excitation limit).
+//! describes the data only and never grants a live excitation limit). A recording is read as a [`SelectedRun`]: a connected
+//! record's run and an isolated simulation's run alike, as `selectedRecordingIdentification.ts` takes both as runs.
 //!
 //! Only the single-input, single-output fit is ported. The general state fit (`generalIdentificationWorker.ts`, V7) is
 //! not, so where the `TypeScript` would fall back to it this returns [`RecordedFitError::StateModelRequired`] or
 //! [`RecordedFitError::Parked`].
 
 use crate::identification::automatic::good_value;
-use crate::identification::connected_record::RuntimeVerificationResult;
+use crate::identification::connected_record::{RuntimeVerificationResult, ValidationRun};
 use crate::identification::data::IdentificationSample;
 use crate::identification::experiment_trace::{
     experiment_from_run, ExperimentSignal, ExperimentSignals,
@@ -32,14 +33,33 @@ pub struct SelectedRecordingFit {
     pub presentation: ComparisonPresentation,
 }
 
+/// One recording a selected fit reads: the program revision it was taken on and its run. A connected record and an isolated
+/// simulation's run are both read this way (`selectedRecordingIdentification.ts`, B5.2).
+#[derive(Debug, Clone, Copy)]
+pub struct SelectedRun<'a> {
+    /// The program revision the run was taken on.
+    pub project_revision: &'a str,
+    /// The run: its identifier, channels, conditions and samples.
+    pub run: &'a ValidationRun,
+}
+
+impl<'a, E> From<&'a RuntimeVerificationResult<E>> for SelectedRun<'a> {
+    fn from(result: &'a RuntimeVerificationResult<E>) -> Self {
+        Self {
+            project_revision: result.project_revision.as_str(),
+            run: &result.run,
+        }
+    }
+}
+
 /// Fits the model of two independent recordings with the engineer's selected signals (`fitSelectedRecordingModel`).
 ///
 /// # Errors
 /// The recordings are not two independent ones of one project revision; a selected signal is missing from a recording;
 /// or the single-input, single-output fit gave no model (the state fit, V7, would be tried).
-pub fn fit_selected_recording_model<E: Clone>(
+pub fn fit_selected_recording_model(
     loop_definition: &LoopDefinition,
-    runs: &[RuntimeVerificationResult<E>],
+    runs: &[SelectedRun<'_>],
     selection: &RecordingSignalSelection,
 ) -> Result<SelectedRecordingFit, RecordedFitError> {
     let [estimation, validation] = runs else {
@@ -91,9 +111,9 @@ pub fn fit_selected_recording_model<E: Clone>(
 
 /// The single-input, single-output fit of two selected recordings: the independent acceptance, the accepted plant model
 /// and the presentation with the traces of the validation recording.
-fn single_channel_fit<E: Clone>(
+fn single_channel_fit(
     loop_definition: &LoopDefinition,
-    (estimation, validation): (&RuntimeVerificationResult<E>, &RuntimeVerificationResult<E>),
+    (estimation, validation): (&SelectedRun<'_>, &SelectedRun<'_>),
     (input, output): (&ModelChannel, &ModelChannel),
     model_channels: &ChannelSet,
     signals: &ExperimentSignals,
@@ -109,7 +129,7 @@ fn single_channel_fit<E: Clone>(
     )
     .map_err(Refusal::new)?;
     let model = accepted_identification_model(&accepted, model_channels)?;
-    let experiment = experiment_from_run(loop_definition, &validation.run, Some(signals))?;
+    let experiment = experiment_from_run(loop_definition, validation.run, Some(signals))?;
     let presentation =
         comparison_presentation(experiment, input, output, &accepted.model, &accepted.fit);
     Ok(SelectedRecordingFit {
@@ -120,8 +140,8 @@ fn single_channel_fit<E: Clone>(
 
 /// The samples of one selected recording (`samples` in `fitSelectedRecordingModel`): every sample, marked good, with the
 /// selected input and output. A missing value is `NaN`; the `TypeScript` passes it as `null`.
-fn selected_samples<E>(
-    result: &RuntimeVerificationResult<E>,
+fn selected_samples(
+    result: &SelectedRun<'_>,
     input: &ModelChannel,
     output: &ModelChannel,
 ) -> Vec<IdentificationSample> {
@@ -155,8 +175,8 @@ fn selected_samples<E>(
 ///
 /// # Errors
 /// A signal is missing or has inconsistent units, has no samples, or has a value that is missing or not good.
-fn selected_channels<E>(
-    runs: &[RuntimeVerificationResult<E>],
+fn selected_channels(
+    runs: &[SelectedRun<'_>],
     selection: &RecordingSignalSelection,
 ) -> Result<(Vec<ModelChannel>, Vec<ModelChannel>), Refusal> {
     let inputs = selection
@@ -173,10 +193,7 @@ fn selected_channels<E>(
 }
 
 /// One selected signal: its unit from the first recording, and the smallest and largest value it took in all of them.
-fn selected_channel<E>(
-    runs: &[RuntimeVerificationResult<E>],
-    id: &str,
-) -> Result<ModelChannel, Refusal> {
+fn selected_channel(runs: &[SelectedRun<'_>], id: &str) -> Result<ModelChannel, Refusal> {
     let missing = || {
         Refusal::new(format!(
             "Recording signal {id} is missing or has inconsistent units."

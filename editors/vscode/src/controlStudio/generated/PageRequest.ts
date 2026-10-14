@@ -4,10 +4,29 @@
  */
 
 /**
+ * How the response's model is connected: open loop (the held input drives the plant directly) or
+ * feedback (through a controller).
+ */
+export type ResponseConnection = "open-loop" | "feedback";
+/**
+ * Which compensator is designed.
+ */
+export type LeadLagMode = "lead" | "lag";
+/**
+ * Which pole-zero view is shown (B9.9, `poleZero`): the unreduced model, or the input/output view with its exact common factors
+ * removed.
+ */
+export type PoleZeroView = "unreduced" | "minimal";
+
+/**
  * The arguments of `controlStudio/page` (specification 35, §0.1a; A8.1): the loop, and the page the engineer views. It
  * changes nothing else and starts nothing.
  */
 export interface PageRequest {
+  /**
+   * On Tune, the analysis tool shown and its inputs (B9.9); absent when none is shown.
+   */
+  analysis?: AnalysisPage | null;
   /**
    * The loop of the study.
    */
@@ -24,4 +43,151 @@ export interface PageRequest {
    * The runtime selected in VS Code; a loop of another runtime is refused, as `open` refuses it.
    */
   runtimeId: string;
+  /**
+   * The page's own view choices (A8.1, A8.6); absent when the page sends none, which keeps the recorded ones.
+   */
+  view?: PageView | null;
+}
+/**
+ * The page the engineer views with an analysis tool (§0.1a, `controlStudio/page`; A8.1): the tool shown and its inputs, so that
+ * reopening shows them again.
+ */
+export interface AnalysisPage {
+  inputs?: AnalysisInputs;
+  /**
+   * The tool shown.
+   */
+  tool:
+    | "rootLocus"
+    | "routh"
+    | "poleZero"
+    | "frequency"
+    | "measuredFrequency"
+    | "feedback"
+    | "leadLag"
+    | "initialState"
+    | "stateStructure"
+    | "relativeGain";
+}
+/**
+ * Its inputs, as the engineer entered them.
+ */
+export interface AnalysisInputs {
+  /**
+   * `initialState`: open loop, or through the feedback with a controller.
+   */
+  connection?: ResponseConnection | null;
+  /**
+   * `feedback`: the controller's input and output in the loop.
+   */
+  controllerChannel?: ChannelPair | null;
+  /**
+   * `leadLag`: the crossover in rad/s, above 0.
+   */
+  crossoverRadPerSecond?: number | null;
+  /**
+   * `initialState`: the duration in seconds, a whole number of steps.
+   */
+  durationSeconds?: number | null;
+  /**
+   * `measuredFrequency`: the tone frequencies in rad/s.
+   */
+  frequencies?: number[] | null;
+  /**
+   * `frequency` and `feedback`: the grid.
+   */
+  grid?: FrequencyGrid | null;
+  /**
+   * `initialState`: the initial state, one value per state.
+   */
+  initialState?: number[] | null;
+  /**
+   * `initialState`: the held input, one value per input.
+   */
+  input?: number[] | null;
+  /**
+   * `measuredFrequency`: the minimum coherence, 0 to 1.
+   */
+  minimumCoherence?: number | null;
+  /**
+   * `leadLag`: the compensator.
+   */
+  mode?: LeadLagMode | null;
+  /**
+   * `feedback`: the plant's input and output in the loop.
+   */
+  plantChannel?: ChannelPair | null;
+  /**
+   * `measuredFrequency`: the recording, by its identifier.
+   */
+  recordingId?: string | null;
+  /**
+   * `measuredFrequency`: the revision of the recording the request was made for.
+   */
+  recordingRevision?: string | null;
+  /**
+   * `measuredFrequency`: the number of segments, at least 2.
+   */
+  segmentCount?: number | null;
+  /**
+   * `rootLocus` and `routh`: the selected value of the declared parameter.
+   */
+  selectedValue?: number | null;
+  /**
+   * `measuredFrequency`: the startup samples left out of the estimate, at least 1.
+   */
+  startupSamples?: number | null;
+  /**
+   * `initialState`: the output step in seconds, above 0.
+   */
+  stepSeconds?: number | null;
+  /**
+   * `leadLag`: the phase in degrees for a lead, or the low-frequency gain ratio for a lag.
+   */
+  value?: number | null;
+  /**
+   * `poleZero`: the view.
+   */
+  view?: PoleZeroView | null;
+}
+/**
+ * The channels of one loop end: the input and the output that the loop uses, by identifier.
+ */
+export interface ChannelPair {
+  /**
+   * The identifier of the input channel.
+   */
+  inputId: string;
+  /**
+   * The identifier of the output channel.
+   */
+  outputId: string;
+}
+/**
+ * A frequency grid (N4.3): the lowest and the highest frequency in rad/s, and the number of logarithmically spaced points.
+ */
+export interface FrequencyGrid {
+  /**
+   * The highest frequency in rad/s; above the lowest.
+   */
+  maximumFrequency: number;
+  /**
+   * The lowest frequency in rad/s; positive.
+   */
+  minimumFrequency: number;
+  /**
+   * The number of frequencies: 2 to 512.
+   */
+  points: number;
+}
+/**
+ * The page's own view choices, which the engine keeps with the page and answers on `open`, and never reads (§0.1a,
+ * `controlStudio/page`; A8.1, A8.6). They are view state: what decides a result is a study input (`controlStudio/inputs`).
+ */
+export interface PageView {
+  /**
+   * The entry the Identify page's Method shows, as the page names it: a live method, or the opened-file or supplied-model entry
+   * (B3.6, B3.7), which start no campaign. At most 64 characters.
+   */
+  identifyMethod?: string | null;
 }

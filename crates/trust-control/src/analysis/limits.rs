@@ -19,8 +19,8 @@ pub const POLE_PATH_POINTS: usize = 201;
 /// The most poles stored for one gain of a declared sweep.
 pub const STORED_POLES_PER_GAIN: usize = 34;
 
-/// The most frequency points of a general feedback analysis.
-pub const FEEDBACK_MAXIMUM_FREQUENCIES: usize = 4_096;
+/// The most points of a frequency grid of a general feedback analysis (N4.3).
+pub const FREQUENCY_MAXIMUM_POINTS: usize = 512;
 
 /// The number of samples per decade that a bounded margin estimate may use, `⌊511 / decades⌋` (N7.8).
 pub const MARGIN_POINT_BUDGET: f64 = 511.0;

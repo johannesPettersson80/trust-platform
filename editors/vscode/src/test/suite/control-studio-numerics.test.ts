@@ -132,11 +132,10 @@ suite("Control Studio numerical adapter", () => {
     }
   });
 
-  test("generates bounded excitation and recovers a frequency response with coherence and held-out fit", () => {
+  test("generates bounded excitation and fits a first-order model to its frequency response with a held-out check", () => {
     const numerics = require("../../controlStudio/numerics") as any;
     assert.strictEqual(typeof numerics.generatePrbs, "function");
     assert.strictEqual(typeof numerics.generateMultisine, "function");
-    assert.strictEqual(typeof numerics.estimateFrequencyResponse, "function");
     assert.strictEqual(typeof numerics.fitFirstOrderFrequencyResponse, "function");
 
     const prbs = numerics.generatePrbs({ order: 7, length: 127, amplitude: 0.8, seed: 0x5d });
@@ -154,24 +153,16 @@ suite("Control Studio numerical adapter", () => {
     });
     assert.strictEqual(excitation.status, "qualified");
     assert.ok(Math.max(...excitation.values.map(Math.abs)) <= 1 + 1e-12);
-    const output = exactFirstOrderPeriodicOutput(
-      2, 3, sampleTime, excitation.values.length, frequencies,
-      frequencies.map(() => 0.2), [0.1, 0.7, 1.4, 2.2]
-    );
-    const estimate = numerics.estimateFrequencyResponse(
-      excitation.values, output, sampleTime, frequencies, { segmentCount: 4, minimumCoherence: 0.98 }
-    );
-    assert.strictEqual(estimate.status, "qualified", estimate.reason);
-    assert.ok(estimate.points.every((point: any) => point.coherence >= 0.999));
-    for (const point of estimate.points) {
-      const expectedMagnitude = 2 / Math.hypot(1, 3 * point.frequencyRadPerSecond);
-      const expectedPhase = -Math.atan(3 * point.frequencyRadPerSecond);
-      assert.ok(Math.abs(point.magnitude - expectedMagnitude) <= 0.015);
-      assert.ok(Math.abs(point.phaseRadians - expectedPhase) <= 0.015);
-    }
 
-    const estimation = estimate.points.slice(0, 3);
-    const validation = estimate.points.slice(3);
+    // The exact response of gain 2 and time constant 3 s at each tone, fully coherent. The fit is checked against it; the
+    // measurement of a response from a recording is the engine's (analysis/measured_frequency.rs).
+    const points = frequencies.map((frequency) => {
+      const denominator = 1 + (3 * frequency) ** 2;
+      return { frequencyRadPerSecond: frequency, real: 2 / denominator, imaginary: -6 * frequency / denominator,
+        magnitude: 2 / Math.hypot(1, 3 * frequency), phaseRadians: -Math.atan(3 * frequency), coherence: 1 };
+    });
+    const estimation = points.slice(0, 3);
+    const validation = points.slice(3);
     const fit = numerics.fitFirstOrderFrequencyResponse(estimation, validation, {
       maximumNormalizedValidationError: 0.03,
     });
@@ -186,10 +177,6 @@ suite("Control Studio numerical adapter", () => {
     assert.strictEqual(typeof numerics.analyzeTransferFunction, "function");
     assert.strictEqual(typeof numerics.routhHurwitz, "function");
     assert.strictEqual(typeof numerics.rootLocus, "function");
-    assert.strictEqual(typeof numerics.designLeadAtCrossover, "function");
-    assert.strictEqual(typeof numerics.designLagAtCrossover, "function");
-    assert.strictEqual(typeof numerics.nyquistStability, "function");
-    assert.strictEqual(typeof numerics.classicalStabilityMargins, "function");
 
     const stable = numerics.analyzeTransferFunction(
       { numerator: [1], denominator: [1, 3, 2], delaySeconds: 0 }, [1]
@@ -200,16 +187,6 @@ suite("Control Studio numerical adapter", () => {
     assert.ok(Math.abs(stable.bode[0].magnitudeDb + 10) <= 1e-10);
     assert.ok(Math.abs(stable.bode[0].phaseDegrees + 71.5650511771) <= 1e-8);
     assert.ok(stable.bode[0].sensitivityComplementarityResidual <= 1e-12);
-
-    const margins = numerics.classicalStabilityMargins(
-      { numerator: [10], denominator: [1, 1, 0], delaySeconds: 0 },
-      { minimumFrequencyRadPerSecond: 1e-3, maximumFrequencyRadPerSecond: 1e3, pointsPerDecade: 120 }
-    );
-    assert.strictEqual(margins.status, "qualified");
-    assert.ok(Math.abs(margins.gainCrossoverRadPerSecond - 3.0842328377) <= 0.01);
-    assert.ok(Math.abs(margins.phaseMarginDegrees - 17.96423592) <= 0.08);
-    assert.strictEqual(margins.gainMarginDb, "unbounded");
-    assert.ok(Math.abs(margins.delayMarginSeconds - 0.10165) <= 0.002);
 
     const routhStable = numerics.routhHurwitz([1, 2, 3, 4]);
     assert.strictEqual(routhStable.status, "qualified");
@@ -235,71 +212,6 @@ suite("Control Studio numerical adapter", () => {
     );
     assert.strictEqual(zeroGain.status, "qualified", "zero gain is the open-loop starting point of a root locus");
     assertComplexSet(zeroGain.branches[0].poles, [{ real: -2, imaginary: 0 }, { real: 0, imaginary: 0 }], 1e-10);
-
-    const lead = numerics.designLeadAtCrossover(
-      { numerator: [1], denominator: [1, 1, 0], delaySeconds: 0 }, 1, 30
-    );
-    assert.strictEqual(lead.status, "qualified");
-    assert.ok(Math.abs(lead.phaseContributionDegrees - 30) <= 1e-9);
-    assert.ok(Math.abs(lead.openLoopMagnitudeAtCrossover - 1) <= 1e-9);
-    assert.ok(lead.zeroRadPerSecond < lead.poleRadPerSecond);
-    const lag = numerics.designLagAtCrossover(
-      { numerator: [1], denominator: [1, 1, 0], delaySeconds: 0 }, 1, 5
-    );
-    assert.strictEqual(lag.status, "qualified");
-    assert.ok(lag.poleRadPerSecond < lag.zeroRadPerSecond);
-    assert.ok(Math.abs(lag.openLoopMagnitudeAtCrossover - 1) <= 1e-9);
-    assert.ok(lag.lowFrequencyGainRatio > 4.9);
-
-    const contourPole = numerics.nyquistStability(
-      { numerator: [2], denominator: [1, 1, 0], delaySeconds: 0 },
-      { minimumFrequencyRadPerSecond: 1e-4, maximumFrequencyRadPerSecond: 1e4, pointsPerDecade: 80 }
-    );
-    assert.deepStrictEqual(contourPole, { status: "rejected", reason: "pole-on-contour" });
-    const nyquist = numerics.nyquistStability(
-      { numerator: [2], denominator: [1, 1], delaySeconds: 0 },
-      { minimumFrequencyRadPerSecond: 1e-4, maximumFrequencyRadPerSecond: 1e4, pointsPerDecade: 80 }
-    );
-    assert.strictEqual(nyquist.status, "qualified");
-    assert.strictEqual(nyquist.openLoopRightHalfPlanePoles, 0);
-    assert.strictEqual(nyquist.closedLoopStable, true);
-    assert.strictEqual(nyquist.closedLoopRightHalfPlanePoles, 0);
-  });
-
-  test("counts delayed-oven Nyquist encirclements without losing phase rotations", () => {
-    const numerics = require("../../controlStudio/numerics") as any;
-    const sweep = {
-      minimumFrequencyRadPerSecond: 1e-4,
-      maximumFrequencyRadPerSecond: 10,
-      pointsPerDecade: 500,
-    };
-    const cases = [
-      { delaySeconds: 5, expectedEncirclements: 0, expectedRightHalfPlanePoles: 0, stable: true },
-      { delaySeconds: 25, expectedEncirclements: -2, expectedRightHalfPlanePoles: 2, stable: false },
-      { delaySeconds: 60, expectedEncirclements: -2, expectedRightHalfPlanePoles: 2, stable: false },
-    ];
-    for (const expected of cases) {
-      const result = numerics.nyquistStability(
-        { numerator: [2], denominator: [20, 1], delaySeconds: expected.delaySeconds }, sweep
-      );
-      assert.strictEqual(result.status, "qualified", `${expected.delaySeconds}s: ${result.reason ?? "rejected"}`);
-      assert.strictEqual(result.contourTraversal, "negative-high-to-positive-high");
-      assert.strictEqual(result.encirclementsCounterClockwise, expected.expectedEncirclements);
-      assert.strictEqual(result.openLoopRightHalfPlanePoles, 0);
-      assert.strictEqual(result.closedLoopRightHalfPlanePoles, expected.expectedRightHalfPlanePoles);
-      assert.strictEqual(result.closedLoopStable, expected.stable);
-      assert.ok(result.minimumDistanceToMinusOne > 0.01);
-      assert.ok(result.endpointMagnitude < 0.01);
-    }
-
-    const criticalDelay = (Math.PI - Math.atan(Math.sqrt(3))) / (Math.sqrt(3) / 20);
-    assert.deepStrictEqual(numerics.nyquistStability(
-      { numerator: [2], denominator: [20, 1], delaySeconds: criticalDelay }, sweep
-    ), { status: "rejected", reason: "contour-near-critical-point" });
-    assert.deepStrictEqual(numerics.nyquistStability(
-      { numerator: [2], denominator: [20, 1], delaySeconds: 5 },
-      { ...sweep, maximumFrequencyRadPerSecond: 0.2 }
-    ), { status: "rejected", reason: "insufficient-contour-closure" });
   });
 
   test("qualifies precision-drive sensitivity and loop-shaping trade-offs", () => {
@@ -695,15 +607,6 @@ suite("Control Studio numerical adapter", () => {
   test("fails closed for noisy, poorly excited, unstable, singular, and invalid optimization cases", () => {
     const numerics = require("../../controlStudio/numerics") as any;
     const tolerance = { absolute: 1e-12, relative: 1e-10, conditionLimit: 1e6 };
-    const sampleTime = 0.1;
-    const segmentLength = 100;
-    const frequency = 2 * Math.PI * 5 / (segmentLength * sampleTime);
-    const input = Array.from({ length: segmentLength * 4 }, (_, index) => Math.sin(frequency * index * sampleTime));
-    const noisyOutput = input.map((value, index) => value * (Math.floor(index / segmentLength) % 2 === 0 ? 1 : -1));
-    const spectrum = numerics.estimateFrequencyResponse(
-      input, noisyOutput, sampleTime, [frequency], { segmentCount: 4, minimumCoherence: 0.8 }
-    );
-    assert.deepStrictEqual(spectrum, { status: "rejected", reason: "low-coherence" });
 
     const poorlyExcited = numerics.identifyMimoStaticGain(
       [[1, 1], [2, 2], [3, 3]], [[1], [2], [3]], tolerance
@@ -762,25 +665,6 @@ function lowOrderFixture(kind: string, parameters: FixtureParameters, amplitude:
     samples.push({ timeSeconds: index * dt, input, output, quality: "good" });
   }
   return samples;
-}
-
-function exactFirstOrderPeriodicOutput(
-  gain: number,
-  timeConstant: number,
-  sampleTime: number,
-  sampleCount: number,
-  frequencies: readonly number[],
-  amplitudes: readonly number[],
-  phases: readonly number[]
-): number[] {
-  return Array.from({ length: sampleCount }, (_, index) => {
-    const time = index * sampleTime;
-    return frequencies.reduce((sum, frequency, tone) => {
-      const magnitude = gain / Math.hypot(1, timeConstant * frequency);
-      const phase = -Math.atan(timeConstant * frequency);
-      return sum + amplitudes[tone] * magnitude * Math.sin(frequency * time + phases[tone] + phase);
-    }, 0);
-  });
 }
 
 function assertComplexSet(actual: readonly any[], expected: readonly any[], tolerance: number): void {

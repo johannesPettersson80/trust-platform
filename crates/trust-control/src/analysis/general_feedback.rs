@@ -2,7 +2,9 @@
 //! the Nyquist count and the classical margins of a selected-channel negative feedback loop. The loop closes
 //! either with a second supplied model's channel, or with one declared controller law (a rational function of
 //! its parameters, evaluated at the selected value). The mathematics is in `trust_control_math`; this module
-//! decides which evidence applies and what each result says.
+//! decides which evidence applies and what each result says. The declared law's loop is in `feedback_declared`,
+//! the Nyquist count and the margins in `feedback_margins`, and each channel's response on the grid in
+//! `frequency_points`.
 
 // The exact comparisons are deliberate: a sample time must match exactly, and a denominator is zero or not.
 #![allow(clippy::float_cmp)]
@@ -11,22 +13,23 @@ use std::f64::consts::PI;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use trust_control_math::classical::{
-    analyze_transfer, classical_stability_margins, roots_of_real_polynomial, ClassicalError,
-    GainMargin, Sweep, Transfer,
-};
+use trust_control_math::classical::Transfer;
 use trust_control_math::feedback_poles::{
     algebraic_loop_is_singular, closed_loop_poles, Realization,
 };
-use trust_control_math::frequency::{response_at, FrequencyModel};
 use trust_control_math::linalg::ComplexValue;
-use trust_control_math::model::TransferFunction;
-use trust_control_math::nyquist::{nyquist_stability, Nyquist};
-use trust_control_math::polynomial::{add_aligned, convolve};
+use trust_control_math::polynomial::convolve;
 
-use crate::analysis::declared::DeclaredControlAnalysis;
+use crate::analysis::feedback_declared::analyze_declared;
+use crate::analysis::feedback_margins::{
+    closed_loop_result, contour_count_for, estimate_margins, report,
+};
+use crate::analysis::frequency_points::{channel_points, grid_of, position};
 use crate::analysis::{limits, texts};
-use crate::model::{linear_transfer_model, GeneralModel, ModelChannel, ModelIdentity};
+use crate::failure::{Cause, Failure, NextAction};
+use crate::messages::FrequencyGrid;
+use crate::model::{linear_transfer_model, GeneralModel, ModelChannel};
+use crate::tuning::texts::engineering;
 
 /// The channels of one loop end: the input and the output that the loop uses, by identifier.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -89,8 +92,12 @@ pub struct FeedbackPoint {
     pub imaginary: f64,
     /// The magnitude.
     pub magnitude: f64,
+    /// The magnitude in dB, with a magnitude of zero read as the smallest positive number (N4.3).
+    pub magnitude_db: f64,
     /// The phase in radians.
     pub phase_radians: f64,
+    /// The phase in degrees, unwrapped to the principal value of `atan2` (N4.3).
+    pub phase_degrees: f64,
 }
 
 /// The sensitivities at one frequency, in dB.
@@ -200,6 +207,18 @@ pub struct FeedbackResult {
     pub closed_loop: ClosedLoop,
     /// The classical margins.
     pub margins: Margins,
+    /// The frequency grid as the engine used it (N4.3).
+    pub grid: FrequencyGrid,
+    /// The plant's channels in the loop.
+    pub plant_channel: ChannelPair,
+    /// The controller's channels in the loop.
+    pub controller_channel: ChannelPair,
+    /// Where the controller comes from.
+    pub controller_source: ControllerSource,
+    /// The sentences of the result area, warnings first (B9.9).
+    pub summary: Vec<String>,
+    /// The sentences of the details disclosure.
+    pub details: Vec<String>,
 }
 
 /// A general feedback analysis with its loop, as it is stored in a study.
@@ -308,200 +327,20 @@ pub fn analyze_general_feedback(
     } else {
         texts::FEEDBACK_NYQUIST_SAMPLED_SCOPE
     };
-    Ok(FeedbackResult {
+    Ok(finish(FeedbackResult {
         open_loop: open_loop_points(&open_loop, frequencies),
         nyquist_scope: nyquist_scope.to_string(),
         sensitivity: Some(sensitivity),
         nyquist,
         closed_loop,
         margins: estimate_margins(definition, frequencies),
-    })
-}
-
-/// The loop of a declared controller law: the plant's channel times the law at each frequency, the closed-loop
-/// poles of the declared characteristic polynomial, and the Nyquist count of the declared loop.
-fn analyze_declared(
-    definition: &FeedbackDefinition,
-    declared: &DeclaredFeedbackController,
-    frequencies: &[f64],
-    plant_points: &[ComplexValue],
-) -> Result<FeedbackResult, FeedbackRefusal> {
-    let plant = match &definition.plant {
-        GeneralModel::ContinuousStateSpace { .. } => linearised(&definition.plant)?,
-        GeneralModel::TransferFunction { identity, transfer } => Transfer {
-            numerator: transfer.numerator.clone(),
-            denominator: transfer.denominator.clone(),
-            delay_seconds: identity.delay_seconds,
-        },
-        GeneralModel::DiscreteStateSpace { .. } => {
-            return Err(FeedbackRefusal::Other(
-                texts::DECLARED_PLANT_UNSUPPORTED.to_string(),
-            ));
-        }
-    };
-    let law = Transfer {
-        numerator: declared.numerator.clone(),
-        denominator: declared.denominator.clone(),
-        delay_seconds: 0.0,
-    };
-    let response = analyze_transfer(&law, frequencies)
-        .map_err(|error| FeedbackRefusal::Other(texts::classical_reason(error).to_string()))?;
-    if plant_points.len() != response.bode.len() {
-        return Err(FeedbackRefusal::Other(
-            texts::DECLARED_GRID_MISMATCH.to_string(),
-        ));
-    }
-    let controller_points: Vec<ComplexValue> = response
-        .bode
-        .iter()
-        .map(|point| {
-            let magnitude = 10f64.powf(point.magnitude_db / 20.0);
-            let phase = point.phase_degrees * PI / 180.0;
-            ComplexValue {
-                real: magnitude * phase.cos(),
-                imaginary: magnitude * phase.sin(),
-            }
-        })
-        .collect();
-    let open_loop = multiply_points(plant_points, &controller_points, frequencies)?;
-    let sensitivity = sensitivity_points(&open_loop, &controller_points, frequencies);
-    let characteristic = add_aligned(
-        &convolve(&plant.denominator, &law.denominator),
-        &convolve(&plant.numerator, &law.numerator),
-    );
-    let closed_loop = if plant.delay_seconds > 0.0 {
-        ClosedLoop::Unavailable {
-            reason: texts::FEEDBACK_DELAY_POLES.to_string(),
-        }
-    } else {
-        let poles = roots_of_real_polynomial(&characteristic).ok_or_else(|| {
-            FeedbackRefusal::Other(texts::DECLARED_CHARACTERISTIC_UNSOLVED.to_string())
-        })?;
-        let scope = format!(
-            "{}{}{}",
-            texts::FEEDBACK_DECLARED_POLES_SCOPE,
-            if matches!(definition.plant, GeneralModel::ContinuousStateSpace { .. }) {
-                texts::FEEDBACK_DECLARED_STATE_SUFFIX
-            } else {
-                ""
-            },
-            texts::FEEDBACK_DECLARED_POLES_TAIL
-        );
-        closed_loop_result(poles, &definition.plant, scope)
-    };
-    let nyquist = report(contour_count_for(
-        &Transfer {
-            numerator: convolve(&plant.numerator, &law.numerator),
-            denominator: convolve(&plant.denominator, &law.denominator),
-            delay_seconds: plant.delay_seconds,
-        },
-        frequencies,
-    ));
-    let nyquist_scope = match &nyquist {
-        NyquistReport::Qualified { .. } => texts::FEEDBACK_NYQUIST_DECLARED_SCOPE.to_string(),
-        NyquistReport::Rejected { reason } => {
-            format!("The shared Nyquist stability owner rejected the requested contour: {reason}")
-        }
-    };
-    Ok(FeedbackResult {
-        open_loop: open_loop_points(&open_loop, frequencies),
-        nyquist_scope,
-        sensitivity: Some(sensitivity),
-        nyquist: Some(nyquist),
-        closed_loop,
-        margins: estimate_margins(definition, frequencies),
-    })
-}
-
-/// The declared controller law as a feedback definition on the plant's channels, or `None` when the declared
-/// law does not fit the plant: a discrete or non-SISO plant, unit mismatches, or a law that does not evaluate
-/// (N7.6). The controller model is a placeholder that carries the channels and the units.
-#[must_use]
-pub fn declared_feedback_definition(
-    analysis: &DeclaredControlAnalysis,
-    plant: &GeneralModel,
-) -> Option<FeedbackDefinition> {
-    crate::analysis::declared::check_declared(analysis).ok()?;
-    if plant.identity().inputs.len() != 1 || plant.identity().outputs.len() != 1 {
-        return None;
-    }
-    let (input, output) = (&plant.identity().inputs[0], &plant.identity().outputs[0]);
-    match plant {
-        GeneralModel::DiscreteStateSpace { .. } => return None,
-        GeneralModel::ContinuousStateSpace { .. } => {
-            linearised(plant).ok()?;
-        }
-        GeneralModel::TransferFunction { .. } => {}
-    }
-    if analysis.plant.input_unit != input.unit || analysis.plant.output_unit != output.unit {
-        return None;
-    }
-    let sweep = &analysis.root_locus;
-    let controller = &analysis.controller;
-    let evaluate = |coefficients: &[crate::analysis::declared::DeclaredCoefficient]| -> Vec<f64> {
-        crate::analysis::declared::substitute(
-            coefficients,
-            &sweep.parameter,
-            sweep.selected_value,
-            controller,
-        )
-    };
-    let numerator = evaluate(&controller.numerator);
-    let denominator = evaluate(&controller.denominator);
-    if !numerator.iter().all(|value| value.is_finite())
-        || !denominator.iter().all(|value| value.is_finite())
-        || denominator[0] == 0.0
-    {
-        return None;
-    }
-    let revision = analysis.plant.revision.clone();
-    let placeholder_identity = ModelIdentity {
-        revision: format!("{revision}:declared-controller-analysis"),
-        source: analysis.plant.source,
-        validation: analysis.plant.validation,
-        evidence: vec![format!("declared-controller-law:{revision}")],
-        inputs: vec![ModelChannel {
-            id: format!("{}:feedback", output.id),
-            unit: output.unit.clone(),
-            operating_range: output.operating_range,
-        }],
-        outputs: vec![ModelChannel {
-            id: format!("{}:command", input.id),
-            unit: input.unit.clone(),
-            operating_range: input.operating_range,
-        }],
-        delay_seconds: 0.0,
-        operating_point: None,
-    };
-    let controller_model = GeneralModel::TransferFunction {
-        identity: placeholder_identity,
-        transfer: TransferFunction {
-            numerator: vec![1.0],
-            denominator: vec![1.0],
-        },
-    };
-    let controller_channel = ChannelPair {
-        input_id: format!("{}:feedback", output.id),
-        output_id: format!("{}:command", input.id),
-    };
-    Some(FeedbackDefinition {
-        plant: plant.clone(),
-        controller: controller_model,
-        plant_channel: ChannelPair {
-            input_id: input.id.clone(),
-            output_id: output.id.clone(),
-        },
-        controller_channel,
-        declared_controller: Some(DeclaredFeedbackController {
-            numerator,
-            denominator,
-            parameter: sweep.parameter.clone(),
-            selected_value: sweep.selected_value,
-            revision,
-            input_unit: output.unit.clone(),
-            output_unit: input.unit.clone(),
-        }),
-    })
+        grid: grid_of(frequencies),
+        plant_channel: definition.plant_channel.clone(),
+        controller_channel: definition.controller_channel.clone(),
+        controller_source: ControllerSource::Model,
+        summary: Vec::new(),
+        details: Vec::new(),
+    }))
 }
 
 /// Checks a stored general feedback analysis against its loop: the same frequencies at every point, and no
@@ -629,11 +468,11 @@ fn check_definition(definition: &FeedbackDefinition) -> Result<(), FeedbackRefus
     Ok(())
 }
 
-/// The frequency grid: between one and 4096 points, all positive, finite and increasing.
+/// The frequency grid: between one and 512 points, all positive, finite and increasing (N4.3).
 fn check_grid(frequencies: &[f64]) -> Result<(), FeedbackRefusal> {
     let increasing = frequencies.windows(2).all(|pair| pair[1] > pair[0]);
     if frequencies.is_empty()
-        || frequencies.len() > limits::FEEDBACK_MAXIMUM_FREQUENCIES
+        || frequencies.len() > limits::FREQUENCY_MAXIMUM_POINTS
         || !frequencies
             .iter()
             .all(|frequency| frequency.is_finite() && *frequency > 0.0)
@@ -642,94 +481,6 @@ fn check_grid(frequencies: &[f64]) -> Result<(), FeedbackRefusal> {
         return Err(FeedbackRefusal::InvalidFrequencyGrid);
     }
     Ok(())
-}
-
-/// The response of one channel of a model on the grid (N4.3): the transfer function's bode data, or the
-/// state-space response of the channel. A sampled model must stay below its Nyquist frequency.
-fn channel_points(
-    model: &GeneralModel,
-    channel: &ChannelPair,
-    frequencies: &[f64],
-) -> Result<Vec<ComplexValue>, FeedbackRefusal> {
-    if let GeneralModel::DiscreteStateSpace {
-        sample_time_seconds,
-        ..
-    } = model
-    {
-        if frequencies
-            .iter()
-            .any(|frequency| *frequency >= PI / sample_time_seconds)
-        {
-            return Err(FeedbackRefusal::AliasRisk);
-        }
-    }
-    match model {
-        GeneralModel::TransferFunction { identity, transfer } => {
-            let transfer = Transfer {
-                numerator: transfer.numerator.clone(),
-                denominator: transfer.denominator.clone(),
-                delay_seconds: identity.delay_seconds,
-            };
-            let analysis = analyze_transfer(&transfer, frequencies).map_err(|error| {
-                FeedbackRefusal::Other(texts::classical_reason(error).to_string())
-            })?;
-            Ok(analysis
-                .bode
-                .iter()
-                .map(|point| {
-                    let magnitude = 10f64.powf(point.magnitude_db / 20.0);
-                    let phase = point.phase_degrees * PI / 180.0;
-                    ComplexValue {
-                        real: magnitude * phase.cos(),
-                        imaginary: magnitude * phase.sin(),
-                    }
-                })
-                .collect())
-        }
-        GeneralModel::ContinuousStateSpace {
-            identity, system, ..
-        }
-        | GeneralModel::DiscreteStateSpace {
-            identity, system, ..
-        } => {
-            let input = position(&identity.inputs, &channel.input_id)?;
-            let output = position(&identity.outputs, &channel.output_id)?;
-            let frequency_model = FrequencyModel::StateSpace {
-                system: system.clone(),
-                timing: model.timing(),
-                delay_seconds: identity.delay_seconds,
-            };
-            frequencies
-                .iter()
-                .map(|&frequency| {
-                    response_at(&frequency_model, frequency)
-                        .map_err(|_| {
-                            FeedbackRefusal::Other(
-                                "singular-or-ill-conditioned-frequency".to_string(),
-                            )
-                        })
-                        .and_then(|rows| {
-                            rows.get(output)
-                                .and_then(|row| row.get(input))
-                                .copied()
-                                .ok_or_else(|| {
-                                    FeedbackRefusal::Other(
-                                        "singular-or-ill-conditioned-frequency".to_string(),
-                                    )
-                                })
-                        })
-                })
-                .collect()
-        }
-    }
-}
-
-/// The index of a channel by identifier.
-fn position(channels: &[ModelChannel], id: &str) -> Result<usize, FeedbackRefusal> {
-    channels
-        .iter()
-        .position(|channel| channel.id == id)
-        .ok_or(FeedbackRefusal::InvalidDefinition)
 }
 
 /// The realization of a loop end: the companion form of a transfer function, or the channel of a state-space
@@ -757,7 +508,7 @@ fn realization(
 }
 
 /// The transfer function of a state-space model through the linear-model conversion of the model page.
-fn linearised(model: &GeneralModel) -> Result<Transfer, FeedbackRefusal> {
+pub(crate) fn linearised(model: &GeneralModel) -> Result<Transfer, FeedbackRefusal> {
     let value = serde_json::to_value(model).map_err(|_| FeedbackRefusal::InvalidDefinition)?;
     match linear_transfer_model(&value) {
         Ok(GeneralModel::TransferFunction { identity, transfer }) => Ok(Transfer {
@@ -773,7 +524,7 @@ fn linearised(model: &GeneralModel) -> Result<Transfer, FeedbackRefusal> {
 }
 
 /// The product of two responses, point by point, with the finiteness rule of N4.3.
-fn multiply_points(
+pub(crate) fn multiply_points(
     left: &[ComplexValue],
     right: &[ComplexValue],
     frequencies: &[f64],
@@ -796,7 +547,10 @@ fn multiply_points(
 }
 
 /// The points of the open loop with their magnitude and phase.
-fn open_loop_points(open_loop: &[ComplexValue], frequencies: &[f64]) -> Vec<FeedbackPoint> {
+pub(crate) fn open_loop_points(
+    open_loop: &[ComplexValue],
+    frequencies: &[f64],
+) -> Vec<FeedbackPoint> {
     open_loop
         .iter()
         .zip(frequencies)
@@ -805,14 +559,21 @@ fn open_loop_points(open_loop: &[ComplexValue], frequencies: &[f64]) -> Vec<Feed
             real: value.real,
             imaginary: value.imaginary,
             magnitude: value.real.hypot(value.imaginary),
+            magnitude_db: 20.0
+                * value
+                    .real
+                    .hypot(value.imaginary)
+                    .max(f64::from_bits(1))
+                    .log10(),
             phase_radians: value.imaginary.atan2(value.real),
+            phase_degrees: value.imaginary.atan2(value.real) * 180.0 / PI,
         })
         .collect()
 }
 
 /// The sensitivities `S = 1/(1 + L)`, `T = L·S` and `C·S`, in dB at each frequency of the grid (N7.7). A
 /// value of zero is the smallest positive number, so that the logarithm stays finite.
-fn sensitivity_points(
+pub(crate) fn sensitivity_points(
     open_loop: &[ComplexValue],
     controller: &[ComplexValue],
     frequencies: &[f64],
@@ -838,146 +599,126 @@ fn sensitivity_points(
         .collect()
 }
 
-/// The Nyquist count of a transfer function on the grid, between its first and last frequencies (N7.10).
-fn contour_count_for(transfer: &Transfer, frequencies: &[f64]) -> Result<Nyquist, ClassicalError> {
-    let first = frequencies[0];
-    let last = frequencies[frequencies.len() - 1];
-    let sweep = Sweep {
-        minimum_rad_per_second: first,
-        maximum_rad_per_second: last,
-        points_per_decade: nyquist_points((last / first).log10()),
-    };
-    nyquist_stability(transfer, sweep)
+/// Where the controller of a feedback analysis comes from: the controller model of the request, or the loop's declared law.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum ControllerSource {
+    /// The controller model.
+    Model,
+    /// The declared controller law of the loop (N7.6).
+    DeclaredLaw,
 }
 
-/// The points per decade of a Nyquist contour: `⌊511 / decades⌋`, clamped to the allowed range.
-fn nyquist_points(decades: f64) -> u32 {
-    let budget = (limits::MARGIN_POINT_BUDGET / decades).floor();
-    let clamped = budget.clamp(
-        f64::from(limits::NYQUIST_MINIMUM_POINTS_PER_DECADE),
-        f64::from(limits::NYQUIST_MAXIMUM_POINTS_PER_DECADE),
-    );
-    // The clamp keeps the value between ten and one hundred, so the conversion is exact.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let points = clamped as u32;
-    points
-}
+const REFUSED_DEFINITION: &str = "The plant and the controller do not form this loop: their channels, units or sample times disagree (N4.4).";
+const REFUSED_GRID: &str =
+    "The frequency grid must hold positive, increasing frequencies, at most 512 points (N4.3).";
+const REFUSED_ALIAS: &str =
+    "A sampled model's response is needed below its Nyquist frequency π/Ts (N4.3).";
+const REFUSED_SINGULAR: &str =
+    "The algebraic loop 1 + Dp·Dc is singular, so the loop has no unique response (N4.4).";
+const REFUSED_NONFINITE: &str =
+    "The loop's response is not finite at a frequency of the grid (N4.3).";
 
-/// The report of a Nyquist count.
-fn report(outcome: Result<Nyquist, ClassicalError>) -> NyquistReport {
-    match outcome {
-        Ok(nyquist) => NyquistReport::Qualified {
-            summary: NyquistSummary {
-                encirclements_counterclockwise: nyquist.encirclements_counterclockwise,
-                open_loop_right_half_plane_poles: nyquist.open_loop_right_half_plane_poles,
-                closed_loop_right_half_plane_poles: nyquist.closed_loop_right_half_plane_poles,
-                closed_loop_stable: nyquist.closed_loop_stable,
-                minimum_distance_to_minus_one: nyquist.minimum_distance_to_minus_one,
-                endpoint_magnitude: nyquist.endpoint_magnitude,
-            },
-        },
-        Err(error) => NyquistReport::Rejected {
-            reason: texts::classical_reason(error).to_string(),
-        },
-    }
-}
-
-/// The closed-loop result of a set of poles: sorted, and stable when every pole lies in the stable region
-/// (N7.11).
-fn closed_loop_result(
-    mut poles: Vec<ComplexValue>,
-    plant: &GeneralModel,
-    scope: String,
-) -> ClosedLoop {
-    poles.sort_by(|left, right| {
-        left.real
-            .partial_cmp(&right.real)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then(
-                left.imaginary
-                    .partial_cmp(&right.imaginary)
-                    .unwrap_or(std::cmp::Ordering::Equal),
-            )
-    });
-    let stable = poles.iter().all(|pole| match plant {
-        GeneralModel::DiscreteStateSpace { .. } => pole.real.hypot(pole.imaginary) < 1.0 - 1e-10,
-        _ => pole.real < -1e-10,
-    });
-    ClosedLoop::Qualified {
-        poles,
-        stable,
-        scope,
-    }
-}
-
-/// The classical margins of the loop, estimated on the grid (N7.8): the first crossovers, with the range and
-/// the pure delay checked first.
-fn estimate_margins(definition: &FeedbackDefinition, frequencies: &[f64]) -> Margins {
-    let unavailable = |reason: &str| Margins::Unavailable {
-        reason: reason.to_string(),
-    };
-    let GeneralModel::TransferFunction { identity, transfer } = &definition.plant else {
-        return unavailable(texts::MARGIN_NEEDS_TRANSFER);
-    };
-    let controller_transfer = match &definition.controller {
-        GeneralModel::TransferFunction { identity, transfer } => Some((identity, transfer)),
-        _ => None,
-    };
-    let (numerator, denominator, controller_delay) =
-        match (&definition.declared_controller, controller_transfer) {
-            (Some(declared), _) => (
-                declared.numerator.clone(),
-                declared.denominator.clone(),
-                0.0,
+impl From<FeedbackRefusal> for Failure {
+    /// The failure of a refused analysis (A11.1), with the next action that its refusal allows.
+    fn from(refusal: FeedbackRefusal) -> Self {
+        let (text, cause, next_action) = match &refusal {
+            FeedbackRefusal::InvalidDefinition => (
+                REFUSED_DEFINITION,
+                Cause::ModelOrData,
+                NextAction::OpenChannels,
             ),
-            (None, Some((controller_identity, controller_transfer))) => (
-                controller_transfer.numerator.clone(),
-                controller_transfer.denominator.clone(),
-                controller_identity.delay_seconds,
-            ),
-            (None, None) => return unavailable(texts::MARGIN_NEEDS_TRANSFER),
-        };
-    let delay = identity.delay_seconds + controller_delay;
-    let first = frequencies[0];
-    let last = frequencies[frequencies.len() - 1];
-    let decades = (last / first).log10();
-    let points = (limits::MARGIN_POINT_BUDGET / decades).floor().min(100.0);
-    if !decades.is_finite() || decades <= 0.0 || points < 10.0 {
-        return unavailable(texts::MARGIN_RANGE_UNSUPPORTED);
-    }
-    let largest_interval = last * (1.0 - 10f64.powf(-1.0 / points));
-    if largest_interval * delay > PI / 2.0 {
-        return unavailable(texts::MARGIN_DELAY_TOO_FAST);
-    }
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let points_per_decade = points as u32;
-    let loop_transfer = Transfer {
-        numerator: convolve(&transfer.numerator, &numerator),
-        denominator: convolve(&transfer.denominator, &denominator),
-        delay_seconds: delay,
-    };
-    let sweep = Sweep {
-        minimum_rad_per_second: first,
-        maximum_rad_per_second: last,
-        points_per_decade,
-    };
-    match classical_stability_margins(&loop_transfer, sweep) {
-        Ok(margins)
-            if margins.gain_crossover_rad_per_second.is_finite()
-                && margins.phase_margin_degrees.is_finite() =>
-        {
-            Margins::Estimated {
-                gain_crossover_rad_per_second: margins.gain_crossover_rad_per_second,
-                phase_margin_degrees: margins.phase_margin_degrees,
-                gain_margin_db: match margins.gain_margin {
-                    GainMargin::Decibels(value) if value.is_finite() => Some(value),
-                    _ => None,
-                },
-                scope: texts::MARGIN_SCOPE.to_string(),
+            FeedbackRefusal::InvalidFrequencyGrid => {
+                (REFUSED_GRID, Cause::Settings, NextAction::None)
             }
-        }
-        _ => unavailable(texts::MARGIN_NO_CROSSOVER),
+            FeedbackRefusal::AliasRisk => (REFUSED_ALIAS, Cause::Settings, NextAction::None),
+            FeedbackRefusal::SingularAlgebraicLoop => {
+                (REFUSED_SINGULAR, Cause::ModelOrData, NextAction::None)
+            }
+            FeedbackRefusal::NonfiniteResponse => {
+                (REFUSED_NONFINITE, Cause::ModelOrData, NextAction::None)
+            }
+            FeedbackRefusal::Other(reason) => {
+                (reason.as_str(), Cause::ModelOrData, NextAction::None)
+            }
+        };
+        Self::new(text, cause, next_action)
     }
+}
+
+/// Completes a feedback result with its sentences: the result area's sentences, warnings first, and the details
+/// disclosure's sentences (N7.8, N7.10, B10.2).
+pub(crate) fn finish(result: FeedbackResult) -> FeedbackResult {
+    let (summary, details) = feedback_words(&result);
+    FeedbackResult {
+        summary,
+        details,
+        ..result
+    }
+}
+
+/// The sentences of a feedback result: the margins and the Nyquist count for the result area, and the scopes and the
+/// reasons of the evidence for the details disclosure.
+fn feedback_words(result: &FeedbackResult) -> (Vec<String>, Vec<String>) {
+    let margins = match &result.margins {
+        Margins::Estimated {
+            gain_margin_db,
+            phase_margin_degrees,
+            ..
+        } => format!(
+            "Gain margin {}; phase margin {}°.",
+            gain_margin_db.map_or_else(
+                || "unavailable".to_string(),
+                |db| format!("{} dB", engineering(db, None))
+            ),
+            engineering(*phase_margin_degrees, None)
+        ),
+        Margins::Unavailable { .. } => "Margins unavailable.".to_string(),
+    };
+    let mut summary = vec![margins];
+    if let Some(nyquist) = &result.nyquist {
+        summary.push(match nyquist {
+            NyquistReport::Qualified { summary: figures } => {
+                format!("Nyquist contour: {}", nyquist_count_text(figures))
+            }
+            NyquistReport::Rejected { reason } => format!("Nyquist contour unavailable: {reason}"),
+        });
+    }
+    let margin_scope = match &result.margins {
+        Margins::Estimated { scope, .. } => scope.clone(),
+        Margins::Unavailable { reason } => reason.clone(),
+    };
+    let closed_loop_scope = match &result.closed_loop {
+        ClosedLoop::Qualified { scope, .. } => scope.clone(),
+        ClosedLoop::Unavailable { reason } => reason.clone(),
+    };
+    (
+        summary,
+        vec![
+            result.nyquist_scope.clone(),
+            margin_scope,
+            closed_loop_scope,
+        ],
+    )
+}
+
+/// The criterion as the course states it: Z = P + N, with clockwise encirclements of −1 counted positive (N7.10).
+fn nyquist_count_text(figures: &NyquistSummary) -> String {
+    let clockwise = if figures.encirclements_counterclockwise == 0 {
+        0
+    } else {
+        -figures.encirclements_counterclockwise
+    };
+    let stability = if figures.closed_loop_stable {
+        "stable"
+    } else {
+        "unstable"
+    };
+    format!(
+        "P = {} open-loop right-half-plane poles. N = {clockwise} clockwise encirclements of −1. \
+         Z = P + N = {} closed-loop right-half-plane poles: the closed loop is {stability}.",
+        figures.open_loop_right_half_plane_poles, figures.closed_loop_right_half_plane_poles
+    )
 }
 
 /// The delay of a model in seconds.

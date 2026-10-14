@@ -40,9 +40,9 @@ export interface IdentifyResult {
    */
   provisional: boolean;
   /**
-   * The recording the model was fitted from, by its identifier (A8.3).
+   * The recording the model was fitted from, by its identifier (A8.3); absent for a supplied model, which no recording made.
    */
-  recordingId: string;
+  recordingId?: string | null;
   /**
    * The requirements Tune designs to for this model now (B4.3): the values the study records as given, and Automatic's
    * values for the rest, listed in `automaticCriteria`. Absent where Automatic cannot form them (B4.7): Tune then names the
@@ -175,6 +175,11 @@ export interface AutomaticCriteria {
  */
 export interface StageEvidence {
   /**
+   * Tune, Validate and Apply apply to the loop. False for an open-loop experiment or an observation loop (C12), whose
+   * project owns the controller: those three stages are Not applicable.
+   */
+  controllerStagesApply: boolean;
+  /**
    * A controller candidate exists.
    */
   hasCandidate: boolean;
@@ -217,7 +222,8 @@ export interface StageEvidence {
   [k: string]: unknown;
 }
 /**
- * One stage's status, with the words the panel shows.
+ * One stage's status, with the words the panel shows. A stage that is Not applicable also names the reason, which the page
+ * shows in place of its actions (C12).
  */
 export interface StageAvailability {
   /**
@@ -225,12 +231,16 @@ export interface StageAvailability {
    */
   label: string;
   /**
+   * Why the stage does not apply, when its status is Not applicable.
+   */
+  reason?: string | null;
+  /**
    * The stage.
    */
   stage: "Monitor" | "Test" | "Identify" | "Tune" | "Validate" | "Apply";
   /**
    * Its status.
    */
-  status: "ready" | "needs-data" | "in-progress" | "complete" | "warning" | "failed";
+  status: "ready" | "needs-data" | "in-progress" | "complete" | "warning" | "failed" | "not-applicable";
   [k: string]: unknown;
 }

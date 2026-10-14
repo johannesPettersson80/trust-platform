@@ -18,7 +18,7 @@ use crate::identification::refusal::Refusal;
 use crate::loop_definition::LoopDefinition;
 use crate::messages::{TuneChoice, TuneMethod, TuneRequest};
 use crate::model::{GeneralModel, ModelChannel};
-use crate::study::identify::IdentifySection;
+use crate::study::current_model::CurrentModel;
 use crate::study::inputs::InputsSection;
 use crate::study::tune::model::tuning_model;
 use crate::study::tune::TuneSection;
@@ -52,9 +52,9 @@ const UNMAPPED_CHANNELS: &str = "Map every model input and output in loop channe
 /// response in the request it is filled as More robust (Tune page, "Control requirements"), whatever an earlier run of a
 /// formula method declared; a formula method keeps the declared response.
 ///
-/// `identify` is the study's Identify section. The recording it names is not read yet: the record-dependent evidence of
-/// the policy (the recorded ranges, the operating values of a model without an operating point, the recording's length and
-/// the baseline noise) is not used.
+/// The record depends on the model alone, not on the recording it was fitted from: the record-dependent evidence of the policy
+/// (the recorded ranges, the operating values of a model without an operating point, the recording's length and the baseline
+/// noise) is not used.
 ///
 /// `held` is the requirements the study holds when the engineer recorded them (the inputs of `controlStudio/inputs`, B4.3). They
 /// are the engineer's values, kept as given, and they take the place of the earlier Tune section's record: the generated values
@@ -70,7 +70,6 @@ pub(crate) fn requirements_for(
     loop_definition: &LoopDefinition,
     model: &IdentifiedModel,
     general: &GeneralModel,
-    _identify: &IdentifySection,
     previous: Option<&TuneSection>,
     held: Option<&TuningRequirements>,
     request: &TuneRequest,
@@ -118,22 +117,22 @@ pub(crate) fn requirements_with(
     fill_requirements(&evidence, supplied, criteria.as_ref())
 }
 
-/// The requirements the study's model needs now, as Tune designs to them (B4.3; the Identify answer names them): the values the
+/// The requirements the study's current model needs now, as Tune designs to them (B4.3; the answers name them): the values the
 /// study records as given, the method and the declared response its inputs name (the request that the automatic run's Tune is
 /// given from the same inputs), and Automatic's values for the rest, listed in `automaticCriteria`. `None` when Automatic cannot
 /// form the record or the record breaks its rules: Tune then names the missing prerequisite when it runs (B4.7).
 #[must_use]
 pub(crate) fn study_requirements(
     loop_definition: &LoopDefinition,
-    identify: &IdentifySection,
+    current: &CurrentModel,
     previous: Option<&TuneSection>,
     inputs: Option<&InputsSection>,
 ) -> Option<TuningRequirements> {
-    let model = tuning_model(&identify.selected_model, identify).ok()?;
+    let model = tuning_model(current).ok()?;
     let requirements = requirements_with(
         loop_definition,
         &model,
-        &identify.selected_model,
+        &current.model,
         previous,
         inputs.and_then(|inputs| inputs.requirements.as_ref()),
         inputs.and_then(|inputs| inputs.method),

@@ -306,6 +306,7 @@ impl Lab {
                 address: None,
                 symbol: Some((*symbol).into()),
                 iec_type: (*iec_type).into(),
+                unit: None,
             })
             .collect();
         let mut client = RuntimeClient::connect(&self.connection).expect("connected");

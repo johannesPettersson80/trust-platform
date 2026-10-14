@@ -500,6 +500,11 @@ export interface RunOutcome1 {
  */
 export interface StageEvidence {
   /**
+   * Tune, Validate and Apply apply to the loop. False for an open-loop experiment or an observation loop (C12), whose
+   * project owns the controller: those three stages are Not applicable.
+   */
+  controllerStagesApply: boolean;
+  /**
    * A controller candidate exists.
    */
   hasCandidate: boolean;
@@ -542,7 +547,8 @@ export interface StageEvidence {
   [k: string]: unknown;
 }
 /**
- * One stage's status, with the words the panel shows.
+ * One stage's status, with the words the panel shows. A stage that is Not applicable also names the reason, which the page
+ * shows in place of its actions (C12).
  */
 export interface StageAvailability {
   /**
@@ -550,12 +556,16 @@ export interface StageAvailability {
    */
   label: string;
   /**
+   * Why the stage does not apply, when its status is Not applicable.
+   */
+  reason?: string | null;
+  /**
    * The stage.
    */
   stage: "Monitor" | "Test" | "Identify" | "Tune" | "Validate" | "Apply";
   /**
    * Its status.
    */
-  status: "ready" | "needs-data" | "in-progress" | "complete" | "warning" | "failed";
+  status: "ready" | "needs-data" | "in-progress" | "complete" | "warning" | "failed" | "not-applicable";
   [k: string]: unknown;
 }

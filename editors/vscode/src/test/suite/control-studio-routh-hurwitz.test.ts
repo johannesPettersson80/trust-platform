@@ -1,5 +1,4 @@
 import * as assert from "assert";
-import { routhDetailText } from "../../controlStudio/webview/routhDetails";
 
 type DeclaredControlAnalysis = {
   plant: { kind: "transfer-function"; numerator: readonly number[]; denominator: readonly number[]; delaySeconds: number;
@@ -79,10 +78,6 @@ suite("Control Studio Routh-Hurwitz mathematics", () => {
     const zeroRow = origin.issues.find((issue: { kind: string }) => issue.kind === "all-zero-row");
     assert.match(zeroRow.explanation, /derivative/, "the resolved all-zero row names its replacement");
     assert.doesNotMatch(zeroRow.explanation, /requires separate analysis/);
-    const details = routhDetailText(origin);
-    assert.match(details ?? "", /^First-column signs of the exact table: positive, positive, positive\./);
-    assert.match(details ?? "", /zero constant coefficient establishes an origin pole/);
-    assert.match(details ?? "", /derivative/);
     const zeroPivot = routh!.analyzeRouthPolynomial([1, 0, 1, 2, 3]);
     assert.strictEqual(zeroPivot.status, "qualified", "an exact zero pivot should use the symbolic ε→0+ rule");
     assert.strictEqual(zeroPivot.signChanges, 2);
@@ -213,18 +208,5 @@ suite("Control Studio Routh-Hurwitz mathematics", () => {
         assert.strictEqual(result.signChanges, realRoots.filter(r => r > 0).length + (conjugateReal > 0 ? 2 : 0), JSON.stringify(combined));
       }
     }
-  });
-
-  test("shows each stability boundary as a decimal and keeps its exact enclosure for inspection", () => {
-    const details = require("../../controlStudio/webview/routhDetails");
-    assert.strictEqual(typeof details.routhBoundaryRows, "function", "raw rational enclosures are not readable as table values");
-    const rows = details.routhBoundaryRows([
-      { polynomial: ["2", "15", "35", "19", "-15"], lower: "-6755399441055745/2251799813685248", upper: "-1688849860263935/562949953421312" },
-      { polynomial: ["2", "15", "35", "19", "-15"], lower: "-5/2", upper: "-5/2" },
-      { polynomial: ["1", "-2"], lower: "3/2", upper: "5/2" },
-    ]);
-    assert.deepStrictEqual(rows.map((row: any) => [row[0], row[1].text]), [
-      ["2, 15, 35, 19, -15", "-3"], ["2, 15, 35, 19, -15", "-2.5"], ["1, -2", "1.5 – 2.5"]]);
-    assert.strictEqual(rows[0][1].title, "Exact enclosure [-6755399441055745/2251799813685248, -1688849860263935/562949953421312]");
   });
 });

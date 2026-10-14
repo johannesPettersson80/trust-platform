@@ -17,7 +17,10 @@ use crate::loop_definition::LoopDefinition;
 use crate::messages::{
     CandidateOutcome, IdentifyPlot, IdentifyResult, PlotRole, PlotTrace, TuneMethod, TuneResult,
 };
+use crate::model::{GeneralModel, ModelChannel, ModelValidation};
 use crate::stages::{stage_availability, StageEvidence};
+use crate::study::current_model::{current_model, CurrentModel};
+use crate::study::general_model_persistence::supplied_model_words;
 use crate::study::identify::{IdentifySection, IdentifySignals};
 use crate::study::inputs::InputsSection;
 use crate::study::tune::model::tuning_model;
@@ -82,7 +85,7 @@ pub fn identify_result(
         provisional: section.provisional,
         text,
         plot: response_plot(section),
-        recording_id: section.estimation_recording_id.clone(),
+        recording_id: Some(section.estimation_recording_id.clone()),
         model_revision: section.selected_model.identity().revision.clone(),
         requirements,
         stage_evidence: evidence,
@@ -90,27 +93,80 @@ pub fn identify_result(
     }
 }
 
-/// The Identify answer of `section`, a section of `study` (B3.8, A8.6): [`identify_result`] with the requirements Tune designs
-/// to for the section's model now (B4.3), which come from the study's Tune section and its recorded inputs.
+/// The Identify answer of the study's current model `current` (B3.8, B3.7, A8.6): for a fit, [`identify_result`] of its section;
+/// for a supplied model, [`supplied_result`]. Both carry the requirements Tune designs to for the model now (B4.3), which come
+/// from the study's Tune section and its recorded inputs.
 ///
 /// # Errors
 /// The study's Tune section or its inputs cannot be read.
 pub fn identify_answer(
     study: &Study,
     loop_definition: &LoopDefinition,
-    section: &IdentifySection,
+    current: &CurrentModel,
     evidence: StageEvidence,
 ) -> Result<IdentifyResult, Failure> {
     let previous = study.section::<TuneSection>()?;
     let inputs = study.section::<InputsSection>()?;
     let requirements =
-        study_requirements(loop_definition, section, previous.as_ref(), inputs.as_ref());
-    Ok(identify_result(section, evidence, requirements))
+        study_requirements(loop_definition, current, previous.as_ref(), inputs.as_ref());
+    Ok(match &current.identify {
+        Some(section) => identify_result(section, evidence, requirements),
+        None => supplied_result(&current.model, evidence, requirements),
+    })
 }
 
-/// The identification a study holds, as `controlStudio/open` answers it (A8.6): the Identify answer of its Identify section when
-/// that section is current for the loop (A8.4). A study with no section, or one that is not current, holds none, as it does after
-/// Reset.
+/// The Identify answer of a supplied model (B3.7, B9.4): its type and equation in plain words, and its channels as its key numbers.
+/// It was not fitted, so it has no recording, no response plot and no fit error; the page shows it as it shows a fit, with the
+/// stage status after it.
+#[must_use]
+pub fn supplied_result(
+    model: &GeneralModel,
+    evidence: StageEvidence,
+    requirements: Option<TuningRequirements>,
+) -> IdentifyResult {
+    let words = supplied_model_words(model);
+    let identity = model.identity();
+    let provisional = identity.validation != ModelValidation::Validated;
+    let key_numbers = format!(
+        "Input {}; output {}",
+        channels_text(&identity.inputs),
+        channels_text(&identity.outputs)
+    );
+    let label = if provisional { PROVISIONAL_LABEL } else { "" };
+    let text = format!(
+        "{}{label}\n{}\n{key_numbers}",
+        words.model_type, words.equation
+    );
+    IdentifyResult {
+        model_type: words.model_type,
+        equation: words.equation,
+        key_numbers,
+        provisional,
+        text,
+        plot: IdentifyPlot {
+            time_seconds: Vec::new(),
+            traces: Vec::new(),
+        },
+        recording_id: None,
+        model_revision: identity.revision.clone(),
+        requirements,
+        stage_evidence: evidence,
+        stages: stage_availability(&evidence),
+    }
+}
+
+/// The channels in words: each identifier with its unit, in the model's order.
+fn channels_text(channels: &[ModelChannel]) -> String {
+    channels
+        .iter()
+        .map(|channel| format!("{} ({})", channel.id, channel.unit))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// The identification a study holds, as `controlStudio/open` answers it (A8.6): the Identify answer of the study's current model
+/// (B3.7), whatever its source, when that model is current for the loop (A8.4). A study with no model, or one that is not current,
+/// holds none, as it does after Reset.
 ///
 /// # Errors
 /// The study's sections cannot be read.
@@ -119,13 +175,13 @@ pub fn study_identification(
     loop_definition: &LoopDefinition,
     evidence: StageEvidence,
 ) -> Result<Option<IdentifyResult>, Failure> {
-    let Some(section) = study.section::<IdentifySection>()? else {
+    let Some(current) = current_model(study)? else {
         return Ok(None);
     };
-    if !section.is_current_for(loop_definition) {
+    if !current.is_current_for(loop_definition) {
         return Ok(None);
     }
-    identify_answer(study, loop_definition, &section, evidence).map(Some)
+    identify_answer(study, loop_definition, &current, evidence).map(Some)
 }
 
 /// The text of a kept candidate's answer where the study keeps no prediction: the response and the margins are not predicted on
@@ -134,23 +190,23 @@ const NOT_KEPT_PREDICTION: &str =
     "The study keeps the candidate but not its prediction, so the response and the margins are not shown until Tune runs again.";
 
 /// The candidate a study keeps, answered as `controlStudio/tune` answers it (B4.5, A8.6): the builder of the Tune answer
-/// ([`tune_result`]) on the study's Tune section and its model. The study keeps the design, its candidate, method, reason,
+/// ([`tune_result`]) on the study's Tune section and its current model. The study keeps the design, its candidate, method, reason,
 /// attempts, `λ` and requirements, but no prediction. So the answer holds no response, settling time or overshoot, its outcome is
 /// unpredicted, and it gives no margins and no comparison: nothing is predicted on open. Two values are rebuilt from what the
 /// study keeps and are not the answer's own words: a relay candidate's description is its reason, because the relay cycle's
 /// numbers are not kept, and the objective of an Automatic candidate is its declared response, or More robust, because the study
-/// keeps the `λ` of a SIMC candidate and not the response it was chosen with. It is `None` without an identification or a Tune
+/// keeps the `λ` of a SIMC candidate and not the response it was chosen with. It is `None` without a current model or a Tune
 /// section, or when the model cannot be read.
 #[must_use]
 pub fn kept_candidate(
     loop_definition: &LoopDefinition,
-    identify: Option<&IdentifySection>,
+    current: Option<&CurrentModel>,
     previous: Option<&TuneSection>,
     evidence: StageEvidence,
 ) -> Option<TuneResult> {
-    let identify = identify?;
+    let current = current?;
     let section = previous?;
-    let model = tuning_model(&identify.selected_model, identify).ok()?;
+    let model = tuning_model(current).ok()?;
     let signals = &loop_definition.signals;
     let process_unit = display_engineering_unit(&signals.process_variable.unit);
     let manipulated_unit = display_engineering_unit(&signals.manipulated_variable.unit);
@@ -207,28 +263,30 @@ pub fn study_candidate(
     if !evidence.has_candidate {
         return Ok(None);
     }
-    let identify = study.section::<IdentifySection>()?;
+    let current = current_model(study)?;
     let previous = study.section::<TuneSection>()?;
     Ok(kept_candidate(
         loop_definition,
-        identify.as_ref(),
+        current.as_ref(),
         previous.as_ref(),
         evidence,
     ))
 }
 
-/// The evidence of a study of `loop_definition` that sets the stages' status: the loop is bound, a model exists when the
-/// study's Identify section is current for the loop (A8.4), and `has_recording` says whether the study holds a recording.
+/// The evidence of a study of `loop_definition` that sets the stages' status: the loop is bound, a model exists when the study's
+/// current model is current for the loop (A8.4, B3.7), `has_recording` says whether the study holds a recording, and the loop's
+/// kind decides whether Tune, Validate and Apply apply (C12).
 #[must_use]
 pub fn study_evidence(
     loop_definition: &LoopDefinition,
-    identify: Option<&IdentifySection>,
+    current: Option<&CurrentModel>,
     has_recording: bool,
 ) -> StageEvidence {
     StageEvidence {
         loop_bound: true,
-        has_model: identify.is_some_and(|section| section.is_current_for(loop_definition)),
+        has_model: current.is_some_and(|current| current.is_current_for(loop_definition)),
         has_recording,
+        controller_stages_apply: !loop_definition.is_observation_or_open_loop(),
         ..StageEvidence::default()
     }
 }
@@ -243,7 +301,8 @@ struct Series<'a> {
 
 /// The response plot of a section (B3.8, B9.7): the applied plant inputs and the measured outputs of the experiment, then the
 /// model's prediction, on the times of the recording. Without the experiment's traces the measured output is the measured
-/// value of each fitted point, as the page drew it. Nothing is interpolated or resampled.
+/// value of each fitted point, as the page drew it, named by the channel the fit read (`read_channels`, B3.6). Nothing is
+/// interpolated or resampled.
 fn response_plot(section: &IdentifySection) -> IdentifyPlot {
     let comparison = &section.presentation;
     let shown = &comparison.presentation;
@@ -278,7 +337,7 @@ fn response_plot(section: &IdentifySection) -> IdentifyPlot {
         series.push(Series {
             role: PlotRole::Measurement,
             symbol: section
-                .signals
+                .read_channels()
                 .outputs
                 .first()
                 .map_or(predicted_output, String::as_str),

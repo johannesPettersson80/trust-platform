@@ -14,8 +14,7 @@ export interface RunStageRoute extends EngineStageRoute {
 /**
  * The automatic flow (specification 35, B8 and §0.1a `run`). The Identify page's start, Identify plant, is one
  * `controlStudio/run` through Identify that identifies again (`identifyAgain`). Tune's start is the Tune route's, Validate's
- * start the Validate route's, and a start from a recording file stays on the TypeScript route, because the engine reads no
- * file yet (§0.1a). Abort stops the run this route started or adopted, with `controlStudio/cancel`.
+ * start the Validate route's. Abort stops the run this route started or adopted, with `controlStudio/cancel`.
  */
 export function createRunRoute(context: EngineRouteContext): RunStageRoute {
   /** The run the engine started for the page, or adopted on reopening; Abort stops it while it runs. */

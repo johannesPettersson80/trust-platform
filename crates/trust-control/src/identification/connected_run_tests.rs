@@ -328,6 +328,27 @@ fn a_physical_target_and_a_downward_relay_are_refused_before_anything_is_recorde
 }
 
 #[test]
+fn a_project_scripted_loop_with_a_setpoint_is_never_offered_a_setpoint_step() {
+    // C12: the project owns the experiment and Control Studio writes no setpoint, so a wait for settling names no setpoint step,
+    // even on a loop that names its setpoint.
+    let mut observed = loop_definition();
+    observed.experiment = Some(
+        serde_json::from_value(json!({
+            "execution": "project-scripted", "kind": "observation", "amplitude": 0,
+            "durationSeconds": 120, "seed": 1
+        }))
+        .expect("the experiment decodes"),
+    );
+    let auto = sample(EvidenceSource::SimulatedPlant, ControllerMode::Auto);
+    assert!(
+        observed.signals.setpoint.is_some(),
+        "the fixture names its setpoint"
+    );
+    assert!(!offers_setpoint_step(&observed, Some(&auto)));
+    assert!(offers_setpoint_step(&loop_definition(), Some(&auto)));
+}
+
+#[test]
 fn a_live_write_on_a_physical_target_needs_the_engineers_approval() {
     assert_eq!(
         live_write_refusal(EvidenceSource::SimulatedPlant, IDENTIFY_OPERATION),

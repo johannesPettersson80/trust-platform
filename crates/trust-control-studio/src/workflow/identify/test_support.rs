@@ -512,6 +512,7 @@ impl FakeRecording {
                     address: binding.address.clone(),
                     symbol: binding.symbol.clone(),
                     iec_type: binding.iec_type.clone(),
+                    unit: None,
                 })
                 .collect(),
             stop_reason: StopReason::Stopped,

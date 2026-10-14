@@ -22,12 +22,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::failure::{Cause, Failure, NextAction};
 use crate::identification::acquisition_settings::{
-    decode_acquisition_settings, AcquisitionSettings,
+    check_acquisition_settings, AcquisitionSettings,
 };
 use crate::loop_definition::LoopDefinition;
 use crate::messages::{TuneChoice, TuneMethod};
+use crate::recording::opened_channels::{check_selection, RecordingSignalSelection};
 use crate::stages::StageEvidence;
-use crate::study::identify::IdentifySection;
+use crate::study::current_model::current_model;
 use crate::study::tune::{refused_as, TuneSection};
 use crate::study::validate::{stage_evidence as validate_stage_evidence, ValidateSection};
 use crate::study::{Study, StudySection};
@@ -71,6 +72,10 @@ pub struct InputsSection {
     /// stand; an empty list declares that there are none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scenarios: Option<Vec<EngineerScenario>>,
+    /// The plant input and measured output the engineer selected for an opened recording (B3.6). The study keeps them, so that
+    /// reopening shows the selection; absent until a recording is opened.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recording_selection: Option<RecordingSignalSelection>,
 }
 
 impl InputsSection {
@@ -141,13 +146,10 @@ impl StudySection for InputsSection {
             }
         }
         if let Some(settings) = &self.acquisition {
-            let decodable = serde_json::to_value(settings)
-                .is_ok_and(|value| decode_acquisition_settings(&value).is_some());
-            if !decodable {
-                return Err(invalid(
-                    "the acquisition settings break a rule of Identify (B3.2)",
-                ));
-            }
+            // The settings are checked as their JSON is, so the refusal names the first rule of Identify they break (B3.2).
+            let value = serde_json::to_value(settings).unwrap_or_default();
+            check_acquisition_settings(&value)
+                .map_err(|sentence| Failure::new(&sentence, Cause::Settings, NextAction::None))?;
         }
         if self
             .scenarios
@@ -155,6 +157,9 @@ impl StudySection for InputsSection {
             .is_some_and(|scenarios| !valid_engineer_scenarios(scenarios))
         {
             return Err(requirements_failure(&texts::scenarios_invalid()));
+        }
+        if let Some(selection) = &self.recording_selection {
+            check_selection(selection)?;
         }
         Ok(())
     }
@@ -252,8 +257,8 @@ pub fn invalidation(before: &HeldTest<'_>, after: &HeldTest<'_>) -> Invalidation
     }
 }
 
-/// The evidence that sets the stages of a study (A8.4, A8.6): Identify and Tune read their sections, and a Validate result
-/// counts only while it is current for the study's model, its candidate, the requirements the study holds and the scenarios it
+/// The evidence that sets the stages of a study (A8.4, A8.6, B3.7): Identify and Tune read the study's current model, and a Validate
+/// result counts only while it is current for that model, its candidate, the requirements the study holds and the scenarios it
 /// declares.
 ///
 /// # Errors
@@ -262,7 +267,7 @@ pub fn stage_evidence_of(
     loop_definition: &LoopDefinition,
     study: &Study,
 ) -> Result<StageEvidence, Failure> {
-    let identify = study.section::<IdentifySection>()?;
+    let current = current_model(study)?;
     let tune = study.section::<TuneSection>()?;
     let inputs = study.section::<InputsSection>()?;
     let validate = study.section::<ValidateSection>()?;
@@ -272,21 +277,12 @@ pub fn stage_evidence_of(
     let scenarios = held_scenarios(loop_definition, inputs.as_ref());
     Ok(validate_stage_evidence(
         loop_definition,
-        identify.as_ref(),
+        current.as_ref(),
         held.as_ref(),
         validate.as_ref(),
         !study.recordings.is_empty(),
         &scenarios,
     ))
-}
-
-/// A stored inputs section that breaks a rule of its own (B10.4).
-fn invalid(reason: &str) -> Failure {
-    Failure::new(
-        &format!("The inputs of the study are not valid: {reason}."),
-        Cause::Settings,
-        NextAction::None,
-    )
 }
 
 /// The failure of declared scenarios that cannot be written into the loop, which no valid list does.

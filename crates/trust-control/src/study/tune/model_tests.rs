@@ -8,12 +8,14 @@ use trust_control_math::polynomial::convolve;
 
 use super::*;
 use crate::experiment::ControlExperimentKind;
-use crate::identification::evidence::{ModelFitEvidence, OperatingRange as FittedRange};
+use crate::identification::evidence::{
+    ModelFitEvidence, ModelFitPoint, OperatingRange as FittedRange,
+};
 use crate::identification::model_comparison::ComparisonPresentation;
 use crate::identification::presentation::identified_model_presentation;
 use crate::model::{ModelChannel, ModelIdentity, ModelSource, ModelValidation, OperatingRange};
 use crate::recording::EvidenceSource;
-use crate::study::identify::{IdentifyMethod, IdentifySignals};
+use crate::study::identify::{IdentifyMethod, IdentifySection, IdentifySignals};
 use crate::tuning::objective::TuningMethod;
 use crate::tuning::plant::{from_identified, TuningPlant};
 
@@ -80,7 +82,7 @@ pub(crate) fn identify_section(validation_error: Option<f64>) -> IdentifySection
         time_constant_seconds: Some(4.0),
         second_time_constant_seconds: None,
         dead_time_seconds: Some(2.0),
-        normalized_error: validation_error.unwrap_or(ESTIMATION_ERROR),
+        normalized_error: Some(validation_error.unwrap_or(ESTIMATION_ERROR)),
         normalized_estimation_error: Some(ESTIMATION_ERROR),
         normalized_validation_error: validation_error,
         estimation_residuals: None,
@@ -89,8 +91,23 @@ pub(crate) fn identify_section(validation_error: Option<f64>) -> IdentifySection
         stable: true,
         on_search_boundary: false,
     };
+    // The predicted response is what the presentation shows: two points at least, with increasing times (B3.8, A8.1), as the
+    // Identify tests give it.
     let fit = ModelFitEvidence {
-        points: Vec::new(),
+        points: vec![
+            ModelFitPoint {
+                time_seconds: 0.0,
+                measured: 50.0,
+                predicted: 50.0,
+                residual: 0.0,
+            },
+            ModelFitPoint {
+                time_seconds: 4.0,
+                measured: 52.0,
+                predicted: 51.8,
+                residual: 0.2,
+            },
+        ],
         root_mean_square_error: 0.0,
         output_unit: "°C".to_owned(),
         stable: true,
@@ -129,7 +146,12 @@ pub(crate) fn identify_section(validation_error: Option<f64>) -> IdentifySection
 
 /// The tuning model of `numerator` over `denominator` with the dead time `delay`.
 fn read(numerator: &[f64], denominator: &[f64], delay: f64) -> Result<IdentifiedModel, Refusal> {
-    low_order_model(numerator, denominator, delay, ERROR)
+    low_order_model(numerator, denominator, delay, Some(ERROR))
+}
+
+/// The current model of a fit: `section`, as the study keeps it.
+fn fitted_current(section: IdentifySection) -> CurrentModel {
+    CurrentModel::identified(section)
 }
 
 /// The tuning model of a stable form: its gain, time constants and dead time, and no fit evidence beyond its error.
@@ -145,7 +167,7 @@ fn expected(
         time_constant_seconds: time_constants[0],
         second_time_constant_seconds: time_constants[1],
         dead_time_seconds: Some(delay),
-        normalized_error: ERROR,
+        normalized_error: Some(ERROR),
         normalized_estimation_error: None,
         normalized_validation_error: None,
         estimation_residuals: None,
@@ -299,9 +321,9 @@ fn a_repeated_time_constant_stays_real_when_its_discriminant_rounds_below_zero()
 fn a_provisional_model_is_tuned_on_its_estimation_error() {
     let section = identify_section(None);
     assert_eq!(
-        tuning_model(&section.selected_model, &section).expect("the study's model"),
+        tuning_model(&fitted_current(section)).expect("the study's model"),
         IdentifiedModel {
-            normalized_error: ESTIMATION_ERROR,
+            normalized_error: Some(ESTIMATION_ERROR),
             ..expected(
                 LowOrderModelKind::FirstOrderDeadTime,
                 1.5,
@@ -316,9 +338,9 @@ fn a_provisional_model_is_tuned_on_its_estimation_error() {
 fn a_validated_model_is_tuned_on_its_validation_error() {
     let section = identify_section(Some(0.12));
     assert_eq!(
-        tuning_model(&section.selected_model, &section).expect("the study's model"),
+        tuning_model(&fitted_current(section)).expect("the study's model"),
         IdentifiedModel {
-            normalized_error: 0.12,
+            normalized_error: Some(0.12),
             ..expected(
                 LowOrderModelKind::FirstOrderDeadTime,
                 1.5,
@@ -338,7 +360,7 @@ fn a_model_without_its_deciding_error_is_refused() {
         .validation
         .normalized_error = None;
     assert_eq!(
-        tuning_model(&section.selected_model, &section)
+        tuning_model(&fitted_current(section))
             .expect_err("no validation error")
             .0,
         "The model's normalized error is not recorded, so the model cannot be tuned."
@@ -358,10 +380,12 @@ fn a_state_space_model_is_not_a_form_identify_writes() {
             d: vec![vec![0.0]],
         },
     };
+    let current = CurrentModel {
+        model: state_space,
+        ..fitted_current(section)
+    };
     assert_eq!(
-        tuning_model(&state_space, &section)
-            .expect_err("a state-space model")
-            .0,
+        tuning_model(&current).expect_err("a state-space model").0,
         NOT_A_FORM
     );
 }

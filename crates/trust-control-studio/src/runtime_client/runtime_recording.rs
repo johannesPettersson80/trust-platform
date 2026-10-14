@@ -656,6 +656,7 @@ fn signal_binding(binding: &RecordingRecoveryBinding) -> SignalBinding {
         address: binding.address.clone(),
         symbol: binding.symbol.clone(),
         iec_type: binding.iec_type.clone(),
+        unit: None,
     }
 }
 

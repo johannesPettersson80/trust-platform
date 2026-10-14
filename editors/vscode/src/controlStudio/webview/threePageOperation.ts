@@ -11,6 +11,8 @@ const PAGE_IDS: readonly StudioPage[] = ["model", "tune", "verify"];
 /** Displays one host-owned operation across all three pages. Navigation never starts work. */
 export class ThreePageOperation {
   busy = false;
+  /** The engine is checking a recording the engineer opened (B3.6): the page stays busy until the engine answers, with no run's Abort. */
+  importing = false;
   private follows = true;
   private resetting = false;
   private hasModel = false;
@@ -91,7 +93,8 @@ export class ThreePageOperation {
   receive(stage: string, payload: Record<string, unknown>): void {
     const status = String(payload.status);
     // A failed or reset study ends the page's Reset. The engine answers a reset in place (the page is not reloaded), so its answer ends it here.
-    if (status === "failed" || status === "reset") this.resetting = false;
+    // A failure also ends a recording import the engine did not answer (the engine could not be reached).
+    if (status === "failed" || status === "reset") { this.resetting = false; this.importing = false; }
     if (status === "reset") this.notice("model", "");
     if (payload.flowStage === "Identify") this.page = "model";
     if (payload.flowStage === "Tune") this.page = "tune";
@@ -183,9 +186,9 @@ export class ThreePageOperation {
       button.disabled = blocked || !this.busy && (action === "tune" ? !this.hasModel : action === "verify" ? !this.hasCandidate : false);
     }
     // The idle lock never re-enables an import that the bindings gate or another gate has closed.
-    for (const control of runLockedControls(this.root)) control.disabled = this.busy || this.resetting || (blocked && control.matches("[data-identify-import]"));
+    for (const control of runLockedControls(this.root)) control.disabled = this.busy || this.importing || this.resetting || (blocked && control.matches("[data-identify-import]"));
     if (this.resetConfirm && (this.busy || this.resetting)) this.resetConfirm.hidden = true;
-    this.root.dataset.busy = String(this.busy || this.resetting);
+    this.root.dataset.busy = String(this.busy || this.importing || this.resetting);
     this.changed();
   }
 }

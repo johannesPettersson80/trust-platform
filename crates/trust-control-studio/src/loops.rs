@@ -170,6 +170,25 @@ fn parked_feature_in(file: &Path, loop_id: &str) -> Option<&'static str> {
     }
 }
 
+/// The identity that the loop file of `loop_id` names, `(projectId, id)`, when the project has a file of that loop which uses a parked
+/// structure (`parked_feature_in`). Such a file does not decode, so an operation of the loop claims it by these names, as a served loop
+/// is claimed by its decoded identity (A8.5). `None` when no file of the project is such a loop.
+#[must_use]
+pub fn parked_identity(project_root: &Path, loop_id: &str) -> Option<(String, String)> {
+    loop_files(project_root)
+        .ok()?
+        .iter()
+        .find_map(|file| parked_identity_in(file, loop_id))
+}
+
+/// The `projectId` and `id` of `file`, read as raw JSON, when `file` is the parked loop `loop_id` (`parked_feature_of`).
+fn parked_identity_in(file: &Path, loop_id: &str) -> Option<(String, String)> {
+    let raw: serde_json::Value = serde_json::from_str(&fs::read_to_string(file).ok()?).ok()?;
+    let id = raw["id"].as_str().filter(|id| *id == loop_id)?;
+    parked_feature_of(&raw)?;
+    Some((raw["projectId"].as_str()?.to_owned(), id.to_owned()))
+}
+
 fn read_loop(file: &Path, runtime_id: &str) -> Result<LoopDefinition, String> {
     let name = file.file_name().map_or_else(
         || file.display().to_string(),
@@ -321,6 +340,28 @@ mod tests {
         let id = LoopDefinition::decode(EXAMPLE).expect("example").id;
         let failure = open(&root, &example_runtime(), &id).expect_err("refused");
         assert_eq!(failure.next_action, NextAction::OpenLoopSetup);
+        fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    #[test]
+    fn a_parked_loop_is_named_by_the_identity_its_file_declares() {
+        // A8.5: an operation of a loop the engine cannot open claims it by the `projectId` and `id` that its file names.
+        let root = project("identity");
+        let project_id = LoopDefinition::decode(EXAMPLE).expect("example").project_id;
+        fs::write(
+            root.join("control-loops/feedforward.json"),
+            parked_loop(
+                "loop:feedforward",
+                "feedforward",
+                serde_json::json!({ "channels": {} }),
+            ),
+        )
+        .expect("parked loop");
+        assert_eq!(
+            parked_identity(&root, "loop:feedforward"),
+            Some((project_id, "loop:feedforward".to_string()))
+        );
+        assert_eq!(parked_identity(&root, "loop:other"), None);
         fs::remove_dir_all(&root).expect("clean up");
     }
 }

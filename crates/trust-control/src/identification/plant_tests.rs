@@ -170,7 +170,7 @@ fn fitted_first_order(gain: f64, time_constant_seconds: f64) -> IdentifiedModel 
         time_constant_seconds: Some(time_constant_seconds),
         second_time_constant_seconds: None,
         dead_time_seconds: None,
-        normalized_error: 0.0,
+        normalized_error: Some(0.0),
         normalized_estimation_error: None,
         normalized_validation_error: None,
         estimation_residuals: None,
@@ -289,7 +289,7 @@ fn the_simplest_acceptable_low_order_model_is_selected() {
     assert!(result
         .models
         .iter()
-        .all(|model| model.normalized_error.is_finite()));
+        .all(|model| model.normalized_error.is_some_and(f64::is_finite)));
 }
 
 #[test]
@@ -381,9 +381,9 @@ fn a_first_order_plant_with_a_time_constant_longer_than_the_sample_interval_is_n
         .find(|model| model.kind == LowOrderModelKind::StaticGain)
         .expect("the static gain is fitted");
     assert!(
-        static_gain.normalized_error > DEFAULT_MAXIMUM_NORMALIZED_ERROR,
+        static_gain.decisive_error() > DEFAULT_MAXIMUM_NORMALIZED_ERROR,
         "static gain error {}",
-        static_gain.normalized_error
+        static_gain.decisive_error()
     );
 }
 
@@ -412,9 +412,9 @@ fn an_acceptable_model_is_kept_when_a_bounded_experiment_restores_its_input() {
         LowOrderModelKind::FirstOrderDeadTime
     );
     assert!(
-        result.recommended.normalized_error <= 0.15,
+        result.recommended.decisive_error() <= 0.15,
         "normalized error {}",
-        result.recommended.normalized_error
+        result.recommended.decisive_error()
     );
 }
 

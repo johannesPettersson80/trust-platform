@@ -13,7 +13,7 @@ fn a_feasible_simc_description_gives_each_gain_its_unit_in_the_input_and_output_
         time_constant_seconds: Some(4.0),
         second_time_constant_seconds: None,
         dead_time_seconds: Some(0.5),
-        normalized_error: 0.0,
+        normalized_error: Some(0.0),
         normalized_estimation_error: None,
         normalized_validation_error: None,
         estimation_residuals: None,

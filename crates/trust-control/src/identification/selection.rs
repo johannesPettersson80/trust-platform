@@ -68,7 +68,7 @@ pub fn select(
         .iter()
         .filter(|candidate| {
             candidate.model.stable
-                && is_within_limit(candidate.model.normalized_error, maximum_normalized_error)
+                && is_within_limit(candidate.model.decisive_error(), maximum_normalized_error)
                 && is_within_limit(candidate.final_normalized_error, maximum_normalized_error)
         })
         .collect();
@@ -121,8 +121,8 @@ fn simplest<'a>(candidates: &[&'a CheckedCandidate]) -> Option<&'a CheckedCandid
 fn resolves_delay(delayed: &CheckedCandidate, first_order: &CheckedCandidate) -> bool {
     let delay = delayed.model.dead_time_seconds.unwrap_or(0.0);
     delay > RESOLVED_DELAY_INTERVALS * delayed.sample_interval_seconds
-        && delayed.model.normalized_error
-            < RESOLVED_DELAY_ERROR_SHARE * first_order.model.normalized_error
+        && delayed.model.decisive_error()
+            < RESOLVED_DELAY_ERROR_SHARE * first_order.model.decisive_error()
 }
 
 #[cfg(test)]

@@ -137,12 +137,17 @@ fn second_order_plant(model: &IdentifiedModel, delay: f64) -> Result<TuningPlant
 /// is above 0.25 creates no candidate.
 ///
 /// # Errors
-/// Returns a [`Refusal`] naming the method when the normalized error is not finite or is above the limit.
+/// Returns a [`Refusal`] naming the method when the normalized error is not finite or is above the limit. A model with no recorded
+/// error (a supplied model, B3.7) passes: it was not fitted.
 pub fn check_normalized_error(
     model: &IdentifiedModel,
     method: TuningMethod,
 ) -> Result<(), Refusal> {
-    check_model_error(model.normalized_error, MAXIMUM_TUNING_MODEL_ERROR)
+    // A supplied model was not fitted, so it has no error to check: Tune's error check (N5.7) does not apply to it (B3.7).
+    let Some(error) = model.normalized_error else {
+        return Ok(());
+    };
+    check_model_error(error, MAXIMUM_TUNING_MODEL_ERROR)
         .map_err(|_| Refusal::new(texts::model_error_above_limit(method)))
 }
 
@@ -224,7 +229,7 @@ mod tests {
             time_constant_seconds: tau,
             second_time_constant_seconds: None,
             dead_time_seconds: delay,
-            normalized_error: 0.0,
+            normalized_error: Some(0.0),
             normalized_estimation_error: None,
             normalized_validation_error: None,
             estimation_residuals: None,
@@ -286,15 +291,23 @@ mod tests {
     #[test]
     fn the_model_error_limit_is_0_25_inclusive() {
         let mut model = identified(LowOrderModelKind::FirstOrder, 1.0, Some(1.0), None);
-        model.normalized_error = 0.25;
+        model.normalized_error = Some(0.25);
         assert!(check_normalized_error(&model, TuningMethod::Simc).is_ok());
-        model.normalized_error = 0.3;
+        model.normalized_error = Some(0.3);
         assert_eq!(
             check_normalized_error(&model, TuningMethod::Simc)
                 .expect_err("above the limit")
                 .0,
             "SIMC PI tuning requires accepted model error no greater than 0.25."
         );
+    }
+
+    #[test]
+    fn a_model_with_no_recorded_error_passes_the_error_check_because_it_was_not_fitted() {
+        // A supplied model records no error (B3.7); Tune's error check (N5.7) does not apply to it.
+        let mut model = identified(LowOrderModelKind::FirstOrder, 1.0, Some(1.0), None);
+        model.normalized_error = None;
+        assert!(check_normalized_error(&model, TuningMethod::Simc).is_ok());
     }
 
     #[test]

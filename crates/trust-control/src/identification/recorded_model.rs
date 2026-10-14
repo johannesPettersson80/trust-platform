@@ -257,7 +257,7 @@ fn step_fit<E: Clone>(
     let presentation = presentation_of(loop_definition, run, &identified.recommended, &fit)?;
     // N3.2: the reported error is the fit's own, over its response and normalised by the output span of its samples; a flat
     // output is refused by the single-run fit before this point.
-    let normalized_error = identified.recommended.normalized_error;
+    let normalized_error = identified.recommended.decisive_error();
     let fit_record = single_record_fit(
         loop_definition,
         run,
@@ -334,7 +334,7 @@ fn excitation_fit<E: Clone>(
         loop_definition,
         run,
         &model,
-        fit.recommended.normalized_error,
+        fit.recommended.decisive_error(),
         fit.points,
         "Estimation fit to the recorded excitation; independent validation is pending.",
     );
@@ -435,7 +435,7 @@ fn checked_action<E>(
 
 /// The static gain of a transfer function, or its rate gain when it integrates (`transferGain`). The polynomials are in
 /// descending powers, so the constant term is the last coefficient. `None` for a model with neither.
-fn transfer_gain(numerator: &[f64], denominator: &[f64]) -> Option<(f64, bool)> {
+pub(crate) fn transfer_gain(numerator: &[f64], denominator: &[f64]) -> Option<(f64, bool)> {
     let top = *numerator.last()?;
     let constant = *denominator.last()?;
     if constant != 0.0 {

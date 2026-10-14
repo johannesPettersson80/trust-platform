@@ -4,7 +4,7 @@ import { decodeLoopReady, decodeControlStudioHostCommand, decodeManualPreviewReq
 import { ThreePageBindingRoute, adoptStudioBinding, adoptStudioFamily, type StudioBindingOpen } from "./threePageBindingRoute";
 import type { ControllerFamily } from "./controllerFamilies";
 import { createControlStudioRuntimeStartHandler, routeControlStudioRuntimeStart } from "./runtimeStartAction";
-import { restoredEngineerStage, restoredEngineerViewSelection, storeEngineerStage } from "./engineerNavigationStorage";
+import { restoredEngineerAnalysis, restoredEngineerStage, restoredEngineerViewSelection, storeEngineerStage } from "./engineerNavigationStorage";
 import { completedCommissioningMatchesCheckpoint } from "./commissioningCheckpoint";
 import { storeEngineerDraft, restoreEngineerDraft, restoreWorkflowDraft } from "./engineerDraftStorage";
 import { CoalescedTask } from "./coalescedTask";
@@ -256,11 +256,6 @@ async function showControlStudio(
     post: message => panel?.webview.postMessage(message),
     isCurrent: () => analysisSessions === sessions,
     connection: () => loopRequest ? studyRuntimeConnection(loopRequest) : Promise.resolve(undefined),
-    // A copy: the engine's request type is an open record, which an interface value does not satisfy.
-    acquisitionSettings: () => {
-      const settings = sessions.engineer?.snapshotStudy()?.acquisitionSettings;
-      return settings && { ...settings };
-    },
     // The pins and the controller choice that the session holds, which a manual preview is answered with (B4.2, B4.5).
     // snapshotStudy refuses while the session is busy; the preview is then answered without them.
     tuningInputs: () => {
@@ -271,6 +266,8 @@ async function showControlStudio(
         return undefined;
       }
     },
+    // A loop the engine does not serve analyses with the model the TypeScript session selected (B9.9, C12, V7).
+    selectedModel: () => sessions.model.selectedModel(),
   }) : undefined;
   activeRuntimeTarget = runtimeTarget;
   const initialTargetLabel = await readTargetLabel(runtimeTarget);
@@ -383,6 +380,7 @@ async function showControlStudio(
       const stillCurrent = () => panel === ownerPanel && activeLoop === loop && editorSessionId === expected.editorSessionId;
       if (await routeControlStudioRuntimeStart(message, expected, loop.runtimeId, startStudioSimulator,
         async value => { if (stillCurrent()) await ownerPanel?.webview.postMessage(value); })) return;
+      if (await route?.importFile(message, expected)) return;
       if (await routeIdentificationRecordingImport(message, expected, loop,
         Boolean(currentExperimentId || experimentRecorder.recording), async (recording, reference) => {
           if (!stillCurrent()) return;
@@ -496,6 +494,10 @@ async function showControlStudio(
         if (!engineServes && boundFamily) await adoptStudioFamily(sessions, expected, boundFamily);
         if (!engineServes) await ownerPanel?.webview.postMessage({ schemaVersion: 1, kind: "control-studio.navigation.restore", ...expected,
           stage: restoredEngineerStage(loop), view: restoredEngineerViewSelection(loop) });
+        // A parked loop's analysis is delivered as the engine delivers `pageAnalysis`: the page calculates it again (A8.6, B9.9).
+        const parkedAnalysis = engineServes ? undefined : restoredEngineerAnalysis(loop);
+        if (parkedAnalysis) await ownerPanel?.webview.postMessage({ schemaVersion: 1, kind: "control-studio.analysis.restore", ...expected,
+          tool: parkedAnalysis.tool, inputs: parkedAnalysis.inputs });
         if (currentExperimentId) void refreshMonitor();
       } else if (experimentCommand) {
         void handleExperimentCommand(experimentCommand, loop);

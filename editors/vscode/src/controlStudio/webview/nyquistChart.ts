@@ -3,16 +3,8 @@ import { equalUnitGeometry, type PlaneArea, type PlaneGeometry, type PlanePoint 
 
 export type NyquistPoint = PlanePoint;
 export type NyquistArea = PlaneArea;
-export interface NyquistCount { encirclementsCounterClockwise: number; openLoopRightHalfPlanePoles: number; closedLoopRightHalfPlanePoles: number; closedLoopStable: boolean }
 export interface NyquistColors { positive: string; negative: string; critical: string; label: string }
 export type NyquistGeometry = PlaneGeometry;
-
-/** The criterion as the course states it: Z = P + N, with clockwise encirclements of −1 counted positive. */
-export function nyquistCountText(count: NyquistCount): string {
-  const clockwise = count.encirclementsCounterClockwise === 0 ? 0 : -count.encirclementsCounterClockwise;
-  return `P = ${count.openLoopRightHalfPlanePoles} open-loop right-half-plane poles. N = ${clockwise} clockwise encirclements of −1. `
-    + `Z = P + N = ${count.closedLoopRightHalfPlanePoles} closed-loop right-half-plane poles: the closed loop is ${count.closedLoopStable ? "stable" : "unstable"}.`;
-}
 
 /** Equal units on both axes around the curve, its mirror image, −1 and the origin, so that distances to −1 read true. */
 export function nyquistGeometry(points: readonly NyquistPoint[], area: NyquistArea): NyquistGeometry {

@@ -279,13 +279,15 @@ pub fn recording_settling_ms(maximum_ms: u64, declared_seconds: Option<f64>) -> 
     whole_milliseconds(seconds)
 }
 
-/// Whether the baseline's refusal offers a setpoint step: a loop with a setpoint that the sample reads in Auto (B3.4 step 2).
+/// Whether the baseline's refusal offers a setpoint step: a loop with a setpoint that the sample reads in Auto (B3.4 step 2). A
+/// project-scripted loop owns its experiment and writes no setpoint, so it is never offered one (C12).
 #[must_use]
 pub fn offers_setpoint_step(
     loop_definition: &LoopDefinition,
     sample: Option<&ExperimentSample>,
 ) -> bool {
     loop_definition.signals.setpoint.is_some()
+        && project_scripted(loop_definition).is_none()
         && sample.is_some_and(|sample| sample.controller_mode == ControllerMode::Auto)
 }
 

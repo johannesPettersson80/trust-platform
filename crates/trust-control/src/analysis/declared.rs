@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use trust_control_math::classical::Transfer;
 use trust_control_math::polynomial::convolve;
 use trust_control_math::root_locus::root_locus;
@@ -19,6 +20,7 @@ use trust_control_math::root_locus::root_locus;
 use crate::analysis::{limits, texts};
 use crate::failure::{Cause, Failure, NextAction};
 use crate::model::{ModelSource, ModelValidation};
+use crate::tuning::texts::engineering;
 
 /// The kind of the plant of a declared analysis.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -174,6 +176,10 @@ pub struct DeclaredRootLocusResult {
     pub branches: Vec<GainPoles>,
     /// The poles across the declared range, for drawing; a gain where the loop is undefined is left out.
     pub path: Vec<GainPoles>,
+    /// The sentences of the result area: the swept parameter, its selected value and the fixed parameters (B9.9).
+    pub summary: Vec<String>,
+    /// The sentences of the details disclosure: the approximations of the calculation.
+    pub details: Vec<String>,
 }
 
 /// A declared analysis with its calculated pole paths, as it is stored in a study.
@@ -205,9 +211,21 @@ pub fn check_declared(analysis: &DeclaredControlAnalysis) -> Result<(), Failure>
 /// Returns the declared-invalid sentence for an invalid definition, the zero-denominator sentence for a
 /// gain at which the controller's denominator vanishes, and the solver sentence when the roots of a
 /// gain's characteristic polynomial cannot be computed.
-#[allow(clippy::too_many_lines)] // One pass over the declared gains, in the order N7.6 states its checks.
 pub fn calculate_declared_root_locus(
     analysis: &DeclaredControlAnalysis,
+) -> Result<DeclaredRootLocusResult, Failure> {
+    calculate_declared_root_locus_bounded(analysis, &|| Ok(()))
+}
+
+/// Calculates the pole paths of a declared analysis, calling `step` before the roots of each gain: the analysis budget
+/// of A7 stops the calculation between two gains.
+///
+/// # Errors
+/// Returns the failure of `step`, and the errors of [`calculate_declared_root_locus`].
+#[allow(clippy::too_many_lines)] // One pass over the declared gains, in the order N7.6 states its checks.
+pub fn calculate_declared_root_locus_bounded(
+    analysis: &DeclaredControlAnalysis,
+    step: &dyn Fn() -> Result<(), Failure>,
 ) -> Result<DeclaredRootLocusResult, Failure> {
     check_declared(analysis)?;
     let plant = &analysis.plant;
@@ -265,7 +283,10 @@ pub fn calculate_declared_root_locus(
     let branches = sweep
         .values
         .iter()
-        .map(|&gain| poles_at(gain))
+        .map(|&gain| {
+            step()?;
+            poles_at(gain)
+        })
         .collect::<Result<Vec<_>, _>>()?;
     let range = &controller.parameters[&sweep.parameter];
     let gains: Vec<f64> = if range.maximum > range.minimum {
@@ -275,11 +296,14 @@ pub fn calculate_declared_root_locus(
     } else {
         vec![range.minimum]
     };
-    let path = gains
-        .into_iter()
-        .filter_map(|gain| poles_at(gain).ok())
-        .collect();
-    let fixed_parameters = controller
+    let mut path = Vec::with_capacity(gains.len());
+    for gain in gains {
+        step()?;
+        if let Ok(point) = poles_at(gain) {
+            path.push(point);
+        }
+    }
+    let fixed_parameters: BTreeMap<String, FixedParameter> = controller
         .parameters
         .iter()
         .filter(|(name, _)| **name != sweep.parameter)
@@ -298,6 +322,14 @@ pub fn calculate_declared_root_locus(
     } else {
         texts::DECLARED_NO_DELAY
     };
+    let approximation = format!("{}{delay_note}", texts::DECLARED_APPROXIMATION);
+    let (summary, details) = root_locus_words(
+        &sweep.parameter,
+        &range.unit,
+        sweep.selected_value,
+        &fixed_parameters,
+        &approximation,
+    );
     Ok(DeclaredRootLocusResult {
         parameter: sweep.parameter.clone(),
         parameter_unit: range.unit.clone(),
@@ -309,10 +341,56 @@ pub fn calculate_declared_root_locus(
             plant.revision,
             plant.validation.word()
         ),
-        approximation: format!("{}{delay_note}", texts::DECLARED_APPROXIMATION),
+        approximation,
         branches,
         path,
+        summary,
+        details,
     })
+}
+
+/// The sentences of a declared root locus (N7.5, N7.6): the swept parameter with its unit, its selected value and the
+/// fixed parameters for the result area, and the approximations of the calculation for the details disclosure.
+fn root_locus_words(
+    parameter: &str,
+    unit: &str,
+    selected: f64,
+    fixed: &BTreeMap<String, FixedParameter>,
+    approximation: &str,
+) -> (Vec<String>, Vec<String>) {
+    let unit_words = if unit.is_empty() {
+        String::new()
+    } else {
+        format!(" in {unit}")
+    };
+    let fixed_words = if fixed.is_empty() {
+        String::new()
+    } else {
+        let list: Vec<String> = fixed
+            .iter()
+            .map(|(name, value)| {
+                format!("{name} = {} {}", engineering(value.value, None), value.unit)
+            })
+            .collect();
+        format!(" Fixed: {}.", list.join(", "))
+    };
+    let summary = vec![format!(
+        "{parameter} varies{unit_words}; selected {parameter} = {}.{fixed_words}",
+        engineering(selected, None)
+    )];
+    (summary, vec![approximation.to_string()])
+}
+
+/// Decodes the declared analysis that a loop file holds (`LoopDefinition.analysis`), and checks it by N7.6. The text is
+/// read through [`crate::json`], so a fractional coefficient decodes the same with or without `arbitrary_precision`.
+///
+/// # Errors
+/// Returns the declared-invalid sentence when the value is not a declared analysis or breaks a rule of N7.6.
+pub fn declared_from_loop(analysis: &Value) -> Result<DeclaredControlAnalysis, Failure> {
+    let declared: DeclaredControlAnalysis =
+        crate::json::decode_value(analysis.clone()).map_err(|_| invalid())?;
+    check_declared(&declared)?;
+    Ok(declared)
 }
 
 /// Checks a stored declared analysis against its definition: the same parameter, selection, units,

@@ -22,7 +22,7 @@ fn model(
         time_constant_seconds: time,
         second_time_constant_seconds: None,
         dead_time_seconds: dead_time,
-        normalized_error: 0.0,
+        normalized_error: Some(0.0),
         normalized_estimation_error: None,
         normalized_validation_error: None,
         estimation_residuals: None,

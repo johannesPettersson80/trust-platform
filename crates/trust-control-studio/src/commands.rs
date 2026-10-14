@@ -20,10 +20,13 @@ use trust_control::messages::{
 };
 use trust_control::setup::messages::{SetupDiscoverRequest, SetupSaveRequest};
 use trust_control::stages::stage_availability;
+use trust_control::study::analysis_records::current_records;
 use trust_control::study::apply::ApplySection;
+use trust_control::study::current_model::current_model;
 use trust_control::study::inputs::{stage_evidence_of, InputsSection};
 use trust_control::study::validate::ValidateSection;
 
+use super::analyze_action;
 use super::apply_action;
 use super::busy_loops::LoopClaims;
 use super::identify_action;
@@ -59,6 +62,8 @@ pub const TUNE: &str = "controlStudio/tune";
 /// Answers the predicted response, margins and outcome of controller settings entered on the study's model, as `tune` with the
 /// manual method would finish, and stores nothing (B4.5). It answers at once and starts no operation.
 pub const PREVIEW: &str = "controlStudio/preview";
+/// Answers the analysis tools of the Tune page (B9.9, A7, B10.2).
+pub const ANALYZE: &str = "controlStudio/analyze";
 /// Validates the candidate (B5): an operation, answered at once with its identifier. It runs the independent model check when
 /// the model is provisional (B5.2), then the actual-ST validation of the current and the candidate settings in isolated
 /// simulations (B5.3). Its final update carries the Validate result. It never writes to the controller.
@@ -81,7 +86,7 @@ pub const INPUTS: &str = "controlStudio/inputs";
 /// it names (Identify, Tune or Validate), as one operation. It never applies.
 pub const RUN: &str = "controlStudio/run";
 /// The methods this module answers.
-pub const METHODS: [&str; 15] = [
+pub const METHODS: [&str; 16] = [
     OPEN,
     STATUS,
     CANCEL,
@@ -97,6 +102,7 @@ pub const METHODS: [&str; 15] = [
     KEEP,
     SETUP_DISCOVER,
     SETUP_SAVE,
+    ANALYZE,
 ];
 /// The notification that carries operation updates.
 pub const UPDATE_NOTIFICATION: &str = "controlStudio/update";
@@ -171,6 +177,9 @@ impl ControlStudio {
                 .and_then(|request| tune_action::answer(&self.operations, &self.claims, request)),
             PREVIEW => argument(arguments)
                 .and_then(|request: PreviewRequest| preview_action::answer(&request)),
+            ANALYZE => argument(arguments).and_then(|request| {
+                analyze_action::answer(&self.operations, &self.claims, &request)
+            }),
             VALIDATE => argument(arguments).and_then(|request| {
                 validate_action::answer(&self.operations, &self.pending, &self.claims, request)
             }),
@@ -291,6 +300,9 @@ fn open_with_running(request: &OpenRequest, running: Vec<String>) -> Result<Open
     };
     let identification = study_identification(&study, &loop_definition, evidence)?;
     let tune = study_candidate(&study, &loop_definition, evidence)?;
+    // The kept analysis records that are current for the loop and the study's current model, fitted or supplied (B10.2, B3.7, A8.4).
+    let selected_model = current_model(&study)?.map(|current| current.model);
+    let analysis = current_records(&study, &loop_definition.revision, selected_model.as_ref());
     Ok(OpenResult::Opened {
         stages,
         reattached: journaled_operations(journal.entries()),
@@ -301,6 +313,9 @@ fn open_with_running(request: &OpenRequest, running: Vec<String>) -> Result<Open
         tune,
         loop_definition: Box::new(loop_definition),
         page: study.page,
+        page_analysis: study.analysis.clone(),
+        page_view: study.view.clone(),
+        analysis,
         inputs: study.section::<InputsSection>()?.unwrap_or_default(),
         restore_available: offers.restore,
         keep_available: offers.keep,
@@ -364,6 +379,22 @@ fn set_page(request: &PageRequest) -> Result<Value, Failure> {
     let mut study =
         storage::open_study(project_root, &loop_definition.id, &loop_definition.revision)?;
     study.page = request.page;
+    study.analysis.clone_from(&request.analysis);
+    // A request that sends no view keeps the recorded one: the page sends its view when one of its choices changes.
+    if let Some(view) = &request.view {
+        if view
+            .identify_method
+            .as_ref()
+            .is_some_and(|method| method.chars().count() > 64)
+        {
+            return Err(Failure::new(
+                "The page's method name is longer than 64 characters.",
+                Cause::Settings,
+                NextAction::None,
+            ));
+        }
+        study.view = Some(view.clone());
+    }
     storage::save_study(project_root, &study, &[])?;
     Ok(json!({}))
 }
@@ -418,7 +449,7 @@ mod tests {
     use trust_control::experiment::ControlExperimentKind;
     use trust_control::identification::identify_result::identify_signals;
     use trust_control::identification::model_comparison::ComparisonPresentation;
-    use trust_control::loop_definition::LoopDefinition;
+    use trust_control::loop_definition::{LoopDefinition, NO_CONTROLLER_LAW};
     use trust_control::messages::OperationUpdate;
     use trust_control::model::decode_general_model;
     use trust_control::recording::EvidenceSource;
@@ -529,6 +560,45 @@ mod tests {
     }
 
     #[test]
+    fn open_serves_an_observation_lesson_whose_controller_stages_are_not_applicable() {
+        // Specification 35, C12: a loop without a controller law is not parked, so `open` opens it on the engine. Tune, Validate and
+        // Apply are Not applicable with the reason, and Identify still runs on it. Heater lesson 04 is such an observation loop.
+        const OBSERVATION_LESSON: &str = include_str!(
+            "../../../examples/control/01-feedback-foundations-and-temperature-control/04-water-heater-p/control-loop.json"
+        );
+        let root =
+            std::env::temp_dir().join(format!("trust-control-open-c12-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("project");
+        fs::write(root.join("control-loop.json"), OBSERVATION_LESSON).expect("loop");
+        let lesson = LoopDefinition::decode(OBSERVATION_LESSON).expect("lesson");
+        let studio = ControlStudio::new(Arc::new(Ignore));
+        let request = json!({ "projectRoot": root.display().to_string(), "runtimeId": lesson.runtime_id,
+            "loopId": lesson.id, "storageFolder": root.join("storage").display().to_string() });
+        let answer = studio.execute(OPEN, &[request]).expect("answered");
+        assert_eq!(answer["result"]["kind"], "opened", "{answer}");
+        let stages = answer["result"]["stages"].as_array().expect("stages");
+        let stage = |name: &str| {
+            stages
+                .iter()
+                .find(|stage| stage["stage"] == name)
+                .unwrap_or_else(|| panic!("{name}: {answer}"))
+        };
+        assert_eq!(stage("Identify")["status"], "needs-data", "{answer}");
+        for name in ["Tune", "Validate", "Apply"] {
+            assert_eq!(stage(name)["status"], "not-applicable", "{name}: {answer}");
+            assert_eq!(stage(name)["label"], "Not applicable", "{name}: {answer}");
+            assert_eq!(stage(name)["reason"], NO_CONTROLLER_LAW, "{name}: {answer}");
+        }
+        assert!(stage("Identify").get("reason").is_none(), "{answer}");
+        assert_eq!(
+            answer["result"]["stageEvidence"]["controllerStagesApply"],
+            json!(false)
+        );
+        fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    #[test]
     fn a_malformed_request_or_an_unknown_operation_answers_with_a_failure() {
         let studio = ControlStudio::new(Arc::new(Ignore));
         let malformed = studio
@@ -599,6 +669,55 @@ mod tests {
             study.sections.is_empty() && study.recordings.is_empty(),
             "setting the page changes nothing else"
         );
+        fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    #[test]
+    fn the_page_keeps_its_method_choice_as_view_state_and_a_request_without_a_view_keeps_it() {
+        // §0.1a `controlStudio/page`, A8.6: the Identify page's Method, including the opened-file and supplied-model entries that start
+        // no campaign, comes back on open; a later page change without a view keeps it.
+        let (root, example, request) = example_project("page-view");
+        let studio = ControlStudio::new(Arc::new(Ignore));
+        let page = |view: Option<Value>| {
+            let mut body = json!({
+                "projectRoot": root.display().to_string(),
+                "runtimeId": example.runtime_id,
+                "loopId": example.id,
+                "page": "Identify",
+            });
+            if let Some(view) = view {
+                body["view"] = view;
+            }
+            body
+        };
+        let answered = studio
+            .execute(
+                PAGE,
+                &[page(Some(json!({ "identifyMethod": "supplied-model" })))],
+            )
+            .expect("answered");
+        assert_eq!(answered, json!({ "result": {} }), "{answered}");
+        let reopened = studio
+            .execute(OPEN, std::slice::from_ref(&request))
+            .expect("answered");
+        assert_eq!(
+            reopened["result"]["pageView"],
+            json!({ "identifyMethod": "supplied-model" }),
+            "{reopened}"
+        );
+        studio.execute(PAGE, &[page(None)]).expect("answered");
+        let again = studio.execute(OPEN, &[request]).expect("answered");
+        assert_eq!(
+            again["result"]["pageView"]["identifyMethod"], "supplied-model",
+            "a request without a view keeps the recorded one: {again}"
+        );
+        let refused = studio
+            .execute(
+                PAGE,
+                &[page(Some(json!({ "identifyMethod": "m".repeat(65) })))],
+            )
+            .expect("answered");
+        assert!(refused.get("failure").is_some(), "{refused}");
         fs::remove_dir_all(&root).expect("clean up");
     }
 

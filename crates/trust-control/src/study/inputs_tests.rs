@@ -3,6 +3,8 @@
 use super::*;
 use crate::failure::{Cause, NextAction};
 use crate::identification::acquisition_settings::AcquisitionMethod;
+use crate::identification::method_applicability::MethodRefusal;
+use crate::identification::texts::method_refusal_text;
 use crate::study::StudySection;
 use crate::tuning::automatic_criteria::AutomaticCriteria;
 use crate::tuning::objective::{TuningMethod, TuningObjective};
@@ -60,6 +62,7 @@ fn a_section_round_trips_through_its_document_with_every_input() {
         pins: None,
         settings: None,
         scenarios: None,
+        recording_selection: None,
     };
     let text = section.encode().expect("encoded");
     assert_eq!(
@@ -132,6 +135,34 @@ fn an_acquisition_setting_outside_the_identification_rules_is_refused() {
         ..InputsSection::default()
     };
     assert!(valid.check().is_ok());
+}
+
+#[test]
+fn a_refused_acquisition_setting_names_the_rule_it_breaks() {
+    // A relay without its declared direction names the sentence that the method's applicability gives (B3.2).
+    let relay = InputsSection {
+        acquisition: Some(AcquisitionSettings {
+            method: AcquisitionMethod::Relay,
+            ..settings(30.0)
+        }),
+        ..InputsSection::default()
+    };
+    let relay_failure = relay.check().expect_err("a relay names no direction");
+    assert_eq!(
+        relay_failure.message,
+        method_refusal_text(MethodRefusal::RelayDirection)
+    );
+    assert_eq!(relay_failure.next_action, NextAction::None);
+    // Another rule names its own sentence.
+    let short = InputsSection {
+        acquisition: Some(settings(0.5)),
+        ..InputsSection::default()
+    };
+    let short_failure = short.check().expect_err("a duration under one second");
+    assert_eq!(
+        short_failure.message,
+        "The experiment duration must be between 1 s and 24 h."
+    );
 }
 
 #[test]

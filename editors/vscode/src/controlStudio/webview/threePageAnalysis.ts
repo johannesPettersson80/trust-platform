@@ -2,57 +2,62 @@ import * as echarts from "echarts/core";
 import { LineChart, ScatterChart } from "echarts/charts";
 import { AriaComponent, GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
-import type { DeclaredControlAnalysis, DeclaredRootLocusResult } from "../declaredAnalysis";
-import type { DeclaredRouthResult } from "../routhHurwitz";
-import type { EngineeringPlotMessageEvidence } from "../engineeringPlots";
-import type { GeneralFeedbackResult } from "../generalFeedback";
-import { decodeGeneralModel, type GeneralModel, type GeneralModelFrequencyResult } from "../generalModel";
-import { isSavedGeneralModelAnalysis, isSavedPeriodicFrequencyAnalysis, validModelGrid, type ModelFrequencyGrid, type SavedGeneralModelAnalysis, type SavedPeriodicFrequencyAnalysis } from "../generalModelPersistence";
-import { isSavedLeadLagAnalysis, type SavedLeadLagAnalysis } from "../leadLagSession";
-import { declaredFeedbackDefinition } from "../declaredFeedbackModel";
-import { nyquistCountText, nyquistGeometry, nyquistSeries } from "./nyquistChart";
+import type { Failure } from "../generated/Failure";
+import type { AnalysisEnvelope, AnalysisInputs, ToolOffer } from "../generated/AnalyzeAnswer";
+import type { AnalysisTool } from "../generated/AnalyzeRequest";
+import type { AnalysisPage } from "../generated/PageRequest";
+import { nyquistGeometry, nyquistSeries } from "./nyquistChart";
 import { poleMapGeometry, type PlaneArea, type PlaneGeometry } from "./complexPlaneGeometry";
-import { linearTransferModel } from "../linearTransferModel";
-import type { FrequencyResponseEstimate } from "../numerics/contracts";
-import type { ModelTimeResponse } from "../generalModelTime";
-import type { ModelPoleView } from "../generalModelPoleView";
-import { rootsOfRealPolynomial } from "../numerics/classicalAnalysis";
-import { axis, chartTheme, engineeringLine, formatChartValue } from "./chartPrimitives";
+import { axis, chartTheme, engineeringLine, formatChartValue, formatPhaseChartValue, formatPhaseDegrees, phaseAxis } from "./chartPrimitives";
 import { rootLocusChartSeries, rootLocusTooltip } from "./rootLocusChart";
-import { routhBoundaryRows, routhDetailText, type InspectableCell } from "./routhDetails";
 import { sensitivitySeries } from "./sensitivityChart";
 import { initialStateResponseRows, initialStateResponseSeries } from "./initialStateResponseChart";
-import { stateStructureDetails } from "./stateStructureDetails";
-import { formatNumberList } from "./numberListText";
-import { decodePeriodicRecording } from "./periodicRecording";
-import { measuredFrequencyRows } from "../measuredFrequencyRows";
+import { formatMatrixRows, formatNumberList } from "./numberListText";
 import { formatEngineeringNumber } from "../chartContract";
 import { formatDurationSeconds, parseDurationSeconds } from "./durationField";
+import {
+  ANALYSIS_KIND, ENGINE_MODEL_CHANGED_EVENT, answerOf, type AnalysisUpdate, type EngineAnalysisEvents, type FeedbackAnswer, type FrequencyAnswer,
+  type InitialStateAnswer, type LeadLagAnswer, type MeasuredFrequencyAnswer, type PoleZeroAnswer, type RelativeGainAnswer, type RootLocusAnswer,
+  type RouthAnswer, type StateStructureAnswer,
+} from "./engineAnalysis";
 
 echarts.use([LineChart, ScatterChart, GridComponent, LegendComponent, TooltipComponent, AriaComponent, CanvasRenderer]);
 
-export type ThreePageAnalysisTool = "root-locus" | "routh" | "poles" | "frequency" | "periodic-frequency" | "feedback" | "lead-lag" | "response" | "state-structure" | "rga";
-export interface ThreePageAnalysisAvailability {
-  declared?: DeclaredControlAnalysis;
-  model?: SavedGeneralModelAnalysis;
-  selectedModel?: GeneralModel;
-  plots?: EngineeringPlotMessageEvidence;
-}
-export interface ThreePageAnalysisPresenter {
+/** The tools whose result is drawn in the plot area (B9.9). */
+const PLOTTED_TOOLS = new Set<AnalysisTool>(["rootLocus", "frequency", "measuredFrequency", "poleZero", "feedback", "initialState"]);
+
+
+/** The Tune page's analysis presenter (specification 35, B9.9). */
+export interface ThreePageAnalysisPresenter extends EngineAnalysisEvents {
+  /** Takes a stage of the page: a model change clears the shown answers and asks the engine for the tools that apply now. */
   receive(stage: string | undefined, payload: Record<string, unknown>): void;
-  setAvailable(availability: ThreePageAnalysisAvailability): readonly ThreePageAnalysisTool[];
-  setTool(tool: ThreePageAnalysisTool | undefined): void;
+  /** The study kept a recording: the tools that apply may now differ, so the engine is asked for them again (B9.9). */
+  recordingsChanged(): void;
+  /** Shows the tool the Analyze… list chose, or closes the analysis (undefined). A tool the engine does not offer is not shown. */
+  setTool(tool: string | undefined): void;
+  /** Calculates the shown tool, or aborts its running operation. */
   run(): void;
   actionLabel(): string | undefined;
   choice(): string | undefined;
-  availableTools(): readonly ThreePageAnalysisTool[];
+  availableTools(): readonly string[];
+  /** The tool the page shows with the inputs it holds for it; none when no tool is shown (kept with a parked loop, B9.9). */
+  shown(): AnalysisPage | undefined;
+  /** The tools the engine offers for the loop, with the labels and actions it gives them. */
+  offers(): readonly ToolOffer[];
   dispose(): void;
 }
 
-/** Presents an externally selected analysis tool; it owns no page navigation or runtime writes. */
+/**
+ * Presents the engine's analysis on the Tune page (specification 35, B9.9). The engine answers which tools apply, their labels,
+ * default inputs and limits, and every result and sentence. This draws them, shows the editor's fields with the inputs the engine
+ * read, and sends what the engineer entered: an entry that is blank or not a number is sent absent, so the engine's default
+ * applies. It checks no input and computes no value.
+ */
 export function initializeThreePageAnalysis(
   root: HTMLElement,
   post: (kind: string, payload?: Record<string, unknown>) => void = () => undefined,
+  changed: () => void = () => undefined,
+  shownChanged: () => void = () => undefined,
 ): ThreePageAnalysisPresenter {
   const disclosure = root.querySelector<HTMLElement>("[data-three-page-analysis]");
   const result = root.querySelector<HTMLElement>("[data-three-page-analysis-result]");
@@ -64,433 +69,484 @@ export function initializeThreePageAnalysis(
   if (!disclosure || !result || !plotHost || !summary || !tableDetails || !detailsSummary || !table) return emptyPresenter();
   const plotArea: HTMLElement = plotHost;
 
-  const status = document.createElement("p"); status.setAttribute("role", "status"); status.className = "studio-action-message";
+  const statusLine = document.createElement("p"); statusLine.setAttribute("role", "status"); statusLine.className = "studio-action-message";
   const editor = document.createElement("section"); editor.className = "studio-fields"; editor.hidden = true;
-  disclosure.insertBefore(status, result); disclosure.insertBefore(editor, result);
+  disclosure.insertBefore(statusLine, result); disclosure.insertBefore(editor, result);
   const chart = echarts.init(plotHost, undefined, { renderer: "canvas" });
   let redrawPlot: (() => void) | undefined;
   const resize = () => { chart.resize(); redrawPlot?.(); };
   const resizeObserver = new ResizeObserver(resize); resizeObserver.observe(plotHost);
   window.addEventListener("resize", resize);
-  let available: ThreePageAnalysisAvailability = {};
-  let selected: ThreePageAnalysisTool | undefined;
-  let declaredRoot: DeclaredRootLocusResult | undefined;
-  let routh: DeclaredRouthResult | undefined;
-  let model: SavedGeneralModelAnalysis | undefined;
-  let selectedModel: GeneralModel | undefined;
-  let plots: EngineeringPlotMessageEvidence | undefined;
-  let feedback: GeneralFeedbackResult | undefined;
-  let pendingModelAnalysis = false;
-  let pendingRouth = false;
+
+  /** The tools the engine offers for the loop. */
+  let offerList: readonly ToolOffer[] = [];
+  let selected: AnalysisTool | undefined;
+  /** The inputs the editor shows for each tool: the engine's defaults, or the inputs the engine last read (B9.9). */
+  const inputsByTool = new Map<AnalysisTool, AnalysisInputs>();
+  /** The last answer of each tool with a result; the result area shows the selected tool's. */
+  const answers = new Map<AnalysisTool, AnalysisEnvelope>();
+  /** The calculation the engine runs for the page: its tool when known, and its operation once the engine started one. */
+  let pending: { tool?: AnalysisTool; operationId?: string; progress?: string } | undefined;
+  let refusal: Failure | undefined;
+  let notice: string | undefined;
   let channelIndex = 0;
-  let frequencyDraft: ModelFrequencyGrid | undefined;
-  let parameterDraft: number | undefined;
   let feedbackView: "bode" | "nyquist" | "sensitivity" = "bode";
-  let periodicRecording: { input: number[]; output: number[]; sampleTimeSeconds: number; recordingId: string; recordingRevision: string } | undefined;
-  let periodicResult: FrequencyResponseEstimate | undefined;
-  let periodicRecordingFailure: string | undefined;
-  let leadLagResult: SavedLeadLagAnalysis["result"] | undefined;
-  let leadLagMode: "lead" | "lag" = "lead";
-  let periodicDraft = { frequencies: "1,2,4", sampleTimeSeconds: 0.1, segments: 4, minimumCoherence: 0.8, startupSamples: 16 };
-  let leadLagDraft = { crossoverRadPerSecond: 1, phaseDegrees: 30, lowFrequencyGainRatio: 5 };
-  let timeResponse: ModelTimeResponse | undefined;
-  let poleView: ModelPoleView | undefined;
-  let responseDraft = { stepSeconds: 0.1, durationSeconds: 10, initialState: "", input: "", connection: "open-loop" as "open-loop" | "feedback" };
   let responseOutputIndex = 0;
-  let poleViewChoice: "unreduced" | "minimal" = "unreduced";
-  let failure: string | undefined;
   let disposed = false;
 
-  const toolSet = (): ThreePageAnalysisTool[] => {
-    const tools: ThreePageAnalysisTool[] = [];
-    if (available.declared || declaredRoot || plots?.rootLocus?.status === "qualified") tools.push("root-locus", "routh");
-    if (available.model || model || selectedModel) tools.push("poles", "frequency");
-    if (periodicRecording || periodicRecordingFailure) tools.push("periodic-frequency");
-    if ((available.declared && selectedModel && declaredFeedbackDefinition(available.declared, selectedModel)) || available.plots || plots || feedback) tools.push("feedback");
-    if (selectedModel && transferModel(selectedModel)) tools.push("lead-lag");
-    if (available.model || model || selectedModel) tools.push("response");
-    if (selectedModel && selectedModel.kind !== "transfer-function") tools.push("state-structure");
-    if (selectedModel && selectedModel.inputs.length === selectedModel.outputs.length && selectedModel.inputs.length > 1) tools.push("rga");
-    return [...new Set(tools)];
+  const offerOf = (tool: string | undefined): ToolOffer | undefined => offerList.find(offer => offer.tool === tool);
+  const inputsOf = (tool: AnalysisTool): AnalysisInputs => inputsByTool.get(tool) ?? offerOf(tool)?.defaults ?? {};
+  /** The last answer of `tool` the page holds, from its last calculation (the result is read by the tool's name). */
+  const answerFor = <K extends AnalysisTool>(tool: K) => answerOf(answers.get(tool)?.result ?? undefined, tool);
+
+  const actionLabel = (): string | undefined => {
+    const offer = offerOf(selected);
+    if (!offer) return undefined;
+    return pending && offer.operation ? offer.abortAction ?? "Abort analysis" : offer.action;
   };
-  const setAvailable = (next: ThreePageAnalysisAvailability): readonly ThreePageAnalysisTool[] => {
-    available = next; model = next.model; selectedModel = next.selectedModel ?? next.model?.model; feedback = next.model?.feedback?.result; plots = next.plots; timeResponse = next.model?.response; poleView = next.model?.poleView;
-    frequencyDraft = next.model?.grid; parameterDraft = next.declared?.rootLocus.selectedValue; render(); return toolSet();
-  };
-  const setTool = (tool: ThreePageAnalysisTool | undefined): void => {
-    selected = tool && toolSet().includes(tool) ? tool : undefined; render();
-  };
-  const actionLabel = (): string | undefined => selected === "root-locus" ? "Calculate root locus"
-    : selected === "routh" ? (pendingRouth ? "Abort analysis" : "Calculate Routh–Hurwitz") : selected === "poles" ? (pendingModelAnalysis ? "Abort analysis" : "Calculate poles and zeros")
-    : selected === "frequency" ? (pendingModelAnalysis ? "Abort analysis" : "Calculate frequency response")
-    : selected === "periodic-frequency" && periodicRecording ? "Calculate measured frequency response"
-    : selected === "lead-lag" ? "Calculate lead/lag design"
-    : selected === "response" ? (pendingModelAnalysis ? "Abort analysis" : "Calculate initial-state response")
-    : selected === "state-structure" ? (pendingModelAnalysis ? "Abort analysis" : "Calculate state structure")
-    : selected === "rga" ? (pendingModelAnalysis ? "Abort analysis" : "Calculate relative gain array")
-    : selected === "feedback" && (model || selectedModel) ? (pendingModelAnalysis ? "Abort analysis" : "Calculate feedback analysis") : undefined;
   const choice = (): string | undefined => selected ? `analysis:${selected}` : undefined;
-  const run = (): void => {
-    if (!selected) return;
-    if (selected === "root-locus" || selected === "routh") {
-      if (selected === "routh" && pendingRouth) { post("control-studio.routh.cancel"); return; }
-      const input = editor.querySelector<HTMLInputElement>("[data-analysis-parameter-value]");
-      failure = undefined;
-      if (selected === "routh") pendingRouth = true;
-      status.textContent = "Calculating analysis…";
-      post(selected === "routh" ? "control-studio.routh.run" : "control-studio.declared-root.run", { ...(input?.value.trim() ? { selectedValue: Number(input.value) } : {}) });
-      return;
-    }
-    if (selected === "periodic-frequency" && periodicRecording) {
-      const value = (name: string) => editor.querySelector<HTMLInputElement>(`[data-analysis-${name}]`)?.value ?? "";
-      const frequencies = parseNumberList(value("periodic-frequencies"));
-      const sampleTime = parseFiniteNumber(value("periodic-sample-time")); const segments = parseFiniteNumber(value("periodic-segments")); const coherence = parseFiniteNumber(value("periodic-coherence")); const startup = parseFiniteNumber(value("periodic-startup"));
-      if (!frequencies || frequencies.some(frequency => frequency <= 0) || sampleTime === undefined || sampleTime <= 0 || segments === undefined || !Number.isSafeInteger(segments) || segments < 2 || coherence === undefined || coherence < 0 || coherence > 1 || startup === undefined || !Number.isSafeInteger(startup) || startup < 1) { failure = "Enter finite, positive periodic settings without blank frequency entries."; render(); return; }
-      periodicRecording = { ...periodicRecording, sampleTimeSeconds: sampleTime };
-      periodicDraft = { frequencies: value("periodic-frequencies"), sampleTimeSeconds: sampleTime, segments, minimumCoherence: coherence, startupSamples: startup };
-      periodicResult = undefined;
-      post("control-studio.general-model.periodic", { frequencies, segmentCount: segments, minimumCoherence: coherence, startupSamples: startup, recordingId: periodicRecording.recordingId, recordingRevision: periodicRecording.recordingRevision });
-      return;
-    }
-    if (selected === "lead-lag" && selectedModel) {
-      const value = (name: string) => parseFiniteNumber(editor.querySelector<HTMLInputElement>(`[data-analysis-${name}]`)?.value ?? "");
-      leadLagMode = (editor.querySelector<HTMLSelectElement>("[data-analysis-lead-lag-mode]")?.value ?? "lead") as typeof leadLagMode;
-      const crossover = value("lead-lag-crossover"); const selectedValue = value(leadLagMode === "lead" ? "lead-lag-phase" : "lead-lag-ratio");
-      if (crossover === undefined || selectedValue === undefined) { failure = "Enter finite lead/lag settings."; render(); return; }
-      leadLagDraft = { ...leadLagDraft, crossoverRadPerSecond: crossover, ...(leadLagMode === "lead" ? { phaseDegrees: selectedValue } : { lowFrequencyGainRatio: selectedValue }) };
-      leadLagResult = undefined;
-      status.textContent = "Calculating lead/lag design…";
-      post("control-studio.lead-lag.run", { mode: leadLagMode, crossoverRadPerSecond: leadLagDraft.crossoverRadPerSecond, value: selectedValue });
-      return;
-    }
-    if (selected === "response" && (model || selectedModel)) {
-      const selectedModelValue = model?.model ?? selectedModel; if (!selectedModelValue) return;
-      const value = (name: string) => editor.querySelector<HTMLInputElement>(`[data-analysis-${name}]`)?.value ?? "";
-      // An unreadable duration keeps the last valid one in the draft; the message names what to fix.
-      const stepSeconds = parseDurationSeconds(value("response-step")), durationSeconds = parseDurationSeconds(value("response-duration"));
-      responseDraft = { stepSeconds: stepSeconds ?? responseDraft.stepSeconds, durationSeconds: durationSeconds ?? responseDraft.durationSeconds, initialState: value("response-initial"), input: value("response-input"), connection: (editor.querySelector<HTMLSelectElement>("[data-analysis-response-connection]")?.value ?? "open-loop") as typeof responseDraft.connection };
-      const stateCount = selectedModelValue.kind === "transfer-function" ? selectedModelValue.denominator.length - 1 : selectedModelValue.states.length;
-      const initialState = parseNumberList(responseDraft.initialState, stateCount === 0); const input = parseNumberList(responseDraft.input);
-      if (stepSeconds === undefined || durationSeconds === undefined || !initialState || initialState.length !== stateCount || !input || input.length !== selectedModelValue.inputs.length) { failure = "Enter finite response settings and complete state/input vectors."; render(); return; }
-      pendingModelAnalysis = true; render();
-      post("control-studio.general-model.response", { stepSeconds: responseDraft.stepSeconds, durationSeconds: responseDraft.durationSeconds, initialState, input, connection: responseDraft.connection });
-      return;
-    }
-    if (selected === "poles" && (model || selectedModel)) {
-      if (pendingModelAnalysis) { post("control-studio.general-model.cancel"); return; }
-      poleViewChoice = (editor.querySelector<HTMLSelectElement>("[data-analysis-pole-view]")?.value ?? "unreduced") as typeof poleViewChoice;
-      pendingModelAnalysis = true; render();
-      post("control-studio.general-model.pole-view", { view: poleViewChoice });
-      return;
-    }
-    if ((selected === "frequency" || selected === "poles" || selected === "feedback" || selected === "state-structure" || selected === "rga") && (model || selectedModel)) {
-      if (pendingModelAnalysis) { post("control-studio.general-model.cancel"); return; }
-      if (selected === "state-structure" || selected === "rga") {
-        const grid = frequencyDraft ?? model?.grid ?? { minimumFrequency: 0.1, maximumFrequency: 10, points: 32 };
-        frequencyDraft = grid; pendingModelAnalysis = true; render();
-        post("control-studio.general-model.analyze", { ...grid });
-        return;
-      }
-      const value = (name: string) => parseFiniteNumber(editor.querySelector<HTMLInputElement>(`[data-analysis-${name}]`)?.value ?? "");
-      const minimumFrequency = value("minimum-frequency"); const maximumFrequency = value("maximum-frequency"); const points = value("frequency-points");
-      if (minimumFrequency === undefined || maximumFrequency === undefined || points === undefined) { failure = "Enter finite frequency bounds and point count."; render(); return; }
-      frequencyDraft = { minimumFrequency, maximumFrequency, points };
-      pendingModelAnalysis = true; render();
-      post("control-studio.general-model.analyze", { minimumFrequency, maximumFrequency, points });
-    }
+  const availableTools = (): readonly string[] => offerList.map(offer => offer.tool);
+  const shown = (): AnalysisPage | undefined => selected ? { tool: selected, inputs: inputsOf(selected) } : undefined;
+  /** The shown analysis the owner was last told of, as text: the owner is told only when it changes (a parked loop keeps it, §0.1a). */
+  let reportedShown = JSON.stringify(null);
+  const reportShown = (): void => {
+    const key = JSON.stringify(shown() ?? null);
+    if (key === reportedShown) return;
+    reportedShown = key;
+    shownChanged();
   };
-  const receive = (stage: string | undefined, payload: Record<string, unknown>): void => {
-    if (disposed) return;
-    if (stage === "declared-root" && isRecord(payload.result)) { declaredRoot = payload.result as unknown as DeclaredRootLocusResult; parameterDraft = declaredRoot.selectedValue; failure = undefined; }
-    if (stage === "routh" && isRecord(payload.result)) { routh = payload.result as unknown as DeclaredRouthResult; parameterDraft = routh.selectedValue; pendingRouth = false; failure = undefined; }
-    if (stage === "declared-root" && payload.status === "failed") { declaredRoot = undefined; failure = `Root locus unavailable: ${String(payload.reason ?? "the declared model was rejected")}`; }
-    if (stage === "routh" && payload.status === "failed") { pendingRouth = false; routh = undefined; failure = `Routh–Hurwitz unavailable: ${String(payload.reason ?? "the declared model was rejected")}`; }
-    if (stage === "routh" && payload.status === "cancelled") pendingRouth = false;
-    if (stage === "general-model" && payload.status === "imported" && isRecord(payload.model)) {
-      const imported = decodeGeneralModel(payload.model); if (imported) selectedModel = imported;
-      model = undefined; feedback = undefined; leadLagResult = undefined; timeResponse = undefined; poleView = undefined; declaredRoot = undefined; routh = undefined; frequencyDraft = undefined; pendingModelAnalysis = false;
+
+  const run = (): void => {
+    const offer = offerOf(selected);
+    if (!selected || !offer) return;
+    // The Tune button aborts a running operation as it starts one (B9.9): Abort sends the engine's cancel.
+    if (pending) {
+      if (pending.operationId && offer.operation) post(ANALYSIS_KIND.cancel);
+      return;
     }
-    if (stage === "general-model" && ["edited", "cancelled"].includes(String(payload.status))) {
-      model = undefined; feedback = undefined; leadLagResult = undefined; timeResponse = undefined; poleView = undefined; declaredRoot = undefined; routh = undefined; frequencyDraft = undefined; pendingModelAnalysis = false;
-    }
-    if (stage === "engineer" && payload.status === "model-ready" && isRecord(payload.model)) {
-      const selected = decodeGeneralModel(payload.model);
-      if (selected && selectedModel?.revision !== selected.revision) { model = undefined; feedback = undefined; leadLagResult = undefined; timeResponse = undefined; poleView = undefined; declaredRoot = undefined; routh = undefined; frequencyDraft = undefined; }
-      if (selected) selectedModel = selected;
-    }
-    if (stage === "engineer" && payload.status === "edited") {
-      model = undefined; selectedModel = undefined; feedback = undefined; leadLagResult = undefined; timeResponse = undefined; poleView = undefined; declaredRoot = undefined; routh = undefined; frequencyDraft = undefined;
-    }
-    if (stage === "engineer" && payload.status === "candidate") feedback = undefined;
-    const recording = decodePeriodicRecording(payload);
-    if (recording) { periodicRecording = recording; periodicRecordingFailure = undefined; periodicDraft = { ...periodicDraft, sampleTimeSeconds: recording.sampleTimeSeconds }; periodicResult = undefined; }
-    else if (hasRawRecording(payload)) { periodicRecording = undefined; periodicRecordingFailure = "Periodic measurement requires finite good-quality samples without applied-output clipping."; periodicResult = undefined; }
-    if (stage === "general-model" && isSavedGeneralModelAnalysis(payload.saved)) {
-      model = payload.saved; selectedModel = payload.saved.model; feedback = payload.saved.feedback?.result;
-      frequencyDraft = payload.saved.grid;
-      timeResponse = payload.saved.response; if (timeResponse) responseDraft = { stepSeconds: timeResponse.settings.stepSeconds, durationSeconds: timeResponse.settings.durationSeconds, initialState: timeResponse.settings.initialState.join(","), input: timeResponse.settings.input.join(","), connection: timeResponse.settings.connection };
-      poleView = payload.saved.poleView; if (poleView) poleViewChoice = poleView.view;
-      pendingModelAnalysis = false; failure = undefined; channelIndex = Math.min(channelIndex, model.result.channels.length - 1);
-    }
-    if (stage === "general-model" && payload.status === "running") pendingModelAnalysis = true;
-    if (stage === "general-model" && payload.status === "periodic-complete" && isSavedPeriodicFrequencyAnalysis(payload.periodic)) { periodicResult = payload.periodic.result; periodicRecordingFailure = undefined; }
-    if (stage === "lead-lag" && payload.status === "complete" && isSavedLeadLagAnalysis(payload.saved)) {
-      const saved = payload.saved;
-      leadLagResult = saved.result; leadLagMode = saved.mode;
-      leadLagDraft = { ...leadLagDraft, crossoverRadPerSecond: saved.crossoverRadPerSecond,
-        ...(saved.mode === "lead" ? { phaseDegrees: saved.value } : { lowFrequencyGainRatio: saved.value }) };
-      failure = undefined;
-    }
-    if (stage === "lead-lag" && payload.status === "failed") failure = `Lead/lag design unavailable: ${String(payload.reason ?? "the selected model was rejected")}`;
-    if (stage === "general-model" && ["failed", "cancelled", "edited"].includes(String(payload.status))) pendingModelAnalysis = false;
-    if (stage === "general-model" && payload.status === "failed") failure = `Model analysis unavailable: ${String(payload.reason ?? "the supplied model was rejected")}`;
-    if (stage === "general-model" && ["imported", "edited", "cancelled"].includes(String(payload.status))) failure = undefined;
-    if (isRecord(payload.plots)) plots = payload.plots as unknown as EngineeringPlotMessageEvidence;
-    const selectedAnalysis = modelStudy(payload.modelAnalysis);
-    if (selectedAnalysis) { model = selectedAnalysis; selectedModel = selectedAnalysis.model; frequencyDraft = selectedAnalysis.grid; periodicResult = selectedAnalysis.periodic?.result; }
+    calculate(selected, readInputs(selected));
+  };
+
+  /** Asks the engine to calculate the tool with these inputs: the editor shows them until the engine reads them back. */
+  const calculate = (tool: AnalysisTool, inputs: AnalysisInputs): void => {
+    inputsByTool.set(tool, inputs);
+    refusal = undefined; notice = undefined;
+    pending = { tool };
+    renderResult();
+    post(ANALYSIS_KIND.run, { tool, inputs });
+  };
+
+  /**
+   * The study's model changed (B9.9): the shown answers belong to the model before it, and the tools that apply to the model now are
+   * asked again, so the Analyze… list follows the model.
+   */
+  const modelChangedNow = (): void => {
+    answers.clear(); refusal = undefined; notice = undefined;
+    post(ANALYSIS_KIND.tools);
     render();
   };
 
-  const render = (): void => {
-    if (disposed) return;
-    const tools = toolSet();
-    disclosure.hidden = selected === undefined || !tools.includes(selected);
-    if (!selected || !tools.includes(selected)) { editor.hidden = true; result.hidden = true; chart.clear(); return; }
-    editor.replaceChildren(); renderEditor();
-    redrawPlot = undefined; plotHost.style.height = "280px";
-    const drawsPlot = selected === "root-locus" || selected === "frequency" || selected === "periodic-frequency" || selected === "poles" || selected === "feedback" || selected === "response";
-    plotHost.hidden = !drawsPlot;
-    if (!drawsPlot) chart.clear();
-    if (!hasEvidence(selected)) {
-      result.hidden = true; status.textContent = failure ?? periodicRecordingFailure ?? (pendingModelAnalysis ? "Calculating model analysis…" : "Analysis evidence is not available yet."); chart.clear(); return;
-    }
-    result.hidden = false; status.textContent = failure ?? (pendingModelAnalysis ? "Calculating model analysis…" : ""); summary.replaceChildren(); detailsSummary.replaceChildren(); table.replaceChildren(); tableDetails.hidden = true; (tableDetails as HTMLDetailsElement).open = false;
-    if (failure) addText("The new calculation failed; the retained result is shown for context.");
-    if (selected === "root-locus") renderRootLocus();
-    else if (selected === "routh") renderRouth();
-    else if (selected === "frequency") renderFrequency();
-    else if (selected === "periodic-frequency") renderPeriodicFrequency();
-    else if (selected === "poles") renderPoles();
-    else if (selected === "feedback") renderFeedback();
-    else if (selected === "lead-lag") renderLeadLag();
-    else if (selected === "response") renderResponse();
-    else if (selected === "state-structure") renderStateStructure();
-    else renderRga();
+  /** An engine model change reaches the page as this window event, when it shows or clears an identification (engineIdentify.ts). */
+  const onModelChanged = (): void => { if (!disposed) modelChangedNow(); };
+  window.addEventListener(ENGINE_MODEL_CHANGED_EVENT, onModelChanged);
+
+  const setTool = (tool: string | undefined): void => {
+    const offer = offerOf(tool);
+    selected = offer?.tool;
+    refusal = undefined; notice = undefined;
+    // The page records the tool it shows with its inputs, so that reopening shows them (B9.9); closing records none.
+    post(ANALYSIS_KIND.show, selected ? { tool: selected, inputs: inputsOf(selected) } : {});
+    render();
   };
 
-  const hasEvidence = (tool: ThreePageAnalysisTool): boolean => tool === "root-locus" ? Boolean(declaredRoot || plots?.rootLocus?.status === "qualified")
-    : tool === "routh" ? Boolean(routh)
-    : tool === "frequency" || tool === "poles" ? Boolean(model)
-    : tool === "periodic-frequency" ? Boolean(periodicResult)
-    : tool === "feedback" ? Boolean(plots || feedback)
-    : tool === "lead-lag" ? Boolean(leadLagResult)
-    : tool === "response" ? Boolean(timeResponse)
-    : tool === "state-structure" ? Boolean(model?.result.stateStructure)
-    : Boolean(model?.result.relativeGainMatrix);
+  /** Keeps the engine's answer of a calculation: the result is kept, and the inputs the engine read fill the editor. */
+  const receiveAnswer = (envelope: AnalysisEnvelope): void => {
+    if (pending && (pending.tool === undefined || pending.tool === envelope.tool)) pending = undefined;
+    inputsByTool.set(envelope.tool, envelope.inputs);
+    if (envelope.result) answers.set(envelope.tool, envelope);
+    if (selected === envelope.tool) {
+      refusal = envelope.failure ?? undefined; notice = undefined;
+      renderEditor();
+      renderResult();
+    }
+  };
+
+  const presenter: ThreePageAnalysisPresenter = {
+    receive(stage, payload) {
+      if (disposed) return;
+      // The TypeScript session's stages that change the model (a parked loop); the engine's changes arrive as the model-changed event.
+      if (modelChanged(stage, payload.status)) modelChangedNow();
+    },
+    recordingsChanged() {
+      // A recording the study keeps can change which tools apply (`measuredFrequency` needs one), so the tools are asked again.
+      if (!disposed) post(ANALYSIS_KIND.tools);
+    },
+    setTool,
+    run,
+    actionLabel,
+    choice,
+    availableTools,
+    shown,
+    offers: () => offerList,
+    dispose(): void {
+      disposed = true;
+      window.removeEventListener(ENGINE_MODEL_CHANGED_EVENT, onModelChanged);
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", resize);
+      chart.dispose();
+    },
+    tools(offers, failure) {
+      if (disposed) return;
+      offerList = offers ?? [];
+      if (failure && selected) refusal = failure;
+      if (selected && !offerOf(selected)) setTool(undefined);
+      changed();
+      render();
+    },
+    started(tool, operationId) {
+      if (disposed) return;
+      pending = { tool, operationId };
+      renderResult();
+    },
+    answer(envelope) {
+      if (!disposed) receiveAnswer(envelope);
+    },
+    refused(tool, failure) {
+      if (disposed) return;
+      if (tool && pending && (pending.tool === undefined || pending.tool === tool)) pending = undefined;
+      if (tool === undefined || tool === selected) refusal = failure;
+      renderResult();
+    },
+    update(update: AnalysisUpdate) {
+      if (disposed) return;
+      if (update.state === "running") {
+        pending = { ...pending, operationId: update.operationId, ...(update.progress ? { progress: update.progress } : {}) };
+        renderResult();
+        return;
+      }
+      pending = undefined;
+      if (update.state === "finished" && update.envelope) receiveAnswer(update.envelope);
+      else if (update.state === "failed") refusal = update.failure;
+      else if (update.state === "cancelled") { refusal = undefined; notice = "Analysis cancelled."; }
+      renderResult();
+    },
+    restore(tool, inputs) {
+      if (disposed || !offerOf(tool)) return;
+      inputsByTool.set(tool, inputs);
+      selected = tool; refusal = undefined; notice = undefined;
+      render();
+      // The analysis the page showed is calculated again when the panel reopens (A8.6, B9.9), with the inputs the engine answered
+      // for it, as they were recorded: the editor is not read back, so no entry the engine kept is lost or changed.
+      if (!pending) calculate(tool, inputs);
+    },
+  };
+
+  const render = (): void => { renderEditor(); renderResult(); };
 
   const renderEditor = (): void => {
-    if (!selected) return;
+    editor.replaceChildren();
     editor.hidden = true;
-    if (selected === "root-locus" || selected === "routh") renderDeclaredEditor();
-    else if (selected === "frequency") renderFrequencyEditor();
-    else if (selected === "poles") renderPoleViewEditor();
-    else if (selected === "periodic-frequency") renderPeriodicEditor();
-    else if (selected === "feedback") { renderFrequencyEditor(); renderFeedbackSelector(); }
-    else if (selected === "lead-lag") renderLeadLagEditor();
-    else if (selected === "response") renderResponseEditor();
-    if (editor.childElementCount > 0) editor.hidden = false;
-  };
-  const renderDeclaredEditor = (): void => {
-    const analysis = available.declared; if (!analysis) return;
-    const parameterName = analysis.rootLocus.parameter; const parameter = analysis.controller.parameters[parameterName];
-    const label = document.createElement("label"); label.className = "studio-field"; label.textContent = `${parameterName} (${parameter.unit})`;
-    const input = document.createElement("input"); input.type = "number"; input.step = "any"; input.min = String(parameter.minimum); input.max = String(parameter.maximum); input.value = String(parameterDraft ?? analysis.rootLocus.selectedValue); input.addEventListener("input", () => { parameterDraft = Number(input.value); }); label.append(input); editor.append(label);
-    input.dataset.analysisParameterValue = "true";
-  };
-  const renderFrequencyEditor = (): void => {
-    const grid = frequencyDraft ?? model?.grid ?? { minimumFrequency: 0.1, maximumFrequency: 100, points: 128 };
-    for (const [id, labelText, value] of [["minimum", "Minimum frequency (rad/s)", grid.minimumFrequency], ["maximum", "Maximum frequency (rad/s)", grid.maximumFrequency], ["points", "Frequency points", grid.points]] as const) {
-      const label = document.createElement("label"); label.className = "studio-field"; label.textContent = labelText;
-      const input = document.createElement("input"); input.type = "number"; input.step = "any"; input.value = String(value); input.setAttribute(`data-analysis-${id === "minimum" ? "minimum-frequency" : id === "maximum" ? "maximum-frequency" : "frequency-points"}`, ""); input.addEventListener("input", () => { const current = frequencyDraft ?? grid; frequencyDraft = { ...current, ...(id === "minimum" ? { minimumFrequency: Number(input.value) } : id === "maximum" ? { maximumFrequency: Number(input.value) } : { points: Number(input.value) }) }; }); label.append(input); editor.append(label);
-    }
-    const channels = model?.result.channels ?? [];
-    const channel = document.createElement("select"); channel.className = "trust-input"; channels.forEach((item, index) => { const option = new Option(`${item.input.id} → ${item.output.id}`, String(index)); channel.append(option); }); channel.value = String(channelIndex); channel.addEventListener("change", () => { channelIndex = Number(channel.value); render(); });
-    const channelLabel = document.createElement("label"); channelLabel.className = "studio-field"; channelLabel.textContent = "Displayed channel"; channelLabel.append(channel); editor.append(channelLabel);
-  };
-  const renderPeriodicEditor = (): void => {
-    const fields: readonly [string, string, string][] = [
-      ["periodic-frequencies", "Frequencies (rad/s, comma separated)", periodicDraft.frequencies],
-      ["periodic-sample-time", "Recorded sample time (s)", String(periodicDraft.sampleTimeSeconds)],
-      ["periodic-startup", "Discard startup samples", String(periodicDraft.startupSamples)],
-      ["periodic-segments", "Segments", String(periodicDraft.segments)],
-      ["periodic-coherence", "Minimum coherence", String(periodicDraft.minimumCoherence)],
-    ];
-    fields.forEach(([id, labelText, value]) => { const label = document.createElement("label"); label.className = "studio-field"; label.textContent = labelText; const input = document.createElement("input"); input.type = id === "periodic-frequencies" ? "text" : "number"; input.value = value; input.dataset.analysisPeriodic = id; input.setAttribute(`data-analysis-${id}`, ""); if (id === "periodic-sample-time") input.readOnly = true; input.addEventListener("input", () => { periodicDraft = { ...periodicDraft, ...(id === "periodic-frequencies" ? { frequencies: input.value } : id === "periodic-sample-time" ? { sampleTimeSeconds: Number(input.value) } : id === "periodic-segments" ? { segments: Number(input.value) } : id === "periodic-coherence" ? { minimumCoherence: Number(input.value) } : { startupSamples: Number(input.value) }) }; }); label.append(input); editor.append(label); });
-  };
-  const renderLeadLagEditor = (): void => {
-    const mode = document.createElement("select"); mode.dataset.analysisLeadLagMode = "true"; mode.setAttribute("data-analysis-lead-lag-mode", ""); ["lead", "lag"].forEach(value => { const option = new Option(value === "lead" ? "Lead compensation" : "Lag compensation", value); mode.append(option); }); mode.value = leadLagMode;
-    const modeLabel = document.createElement("label"); modeLabel.className = "studio-field"; modeLabel.textContent = "Compensation"; modeLabel.append(mode); editor.append(modeLabel);
-    const crossover = document.createElement("input"); crossover.type = "number"; crossover.step = "any"; crossover.value = String(leadLagDraft.crossoverRadPerSecond); crossover.setAttribute("data-analysis-lead-lag-crossover", ""); crossover.addEventListener("input", () => { leadLagDraft.crossoverRadPerSecond = Number(crossover.value); }); const crossoverLabel = document.createElement("label"); crossoverLabel.className = "studio-field"; crossoverLabel.textContent = "Crossover (rad/s)"; crossoverLabel.append(crossover); editor.append(crossoverLabel);
-    const value = document.createElement("input"); value.type = "number"; value.step = "any"; value.value = String(leadLagMode === "lead" ? leadLagDraft.phaseDegrees : leadLagDraft.lowFrequencyGainRatio); value.setAttribute(`data-analysis-lead-lag-${leadLagMode === "lead" ? "phase" : "ratio"}`, ""); value.addEventListener("input", () => { if (leadLagMode === "lead") leadLagDraft.phaseDegrees = Number(value.value); else leadLagDraft.lowFrequencyGainRatio = Number(value.value); }); const valueLabel = document.createElement("label"); valueLabel.className = "studio-field"; valueLabel.textContent = leadLagMode === "lead" ? "Phase contribution (°)" : "Low-frequency gain ratio"; valueLabel.append(value); editor.append(valueLabel); mode.addEventListener("change", () => { leadLagMode = mode.value as typeof leadLagMode; render(); });
-  };
-  const renderResponseEditor = (): void => {
-    const selectedModelValue = model?.model ?? selectedModel; if (!selectedModelValue) return;
-    const states = selectedModelValue.kind === "transfer-function" ? selectedModelValue.denominator.length - 1 : selectedModelValue.states.length;
-    // Durations take "90 s", "15 min" or plain seconds, and show in their largest unit; the draft keeps the number.
-    const defaults = { step: formatDurationSeconds(responseDraft.stepSeconds), duration: formatDurationSeconds(responseDraft.durationSeconds), initial: responseDraft.initialState || Array(states).fill(0).join(","), input: responseDraft.input || Array(selectedModelValue.inputs.length).fill(0).join(",") };
-    [["response-step", "Step", defaults.step], ["response-duration", "Duration", defaults.duration], ["response-initial", "Initial state", defaults.initial], ["response-input", "Held input", defaults.input]].forEach(([id, labelText, value]) => { const label = document.createElement("label"); label.className = "studio-field"; label.textContent = labelText; const input = document.createElement("input"); input.type = "text"; input.value = value; input.setAttribute(`data-analysis-${id}`, ""); label.append(input); editor.append(label); });
-    const connection = document.createElement("select"); connection.setAttribute("data-analysis-response-connection", ""); ["open-loop", "feedback"].forEach(value => { const option = new Option(value === "open-loop" ? "Open loop" : "Declared feedback", value); connection.append(option); }); connection.value = responseDraft.connection; const label = document.createElement("label"); label.className = "studio-field"; label.textContent = "Connection"; label.append(connection); editor.append(label);
-    const output = document.createElement("select"); output.setAttribute("data-analysis-response-output", ""); selectedModelValue.outputs.forEach((item, index) => output.append(new Option(`${item.id} (${item.unit})`, String(index)))); output.value = String(Math.min(responseOutputIndex, selectedModelValue.outputs.length - 1)); responseOutputIndex = Number(output.value); output.addEventListener("change", () => { responseOutputIndex = Number(output.value); render(); }); const outputLabel = document.createElement("label"); outputLabel.className = "studio-field"; outputLabel.textContent = "Displayed output"; outputLabel.append(output); editor.append(outputLabel);
-  };
-  const renderPoleViewEditor = (): void => {
-    const select = document.createElement("select"); select.setAttribute("data-analysis-pole-view", ""); ["unreduced", "minimal"].forEach(value => { const option = new Option(value === "unreduced" ? "Unreduced internal model" : "Minimal input/output view", value); select.append(option); }); select.value = poleViewChoice; const label = document.createElement("label"); label.className = "studio-field"; label.textContent = "Pole view"; label.append(select); editor.append(label);
-  };
-  const renderFeedbackSelector = (): void => {
-    if (!plots?.nyquist?.length && !plots?.sensitivity?.length && !feedback && !(available.declared && selectedModel && declaredFeedbackDefinition(available.declared, selectedModel))) return;
-    const select = document.createElement("select"); select.className = "trust-input"; ["bode", "nyquist", "sensitivity"].forEach(value => { const option = new Option(value[0].toUpperCase() + value.slice(1), value); select.append(option); });
-    select.dataset.analysisFeedbackView = "true"; select.value = feedbackView;
-    const label = document.createElement("label"); label.className = "studio-field"; label.textContent = "View"; label.append(select); editor.append(label); select.addEventListener("change", () => { feedbackView = select.value as typeof feedbackView; render(); });
+    if (!selected || !offerOf(selected)) return;
+    buildEditor(selected);
+    editor.hidden = editor.childElementCount === 0;
   };
 
-  function renderRootLocus(): void {
-    const source = declaredRoot ? { parameter: declaredRoot.parameter, parameterUnit: declaredRoot.parameterUnit, selectedValue: declaredRoot.selectedValue,
-      approximation: declaredRoot.approximation, branches: declaredRoot.branches, path: declaredRoot.path,
-      fixed: Object.entries(declaredRoot.fixedParameters).map(([name, parameter]) => `${name} = ${formatEngineeringNumber(parameter.value)} ${parameter.unit}`) }
-      : plots?.rootLocus?.status === "qualified" ? { ...plots.rootLocus, parameterUnit: undefined, path: undefined, fixed: [] as string[] } : undefined; if (!source) return;
+  const field = (labelText: string, control: HTMLElement): void => {
+    const label = document.createElement("label"); label.className = "studio-field"; label.textContent = labelText;
+    label.append(control); editor.append(label);
+  };
+  const numberField = (labelText: string, value: number | undefined, name: string): void => {
+    const input = document.createElement("input"); input.type = "number"; input.step = "any";
+    input.value = value === undefined ? "" : String(value);
+    input.setAttribute(`data-analysis-${name}`, "");
+    field(labelText, input);
+  };
+  const textField = (labelText: string, value: string, name: string, readOnly = false): void => {
+    const input = document.createElement("input"); input.type = "text"; input.value = value; input.readOnly = readOnly;
+    input.setAttribute(`data-analysis-${name}`, "");
+    field(labelText, input);
+  };
+  const selectField = (labelText: string, choices: readonly (readonly [string, string])[], value: string | undefined, name: string): HTMLSelectElement => {
+    const select = document.createElement("select"); select.setAttribute(`data-analysis-${name}`, "");
+    for (const [optionValue, text] of choices) select.append(new Option(text, optionValue));
+    if (value !== undefined) select.value = value;
+    field(labelText, select);
+    return select;
+  };
+
+  /** The editor of the selected tool, filled with the inputs the engine gave: its defaults, or the inputs it last read. */
+  const buildEditor = (tool: AnalysisTool): void => {
+    const inputs = inputsOf(tool);
+    switch (tool) {
+      case "rootLocus":
+      case "routh":
+        numberField(parameterLabel(tool), inputs.selectedValue ?? undefined, "parameter-value");
+        return;
+      case "frequency":
+      case "feedback": {
+        numberField("Minimum frequency (rad/s)", inputs.grid?.minimumFrequency, "minimum-frequency");
+        numberField("Maximum frequency (rad/s)", inputs.grid?.maximumFrequency, "maximum-frequency");
+        numberField("Frequency points", inputs.grid?.points, "frequency-points");
+        const channels = answerFor("frequency")?.channels ?? [];
+        if (tool === "frequency" && channels.length) {
+          const channel = selectField("Displayed channel", channels.map((item, index) => [String(index), `${item.input.id} → ${item.output.id}`] as const), String(channelIndex), "channel");
+          channel.addEventListener("change", () => { channelIndex = Number(channel.value); renderResult(); });
+        }
+        if (tool === "feedback" && answers.has("feedback")) {
+          const view = selectField("View", [["bode", "Bode"], ["nyquist", "Nyquist"], ["sensitivity", "Sensitivity"]], feedbackView, "feedback-view");
+          view.addEventListener("change", () => { feedbackView = view.value as typeof feedbackView; renderResult(); });
+        }
+        return;
+      }
+      case "measuredFrequency": {
+        // The recording and its sample time are the engine's: the answer names the recording it measured (B10.3), and the page holds none of its own.
+        const measured = answerFor("measuredFrequency");
+        textField("Frequencies (rad/s, comma separated)", listText(inputs.frequencies ?? undefined), "periodic-frequencies");
+        textField("Recording", measured?.recordingId ?? "", "periodic-recording", true);
+        textField("Recorded sample time (s)", measured ? String(measured.sampleTimeSeconds) : "", "periodic-sample-time", true);
+        numberField("Discard startup samples", inputs.startupSamples ?? undefined, "periodic-startup");
+        numberField("Segments", inputs.segmentCount ?? undefined, "periodic-segments");
+        numberField("Minimum coherence", inputs.minimumCoherence ?? undefined, "periodic-coherence");
+        return;
+      }
+      case "leadLag": {
+        const mode = selectField("Compensation", [["lead", "Lead compensation"], ["lag", "Lag compensation"]], inputs.mode ?? undefined, "lead-lag-mode");
+        // A change of compensation shows the entries of that compensation only; the other value is not carried over.
+        mode.addEventListener("change", () => { inputsByTool.set(tool, readInputs(tool)); renderEditor(); });
+        const ratio = mode.value === "lag";
+        numberField("Crossover (rad/s)", inputs.crossoverRadPerSecond ?? undefined, "lead-lag-crossover");
+        numberField(ratio ? "Low-frequency gain ratio" : "Phase contribution (°)", inputs.value ?? undefined, ratio ? "lead-lag-ratio" : "lead-lag-phase");
+        return;
+      }
+      case "initialState": {
+        const stepSeconds = inputs.stepSeconds ?? undefined, durationSeconds = inputs.durationSeconds ?? undefined;
+        textField("Step", stepSeconds === undefined ? "" : formatDurationSeconds(stepSeconds), "response-step");
+        textField("Duration", durationSeconds === undefined ? "" : formatDurationSeconds(durationSeconds), "response-duration");
+        textField("Initial state", listText(inputs.initialState ?? undefined), "response-initial");
+        textField("Held input", listText(inputs.input ?? undefined), "response-input");
+        selectField("Connection", [["open-loop", "Open loop"], ["feedback", "Declared feedback"]], inputs.connection ?? undefined, "response-connection");
+        const outputs = answerFor("initialState")?.outputs ?? [];
+        if (outputs.length) {
+          const output = selectField("Displayed output", outputs.map((item, index) => [String(index), `${item.id} (${item.unit})`] as const),
+            String(Math.min(responseOutputIndex, outputs.length - 1)), "response-output");
+          output.addEventListener("change", () => { responseOutputIndex = Number(output.value); renderResult(); });
+        }
+        return;
+      }
+      case "poleZero":
+        selectField("Pole view", [["unreduced", "Unreduced internal model"], ["minimal", "Minimal input/output view"]], inputs.view ?? undefined, "pole-view");
+        return;
+      default:
+        // Stage state and the relative gain array take no inputs.
+        return;
+    }
+  };
+
+  /** The entries of the editor as the engine's inputs: a blank or unreadable entry is absent, so the engine's default applies. */
+  function readInputs(tool: AnalysisTool): AnalysisInputs {
+    const text = (name: string): string => editor.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-analysis-${name}]`)?.value ?? "";
+    const number = (name: string): number | undefined => numberOf(text(name));
+    switch (tool) {
+      case "rootLocus":
+      case "routh":
+        return { selectedValue: number("parameter-value") };
+      case "frequency":
+      case "feedback": {
+        const minimumFrequency = number("minimum-frequency"), maximumFrequency = number("maximum-frequency"), points = number("frequency-points");
+        // A grid is sent whole, or not at all: an absent grid takes the engine's grid.
+        return { grid: minimumFrequency === undefined || maximumFrequency === undefined || points === undefined ? undefined
+          : { minimumFrequency, maximumFrequency, points } };
+      }
+      case "measuredFrequency":
+        // No recording is named here: the engine takes the study's last kept recording that meets the periodic rule (B9.9).
+        return {
+          frequencies: numberList(text("periodic-frequencies")),
+          segmentCount: number("periodic-segments"),
+          minimumCoherence: number("periodic-coherence"),
+          startupSamples: number("periodic-startup"),
+        };
+      case "leadLag": {
+        const mode = choiceOf(text("lead-lag-mode"), ["lead", "lag"] as const);
+        return {
+          mode,
+          crossoverRadPerSecond: number("lead-lag-crossover"),
+          value: number(mode === "lag" ? "lead-lag-ratio" : "lead-lag-phase"),
+        };
+      }
+      case "initialState":
+        return {
+          stepSeconds: parseDurationSeconds(text("response-step")),
+          durationSeconds: parseDurationSeconds(text("response-duration")),
+          initialState: numberList(text("response-initial")),
+          input: numberList(text("response-input")),
+          connection: choiceOf(text("response-connection"), ["open-loop", "feedback"] as const),
+        };
+      case "poleZero":
+        return { view: choiceOf(text("pole-view"), ["unreduced", "minimal"] as const) };
+      default:
+        return {};
+    }
+  }
+
+  /** The parameter's name and unit, as the last answer names them; the label is the engine's, not the page's. */
+  const parameterLabel = (tool: "rootLocus" | "routh"): string => {
+    const answer = tool === "rootLocus" ? answerFor("rootLocus") : answerFor("routh");
+    return answer ? `${answer.parameter} (${answer.parameterUnit})` : "Selected value";
+  };
+
+  const renderResult = (): void => {
+    if (disposed) return;
+    reportShown();
+    const offer = offerOf(selected);
+    disclosure.hidden = !offer;
+    if (!selected || !offer) { editor.hidden = true; result.hidden = true; chart.clear(); return; }
+    const envelope = answers.get(selected);
+    statusLine.textContent = refusal?.message ?? (pending ? pending.progress ?? "Calculating analysis…" : notice)
+      ?? (envelope ? "" : "Analysis evidence is not available yet.");
+    plotHost.hidden = !PLOTTED_TOOLS.has(selected);
+    redrawPlot = undefined; plotHost.style.height = "280px";
+    chart.clear();
+    summary.replaceChildren(); detailsSummary.replaceChildren(); table.replaceChildren(); tableDetails.hidden = true; (tableDetails as HTMLDetailsElement).open = false;
+    result.hidden = !envelope?.result;
+    if (!envelope?.result) return;
+    const answer = answerOf(envelope.result, envelope.tool);
+    if (!answer) return;
+    for (const sentence of answer.summary) addText(sentence);
+    for (const sentence of answer.details) addDetailsText(sentence);
+    if (refusal?.detail) addDetailsText(refusal.detail);
+    switch (envelope.tool) {
+      case "rootLocus": { const drawn = answerFor("rootLocus"); if (drawn) drawRootLocus(drawn); break; }
+      case "routh": { const drawn = answerFor("routh"); if (drawn) drawRouth(drawn); break; }
+      case "poleZero": { const drawn = answerFor("poleZero"); if (drawn) drawPoles(drawn); break; }
+      case "frequency": { const drawn = answerFor("frequency"); if (drawn) drawFrequency(drawn); break; }
+      case "measuredFrequency": { const drawn = answerFor("measuredFrequency"); if (drawn) drawMeasured(drawn); break; }
+      case "feedback": { const drawn = answerFor("feedback"); if (drawn) drawFeedback(drawn); break; }
+      case "leadLag": { const drawn = answerFor("leadLag"); if (drawn) drawLeadLag(drawn); break; }
+      case "initialState": { const drawn = answerFor("initialState"); if (drawn) drawResponse(drawn); break; }
+      case "stateStructure": { const drawn = answerFor("stateStructure"); if (drawn) drawStateStructure(drawn); break; }
+      case "relativeGain": { const drawn = answerFor("relativeGain"); if (drawn) drawRelativeGain(drawn); break; }
+    }
+  };
+
+  function drawRootLocus(answer: RootLocusAnswer): void {
     const theme = chartTheme();
     const frame = base("Real axis", "Imaginary axis", "Root locus");
     // Padding keeps the ends of the paths and the outermost labels inside the plot frame.
     chart.setOption({ ...frame, xAxis: { ...(frame.xAxis as object), boundaryGap: ["8%", "8%"] }, yAxis: { ...(frame.yAxis as object), boundaryGap: ["18%", "18%"] },
-      tooltip: rootLocusTooltip(source),
-      series: rootLocusChartSeries(source, { path: theme.pv, inspected: theme.auxiliaryOrange, selected: theme.auxiliaryPurple, foreground: theme.foreground }) }, { notMerge: true });
-    addText(`${source.parameter} varies${source.parameterUnit ? ` in ${source.parameterUnit}` : ""}; selected ${source.parameter} = ${formatEngineeringNumber(source.selectedValue)}.${source.fixed.length ? ` Fixed: ${source.fixed.join(", ")}.` : ""}`);
-    addDetailsText(source.approximation); addRows(["Gain", "Poles"], source.branches.map(branch => [formatEngineeringNumber(branch.gain), branch.poles.map(pole => `(${formatEngineeringNumber(pole.real)}, ${formatEngineeringNumber(pole.imaginary)})`).join("; ")]));
+      tooltip: rootLocusTooltip(answer),
+      series: rootLocusChartSeries(answer, { path: theme.pv, inspected: theme.auxiliaryOrange, selected: theme.auxiliaryPurple, foreground: theme.foreground }) }, { notMerge: true });
+    if (answer.approximation && !answer.details.includes(answer.approximation)) addDetailsText(answer.approximation);
+    addRows(["Gain", "Poles"], answer.branches.map(branch => [formatEngineeringNumber(branch.gain), poleText(branch.poles)]));
   }
-  function renderRouth(): void {
-    if (!routh) return; const polynomial = routh.polynomial;
-    addText(`${routh.parameter} = ${formatEngineeringNumber(routh.selectedValue)}. ${polynomial.interpretation}`); addRows(["Power of s", "Entries"], polynomial.rows.map(row => [String(row.power), formatNumberList(row.entries)]));
+
+  function drawRouth(answer: RouthAnswer): void {
+    const polynomial = answer.polynomial;
+    addRows(["Power of s", "Entries"], polynomial.rows.map(row => [String(row.power), formatNumberList(row.entries)]));
     if (polynomial.symbolicRows?.length) addRows(["Power of s", "Exact symbolic entries"], polynomial.symbolicRows.map(row => [String(row.power), row.entries.join(", ")]));
-    const interval = routh.interval;
-    const displayBound = (value: number | undefined, infinity: string): string => value === undefined ? infinity : formatEngineeringNumber(value);
-    const bounds = interval.intervals?.map(value => `(${displayBound(value.lower, "−∞")}, ${displayBound(value.upper, "∞")})`).join(" ∪ ") ?? (interval.kind === "open" ? `(${displayBound(interval.lower, "−∞")}, ${displayBound(interval.upper, "∞")})` : interval.kind);
-    addText(`Stable interval: ${bounds}.`); addDetailsText(`${routhDetailText(polynomial)} Allowed domain [${formatEngineeringNumber(routh.allowedDomain.minimum)}, ${formatEngineeringNumber(routh.allowedDomain.maximum)}]. ${interval.derivation}`);
-    if (interval.boundaries?.length) addRows(["Boundary polynomial", "Boundary"], routhBoundaryRows(interval.boundaries));
+    // The boundaries are the engine's exact enclosures as it writes them; the page shows the text and computes no decimal of its own.
+    const boundaries = answer.interval.boundaries ?? [];
+    if (boundaries.length) addRows(["Boundary polynomial", "Boundary"], boundaries.map(boundary =>
+      [boundary.polynomial.join(", "), boundary.lower === boundary.upper ? boundary.lower : `${boundary.lower} – ${boundary.upper}`]));
   }
-  function renderFrequency(): void {
-    if (!model) return; const channel = model.result.channels[channelIndex] ?? model.result.channels[0];
-    chart.setOption({ ...base("Frequency (rad/s)", "Magnitude / phase", `${channel.input.id} → ${channel.output.id}`), xAxis: axis("Frequency (rad/s)", "log", chartTheme()), yAxis: [axis("Magnitude (dB)", "value", chartTheme()), axis("Phase (°)", "value", chartTheme())], series: [
-      engineeringLine("Magnitude (dB)", 0, channel.points.map(point => [point.frequencyRadPerSecond, 20 * Math.log10(Math.max(Number.MIN_VALUE, point.magnitude))]), "solid"),
-      { ...engineeringLine("Phase (°)", 1, channel.points.map(point => [point.frequencyRadPerSecond, point.phaseRadians * 180 / Math.PI]), "dashed"), yAxisIndex: 1 },
-    ] }, { notMerge: true });
-    addText(`Channel ${channel.input.id} → ${channel.output.id}`); addDetailsText(`Pole scope: ${model.result.poleScope}`); addRows(["Frequency (rad/s)", "Magnitude", "Phase (°)"], channel.points.slice(0, 128).map(point => [formatEngineeringNumber(point.frequencyRadPerSecond), formatEngineeringNumber(point.magnitude), formatEngineeringNumber(point.phaseRadians * 180 / Math.PI)]));
-  }
-  function renderPeriodicFrequency(): void {
-    if (!periodicResult || periodicResult.status !== "qualified") { if (periodicResult?.status === "rejected") addText(`Measured frequency response unavailable: ${periodicResult.reason}`); return; }
-    const rows = measuredFrequencyRows(periodicResult.points);
-    chart.setOption({ ...base("Frequency (rad/s)", "Magnitude / phase", "Measured periodic frequency response"), xAxis: axis("Frequency (rad/s)", "log", chartTheme()), yAxis: [axis("Magnitude (dB)", "value", chartTheme()), axis("Phase (°)", "value", chartTheme())], series: [{ ...engineeringLine("Measured magnitude", 0, rows.map(row => [row.frequency, 20 * Math.log10(Math.max(Number.MIN_VALUE, row.magnitude))]), "solid"), showSymbol: true, symbol: "circle", symbolSize: 9 }, { ...engineeringLine("Measured phase", 1, rows.map(row => [row.frequency, row.phaseDegrees]), "dashed"), showSymbol: true, symbol: "circle", symbolSize: 8, yAxisIndex: 1 }] }, { notMerge: true });
-    addText(`Measured ${periodicResult.points.length} frequency ${periodicResult.points.length === 1 ? "point" : "points"}.`); addRows(["Frequency (rad/s)", "Magnitude", "Phase (°)", "Coherence"], rows.map(row => [formatEngineeringNumber(row.frequency), formatEngineeringNumber(row.magnitude), formatEngineeringNumber(row.phaseDegrees), formatEngineeringNumber(row.coherence)]));
-  }
-  function renderPoles(): void {
-    if (!model) return;
-    const selectedView = poleView ? (poleView.view === "minimal" ? poleView.minimal : poleView.unreduced) : undefined;
-    const discrete = model.model.kind === "discrete-state-space";
-    const poles = selectedView ? rootsOfRealPolynomial(selectedView.denominator) ?? [] : model.result.poles;
-    const zeros = selectedView ? rootsOfRealPolynomial(selectedView.numerator) ?? [] : model.model.kind === "transfer-function" ? rootsOfRealPolynomial(model.model.numerator) ?? [] : [];
+
+  function drawPoles(answer: PoleZeroAnswer): void {
+    const discrete = answer.domain === "z";
+    const poles = answer.poles, zeros = answer.zeros;
     const series: Record<string, unknown>[] = [
       { ...engineeringLine("Poles", 0, poles.map(point => [point.real, point.imaginary]), "solid"), type: "scatter", symbol: "circle", symbolSize: 11 },
       ...(zeros.length ? [{ ...engineeringLine("Zeros", 0, zeros.map(point => [point.real, point.imaginary]), "solid"), type: "scatter", symbol: "diamond", symbolSize: 12 }] : []),
     ];
+    // The unit circle is drawn with equal units on both axes, so that a pole's distance from it reads true.
     if (discrete) series.push({ name: "Unit circle", type: "line", showSymbol: false, data: Array.from({ length: 65 }, (_, index) => { const angle = index * 2 * Math.PI / 64; return [Math.cos(angle), Math.sin(angle)]; }), lineStyle: { type: "dashed" } });
-    // Equal units on both axes: the unit circle stays a circle, and a pole's distance from it reads true.
     drawComplexPlane(discrete ? "Real axis (z)" : "Real axis (s)", discrete ? "Imaginary axis (z)" : "Imaginary axis (s)", discrete ? "Discrete pole-zero map" : "Continuous pole-zero map",
       area => poleMapGeometry(poles, zeros, discrete, area), () => series);
-    addText(discrete ? "Discrete z-plane; the unit circle is the stability boundary." : "Continuous s-plane; negative real parts are the local model stability direction.");
-    if (poleView?.warning) addText(poleView.warning);
     addRows(["Kind", "Coordinates"], [
       ...poles.map(point => ["Pole", `(${formatEngineeringNumber(point.real)}, ${formatEngineeringNumber(point.imaginary)})`]),
       ...zeros.map(point => ["Zero", `(${formatEngineeringNumber(point.real)}, ${formatEngineeringNumber(point.imaginary)})`]),
     ]);
   }
-  function renderLeadLag(): void {
-    if (!leadLagResult) return;
-    const variable = leadLagMode === "lead" ? "s" : "s";
-    addText(`${leadLagMode === "lead" ? "Lead" : "Lag"} compensator: C(${variable}) = ${formatEngineeringNumber(leadLagResult.gain)} · (1 + ${variable}/${formatEngineeringNumber(leadLagResult.zeroRadPerSecond)}) / (1 + ${variable}/${formatEngineeringNumber(leadLagResult.poleRadPerSecond)}).`);
-    addDetailsText("This is an unapplied design result; no runtime controller was changed.");
-    const result = leadLagResult as Record<string, unknown>;
-    const labels: Record<string, string> = { gain: "Gain", zeroRadPerSecond: "Zero (rad/s)", poleRadPerSecond: "Pole (rad/s)", phaseContributionDegrees: "Phase contribution (°)", lowFrequencyGainRatio: "Low-frequency gain ratio", openLoopMagnitudeAtCrossover: "Open-loop magnitude at crossover" };
-    addRows(["Quantity", "Value"], Object.entries(result).filter(([key, value]) => key !== "status" && typeof value === "number").map(([key, value]) => [labels[key] ?? key, formatEngineeringNumber(value as number)]));
+
+  function drawFrequency(answer: FrequencyAnswer): void {
+    const channel = answer.channels[channelIndex] ?? answer.channels[0];
+    if (!channel) return;
+    chart.setOption({ ...base("Frequency (rad/s)", "Magnitude / phase", `${channel.input.id} → ${channel.output.id}`), xAxis: axis("Frequency (rad/s)", "log", chartTheme()), yAxis: [axis("Magnitude (dB)", "value", chartTheme()), phaseAxis("Phase (°)", chartTheme(), channel.points.map(point => point.phaseDegrees))], series: [
+      engineeringLine("Magnitude (dB)", 0, channel.points.map(point => [point.frequencyRadPerSecond, point.magnitudeDb]), "solid"),
+      { ...engineeringLine("Phase (°)", 1, channel.points.map(point => [point.frequencyRadPerSecond, point.phaseDegrees]), "dashed"), yAxisIndex: 1, tooltip: { valueFormatter: formatPhaseChartValue } },
+    ] }, { notMerge: true });
+    addRows(["Frequency (rad/s)", "Magnitude", "Phase (°)"], channel.points.slice(0, 128).map(point => [formatEngineeringNumber(point.frequencyRadPerSecond), formatEngineeringNumber(point.magnitude), formatPhaseDegrees(point.phaseDegrees)]));
   }
-  function renderResponse(): void {
-    if (!timeResponse) return;
-    const outputIndex = Math.min(responseOutputIndex, timeResponse.model.outputs.length - 1); responseOutputIndex = Math.max(0, outputIndex); const output = timeResponse.model.outputs[responseOutputIndex];
-    chart.setOption({ ...base("Time (s)", output?.unit ? `Output deviation (${output.unit})` : "Output deviation", "Initial-state response"), series: initialStateResponseSeries(timeResponse.points, outputIndex, { total: chartTheme().pv, zeroState: chartTheme().auxiliaryOrange, initialCondition: chartTheme().auxiliaryYellow }) }, { notMerge: true });
-    addText(output ? `${output.id} initial-state response` : "Initial-state response"); addDetailsText(`${timeResponse.scope} Transform: ${timeResponse.transform}`); addRows(["Time (s)", "Zero state", "Initial condition", "Total"], initialStateResponseRows(timeResponse.points.slice(0, 256), outputIndex));
+
+  function drawMeasured(answer: MeasuredFrequencyAnswer): void {
+    // A rejected measurement has no points: its sentences say why (summary).
+    if (answer.status !== "qualified") return;
+    const rows = answer.points;
+    chart.setOption({ ...base("Frequency (rad/s)", "Magnitude / phase", "Measured periodic frequency response"), xAxis: axis("Frequency (rad/s)", "log", chartTheme()), yAxis: [axis("Magnitude (dB)", "value", chartTheme()), phaseAxis("Phase (°)", chartTheme(), rows.map(row => row.phaseDegrees))], series: [
+      { ...engineeringLine("Measured magnitude", 0, rows.map(row => [row.frequencyRadPerSecond, row.magnitudeDb]), "solid"), showSymbol: true, symbol: "circle", symbolSize: 9 },
+      { ...engineeringLine("Measured phase", 1, rows.map(row => [row.frequencyRadPerSecond, row.phaseDegrees]), "dashed"), showSymbol: true, symbol: "circle", symbolSize: 8, yAxisIndex: 1, tooltip: { valueFormatter: formatPhaseChartValue } },
+    ] }, { notMerge: true });
+    addRows(["Frequency (rad/s)", "Magnitude", "Phase (°)", "Coherence"], rows.map(row => [formatEngineeringNumber(row.frequencyRadPerSecond), formatEngineeringNumber(row.magnitude), formatPhaseDegrees(row.phaseDegrees), formatEngineeringNumber(row.coherence)]));
   }
-  function renderPoleView(): void {
-    if (!poleView) return;
-    const selected = poleView.view === "minimal" ? poleView.minimal : poleView.unreduced;
-    const poles = rootsOfRealPolynomial(selected.denominator) ?? []; const zeros = rootsOfRealPolynomial(selected.numerator) ?? [];
-    chart.setOption({ ...base(`Real axis (${poleView.domain})`, `Imaginary axis (${poleView.domain})`, `${poleView.view} pole-zero view`), series: [{ ...engineeringLine("Poles", 0, poles.map(point => [point.real, point.imaginary]), "solid"), type: "scatter", symbol: "circle", symbolSize: 10 }, { ...engineeringLine("Zeros", 0, zeros.map(point => [point.real, point.imaginary]), "solid"), type: "scatter", symbol: "diamond", symbolSize: 10 }] }, { notMerge: true });
-    addText(poleView.warning ?? ""); addRows(["View", "Cancelled factor"], [[poleView.view, formatNumberList(poleView.cancelledFactor) || "none"]]);
-  }
-  function renderFeedback(): void {
-    const selectedView = feedbackView;
-    if (selectedView === "nyquist" && (plots?.nyquist || feedback?.openLoop)) {
-      if (plots?.nyquist) {
-        const values = plots.nyquist.map(point => [point.real, point.imaginary]);
-        chart.setOption({ ...base("Real", "Imaginary", "Nyquist"), series: [engineeringLine("Open-loop contour", 0, values, "solid"),
-          { type: "scatter", name: "−1", data: [[-1, 0]], symbolSize: 12 }] }, { notMerge: true });
-      } else {
-        // A Nyquist plot keeps equal units on both axes, so that distances to −1 read true.
-        const points = feedback!.openLoop.map(point => ({ real: point.real, imaginary: point.imaginary }));
-        drawComplexPlane("Real", "Imaginary", "Nyquist", area => nyquistGeometry(points, area), () => {
-          const theme = chartTheme();
-          return nyquistSeries(points, { positive: theme.pv, negative: theme.auxiliaryPurple, critical: theme.mv, label: theme.foreground });
-        });
-      }
-      const nyquist = feedback?.nyquistStability;
-      addText(nyquist?.status === "qualified"
-        ? nyquistCountText(nyquist)
-        : nyquist?.status === "rejected" && nyquist.reason === "insufficient-contour-closure"
-          ? "Stability not determined. Extend the frequency range and calculate again."
-          : "Stability not determined from this sampled response.");
-      if (feedback?.nyquistScope) addDetailsText(feedback.nyquistScope);
+
+  function drawFeedback(answer: FeedbackAnswer): void {
+    if (feedbackView === "nyquist") {
+      // A Nyquist plot keeps equal units on both axes, so that distances to −1 read true.
+      const points = answer.openLoop.map(point => ({ real: point.real, imaginary: point.imaginary }));
+      drawComplexPlane("Real", "Imaginary", "Nyquist", area => nyquistGeometry(points, area), () => {
+        const theme = chartTheme();
+        return nyquistSeries(points, { positive: theme.pv, negative: theme.auxiliaryPurple, critical: theme.mv, label: theme.foreground });
+      });
       return;
     }
-    if (selectedView === "sensitivity" && (plots?.sensitivity || feedback?.sensitivity)) {
-      const points = plots?.sensitivity ?? feedback?.sensitivity;
-      if (!points) return;
-      chart.setOption({ ...base("Frequency (rad/s)", "Magnitude (dB)", "Sensitivity"), xAxis: axis("Frequency (rad/s)", "log", chartTheme()), series: sensitivitySeries(points, { sensitivity: chartTheme().pv, complementary: chartTheme().auxiliaryOrange, control: chartTheme().auxiliaryPurple }) }, { notMerge: true }); return;
+    if (feedbackView === "sensitivity") {
+      // The engine gives no sensitivity when it cannot form one (the answer's null): the plot then shows nothing.
+      if (!answer.sensitivity) return;
+      chart.setOption({ ...base("Frequency (rad/s)", "Magnitude (dB)", "Sensitivity"), xAxis: axis("Frequency (rad/s)", "log", chartTheme()), series: sensitivitySeries(answer.sensitivity, { sensitivity: chartTheme().pv, complementary: chartTheme().auxiliaryOrange, control: chartTheme().auxiliaryPurple }) }, { notMerge: true });
+      return;
     }
-    const bode = plots?.candidateOpenLoopBode ?? feedback?.openLoop.map(point => ({
-      frequencyRadPerSecond: point.frequencyRadPerSecond,
-      magnitudeDb: 20 * Math.log10(Math.max(Number.MIN_VALUE, point.magnitude)),
-    }));
-    if (bode?.length) chart.setOption({ ...base("Frequency (rad/s)", "Magnitude (dB)", "Bode"), xAxis: axis("Frequency (rad/s)", "log", chartTheme()), series: [{ ...engineeringLine("Loop", 0, bode.map(point => [point.frequencyRadPerSecond, point.magnitudeDb]), "solid") }] }, { notMerge: true });
-    const margins = plots?.gainMarginDb !== undefined ? `Gain margin ${formatEngineeringNumber(plots.gainMarginDb)} dB; phase margin ${formatEngineeringNumber(plots.phaseMarginDegrees ?? NaN)}°.` : feedback?.margins.status === "estimated" ? `Gain margin ${String(feedback.margins.gainMarginDb ?? "unavailable")} dB; phase margin ${formatEngineeringNumber(feedback.margins.phaseMarginDegrees)}°.` : "Margins unavailable."; addText(margins);
-    const nyquist = feedback?.nyquistStability;
-    if (nyquist) addText(nyquist.status === "qualified"
-      ? `Nyquist contour: ${nyquistCountText(nyquist)}`
-      : `Nyquist contour unavailable: ${nyquist.reason}`);
+    // The loop's Bode view draws magnitude and phase against frequency, the phase on its own axis as the frequency response does.
+    const loop = answer.openLoop;
+    chart.setOption({ ...base("Frequency (rad/s)", "Magnitude (dB)", "Bode"), xAxis: axis("Frequency (rad/s)", "log", chartTheme()),
+      yAxis: [axis("Magnitude (dB)", "value", chartTheme()), phaseAxis("Phase (°)", chartTheme(), loop.map(point => point.phaseDegrees))],
+      series: [
+        engineeringLine("Loop magnitude (dB)", 0, loop.map(point => [point.frequencyRadPerSecond, point.magnitudeDb]), "solid"),
+        { ...engineeringLine("Loop phase (°)", 1, loop.map(point => [point.frequencyRadPerSecond, point.phaseDegrees]), "dashed"), yAxisIndex: 1, tooltip: { valueFormatter: formatPhaseChartValue } },
+      ] }, { notMerge: true });
   }
-  function renderStateStructure(): void {
-    if (!model || model.model.kind === "transfer-function" || !model.result.stateStructure) return;
-    const details = stateStructureDetails(model.model, model.result.stateStructure);
-    addText(details.summary); addDetailsText(details.order); if (details.matrices.length) addRows(["Matrix", "Rows in declared order"], details.matrices); addDetailsText(details.scope);
+
+  function drawLeadLag(answer: LeadLagAnswer): void {
+    const labels: Record<string, string> = { gain: "Gain", zeroRadPerSecond: "Zero (rad/s)", poleRadPerSecond: "Pole (rad/s)", phaseContributionDegrees: "Phase contribution (°)", lowFrequencyGainRatio: "Low-frequency gain ratio", openLoopMagnitudeAtCrossover: "Open-loop magnitude at crossover" };
+    addRows(["Quantity", "Value"], Object.entries(answer.design).filter(([key, value]) => key in labels && typeof value === "number")
+      .map(([key, value]) => [labels[key], formatEngineeringNumber(value as number)]));
   }
-  function renderRga(): void {
-    if (!model?.result.relativeGainMatrix) return;
-    addVisibleMatrix("Relative gain array (RGA)", model.result.relativeGainMatrix);
+
+  function drawResponse(answer: InitialStateAnswer): void {
+    const outputs = answer.outputs ?? [];
+    const outputIndex = Math.min(responseOutputIndex, outputs.length - 1);
+    responseOutputIndex = Math.max(0, outputIndex);
+    const output = outputs[responseOutputIndex];
+    chart.setOption({ ...base("Time (s)", output?.unit ? `Output deviation (${output.unit})` : "Output deviation", "Initial-state response"), series: initialStateResponseSeries(answer.points, responseOutputIndex, { total: chartTheme().pv, zeroState: chartTheme().auxiliaryOrange, initialCondition: chartTheme().auxiliaryYellow }) }, { notMerge: true });
+    addRows(["Time (s)", "Zero state", "Initial condition", "Total"], initialStateResponseRows(answer.points.slice(0, 256), responseOutputIndex));
   }
+
+  function drawStateStructure(answer: StateStructureAnswer): void {
+    if (answer.order) addDetailsText(answer.order);
+    if (answer.matrices.length) addRows(["Matrix", "Rows in declared order"], answer.matrices.map(matrix => [matrix.name, formatMatrixRows(matrix.rows)]));
+  }
+
+  function drawRelativeGain(answer: RelativeGainAnswer): void {
+    if (answer.status.status !== "qualified" || !answer.status.matrix.length) return;
+    addVisibleMatrix("Relative gain array (RGA)", answer.status.matrix, answer.outputChannels.map(channel => channel.id), answer.inputChannels.map(channel => channel.id));
+  }
+
   const addText = (value: string): void => { const p = document.createElement("p"); p.textContent = value; summary.append(p); };
   const addDetailsText = (value: string): void => { const p = document.createElement("p"); p.textContent = value; detailsSummary.append(p); tableDetails.hidden = false; };
-  const addRows = (headers: readonly string[], rows: readonly (readonly (string | InspectableCell)[])[]): void => { tableDetails.hidden = false; const element = document.createElement("table"); element.className = "trust-table"; const head = element.createTHead().insertRow(); headers.forEach(value => { const cell = document.createElement("th"); cell.textContent = value; head.append(cell); }); const body = element.createTBody(); rows.forEach(row => { const tr = body.insertRow(); row.forEach(value => { const cell = tr.insertCell(); if (typeof value === "string") cell.textContent = value; else { cell.textContent = value.text; cell.title = value.title; } }); }); table.append(element); };
-  const addVisibleMatrix = (label: string, matrix: readonly (readonly number[])[]): void => {
+  const addRows = (headers: readonly string[], rows: readonly (readonly string[])[]): void => { tableDetails.hidden = false; const element = document.createElement("table"); element.className = "trust-table"; const head = element.createTHead().insertRow(); headers.forEach(value => { const cell = document.createElement("th"); cell.textContent = value; head.append(cell); }); const body = element.createTBody(); rows.forEach(row => { const tr = body.insertRow(); row.forEach(value => { tr.insertCell().textContent = value; }); }); table.append(element); };
+  const addVisibleMatrix = (label: string, matrix: readonly (readonly number[])[], rowNames: readonly string[], columnNames: readonly string[]): void => {
     const element = document.createElement("table"); element.className = "trust-table"; element.createCaption().textContent = label;
     const head = element.createTHead().insertRow(); head.append(document.createElement("th"));
-    matrix[0]?.forEach((_, index) => { const th = document.createElement("th"); th.scope = "col"; th.textContent = model?.model.inputs[index]?.id ?? `Input ${index + 1}`; head.append(th); });
+    matrix[0]?.forEach((_, index) => { const th = document.createElement("th"); th.scope = "col"; th.textContent = columnNames[index] ?? `Input ${index + 1}`; head.append(th); });
     const body = element.createTBody();
-    matrix.forEach((row, index) => { const tr = body.insertRow(); const name = document.createElement("th"); name.scope = "row"; name.textContent = model?.model.outputs[index]?.id ?? `Output ${index + 1}`; tr.append(name); row.forEach(value => { tr.insertCell().textContent = formatEngineeringNumber(value); }); });
+    matrix.forEach((row, index) => { const tr = body.insertRow(); const name = document.createElement("th"); name.scope = "row"; name.textContent = rowNames[index] ?? `Output ${index + 1}`; tr.append(name); row.forEach(value => { tr.insertCell().textContent = formatEngineeringNumber(value); }); });
     summary.append(element);
   };
   /** A complex-plane plot with equal units on both axes, redrawn whenever the plot area changes size. */
@@ -509,31 +565,52 @@ export function initializeThreePageAnalysis(
     draw(); redrawPlot = draw;
   }
   function base(xName: string, yName: string, label: string): Record<string, unknown> { const theme = chartTheme(); return { animation: false, aria: { enabled: true, description: label }, backgroundColor: theme.background, legend: { top: 4, textStyle: { color: theme.muted } }, tooltip: { trigger: "axis", valueFormatter: formatChartValue }, grid: { left: 64, right: 24, top: 36, bottom: 52 }, xAxis: axis(xName, "value", theme), yAxis: axis(yName, "value", theme) }; }
-  const dispose = (): void => { disposed = true; resizeObserver.disconnect(); window.removeEventListener("resize", resize); chart.dispose(); };
+
   render();
-  return { receive, setAvailable, setTool, run, actionLabel, choice, availableTools: toolSet, dispose };
+  return presenter;
+}
+
+function poleText(poles: readonly { real: number; imaginary: number }[]): string {
+  return poles.map(pole => `(${formatEngineeringNumber(pole.real)}, ${formatEngineeringNumber(pole.imaginary)})`).join("; ");
+}
+
+/** A stage that changes the model under the analysis: the answers shown for the model before it are then stale (B9.9). */
+function modelChanged(stage: string | undefined, status: unknown): boolean {
+  if (stage === "engineer") return status === "model-ready" || status === "edited";
+  if (stage === "general-model") return ["imported", "edited", "cancelled"].includes(String(status));
+  return stage === "identify" && status === "complete";
+}
+
+/** A number typed in a field: a blank or unreadable entry is none, so that the engine's default applies. */
+function numberOf(text: string): number | undefined {
+  if (!text.trim()) return undefined;
+  const value = Number(text);
+  return Number.isFinite(value) ? value : undefined;
+}
+
+/** Comma-separated numbers typed in a field: a blank or unreadable list is none, so that the engine's default applies. */
+function numberList(text: string): number[] | undefined {
+  if (!text.trim()) return undefined;
+  const items = text.split(",").map(item => item.trim());
+  if (items.some(item => item === "")) return undefined;
+  const values = items.map(Number);
+  return values.every(value => Number.isFinite(value)) ? values : undefined;
+}
+
+function listText(values: readonly number[] | undefined): string {
+  return values ? values.join(", ") : "";
+}
+
+function choiceOf<T extends string>(text: string, choices: readonly T[]): T | undefined {
+  return choices.find(choice => choice === text);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
-function transferModel(model: GeneralModel): import("../numerics/classicalAnalysis").TransferFunction | undefined {
-  try { const transfer = linearTransferModel(model); return { numerator: [...transfer.numerator], denominator: [...transfer.denominator], delaySeconds: transfer.delaySeconds }; }
-  catch { return undefined; }
+
+function emptyPresenter(): ThreePageAnalysisPresenter {
+  return {
+    receive: () => undefined, recordingsChanged: () => undefined, setTool: () => undefined, run: () => undefined, actionLabel: () => undefined,
+    choice: () => undefined, availableTools: () => [], shown: () => undefined, offers: () => [], dispose: () => undefined,
+    tools: () => undefined, started: () => undefined, answer: () => undefined, refused: () => undefined, update: () => undefined, restore: () => undefined,
+  };
 }
-function hasRawRecording(payload: Record<string, unknown>): boolean { const recording = isRecord(payload.recording) ? payload.recording : payload; return Array.isArray(recording.rawSamples); }
-function parseFiniteNumber(value: string): number | undefined { if (!value.trim()) return undefined; const parsed = Number(value); return Number.isFinite(parsed) ? parsed : undefined; }
-function parseNumberList(value: string, allowEmpty = false): number[] | undefined {
-  if (!value.trim()) return allowEmpty ? [] : undefined;
-  const values = value.split(",").map(item => item.trim());
-  if (values.some(item => !item)) return undefined;
-  const parsed = values.map(Number);
-  return parsed.every(Number.isFinite) ? parsed : undefined;
-}
-function modelStudy(value: unknown): SavedGeneralModelAnalysis | undefined {
-  if (isSavedGeneralModelAnalysis(value)) return value;
-  if (!isRecord(value) || !isRecord(value.model) || !isRecord(value.grid) || !isRecord(value.result)) return undefined;
-  const model = decodeGeneralModel(value.model); const result = value.result as GeneralModelFrequencyResult;
-  const grid = value.grid;
-  if (!model || result.status !== "qualified" || !validModelGrid(grid, model.inputs.length * model.outputs.length)) return undefined;
-  return { model, grid: { minimumFrequency: grid.minimumFrequency, maximumFrequency: grid.maximumFrequency, points: grid.points }, result };
-}
-function emptyPresenter(): ThreePageAnalysisPresenter { return { receive: () => undefined, setAvailable: () => [], setTool: () => undefined, run: () => undefined, actionLabel: () => undefined, choice: () => undefined, availableTools: () => [], dispose: () => undefined }; }

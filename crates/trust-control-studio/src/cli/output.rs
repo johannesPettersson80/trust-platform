@@ -89,11 +89,13 @@ fn opened_text(
         format!("Loop {} ({})", loop_definition.name, loop_definition.id),
         "Stages:".to_string(),
     ];
-    lines.extend(
-        stages
-            .iter()
-            .map(|stage| format!("  {:?}: {}", stage.stage, stage.label)),
-    );
+    for stage in stages {
+        lines.push(format!("  {:?}: {}", stage.stage, stage.label));
+        // A stage that does not apply to the loop says why (C12), on the line under it.
+        if let Some(reason) = stage.reason {
+            lines.push(format!("    {reason}"));
+        }
+    }
     lines.push(if reattached.is_empty() {
         "Journaled operations: none".to_string()
     } else {
@@ -513,6 +515,28 @@ mod tests {
             result: None,
             failure: None,
         }
+    }
+
+    #[test]
+    fn a_stage_that_does_not_apply_says_why_under_its_label() {
+        // Specification 35, C12: a loop without a controller law has Tune Not applicable, and the text gives the engine's reason.
+        use trust_control::stages::{stage_availability, StageEvidence};
+        let lesson = LoopDefinition::decode(include_str!(
+            "../../../../examples/control/01-feedback-foundations-and-temperature-control/04-water-heater-p/control-loop.json"
+        ))
+        .expect("lesson");
+        let stages = stage_availability(&StageEvidence {
+            controller_stages_apply: false,
+            ..StageEvidence::default()
+        });
+        let text = opened_text(&lesson, &stages, &[]);
+        assert!(text.contains("  Identify: Needs data\n"), "{text}");
+        assert!(
+            text.contains(
+                "  Tune: Not applicable\n    This loop has no controller law, so there is nothing to tune.\n"
+            ),
+            "{text}"
+        );
     }
 
     #[test]

@@ -890,8 +890,14 @@ fn import_recording_refuses_a_file_that_is_not_a_saved_result_with_its_sentence_
     );
     assert_eq!(
         refusal(&answer),
-        ("Choose a valid Control Studio result JSON file.", "none"),
+        (
+            "Choose a valid Control Studio recording or result JSON file.",
+            "none"
+        ),
         "a refused file names no next action: {answer}"
     );
     assert!(nothing_started(&studio), "the check starts no operation");
 }
+
+#[path = "identify_import_tests.rs"]
+mod import_tests;

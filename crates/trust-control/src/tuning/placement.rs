@@ -342,7 +342,7 @@ mod tests {
             time_constant_seconds: Some(first),
             second_time_constant_seconds: second,
             dead_time_seconds: None,
-            normalized_error: 0.0,
+            normalized_error: Some(0.0),
             normalized_estimation_error: None,
             normalized_validation_error: None,
             estimation_residuals: None,

@@ -15,9 +15,12 @@ use serde_json::Value;
 
 use crate::failure::{Cause, Failure, NextAction};
 use crate::limits::STUDY_STORAGE_LIMIT_BYTES;
+use crate::messages::{AnalysisPage, PageView};
 use crate::model::{decode_general_model, GeneralModel};
 
+pub mod analysis_records;
 pub mod apply;
+pub mod current_model;
 pub mod general_model_persistence;
 pub mod identify;
 pub mod inputs;
@@ -60,6 +63,19 @@ pub struct Study {
     /// The page the engineer last viewed (A8.1). A study stored before it was recorded opens at Identify.
     #[serde(default)]
     pub page: Page,
+    /// The analysis tool the Tune page shows in place of the tuning result, with its inputs (§0.1a, `controlStudio/page`; A8.1). Absent
+    /// when no analysis is shown, and in a study stored before it was recorded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub analysis: Option<AnalysisPage>,
+    /// The page's own view choices, kept as the page names them (§0.1a, `controlStudio/page`; A8.1): reopening shows them again.
+    /// Absent when the page sent none, and in a study stored before it was recorded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub view: Option<PageView>,
+    /// The source of the model the study kept last (A8.4): `Identify` after a fit, `Supplied` after `importModel` (B3.7). Absent when
+    /// neither was kept, and in a study stored before it was recorded; the current model is then the one section the study holds
+    /// ([`current_model::current_model`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_source: Option<current_model::CurrentModelSource>,
 }
 
 impl Study {
@@ -73,6 +89,9 @@ impl Study {
             sections: BTreeMap::new(),
             recordings: Vec::new(),
             page: Page::Identify,
+            analysis: None,
+            view: None,
+            model_source: None,
         }
     }
 
@@ -296,6 +315,10 @@ fn section_failure(key: &str, reason: &str) -> Failure {
         NextAction::None,
     )
 }
+
+#[cfg(test)]
+#[path = "study/analysis_page_tests.rs"]
+mod analysis_page_tests;
 
 #[cfg(test)]
 mod tests {

@@ -25,7 +25,7 @@ use crate::messages::{
 };
 use crate::model::GeneralModel;
 use crate::stages::{stage_availability, StageEvidence};
-use crate::study::identify::IdentifySection;
+use crate::study::current_model::CurrentModel;
 use crate::study::is_recording_id;
 use crate::study::tune::{refused_as, stage_evidence as tune_stage_evidence, TuneSection};
 use crate::study::StudySection;
@@ -252,35 +252,36 @@ impl StudySection for ValidateSection {
     }
 }
 
-/// What the refusals of Validate read (B5.5): the loop, the study's Identify and Tune sections, and the readiness of the
+/// What the refusals of Validate read (B5.5): the loop, the study's current model and Tune section, and the readiness of the
 /// isolated simulation (E8.2): the project revision it runs on, or the reason it cannot run.
 #[derive(Debug, Clone, Copy)]
 pub struct ValidateInputs<'a> {
     /// The loop that is validated.
     pub loop_definition: &'a LoopDefinition,
-    /// The study's Identify section, or `None` when the study has none.
-    pub identify: Option<&'a IdentifySection>,
+    /// The study's current model (B3.7), or `None` when the study has none.
+    pub model: Option<&'a CurrentModel>,
     /// The study's Tune section, or `None` when the study has none.
     pub tune: Option<&'a TuneSection>,
     /// The answer of the readiness check (E8.2, `ready_project_revision`).
     pub readiness: &'a Result<String, Failure>,
 }
 
-/// The refusals that come before Validate starts, in the order of B5.5: no model that is current for the loop, no candidate
-/// that is current for that model, a rule of the Rust engine that the loop breaks, and an isolated simulation that is not
-/// ready. Each refusal carries the next action that fixes it.
+/// The refusals that come before Validate starts, in the order of B5.5: a loop without a controller law (C12), no model that is
+/// current for the loop, no candidate that is current for that model, a rule of the Rust engine that the loop breaks, and an
+/// isolated simulation that is not ready. Each refusal carries the next action that fixes it.
 ///
 /// # Errors
 /// The first of the refusals above that holds; for the readiness, the runtime's own failure, with its reason.
 pub fn check_before_start(inputs: &ValidateInputs<'_>) -> Result<(), Failure> {
     let loop_definition = inputs.loop_definition;
-    let identify = inputs
-        .identify
-        .filter(|section| section.is_current_for(loop_definition))
+    loop_definition.require_controller_law()?;
+    let current = inputs
+        .model
+        .filter(|current| current.is_current_for(loop_definition))
         .ok_or_else(no_model)?;
     inputs
         .tune
-        .filter(|section| section.is_current_for(&identify.selected_model))
+        .filter(|section| section.is_current_for(&current.model))
         .ok_or_else(no_candidate)?;
     loop_definition.rust_engine_support()?;
     match inputs.readiness {
@@ -606,17 +607,17 @@ fn campaign_outcomes(
 #[must_use]
 pub fn stage_evidence(
     loop_definition: &LoopDefinition,
-    identify: Option<&IdentifySection>,
+    model: Option<&CurrentModel>,
     tune: Option<&TuneSection>,
     validate: Option<&ValidateSection>,
     has_recording: bool,
     declared: &[EngineerScenario],
 ) -> StageEvidence {
-    let evidence = tune_stage_evidence(loop_definition, identify, tune, has_recording);
+    let evidence = tune_stage_evidence(loop_definition, model, tune, has_recording);
     let current = validate.filter(|section| {
-        identify.zip(tune).is_some_and(|(identify, tune)| {
-            identify.is_current_for(loop_definition)
-                && section.is_current(&identify.selected_model, tune, declared)
+        model.zip(tune).is_some_and(|(current, tune)| {
+            current.is_current_for(loop_definition)
+                && section.is_current(&current.model, tune, declared)
         })
     });
     StageEvidence {

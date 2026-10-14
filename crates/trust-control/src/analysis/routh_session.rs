@@ -9,7 +9,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::analysis::declared::{check_declared, DeclaredControlAnalysis};
-use crate::analysis::routh::{calculate_declared_routh, DeclaredRouthResult, IntervalKind};
+use crate::analysis::routh::{DeclaredRouthResult, IntervalKind};
+use crate::analysis::routh_interval::calculate_declared_routh;
 use crate::failure::{Cause, Failure, NextAction};
 
 use crate::analysis::texts;

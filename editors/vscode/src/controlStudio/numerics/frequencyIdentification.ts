@@ -1,13 +1,10 @@
 import type {
   ExcitationResult,
   FirstOrderFrequencyFitResult,
-  FrequencyResponseEstimate,
   FrequencyResponsePoint,
   MultisineOptions,
   PrbsOptions,
 } from "./contracts";
-
-interface Complex { real: number; imaginary: number }
 
 export function generatePrbs(options: PrbsOptions): ExcitationResult {
   if (!Number.isInteger(options.order) || options.order < 2 || options.order > 16
@@ -54,58 +51,6 @@ export function generateMultisine(options: MultisineOptions): ExcitationResult {
   const peak = Math.max(...raw.map(Math.abs));
   const scale = peak > options.maximumAbsoluteValue ? options.maximumAbsoluteValue / peak : 1;
   return { status: "qualified", values: raw.map((value) => value * scale), scale };
-}
-
-export function estimateFrequencyResponse(
-  input: readonly number[],
-  output: readonly number[],
-  sampleTimeSeconds: number,
-  frequenciesRadPerSecond: readonly number[],
-  options: { segmentCount: number; minimumCoherence: number }
-): FrequencyResponseEstimate {
-  if (input.length !== output.length) return { status: "rejected", reason: "inconsistent-dimensions" };
-  if (!Number.isFinite(sampleTimeSeconds) || sampleTimeSeconds <= 0
-      || ![...input, ...output, ...frequenciesRadPerSecond, options.minimumCoherence].every(Number.isFinite)) {
-    return { status: "rejected", reason: "nonfinite-input" };
-  }
-  if (!Number.isInteger(options.segmentCount) || options.segmentCount < 2
-      || options.minimumCoherence < 0 || options.minimumCoherence > 1
-      || frequenciesRadPerSecond.length === 0 || input.length < options.segmentCount * 16) {
-    return { status: "rejected", reason: "insufficient-data" };
-  }
-  if (frequenciesRadPerSecond.some((frequency) => frequency <= 0 || frequency >= Math.PI / sampleTimeSeconds)) {
-    return { status: "rejected", reason: "alias-risk" };
-  }
-  const segmentLength = Math.floor(input.length / options.segmentCount);
-  const points: FrequencyResponsePoint[] = [];
-  for (const frequency of frequenciesRadPerSecond) {
-    let inputPower = 0;
-    let outputPower = 0;
-    let cross: Complex = { real: 0, imaginary: 0 };
-    for (let segment = 0; segment < options.segmentCount; segment += 1) {
-      const start = segment * segmentLength;
-      const inputCoefficient = coefficient(input, start, segmentLength, sampleTimeSeconds, frequency);
-      const outputCoefficient = coefficient(output, start, segmentLength, sampleTimeSeconds, frequency);
-      inputPower += magnitudeSquared(inputCoefficient);
-      outputPower += magnitudeSquared(outputCoefficient);
-      cross = add(cross, multiply(outputCoefficient, conjugate(inputCoefficient)));
-    }
-    if (inputPower <= Number.EPSILON) return { status: "rejected", reason: "poor-excitation" };
-    const transfer = divideByReal(cross, inputPower);
-    const coherence = Math.min(1, magnitudeSquared(cross) / Math.max(Number.EPSILON, inputPower * outputPower));
-    points.push({
-      frequencyRadPerSecond: frequency,
-      real: transfer.real,
-      imaginary: transfer.imaginary,
-      magnitude: Math.hypot(transfer.real, transfer.imaginary),
-      phaseRadians: Math.atan2(transfer.imaginary, transfer.real),
-      coherence,
-    });
-  }
-  if (points.some((point) => point.coherence < options.minimumCoherence)) {
-    return { status: "rejected", reason: "low-coherence" };
-  }
-  return { status: "qualified", points };
 }
 
 export function fitFirstOrderFrequencyResponse(
@@ -155,31 +100,6 @@ function primitiveTaps(order: number): readonly number[] {
   return known[order];
 }
 
-function coefficient(values: readonly number[], start: number, length: number, dt: number, frequency: number): Complex {
-  // Least-squares fit of k + a·cos θ + b·sin θ over the segment, returned as a − jb like a DFT bin. Unlike a plain DFT
-  // it stays exact for a sine about any operating point when the segment does not hold a whole number of periods;
-  // over whole periods both agree.
-  let n = 0, c = 0, s = 0, cc = 0, ss = 0, cs = 0, x = 0, xc = 0, xs = 0;
-  for (let offset = 0; offset < length; offset += 1) {
-    const angle = frequency * (start + offset) * dt;
-    const cos = Math.cos(angle); const sin = Math.sin(angle); const value = values[start + offset];
-    n += 1; c += cos; s += sin; cc += cos * cos; ss += sin * sin; cs += cos * sin; x += value; xc += value * cos; xs += value * sin;
-  }
-  const matrix = [[n, c, s], [c, cc, cs], [s, cs, ss]];
-  const determinant = det3(matrix);
-  if (!Number.isFinite(determinant) || Math.abs(determinant) <= 1e-12 * n * n * n) return { real: 0, imaginary: 0 };
-  const replace = (column: number, vector: number[]) => matrix.map((row, index) => row.map((entry, j) => j === column ? vector[index] : entry));
-  const right = [x, xc, xs];
-  const a = det3(replace(1, right)) / determinant;
-  const b = det3(replace(2, right)) / determinant;
-  return { real: a, imaginary: -b };
-}
-
-function det3(m: readonly (readonly number[])[]): number {
-  return m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
-    + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
-}
-
 function complexResidual(point: FrequencyResponsePoint, gain: number, tau: number): number {
   const denominator = 1 + (tau * point.frequencyRadPerSecond) ** 2;
   const predicted = {
@@ -195,18 +115,6 @@ function finiteFrequencyPoint(point: FrequencyResponsePoint): boolean {
     && point.frequencyRadPerSecond > 0 && point.magnitude >= 0;
 }
 
-function magnitudeSquared(value: Complex): number { return value.real ** 2 + value.imaginary ** 2; }
-function conjugate(value: Complex): Complex { return { real: value.real, imaginary: -value.imaginary }; }
-function add(left: Complex, right: Complex): Complex {
-  return { real: left.real + right.real, imaginary: left.imaginary + right.imaginary };
-}
-function multiply(left: Complex, right: Complex): Complex {
-  return { real: left.real * right.real - left.imaginary * right.imaginary,
-    imaginary: left.real * right.imaginary + left.imaginary * right.real };
-}
-function divideByReal(value: Complex, denominator: number): Complex {
-  return { real: value.real / denominator, imaginary: value.imaginary / denominator };
-}
 function median(values: readonly number[]): number {
   const sorted = [...values].sort((left, right) => left - right);
   const middle = Math.floor(sorted.length / 2);

@@ -10,7 +10,7 @@ const ENGINE_PAGE_OF_TAB = new Map<string, string>([
   ["verify", "Validate"],
 ]);
 
-/** Each stage tab shows the status and words the engine gives its stage. */
+/** Each stage tab shows the status and words the engine gives its stage, and a stage that does not apply shows the engine's reason. */
 export function applyStageStatuses(root: HTMLElement, stages: unknown): void {
   if (!Array.isArray(stages)) return;
   for (const tab of Array.from(root.querySelectorAll<HTMLElement>("[data-engineer-stage-tab]"))) {
@@ -19,7 +19,30 @@ export function applyStageStatuses(root: HTMLElement, stages: unknown): void {
     if (!stage || !entry) continue;
     tab.dataset.status = String(entry.status);
     tab.setAttribute("aria-label", `${stage}, ${String(entry.label)}`);
+    showStageReason(root, tab.dataset.engineerStageTab ?? "", entry);
   }
+}
+
+/**
+ * A stage the engine answers Not applicable (C12) shows the engine's reason at the top of its page, and the page's controls are
+ * inert, so they cannot be used. Any other status clears both. The engine decides the status; this only presents it.
+ */
+function showStageReason(root: HTMLElement, tabId: string, entry: Record<string, unknown>): void {
+  const page = root.querySelector<HTMLElement>(`[data-studio-page="${tabId}"]`);
+  if (!page) return;
+  const notApplicable = entry.status === "not-applicable";
+  page.toggleAttribute("inert", notApplicable);
+  let note = page.querySelector<HTMLElement>(":scope > [data-engineer-stage-reason]");
+  if (!notApplicable) {
+    note?.remove();
+    return;
+  }
+  if (!note) {
+    note = root.ownerDocument.createElement("p");
+    note.dataset.engineerStageReason = "";
+    page.prepend(note);
+  }
+  note.textContent = typeof entry.reason === "string" ? entry.reason : "";
 }
 
 /**

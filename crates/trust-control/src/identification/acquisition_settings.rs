@@ -10,7 +10,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::failure::{Cause, Failure, NextAction};
-use crate::identification::texts::acquisition_text;
+use crate::identification::method_applicability::MethodRefusal;
+use crate::identification::texts::{acquisition_text, method_refusal_text};
 use crate::limits::{MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS};
 use crate::loop_definition::{
     AuxiliaryRole, AuxiliarySignal, Execution, Experiment, ExperimentKind, LoopDefinition,
@@ -142,35 +143,88 @@ pub fn declared_settings(
     }
 }
 
-/// Decodes acquisition settings from their JSON and returns them only when every check holds: the duration is between
-/// one second and 24 hours, the amplitude is finite, a setpoint signal names a non-empty identifier of at most 256
-/// characters, a relay names its direction, each range is finite with a minimum below its maximum, and no range map
-/// holds more than sixteen entries.
+/// The sentence of acquisition settings that do not decode as Identify's settings (B3.2).
+const NOT_IDENTIFY_SETTINGS: &str = "The acquisition settings are not Identify's settings.";
+/// The sentence of a duration outside one second to 24 hours (B3.2, A7).
+const DURATION_RULE: &str = "The experiment duration must be between 1 s and 24 h.";
+/// The sentence of an amplitude that is not finite (B3.2).
+const AMPLITUDE_RULE: &str = "The experiment amplitude must be a finite number.";
+/// The sentence of a setpoint signal whose identifier is empty or longer than 256 characters (B3.2).
+const SETPOINT_RULE: &str = "The setpoint signal needs an identifier of at most 256 characters.";
+/// The sentence of a range map that holds more than sixteen ranges (B3.2).
+const RANGE_MAP_RULE: &str = "Each map of ranges holds at most sixteen signals.";
+
+/// Decodes acquisition settings from their JSON and returns them only when every check holds (see
+/// [`check_acquisition_settings`]).
 #[must_use]
 pub fn decode_acquisition_settings(value: &Value) -> Option<AcquisitionSettings> {
-    let settings: AcquisitionSettings = crate::json::decode_value(value.clone()).ok()?;
-    settings_are_valid(&settings).then_some(settings)
+    check_acquisition_settings(value).ok()
 }
 
-fn settings_are_valid(settings: &AcquisitionSettings) -> bool {
+/// Decodes acquisition settings from their JSON and checks them, naming the first rule they break. The rules, in order: the duration
+/// is between one second and 24 hours; the amplitude is finite; a setpoint signal names a non-empty identifier of at most 256
+/// characters; a relay names its direction; each range is finite with a minimum below its maximum; and no range map holds more than
+/// sixteen entries.
+///
+/// # Errors
+/// The JSON does not decode as acquisition settings, or breaks a rule: the sentence says which (B3.2, `inputs`).
+pub fn check_acquisition_settings(value: &Value) -> Result<AcquisitionSettings, String> {
+    let settings: AcquisitionSettings =
+        crate::json::decode_value(value.clone()).map_err(|_| NOT_IDENTIFY_SETTINGS.to_string())?;
+    check_settings(&settings)?;
+    Ok(settings)
+}
+
+/// The first rule of [`check_acquisition_settings`] that the settings break, as the sentence that names it.
+///
+/// # Errors
+/// The sentence of the first broken rule.
+fn check_settings(settings: &AcquisitionSettings) -> Result<(), String> {
     let duration_ok = settings.duration_seconds.is_finite()
         && (milliseconds_as_seconds(MINIMUM_EXPERIMENT_DURATION_MS)
             ..=milliseconds_as_seconds(MAXIMUM_EXPERIMENT_DURATION_MS))
             .contains(&settings.duration_seconds);
-    let setpoint_ok = settings
+    if !duration_ok {
+        return Err(DURATION_RULE.to_string());
+    }
+    if !settings.amplitude.is_finite() {
+        return Err(AMPLITUDE_RULE.to_string());
+    }
+    if settings
         .setpoint_signal_id
         .as_ref()
-        .is_none_or(|id| !id.is_empty() && id.encode_utf16().count() <= 256);
-    let relay_ok =
-        settings.method != AcquisitionMethod::Relay || settings.relay_direction.is_some();
-    duration_ok
-        && settings.amplitude.is_finite()
-        && setpoint_ok
-        && relay_ok
-        && settings.input_range.is_none_or(valid_range)
-        && settings.output_range.is_none_or(valid_range)
-        && valid_range_map(settings.input_ranges.as_ref())
-        && valid_range_map(settings.output_ranges.as_ref())
+        .is_some_and(|id| id.is_empty() || id.encode_utf16().count() > 256)
+    {
+        return Err(SETPOINT_RULE.to_string());
+    }
+    if settings.method == AcquisitionMethod::Relay && settings.relay_direction.is_none() {
+        return Err(method_refusal_text(MethodRefusal::RelayDirection).into());
+    }
+    for (direction, range) in [
+        ("input", settings.input_range),
+        ("output", settings.output_range),
+    ] {
+        if range.is_some_and(|range| !valid_range(range)) {
+            return Err(format!(
+                "The {direction} range must be finite, with its minimum below its maximum."
+            ));
+        }
+    }
+    let maps = [
+        settings.input_ranges.as_ref(),
+        settings.output_ranges.as_ref(),
+    ];
+    for map in maps.into_iter().flatten() {
+        if let Some((symbol, _)) = map.iter().find(|(_, range)| !valid_range(**range)) {
+            return Err(format!(
+                "The range of {symbol} must be finite, with its minimum below its maximum."
+            ));
+        }
+    }
+    if maps.into_iter().flatten().any(|map| map.len() > 16) {
+        return Err(RANGE_MAP_RULE.to_string());
+    }
+    Ok(())
 }
 
 /// A limit in milliseconds as seconds. The limits are far below the range where a float loses integer precision.
@@ -181,10 +235,6 @@ fn milliseconds_as_seconds(milliseconds: u64) -> f64 {
 
 fn valid_range(range: Range) -> bool {
     range.minimum.is_finite() && range.maximum.is_finite() && range.minimum < range.maximum
-}
-
-fn valid_range_map(ranges: Option<&BTreeMap<String, Range>>) -> bool {
-    ranges.is_none_or(|map| map.len() <= 16 && map.values().all(|range| valid_range(*range)))
 }
 
 /// The loop the experiment runs against, with the settings applied (`configuredAcquisition`): the experiment's method,

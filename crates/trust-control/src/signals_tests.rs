@@ -15,12 +15,14 @@ fn bindings() -> Vec<SignalBinding> {
             address: None,
             symbol: Some("Main.PV".into()),
             iec_type: "LREAL".into(),
+            unit: None,
         },
         SignalBinding {
             id: "mode".into(),
             address: None,
             symbol: Some("Main.Manual".into()),
             iec_type: "BOOL".into(),
+            unit: None,
         },
     ]
 }
@@ -106,6 +108,7 @@ fn rejects_duplicate_binding_ids_and_ambiguous_selectors_before_calling_the_runt
         address: None,
         symbol: Some("Main.X".into()),
         iec_type: "LREAL".into(),
+        unit: None,
     });
     assert!(
         InspectionRequest::new("sha256:loop", None, many.collect()).is_err(),

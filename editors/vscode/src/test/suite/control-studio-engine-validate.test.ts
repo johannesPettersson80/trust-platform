@@ -279,7 +279,8 @@ suite("Control Studio engine Validate route", () => {
       const current = startRoute();
       assert.strictEqual(await current.open(loop, scope), false);
       assert.strictEqual(await current.handle(flowStart("verify", scope), scope), false);
-      assert.deepStrictEqual(posted, []);
+      assert.deepStrictEqual(posted.map((message) => message.kind), ["control-studio.analysis.tools"], "a parked loop answers its analysis tools only");
+      assert.ok(posted.every((message) => !("failure" in message)), "a parked refusal is not a failure the page shows");
     });
   });
 

@@ -35,6 +35,7 @@ use crate::model::general::js_text;
 use crate::model::GeneralModel;
 use crate::recording::RecordingFile;
 use crate::stages::{stage_availability, StageEvidence};
+use crate::study::current_model::CurrentModel;
 use crate::study::identify::{IdentifyMethod, IdentifySection};
 use crate::study::StudySection;
 use crate::tuning::automatic_criteria::validate_criteria;
@@ -145,9 +146,9 @@ impl StudySection for TuneSection {
 pub struct TuneInputs<'a> {
     /// The loop that is tuned.
     pub loop_definition: &'a LoopDefinition,
-    /// The study's Identify section, or `None` when the study has none. [`check_before_start`] refuses a missing section and
-    /// one that is not current for the loop (B4.7: next action Identify).
-    pub identify: Option<&'a IdentifySection>,
+    /// The study's current model (B3.7, A8.4), or `None` when the study has none. [`check_before_start`] refuses a missing model
+    /// and one that is not current for the loop (B4.7: next action Identify).
+    pub model: Option<&'a CurrentModel>,
     /// The study's Tune section from an earlier run, when it has one: the values it supplied and the ones it generated
     /// carry over (B4.3).
     pub previous: Option<&'a TuneSection>,
@@ -167,20 +168,20 @@ pub struct TuneOutcome {
     pub result: TuneResult,
 }
 
-/// The evidence of a study that sets the stages' status (A8.4): [`study_evidence`] decides whether a model exists (the
-/// Identify section is current for the loop), and the study has a candidate only when the Tune section was designed on that
-/// model. A new or replaced model leaves the candidate behind.
+/// The evidence of a study that sets the stages' status (A8.4): [`study_evidence`] decides whether a model exists (the study's
+/// current model is current for the loop), and the study has a candidate only when the Tune section was designed on that model.
+/// A new or replaced model leaves the candidate behind.
 #[must_use]
 pub fn stage_evidence(
     loop_definition: &LoopDefinition,
-    identify: Option<&IdentifySection>,
+    model: Option<&CurrentModel>,
     previous: Option<&TuneSection>,
     has_recording: bool,
 ) -> StageEvidence {
-    let evidence = study_evidence(loop_definition, identify, has_recording);
-    let has_candidate = match (identify, previous) {
-        (Some(section), Some(designed)) => {
-            evidence.has_model && designed.is_current_for(&section.selected_model)
+    let evidence = study_evidence(loop_definition, model, has_recording);
+    let has_candidate = match (model, previous) {
+        (Some(current), Some(designed)) => {
+            evidence.has_model && designed.is_current_for(&current.model)
         }
         _ => false,
     };
@@ -192,10 +193,12 @@ pub fn stage_evidence(
 
 /// The refusals that come before any operation starts, in the order of B4.7's table. Each failure carries the next action
 /// that fixes it:
+/// - a loop without a controller law (C12): the failure of `require_controller_law`, which needs no action, as its stage is
+///   Not applicable;
 /// - no model that is current for the loop's signals, or a model the tuning rules cannot read: Identify;
 /// - a gain that is zero or whose sign contradicts the controller action (N6.3): the loop setup;
-/// - a loop without a controller law, or one that uses a feature the Rust engine does not run yet: the failure of
-///   `rust_engine_support` (no controller: the loop setup);
+/// - a loop that uses a feature the Rust engine does not run yet, or has no controller law without being a C12 loop: the
+///   failure of `rust_engine_support` (no controller: the loop setup);
 /// - settings that the manual method needs and the other methods refuse, pins for another loop revision or family, and
 ///   entered settings outside their bounds (B4.2, B4.5): the settings themselves;
 /// - a relay rule with no qualified relay record of the study (N5.R, N2.9): choose another method;
@@ -207,8 +210,9 @@ pub fn stage_evidence(
 /// The first of the refusals above that holds.
 pub fn check_before_start(inputs: &TuneInputs<'_>) -> Result<(), Failure> {
     let loop_definition = inputs.loop_definition;
-    let identify = current_identify(inputs.identify, loop_definition)?;
-    let fitted = model::tuning_model(&identify.selected_model, identify)
+    loop_definition.require_controller_law()?;
+    let current = current_for(inputs.model, loop_definition)?;
+    let fitted = model::tuning_model(current)
         .map_err(refused_as(Cause::ModelOrData, NextAction::Identify))?;
     let integrating = fitted.kind == LowOrderModelKind::Integrating;
     check_gain_sign(loop_definition, fitted.gain, integrating)
@@ -266,9 +270,11 @@ pub fn preview(
     let mut result = design::run(inputs, None, running)?.result;
     let evidence = stage_evidence(
         inputs.loop_definition,
-        inputs.identify,
+        inputs.model,
         inputs.previous,
-        true,
+        inputs
+            .model
+            .is_some_and(|current| current.identify.is_some()),
     );
     result.stages = stage_availability(&evidence);
     result.stage_evidence = evidence;
@@ -303,13 +309,13 @@ pub fn relay_evidence_for(
     ))
 }
 
-/// The study's Identify section, when the study has one that is current for the loop's signals (A8.4).
-fn current_identify<'a>(
-    identify: Option<&'a IdentifySection>,
+/// The study's current model, when it is current for the loop's signals (A8.4, B3.7).
+fn current_for<'a>(
+    model: Option<&'a CurrentModel>,
     loop_definition: &LoopDefinition,
-) -> Result<&'a IdentifySection, Failure> {
-    identify
-        .filter(|section| section.is_current_for(loop_definition))
+) -> Result<&'a CurrentModel, Failure> {
+    model
+        .filter(|current| current.is_current_for(loop_definition))
         .ok_or_else(no_model)
 }
 

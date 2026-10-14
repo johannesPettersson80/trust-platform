@@ -22,11 +22,11 @@ fn commissioning_loop() -> LoopDefinition {
 
 /// The study's model `1.5·e^(−2s)/(4s + 1)` at the operating point 50 % and 50 °C, its provisional Identify section, and
 /// its tuning model.
-fn fopdt() -> (GeneralModel, IdentifySection, IdentifiedModel) {
-    let identify = identify_section(None);
-    let general = identify.selected_model.clone();
-    let model = tuning_model(&general, &identify).expect("a first-order model with delay");
-    (general, identify, model)
+fn fopdt() -> (GeneralModel, CurrentModel, IdentifiedModel) {
+    let current = CurrentModel::identified(identify_section(None));
+    let general = current.model.clone();
+    let model = tuning_model(&current).expect("a first-order model with delay");
+    (general, current, model)
 }
 
 /// A request to tune the commissioning loop with the method and the response given.
@@ -51,12 +51,11 @@ fn first_requirements(
     method: Option<TuneMethod>,
     choice: Option<TuneChoice>,
 ) -> Result<TuningRequirements, Refusal> {
-    let (general, identify, model) = fopdt();
+    let (general, _, model) = fopdt();
     requirements_for(
         loop_definition,
         &model,
         &general,
-        &identify,
         None,
         None,
         &request(method, choice),
@@ -147,14 +146,13 @@ fn a_declared_response_replaces_the_one_an_earlier_tune_generated() {
     let loop_definition = commissioning_loop();
     let automatic = first_requirements(&loop_definition, None, None).expect("Automatic's test");
     assert_eq!(automatic.tuning_objective, Some(TuningObjective::Robust));
-    let (general, identify, model) = fopdt();
+    let (general, _, model) = fopdt();
     let mut previous = crate::study::tune::tests::valid_section(&general.identity().revision);
     previous.requirements = automatic;
     let faster = requirements_for(
         &loop_definition,
         &model,
         &general,
-        &identify,
         Some(&previous),
         None,
         &request(Some(TuneMethod::Simc), Some(TuneChoice::Faster)),
@@ -309,7 +307,7 @@ fn an_integrators_timescale_has_no_time_of_its_pole() {
         time_constant_seconds: None,
         second_time_constant_seconds: None,
         dead_time_seconds: Some(2.0),
-        normalized_error: 0.04,
+        normalized_error: Some(0.04),
         normalized_estimation_error: None,
         normalized_validation_error: None,
         estimation_residuals: None,
@@ -329,7 +327,7 @@ fn an_integrators_timescale_has_no_time_of_its_pole() {
 
 #[test]
 fn a_model_without_a_finite_operating_point_is_refused_with_the_policys_sentence() {
-    let (mut general, identify, model) = fopdt();
+    let (mut general, _, model) = fopdt();
     let GeneralModel::TransferFunction { identity, .. } = &mut general else {
         panic!("the study's model is a transfer function");
     };
@@ -339,7 +337,6 @@ fn a_model_without_a_finite_operating_point_is_refused_with_the_policys_sentence
             &commissioning_loop(),
             &model,
             general,
-            &identify,
             None,
             None,
             &request(None, None),
@@ -361,7 +358,7 @@ fn a_model_without_a_finite_operating_point_is_refused_with_the_policys_sentence
 
 #[test]
 fn a_model_with_two_inputs_needs_a_channel_mapping() {
-    let (mut general, identify, model) = fopdt();
+    let (mut general, _, model) = fopdt();
     let GeneralModel::TransferFunction { identity, .. } = &mut general else {
         panic!("the study's model is a transfer function");
     };
@@ -373,7 +370,6 @@ fn a_model_with_two_inputs_needs_a_channel_mapping() {
             &commissioning_loop(),
             &model,
             &general,
-            &identify,
             None,
             None,
             &request(None, None),
@@ -386,7 +382,7 @@ fn a_model_with_two_inputs_needs_a_channel_mapping() {
 
 #[test]
 fn the_requirements_the_study_holds_are_taken_as_given_over_an_earlier_generated_value() {
-    let (general, identify, model) = fopdt();
+    let (general, _, model) = fopdt();
     let held = TuningRequirements {
         reference_change: 2.0,
         maximum_error: 0.4,
@@ -412,7 +408,6 @@ fn the_requirements_the_study_holds_are_taken_as_given_over_an_earlier_generated
         &commissioning_loop(),
         &model,
         &general,
-        &identify,
         Some(&previous),
         Some(&held),
         &request(Some(TuneMethod::Simc), None),

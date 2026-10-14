@@ -26,7 +26,7 @@ fn candidate(
             time_constant_seconds,
             second_time_constant_seconds,
             dead_time_seconds,
-            normalized_error,
+            normalized_error: Some(normalized_error),
             normalized_estimation_error: None,
             normalized_validation_error: None,
             estimation_residuals: None,

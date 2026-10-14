@@ -5,19 +5,22 @@
 //! definition: a recorded run carries the binding's identifier, not its unit (annex E4.7). Old recordings without
 //! runs are `legacy`: their channels are `appliedMv` and `pv`, with the units of the file.
 
-use serde::Serialize;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{LoopDefinition, Range};
+use crate::loop_definition::{Direction, LoopDefinition, LoopSignal, Range};
 use crate::recording::channels::{
     ACTUATOR_BINDING, MANIPULATED_VARIABLE_BINDING, PROCESS_VARIABLE_BINDING, SETPOINT_BINDING,
 };
 use crate::recording::RecordedRun;
-use crate::signals::Quality;
+use crate::signals::{Quality, SignalBinding};
 
-/// The selected plant inputs and measured outputs of a recording, by channel name (`RecordingSignalSelection`).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+/// The selected plant inputs and measured outputs of a recording, by channel name (`RecordingSignalSelection`). The study keeps
+/// the engineer's selection in its inputs, so it is read back the same way (B3.6).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct RecordingSignalSelection {
     /// The plant inputs, in order.
     pub inputs: Vec<String>,
@@ -149,13 +152,27 @@ fn signal_unit<'a>(loop_definition: &'a LoopDefinition, symbol: &str) -> Option<
         .map(|(_, unit)| unit)
 }
 
-/// The channels a run offers: each binding that stands for a loop signal, named by its symbol with its unit.
+/// The channel a binding of a recorded run stands for, named by its symbol with its unit (`binding_channel`). A binding that keeps
+/// its unit is an extra channel of an archived run (`archived_recording`), named by its symbol. Any other binding stands for the
+/// loop signal its identifier names, and a mode binding stands for none.
+#[must_use]
+pub(crate) fn binding_channel(
+    loop_definition: &LoopDefinition,
+    binding: &SignalBinding,
+) -> Option<(String, String)> {
+    match &binding.unit {
+        Some(unit) => Some((binding.symbol.clone()?, unit.clone())),
+        None => coordinate(loop_definition, &binding.id)
+            .map(|found| (found.symbol.to_string(), found.unit.to_string())),
+    }
+}
+
+/// The channels a run offers: each binding that stands for a channel, named by its symbol with its unit (`binding_channel`).
 /// Mode bindings are not channels.
 fn run_channels(loop_definition: &LoopDefinition, run: &RecordedRun) -> Vec<(String, String)> {
     run.bindings
         .iter()
-        .filter_map(|binding| coordinate(loop_definition, &binding.id))
-        .map(|found| (found.symbol.to_string(), found.unit.to_string()))
+        .filter_map(|binding| binding_channel(loop_definition, binding))
         .collect()
 }
 
@@ -166,7 +183,8 @@ fn channel_index(
     channel: &str,
 ) -> Option<usize> {
     run.bindings.iter().position(|binding| {
-        coordinate(loop_definition, &binding.id).is_some_and(|found| found.symbol == channel)
+        binding_channel(loop_definition, binding)
+            .is_some_and(|(symbol, _)| symbol.as_str() == channel)
     })
 }
 
@@ -225,6 +243,48 @@ pub fn opened_recording_catalog(
                 .collect(),
         }
     };
+    let kind = if runs.is_empty() {
+        CatalogKind::Legacy
+    } else {
+        CatalogKind::Archive
+    };
+    select_catalog(channels, defaults, kind, requested)
+}
+
+/// The catalogue of an archive whose runs hold `channels` (`openedRecordingCatalog` with runs): the loop's plant input and
+/// measured output are the defaults, and `requested` is the engineer's selection when it names one.
+///
+/// # Errors
+/// The requested selection is malformed, or it names a channel the archive does not have.
+pub fn archive_catalog(
+    channels: Vec<CatalogChannel>,
+    loop_definition: &LoopDefinition,
+    requested: Option<&Value>,
+) -> Result<RecordingSignalCatalog, Failure> {
+    let configured = configured_recording_selection(loop_definition);
+    let defaults = RecordingSignalSelection {
+        inputs: configured
+            .inputs
+            .into_iter()
+            .filter(|id| has_channel(&channels, id))
+            .collect(),
+        outputs: configured
+            .outputs
+            .into_iter()
+            .filter(|id| has_channel(&channels, id))
+            .collect(),
+    };
+    select_catalog(channels, defaults, CatalogKind::Archive, requested)
+}
+
+/// The catalogue with `channels`, and the selection `requested` or else `defaults`. A selection that names a channel the
+/// recording does not have is refused.
+fn select_catalog(
+    channels: Vec<CatalogChannel>,
+    defaults: RecordingSignalSelection,
+    kind: CatalogKind,
+    requested: Option<&Value>,
+) -> Result<RecordingSignalCatalog, Failure> {
     let selection = match requested {
         None => defaults,
         Some(value) => decode_selection(value)?,
@@ -235,17 +295,8 @@ pub fn opened_recording_catalog(
         .chain(&selection.outputs)
         .any(|id| !has_channel(&channels, id))
     {
-        return Err(Failure::new(
-            "Choose input and output signals present in this recording.",
-            Cause::Settings,
-            NextAction::None,
-        ));
+        return Err(not_present());
     }
-    let kind = if runs.is_empty() {
-        CatalogKind::Legacy
-    } else {
-        CatalogKind::Archive
-    };
     Ok(RecordingSignalCatalog {
         channels,
         selection,
@@ -323,6 +374,137 @@ pub fn configured_recording_selection(
     }
 }
 
+/// The units a legacy catalogue names for the loop's manipulated variable and measurement (`WorkflowUnits`).
+#[must_use]
+pub fn workflow_units(loop_definition: &LoopDefinition) -> WorkflowUnits {
+    WorkflowUnits {
+        mv: loop_definition.signals.manipulated_variable.unit.clone(),
+        pv: loop_definition.signals.process_variable.unit.clone(),
+    }
+}
+
+/// Checks a selection the study keeps (`decodeSelection`): distinct names of 1 to 1,024 UTF-16 units, at most 16 of each, and
+/// no name both an input and an output.
+///
+/// # Errors
+/// The selection breaks one of those rules.
+pub fn check_selection(selection: &RecordingSignalSelection) -> Result<(), Failure> {
+    let value = serde_json::to_value(selection).map_err(|_| selection_refused())?;
+    decode_selection(&value).map(|_| ())
+}
+
+/// The loop as the fit of one recording sees it when the engineer selected `input` as the plant input and `output` as the
+/// measured output (B3.6): the loop with those two signals in place of its own, so the fit reads them from the recording and
+/// names them in the model. A selected name that the loop does not have is a channel the run holds as an extra output, and the view takes
+/// it as that signal (`extra_signal`). The loop's model names belong to its own signals, so a role that takes an extra channel drops
+/// them.
+///
+/// # Errors
+/// A selected name is neither a signal of the loop nor a channel of the run, or an extra channel's samples are missing or not good.
+pub fn selection_loop(
+    loop_definition: &LoopDefinition,
+    run: &RecordedRun,
+    input: &str,
+    output: &str,
+) -> Result<LoopDefinition, Failure> {
+    let (manipulated, input_is_extra) = selected_signal(loop_definition, run, input)?;
+    let (process, output_is_extra) = selected_signal(loop_definition, run, output)?;
+    let mut view = loop_definition.clone();
+    view.signals.manipulated_variable = manipulated;
+    view.signals.process_variable = process;
+    if input_is_extra {
+        clear_model_names(&mut view, "inputs");
+    }
+    if output_is_extra {
+        clear_model_names(&mut view, "outputs");
+    }
+    Ok(view)
+}
+
+/// The loop signal a selected name stands for in the view: the loop's own signal, or else an extra output of the run. The flag tells
+/// the extra case.
+fn selected_signal(
+    loop_definition: &LoopDefinition,
+    run: &RecordedRun,
+    symbol: &str,
+) -> Result<(LoopSignal, bool), Failure> {
+    if let Some(signal) = loop_signal_named(loop_definition, symbol) {
+        return Ok((signal, false));
+    }
+    extra_signal(run, symbol)?
+        .map(|signal| (signal, true))
+        .ok_or_else(not_present)
+}
+
+/// The signal of an extra output of the run named `symbol` (B3.6): a channel the loop does not bind, which the run holds with its unit.
+/// The fit only reads it, so it is read only, as a REAL signal without an address. Its range is the one its samples took, which
+/// describes the recorded data and grants no excitation limit (`observed_range`). `None` when the run holds no such channel.
+fn extra_signal(run: &RecordedRun, symbol: &str) -> Result<Option<LoopSignal>, Failure> {
+    let extra = run
+        .bindings
+        .iter()
+        .enumerate()
+        .find_map(|(index, binding)| {
+            let unit = binding.unit.as_ref()?;
+            (binding.symbol.as_deref() == Some(symbol)).then(|| (index, unit.clone()))
+        });
+    let Some((index, unit)) = extra else {
+        return Ok(None);
+    };
+    Ok(Some(LoopSignal {
+        symbol: symbol.to_string(),
+        address: None,
+        iec_type: "REAL".to_string(),
+        direction: Direction::Read,
+        unit,
+        range: observed_range(symbol, channel_readings(run, index))?,
+    }))
+}
+
+/// Drops the loop's model names of one kind of channel from the view, so that the model names the channel the view gives instead of the
+/// loop's own (`channels`, B3.6).
+fn clear_model_names(view: &mut LoopDefinition, kind: &str) {
+    if let Some(channels) = view.channels.as_mut().and_then(Value::as_object_mut) {
+        channels.insert(kind.to_owned(), Value::Array(Vec::new()));
+    }
+}
+
+/// The refusal of a selected name that the recording does not hold.
+fn not_present() -> Failure {
+    Failure::new(
+        "Choose input and output signals present in this recording.",
+        Cause::Settings,
+        NextAction::None,
+    )
+}
+
+/// The loop signal named `symbol`: a primary signal, or a further signal of the loop as a [`LoopSignal`].
+fn loop_signal_named(loop_definition: &LoopDefinition, symbol: &str) -> Option<LoopSignal> {
+    let signals = &loop_definition.signals;
+    let primary = signals
+        .setpoint
+        .iter()
+        .chain([&signals.process_variable, &signals.manipulated_variable])
+        .chain(signals.actuator.iter())
+        .find(|signal| signal.symbol == symbol);
+    if let Some(signal) = primary {
+        return Some(signal.clone());
+    }
+    signals
+        .additional
+        .iter()
+        .flatten()
+        .find(|signal| signal.symbol == symbol)
+        .map(|signal| LoopSignal {
+            symbol: signal.symbol.clone(),
+            address: signal.address.clone(),
+            iec_type: signal.iec_type.clone(),
+            direction: signal.direction,
+            unit: signal.unit.clone(),
+            range: signal.range,
+        })
+}
+
 /// The selected channels with their operating ranges (`selectedRecordingChannels`). The range is the smallest and
 /// largest value each channel took in the runs; a single value is widened by a tiny padding, so it stays a range.
 /// Observed ranges describe the recorded data only, and never grant live excitation limits.
@@ -367,23 +549,54 @@ fn selected_channel(
     {
         return Err(missing());
     }
-    let mut minimum = f64::INFINITY;
-    let mut maximum = f64::NEG_INFINITY;
+    let mut readings = Vec::new();
     for run in runs {
         let index = channel_index(loop_definition, run, id).ok_or_else(missing)?;
-        for sample in &run.samples {
-            let value = sample.values.get(index).copied().flatten();
-            let good = sample.quality.get(index) == Some(&Quality::Good);
-            let Some(value) = value.filter(|value| good && value.is_finite()) else {
-                return Err(Failure::new(
-                    &format!("Recording signal {id} has incomplete or invalid samples."),
-                    Cause::Settings,
-                    NextAction::None,
-                ));
-            };
-            minimum = minimum.min(value);
-            maximum = maximum.max(value);
-        }
+        readings.extend(channel_readings(run, index));
+    }
+    Ok(ModelChannel {
+        id: id.to_string(),
+        unit: unit.to_string(),
+        operating_range: observed_range(id, readings)?,
+    })
+}
+
+/// The value and quality each sample of `run` holds for the binding at `index`, in the order of the samples.
+fn channel_readings(run: &RecordedRun, index: usize) -> Vec<(Option<f64>, Quality)> {
+    run.samples
+        .iter()
+        .map(|sample| {
+            (
+                sample.values.get(index).copied().flatten(),
+                sample.quality.get(index).copied().unwrap_or(Quality::Bad),
+            )
+        })
+        .collect()
+}
+
+/// The operating range of a recorded channel as its samples took it (`selectedRecordingChannels`): the smallest and the largest good
+/// value, widened by `padding_of` when the samples took one value only. Observed ranges describe the recorded data and grant no
+/// excitation limit (B3.6).
+///
+/// # Errors
+/// A sample of the channel has no value or is not good, or the channel has no sample.
+fn observed_range(
+    id: &str,
+    readings: impl IntoIterator<Item = (Option<f64>, Quality)>,
+) -> Result<Range, Failure> {
+    let mut minimum = f64::INFINITY;
+    let mut maximum = f64::NEG_INFINITY;
+    for (value, quality) in readings {
+        let Some(value) = value.filter(|value| quality == Quality::Good && value.is_finite())
+        else {
+            return Err(Failure::new(
+                &format!("Recording signal {id} has incomplete or invalid samples."),
+                Cause::Settings,
+                NextAction::None,
+            ));
+        };
+        minimum = minimum.min(value);
+        maximum = maximum.max(value);
     }
     if !minimum.is_finite() {
         return Err(Failure::new(
@@ -393,13 +606,9 @@ fn selected_channel(
         ));
     }
     let padding = padding_of(minimum, maximum);
-    Ok(ModelChannel {
-        id: id.to_string(),
-        unit: unit.to_string(),
-        operating_range: Range {
-            minimum: minimum - padding,
-            maximum: maximum + padding,
-        },
+    Ok(Range {
+        minimum: minimum - padding,
+        maximum: maximum + padding,
     })
 }
 

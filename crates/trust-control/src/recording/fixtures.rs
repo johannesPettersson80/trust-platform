@@ -158,6 +158,7 @@ pub fn binding(id: &str, address: &str, iec_type: &str) -> SignalBinding {
         address: Some(address.to_string()),
         symbol: None,
         iec_type: iec_type.to_string(),
+        unit: None,
     }
 }
 

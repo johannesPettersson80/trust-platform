@@ -223,11 +223,7 @@ pub fn identified_model_presentation(
             intervals: model.uncertainty.clone(),
         },
         estimation: PresentationError {
-            normalized_error: Some(
-                model
-                    .normalized_estimation_error
-                    .unwrap_or(model.normalized_error),
-            ),
+            normalized_error: model.normalized_estimation_error.or(model.normalized_error),
             residual_lag_one_correlation: model
                 .estimation_residuals
                 .as_deref()

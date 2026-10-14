@@ -220,6 +220,39 @@ fn a_relay_needs_its_first_direction() {
     assert!(decode_acquisition_settings(&relay).is_some());
 }
 
+#[test]
+fn a_refused_setting_names_the_first_rule_it_breaks() {
+    // A relay without its direction names the sentence that the method's applicability gives (B3.2).
+    let relay = settings_with("relay", json!({}));
+    assert_eq!(
+        check_acquisition_settings(&relay).expect_err("a relay needs its direction"),
+        method_refusal_text(MethodRefusal::RelayDirection)
+    );
+    // One other rule names its own sentence.
+    let short = settings_with("automatic", json!({ "durationSeconds": 0.5 }));
+    assert_eq!(
+        check_acquisition_settings(&short).expect_err("a short duration"),
+        DURATION_RULE
+    );
+    // The rules are checked in order: the duration comes before the relay's direction.
+    let both = settings_with("relay", json!({ "durationSeconds": 0.5 }));
+    assert_eq!(
+        check_acquisition_settings(&both).expect_err("two rules"),
+        DURATION_RULE
+    );
+    let reversed = automatic_settings(json!({ "minimum": 50.0, "maximum": 40.0 }), Value::Null);
+    assert_eq!(
+        check_acquisition_settings(&reversed).expect_err("a reversed range"),
+        "The input range must be finite, with its minimum below its maximum."
+    );
+    // JSON that does not decode is not Identify's settings at all.
+    let malformed = json!({ "method": "nonsense" });
+    assert_eq!(
+        check_acquisition_settings(&malformed).expect_err("not Identify's settings"),
+        NOT_IDENTIFY_SETTINGS
+    );
+}
+
 /// The open loop of the setpoint test: no setpoint of its own, and a declared further signal that is a setpoint in
 /// the measured output's unit.
 fn open_loop() -> LoopDefinition {

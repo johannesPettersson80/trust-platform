@@ -23,6 +23,7 @@ use crate::study::canonical_json;
 pub mod channels;
 pub mod even_sampling;
 pub mod evidence;
+pub mod opened;
 pub mod opened_channels;
 pub mod page;
 pub mod periodic_source;
@@ -312,6 +313,16 @@ pub struct RecordingFile {
     pub run: RecordedRun,
     /// The verdict on the recording when it was kept: complete or incomplete, and the reason the engineer reads.
     pub evidence: evidence::RecordingEvidence,
+    /// Whether the recording was opened from a saved result or recording file (A9, B10.2). An opened recording keeps its
+    /// original source and carries this marker; a recording the runtime made for the study does not (`opened.rs`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub opened: bool,
+    /// The model revision of the run the file was kept from, when that run names one: an isolated simulation's run names the
+    /// model of its simulation, and no other field of the file keeps it (B3.6). A connected record's model revision is derived
+    /// from its program revision, and a recording the runtime made for the study names none, so the file keeps none for them.
+    /// Absent, it is not written, so the identifiers of existing files stay as they are.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_revision: Option<String>,
 }
 
 impl RecordingFile {
@@ -330,6 +341,8 @@ impl RecordingFile {
             source,
             run,
             evidence,
+            opened: false,
+            model_revision: None,
         }
     }
 

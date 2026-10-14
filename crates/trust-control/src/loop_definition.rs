@@ -14,6 +14,9 @@ use crate::failure::{Cause, Failure, NextAction};
 mod bindings;
 mod checks;
 mod controller;
+mod texts;
+
+pub use texts::NO_CONTROLLER_LAW;
 
 pub use bindings::{
     Activation, AuxiliaryRole, AuxiliarySignal, Direction, Execution, Experiment, ExperimentKind,
@@ -230,10 +233,12 @@ impl LoopDefinition {
     }
 
     /// Whether the Rust engine runs this loop. A loop with a parked feature (checklist V7) stays on
-    /// the `TypeScript` engine until that feature is ported.
+    /// the `TypeScript` engine until that feature is ported. A loop without a controller law is not parked: it is an open-loop
+    /// experiment or an observation loop (specification 35, C12), which the engine opens and identifies; the stages that need a
+    /// law refuse it with [`Self::require_controller_law`].
     ///
     /// # Errors
-    /// The loop uses a feature the Rust engine does not run yet, or has no controller law.
+    /// The loop uses a feature the Rust engine does not run yet, or it has no controller law and is not one of the C12 kinds.
     pub fn rust_engine_support(&self) -> Result<(), Failure> {
         let parked = [
             ("state feedback", self.controller.state_feedback.is_some()),
@@ -250,7 +255,8 @@ impl LoopDefinition {
         if let Some((feature, _)) = parked.iter().find(|(_, used)| *used) {
             return Err(parked_failure(feature));
         }
-        if self.controller.law.is_none() {
+        if self.controller.law.is_none() && !self.is_observation_or_open_loop() {
+            // A loop that should have its law and has none is a loop setup to repair, not a C12 loop.
             return Err(Failure::new(
                 "This loop declares no controller law, so Control Studio cannot tune it.",
                 Cause::Implementation,
@@ -258,6 +264,37 @@ impl LoopDefinition {
             ));
         }
         Ok(())
+    }
+
+    /// Whether the loop is one of the two C12 kinds that have no controller law: an open-loop experiment loop (`topology:
+    /// "open-loop"`), or an observation loop whose experiment the project runs (`execution: "project-scripted"`). The project
+    /// designs the controller of both (`design: "project"`) and binds no law (specification 35, C12).
+    #[must_use]
+    pub fn is_observation_or_open_loop(&self) -> bool {
+        self.controller.law.is_none()
+            && self.controller.design == Some(Design::Project)
+            && (self.topology == Some(Topology::OpenLoop)
+                || self
+                    .experiment
+                    .as_ref()
+                    .is_some_and(|experiment| experiment.execution == Execution::ProjectScripted))
+    }
+
+    /// Refuses a loop of the C12 kinds for the stages that design, check or write a controller law: Tune, Validate, Apply, Restore
+    /// and Keep (specification 35, C12). The project owns the actuator of such a loop, so there is nothing for these stages to do.
+    /// Any other loop passes here; a loop without a law that is not one of those kinds is refused by `rust_engine_support`.
+    ///
+    /// # Errors
+    /// The loop is an open-loop experiment or observation loop. The failure needs no action.
+    pub fn require_controller_law(&self) -> Result<(), Failure> {
+        if !self.is_observation_or_open_loop() {
+            return Ok(());
+        }
+        Err(Failure::new(
+            NO_CONTROLLER_LAW,
+            Cause::Implementation,
+            NextAction::None,
+        ))
     }
 }
 

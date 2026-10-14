@@ -5,16 +5,27 @@ import { pollValue } from "./plant-rendered-harness";
 
 type Inner = (body: string) => Promise<string>;
 async function choose(inner: Inner, name: string): Promise<void> {
-  const state = JSON.parse(await inner(`d.querySelector('[data-engineer-stage-tab=tune]').click();d.querySelector('[data-studio-analyze]').click();const option=d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool="${name}"]');return JSON.stringify({reachable:!!option&&!option.disabled&&!option.hidden,tools:[...d.querySelectorAll('[data-studio-analyze-list] [data-studio-analysis-tool]')].map(o=>o.dataset.studioAnalysisTool),analyzeHidden:d.querySelector('[data-studio-analyze]').hidden,declared:Boolean(JSON.parse(d.querySelector('[data-studio-three-page]').dataset.studioLoop??'null')?.analysis)});`));
+  // The engine answers the tools that apply to the model, so the option is awaited. An open list is closed and opened again, so it lists the current tools.
+  const state = JSON.parse(await pollValue(`${name} reachable`, () => inner(`d.querySelector('[data-engineer-stage-tab=tune]').click();const list=d.querySelector('[data-studio-analyze-list]');if(!list.hidden)d.querySelector('[data-studio-analyze]').click();d.querySelector('[data-studio-analyze]').click();const option=d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool="${name}"]');return JSON.stringify({reachable:!!option&&!option.disabled&&!option.hidden,tools:[...d.querySelectorAll('[data-studio-analyze-list] [data-studio-analysis-tool]')].map(o=>o.dataset.studioAnalysisTool),analyzeHidden:d.querySelector('[data-studio-analyze]').hidden,declared:Boolean(JSON.parse(d.querySelector('[data-studio-three-page]').dataset.studioLoop??'null')?.analysis)});`), value => JSON.parse(value).reachable === true, 15000));
   assert.strictEqual(state.reachable, true, `${name} is reachable: ${JSON.stringify(state)}`);
   await inner(`d.querySelector('[data-studio-analyze-list] [data-studio-analysis-tool="${name}"]').click();d.defaultView.__courseEvents=[];return 'selected';`);
 }
 async function listen(inner: Inner): Promise<void> {
-  await inner("d.defaultView.__courseEvents=[];d.defaultView.addEventListener('message',e=>{if(e.data.kind==='control-studio.engineering.result')d.defaultView.__courseEvents.push(e.data);});return 'listening';");
+  // The engine's analysis messages (`control-studio.analysis.*`, engine/routes/analyzeRoute.ts) reach the page as they are sent.
+  await inner("d.defaultView.__courseEvents=[];d.defaultView.addEventListener('message',e=>{if(typeof e.data?.kind==='string'&&e.data.kind.startsWith('control-studio.analysis.'))d.defaultView.__courseEvents.push(e.data);});return 'listening';");
 }
-async function calculate(inner: Inner, stage: string): Promise<any> {
+/**
+ * The envelope of the calculation of `tool` that the engine finished (specification 35, B9.9): a quick tool's answer, or the update
+ * that finishes an operation. The tool's answer is `result[tool]`; the model and the controller are named by their revisions.
+ */
+async function answerOf(inner: Inner, tool: string): Promise<any> {
+  const envelope = JSON.parse(await pollValue(tool, () => inner(`return JSON.stringify(d.defaultView.__courseEvents.filter(e=>e.envelope?.tool==='${tool}'&&(e.kind==='control-studio.analysis.answer'||e.kind==='control-studio.analysis.update'&&e.state==='finished')).map(e=>e.envelope));`), value => JSON.parse(value).length > 0, 15000))[0];
+  assert.ok(envelope.result, `${tool} calculates: ${JSON.stringify(envelope.failure)}`);
+  return envelope;
+}
+async function calculate(inner: Inner, tool: string): Promise<any> {
   await inner("d.querySelector('[data-engineer-tune]').click();return 'calculate';");
-  return JSON.parse(await pollValue(stage, () => inner(`return JSON.stringify(d.defaultView.__courseEvents.filter(e=>e.stage==='${stage}'&&e.payload.status==='complete').map(e=>e.payload));`), value => JSON.parse(value).length > 0, 15000))[0];
+  return answerOf(inner, tool);
 }
 async function supply(inner: Inner, model: Record<string, unknown>): Promise<void> {
   model.evidence = ["analytical test fixture"];
@@ -45,9 +56,9 @@ suite("Control Studio course tools in three pages", () => {
     await withStudio(async (inner, reopen, capture) => {
       await listen(inner); await choose(inner, "routh");
       await inner("const field=d.querySelector('[data-analysis-parameter-value]');field.value='2';field.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));return 'gain';");
-      const payload = await calculate(inner, "routh");
-      assert.strictEqual(payload.result.selectedValue, 2); assert.strictEqual(payload.result.interval.status, "qualified");
-      assert.ok(payload.result.interval.intervals.length > 1);
+      const routh = (await calculate(inner, "routh")).result.routh;
+      assert.strictEqual(routh.selectedValue, 2); assert.strictEqual(routh.interval.status, "qualified");
+      assert.ok(routh.interval.intervals.length > 1);
       assert.strictEqual(await inner("return String(d.querySelector('[data-three-page-analysis-plot]').checkVisibility());"), "false", "An algebraic result does not reserve blank plot space");
       assert.strictEqual(await inner("return String(d.querySelector('[data-three-page-analysis-table-details]').open);"), "false");
       await capture("routh-regions");
@@ -59,7 +70,8 @@ suite("Control Studio course tools in three pages", () => {
       assert.ok(layout.gaps.every((gap: number) => gap >= 8), `stacked Calculation-details tables are separated: ${layout.gaps}`);
       await capture("routh-details");
       await reopen(); await choose(inner, "routh");
-      assert.match(await inner("return d.querySelector('[data-three-page-analysis-summary]').textContent;"), /Kp = 2/);
+      // Reopening calculates the reading again (B9.9), so its summary arrives after the choice.
+      await pollValue("reopened Routh reading", () => inner("return d.querySelector('[data-three-page-analysis-summary]').textContent;"), value => /Kp = 2/.test(value), 15000);
       assert.strictEqual(Boolean(vscode.debug.activeDebugSession), false, "Analysis must not start a simulator");
     }, { loop: declared });
   });
@@ -70,11 +82,12 @@ suite("Control Studio course tools in three pages", () => {
       await supply(inner, { kind: "transfer-function", numerator: [1], denominator: [1, 1], delaySeconds: 0, revision: "course-visible-frequency", source: "provided", validation: "validated", inputs: [{ id: "u", unit: loop.signals.manipulatedVariable.unit, operatingRange: loop.signals.manipulatedVariable.range }], outputs: [{ id: "y", unit: loop.signals.processVariable.unit, operatingRange: loop.signals.processVariable.range }] });
       await listen(inner); await choose(inner, "frequency");
       await inner("for(const [key,value] of Object.entries({'minimum-frequency':'0.1','maximum-frequency':'10','frequency-points':'32'})){const field=d.querySelector('[data-analysis-'+key+']');field.value=value;field.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));}return 'grid';");
-      const payload = await calculate(inner, "general-model");
-      assert.strictEqual(payload.saved.result.channels[0].points.length, 32);
-      assert.strictEqual(payload.saved.model.revision, "course-visible-frequency");
+      // The model's revision is the envelope's `model.revision` (the engine names the model it analysed by its revision).
+      const frequency = await calculate(inner, "frequency");
+      assert.strictEqual(frequency.result.frequency.channels[0].points.length, 32);
+      assert.strictEqual(frequency.model.revision, "course-visible-frequency");
       await capture("channel-frequency");
-      await choose(inner, "feedback"); await calculate(inner, "general-model");
+      await choose(inner, "feedback"); await calculate(inner, "feedback");
       for (const view of ["bode", "sensitivity", "nyquist"]) {
         await inner(`const field=d.querySelector('[data-analysis-feedback-view]');field.value='${view}';field.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'plot';`);
         assert.strictEqual(await inner("return String(d.querySelector('[data-three-page-analysis-plot]').checkVisibility());"), "true");
@@ -93,17 +106,20 @@ suite("Control Studio course tools in three pages", () => {
       await supply(inner, { kind: "continuous-state-space", revision: "course-visible-mimo", source: "provided", validation: "validated", delaySeconds: 0,
         inputs: [channel("u1", loop.signals.manipulatedVariable), channel("u2", loop.signals.additional[0])], outputs: [channel("y1", loop.signals.processVariable), channel("y2", loop.signals.additional[1])],
         states: [channel("x1", loop.signals.processVariable), channel("x2", loop.signals.additional[1])], a: [[-1, 0], [0, -2]], b: [[1, .2], [.4, 1]], c: [[1, 0], [0, 1]], d: [[0, 0], [0, 0]], operatingPoint: { inputs: [0, 0], outputs: [0, 0] } });
-      await listen(inner); await choose(inner, "state-structure");
-      const state = await calculate(inner, "general-model");
-      assert.strictEqual(state.saved.result.stateStructure.controllability.rank, 2);
-      assert.strictEqual(state.saved.result.stateStructure.observability.rank, 2);
+      await listen(inner); await choose(inner, "stateStructure");
+      const state = await calculate(inner, "stateStructure");
+      // The ranks are the engine's first sentence, "Controllability rank 2 of 2; observability rank 2 of 2." (model_views.rs), which the
+      // result area shows; the matrices are `result.stateStructure.matrices`.
+      assert.ok(state.result.stateStructure.summary.includes("Controllability rank 2 of 2; observability rank 2 of 2."), JSON.stringify(state.result.stateStructure.summary));
       assert.strictEqual(await inner("return String(d.querySelector('[data-three-page-analysis-plot]').checkVisibility());"), "false");
       await capture("state-structure");
-      await choose(inner, "rga"); const rga = await calculate(inner, "general-model");
-      assert.ok(Math.abs(rga.saved.result.relativeGainMatrix[0][0] - 1 / .92) < 1e-8);
+      await choose(inner, "relativeGain"); const rga = await calculate(inner, "relativeGain");
+      // The array is qualified with its matrix (N4.5); a singular steady-state gain is `status: "unavailable"` instead.
+      assert.strictEqual(rga.result.relativeGain.status.status, "qualified");
+      assert.ok(Math.abs(rga.result.relativeGain.status.matrix[0][0] - 1 / .92) < 1e-8);
       assert.match(await inner("return d.querySelector('[data-three-page-analysis-summary]').textContent;"), /u1.*u2.*y1.*y2/s);
-      await capture("state-rga"); await reopen(); await choose(inner, "rga");
-      assert.match(await inner("return d.querySelector('[data-three-page-analysis-summary]').textContent;"), /u1.*u2.*y1.*y2/s);
+      await capture("state-rga"); await reopen(); await choose(inner, "relativeGain");
+      await pollValue("reopened relative gain array", () => inner("return d.querySelector('[data-three-page-analysis-summary]').textContent;"), value => /u1.*u2.*y1.*y2/s.test(value), 15000);
       assert.strictEqual(Boolean(vscode.debug.activeDebugSession), false, "Analysis must not start a simulator");
     }, { loop: loop => {
       loop.signals.additional = [{ ...loop.signals.manipulatedVariable, id: "u2", channel: "u2", role: "MV", symbol: "P1.Mv2", address: "%QL128" }, { ...loop.signals.processVariable, id: "y2", channel: "y2", role: "PV", symbol: "P1.Pv2", address: "%IL128" }];

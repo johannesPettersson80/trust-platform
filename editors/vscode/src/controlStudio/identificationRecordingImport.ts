@@ -21,7 +21,7 @@ export function readIdentificationRecordingImport(json: string, loop: ControlLoo
 } {
   if (json.length > MAX_RECORDING_IMPORT_BYTES) throw new Error("Recording file exceeds 32 MiB.");
   let value: unknown;
-  try { value = JSON.parse(json); } catch { throw new Error("Choose a valid Control Studio result JSON file."); }
+  try { value = JSON.parse(json); } catch { throw new Error("Choose a valid Control Studio recording or result JSON file."); }
   const result = decodeWorkflowResult(value);
   if (!result) throw new Error("The saved recording has invalid data or source metadata.");
   const estimation = result.identificationStudy?.estimation;

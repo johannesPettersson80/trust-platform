@@ -12,7 +12,7 @@ use std::path::Path;
 use serde_json::Value;
 use trust_control::failure::Failure;
 use trust_control::messages::PreviewRequest;
-use trust_control::study::identify::IdentifySection;
+use trust_control::study::current_model::current_model;
 use trust_control::study::tune::{preview, TuneInputs, TuneSection};
 
 use crate::commands::to_value;
@@ -32,13 +32,13 @@ pub fn answer(request: &PreviewRequest) -> Result<Value, Failure> {
     let project_root = Path::new(&request.project_root);
     let loop_definition = loops::open(project_root, &request.runtime_id, &request.loop_id)?;
     let study = storage::open_study(project_root, &loop_definition.id, &loop_definition.revision)?;
-    let identify = study.section::<IdentifySection>()?;
+    let model = current_model(&study)?;
     let previous = study.section::<TuneSection>()?;
     // The request that the preview evaluates is the manual method with these settings; it names no journal (B4.5).
     let tune_request = request.tune_request();
     let inputs = TuneInputs {
         loop_definition: &loop_definition,
-        identify: identify.as_ref(),
+        model: model.as_ref(),
         previous: previous.as_ref(),
         relay: None,
         request: &tune_request,

@@ -437,6 +437,7 @@ fn a_channel_that_is_not_good_makes_only_its_own_sample_not_good() {
         address: None,
         symbol: Some("P1.Manual".to_string()),
         iec_type: "BOOL".to_string(),
+        unit: None,
     });
     let values = [Some(1.0), Some(0.5), Some(2.0), Some(1.0), Some(1.0)];
     let mut second = sample(2, Some(10_000_000), &values, &[Quality::Good; 5]);

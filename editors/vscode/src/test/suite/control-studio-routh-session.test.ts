@@ -44,44 +44,16 @@ suite("Control Studio Routh session", () => {
     union.result.interval = { status: "qualified", kind: "union", inequalities: [], derivation: "missing regions" };
     assert.strictEqual(isSavedRouthAnalysis(union), false);
   });
-  test("retains a read-only result snapshot and restores it without granting runtime authority", async () => {
+  test("retains a read-only result and restores it only for the definition it was read from", () => {
     const { RouthSession } = require("../../controlStudio/routhSession") as typeof import("../../controlStudio/routhSession");
+    const saved = { selectedValue: 2, definition: definition(), result: calculateDeclaredRouth(definition(), 2) };
     const session = new RouthSession(definition());
-    const messages: Array<Record<string, unknown>> = [];
-    await session.handle({ schemaVersion: 1, kind: "control-studio.routh.run", projectId: "p", editorSessionId: "e", loopId: "l", expectedLoopRevision: "r", messageId: "m", payload: { selectedValue: 2 } },
-      { projectId: "p", editorSessionId: "e", loopId: "l", loopRevision: "r" }, async payload => { messages.push(payload); });
-    assert.strictEqual(messages[0].status, "complete");
-    assert.strictEqual(typeof (session as unknown as { snapshot?: unknown }).snapshot, "function");
-    const saved = (session as unknown as { snapshot(): unknown }).snapshot();
+    session.restore(saved);
+    assert.deepStrictEqual(session.snapshot(), saved, "the saved result remains inspectable");
     session.invalidate();
-    assert.strictEqual(session.selectedValues({ Kp: "P1.Kp" }), undefined);
-    assert.ok(saved && typeof saved === "object", "the saved result remains inspectable");
-    (session as unknown as { restore(value: unknown): void }).restore(saved);
-    assert.strictEqual(session.selectedValues({ Kp: "P1.Kp" }), undefined, "restoring read-only evidence must not authorize a fresh runtime parameter selection");
+    assert.strictEqual(session.snapshot(), undefined, "invalidating clears the retained result");
     const other = new RouthSession({ ...definition(), plant: { ...definition().plant, revision: "other" } });
-    (other as unknown as { restore(value: unknown): void }).restore(saved);
+    other.restore(saved);
     assert.strictEqual(other.snapshot(), undefined, "a saved result from another definition must be rejected");
-  });
-
-  test("invalidate cancels pending work and clears the retained result", async () => {
-    const { RouthSession } = require("../../controlStudio/routhSession") as typeof import("../../controlStudio/routhSession");
-    const session = new RouthSession(definition()); let release!: () => void; const blocked = new Promise<void>(resolve => { release = resolve; });
-    const running = session.handle({ schemaVersion: 1, kind: "control-studio.routh.run", projectId: "p", editorSessionId: "e", loopId: "l", expectedLoopRevision: "r", messageId: "m", payload: { selectedValue: 1 } }, { projectId: "p", editorSessionId: "e", loopId: "l", loopRevision: "r" }, async () => { await blocked; });
-    session.invalidate(); release(); await running;
-    assert.strictEqual(session.snapshot(), undefined);
-    assert.strictEqual(session.selectedValues({ Kp: "P1.Kp" }), undefined);
-  });
-
-  test("accepts scoped cancellation and keeps the prior result unchanged", async () => {
-    const { RouthSession } = require("../../controlStudio/routhSession") as typeof import("../../controlStudio/routhSession");
-    const session = new RouthSession(definition());
-    const messages: Array<Record<string, unknown>> = [];
-    const scope = { projectId: "p", editorSessionId: "e", loopId: "l", loopRevision: "r" };
-    let release!: () => void; const blocked = new Promise<void>(resolve => { release = resolve; });
-    const running = session.handle({ schemaVersion: 1, kind: "control-studio.routh.run", ...scope, expectedLoopRevision: "r", messageId: "m", payload: { selectedValue: 1 } }, scope, async payload => { messages.push(payload); await blocked; });
-    const handled = await session.handle({ schemaVersion: 1, kind: "control-studio.routh.cancel", ...scope, expectedLoopRevision: "r", messageId: "c", payload: {} }, scope, async payload => { messages.push(payload); });
-    assert.strictEqual(handled, true);
-    release(); await running;
-    assert.ok(messages.every(message => message.status !== "complete"), "a cancelled pending job must not publish a complete result");
   });
 });

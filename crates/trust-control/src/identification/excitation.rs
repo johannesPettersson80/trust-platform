@@ -397,7 +397,7 @@ fn identified_model(form: &FormFit) -> IdentifiedModel {
         second_time_constant_seconds,
         // A dead time is reported where the form has one and it is not zero: a delay-free integrator has none.
         dead_time_seconds: form.shape.dead_time_seconds.filter(|delay| *delay > 0.0),
-        normalized_error: form.prediction.normalized_error,
+        normalized_error: Some(form.prediction.normalized_error),
         normalized_estimation_error: Some(form.prediction.normalized_error),
         normalized_validation_error: None,
         estimation_residuals: None,

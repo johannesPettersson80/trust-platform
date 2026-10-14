@@ -25,6 +25,10 @@ pub struct SignalBinding {
     pub symbol: Option<String>,
     /// The upper-case IEC type name.
     pub iec_type: String,
+    /// The unit of a channel that a kept archived run holds beside the loop's signals (B3.6): the loop's own signals have none,
+    /// so a file without such a channel keeps its bytes and its identifier. The runtime neither reads nor writes it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit: Option<String>,
 }
 
 impl SignalBinding {
@@ -34,6 +38,7 @@ impl SignalBinding {
             address: address.map(str::to_string),
             symbol: address.is_none().then(|| symbol.to_string()),
             iec_type: iec_type.to_string(),
+            unit: None,
         }
     }
 

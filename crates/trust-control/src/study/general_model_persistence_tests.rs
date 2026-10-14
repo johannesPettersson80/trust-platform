@@ -532,3 +532,17 @@ fn a_supplied_analysis_whose_model_differs_in_content_is_refused_though_its_revi
         "the model and its analysis must agree in content"
     );
 }
+
+#[test]
+fn a_supplied_transfer_function_is_described_by_its_type_and_its_equation() {
+    let model = decode_general_model(&json!({
+        "kind": "transfer-function", "revision": "provided-course-model", "source": "provided",
+        "validation": "validated", "evidence": ["independent-course-measurement"], "delaySeconds": 1.0,
+        "inputs": [channel("u", "%", 100.0)], "outputs": [channel("y", "°C", 100.0)],
+        "numerator": [2.0], "denominator": [5.0, 1.0]
+    }))
+    .expect("the model decodes");
+    let words = supplied_model_words(&model);
+    assert_eq!(words.model_type, "Transfer function, continuous time");
+    assert_eq!(words.equation, "G(s) = 2 / (5s + 1), delay 1 s");
+}

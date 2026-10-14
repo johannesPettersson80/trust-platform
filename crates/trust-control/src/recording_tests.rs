@@ -17,12 +17,14 @@ fn request() -> RecordingRequest {
                 address: Some("%IL0".into()),
                 symbol: None,
                 iec_type: "LREAL".into(),
+                unit: None,
             },
             SignalBinding {
                 id: "controllerMode".into(),
                 address: None,
                 symbol: Some("P1.AutoMode".into()),
                 iec_type: "BOOL".into(),
+                unit: None,
             },
         ],
         maximum_samples: 1_000,
@@ -87,6 +89,7 @@ fn a_request_over_a_limit_is_refused_with_the_limit_named() {
                         address: Some(format!("%IL{}", index * 8)),
                         symbol: None,
                         iec_type: "LREAL".into(),
+                        unit: None,
                     })
                     .collect();
             },
@@ -276,6 +279,27 @@ fn a_file_without_a_verdict_or_with_one_that_contradicts_its_run_is_neither_writ
         .expect_err("not read")
         .message
         .contains("evidence"));
+}
+
+#[test]
+fn a_kept_recording_keeps_the_model_revision_of_its_run_and_an_older_file_keeps_its_identifier() {
+    // B3.6: an isolated simulation's run names its model; the file keeps it, and the revision is part of its content.
+    let run: RecordedRun = serde_json::from_value(stopped()).expect("decoded");
+    let evidence = recording_evidence(&run, None);
+    let file = RecordingFile::new("loop:tank", EvidenceSource::SimulatedPlant, run, evidence);
+    let plain_id = file.id().expect("identified");
+    assert!(
+        !file.encode().expect("encoded").contains("modelRevision"),
+        "a file without a model revision writes no such field, so its identifier is unchanged"
+    );
+    let mut kept = file.clone();
+    kept.model_revision = Some("sha256:simulation".into());
+    let kept_id = kept.id().expect("identified");
+    assert_ne!(kept_id, plain_id, "the revision is part of the content");
+    let text = kept.encode().expect("encoded");
+    let read = RecordingFile::decode(&text, "loop:tank", &kept_id).expect("decoded");
+    assert_eq!(read.model_revision.as_deref(), Some("sha256:simulation"));
+    assert_eq!(read, kept, "the file reads back with its revision");
 }
 
 #[test]

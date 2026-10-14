@@ -93,8 +93,28 @@ fn whole_text(failure: &Failure) -> &str {
 
 #[test]
 fn a_provisional_model_is_checked_and_a_qualified_one_is_not() {
-    assert!(check_is_needed(&identified(None)));
-    assert!(!check_is_needed(&identified(Some(VALIDATION))));
+    assert!(check_is_needed(&CurrentModel::identified(identified(None))));
+    assert!(!check_is_needed(&CurrentModel::identified(identified(
+        Some(VALIDATION)
+    ))));
+}
+
+#[test]
+fn a_passing_check_qualifies_a_supplied_model_and_drops_the_analysis_of_the_unqualified_one() {
+    let qualified = qualified_supplied(&fitted_model(), FINGERPRINT.to_string());
+    assert_eq!(
+        qualified.model.identity().validation,
+        ModelValidation::Validated
+    );
+    assert_eq!(
+        qualified.model.identity().evidence,
+        vec!["sha256:recording".to_string(), FINGERPRINT.to_string()]
+    );
+    assert!(
+        qualified.analysis.is_none(),
+        "an analysis is kept only for the model it was made for"
+    );
+    assert!(!check_is_needed(&CurrentModel::supplied(qualified)));
 }
 
 #[test]

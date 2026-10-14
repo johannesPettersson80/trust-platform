@@ -217,7 +217,7 @@ fn estimated_model(analysis: &StepResponseAnalysis, normalized_error: f64) -> Id
         time_constant_seconds: Some(analysis.best.time_constant_seconds),
         second_time_constant_seconds: None,
         dead_time_seconds: Some(analysis.best.delay_seconds),
-        normalized_error,
+        normalized_error: Some(normalized_error),
         normalized_estimation_error: Some(normalized_error),
         normalized_validation_error: None,
         estimation_residuals: Some(analysis.points.iter().map(|point| point.residual).collect()),

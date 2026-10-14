@@ -3,7 +3,7 @@ use crate::analysis::declared::{
     DeclaredCoefficient, DeclaredController, DeclaredParameter, DeclaredPlant, DeclaredSweep,
     PlantKind,
 };
-use crate::analysis::routh::calculate_declared_routh;
+use crate::analysis::routh_interval::calculate_declared_routh;
 use crate::model::{ModelSource, ModelValidation};
 use std::collections::BTreeMap;
 

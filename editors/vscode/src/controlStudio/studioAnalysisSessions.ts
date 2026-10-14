@@ -32,7 +32,6 @@ import { AutomaticStudioFlow } from "./automaticStudioFlow";
 import { ReviewedStudioApplicationCoordinator } from "./reviewedStudioApplication";
 import { KeepInProjectCoordinator } from "./keepInProject";
 import { identifyOpenedRecording } from "./openedRecordingIdentification";
-import { declaredFeedbackDefinition } from "./declaredFeedbackModel";
 import { MimoAnalysisSession, type MimoAnalysisSnapshot } from "./mimoAnalysisSession";
 import type { MimoSettledAnalysisOptions, MimoSettledTrial } from "./threePageMimoAnalysis";
 import { LeadLagSession } from "./leadLagSession";
@@ -40,14 +39,12 @@ import { LeadLagSession } from "./leadLagSession";
 /** Owns independent analysis jobs for one editor/loop lifetime. */
 export class StudioAnalysisSessions {
   private readonly boundLoop?: ControlLoopDefinition;
-  private periodicSourceProvider?: PeriodicRecordingProvider;
   readonly engineer: EngineerWorkflowSession | undefined;
   readonly routh: RouthSession | undefined;
   readonly model = new GeneralModelSession(() => {
     if (this.recordingBusy) throw new Error("Abort the recording analysis before replacing its model.");
     this.engineer?.assertModelReplacementAllowed();
-  }, selected => this.boundLoop?.analysis ? declaredFeedbackDefinition(this.boundLoop.analysis, selected) : undefined,
-    (recordingId, recordingRevision) => this.periodicSourceProvider?.(recordingId, recordingRevision));
+  });
   readonly validation = new RunValidationSession();
   private identificationSession = new IdentificationWorkflow();
   readonly parameters: ParameterSession | undefined;
@@ -72,9 +69,8 @@ export class StudioAnalysisSessions {
     retryManualRecovery?: (post: (payload: Record<string, unknown>) => Promise<void>) => Promise<boolean>,
     retainIsolatedOperation?: (attempt: RuntimeVerificationAttempt) => Promise<void>,
     retainCommissioningCheckpoint?: CommissioningCheckpointWriter,
-    periodicSourceProvider?: PeriodicRecordingProvider, liveIdentification?: ConnectedIdentificationPorts) {
+    _periodicSourceProvider?: PeriodicRecordingProvider, liveIdentification?: ConnectedIdentificationPorts) {
     this.boundLoop = loop;
-    this.periodicSourceProvider = periodicSourceProvider;
     this.automaticFlow = new AutomaticStudioFlow(
       async (message, scope, post) => {
         const request = message as { kind: string; payload: Record<string, unknown> };
@@ -100,8 +96,6 @@ export class StudioAnalysisSessions {
     this.search = new FiniteSearchSession(() => connectRuntimeSearch(loop), loop.parameterBinding && loop.signals.setpoint
       ? async () => buildFiniteSearchDraft(loop, (await (await connectRuntimeParameters(loop)).client.status()).values) : undefined);
     if (loop.parameterBinding) this.parameters = new ParameterSession(loop.parameterBinding, () => connectRuntimeParameters(loop), () => {
-      const routhValues = loop.analysisParameterSymbols && this.routh?.selectedValues(loop.analysisParameterSymbols);
-      if (routhValues) return routhValues;
       const analysis = declared();
       if (!analysis || !loop.analysisParameterSymbols) return undefined;
       const definition = analysis.definition;
@@ -235,7 +229,7 @@ export class StudioAnalysisSessions {
     if (this.engineer && await this.reviewedApplication.handle(message, { engineer: this.engineer, scope,
       isCurrent: () => !this.disposed, post: payload => this.forwardSessionUpdate("engineer", payload, post) })) return true;
     if (await this.automaticFlow.handle(message, scope, (stage, payload) => this.forwardSessionUpdate(stage, payload, post))) return true;
-    for (const [stage, session] of [["engineer", this.engineer], ["routh", this.routh], ["general-model", this.model], ["lead-lag", this.leadLag], ["parameters", this.parameters]] as const) {
+    for (const [stage, session] of [["engineer", this.engineer], ["general-model", this.model], ["parameters", this.parameters]] as const) {
       if (this.disposed) return false;
       if (await session?.handle(message, scope, async payload => {
         await this.forwardSessionUpdate(stage, payload, post);
@@ -270,7 +264,6 @@ export class StudioAnalysisSessions {
     this.reviewedApplication.dispose();
     this.cancelIdentification();
     this.engineer?.dispose();
-    this.routh?.dispose();
     this.model.dispose(); this.leadLag.dispose(); this.validation.dispose(); this.parameters?.dispose(); this.search?.dispose(); this.mimo.clear();
   }
 }

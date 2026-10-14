@@ -1,6 +1,7 @@
 import type { StudioPage } from "./threePageHostState";
 import { identificationStatus, textOf } from "./engineIdentify";
 import { applyStageStatuses, record, studioFailure } from "./engineShared";
+import { ENGINE_VIEW_EVENT } from "./engineInputs";
 import { ENGINE_STAGE_RECEIVERS } from "./engineStages";
 import { predictedPlots, previewPayload, showTunePlots, tuneCandidatePayload } from "./engineTune";
 
@@ -41,6 +42,9 @@ export function receiveEngineMessage(root: HTMLElement, message: Record<string, 
       const page = PAGE_OF_ENGINE_PAGE.get(String(result.page));
       if (page) ports.select(page, false);
       applyStageStatuses(root, result.stages);
+      // The page's own view choices the study kept (view state, A8.1): the page shows them once the recorded inputs are shown.
+      const view = record(result.pageView);
+      if (view) root.ownerDocument.defaultView?.dispatchEvent(new CustomEvent(ENGINE_VIEW_EVENT, { detail: view }));
       // Each stage shows what the study holds of it (A8.6): Validate's last result, then Apply's offers, so that a reopened loop
       // with Restore available starts with Restore (B6.4).
       for (const stage of new Set(ENGINE_STAGE_RECEIVERS.values())) stage.opened?.(root, result, ports);

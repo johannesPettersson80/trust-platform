@@ -3,6 +3,9 @@ import type { EngineStageReceiver } from "./engineStages";
 /** The window event that carries the recorded inputs of an opened loop; its `detail` is the inputs (specification 35, A8.6). */
 export const ENGINE_INPUTS_EVENT = "trust-control-studio-engine-inputs";
 
+/** The window event that carries the page's own view choices an opened loop kept (`pageView`, A8.1, A8.6). */
+export const ENGINE_VIEW_EVENT = "trust-control-studio-engine-view";
+
 /** The page's words for a change that leaves the validation no longer current (A8.4): the words its stale results already show. */
 const STALE_VALIDATION_REASON = "Inputs changed. Tune and verify before applying.";
 

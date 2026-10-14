@@ -1,11 +1,7 @@
 import * as assert from "assert";
-import { retainedPeriodicRecordingSource } from "../../controlStudio/periodicRecordingSource";
-import { completedExperimentRecording, decodePeriodicRecording } from "../../controlStudio/webview/periodicRecording";
+import { completedExperimentRecording } from "../../controlStudio/webview/periodicRecording";
 import type { DeclaredControlAnalysis } from "../../controlStudio/declaredAnalysis";
-import { calculateGeneralStateStructure } from "../../controlStudio/generalStateStructure";
-import type { GeneralStateSpaceModel } from "../../controlStudio/generalModel";
-import { stateStructureDetails } from "../../controlStudio/webview/stateStructureDetails";
-import { formatNumberList } from "../../controlStudio/webview/numberListText";
+import { formatMatrixRows, formatNumberList } from "../../controlStudio/webview/numberListText";
 import { renderIdentifiedModel } from "../../controlStudio/webview/threePageModel";
 
 const declaredFixture: DeclaredControlAnalysis = {
@@ -33,20 +29,14 @@ suite("Control Studio three-page analysis presentation", () => {
     assert.deepStrictEqual(declaredFixture.rootLocus.values, [0, 2, 4, 8], "the selected declared sweep remains a typed fixture");
   });
 
-  test("presents the state structure with the declared order, ranks out of the state count, matrices in one precision and the scope", () => {
-    const channel = (id: string, unit: string) => ({ id, unit, operatingRange: { minimum: -0.05, maximum: 0.05 } });
-    const model = { kind: "continuous-state-space", revision: "cascade", source: "provided", validation: "validated", evidence: [], delaySeconds: 0,
-      inputs: [channel("pump-flow-deviation", "m3/s")], outputs: [channel("downstream-level-deviation", "m")],
-      states: [channel("upstream-level-deviation", "m"), channel("downstream-level-deviation", "m")],
-      a: [[-0.04, 0], [0.04, -0.04]], b: [[2], [0]], c: [[0, 1]], d: [[0]] } as unknown as GeneralStateSpaceModel;
-    const details = stateStructureDetails(model, calculateGeneralStateStructure(model));
-    assert.strictEqual(details.summary, "Controllability rank 2 of 2; observability rank 2 of 2.");
-    assert.strictEqual(details.order, "State order: upstream-level-deviation (m), downstream-level-deviation (m). Input order: pump-flow-deviation (m3/s). Output order: downstream-level-deviation (m).");
-    assert.deepStrictEqual(details.matrices, [
-      ["A", "[-0.04, 0]; [0.04, -0.04]"], ["B", "[2]; [0]"], ["C", "[0, 1]"], ["D", "[0]"],
-      ["Controllability [B, AB, …]", "[2, -0.08]; [0, 0.08]"], ["Observability [C; CA; …]", "[0, 1]; [0.04, -0.04]"],
-    ]);
-    assert.match(details.scope, /local unconstrained model/);
+  test("writes the engine's state-structure matrices in one precision", () => {
+    // The state structure, its ranks, its order and its scope are the engine's answer. The Rust test
+    // `the_state_structure_has_the_declared_order_the_ranks_out_of_the_state_count_and_the_matrices`
+    // (crates/trust-control/src/analysis/model_views_tests.rs) holds the numbers this test used to check. The page writes each
+    // matrix's rows in one precision, and nothing else.
+    assert.strictEqual(formatMatrixRows([[-0.04, 0], [0.04, -0.04]]), "[-0.04, 0]; [0.04, -0.04]");
+    assert.strictEqual(formatMatrixRows([[2], [0]]), "[2]; [0]");
+    assert.strictEqual(formatMatrixRows([[0, 1]]), "[0, 1]");
   });
 
   test("lists Routh entries and cancelled factors with one precision", () => {
@@ -55,18 +45,16 @@ suite("Control Studio three-page analysis presentation", () => {
     assert.strictEqual(formatNumberList([]), "");
   });
 
-  test("shows the measured phase unwrapped across the tones, as the model's Bode plot does", () => {
-    let rows: ((points: readonly any[]) => { frequency: number; phaseDegrees: number }[]) | undefined;
-    try {
-      rows = (require("../../controlStudio/measuredFrequencyRows") as { measuredFrequencyRows?: typeof rows }).measuredFrequencyRows;
-    } catch {
-      // The expected pre-fix failure is the assertion below, not a module-load failure.
+  test("keeps the analysis presentation free of the numerics the engine answers", () => {
+    // The phase unwrapping, the dB and degree conversions, the root computations, the sentences of each answer and the recording
+    // rules are the engine's (specification 35, B9.9 and §0.1a; the Rust tests of `analysis/` and `study/`). The analysis
+    // presentation draws the engine's answer and computes none of these, so its source may not reach for them.
+    const fs = require("fs"), path = require("path");
+    const source: string = fs.readFileSync(path.resolve(__dirname, "../../../src/controlStudio/webview/threePageAnalysis.ts"), "utf8");
+    for (const moved of [/log10/, /rootsOfRealPolynomial/, /measuredFrequencyRows/, /stateStructureDetails/, /routhDetailText/,
+      /decodePeriodicRecording/, /numerics\//, /generalModel/, /routhHurwitz/]) {
+      assert.doesNotMatch(source, moved, `the presentation reaches for ${moved}`);
     }
-    const point = (frequencyRadPerSecond: number, degrees: number) => ({ frequencyRadPerSecond, magnitude: 0.01, phaseRadians: degrees * Math.PI / 180, coherence: 1 });
-    // A resonance turns the phase through −180°: atan2 alone wraps −189.4° to +170.6°.
-    const shown = rows?.([point(12.566, 170.6), point(6.283, -176.6), point(18.85, 82.35), point(25.133, -3.41)]) ?? [];
-    assert.deepStrictEqual(shown.map(row => row.frequency), [6.283, 12.566, 18.85, 25.133], "the tones in ascending frequency");
-    assert.deepStrictEqual(shown.map(row => Number(row.phaseDegrees.toFixed(2))), [-176.6, -189.4, -277.65, -363.41]);
   });
 
   test("counts a model's channels in the singular for one input or output", () => {
@@ -126,7 +114,7 @@ suite("Control Studio three-page analysis presentation", () => {
     assert.doesNotMatch(markup, /Calculate|Import model|Parameter value/i);
   });
 
-  test("measures the cycles of a completed project experiment", () => {
+  test("offers the recording of a completed project experiment, and nothing else, to the analyses", () => {
     // A live recording: the first scan has no previous scan, so its cycle time is unknown; every later scan took 0.1 s.
     const rawSamples = Array.from({ length: 64 }, (_, index) => ({ scan: 100 + index, quality: "good", loopRevision: "loop-1",
       actualCycleSeconds: index === 0 ? null : 0.1, appliedMv: 75 + 5 * Math.sin(0.2 * index * 0.1), pv: 35,
@@ -137,49 +125,7 @@ suite("Control Studio three-page analysis presentation", () => {
     assert.deepStrictEqual(completedExperimentRecording(message), recording, "the completed experiment's recording is offered to the analyses");
     assert.strictEqual(completedExperimentRecording({ ...message, phase: "running" }), undefined);
     assert.strictEqual(completedExperimentRecording({ ...message, payload: { status: "aborted", recording } }), undefined);
-    const decoded = decodePeriodicRecording({ recording });
-    assert.ok(decoded, "an unknown first cycle time does not disqualify the recording");
-    assert.strictEqual(decoded!.sampleTimeSeconds, 0.1);
-    assert.strictEqual(decoded!.input.length, 64);
-    assert.strictEqual(decoded!.recordingId, "project-run");
-    const irregular = { ...recording, rawSamples: rawSamples.map((sample, index) => index === 30 ? { ...sample, actualCycleSeconds: 0.2 } : sample) };
-    assert.strictEqual(decodePeriodicRecording({ recording: irregular }), undefined, "a later scan with another cycle time still disqualifies it");
-    // The host measures the same retained recording.
-    const source = retainedPeriodicRecordingSource(recording as never, "project-run", "loop-1");
-    assert.ok(source, "the host accepts the retained project recording");
-    assert.strictEqual(source!.sampleTimeSeconds, 0.1);
-    assert.strictEqual(retainedPeriodicRecordingSource(irregular as never, "project-run", "loop-1"), undefined);
+    // The cycle timing, the gaps and the eligibility of a recording for a measurement are the engine's: `measuredFrequency` reads the
+    // study's recording and refuses one it cannot measure (B3.6, A9; the Rust tests of `analysis/measured_frequency*`).
   });
-
-  test("measures a sine about an operating point without the operating point leaking into the estimate", () => {
-    const operations = require("../../controlStudio/threePageAnalysisOperations") as { estimatePeriodicFrequency: Function };
-    // The heater at 0.2 rad/s: command 75 + 5·sin(0.2t) %, temperature 35 + 0.7071·sin(0.2t − 0.9854) °C. A period is
-    // 314.16 samples of 0.1 s, so no segment holds a whole number of periods.
-    const input = Array.from({ length: 942 }, (_, index) => 75 + 5 * Math.sin(0.2 * index * 0.1));
-    const output = input.map((_, index) => 35 + 5 * 0.141421 * Math.sin(0.2 * index * 0.1 - 0.985398));
-    for (const segmentCount of [2, 3]) {
-      const measured = operations.estimatePeriodicFrequency(input, output, 0.1, [0.2], { segmentCount, minimumCoherence: 0.9 });
-      assert.strictEqual(measured.status, "qualified", JSON.stringify(measured));
-      assert.ok(Math.abs(measured.points[0].magnitude - 0.141421) <= 0.0005, `${segmentCount} segments: ${JSON.stringify(measured.points[0])}`);
-      assert.ok(Math.abs(measured.points[0].phaseRadians + 0.985398) <= 0.005, `${segmentCount} segments: ${JSON.stringify(measured.points[0])}`);
-    }
-    // Discarding the start leaves whatever number of samples the record has: the last few that do not fill a
-    // segment are left out rather than the whole record refused.
-    const trimmed = operations.estimatePeriodicFrequency(input.concat(input.slice(0, 1)), output.concat(output.slice(0, 1)), 0.1, [0.2],
-      { segmentCount: 3, minimumCoherence: 0.9, startupSamples: 0 });
-    assert.strictEqual(trimmed.status, "qualified", JSON.stringify(trimmed));
-  });
-
-  test("exposes bounded periodic measurement and lead-lag owner seams", () => {
-    let operations: { estimatePeriodicFrequency?: Function; calculateLeadLag?: Function } | undefined;
-    try { operations = require("../../controlStudio/threePageAnalysisOperations") as typeof operations; } catch { operations = undefined; }
-    assert.strictEqual(typeof operations?.estimatePeriodicFrequency, "function");
-    assert.strictEqual(typeof operations?.calculateLeadLag, "function");
-    const input = Array.from({ length: 64 }, (_, index) => Math.sin(index * 0.1 * 5));
-    const measured = operations!.estimatePeriodicFrequency!(input, input.map(value => 2 * value), 0.1, [5], { segmentCount: 2, minimumCoherence: 0 });
-    assert.strictEqual(measured.status, "qualified");
-    const lead = operations!.calculateLeadLag!({ numerator: [1], denominator: [1, 1], delaySeconds: 0 }, "lead", 1, 30);
-    assert.strictEqual(lead.status, "qualified");
-  });
-
 });

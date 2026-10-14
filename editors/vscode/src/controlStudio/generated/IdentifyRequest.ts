@@ -34,9 +34,18 @@ export interface IdentifyRequest {
     | {
         action: "openRecording";
         /**
-         * The recording's identifier, `rec-…` (annex E4).
+         * The plant inputs of the fit, by the recording's channel names; absent for the loop's plant input.
          */
-        recordingId: string;
+        inputs?: string[] | null;
+        /**
+         * The measured outputs of the fit, by the recording's channel names; absent for the loop's measured output.
+         */
+        outputs?: string[] | null;
+        /**
+         * The recording's identifier, `rec-…` (annex E4). Absent, the study's last opened recording is fitted, and a study that keeps
+         * none refuses (§0.1a).
+         */
+        recordingId?: string | null;
         [k: string]: unknown;
       }
     | {
@@ -51,6 +60,14 @@ export interface IdentifyRequest {
         action: "importRecording";
         /**
          * The text of the saved result or recording file (at most 32 MiB of text).
+         */
+        json: string;
+        [k: string]: unknown;
+      }
+    | {
+        action: "importModel";
+        /**
+         * The text of the model file.
          */
         json: string;
         [k: string]: unknown;

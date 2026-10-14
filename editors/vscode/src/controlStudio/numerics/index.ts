@@ -10,7 +10,6 @@ export {
 } from "./adapter";
 export { identifyLowOrderModels } from "./identification";
 export {
-  estimateFrequencyResponse,
   fitFirstOrderFrequencyResponse,
   generateMultisine,
   generatePrbs,
@@ -18,10 +17,6 @@ export {
 export {
   analyzeTransferFunction,
   analyzeLoopShape,
-  classicalStabilityMargins,
-  designLagAtCrossover,
-  designLeadAtCrossover,
-  nyquistStability,
   rootLocus,
   routhHurwitz,
 } from "./classicalAnalysis";

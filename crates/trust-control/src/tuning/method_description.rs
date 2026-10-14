@@ -158,7 +158,7 @@ mod tests {
             time_constant_seconds: tau,
             second_time_constant_seconds: None,
             dead_time_seconds: delay,
-            normalized_error: 0.0,
+            normalized_error: Some(0.0),
             normalized_estimation_error: None,
             normalized_validation_error: None,
             estimation_residuals: None,

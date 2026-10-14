@@ -27,6 +27,8 @@ import type { SetupSaveResult } from "../generated/SetupSaveResult";
 import type { TuneRequest } from "../generated/TuneRequest";
 import type { TuneResult } from "../generated/TuneResult";
 import type { ValidateRequest } from "../generated/ValidateRequest";
+import type { AnalyzeAnswer } from "../generated/AnalyzeAnswer";
+import type { AnalyzeRequest } from "../generated/AnalyzeRequest";
 
 /** A method's answer: its `result`, or the `failure` that refuses it (specification 35, A11). */
 export type EngineAnswer<T> = { result: T } | { failure: Failure };
@@ -48,6 +50,7 @@ export interface ControlStudioEngine {
   status(request: OperationRequest): Promise<EngineAnswer<OperationUpdate>>;
   cancel(request: OperationRequest): Promise<EngineAnswer<OperationUpdate>>;
   identify(request: IdentifyRequest): Promise<EngineAnswer<IdentifyAnswer>>;
+  /** The analysis the Tune page shows is recorded with the page (B9.9); it is absent when none is shown. */
   page(request: PageRequest): Promise<EngineAnswer<EmptyResult>>;
   inputs(request: InputsRequest): Promise<EngineAnswer<InputsResult>>;
   run(request: RunRequest): Promise<EngineAnswer<OperationStarted>>;
@@ -60,6 +63,8 @@ export interface ControlStudioEngine {
   keep(request: KeepRequest): Promise<EngineAnswer<KeepReviewAnswer | OperationStarted>>;
   setupDiscover(request: SetupDiscoverRequest): Promise<EngineAnswer<SetupDiscoverResult>>;
   setupSave(request: SetupSaveRequest): Promise<EngineAnswer<SetupSaveResult>>;
+  /** Without `tool` the answer lists the tools that apply; with it, a quick calculation, or the started operation (B9.9). */
+  analyze(request: AnalyzeRequest): Promise<EngineAnswer<AnalyzeAnswer>>;
   /** Runs `listener` for each `controlStudio/update` of the operation `operationId`. */
   onUpdate(operationId: string, listener: (update: OperationUpdate) => void): vscode.Disposable;
 }
@@ -80,6 +85,7 @@ const METHOD = {
   keep: "controlStudio/keep",
   setupDiscover: "controlStudio/setupDiscover",
   setupSave: "controlStudio/setupSave",
+  analyze: "controlStudio/analyze",
 } as const;
 
 const UPDATE_NOTIFICATION = "controlStudio/update";
@@ -106,6 +112,7 @@ export function createEngineClient(engine: EngineProcess): ControlStudioEngine {
     keep: (request) => call<KeepReviewAnswer | OperationStarted>(METHOD.keep, request),
     setupDiscover: (request) => call<SetupDiscoverResult>(METHOD.setupDiscover, request),
     setupSave: (request) => call<SetupSaveResult>(METHOD.setupSave, request),
+    analyze: (request) => call<AnalyzeAnswer>(METHOD.analyze, request),
     onUpdate: (operationId, listener) =>
       engine.onNotification(UPDATE_NOTIFICATION, (params) => {
         const update = params as OperationUpdate;

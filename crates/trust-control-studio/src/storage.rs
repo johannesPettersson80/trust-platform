@@ -14,6 +14,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use sha2::{Digest, Sha256};
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::recording::RecordingFile;
+use trust_control::study::current_model::CurrentModelSource;
 use trust_control::study::general_model_persistence::SuppliedModelSection;
 use trust_control::study::identify::IdentifySection;
 use trust_control::study::{check_size, has_current_format, is_recording_id, Study};
@@ -213,6 +214,7 @@ pub fn save_identify(
             next.recordings.push(id);
         }
     }
+    next.model_source = Some(CurrentModelSource::Identify);
     save_study(project_root, &next, recordings)?;
     Ok(next)
 }
@@ -260,6 +262,7 @@ pub fn save_supplied_model(
 ) -> Result<Study, Failure> {
     let mut next = study.clone();
     next.set_section(section)?;
+    next.model_source = Some(CurrentModelSource::Supplied);
     save_study(project_root, &next, &[])?;
     Ok(next)
 }

@@ -243,6 +243,11 @@ export interface InputsSection {
    */
   pins?: ControllerSettingsPins | null;
   /**
+   * The plant input and measured output the engineer selected for an opened recording (B3.6). The study keeps them, so that
+   * reopening shows the selection; absent until a recording is opened.
+   */
+  recordingSelection?: RecordingSignalSelection | null;
+  /**
    * The requirements of Tune and Validate (B4.3), as a whole record. A value the engineer gave is kept as given; a value
    * that Automatic generated is listed in the record's `automaticCriteria`, and Tune fills it again from the model. The record
    * holds the declared response (`tuningObjective`), and no tuning method (the `method` input holds it).
@@ -348,6 +353,20 @@ export interface ControllerSettingsPins {
   values: {
     [k: string]: number;
   };
+}
+/**
+ * The selected plant inputs and measured outputs of a recording, by channel name (`RecordingSignalSelection`). The study keeps
+ * the engineer's selection in its inputs, so it is read back the same way (B3.6).
+ */
+export interface RecordingSignalSelection {
+  /**
+   * The plant inputs, in order.
+   */
+  inputs: string[];
+  /**
+   * The measured outputs, in order.
+   */
+  outputs: string[];
 }
 /**
  * The requirements that Tune designs to and validates against (B4.3). The values the engineer declared and the values
