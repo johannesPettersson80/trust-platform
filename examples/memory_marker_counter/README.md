@@ -48,7 +48,7 @@ Bindings (`src/Configuration.st`):
 
 Procedure:
 
-1. Write `%MW0 = Word(41)`.
+1. Queue the write: `trust-runtime ctl --project examples/memory_marker_counter io-write %MW0 41`.
 2. Wait one cycle.
 
 Expected after first cycle:

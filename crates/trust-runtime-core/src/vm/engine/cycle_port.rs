@@ -161,6 +161,19 @@ impl CycleAccess<'_, '_> {
         self.engine
             .write_cycle_image(address, value, self.output_undo.as_deref_mut())
     }
+    /// Apply one queued or forced I/O request at a scan boundary. An untyped
+    /// integer literal first takes its destination's type; a rejected request
+    /// writes nothing and returns its error for the cycle owner to report.
+    pub fn write_admitted_image(
+        &mut self,
+        address: &IoAddress,
+        value: Value,
+    ) -> Result<(), RuntimeError> {
+        self.check_write_phase()?;
+        let value = self.engine.admit_cycle_image_value(address, value)?;
+        self.engine
+            .write_cycle_image(address, value, self.output_undo.as_deref_mut())
+    }
     /// Commit a checked named value/path write without restarting scan fuel.
     pub fn write_named_path(
         &mut self,

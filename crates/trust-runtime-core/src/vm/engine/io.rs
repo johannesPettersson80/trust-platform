@@ -16,6 +16,7 @@ use crate::vm::{
 use alloc::format;
 use core::mem::size_of;
 
+mod admission;
 mod staging;
 
 impl EngineState<'_> {

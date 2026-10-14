@@ -13,3 +13,5 @@ include!("tests/authorization_trace.rs");
 include!("tests/core.rs");
 include!("tests/control_endpoint_source_contract.rs");
 include!("tests/control_request_boundary_contract.rs");
+include!("tests/io_write_integer_literals.rs");
+include!("tests/production_step_and_debug_hold.rs");

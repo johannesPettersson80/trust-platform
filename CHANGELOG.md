@@ -178,6 +178,15 @@ Target release: `v0.24.75`
 
 ### Fixed
 
+- `ctl io-write` and `io-force` of an integer no longer fault and halt the PLC
+  (issue #135). An integer value takes the declared type of its `INT`, `DINT`,
+  `WORD` or other integer or bit-string destination when it fits; a value that
+  does not fit is rejected with a `write_rejected` event and the PLC keeps running.
+- `ctl step-over`, `step-in` and `step-out` are rejected with a clear error
+  unless the debugger holds the scan (a breakpoint or a debug-mode pause), instead
+  of silently stalling the scan after a production `pause` (issue #136). An
+  attached debugger still steps from a breakpoint. `resume` always releases a
+  debugger hold, and `status` reports the hold instead of `running`.
 - Charge standard-library text work. CONCAT, REPLACE, MID and the other text and
   conversion functions charge 1 work unit per UTF-8 byte of their text arguments
   before they run, and their text result as a new value. A program that keeps

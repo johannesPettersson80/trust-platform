@@ -102,6 +102,23 @@ impl DebugControl {
         matches!(state.mode, DebugMode::Paused)
     }
 
+    /// Return why a debugger hold keeps the scan paused, if one is active. A
+    /// pause requested but not yet taken at a statement reports its own reason.
+    #[must_use]
+    pub fn hold_reason(&self) -> Option<crate::debug::DebugStopReason> {
+        let (lock, _) = &*self.state;
+        let state = lock.lock().expect("debug state poisoned");
+        if !matches!(state.mode, DebugMode::Paused) {
+            return None;
+        }
+        Some(
+            state
+                .pending_stop
+                .or_else(|| state.last_stop.as_ref().map(|stop| stop.reason))
+                .unwrap_or(crate::debug::DebugStopReason::Pause),
+        )
+    }
+
     /// Return the most recent stop, if any.
     #[must_use]
     pub fn last_stop(&self) -> Option<DebugStop> {
@@ -124,5 +141,4 @@ impl DebugControl {
         let mut state = lock.lock().expect("debug state poisoned");
         state.snapshot.as_mut().map(f)
     }
-
 }

@@ -3,7 +3,9 @@ use std::sync::atomic::Ordering;
 use crate::io::{IoDriverHealth, IoDriverStatus};
 use serde_json::{json, Value};
 
-use super::types::{runtime_event_to_json, HistorianAlertsParams, HistorianQueryParams};
+use super::types::{
+    debug_stop_reason_label, runtime_event_to_json, HistorianAlertsParams, HistorianQueryParams,
+};
 use super::{ControlResponse, ControlState};
 
 #[cfg(test)]
@@ -21,6 +23,18 @@ mod historian_contract_tests;
 pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
     let status = state.resource.state();
     let error = state.resource.last_error().map(|err| err.to_string());
+    // A debugger hold keeps the scan paused even while the resource reports
+    // running; faults and clean stops keep their own state.
+    let debug_hold = state.debug.hold_reason();
+    let faulted_or_stopped = matches!(
+        status,
+        crate::scheduler::ResourceState::Faulted | crate::scheduler::ResourceState::Stopped
+    );
+    let state_label = match debug_hold {
+        Some(_) if !faulted_or_stopped => "paused".to_string(),
+        _ => format!("{status:?}").to_ascii_lowercase(),
+    };
+    let debug_hold_label = debug_hold.map(debug_stop_reason_label);
     let Ok(settings) = state.settings.lock().map(|guard| guard.clone()) else {
         return unavailable(id, "runtime settings");
     };
@@ -55,13 +69,14 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
     ControlResponse::ok(
         id,
         json!({
-            "state": format!("{status:?}").to_ascii_lowercase(),
+            "state": state_label,
             "fault": error,
             "resource": state.resource_name.as_str(),
             "plc_name": state.resource_name.as_str(),
             "uptime_ms": metrics.uptime_ms,
             "debug_enabled": state.debug_enabled.load(Ordering::Relaxed),
             "control_mode": control_mode,
+            "debug_hold": debug_hold_label.map(|label| json!({"reason": label})),
             "execution_backend": execution_backend,
             "execution_backend_source": execution_backend_source,
             "simulation_mode": simulation.mode_label.as_str(),

@@ -38,17 +38,25 @@ pub(super) fn handle_resume(id: u64, state: &ControlState) -> ControlResponse {
         .lock()
         .map(|value| *value)
         .unwrap_or(ControlMode::Production);
-    if matches!(mode, ControlMode::Debug) {
-        let _ = state
-            .debug
-            .apply_action(crate::debug::ControlAction::Continue);
-    } else {
+    // Either mode releases a debugger hold, so the scan returns to cyclic execution.
+    let _ = state
+        .debug
+        .apply_action(crate::debug::ControlAction::Continue);
+    if !matches!(mode, ControlMode::Debug) {
         let _ = state.resource.resume();
     }
     ControlResponse::ok(id, json!({"status": "running"}))
 }
 
+const STEP_REQUIRES_HOLD_MESSAGE: &str =
+    "stepping requires the scan to be held by the debugger (a breakpoint or a debug-mode pause)";
+
+/// A step is armed only while the debugger holds the scan, in either control mode.
+/// Without a hold the request is refused before anything is armed.
 pub(super) fn handle_step(id: u64, state: &ControlState, kind: StepKind) -> ControlResponse {
+    if state.debug.hold_reason().is_none() {
+        return ControlResponse::error(id, STEP_REQUIRES_HOLD_MESSAGE.into());
+    }
     let action = match kind {
         StepKind::In => crate::debug::ControlAction::StepIn(None),
         StepKind::Over => crate::debug::ControlAction::StepOver(None),

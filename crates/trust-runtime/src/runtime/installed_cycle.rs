@@ -246,7 +246,7 @@ impl CycleHooks for HostedCycle<'_> {
                 if let Some(debug) = self.debug.clone() {
                     for (address, value) in debug.drain_io_writes() {
                         self.management_result(
-                            access.write_image(&address, value),
+                            access.write_admitted_image(&address, value),
                             format!("{address:?}"),
                             time,
                         )?;
@@ -449,7 +449,7 @@ impl HostedCycle<'_> {
         let forces = debug.forced_snapshot();
         for (address, value) in forces.io {
             self.management_result(
-                access.write_image(&address, value),
+                access.write_admitted_image(&address, value),
                 format!("{address:?}"),
                 access.logical_time(),
             )?;

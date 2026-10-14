@@ -49,6 +49,17 @@ first native runs. Evidence: external `runtime-portability-h/A01-audit/`.
   failed, 30 ignored; core all-features 858; portable 708; register 768; runtime doc tests 12;
   runtime-only doc 3 and tests 15; full-composition tests 10; Clippy and format pass; F401 and
   C6 core checks pass.
+- [x] GitHub issues against v0.24.74, owner decision 14 October: fix inside H only.
+  - #135: `ctl io-write`/`io-force` of an integer no longer fails on `INT` destinations. When the
+    request is applied, an untyped integer takes the binding's declared integer or bit-string
+    type if it fits (IEC 61131-3 §6.3.2), else `write_rejected` without a fault; spec 11 states
+    the rule for I/O mutations. `set`/`var.force` keep their declared-type check (follow-up).
+  - #136: a step is accepted only while the debugger holds the scan, so a production `pause`
+    then `step-over` is refused instead of stalling; an attached debugger still steps from a
+    breakpoint; `resume` always releases a debugger hold; `status` reports the hold.
+  - #134 (HMI modules served from the build machine's path) is fixed on the HMI branch.
+  - Focused check 7 with both fixes (not acceptance): workspace 9,555 passed, 0 failed, 30
+    ignored; core lanes, doc tests, compositions, Clippy and format pass.
 - [ ] Deferred to scope C (ignored with reason): a handle taken before a warm restart or body
   replacement can resolve into the new generation (MEM-07, UPDATE-04). `ValueRef` carries no
   generation in U or H; spec 34 assigns generation tokens to UPDATE-03 to UPDATE-08.
@@ -207,7 +218,10 @@ professional runtime"). The validated run-4 source is backed up externally
 - [x] Guard attempt 6 on `5a8da210d` passed; pushed. Windows now runs both tests to the end
   (the leader exits at once, no timeout); their output carried the space that `set /p`
   prints before `&`. The commands no longer have that space.
-- [ ] Guard attempt 7, push, and the remaining Windows results.
+- [x] Guard attempt 7 on `be569f21e` passed; pushed. PR #137 is green on every check: the
+  native Test job passes on Windows (31 min), macOS (29 min) and Linux (36 min), including the
+  Windows browser-command descendant cleanup. These are H's first complete native Windows and
+  macOS runs (HOST-01, HOST-08).
 
 **Earlier on 14 October (Claude review and correction): validated except PERF-01 `call_binding`.**
 The owner asked for a review and fix of H. Root causes found:

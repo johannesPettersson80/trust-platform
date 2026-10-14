@@ -2493,6 +2493,20 @@ text, and out-of-range integers reject as `unsupported value`. This admission
 grammar does not bypass target-width or declared-type checks when the queued
 mutation is applied at a scan boundary.
 
+An admitted integer is an untyped literal (IEC 61131-3 Ed.3 §6.3.2, Table 5): a
+literal without a type prefix takes its type from its destination, and a positive
+integer may serve as a bit-string literal. When an `io.write` or `io.force`
+mutation is applied, an integer destination (`SINT` to `ULINT`) takes the value
+in its declared type if
+the value lies in that type's range, and a bit-string destination (`BYTE` to
+`LWORD`) takes a non-negative value that fits its width. Any other value or
+destination type rejects that request alone: it reports a `write_rejected`
+event, changes neither the destination nor the force set, and does not fault
+the PLC (specification 34 §4.3.1). For example, `io-write %MW0 41` stores
+`INT` 41 into an `INT` binding, and `io-write %MW0 40000` is rejected. Variable
+mutations (`set`, `var.force`) do not apply this conversion; they keep the
+destination's declared-type check.
+
 An accepted `io.write` appends one one-shot request in arrival order. Multiple
 writes to the same address remain distinct ordered requests. An accepted
 `io.force` creates an active force; forcing the same exact address again
@@ -4286,6 +4300,14 @@ when enabled:
   rejected. The default is **disabled** in production mode (see `runtime.control.mode`).
 - `runtime.control.mode` defaults to `production` and can be set to `debug` for development
   workflows; `runtime.control.debug_enabled` overrides the mode when explicitly set.
+- `step_in`, `step_over` and `step_out` act only while the debugger holds the scan:
+  at a breakpoint, after a debug-mode `pause`, or after a completed step. Otherwise
+  they are rejected with a stable error and arm nothing. In production mode `pause`
+  and `resume` act on the resource scheduler, so a step after a production `pause`
+  is rejected; an attached debug adapter can still step from a breakpoint. In
+  either mode, `resume` also releases any debugger hold, so the scan returns to
+  cyclic execution. While a debugger holds the scan, `status` reports the hold
+  rather than `running`.
 
 ##### 6.9.1 Managed debug floating-point ingress
 
